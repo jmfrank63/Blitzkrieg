@@ -28,6 +28,16 @@
 //! texts with a translator's sheet through the core (D-10): `.xlsx` (the
 //! default when the name has no extension), `.csv`, and legacy `.xls` read
 //! only; the status line sums up what was read, written and skipped.
+//! The long operations - the pak export (Export to language mod..., by the
+//! current filter when that box is ticked, D6; Install to game; Run Game's
+//! export), the spreadsheet export and import, and Find Next - run on a
+//! worker thread (jobs.zig, D-14) behind the Working modal: its message, a
+//! bar of the position in the range, and Cancel, which stops the work
+//! between two texts (an export then writes nothing, an import keeps the
+//! rows before, each file whole). The window keeps repainting; the modal
+//! holds the rest of the UI off, and the shortcuts and the autosave wait,
+//! until the work is done. A quick Find Next shows nothing: the modal stays
+//! invisible for its first quarter second.
 //! The short layout (D-04, `--short`) is the MFC translator frame: it opens
 //! the `elk.xml` beside ELK after applying the newest `.upd` updates there,
 //! has the reduced menu, one toolbar and the five fixed filters, and starts
@@ -44,6 +54,7 @@ const settings_mod = @import("settings.zig");
 const window_mod = @import("editor_kit").window;
 const FilterDialog = @import("filter_dialog.zig").FilterDialog;
 const spelling_mod = @import("spelling.zig");
+const jobs = @import("jobs.zig");
 const help = @import("elk_help");
 
 const ig = imgui.c;
@@ -85,6 +96,10 @@ const export_filters = [_]sdl3.c.SDL_DialogFileFilter{
 const testlaunch = kit.testlaunch;
 const export_popup = "Export to language mod";
 const warning_popup = "Install to game";
+const job_popup = "Working";
+/// How long a job runs before its modal shows (it holds the UI off from the
+/// start), so a Find Next that hits at once does not flash it.
+const job_grace_ms = 250;
 
 pub const Ui = struct {
     gpa: std.mem.Allocator,
@@ -219,6 +234,22 @@ pub const Ui = struct {
     help_blocks_drawn: usize = 0,
     /// The heading the contents list was clicked on, scrolled to next frame.
     help_jump: ?usize = null,
+    /// The long operation running on the worker thread (D-14), if any.
+    job: ?*jobs.Job = null,
+    /// Its export starts the game when it succeeds (Run Game).
+    job_then_run: bool = false,
+    job_opening: bool = false,
+    /// The last frame drew the Working modal visibly, at this position of
+    /// this range (the scripted runs' proof it repaints mid-run).
+    job_drawn: bool = false,
+    job_drawn_position: usize = 0,
+    job_drawn_range: usize = 0,
+    /// A scripted press of the modal's Cancel, taken inside the popup.
+    job_cancel_pending: bool = false,
+    /// `do=hold`: the next job waits before this unit (`Progress.hold`).
+    hold_next: ?usize = null,
+    /// The export dialog's "only the texts the filter admits" box (D6).
+    export_filtered: bool = false,
 
     pub const Toolbar = enum { none, filter_bar, short };
 
@@ -228,6 +259,7 @@ pub const Ui = struct {
     pub const Drawn = struct { node: u32, colour: u32, dimmed: bool };
 
     pub fn deinit(self: *Ui) void {
+        self.stopJob();
         if (self.filter_dialog) |dialog| self.gpa.destroy(dialog);
         self.closeInstallWarning();
         self.closeStatistics();
@@ -253,8 +285,10 @@ pub const Ui = struct {
     /// File > Exit and the window's close button: Exit is a save point. A
     /// failed save keeps ELK open with the reason in the status line, and a
     /// second Exit then quits without saving, so a database that cannot be
-    /// written never holds the window open.
+    /// written never holds the window open. A running job is cancelled and
+    /// waited for first.
     pub fn requestExit(self: *Ui) void {
+        self.stopJob();
         self.session.close() catch {
             if (self.exit_refused) self.quit = true;
             self.exit_refused = true;
@@ -469,28 +503,32 @@ pub const Ui = struct {
     }
 
     /// Find Next with the box's text and elk.cfg's options, the text kept
-    /// in elk.cfg at once. The hit's text is selected and shown as a Browse
-    /// step shows it, Collapse Item closing the element it leaves (FindItem
-    /// called `DeselectItem` too). Null when nothing is found.
-    pub fn findNext(self: *Ui) ?session_mod.Hit {
+    /// in elk.cfg at once, searched on the worker (a miss reads every text).
+    /// The hit's text is selected and shown as a Browse step shows it,
+    /// Collapse Item closing the element it leaves (FindItem called
+    /// `DeselectItem` too); `foundOrMissed` does that when it is done.
+    pub fn findNext(self: *Ui) void {
         const text = std.mem.sliceTo(&self.find_buffer, 0);
         self.settings.setFindText(text);
         self.saveSettings();
-        const left: ?u32 = if (self.session.selected) |index| self.session.tree.?.node_of_text[index] else null;
-        const hit = (self.session.findNext(.{
+        _ = self.startJob(.{ .find = .{ .options = .{
             .text = text,
             .down = self.settings.find_down,
             .match_case = self.settings.find_match_case,
             .whole_word = self.settings.find_whole_word,
-        }) catch null) orelse {
+        } } }, "Finding \"{s}\"...", .{text});
+    }
+
+    fn foundOrMissed(self: *Ui, search_from: ?elk_core.search.Cursor, found: ?session_mod.Hit) void {
+        const hit = found orelse {
             self.find_missed = true;
-            return null;
+            return;
         };
         self.find_missed = false;
+        const left: ?u32 = if (search_from) |from| self.session.tree.?.node_of_text[from.text] else null;
         const reached = self.session.tree.?.node_of_text[hit.text];
         if (self.collapseItem()) if (left) |node| if (node != reached) self.collapseElement(node);
         self.reveal(reached);
-        return hit;
     }
 
     pub const FindOption = enum { down, match_case, whole_word };
@@ -716,6 +754,7 @@ pub const Ui = struct {
         self.export_then_run = then_run;
         self.export_failed = false;
         self.export_pending = null;
+        self.export_filtered = false;
     }
 
     /// The dialog's Browse...: the OS folder dialog, starting in the game's
@@ -748,8 +787,10 @@ pub const Ui = struct {
     }
 
     /// The dialog's Export: the Mod box's mod, `mods/<Name>/data/texts.pak`
-    /// in the game folder, written by the core; the summary names the entry
-    /// count. False when nothing was written, the reason in the status line.
+    /// in the game folder, written by the core on the worker, only the texts
+    /// the current filter admits when the box is ticked (D6); the summary
+    /// names the entry count. False when it did not start, the reason in
+    /// the status line.
     pub fn exportToMod(self: *Ui) bool {
         self.export_failed = true;
         var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -759,14 +800,21 @@ pub const Ui = struct {
             self.session.fail("\"{s}\" is neither a mod's name nor a folder in {s}{c}mods", .{ typed, game, std.fs.path.sep });
             return false;
         };
-        const exported = self.session.exportPak(game, .{ .mod = name }) catch return false;
-        defer self.gpa.free(exported.path);
-        @memcpy(self.played_mod[0..name.len], name);
-        self.played_mod_len = name.len;
+        const filter = if (self.export_filtered) self.exportFilter() else null;
+        if (!self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .{ .mod = name }, .filter = filter } }, "Exporting to the mod {s}...", .{name})) return false;
+        self.job_then_run = self.export_then_run;
         self.export_failed = false;
-        self.notify("exported {d} texts to {s}", .{ exported.entries, exported.path });
-        if (self.export_then_run) self.launchGame();
         return true;
+    }
+
+    /// The filter the export dialog offers (D6, the MFC "Export To PAK by
+    /// Filter..." of the extended menu): the current one, unless it admits
+    /// every text.
+    pub fn exportFilter(self: *const Ui) ?Filter {
+        if (self.short) return null;
+        const filter = self.currentFilter() orelse return null;
+        const admits_all = std.mem.allEqual(bool, &filter.states, true) and !filter.changed and filter.conditions.len == 0;
+        return if (admits_all) null else filter;
     }
 
     /// File > Import from spreadsheet... and Export to spreadsheet...: the
@@ -800,16 +848,17 @@ pub const Ui = struct {
     pub fn exportSheet(self: *Ui, chosen: []const u8) void {
         var buffer: [settings_mod.max_path + 8]u8 = undefined;
         const path = if (std.fs.path.extension(chosen).len == 0) std.fmt.bufPrint(&buffer, "{s}.xlsx", .{chosen}) catch chosen else chosen;
-        const rows = self.session.exportSheet(path) catch return;
-        self.notify("exported {d} rows to {s}", .{ rows, path });
+        _ = self.startJob(.{ .export_sheet = path }, "Exporting the texts to {s}...", .{path});
     }
 
-    /// Imports the sheet at `path`; the summary counts the rows read, the
-    /// texts changed and what was skipped, and names the first path the
-    /// database lacks.
+    /// Imports the sheet at `path` on the worker; `imported` sums it up.
     pub fn importSheet(self: *Ui, path: []const u8) void {
-        var report = self.session.importSheet(path) catch return;
-        defer report.deinit(self.gpa);
+        _ = self.startJob(.{ .import_sheet = path }, "Importing {s}...", .{path});
+    }
+
+    /// The import's summary: the rows read, the texts changed and what was
+    /// skipped, and the first path the database lacks.
+    fn importedSheet(self: *Ui, path: []const u8, report: *const elk_core.sheet.Report) void {
         self.imported = .{ .rows = report.rows, .changed = report.changed, .outdated = report.outdated, .empty = report.empty, .missing = report.missing.len };
         var writer: std.Io.Writer = .fixed(&self.notice_storage);
         defer self.notice_len = writer.buffered().len;
@@ -860,10 +909,7 @@ pub const Ui = struct {
     pub fn installToGame(self: *Ui) bool {
         var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const game = self.knownGameFolder(&game_buffer) orelse return false;
-        const exported = self.session.exportPak(game, .game) catch return false;
-        defer self.gpa.free(exported.path);
-        self.notify("installed {d} texts to {s}", .{ exported.entries, exported.path });
-        return true;
+        return self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .game } }, "Installing into {s}...", .{game});
     }
 
     /// File > Run Game (D-09): the mod exported this session, exported
@@ -875,9 +921,100 @@ pub const Ui = struct {
         if (self.played_mod_len == 0) return self.requestExportMod(true);
         var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const game = self.knownGameFolder(&game_buffer) orelse return;
-        const exported = self.session.exportPak(game, .{ .mod = self.played_mod[0..self.played_mod_len] }) catch return;
-        self.gpa.free(exported.path);
-        self.launchGame();
+        const mod = self.played_mod[0..self.played_mod_len];
+        if (self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .{ .mod = mod } } }, "Exporting to the mod {s}...", .{mod})) self.job_then_run = true;
+    }
+
+    /// Starts `work` on the worker after `Session.begin` (the edit saved),
+    /// `format` the modal's message. False when a job is running already or
+    /// it did not start, the reason in the status line.
+    fn startJob(self: *Ui, work: session_mod.Work, comptime format: []const u8, args: anytype) bool {
+        if (self.job != null) return false;
+        const begun = self.session.begin(work) catch return false;
+        var message: [768]u8 = undefined;
+        const text = std.fmt.bufPrint(&message, format, args) catch format;
+        const hold = self.hold_next;
+        self.hold_next = null;
+        self.job = jobs.Job.start(self.gpa, self.session, begun, text, self.now(), hold) catch |err| {
+            self.session.fail("the work did not start: {s}", .{@errorName(err)});
+            return false;
+        };
+        self.job_then_run = false;
+        self.job_opening = true;
+        self.job_cancel_pending = false;
+        return true;
+    }
+
+    pub fn busy(self: *const Ui) bool {
+        return self.job != null;
+    }
+
+    /// The Working modal's Cancel.
+    pub fn cancelJob(self: *Ui) void {
+        if (self.job) |job| job.progress.cancel();
+    }
+
+    /// Each frame: a job that is done is finished.
+    fn pollJob(self: *Ui) void {
+        const job = self.job orelse return;
+        if (job.done()) self.finishJob();
+    }
+
+    /// Cancels a running job and waits for it (Exit, and before the UI
+    /// goes away).
+    fn stopJob(self: *Ui) void {
+        if (self.job == null) return;
+        self.cancelJob();
+        self.finishJob();
+    }
+
+    /// The job's result back on the UI thread: `Session.finish`, then the
+    /// summary, the found text shown, the game started.
+    fn finishJob(self: *Ui) void {
+        const job = self.job orelse return;
+        defer {
+            job.destroy();
+            self.job = null;
+            self.job_drawn = false;
+        }
+        const work = job.work;
+        const range = job.range();
+        const position = job.position();
+        const outcome = self.session.finish(work, job.join()) catch |err| {
+            if (err != error.Cancelled) return;
+            switch (work) {
+                .export_pak => self.notify("export cancelled: nothing was written", .{}),
+                .export_sheet => |path| self.notify("export to {s} cancelled: nothing was written", .{path}),
+                .import_sheet => |path| self.notify("import of {s} cancelled after {d} of {d} rows: those rows are in, every file whole", .{ std.fs.path.basename(path), position, range }),
+                .find => self.notify("Find cancelled", .{}),
+            }
+            return;
+        };
+        switch (outcome) {
+            .exported => |exported| {
+                defer self.gpa.free(exported.path);
+                const pak = work.export_pak;
+                switch (pak.destination) {
+                    .mod => |name| {
+                        @memcpy(self.played_mod[0..name.len], name);
+                        self.played_mod_len = name.len;
+                        if (pak.filter) |filter|
+                            self.notify("exported {d} texts the filter {s} admits to {s}", .{ exported.entries, filter.name, exported.path })
+                        else
+                            self.notify("exported {d} texts to {s}", .{ exported.entries, exported.path });
+                        if (self.job_then_run) self.launchGame();
+                    },
+                    .game => self.notify("installed {d} texts to {s}", .{ exported.entries, exported.path }),
+                }
+            },
+            .sheet_rows => |rows| self.notify("exported {d} rows to {s}", .{ rows, work.export_sheet }),
+            .imported => |report| {
+                var owned = report;
+                defer owned.deinit(self.gpa);
+                self.importedSheet(work.import_sheet, &owned);
+            },
+            .found => |hit| self.foundOrMissed(work.find.from, hit),
+        }
     }
 
     /// `Game -editor-test -profile=ELKTest -mod=<mod> -windowed` in the game
@@ -944,7 +1081,7 @@ pub const Ui = struct {
     /// A dialog of ELK's own is up: the translation box must not take the
     /// focus, which would close its modal.
     fn modalOpen(self: *const Ui) bool {
-        return self.filter_dialog != null or self.export_open or self.install_warning != null;
+        return self.filter_dialog != null or self.export_open or self.install_warning != null or self.job != null;
     }
 
     /// The autosave clock: SDL's milliseconds plus the scripted offset.
@@ -986,26 +1123,15 @@ pub const Ui = struct {
     }
 
     pub fn draw(self: *Ui, window: *window_mod.Window) void {
-        self.takeOpen();
-        self.takeModFolder();
-        self.takeSheet();
+        self.pollJob();
+        if (self.job == null) {
+            self.takeOpen();
+            self.takeModFolder();
+            self.takeSheet();
+        }
         self.pollGame();
         window.setTitle(self.title().ptr);
-        if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
-        if (!self.short and ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
-        if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_F, ig.ImGuiInputFlags_RouteGlobal)) self.openFind();
-        if (ig.igShortcut(ig.ImGuiKey_F7, ig.ImGuiInputFlags_RouteGlobal)) self.openSpelling();
-        if (ig.igShortcut(ig.ImGuiKey_F1, ig.ImGuiInputFlags_RouteGlobal)) self.openHelp();
-        // IDR_MAINFRAME's accelerators: Ctrl or Alt with N and P. ImGui does
-        // not route Alt with a letter while the translation box is active
-        // (AltGr and macOS's Option type characters with it), so there the
-        // Alt chords are the edit box's and the Ctrl ones, which the menu
-        // shows, browse.
-        for ([_]c_int{ ig.ImGuiMod_Ctrl, ig.ImGuiMod_Alt }) |modifier| {
-            if (ig.igShortcut(modifier | ig.ImGuiKey_N, ig.ImGuiInputFlags_RouteGlobal)) _ = self.browse(.next);
-            if (ig.igShortcut(modifier | ig.ImGuiKey_P, ig.ImGuiInputFlags_RouteGlobal)) _ = self.browse(.previous);
-        }
-        _ = self.session.tick(self.now());
+        if (self.job == null) self.drawShortcuts(window);
 
         const viewport = ig.igGetMainViewport();
         ig.igSetNextWindowPos(viewport.*.WorkPos, 0);
@@ -1016,6 +1142,8 @@ pub const Ui = struct {
         defer ig.igEnd();
         // Last in the frame: a translation box activated in this frame
         // focuses the main window, which would close a modal opened before.
+        // The Working modal comes after every dialog a job starts from.
+        defer self.drawJobModal();
         defer self.drawFilterDialog();
         defer self.drawExportDialog(window);
         defer self.drawInstallWarning();
@@ -1046,6 +1174,66 @@ pub const Ui = struct {
         if (ig.igBeginChild("text", .{ .x = 0, .y = body_height }, 0, 0)) self.drawText();
         ig.igEndChild();
         self.drawStatus();
+    }
+
+    /// The global shortcuts and the autosave clock, held while a job runs.
+    fn drawShortcuts(self: *Ui, window: *window_mod.Window) void {
+        if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
+        if (!self.short and ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
+        if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_F, ig.ImGuiInputFlags_RouteGlobal)) self.openFind();
+        if (ig.igShortcut(ig.ImGuiKey_F7, ig.ImGuiInputFlags_RouteGlobal)) self.openSpelling();
+        if (ig.igShortcut(ig.ImGuiKey_F1, ig.ImGuiInputFlags_RouteGlobal)) self.openHelp();
+        // IDR_MAINFRAME's accelerators: Ctrl or Alt with N and P. ImGui does
+        // not route Alt with a letter while the translation box is active
+        // (AltGr and macOS's Option type characters with it), so there the
+        // Alt chords are the edit box's and the Ctrl ones, which the menu
+        // shows, browse.
+        for ([_]c_int{ ig.ImGuiMod_Ctrl, ig.ImGuiMod_Alt }) |modifier| {
+            if (ig.igShortcut(modifier | ig.ImGuiKey_N, ig.ImGuiInputFlags_RouteGlobal)) _ = self.browse(.next);
+            if (ig.igShortcut(modifier | ig.ImGuiKey_P, ig.ImGuiInputFlags_RouteGlobal)) _ = self.browse(.previous);
+        }
+        _ = self.session.tick(self.now());
+    }
+
+    /// D-14's progress modal: the job's message, the position in its range
+    /// as a bar, and Cancel. Invisible (it still holds the UI off) for the
+    /// job's first `job_grace_ms`, unless the job is held.
+    fn drawJobModal(self: *Ui) void {
+        self.job_drawn = false;
+        const job = self.job orelse return;
+        if (self.job_opening) {
+            _ = ig.igOpenPopup(job_popup, 0);
+            self.job_opening = false;
+        }
+        const shown = job.progress.held.load(.acquire) or self.now() -| job.started_ms >= job_grace_ms;
+        const font = ig.igGetFontSize();
+        ig.igSetNextWindowSize(.{ .x = font * 30, .y = 0 }, ig.ImGuiCond_Always);
+        if (!shown) ig.igPushStyleColor(ig.ImGuiCol_ModalWindowDimBg, 0);
+        defer if (!shown) ig.igPopStyleColor();
+        const hidden_flags = ig.ImGuiWindowFlags_NoDecoration | ig.ImGuiWindowFlags_NoBackground;
+        if (!ig.igBeginPopupModal(job_popup, null, ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_NoResize | if (shown) 0 else hidden_flags)) return;
+        defer ig.igEndPopup();
+        if (self.job_cancel_pending) {
+            self.job_cancel_pending = false;
+            self.cancelJob();
+        }
+        if (!shown) return;
+        const position = job.position();
+        const range = job.range();
+        self.job_drawn = true;
+        self.job_drawn_position = position;
+        self.job_drawn_range = range;
+        ig.igPushTextWrapPos(0);
+        ig.igTextUnformatted(&job.message);
+        ig.igPopTextWrapPos();
+        var overlay: [64:0]u8 = undefined;
+        const counted = std.mem.printSentinel(&overlay, "{d} / {d}", .{ position, range }, 0) catch "";
+        const fraction: f32 = if (range == 0) 0 else @floatCast(@as(f64, @floatFromInt(position)) / @as(f64, @floatFromInt(range)));
+        ig.igProgressBar(fraction, .{ .x = -1, .y = 0 }, counted.ptr);
+        const cancelled = job.progress.cancelled.load(.acquire);
+        ig.igBeginDisabled(cancelled);
+        if (ig.igButton(if (cancelled) "Cancelling..." else "Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) self.cancelJob();
+        ig.igEndDisabled();
     }
 
     fn drawFilterDialog(self: *Ui) void {
@@ -1109,6 +1297,10 @@ pub const Ui = struct {
         else
             "";
         ig.igTextUnformatted(shown.ptr);
+        if (self.exportFilter()) |filter| {
+            const label = std.mem.printSentinel(&line, "Only the texts the filter \"{s}\" admits", .{filter.name}, 0) catch "";
+            _ = ig.igCheckbox(label.ptr, &self.export_filtered);
+        }
         if (self.export_failed) {
             const failure = std.mem.printSentinel(&line, "{s}", .{self.session.failureText()}, 0) catch "";
             ig.igTextUnformatted(failure.ptr);
@@ -1496,7 +1688,7 @@ pub const Ui = struct {
             const pressed = ig.igButton("Find Next");
             ig.igEndDisabled();
             if ((entered or pressed) and !empty) {
-                _ = self.findNext();
+                self.findNext();
                 self.find_focus = entered;
             }
             var whole_word = self.settings.find_whole_word;

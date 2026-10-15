@@ -64,10 +64,15 @@ You can translate in a spreadsheet program and bring the result back. In the sho
 ## Putting the translation into the game
 
 - File > Export to language mod... writes your translation as a mod: type a name, and ELK writes mods/<name>/data/texts.pak in the game folder. This is the safe way: the game reads a mod before its own text files, and the original game stays untouched.
+- In the extended layout, when the current filter leaves texts out, the export dialog offers to write only the texts the filter keeps, for example only the Approved ones. The texts it leaves out are not in that mod at all.
 - In the game, choose the mod under Options > Settings > Gameplay > Language. The game switches language at once and remembers the choice. Choose the original language there to switch back.
 - File > Install to game... writes Data/Texts.pak into the game itself, as the original ELK did. If the game has loose text files that would hide it, ELK warns you and offers the mod instead.
 - File > Run Game exports the mod again with your latest edits and starts the game with it, in a separate test profile, so your own saves and settings are left alone.
 - ELK looks for the game in the folder it runs from.
+
+## Long operations
+
+The exports, the spreadsheet import and a Find that has to read every text run in the background. A Working window shows what ELK is doing and how far it is, and the rest of ELK waits until it is done. Cancel stops it safely: an export that is cancelled writes nothing, and a cancelled import keeps the rows it had read, every file whole, so you can import the sheet again later.
 
 ## Keys
 

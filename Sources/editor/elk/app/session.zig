@@ -14,6 +14,16 @@
 //! hiding it; Run Game's command line is the kit's test launch in ELK's own
 //! profile. The spreadsheet export and import are the core's (D-10); an
 //! import reopens the database so the tree shows the states it set.
+//!
+//! The long operations (D-14: the pak and spreadsheet exports, the
+//! spreadsheet import, Find Next) are three steps so the UI can run the
+//! middle one on a worker thread: `begin` on the UI thread saves the edit
+//! and fixes what the work reads (the element, where the search starts);
+//! `perform` is the work, which touches nothing of the session but the
+//! database's files and reads the tree, both left alone while it runs; and
+//! `finish`, on the UI thread again, reports a failure, reopens the
+//! database after an import (a cancelled one too, its first rows being in)
+//! and selects a hit. The synchronous commands are the three in a row.
 const std = @import("std");
 const elk = @import("elk_core");
 const testlaunch = @import("editor_kit").testlaunch;
@@ -38,12 +48,31 @@ pub const game_profile = "ELKTest";
 
 pub const Destination = elk.packages.Destination;
 pub const Shadow = elk.packages.Shadow;
+pub const Progress = elk.progress.Progress;
 
-/// What an export wrote.
-pub const Exported = struct {
-    /// The `.pak` written, owned by the caller.
-    path: []u8,
-    entries: usize,
+/// What an export wrote: the `.pak`, owned by the caller, and its entries.
+pub const Exported = elk.packages.Written;
+
+/// A long operation's input. Its slices are borrowed; the worker's copy
+/// owns them (jobs.zig).
+pub const Work = union(enum) {
+    /// File > Export to language mod... and Install to game..., by the
+    /// filter when one is given (D6). `begin` sets the element.
+    export_pak: struct { game_folder: []const u8, destination: Destination, filter: ?Filter = null, element: usize = 0 },
+    /// File > Export to spreadsheet... and Import from spreadsheet...: the
+    /// sheet's path.
+    export_sheet: []const u8,
+    import_sheet: []const u8,
+    /// Edit > Find...'s Find Next. `begin` sets where it starts.
+    find: struct { options: FindOptions, from: ?elk.search.Cursor = null },
+};
+
+pub const Outcome = union(enum) {
+    exported: Exported,
+    sheet_rows: usize,
+    /// The caller deinits the report.
+    imported: elk.sheet.Report,
+    found: ?Hit,
 };
 
 /// The mod a name or a folder means: a name is taken as typed, a folder must
@@ -287,23 +316,8 @@ pub const Session = struct {
     /// point like any other). Null when nothing is found; the selection and
     /// the cursor then stay.
     pub fn findNext(self: *Session, options: FindOptions) !?Hit {
-        const tree = &(self.tree orelse return null);
-        try self.save();
-        var from: ?elk.search.Cursor = null;
-        if (self.selected) |index| {
-            from = .{ .text = @intCast(index) };
-            if (self.find_cursor) |cursor| if (cursor.text == index) {
-                from = cursor;
-            };
-        }
-        const hit = try elk.search.findNext(self.gpa, &self.database.?, tree, options, from) orelse {
-            self.last_hit = null;
-            return null;
-        };
-        try self.select(hit.text);
-        self.find_cursor = hit.next();
-        self.last_hit = hit;
-        return hit;
+        if (self.tree == null) return null;
+        return (try self.run(.{ .find = .{ .options = options } })).found;
     }
 
     /// Closing the Find dialog sends the next search back to the start of
@@ -333,33 +347,14 @@ pub const Session = struct {
     /// saved first, so the pak holds it, then the core exports the element
     /// to `destination` below `game_folder`.
     pub fn exportPak(self: *Session, game_folder: []const u8, destination: Destination) !Exported {
-        if (self.database == null) return error.NoDatabaseOpen;
-        try self.save();
-        const database = &self.database.?;
-        const element = self.exportElement();
-        const path = elk.packages.exportTo(self.gpa, self.io, database, element, game_folder, destination, .{}) catch |err| {
-            switch (destination) {
-                .mod => |name| self.fail("could not export to the mod \"{s}\" in {s}: {s}", .{ name, game_folder, @errorName(err) }),
-                .game => self.fail("could not install into {s}: {s}", .{ game_folder, @errorName(err) }),
-            }
-            return err;
-        };
-        self.failure_len = 0;
-        return .{ .path = path, .entries = elk.packages.entryCount(database, element, .{}) };
+        return (try self.run(.{ .export_pak = .{ .game_folder = game_folder, .destination = destination } })).exported;
     }
 
     /// File > Export to spreadsheet...: the edit is saved first, then the
     /// core writes every text to `path` in the format its extension names.
     /// Returns the rows written.
     pub fn exportSheet(self: *Session, path: []const u8) !usize {
-        if (self.database == null) return error.NoDatabaseOpen;
-        try self.save();
-        const rows = elk.sheet.exportTo(self.gpa, self.io, &self.database.?, path) catch |err| {
-            self.fail("could not export to {s}: {s}", .{ path, @errorName(err) });
-            return err;
-        };
-        self.failure_len = 0;
-        return rows;
+        return (try self.run(.{ .export_sheet = path })).sheet_rows;
     }
 
     /// File > Import from spreadsheet...: the edit is saved first, the core
@@ -367,17 +362,94 @@ pub const Session = struct {
     /// so the tree shows the new states, as the MFC ELK closed and reopened
     /// it. The caller deinits the report.
     pub fn importSheet(self: *Session, path: []const u8) !elk.sheet.Report {
+        return (try self.run(.{ .import_sheet = path })).imported;
+    }
+
+    /// A long operation on this thread, start to end.
+    fn run(self: *Session, work: Work) !Outcome {
+        const begun = try self.begin(work);
+        return self.finish(begun, self.perform(begun, null));
+    }
+
+    /// The UI thread's first step: the edit saved, and the work's element
+    /// and the search's start fixed.
+    pub fn begin(self: *Session, work: Work) !Work {
         if (self.database == null) return error.NoDatabaseOpen;
         try self.save();
-        var report = elk.sheet.importFile(self.gpa, self.io, &self.database.?, path) catch |err| {
-            self.fail("could not import {s}: {s}", .{ path, @errorName(err) });
+        var begun = work;
+        switch (begun) {
+            .export_pak => |*pak| pak.element = self.exportElement(),
+            .find => |*search| {
+                search.from = null;
+                if (self.selected) |index| {
+                    search.from = .{ .text = @intCast(index) };
+                    if (self.find_cursor) |cursor| if (cursor.text == index) {
+                        search.from = cursor;
+                    };
+                }
+            },
+            .export_sheet, .import_sheet => {},
+        }
+        return begun;
+    }
+
+    /// The work itself, on any thread: only the database's files are
+    /// written and the tree is only read, so the UI thread may draw the
+    /// tree meanwhile as long as it changes nothing. `progress` counts and
+    /// cancels it (D-14).
+    pub fn perform(self: *Session, work: Work, progress: ?*Progress) !Outcome {
+        const database = &self.database.?;
+        return switch (work) {
+            .export_pak => |pak| .{ .exported = try elk.packages.exportTo(self.gpa, self.io, database, pak.element, pak.game_folder, pak.destination, .{ .filter = pak.filter, .progress = progress }) },
+            .export_sheet => |path| .{ .sheet_rows = try elk.sheet.exportTo(self.gpa, self.io, database, path, progress) },
+            .import_sheet => |path| .{ .imported = try elk.sheet.importFile(self.gpa, self.io, database, path, progress) },
+            .find => |search| .{ .found = try elk.search.findNext(self.gpa, database, &self.tree.?, search.options, search.from, progress) },
+        };
+    }
+
+    /// The UI thread's last step: a failure in the status line (a Cancel is
+    /// none), the database reopened after an import, a hit selected.
+    pub fn finish(self: *Session, work: Work, result: anyerror!Outcome) !Outcome {
+        if (work == .import_sheet) {
+            // Reopened whatever the import did, a cancelled one having
+            // written its first rows.
+            const opened = try self.gpa.dupe(u8, self.openPath());
+            defer self.gpa.free(opened);
+            self.open(opened) catch |err| {
+                if (result) |outcome| {
+                    var report = outcome.imported;
+                    report.deinit(self.gpa);
+                } else |_| {}
+                return err;
+            };
+        }
+        const outcome = result catch |err| {
+            if (err == error.Cancelled) return err;
+            switch (work) {
+                .export_pak => |pak| switch (pak.destination) {
+                    .mod => |name| self.fail("could not export to the mod \"{s}\" in {s}: {s}", .{ name, pak.game_folder, @errorName(err) }),
+                    .game => self.fail("could not install into {s}: {s}", .{ pak.game_folder, @errorName(err) }),
+                },
+                .export_sheet => |path| self.fail("could not export to {s}: {s}", .{ path, @errorName(err) }),
+                .import_sheet => |path| self.fail("could not import {s}: {s}", .{ path, @errorName(err) }),
+                .find => |search| self.fail("could not search for \"{s}\": {s}", .{ search.options.text, @errorName(err) }),
+            }
             return err;
         };
-        errdefer report.deinit(self.gpa);
-        const opened = try self.gpa.dupe(u8, self.openPath());
-        defer self.gpa.free(opened);
-        try self.open(opened);
-        return report;
+        switch (outcome) {
+            .found => |found| {
+                const hit = found orelse {
+                    self.last_hit = null;
+                    return outcome;
+                };
+                try self.select(hit.text);
+                self.find_cursor = hit.next();
+                self.last_hit = hit;
+            },
+            .exported, .sheet_rows => self.failure_len = 0,
+            .imported => {},
+        }
+        return outcome;
     }
 
     /// Install to game's check: the texts a loose file in `game_folder`

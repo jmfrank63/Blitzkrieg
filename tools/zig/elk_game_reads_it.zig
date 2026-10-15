@@ -291,7 +291,7 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
 /// reader, that the label's entry carries `expected` (UTF-16 LE with a BOM,
 /// as the game reads texts) or, with null, the original.
 fn exportMod(io: std.Io, allocator: std.mem.Allocator, db: *database.Database, game_root: []const u8, expected: ?[]const u8) !void {
-    const path = try packages.exportTo(testing.allocator, io, db, 0, game_root, .{ .mod = mod_name }, .{});
+    const path = (try packages.exportTo(testing.allocator, io, db, 0, game_root, .{ .mod = mod_name }, .{})).path;
     defer testing.allocator.free(path);
     var package = try packages.readArchive(testing.allocator, io, path);
     defer package.deinit();

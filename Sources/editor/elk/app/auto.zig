@@ -8,6 +8,12 @@
 //! The pointer actions, `open=`/`save`/`saveas=`, test-in-game and the
 //! screenshot actions fail the run as not driven yet.
 //!
+//! While a long operation runs on the worker (D-14) only the entries that
+//! drive its modal run (`do=wait_held`, `do=release`, `do=job_cancel`,
+//! `expect=working`, `expect=busy:1`); every other entry waits until it is
+//! done, the window repainting meanwhile and the schedule's clock standing
+//! still, so a schedule reads as if the work were instant.
+//!
 //!   do=select:<index>        select the <index>th text, leaving the current
 //!                            one; the tree opens its folders and scrolls to it
 //!   do=select_key:<key>      the same, by the text's key
@@ -55,6 +61,9 @@
 //!                            below need the dialog drawn in the last frame
 //!   do=export_name:<text>    type a mod's name or folder into the Mod box
 //!   do=export_browse         press Browse...; `do=answer` answers it
+//!   do=export_filtered:<0|1>  tick the dialog's "only the texts the filter
+//!                            admits" box (D6); the current filter must be
+//!                            one it offers
 //!   do=export_ok  do=export_cancel
 //!   do=sheet_import          File > Import from spreadsheet...; `do=answer`
 //!                            answers its dialog with the sheet
@@ -65,6 +74,12 @@
 //!   do=run_game              File > Run Game
 //!   do=wait_game             block until the game Run Game started exits
 //!                            (30 s at most); it must exit 0
+//!   do=hold:<n>              the next long operation waits before its unit
+//!                            <n> (a text or a row) until released or cancelled
+//!   do=wait_held             block until the running operation waits there
+//!                            (30 s at most)
+//!   do=release               let it go on
+//!   do=job_cancel            the Working modal's Cancel (drawn last frame)
 //!   do=wait:<seconds>        the autosave clock moves on that far
 //!   do=kill                  the frame loop stops at once, no save point
 //!   do=focus:translation     the translation box takes the keyboard
@@ -131,6 +146,16 @@
 //!                            empty translation and for a missing text
 //!   expect=failure_has:<text>  the status line's failure
 //!   expect=launched:<index>=<argument>  the last Run Game's command line
+//!   expect=busy:<0|1>        whether a long operation is running
+//!   expect=working:<position>/<range>  the last frame drew the Working
+//!                            modal of the running operation at that place
+//!   expect=pak_filtered:<mod>  the mod's pak holds exactly the texts of the
+//!                            exported element the current filter admits
+//!   expect=whole:<n>         D-14's rule after a cancelled import (smoke
+//!                            only): elk.xml and every text's files are the
+//!                            source's but the translation and state of
+//!                            exactly <n> texts, which carry `whole_marker`,
+//!                            all read back by the core; no temporary file
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
 //!   expect=identical           every file of the opened copy is byte-identical
@@ -146,6 +171,9 @@ const window_mod = kit.window;
 
 const schedule = kit.auto_schedule;
 const c = sdl3.c;
+
+/// What the smoke's cancelled-import sheet starts every translation with.
+pub const whole_marker = "D14 ";
 
 pub const Runner = struct {
     entries: []const schedule.Scheduled,
@@ -165,15 +193,23 @@ pub const Runner = struct {
     /// on-disk expectations (which also hold after File > Close).
     last_path: [std.Io.Dir.max_path_bytes]u8 = undefined,
     last_path_len: usize = 0,
+    /// Frames an entry waited for a long operation: the schedule's clock
+    /// stands still meanwhile, so the entries after it keep their gaps.
+    waited: u32 = 0,
 
     /// Runs every entry scheduled for `frame`; false when one failed
     /// (`failure` says which and why).
     pub fn step(self: *Runner, frame: u32, window: *window_mod.Window, ui: *ui_mod.Ui) bool {
         // File > Open opens in a frame, not in a command.
         self.remember(ui.session.openPath());
-        while (self.next < self.entries.len and self.entries[self.next].frame <= frame) : (self.next += 1) {
+        const now = frame - self.waited;
+        while (self.next < self.entries.len and self.entries[self.next].frame <= now) : (self.next += 1) {
             const entry = self.entries[self.next];
-            std.debug.print("BK_ELK_AUTO: frame {d} action {s}\n", .{ frame, entry.text });
+            if (ui.busy() and !drivesJob(entry.action)) {
+                self.waited += 1;
+                break;
+            }
+            std.debug.print("BK_ELK_AUTO: frame {d} action {s}\n", .{ now, entry.text });
             self.run(entry.action, window, ui) catch |err| {
                 if (self.failure.len == 0) self.fail("{s}: {s}", .{ entry.text, @errorName(err) });
                 return false;
@@ -278,7 +314,7 @@ pub const Runner = struct {
             if (!ui.find_drawn) return self.fail("do={s}: the Find window is not shown", .{named.name});
             if (is(named, "find_next")) {
                 _ = std.mem.printSentinel(&ui.find_buffer, "{s}", .{named.arg}, 0) catch return self.fail("do=find_next: the text is too long", .{});
-                _ = ui.findNext();
+                ui.findNext();
             } else if (is(named, "find_option")) {
                 const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("find_option needs <option>=<0|1>", .{});
                 const option = std.meta.stringToEnum(ui_mod.Ui.FindOption, named.arg[0..eq]) orelse return self.fail("do=find_option: no option {s}", .{named.arg[0..eq]});
@@ -323,10 +359,13 @@ pub const Runner = struct {
         } else if (is(named, "export_mod")) {
             if (!ui.canExport()) return self.fail("do=export_mod: Export to language mod... is disabled", .{});
             ui.requestExportMod(false);
-        } else if (is(named, "export_name") or is(named, "export_browse") or is(named, "export_ok") or is(named, "export_cancel")) {
+        } else if (is(named, "export_name") or is(named, "export_filtered") or is(named, "export_browse") or is(named, "export_ok") or is(named, "export_cancel")) {
             if (!ui.export_drawn) return self.fail("do={s}: the export dialog is not shown", .{named.name});
             if (is(named, "export_name")) {
                 ui.setExportName(named.arg);
+            } else if (is(named, "export_filtered")) {
+                if (ui.exportFilter() == null) return self.fail("do=export_filtered: the dialog offers no filter for {s}", .{ui.currentFilterName()});
+                ui.export_filtered = std.mem.eql(u8, named.arg, "1");
             } else if (is(named, "export_browse")) {
                 ui.requestModFolder(window);
             } else ui.export_pending = is(named, "export_ok");
@@ -349,6 +388,22 @@ pub const Runner = struct {
             else
                 ui.game_exit orelse return self.fail("do=wait_game: Run Game started no game ({s})", .{session.failureText()});
             if (kit.testlaunch.describe(exit) != .clean) return self.fail("do=wait_game: the game ended with exit {?d}, signal {?d}", .{ exit.code, exit.signal });
+        } else if (is(named, "hold")) {
+            ui.hold_next = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("hold needs a unit number, got {s}", .{named.arg});
+        } else if (is(named, "wait_held") or is(named, "release")) {
+            const job = ui.job orelse return self.fail("do={s}: no long operation is running", .{named.name});
+            if (is(named, "release")) {
+                job.progress.release();
+            } else {
+                var waited: u32 = 0;
+                while (!job.progress.held.load(.acquire)) : (waited += 1) {
+                    if (job.done() or waited >= 30_000) return self.fail("do=wait_held: the operation {s} without waiting", .{if (job.done()) "ended" else "ran 30 s"});
+                    ui.io.sleep(.fromMilliseconds(1), .awake) catch {};
+                }
+            }
+        } else if (is(named, "job_cancel")) {
+            if (!ui.job_drawn) return self.fail("do=job_cancel: the Working modal is not shown", .{});
+            ui.job_cancel_pending = true;
         } else if (is(named, "wait")) {
             const seconds = std.fmt.parseInt(u64, named.arg, 10) catch return self.fail("wait needs seconds, got {s}", .{named.arg});
             ui.clock_offset_ms += seconds * std.time.ms_per_s;
@@ -602,6 +657,19 @@ pub const Runner = struct {
             const index = std.fmt.parseInt(usize, named.arg[0..eq], 10) catch return self.fail("launched needs a number", .{});
             const shown = ui.launchedArgument(index) orelse return self.fail("expect=launched: Run Game started no argument {d}", .{index});
             if (!std.mem.eql(u8, shown, named.arg[eq + 1 ..])) return self.fail("expect=launched: argument {d} is {s}, wanted {s}", .{ index, shown, named.arg[eq + 1 ..] });
+        } else if (is(named, "busy")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.busy() != wanted) return self.fail("expect=busy: running is {}, wanted {}", .{ ui.busy(), wanted });
+        } else if (is(named, "working")) {
+            if (ui.job == null) return self.fail("expect=working: no long operation is running", .{});
+            if (!ui.job_drawn) return self.fail("expect=working: the Working modal is not shown", .{});
+            var buffer: [64]u8 = undefined;
+            const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}", .{ ui.job_drawn_position, ui.job_drawn_range });
+            if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=working: the modal showed {s}, wanted {s}", .{ shown, named.arg });
+        } else if (is(named, "pak_filtered")) {
+            try self.pakFiltered(ui, named.arg);
+        } else if (is(named, "whole")) {
+            try self.whole(ui, named.arg);
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
         } else if (is(named, "identical")) {
@@ -676,6 +744,102 @@ pub const Runner = struct {
         if (package.entries.len != count) return self.fail("expect=pak: {s} holds {d} texts, wanted {d}", .{ path, package.entries.len, count });
     }
 
+    /// The mod's pak, read back by the core, holds `<key>.txt` for exactly
+    /// the texts of the exported element (the selected text's, else the
+    /// first) the current filter admits, as the core reads their state.
+    fn pakFiltered(self: *Runner, ui: *ui_mod.Ui, mod: []const u8) !void {
+        const filter = ui.currentFilter() orelse return self.fail("expect=pak_filtered: no filter is current", .{});
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = ui.gameFolder(&game_buffer) orelse return self.fail("expect=pak_filtered: the game folder is unknown", .{});
+        const path = try elk.packages.destinationPath(ui.gpa, ui.io, game, .{ .mod = mod });
+        defer ui.gpa.free(path);
+        var package = elk.packages.readArchive(ui.gpa, ui.io, path) catch |err| return self.fail("expect=pak_filtered: {s} does not read back: {s}", .{ path, @errorName(err) });
+        defer package.deinit();
+        const session = ui.session;
+        const database = &session.database.?;
+        const element = if (session.selected) |index| session.textAt(index).element else 0;
+        var admitted: usize = 0;
+        for (database.bases[element].keys) |key| {
+            if (!filter.matches(key, try database.readState(element, key))) continue;
+            const listed = for (package.entries) |entry| {
+                if (std.mem.endsWith(u8, entry.name, ".txt") and std.mem.eql(u8, entry.name[0 .. entry.name.len - 4], key)) break true;
+            } else false;
+            if (!listed) return self.fail("expect=pak_filtered: {s} lacks {s}, which {s} admits", .{ path, key, filter.name });
+            admitted += 1;
+        }
+        if (admitted == 0) return self.fail("expect=pak_filtered: {s} admits no text", .{filter.name});
+        if (package.entries.len != admitted) return self.fail("expect=pak_filtered: {s} holds {d} texts, {s} admits {d}", .{ path, package.entries.len, filter.name, admitted });
+    }
+
+    /// D-14 after a cancelled import, on the disk of the last database
+    /// opened: no temporary file anywhere below it; elk.xml as the source
+    /// has it (a cancelled import sets no Version); the core opens the copy
+    /// afresh and reads every text; exactly `arg` texts carry the sheet's
+    /// translation (`whole_marker`) and the state the import gives it, and
+    /// every other file of every text is the source's, byte for byte. No
+    /// file but the marked texts' new translation and state files is added.
+    fn whole(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
+        if (self.source_folder.len == 0) return self.fail("expect=whole needs the smoke's source", .{});
+        const wanted = std.fmt.parseInt(usize, arg, 10) catch return self.fail("whole needs a count", .{});
+        const elk_path = self.last_path[0..self.last_path_len];
+        const folder = std.fs.path.dirname(elk_path) orelse return self.fail("expect=whole: no database was opened", .{});
+        const gpa = ui.gpa;
+        const io = ui.io;
+        const cwd = std.Io.Dir.cwd();
+        var files: usize = 0;
+        {
+            var copy = try cwd.openDir(io, folder, .{ .iterate = true });
+            defer copy.close(io);
+            var walker = try copy.walk(gpa);
+            defer walker.deinit();
+            while (try walker.next(io)) |file| {
+                if (file.kind != .file) continue;
+                if (std.mem.endsWith(u8, file.path, elk.database.temp_suffix)) return self.fail("expect=whole: {s} is a temporary file left behind", .{file.path});
+                if (std.ascii.endsWithIgnoreCase(file.path, ".csv")) continue;
+                files += 1;
+            }
+        }
+        const source_xml = try std.fs.path.join(gpa, &.{ self.source_folder, "elk.xml" });
+        defer gpa.free(source_xml);
+        if (!try sameFile(io, gpa, source_xml, elk_path)) return self.fail("expect=whole: elk.xml differs from the source", .{});
+        var database = elk.database.Database.open(gpa, io, elk_path) catch |err| return self.fail("expect=whole: the core does not open {s}: {s}", .{ elk_path, @errorName(err) });
+        defer database.deinit();
+        var marked: usize = 0;
+        var added: usize = 0;
+        for (database.bases, 0..) |base, element| {
+            const base_path = base.path orelse continue;
+            const source_base = try std.fs.path.join(gpa, &.{ self.source_folder, base_path[database.folder.len + 1 ..] });
+            defer gpa.free(source_base);
+            for (base.keys) |key| {
+                const translation = try database.readTranslation(gpa, element, key);
+                defer gpa.free(translation);
+                const carries = std.mem.startsWith(u8, translation, whole_marker);
+                if (carries) {
+                    marked += 1;
+                    const property = try database.readState(element, key);
+                    if (property.state != .translated) return self.fail("expect=whole: {s} carries the sheet's translation but is {s}", .{ key, @tagName(property.state) });
+                }
+                for ([_][]const u8{ ".elk", ".txt", ".xml" }) |extension| {
+                    var name_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+                    const name = try std.fmt.bufPrint(&name_buffer, "{s}{s}", .{ key, extension });
+                    // Both found whatever their case, as the core finds them.
+                    const in_copy = try elk.database.resolve(gpa, io, base_path, name);
+                    defer gpa.free(in_copy.path);
+                    const in_source = try elk.database.resolve(gpa, io, source_base, name);
+                    defer gpa.free(in_source.path);
+                    if (carries and !std.mem.eql(u8, extension, ".elk")) {
+                        if (!in_source.exists) added += 1;
+                        continue;
+                    }
+                    if (in_copy.exists != in_source.exists or (in_copy.exists and !try sameFile(io, gpa, in_source.path, in_copy.path)))
+                        return self.fail("expect=whole: {s}{s} is not the source's, and its text does not carry the sheet's translation", .{ key, extension });
+                }
+            }
+        }
+        if (marked != wanted) return self.fail("expect=whole: {d} texts carry the sheet's translation, wanted {d}", .{ marked, wanted });
+        if (files != self.source_files + added) return self.fail("expect=whole: {d} files, the source's {d} and {d} new", .{ files, self.source_files, added });
+    }
+
     /// The row's translation and state files compare byte for byte with
     /// the source the smoke copied: visiting a text never rewrites it.
     fn untouched(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
@@ -740,6 +904,26 @@ pub const Runner = struct {
         self.failure = std.fmt.bufPrint(&self.failure_storage, format, args) catch self.failure_storage[0..];
     }
 };
+
+/// The entries that run while a long operation does: the ones that drive
+/// or look at its modal.
+fn drivesJob(action: schedule.Action) bool {
+    return switch (action) {
+        .do => |named| is(named, "wait_held") or is(named, "release") or is(named, "job_cancel"),
+        // `busy:0` waits for the operation like any other entry.
+        .expect => |named| is(named, "working") or (is(named, "busy") and std.mem.eql(u8, named.arg, "1")),
+        else => false,
+    };
+}
+
+/// Whether the two files hold the same bytes.
+fn sameFile(io: std.Io, gpa: std.mem.Allocator, source: []const u8, path: []const u8) !bool {
+    const original = try std.Io.Dir.cwd().readFileAlloc(io, source, gpa, .limited(16 << 20));
+    defer gpa.free(original);
+    const copied = try std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(16 << 20));
+    defer gpa.free(copied);
+    return std.mem.eql(u8, original, copied);
+}
 
 /// The Spelling window's first row for `word`.
 fn spellRow(ui: *const ui_mod.Ui, word: []const u8) ?usize {

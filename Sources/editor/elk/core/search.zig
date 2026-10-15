@@ -18,6 +18,7 @@ const std = @import("std");
 const database_mod = @import("database.zig");
 const tree_mod = @import("tree.zig");
 const stats = @import("stats.zig");
+const Progress = @import("progress.zig").Progress;
 
 const Database = database_mod.Database;
 const Tree = tree_mod.Tree;
@@ -56,8 +57,9 @@ pub const Hit = struct {
 /// The next hit from `from` in the direction the options say, wrapping
 /// once round the tree; null when the text is empty or found nowhere.
 /// Without a cursor the search starts at the first text (the last, going
-/// up).
-pub fn findNext(gpa: std.mem.Allocator, database: *Database, tree: *const Tree, options: Options, from: ?Cursor) !?Hit {
+/// up). With a `Progress` (D-14) each text visited is a unit, and Cancel
+/// stops it with `error.Cancelled`.
+pub fn findNext(gpa: std.mem.Allocator, database: *Database, tree: *const Tree, options: Options, from: ?Cursor, progress: ?*Progress) !?Hit {
     if (options.text.len == 0 or tree.texts.len == 0) return null;
     const needle = try gpa.dupe(u8, options.text);
     defer gpa.free(needle);
@@ -68,7 +70,9 @@ pub fn findNext(gpa: std.mem.Allocator, database: *Database, tree: *const Tree, 
     // Every text once, and the first one again from its start, so a hit
     // before the cursor in it is found after the wrap.
     var visits: usize = 0;
+    Progress.start(progress, tree.texts.len + 1);
     while (visits <= tree.texts.len) : (visits += 1) {
+        try Progress.advance(progress, database.io);
         var field = @intFromEnum(cursor.field);
         while (field <= @intFromEnum(Field.translation)) : (field += 1) {
             const offset = if (field == @intFromEnum(cursor.field)) cursor.offset else 0;
@@ -176,39 +180,39 @@ test "find walks original, description and translation, resumes, wraps and keeps
 
     // Case-insensitive: both of a's, then c's translation, then round to a.
     const tank: Options = .{ .text = "TANK" };
-    var hit = (try findNext(testing.allocator, &database, &tree, tank, null)).?;
+    var hit = (try findNext(testing.allocator, &database, &tree, tank, null, null)).?;
     try testing.expectEqual(Hit{ .text = a, .field = .original, .offset = 4, .len = 4 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, tank, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, tank, hit.next(), null)).?;
     try testing.expectEqual(Hit{ .text = a, .field = .original, .offset = 9, .len = 4 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, tank, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, tank, hit.next(), null)).?;
     try testing.expectEqual(Hit{ .text = c, .field = .translation, .offset = 7, .len = 4 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, tank, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, tank, hit.next(), null)).?;
     try testing.expectEqual(Hit{ .text = a, .field = .original, .offset = 4, .len = 4 }, hit);
 
     // Match case: only c's capitals.
     const exact: Options = .{ .text = "TANK", .match_case = true };
-    hit = (try findNext(testing.allocator, &database, &tree, exact, .{ .text = a })).?;
+    hit = (try findNext(testing.allocator, &database, &tree, exact, .{ .text = a }, null)).?;
     try testing.expectEqual(Hit{ .text = c, .field = .translation, .offset = 7, .len = 4 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, exact, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, exact, hit.next(), null)).?;
     try testing.expectEqual(c, hit.text);
 
     // Whole word skips "concatenate" and still finds "cat" later in the field;
     // the description comes before the translation.
     const cat: Options = .{ .text = "cat", .whole_word = true };
-    hit = (try findNext(testing.allocator, &database, &tree, cat, .{ .text = b })).?;
+    hit = (try findNext(testing.allocator, &database, &tree, cat, .{ .text = b }, null)).?;
     try testing.expectEqual(Hit{ .text = b, .field = .original, .offset = 16, .len = 3 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, cat, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, cat, hit.next(), null)).?;
     try testing.expectEqual(Hit{ .text = b, .field = .description, .offset = 2, .len = 3 }, hit);
 
     // Up: from c to a, the hits within a text still in reading order.
     const up: Options = .{ .text = "tank", .down = false };
-    hit = (try findNext(testing.allocator, &database, &tree, up, .{ .text = b })).?;
+    hit = (try findNext(testing.allocator, &database, &tree, up, .{ .text = b }, null)).?;
     try testing.expectEqual(Hit{ .text = a, .field = .original, .offset = 4, .len = 4 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, up, .{ .text = a, .field = .translation })).?;
+    hit = (try findNext(testing.allocator, &database, &tree, up, .{ .text = a, .field = .translation }, null)).?;
     try testing.expectEqual(c, hit.text);
 
-    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "zebra" }, null));
-    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "" }, null));
+    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "zebra" }, null, null));
+    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "" }, null, null));
 }
 
 test "a find over the whole tracked database" {
@@ -218,23 +222,23 @@ test "a find over the whole tracked database" {
     var tree = try Tree.build(testing.allocator, &database);
     defer tree.deinit();
     // A miss reads every text's three fields once round.
-    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "no-such-text-anywhere" }, null));
+    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "no-such-text-anywhere" }, null, null));
     // Kuban: twice in the desc's translation, then the name's original,
     // then round again.
     const kuban: Options = .{ .text = "kuban" };
     const desc = tree.nodes[tree.findText(0, "medals/german/kuban/desc").?].text.?;
     const name = tree.nodes[tree.findText(0, "medals/german/kuban/name").?].text.?;
-    var hit = (try findNext(testing.allocator, &database, &tree, kuban, null)).?;
+    var hit = (try findNext(testing.allocator, &database, &tree, kuban, null, null)).?;
     try testing.expectEqual(Hit{ .text = desc, .field = .translation, .offset = 4, .len = 5 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, kuban, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, kuban, hit.next(), null)).?;
     try testing.expectEqual(Hit{ .text = desc, .field = .translation, .offset = 68, .len = 5 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, kuban, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, kuban, hit.next(), null)).?;
     try testing.expectEqual(Hit{ .text = name, .field = .original, .offset = 0, .len = 5 }, hit);
-    hit = (try findNext(testing.allocator, &database, &tree, kuban, hit.next())).?;
+    hit = (try findNext(testing.allocator, &database, &tree, kuban, hit.next(), null)).?;
     try testing.expectEqual(desc, hit.text);
     try testing.expectEqual(@as(usize, 4), hit.offset);
     // The Russian original, its capital found in lower case; not with Match case.
-    hit = (try findNext(testing.allocator, &database, &tree, .{ .text = "кубанском" }, null)).?;
+    hit = (try findNext(testing.allocator, &database, &tree, .{ .text = "кубанском" }, null, null)).?;
     try testing.expectEqual(Hit{ .text = desc, .field = .original, .offset = 80, .len = "кубанском".len }, hit);
-    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "кубанском", .match_case = true }, null));
+    try testing.expectEqual(@as(?Hit, null), try findNext(testing.allocator, &database, &tree, .{ .text = "кубанском", .match_case = true }, null, null));
 }

@@ -55,7 +55,15 @@
 //! with its one toolbar and the five fixed filters, game_2 applied (the
 //! copy's elk.xml then records it), Help opens by F1 with the whole
 //! embedded text drawn; a second run on the same elk.cfg starts at All
-//! again, applies nothing and opens Help from the menu.
+//! again, applies nothing and opens Help from the menu. The export pass
+//! also exports by the Translated filter (D6), the pak then holding exactly
+//! the four texts it admits, and cancels an export held mid-run, which
+//! writes nothing. A tenth copy proves D-14's worker: an import of a sheet
+//! that changes every text, held at row 1000 with the Working modal
+//! repainting over it and cancelled from its Cancel, leaves every file
+//! whole (the first 1000 texts imported, every other file the source's,
+//! elk.xml unsaved, no temporary file); a Find Next that misses, held and
+//! released, then held and cancelled; and the whole import after.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -259,7 +267,17 @@ const export_schedule =
     "32:do=run_game,33:expect=launched:1=-editor-test,33:expect=launched:2=-profile=ELKTest," ++
     "33:expect=launched:3=-mod=" ++ folder_mod ++ ",33:expect=launched:4=-windowed," ++
     (if (stand_in_game) "34:do=wait_game,36:expect=can_run_game:1," else "34:expect=failure_has:Game.exe,") ++
-    "37:do=close,39:expect=can_export:0,39:expect=can_run_game:0,40:exit";
+    // By the Translated filter (D6): its four texts and no other.
+    "37:do=filter:Translated,38:do=export_mod,40:do=export_name:" ++ filtered_mod ++ ",40:do=export_filtered:1,40:do=export_ok," ++
+    "42:expect=export_dialog:0,42:expect=pak:" ++ filtered_mod ++ "=4,42:expect=pak_filtered:" ++ filtered_mod ++ "," ++
+    "42:expect=notice_has:Translated," ++
+    // Held at its 100th text and cancelled from the Working modal: nothing written.
+    "43:do=filter:All,43:do=hold:100,43:do=export_mod,45:do=export_name:" ++ cancelled_mod ++ ",45:do=export_ok,46:do=wait_held," ++
+    "47:expect=working:100/" ++ export_texts ++ ",47:do=job_cancel,49:expect=busy:0,49:expect=pak:" ++ cancelled_mod ++ "=none," ++
+    "49:expect=notice_has:cancelled," ++
+    "50:do=close,52:expect=can_export:0,52:expect=can_run_game:0,53:exit";
+const filtered_mod = "ELKFiltered";
+const cancelled_mod = "ELKCancelled";
 /// The spell check pass. The install has no `dictionaries` folder beside
 /// ELK, so spell check starts off; the copy's own folder then gets the
 /// generated test dictionary (spelling.zig), chosen through the options.
@@ -312,6 +330,23 @@ const short_reopen_schedule =
     "2:expect=open,2:expect=layout:short,2:expect=notice_has:0/2,3:expect=toolbar:short,3:expect=filter:All," ++
     "4:do=help,6:expect=help:1,7:exit";
 
+/// The worker pass (D-14). `d14.csv` gives every text of the copy a new
+/// translation starting with `auto.whole_marker`; its import is held before
+/// row 1000, the modal seen twice at 1000 of 2852 rows, and cancelled. A
+/// Find Next that misses reads all 2,852 texts and one again (2853 units):
+/// held before its fifth and released, it reports the miss; held and
+/// cancelled, it reports the Cancel. The whole import then changes the
+/// other 1852 texts.
+const progress_sheet = "d14.csv";
+const progress_schedule =
+    "2:expect=open,2:expect=busy:0,2:do=hold:1000,2:do=sheet_import,2:do=answer:" ++ progress_sheet ++ ",3:do=wait_held," ++
+    "4:expect=busy:1,4:expect=working:1000/" ++ export_texts ++ ",6:expect=working:1000/" ++ export_texts ++ ",6:do=job_cancel," ++
+    "8:expect=busy:0,8:expect=notice_has:cancelled,8:expect=whole:1000," ++
+    "9:do=find_dialog,11:do=hold:5,11:do=find_next:no-such-text-anywhere,12:do=wait_held,13:expect=working:5/2853,13:do=release," ++
+    "15:expect=found:none,16:do=hold:5,16:do=find_next:no-such-text-anywhere,17:do=wait_held,18:do=job_cancel," ++
+    "20:expect=notice_has:Find,21:do=find_close," ++
+    "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/1852/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
+
 /// Linux and macOS get a stand-in Game, a shell script that writes the
 /// arguments it was started with; Windows has none, and its Run Game fails
 /// to start after recording the same command line.
@@ -321,6 +356,7 @@ const stand_in_args = "elk-game.args";
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
 const auto_frame_limit = 100_000;
+const busy_limit_ms = 60_000;
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
@@ -427,9 +463,13 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 
 /// The frame loop every mode shares. With a runner, its schedule's entries
 /// for a frame run before that frame; returns false when one failed, the
-/// frame failed or `frame_limit` passed first.
+/// frame failed or `frame_limit` passed first. The frames drawn while a
+/// long operation runs (D-14) do not count against the limit, the work
+/// taking as long as it takes; one that runs past a minute has hung.
 fn loop(window: *window_mod.Window, ui: *ui_mod.Ui, runner: ?*auto.Runner, frame_limit: u32) bool {
     var frame: u32 = 0;
+    var busy_frames: u32 = 0;
+    var busy_since: ?u64 = null;
     while (!ui.quit) : (frame += 1) {
         var event: c.SDL_Event = undefined;
         while (c.SDL_PollEvent(&event)) {
@@ -440,7 +480,16 @@ fn loop(window: *window_mod.Window, ui: *ui_mod.Ui, runner: ?*auto.Runner, frame
             if (!r.step(frame, window, ui)) return false;
             if (ui.quit or ui.killed) break;
         }
-        if (frame >= frame_limit) {
+        if (ui.busy()) {
+            busy_frames += 1;
+            const since = busy_since orelse c.SDL_GetTicks();
+            busy_since = since;
+            if (runner) |r| if (c.SDL_GetTicks() - since > busy_limit_ms) {
+                r.failure = "a long operation ran for more than a minute";
+                return false;
+            };
+        } else busy_since = null;
+        if (frame - busy_frames >= frame_limit) {
             if (runner) |r| r.failure = "the schedule did not exit in time";
             return false;
         }
@@ -503,7 +552,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (sheets.code != 0) return sheets.code;
     const shorts = smokeShort(gpa, io, environ, source, scratch);
     if (shorts.code != 0) return shorts.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import, the short layout with its update and Help on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, result.fonts, elk_path });
+    const worked = smokeProgress(gpa, io, environ, source, scratch);
+    if (worked.code != 0) return worked.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod (by filter too) and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -647,6 +698,52 @@ fn smokeSheet(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
     return scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = sheet_schedule, .dialog_folder = folder, .frame_limit = smoke_frame_limit, .tier = "smoke (spreadsheet export and import)" });
+}
+
+/// The smoke's worker pass on a tenth copy, `<scratch>-progress`, with
+/// `d14.csv` beside it: the copy's own sheet, every translation replaced by
+/// `auto.whole_marker` and the row's number.
+fn smokeProgress(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-progress", .{scratch}) catch return .{ .code = 1 };
+    const copied = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    writeProgressSheet(gpa, io, elk_path, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not write {s} into {s}: {s}\n", .{ progress_sheet, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    return scripted(gpa, io, environ, .{
+        .elk_path = elk_path,
+        .text = progress_schedule,
+        .source = source,
+        .source_files = copied,
+        .dialog_folder = folder,
+        .frame_limit = smoke_frame_limit,
+        .tier = "smoke (worker, progress modal, Cancel)",
+    });
+}
+
+fn writeProgressSheet(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, folder: []const u8) !void {
+    var database = try elk.database.Database.open(gpa, io, elk_path);
+    defer database.deinit();
+    var arena_state = std.heap.ArenaAllocator.init(gpa);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const grid = try arena.dupe([]const []const u8, try elk.sheet.exportGrid(arena, &database, null));
+    for (grid[1..], 1..) |row, number| {
+        const changed = try arena.dupe([]const u8, row);
+        changed[2] = try std.fmt.allocPrint(arena, "{s}{d}", .{ auto.whole_marker, number });
+        grid[number] = changed;
+    }
+    const bytes = try elk.sheet.writeCsv(gpa, grid);
+    defer gpa.free(bytes);
+    var dir = try std.Io.Dir.cwd().openDir(io, folder, .{});
+    defer dir.close(io);
+    try dir.writeFile(io, .{ .sub_path = progress_sheet, .data = bytes });
 }
 
 /// The smoke's short layout pass on a ninth copy, `<scratch>-short`, with

@@ -18,6 +18,7 @@ pub const zip_writer = @import("zip_writer.zig");
 pub const sheet = @import("sheet.zig");
 pub const xlsx = @import("xlsx.zig");
 pub const xls = @import("xls.zig");
+pub const progress = @import("progress.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

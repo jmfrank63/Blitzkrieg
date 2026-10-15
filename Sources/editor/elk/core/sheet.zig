@@ -36,13 +36,17 @@
 //!   from the sheet's modification time, as an update's import records it.
 //!
 //! A row that fails to write is counted and the rest go on; a sheet that
-//! cannot be read fails before anything is written.
+//! cannot be read fails before anything is written. Both directions take a
+//! `Progress` (D-14), one unit per text or row: a cancelled export writes
+//! no sheet, a cancelled import stops between two rows, the rows before it
+//! imported, each file whole, and no Version set.
 const std = @import("std");
 const database = @import("database.zig");
 const state = @import("state.zig");
 const packages = @import("packages.zig");
 const xlsx = @import("xlsx.zig");
 const xls = @import("xls.zig");
+const Progress = @import("progress.zig").Progress;
 
 pub const Grid = xlsx.Grid;
 pub const sheet_name = xlsx.sheet_name;
@@ -82,11 +86,15 @@ pub const Error = error{
 
 /// The sheet's rows for every text of `db`, the header first; the texts are
 /// in `arena`.
-pub fn exportGrid(arena: std.mem.Allocator, db: *database.Database) !Grid {
+pub fn exportGrid(arena: std.mem.Allocator, db: *database.Database, progress: ?*Progress) !Grid {
     var rows: std.ArrayListUnmanaged([]const []const u8) = .empty;
     try rows.append(arena, &columns);
+    var texts: usize = 0;
+    for (db.bases) |base| texts += base.keys.len;
+    Progress.start(progress, texts);
     for (db.project.elements, db.bases, 0..) |element, base, index| {
         for (base.keys) |key| {
+            try Progress.advance(progress, db.io);
             const row = try arena.alloc([]const u8, columns.len);
             const path = try std.mem.concat(arena, u8, &.{ element.name, "\\", key });
             std.mem.replaceScalar(u8, path, '/', '\\');
@@ -104,18 +112,19 @@ pub fn exportGrid(arena: std.mem.Allocator, db: *database.Database) !Grid {
 /// Writes every text of `db` to the sheet at `path`, in the format its
 /// extension names, through a temporary file. Returns the rows written,
 /// the header not counted.
-pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, path: []const u8) !usize {
+pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, path: []const u8, progress: ?*Progress) !usize {
     const format = formatOf(path) orelse return Error.UnknownSpreadsheetFormat;
     if (format == .xls) return Error.XlsIsReadOnly;
     var arena_state = std.heap.ArenaAllocator.init(gpa);
     defer arena_state.deinit();
-    const grid = try exportGrid(arena_state.allocator(), db);
+    const grid = try exportGrid(arena_state.allocator(), db, progress);
     const bytes = switch (format) {
         .xlsx => try xlsx.write(gpa, grid),
         .csv => try writeCsv(gpa, grid),
         .xls => unreachable,
     };
     defer gpa.free(bytes);
+    try Progress.check(progress);
     try database.writeFileAtomic(io, gpa, path, bytes);
     return grid.len - 1;
 }
@@ -302,22 +311,24 @@ pub const Report = struct {
 
 /// Imports the sheet at `path` into `db` and saves `elk.xml` when a Version
 /// was set. The caller owns the report.
-pub fn importFile(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, path: []const u8) !Report {
+pub fn importFile(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, path: []const u8, progress: ?*Progress) !Report {
     var sheet = try readFile(gpa, io, path);
     defer sheet.deinit();
-    return importSheet(gpa, db, &sheet, std.fs.path.basename(path));
+    return importSheet(gpa, db, &sheet, std.fs.path.basename(path), progress);
 }
 
 /// `ImportFromXLS`'s rules (the file's doc comment) over `sheet`, read from
 /// the file `file_name`.
-pub fn importSheet(gpa: std.mem.Allocator, db: *database.Database, sheet: *const Sheet, file_name: []const u8) !Report {
+pub fn importSheet(gpa: std.mem.Allocator, db: *database.Database, sheet: *const Sheet, file_name: []const u8, progress: ?*Progress) !Report {
     var report: Report = .{};
     var missing: std.ArrayListUnmanaged([]const u8) = .empty;
     errdefer {
         for (missing.items) |path| gpa.free(path);
         missing.deinit(gpa);
     }
+    Progress.start(progress, sheet.rows.len);
     for (sheet.rows) |row| {
+        try Progress.advance(progress, db.io);
         report.rows += 1;
         if (row.translation.len == 0) {
             report.empty += 1;
@@ -528,7 +539,7 @@ test "import rules: skip empty, Outdated on another original, report what is mis
     defer db.deinit();
     const sheet: Sheet = .{ .arena = undefined, .rows = &rule_rows, .mtime = 1_000_000_000 };
 
-    var report = try importSheet(testing.allocator, &db, &sheet, "texts.xlsx");
+    var report = try importSheet(testing.allocator, &db, &sheet, "texts.xlsx", null);
     defer report.deinit(testing.allocator);
     try testing.expectEqual(@as(usize, 7), report.rows);
     try testing.expectEqual(@as(usize, 1), report.empty);
@@ -568,12 +579,12 @@ test "importing the same sheet again changes no file" {
     var db = try database.Database.open(testing.allocator, io, elk_path);
     defer db.deinit();
     const sheet: Sheet = .{ .arena = undefined, .rows = &rule_rows, .mtime = 0 };
-    var first = try importSheet(testing.allocator, &db, &sheet, "texts.csv");
+    var first = try importSheet(testing.allocator, &db, &sheet, "texts.csv", null);
     first.deinit(testing.allocator);
 
     var before = try snapshot(io, root);
     defer before.deinit();
-    var again = try importSheet(testing.allocator, &db, &sheet, "texts.csv");
+    var again = try importSheet(testing.allocator, &db, &sheet, "texts.csv", null);
     defer again.deinit(testing.allocator);
     try testing.expectEqual(@as(usize, 0), again.changed);
     try testing.expectEqual(@as(usize, 0), again.versions);
@@ -581,6 +592,58 @@ test "importing the same sheet again changes no file" {
     var after = try snapshot(io, root);
     defer after.deinit();
     try expectSameFiles(&before, &after);
+}
+
+test "a cancelled import stops between two rows, each file whole and no Version set" {
+    // D-14: the worker is held before the second row, as the scripted runs
+    // hold it, and cancelled there. The first row is imported, nothing after
+    // it is, elk.xml is not saved, and no temporary file is left.
+    const io = testing.io;
+    const root = try ruleFixture(io, "sheet-cancel");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    var db = try database.Database.open(testing.allocator, io, elk_path);
+    defer db.deinit();
+    var before = try snapshot(io, root);
+    defer before.deinit();
+    const sheet: Sheet = .{ .arena = undefined, .rows = &rule_rows, .mtime = 1_000_000_000 };
+
+    const Worker = struct {
+        fn run(target: *database.Database, rows: *const Sheet, progress: *Progress, result: *?anyerror) void {
+            var report = importSheet(testing.allocator, target, rows, "texts.xlsx", progress) catch |err| {
+                result.* = err;
+                return;
+            };
+            report.deinit(testing.allocator);
+        }
+    };
+    var progress: Progress = .{};
+    progress.hold.store(1, .release);
+    var result: ?anyerror = null;
+    const thread = try std.Thread.spawn(.{}, Worker.run, .{ &db, &sheet, &progress, &result });
+    while (!progress.held.load(.acquire)) try io.sleep(.fromMilliseconds(1), .awake);
+    progress.cancel();
+    thread.join();
+    try testing.expectEqual(@as(?anyerror, error.Cancelled), result);
+    try testing.expectEqual(@as(usize, 1), progress.position.load(.acquire));
+
+    var after = try snapshot(io, root);
+    defer after.deinit();
+    var it = after.files.iterator();
+    while (it.next()) |entry| {
+        const name = entry.key_ptr.*;
+        try testing.expect(!std.mem.endsWith(u8, name, database.temp_suffix));
+        // Only the first row's text changed: its translation and its state.
+        if (std.mem.indexOf(u8, name, "tank") != null and !std.mem.endsWith(u8, name, ".elk")) continue;
+        try testing.expectEqualSlices(u8, before.files.get(name) orelse return error.FileAdded, entry.value_ptr.*);
+    }
+    // The tank had no translation file; the import made one.
+    try testing.expectEqual(before.files.count() + 1, after.files.count());
+    const panzer = try db.readTranslation(testing.allocator, 0, "units/tank/name");
+    defer testing.allocator.free(panzer);
+    try testing.expectEqualStrings("Panzer", panzer);
+    try testing.expectEqual(state.TextProperty{ .state = .translated, .changed = false }, try db.readState(0, "units/tank/name"));
 }
 
 /// Every file below `root` and its bytes.
@@ -634,7 +697,7 @@ test "every text of Data/ELK round-trips through .xlsx and .csv, and importing i
     defer db.deinit();
     var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena_state.deinit();
-    const grid = try exportGrid(arena_state.allocator(), &db);
+    const grid = try exportGrid(arena_state.allocator(), &db, null);
     try testing.expectEqual(@as(usize, 2_852 + 1), grid.len);
     var before = try snapshot(io, root);
     defer before.deinit();
@@ -642,7 +705,7 @@ test "every text of Data/ELK round-trips through .xlsx and .csv, and importing i
     for ([_][]const u8{ "texts.xlsx", "texts.csv" }) |name| {
         const path = try std.fs.path.join(testing.allocator, &.{ root, "..", name });
         defer testing.allocator.free(path);
-        try testing.expectEqual(@as(usize, 2_852), try exportTo(testing.allocator, io, &db, path));
+        try testing.expectEqual(@as(usize, 2_852), try exportTo(testing.allocator, io, &db, path, null));
         var sheet = try readFile(testing.allocator, io, path);
         defer sheet.deinit();
         try testing.expectEqual(grid.len - 1, sheet.rows.len);
@@ -657,7 +720,7 @@ test "every text of Data/ELK round-trips through .xlsx and .csv, and importing i
         }
         try testing.expect(lines > 100 and quotes > 10);
 
-        var report = try importSheet(testing.allocator, &db, &sheet, name);
+        var report = try importSheet(testing.allocator, &db, &sheet, name, null);
         defer report.deinit(testing.allocator);
         try testing.expectEqual(@as(usize, 0), report.changed);
         try testing.expectEqual(@as(usize, 0), report.missing.len);
@@ -667,8 +730,8 @@ test "every text of Data/ELK round-trips through .xlsx and .csv, and importing i
     var after = try snapshot(io, root);
     defer after.deinit();
     try expectSameFiles(&before, &after);
-    try testing.expectError(Error.XlsIsReadOnly, exportTo(testing.allocator, io, &db, "texts.xls"));
-    try testing.expectError(Error.UnknownSpreadsheetFormat, exportTo(testing.allocator, io, &db, "texts.ods"));
+    try testing.expectError(Error.XlsIsReadOnly, exportTo(testing.allocator, io, &db, "texts.xls", null));
+    try testing.expectError(Error.UnknownSpreadsheetFormat, exportTo(testing.allocator, io, &db, "texts.ods", null));
 }
 
 test "texts beyond the tracked ones round-trip through both formats" {
@@ -688,12 +751,12 @@ test "texts beyond the tracked ones round-trip through both formats" {
     for ([_][]const u8{ "odd.xlsx", "odd.csv" }) |name| {
         const path = try std.fs.path.join(testing.allocator, &.{ root, name });
         defer testing.allocator.free(path);
-        try testing.expectEqual(@as(usize, 1), try exportTo(testing.allocator, io, &db, path));
+        try testing.expectEqual(@as(usize, 1), try exportTo(testing.allocator, io, &db, path, null));
         var sheet = try readFile(testing.allocator, io, path);
         defer sheet.deinit();
         try testing.expectEqualStrings("game\\a", sheet.rows[0].path);
         try testing.expectEqualStrings(odd, sheet.rows[0].translation);
-        var report = try importSheet(testing.allocator, &db, &sheet, name);
+        var report = try importSheet(testing.allocator, &db, &sheet, name, null);
         defer report.deinit(testing.allocator);
         try testing.expectEqual(@as(usize, 0), report.changed);
     }

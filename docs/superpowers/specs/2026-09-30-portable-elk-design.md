@@ -612,6 +612,62 @@ std-only, headless, no UI. Modules:
   through Translated, opens Help by F1 with every block drawn, then reads
   game_2 in the copy's elk.xml through the core; a second run starts at All
   again, applies nothing and opens Help from the menu.
+  *Filtered export and worker slice (2026-10-16):* D6 is the core's
+  `ExportOptions.filter`: as `ExportToPAK` with `pELKFilter`, a text the
+  filter rejects (`SSimpleFilter::Check` on its key and state file) gets no
+  entry at all; the fonts still go in, and `exportTo` returns the entries it
+  wrote. The export dialog offers "Only the texts the filter <name> admits"
+  in the extended layout while the current filter leaves texts out, as the
+  MFC "Export To PAK by Filter..." was in `IDR_MAINFRAME` only; Install to
+  game and Run Game's export stay unfiltered, as `UpdateGame` packed every
+  text. D-14 is the core's `progress` (atomic position, range and Cancel;
+  the work calls `advance` before each unit and stops between two with
+  `error.Cancelled`; `hold` lets a scripted run stop it at a known unit) and
+  the app's `jobs.zig`: one long operation at a time on its own thread with
+  std's default stack, its input copied. The session splits each operation
+  into `begin` (UI thread: the edit saved, the element and the search's
+  start fixed), `perform` (the worker: the core on the database's files,
+  the tree only read) and `finish` (UI thread: the failure, the reopen
+  after an import, the hit selected), and its synchronous commands are the
+  three in a row. On the worker now: the pak export (Export to language
+  mod, Install to game, Run Game's), Export and Import from spreadsheet,
+  and Find Next, whose miss reads every text (the freeze the find slice
+  measured). The Working modal shows the message, a bar of position in
+  range and Cancel (or Escape); it holds the rest of the UI off from the
+  start but stays invisible for its first 250 ms, so a Find Next that hits
+  at once does not flash it; the shortcuts and the autosave wait, and Exit
+  cancels the job and waits for it. Cancel is safe: a cancelled export
+  writes nothing (the pak, the mod.xml and the sheet are written after the
+  last unit); a cancelled import stops between two rows, the rows before it
+  imported with every file written through a temporary name and renamed
+  (`writeFileAtomic`), and saves no Version; a cancelled find selects
+  nothing. The scripted runs hold every entry but the modal's own
+  (`do=hold`, `do=wait_held`, `do=release`, `do=job_cancel`,
+  `expect=working`, `expect=busy:1`) while a job runs, the schedule's clock
+  standing still, and the frames drawn meanwhile do not count against the
+  frame limit (a job past a minute fails the run). `test-elk-core` tests
+  the progress across threads, the filtered pak (states and a condition)
+  and a cancelled export that leaves the old pak, and a sheet import held
+  after its first row and cancelled there, every other file unchanged and
+  no temporary file left; `test-elk-app` runs an export job held at its
+  100th text, released, and cancelled, which writes nothing. `elk-smoke`'s
+  sixth pass exports by the Translated filter, the pak read back by the
+  core with exactly the four texts the filter admits, then holds an export
+  at its 100th text, sees the modal at 100 of 2852 and cancels it from the
+  modal, the pak never written; a tenth pass imports a sheet giving every
+  text a marked translation, held at row 1000, the modal drawn at 1000 of
+  2852 over two frames, cancelled, and proves the D-14 rule from the disk:
+  no temporary file, elk.xml the source's, the core opening the copy and
+  reading every text, exactly 1000 texts carrying the sheet's translation
+  as Translated and every other file the source's, byte for byte; then a
+  Find Next that misses, held and released (the miss reported) and held
+  and cancelled, and the whole import, which changes the other 1852 texts
+  and leaves the same proof at 2852. *Not yet on the worker:* Open, the
+  statistic, Install to game's shadow check and the font generation (07-04,
+  which does not exist yet); Import from game and Import from PAK have no
+  commands yet, so the core's package imports take no progress; spell
+  check runs on the one text being edited and has no check-everything to
+  move.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

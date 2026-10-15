@@ -40,7 +40,7 @@ pub const Extension = enum {
 /// What the MFC ELK appended to an element's path for its texts' folder.
 pub const data_base_suffix = "_data_base";
 const folder_description = "_folder.dsc";
-const temp_suffix = ".~elk";
+pub const temp_suffix = ".~elk";
 
 pub const Base = struct {
     /// The element's texts folder as found on disk, or null when there is

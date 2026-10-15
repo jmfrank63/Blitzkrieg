@@ -46,6 +46,8 @@ const zip_writer = @import("zip_writer.zig");
 const state = @import("state.zig");
 const project_file = @import("project_file.zig");
 const database = @import("database.zig");
+const filter_mod = @import("filter.zig");
+const Progress = @import("progress.zig").Progress;
 
 pub const Entry = struct {
     /// The path in the package, forward slashes, as spelled there.
@@ -436,7 +438,16 @@ pub const ExportOptions = struct {
     /// Generated fonts, named below `fonts/` (`medium/1.tfd`, `medium/1_c.dds`
     /// and so on), for an element whose `Fonts` flag is set.
     fonts: []const Entry = &.{},
+    /// "Export to PAK by filter" (D6): only the texts the filter admits
+    /// (`SSimpleFilter::Check` on each key and its state file) go into the
+    /// pak; the MFC export wrote no file at all for the others.
+    filter: ?filter_mod.Filter = null,
+    /// D-14: one unit per text; a cancelled export writes nothing.
+    progress: ?*Progress = null,
 };
+
+/// A pak and how many entries it holds.
+pub const Pak = struct { bytes: []u8, entries: usize };
 
 /// `CELK::ExportToPAK` for one element: the `.pak` bytes, which the caller
 /// owns. Each text is `<key>.txt` holding, unchanged, its translation when
@@ -447,12 +458,20 @@ pub const ExportOptions = struct {
 /// (`zip_writer.zig`), so the same database always exports to the same
 /// bytes, and exporting what an import of an export left changes nothing.
 pub fn exportElement(gpa: std.mem.Allocator, db: *database.Database, element: usize, options: ExportOptions) ![]u8 {
+    return (try buildPak(gpa, db, element, options)).bytes;
+}
+
+fn buildPak(gpa: std.mem.Allocator, db: *database.Database, element: usize, options: ExportOptions) !Pak {
     var arena = std.heap.ArenaAllocator.init(gpa);
     defer arena.deinit();
     const allocator = arena.allocator();
     var files: std.ArrayListUnmanaged(zip_writer.File) = .empty;
-    for (db.bases[element].keys) |key| {
+    const keys = db.bases[element].keys;
+    Progress.start(options.progress, keys.len);
+    for (keys) |key| {
+        try Progress.advance(options.progress, db.io);
         const property = try db.readState(element, key);
+        if (options.filter) |filter| if (!filter.matches(key, property)) continue;
         const translation = if (property.state != .not_translated) try db.readBytes(allocator, element, key, .translation) else null;
         const filled = if (translation) |bytes| !options.only_filled or bytes.len > 2 else false;
         const bytes = if (filled) translation.? else try db.readBytes(allocator, element, key, .original) orelse "";
@@ -461,7 +480,8 @@ pub fn exportElement(gpa: std.mem.Allocator, db: *database.Database, element: us
     for (options.fonts) |font| {
         try files.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ "fonts/", font.name }), .bytes = font.bytes });
     }
-    return zip_writer.write(gpa, files.items);
+    try Progress.check(options.progress);
+    return .{ .bytes = try zip_writer.write(gpa, files.items), .entries = files.items.len };
 }
 
 /// Where an export goes below the game folder (D-09).
@@ -496,15 +516,16 @@ pub fn destinationPath(gpa: std.mem.Allocator, io: std.Io, game_folder: []const 
 }
 
 /// Exports `element` to `destination` below `game_folder` and returns the
-/// path written, which the caller owns. A mod without a `data/mod.xml` gets
+/// path written, which the caller owns, and the entries the pak holds. A
+/// cancelled export (`options.progress`) writes nothing. A mod without a `data/mod.xml` gets
 /// one naming it, version 1.0, in the form the Resource Editor writes:
 /// the game mounts no mod folder without it. An existing one is left alone.
-pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, element: usize, game_folder: []const u8, destination: Destination, options: ExportOptions) ![]u8 {
+pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, element: usize, game_folder: []const u8, destination: Destination, options: ExportOptions) !Written {
     const path = try destinationPath(gpa, io, game_folder, destination);
     errdefer gpa.free(path);
-    const bytes = try exportElement(gpa, db, element, options);
-    defer gpa.free(bytes);
-    try database.writeFileAtomic(io, gpa, path, bytes);
+    const pak = try buildPak(gpa, db, element, options);
+    defer gpa.free(pak.bytes);
+    try database.writeFileAtomic(io, gpa, path, pak.bytes);
     switch (destination) {
         .mod => |name| {
             const mod_xml = try database.resolve(gpa, io, std.fs.path.dirname(path).?, "mod.xml");
@@ -520,14 +541,12 @@ pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, elem
         },
         .game => {},
     }
-    return path;
+    return .{ .path = path, .entries = pak.entries };
 }
 
-/// How many entries `exportElement` writes for `element`: one per text and
-/// one per font file.
-pub fn entryCount(db: *const database.Database, element: usize, options: ExportOptions) usize {
-    return db.bases[element].keys.len + options.fonts.len;
-}
+/// `exportTo`'s result: the pak's path, which the caller owns, and its
+/// entries, one per text exported and one per font file.
+pub const Written = struct { path: []u8, entries: usize };
 
 /// What D-09's warning for "Install to game" names: the game mounts loose
 /// files before its archives, so a loose `<game>/Data/<key>.txt` hides that
@@ -975,6 +994,23 @@ test "an export carries the translation or the original as the MFC export chose"
     defer archive.deinit();
     const c = try archive.extract(arena.allocator(), archive.find("c.txt").?);
     try testing.expectEqualSlices(u8, utf16(""), c);
+
+    // By filter (D6): only the texts it admits, the others left out, the
+    // fonts kept. Translated and Approved are a, d and Units/Tank/name; the
+    // condition `tank` keeps the one whose folder holds it.
+    const cases = [_]struct { conditions: []const u8, names: []const []const u8 }{
+        .{ .conditions = "", .names = &.{ "Units/Tank/name.txt", "a.txt", "d.txt", "fonts/medium/1.tfd", "fonts/medium/1_c.dds" } },
+        .{ .conditions = "tank", .names = &.{ "Units/Tank/name.txt", "fonts/medium/1.tfd", "fonts/medium/1_c.dds" } },
+    };
+    for (cases) |case| {
+        const filter: filter_mod.Filter = .{ .name = "Done", .states = .{ false, false, true, true }, .conditions = case.conditions };
+        const pak = try buildPak(testing.allocator, &db, 0, .{ .fonts = &fonts, .filter = filter });
+        defer testing.allocator.free(pak.bytes);
+        const filtered = try readBack(arena.allocator(), pak.bytes);
+        try testing.expectEqual(case.names.len, pak.entries);
+        try testing.expectEqual(case.names.len, filtered.len);
+        for (case.names, filtered) |want, got| try testing.expectEqualStrings(want, got.name);
+    }
 }
 
 test "an export goes to a mod, with a mod.xml when it has none, or into the game's Data" {
@@ -994,8 +1030,10 @@ test "an export goes to a mod, with a mod.xml when it has none, or into the game
     const bytes = try exportElement(testing.allocator, &db, 0, .{});
     defer testing.allocator.free(bytes);
 
-    const mod_path = try exportTo(testing.allocator, io, &db, 0, game, .{ .mod = "ELK Test" }, .{});
+    const mod_written = try exportTo(testing.allocator, io, &db, 0, game, .{ .mod = "ELK Test" }, .{});
+    const mod_path = mod_written.path;
     defer testing.allocator.free(mod_path);
+    try testing.expectEqual(@as(usize, 1), mod_written.entries);
     const want_mod = try std.fs.path.join(testing.allocator, &.{ game, "mods", "ELK Test", "data", "texts.pak" });
     defer testing.allocator.free(want_mod);
     try testing.expectEqualStrings(want_mod, mod_path);
@@ -1011,10 +1049,16 @@ test "an export goes to a mod, with a mod.xml when it has none, or into the game
     }
     // A mod's own mod.xml stays.
     try database.writeFixture(io, game, "mods/ELK Test/data/mod.xml", "mine");
-    testing.allocator.free(try exportTo(testing.allocator, io, &db, 0, game, .{ .mod = "ELK Test" }, .{}));
+    testing.allocator.free((try exportTo(testing.allocator, io, &db, 0, game, .{ .mod = "ELK Test" }, .{})).path);
     try expectFile(io, game, "mods/ELK Test/data/mod.xml", "mine");
 
-    const game_path = try exportTo(testing.allocator, io, &db, 0, game, .game, .{});
+    // A cancelled export (D-14) leaves the pak there as it was.
+    var progress: Progress = .{};
+    progress.cancel();
+    try testing.expectError(error.Cancelled, exportTo(testing.allocator, io, &db, 0, game, .game, .{ .progress = &progress }));
+    try expectFile(io, game, "data/TEXTS.pak", "old");
+
+    const game_path = (try exportTo(testing.allocator, io, &db, 0, game, .game, .{})).path;
     defer testing.allocator.free(game_path);
     const want_game = try std.fs.path.join(testing.allocator, &.{ game, "data", "TEXTS.pak" });
     defer testing.allocator.free(want_game);
@@ -1042,8 +1086,9 @@ test "a loose Data/Textes shadows the texts it holds, found whatever their case"
     defer testing.allocator.free(game);
     var db = try database.Database.open(testing.allocator, io, elk_path);
     defer db.deinit();
-    try testing.expectEqual(@as(usize, 3), entryCount(&db, 0, .{}));
-    try testing.expectEqual(@as(usize, 5), entryCount(&db, 0, .{ .fonts = &.{ .{ .name = "a", .bytes = "" }, .{ .name = "b", .bytes = "" } } }));
+    const pak = try buildPak(testing.allocator, &db, 0, .{ .fonts = &.{ .{ .name = "a", .bytes = "" }, .{ .name = "b", .bytes = "" } } });
+    defer testing.allocator.free(pak.bytes);
+    try testing.expectEqual(@as(usize, 5), pak.entries);
 
     var none = try shadowedTexts(testing.allocator, io, &db, 0, game);
     defer none.deinit(testing.allocator);
