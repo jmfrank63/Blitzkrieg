@@ -41,13 +41,25 @@
 //!   do=find_close            Cancel
 //!   do=statistics            View > ELK Statistic
 //!   do=statistics_close      the statistic window's OK
+//!   do=export_mod            File > Export to language mod...; the commands
+//!                            below need the dialog drawn in the last frame
+//!   do=export_name:<text>    type a mod's name or folder into the Mod box
+//!   do=export_browse         press Browse...; `do=answer` answers it
+//!   do=export_ok  do=export_cancel
+//!   do=install               File > Install to game...
+//!   do=install_choice:<c>    a button of the shadow warning (drawn in the
+//!                            last frame): mod, install or cancel
+//!   do=run_game              File > Run Game
+//!   do=wait_game             block until the game Run Game started exits
+//!                            (30 s at most); it must exit 0
 //!   do=wait:<seconds>        the autosave clock moves on that far
 //!   do=kill                  the frame loop stops at once, no save point
 //!   do=focus:translation     the translation box takes the keyboard
 //!   do=save  do=close  do=reopen  (File > Save, File > Close, open again)
 //!   do=open                  File > Open; the run shows no OS dialog
-//!   do=answer:<path>         the waiting File > Open dialog chose <path>,
-//!                            relative to the runner's dialog folder if set
+//!   do=answer:<path>         the waiting File > Open or Browse... dialog
+//!                            chose <path>, relative to the runner's dialog
+//!                            folder if set
 //!   expect=open  expect=closed  expect=rows  expect=glyphs
 //!   expect=texts:<n>  expect=title:<file>  expect=dirty:<0|1>
 //!   expect=original_has:<text>  expect=translation:<text>
@@ -78,6 +90,17 @@
 //!                            translation; row total, a state (summed over
 //!                            the elements), an element's number, or
 //!                            <number>.<state>
+//!   expect=can_export:<0|1>  expect=can_run_game:<0|1>  whether the File
+//!                            menu's export commands and Run Game are enabled
+//!   expect=export_dialog:<0|1>  expect=install_warning:<0|1>  whether open
+//!   expect=warning:<count>=<folder>  the shadow warning's count and the
+//!                            last part of the loose folder it names
+//!   expect=pak:<mod>=<entries|none>  the pak of the mod (`game` for
+//!                            Data/Texts.pak) in the game folder, read back by
+//!                            the core: its text entries, or no such file
+//!   expect=notice_has:<text>   the status line's export or launch summary
+//!   expect=failure_has:<text>  the status line's failure
+//!   expect=launched:<index>=<argument>  the last Run Game's command line
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
 //!   expect=identical           every file of the opened copy is byte-identical
@@ -237,6 +260,32 @@ pub const Runner = struct {
         } else if (is(named, "statistics_close")) {
             if (!ui.statistics_drawn) return self.fail("do=statistics_close: the statistic window is not shown", .{});
             ui.closeStatistics();
+        } else if (is(named, "export_mod")) {
+            if (!ui.canExport()) return self.fail("do=export_mod: Export to language mod... is disabled", .{});
+            ui.requestExportMod(false);
+        } else if (is(named, "export_name") or is(named, "export_browse") or is(named, "export_ok") or is(named, "export_cancel")) {
+            if (!ui.export_drawn) return self.fail("do={s}: the export dialog is not shown", .{named.name});
+            if (is(named, "export_name")) {
+                ui.setExportName(named.arg);
+            } else if (is(named, "export_browse")) {
+                ui.requestModFolder(window);
+            } else ui.export_pending = is(named, "export_ok");
+        } else if (is(named, "install")) {
+            if (!ui.canExport()) return self.fail("do=install: Install to game... is disabled", .{});
+            ui.requestInstall();
+        } else if (is(named, "install_choice")) {
+            if (!ui.install_drawn) return self.fail("do=install_choice: the shadow warning is not shown", .{});
+            ui.install_pending = std.meta.stringToEnum(ui_mod.Ui.InstallChoice, named.arg) orelse return self.fail("do=install_choice: no button {s}", .{named.arg});
+        } else if (is(named, "run_game")) {
+            if (!ui.canRunGame()) return self.fail("do=run_game: Run Game is disabled", .{});
+            ui.requestRunGame();
+        } else if (is(named, "wait_game")) {
+            // A game that exited before this frame was already polled.
+            const exit = if (ui.running) |*running|
+                running.waitBlocking(ui.io, 30_000) orelse return self.fail("do=wait_game: the game did not exit within 30 s", .{})
+            else
+                ui.game_exit orelse return self.fail("do=wait_game: Run Game started no game ({s})", .{session.failureText()});
+            if (kit.testlaunch.describe(exit) != .clean) return self.fail("do=wait_game: the game ended with exit {?d}, signal {?d}", .{ exit.code, exit.signal });
         } else if (is(named, "wait")) {
             const seconds = std.fmt.parseInt(u64, named.arg, 10) catch return self.fail("wait needs seconds, got {s}", .{named.arg});
             ui.clock_offset_ms += seconds * std.time.ms_per_s;
@@ -253,7 +302,7 @@ pub const Runner = struct {
         } else if (is(named, "answer")) {
             var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
             const path = if (self.dialog_folder.len == 0) named.arg else try std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ self.dialog_folder, std.fs.path.sep, named.arg });
-            if (!ui.answerOpen(path)) return self.fail("do=answer: no File > Open dialog is waiting", .{});
+            if (!ui.answerDialog(path)) return self.fail("do=answer: no File > Open or Browse... dialog is waiting", .{});
         } else if (is(named, "reopen")) {
             var copy: [std.Io.Dir.max_path_bytes]u8 = undefined;
             const last = self.last_path[0..self.last_path_len];
@@ -417,6 +466,34 @@ pub const Runner = struct {
             if (ui.statistics_drawn != wanted) return self.fail("expect=statistics: drawn is {}, wanted {}", .{ !wanted, wanted });
         } else if (is(named, "statistic")) {
             try self.statistic(ui, named.arg);
+        } else if (is(named, "can_export") or is(named, "can_run_game")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            const enabled = if (is(named, "can_export")) ui.canExport() else ui.canRunGame();
+            if (enabled != wanted) return self.fail("expect={s}: enabled is {}, wanted {}", .{ named.name, enabled, wanted });
+        } else if (is(named, "export_dialog")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.export_open != wanted) return self.fail("expect=export_dialog: open is {}, wanted {}", .{ ui.export_open, wanted });
+        } else if (is(named, "install_warning")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if ((ui.install_warning != null) != wanted) return self.fail("expect=install_warning: open is {}, wanted {}", .{ !wanted, wanted });
+        } else if (is(named, "warning")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("warning needs <count>=<folder>", .{});
+            const shadow = ui.install_warning orelse return self.fail("expect=warning: no shadow warning is up", .{});
+            const count = std.fmt.parseInt(usize, named.arg[0..eq], 10) catch return self.fail("warning needs a count", .{});
+            const folder = std.fs.path.basename(shadow.folder.?);
+            if (shadow.count != count or !std.mem.eql(u8, folder, named.arg[eq + 1 ..]))
+                return self.fail("expect=warning: {d} texts in {s}, wanted {s}", .{ shadow.count, shadow.folder.?, named.arg });
+        } else if (is(named, "pak")) {
+            try self.pak(ui, named.arg);
+        } else if (is(named, "notice_has")) {
+            if (std.mem.indexOf(u8, ui.notice(), named.arg) == null) return self.fail("expect=notice_has: the summary \"{s}\" lacks \"{s}\"", .{ ui.notice(), named.arg });
+        } else if (is(named, "failure_has")) {
+            if (std.mem.indexOf(u8, session.failureText(), named.arg) == null) return self.fail("expect=failure_has: the failure \"{s}\" lacks \"{s}\"", .{ session.failureText(), named.arg });
+        } else if (is(named, "launched")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("launched needs <index>=<argument>", .{});
+            const index = std.fmt.parseInt(usize, named.arg[0..eq], 10) catch return self.fail("launched needs a number", .{});
+            const shown = ui.launchedArgument(index) orelse return self.fail("expect=launched: Run Game started no argument {d}", .{index});
+            if (!std.mem.eql(u8, shown, named.arg[eq + 1 ..])) return self.fail("expect=launched: argument {d} is {s}, wanted {s}", .{ index, shown, named.arg[eq + 1 ..] });
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
         } else if (is(named, "identical")) {
@@ -468,6 +545,27 @@ pub const Runner = struct {
         var buffer: [64]u8 = undefined;
         const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}/{d}/{d}", .{ counts.texts, counts.words, counts.word_symbols, counts.symbols });
         if (!std.mem.eql(u8, shown, arg[eq + 1 ..])) return self.fail("expect=statistic: {s} is {s}, wanted {s}", .{ arg[0..eq], shown, arg[eq + 1 ..] });
+    }
+
+    /// `<mod|game>=<entries|none>`: the pak where the core exports to,
+    /// read back by the core's own reader.
+    fn pak(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
+        const eq = std.mem.lastIndexOfScalar(u8, arg, '=') orelse return self.fail("pak needs <mod|game>=<entries|none>", .{});
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = ui.gameFolder(&game_buffer) orelse return self.fail("expect=pak: the game folder is unknown", .{});
+        const where = arg[0..eq];
+        const destination: elk.packages.Destination = if (std.mem.eql(u8, where, "game")) .game else .{ .mod = where };
+        const path = try elk.packages.destinationPath(ui.gpa, ui.io, game, destination);
+        defer ui.gpa.free(path);
+        const wanted = arg[eq + 1 ..];
+        var package = elk.packages.readArchive(ui.gpa, ui.io, path) catch |err| {
+            if (err == error.FileNotFound and std.mem.eql(u8, wanted, "none")) return;
+            return self.fail("expect=pak: {s} does not read back: {s}", .{ path, @errorName(err) });
+        };
+        defer package.deinit();
+        if (std.mem.eql(u8, wanted, "none")) return self.fail("expect=pak: {s} exists", .{path});
+        const count = std.fmt.parseInt(usize, wanted, 10) catch return self.fail("pak needs a count or none", .{});
+        if (package.entries.len != count) return self.fail("expect=pak: {s} holds {d} texts, wanted {d}", .{ path, package.entries.len, count });
     }
 
     /// The row's translation and state files compare byte for byte with

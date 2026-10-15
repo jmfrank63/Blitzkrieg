@@ -14,7 +14,14 @@
 //! frame's modeless Find dialog over the core's search, its text and
 //! options kept in elk.cfg; View > ELK Statistic counts the database
 //! (`CStatisticDialog`) and shows the counts as the MFC dialog's tree.
+//! File > Export to language mod..., Install to game... and Run Game take
+//! the database to the game through the core's export (D-08, D-09): the mod
+//! route is the default, since the game reads a mod before its loose files;
+//! Install to game warns when a loose folder would hide its `Data/Texts.pak`
+//! and offers the mod instead; Run Game plays the mod exported this session
+//! in ELK's own test profile.
 const std = @import("std");
+const builtin = @import("builtin");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
 const kit = @import("editor_kit");
@@ -41,6 +48,14 @@ var open_slot: OpenSlot = .{};
 const OpenSlot = kit.dialogs.PathSlot(void, settings_mod.max_path);
 
 const open_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "ELK projects (elk.xml)", .pattern = "xml" }};
+
+/// The export dialog's Browse...: the mod folder the OS dialog chose.
+var mod_slot: ModSlot = .{};
+
+const ModSlot = kit.dialogs.PathSlot(void, settings_mod.max_path);
+const testlaunch = kit.testlaunch;
+const export_popup = "Export to language mod";
+const warning_popup = "Install to game";
 
 pub const Ui = struct {
     gpa: std.mem.Allocator,
@@ -104,12 +119,54 @@ pub const Ui = struct {
     statistics: ?Statistic = null,
     statistics_arena: ?std.heap.ArenaAllocator = null,
     statistics_drawn: bool = false,
+    /// Run Game's environment for the Game it starts.
+    environ: std.process.Environ,
+    /// File > Export to language mod... is open; its popup opens in the
+    /// next frame, ImGui opening popups inside one.
+    export_open: bool = false,
+    export_opening: bool = false,
+    /// Run Game opened the dialog: a successful export starts the game.
+    export_then_run: bool = false,
+    /// The Mod box: a mod's name, or its folder in `<game>/mods`.
+    export_name: [settings_mod.max_path:0]u8 = @splat(0),
+    /// Part of the Mod box's ID, moved on when the text is set from outside
+    /// (Browse..., a scripted run): an active box keeps its own copy of the
+    /// text and would write it back.
+    export_name_generation: c_int = 0,
+    /// The dialog's last Export wrote nothing (the reason is the session's).
+    export_failed: bool = false,
+    export_drawn: bool = false,
+    /// A scripted Export (true) or Cancel, taken inside the popup as the
+    /// buttons are.
+    export_pending: ?bool = null,
+    /// Install to game's D-09 warning while it is up: what hides the pak.
+    install_warning: ?session_mod.Shadow = null,
+    install_opening: bool = false,
+    install_drawn: bool = false,
+    install_pending: ?InstallChoice = null,
+    /// The mod exported to in this session, which Run Game plays.
+    played_mod: [settings_mod.max_path]u8 = undefined,
+    played_mod_len: usize = 0,
+    /// The last export's or launch's summary, shown in the status line.
+    notice_storage: [768]u8 = undefined,
+    notice_len: usize = 0,
+    /// Run Game's Game while it runs: polled each frame, never waited on.
+    running: ?testlaunch.Running = null,
+    /// How the last game Run Game started ended.
+    game_exit: ?testlaunch.Exit = null,
+    game_log: [std.Io.Dir.max_path_bytes]u8 = undefined,
+    game_log_len: usize = 0,
+    /// The last Run Game's command line, one argument per line, for the
+    /// scripted runs.
+    launched: [2048]u8 = undefined,
+    launched_len: usize = 0,
 
     /// `colour` is the row's state colour; a dimmed row was drawn fainter.
     pub const Drawn = struct { node: u32, colour: u32, dimmed: bool };
 
     pub fn deinit(self: *Ui) void {
         if (self.filter_dialog) |dialog| self.gpa.destroy(dialog);
+        self.closeInstallWarning();
         self.closeStatistics();
         self.marks.deinit(self.gpa);
         self.expanded.deinit(self.gpa);
@@ -153,12 +210,15 @@ pub const Ui = struct {
         sdl3.c.SDL_ShowOpenFileDialog(OpenSlot.callback, &open_slot, window.window, &open_filters, open_filters.len, location, false);
     }
 
-    /// A scripted run's stand-in for the OS dialog: answers the File > Open
-    /// that is waiting. False when none is.
-    pub fn answerOpen(self: *Ui, path: []const u8) bool {
+    /// A scripted run's stand-in for the OS dialogs: answers the File > Open
+    /// or the export's Browse... that is waiting. False when none is.
+    pub fn answerDialog(self: *Ui, path: []const u8) bool {
         _ = self;
-        if (!open_slot.waiting()) return false;
-        open_slot.deliver(path);
+        if (open_slot.waiting()) {
+            open_slot.deliver(path);
+        } else if (mod_slot.waiting()) {
+            mod_slot.deliver(path);
+        } else return false;
         return true;
     }
 
@@ -380,6 +440,228 @@ pub const Ui = struct {
         return total;
     }
 
+    /// The game installation the exports and Run Game use: elk.cfg's, else
+    /// the folder ELK runs from, ELK being installed beside Game. Null when
+    /// neither is known.
+    pub fn gameFolder(self: *const Ui, buffer: *[std.Io.Dir.max_path_bytes]u8) ?[]const u8 {
+        const chosen = self.settings.gameFolder();
+        if (chosen.len != 0) return chosen;
+        const len = std.process.executableDirPath(self.io, buffer) catch return null;
+        return buffer[0..len];
+    }
+
+    fn knownGameFolder(self: *Ui, buffer: *[std.Io.Dir.max_path_bytes]u8) ?[]const u8 {
+        return self.gameFolder(buffer) orelse {
+            self.session.fail("the game folder is unknown (game_folder in elk.cfg)", .{});
+            return null;
+        };
+    }
+
+    /// The export commands need an open database; Run Game also no game of
+    /// its own still running.
+    pub fn canExport(self: *const Ui) bool {
+        return self.session.isOpen();
+    }
+
+    pub fn canRunGame(self: *Ui) bool {
+        return self.canExport() and !self.gameRunning();
+    }
+
+    pub fn gameRunning(self: *Ui) bool {
+        if (self.running) |*running| return running.poll(self.io) == null;
+        return false;
+    }
+
+    /// File > Export to language mod...: the dialog opens with the mod of
+    /// this session's last export.
+    pub fn requestExportMod(self: *Ui, then_run: bool) void {
+        if (!self.canExport()) return;
+        self.setExportName(self.played_mod[0..self.played_mod_len]);
+        self.export_open = true;
+        self.export_opening = true;
+        self.export_then_run = then_run;
+        self.export_failed = false;
+        self.export_pending = null;
+    }
+
+    /// The dialog's Browse...: the OS folder dialog, starting in the game's
+    /// `mods`. Its answer fills the Mod box in a later frame (`draw`).
+    pub fn requestModFolder(self: *Ui, window: *window_mod.Window) void {
+        if (!mod_slot.request({})) return;
+        if (!self.os_dialogs) return;
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.gameFolder(&game_buffer) orelse "";
+        var folder_buffer: [std.Io.Dir.max_path_bytes + 8]u8 = undefined;
+        const location: ?[*:0]const u8 = if (game.len == 0) null else if (std.mem.printSentinel(&folder_buffer, "{s}{c}mods", .{ game, std.fs.path.sep }, 0)) |z| z.ptr else |_| null;
+        sdl3.c.SDL_ShowOpenFolderDialog(ModSlot.callback, &mod_slot, window.window, location, false);
+    }
+
+    fn takeModFolder(self: *Ui) void {
+        switch (mod_slot.take() orelse return) {
+            .path => |chosen| self.setExportName(chosen.path),
+            .cancelled => {},
+            .failed => |reason| self.session.fail("the folder dialog failed: {s}", .{reason}),
+        }
+    }
+
+    /// The Mod box's text, set as a chosen folder or a scripted run sets it;
+    /// cut to the box.
+    pub fn setExportName(self: *Ui, text: []const u8) void {
+        const len = @min(text.len, self.export_name.len);
+        @memcpy(self.export_name[0..len], text[0..len]);
+        self.export_name[len] = 0;
+        self.export_name_generation +%= 1;
+    }
+
+    /// The dialog's Export: the Mod box's mod, `mods/<Name>/data/texts.pak`
+    /// in the game folder, written by the core; the summary names the entry
+    /// count. False when nothing was written, the reason in the status line.
+    pub fn exportToMod(self: *Ui) bool {
+        self.export_failed = true;
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.knownGameFolder(&game_buffer) orelse return false;
+        const typed = std.mem.sliceTo(&self.export_name, 0);
+        const name = session_mod.modName(game, typed) orelse {
+            self.session.fail("\"{s}\" is neither a mod's name nor a folder in {s}{c}mods", .{ typed, game, std.fs.path.sep });
+            return false;
+        };
+        const exported = self.session.exportPak(game, .{ .mod = name }) catch return false;
+        defer self.gpa.free(exported.path);
+        @memcpy(self.played_mod[0..name.len], name);
+        self.played_mod_len = name.len;
+        self.export_failed = false;
+        self.notify("exported {d} texts to {s}", .{ exported.entries, exported.path });
+        if (self.export_then_run) self.launchGame();
+        return true;
+    }
+
+    /// File > Install to game...: `Data/Texts.pak` in the game folder, at
+    /// once when nothing loose hides it, else after D-09's warning.
+    pub fn requestInstall(self: *Ui) void {
+        if (!self.canExport()) return;
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.knownGameFolder(&game_buffer) orelse return;
+        var shadow = self.session.shadowed(game) catch return;
+        if (shadow.count == 0) {
+            shadow.deinit(self.gpa);
+            _ = self.installToGame();
+            return;
+        }
+        self.closeInstallWarning();
+        self.install_warning = shadow;
+        self.install_opening = true;
+        self.install_pending = null;
+    }
+
+    pub const InstallChoice = enum { mod, install, cancel };
+
+    /// The warning's buttons: the mod route (the default), Install anyway
+    /// or Cancel.
+    pub fn chooseInstall(self: *Ui, choice: InstallChoice) void {
+        self.closeInstallWarning();
+        switch (choice) {
+            .mod => self.requestExportMod(false),
+            .install => _ = self.installToGame(),
+            .cancel => {},
+        }
+    }
+
+    fn closeInstallWarning(self: *Ui) void {
+        if (self.install_warning) |*shadow| shadow.deinit(self.gpa);
+        self.install_warning = null;
+    }
+
+    /// Writes `Data/Texts.pak` in the game folder, where the MFC ELK wrote it.
+    pub fn installToGame(self: *Ui) bool {
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.knownGameFolder(&game_buffer) orelse return false;
+        const exported = self.session.exportPak(game, .game) catch return false;
+        defer self.gpa.free(exported.path);
+        self.notify("installed {d} texts to {s}", .{ exported.entries, exported.path });
+        return true;
+    }
+
+    /// File > Run Game (D-09): the mod exported this session, exported
+    /// again so the edits since go with it (the MFC Run Game packed first),
+    /// then the game started on it. With no mod exported yet the export
+    /// dialog asks for one and starts the game after its Export.
+    pub fn requestRunGame(self: *Ui) void {
+        if (!self.canRunGame()) return;
+        if (self.played_mod_len == 0) return self.requestExportMod(true);
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.knownGameFolder(&game_buffer) orelse return;
+        const exported = self.session.exportPak(game, .{ .mod = self.played_mod[0..self.played_mod_len] }) catch return;
+        self.gpa.free(exported.path);
+        self.launchGame();
+    }
+
+    /// `Game -editor-test -profile=ELKTest -mod=<mod> -windowed` in the game
+    /// folder, its output in `game.log` beside elk.cfg (in the game folder
+    /// when there is no settings file).
+    fn launchGame(self: *Ui) void {
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.knownGameFolder(&game_buffer) orelse return;
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const executable = if (builtin.os.tag == .windows) "Game.exe" else "Game";
+        const game_path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ game, std.fs.path.sep, executable }) catch return self.session.fail("the game path is too long", .{});
+        const log_folder = std.fs.path.dirname(self.settings_path) orelse game;
+        const log = std.fmt.bufPrint(&self.game_log, "{s}{c}{s}", .{ log_folder, std.fs.path.sep, if (self.settings_path.len != 0) "game.log" else "elk-game.log" }) catch return self.session.fail("the game log path is too long", .{});
+        self.game_log_len = log.len;
+        const mod = self.played_mod[0..self.played_mod_len];
+        const options = session_mod.runGameOptions(game_path, mod, log);
+        var storage: testlaunch.ArgvStorage = .{};
+        var writer: std.Io.Writer = .fixed(&self.launched);
+        for (testlaunch.buildArgv(&storage, options)) |argument| writer.print("{s}\n", .{argument}) catch break;
+        self.launched_len = writer.buffered().len;
+        self.game_exit = null;
+        self.running = testlaunch.start(self.gpa, self.io, self.environ, options) catch |err| {
+            self.session.fail("{s} did not start: {s}", .{ game_path, @errorName(err) });
+            return;
+        };
+        self.notify("Run Game: -mod={s} in the {s} profile (log {s})", .{ mod, session_mod.game_profile, log });
+    }
+
+    /// The game Run Game started: a failed exit is reported with its log.
+    fn pollGame(self: *Ui) void {
+        const running = if (self.running) |*running| running else return;
+        const exit = running.poll(self.io) orelse return;
+        self.running = null;
+        self.game_exit = exit;
+        switch (testlaunch.describe(exit)) {
+            .clean => {},
+            .early_failure, .failure => self.session.fail("the Game ended with a failure (exit {?d}, signal {?d}); its output is in {s}", .{ exit.code, exit.signal, self.game_log[0..self.game_log_len] }),
+        }
+    }
+
+    /// The argument of the last Run Game's command line at `index`.
+    pub fn launchedArgument(self: *const Ui, index: usize) ?[]const u8 {
+        var lines = std.mem.splitScalar(u8, self.launched[0..self.launched_len], '\n');
+        var at: usize = 0;
+        while (lines.next()) |line| : (at += 1) {
+            if (line.len == 0) return null;
+            if (at == index) return line;
+        }
+        return null;
+    }
+
+    pub fn notice(self: *const Ui) []const u8 {
+        return self.notice_storage[0..self.notice_len];
+    }
+
+    fn notify(self: *Ui, comptime format: []const u8, args: anytype) void {
+        const written = std.fmt.bufPrint(&self.notice_storage, format, args) catch {
+            self.notice_len = self.notice_storage.len;
+            return;
+        };
+        self.notice_len = written.len;
+    }
+
+    /// A dialog of ELK's own is up: the translation box must not take the
+    /// focus, which would close its modal.
+    fn modalOpen(self: *const Ui) bool {
+        return self.filter_dialog != null or self.export_open or self.install_warning != null;
+    }
+
     /// The autosave clock: SDL's milliseconds plus the scripted offset.
     pub fn now(self: *const Ui) u64 {
         return sdl3.c.SDL_GetTicks() + self.clock_offset_ms;
@@ -420,6 +702,8 @@ pub const Ui = struct {
 
     pub fn draw(self: *Ui, window: *window_mod.Window) void {
         self.takeOpen();
+        self.takeModFolder();
+        self.pollGame();
         window.setTitle(self.title().ptr);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
@@ -445,6 +729,8 @@ pub const Ui = struct {
         // Last in the frame: a translation box activated in this frame
         // focuses the main window, which would close a modal opened before.
         defer self.drawFilterDialog();
+        defer self.drawExportDialog(window);
+        defer self.drawInstallWarning();
         defer self.drawStatisticsWindow();
         defer self.drawFindWindow();
         self.drawMenu(window);
@@ -474,6 +760,114 @@ pub const Ui = struct {
             .ok => self.closeFilterDialog(true),
             .cancel => self.closeFilterDialog(false),
         }
+    }
+
+    /// File > Export to language mod...: the Mod box takes a mod's name or,
+    /// through Browse..., its folder in the game's `mods`; Export writes
+    /// `mods/<Name>/data/texts.pak` there.
+    fn drawExportDialog(self: *Ui, window: *window_mod.Window) void {
+        self.export_drawn = false;
+        if (!self.export_open) return;
+        if (self.export_opening) {
+            _ = ig.igOpenPopup(export_popup, 0);
+            self.export_opening = false;
+        }
+        const font = ig.igGetFontSize();
+        ig.igSetNextWindowSize(.{ .x = font * 36, .y = 0 }, ig.ImGuiCond_Appearing);
+        if (!ig.igBeginPopupModal(export_popup, null, 0)) {
+            self.export_open = false;
+            return;
+        }
+        defer ig.igEndPopup();
+        self.export_drawn = true;
+        if (self.export_pending) |export_now| {
+            self.export_pending = null;
+            if (!export_now or self.exportToMod()) {
+                ig.igCloseCurrentPopup();
+                self.export_open = false;
+            }
+            return;
+        }
+        var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const game = self.gameFolder(&game_buffer) orelse "";
+        var line: [std.Io.Dir.max_path_bytes + 256:0]u8 = undefined;
+        ig.igPushTextWrapPos(0);
+        ig.igTextUnformatted("The game reads a language mod before its loose files and archives, so nothing hides it. Start the game on it with File > Run Game.");
+        ig.igPopTextWrapPos();
+        ig.igTextUnformatted("Mod (a name, or its folder in the game's mods):");
+        if (ig.igIsWindowAppearing()) ig.igSetKeyboardFocusHere();
+        ig.igSetNextItemWidth(font * 26);
+        ig.igPushIDInt(self.export_name_generation);
+        const entered = ig.igInputText("##mod", &self.export_name, self.export_name.len, ig.ImGuiInputTextFlags_EnterReturnsTrue);
+        ig.igPopID();
+        ig.igSameLine();
+        ig.igBeginDisabled(mod_slot.waiting());
+        if (ig.igButton("Browse...")) self.requestModFolder(window);
+        ig.igEndDisabled();
+        const typed = std.mem.sliceTo(&self.export_name, 0);
+        const name = session_mod.modName(game, typed);
+        const sep = std.fs.path.sep;
+        const shown: [:0]const u8 = if (name) |chosen|
+            std.mem.printSentinel(&line, "Writes {s}{c}mods{c}{s}{c}data{c}texts.pak", .{ game, sep, sep, chosen, sep, sep }, 0) catch ""
+        else if (typed.len != 0)
+            std.mem.printSentinel(&line, "Not a mod's name, nor a folder in {s}{c}mods", .{ game, sep }, 0) catch ""
+        else
+            "";
+        ig.igTextUnformatted(shown.ptr);
+        if (self.export_failed) {
+            const failure = std.mem.printSentinel(&line, "{s}", .{self.session.failureText()}, 0) catch "";
+            ig.igTextUnformatted(failure.ptr);
+        }
+        ig.igSeparator();
+        ig.igBeginDisabled(name == null);
+        const pressed = ig.igButton(if (self.export_then_run) "Export and Run" else "Export");
+        ig.igEndDisabled();
+        if ((pressed or entered) and name != null and self.exportToMod()) {
+            ig.igCloseCurrentPopup();
+            self.export_open = false;
+            return;
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
+            ig.igCloseCurrentPopup();
+            self.export_open = false;
+        }
+    }
+
+    /// Install to game's D-09 warning: the loose folder named, the mod
+    /// route as the default button (Enter), Install anyway, Cancel (Escape).
+    fn drawInstallWarning(self: *Ui) void {
+        self.install_drawn = false;
+        const shadow = self.install_warning orelse return;
+        if (self.install_opening) {
+            _ = ig.igOpenPopup(warning_popup, 0);
+            self.install_opening = false;
+        }
+        ig.igSetNextWindowSize(.{ .x = ig.igGetFontSize() * 36, .y = 0 }, ig.ImGuiCond_Appearing);
+        if (!ig.igBeginPopupModal(warning_popup, null, 0)) return self.closeInstallWarning();
+        var choice: ?InstallChoice = null;
+        {
+            defer ig.igEndPopup();
+            self.install_drawn = true;
+            choice = self.install_pending;
+            self.install_pending = null;
+            var line: [std.Io.Dir.max_path_bytes + 512:0]u8 = undefined;
+            const text = std.mem.printSentinel(&line, "{d} texts of this project are also loose files in {s}. The game reads loose files before Data/Texts.pak, so it would show those instead of the installed translations.\n\nA language mod is read before the loose files. Export to a language mod instead?", .{ shadow.count, shadow.folder.? }, 0) catch "";
+            ig.igPushTextWrapPos(0);
+            ig.igTextUnformatted(text.ptr);
+            ig.igPopTextWrapPos();
+            ig.igSeparator();
+            if (ig.igButton("Export to language mod...")) choice = .mod;
+            ig.igSetItemDefaultFocus();
+            ig.igSameLine();
+            if (ig.igButton("Install anyway")) choice = .install;
+            ig.igSameLine();
+            if (ig.igButton("Cancel")) choice = .cancel;
+            if (choice == null and (ig.igIsKeyPressedEx(ig.ImGuiKey_Enter, false) or ig.igIsKeyPressedEx(ig.ImGuiKey_KeypadEnter, false))) choice = .mod;
+            if (choice == null and ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) choice = .cancel;
+            if (choice != null) ig.igCloseCurrentPopup();
+        }
+        if (choice) |chosen| self.chooseInstall(chosen);
     }
 
     fn drawMenu(self: *Ui, window: *window_mod.Window) void {
@@ -681,6 +1075,10 @@ pub const Ui = struct {
         if (ig.igMenuItemEx("Save", "Ctrl+S", false, open)) self.session.save() catch {};
         if (ig.igMenuItemEx("Close", null, false, open)) self.session.close() catch {};
         ig.igSeparator();
+        if (ig.igMenuItemEx("Export to language mod...", null, false, self.canExport())) self.requestExportMod(false);
+        if (ig.igMenuItemEx("Install to game...", null, false, self.canExport())) self.requestInstall();
+        if (ig.igMenuItemEx("Run Game", null, false, self.canRunGame())) self.requestRunGame();
+        ig.igSeparator();
         if (ig.igMenuItem("Exit")) self.requestExit();
     }
 
@@ -758,7 +1156,7 @@ pub const Ui = struct {
         self.drawStateButtons();
         ig.igTextUnformatted("Translation");
         // Held while the dialog is open, whose modal the focus would close.
-        if (self.focus_translation and self.filter_dialog == null) {
+        if (self.focus_translation and !self.modalOpen()) {
             ig.igSetKeyboardFocusHere();
             self.focus_translation = false;
         }
@@ -786,7 +1184,7 @@ pub const Ui = struct {
     }
 
     fn drawStatus(self: *Ui) void {
-        var buffer: [768:0]u8 = undefined;
+        var buffer: [1536:0]u8 = undefined;
         const failure = self.session.failureText();
         // The MFC ELK selected the hit in its edit box; this names where it is.
         var found_buffer: [96]u8 = undefined;
@@ -794,18 +1192,23 @@ pub const Ui = struct {
             std.fmt.bufPrint(&found_buffer, " | found in the {s} at {d}", .{ @tagName(hit.field), hit.offset }) catch ""
         else
             "") else "";
+        // The last export's or launch's summary closes the line.
+        const notice_text = self.notice();
+        const separator = if (notice_text.len != 0) " | " else "";
         const text = if (failure.len != 0)
             std.mem.printSentinel(&buffer, "{s}{s}", .{ failure, if (self.exit_refused) " | Exit again to quit without saving" else "" }, 0)
         else if (self.session.selected) |index|
-            std.mem.printSentinel(&buffer, "{d} texts | {s} | {s}{s}{s}", .{
+            std.mem.printSentinel(&buffer, "{d} texts | {s} | {s}{s}{s}{s}{s}", .{
                 self.session.textCount(),
                 self.session.textAt(index).key,
                 stateName(self.session.state),
                 if (self.session.dirty()) " | unsaved" else "",
                 found,
+                separator,
+                notice_text,
             }, 0)
         else
-            std.mem.printSentinel(&buffer, "{d} texts", .{self.session.textCount()}, 0);
+            std.mem.printSentinel(&buffer, "{d} texts{s}{s}", .{ self.session.textCount(), separator, notice_text }, 0);
         ig.igTextUnformatted((text catch return).ptr);
     }
 

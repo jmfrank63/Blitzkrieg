@@ -200,6 +200,15 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   when it has none, because the game mounts no mod folder without one; an
   existing `mod.xml` is left alone. The shadow warning and Run Game belong
   to 07-07.
+  Recorded in 07-07 (pak export UI, 2026-10-16): the warning counts the
+  project's texts that have a loose `<game>/Data/<key>.txt` (found whatever
+  its case, as the game finds it) and names the loose folder they are in
+  (`Data/Textes`); it appears only when there is one. Run Game is the kit's
+  test launch, `Game -editor-test -profile=ELKTest -mod=<Name> -windowed`
+  with no map: `-editor-test` keeps the profile session-only, leaves
+  `profiles/active.cfg` alone and cloud sync off, as for the Map and
+  Resource Editors; `-mod=None` is not offered, since the mod is what Run
+  Game is for.
 - **D-10 Spreadsheet formats.** `.xlsx` (read and write, the new default),
   `.csv` (UTF-8 with BOM, RFC 4180, read and write), and legacy `.xls` BIFF8
   (**read only**, so translators' existing files import). The Excel ODBC route
@@ -471,6 +480,36 @@ std-only, headless, no UI. Modules:
   with Match case and with Whole word "Kuba", and goes Up from Tunis to
   Tobruk; a second run finds the text and options in elk.cfg and opens
   Find by Ctrl+F.
+  *Pak export UI slice (2026-10-16):* File > Export to language mod...,
+  Install to game... and Run Game, enabled while a database is open (Run
+  Game also while no game it started still runs). The export dialog's Mod
+  box takes a mod's name, or its folder directly in `<game>/mods` through
+  Browse... (the kit's folder dialog slot), and Export writes
+  `mods/<Name>/data/texts.pak` through the core's `exportTo`; the edit is
+  saved first, the element exported is the selected text's (the first with
+  none selected), and the status line ends with the summary, "exported
+  2852 texts to <path>". Install to game writes `Data/Texts.pak` at once
+  when nothing loose hides it, else D-09's warning names the count and the
+  loose folder, with Export to language mod... as the default button
+  (Enter), Install anyway and Cancel (Escape). Run Game exports the
+  session's mod again, so the edits since go with it as the MFC Run Game
+  packed first, and starts the game (above, D-09), its output in
+  `game.log` beside elk.cfg; before any export this session it opens the
+  export dialog as Export and Run. The game folder is elk.cfg's
+  `game_folder=`, else the folder ELK runs from (it is installed beside
+  Game). *Not yet:* a dialog to set the game folder (and finding it in the
+  Windows registry), the filtered export (D6) and the short layout's one
+  pak per project (D7), generated fonts in the export (E1, 07-04), and
+  D-14's worker and progress for the export (about a second for Data/ELK
+  on a Linux debug build). The smoke's sixth pass exports a copy of
+  Data/ELK into a scratch game folder, never a real one: by name and by a
+  folder answered for Browse..., each pak read back by the core with 2,852
+  texts; Install to game warns about the scratch game's one loose
+  Data/Textes text, Enter takes the mod route and writes nothing, Install
+  anyway writes `Data/Texts.pak`; Run Game's command line is asserted
+  argument by argument and, on Linux and macOS, a stand-in `Game` script
+  records the arguments it was started with; after Close the commands are
+  disabled.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

@@ -13,7 +13,10 @@
 //! registry's FindText, FindDown, FindMatchCase and FindWholeWord, with
 //! their defaults: down, neither box ticked). The registry's FindWindow and
 //! FindPosition are not kept: closing the dialog reset them to the start.
-//! The rest of D-16 (last PAK, XLS and game folders, fonts, toolbars, spell
+//! The game folder (`game_folder=`) is where File > Export to language mod,
+//! Install to game and Run Game write and start the game; empty means the
+//! folder ELK runs from, which is the game's when ELK is installed beside it.
+//! The rest of D-16 (last PAK and XLS folders, fonts, toolbars, spell
 //! checking) joins with the features that use it.
 //!
 //! Where the file lives: `<UserRoot>elk/elk.cfg`, the user root being the
@@ -60,6 +63,12 @@ pub const Settings = struct {
     find_down: bool = true,
     find_match_case: bool = false,
     find_whole_word: bool = false,
+    /// The game installation exports and Run Game use; empty is ELK's own folder.
+    game_folder_storage: FixedPath = .{},
+
+    pub fn gameFolder(self: *const Settings) []const u8 {
+        return self.game_folder_storage.slice();
+    }
 
     pub fn gameParameters(self: *const Settings) []const u8 {
         return self.game_parameters.slice();
@@ -248,6 +257,8 @@ pub fn parse(text: []const u8) Settings {
             settings.find_match_case = std.mem.eql(u8, value, "1");
         } else if (std.mem.eql(u8, key, "find_whole_word")) {
             settings.find_whole_word = std.mem.eql(u8, value, "1");
+        } else if (std.mem.eql(u8, key, "game_folder")) {
+            settings.game_folder_storage.set(value);
         } else _ = ks.applySharedKey(&settings, key, value);
     }
     return settings;
@@ -268,6 +279,7 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
     try writer.print("find_down={d}\n", .{@intFromBool(settings.find_down)});
     try writer.print("find_match_case={d}\n", .{@intFromBool(settings.find_match_case)});
     try writer.print("find_whole_word={d}\n", .{@intFromBool(settings.find_whole_word)});
+    try writer.print("game_folder={s}\n", .{settings.gameFolder()});
 }
 
 /// The settings file: the override when one is given, else
@@ -402,6 +414,16 @@ test "the find options round-trip, the text with its spaces" {
     try testing.expectEqualStrings(" Kuban Shield ", again.findText());
     try testing.expect(!again.find_down and again.find_match_case and again.find_whole_word);
     try testing.expectEqualStrings("Kuban", parse("find_text=Kuban\r\n").findText());
+}
+
+test "the game folder round-trips; none is ELK's own" {
+    try testing.expectEqualStrings("", parse("").gameFolder());
+    var settings: Settings = .{};
+    settings.game_folder_storage.set("/games/Blitzkrieg");
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try testing.expectEqualStrings("/games/Blitzkrieg", parse(writer.buffered()).gameFolder());
 }
 
 test "the file lives in the game's user root unless the seam names one" {

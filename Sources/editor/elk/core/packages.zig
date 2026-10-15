@@ -451,6 +451,50 @@ pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, elem
     return path;
 }
 
+/// How many entries `exportElement` writes for `element`: one per text and
+/// one per font file.
+pub fn entryCount(db: *const database.Database, element: usize, options: ExportOptions) usize {
+    return db.bases[element].keys.len + options.fonts.len;
+}
+
+/// What D-09's warning for "Install to game" names: the game mounts loose
+/// files before its archives, so a loose `<game>/Data/<key>.txt` hides that
+/// text in `Data/Texts.pak`.
+pub const Shadow = struct {
+    /// The element's texts a loose file exists for.
+    count: usize = 0,
+    /// The loose folder below `Data` the first of them is in (`Data/Textes`
+    /// in the repository), as spelled on disk; the caller owns it. Null when
+    /// `count` is 0.
+    folder: ?[]u8 = null,
+
+    pub fn deinit(self: *Shadow, gpa: std.mem.Allocator) void {
+        if (self.folder) |folder| gpa.free(folder);
+        self.folder = null;
+    }
+};
+
+/// The texts of `element` a loose file below `<game_folder>/Data` shadows,
+/// each file found whatever its case, as the game finds it.
+pub fn shadowedTexts(gpa: std.mem.Allocator, io: std.Io, db: *const database.Database, element: usize, game_folder: []const u8) !Shadow {
+    var shadow: Shadow = .{};
+    errdefer shadow.deinit(gpa);
+    for (db.bases[element].keys) |key| {
+        const relative = try std.mem.concat(gpa, u8, &.{ "Data/", key, ".txt" });
+        defer gpa.free(relative);
+        const loose = try database.resolve(gpa, io, game_folder, relative);
+        defer gpa.free(loose.path);
+        if (!loose.exists) continue;
+        shadow.count += 1;
+        if (shadow.folder != null) continue;
+        // Up from the file to the key's first folder, spelled as on disk.
+        var folder: []const u8 = loose.path;
+        for (0..std.mem.count(u8, key, "/")) |_| folder = std.fs.path.dirname(folder).?;
+        shadow.folder = try gpa.dupe(u8, folder);
+    }
+    return shadow;
+}
+
 const testing = std.testing;
 const utf16 = database.utf16;
 
@@ -878,6 +922,41 @@ test "an export goes to a mod, with a mod.xml when it has none, or into the game
     for ([_][]const u8{ "", ".", "..", "a/b", "a\\b" }) |name| {
         try testing.expectError(DestinationError.InvalidModName, destinationPath(testing.allocator, io, game, .{ .mod = name }));
     }
+}
+
+test "a loose Data/Textes shadows the texts it holds, found whatever their case" {
+    const io = testing.io;
+    const root = try database.freshScratch(io, "export-shadow");
+    defer testing.allocator.free(root);
+    try database.writeFixture(io, root, "elk/elk.xml", "<?xml version=\"1.0\"?>\r\n<base><Elements><item LastUpdateNumber=\"1\"><Path>game</Path></item></Elements></base>\r\n");
+    for ([_][]const u8{ "textes/strings/a", "textes/strings/b", "textes/c" }) |key| {
+        const relative = try std.mem.concat(testing.allocator, u8, &.{ "elk/game_data_base/", key, ".elk" });
+        defer testing.allocator.free(relative);
+        try database.writeFixture(io, root, relative, utf16("A"));
+    }
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk", "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    const game = try std.fs.path.join(testing.allocator, &.{ root, "game" });
+    defer testing.allocator.free(game);
+    var db = try database.Database.open(testing.allocator, io, elk_path);
+    defer db.deinit();
+    try testing.expectEqual(@as(usize, 3), entryCount(&db, 0, .{}));
+    try testing.expectEqual(@as(usize, 5), entryCount(&db, 0, .{ .fonts = &.{ .{ .name = "a", .bytes = "" }, .{ .name = "b", .bytes = "" } } }));
+
+    var none = try shadowedTexts(testing.allocator, io, &db, 0, game);
+    defer none.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 0), none.count);
+    try testing.expectEqual(@as(?[]u8, null), none.folder);
+
+    try database.writeFixture(io, game, "Data/Textes/Strings/A.txt", "loose");
+    try database.writeFixture(io, game, "Data/Textes/c.txt", "loose");
+    try database.writeFixture(io, game, "Data/Textes/Strings/other.txt", "not a text of the database");
+    var shadow = try shadowedTexts(testing.allocator, io, &db, 0, game);
+    defer shadow.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 2), shadow.count);
+    const want = try std.fs.path.join(testing.allocator, &.{ game, "Data", "Textes" });
+    defer testing.allocator.free(want);
+    try testing.expectEqualStrings(want, shadow.folder.?);
 }
 
 test "the tracked Data/ELK exports to a pak the engine and unzip read, the same every time, also after an import of it" {

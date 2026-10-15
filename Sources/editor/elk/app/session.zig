@@ -8,9 +8,14 @@
 //! filter and selects it, which is a save point like any other selection.
 //! Find Next asks the core's search for the next hit from where the last
 //! one stopped and selects its text the same way; the statistics are the
-//! core's, counted over the tree.
+//! core's, counted over the tree. The pak export is the core's too (D-08,
+//! D-09): to a language mod, `mods/<Name>/data/texts.pak`, or into the game,
+//! `Data/Texts.pak`, after the shadow check that names the loose folder
+//! hiding it; Run Game's command line is the kit's test launch in ELK's own
+//! profile.
 const std = @import("std");
 const elk = @import("elk_core");
+const testlaunch = @import("editor_kit").testlaunch;
 
 const Database = elk.database.Database;
 pub const Tree = elk.tree.Tree;
@@ -24,6 +29,64 @@ pub const Statistic = elk.stats.Statistic;
 
 /// D-15: a dirty edit is written this long after it became dirty.
 pub const autosave_ms: u64 = 30_000;
+
+/// D-09: Run Game's profile, never the player's. The kit's `-editor-test`
+/// keeps it session-only, leaves `profiles/active.cfg` alone and cloud sync
+/// off; E-06 ran the real Game in the same profile.
+pub const game_profile = "ELKTest";
+
+pub const Destination = elk.packages.Destination;
+pub const Shadow = elk.packages.Shadow;
+
+/// What an export wrote.
+pub const Exported = struct {
+    /// The `.pak` written, owned by the caller.
+    path: []u8,
+    entries: usize,
+};
+
+/// The mod a name or a folder means: a name is taken as typed, a folder must
+/// be one directly below `<game_folder>/mods` (whatever its case and
+/// separators), and its name is the mod's. Null for any other folder or an
+/// empty name; the core refuses names it cannot use (`InvalidModName`).
+pub fn modName(game_folder: []const u8, typed: []const u8) ?[]const u8 {
+    const trimmed = std.mem.trim(u8, typed, " \t");
+    const text = std.mem.trimEnd(u8, trimmed, "/\\");
+    if (text.len == 0) return null;
+    // Either separator on every OS: a folder typed the Windows way splits too.
+    const cut = std.mem.lastIndexOfAny(u8, text, "/\\") orelse return text;
+    const mods = std.mem.trimEnd(u8, text[0..cut], "/\\");
+    const at = std.mem.lastIndexOfAny(u8, mods, "/\\") orelse return null;
+    if (!std.ascii.eqlIgnoreCase(mods[at + 1 ..], "mods") or !samePath(mods[0..at], game_folder)) return null;
+    return text[cut + 1 ..];
+}
+
+/// Two folders compared as the game finds files: without regard to case,
+/// either separator, a trailing one ignored.
+fn samePath(a: []const u8, b: []const u8) bool {
+    const x = std.mem.trimEnd(u8, a, "/\\");
+    const y = std.mem.trimEnd(u8, b, "/\\");
+    if (x.len != y.len) return false;
+    for (x, y) |p, q| {
+        const p_sep = p == '/' or p == '\\';
+        const q_sep = q == '/' or q == '\\';
+        if (p_sep != q_sep) return false;
+        if (!p_sep and std.ascii.toLower(p) != std.ascii.toLower(q)) return false;
+    }
+    return true;
+}
+
+/// Run Game (D-09): `Game -editor-test -profile=ELKTest -mod=<mod> -windowed`,
+/// no map, so the game opens at its main menu in the exported language.
+pub fn runGameOptions(game_path: []const u8, mod: []const u8, log_path: []const u8) testlaunch.Options {
+    return .{
+        .game_path = game_path,
+        .mod_folder = mod,
+        .log_path = log_path,
+        .profile = game_profile,
+        .map_name = null,
+    };
+}
 
 /// A NUL-terminated byte buffer ImGui edits in place and grows through its
 /// resize callback. `bytes.items` always ends in the terminator.
@@ -255,6 +318,41 @@ pub const Session = struct {
         const tree = &(self.tree orelse return error.NoDatabaseOpen);
         return elk.stats.compute(allocator, self.gpa, &self.database.?, tree) catch |err| {
             self.fail("could not count the texts: {s}", .{@errorName(err)});
+            return err;
+        };
+    }
+
+    /// The element the exports write: the selected text's, else the first,
+    /// as the MFC ELK exported the selected project.
+    fn exportElement(self: *const Session) usize {
+        return if (self.selected) |index| self.textAt(index).element else 0;
+    }
+
+    /// File > Export to language mod... and Install to game...: the edit is
+    /// saved first, so the pak holds it, then the core exports the element
+    /// to `destination` below `game_folder`.
+    pub fn exportPak(self: *Session, game_folder: []const u8, destination: Destination) !Exported {
+        if (self.database == null) return error.NoDatabaseOpen;
+        try self.save();
+        const database = &self.database.?;
+        const element = self.exportElement();
+        const path = elk.packages.exportTo(self.gpa, self.io, database, element, game_folder, destination, .{}) catch |err| {
+            switch (destination) {
+                .mod => |name| self.fail("could not export to the mod \"{s}\" in {s}: {s}", .{ name, game_folder, @errorName(err) }),
+                .game => self.fail("could not install into {s}: {s}", .{ game_folder, @errorName(err) }),
+            }
+            return err;
+        };
+        self.failure_len = 0;
+        return .{ .path = path, .entries = elk.packages.entryCount(database, element, .{}) };
+    }
+
+    /// Install to game's check: the texts a loose file in `game_folder`
+    /// shadows; the caller deinits it.
+    pub fn shadowed(self: *Session, game_folder: []const u8) !Shadow {
+        const database = &(self.database orelse return error.NoDatabaseOpen);
+        return elk.packages.shadowedTexts(self.gpa, self.io, database, self.exportElement(), game_folder) catch |err| {
+            self.fail("could not look for loose texts in {s}: {s}", .{ game_folder, @errorName(err) });
             return err;
         };
     }
@@ -568,6 +666,75 @@ test "Find Next goes on from the last hit and starts over on another text" {
     const statistic = try session.statistics(arena.allocator());
     try testing.expectEqual(@as(i32, 2852), elk.stats.elementTotal(statistic.original[0]).texts);
     try session.close();
+}
+
+test "an export saves the edit first and writes the mod or the game's pak" {
+    const io = testing.io;
+    const root = try fixture(io, "export");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    const game = try std.fs.path.join(testing.allocator, &.{ root, "game" });
+    defer testing.allocator.free(game);
+
+    var session = Session.init(testing.allocator, io);
+    defer session.deinit();
+    try testing.expectError(error.NoDatabaseOpen, session.exportPak(game, .{ .mod = "Deutsch" }));
+    try session.open(elk_path);
+    try session.select(0);
+    try session.translation.set(testing.allocator, "Orden");
+    const exported = try session.exportPak(game, .{ .mod = "Deutsch" });
+    defer testing.allocator.free(exported.path);
+    try testing.expectEqual(@as(usize, 1), exported.entries);
+    try testing.expect(!session.dirty());
+    try testing.expect(std.mem.endsWith(u8, exported.path, "texts.pak"));
+    var package = try elk.packages.readArchive(testing.allocator, io, exported.path);
+    defer package.deinit();
+    try testing.expectEqual(@as(usize, 1), package.entries.len);
+    try testing.expectEqualStrings("medals/1/name.txt", package.entries[0].name);
+    const orden = [_]u8{ 0xff, 0xfe, 'O', 0, 'r', 0, 'd', 0, 'e', 0, 'n', 0 };
+    try testing.expectEqualSlices(u8, &orden, package.entries[0].bytes);
+
+    // Into the game: nothing loose shadows it, then a loose copy does.
+    var clean = try session.shadowed(game);
+    defer clean.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 0), clean.count);
+    const installed = try session.exportPak(game, .game);
+    defer testing.allocator.free(installed.path);
+    const want = try std.fs.path.join(testing.allocator, &.{ game, "Data", "Texts.pak" });
+    defer testing.allocator.free(want);
+    try testing.expectEqualStrings(want, installed.path);
+    const loose = try std.fs.path.join(testing.allocator, &.{ game, "Data", "Medals", "1", "NAME.txt" });
+    defer testing.allocator.free(loose);
+    try std.Io.Dir.cwd().createDirPath(io, std.fs.path.dirname(loose).?);
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = loose, .data = "loose" });
+    var shadow = try session.shadowed(game);
+    defer shadow.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 1), shadow.count);
+    try testing.expect(std.mem.endsWith(u8, shadow.folder.?, "Medals"));
+
+    try testing.expectError(error.InvalidModName, session.exportPak(game, .{ .mod = ".." }));
+    try testing.expect(std.mem.indexOf(u8, session.failureText(), "InvalidModName") != null);
+}
+
+test "a mod is a name or a folder directly below the game's mods" {
+    try testing.expectEqualStrings("Deutsch", modName("/g", " Deutsch ").?);
+    try testing.expectEqualStrings("Deutsch", modName("/g", "/g/mods/Deutsch").?);
+    try testing.expectEqualStrings("Deutsch", modName("/G/", "/g/MODS/Deutsch/").?);
+    try testing.expectEqualStrings("Deutsch", modName("C:\\Games\\BK", "c:\\games\\bk\\mods\\Deutsch").?);
+    try testing.expectEqual(@as(?[]const u8, null), modName("/g", ""));
+    try testing.expectEqual(@as(?[]const u8, null), modName("/g", "/elsewhere/mods/Deutsch"));
+    try testing.expectEqual(@as(?[]const u8, null), modName("/g", "/g/mods/Deutsch/data"));
+    try testing.expectEqual(@as(?[]const u8, null), modName("/g", "/g/notmods/Deutsch"));
+    try testing.expectEqual(@as(?[]const u8, null), modName("/g", "/mods/Deutsch"));
+}
+
+test "Run Game: the mod at the main menu in ELK's own test profile" {
+    var storage: testlaunch.ArgvStorage = .{};
+    const argv = testlaunch.buildArgv(&storage, runGameOptions("/g/Game", "Deutsch", "/u/elk/game.log"));
+    const want = [_][]const u8{ "/g/Game", "-editor-test", "-profile=ELKTest", "-mod=Deutsch", "-windowed" };
+    try testing.expectEqual(want.len, argv.len);
+    for (want, argv) |expected, actual| try testing.expectEqualStrings(expected, actual);
 }
 
 test "the text buffer grows for ImGui and settles at the terminator" {

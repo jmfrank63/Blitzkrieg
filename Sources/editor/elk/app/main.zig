@@ -30,7 +30,14 @@
 //! numbers of the tracked database, and Edit > Find...: hits in the
 //! translation and the original, the resume within a field, the wrap, Match
 //! case and Whole word missing, Up reaching the text above, and a second
-//! run finding the text and options in elk.cfg.
+//! run finding the text and options in elk.cfg. A sixth copy proves the pak
+//! export against a scratch game folder, never a real one: File > Export to
+//! language mod by name and by a folder answered for Browse..., each pak
+//! read back by the core with all 2,852 texts; Install to game warning
+//! about the scratch game's loose Data/Textes, Enter taking the mod route,
+//! then Install anyway writing Data/Texts.pak; Run Game's command line, and
+//! on Linux and macOS a stand-in Game script recording the arguments it got;
+//! the commands disabled once the database is closed.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -209,6 +216,37 @@ const find_reopen_schedule =
     "2:expect=find_option:whole_word=0,3:key=f+ctrl,5:expect=find_dialog:1,5:do=find_option:down=1," ++
     "6:do=find_next:Rommel,8:expect=found:" ++ tobruk ++ "=original:858,9:exit";
 
+/// The pak export pass. The scratch game folder holds one loose text of the
+/// database, the Exit Game label E-06 changed, so Install to game warns.
+const export_mod = "ELKSmoke";
+const folder_mod = "ELKFolder";
+const loose_text = "Data/Textes/strings/imheader-gbutton-exitgame.txt";
+const export_texts = "2852";
+const export_schedule =
+    "2:expect=open,2:expect=can_export:1,2:expect=can_run_game:1,2:expect=pak:game=none," ++
+    // Run Game before any export asks for the mod first.
+    "3:do=run_game,5:expect=export_dialog:1,5:do=export_cancel,7:expect=export_dialog:0,7:expect=pak:" ++ export_mod ++ "=none," ++
+    // By name, then by the folder Browse... chose.
+    "8:do=export_mod,10:do=export_name:" ++ export_mod ++ ",10:do=export_ok,12:expect=export_dialog:0," ++
+    "12:expect=pak:" ++ export_mod ++ "=" ++ export_texts ++ ",12:expect=notice_has:" ++ export_texts ++ "," ++
+    "13:do=export_mod,15:do=export_browse,15:do=answer:mods/" ++ folder_mod ++ ",17:do=export_ok,19:expect=export_dialog:0," ++
+    "19:expect=pak:" ++ folder_mod ++ "=" ++ export_texts ++ ",19:expect=notice_has:" ++ folder_mod ++ "," ++
+    // Install to game: the warning names the loose folder; Enter is the mod route.
+    "20:do=install,22:expect=install_warning:1,22:expect=warning:1=Textes,23:key=return,25:expect=install_warning:0," ++
+    "25:expect=export_dialog:1,25:expect=pak:game=none,25:do=export_cancel," ++
+    "27:do=install,29:do=install_choice:install,31:expect=install_warning:0,31:expect=pak:game=" ++ export_texts ++ "," ++
+    "31:expect=notice_has:installed," ++
+    // Run Game on this session's mod, in ELK's own profile.
+    "32:do=run_game,33:expect=launched:1=-editor-test,33:expect=launched:2=-profile=ELKTest," ++
+    "33:expect=launched:3=-mod=" ++ folder_mod ++ ",33:expect=launched:4=-windowed," ++
+    (if (stand_in_game) "34:do=wait_game,36:expect=can_run_game:1," else "34:expect=failure_has:Game.exe,") ++
+    "37:do=close,39:expect=can_export:0,39:expect=can_run_game:0,40:exit";
+/// Linux and macOS get a stand-in Game, a shell script that writes the
+/// arguments it was started with; Windows has none, and its Run Game fails
+/// to start after recording the same command line.
+const stand_in_game = builtin.os.tag != .windows;
+const stand_in_args = "elk-game.args";
+
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
 const auto_frame_limit = 100_000;
@@ -290,7 +328,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
-    var ui: ui_mod.Ui = .{ .gpa = gpa, .io = io, .session = &session, .settings = &settings, .settings_path = settings_path };
+    var ui: ui_mod.Ui = .{ .gpa = gpa, .io = io, .session = &session, .settings = &settings, .settings_path = settings_path, .environ = environ };
     defer ui.deinit();
     var recent_copy: [settings_mod.max_path]u8 = undefined;
     if (first) |path| {
@@ -376,7 +414,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (filtered.code != 0) return filtered.code;
     const found = smokeFind(gpa, io, environ, source, scratch);
     if (found.code != 0) return found.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic and Find on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, result.fonts, elk_path });
+    const exported = smokeExport(gpa, io, environ, source, scratch);
+    if (exported.code != 0) return exported.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -463,6 +503,68 @@ fn smokeFind(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, s
     return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
+/// The smoke's pak export pass on a sixth copy, `<scratch>-export`, with
+/// `<scratch>-game` as the game folder: one loose text, and on Linux and
+/// macOS the stand-in Game, whose recorded arguments are checked after.
+fn smokeExport(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-export", .{scratch}) catch return .{ .code = 1 };
+    var cfg_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cfg_path = std.fmt.bufPrint(&cfg_buffer, "{s}.cfg", .{folder}) catch return .{ .code = 1 };
+    var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const game = std.fmt.bufPrint(&game_buffer, "{s}-game", .{scratch}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    const cwd = std.Io.Dir.cwd();
+    cwd.deleteFile(io, cfg_path) catch {};
+    cwd.deleteTree(io, game) catch {};
+    makeGame(io, game) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not make the scratch game {s}: {s}\n", .{ game, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const result = scripted(gpa, io, environ, .{
+        .elk_path = elk_path,
+        .text = export_schedule,
+        .dialog_folder = game,
+        .settings_path = cfg_path,
+        .game_folder = game,
+        .frame_limit = smoke_frame_limit,
+        .tier = "smoke (export, install, Run Game)",
+    });
+    if (result.code != 0 or !stand_in_game) return result;
+
+    var args_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const args_path = std.fmt.bufPrint(&args_buffer, "{s}{c}{s}", .{ game, std.fs.path.sep, stand_in_args }) catch return .{ .code = 1 };
+    const got = cwd.readFileAlloc(io, args_path, gpa, .limited(4096)) catch |err| {
+        std.debug.print("elk: smoke FAIL: the stand-in Game wrote no {s}: {s}\n", .{ args_path, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    defer gpa.free(got);
+    const wanted = "-editor-test\n-profile=ELKTest\n-mod=" ++ folder_mod ++ "\n-windowed\n";
+    if (!std.mem.eql(u8, got, wanted)) {
+        std.debug.print("elk: smoke FAIL: the stand-in Game got \"{s}\", wanted \"{s}\"\n", .{ got, wanted });
+        return .{ .code = 1 };
+    }
+    return result;
+}
+
+/// The scratch game folder: one loose text, and the stand-in Game.
+fn makeGame(io: std.Io, game: []const u8) !void {
+    var dir = try std.Io.Dir.cwd().createDirPathOpen(io, game, .{});
+    defer dir.close(io);
+    try dir.createDirPath(io, std.fs.path.dirname(loose_text).?);
+    try dir.writeFile(io, .{ .sub_path = loose_text, .data = "\xff\xfeL\x00" });
+    if (stand_in_game) try dir.writeFile(io, .{
+        .sub_path = "Game",
+        .data = "#!/bin/sh\nprintf '%s\\n' \"$@\" > " ++ stand_in_args ++ "\n",
+        .flags = .{ .permissions = .executable_file },
+    });
+}
+
 /// The smoke's File > Open pass on a second copy, `<scratch>-open`, with
 /// its own `<scratch>-open.cfg` in place of the user's elk.cfg.
 fn smokeOpen(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
@@ -530,6 +632,8 @@ const Script = struct {
     /// pass) and written as ELK writes it; "" keeps the settings in memory.
     /// The user's own file is never touched.
     settings_path: []const u8 = "",
+    /// The game folder the exports and Run Game use; "" keeps elk.cfg's.
+    game_folder: []const u8 = "",
     frame_limit: u32,
     tier: []const u8,
 };
@@ -563,12 +667,14 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
             settings = settings_mod.parse(bytes);
         } else |_| {}
     }
+    if (script.game_folder.len != 0) settings.game_folder_storage.set(script.game_folder);
     var ui: ui_mod.Ui = .{
         .gpa = gpa,
         .io = io,
         .session = &session,
         .settings = &settings,
         .settings_path = script.settings_path,
+        .environ = environ,
         .os_dialogs = false,
     };
     defer ui.deinit();
