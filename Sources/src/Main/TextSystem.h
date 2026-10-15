@@ -29,6 +29,10 @@ interface ITextManager : public ISharedManager
 	virtual IText* STDCALL GetString( const char *pszKey ) = 0;
 	virtual IText* STDCALL GetDialog( const char *pszKey ) = 0;
 	virtual const char* STDCALL GetTextName( IText *pText ) = 0;
+	// Re-reads every text already handed out, into the same objects, from
+	// whatever the data storage serves now: the language option re-mounts the
+	// texts and every label holding one of these draws the new string.
+	virtual void STDCALL Reload() = 0;
 };
 IObjectLoader* STDCALL GetTextLoader();
 #endif	//__TEXT_SYSTEM_H__

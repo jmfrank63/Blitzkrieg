@@ -33,6 +33,12 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	void RequestSyncNow();
 	IUIElement *CloudButton( int nID );
 
+	std::vector<std::string> divisionNames;	// the tabs' divisions, in tab order
+	OptionDropOverrides languageOverride;		// GamePlay.Language: the scanned language list
+	std::string szShownLanguage;						// Text.Language the copied labels were set in
+	void SetDivisionTexts( const int nDivision );
+	void SetCaptionTexts();
+
 	NInput::CCommandRegistrator commandMsgs;
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );

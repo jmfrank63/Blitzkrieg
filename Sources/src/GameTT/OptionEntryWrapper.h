@@ -23,6 +23,7 @@ class CUIOption : public IUISetOptionsToUI, public IUIGetOptionsFromUI, public I
 	int nInitialNumericEntry;						// initial numeric entry value
 
 	void SetSlider( const int nInitialSliderPos );
+	void SetNameTexts();
 	void SaveOption();
 	void ChangeSelection( const int nCurSelection );
 public:
@@ -38,6 +39,9 @@ public:
 	void PositionChanged();
 	bool ChangeByKey( const bool bNext );
 	bool IsOptionValid() const { return pOption.IsValid(); }
+	// Sets the row's name, tooltip and shown choice from the text manager
+	// again: they are copies, which a language switch leaves stale.
+	void RefreshTexts();
 
 	virtual void STDCALL SetSelectionOption( const std::vector<SOptionDropListValue> &szSelections, const int nDefault );
 	virtual void STDCALL SetSliderOption( const int nMin, const int nMax, const int nDefault );
@@ -98,6 +102,15 @@ public:
 	void CancelChanges();
 	void ShowWindow( int nCmdShow ) { pList->ShowWindow( nCmdShow ); }
 	void DisableChange();
+	void RefreshTexts();
 	bool IsChangesEnabled() const { return bDisableChange; }
 };
+// The language option's choices: Default (the shipped texts), then every
+// folder under mods\ that carries data\texts.pak, as ELK exports a language.
+// Scanned on each call; the settings screen asks once per opening.
+std::vector<SOptionDropListValue> ScanLanguages();
+// A language's name for the settings row: the mod's MODName from its
+// data\mod.xml, or the folder name without one. Empty for Default, which
+// has a text of its own.
+std::string LanguageDisplayName( const std::string &szFolder );
 #endif // __OPTIONENTRYWRAPPER_H__

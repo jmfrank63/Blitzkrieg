@@ -5,6 +5,8 @@
 #include "../UI/UIMessages.h"
 #include "UIConsts.h"
 #include "CommonId.h"
+#include "../Main/iMain.h"
+#include "../Misc/FileUtils.h"
 BASIC_REGISTER_CLASS(COptionsListWrapper);
 enum EUIElements
 {
@@ -28,11 +30,74 @@ static bool IsGeneratedSelectionText( const char *pszOptionName )
 {
 	return (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Mode" ) == 0) ||
 		     (NStr::CompareAsciiNoCase( pszOptionName, "GFX.Monitor" ) == 0) ||
-		     (NStr::CompareAsciiNoCase( pszOptionName, "Cloud.Provider" ) == 0);		// rclone ids, shown as they are
+		     (NStr::CompareAsciiNoCase( pszOptionName, "Cloud.Provider" ) == 0) ||		// rclone ids, shown as they are
+		     (NStr::CompareAsciiNoCase( pszOptionName, "GamePlay.Language" ) == 0);	// mod names
+}
+// mods\ under the game's folder, in whatever case it is spelled on disk.
+static std::string ModsFolder()
+{
+	const std::string szBase = GetSingleton<IMainLoop>()->GetBaseDir();
+	for ( NFile::CFileIterator it( ( szBase + "*" ).c_str() ); !it.IsEnd(); ++it )
+		if ( it.IsDirectory() && NStr::CompareAsciiNoCase( it.GetFileName().c_str(), "mods" ) == 0 )
+			return szBase + it.GetFileName() + "\\";
+	return std::string();
+}
+// The entry of folder szFolder named szName in any case, or empty.
+static std::string FindEntry( const std::string &szFolder, const char *pszName, const bool bDirectory )
+{
+	for ( NFile::CFileIterator it( ( szFolder + "*" ).c_str() ); !it.IsEnd(); ++it )
+		if ( it.IsDirectory() == bDirectory && NStr::CompareAsciiNoCase( it.GetFileName().c_str(), pszName ) == 0 )
+			return szFolder + it.GetFileName();
+	return std::string();
+}
+std::vector<SOptionDropListValue> ScanLanguages()
+{
+	std::vector<SOptionDropListValue> languages( 1 );
+	languages[0].szProgName = "Default";
+	const std::string szMods = ModsFolder();
+	if ( szMods.empty() )
+		return languages;
+	for ( NFile::CFileIterator it( ( szMods + "*" ).c_str() ); !it.IsEnd(); ++it )
+	{
+		if ( !it.IsDirectory() || it.IsDots() )
+			continue;
+		const std::string szData = FindEntry( szMods + it.GetFileName() + "\\", "data", true );
+		if ( szData.empty() || FindEntry( szData + "\\", "texts.pak", false ).empty() )
+			continue;
+		SOptionDropListValue language;
+		language.szProgName = it.GetFileName();
+		languages.push_back( language );
+	}
+	return languages;
+}
+std::string LanguageDisplayName( const std::string &szFolder )
+{
+	if ( NStr::CompareAsciiNoCase( szFolder.c_str(), "Default" ) == 0 )
+		return std::string();
+	std::string szName = szFolder;
+	const std::string szMods = ModsFolder();
+	const std::string szData = szMods.empty() ? std::string() : FindEntry( szMods + szFolder + "\\", "data", true );
+	const std::string szModXml = szData.empty() ? std::string() : FindEntry( szData + "\\", "mod.xml", false );
+	// mod.xml alone: the mods list opens the mod's PAKs to read it, which here
+	// would load every language's archives on every opening of the screen.
+	if ( !szModXml.empty() )
+	{
+		if ( CPtr<IDataStream> pStream = OpenFileStream( szModXml, STREAM_ACCESS_READ ) )
+		{
+			CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+			saver.Add( "MODName", &szName );
+		}
+	}
+	return szName.empty() ? szFolder : szName;
 }
 
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )
 	: pDialog( _pDialog ), pOption( _pOption ), pOptionName( _pOptionName )
+{
+	SetNameTexts();
+	pOption->Set( this );
+}
+void CUIOption::SetNameTexts()
 {
 	ITextManager * pTM = GetSingleton<ITextManager>();
 	std::string szKeyOption = "Textes\\Options\\";
@@ -55,8 +120,12 @@ CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pO
 	pText = pTM->GetString( szKeyTooltip.c_str() );
 	if ( pText )
 		pOptionName->SetHelpContext( 0, pText->GetString() );
-
-	pOption->Set( this );
+}
+void CUIOption::RefreshTexts()
+{
+	SetNameTexts();
+	if ( EOT_SELECTION == pOption->GetType() && nCurSelection >= 0 && nCurSelection < szSelections.size() )
+		ChangeSelection( nCurSelection );
 }
 void CUIOption::SaveOption()
 {
@@ -109,7 +178,13 @@ void CUIOption::ChangeSelection( const int nCurSelection )
 	IUIStatic * pStatic = checked_cast<IUIStatic*>( pSubDialog->GetChildByID( E_SELECTIONS_ENTRY ) );
 
 	IText * pText = pTM->GetString( szKeyName.c_str() );
-	if ( pText )
+	const std::string szLanguage = NStr::CompareAsciiNoCase( pOption->GetName(), "GamePlay.Language" ) == 0 ? LanguageDisplayName( szSelections[nCurSelection].szProgName ) : std::string();
+	if ( !szLanguage.empty() )
+	{
+		const std::u16string szShown = NPlatform::WordStringFromWide( NStr::ToUnicode( szLanguage ) );
+		pStatic->SetWindowText( 0, NPlatform::WordStringData( szShown ) );
+	}
+	else if ( pText )
 		pStatic->SetWindowText( 0, pText->GetString() );
 	else
 	{
@@ -434,6 +509,12 @@ void COptionsListWrapper::Apply()
 		if ( options[i]->IsOptionValid() )
 			options[i]->Apply();
 	pList->InitialUpdate();
+}
+void COptionsListWrapper::RefreshTexts()
+{
+	for ( int i = 0; i < options.size(); ++i )
+		if ( options[i]->IsOptionValid() )
+			options[i]->RefreshTexts();
 }
 void COptionsListWrapper::CancelChanges()
 {

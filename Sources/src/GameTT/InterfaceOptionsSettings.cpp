@@ -83,6 +83,24 @@ bool CInterfaceOptionsSettings::Init()
 bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 {
 	const bool bResult = CInterfaceInterMission::StepLocal( bAppActive );
+	// The language row switched the texts: the Game reloaded them in place
+	// before this step, so the layout's own labels already show the new
+	// language; the ones this screen copied out are set again here, in the
+	// same frame.
+	{
+		const std::string szLanguage = GetGlobalVar( "Text.Language", "Default" );
+		if ( szLanguage != szShownLanguage && pUIScreen != 0 )
+		{
+			szShownLanguage = szLanguage;
+			for ( int i = 0; i < nMaxDivision; ++i )
+			{
+				SetDivisionTexts( i );
+				if ( optionsLists[i] != 0 )
+					optionsLists[i]->RefreshTexts();
+			}
+			SetCaptionTexts();
+		}
+	}
 	// A Provider change - a row click, or the left/right keys - reshapes the
 	// Cloud tab: the timing rows and the two buttons follow the value. Read
 	// per frame rather than per message so every path that commits the
@@ -357,20 +375,18 @@ void CInterfaceOptionsSettings::Create()
 		sectionDescs.push_back( desc );
 	}
 	
-	ITextManager * pTM = GetSingleton<ITextManager>();
+	languageOverride["GamePlay.Language"] = ScanLanguages();
+	szShownLanguage = GetGlobalVar( "Text.Language", "Default" );
 
 	nMaxDivision = 0;
 	nCloudDivision = -1;
+	divisionNames.clear();
 	const std::string szKeyOption = "Textes\\Options\\";
 	for ( int nSection = 0; nSection < sectionOrder.size(); ++nSection )
 	{
 		const std::string &szSection = sectionOrder[nSection];
 		const std::string szKeyName = szKeyOption + szSection + ".name";
-		const std::string szKeyTooltip = szKeyOption + szSection + ".tooltip";
-
-		IText *pT = pTM->GetString( szKeyName.c_str() );
-
-		NI_ASSERT_T( pT != 0, NStr::Format( "no local name for section %s", szKeyName.c_str() ) );
+		NI_ASSERT_T( GetSingleton<ITextManager>()->GetString( szKeyName.c_str() ) != 0, NStr::Format( "no local name for section %s", szKeyName.c_str() ) );
 
 		// The screen has exactly six tab/list slots. A seventh division - a
 		// mod declaring more option sections than the UI has tabs - must not
@@ -385,7 +401,6 @@ void CInterfaceOptionsSettings::Create()
 		}
 
 		IUIListControl * pList = checked_cast<IUIListControl*>(pUIScreen->GetChildByID( _E_LIST_BEGIN + nMaxDivision ));
-		IUIStatic * pCaption = checked_cast<IUIStatic*>( pList->GetChildByID( 10 ) );
 
 		if ( szSection == "Cloud" )
 		{
@@ -400,23 +415,36 @@ void CInterfaceOptionsSettings::Create()
 			NI_ASSERT_T( optionsLists[nCloudDivision] != 0, "BuildCloudList left the Cloud slot empty" );
 		}
 		else
-			optionsLists.push_back( new COptionsListWrapper( pList, sections[szSection], 100 ) );
-		IUIButton * pButton = checked_cast<IUIButton *>( pUIScreen->GetChildByID( _E_BUTTON_CHANGE_DIVISION_BEGIN + nMaxDivision ) );
-		
-		pButton->SetWindowText( -1, pT->GetString() );
-		pCaption->SetWindowText( -1, pT->GetString() );
-
-		pT = pTM->GetString( szKeyTooltip.c_str() );
-		if ( pT )
-			pButton->SetHelpContext( 0, pT->GetString() );
-		
-		pButton->ShowWindow( UI_SW_SHOW );
+			optionsLists.push_back( new COptionsListWrapper( pList, sections[szSection], 100, languageOverride ) );
+		divisionNames.push_back( szSection );
+		SetDivisionTexts( nMaxDivision );
+		pUIScreen->GetChildByID( _E_BUTTON_CHANGE_DIVISION_BEGIN + nMaxDivision )->ShowWindow( UI_SW_SHOW );
 		++nMaxDivision;
 	}
 	
 	nActive = -1;
 	OnChangeDivision( 0 );
-
+	SetCaptionTexts();
+}
+// A tab's button, its list's caption and the button's tooltip, from
+// Textes\Options\<division>.
+void CInterfaceOptionsSettings::SetDivisionTexts( const int nDivision )
+{
+	ITextManager *pTM = GetSingleton<ITextManager>();
+	const std::string szKey = "Textes\\Options\\" + divisionNames[nDivision];
+	IUIButton *pButton = checked_cast<IUIButton *>( pUIScreen->GetChildByID( _E_BUTTON_CHANGE_DIVISION_BEGIN + nDivision ) );
+	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( _E_LIST_BEGIN + nDivision ) );
+	if ( IText *pT = pTM->GetString( ( szKey + ".name" ).c_str() ) )
+	{
+		pButton->SetWindowText( -1, pT->GetString() );
+		checked_cast<IUIStatic*>( pList->GetChildByID( 10 ) )->SetWindowText( -1, pT->GetString() );
+	}
+	if ( IText *pT = pTM->GetString( ( szKey + ".tooltip" ).c_str() ) )
+		pButton->SetHelpContext( 0, pT->GetString() );
+}
+void CInterfaceOptionsSettings::SetCaptionTexts()
+{
+	ITextManager *pTM = GetSingleton<ITextManager>();
 	// "Settings of <profile>" caption and the gold profile label in the lower
 	// left (id convention E_STATIC_PROFILE, mirroring the main menu's version
 	// label in the lower right). The profile name is printable ASCII by

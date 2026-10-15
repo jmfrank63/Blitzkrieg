@@ -1917,6 +1917,13 @@ extern "C" __declspec(dllexport) void bk_bridge_apply_option_action(const char *
             global_vars->SetVar("GFX.Texture.QualityPending", value);
             return;
         }
+        if (std::strcmp(action, "SetLanguage") == 0) {
+            // The text manager and the data storage are the Game's; its frame
+            // loop mounts the chosen texts.pak and reloads the texts whenever
+            // this differs from what it last mounted (NMain::ApplyLanguage).
+            global_vars->SetVar("Text.Language", value);
+            return;
+        }
     }
     const bool music = std::strcmp(action, "SetMusicVolume") == 0;
     const bool sfx = std::strcmp(action, "SetSFXVolume") == 0;

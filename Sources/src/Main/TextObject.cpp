@@ -67,6 +67,8 @@ bool CTextDialog::Load( const bool bPreLoad )
 #endif
 	}
 #endif
+	// A reload changes the string under the labels that hold this text.
+	bChanged = true;
 	return true;
 }
 void CTextDialog::SetText( const WORD *pszText ) 

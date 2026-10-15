@@ -435,6 +435,43 @@ core modules); then 07-06; then 07-07; then 07-08.
   full-database open and sets a budget (target under 2 s on the shipped
   `Data/ELK`).
 
+## The Game's language option (scope change 2026-10-15)
+
+07-CONTEXT adds one game-side feature: Options > Settings > Gameplay has a
+**Language** row that selects the text source and applies at once, with no
+restart. It selects among packs, it is not a new localisation system.
+
+- The choices: `Default`, the texts the game ships (loose `Data/Textes` or
+  `Data/Texts.pak`), then every folder under `mods/` (any case) that carries
+  `data/texts.pak`, which is what ELK's mod export writes (D-09). The row
+  shows the mod's `MODName` from its `data/mod.xml`, or the folder name;
+  only `mod.xml` is read, not the mod's paks. The screen scans on every
+  opening (`ScanLanguages`, `GameTT/OptionEntryWrapper.cpp`).
+- The option is `GamePlay.Language` in `Data/Configs/defconf.cfg`, instant
+  apply, main options screen only (flag 1, like Cloud), stored in the
+  profile's `config.cfg` like every Gameplay setting. Its action
+  `SetLanguage` (StreamIO's option bridge) publishes the value as the global
+  `Text.Language`.
+- The Game's frame loop compares `Text.Language` with what is mounted just
+  before each step and calls `NMain::ApplyLanguage`: the chosen
+  `mods\<folder>\data\texts.pak` becomes the `LANGUAGE` overlay of the data
+  storage, last added so it wins over the base data and over a loaded MOD
+  (`CICChangeMOD` puts it back on top). A storage named by one `.pak` holds
+  that archive alone, none of its folder's other paks or loose files, so a
+  gameplay mod that also carries `texts.pak` lends only its texts
+  (`test-streamio`). Then `ITextManager::Reload` re-reads every text already
+  handed out into the same objects; labels keep pointers to them and the GPU
+  text compares the string each frame, so they draw the new language in the
+  very step that follows. Labels a screen copied out of a text (the settings
+  rows and tabs) are set again by the settings screen in that same step.
+- At start the option system's `Init` runs every action after the profile's
+  config is read, so the chosen language is mounted before the first frame;
+  a profile switch runs `Init` again.
+- Not covered: the in-mission options screen (a mission's loaded texts
+  would switch too, but nobody asked for it there); fonts (a language that
+  needs other glyphs needs its fonts as well, which the option does not
+  mount); the row's own texts are new and not in the ELK database yet.
+
 ## Exit criteria for Phase 7
 
 - **E-01** Opening `Data/ELK/elk.xml` (a copy) and saving without edits
@@ -492,3 +529,18 @@ core modules); then 07-06; then 07-07; then 07-08.
 - **E-10** Every row of `07-PARITY.md` is verified; the MFC ELK, its shipped
   binaries and the `A7.sln` entry are gone; `zig build` still passes on all
   targets.
+- **E-11** The Game's Language option switches to an ELK-exported language
+  mod and back at once and keeps the choice across a restart. Recorded on
+  Linux x64 (`zig build elk-game-reads-it`, second test of
+  `tools/zig/elk_game_reads_it.zig`): the E-06 marker database exported to
+  `mods/ELKTest`, the real Game run windowed at the desktop size (1920x1080
+  here) in a scratch profile, driven by `BK_AUTO_UI` through Options >
+  Settings > Gameplay > Language and V. In the Exit Game button
+  ((1152,739)-(1605,813) on that window, from BK_UI_TRACE's layout of the
+  main menu), 3,494 pixels change with the mod chosen; with Default chosen
+  again the button is pixel-identical to the start; after a restart the
+  menu comes up with the marker, pixel-identical to the chosen frame, and
+  the log shows the mod mounted before the first scripted frame. Set on the
+  open main menu, the switch shows in the first frame drawn after it: the
+  frame before still has the marker, the frame after is identical to the
+  original (0 pixels). macOS and Windows are left to CI and the maintainer.

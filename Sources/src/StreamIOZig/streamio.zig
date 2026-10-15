@@ -74,6 +74,11 @@ const Storage = struct {
     // NUL-terminated so bk_storage_name can hand it to C++ as it is, with no copy to free.
     base: [:0]u8,
     access: u32,
+    // A storage named by one archive (`...\data\texts.pak`, no wildcard)
+    // is that archive alone: none of the folder's other PAKs and none of its
+    // loose files. The language a player picks is a mod's texts.pak, and the
+    // rest of that mod must not ride in with it.
+    single_archive: ?[:0]u8 = null,
     archives: std.ArrayListUnmanaged(LoadedArchive) = .empty,
     overlays: std.ArrayListUnmanaged(StorageOverlay) = .empty,
 };
@@ -744,6 +749,7 @@ pub fn streamio_test_dos_timestamp(seconds: i64) u32 {
 }
 
 fn statFile(storage: *const Storage, name: []const u8) ?std.Io.File.Stat {
+    if (storage.single_archive != null) return null;
     const raw_path = makePath(storage, name) orelse return null;
     defer allocator.free(raw_path);
     const path = hostPathAlloc(raw_path[0 .. raw_path.len - 1]) orelse return null;
@@ -842,7 +848,7 @@ fn loadArchives(storage: *Storage) void {
     defer directory.close(hostIo());
     var iterator = directory.iterate();
     while (iterator.next(hostIo()) catch null) |entry| {
-        if (entry.kind != .file or !wildcardMatch("*.pak", entry.name, true)) continue;
+        if (entry.kind != .file or !wildcardMatch(storage.single_archive orelse "*.pak", entry.name, true)) continue;
         const raw_path = appendHostPath(directory_path, entry.name) orelse continue;
         defer allocator.free(raw_path);
         const path = allocator.dupeSentinel(u8, raw_path, 0) catch continue;
@@ -919,7 +925,7 @@ fn overlayExists(storage: *const Storage, name: []const u8) bool {
         const child = storage.overlays.items[index].storage;
         const path = makePath(child, name) orelse continue;
         defer allocator.free(path);
-        if (looseFileExists(path)) return true;
+        if (child.single_archive == null and looseFileExists(path)) return true;
         if (archiveEntry(child, name) != null or overlayExists(child, name)) return true;
     }
     return false;
@@ -963,6 +969,7 @@ fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []co
 }
 
 fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*Stream {
+    if (storage.single_archive != null) return null;
     const raw_path = makePath(storage, name) orelse return null;
     defer allocator.free(raw_path);
     var path = allocator.dupeSentinel(u8, raw_path[0 .. raw_path.len - 1], 0) catch return null;
@@ -1059,11 +1066,18 @@ pub export fn bk_storage_create(name: [*:0]const u8, access: c_ulong, _: c_ulong
     const source = std.mem.span(name);
     const base = pathBase(source);
     const owned_base = allocator.dupeSentinel(u8, base, 0) catch return null;
-    const storage = allocator.create(Storage) catch {
+    const leaf = source[base.len..];
+    const single = leaf.len > 4 and std.ascii.eqlIgnoreCase(leaf[leaf.len - 4 ..], ".pak") and std.mem.indexOfAny(u8, leaf, "*?") == null;
+    const owned_leaf: ?[:0]u8 = if (single) allocator.dupeSentinel(u8, leaf, 0) catch {
         allocator.free(owned_base);
         return null;
+    } else null;
+    const storage = allocator.create(Storage) catch {
+        allocator.free(owned_base);
+        if (owned_leaf) |owned| allocator.free(owned);
+        return null;
     };
-    storage.* = .{ .base = owned_base, .access = @truncate(access) };
+    storage.* = .{ .base = owned_base, .access = @truncate(access), .single_archive = owned_leaf };
     loadArchives(storage);
     return storage;
 }
@@ -1079,6 +1093,7 @@ pub export fn bk_storage_destroy(handle: ?*anyopaque) callconv(.c) void {
     for (storage.overlays.items) |overlay| allocator.free(overlay.name);
     storage.overlays.deinit(allocator);
     allocator.free(storage.base);
+    if (storage.single_archive) |leaf| allocator.free(leaf);
     allocator.destroy(storage);
 }
 
@@ -1258,7 +1273,7 @@ pub export fn bk_storage_exists(handle: ?*anyopaque, name: [*:0]const u8) callco
     const storage = fromHandle(Storage, handle) orelse return false;
     const path = makePath(storage, std.mem.span(name)) orelse return false;
     defer allocator.free(path);
-    if (looseFileExists(path)) return true;
+    if (storage.single_archive == null and looseFileExists(path)) return true;
     return archiveEntry(storage, std.mem.span(name)) != null or overlayExists(storage, std.mem.span(name));
 }
 
@@ -1361,7 +1376,7 @@ pub export fn bk_stream_stats(handle: ?*anyopaque, output: ?*StorageStats) callc
 // list built by enumeration - custom campaigns, chapters, missions and
 // multiplayer maps - although each of its files opened fine by name.
 fn collectStorageFiles(storage: *const Storage, enumerator: *Enumerator) void {
-    collectFiles(storage, enumerator, "");
+    if (storage.single_archive == null) collectFiles(storage, enumerator, "");
     for (storage.archives.items) |*loaded| {
         for (loaded.archive.entries) |*entry| {
             const name_copy = normalizedStorageName(entry.name) orelse continue;
@@ -2582,6 +2597,31 @@ test "storage finds the PAKs of a folder spelled in another case" {
     const stream_handle = bk_storage_open(handle, "textes\\strings\\imheader-gbutton-exitgame.txt", 1) orelse return error.TestUnexpectedResult;
     defer bk_stream_destroy(stream_handle);
     try std.testing.expect(bk_stream_size(stream_handle) > 2);
+}
+
+test "a storage named by one PAK holds that archive and nothing else of its folder" {
+    // The language option mounts mods\<mod>\data\texts.pak: the mod's other
+    // PAKs and loose files are its gameplay, not its language.
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const io = hostIo();
+    try tmp.dir.createDirPath(io, "Mods/Lang/data");
+    const pak = try std.Io.Dir.cwd().readFileAlloc(io, "Data/ELK/texts.pak", allocator, .limited(16 << 20));
+    defer allocator.free(pak);
+    try tmp.dir.writeFile(io, .{ .sub_path = "Mods/Lang/data/Texts.pak", .data = pak });
+    try tmp.dir.writeFile(io, .{ .sub_path = "Mods/Lang/data/mod.xml", .data = "<base/>" });
+
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const root = buffer[0..try tmp.dir.realPath(io, &buffer)];
+    const name = try std.fmt.allocPrintSentinel(allocator, "{s}\\mods\\lang\\data\\texts.pak", .{root}, 0);
+    defer allocator.free(name);
+    const handle = bk_storage_create(name.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(handle);
+    try std.testing.expectEqual(@as(usize, 1), fromHandle(Storage, handle).?.archives.items.len);
+    const stream_handle = bk_storage_open(handle, "textes\\strings\\imheader-gbutton-exitgame.txt", 1) orelse return error.TestUnexpectedResult;
+    bk_stream_destroy(stream_handle);
+    try std.testing.expect(!bk_storage_exists(handle, "mod.xml"));
+    try std.testing.expect(bk_storage_open(handle, "mod.xml", 1) == null);
 }
 
 test "storage overlay exposes child archive entries" {

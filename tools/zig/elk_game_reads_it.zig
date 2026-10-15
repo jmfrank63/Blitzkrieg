@@ -103,6 +103,190 @@ test "the Game shows a main-menu label the ELK exported to a mod (E-06)" {
     try testing.expect(label_rect.contains(box));
 }
 
+/// The Exit Game button in MainMenu.xml coordinates, before the menu is
+/// scaled onto the window (label_rect above is the same button at scale 1).
+const exit_button = label_rect;
+
+test "the Options' Language row switches the Game's texts at once and keeps the choice" {
+    // The language option on the real Game, the E-06 mod as the second text
+    // source. The Game runs windowed at the desktop's size with BK_AUTO_UI
+    // driving the real settings screen: Options > Settings, the Gameplay tab
+    // (10008), four rows down to Language, then RIGHT (the mod) or LEFT
+    // (Default), V, and back to the main panel. `shot` writes the last frame
+    // drawn; every claim is measured inside the Exit Game button, where the
+    // label is, because the menu's backdrop is animated.
+    const io = testing.io;
+    const gpa = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(gpa);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = testing.environ.getPosix("BK_ELK_GAME") orelse {
+        std.debug.print("BK_ELK_GAME is not set: run zig build elk-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const game_root = std.fs.path.dirname(game).?;
+    const cwd = std.Io.Dir.cwd();
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), scratch ++ "-language" });
+    cwd.deleteTree(io, scratch ++ "-language") catch {};
+    const user = try std.fs.path.join(allocator, &.{ root, "user" });
+    // The Game looks for defconf.cfg, the options' declarations, under its
+    // working directory (.\Data\Configs and up to four folders above); run
+    // from the scratch folder it needs the installed copy beside it, or it
+    // has no options at all.
+    const configs = try std.fs.path.join(allocator, &.{ user, "Data", "Configs" });
+    try cwd.createDirPath(io, configs);
+    const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
+
+    const db_folder = try std.fs.path.join(allocator, &.{ root, "db" });
+    try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
+    const elk_xml = try std.fs.path.join(allocator, &.{ db_folder, "elk.xml" });
+    try cwd.writeFile(io, .{ .sub_path = elk_xml, .data = try cwd.readFileAlloc(io, "Data/ELK/elk.xml", allocator, .limited(1 << 20)) });
+    var db = try database.Database.open(gpa, io, elk_xml);
+    defer db.deinit();
+    const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", mod_name });
+    defer cwd.deleteTree(io, mod_folder) catch {};
+    try testing.expect(try db.writeTranslation(0, label_key, marker));
+    try exportMod(io, allocator, &db, game_root, marker);
+
+    // Opens the settings screen from the main panel at `frame`, picks the
+    // Language row's next (RIGHT) or previous (LEFT) entry, confirms and goes
+    // back from the Options panel to the main panel, there by `frame` + 400.
+    // The waits are the screens' own open and close transitions.
+    const switch_to = struct {
+        fn at(a: std.mem.Allocator, frame: u32, key: []const u8) ![]const u8 {
+            return std.fmt.allocPrint(a, "{d}:settings,{d}:msg=10003,{d}:msg=10008,{d}:key=DOWN,{d}:key=DOWN,{d}:key=DOWN,{d}:key=DOWN,{d}:key={s},{d}:ok,{d}:cancel", .{ frame, frame + 30, frame + 130, frame + 150, frame + 160, frame + 170, frame + 180, frame + 210, key, frame + 240, frame + 320 });
+        }
+    }.at;
+    // Run 1: the shipped label (60), the mod chosen in the options (480),
+    // Default chosen again (900), the mod chosen once more and the Game left.
+    const first = try std.mem.join(allocator, ",", &.{ "60:shot", try switch_to(allocator, 70, "RIGHT"), "480:shot", try switch_to(allocator, 490, "LEFT"), "900:shot", try switch_to(allocator, 910, "RIGHT"), "1320:exit" });
+    const log1 = try runAuto(io, allocator, game, user, first, "language-1");
+    const layout = try menuLayout(log1);
+    const button = layout.scaled(exit_button);
+    const original = try shot(io, allocator, user, 60, layout);
+    const chosen = try shot(io, allocator, user, 480, layout);
+    const back = try shot(io, allocator, user, 900, layout);
+    // Run 2, the same profile: the menu comes up in the mod's language; then
+    // Default is set on the open main menu at frame 80, the way the row
+    // commits it, and the frames on either side of the switch are kept.
+    const log2 = try runAuto(io, allocator, game, user, "60:shot,80:set=GamePlay.Language=Default,80:shot,81:shot,100:exit", "language-2");
+
+    try expectLine(log1, "language-1", "language: \"" ++ mod_name ++ "\" mounted, texts reloaded");
+    try expectLine(log1, "language-1", "language: \"Default\" mounted, texts reloaded");
+    // The second run mounts the mod before its first scripted frame.
+    const restart = std.mem.indexOf(u8, log2, "language: \"" ++ mod_name ++ "\" mounted, texts reloaded") orelse return error.LanguageNotRestored;
+    try testing.expect(restart < (std.mem.indexOf(u8, log2, "BK_AUTO_UI: frame 60 action shot") orelse return error.GameLineMissing));
+    if (!opensFromOverlay(log2, label_key ++ ".txt", "LANGUAGE")) return error.LabelNotReadFromLanguage;
+
+    const restarted = try shot(io, allocator, user, 60, layout);
+    const before = try shot(io, allocator, user, 80, layout);
+    const after = try shot(io, allocator, user, 81, layout);
+    const marked = changedIn(original, chosen, layout.width, button);
+    std.debug.print("language: the Exit Game button ({d},{d})-({d},{d}) on a {d}x{d} window; {d} of its pixels change with the mod chosen, {d} differ from the original with Default chosen again, {d} from the chosen frame after a restart, {d} between the frames drawn just before and just after a switch on the open menu, {d} from the original in the frame just after\n", .{
+        button.x1, button.y1, button.x2, button.y2, layout.width, layout.height, marked, changedIn(original, back, layout.width, button), changedIn(chosen, restarted, layout.width, button), changedIn(before, after, layout.width, button), changedIn(original, after, layout.width, button),
+    });
+    try testing.expect(marked >= 100);
+    try testing.expectEqual(@as(usize, 0), changedIn(original, back, layout.width, button));
+    try testing.expectEqual(@as(usize, 0), changedIn(chosen, restarted, layout.width, button));
+    try testing.expectEqual(@as(usize, 0), changedIn(chosen, before, layout.width, button));
+    try testing.expectEqual(@as(usize, 0), changedIn(original, after, layout.width, button));
+}
+
+/// How the main menu sits in the window, from BK_UI_TRACE's line for it.
+const Layout = struct {
+    width: usize,
+    height: usize,
+    x: f32,
+    y: f32,
+    scale_x: f32,
+    scale_y: f32,
+
+    /// A rect of the 1024x768 layout on the window, one pixel larger on
+    /// every side for the glyphs' filtered edges.
+    fn scaled(self: Layout, rect: Rect) Rect {
+        const fx = struct {
+            fn at(origin: f32, scale: f32, value: usize) f32 {
+                return origin + scale * @as(f32, @floatFromInt(value));
+            }
+        }.at;
+        return .{
+            .x1 = @intFromFloat(@max(0, @floor(fx(self.x, self.scale_x, rect.x1)) - 1)),
+            .y1 = @intFromFloat(@max(0, @floor(fx(self.y, self.scale_y, rect.y1)) - 1)),
+            .x2 = @min(self.width, @as(usize, @intFromFloat(@ceil(fx(self.x, self.scale_x, rect.x2)))) + 1),
+            .y2 = @min(self.height, @as(usize, @intFromFloat(@ceil(fx(self.y, self.scale_y, rect.y2)))) + 1),
+        };
+    }
+};
+
+fn menuLayout(log: []const u8) !Layout {
+    const prefix = "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen ";
+    const start = (std.mem.indexOf(u8, log, prefix) orelse return error.GameLineMissing) + prefix.len;
+    const line = log[start .. std.mem.indexOfScalarPos(u8, log, start, '\n') orelse log.len];
+    // "<w>x<h> -> parent <pw>x<ph> at (<x>,<y>) scale <sx>,<sy> ..."
+    var fields = std.mem.tokenizeAny(u8, line, " x(),\r");
+    const window_width = try std.fmt.parseInt(usize, fields.next() orelse return error.BadTrace, 10);
+    const window_height = try std.fmt.parseInt(usize, fields.next() orelse return error.BadTrace, 10);
+    if (!std.mem.eql(u8, fields.next() orelse "", "->") or !std.mem.eql(u8, fields.next() orelse "", "parent")) return error.BadTrace;
+    _ = fields.next();
+    _ = fields.next();
+    if (!std.mem.eql(u8, fields.next() orelse "", "at")) return error.BadTrace;
+    const x = try std.fmt.parseFloat(f32, fields.next() orelse return error.BadTrace);
+    const y = try std.fmt.parseFloat(f32, fields.next() orelse return error.BadTrace);
+    if (!std.mem.eql(u8, fields.next() orelse "", "scale")) return error.BadTrace;
+    const scale_x = try std.fmt.parseFloat(f32, fields.next() orelse return error.BadTrace);
+    const scale_y = try std.fmt.parseFloat(f32, fields.next() orelse return error.BadTrace);
+    return .{ .width = window_width, .height = window_height, .x = x, .y = y, .scale_x = scale_x, .scale_y = scale_y };
+}
+
+/// The frame BK_AUTO_UI's `shot` at `frame` wrote into the working directory.
+/// Every run counts frames from 1 and overwrites the last run's shot of the
+/// same frame, so read a run's shots before starting the next.
+fn shot(io: std.Io, allocator: std.mem.Allocator, user: []const u8, frame: u32, layout: Layout) ![]u8 {
+    const name = try std.fmt.allocPrint(allocator, "autoshot_{d}_{d}x{d}.rgba", .{ frame, layout.width, layout.height });
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(allocator, &.{ user, name }), allocator, .limited(64 << 20));
+    try testing.expectEqual(layout.width * layout.height * 4, bytes.len);
+    return bytes;
+}
+
+fn changedIn(a: []const u8, b: []const u8, row: usize, rect: Rect) usize {
+    var changed: usize = 0;
+    for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
+        const at = (y * row + x) * 4;
+        if (!std.mem.eql(u8, a[at..][0..3], b[at..][0..3])) changed += 1;
+    };
+    return changed;
+}
+
+/// Runs the Game in the scratch profile under a BK_AUTO_UI schedule; it must
+/// exit 0. Returns its output, kept beside the shots as `<name>.log`.
+fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []const u8, schedule: []const u8, name: []const u8) ![]u8 {
+    var environ = try testing.environ.createMap(allocator);
+    try environ.put("XDG_DATA_HOME", user);
+    try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_MEM_REPORT", "count");
+    try environ.put("BK_DEBUG_LOG", "1");
+    try environ.put("BK_MOD_TRACE", "1");
+    try environ.put("BK_UI_TRACE", "1");
+    try environ.put("BK_NO_HELP", "1");
+    try environ.put("BK_AUTO_UI", schedule);
+    const result = try std.process.run(allocator, io, .{
+        .argv = &.{ game, "-windowed", "-profile=ELKLanguage" },
+        .cwd = .{ .path = user },
+        .environ_map = &environ,
+        .timeout = .{ .duration = .{ .raw = .fromSeconds(240), .clock = .awake } },
+    });
+    const log = try std.mem.concat(allocator, u8, &.{ result.stdout, result.stderr });
+    const log_path = try std.fs.path.join(allocator, &.{ user, try std.fmt.allocPrint(allocator, "{s}.log", .{name}) });
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = log_path, .data = log });
+    if (!result.term.success()) {
+        std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
+        return error.GameFailed;
+    }
+    return log;
+}
+
 /// Exports the database to the mod and checks, through the engine's zip
 /// reader, that the label's entry carries `expected` (UTF-16 LE with a BOM,
 /// as the game reads texts) or, with null, the original.
@@ -173,12 +357,19 @@ fn expectLine(log: []const u8, log_path: []const u8, line: []const u8) !void {
 /// Whether a BK_MOD_TRACE line says the MOD overlay answered `name`, the
 /// game's spelling (backslashes, any case) compared without regard to either.
 fn opensFromMod(log: []const u8, name: []const u8) bool {
+    return opensFromOverlay(log, name, "MOD");
+}
+
+/// The same for any overlay: MOD, or LANGUAGE, the language option's pak.
+fn opensFromOverlay(log: []const u8, name: []const u8, overlay: []const u8) bool {
     const prefix = "BK_MOD_TRACE: open \"";
+    var buffer: [32]u8 = undefined;
+    const suffix = std.fmt.bufPrint(&buffer, "\" from {s}", .{overlay}) catch return false;
     var lines = std.mem.splitScalar(u8, log, '\n');
     while (lines.next()) |raw| {
         const line = std.mem.trimEnd(u8, raw, "\r");
-        if (!std.mem.startsWith(u8, line, prefix) or !std.mem.endsWith(u8, line, "\" from MOD")) continue;
-        const opened = line[prefix.len .. line.len - "\" from MOD".len];
+        if (!std.mem.startsWith(u8, line, prefix) or !std.mem.endsWith(u8, line, suffix)) continue;
+        const opened = line[prefix.len .. line.len - suffix.len];
         if (opened.len != name.len) continue;
         for (opened, name) |a, b| {
             const left = if (a == '\\') '/' else std.ascii.toLower(a);
