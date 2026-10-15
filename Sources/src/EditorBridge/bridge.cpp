@@ -4976,6 +4976,15 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 				pTextures->Clear( ISharedManager::CLEAR_ALL );
 			if ( IMeshManager *pMeshes = GetSingleton<IMeshManager>() )
 				pMeshes->Clear( ISharedManager::CLEAR_ALL );
+			// The renderer and its SDL GPU device: nothing else destroys
+			// them (GraphicsEngineGpu's destructor does not), so the
+			// device's command buffers, memory regions and caches - most of
+			// what read as "SDL's floor" - reached the report. Done releases
+			// the window claim and every resource still live; a texture or
+			// buffer the registry releases after this finds no renderer and
+			// does nothing.
+			if ( IGFX *pGFX = GetSingleton<IGFX>() )
+				pGFX->Done();
 			GetSingletonGlobal()->Done();
 		}
 	}
