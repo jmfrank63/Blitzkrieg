@@ -136,16 +136,17 @@ mode to count, so the direct run is required for stacks.
 
 ## T08c on Linux, resolved in two steps (2026-10-14)
 
-1. **The stack capture works.** The blocker above was recorded before
-   `3056d5055` gave the BkMemory module frame pointers on every platform and
-   before the Linux default went back to 7 frames (`e02f7d5e7`); on the tree
-   since then, the Linux report prints every block's frames - BkMemory's own
-   frames resolve to file:line, engine `.so` frames print their module and
-   address (resolvable offline). A capture that races another capture source
-   can still record nothing (one block in a flaked unit-tier run printed
-   "(empty stack trace)"); the record mutex covers BkMemory's own calls, so
-   the other source is a second allocator's capture - rare, and only hides
-   one block's stack, not the count.
+1. **The stack capture needs the explicit option.** The blocker above stands:
+   D086 sets 0 frames on Linux (the shared unwind state SEGV'd under CI,
+   38307115498 - a foreign-ICD driver thread unwinding beside our captures),
+   so the counted tiers record no stacks and the default report prints
+   "(empty stack trace)" for every block. A Linux investigation takes the
+   recorded recipe: rebuild with `-Dbk-mem-stack-frames=24`, run alone in the
+   process with `VK_DRIVER_FILES=lvp`. That produces full per-block frames -
+   BkMemory's own resolve to file:line, engine `.so` frames by module and
+   address (resolvable offline). One capture race remains under contention
+   (a single block printed empty on a unit-tier run); it hides one stack,
+   not the count.
 2. **The Game's Finalize ordering moved to `BkEditorStop`.** The last
    session's stop now runs `SetFont(0)` and the font, texture and mesh
    managers' `Clear` before the registry `Done()`, as `NMain::Finalize` does
@@ -168,6 +169,20 @@ mode to count, so the direct run is required for stacks.
    The managers' Clear released most of the first four engine-side families
    with the font's; what remains is SDL plus the registries whose release is
    the cross-DLL cache work out of S04's original scope.
+
+   Post-fix partial table (Linux, one run, 24-frame capture per the recipe
+   above; bucket-ordered report, 3,088 of 8,553 blocks symbolized before the
+   run's leash - the shares are directional, the counts above are exact):
+
+   | blocks | bytes | owner |
+   | --- | --- | --- |
+   | 1,494 | ~259 KB | SDL's own storage (`SDL_malloc.c`, three sites) |
+   | 149 | ~137 KB | thread descriptors (`pthread_create.c:454`), spawned-and-unreaped worker threads - the per-cycle suspect |
+   | 4 | ~7 KB | `EditorBridge/session.cpp` |
+
+   The engine registry families of the pre-fix table (RPGStats, Globals,
+   GameDB, `2Darray.h`) do not appear in the symbolized set: the Finalize
+   ordering dissolved them.
 
 ## The unit-tier single-block leak, found and fixed (2026-10-14)
 
