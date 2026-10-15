@@ -3370,7 +3370,7 @@ pub fn build(b: *std.Build) void {
     const elk_core_tests = b.addTest(.{ .root_module = elk_core_module });
     const elk_core_tests_run = b.addRunArtifact(elk_core_tests);
     elk_core_tests_run.setCwd(b.path("."));
-    const elk_core_step = b.step("test-elk-core", "Run the ELK core tests (text database, codec, elk.xml, imports, pak export) against the tracked Data/ELK");
+    const elk_core_step = b.step("test-elk-core", "Run the ELK core tests (text database, codec, elk.xml, imports, pak export, spreadsheets) against the tracked Data/ELK");
     elk_core_step.dependOn(&elk_core_tests.step);
     if (test_mode == .run) elk_core_step.dependOn(&elk_core_tests_run.step);
     test_step.dependOn(elk_core_step);
@@ -9173,7 +9173,7 @@ fn addElk(
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
-    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod and into a scratch game folder with Run Game, and spell check with a generated dictionary");
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod and into a scratch game folder with Run Game, spell check with a generated dictionary, and the spreadsheet export and import (xlsx, csv, the legacy desc.xls)");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }

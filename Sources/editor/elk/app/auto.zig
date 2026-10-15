@@ -54,6 +54,9 @@
 //!   do=export_name:<text>    type a mod's name or folder into the Mod box
 //!   do=export_browse         press Browse...; `do=answer` answers it
 //!   do=export_ok  do=export_cancel
+//!   do=sheet_import          File > Import from spreadsheet...; `do=answer`
+//!                            answers its dialog with the sheet
+//!   do=sheet_export          File > Export to spreadsheet...; the same
 //!   do=install               File > Install to game...
 //!   do=install_choice:<c>    a button of the shadow warning (drawn in the
 //!                            last frame): mod, install or cancel
@@ -113,7 +116,12 @@
 //!   expect=pak:<mod>=<entries|none>  the pak of the mod (`game` for
 //!                            Data/Texts.pak) in the game folder, read back by
 //!                            the core: its text entries, or no such file
-//!   expect=notice_has:<text>   the status line's export or launch summary
+//!   expect=notice_has:<text>   the status line's export, import or launch
+//!                            summary
+//!   expect=imported:<rows>/<changed>/<outdated>/<empty>/<missing>  the last
+//!                            spreadsheet import's counts: rows read, texts
+//!                            changed and made Outdated, rows skipped for an
+//!                            empty translation and for a missing text
 //!   expect=failure_has:<text>  the status line's failure
 //!   expect=launched:<index>=<argument>  the last Run Game's command line
 //!   expect=untouched:<index>   the row's text files are byte-identical to
@@ -309,6 +317,9 @@ pub const Runner = struct {
             } else if (is(named, "export_browse")) {
                 ui.requestModFolder(window);
             } else ui.export_pending = is(named, "export_ok");
+        } else if (is(named, "sheet_import") or is(named, "sheet_export")) {
+            if (!ui.canExport()) return self.fail("do={s}: the spreadsheet commands are disabled", .{named.name});
+            ui.requestSheet(window, if (is(named, "sheet_import")) .import else .@"export");
         } else if (is(named, "install")) {
             if (!ui.canExport()) return self.fail("do=install: Install to game... is disabled", .{});
             ui.requestInstall();
@@ -341,7 +352,7 @@ pub const Runner = struct {
         } else if (is(named, "answer")) {
             var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
             const path = if (self.dialog_folder.len == 0) named.arg else try std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ self.dialog_folder, std.fs.path.sep, named.arg });
-            if (!ui.answerDialog(path)) return self.fail("do=answer: no File > Open or Browse... dialog is waiting", .{});
+            if (!ui.answerDialog(path)) return self.fail("do=answer: no file or folder dialog is waiting", .{});
         } else if (is(named, "reopen")) {
             var copy: [std.Io.Dir.max_path_bytes]u8 = undefined;
             const last = self.last_path[0..self.last_path_len];
@@ -550,6 +561,11 @@ pub const Runner = struct {
             try self.pak(ui, named.arg);
         } else if (is(named, "notice_has")) {
             if (std.mem.indexOf(u8, ui.notice(), named.arg) == null) return self.fail("expect=notice_has: the summary \"{s}\" lacks \"{s}\"", .{ ui.notice(), named.arg });
+        } else if (is(named, "imported")) {
+            const counts = ui.imported orelse return self.fail("expect=imported: nothing was imported", .{});
+            var buffer: [96]u8 = undefined;
+            const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}/{d}/{d}/{d}", .{ counts.rows, counts.changed, counts.outdated, counts.empty, counts.missing });
+            if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=imported: the import counted {s}, wanted {s} ({s})", .{ shown, named.arg, ui.notice() });
         } else if (is(named, "failure_has")) {
             if (std.mem.indexOf(u8, session.failureText(), named.arg) == null) return self.fail("expect=failure_has: the failure \"{s}\" lacks \"{s}\"", .{ session.failureText(), named.arg });
         } else if (is(named, "launched")) {

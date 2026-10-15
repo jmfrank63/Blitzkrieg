@@ -23,7 +23,11 @@
 //! of the selected text's translation with Hunspell's suggestions and an Add
 //! to dictionary button for each; Tools > Spelling Options... picks the
 //! dictionary folder and the language. Without a dictionary both say why
-//! spell check is off, and Spelling is disabled (spelling.zig).
+//! spell check is off, and Spelling is disabled (spelling.zig). File >
+//! Import from spreadsheet... and Export to spreadsheet... exchange the
+//! texts with a translator's sheet through the core (D-10): `.xlsx` (the
+//! default when the name has no extension), `.csv`, and legacy `.xls` read
+//! only; the status line sums up what was read, written and skipped.
 const std = @import("std");
 const builtin = @import("builtin");
 const imgui = @import("editor_imgui");
@@ -58,6 +62,19 @@ const open_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "ELK projects (el
 var mod_slot: ModSlot = .{};
 
 const ModSlot = kit.dialogs.PathSlot(void, settings_mod.max_path);
+
+/// File > Import from spreadsheet... and Export to spreadsheet...: the sheet
+/// the OS dialog chose, and which of the two asked for it.
+var sheet_slot: SheetSlot = .{};
+
+pub const SheetAction = enum { import, @"export" };
+const SheetSlot = kit.dialogs.PathSlot(SheetAction, settings_mod.max_path);
+
+const import_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "Spreadsheets (xlsx, csv, legacy xls)", .pattern = "xlsx;csv;xls" }};
+const export_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "Excel workbook (xlsx)", .pattern = "xlsx" },
+    .{ .name = "CSV, UTF-8 (csv)", .pattern = "csv" },
+};
 const testlaunch = kit.testlaunch;
 const export_popup = "Export to language mod";
 const warning_popup = "Install to game";
@@ -166,7 +183,10 @@ pub const Ui = struct {
     /// The mod exported to in this session, which Run Game plays.
     played_mod: [settings_mod.max_path]u8 = undefined,
     played_mod_len: usize = 0,
-    /// The last export's or launch's summary, shown in the status line.
+    /// The last spreadsheet import's counts, for the scripted runs.
+    imported: ?Imported = null,
+    /// The last export's, import's or launch's summary, shown in the status
+    /// line.
     notice_storage: [768]u8 = undefined,
     notice_len: usize = 0,
     /// Run Game's Game while it runs: polled each frame, never waited on.
@@ -179,6 +199,8 @@ pub const Ui = struct {
     /// scripted runs.
     launched: [2048]u8 = undefined,
     launched_len: usize = 0,
+
+    pub const Imported = struct { rows: usize, changed: usize, outdated: usize, empty: usize, missing: usize };
 
     /// `colour` is the row's state colour; a dimmed row was drawn fainter.
     pub const Drawn = struct { node: u32, colour: u32, dimmed: bool };
@@ -239,6 +261,8 @@ pub const Ui = struct {
             open_slot.deliver(path);
         } else if (mod_slot.waiting()) {
             mod_slot.deliver(path);
+        } else if (sheet_slot.waiting()) {
+            sheet_slot.deliver(path);
         } else return false;
         return true;
     }
@@ -687,6 +711,57 @@ pub const Ui = struct {
         return true;
     }
 
+    /// File > Import from spreadsheet... and Export to spreadsheet...: the
+    /// OS dialog, starting beside the open database. Its answer imports or
+    /// exports in a later frame (`draw`).
+    pub fn requestSheet(self: *Ui, window: *window_mod.Window, action: SheetAction) void {
+        if (!self.canExport() or !sheet_slot.request(action)) return;
+        if (!self.os_dialogs) return;
+        var folder_buffer: [settings_mod.max_path + 1]u8 = undefined;
+        const folder = std.fs.path.dirname(self.session.openPath()) orelse "";
+        const location: ?[*:0]const u8 = if (folder.len == 0) null else if (std.mem.printSentinel(&folder_buffer, "{s}", .{folder}, 0)) |z| z.ptr else |_| null;
+        switch (action) {
+            .import => sdl3.c.SDL_ShowOpenFileDialog(SheetSlot.callback, &sheet_slot, window.window, &import_filters, import_filters.len, location, false),
+            .@"export" => sdl3.c.SDL_ShowSaveFileDialog(SheetSlot.callback, &sheet_slot, window.window, &export_filters, export_filters.len, location),
+        }
+    }
+
+    fn takeSheet(self: *Ui) void {
+        switch (sheet_slot.take() orelse return) {
+            .path => |chosen| switch (chosen.kind) {
+                .import => self.importSheet(chosen.path),
+                .@"export" => self.exportSheet(chosen.path),
+            },
+            .cancelled => {},
+            .failed => |reason| self.session.fail("the file dialog failed: {s}", .{reason}),
+        }
+    }
+
+    /// Writes every text to the sheet at `chosen`; a name without an
+    /// extension gets `.xlsx`, as the MFC dialog added `.xls`.
+    pub fn exportSheet(self: *Ui, chosen: []const u8) void {
+        var buffer: [settings_mod.max_path + 8]u8 = undefined;
+        const path = if (std.fs.path.extension(chosen).len == 0) std.fmt.bufPrint(&buffer, "{s}.xlsx", .{chosen}) catch chosen else chosen;
+        const rows = self.session.exportSheet(path) catch return;
+        self.notify("exported {d} rows to {s}", .{ rows, path });
+    }
+
+    /// Imports the sheet at `path`; the summary counts the rows read, the
+    /// texts changed and what was skipped, and names the first path the
+    /// database lacks.
+    pub fn importSheet(self: *Ui, path: []const u8) void {
+        var report = self.session.importSheet(path) catch return;
+        defer report.deinit(self.gpa);
+        self.imported = .{ .rows = report.rows, .changed = report.changed, .outdated = report.outdated, .empty = report.empty, .missing = report.missing.len };
+        var writer: std.Io.Writer = .fixed(&self.notice_storage);
+        defer self.notice_len = writer.buffered().len;
+        writer.print("imported {s}: {d} rows read, changes applied to {d} ({d} outdated); skipped {d} without a translation and {d} missing", .{
+            std.fs.path.basename(path), report.rows, report.changed, report.outdated, report.empty, report.missing.len,
+        }) catch return;
+        if (report.missing.len != 0) writer.print(" (the first {s})", .{report.missing[0]}) catch return;
+        if (report.failed != 0) writer.print(", {d} not written: {s}", .{ report.failed, @errorName(report.first_failure.?) }) catch return;
+    }
+
     /// File > Install to game...: `Data/Texts.pak` in the game folder, at
     /// once when nothing loose hides it, else after D-09's warning.
     pub fn requestInstall(self: *Ui) void {
@@ -855,6 +930,7 @@ pub const Ui = struct {
     pub fn draw(self: *Ui, window: *window_mod.Window) void {
         self.takeOpen();
         self.takeModFolder();
+        self.takeSheet();
         self.pollGame();
         window.setTitle(self.title().ptr);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
@@ -1363,6 +1439,10 @@ pub const Ui = struct {
         const open = self.session.isOpen();
         if (ig.igMenuItemEx("Save", "Ctrl+S", false, open)) self.session.save() catch {};
         if (ig.igMenuItemEx("Close", null, false, open)) self.session.close() catch {};
+        ig.igSeparator();
+        const sheet_free = self.canExport() and !sheet_slot.waiting();
+        if (ig.igMenuItemEx("Import from spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .import);
+        if (ig.igMenuItemEx("Export to spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .@"export");
         ig.igSeparator();
         if (ig.igMenuItemEx("Export to language mod...", null, false, self.canExport())) self.requestExportMod(false);
         if (ig.igMenuItemEx("Install to game...", null, false, self.canExport())) self.requestInstall();

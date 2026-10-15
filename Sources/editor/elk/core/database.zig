@@ -180,6 +180,18 @@ pub const Database = struct {
         return previous.state;
     }
 
+    /// Writes the state file when it would change: the spreadsheet import's
+    /// write, which sets the state and leaves `Changed` as it was, as
+    /// `CELK::ImportFromXLS` did. Returns whether it wrote.
+    pub fn writeProperty(self: *Database, element: usize, key: []const u8, property: TextProperty) !bool {
+        if (std.meta.eql(try self.readState(element, key), property)) return false;
+        var buffer: [state.max_len]u8 = undefined;
+        const path = try self.targetPath(element, key, .state);
+        defer self.gpa.free(path);
+        try writeFileAtomic(self.io, self.gpa, path, state.format(&buffer, property));
+        return true;
+    }
+
     /// The file's bytes as they are on disk, for what copies them unchanged
     /// (the export); null when it is missing.
     pub fn readBytes(self: *Database, gpa: std.mem.Allocator, element: usize, key: []const u8, extension: Extension) !?[]u8 {

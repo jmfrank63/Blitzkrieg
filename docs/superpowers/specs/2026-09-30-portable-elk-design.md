@@ -219,6 +219,22 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   original mismatch, Translated otherwise, write only when the bytes
   differ). The backtick-for-apostrophe substitution is applied only when
   reading legacy `.xls`; new exports do not substitute.
+  As built (07-03/07-07): new exports do not trim either (the MFC export
+  trimmed trailing `\t\r\n ` off the three texts; 38 tracked translations
+  end in a space), so an export imported back changes nothing. A row whose
+  element or text the database lacks is reported and skipped (the MFC
+  import wrote files for it). The State and Description columns are written
+  but not read; columns are found by header name. The `.xlsx` is read with a
+  scanner of the core's own, not the engine's `xml.zig`, which trims text
+  and reads `&#233;` as one byte; zips go through the engine's `zip.zig` and
+  `zip_writer.zig` (D-08). The BIFF8 reader takes what `Data/ELK/desc.xls`
+  holds (header DIFAT only, Workbook stream in the FAT, `BOUNDSHEET`,
+  `SST`/`CONTINUE`, `LABELSST`), plus `RK`/`NUMBER` as shortest decimal text
+  and `BLANK`/`MULBLANK` as empty; other cell records, a FAT beyond 109
+  sectors and a Workbook in the mini stream fail with their own error. The
+  independent decoder is LibreOffice 24.2; it also opened the written
+  `.xlsx` of all 2,852 texts with every cell equal, and its own `.xlsx` of
+  them read back equal. Excel itself was not available to check.
 - **D-11 Spell check: Hunspell.** Hunspell (tri-licensed MPL/GPL/LGPL) is
   vendored and built by `zig build`; it reads `.aff`/`.dic` dictionaries from
   a dictionary folder the user picks (default `<ELK dir>/dictionaries`), the

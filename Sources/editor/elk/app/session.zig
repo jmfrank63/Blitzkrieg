@@ -12,7 +12,8 @@
 //! D-09): to a language mod, `mods/<Name>/data/texts.pak`, or into the game,
 //! `Data/Texts.pak`, after the shadow check that names the loose folder
 //! hiding it; Run Game's command line is the kit's test launch in ELK's own
-//! profile.
+//! profile. The spreadsheet export and import are the core's (D-10); an
+//! import reopens the database so the tree shows the states it set.
 const std = @import("std");
 const elk = @import("elk_core");
 const testlaunch = @import("editor_kit").testlaunch;
@@ -345,6 +346,38 @@ pub const Session = struct {
         };
         self.failure_len = 0;
         return .{ .path = path, .entries = elk.packages.entryCount(database, element, .{}) };
+    }
+
+    /// File > Export to spreadsheet...: the edit is saved first, then the
+    /// core writes every text to `path` in the format its extension names.
+    /// Returns the rows written.
+    pub fn exportSheet(self: *Session, path: []const u8) !usize {
+        if (self.database == null) return error.NoDatabaseOpen;
+        try self.save();
+        const rows = elk.sheet.exportTo(self.gpa, self.io, &self.database.?, path) catch |err| {
+            self.fail("could not export to {s}: {s}", .{ path, @errorName(err) });
+            return err;
+        };
+        self.failure_len = 0;
+        return rows;
+    }
+
+    /// File > Import from spreadsheet...: the edit is saved first, the core
+    /// imports the sheet at `path` (D-10), and the database is opened again
+    /// so the tree shows the new states, as the MFC ELK closed and reopened
+    /// it. The caller deinits the report.
+    pub fn importSheet(self: *Session, path: []const u8) !elk.sheet.Report {
+        if (self.database == null) return error.NoDatabaseOpen;
+        try self.save();
+        var report = elk.sheet.importFile(self.gpa, self.io, &self.database.?, path) catch |err| {
+            self.fail("could not import {s}: {s}", .{ path, @errorName(err) });
+            return err;
+        };
+        errdefer report.deinit(self.gpa);
+        const opened = try self.gpa.dupe(u8, self.openPath());
+        defer self.gpa.free(opened);
+        try self.open(opened);
+        return report;
     }
 
     /// Install to game's check: the texts a loose file in `game_folder`
@@ -715,6 +748,46 @@ test "an export saves the edit first and writes the mod or the game's pak" {
 
     try testing.expectError(error.InvalidModName, session.exportPak(game, .{ .mod = ".." }));
     try testing.expect(std.mem.indexOf(u8, session.failureText(), "InvalidModName") != null);
+}
+
+test "a spreadsheet export saves the edit first, and its import reopens with the new state" {
+    const io = testing.io;
+    const root = try fixture(io, "sheet");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    const xlsx = try std.fs.path.join(testing.allocator, &.{ root, "texts.xlsx" });
+    defer testing.allocator.free(xlsx);
+
+    var session = Session.init(testing.allocator, io);
+    defer session.deinit();
+    try testing.expectError(error.NoDatabaseOpen, session.exportSheet(xlsx));
+    try session.open(elk_path);
+    try session.select(0);
+    try session.translation.set(testing.allocator, "Orden");
+    try testing.expectEqual(@as(usize, 1), try session.exportSheet(xlsx));
+    try testing.expect(!session.dirty());
+
+    // Another translation since, set back by the import.
+    try session.translation.set(testing.allocator, "Medaille");
+    try session.setState(.approved);
+    try session.save();
+    var report = try session.importSheet(xlsx);
+    defer report.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 1), report.rows);
+    try testing.expectEqual(@as(usize, 1), report.changed);
+    try testing.expect(session.isOpen());
+    try session.select(0);
+    try testing.expectEqual(State.translated, session.state);
+    try testing.expectEqualStrings("Orden", session.translation.text());
+
+    var again = try session.importSheet(xlsx);
+    defer again.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 0), again.changed);
+    try testing.expectError(error.XlsIsReadOnly, session.exportSheet("texts.xls"));
+    try testing.expect(std.mem.indexOf(u8, session.failureText(), "XlsIsReadOnly") != null);
+    try testing.expectError(error.FileNotFound, session.importSheet("missing.csv"));
+    try testing.expect(session.isOpen());
 }
 
 test "a mod is a name or a folder directly below the game's mods" {

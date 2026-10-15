@@ -42,7 +42,12 @@
 //! folder is missing, on with a generated test dictionary chosen in Spelling
 //! Options, F7 listing a typed misspelling with its suggestion, Add to
 //! dictionary writing custom.dic beside the run's elk.cfg and clearing the
-//! flag, and a second run still accepting the word.
+//! flag, and a second run still accepting the word. An eighth copy proves
+//! the spreadsheet exchange (D-10): Export to spreadsheet writing all 2,852
+//! texts to `.xlsx` (the default for a name without extension) and `.csv`
+//! and refusing `.xls`; Import from spreadsheet setting an edited
+//! translation back from the earlier export, importing it again and the
+//! `.csv` changing nothing, and the legacy `desc.xls` reading all its rows.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -265,6 +270,27 @@ const spell_reopen_schedule =
     "2:expect=open,2:expect=spell_language:" ++ spelling_mod.test_language ++ ",2:do=select_key:" ++ smoke_key ++ "," ++
     "3:do=spell,5:expect=spelling:1,5:expect=misspelt:redy=0,5:expect=misspelt:teh=1,6:exit";
 
+/// The spreadsheet pass: exports to `.xlsx` (the name without extension)
+/// and `.csv`, `.xls` refused; an edited translation set back by importing
+/// the earlier export, which turns it Translated; the same import again and
+/// the `.csv` change nothing; the legacy `desc.xls` reads all its rows,
+/// every one without a translation.
+const sheet_key = "buildings/africa/summer/a_cisterns/01/name";
+/// The tracked texts with no translation (2,852 less 1,540).
+const untranslated = "1312";
+const sheet_schedule =
+    "2:expect=open,2:do=sheet_export,2:do=answer:texts,4:expect=notice_has:" ++ export_texts ++ ",4:expect=notice_has:texts.xlsx," ++
+    "5:do=sheet_export,5:do=answer:texts.csv,7:expect=notice_has:texts.csv," ++
+    "8:do=sheet_export,8:do=answer:texts.xls,10:expect=failure_has:XlsIsReadOnly," ++
+    "11:do=select_key:" ++ sheet_key ++ ",15:do=focus:translation,17:key=end+ctrl,18:text=X,20:do=save," ++
+    "21:expect=disk:" ++ sheet_key ++ "=CisternX," ++
+    "22:do=sheet_import,22:do=answer:texts.xlsx,24:expect=imported:" ++ export_texts ++ "/1/0/" ++ untranslated ++ "/0,24:expect=notice_has:texts.xlsx," ++
+    "24:expect=disk:" ++ sheet_key ++ "=Cistern,24:expect=state:" ++ sheet_key ++ "=translated," ++
+    "25:do=sheet_import,25:do=answer:texts.xlsx,27:expect=imported:" ++ export_texts ++ "/0/0/" ++ untranslated ++ "/0," ++
+    "28:do=sheet_import,28:do=answer:texts.csv,30:expect=imported:" ++ export_texts ++ "/0/0/" ++ untranslated ++ "/0," ++
+    "31:do=sheet_import,31:do=answer:desc.xls,33:expect=imported:153/0/0/153/0,33:expect=notice_has:desc.xls," ++
+    "34:exit";
+
 /// Linux and macOS get a stand-in Game, a shell script that writes the
 /// arguments it was started with; Windows has none, and its Run Game fails
 /// to start after recording the same command line.
@@ -442,7 +468,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (exported.code != 0) return exported.code;
     const spelt = smokeSpell(gpa, io, environ, source, scratch);
     if (spelt.code != 0) return spelt.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game, spell check with Add to dictionary kept over a restart on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, result.fonts, elk_path });
+    const sheets = smokeSheet(gpa, io, environ, source, scratch);
+    if (sheets.code != 0) return sheets.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -560,6 +588,32 @@ fn smokeSpell(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = spell_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (spell check after a restart)" });
     if (again.code != 0) return again;
     return .{ .code = 0, .frames = first.frames + again.frames };
+}
+
+/// The smoke's spreadsheet pass on an eighth copy, `<scratch>-sheet`, the
+/// sheets written and read in the copy's folder, with the source's legacy
+/// `desc.xls` beside them.
+fn smokeSheet(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-sheet", .{scratch}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    {
+        const cwd = std.Io.Dir.cwd();
+        var from = cwd.openDir(io, source, .{}) catch return .{ .code = 1 };
+        defer from.close(io);
+        var to = cwd.openDir(io, folder, .{}) catch return .{ .code = 1 };
+        defer to.close(io);
+        copyFile(gpa, io, from, to, "desc.xls") catch |err| {
+            std.debug.print("elk: smoke FAIL: could not copy {s}{c}desc.xls: {s}\n", .{ source, std.fs.path.sep, @errorName(err) });
+            return .{ .code = 1 };
+        };
+    }
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    return scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = sheet_schedule, .dialog_folder = folder, .frame_limit = smoke_frame_limit, .tier = "smoke (spreadsheet export and import)" });
 }
 
 /// The smoke's pak export pass on a sixth copy, `<scratch>-export`, with
