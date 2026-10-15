@@ -2002,6 +2002,37 @@ pub fn build(b: *std.Build) void {
         bk_pak_test_step.dependOn(&b.addRunArtifact(bk_tool_tests).step);
         bk_pak_test_step.dependOn(&b.addRunArtifact(bk_pak_tests).step);
     }
+    // `bk-table` (D-08..D-11): ExcelExporter's stat sheets, exported as TSV and
+    // imported by patching values in place. std-only Zig like bk-pak, built
+    // the same way, staged beside it in Tools/ and in the convention test.
+    const bk_table = b.addExecutable(.{
+        .name = "bk-table",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_table.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_table_step = b.step("bk-table", "Build and install the bk-table stat sheet tool");
+    bk_table_step.dependOn(&b.addInstallArtifact(bk_table, .{}).step);
+    const bk_table_host = b.addExecutable(.{
+        .name = "bk-table",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_table.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_table", bk_table_host.getEmittedBin());
+    const bk_table_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_table_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    }) });
+    const bk_table_test_step = b.step("test-bk-table", "Run the bk-table sheet and XML tests and the bk-* convention test");
+    bk_table_test_step.dependOn(&bk_table_tests.step);
+    bk_table_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_table_test_step.dependOn(&b.addRunArtifact(bk_table_tests).step);
     // The same tool, run by every staging (install-game, and so
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
@@ -2629,7 +2660,7 @@ pub fn build(b: *std.Build) void {
         .debug_files = stage_debug_files,
         .metadata_files = stage_metadata_files,
         .editors_supported = target.result.os.tag == .windows,
-        .tools = b.allocator.dupe(*std.Build.Step.Compile, &.{bk_pak}) catch @panic("OOM"),
+        .tools = b.allocator.dupe(*std.Build.Step.Compile, &.{ bk_pak, bk_table }) catch @panic("OOM"),
     };
     const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");

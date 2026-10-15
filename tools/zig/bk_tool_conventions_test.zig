@@ -57,6 +57,25 @@ const tools = [_]Tool{
         .succeeding = &.{ "--ttf", "fonts\\ProggyClean.ttf", "--height", "13", "--out", "mod\\font" },
         .setup = setupFont,
     },
+    .{
+        .name = "bk-table",
+        .path = bk_tools.bk_table,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"export"},
+            &.{ "export", "*.xml", "stats" },
+            &.{ "export", "*.xml", "stats", "out.csv" },
+            &.{ "export", "*.xml", "stats", "out.tsv", "--only" },
+            &.{ "export", "*.xml", "stats", "out.tsv", "--only", "f.txt", "--ignore", "f.txt" },
+            &.{"import"},
+            &.{ "import", "sheet.csv" },
+            &.{ "import", "sheet.tsv", "--no-recurse" },
+        },
+        .failing = &.{ "import", "missing.tsv" },
+        .succeeding = &.{ "export", "*.xml", "mod\\stats", "mod\\out\\sheet.tsv" },
+        .setup = setupTable,
+    },
 };
 
 /// The committed fixture font (D-15), copied from the build root, which is
@@ -64,6 +83,11 @@ const tools = [_]Tool{
 fn setupFont(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "fonts");
     try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/fonts/ProggyClean.ttf", dir, "fonts/ProggyClean.ttf", io, .{});
+}
+
+fn setupTable(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod/stats");
+    try dir.writeFile(io, .{ .sub_path = "mod/stats/1.xml", .data = "<base><RPG HP=\"1\"/></base>\n" });
 }
 
 fn setupPak(io: std.Io, dir: std.Io.Dir) !void {
