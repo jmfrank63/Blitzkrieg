@@ -6,7 +6,7 @@ const std = @import("std");
 const imgui = @import("editor_imgui");
 const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
-const window_mod = @import("window.zig");
+const window_mod = @import("editor_kit").window;
 
 const ig = imgui.c;
 const Session = session_mod.Session;

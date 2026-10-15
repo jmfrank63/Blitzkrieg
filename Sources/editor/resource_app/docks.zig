@@ -43,56 +43,8 @@ const thumbnail_pump_budget = 4;
 /// another thread or after the window is gone, so it is a global.
 var folder_slot: FolderSlot = .{};
 
-const FolderSlot = struct {
-    state: std.atomic.Value(u8) = .init(@intFromEnum(State.idle)),
-    target: Target = .thumbnails,
-    buffer: [logic.path_capacity]u8 = undefined,
-    len: usize = 0,
-
-    const State = enum(u8) { idle, waiting, arrived, cancelled };
-    const Target = enum { thumbnails, import, import_terrains, import_crossets };
-
-    fn request(self: *FolderSlot, target: Target) bool {
-        if (self.state.cmpxchgStrong(@intFromEnum(State.idle), @intFromEnum(State.waiting), .acquire, .monotonic) != null) return false;
-        self.target = target;
-        return true;
-    }
-
-    fn deliver(self: *FolderSlot, text: ?[]const u8) void {
-        if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
-        const chosen = text orelse {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        };
-        if (chosen.len > self.buffer.len) {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        }
-        self.len = chosen.len;
-        @memcpy(self.buffer[0..self.len], chosen);
-        self.state.store(@intFromEnum(State.arrived), .release);
-    }
-
-    /// The chosen folder and whose it is, once it arrived; "" is a cancel.
-    fn take(self: *FolderSlot) ?struct { target: Target, path: []const u8 } {
-        const state: State = @enumFromInt(self.state.load(.acquire));
-        const path: []const u8 = switch (state) {
-            .idle, .waiting => return null,
-            .arrived => self.buffer[0..self.len],
-            .cancelled => "",
-        };
-        self.state.store(@intFromEnum(State.idle), .release);
-        return .{ .target = self.target, .path = path };
-    }
-};
-
-fn folderCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filter: c_int) callconv(.c) void {
-    _ = filter;
-    const slot: *FolderSlot = @ptrCast(@alignCast(userdata orelse return));
-    if (filelist == null) return slot.deliver(null);
-    const first = filelist[0];
-    slot.deliver(if (first != null) std.mem.span(first) else null);
-}
+const FolderSlot = kit.dialogs.PathSlot(FolderTarget, logic.path_capacity);
+const FolderTarget = enum { thumbnails, import, import_terrains, import_crossets };
 
 /// A rectangle in screen pixels.
 pub const Rect = struct { x: f32, y: f32, w: f32, h: f32 };
@@ -316,7 +268,7 @@ pub const Docks = struct {
     fn requestTileImport(self: *Docks, mode: tl.Mode) void {
         _ = self;
         if (!folder_slot.request(if (mode == .crossets) .import_crossets else .import_terrains)) return;
-        sdl3.c.SDL_ShowOpenFileDialog(folderCallback, &folder_slot, null, null, 0, null, false);
+        sdl3.c.SDL_ShowOpenFileDialog(FolderSlot.callback, &folder_slot, null, null, 0, null, false);
     }
 
     fn importTiles(self: *Docks, life: *logic.Lifecycle, path: []const u8, mode: tl.Mode) void {
@@ -643,7 +595,7 @@ pub const Docks = struct {
                 if (folder_slot.request(.thumbnails)) {
                     var start: [logic.path_capacity + 1]u8 = undefined;
                     const location = std.mem.printSentinel(&start, "{s}", .{folder}, 0) catch null;
-                    sdl3.c.SDL_ShowOpenFolderDialog(folderCallback, &folder_slot, null, if (location) |l| l.ptr else null, false);
+                    sdl3.c.SDL_ShowOpenFolderDialog(FolderSlot.callback, &folder_slot, null, if (location) |l| l.ptr else null, false);
                 }
             }
         }
@@ -1036,7 +988,7 @@ pub const Docks = struct {
             if (folder_slot.request(.import)) {
                 var start: [logic.path_capacity + 1]u8 = undefined;
                 const location = std.mem.printSentinel(&start, "{s}", .{self.import_form.folderSlice()}, 0) catch null;
-                sdl3.c.SDL_ShowOpenFolderDialog(folderCallback, &folder_slot, window, if (location) |l| l.ptr else null, false);
+                sdl3.c.SDL_ShowOpenFolderDialog(FolderSlot.callback, &folder_slot, window, if (location) |l| l.ptr else null, false);
             }
         }
         if (ig.igButton("Import")) {
@@ -1108,9 +1060,13 @@ pub const Docks = struct {
     }
 
     fn takeFolder(self: *Docks, life: *logic.Lifecycle) void {
-        const taken = folder_slot.take() orelse return;
+        // A cancel, a failed dialog or a path too long for the slot chooses nothing.
+        const taken = switch (folder_slot.take() orelse return) {
+            .path => |answer| answer,
+            .failed, .cancelled => return,
+        };
         if (taken.path.len == 0) return;
-        switch (taken.target) {
+        switch (taken.kind) {
             .thumbnails => self.setThumbnailFolder(taken.path),
             .import => _ = self.import_form.setFolder(taken.path),
             .import_terrains => self.importTiles(life, taken.path, .terrains),

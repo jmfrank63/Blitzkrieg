@@ -1,9 +1,9 @@
-//! ELK's window: one SDL window, an SDL_GPU device of its own and ImGui
-//! drawing into it through the kit's backend shim (`editor_imgui`). ELK needs
-//! no engine (D-01), and the kit's `host` starts one (BkEditorStart owns the
-//! GPU device and the frame), so this is the engine-less counterpart with the
-//! same start / handleEvent / beginFrame / endFrame / stop shape. It belongs in
-//! the kit once a second engine-less editor needs it (Phase 8's tools).
+//! The engine-less window host: one SDL window, an SDL_GPU device of its
+//! own and ImGui drawing into it through the kit's backend shim
+//! (`editor_imgui`). `host` starts the engine (BkEditorStart owns the GPU
+//! device and the frame); an editor that needs no engine (ELK, D-01; the
+//! Phase 8 tools) uses this instead, with the same start / handleEvent /
+//! beginFrame / endFrame / stop shape.
 //!
 //! A hidden window (the smoke) draws into an offscreen texture instead of
 //! the swapchain: a hidden window has no surface the compositor presents,

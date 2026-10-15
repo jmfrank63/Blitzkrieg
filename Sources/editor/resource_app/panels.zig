@@ -7,6 +7,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
+const kit = @import("editor_kit");
 const imgui = @import("editor_imgui");
 const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
@@ -33,52 +34,7 @@ const mod_label = if (builtin.os.tag == .macos) "Cmd" else "Ctrl";
 /// another thread or after the window is gone, so it is a global.
 var browse_slot: BrowseSlot = .{};
 
-const BrowseSlot = struct {
-    state: std.atomic.Value(u8) = .init(@intFromEnum(State.idle)),
-    buffer: [logic.path_capacity]u8 = undefined,
-    len: usize = 0,
-
-    const State = enum(u8) { idle, waiting, arrived, cancelled };
-
-    fn request(self: *BrowseSlot) bool {
-        return self.state.cmpxchgStrong(@intFromEnum(State.idle), @intFromEnum(State.waiting), .acquire, .monotonic) == null;
-    }
-
-    fn deliver(self: *BrowseSlot, text: ?[]const u8) void {
-        if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
-        const chosen = text orelse {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        };
-        if (chosen.len > self.buffer.len) {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        }
-        self.len = chosen.len;
-        @memcpy(self.buffer[0..self.len], chosen);
-        self.state.store(@intFromEnum(State.arrived), .release);
-    }
-
-    /// The chosen path once it arrived (null while waiting); "" is a cancel.
-    fn take(self: *BrowseSlot) ?[]const u8 {
-        const state: State = @enumFromInt(self.state.load(.acquire));
-        const result: []const u8 = switch (state) {
-            .idle, .waiting => return null,
-            .arrived => self.buffer[0..self.len],
-            .cancelled => "",
-        };
-        self.state.store(@intFromEnum(State.idle), .release);
-        return result;
-    }
-};
-
-fn browseCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filter: c_int) callconv(.c) void {
-    _ = filter;
-    const slot: *BrowseSlot = @ptrCast(@alignCast(userdata orelse return));
-    if (filelist == null) return slot.deliver(null);
-    const first = filelist[0];
-    slot.deliver(if (first != null) std.mem.span(first) else null);
-}
+const BrowseSlot = kit.dialogs.PathSlot(void, logic.path_capacity);
 
 /// A property of the selection the user is working on.
 const PropKey = struct { node: i32, prop_id: i32 };
@@ -1086,7 +1042,7 @@ pub const Panels = struct {
     // --- Browse (A-32) -----------------------------------------------------------
 
     fn browse(self: *Panels, life: *logic.Lifecycle, key: PropKey, folder: bool, strings: []const ReferenceEntry, window: ?*sdl3.c.SDL_Window) void {
-        if (!browse_slot.request()) return;
+        if (!browse_slot.request({})) return;
         self.browse_for = key;
         var location_buffer: [logic.path_capacity + 1]u8 = undefined;
         const source: []const u8 = if (strings.len > 0) strings[0].nameSlice() else "";
@@ -1097,16 +1053,21 @@ pub const Panels = struct {
             break :blk (std.mem.printSentinel(&location_buffer, "{s}", .{dir}, 0) catch break :blk null).ptr;
         };
         if (folder) {
-            sdl3.c.SDL_ShowOpenFolderDialog(browseCallback, &browse_slot, window, location, false);
+            sdl3.c.SDL_ShowOpenFolderDialog(BrowseSlot.callback, &browse_slot, window, location, false);
         } else {
-            sdl3.c.SDL_ShowOpenFileDialog(browseCallback, &browse_slot, window, null, 0, location, false);
+            sdl3.c.SDL_ShowOpenFileDialog(BrowseSlot.callback, &browse_slot, window, null, 0, location, false);
         }
     }
 
     fn takeBrowse(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
-        const chosen = browse_slot.take() orelse return;
+        const taken = browse_slot.take() orelse return;
         const key = self.browse_for orelse return;
         self.browse_for = null;
+        // A cancel, a failed dialog or a path too long for the slot chooses nothing.
+        const chosen = switch (taken) {
+            .path => |answer| answer.path,
+            .failed, .cancelled => "",
+        };
         if (chosen.len == 0) return;
         if (self.selection.primary != key.node) return;
         const strings = self.stringsOf(gpa, b, key);

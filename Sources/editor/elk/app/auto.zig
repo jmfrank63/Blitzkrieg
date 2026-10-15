@@ -25,7 +25,7 @@ const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const ui_mod = @import("ui.zig");
 const fonts = @import("fonts.zig");
-const window_mod = @import("window.zig");
+const window_mod = kit.window;
 
 const schedule = kit.auto_schedule;
 const c = sdl3.c;

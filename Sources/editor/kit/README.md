@@ -4,7 +4,8 @@ Reusable editor plumbing with no MapEditor-specific types. Only `host` touches
 the engine: it starts it through the shared `BkEditor*` C ABI (`bridge.h`).
 Any Zig editor on the kit (MapEditor, ResourceEditor, Mission, …) gets the
 same `files`, `shipped`, `script_file`, `autosave`, `history`, `settings`,
-`host`, `crt`, `imgui`, `auto_schedule`, `pictures_cache` and `testlaunch`
+`host`, `window`, `dialogs`, `crt`, `imgui`, `auto_schedule`, `pictures_cache`
+and `testlaunch`
 submodules and composes its own domain-specific state over them.
 
 Dependency direction: `editor_core -> editor_kit`. The kit must not import
@@ -88,6 +89,25 @@ bridge, and ImGui drawing into the engine's own frame. Exposes `Host` with
 `@cImport("bridge.h")` the host owns so any editor on the kit reaches the
 engine ABI through the same translated types. Map-neutral: it hosts an
 engine window; what the editor draws into it is its own.
+
+## window
+
+The engine-less counterpart of `host` (07-06, D-03): one SDL window, an
+SDL_GPU device of its own and ImGui on the `editor_imgui` backend, with the
+same `start`/`handleEvent`/`beginFrame`/`endFrame`/`stop` shape plus
+`setTitle` and `failureReason`. A hidden window draws into an offscreen
+texture rather than a swapchain. ELK runs on it; any editor that loads no
+engine gets it for free.
+
+## dialogs
+
+`PathSlot(Kind, capacity)`: where an SDL file dialog's answer lands. SDL may
+call back on another thread, so `callback` only writes the slot and the
+frame loop `take`s a `path` (with the `Kind` it was requested for),
+`failed` (SDL's reason, or a path longer than the slot) or `cancelled`.
+One dialog at a time per slot. Scripted runs skip the OS dialog and call
+`deliver` themselves. The map editor, the resource editor and ELK each
+show their own dialogs (filters, start folder) over it.
 
 ## crt
 

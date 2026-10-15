@@ -1,6 +1,7 @@
 //! The Map Editor kit: reusable editor plumbing (files, shipped, script_file,
 //! autosave, history stack primitive, settings primitive, host, crt, imgui
-//! wrapper, BK_EDITOR_AUTO schedule driver, pictures-cache, testlaunch) with
+//! wrapper, BK_EDITOR_AUTO schedule driver, pictures-cache, testlaunch, the
+//! engine-less window host, the file dialogs' PathSlot) with
 //! no engine-bridge dependency. See the slice S02 plan for the extraction
 //! schedule. T02 brings the four leaf primitives in; later tasks add the
 //! coupled modules as `pub const` re-exports.
@@ -18,6 +19,8 @@ pub const testlaunch = @import("testlaunch.zig");
 pub const auto_schedule = @import("auto_schedule.zig");
 pub const pictures_cache = @import("pictures_cache.zig");
 pub const host = @import("host.zig");
+pub const window = @import("window.zig");
+pub const dialogs = @import("dialogs.zig");
 // The ImGui wrapper lives under `kit/imgui/` so the kit is self-contained,
 // but it is reached through its own `editor_imgui` module (build.zig's
 // `editor_imgui_module`), not through this re-export, because a file can
