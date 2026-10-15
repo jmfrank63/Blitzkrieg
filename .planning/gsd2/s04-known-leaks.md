@@ -195,3 +195,24 @@ itself in `HandoffJob.outstanding`, and the test drains it after its own
 cleanup, asserting zero. The panels tier itself is green on Linux with 0
 leaked blocks.
 
+
+## The per-cycle residue is zero (Linux, 2026-10-15)
+
+`BK_EDITOR_CYCLES=N MapEditor --check <map>` runs N times File > Close then
+File > Open through the panels' own `act` in one session, a frame on each
+side, and prints BkMemory's live counters after every close. Debug build,
+default stack frames, real GPU, coldwinter:
+
+```
+cycle 1: live 37645 blocks 86757455 bytes (delta 0 blocks 0 bytes)
+cycle 2..8: live 37645 blocks 86757455 bytes (delta 0 blocks 0 bytes)
+```
+
+Verdict: 0 blocks and 0 bytes per cycle, flat from the first close, not a
+trend that settles. A 40-cycle run (a day at 40 tests) stays flat the same way
+and exits with 8,547 blocks, as 8 cycles do (8,547) and no cycles do (8,553,
+the usual jitter). The pthread_create family (149 blocks) does not grow with
+cycles: it belongs to the engine start, not to a map. What the cycle does not
+cover: a test launch's Game runs in its own process, so its memory is never
+the editor's; a second `Host.start` after `Host.stop` is unsupported by
+contract (`kit/host.zig`), so the 8,549 at exit is paid once per process.

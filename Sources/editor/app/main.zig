@@ -1168,7 +1168,53 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     }
 
     std.debug.print("map-editor: panel smoke PASS ({d} catalogue entries, {d} tiles, saved and reopened {s})\n", .{ state.catalogue.len, state.tile_count, saved });
+    if (!try closeOpenCycles(gpa, environ, host, &state, saved)) return false;
     if (mod_folder) |folder| return modSwitchClosesMap(host, &state, folder);
+    return true;
+}
+
+extern fn bk_mem_live_count() usize;
+extern fn bk_mem_live_bytes() usize;
+
+/// BK_EDITOR_CYCLES=N: the per-cycle residue measurement (s04-known-leaks.md).
+/// N times File > Close, then File > Open of `path`, through the panels' own
+/// `act`, one frame on each side, printing BkMemory's live counters after each
+/// close, when no map is held. The exit report mixes the once-per-process
+/// state with what each map leaves behind; only the growth between these
+/// lines is what an editor kept open for days accrues per map. Skipped (true,
+/// nothing printed) when the env var is unset - every real `--check` run.
+fn closeOpenCycles(gpa: std.mem.Allocator, environ: std.process.Environ, host: *host_mod.Host, state: *panels.State, path: []const u8) !bool {
+    const value = environ.getAlloc(gpa, "BK_EDITOR_CYCLES") catch |err| {
+        if (err == error.EnvironmentVariableMissing) return true;
+        return fail("cycles: BK_EDITOR_CYCLES did not read: {s}", .{@errorName(err)});
+    };
+    defer gpa.free(value);
+    const cycles = std.fmt.parseInt(u32, value, 10) catch return fail("cycles: BK_EDITOR_CYCLES={s} is not a count", .{value});
+    var previous_count: i64 = 0;
+    var previous_bytes: i64 = 0;
+    for (1..cycles + 1) |cycle| {
+        state.actions.close_requested = true;
+        if (panels.act(state)) return fail("cycles: Close quit the editor", .{});
+        if (panels.mapIsOpen(state.editor)) return fail("cycles: cycle {d}: the map is still open after Close", .{cycle});
+        if (!panelFrame(host, state)) return false;
+        const count: i64 = @intCast(bk_mem_live_count());
+        const bytes: i64 = @intCast(bk_mem_live_bytes());
+        // The first line has nothing before it to differ from.
+        if (cycle == 1) {
+            previous_count = count;
+            previous_bytes = bytes;
+        }
+        std.debug.print("map-editor: cycle {d}: live {d} blocks {d} bytes (delta {d} blocks {d} bytes)\n", .{ cycle, count, bytes, count - previous_count, bytes - previous_bytes });
+        previous_count = count;
+        previous_bytes = bytes;
+
+        if (!state.actions.dialog.request(.open)) return fail("cycles: the dialog slot was not free", .{});
+        state.actions.dialog.deliver(path);
+        if (panels.act(state)) return fail("cycles: Open quit the editor", .{});
+        if (state.view.statusLine().len != 0 or state.editor.status().len != 0)
+            return fail("cycles: cycle {d}: opening {s} failed: {s}{s}", .{ cycle, path, state.view.statusLine(), state.editor.status() });
+        if (!panelFrame(host, state)) return false;
+    }
     return true;
 }
 
