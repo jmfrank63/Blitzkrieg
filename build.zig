@@ -2648,7 +2648,7 @@ pub fn build(b: *std.Build) void {
     // Tools/, by their loader-relative path to the game folder. A Windows
     // executable has no such path and would not start there, so on Windows
     // they stay in zig-out/bin.
-    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table, bk_image, bk_video } else &.{ bk_pak, bk_table, bk_image, bk_video, bk_map.tool, bk_sprite.tool };
+    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table, bk_image, bk_video, bk_font.tool } else &.{ bk_pak, bk_table, bk_image, bk_video, bk_font.tool, bk_map.tool, bk_sprite.tool };
     const stage_game_inputs: StageGameInputs = .{
         .tool = stage_tool,
         .game_all_step = game_all_step,
