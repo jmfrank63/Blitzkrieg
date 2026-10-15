@@ -411,12 +411,6 @@ const ui_sources = &.{
     "Sources/src/UI/UIObjectFactory.cpp",
 };
 
-const fontgen_sources = &.{
-    "Sources/src/FontGen/GlobalsLoader.cpp",
-    "Sources/src/FontGen/StdAfx.cpp",
-    "Sources/src/FontGen/FontGen.cpp",
-};
-
 const sfx_cpp_sources = &.{
     "Sources/src/SFX/AudioBackend.cpp",
     "Sources/src/SFX/AudioBackendOpen.cpp",
@@ -597,9 +591,7 @@ const runtime_platform_playable_source_arrays = &.{
     "sfx_cpp_sources", "sfx_c_sources",  "gfx_sources",     "gfx_gpu_sources", "randommapgen_sources", "main_sources",
     "game_sources",    "windows_game_sources",
 };
-const runtime_platform_non_playable_source_arrays = &.{
-    "fontgen_sources",
-};
+const runtime_platform_non_playable_source_arrays = &.{};
 const runtime_platform_playable_link_module_names = &.{
     "module",     "game_module",    "net_module", "input_module", "sfx_module",
     "gfx_module", "gfx_gpu_module",
@@ -2318,7 +2310,6 @@ pub fn build(b: *std.Build) void {
     const anim = addAnim(b, target, optimize, toolchain, misc, platform_runtime, formats, sdl_dynamic);
     const common = addCommon(b, target, optimize, toolchain);
     const ui = addUI(b, target, optimize, toolchain, misc, platform_runtime, common, lualib, sdl_dynamic);
-    const fontgen = if (platform == .windows_x64) addFontGen(b, target, optimize, toolchain, image, common, formats, misc, platform_runtime, sdl_dynamic) else null;
     const sfx = addSFX(b, target, optimize, toolchain, misc, platform_runtime, common, sdl_dynamic);
     addSfxModuleTest(b, target, toolchain, platform_runtime, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
     addBkMemoryCSourcesTest(b, target, platform, toolchain, optimize, test_mode, zlib, libpng, lualib, sdl_dynamic, sdl_dynamic_dep.path("include"));
@@ -2385,7 +2376,6 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(anim);
     b.installArtifact(common);
     b.installArtifact(ui);
-    if (fontgen) |artifact| b.installArtifact(artifact);
     b.installArtifact(sfx);
     b.installArtifact(gfx);
     b.installArtifact(randommapgen);
@@ -2461,11 +2451,6 @@ pub fn build(b: *std.Build) void {
 
     const ui_step = b.step("ui", "Build the UI dynamic library");
     ui_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
-
-    if (fontgen) |artifact| {
-        const fontgen_step = b.step("fontgen", "Build the FontGen console utility");
-        fontgen_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
-    }
 
     const sfx_step = b.step("sfx", "Build the SFX dynamic library");
     sfx_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
@@ -4935,56 +4920,6 @@ fn addUI(
         .root_module = ui_module,
         .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/UI/UI.def") else null,
     });
-}
-
-fn addFontGen(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    image: *std.Build.Step.Compile,
-    common: *std.Build.Step.Compile,
-    formats: *std.Build.Step.Compile,
-    misc: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-) *std.Build.Step.Compile {
-    const fontgen_module = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-    });
-    linkEngineCxxRuntimeEngine(b, fontgen_module, optimize);
-    addProjectIncludePaths(b, fontgen_module);
-    addMsvcIncludePaths(b, fontgen_module, toolchain);
-    addMsvcLibraryPaths(b, fontgen_module, toolchain);
-    fontgen_module.addIncludePath(b.path("Sources/src/FontGen"));
-    fontgen_module.addIncludePath(b.path("Sources/src/Image"));
-    fontgen_module.addIncludePath(b.path("Sources/src/Common"));
-    fontgen_module.addIncludePath(b.path("Sources/src/Formats"));
-    fontgen_module.addCSourceFiles(.{
-        .files = fontgen_sources,
-        .flags = cppflagsForOptimize(optimize),
-    });
-    fontgen_module.linkLibrary(image);
-    fontgen_module.linkLibrary(common);
-    fontgen_module.linkLibrary(formats);
-    fontgen_module.linkLibrary(misc);
-    fontgen_module.linkLibrary(platform_runtime);
-    linkSdlImport(fontgen_module, target, sdl_dynamic);
-    if (target.result.os.tag == .windows) {
-        fontgen_module.linkSystemLibrary("user32", .{});
-        fontgen_module.linkSystemLibrary("gdi32", .{});
-        fontgen_module.linkSystemLibrary("odbc32", .{});
-        fontgen_module.linkSystemLibrary("odbccp32", .{});
-    }
-
-    const fontgen = b.addExecutable(.{
-        .name = "FontGen",
-        .root_module = fontgen_module,
-    });
-    fontgen.subsystem = .console;
-    fontgen.entry = .{ .symbol_name = "mainCRTStartup" };
-    return fontgen;
 }
 
 fn addSFX(

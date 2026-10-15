@@ -92,6 +92,15 @@ fn appendQuotedStrings(allocator: std.mem.Allocator, values: *std.ArrayList([]co
     }
 }
 
+fn declaresArray(build_text: []const u8, wanted: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, build_text, '\n');
+    while (lines.next()) |line| {
+        const name = parseArrayName(line) orelse continue;
+        if (std.mem.eql(u8, name, wanted)) return true;
+    }
+    return false;
+}
+
 fn collectNamedArray(allocator: std.mem.Allocator, build_text: []const u8, wanted: []const u8) ![][]const u8 {
     var values = std.ArrayList([]const u8).empty;
     var lines = std.mem.splitScalar(u8, build_text, '\n');
@@ -126,7 +135,9 @@ pub fn parsePlayableSources(allocator: std.mem.Allocator, build_text: []const u8
     if (playable_names.len == 0) return error.MissingPlayableSourceArrayManifest;
     const non_playable_names = try collectNamedArray(allocator, build_text, "runtime_platform_non_playable_source_arrays");
     defer freeStrings(allocator, non_playable_names);
-    if (non_playable_names.len == 0) return error.MissingNonPlayableSourceArrayManifest;
+    // Empty is valid: FontGen was the last developer utility built from
+    // build.zig. The manifest itself must stay, so a new one is classified.
+    if (non_playable_names.len == 0 and !declaresArray(build_text, "runtime_platform_non_playable_source_arrays")) return error.MissingNonPlayableSourceArrayManifest;
 
     var sources = std.ArrayList([]const u8).empty;
     errdefer {
