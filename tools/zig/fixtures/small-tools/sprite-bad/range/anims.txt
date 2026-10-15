@@ -1,0 +1,4 @@
+; bk-sprite fixture: a direction naming a frame past the animation's frames
+[idle]
+dirs=1
+dir0 seq=0,2

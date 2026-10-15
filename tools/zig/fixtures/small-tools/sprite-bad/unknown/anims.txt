@@ -1,0 +1,4 @@
+; bk-sprite fixture: an animation name that is no animation slot
+[walk]
+dirs=1
+dir0 seq=0

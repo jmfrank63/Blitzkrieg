@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "anim_names.h"
 #include "image_export.h"
 
 namespace NResourceModel
@@ -42,11 +43,6 @@ struct SAnimationDesc
 	void AddUsedFrame( int frame );
 	int GetUsedFrameIndex( int frame ) const;
 };
-
-// The animation slot MFC's GetActionFromName gives a name (case ignored), one
-// of the ANIMATION_* values. An unknown name is 0, as in MFC, and sets
-// *pbKnown to false when it is given.
-int GetActionFromName( const std::string &szAnimName, bool *pbKnown = 0 );
 
 // Reads every file of szFileNames once (a name that repeats shares its frame),
 // packs the pictures with the engine's ComposeImages (bProcessImages) and

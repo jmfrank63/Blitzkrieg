@@ -2033,6 +2033,41 @@ pub fn build(b: *std.Build) void {
     bk_table_test_step.dependOn(&bk_table_tests.step);
     bk_table_test_step.dependOn(bk_tools_test_step);
     if (test_mode == .run) bk_table_test_step.dependOn(&b.addRunArtifact(bk_table_tests).step);
+    // `bk-image` (D-21): OffsetRomb's tile offsetter, std-only Zig like
+    // bk-table, built the same way, staged beside it in Tools/ and in the
+    // convention test. Its own test runs the host build against the goldens.
+    const bk_image = b.addExecutable(.{
+        .name = "bk-image",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_image.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_image_step = b.step("bk-image", "Build and install the bk-image image conversion tool");
+    bk_image_step.dependOn(&b.addInstallArtifact(bk_image, .{}).step);
+    const bk_image_host = b.addExecutable(.{
+        .name = "bk-image",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_image.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_image", bk_image_host.getEmittedBin());
+    const bk_image_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_image_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    bk_image_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_image_tests = b.addTest(.{ .root_module = bk_image_test_module });
+    const bk_image_tests_run = b.addRunArtifact(bk_image_tests);
+    bk_image_tests_run.setCwd(b.path("."));
+    const bk_image_test_step = b.step("test-bk-image", "Run the bk-image golden tests and the bk-* convention test");
+    bk_image_test_step.dependOn(&bk_image_tests.step);
+    bk_image_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_image_test_step.dependOn(&bk_image_tests_run.step);
     // The same tool, run by every staging (install-game, and so
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
@@ -2361,6 +2396,11 @@ pub fn build(b: *std.Build) void {
     bk_tools_options.addOption([]const u8, "bk_map", if (target.result.os.tag == .windows) "zig-out/bin/bk-map.exe" else "zig-out/bin/bk-map");
     bk_tools_tests_run.step.dependOn(bk_map.install);
     bk_tools_tests_run.addFileInput(bk_map.tool.getEmittedBin());
+    // bk-sprite, the same way.
+    const bk_sprite = addBkSprite(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
+    bk_tools_tests_run.step.dependOn(bk_sprite.install);
+    bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
     const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common, sdl_dynamic_dep.path("include"));
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
@@ -2656,10 +2696,11 @@ pub fn build(b: *std.Build) void {
         .root_module = stage_module,
     });
 
-    // bk-map links the engine libraries and finds them, from Tools/, by its
-    // loader-relative path to the game folder. A Windows executable has no
-    // such path and would not start there, so on Windows it stays in zig-out/bin.
-    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table } else &.{ bk_pak, bk_table, bk_map.tool };
+    // bk-map and bk-sprite link the engine libraries and find them, from
+    // Tools/, by their loader-relative path to the game folder. A Windows
+    // executable has no such path and would not start there, so on Windows
+    // they stay in zig-out/bin.
+    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table, bk_image } else &.{ bk_pak, bk_table, bk_image, bk_map.tool, bk_sprite.tool };
     const stage_game_inputs: StageGameInputs = .{
         .tool = stage_tool,
         .game_all_step = game_all_step,
@@ -4837,6 +4878,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/stats_export.cpp",
             "Sources/src/ResourceModel/image_export.cpp",
             "Sources/src/ResourceModel/compose.cpp",
+            "Sources/src/ResourceModel/anim_names.cpp",
             "Sources/src/ResourceModel/items/weapon/weapon_export.cpp",
             "Sources/src/ResourceModel/items/mine/mine_export.cpp",
             "Sources/src/ResourceModel/items/medal/medal_export.cpp",
@@ -7218,6 +7260,130 @@ fn addBkMap(
     const step_all = b.step("test-bk-map-all", "Convert every Data/Maps map with bk-map to .xml and back and judge it with MapEquivalence");
     step_all.dependOn(&test_exe.step);
     if (test_mode == .run) step_all.dependOn(&all_check.step);
+    return .{ .install = install, .tool = tool };
+}
+
+const BkSprite = struct {
+    /// Installs bk-sprite and every engine library it loads at run time.
+    install: *std.Build.Step,
+    tool: *std.Build.Step.Compile,
+};
+
+fn addBkSprite(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    image: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) BkSprite {
+    // bk-sprite (Phase 8, D-20): spcomp's sprite composer, a C++ console
+    // program on the engine libraries (D-03) built with bk-font's recipe. The
+    // frames are packed by Image's ComposeImages and written by its TGA
+    // writer, the .san by Formats' SSpriteAnimationFormat saver; the animation
+    // slots come from the Resource Editor exporter's own name table.
+    const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    const test_files = &.{ "tools/zig/bk_sprite_test.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const []const u8{ tool_files, test_files }) |module, files| {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+        addProjectIncludePaths(b, module);
+        module.addIncludePath(b.path("Sources/src/Image"));
+        module.addCSourceFiles(.{ .files = files, .flags = cppflagsForOptimize(optimize) });
+        addMsvcIncludePaths(b, module, toolchain);
+        addLinuxCxxIncludePaths(b, module);
+        addMsvcLibraryPaths(b, module, toolchain);
+        addMacosSysrootPaths(b, module, target);
+        module.linkLibrary(formats);
+        module.linkLibrary(misc);
+        module.linkLibrary(platform_runtime);
+        // Misc's System.cpp reaches SDL; nothing here opens a window.
+        linkSdlImport(module, target, sdl_dynamic);
+    }
+    // Loader-relative library paths, as bk-font: beside the libraries, in
+    // zig-out/bin with them in zig-out/lib, or in the game's Tools/ folder.
+    for ([_][]const u8{ "", "/../lib", "/.." }) |suffix| {
+        switch (target.result.os.tag) {
+            .linux => tool_module.addRPathSpecial(b.fmt("$ORIGIN{s}", .{suffix})),
+            .macos => tool_module.addRPathSpecial(b.fmt("@loader_path{s}", .{suffix})),
+            else => {},
+        }
+    }
+    const tool = b.addExecutable(.{ .name = "bk-sprite", .root_module = tool_module });
+    const test_exe = b.addExecutable(.{ .name = "bk-sprite-test", .root_module = test_module });
+    for ([_]*std.Build.Step.Compile{ tool, test_exe }) |exe| {
+        exe.subsystem = .console;
+        if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        // The engine modules it loads resolve RTTI and the host globals from
+        // the executable, as they do from Game.
+        if (target.result.os.tag == .linux) exe.rdynamic = true;
+    }
+    const install = b.step("bk-sprite", "Build and install the bk-sprite sprite composer and the engine libraries it loads");
+    for ([_]*std.Build.Step.Compile{ tool, bk_memory_artifact.?, streamio_zig, image, options_bridge, platform_runtime, sdl_dynamic }) |artifact| {
+        install.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
+
+    // The fixture description through the installed tool into
+    // zig-out/local-test, twice (the outputs must be the same bytes), and
+    // three broken descriptions that must fail with their reason. bk-sprite-
+    // test then reads what the good runs wrote with the engine's readers.
+    const module_root = if (target.result.os.tag == .windows)
+        rootPath(b, "zig-out/bin")
+    else
+        rootPath(b, "zig-out/lib");
+    const work = "zig-out/local-test/bk-sprite";
+    const fixture = "tools/zig/fixtures/small-tools/sprite";
+    const bad = "tools/zig/fixtures/small-tools/sprite-bad";
+    const BkSpriteRun = struct {
+        args: []const []const u8,
+        stderr: ?[]const u8 = null,
+    };
+    const runs = [_]BkSpriteRun{
+        .{ .args = &.{ "compose", fixture, work ++ "/fixture", "--force" } },
+        .{ .args = &.{ "compose", fixture, work ++ "/again/fixture", "--force" } },
+        .{ .args = &.{ "compose", bad ++ "/unknown", work ++ "/bad" }, .stderr = "bk-sprite: animation \"walk\" is not an animation slot of the sprite format\n" },
+        .{ .args = &.{ "compose", bad ++ "/range", work ++ "/bad" }, .stderr = "bk-sprite: frame 2 of dir 0 of animation \"idle\" is not one of its frames 0..1\n" },
+        .{ .args = &.{ "compose", bad ++ "/missing", work ++ "/bad" }, .stderr = b.fmt("bk-sprite: cannot open image {s}\n", .{hostPath(b, bad ++ "/missing/death/000.tga")}) },
+    };
+    const check = b.addRunArtifact(test_exe);
+    setLeakReportLog(check);
+    setUserRootsForTest(check, "bk-sprite-user");
+    check.setCwd(b.path("."));
+    check.addArgs(&.{ module_root, fixture, work ++ "/fixture", work ++ "/again/fixture" });
+    addPathDir(check, rootPath(b, "zig-out/bin"));
+    for (runs) |spec| {
+        const run = b.addRunArtifact(tool);
+        setUserRootsForTest(run, "bk-sprite-user");
+        run.setCwd(b.path("."));
+        run.addArgs(spec.args);
+        run.addArgs(&.{ "--modules", module_root });
+        run.step.dependOn(install);
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        if (spec.stderr) |stderr| {
+            // Judged by its streams, so without the debug leak count's line.
+            run.setEnvironmentVariable("BK_MEM_REPORT", "0");
+            run.expectExitCode(1);
+            run.expectStdOutEqual("");
+            run.expectStdErrEqual(stderr);
+        } else {
+            setLeakReportLog(run);
+        }
+        // The tool reads the fixtures by plain path; a changed fixture is a
+        // changed run.
+        run.has_side_effects = true;
+        check.step.dependOn(&run.step);
+    }
+    const step = b.step("test-bk-sprite", "Compose the fixture sprite with bk-sprite and judge it with the engine's readers");
+    step.dependOn(&test_exe.step);
+    step.dependOn(install);
+    if (test_mode == .run) step.dependOn(&check.step);
     return .{ .install = install, .tool = tool };
 }
 

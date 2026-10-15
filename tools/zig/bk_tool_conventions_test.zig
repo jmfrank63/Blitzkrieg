@@ -95,6 +95,38 @@ const tools = [_]Tool{
         .succeeding = &.{ "obj2mod", "mod\\tank.obj", "mod\\out\\tank.mod" },
         .setup = setupMap,
     },
+    .{
+        .name = "bk-sprite",
+        .path = bk_tools.bk_sprite,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"compose"},
+            &.{ "compose", "desc" },
+            &.{ "compose", "desc", "out", "extra" },
+            &.{ "compose", "desc", "out", "--modules" },
+            &.{ "compose", "desc", "out", "--data", "Data" },
+        },
+        .failing = &.{ "compose", "missing", "out" },
+        // Backslashes on input, and an output folder that is not there yet.
+        .succeeding = &.{ "compose", "mod\\sprite", "mod\\out\\fixture" },
+        .setup = setupSprite,
+    },
+    .{
+        .name = "bk-image",
+        .path = bk_tools.bk_image,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"offset-romb"},
+            &.{ "offset-romb", "a.tga", "b.tga" },
+            &.{ "offset-romb", "a.tga", "--out" },
+            &.{ "offset-romb", "a.tga", "--force" },
+        },
+        .failing = &.{ "offset-romb", "missing.tga" },
+        .succeeding = &.{ "offset-romb", "mod\\tile.tga", "--out", "mod\\out\\tile.tga" },
+        .setup = setupImage,
+    },
 };
 
 /// The committed fixture font (D-15), copied from the build root, which is
@@ -102,6 +134,25 @@ const tools = [_]Tool{
 fn setupFont(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "fonts");
     try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/fonts/ProggyClean.ttf", dir, "fonts/ProggyClean.ttf", io, .{});
+}
+
+/// The sprite fixture's description and frames
+/// (tools/zig/fixtures/small-tools/sprite).
+fn setupSprite(io: std.Io, dir: std.Io.Dir) !void {
+    for ([_][]const u8{ "anims.txt", "idle/000.tga", "idle/001.tga", "idle/002.tga", "death/000.tga", "death/001.tga" }) |name| {
+        const from = try std.fmt.allocPrint(std.testing.allocator, "tools/zig/fixtures/small-tools/sprite/{s}", .{name});
+        defer std.testing.allocator.free(from);
+        const to = try std.fmt.allocPrint(std.testing.allocator, "mod/sprite/{s}", .{name});
+        defer std.testing.allocator.free(to);
+        try dir.createDirPath(io, std.fs.path.dirname(to).?);
+        try std.Io.Dir.copyFile(std.Io.Dir.cwd(), from, dir, to, io, .{});
+    }
+}
+
+/// The 16x16 offset-romb fixture tile.
+fn setupImage(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod");
+    try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/small-tools/offset-romb/tile16.tga", dir, "mod/tile.tga", io, .{});
 }
 
 /// The obj2mod fixture's OBJ (tools/zig/fixtures/small-tools/obj2mod).
