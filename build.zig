@@ -7207,9 +7207,12 @@ fn addBkSprite(
 }
 
 /// A build-root-relative path with the host's separators, as a tool prints it.
+/// The replacement runs only on a Windows host (this file compiles for the
+/// host, so Linux never analyses the branch); replaceOwned allocates the
+/// result, because b.dupe's slice is const there.
 fn hostPath(b: *std.Build, path: []const u8) []const u8 {
     const copy = b.dupe(path);
-    if (std.fs.path.sep == '\\') std.mem.replaceScalar(u8, copy, '/', '\\');
+    if (std.fs.path.sep == '\\') return std.mem.replaceOwned(u8, b.allocator, copy, "/", "\\") catch @panic("OOM");
     return copy;
 }
 
