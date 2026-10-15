@@ -216,3 +216,96 @@ cycles: it belongs to the engine start, not to a map. What the cycle does not
 cover: a test launch's Game runs in its own process, so its memory is never
 the editor's; a second `Host.start` after `Host.stop` is unsupported by
 contract (`kit/host.zig`), so the 8,549 at exit is paid once per process.
+
+
+## The editors' cache residue, T08's method on Linux (2026-10-15)
+
+Map Editor host check, Linux debug build, RADV (AMD Renoir), coldwinter:
+**8,549 blocks / ~2.65 MB -> 2,651 blocks / 168 KB**. What is left is
+2,640 blocks of Mesa's libLLVM static initializers plus 11 small
+process-lifetime blocks. SDL's own floor turned out to be zero here: the
+"~5k SDL" of the earlier tables was a GPU device nothing destroyed.
+
+### Census
+
+`BK_REF_AUDIT=1 MapEditor --check <coldwinter>` on the starting tree:
+
+```
+ref-audit: tid=31 refs=2 type=17CScenarioTracker2
+ref-audit: tid=8 refs=2 type=10CGameTimer
+ref-audit: tid=5 refs=2 type=10CObjectsDB
+```
+
+`BK_REF_TRACE` covers only `CTRefCount` classes. `CGameTimer` and
+`CObjectsDB` use `OBJECT_NORMAL_METHODS`, whose own AddRef/Release don't
+trace, and on Linux the tracer prints raw caller addresses. So the
+transitions came from gdb instead: `rbreak` on the three classes'
+AddRef/Release, `bt 10` per hit, 4,718 hits, paired per `CPtrBase this=`
+holder. Every holder nets to zero. The second owners are the AI module's
+globals: `updater.pGameTimer`, `theUnitCreation.pIDB` and
+`theStatistics.pScenarioTracker`. They release from
+`__run_exit_handlers`, which runs **before** BkMemory's report, so the
+three survivors were never in the leak count. A registry survivor means
+"held past Done", not "leaked"; measure before you fix.
+
+The family table needs the stack recipe (`-Dbk-mem-stack-frames=24`,
+`BK_MEM_REPORT=log`). On RADV it ran without a capture fault: 7,549
+stacks in 4.5 minutes.
+
+### Fixes, one per commit, host-check count before -> after
+
+| commit | fix | blocks |
+| --- | --- | --- |
+| `2e4134eed` | the last `BkEditorStop` runs `IAIEditor::Clear` before the managers' Clear: no stop path cleared the AI's per-map state (global objects, link-object and command registries), so it outlived the deleted world | 8,549 -> 7,549 (the `-mod` run 7,271 -> 7,271) |
+| `d5c3573d2` | the last stop runs `IGFX::Done` after the managers' Clear, before the registry Done. Nothing destroyed the renderer (`~GraphicsEngineGpu` does not call `Done`), so the SDL GPU device's command buffers, buffer containers, memory regions, fences and descriptor caches (4,829 blocks in `SDL_gpu_vulkan.c`) reached the report. Textures and buffers the registry releases afterwards find `renderer_` null and do nothing | 7,549 -> 2,652 (the `-mod` run 7,271 -> 2,652) |
+| `9d158451a` | the bridge registry's Done frees StreamIO's temp buffers (`bk_streamio_temp_buffers_free`). They only grow, and the AI's new-objects list (`CUpdater::GetNewStaticObjects`) held one 1,586,448-byte block | 2,652 -> 2,651; 1,754,912 -> 168,464 bytes |
+
+Tried and dropped: a `CStatistics::Clear` called from
+`NGlobalObjects::Clear` cleans the audit to zero survivors but measured
+7,549 -> 7,549, because the static destructor already released the tracker
+before the report. Dropped as a no-op. (Its first draft defined `Clear`
+inline in `Statistics.h`, where `IScenarioTracker` is only declared. That
+picks the `void*` `CastToRefCountImpl` overload, which nothing exports,
+and libAILogic.so stopped loading. **The host check still passed, with no
+AI**, at a false 3,783. A count drop needs the log checked for
+`Failed to load module`.)
+
+### Where this stops, and why
+
+Final census (24-frame capture after the three fixes, 2,651 blocks):
+
+| blocks | bytes | owner | why it stays |
+| --- | --- | --- | --- |
+| 2,640 | ~153 KB | `libLLVM.so.21` static initializers (`dl-init.c call_init`) | Mesa's Vulkan driver loads LLVM. Its constructors allocate through our interposed `operator new`, and its own static destructors free them after the report, if at all. Foreign driver state |
+| 6 | ~260 B + 6.7 KB | AILogic globals, constructed empty by the AI's `Clear` (`session.cpp:358` and the stop's own Clear) | the module's static storage, freed by its static destructors |
+| 1 | 8,216 | `EnsureCoreServices` (`legacy_bridge.cpp:1796`) | the bridge's core-service storage, process lifetime |
+| 2 | 186 | the options bridge's core-module handle and path (`options_bridge.cpp:105`, `DynamicLibrary.cpp:42`) | process-lifetime module handle |
+| 1 | 160 | `main.zig:179`, the argument list | `main` leaves through `process.exit` |
+
+No registry entry outlives Done any more: BK_REF_AUDIT prints nothing
+after the fixes, beyond the tracker that dies before the report. The next
+owners are process-lifetime statics or a foreign library, not cross-DLL
+second owners, so the method has nothing left to break.
+
+Reopen contract: `BK_EDITOR_CYCLES=1` and `=8` on the final build print
+`delta 0 blocks 0 bytes` on every cycle and exit with 2,651. Like the
+managers, IGFX is not re-registered by `BkEditorStart`. A stop followed by
+a second start was already unsupported (`kit/host.zig`), and no host does
+it.
+
+Resource Editor (shares the bridge): `BK_REQUIRE_ENGINE=1 zig build
+test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run` passes on
+the final tree with 2,648 leaked blocks and no module-load failure. The
+full resource sweep is left to the maintainer.
+
+Open observations, not chased:
+
+- Under lavapipe (`VK_DRIVER_FILES=lvp`) the same run reports 723 blocks
+  both before and after the GPU-device and temp-buffer fixes.
+- The Game has the same two gaps: `NMain::Finalize` never calls
+  `IGFX::Done`, and the temp buffers are freed only by the shared registry
+  Done that now does so. The Game's 227 were measured at the menu on
+  Windows/D3D12, which never grew the AI temp buffer. Its device
+  destruction is not in this slice.
+- The host check passes when an engine module fails to load (see the
+  dropped fix above), and nothing in the tier asserts the AI is present.
