@@ -180,6 +180,15 @@ pub const Database = struct {
         return previous.state;
     }
 
+    /// The file's bytes as they are on disk, for what copies them unchanged
+    /// (the export); null when it is missing.
+    pub fn readBytes(self: *Database, gpa: std.mem.Allocator, element: usize, key: []const u8, extension: Extension) !?[]u8 {
+        const base = self.bases[element].path orelse return null;
+        const relative = try std.mem.concat(gpa, u8, &.{ key, extension.suffix() });
+        defer gpa.free(relative);
+        return self.readResolved(gpa, base, relative);
+    }
+
     fn readText(self: *Database, gpa: std.mem.Allocator, element: usize, key: []const u8, extension: Extension) ![]u8 {
         const base = self.bases[element].path orelse return gpa.dupe(u8, "");
         const relative = try std.mem.concat(gpa, u8, &.{ key, extension.suffix() });

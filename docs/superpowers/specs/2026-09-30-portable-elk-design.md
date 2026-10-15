@@ -169,6 +169,20 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   `Sources/src/StreamIOZig/zip.zig` (CRC checked) and with `unzip -t`. Zig's
   `std.compress.flate.Compress` replaces `zip.exe`; the zip reader is
   `zip.zig` imported as a module (it is std-only).
+  Recorded in 07-02 (export): `zip_writer.zig` sorts the entries byte-wise
+  by name (so `a-b.txt` precedes `a.txt`) and gives every entry the DOS time
+  1980-01-01 00:00:00, where zip.exe took the file system's order and each
+  file's time; the engine only passes the stamp on as a stream's time, and
+  the fixed one makes two exports of one database byte-identical. An entry
+  is stored when deflating would not shrink it, as zip.exe did. No extra
+  fields (zip.exe wrote NT security descriptors and Unix times), no Zip64;
+  names that differ only in case are refused, since the game would reach
+  only one. The pick is `ExportToPAK`'s: the translation's bytes when the
+  state is not Not translated and the translation has more than its BOM
+  (only-filled, which every MFC caller set), else the original's, both
+  copied unchanged. Importing an export back (named as the element's
+  update, since the file name picks the element) and exporting again gives
+  the same bytes.
 - **D-09 Where the output goes.** The game mounts overlays (mods) first,
   then loose files, then archives (`bk_storage_open` order in
   `StreamIOZig/streamio.zig`). A `Data/Texts.pak` is therefore **shadowed**
@@ -179,6 +193,13 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   offer the mod route instead. Run Game launches `Game -windowed
   -mod=<Name>` (or `-mod=None`) in a dedicated `ELKTest` profile, never the
   user's profile, saves or cloud sync (same rule as Map Editor D-02).
+  Recorded in 07-02 (export): the headless core has both destinations,
+  `mods/<Name>/data/texts.pak` and `Data/Texts.pak`, existing folders and
+  file found whatever their case, and writes a mod's `data/mod.xml`
+  (`MODName` the mod's name, `MODVersion` 1.0, the Resource Editor's form)
+  when it has none, because the game mounts no mod folder without one; an
+  existing `mod.xml` is left alone. The shadow warning and Run Game belong
+  to 07-07.
 - **D-10 Spreadsheet formats.** `.xlsx` (read and write, the new default),
   `.csv` (UTF-8 with BOM, RFC 4180, read and write), and legacy `.xls` BIFF8
   (**read only**, so translators' existing files import). The Excel ODBC route
@@ -413,6 +434,13 @@ core modules); then 07-06; then 07-07; then 07-08.
 - **E-02** Exporting the unmodified database produces a `.pak` whose entry
   names equal `Data/ELK/texts.pak`'s text entries and whose `.txt` bytes
   are equal, or each difference is listed and explained in the plan summary.
+  Recorded in 07-02: `Data/ELK/texts.pak` is the MFC export of 2002-12-03,
+  older than the database built from `game_1.upd`. Of the 2,712 texts both
+  carry, 2,213 are byte-identical and 499 differ because the texts were
+  re-imported since (a changed original, or a state dropped to Not
+  translated so the original now goes out); 227 texts (`movies/`, ...) are
+  only in the old pak and 140 (`medals/`, ...) only in the database. Names
+  agree, all lower case. `test-elk-core` pins these counts.
 - **E-03** Every import rule (partial, complete, Outdated, version string,
   auto-update pick-highest) passes a table test, and importing
   `game_21.upd` then `game_22.upd` into a fresh database gives the same

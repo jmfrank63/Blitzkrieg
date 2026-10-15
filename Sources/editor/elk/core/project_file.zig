@@ -213,7 +213,7 @@ fn writeElementStatistics(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u
     try out.print(gpa, "</{s}>", .{name});
 }
 
-fn textElement(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), name: []const u8, text: []const u8) !void {
+pub fn textElement(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), name: []const u8, text: []const u8) !void {
     if (text.len == 0) return out.print(gpa, "<{s}/>", .{name});
     try out.print(gpa, "<{s}>", .{name});
     for (text) |byte| switch (byte) {

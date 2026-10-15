@@ -3367,7 +3367,7 @@ pub fn build(b: *std.Build) void {
     const elk_core_tests = b.addTest(.{ .root_module = elk_core_module });
     const elk_core_tests_run = b.addRunArtifact(elk_core_tests);
     elk_core_tests_run.setCwd(b.path("."));
-    const elk_core_step = b.step("test-elk-core", "Run the ELK core tests (text database, codec, elk.xml, imports) against the tracked Data/ELK");
+    const elk_core_step = b.step("test-elk-core", "Run the ELK core tests (text database, codec, elk.xml, imports, pak export) against the tracked Data/ELK");
     elk_core_step.dependOn(&elk_core_tests.step);
     if (test_mode == .run) elk_core_step.dependOn(&elk_core_tests_run.step);
     test_step.dependOn(elk_core_step);

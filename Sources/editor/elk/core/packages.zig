@@ -36,8 +36,13 @@
 //! `elk.xml` as updates do). A broken archive fails the read, before anything
 //! is written. A game import's time is its newest file's, where the MFC one
 //! took the time it zipped them, so it too repeats unchanged.
+//!
+//! The export, `CELK::ExportToPAK`, goes the other way: one `<key>.txt` per
+//! text, written by `zip_writer.zig` (D-08), to a mod or into the game
+//! (D-09). Its rules and changes are at `exportElement` and `exportTo`.
 const std = @import("std");
 const zip = @import("zip");
+const zip_writer = @import("zip_writer.zig");
 const state = @import("state.zig");
 const project_file = @import("project_file.zig");
 const database = @import("database.zig");
@@ -351,6 +356,101 @@ fn writeIfChanged(io: std.Io, gpa: std.mem.Allocator, path: []const u8, current:
     return true;
 }
 
+pub const ExportOptions = struct {
+    /// `bOnlyFilled`: a translation no longer than its byte-order mark counts
+    /// as none, and the original goes out instead. Every MFC caller passed
+    /// true.
+    only_filled: bool = true,
+    /// Generated fonts, named below `fonts/` (`medium/1.tfd`, `medium/1_c.dds`
+    /// and so on), for an element whose `Fonts` flag is set.
+    fonts: []const Entry = &.{},
+};
+
+/// `CELK::ExportToPAK` for one element: the `.pak` bytes, which the caller
+/// owns. Each text is `<key>.txt` holding, unchanged, its translation when
+/// its state is not Not translated and the translation file exists (and, with
+/// `only_filled`, has more than its byte-order mark), otherwise its original.
+/// The MFC export copied the files the same way into a folder that zip.exe
+/// then packed; the entries here are sorted and at a fixed time
+/// (`zip_writer.zig`), so the same database always exports to the same
+/// bytes, and exporting what an import of an export left changes nothing.
+pub fn exportElement(gpa: std.mem.Allocator, db: *database.Database, element: usize, options: ExportOptions) ![]u8 {
+    var arena = std.heap.ArenaAllocator.init(gpa);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var files: std.ArrayListUnmanaged(zip_writer.File) = .empty;
+    for (db.bases[element].keys) |key| {
+        const property = try db.readState(element, key);
+        const translation = if (property.state != .not_translated) try db.readBytes(allocator, element, key, .translation) else null;
+        const filled = if (translation) |bytes| !options.only_filled or bytes.len > 2 else false;
+        const bytes = if (filled) translation.? else try db.readBytes(allocator, element, key, .original) orelse "";
+        try files.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ key, ".txt" }), .bytes = bytes });
+    }
+    for (options.fonts) |font| {
+        try files.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ "fonts/", font.name }), .bytes = font.bytes });
+    }
+    return zip_writer.write(gpa, files.items);
+}
+
+/// Where an export goes below the game folder (D-09).
+pub const Destination = union(enum) {
+    /// The default: `mods/<name>/data/texts.pak`. `-mod=<name>` mounts the
+    /// mod ahead of the loose files and the archives, so nothing shadows it.
+    mod: []const u8,
+    /// "Install to game": `Data/Texts.pak`, where the MFC ELK wrote it. A
+    /// loose `Data/Textes` text of the same key shadows it.
+    game,
+};
+
+pub const DestinationError = error{
+    /// Empty, `.` or `..`, or with a path separator: not one folder below
+    /// `mods`.
+    InvalidModName,
+};
+
+/// The `.pak` path of `destination` below `game_folder`, its existing
+/// folders and file found whatever their case; the caller owns it.
+pub fn destinationPath(gpa: std.mem.Allocator, io: std.Io, game_folder: []const u8, destination: Destination) ![]u8 {
+    const relative = switch (destination) {
+        .mod => |name| mod: {
+            if (name.len == 0 or std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..") or std.mem.indexOfAny(u8, name, "/\\") != null)
+                return DestinationError.InvalidModName;
+            break :mod try std.mem.concat(gpa, u8, &.{ "mods/", name, "/data/texts.pak" });
+        },
+        .game => try gpa.dupe(u8, "Data/Texts.pak"),
+    };
+    defer gpa.free(relative);
+    return (try database.resolve(gpa, io, game_folder, relative)).path;
+}
+
+/// Exports `element` to `destination` below `game_folder` and returns the
+/// path written, which the caller owns. A mod without a `data/mod.xml` gets
+/// one naming it, version 1.0, in the form the Resource Editor writes:
+/// the game mounts no mod folder without it. An existing one is left alone.
+pub fn exportTo(gpa: std.mem.Allocator, io: std.Io, db: *database.Database, element: usize, game_folder: []const u8, destination: Destination, options: ExportOptions) ![]u8 {
+    const path = try destinationPath(gpa, io, game_folder, destination);
+    errdefer gpa.free(path);
+    const bytes = try exportElement(gpa, db, element, options);
+    defer gpa.free(bytes);
+    try database.writeFileAtomic(io, gpa, path, bytes);
+    switch (destination) {
+        .mod => |name| {
+            const mod_xml = try database.resolve(gpa, io, std.fs.path.dirname(path).?, "mod.xml");
+            defer gpa.free(mod_xml.path);
+            if (!mod_xml.exists) {
+                var out: std.ArrayListUnmanaged(u8) = .empty;
+                defer out.deinit(gpa);
+                try out.appendSlice(gpa, "<?xml version=\"1.0\"?>\r\n<base>");
+                try project_file.textElement(gpa, &out, "MODName", name);
+                try out.appendSlice(gpa, "<MODVersion>1.0</MODVersion></base>\r\n");
+                try database.writeFileAtomic(io, gpa, mod_xml.path, out.items);
+            }
+        },
+        .game => {},
+    }
+    return path;
+}
+
 const testing = std.testing;
 const utf16 = database.utf16;
 
@@ -656,4 +756,222 @@ test "a tracked .pak reads its texts, and a broken archive fails before any writ
     const path = try std.fs.path.join(testing.allocator, &.{ root, "game_2.pak" });
     defer testing.allocator.free(path);
     try testing.expectError(error.InvalidArchive, readArchive(testing.allocator, io, path));
+}
+
+/// The entries of `bytes` through the engine's reader, each extracted (so
+/// its CRC checked), as name and bytes in archive order.
+fn readBack(arena: std.mem.Allocator, bytes: []const u8) ![]Entry {
+    var archive = try zip.Archive.parse(testing.allocator, bytes);
+    defer archive.deinit();
+    const entries = try arena.alloc(Entry, archive.entries.len);
+    for (archive.entries, entries) |*entry, *out| {
+        try testing.expectEqual(zip_writer.dos_modified, entry.dos_modified);
+        out.* = .{ .name = try arena.dupe(u8, entry.name), .bytes = try archive.extract(arena, entry) };
+    }
+    return entries;
+}
+
+test "an export carries the translation or the original as the MFC export chose" {
+    const io = testing.io;
+    const root = try database.freshScratch(io, "export-rules");
+    defer testing.allocator.free(root);
+    try database.writeFixture(io, root, "elk.xml", "<?xml version=\"1.0\"?>\r\n<base><Elements><item LastUpdateNumber=\"1\"><Path>game</Path></item></Elements></base>\r\n");
+    const fixtures = [_][2][]const u8{
+        // Translated: the translation.
+        .{ "a.elk", utf16("A") },               .{ "a.txt", utf16("A-tr") },        .{ "a.xml", stateBytes(2, 1) },
+        // Not translated: the original, whatever translation there is.
+        .{ "b.elk", utf16("B") },               .{ "b.txt", utf16("B-tr") },        .{ "b.xml", stateBytes(0, 1) },
+        // Outdated with an empty translation: the original when only filled.
+        .{ "c.elk", utf16("C") },               .{ "c.txt", utf16("") },            .{ "c.xml", stateBytes(1, 1) },
+        // Approved without a translation file: the original.
+        .{ "d.elk", utf16("D") },               .{ "d.xml", stateBytes(3, 1) },
+        // No state file reads as Not translated.
+        .{ "e.elk", utf16("E") },               .{ "e.txt", utf16("E-tr") },
+        // The key's own spelling names the entry.
+        .{ "Units/Tank/name.elk", utf16("N") }, .{ "Units/Tank/name.txt", utf16("N-tr") }, .{ "Units/Tank/name.xml", stateBytes(3, 1) },
+    };
+    for (fixtures) |fixture| {
+        const relative = try std.mem.concat(testing.allocator, u8, &.{ "game_data_base/", fixture[0] });
+        defer testing.allocator.free(relative);
+        try database.writeFixture(io, root, relative, fixture[1]);
+    }
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    var db = try database.Database.open(testing.allocator, io, elk_path);
+    defer db.deinit();
+
+    const fonts = [_]Entry{ .{ .name = "medium/1.tfd", .bytes = "tfd" }, .{ .name = "medium/1_c.dds", .bytes = "DDS " } };
+    const bytes = try exportElement(testing.allocator, &db, 0, .{ .fonts = &fonts });
+    defer testing.allocator.free(bytes);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const expected = [_]Entry{
+        .{ .name = "Units/Tank/name.txt", .bytes = utf16("N-tr") },
+        .{ .name = "a.txt", .bytes = utf16("A-tr") },
+        .{ .name = "b.txt", .bytes = utf16("B") },
+        .{ .name = "c.txt", .bytes = utf16("C") },
+        .{ .name = "d.txt", .bytes = utf16("D") },
+        .{ .name = "e.txt", .bytes = utf16("E") },
+        .{ .name = "fonts/medium/1.tfd", .bytes = "tfd" },
+        .{ .name = "fonts/medium/1_c.dds", .bytes = "DDS " },
+    };
+    const entries = try readBack(arena.allocator(), bytes);
+    try testing.expectEqual(expected.len, entries.len);
+    for (expected, entries) |want, got| {
+        try testing.expectEqualStrings(want.name, got.name);
+        try testing.expectEqualSlices(u8, want.bytes, got.bytes);
+    }
+
+    // Without only-filled, an empty translation goes out as it is.
+    const unfilled = try exportElement(testing.allocator, &db, 0, .{ .only_filled = false });
+    defer testing.allocator.free(unfilled);
+    var archive = try zip.Archive.parse(testing.allocator, unfilled);
+    defer archive.deinit();
+    const c = try archive.extract(arena.allocator(), archive.find("c.txt").?);
+    try testing.expectEqualSlices(u8, utf16(""), c);
+}
+
+test "an export goes to a mod, with a mod.xml when it has none, or into the game's Data" {
+    const io = testing.io;
+    const root = try database.freshScratch(io, "export-destinations");
+    defer testing.allocator.free(root);
+    try database.writeFixture(io, root, "elk/elk.xml", "<?xml version=\"1.0\"?>\r\n<base><Elements><item LastUpdateNumber=\"1\"><Path>game</Path></item></Elements></base>\r\n");
+    try database.writeFixture(io, root, "elk/game_data_base/a.elk", utf16("A"));
+    // The game folder's own spelling of an existing Data/Texts.pak is kept.
+    try database.writeFixture(io, root, "game/data/TEXTS.pak", "old");
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk", "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    const game = try std.fs.path.join(testing.allocator, &.{ root, "game" });
+    defer testing.allocator.free(game);
+    var db = try database.Database.open(testing.allocator, io, elk_path);
+    defer db.deinit();
+    const bytes = try exportElement(testing.allocator, &db, 0, .{});
+    defer testing.allocator.free(bytes);
+
+    const mod_path = try exportTo(testing.allocator, io, &db, 0, game, .{ .mod = "ELK Test" }, .{});
+    defer testing.allocator.free(mod_path);
+    const want_mod = try std.fs.path.join(testing.allocator, &.{ game, "mods", "ELK Test", "data", "texts.pak" });
+    defer testing.allocator.free(want_mod);
+    try testing.expectEqualStrings(want_mod, mod_path);
+    try expectFile(io, game, "mods/ELK Test/data/texts.pak", bytes);
+    const mod_xml = "<?xml version=\"1.0\"?>\r\n<base><MODName>ELK Test</MODName><MODVersion>1.0</MODVersion></base>\r\n";
+    try expectFile(io, game, "mods/ELK Test/data/mod.xml", mod_xml);
+    // The engine's own XML reader finds the name the game shows.
+    {
+        const xml = @import("xml");
+        var document = try xml.parse(testing.allocator, mod_xml);
+        defer document.deinit();
+        try testing.expectEqualStrings("ELK Test", xml.child(document.root, "MODName").?.text);
+    }
+    // A mod's own mod.xml stays.
+    try database.writeFixture(io, game, "mods/ELK Test/data/mod.xml", "mine");
+    testing.allocator.free(try exportTo(testing.allocator, io, &db, 0, game, .{ .mod = "ELK Test" }, .{}));
+    try expectFile(io, game, "mods/ELK Test/data/mod.xml", "mine");
+
+    const game_path = try exportTo(testing.allocator, io, &db, 0, game, .game, .{});
+    defer testing.allocator.free(game_path);
+    const want_game = try std.fs.path.join(testing.allocator, &.{ game, "data", "TEXTS.pak" });
+    defer testing.allocator.free(want_game);
+    try testing.expectEqualStrings(want_game, game_path);
+    try expectFile(io, game, "data/TEXTS.pak", bytes);
+
+    for ([_][]const u8{ "", ".", "..", "a/b", "a\\b" }) |name| {
+        try testing.expectError(DestinationError.InvalidModName, destinationPath(testing.allocator, io, game, .{ .mod = name }));
+    }
+}
+
+test "the tracked Data/ELK exports to a pak the engine and unzip read, the same every time, also after an import of it" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    // Read only: the export writes nothing into the database.
+    var tracked = try database.Database.open(testing.allocator, io, "Data/ELK/elk.xml");
+    defer tracked.deinit();
+    const first = try exportElement(testing.allocator, &tracked, 0, .{});
+    defer testing.allocator.free(first);
+    const entries = try readBack(allocator, first);
+    try testing.expectEqual(@as(usize, 2_852), entries.len);
+    // Sorted by entry name, which is not quite the key order: '-' sorts
+    // before the '.' of ".txt".
+    var by_name: std.StringHashMapUnmanaged([]const u8) = .empty;
+    for (entries, 0..) |entry, at| {
+        if (at > 0) try testing.expect(std.mem.lessThan(u8, entries[at - 1].name, entry.name));
+        try by_name.put(allocator, entry.name, entry.bytes);
+    }
+    for (tracked.bases[0].keys) |key| {
+        const exported = by_name.get(try std.mem.concat(allocator, u8, &.{ key, ".txt" })).?;
+        const property = try tracked.readState(0, key);
+        const translation = try tracked.readBytes(allocator, 0, key, .translation);
+        const original = (try tracked.readBytes(allocator, 0, key, .original)).?;
+        const wanted = if (property.state != .not_translated and translation != null and translation.?.len > 2) translation.? else original;
+        try testing.expectEqualSlices(u8, wanted, exported);
+    }
+
+    // unzip agrees, when the machine has it.
+    const root = try database.freshScratch(io, "export-tracked");
+    defer testing.allocator.free(root);
+    try database.writeFixture(io, root, "texts.pak", first);
+    const pak_path = try std.fs.path.join(allocator, &.{ root, "texts.pak" });
+    if (std.process.run(testing.allocator, io, .{ .argv = &.{ "unzip", "-tq", pak_path } })) |result| {
+        defer testing.allocator.free(result.stdout);
+        defer testing.allocator.free(result.stderr);
+        if (!result.term.success()) std.debug.print("unzip -t: {s}{s}\n", .{ result.stdout, result.stderr });
+        try testing.expect(result.term.success());
+    } else |err| switch (err) {
+        error.FileNotFound => std.debug.print("unzip is not installed; only zip.zig checked the export\n", .{}),
+        else => return err,
+    }
+
+    // E-02: entry by entry against Data/ELK/texts.pak, the MFC ELK's export
+    // of 2002-12-03, which predates the database (built from game_1.upd):
+    // 2,213 of the 2,712 texts both carry are byte-identical; the other 499
+    // were since re-imported (the original changed, or the state dropped to
+    // Not translated so the original now goes out instead of the
+    // translation); 227 texts (movies/, ...) left the game since and 140
+    // (medals/, ...) joined it. No .txt there has a name the export spells
+    // differently: both are lower case.
+    const shipped = try std.Io.Dir.cwd().readFileAlloc(io, "Data/ELK/texts.pak", allocator, .limited(16 << 20));
+    var reference = try zip.Archive.parse(testing.allocator, shipped);
+    defer reference.deinit();
+    var equal: usize = 0;
+    var different: usize = 0;
+    for (entries) |entry| {
+        const old = reference.find(entry.name) orelse continue;
+        try testing.expectEqualStrings(old.name, entry.name);
+        const old_bytes = try reference.extract(allocator, old);
+        if (std.mem.eql(u8, old_bytes, entry.bytes)) equal += 1 else different += 1;
+    }
+    try testing.expectEqual(@as(usize, 2_939), reference.entries.len);
+    try testing.expectEqual(@as(usize, 2_213), equal);
+    try testing.expectEqual(@as(usize, 499), different);
+    try testing.expectEqual(@as(usize, 140), entries.len - equal - different);
+
+    // Two exports of the same database are byte-identical.
+    const second = try exportElement(testing.allocator, &tracked, 0, .{});
+    defer testing.allocator.free(second);
+    try testing.expectEqualSlices(u8, first, second);
+
+    // Export, import back, export again: the same bytes. The import takes
+    // the element from the file name, so the export is imported as the
+    // element's update `game_23.pak`; it turns exported translations into
+    // originals (Translated and Approved become Outdated, Outdated Not
+    // translated), and each such text still exports the same bytes.
+    const copy = try std.fs.path.join(allocator, &.{ root, "elk", "game_data_base" });
+    try database.copyTree(io, "Data/ELK/game_data_base", copy);
+    const tracked_xml = try database.readFixture(io, "Data/ELK", "elk.xml");
+    defer testing.allocator.free(tracked_xml);
+    try database.writeFixture(io, root, "elk/elk.xml", tracked_xml);
+    try database.writeFixture(io, root, "game_23.pak", first);
+    const elk_path = try std.fs.path.join(allocator, &.{ root, "elk", "elk.xml" });
+    var package = try readArchive(testing.allocator, io, try std.fs.path.join(allocator, &.{ root, "game_23.pak" }));
+    defer package.deinit();
+    const report = try importPackage(testing.allocator, io, elk_path, &package, "game_23.pak");
+    try testing.expect(report.originals > 0);
+    var imported = try database.Database.open(testing.allocator, io, elk_path);
+    defer imported.deinit();
+    const again = try exportElement(testing.allocator, &imported, 0, .{});
+    defer testing.allocator.free(again);
+    try testing.expectEqualSlices(u8, first, again);
 }
