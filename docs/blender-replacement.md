@@ -2,7 +2,7 @@
 
 This repository contains a native C++ conversion and validation path that replaces the Maya40 exporter workflow for Blender-authored assets.
 
-The workflow is based on `bk-map obj2mod` (the conversion code of `BZMConvertor.exe` (`Sources/src/bzmconvertor`), moved over unchanged in Phase 8) and supports:
+The workflow is based on `bk-map obj2mod` (the conversion code of the legacy `BZMConvertor.exe`, moved over unchanged in Phase 8) and supports:
 
 - OBJ to MOD conversion
 - Optional skeleton sidecar import

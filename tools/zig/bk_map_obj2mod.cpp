@@ -1,6 +1,7 @@
 // bk-map obj2mod and validate-obj2mod: bzmconvertor's -obj2mod and
-// -validateobj2mod (Sources/src/bzmconvertor/main.cpp), the leg of the
-// Blender pipeline (tools/blender) that turns its OBJ and the skeleton and
+// -validateobj2mod (deleted by D-25; git show
+// 5f6434d99:Sources/src/bzmconvertor/main.cpp), the leg of the Blender
+// pipeline (tools/blender) that turns its OBJ and the skeleton and
 // animation sidecars into a .mod. D-16 moves the code and the sidecar formats
 // over unchanged; what differs is named where it is:
 //   - every message starts "bk-map: " (D-04), the legacy text after it;

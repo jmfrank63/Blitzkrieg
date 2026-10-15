@@ -41,8 +41,6 @@ zig build misc
 zig build image
 zig build lualib
 zig build net
-zig build buildversion
-zig build betakeygen
 zig build input
 zig build formats
 zig build anim
@@ -73,10 +71,6 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `LuaLib` mirrors the legacy Lua C sources plus the game's `Script.cpp` wrapper as a static library. It currently has no dependencies on the other Zig-built project libraries.
 
 `Net` is mirrored as a DLL using `Sources/src/Net/net.def`. It links the Zig-built `Misc` artifact plus the same Winsock and ODBC system libraries as the Visual Studio project. The OpenSpy placeholder source files are not included yet because they are not part of the current `.vcxproj` source list.
-
-`BuildVersion` is the first Zig-built executable target. It mirrors the legacy console utility and uses an explicit `mainCRTStartup` entry point so the MSVC CRT calls the existing `main` function.
-
-`BetaKeyGen` mirrors the legacy beta key console utility. It links the Zig-built `Misc` and `zlib` artifacts and enables the `_DO_BETA_CHECK` define used by the Visual Studio project.
 
 `Input` is mirrored as a DLL using `Sources/src/Input/Input.def`. It links the Zig-built `Misc` artifact plus the DirectInput, WinMM, COM support, and ODBC system libraries used by the Visual Studio project.
 

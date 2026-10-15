@@ -127,66 +127,6 @@ const cppflags_release = &.{
     "-Wno-unused-command-line-argument",
 };
 
-const cppflags_beta_debug = &.{
-    "-std=c++17",
-    "-D_HAS_AUTO_PTR_ETC=1",
-    "-D_WINDOWS",
-    "-DWIN32",
-    "-D_DEBUG",
-    "-D_DO_ASSERT_SLOW",
-    "-D_DO_CHECKED_CAST",
-    "-D_STL_RANGE_CHECK",
-    "-D_MT",
-    "-D_DLL",
-    "-D_DO_BETA_CHECK",
-    "-fms-extensions",
-    "-fms-compatibility",
-    "-fdelayed-template-parsing",
-    "-Wno-deprecated-declarations",
-    "-Wno-microsoft-template",
-    "-Wno-nonportable-include-path",
-    "-Wno-reserved-user-defined-literal",
-    "-Wno-comment",
-    "-Wno-enum-compare",
-    "-Wno-microsoft-enum-forward-reference",
-    "-Wno-return-type",
-    "-Wno-address-of-temporary",
-    "-Wno-non-pod-varargs",
-    "-Wno-extra-tokens",
-    "-Wno-parentheses-equality",
-    "-Wno-switch",
-    "-Wno-unused-command-line-argument",
-};
-
-const cppflags_beta_release = &.{
-    "-std=c++17",
-    "-D_HAS_AUTO_PTR_ETC=1",
-    "-D_WINDOWS",
-    "-DWIN32",
-    "-DNDEBUG",
-    "-D_FINALRELEASE",
-    "-D_MT",
-    "-D_DLL",
-    "-D_DO_BETA_CHECK",
-    "-fms-extensions",
-    "-fms-compatibility",
-    "-fdelayed-template-parsing",
-    "-Wno-deprecated-declarations",
-    "-Wno-microsoft-template",
-    "-Wno-nonportable-include-path",
-    "-Wno-reserved-user-defined-literal",
-    "-Wno-comment",
-    "-Wno-enum-compare",
-    "-Wno-microsoft-enum-forward-reference",
-    "-Wno-return-type",
-    "-Wno-address-of-temporary",
-    "-Wno-non-pod-varargs",
-    "-Wno-extra-tokens",
-    "-Wno-parentheses-equality",
-    "-Wno-switch",
-    "-Wno-unused-command-line-argument",
-};
-
 const cflags_sfx_debug = &.{
     "-D_WINDOWS",
     "-DWIN32",
@@ -378,19 +318,6 @@ const net_sources = &.{
     "Sources/src/Net/NetStream.cpp",
     "Sources/src/Net/NetObjectFactory.cpp",
     "Sources/src/Net/Streams.cpp",
-};
-
-const buildversion_sources = &.{
-    "Sources/src/buildversion/StdAfx.cpp",
-    "Sources/src/buildversion/BuildVersion.cpp",
-    "Sources/src/buildversion/main.cpp",
-    "Sources/src/buildversion/StringTokenizer.cpp",
-};
-
-const betakeygen_sources = &.{
-    "Sources/src/betakeygen/StdAfx.cpp",
-    "Sources/src/betakeygen/BetaKey.cpp",
-    "Sources/src/betakeygen/main.cpp",
 };
 
 const input_sources = &.{
@@ -671,7 +598,7 @@ const runtime_platform_playable_source_arrays = &.{
     "game_sources",    "windows_game_sources",
 };
 const runtime_platform_non_playable_source_arrays = &.{
-    "buildversion_sources", "betakeygen_sources", "fontgen_sources",
+    "fontgen_sources",
 };
 const runtime_platform_playable_link_module_names = &.{
     "module",     "game_module",    "net_module", "input_module", "sfx_module",
@@ -2384,8 +2311,6 @@ pub fn build(b: *std.Build) void {
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, platform_runtime, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
-    const buildversion = if (platform == .windows_x64) addBuildVersion(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic) else null;
-    const betakeygen = if (platform == .windows_x64) addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, platform_runtime, sdl_dynamic) else null;
     const input = addInput(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
     addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic);
     const formats = addFormats(b, target, optimize, toolchain);
@@ -2455,8 +2380,6 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(image);
     b.installArtifact(lualib);
     b.installArtifact(net);
-    if (buildversion) |artifact| b.installArtifact(artifact);
-    if (betakeygen) |artifact| b.installArtifact(artifact);
     b.installArtifact(input);
     b.installArtifact(formats);
     b.installArtifact(anim);
@@ -2523,16 +2446,6 @@ pub fn build(b: *std.Build) void {
     net_module_test_run.step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
     const net_module_test_step = b.step("test-net-module", "Load the real Net module and verify its factory contract");
     net_module_test_step.dependOn(&net_module_test_run.step);
-
-    if (buildversion) |artifact| {
-        const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
-        buildversion_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
-    }
-
-    if (betakeygen) |artifact| {
-        const betakeygen_step = b.step("betakeygen", "Build the BetaKeyGen console utility");
-        betakeygen_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
-    }
 
     const input_step = b.step("input", "Build the Input dynamic library");
     input_step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -4581,87 +4494,6 @@ fn addNet(
     });
 }
 
-fn addBuildVersion(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    misc: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-) *std.Build.Step.Compile {
-    const buildversion_module = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-    });
-    linkEngineCxxRuntimeEngine(b, buildversion_module, optimize);
-    addProjectIncludePaths(b, buildversion_module);
-    addMsvcIncludePaths(b, buildversion_module, toolchain);
-    addMsvcLibraryPaths(b, buildversion_module, toolchain);
-    buildversion_module.addIncludePath(b.path("Sources/src/buildversion"));
-    buildversion_module.addCSourceFiles(.{
-        .files = buildversion_sources,
-        .flags = cppflagsForOptimize(optimize),
-    });
-    buildversion_module.linkLibrary(misc);
-    buildversion_module.linkLibrary(platform_runtime);
-    linkSdlImport(buildversion_module, target, sdl_dynamic);
-    if (target.result.os.tag == .windows) {
-        buildversion_module.linkSystemLibrary("odbc32", .{});
-        buildversion_module.linkSystemLibrary("odbccp32", .{});
-    }
-
-    const buildversion = b.addExecutable(.{
-        .name = "BuildVersion",
-        .root_module = buildversion_module,
-    });
-    buildversion.subsystem = .console;
-    buildversion.entry = .{ .symbol_name = "mainCRTStartup" };
-    return buildversion;
-}
-
-fn addBetaKeyGen(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    zlib: *std.Build.Step.Compile,
-    misc: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-) *std.Build.Step.Compile {
-    const betakeygen_module = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-    });
-    linkEngineCxxRuntimeEngine(b, betakeygen_module, optimize);
-    addProjectIncludePaths(b, betakeygen_module);
-    addMsvcIncludePaths(b, betakeygen_module, toolchain);
-    addMsvcLibraryPaths(b, betakeygen_module, toolchain);
-    betakeygen_module.addIncludePath(b.path("Sources/src/betakeygen"));
-    betakeygen_module.addIncludePath(b.path("Sources/src/zlib"));
-    betakeygen_module.addCSourceFiles(.{
-        .files = betakeygen_sources,
-        .flags = cppflagsBetaForOptimize(optimize),
-    });
-    betakeygen_module.linkLibrary(misc);
-    betakeygen_module.linkLibrary(platform_runtime);
-    linkSdlImport(betakeygen_module, target, sdl_dynamic);
-    betakeygen_module.linkLibrary(zlib);
-    if (target.result.os.tag == .windows) {
-        betakeygen_module.linkSystemLibrary("odbc32", .{});
-        betakeygen_module.linkSystemLibrary("odbccp32", .{});
-    }
-
-    const betakeygen = b.addExecutable(.{
-        .name = "BetaKeyGen",
-        .root_module = betakeygen_module,
-    });
-    betakeygen.subsystem = .console;
-    betakeygen.entry = .{ .symbol_name = "mainCRTStartup" };
-    return betakeygen;
-}
-
 fn addInput(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -5547,14 +5379,6 @@ fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) v
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-}
-
-fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &portable_cppflags;
-    return switch (optimize) {
-        .debug => cppflags_beta_debug,
-        .safe, .fast, .small => cppflags_beta_release,
-    };
 }
 
 fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {

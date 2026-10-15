@@ -4,12 +4,13 @@
 //! `offset-romb` is judged by explicit goldens (applying it twice is not the
 //! identity, so a round trip proves nothing). The goldens in
 //! `fixtures/small-tools/offset-romb` were made by compiling OffsetRomb's own
-//! `FlipRomb1`/`FlipRomb2` source (`Sources/src/Tools/OffsetRomb/main.cpp`,
-//! included verbatim) over the fixture pixels, with one line added to its
-//! `FlipLines`: skip a swap that reaches outside the image, the rule
-//! `bk_image.zig` documents. The fixtures are a 16x16 tile (D-29) and a 64x32
-//! one, every pixel distinct, stored bottom-up without a footer; the goldens
-//! are in `SaveImageAsTGA`'s layout.
+//! `FlipRomb1`/`FlipRomb2` source (deleted by D-25; `git show
+//! 5f6434d99:Sources/src/Tools/OffsetRomb/main.cpp`, included verbatim)
+//! over the fixture pixels, with one line added to its `FlipLines`: skip a
+//! swap that reaches outside the image, the rule `bk_image.zig` documents.
+//! The fixtures are a 16x16 tile (D-29) and a 64x32 one, every pixel
+//! distinct, stored bottom-up without a footer; the goldens are in
+//! `SaveImageAsTGA`'s layout.
 
 const std = @import("std");
 const bk_image = @import("bk_image.zig");
