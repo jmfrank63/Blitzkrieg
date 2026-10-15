@@ -14,7 +14,12 @@ namespace FontAtlas
 {
 namespace
 {
-// FontGen's spacing between two glyph cells in a row.
+// FontGen's spacing between two glyph cells in a row, and here between two
+// rows as well: the GPU path samples linearly with FontGen's half-texel UVs
+// and no half-pixel vertex shift, so a glyph's last screen row reads half of
+// the texel row under its cell. FontGen stacked rows without a gap, which GDI
+// fonts survive by an empty top row; a face with ink in its first row drew
+// the top of the glyph below as a line under the text (D-14's capture).
 const int LEADING_PIXELS = 2;
 // The largest atlas side FontGen's estimate tried (1 << 12).
 const int MAX_TEXTURE_SIZE = 4096;
@@ -182,7 +187,7 @@ void RenderGlyph( const stbtt_fontinfo &font, float fScale, int nAscent, const S
 }
 
 // FontGen's EstimateTextureSize: the smallest 2:1 or 1:1 power of two that
-// holds every character at the average width.
+// holds every character at the average width, nHeight being the row pitch.
 bool EstimateTextureSize( int nAveCharWidth, int nHeight, int nNumChars, int *pSizeX, int *pSizeY )
 {
 	const int nCellX = nAveCharWidth + LEADING_PIXELS;
@@ -204,7 +209,7 @@ bool EstimateTextureSize( int nAveCharWidth, int nHeight, int nNumChars, int *pS
 }
 
 // FontGen's row packing: cells left to right, LEADING_PIXELS apart, a new row
-// of nHeight pixels when the next cell does not fit. Writes each cell's left
+// nHeight pixels further down (the row pitch) when the next cell does not fit. Writes each cell's left
 // edge and row; false when the rows run out of texture.
 bool Pack( const std::vector<SGlyph> &glyphs, int nHeight, int nSizeX, int nSizeY, std::vector<int> *pX, std::vector<int> *pRow )
 {
@@ -369,13 +374,14 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	// growing until everything fits gives the same size whenever FontGen's
 	// result was complete.
 	int nSizeX = 0, nSizeY = 0;
-	if ( !EstimateTextureSize( nAveCharWidth, request.nHeight, int( glyphs.size() ), &nSizeX, &nSizeY ) )
+	const int nRowPitch = request.nHeight + LEADING_PIXELS;
+	if ( !EstimateTextureSize( nAveCharWidth, nRowPitch, int( glyphs.size() ), &nSizeX, &nSizeY ) )
 	{
 		nSizeX = MAX_TEXTURE_SIZE;
 		nSizeY = MAX_TEXTURE_SIZE;
 	}
 	std::vector<int> cellX, cellRow;
-	while ( !Pack( glyphs, request.nHeight, nSizeX, nSizeY, &cellX, &cellRow ) )
+	while ( !Pack( glyphs, nRowPitch, nSizeX, nSizeY, &cellX, &cellRow ) )
 	{
 		if ( nSizeX == nSizeY )
 			nSizeX <<= 1;
@@ -411,7 +417,7 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	{
 		const SGlyph &glyph = glyphs[i];
 		const int x = cellX[i];
-		const int nCellTop = cellRow[i] * request.nHeight;
+		const int nCellTop = cellRow[i] * nRowPitch;
 		SFontFormat::SCharDesc &desc = format.chars[glyph.wUnicode];
 		desc.fA = float( glyph.nA );
 		desc.fB = float( glyph.nB );

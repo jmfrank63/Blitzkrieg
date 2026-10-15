@@ -2669,6 +2669,31 @@ pub fn build(b: *std.Build) void {
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_step.dependOn(&install_game_cmd.step);
 
+    // D-14's measured look on the real Game: the staged bk-font writes the
+    // fixture font into mods/bkfonttest of the install, the Game's own
+    // main-menu captures with the shipped font, the generated one and the
+    // generated one with no ink are measured against each other and against
+    // the font's description (tools/zig/bk_font_game_reads_it.zig). It needs
+    // a desktop and a GPU, so it is not part of `test`.
+    const bk_font_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_font_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, bk_font_game_reads_module, toolchain);
+    }
+    const bk_font_game_reads_tests = b.addTest(.{ .root_module = bk_font_game_reads_module });
+    const bk_font_game_reads_run = b.addRunArtifact(bk_font_game_reads_tests);
+    bk_font_game_reads_run.setCwd(b.path("."));
+    bk_font_game_reads_run.setEnvironmentVariable("BK_FONT_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    bk_font_game_reads_run.setEnvironmentVariable("BK_FONT_TOOL", rootPath(b, b.fmt("{s}/Tools/bk-font{s}", .{ stage_root, target.result.exeFileExt() })));
+    bk_font_game_reads_run.has_side_effects = true;
+    bk_font_game_reads_run.step.dependOn(install_game_step);
+    const bk_font_game_reads_step = b.step("bk-font-game-reads-it", "Generate the fixture font into a mod with bk-font, capture the real Game's main menu with it, without it and with its ink removed, and prove from the frames that it draws the font legibly in the medium-font windows only (D-14)");
+    bk_font_game_reads_step.dependOn(&bk_font_game_reads_tests.step);
+    if (test_mode == .run) bk_font_game_reads_step.dependOn(&bk_font_game_reads_run.step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor

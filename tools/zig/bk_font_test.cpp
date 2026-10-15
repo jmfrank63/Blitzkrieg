@@ -146,6 +146,26 @@ static void CheckStructure( const std::string &szWhat, const SFontFormat &format
 		if ( (*pPixels)[i] != 0 && !covered[i] )
 			++nStray;
 	Check( nStray == 0, szWhat + ": no ink outside the glyph cells (" + std::to_string( nStray ) + " pixels)" );
+	// The texel row under a cell and the column right of it stay empty: the
+	// GPU path samples linearly with the half-texel UVs and no half-pixel
+	// vertex shift, so a glyph's last screen row and column read half of
+	// those texels. Cells stacked without a gap drew the top of the glyph
+	// below as a line under the text (the D-14 in-game capture).
+	int nBleeding = 0;
+	for ( size_t i = 0; i < cells.size(); ++i )
+	{
+		const int nLeft = int( cells[i].fLeft + 0.5f ), nTop = int( cells[i].fTop + 0.5f );
+		const int nRight = int( cells[i].fRight + 0.5f ), nBottom = int( cells[i].fBottom + 0.5f );
+		int nInk = 0;
+		for ( int x = nLeft; nBottom < nSizeY && x <= nRight && x < nSizeX; ++x )
+			nInk += (*pPixels)[size_t( nBottom ) * nSizeX + x] != 0;
+		for ( int y = nTop; nRight < nSizeX && y < nBottom; ++y )
+			nInk += (*pPixels)[size_t( y ) * nSizeX + nRight] != 0;
+		if ( nInk > 0 && nBleeding < 5 )
+			printf( "bk-font-test: %s: U+%04X has %d inked texels under or right of its cell\n", szWhat.c_str(), cells[i].wChar, nInk );
+		nBleeding += nInk > 0;
+	}
+	Check( nBleeding == 0, szWhat + ": no ink in the texel row under or the column right of a cell (" + std::to_string( nBleeding ) + " cells have some)" );
 	int nBlank = 0;
 	for ( WORD c = 33; c < 127; ++c )
 	{
