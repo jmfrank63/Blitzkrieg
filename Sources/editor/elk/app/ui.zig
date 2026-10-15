@@ -4,6 +4,8 @@
 //! session (D-15): leaving a text, Save (Ctrl+S), Close and Exit.
 const std = @import("std");
 const imgui = @import("editor_imgui");
+const sdl3 = @import("sdl3");
+const kit = @import("editor_kit");
 const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
 const window_mod = @import("editor_kit").window;
@@ -12,6 +14,14 @@ const ig = imgui.c;
 const Session = session_mod.Session;
 
 pub const app_title = "Blitzkrieg ELK";
+
+/// File > Open's answer. SDL may call back on another thread or after the
+/// window is gone, so it is a global, as the editors' own slots are.
+var open_slot: OpenSlot = .{};
+
+const OpenSlot = kit.dialogs.PathSlot(void, settings_mod.max_path);
+
+const open_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "ELK projects (elk.xml)", .pattern = "xml" }};
 
 pub const Ui = struct {
     gpa: std.mem.Allocator,
@@ -30,6 +40,9 @@ pub const Ui = struct {
     /// The last Exit could not save; the next one quits anyway.
     exit_refused: bool = false,
     title_storage: [512:0]u8 = @splat(0),
+    /// False in scripted runs: File > Open requests the slot but shows no OS
+    /// dialog, and the schedule answers it (`do=answer:<path>`).
+    os_dialogs: bool = true,
 
     /// Opens `elk_path` and records it as the most recent database.
     pub fn openDatabase(self: *Ui, elk_path: []const u8) void {
@@ -53,6 +66,35 @@ pub const Ui = struct {
             return;
         };
         self.quit = true;
+    }
+
+    /// File > Open (Ctrl+O): the OS dialog, starting beside the open or the
+    /// most recent database. Its answer opens in a later frame (`draw`).
+    pub fn requestOpen(self: *Ui, window: *window_mod.Window) void {
+        if (!open_slot.request({})) return;
+        if (!self.os_dialogs) return;
+        const near = if (self.session.isOpen()) self.session.openPath() else if (self.settings) |settings| (if (settings.recentCount() != 0) settings.recentAt(0) else "") else "";
+        var folder_buffer: [settings_mod.max_path + 1]u8 = undefined;
+        const folder = std.fs.path.dirname(near) orelse "";
+        const location: ?[*:0]const u8 = if (folder.len == 0) null else if (std.mem.printSentinel(&folder_buffer, "{s}", .{folder}, 0)) |z| z.ptr else |_| null;
+        sdl3.c.SDL_ShowOpenFileDialog(OpenSlot.callback, &open_slot, window.window, &open_filters, open_filters.len, location, false);
+    }
+
+    /// A scripted run's stand-in for the OS dialog: answers the File > Open
+    /// that is waiting. False when none is.
+    pub fn answerOpen(self: *Ui, path: []const u8) bool {
+        _ = self;
+        if (!open_slot.waiting()) return false;
+        open_slot.deliver(path);
+        return true;
+    }
+
+    fn takeOpen(self: *Ui) void {
+        switch (open_slot.take() orelse return) {
+            .path => |chosen| self.openDatabase(chosen.path),
+            .cancelled => {},
+            .failed => |reason| self.session.fail("the file dialog failed: {s}", .{reason}),
+        }
     }
 
     pub fn select(self: *Ui, index: usize) void {
@@ -82,8 +124,10 @@ pub const Ui = struct {
     }
 
     pub fn draw(self: *Ui, window: *window_mod.Window) void {
+        self.takeOpen();
         window.setTitle(self.title().ptr);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
+        if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
 
         const viewport = ig.igGetMainViewport();
         ig.igSetNextWindowPos(viewport.*.WorkPos, 0);
@@ -92,10 +136,10 @@ pub const Ui = struct {
             ig.ImGuiWindowFlags_MenuBar | ig.ImGuiWindowFlags_NoBringToFrontOnFocus;
         _ = ig.igBegin("ELK", null, flags);
         defer ig.igEnd();
-        self.drawMenu();
+        self.drawMenu(window);
         self.rows_drawn = 0;
         if (!self.session.isOpen()) {
-            ig.igTextUnformatted("No database is open. Start ELK with the path of an elk.xml, or pick one under File > Recent.");
+            ig.igTextUnformatted("No database is open. Open an elk.xml under File > Open, or pick one under File > Recent.");
             self.drawFailure();
             return;
         }
@@ -109,11 +153,12 @@ pub const Ui = struct {
         self.drawStatus();
     }
 
-    fn drawMenu(self: *Ui) void {
+    fn drawMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenuBar()) return;
         defer ig.igEndMenuBar();
         if (!ig.igBeginMenu("File")) return;
         defer ig.igEndMenu();
+        if (ig.igMenuItemEx("Open...", "Ctrl+O", false, !open_slot.waiting())) self.requestOpen(window);
         const settings_count = if (self.settings) |settings| settings.recentCount() else 0;
         if (ig.igBeginMenuEx("Recent", settings_count != 0)) {
             defer ig.igEndMenu();

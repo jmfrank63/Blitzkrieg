@@ -12,6 +12,9 @@
 //!   do=select_key:<key>      the same, by the text's key
 //!   do=focus:translation     the translation box takes the keyboard
 //!   do=save  do=close  do=reopen  (File > Save, File > Close, open again)
+//!   do=open                  File > Open; the run shows no OS dialog
+//!   do=answer:<path>         the waiting File > Open dialog chose <path>,
+//!                            relative to the runner's dialog folder if set
 //!   expect=open  expect=closed  expect=rows  expect=glyphs
 //!   expect=texts:<n>  expect=title:<file>  expect=dirty:<0|1>
 //!   expect=original_has:<text>  expect=translation:<text>
@@ -19,6 +22,8 @@
 //!   expect=state:<key>=<not_translated|outdated|translated|approved>
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
+//!   expect=identical           every file of the opened copy is byte-identical
+//!                              to the source and none was added (smoke only)
 const std = @import("std");
 const kit = @import("editor_kit");
 const sdl3 = @import("sdl3");
@@ -35,6 +40,11 @@ pub const Runner = struct {
     next: usize = 0,
     /// The database the smoke copied, for `expect=untouched`; "" otherwise.
     source_folder: []const u8 = "",
+    /// How many files the smoke copied, for `expect=identical`.
+    source_files: usize = 0,
+    /// Where a scripted dialog answers, standing in for the folder the user
+    /// browsed to: the grammar's arguments are short, the paths are not.
+    dialog_folder: []const u8 = "",
     /// Text events borrow their bytes until ImGui copies them in.
     text_storage: [schedule.max_arg_len + 1]u8 = undefined,
     failure_storage: [512]u8 = undefined,
@@ -47,6 +57,8 @@ pub const Runner = struct {
     /// Runs every entry scheduled for `frame`; false when one failed
     /// (`failure` says which and why).
     pub fn step(self: *Runner, frame: u32, window: *window_mod.Window, ui: *ui_mod.Ui) bool {
+        // File > Open opens in a frame, not in a command.
+        self.remember(ui.session.openPath());
         while (self.next < self.entries.len and self.entries[self.next].frame <= frame) : (self.next += 1) {
             const entry = self.entries[self.next];
             std.debug.print("BK_ELK_AUTO: frame {d} action {s}\n", .{ frame, entry.text });
@@ -75,7 +87,7 @@ pub const Runner = struct {
                 event.text.text = &self.text_storage;
                 _ = window.handleEvent(&event);
             },
-            .do => |named| try self.command(ui, named),
+            .do => |named| try self.command(window, ui, named),
             .expect => |named| try self.expect(window, ui, named),
             .exit => ui.requestExit(),
             else => self.fail("{s} is not driven by ELK yet", .{@tagName(action)}),
@@ -107,7 +119,7 @@ pub const Runner = struct {
         }
     }
 
-    fn command(self: *Runner, ui: *ui_mod.Ui, named: schedule.Named) !void {
+    fn command(self: *Runner, window: *window_mod.Window, ui: *ui_mod.Ui, named: schedule.Named) !void {
         const session = ui.session;
         if (is(named, "select")) {
             const index = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("select needs a row number, got {s}", .{named.arg});
@@ -121,6 +133,12 @@ pub const Runner = struct {
             try session.save();
         } else if (is(named, "close")) {
             try session.close();
+        } else if (is(named, "open")) {
+            ui.requestOpen(window);
+        } else if (is(named, "answer")) {
+            var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            const path = if (self.dialog_folder.len == 0) named.arg else try std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ self.dialog_folder, std.fs.path.sep, named.arg });
+            if (!ui.answerOpen(path)) return self.fail("do=answer: no File > Open dialog is waiting", .{});
         } else if (is(named, "reopen")) {
             var copy: [std.Io.Dir.max_path_bytes]u8 = undefined;
             const last = self.last_path[0..self.last_path_len];
@@ -181,6 +199,8 @@ pub const Runner = struct {
             }
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
+        } else if (is(named, "identical")) {
+            try self.identical(ui);
         } else return self.fail("unknown expectation expect={s}", .{named.name});
     }
 
@@ -207,6 +227,33 @@ pub const Runner = struct {
             const same = if (copied != null and source != null) std.mem.eql(u8, copied.?, source.?) else copied == null and source == null;
             if (!same) return self.fail("expect=untouched: {s}{s} changed though it was only visited", .{ text.key, extension });
         }
+    }
+
+    /// Every file under the opened database's folder equals the source's
+    /// file of the same name, and there are as many as the smoke copied: a
+    /// Save of an untouched database wrote nothing that differs.
+    fn identical(self: *Runner, ui: *ui_mod.Ui) !void {
+        if (self.source_folder.len == 0) return self.fail("expect=identical needs the smoke's source", .{});
+        const folder = std.fs.path.dirname(self.last_path[0..self.last_path_len]) orelse return self.fail("expect=identical: no database was opened", .{});
+        const cwd = std.Io.Dir.cwd();
+        var copy = try cwd.openDir(ui.io, folder, .{ .iterate = true });
+        defer copy.close(ui.io);
+        var source = try cwd.openDir(ui.io, self.source_folder, .{});
+        defer source.close(ui.io);
+        var walker = try copy.walk(ui.gpa);
+        defer walker.deinit();
+        var count: usize = 0;
+        while (try walker.next(ui.io)) |file| {
+            if (file.kind != .file) continue;
+            count += 1;
+            const copied = try copy.readFileAlloc(ui.io, file.path, ui.gpa, .limited(16 << 20));
+            defer ui.gpa.free(copied);
+            const original = source.readFileAlloc(ui.io, file.path, ui.gpa, .limited(16 << 20)) catch
+                return self.fail("expect=identical: {s} is new", .{file.path});
+            defer ui.gpa.free(original);
+            if (!std.mem.eql(u8, copied, original)) return self.fail("expect=identical: {s} differs from the source", .{file.path});
+        }
+        if (count != self.source_files) return self.fail("expect=identical: {d} files, the smoke copied {d}", .{ count, self.source_files });
     }
 
     fn fail(self: *Runner, comptime format: []const u8, args: anytype) void {

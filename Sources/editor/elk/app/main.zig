@@ -10,7 +10,11 @@
 //! `--smoke` copies the database's `elk.xml` and `<element>_data_base/`
 //! folders into the scratch folder, opens the copy in a hidden window and
 //! replays a fixed schedule over the list, the edit boxes and every save
-//! point; `--auto` replays `BK_ELK_AUTO` on the database given.
+//! point, then copies it again beside the first and opens that one through
+//! File > Open, answering the dialog itself: an untouched Save leaves every
+//! file byte-identical, an edit reaches the disk, and the path lands first
+//! in the run's own elk.cfg. `--auto` replays `BK_ELK_AUTO` on the database
+//! given.
 const std = @import("std");
 const builtin = @import("builtin");
 const kit = @import("editor_kit");
@@ -48,6 +52,16 @@ const smoke_schedule =
     // Exit, checked on disk after the window is gone.
     "36:do=reopen,38:expect=open,38:do=select_key:" ++ smoke_key ++ ",40:do=focus:translation," ++
     "43:key=end+ctrl,45:text=Z,47:expect=dirty:1,48:exit";
+
+/// The File > Open pass: nothing open at the start, File > Open answered
+/// with the copy, a visit and a Save that must change no byte, then an edit
+/// that must reach the disk.
+const open_final = "ELK-OPEN";
+const open_schedule =
+    "2:expect=closed,3:do=open,4:do=answer:elk.xml,6:expect=open,6:expect=texts:2852,6:expect=title:elk.xml," ++
+    "7:do=select_key:" ++ smoke_key ++ ",9:do=select:0,10:do=save,11:expect=identical," ++
+    "12:do=select_key:" ++ smoke_key ++ ",13:do=focus:translation,16:text=" ++ open_final ++ ",18:expect=dirty:1," ++
+    "19:do=save,20:expect=disk:" ++ smoke_key ++ "=" ++ open_final ++ ",20:expect=dirty:0,21:exit";
 
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
@@ -176,13 +190,20 @@ fn loop(window: *window_mod.Window, ui: *ui_mod.Ui, runner: ?*auto.Runner, frame
 
 fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) u8 {
     crt.attachParentConsole();
-    copyDatabase(gpa, io, source, scratch) catch |err| {
+    const copied = copyDatabase(gpa, io, source, scratch) catch |err| {
         std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, scratch, @errorName(err) });
         return 1;
     };
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ scratch, std.fs.path.sep }) catch return 1;
-    const result = scripted(gpa, io, environ, elk_path, smoke_schedule, source, smoke_frame_limit, "smoke");
+    const result = scripted(gpa, io, environ, .{
+        .elk_path = elk_path,
+        .text = smoke_schedule,
+        .source = source,
+        .source_files = copied,
+        .frame_limit = smoke_frame_limit,
+        .tier = "smoke",
+    });
     if (result.code != 0) return result.code;
 
     // Exit was the last save point: the disk holds the last letter typed.
@@ -200,8 +221,50 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
         std.debug.print("elk: smoke FAIL: after Exit {s} holds \"{s}\", wanted \"{s}\"\n", .{ smoke_key, saved, smoke_final });
         return 1;
     }
-    std.debug.print("elk: smoke PASS: {d} frames, {d} fonts, list, edit and the four save points on {s}\n", .{ result.frames, result.fonts, elk_path });
+    const opened = smokeOpen(gpa, io, environ, source, scratch);
+    if (opened.code != 0) return opened.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} frames, {d} fonts, list, edit, the four save points and File > Open on {s}\n", .{ result.frames, opened.frames, result.fonts, elk_path });
     return 0;
+}
+
+/// The smoke's File > Open pass on a second copy, `<scratch>-open`, with
+/// its own `<scratch>-open.cfg` in place of the user's elk.cfg.
+fn smokeOpen(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-open", .{scratch}) catch return .{ .code = 1 };
+    var cfg_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cfg_path = std.fmt.bufPrint(&cfg_buffer, "{s}.cfg", .{folder}) catch return .{ .code = 1 };
+    const copied = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    std.Io.Dir.cwd().deleteFile(io, cfg_path) catch {};
+    const result = scripted(gpa, io, environ, .{
+        .elk_path = null,
+        .text = open_schedule,
+        .source = source,
+        .source_files = copied,
+        .dialog_folder = folder,
+        .settings_path = cfg_path,
+        .frame_limit = smoke_frame_limit,
+        .tier = "smoke (File > Open)",
+    });
+    if (result.code != 0) return result;
+
+    // The answered path is the first recent database in the file itself.
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, cfg_path, gpa, .limited(64 * 1024)) catch |err| {
+        std.debug.print("elk: smoke FAIL: File > Open wrote no {s}: {s}\n", .{ cfg_path, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    defer gpa.free(bytes);
+    const settings = settings_mod.parse(bytes);
+    if (settings.recentCount() == 0 or !std.mem.eql(u8, settings.recentAt(0), elk_path)) {
+        std.debug.print("elk: smoke FAIL: {s} does not list {s} first\n", .{ cfg_path, elk_path });
+        return .{ .code = 1 };
+    }
+    return result;
 }
 
 fn autoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, elk_path: []const u8) u8 {
@@ -211,19 +274,36 @@ fn autoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, el
         return 2;
     };
     defer gpa.free(text);
-    const result = scripted(gpa, io, environ, elk_path, text, "", auto_frame_limit, "auto");
+    const result = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = text, .frame_limit = auto_frame_limit, .tier = "auto" });
     if (result.code == 0) std.debug.print("elk: auto PASS: {d} frames\n", .{result.frames});
     return result.code;
 }
 
 const Scripted = struct { code: u8, frames: u32 = 0, fonts: usize = 0 };
 
-/// A hidden window on `elk_path`, the schedule replayed over it. Settings
-/// are neither read nor written. No GPU device is a failure, never a pass
-/// (the spec's app tier).
-fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, elk_path: []const u8, text: []const u8, source: []const u8, frame_limit: u32, tier: []const u8) Scripted {
+const Script = struct {
+    /// Opened before the first frame; null starts with nothing open.
+    elk_path: ?[]const u8,
+    text: []const u8,
+    /// The database the smoke copied and how many files, for its expectations.
+    source: []const u8 = "",
+    source_files: usize = 0,
+    /// Where `do=answer` answers File > Open (Runner.dialog_folder).
+    dialog_folder: []const u8 = "",
+    /// The run's own elk.cfg, started empty and written as ELK writes it;
+    /// "" runs without settings. The user's own file is never touched.
+    settings_path: []const u8 = "",
+    frame_limit: u32,
+    tier: []const u8,
+};
+
+/// A hidden window, the schedule replayed over it. No OS file dialog opens;
+/// the schedule answers File > Open itself. No GPU device is a failure,
+/// never a pass (the spec's app tier).
+fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, script: Script) Scripted {
+    const tier = script.tier;
     var failure: kit.auto_schedule.Failure = .{};
-    const entries = kit.auto_schedule.parse(gpa, text, &failure) catch |err| {
+    const entries = kit.auto_schedule.parse(gpa, script.text, &failure) catch |err| {
         std.debug.print("elk: {s} FAIL: the schedule does not parse at \"{s}\": {s} ({s})\n", .{ tier, failure.token, failure.reason, @errorName(err) });
         return .{ .code = 2 };
     };
@@ -239,12 +319,24 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, el
 
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
-    var ui: ui_mod.Ui = .{ .gpa = gpa, .io = io, .session = &session, .settings = null };
-    ui.openDatabase(elk_path);
-    var runner: auto.Runner = .{ .entries = entries, .source_folder = source };
-    runner.remember(session.openPath());
+    var settings: settings_mod.Settings = .{};
+    var ui: ui_mod.Ui = .{
+        .gpa = gpa,
+        .io = io,
+        .session = &session,
+        .settings = if (script.settings_path.len != 0) &settings else null,
+        .settings_path = script.settings_path,
+        .os_dialogs = false,
+    };
+    if (script.elk_path) |path| ui.openDatabase(path);
+    var runner: auto.Runner = .{
+        .entries = entries,
+        .source_folder = script.source,
+        .source_files = script.source_files,
+        .dialog_folder = script.dialog_folder,
+    };
     var frames: u32 = 0;
-    const passed = loopCounting(&window, &ui, &runner, frame_limit, &frames);
+    const passed = loopCounting(&window, &ui, &runner, script.frame_limit, &frames);
     if (!passed) {
         std.debug.print("elk: {s} FAIL: {s}\n", .{ tier, runner.failure });
         return .{ .code = 1, .frames = frames };
@@ -264,7 +356,8 @@ fn loopCounting(window: *window_mod.Window, ui: *ui_mod.Ui, runner: *auto.Runner
 
 /// The database's project file and its `<element>_data_base/` folders, the
 /// rest of the folder (the old binaries, packs and updates) left out.
-fn copyDatabase(gpa: std.mem.Allocator, io: std.Io, source: []const u8, scratch: []const u8) !void {
+/// Returns how many files it copied.
+fn copyDatabase(gpa: std.mem.Allocator, io: std.Io, source: []const u8, scratch: []const u8) !usize {
     const cwd = std.Io.Dir.cwd();
     cwd.deleteTree(io, scratch) catch {};
     try cwd.createDirPath(io, scratch);
@@ -273,6 +366,7 @@ fn copyDatabase(gpa: std.mem.Allocator, io: std.Io, source: []const u8, scratch:
     var to = try cwd.openDir(io, scratch, .{});
     defer to.close(io);
     try copyFile(gpa, io, from, to, "elk.xml");
+    var copied: usize = 1;
     var entries = from.iterate();
     while (try entries.next(io)) |entry| {
         if (entry.kind != .directory) continue;
@@ -287,8 +381,10 @@ fn copyDatabase(gpa: std.mem.Allocator, io: std.Io, source: []const u8, scratch:
             defer gpa.free(relative);
             if (std.fs.path.dirname(relative)) |parent| try to.createDirPath(io, parent);
             try copyFile(gpa, io, from, to, relative);
+            copied += 1;
         }
     }
+    return copied;
 }
 
 fn copyFile(gpa: std.mem.Allocator, io: std.Io, from: std.Io.Dir, to: std.Io.Dir, relative: []const u8) !void {

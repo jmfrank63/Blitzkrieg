@@ -202,7 +202,9 @@ pub const Session = struct {
         self.state = .not_translated;
     }
 
-    fn fail(self: *Session, comptime format: []const u8, args: anytype) void {
+    /// Keeps a failure for the status line; ELK's own (a failed file
+    /// dialog) go here too.
+    pub fn fail(self: *Session, comptime format: []const u8, args: anytype) void {
         const written = std.fmt.bufPrint(&self.failure_storage, format, args) catch {
             // Cut to the buffer: the start of the message says what failed.
             self.failure_len = self.failure_storage.len;
