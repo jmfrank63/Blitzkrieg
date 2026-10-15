@@ -17,8 +17,11 @@
 //! and the autosave: the tree is opened down to a text, its state set by the
 //! buttons and seen in the folders' colours, an edit autosaved, the frame
 //! loop killed with a later edit unsaved, and the copy reopened with the
-//! autosaved text in it. `--auto` replays `BK_ELK_AUTO` on the database
-//! given.
+//! autosaved text in it. A fourth copy proves the filters and browsing:
+//! the Translated filter chosen in the bar, the tree dimming what it
+//! rejects, the Browse commands and hot keys walking only its four texts,
+//! and a second run on the same elk.cfg starting with that filter again.
+//! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
 const kit = @import("editor_kit");
@@ -94,6 +97,36 @@ const tree_schedule =
 const reopen_schedule =
     "2:expect=open,2:do=select_key:" ++ tree_name ++ ",5:expect=translation:" ++ autosaved ++ "," ++
     "5:expect=row:" ++ tree_name ++ "=translated,5:expect=dirty:0,6:exit";
+
+/// The filter pass. Data/ELK's four Translated texts, in the tree's order;
+/// everything else (medals/1 among it) is dimmed while the filter is
+/// current. The walk starts with Alt+N from the medal, a text the filter
+/// rejects, before the translation box has the keyboard (ImGui keeps Alt
+/// chords for the box while it is active), then goes by Ctrl+N, Ctrl+P and
+/// the menu's commands, and stops at either end.
+const walk = [_][]const u8{
+    "scenarios/descriptions/defend_area00/1h",
+    "scenarios/descriptions/defend_area00/header",
+    "scenarios/descriptions/escort00/0h",
+    "scenarios/descriptions/sa_10_12_13_15_16/0",
+};
+const filter_schedule =
+    "2:expect=open,2:expect=filter:All,3:expect=rows,3:expect=browsable:next=0,3:expect=browsable:first=1," ++
+    "3:do=expand:medals/1,5:expect=dimmed:" ++ tree_name ++ "=0,5:do=filter:Translated,7:expect=filter:Translated," ++
+    "7:expect=dimmed:" ++ tree_name ++ "=1,7:expect=dimmed:medals=1," ++
+    "8:do=select_key:" ++ tree_name ++ ",9:key=n+alt,11:expect=selected:" ++ walk[0] ++ ",11:expect=dimmed:" ++ walk[0] ++ "=0," ++
+    "11:expect=dimmed:scenarios/descriptions=0,11:expect=browsable:previous=0,11:expect=browsable:next=1," ++
+    "12:do=browse:next,14:expect=selected:" ++ walk[1] ++ ",15:key=n+ctrl,17:expect=selected:" ++ walk[2] ++ "," ++
+    "18:key=n+ctrl,20:expect=selected:" ++ walk[3] ++ ",20:expect=browsable:next=0," ++
+    "21:key=n+ctrl,23:expect=selected:" ++ walk[3] ++ "," ++
+    "24:key=p+ctrl,26:expect=selected:" ++ walk[2] ++ ",27:do=browse:previous,29:expect=selected:" ++ walk[1] ++ "," ++
+    "29:do=browse:last,31:expect=selected:" ++ walk[3] ++ ",32:do=browse:first,34:expect=selected:" ++ walk[0] ++ "," ++
+    "35:exit";
+/// The second run on the same elk.cfg: the filter is still Translated and
+/// the walk still keeps to it.
+const filter_reopen_schedule =
+    "2:expect=open,2:expect=filter:Translated,3:do=browse:first,5:expect=selected:" ++ walk[0] ++ "," ++
+    "6:do=browse:next,8:expect=selected:" ++ walk[1] ++ ",9:exit";
 
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
@@ -258,7 +291,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (opened.code != 0) return opened.code;
     const crashed = smokeTree(gpa, io, environ, source, scratch);
     if (crashed.code != 0) return crashed.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons and the autosave through a kill on {s}\n", .{ result.frames, opened.frames, crashed.frames, result.fonts, elk_path });
+    const filtered = smokeFilter(gpa, io, environ, source, scratch);
+    if (filtered.code != 0) return filtered.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, and browsing through a filter kept over a restart on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -295,6 +330,28 @@ fn smokeTree(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, s
     const reopened = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = reopen_schedule, .frame_limit = smoke_frame_limit, .tier = "smoke (reopen after the kill)" });
     if (reopened.code != 0) return reopened;
     return .{ .code = 0, .frames = killed.frames + reopened.frames };
+}
+
+/// The smoke's filter and browsing pass on a fourth copy,
+/// `<scratch>-filter`, with its own `<scratch>-filter.cfg`: the filter
+/// chosen in the first run is in the file and the second run starts with it.
+fn smokeFilter(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-filter", .{scratch}) catch return .{ .code = 1 };
+    var cfg_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cfg_path = std.fmt.bufPrint(&cfg_buffer, "{s}.cfg", .{folder}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    std.Io.Dir.cwd().deleteFile(io, cfg_path) catch {};
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const first = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = filter_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (filter, browse)" });
+    if (first.code != 0) return first;
+    const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = filter_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (filter after a restart)" });
+    if (again.code != 0) return again;
+    return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
 /// The smoke's File > Open pass on a second copy, `<scratch>-open`, with
@@ -360,8 +417,9 @@ const Script = struct {
     source_files: usize = 0,
     /// Where `do=answer` answers File > Open (Runner.dialog_folder).
     dialog_folder: []const u8 = "",
-    /// The run's own elk.cfg, started empty and written as ELK writes it;
-    /// "" runs without settings. The user's own file is never touched.
+    /// The run's own elk.cfg, read when it is there (a later run of the same
+    /// pass) and written as ELK writes it; "" runs without settings. The
+    /// user's own file is never touched.
     settings_path: []const u8 = "",
     frame_limit: u32,
     tier: []const u8,
@@ -390,6 +448,12 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
     var settings: settings_mod.Settings = .{};
+    if (script.settings_path.len != 0) {
+        if (std.Io.Dir.cwd().readFileAlloc(io, script.settings_path, gpa, .limited(64 * 1024))) |bytes| {
+            defer gpa.free(bytes);
+            settings = settings_mod.parse(bytes);
+        } else |_| {}
+    }
     var ui: ui_mod.Ui = .{
         .gpa = gpa,
         .io = io,

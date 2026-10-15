@@ -1,8 +1,12 @@
-//! The extended layout's minimum for a translator: File menu, the text tree
-//! coloured by state, the selected text's original, its translation and the
-//! state buttons, and a status line. Every save point goes through the
-//! session (D-15): leaving a text, Save (Ctrl+S), Close, Exit and the
-//! 30-second autosave.
+//! The extended layout's minimum for a translator: File and Browse menus,
+//! the filter bar, the text tree coloured by state, the selected text's
+//! original, its translation and the state buttons, and a status line.
+//! Every save point goes through the session (D-15): leaving a text, Save
+//! (Ctrl+S), Close, Exit and the 30-second autosave. Browse First,
+//! Previous (Ctrl+P, Alt+P), Next (Ctrl+N, Alt+N) and Last walk the texts
+//! through the filter chosen in the bar; the tree dims the texts the filter
+//! rejects and the folders that hold none it keeps, so the walk's path
+//! stays visible in the whole tree.
 const std = @import("std");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
@@ -14,6 +18,9 @@ const window_mod = @import("editor_kit").window;
 const ig = imgui.c;
 pub const Session = session_mod.Session;
 const State = session_mod.State;
+const Filter = session_mod.Filter;
+pub const Step = session_mod.Step;
+const built_in_filters = @import("elk_core").filter.built_in;
 
 pub const app_title = "Blitzkrieg ELK";
 
@@ -64,10 +71,18 @@ pub const Ui = struct {
     /// False in scripted runs: File > Open requests the slot but shows no OS
     /// dialog, and the schedule answers it (`do=answer:<path>`).
     os_dialogs: bool = true,
+    /// The current filter's name when there is no settings file to keep it
+    /// (scripted runs without one); "" is "All".
+    filter_name: kit.settings.FixedPath = .{},
+    /// Per tree node, whether the current filter keeps it (`markMatches`),
+    /// worked out each frame the tree is drawn.
+    marks: std.ArrayListUnmanaged(bool) = .empty,
 
-    pub const Drawn = struct { node: u32, colour: u32 };
+    /// `colour` is the row's state colour; a dimmed row was drawn fainter.
+    pub const Drawn = struct { node: u32, colour: u32, dimmed: bool };
 
     pub fn deinit(self: *Ui) void {
+        self.marks.deinit(self.gpa);
         self.expanded.deinit(self.gpa);
         self.visible.deinit(self.gpa);
         self.drawn.deinit(self.gpa);
@@ -150,6 +165,58 @@ pub const Ui = struct {
         self.scroll_to = node;
     }
 
+    /// The named filters the bar offers: the settings file's, or the five
+    /// built-in ones without one.
+    pub fn filterCount(self: *const Ui) usize {
+        return if (self.settings) |settings| settings.filterCount() else built_in_filters.len;
+    }
+
+    pub fn filterAt(self: *const Ui, index: usize) Filter {
+        return if (self.settings) |settings| settings.filterAt(index) else built_in_filters[index];
+    }
+
+    pub fn currentFilterName(self: *const Ui) []const u8 {
+        if (self.settings) |settings| return settings.currentFilter();
+        const name = self.filter_name.slice();
+        return if (name.len == 0) @import("elk_core").filter.default_name else name;
+    }
+
+    /// The current filter; null (every text passes) when its name is not
+    /// among the named filters, as `GetCurrentFilter` returned none then.
+    pub fn currentFilter(self: *const Ui) ?Filter {
+        const name = self.currentFilterName();
+        for (0..self.filterCount()) |index| {
+            const filter = self.filterAt(index);
+            if (std.mem.eql(u8, filter.name, name)) return filter;
+        }
+        return null;
+    }
+
+    /// The filter bar's choice, kept in elk.cfg at once. The selection stays
+    /// where it is, as `OnChangeFilter` left it.
+    pub fn chooseFilter(self: *Ui, name: []const u8) void {
+        if (self.settings) |settings| {
+            settings.setCurrentFilter(name);
+            self.saveSettings();
+        } else self.filter_name.set(name);
+    }
+
+    /// A Browse command: the text the step reaches through the current
+    /// filter, selected and shown, the translation box then taking the
+    /// keyboard as the MFC input view took the focus. False when no text is
+    /// reached or the text being left could not be saved.
+    pub fn browse(self: *Ui, step: Step) bool {
+        const moved = self.session.browse(step, self.currentFilter()) catch return false;
+        if (!moved) return false;
+        self.reveal(self.session.tree.?.node_of_text[self.session.selected.?]);
+        self.focus_translation = true;
+        return true;
+    }
+
+    pub fn canBrowse(self: *const Ui, step: Step) bool {
+        return self.session.browseTarget(step, self.currentFilter()) != null;
+    }
+
     /// A state button: the selected text's state, written at once.
     pub fn pressState(self: *Ui, state: State) void {
         self.session.setState(state) catch {};
@@ -198,6 +265,15 @@ pub const Ui = struct {
         window.setTitle(self.title().ptr);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
+        // IDR_MAINFRAME's accelerators: Ctrl or Alt with N and P. ImGui does
+        // not route Alt with a letter while the translation box is active
+        // (AltGr and macOS's Option type characters with it), so there the
+        // Alt chords are the edit box's and the Ctrl ones, which the menu
+        // shows, browse.
+        for ([_]c_int{ ig.ImGuiMod_Ctrl, ig.ImGuiMod_Alt }) |modifier| {
+            if (ig.igShortcut(modifier | ig.ImGuiKey_N, ig.ImGuiInputFlags_RouteGlobal)) _ = self.browse(.next);
+            if (ig.igShortcut(modifier | ig.ImGuiKey_P, ig.ImGuiInputFlags_RouteGlobal)) _ = self.browse(.previous);
+        }
         _ = self.session.tick(self.now());
 
         const viewport = ig.igGetMainViewport();
@@ -216,6 +292,7 @@ pub const Ui = struct {
             self.drawFailure();
             return;
         }
+        self.drawFilterBar();
         const avail = ig.igGetContentRegionAvail();
         const body_height = avail.y - ig.igGetFrameHeightWithSpacing();
         if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
@@ -229,6 +306,63 @@ pub const Ui = struct {
     fn drawMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenuBar()) return;
         defer ig.igEndMenuBar();
+        self.drawFileMenu(window);
+        self.drawBrowseMenu();
+    }
+
+    /// The MFC Browse menu's commands, in its order; each is enabled when
+    /// its step reaches a text.
+    fn drawBrowseMenu(self: *Ui) void {
+        if (!ig.igBeginMenu("Browse")) return;
+        defer ig.igEndMenu();
+        const items = [_]struct { label: [*:0]const u8, keys: ?[*:0]const u8, step: Step }{
+            .{ .label = "Last", .keys = null, .step = .last },
+            .{ .label = "Next", .keys = "Ctrl+N", .step = .next },
+            .{ .label = "Previous", .keys = "Ctrl+P", .step = .previous },
+            .{ .label = "First", .keys = null, .step = .first },
+        };
+        for (items) |item| {
+            if (ig.igMenuItemEx(item.label, item.keys, false, self.canBrowse(item.step))) _ = self.browse(item.step);
+        }
+    }
+
+    /// The extended layout's filter bar (the MFC browse toolbar): the named
+    /// filters' combo and the four Browse buttons.
+    fn drawFilterBar(self: *Ui) void {
+        var name_buffer: [settings_mod.max_path:0]u8 = undefined;
+        const current = std.mem.printSentinel(&name_buffer, "{s}", .{self.currentFilterName()}, 0) catch "";
+        ig.igTextUnformatted("Filter:");
+        ig.igSameLine();
+        ig.igSetNextItemWidth(ig.igGetFontSize() * 12);
+        if (ig.igBeginCombo("##filter", current.ptr, 0)) {
+            defer ig.igEndCombo();
+            var label_buffer: [settings_mod.max_path:0]u8 = undefined;
+            for (0..self.filterCount()) |index| {
+                const filter = self.filterAt(index);
+                const label = std.mem.printSentinel(&label_buffer, "{s}", .{filter.name}, 0) catch continue;
+                if (ig.igSelectableEx(label.ptr, std.mem.eql(u8, filter.name, current), 0, .{ .x = 0, .y = 0 })) {
+                    // The name borrows the settings it is written into.
+                    var copy: [settings_mod.max_path]u8 = undefined;
+                    @memcpy(copy[0..filter.name.len], filter.name);
+                    self.chooseFilter(copy[0..filter.name.len]);
+                }
+            }
+        }
+        const buttons = [_]struct { label: [*:0]const u8, step: Step }{
+            .{ .label = "|<", .step = .first },
+            .{ .label = "<", .step = .previous },
+            .{ .label = ">", .step = .next },
+            .{ .label = ">|", .step = .last },
+        };
+        for (buttons) |button| {
+            ig.igSameLine();
+            ig.igBeginDisabled(!self.canBrowse(button.step));
+            if (ig.igButton(button.label)) _ = self.browse(button.step);
+            ig.igEndDisabled();
+        }
+    }
+
+    fn drawFileMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenu("File")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx("Open...", "Ctrl+O", false, !open_slot.waiting())) self.requestOpen(window);
@@ -270,6 +404,8 @@ pub const Ui = struct {
             index = if (!tree.nodes[index].isText() and self.expanded.items[index]) index + 1 else tree.nodes[index].end;
         }
         const selected_node: ?u32 = if (self.session.selected) |text| tree.node_of_text[text] else null;
+        self.marks.resize(self.gpa, tree.nodes.len) catch return;
+        tree.markMatches(self.currentFilter(), self.marks.items);
         const indent = ig.igGetTreeNodeToLabelSpacing();
 
         var clipper = std.mem.zeroes(ig.ImGuiListClipper);
@@ -288,7 +424,8 @@ pub const Ui = struct {
                 const offset = indent * @as(f32, @floatFromInt(node.depth));
                 if (offset > 0) ig.igIndentEx(offset);
                 const colour = stateColour(node.state);
-                ig.igPushStyleColor(ig.ImGuiCol_Text, colour);
+                const dimmed = !self.marks.items[at];
+                ig.igPushStyleColor(ig.ImGuiCol_Text, if (dimmed) dim(colour) else colour);
                 var flags: ig.ImGuiTreeNodeFlags = ig.ImGuiTreeNodeFlags_NoTreePushOnOpen | ig.ImGuiTreeNodeFlags_SpanAvailWidth;
                 if (selected_node == at) flags |= ig.ImGuiTreeNodeFlags_Selected;
                 if (node.isText()) {
@@ -304,7 +441,7 @@ pub const Ui = struct {
                     ig.igSetScrollHereY(0.5);
                     self.scroll_to = null;
                 }
-                self.drawn.append(self.gpa, .{ .node = at, .colour = colour }) catch {};
+                self.drawn.append(self.gpa, .{ .node = at, .colour = colour, .dimmed = dimmed }) catch {};
                 self.rows_drawn += 1;
             }
         }
@@ -401,6 +538,12 @@ pub fn stateColour(state: State) u32 {
 
 fn rgb(r: u32, g: u32, b: u32) u32 {
     return 0xFF00_0000 | (b << 16) | (g << 8) | r;
+}
+
+/// A row the current filter does not keep: its state colour at a third of
+/// the opacity, still telling its state.
+pub fn dim(colour: u32) u32 {
+    return (colour & 0x00FF_FFFF) | 0x5500_0000;
 }
 
 /// ImGui grows the translation buffer through this when an edit needs more

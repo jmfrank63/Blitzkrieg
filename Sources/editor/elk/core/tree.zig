@@ -6,13 +6,17 @@
 //! Approved), which is the colour the MFC tree's icons showed, and it
 //! follows a text's change up to the root (`UpdateFolderState`). Folders and
 //! texts of one folder are ordered together by name without regard to case,
-//! the order the MFC tree took from the directory listing.
+//! the order the MFC tree took from the directory listing. Browsing walks
+//! the texts in the tree's order, through a filter when one is current
+//! (`GetNextItem` and its kin).
 const std = @import("std");
 const database_mod = @import("database.zig");
 const state_mod = @import("state.zig");
+const filter_mod = @import("filter.zig");
 
 const Database = database_mod.Database;
 pub const State = state_mod.State;
+pub const Filter = filter_mod.Filter;
 
 /// One text: its element in `elk.xml` and its key below that element's
 /// `<element>_data_base/` folder. The key is the database's own (borrowed).
@@ -33,6 +37,9 @@ pub const Node = struct {
     /// The index into `Tree.texts` for a text, null for a folder or root.
     text: ?u32,
     state: State,
+    /// A text's `Changed` flag (the MFC tree kept it beside the state for
+    /// the filters); false for a folder.
+    changed: bool = false,
 
     pub fn isText(self: Node) bool {
         return self.text != null;
@@ -75,7 +82,9 @@ pub const Tree = struct {
                     name = rest;
                 }
                 const leaf = try builder.add(parent, name, @intCast(next));
-                builder.items.items[leaf].state = (try database.readState(element_index, key)).state;
+                const property = try database.readState(element_index, key);
+                builder.items.items[leaf].state = property.state;
+                builder.items.items[leaf].changed = property.changed;
                 next += 1;
             }
         }
@@ -134,13 +143,67 @@ pub const Tree = struct {
     }
 
     /// The selected text's new state, and every folder above it given the
-    /// lowest state of its children again (`UpdateSelectedText`).
+    /// lowest state of its children again (`UpdateSelectedText`). `Changed`
+    /// follows `TextProperty.withState`, as the state file does.
     pub fn setTextState(self: *Tree, text: u32, new_state: State) void {
         const node = self.node_of_text[text];
         self.nodes[node].state = new_state;
+        self.nodes[node].changed = self.nodes[node].changed or new_state != .not_translated;
         var parent = self.nodes[node].parent;
         while (parent) |folder| : (parent = self.nodes[folder].parent) {
             self.nodes[folder].state = self.lowestChild(folder);
+        }
+    }
+
+    /// Whether the text passes `filter`; every text passes no filter.
+    pub fn textMatches(self: *const Tree, text: u32, filter: ?Filter) bool {
+        const chosen = filter orelse return true;
+        const node = self.nodes[self.node_of_text[text]];
+        return chosen.matches(self.texts[text].key, .{ .state = node.state, .changed = node.changed });
+    }
+
+    /// Browse First, Previous, Next and Last (`GetFirstItem` ...): the text
+    /// that step reaches through `filter`, in the tree's order across every
+    /// element; null when none does. Previous and Next start from `from`
+    /// and reach nothing without it, as the MFC commands did with nothing
+    /// selected; First and Last ignore it.
+    pub fn browse(self: *const Tree, step: Step, from: ?u32, filter: ?Filter) ?u32 {
+        const count: u32 = @intCast(self.nodes.len);
+        var at: u32 = switch (step) {
+            .first => 0,
+            .last => count,
+            .next => self.node_of_text[from orelse return null] + 1,
+            .previous => self.node_of_text[from orelse return null],
+        };
+        if (step == .first or step == .next) {
+            while (at < count) : (at += 1) if (self.passes(at, filter)) return self.nodes[at].text;
+        } else {
+            while (at > 0) {
+                at -= 1;
+                if (self.passes(at, filter)) return self.nodes[at].text;
+            }
+        }
+        return null;
+    }
+
+    fn passes(self: *const Tree, node: u32, filter: ?Filter) bool {
+        const text = self.nodes[node].text orelse return false;
+        return self.textMatches(text, filter);
+    }
+
+    /// One flag per node: a text passes `filter`, a folder or root holds a
+    /// text that does. The view dims the rest.
+    pub fn markMatches(self: *const Tree, filter: ?Filter, out: []bool) void {
+        @memset(out, false);
+        var index = self.nodes.len;
+        // A node comes after its parent, so its subtree is marked first.
+        while (index > 0) {
+            index -= 1;
+            const node = self.nodes[index];
+            if (node.text) |text| out[index] = self.textMatches(text, filter);
+            if (out[index]) if (node.parent) |parent| {
+                out[parent] = true;
+            };
         }
     }
 
@@ -154,6 +217,8 @@ pub const Tree = struct {
     }
 };
 
+pub const Step = enum { first, previous, next, last };
+
 /// The tree as linked children while it is filled, before it is laid out
 /// depth first.
 const Builder = struct {
@@ -165,6 +230,7 @@ const Builder = struct {
         name: []const u8,
         text: ?u32,
         state: State = .approved,
+        changed: bool = false,
         children: std.ArrayListUnmanaged(u32) = .empty,
     };
 
@@ -199,7 +265,7 @@ const Builder = struct {
             const child_state = self.flatten(child_index, at, depth + 1, nodes, node_of_text, written);
             lowest = @enumFromInt(@min(@intFromEnum(lowest), @intFromEnum(child_state)));
         }
-        nodes[at] = .{ .name = item.name, .depth = depth, .parent = parent, .end = written.*, .text = item.text, .state = lowest };
+        nodes[at] = .{ .name = item.name, .depth = depth, .parent = parent, .end = written.*, .text = item.text, .state = lowest, .changed = item.changed };
         if (item.text) |text| node_of_text[text] = at;
         return lowest;
     }
@@ -281,4 +347,66 @@ test "the tracked database's tree holds every text under its folders" {
         }
         if (!node.isText()) try testing.expectEqual(tree.lowestChild(@intCast(index)), node.state);
     }
+}
+
+test "browsing walks the texts in the tree's order through a filter" {
+    const io = testing.io;
+    var database = try Database.open(testing.allocator, io, "Data/ELK/elk.xml");
+    defer database.deinit();
+    var tree = try Tree.build(testing.allocator, &database);
+    defer tree.deinit();
+
+    // No filter: First and Last are the tree's first and last texts, and
+    // Next and Previous step over folders to the neighbouring text.
+    const first = tree.browse(.first, null, null).?;
+    var first_text: u32 = 0;
+    while (!tree.nodes[first_text].isText()) first_text += 1;
+    try testing.expectEqual(tree.nodes[first_text].text.?, first);
+    try testing.expectEqual(@as(?u32, null), tree.browse(.previous, first, null));
+    try testing.expectEqual(@as(?u32, null), tree.browse(.next, null, null));
+    const second = tree.browse(.next, first, null).?;
+    try testing.expectEqual(first, tree.browse(.previous, second, null).?);
+    const last = tree.browse(.last, null, null).?;
+    try testing.expectEqual(@as(?u32, null), tree.browse(.next, last, null));
+
+    // The four Translated texts of Data/ELK, in the tree's order.
+    const translated = filter_mod.built_in[3];
+    const walk = [_][]const u8{
+        "scenarios/descriptions/defend_area00/1h",
+        "scenarios/descriptions/defend_area00/header",
+        "scenarios/descriptions/escort00/0h",
+        "scenarios/descriptions/sa_10_12_13_15_16/0",
+    };
+    var at = tree.browse(.first, first, translated).?;
+    for (walk, 0..) |key, step| {
+        try testing.expectEqualStrings(key, tree.texts[at].key);
+        if (step + 1 < walk.len) at = tree.browse(.next, at, translated).?;
+    }
+    try testing.expectEqual(@as(?u32, null), tree.browse(.next, at, translated));
+    try testing.expectEqual(at, tree.browse(.last, null, translated).?);
+    try testing.expectEqualStrings(walk[2], tree.texts[tree.browse(.previous, at, translated).?].key);
+    // From a text the filter rejects, Next finds the next one that passes.
+    const medal = tree.nodes[tree.findText(0, "medals/1/name").?].text.?;
+    try testing.expect(!tree.textMatches(medal, translated));
+    try testing.expectEqualStrings(walk[0], tree.texts[tree.browse(.next, medal, translated).?].key);
+
+    // The marks: the texts that pass and every folder above them.
+    const marks = try testing.allocator.alloc(bool, tree.nodes.len);
+    defer testing.allocator.free(marks);
+    tree.markMatches(translated, marks);
+    var passing: usize = 0;
+    for (tree.nodes, marks) |node, mark| {
+        if (node.isText() and mark) passing += 1;
+    }
+    try testing.expectEqual(walk.len, passing);
+    try testing.expect(marks[0]);
+    try testing.expect(marks[tree.findFolder(0, "scenarios/descriptions/escort00").?]);
+    try testing.expect(!marks[tree.findFolder(0, "medals").?]);
+    tree.markMatches(null, marks);
+    for (marks) |mark| try testing.expect(mark);
+
+    // A state set by hand moves the text into the filter's walk.
+    tree.setTextState(medal, .translated);
+    try testing.expect(tree.nodes[tree.node_of_text[medal]].changed);
+    try testing.expectEqual(medal, tree.browse(.first, null, translated).?);
 }

@@ -18,6 +18,10 @@
 //!                            have drawn it
 //!   do=state:<state>         press a state button (the last frame must have
 //!                            drawn them): not_translated, translated, approved
+//!   do=filter:<name>         choose the named filter in the filter bar
+//!   do=browse:<step>         Browse > First, Previous, Next or Last
+//!                            (first, previous, next, last); the hot keys
+//!                            are `key=n+ctrl` and `key=p+ctrl`
 //!   do=wait:<seconds>        the autosave clock moves on that far
 //!   do=kill                  the frame loop stops at once, no save point
 //!   do=focus:translation     the translation box takes the keyboard
@@ -33,6 +37,11 @@
 //!   expect=row:<key>=<state|hidden>  the last frame drew the text's tree
 //!                            row in that state's colour, or did not draw it
 //!   expect=folder:<folder>=<state>   the same for a folder's row
+//!   expect=selected:<key>      the selected text
+//!   expect=filter:<name>       the current filter
+//!   expect=browsable:<step>=<0|1>   whether that Browse command is enabled
+//!   expect=dimmed:<path>=<0|1>  the last frame drew the text's (or, with no
+//!                            such text, the folder's) row dimmed or not
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
 //!   expect=identical           every file of the opened copy is byte-identical
@@ -154,6 +163,16 @@ pub const Runner = struct {
             if (!ui.state_buttons_drawn) return self.fail("do=state: the state buttons are not shown", .{});
             ui.pressState(state);
             if (session.state != state) return self.fail("do=state: the text is {s}, wanted {s} ({s})", .{ @tagName(session.state), named.arg, session.failureText() });
+        } else if (is(named, "filter")) {
+            const known = for (0..ui.filterCount()) |index| {
+                if (std.mem.eql(u8, ui.filterAt(index).name, named.arg)) break true;
+            } else false;
+            if (!known) return self.fail("do=filter: the filter bar offers no {s}", .{named.arg});
+            ui.chooseFilter(named.arg);
+        } else if (is(named, "browse")) {
+            const browse_step = std.meta.stringToEnum(ui_mod.Step, named.arg) orelse return self.fail("do=browse: no step {s}", .{named.arg});
+            if (!ui.canBrowse(browse_step)) return self.fail("do=browse: Browse > {s} is disabled", .{named.arg});
+            if (!ui.browse(browse_step)) return self.fail("do=browse: {s} reached no text ({s})", .{ named.arg, session.failureText() });
         } else if (is(named, "wait")) {
             const seconds = std.fmt.parseInt(u64, named.arg, 10) catch return self.fail("wait needs seconds, got {s}", .{named.arg});
             ui.clock_offset_ms += seconds * std.time.ms_per_s;
@@ -245,6 +264,24 @@ pub const Runner = struct {
             const shown = session.tree.?.nodes[node].state;
             if (shown != state) return self.fail("expect={s}: {s} is {s} in the tree, wanted {s}", .{ named.name, path, @tagName(shown), wanted });
             if (colour != ui_mod.stateColour(state)) return self.fail("expect={s}: {s} was drawn in {X:0>8}, {s} is {X:0>8}", .{ named.name, path, colour, wanted, ui_mod.stateColour(state) });
+        } else if (is(named, "selected")) {
+            const index = session.selected orelse return self.fail("expect=selected: no text is selected", .{});
+            const shown = session.textAt(index).key;
+            if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=selected: {s} is selected, wanted {s}", .{ shown, named.arg });
+        } else if (is(named, "filter")) {
+            if (!std.mem.eql(u8, ui.currentFilterName(), named.arg)) return self.fail("expect=filter: the filter is {s}, wanted {s}", .{ ui.currentFilterName(), named.arg });
+        } else if (is(named, "browsable")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("browsable needs <step>=<0|1>", .{});
+            const browse_step = std.meta.stringToEnum(ui_mod.Step, named.arg[0..eq]) orelse return self.fail("expect=browsable: no step {s}", .{named.arg[0..eq]});
+            const wanted = std.mem.eql(u8, named.arg[eq + 1 ..], "1");
+            if (ui.canBrowse(browse_step) != wanted) return self.fail("expect=browsable: Browse > {s} enabled is {}, wanted {}", .{ named.arg[0..eq], !wanted, wanted });
+        } else if (is(named, "dimmed")) {
+            const eq = std.mem.lastIndexOfScalar(u8, named.arg, '=') orelse return self.fail("dimmed needs <path>=<0|1>", .{});
+            const path = named.arg[0..eq];
+            const node = textNode(session, path) orelse folderNode(session, path) orelse return self.fail("expect=dimmed: no {s} in the tree", .{path});
+            const wanted = std.mem.eql(u8, named.arg[eq + 1 ..], "1");
+            const row = drawnRow(ui, node) orelse return self.fail("expect=dimmed: the tree does not show {s}", .{path});
+            if (row.dimmed != wanted) return self.fail("expect=dimmed: {s} dimmed is {}, wanted {}", .{ path, row.dimmed, wanted });
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
         } else if (is(named, "identical")) {
@@ -325,9 +362,14 @@ fn folderNode(session: *const ui_mod.Session, path: []const u8) ?u32 {
     return null;
 }
 
-/// The colour the last frame drew `node`'s row in; null when it drew none.
+/// The state colour of `node`'s row in the last frame; null when it drew none.
 fn drawnColour(ui: *const ui_mod.Ui, node: u32) ?u32 {
-    for (ui.drawn.items) |row| if (row.node == node) return row.colour;
+    const row = drawnRow(ui, node) orelse return null;
+    return row.colour;
+}
+
+fn drawnRow(ui: *const ui_mod.Ui, node: u32) ?ui_mod.Ui.Drawn {
+    for (ui.drawn.items) |row| if (row.node == node) return row;
     return null;
 }
 

@@ -3,7 +3,9 @@
 //! text's original and translation buffers, its state, and the save points
 //! of D-15 (leaving a text, Save, Close, Exit, and every 30 seconds while
 //! the edit is dirty). The UI draws this and the scripted runs drive it, so
-//! both go through the same commit.
+//! both go through the same commit. Browsing (First, Previous, Next, Last)
+//! asks the core's tree for the text a step reaches through the current
+//! filter and selects it, which is a save point like any other selection.
 const std = @import("std");
 const elk = @import("elk_core");
 
@@ -11,6 +13,8 @@ const Database = elk.database.Database;
 pub const Tree = elk.tree.Tree;
 pub const Text = elk.tree.Text;
 pub const State = elk.state.State;
+pub const Filter = elk.filter.Filter;
+pub const Step = elk.tree.Step;
 
 /// D-15: a dirty edit is written this long after it became dirty.
 pub const autosave_ms: u64 = 30_000;
@@ -174,6 +178,24 @@ pub const Session = struct {
         self.manual_state = false;
         self.dirty_since_ms = null;
         self.selected = index;
+    }
+
+    /// The text `step` reaches through `filter`, null when none does (the
+    /// Browse commands are then disabled, as `IsNextItemExists` made them).
+    pub fn browseTarget(self: *const Session, step: Step, filter: ?Filter) ?usize {
+        const tree = &(self.tree orelse return null);
+        const from: ?u32 = if (self.selected) |index| @intCast(index) else null;
+        const target = tree.browse(step, from, filter) orelse return null;
+        return target;
+    }
+
+    /// Browse First, Previous, Next or Last: selects the text the step
+    /// reaches, saving the one being left. Returns false when none is
+    /// reached, the selection then unchanged.
+    pub fn browse(self: *Session, step: Step, filter: ?Filter) !bool {
+        const target = self.browseTarget(step, filter) orelse return false;
+        try self.select(target);
+        return true;
     }
 
     /// The index of `key`, the first element that has it.
@@ -417,6 +439,54 @@ test "a dirty edit autosaves 30 seconds after it became dirty, and only then" {
     defer testing.allocator.free(written);
     try testing.expectEqualStrings("Orden", written);
     try testing.expectEqual(State.translated, (try database.readState(0, "medals/1/name")).state);
+}
+
+test "browsing through a filter saves the text it leaves and skips the rest" {
+    const io = testing.io;
+    const root = try fixture(io, "browse");
+    defer testing.allocator.free(root);
+    // A second text beside the fixture's, so there is somewhere to go.
+    const cwd = std.Io.Dir.cwd();
+    for ([_][]const u8{ "game_data_base/medals/1/desc.elk", "game_data_base/medals/1/desc.xml" }) |relative| {
+        const source = try std.fs.path.join(testing.allocator, &.{ "Data/ELK", relative });
+        defer testing.allocator.free(source);
+        const bytes = try cwd.readFileAlloc(io, source, testing.allocator, .limited(1 << 20));
+        defer testing.allocator.free(bytes);
+        const out = try std.fs.path.join(testing.allocator, &.{ root, relative });
+        defer testing.allocator.free(out);
+        try cwd.writeFile(io, .{ .sub_path = out, .data = bytes });
+    }
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+
+    var session = Session.init(testing.allocator, io);
+    defer session.deinit();
+    try session.open(elk_path);
+    const desc = session.find("medals/1/desc").?;
+    const name = session.find("medals/1/name").?;
+    // Nothing selected: Next and Previous reach nothing, First and Last do.
+    try testing.expectEqual(@as(?usize, null), session.browseTarget(.next, null));
+    try testing.expect(try session.browse(.first, null));
+    try testing.expectEqual(desc, session.selected.?);
+    try testing.expect(try session.browse(.next, null));
+    try testing.expectEqual(name, session.selected.?);
+    try testing.expect(!try session.browse(.next, null));
+    try testing.expectEqual(name, session.selected.?);
+
+    // Approved only: name is the one; desc, edited, is left by Last.
+    const approved = elk.filter.built_in[4];
+    try session.setState(.approved);
+    try testing.expect(try session.browse(.previous, null));
+    try testing.expectEqual(desc, session.selected.?);
+    try session.translation.set(testing.allocator, "Beschreibung");
+    try testing.expect(try session.browse(.last, approved));
+    try testing.expectEqual(name, session.selected.?);
+    try testing.expectEqual(@as(?usize, null), session.browseTarget(.previous, approved));
+    var database = try Database.open(testing.allocator, io, elk_path);
+    defer database.deinit();
+    const written = try database.readTranslation(testing.allocator, 0, "medals/1/desc");
+    defer testing.allocator.free(written);
+    try testing.expectEqualStrings("Beschreibung", written);
 }
 
 test "the text buffer grows for ImGui and settles at the terminator" {

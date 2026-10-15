@@ -359,8 +359,34 @@ std-only, headless, no UI. Modules:
   autosave counts from the moment the edit became dirty, on the session's
   clock (the scripted runs move it with `do=wait`); the smoke kills the frame
   loop (`do=kill`, no save point) with a later edit unsaved and reopens the
-  copy with the autosaved text in it. Folder bulk-set, the tree context menu
-  and navigation through a filter remain for their own slices.
+  copy with the autosaved text in it. Folder bulk-set and the tree context
+  menu remain for their own slice.
+  *Navigation and filters slice (2026-10-16):* the core's `filter` module is
+  `SSimpleFilter::Check` (the text's folder path in the MFC tree's form,
+  `medals\1` in lower case, holding every substring of one condition; the
+  states mask; the `Changed` flag) and the five built-in filters; `tree`
+  browses First / Previous / Next / Last through a filter in the tree's
+  order, Previous and Next reaching nothing with no text selected as in
+  the MFC commands. The extended layout's filter bar holds the named
+  filters' combo and the four Browse buttons; the Browse menu has the MFC
+  order (Last, Next Ctrl+N, Previous Ctrl+P, First), each command enabled
+  when its step reaches a text, and a step lands in the translation box as
+  the MFC input view took the focus. Choosing a filter leaves the
+  selection where it is (`OnChangeFilter`). *Adaptation:* the MFC tree did
+  not show the filter; the new one dims the texts it rejects and the
+  folders that hold none it keeps (dimmed, not hidden, so the tree and its
+  state colours stay whole). Alt+N / Alt+P browse too, except while the
+  translation box is active: ImGui keeps Alt with a letter for text input
+  there (AltGr, macOS Option). elk.cfg keeps each named filter as one line,
+  `filter=<name>|<four 0/1 state flags>|<changed 0/1>|<conditions>`, the
+  conditions AND-lists of substrings joined by `,`, the lists by `;`, and
+  `current_filter=<name>`; a file with no `filter=` line gets the five
+  built-in ones, as the MFC ELK made them when the registry held none. The
+  smoke's fourth pass chooses Translated, sees the medal rows dimmed, walks
+  Data/ELK's four Translated texts by Alt+N, Ctrl+N, Ctrl+P and the menu,
+  stops at both ends, and a second run on the same elk.cfg starts with the
+  filter and walks it again. The filter editor (07-07) and the short
+  layout's single toolbar remain for their own slices.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,
