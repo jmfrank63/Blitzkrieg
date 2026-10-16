@@ -664,10 +664,21 @@ std-only, headless, no UI. Modules:
   and cancelled, and the whole import, which changes the other 1852 texts
   and leaves the same proof at 2852. *Not yet on the worker:* Open, the
   statistic, Install to game's shadow check and the font generation (07-04,
-  which does not exist yet); Import from game and Import from PAK have no
-  commands yet, so the core's package imports take no progress; spell
+  which does not exist yet); spell
   check runs on the one text being edited and has no check-everything to
-  move.
+  move. Recorded for the package imports (07-07): File > Import from
+  Game... asks for the game's language folder (the folder holding
+  `Textes/` and `resource.description`) and File > Import from PAK/UPD...
+  for a `.pak` or `.upd`; both import into the open database on the worker,
+  one unit per package file, and are enabled while a database is open (the
+  MFC commands were always enabled and asked for the `elk.xml` too; a new
+  database is an `elk.xml` without elements). The game import is the
+  package `<element>.pak`, a partial update of the element the exports
+  write (`game` when there is none), so it deletes nothing and records
+  `LastUpdateNumber` -1 as the MFC import of a `game.pak` did. A cancelled
+  package import keeps the files before the Cancel, each whole, deletes
+  nothing and leaves `elk.xml` as it was. Reading the package (the game
+  folder's files, the archive) is not counted and cannot be cancelled.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

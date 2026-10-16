@@ -61,6 +61,14 @@ You can translate in a spreadsheet program and bring the result back. In the sho
 - File > Import from spreadsheet... reads such a sheet, or an old .xls one from the original ELK. Each row with a translation sets that text's translation. A row whose original no longer matches the database marks the text Outdated. Rows without a translation are skipped. The status line says how many rows were read and changed.
 - Keep the Path column as it is: it tells ELK which text a row belongs to.
 
+## Updating the originals
+
+When the game's texts change, bring the new originals into the open database. A text whose original changed becomes Outdated if it was translated or approved, otherwise Not translated; your translations stay.
+
+- File > Import from Game... reads the texts of a game's language folder (the folder that holds Textes). New texts are added; nothing is deleted.
+- File > Import from PAK/UPD... reads a .pak or .upd file. Its name picks the part of the database it updates: game_12.upd updates game. A .upd is a complete update and also removes the texts it no longer has.
+- The status line says how many texts were imported. Importing the same file again changes nothing.
+
 ## Putting the translation into the game
 
 - File > Export to language mod... writes your translation as a mod: type a name, and ELK writes mods/<name>/data/texts.pak in the game folder. This is the safe way: the game reads a mod before its own text files, and the original game stays untouched.
@@ -72,7 +80,7 @@ You can translate in a spreadsheet program and bring the result back. In the sho
 
 ## Long operations
 
-The exports, the spreadsheet import and a Find that has to read every text run in the background. A Working window shows what ELK is doing and how far it is, and the rest of ELK waits until it is done. Cancel stops it safely: an export that is cancelled writes nothing, and a cancelled import keeps the rows it had read, every file whole, so you can import the sheet again later.
+The exports, the imports and a Find that has to read every text run in the background. A Working window shows what ELK is doing and how far it is, and the rest of ELK waits until it is done. Cancel stops it safely: an export that is cancelled writes nothing, and a cancelled import keeps the rows it had read, every file whole, so you can import the sheet again later.
 
 ## Keys
 

@@ -94,6 +94,8 @@ fn owned(arena: std.mem.Allocator, work: Work) !Work {
         } },
         .export_sheet => |path| .{ .export_sheet = try arena.dupe(u8, path) },
         .import_sheet => |path| .{ .import_sheet = try arena.dupe(u8, path) },
+        .import_game => |game| .{ .import_game = .{ .folder = try arena.dupe(u8, game.folder), .element = try arena.dupe(u8, game.element) } },
+        .import_pak => |path| .{ .import_pak = try arena.dupe(u8, path) },
         .find => |find| .{ .find = .{
             .options = .{
                 .text = try arena.dupe(u8, find.options.text),

@@ -68,6 +68,10 @@
 //!   do=sheet_import          File > Import from spreadsheet...; `do=answer`
 //!                            answers its dialog with the sheet
 //!   do=sheet_export          File > Export to spreadsheet...; the same
+//!   do=import_game           File > Import from Game...; `do=answer` answers
+//!                            its dialog with the game's language folder
+//!   do=import_pak            File > Import from PAK/UPD...; the same, with
+//!                            the .pak or .upd
 //!   do=install               File > Install to game...
 //!   do=install_choice:<c>    a button of the shadow warning (drawn in the
 //!                            last frame): mod, install or cancel
@@ -144,6 +148,16 @@
 //!                            spreadsheet import's counts: rows read, texts
 //!                            changed and made Outdated, rows skipped for an
 //!                            empty translation and for a missing text
+//!   expect=updated:<originals>/<states>/<descriptions>/<deleted>/<0|1>
+//!                            the last package import's report: texts
+//!                            imported, state files written, descriptions
+//!                            copied, texts deleted, elk.xml written
+//!   expect=can_import:<0|1>  whether the File menu's package imports are
+//!                            enabled
+//!   expect=package_whole:<n>  D-14's rule after a cancelled package import:
+//!                            elk.xml as it was when the import was asked
+//!                            for, no temporary file, <n> originals (.elk)
+//!                            below the database's folder, the core opening it
 //!   expect=failure_has:<text>  the status line's failure
 //!   expect=launched:<index>=<argument>  the last Run Game's command line
 //!   expect=busy:<0|1>        whether a long operation is running
@@ -196,6 +210,9 @@ pub const Runner = struct {
     /// Frames an entry waited for a long operation: the schedule's clock
     /// stands still meanwhile, so the entries after it keep their gaps.
     waited: u32 = 0,
+    /// elk.xml's hash when the last package import was asked for, for
+    /// `expect=package_whole`.
+    import_xml: ?u64 = null,
 
     /// Runs every entry scheduled for `frame`; false when one failed
     /// (`failure` says which and why).
@@ -372,6 +389,10 @@ pub const Runner = struct {
         } else if (is(named, "sheet_import") or is(named, "sheet_export")) {
             if (!ui.canExport()) return self.fail("do={s}: the spreadsheet commands are disabled", .{named.name});
             ui.requestSheet(window, if (is(named, "sheet_import")) .import else .@"export");
+        } else if (is(named, "import_game") or is(named, "import_pak")) {
+            if (!ui.canImportPackage()) return self.fail("do={s}: the package imports are disabled", .{named.name});
+            self.import_xml = try fileHash(ui.io, ui.gpa, ui.session.openPath());
+            ui.requestPackage(window, if (is(named, "import_game")) .game else .pak);
         } else if (is(named, "install")) {
             if (!ui.canExport()) return self.fail("do=install: Install to game... is disabled", .{});
             ui.requestInstall();
@@ -650,6 +671,16 @@ pub const Runner = struct {
             var buffer: [96]u8 = undefined;
             const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}/{d}/{d}/{d}", .{ counts.rows, counts.changed, counts.outdated, counts.empty, counts.missing });
             if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=imported: the import counted {s}, wanted {s} ({s})", .{ shown, named.arg, ui.notice() });
+        } else if (is(named, "updated")) {
+            const report = ui.updated orelse return self.fail("expect=updated: no package was imported", .{});
+            var buffer: [96]u8 = undefined;
+            const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}/{d}/{d}/{d}", .{ report.originals, report.states, report.descriptions, report.deleted, @intFromBool(report.project) });
+            if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=updated: the import wrote {s}, wanted {s} ({s})", .{ shown, named.arg, ui.notice() });
+        } else if (is(named, "can_import")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.canImportPackage() != wanted) return self.fail("expect=can_import: enabled is {}, wanted {}", .{ ui.canImportPackage(), wanted });
+        } else if (is(named, "package_whole")) {
+            try self.packageWhole(ui, named.arg);
         } else if (is(named, "failure_has")) {
             if (std.mem.indexOf(u8, session.failureText(), named.arg) == null) return self.fail("expect=failure_has: the failure \"{s}\" lacks \"{s}\"", .{ session.failureText(), named.arg });
         } else if (is(named, "launched")) {
@@ -840,6 +871,31 @@ pub const Runner = struct {
         if (files != self.source_files + added) return self.fail("expect=whole: {d} files, the source's {d} and {d} new", .{ files, self.source_files, added });
     }
 
+    /// D-14's rule after a cancelled package import: the import's files
+    /// before the Cancel are in, each one whole (no temporary file), and
+    /// elk.xml is as it was, so the database the core opens is the one
+    /// before the import plus loose originals the next import takes up.
+    fn packageWhole(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
+        const wanted = std.fmt.parseInt(usize, arg, 10) catch return self.fail("package_whole needs a count", .{});
+        const before = self.import_xml orelse return self.fail("expect=package_whole: no package import was asked for", .{});
+        const elk_path = self.last_path[0..self.last_path_len];
+        const folder = std.fs.path.dirname(elk_path) orelse return self.fail("expect=package_whole: no database was opened", .{});
+        if (try fileHash(ui.io, ui.gpa, elk_path) != before) return self.fail("expect=package_whole: elk.xml changed", .{});
+        var copy = try std.Io.Dir.cwd().openDir(ui.io, folder, .{ .iterate = true });
+        defer copy.close(ui.io);
+        var walker = try copy.walk(ui.gpa);
+        defer walker.deinit();
+        var originals: usize = 0;
+        while (try walker.next(ui.io)) |file| {
+            if (file.kind != .file) continue;
+            if (std.mem.endsWith(u8, file.path, elk.database.temp_suffix)) return self.fail("expect=package_whole: {s} is a temporary file left behind", .{file.path});
+            if (std.ascii.endsWithIgnoreCase(file.path, ".elk")) originals += 1;
+        }
+        if (originals != wanted) return self.fail("expect=package_whole: {d} originals, wanted {d}", .{ originals, wanted });
+        var database = elk.database.Database.open(ui.gpa, ui.io, elk_path) catch |err| return self.fail("expect=package_whole: the core does not open {s}: {s}", .{ elk_path, @errorName(err) });
+        database.deinit();
+    }
+
     /// The row's translation and state files compare byte for byte with
     /// the source the smoke copied: visiting a text never rewrites it.
     fn untouched(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
@@ -917,6 +973,12 @@ fn drivesJob(action: schedule.Action) bool {
 }
 
 /// Whether the two files hold the same bytes.
+fn fileHash(io: std.Io, gpa: std.mem.Allocator, path: []const u8) !u64 {
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(16 << 20));
+    defer gpa.free(bytes);
+    return std.hash.Wyhash.hash(0, bytes);
+}
+
 fn sameFile(io: std.Io, gpa: std.mem.Allocator, source: []const u8, path: []const u8) !bool {
     const original = try std.Io.Dir.cwd().readFileAlloc(io, source, gpa, .limited(16 << 20));
     defer gpa.free(original);

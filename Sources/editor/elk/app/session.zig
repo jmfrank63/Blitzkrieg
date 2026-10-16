@@ -12,11 +12,13 @@
 //! D-09): to a language mod, `mods/<Name>/data/texts.pak`, or into the game,
 //! `Data/Texts.pak`, after the shadow check that names the loose folder
 //! hiding it; Run Game's command line is the kit's test launch in ELK's own
-//! profile. The spreadsheet export and import are the core's (D-10); an
-//! import reopens the database so the tree shows the states it set.
+//! profile. The spreadsheet export and import are the core's (D-10), as are
+//! the imports from the game's language folder and from a `.pak` or `.upd`
+//! (D-05); an import reopens the database so the tree shows the states it
+//! set.
 //!
 //! The long operations (D-14: the pak and spreadsheet exports, the
-//! spreadsheet import, Find Next) are three steps so the UI can run the
+//! spreadsheet and package imports, Find Next) are three steps so the UI can run the
 //! middle one on a worker thread: `begin` on the UI thread saves the edit
 //! and fixes what the work reads (the element, where the search starts);
 //! `perform` is the work, which touches nothing of the session but the
@@ -63,6 +65,14 @@ pub const Work = union(enum) {
     /// sheet's path.
     export_sheet: []const u8,
     import_sheet: []const u8,
+    /// File > Import from Game...: the game's language folder, imported as
+    /// the package `<element>.pak`, a partial update of the element the
+    /// exports write (`game` in a database that has none yet), so nothing
+    /// is deleted. `begin` sets the element.
+    import_game: struct { folder: []const u8, element: []const u8 = "" },
+    /// File > Import from PAK/UPD...: the file, whose name picks the
+    /// element and the kind.
+    import_pak: []const u8,
     /// Edit > Find...'s Find Next. `begin` sets where it starts.
     find: struct { options: FindOptions, from: ?elk.search.Cursor = null },
 };
@@ -72,6 +82,8 @@ pub const Outcome = union(enum) {
     sheet_rows: usize,
     /// The caller deinits the report.
     imported: elk.sheet.Report,
+    /// What a package import wrote.
+    updated: elk.packages.Report,
     found: ?Hit,
 };
 
@@ -365,6 +377,16 @@ pub const Session = struct {
         return (try self.run(.{ .import_sheet = path })).imported;
     }
 
+    /// File > Import from Game... on this thread.
+    pub fn importGame(self: *Session, folder: []const u8) !elk.packages.Report {
+        return (try self.run(.{ .import_game = .{ .folder = folder } })).updated;
+    }
+
+    /// File > Import from PAK/UPD... on this thread.
+    pub fn importPak(self: *Session, path: []const u8) !elk.packages.Report {
+        return (try self.run(.{ .import_pak = path })).updated;
+    }
+
     /// A long operation on this thread, start to end.
     fn run(self: *Session, work: Work) !Outcome {
         const begun = try self.begin(work);
@@ -388,7 +410,11 @@ pub const Session = struct {
                     };
                 }
             },
-            .export_sheet, .import_sheet => {},
+            .import_game => |*game| {
+                const elements = self.database.?.project.elements;
+                game.element = if (elements.len == 0) "game" else elements[self.exportElement()].name;
+            },
+            .export_sheet, .import_sheet, .import_pak => {},
         }
         return begun;
     }
@@ -403,22 +429,38 @@ pub const Session = struct {
             .export_pak => |pak| .{ .exported = try elk.packages.exportTo(self.gpa, self.io, database, pak.element, pak.game_folder, pak.destination, .{ .filter = pak.filter, .progress = progress }) },
             .export_sheet => |path| .{ .sheet_rows = try elk.sheet.exportTo(self.gpa, self.io, database, path, progress) },
             .import_sheet => |path| .{ .imported = try elk.sheet.importFile(self.gpa, self.io, database, path, progress) },
+            .import_game => |game| .{ .updated = try self.importPackage(game.folder, game.element, progress) },
+            .import_pak => |path| .{ .updated = try self.importPackage(path, null, progress) },
             .find => |search| .{ .found = try elk.search.findNext(self.gpa, database, &self.tree.?, search.options, search.from, progress) },
         };
+    }
+
+    /// Reads the package, the game's folder when `element` names the
+    /// element it updates, else the archive at `path`, and imports it into
+    /// the open database's files.
+    fn importPackage(self: *Session, path: []const u8, element: ?[]const u8, progress: ?*Progress) !elk.packages.Report {
+        var package = if (element != null) try elk.packages.readGameFolder(self.gpa, self.io, path) else try elk.packages.readArchive(self.gpa, self.io, path);
+        defer package.deinit();
+        const file_name = try std.mem.concat(self.gpa, u8, &.{ element orelse std.fs.path.basename(path), if (element != null) ".pak" else "" });
+        defer self.gpa.free(file_name);
+        return elk.packages.importPackage(self.gpa, self.io, self.openPath(), &package, file_name, progress);
     }
 
     /// The UI thread's last step: a failure in the status line (a Cancel is
     /// none), the database reopened after an import, a hit selected.
     pub fn finish(self: *Session, work: Work, result: anyerror!Outcome) !Outcome {
-        if (work == .import_sheet) {
+        if (work == .import_sheet or work == .import_game or work == .import_pak) {
             // Reopened whatever the import did, a cancelled one having
             // written its first rows.
             const opened = try self.gpa.dupe(u8, self.openPath());
             defer self.gpa.free(opened);
             self.open(opened) catch |err| {
-                if (result) |outcome| {
-                    var report = outcome.imported;
-                    report.deinit(self.gpa);
+                if (result) |outcome| switch (outcome) {
+                    .imported => |imported| {
+                        var report = imported;
+                        report.deinit(self.gpa);
+                    },
+                    else => {},
                 } else |_| {}
                 return err;
             };
@@ -431,7 +473,8 @@ pub const Session = struct {
                     .game => self.fail("could not install into {s}: {s}", .{ pak.game_folder, @errorName(err) }),
                 },
                 .export_sheet => |path| self.fail("could not export to {s}: {s}", .{ path, @errorName(err) }),
-                .import_sheet => |path| self.fail("could not import {s}: {s}", .{ path, @errorName(err) }),
+                .import_sheet, .import_pak => |path| self.fail("could not import {s}: {s}", .{ path, @errorName(err) }),
+                .import_game => |game| self.fail("could not import the game's texts from {s}: {s}", .{ game.folder, @errorName(err) }),
                 .find => |search| self.fail("could not search for \"{s}\": {s}", .{ search.options.text, @errorName(err) }),
             }
             return err;
@@ -446,7 +489,7 @@ pub const Session = struct {
                 self.find_cursor = hit.next();
                 self.last_hit = hit;
             },
-            .exported, .sheet_rows => self.failure_len = 0,
+            .exported, .sheet_rows, .updated => self.failure_len = 0,
             .imported => {},
         }
         return outcome;

@@ -215,8 +215,10 @@ pub const Report = struct {
 /// `file_name` (whose name decides element, number and kind), into the
 /// database at `elk_path`, which is created when it does not exist. The
 /// database is not held open: a caller with it open reopens it after, as
-/// the MFC ELK closed and reopened it.
-pub fn importPackage(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, package: *const Package, file_name: []const u8) !Report {
+/// the MFC ELK closed and reopened it. `progress` counts one unit per
+/// entry (D-14); a cancelled import keeps the entries before it, each file
+/// whole, deletes nothing and leaves `elk.xml` as it was.
+pub fn importPackage(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, package: *const Package, file_name: []const u8, progress: ?*Progress) !Report {
     const cwd = std.Io.Dir.cwd();
     const previous: ?[]u8 = cwd.readFileAlloc(io, elk_path, gpa, .limited(16 << 20)) catch |err| switch (err) {
         error.FileNotFound => null,
@@ -244,7 +246,7 @@ pub fn importPackage(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, p
     const wanted = try std.mem.concat(arena, u8, &.{ element.name, database.data_base_suffix });
     const base = try database.findEntry(arena, io, folder, wanted, .directory) orelse try std.fs.path.join(arena, &.{ folder, wanted });
 
-    var report = try importElement(gpa, io, base, package, update.complete);
+    var report = try importElement(gpa, io, base, package, update.complete, progress);
     element.version = try versionString(arena, file_name, package.mtime);
     const resource = try database.resolve(gpa, io, base, "resource.description");
     defer gpa.free(resource.path);
@@ -255,6 +257,7 @@ pub fn importPackage(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, p
 
     const written = try project_file.write(gpa, &project, std.fs.path.basename(elk_path));
     defer gpa.free(written);
+    try Progress.check(progress);
     report.project = try writeIfChanged(io, gpa, elk_path, previous, written);
     return report;
 }
@@ -325,14 +328,14 @@ pub fn applyUpdates(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8) !A
         const path = try std.fs.path.join(arena, &.{ folder_path, file.name });
         var package = try readArchive(gpa, io, path);
         defer package.deinit();
-        _ = try importPackage(gpa, io, elk_path, &package, path);
+        _ = try importPackage(gpa, io, elk_path, &package, path, null);
         applied.imported += 1;
     }
     return applied;
 }
 
 /// `CELK::ImportFromPAK` into the element's texts folder `base`.
-fn importElement(gpa: std.mem.Allocator, io: std.Io, base: []const u8, package: *const Package, complete: bool) !Report {
+fn importElement(gpa: std.mem.Allocator, io: std.Io, base: []const u8, package: *const Package, complete: bool, progress: ?*Progress) !Report {
     var report: Report = .{};
     // The lower-case keys the package carries, for a complete update.
     var carried: std.StringHashMapUnmanaged(void) = .empty;
@@ -341,12 +344,23 @@ fn importElement(gpa: std.mem.Allocator, io: std.Io, base: []const u8, package: 
         while (keys.next()) |key| gpa.free(key.*);
         carried.deinit(gpa);
     }
-    for (package.entries) |entry| switch (kindOf(entry.name) orelse continue) {
+    Progress.start(progress, package.entries.len);
+    for (package.entries) |entry| {
+        try Progress.advance(progress, io);
+        try importEntry(gpa, io, base, entry, &carried, &report);
+    }
+    try Progress.check(progress);
+    if (complete) report.deleted = try deleteUncarried(gpa, io, base, &carried);
+    return report;
+}
+
+fn importEntry(gpa: std.mem.Allocator, io: std.Io, base: []const u8, entry: Entry, carried: *std.StringHashMapUnmanaged(void), report: *Report) !void {
+    switch (kindOf(entry.name) orelse return) {
         .original => {
             const key = try database.importKey(gpa, entry.name);
             const slot = try carried.getOrPut(gpa, key);
             if (slot.found_existing) gpa.free(key);
-            try importOriginal(gpa, io, base, slot.key_ptr.*, entry.bytes, &report);
+            try importOriginal(gpa, io, base, slot.key_ptr.*, entry.bytes, report);
         },
         .copied => {
             const relative = try std.ascii.allocLowerString(gpa, entry.name);
@@ -354,9 +368,7 @@ fn importElement(gpa: std.mem.Allocator, io: std.Io, base: []const u8, package: 
             std.mem.replaceScalar(u8, relative, '\\', '/');
             if (try copyIfChanged(gpa, io, base, relative, entry.bytes)) report.descriptions += 1;
         },
-    };
-    if (complete) report.deleted = try deleteUncarried(gpa, io, base, &carried);
-    return report;
+    }
 }
 
 fn importOriginal(gpa: std.mem.Allocator, io: std.Io, base: []const u8, key: []const u8, bytes: []const u8, report: *Report) !void {
@@ -709,7 +721,7 @@ test "import rules: changed, new, unchanged and missing texts, partial then comp
     const db = try std.fs.path.join(testing.allocator, &.{ root, "game_data_base" });
     defer testing.allocator.free(db);
 
-    const partial = try importPackage(testing.allocator, io, elk_path, &package, "game_2.pak");
+    const partial = try importPackage(testing.allocator, io, elk_path, &package, "game_2.pak", null);
     try testing.expectEqual(Report{ .originals = 5, .states = 5, .descriptions = 2, .project = true }, partial);
     // Unchanged: untouched. Translated or Approved and changed: Outdated.
     // Outdated and changed again: Not translated. Changed is kept.
@@ -747,13 +759,13 @@ test "import rules: changed, new, unchanged and missing texts, partial then comp
     // The same package again writes nothing.
     var before = try Snapshot.take(io, root);
     defer before.deinit();
-    try testing.expect((try importPackage(testing.allocator, io, elk_path, &package, "game_2.pak")).changedNothing());
+    try testing.expect((try importPackage(testing.allocator, io, elk_path, &package, "game_2.pak", null)).changedNothing());
     var after = try Snapshot.take(io, root);
     defer after.deinit();
     try before.expectEqual(after);
 
     // As a complete update it deletes only the original of the text it lacks.
-    const complete = try importPackage(testing.allocator, io, elk_path, &package, "game_3.upd");
+    const complete = try importPackage(testing.allocator, io, elk_path, &package, "game_3.upd", null);
     try testing.expectEqual(Report{ .deleted = 1, .project = true }, complete);
     try testing.expect(!database.fixtureExists(io, db, "e.elk"));
     try expectFile(io, db, "e.txt", utf16("Ee"));
@@ -786,7 +798,7 @@ test "importing game_1.upd into a copy of Data/ELK, which it built, changes no d
     var package = try readArchive(testing.allocator, io, "Data/ELK/game_1.upd");
     defer package.deinit();
     try testing.expectEqual(@as(usize, 2_853), package.entries.len);
-    const report = try importPackage(testing.allocator, io, elk_path, &package, "Data/ELK/game_1.upd");
+    const report = try importPackage(testing.allocator, io, elk_path, &package, "Data/ELK/game_1.upd", null);
     try testing.expectEqual(@as(usize, 0), report.originals + report.states + report.descriptions + report.deleted);
 
     var tracked = try Snapshot.take(io, "Data/ELK/game_data_base");
@@ -811,7 +823,7 @@ test "importing game_1.upd into a copy of Data/ELK, which it built, changes no d
     // And once more, nothing at all changes.
     var before = try Snapshot.take(io, root);
     defer before.deinit();
-    try testing.expect((try importPackage(testing.allocator, io, elk_path, &package, "Data/ELK/game_1.upd")).changedNothing());
+    try testing.expect((try importPackage(testing.allocator, io, elk_path, &package, "Data/ELK/game_1.upd", null)).changedNothing());
     var after = try Snapshot.take(io, root);
     defer after.deinit();
     try before.expectEqual(after);
@@ -873,7 +885,7 @@ test "a new database from the game's language folder: lower-case keys, imported 
 
     const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk", "elk.xml" });
     defer testing.allocator.free(elk_path);
-    const report = try importPackage(testing.allocator, io, elk_path, &package, "game.upd");
+    const report = try importPackage(testing.allocator, io, elk_path, &package, "game.upd", null);
     try testing.expectEqual(Report{ .originals = 1_710, .states = 1_710, .descriptions = 1, .project = true }, report);
 
     var opened = try database.Database.open(testing.allocator, io, elk_path);
@@ -902,7 +914,7 @@ test "a new database from the game's language folder: lower-case keys, imported 
 
     var before = try Snapshot.take(io, root);
     defer before.deinit();
-    try testing.expect((try importPackage(testing.allocator, io, elk_path, &package, "game.upd")).changedNothing());
+    try testing.expect((try importPackage(testing.allocator, io, elk_path, &package, "game.upd", null)).changedNothing());
     var after = try Snapshot.take(io, root);
     defer after.deinit();
     try before.expectEqual(after);
@@ -934,6 +946,44 @@ fn readBack(arena: std.mem.Allocator, bytes: []const u8) ![]Entry {
         out.* = .{ .name = try arena.dupe(u8, entry.name), .bytes = try archive.extract(arena, entry) };
     }
     return entries;
+}
+
+test "a cancelled import keeps the entries before it, deletes nothing and writes no elk.xml" {
+    // usa01.pak into a new database, held before its 50th entry on another
+    // thread and cancelled (D-14), then imported whole.
+    const io = testing.io;
+    const root = try database.freshScratch(io, "cancelled-import");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    var package = try readArchive(testing.allocator, io, "Data/AmericanELK/usa01.pak");
+    defer package.deinit();
+    const Worker = struct {
+        fn run(path: []const u8, imported: *const Package, progress: *Progress, result: *anyerror!Report) void {
+            result.* = importPackage(testing.allocator, testing.io, path, imported, "usa01.pak", progress);
+        }
+    };
+    var progress: Progress = .{};
+    progress.hold.store(49, .release);
+    var result: anyerror!Report = error.NotFinished;
+    const thread = try std.Thread.spawn(.{}, Worker.run, .{ elk_path, &package, &progress, &result });
+    while (!progress.held.load(.acquire)) try io.sleep(.fromMilliseconds(1), .awake);
+    try testing.expectEqual(@as(usize, 113), progress.range.load(.acquire));
+    progress.cancel();
+    thread.join();
+    try testing.expectError(error.Cancelled, result);
+    try testing.expectError(error.FileNotFound, std.Io.Dir.cwd().access(io, elk_path, .{}));
+    var cancelled = try Snapshot.take(io, root);
+    defer cancelled.deinit();
+    var originals: usize = 0;
+    for (cancelled.files) |file| {
+        try testing.expect(!std.mem.endsWith(u8, file.path, database.temp_suffix));
+        if (std.mem.endsWith(u8, file.path, ".elk")) originals += 1;
+    }
+    try testing.expectEqual(@as(usize, 49), originals);
+
+    const report = try importPackage(testing.allocator, io, elk_path, &package, "usa01.pak", null);
+    try testing.expectEqual(Report{ .originals = 113 - 49, .states = 113 - 49, .project = true }, report);
 }
 
 test "an export carries the translation or the original as the MFC export chose" {
@@ -1193,7 +1243,7 @@ test "the tracked Data/ELK exports to a pak the engine and unzip read, the same 
     const elk_path = try std.fs.path.join(allocator, &.{ root, "elk", "elk.xml" });
     var package = try readArchive(testing.allocator, io, try std.fs.path.join(allocator, &.{ root, "game_23.pak" }));
     defer package.deinit();
-    const report = try importPackage(testing.allocator, io, elk_path, &package, "game_23.pak");
+    const report = try importPackage(testing.allocator, io, elk_path, &package, "game_23.pak", null);
     try testing.expect(report.originals > 0);
     var imported = try database.Database.open(testing.allocator, io, elk_path);
     defer imported.deinit();

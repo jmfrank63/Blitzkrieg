@@ -9181,7 +9181,7 @@ fn addElk(
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
-    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod (by filter too) and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), the short layout started from its .upd files with Help, and the D-14 worker: the progress modal mid-run and its Cancel, a cancelled import leaving every file whole");
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod (by filter too) and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), the short layout started from its .upd files with Help, and the D-14 worker: the progress modal mid-run and its Cancel, a cancelled import leaving every file whole; Import from Game into a new database and Import from PAK/UPD of usa01.pak, cancelled, whole and repeated");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }

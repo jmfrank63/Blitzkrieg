@@ -63,7 +63,12 @@
 //! repainting over it and cancelled from its Cancel, leaves every file
 //! whole (the first 1000 texts imported, every other file the source's,
 //! elk.xml unsaved, no temporary file); a Find Next that misses, held and
-//! released, then held and cancelled; and the whole import after.
+//! released, then held and cancelled; and the whole import after. An
+//! eleventh folder, a new database with no element, takes File > Import
+//! from Game... from a copy of Data/Textes (1710 texts, the element `game`
+//! added) and Import from PAK/UPD... of usa01.pak: held at its 50th file and
+//! cancelled, the 50 files in and elk.xml unchanged; then whole (the other
+//! 63), and again, which changes nothing.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -347,6 +352,21 @@ const progress_schedule =
     "20:expect=notice_has:Find,21:do=find_close," ++
     "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/1852/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
 
+/// The package imports' pass (D-05, D-14) on a new database: the game
+/// folder `game` holds a copy of Data/Textes and Data/resource.description,
+/// `usa01.pak` is Data/AmericanELK's.
+const package_schedule =
+    "2:expect=open,2:expect=texts:0,2:expect=can_import:1,2:do=import_game,2:expect=can_import:0,2:do=answer:game," ++
+    "4:expect=busy:0,4:expect=updated:1710/1710/1/0/1,4:expect=texts:1710,4:expect=notice_has:1710," ++
+    // Held before its 50th file and cancelled: those 50 in, elk.xml as it was.
+    "5:do=hold:50,5:do=import_pak,5:do=answer:" ++ package_pak ++ ",6:do=wait_held,7:expect=working:50/113,7:do=job_cancel," ++
+    "9:expect=busy:0,9:expect=notice_has:cancelled,9:expect=package_whole:1760,9:expect=texts:1710," ++
+    "10:do=import_pak,10:do=answer:" ++ package_pak ++ ",12:expect=updated:63/63/0/0/1,12:expect=texts:1823," ++
+    // Again: nothing changes.
+    "13:do=import_pak,13:do=answer:" ++ package_pak ++ ",15:expect=updated:0/0/0/0/0,15:expect=notice_has:nothing,15:expect=texts:1823," ++
+    "16:do=close,18:expect=can_import:0,19:exit";
+const package_pak = "usa01.pak";
+
 /// Linux and macOS get a stand-in Game, a shell script that writes the
 /// arguments it was started with; Windows has none, and its Run Game fails
 /// to start after recording the same command line.
@@ -554,7 +574,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (shorts.code != 0) return shorts.code;
     const worked = smokeProgress(gpa, io, environ, source, scratch);
     if (worked.code != 0) return worked.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod (by filter too) and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, result.fonts, elk_path });
+    const updated = smokePackages(gpa, io, environ, source, scratch);
+    if (updated.code != 0) return updated.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod (by filter too) and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole, Import from Game and Import from PAK/UPD on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, updated.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -725,6 +747,65 @@ fn smokeProgress(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Enviro
         .frame_limit = smoke_frame_limit,
         .tier = "smoke (worker, progress modal, Cancel)",
     });
+}
+
+/// The smoke's package import pass in an eleventh folder,
+/// `<scratch>-packages`: a new `elk.xml` without elements, as the core
+/// writes an empty project, the game folder `game` and `usa01.pak` beside
+/// it, all from the tracked Data beside `source`.
+fn smokePackages(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-packages", .{scratch}) catch return .{ .code = 1 };
+    writePackageFolder(gpa, io, std.fs.path.dirname(source) orelse ".", folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not lay out {s}: {s}\n", .{ folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    return scripted(gpa, io, environ, .{
+        .elk_path = elk_path,
+        .text = package_schedule,
+        .dialog_folder = folder,
+        .frame_limit = smoke_frame_limit,
+        .tier = "smoke (Import from Game, Import from PAK/UPD)",
+    });
+}
+
+fn writePackageFolder(gpa: std.mem.Allocator, io: std.Io, data: []const u8, folder: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    cwd.deleteTree(io, folder) catch {};
+    try cwd.createDirPath(io, folder);
+    var to = try cwd.openDir(io, folder, .{});
+    defer to.close(io);
+    var project = elk.project_file.Project.empty(gpa);
+    defer project.deinit();
+    const xml = try elk.project_file.write(gpa, &project, "elk.xml");
+    defer gpa.free(xml);
+    try to.writeFile(io, .{ .sub_path = "elk.xml", .data = xml });
+
+    var from = try cwd.openDir(io, data, .{});
+    defer from.close(io);
+    const textes = try elk.database.findEntry(gpa, io, data, "textes", .directory) orelse return error.FileNotFound;
+    defer gpa.free(textes);
+    var texts = try cwd.openDir(io, textes, .{ .iterate = true });
+    defer texts.close(io);
+    var walker = try texts.walk(gpa);
+    defer walker.deinit();
+    while (try walker.next(io)) |file| {
+        if (file.kind != .file) continue;
+        const relative = try std.fs.path.join(gpa, &.{ "game", "Textes", file.path });
+        defer gpa.free(relative);
+        try to.createDirPath(io, std.fs.path.dirname(relative).?);
+        const bytes = try texts.readFileAlloc(io, file.path, gpa, .limited(16 << 20));
+        defer gpa.free(bytes);
+        try to.writeFile(io, .{ .sub_path = relative, .data = bytes });
+    }
+    const resource = try from.readFileAlloc(io, "resource.description", gpa, .limited(1 << 20));
+    defer gpa.free(resource);
+    try to.writeFile(io, .{ .sub_path = "game" ++ std.fs.path.sep_str ++ "resource.description", .data = resource });
+    const pak = try from.readFileAlloc(io, "AmericanELK" ++ std.fs.path.sep_str ++ package_pak, gpa, .limited(16 << 20));
+    defer gpa.free(pak);
+    try to.writeFile(io, .{ .sub_path = package_pak, .data = pak });
 }
 
 fn writeProgressSheet(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, folder: []const u8) !void {

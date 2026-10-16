@@ -88,6 +88,15 @@ var sheet_slot: SheetSlot = .{};
 pub const SheetAction = enum { import, @"export" };
 const SheetSlot = kit.dialogs.PathSlot(SheetAction, settings_mod.max_path);
 
+/// File > Import from Game... and Import from PAK/UPD...: the folder or
+/// the file the OS dialog chose, and which of the two asked for it.
+var package_slot: PackageSlot = .{};
+
+pub const PackageAction = enum { game, pak };
+const PackageSlot = kit.dialogs.PathSlot(PackageAction, settings_mod.max_path);
+
+const package_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "Updates (pak, upd)", .pattern = "pak;upd" }};
+
 const import_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "Spreadsheets (xlsx, csv, legacy xls)", .pattern = "xlsx;csv;xls" }};
 const export_filters = [_]sdl3.c.SDL_DialogFileFilter{
     .{ .name = "Excel workbook (xlsx)", .pattern = "xlsx" },
@@ -207,6 +216,12 @@ pub const Ui = struct {
     played_mod_len: usize = 0,
     /// The last spreadsheet import's counts, for the scripted runs.
     imported: ?Imported = null,
+    /// The last package import's report, for the scripted runs.
+    updated: ?elk_core.packages.Report = null,
+    /// The folder or file the last package import read, where the next
+    /// one's dialog starts; this session only.
+    package_last: [settings_mod.max_path]u8 = undefined,
+    package_last_len: usize = 0,
     /// The last export's, import's or launch's summary, shown in the status
     /// line.
     notice_storage: [768]u8 = undefined,
@@ -319,6 +334,8 @@ pub const Ui = struct {
             mod_slot.deliver(path);
         } else if (sheet_slot.waiting()) {
             sheet_slot.deliver(path);
+        } else if (package_slot.waiting()) {
+            package_slot.deliver(path);
         } else return false;
         return true;
     }
@@ -735,6 +752,12 @@ pub const Ui = struct {
         return self.session.isOpen();
     }
 
+    /// File > Import from Game... and Import from PAK/UPD... import into the
+    /// open database, while no dialog of theirs waits.
+    pub fn canImportPackage(self: *const Ui) bool {
+        return self.canExport() and !package_slot.waiting();
+    }
+
     pub fn canRunGame(self: *Ui) bool {
         return self.canExport() and !self.gameRunning();
     }
@@ -869,6 +892,56 @@ pub const Ui = struct {
         if (report.failed != 0) writer.print(", {d} not written: {s}", .{ report.failed, @errorName(report.first_failure.?) }) catch return;
     }
 
+    /// File > Import from Game... and Import from PAK/UPD...: the OS folder
+    /// or file dialog, starting where the last package import read, else
+    /// beside the open database. Its answer imports in a later frame
+    /// (`draw`).
+    pub fn requestPackage(self: *Ui, window: *window_mod.Window, action: PackageAction) void {
+        if (!self.canImportPackage() or !package_slot.request(action)) return;
+        if (!self.os_dialogs) return;
+        const last = self.package_last[0..self.package_last_len];
+        const folder = if (last.len == 0) std.fs.path.dirname(self.session.openPath()) orelse "" else if (action == .pak) std.fs.path.dirname(last) orelse "" else last;
+        var folder_buffer: [settings_mod.max_path + 1]u8 = undefined;
+        const location: ?[*:0]const u8 = if (folder.len == 0) null else if (std.mem.printSentinel(&folder_buffer, "{s}", .{folder}, 0)) |z| z.ptr else |_| null;
+        switch (action) {
+            .game => sdl3.c.SDL_ShowOpenFolderDialog(PackageSlot.callback, &package_slot, window.window, location, false),
+            .pak => sdl3.c.SDL_ShowOpenFileDialog(PackageSlot.callback, &package_slot, window.window, &package_filters, package_filters.len, location, false),
+        }
+    }
+
+    fn takePackage(self: *Ui) void {
+        switch (package_slot.take() orelse return) {
+            .path => |chosen| self.importPackage(chosen.kind, chosen.path),
+            .cancelled => {},
+            .failed => |reason| self.session.fail("the import dialog failed: {s}", .{reason}),
+        }
+    }
+
+    /// Imports the game's language folder or the `.pak`/`.upd` at `path` on
+    /// the worker; `updated` sums it up.
+    pub fn importPackage(self: *Ui, action: PackageAction, path: []const u8) void {
+        const len = @min(path.len, self.package_last.len);
+        @memcpy(self.package_last[0..len], path[0..len]);
+        self.package_last_len = len;
+        _ = switch (action) {
+            .game => self.startJob(.{ .import_game = .{ .folder = path } }, "Importing the game's texts from {s}...", .{path}),
+            .pak => self.startJob(.{ .import_pak = path }, "Importing {s}...", .{path}),
+        };
+    }
+
+    /// A package import's summary: the texts imported (new or changed
+    /// originals), the descriptions copied and the texts a complete update
+    /// deleted.
+    fn importedPackage(self: *Ui, work: session_mod.Work, report: elk_core.packages.Report) void {
+        self.updated = report;
+        const source = switch (work) {
+            .import_game => |game| game.folder,
+            else => work.import_pak,
+        };
+        if (report.changedNothing()) return self.notify("imported {s}: nothing changed", .{source});
+        self.notify("imported {s}: {d} texts imported, {d} descriptions copied, {d} texts deleted", .{ source, report.originals, report.descriptions, report.deleted });
+    }
+
     /// File > Install to game...: `Data/Texts.pak` in the game folder, at
     /// once when nothing loose hides it, else after D-09's warning.
     pub fn requestInstall(self: *Ui) void {
@@ -986,6 +1059,8 @@ pub const Ui = struct {
                 .export_pak => self.notify("export cancelled: nothing was written", .{}),
                 .export_sheet => |path| self.notify("export to {s} cancelled: nothing was written", .{path}),
                 .import_sheet => |path| self.notify("import of {s} cancelled after {d} of {d} rows: those rows are in, every file whole", .{ std.fs.path.basename(path), position, range }),
+                .import_pak => |path| self.notify("import of {s} cancelled after {d} of {d} files: those files are in, every file whole, elk.xml unchanged", .{ std.fs.path.basename(path), position, range }),
+                .import_game => |game| self.notify("import from {s} cancelled after {d} of {d} files: those files are in, every file whole, elk.xml unchanged", .{ game.folder, position, range }),
                 .find => self.notify("Find cancelled", .{}),
             }
             return;
@@ -1013,6 +1088,7 @@ pub const Ui = struct {
                 defer owned.deinit(self.gpa);
                 self.importedSheet(work.import_sheet, &owned);
             },
+            .updated => |report| self.importedPackage(work, report),
             .found => |hit| self.foundOrMissed(work.find.from, hit),
         }
     }
@@ -1128,6 +1204,7 @@ pub const Ui = struct {
             self.takeOpen();
             self.takeModFolder();
             self.takeSheet();
+            self.takePackage();
         }
         self.pollGame();
         window.setTitle(self.title().ptr);
@@ -1849,6 +1926,8 @@ pub const Ui = struct {
         if (ig.igMenuItemEx("Save", "Ctrl+S", false, open)) self.session.save() catch {};
         if (ig.igMenuItemEx("Close", null, false, open)) self.session.close() catch {};
         ig.igSeparator();
+        if (ig.igMenuItemEx("Import from Game...", null, false, self.canImportPackage())) self.requestPackage(window, .game);
+        if (ig.igMenuItemEx("Import from PAK/UPD...", null, false, self.canImportPackage())) self.requestPackage(window, .pak);
         const sheet_free = self.canExport() and !sheet_slot.waiting();
         if (ig.igMenuItemEx("Import from spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .import);
         if (ig.igMenuItemEx("Export to spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .@"export");
