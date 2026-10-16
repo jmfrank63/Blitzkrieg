@@ -200,6 +200,9 @@ pub const Session = struct {
     find_cursor: ?elk.search.Cursor = null,
     /// The last Find Next's hit; null after a miss.
     last_hit: ?Hit = null,
+    /// View > ELK Statistic counted since the database was opened, so
+    /// Close has a new snapshot to keep.
+    counted: bool = false,
     /// When the edit became dirty, on the caller's clock; null while clean.
     dirty_since_ms: ?u64 = null,
     /// The last save point's failure, for the status bar; "" when it worked.
@@ -269,10 +272,25 @@ pub const Session = struct {
     }
 
     /// File > Close: saves the selected text, then closes the database. A
-    /// failed save keeps the database open so the edit is not lost.
+    /// failed save keeps the database open so the edit is not lost. As
+    /// `CELK::Close` did, the counts the statistic window made become the
+    /// previous snapshot and `elk.xml` is written; that write failing is
+    /// named in the status line but closes anyway, as the MFC ELK ignored
+    /// it. *Change:* the MFC ELK wrote `elk.xml` on every Close, moving the
+    /// statistic it had read into the previous one; this writes it only when
+    /// the window counted since the open, so opening and closing leaves the
+    /// file as it was.
     pub fn close(self: *Session) !void {
         if (self.database == null) return;
         try self.save();
+        if (!self.counted) return self.drop();
+        const database = &self.database.?;
+        database.project.previous_statistic = database.project.statistic;
+        database.save() catch |err| {
+            self.drop();
+            self.fail("could not keep the statistic in elk.xml: {s}", .{@errorName(err)});
+            return;
+        };
         self.drop();
     }
 
@@ -346,13 +364,32 @@ pub const Session = struct {
     }
 
     /// View > ELK Statistic: the counts of every text under the state the
-    /// tree shows, its slices in `allocator`.
+    /// tree shows, its slices in `allocator`. They are also the project's
+    /// `statistic` (a copy in its arena), which Close keeps as the previous
+    /// snapshot, as `OnViewStatistic` counted into `elk.statistic`.
     pub fn statistics(self: *Session, allocator: std.mem.Allocator) !Statistic {
         const tree = &(self.tree orelse return error.NoDatabaseOpen);
-        return elk.stats.compute(allocator, self.gpa, &self.database.?, tree) catch |err| {
+        const database = &self.database.?;
+        const counted = elk.stats.compute(allocator, self.gpa, database, tree) catch |err| {
             self.fail("could not count the texts: {s}", .{@errorName(err)});
             return err;
         };
+        const arena = database.project.arena.allocator();
+        database.project.statistic = .{
+            .valid = true,
+            .original = try arena.dupe(elk.stats.ElementStatistic, counted.original),
+            .translation = try arena.dupe(elk.stats.ElementStatistic, counted.translation),
+        };
+        self.counted = true;
+        return counted;
+    }
+
+    /// The snapshot the last Close stored in `elk.xml`, the statistic
+    /// window's "as of last close"; null when there is none.
+    pub fn lastClose(self: *const Session) ?Statistic {
+        const database = &(self.database orelse return null);
+        const previous = database.project.previous_statistic;
+        return if (previous.valid) previous else null;
     }
 
     /// The element the exports write: the selected text's, else the first,
@@ -460,6 +497,9 @@ pub const Session = struct {
             // written its first rows.
             const opened = try self.gpa.dupe(u8, self.openPath());
             defer self.gpa.free(opened);
+            // Dropped, not closed: Close would write the project as read
+            // before the import over the elk.xml the import wrote.
+            self.drop();
             self.open(opened) catch |err| {
                 if (result) |outcome| switch (outcome) {
                     .imported => |imported| {
@@ -584,6 +624,7 @@ pub const Session = struct {
         self.state = .not_translated;
         self.manual_state = false;
         self.dirty_since_ms = null;
+        self.counted = false;
         self.resetFind();
     }
 
@@ -842,11 +883,49 @@ test "Find Next goes on from the last hit and starts over on another text" {
     try testing.expectEqual(@as(?Hit, null), try session.findNext(.{ .text = "kuban", .match_case = true }));
     try testing.expectEqual(desc, session.selected.?);
     try testing.expectEqual(@as(?Hit, null), session.last_hit);
+    try session.close();
+}
 
+test "Close keeps the counted statistic in elk.xml as the previous snapshot" {
+    const io = testing.io;
+    const root = try fixture(io, "snapshot");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    const cwd = std.Io.Dir.cwd();
+    const before = try cwd.readFileAlloc(io, elk_path, testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(before);
+
+    var session = Session.init(testing.allocator, io);
+    defer session.deinit();
+    // Opened and closed without counting: elk.xml is not written.
+    try session.open(elk_path);
+    const stored = session.lastClose().?;
+    try testing.expectEqual(@as(i32, 2968), elk.stats.elementTotal(stored.original[0]).texts);
+    try session.close();
+    const untouched = try cwd.readFileAlloc(io, elk_path, testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(untouched);
+    try testing.expectEqualStrings(before, untouched);
+
+    try session.open(elk_path);
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const statistic = try session.statistics(arena.allocator());
-    try testing.expectEqual(@as(i32, 2852), elk.stats.elementTotal(statistic.original[0]).texts);
+    try testing.expectEqual(@as(i32, 1), elk.stats.elementTotal(statistic.original[0]).texts);
+    // Until Close the window's "as of last close" is still the stored one.
+    try testing.expectEqual(@as(i32, 2968), elk.stats.elementTotal(session.lastClose().?.original[0]).texts);
+    try session.close();
+
+    const bytes = try cwd.readFileAlloc(io, elk_path, testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(bytes);
+    var project = try elk.project_file.parse(testing.allocator, bytes);
+    defer project.deinit();
+    try testing.expect(project.previous_statistic.valid and project.statistic.valid);
+    try testing.expectEqualDeep(statistic.original, project.previous_statistic.original);
+    try testing.expectEqualDeep(statistic.translation, project.previous_statistic.translation);
+    try testing.expectEqualDeep(statistic.original, project.statistic.original);
+    try session.open(elk_path);
+    try testing.expectEqualDeep(statistic.translation, session.lastClose().?.translation);
     try session.close();
 }
 

@@ -9123,6 +9123,9 @@ fn addElk(
 ) void {
     const app_kit = editorAppKit(b, target, optimize, toolchain, editor_imgui_module, sdl_include);
     // The core for the app's target; test-elk-core builds its own for the host.
+    // Help > About's version is the game's (`game_version`).
+    const elk_build = b.addOptions();
+    elk_build.addOption([]const u8, "version", b.fmt("{d}.{d}.{d}", .{ game_version.major, game_version.minor, game_version.patch }));
     const core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/elk/core/root.zig"),
         .target = target,
@@ -9142,6 +9145,7 @@ fn addElk(
             .{ .name = "editor_kit", .module = app_kit.kit },
             .{ .name = "elk_core", .module = core_module },
             .{ .name = "elk_help", .module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = optimize }) },
+            .{ .name = "elk_build", .module = elk_build.createModule() },
         },
     });
     // The editor-overlay-spike's recipe, the other engine-less ImGui program:

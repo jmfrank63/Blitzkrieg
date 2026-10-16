@@ -703,6 +703,30 @@ std-only, headless, no UI. Modules:
   the tests write theirs into scratch copies. *Not yet:* the misspelt word
   selected in the edit box, Ignore All ignoring case, a folder's
   description shown when the folder is selected (C4).
+  *UI polish slice (2026-10-16):* B10's snapshot: View > ELK Statistic's
+  counts become the project's `statistic` (`OnViewStatistic` counted into
+  `elk.statistic`), and Close, Exit and opening another database move it
+  to `previousStatistic` and write `elk.xml` (`CELK::Close`); a failed
+  write is named in the status line and closes anyway, as the MFC ELK
+  ignored it. The window adds the same four columns "at last close" from
+  the stored `PreviousStatistic`, "-" for an element it lacks. *Change:*
+  the MFC ELK wrote `elk.xml` on every Close, copying whatever statistic it
+  had read; this writes only when the window counted since the open, so
+  opening and closing leaves the file as it was (and a read-only install
+  is not written). An import's reopen drops the database instead of
+  closing it, so the project read before the import is never written over
+  the `elk.xml` the import wrote. G6: View > ELK Tree (both layouts) and
+  View > Status Bar (extended; `IDR_SHORT_MAINFRAME`'s View menu has no
+  Status Bar, so the short layout always shows it) are kept in elk.cfg as
+  `show_tree=` and `show_status_bar=`, on by default; a failure shows the
+  status line even when it is off. G10: Help > About Blitzkrieg ELK... in
+  both layouts: the name, "Version" and the game's version from
+  `build.zig`'s `game_version` (the `elk_build` option), and a new line
+  about the kit. `elk-smoke`'s find pass sees Data/ELK's stored snapshot
+  (2,968 texts) as "at last close", turns the tree and the status line off
+  and opens About; its second run finds both still off and the first run's
+  counts (2,852 texts) as "at last close". *Not yet:* About's screenshot
+  (G10's Shot).
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

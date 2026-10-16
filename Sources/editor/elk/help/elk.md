@@ -45,7 +45,9 @@ Edit > Find... (Ctrl+F, under Tools in the short layout) searches the originals,
 
 ## Statistics
 
-View > ELK Statistic counts the texts, words and characters of the originals and translations, in total and per state, so you can see how much is left.
+View > ELK Statistic counts the texts, words and characters of the originals and translations, in total and per state, so you can see how much is left. Beside them are the counts as they were when the database was last closed after counting, so you can see how much changed since.
+
+View > ELK Tree hides or shows the list of texts, and View > Status Bar (extended layout) the status line; ELK remembers both.
 
 ## Spell check
 

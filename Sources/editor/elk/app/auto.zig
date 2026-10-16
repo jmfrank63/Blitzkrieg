@@ -49,6 +49,9 @@
 //!   do=statistics_close      the statistic window's OK
 //!   do=help                  Help > Contents (the hot key is `key=f1`)
 //!   do=help_close            the help window's close button
+//!   do=about  do=about_close Help > About Blitzkrieg ELK... and its OK
+//!   do=view_tree             View > ELK Tree, turned over
+//!   do=view_status_bar       View > Status Bar, turned over (extended layout)
 //!   do=spell                 Tools > Spelling (the hot key is `key=f7`)
 //!   do=spell_add:<word>      the Spelling window's Add to dictionary on the
 //!                            word's first row (the window drawn last frame)
@@ -132,6 +135,11 @@
 //!                            translation; row total, a state (summed over
 //!                            the elements), an element's number, or
 //!                            <number>.<state>
+//!   expect=last_close:<half>/<row>=<counts|none>  the same row's "at last
+//!                            close" counts, the snapshot elk.xml kept
+//!   expect=tree:<0|1>  expect=status_bar:<0|1>  whether the last frame drew
+//!                            the tree, the status line
+//!   expect=about:<0|1>       whether the last frame drew Help > About
 //!   expect=can_spell:<0|1>   whether Tools > Spelling is enabled
 //!   expect=spell_reason_has:<text>  why spell check is off
 //!   expect=spell_language:<name>  the language loaded
@@ -359,6 +367,16 @@ pub const Runner = struct {
         } else if (is(named, "help_close")) {
             if (!ui.help_drawn) return self.fail("do=help_close: the help window is not shown", .{});
             ui.help_open = false;
+        } else if (is(named, "about")) {
+            ui.about_open = true;
+        } else if (is(named, "about_close")) {
+            if (!ui.about_drawn) return self.fail("do=about_close: the About window is not shown", .{});
+            ui.about_open = false;
+        } else if (is(named, "view_tree")) {
+            ui.toggleTree();
+        } else if (is(named, "view_status_bar")) {
+            if (ui.short) return self.fail("do=view_status_bar: the short layout's View menu has no Status Bar", .{});
+            ui.toggleStatusBar();
         } else if (is(named, "spell")) {
             if (!ui.canSpell()) return self.fail("do=spell: Tools > Spelling is disabled ({s})", .{ui.spelling().reason()});
             ui.openSpelling();
@@ -628,7 +646,13 @@ pub const Runner = struct {
             const wanted = std.mem.eql(u8, named.arg, "1");
             if (ui.statistics_drawn != wanted) return self.fail("expect=statistics: drawn is {}, wanted {}", .{ !wanted, wanted });
         } else if (is(named, "statistic")) {
-            try self.statistic(ui, named.arg);
+            try self.statistic(ui, .now, named.arg);
+        } else if (is(named, "last_close")) {
+            try self.statistic(ui, .last_close, named.arg);
+        } else if (is(named, "tree") or is(named, "status_bar") or is(named, "about")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            const drawn = if (is(named, "tree")) ui.tree_drawn else if (is(named, "status_bar")) ui.status_drawn else ui.about_drawn;
+            if (drawn != wanted) return self.fail("expect={s}: drawn is {}, wanted {}", .{ named.name, drawn, wanted });
         } else if (is(named, "help")) {
             const wanted = std.mem.eql(u8, named.arg, "1");
             if (ui.help_drawn != wanted) return self.fail("expect=help: drawn is {}, wanted {}", .{ !wanted, wanted });
@@ -767,9 +791,11 @@ pub const Runner = struct {
     }
 
     /// `<half>/<row>=<items>/<words>/<word symbols>/<symbols>` against the
-    /// counts the statistic window draws.
-    fn statistic(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
-        if (!ui.statistics_drawn) return self.fail("expect=statistic: the statistic window is not shown", .{});
+    /// counts the statistic window draws, counted now or at the last close
+    /// (`none` when that row has no snapshot).
+    fn statistic(self: *Runner, ui: *ui_mod.Ui, counted: ui_mod.Ui.Counted, arg: []const u8) !void {
+        const verb = if (counted == .now) "statistic" else "last_close";
+        if (!ui.statistics_drawn) return self.fail("expect={s}: the statistic window is not shown", .{verb});
         const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("statistic needs <half>/<row>=<counts>", .{});
         const slash = std.mem.indexOfScalar(u8, arg[0..eq], '/') orelse return self.fail("statistic needs <half>/<row>", .{});
         const half = arg[0..slash];
@@ -787,10 +813,14 @@ pub const Runner = struct {
                 state = std.meta.stringToEnum(elk.state.State, row) orelse return self.fail("expect=statistic: no row {s}", .{row});
             }
         }
-        const counts = ui.statisticRow(std.mem.eql(u8, half, "translation"), element, state) orelse return self.fail("expect=statistic: no row {s}", .{row});
+        const wanted = arg[eq + 1 ..];
+        const counts = ui.statisticRow(counted, std.mem.eql(u8, half, "translation"), element, state) orelse {
+            if (counted == .last_close and std.mem.eql(u8, wanted, "none")) return;
+            return self.fail("expect={s}: no row {s}", .{ verb, row });
+        };
         var buffer: [64]u8 = undefined;
         const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}/{d}/{d}", .{ counts.texts, counts.words, counts.word_symbols, counts.symbols });
-        if (!std.mem.eql(u8, shown, arg[eq + 1 ..])) return self.fail("expect=statistic: {s} is {s}, wanted {s}", .{ arg[0..eq], shown, arg[eq + 1 ..] });
+        if (!std.mem.eql(u8, shown, wanted)) return self.fail("expect={s}: {s} is {s}, wanted {s}", .{ verb, arg[0..eq], shown, wanted });
     }
 
     /// `<mod|game>=<entries|none>`: the pak where the core exports to,

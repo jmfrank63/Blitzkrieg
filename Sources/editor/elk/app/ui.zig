@@ -47,7 +47,11 @@
 //! has the reduced menu, one toolbar and the five fixed filters, and starts
 //! the same way each launch: its filter choice is not written to elk.cfg
 //! and Collapse Item is always on. Help > Contents (F1) shows the help
-//! embedded in ELK (`Sources/editor/elk/help`) in both layouts.
+//! embedded in ELK (`Sources/editor/elk/help`) in both layouts, Help > About
+//! its name, version and what it is. View > ELK Tree (both layouts) and View
+//! > Status Bar (the extended one; the short layout always has it) hide the
+//! tree and the status line, kept in elk.cfg; a failure still shows its
+//! status line, so a refused save is never silent.
 const std = @import("std");
 const builtin = @import("builtin");
 const imgui = @import("editor_imgui");
@@ -60,6 +64,7 @@ const FilterDialog = @import("filter_dialog.zig").FilterDialog;
 const spelling_mod = @import("spelling.zig");
 const jobs = @import("jobs.zig");
 const help = @import("elk_help");
+const elk_build = @import("elk_build");
 
 const ig = imgui.c;
 pub const Session = session_mod.Session;
@@ -71,6 +76,9 @@ const Counts = elk_core.stats.Counts;
 const elk_core = @import("elk_core");
 
 pub const app_title = "Blitzkrieg ELK";
+/// Help > About's lines after the title (new text, G10).
+pub const app_version = "Version " ++ elk_build.version;
+pub const about_kit = "The localisation kit for Blitzkrieg Reloaded: translate the game's texts, check them and export them as a language mod. Zig and Dear ImGui, on Windows, macOS and Linux.";
 
 /// File > Open's answer. SDL may call back on another thread or after the
 /// window is gone, so it is a global, as the editors' own slots are.
@@ -182,6 +190,12 @@ pub const Ui = struct {
     statistics: ?Statistic = null,
     statistics_arena: ?std.heap.ArenaAllocator = null,
     statistics_drawn: bool = false,
+    /// The last frame drew the tree, and the status line.
+    tree_drawn: bool = false,
+    status_drawn: bool = false,
+    /// Help > About.
+    about_open: bool = false,
+    about_drawn: bool = false,
     /// Spell check, configured from elk.cfg at its first use.
     spelling_state: ?spelling_mod.Spelling = null,
     /// Tools > Spelling's window: the last check's words, in `spell_arena`
@@ -455,6 +469,19 @@ pub const Ui = struct {
         self.saveSettings();
     }
 
+    /// View > ELK Tree.
+    pub fn toggleTree(self: *Ui) void {
+        self.settings.show_tree = !self.settings.show_tree;
+        self.saveSettings();
+    }
+
+    /// View > Status Bar, the extended layout's only.
+    pub fn toggleStatusBar(self: *Ui) void {
+        if (self.short) return;
+        self.settings.show_status_bar = !self.settings.show_status_bar;
+        self.saveSettings();
+    }
+
     /// Whether a Browse step or Find closes the element it leaves: always
     /// in the short layout, which forced the mode on.
     pub fn collapseItem(self: *const Ui) bool {
@@ -596,12 +623,20 @@ pub const Ui = struct {
         self.statistics = null;
     }
 
+    /// The statistic window's two sets of counts: counted now, and the
+    /// snapshot the last Close kept in elk.xml.
+    pub const Counted = enum { now, last_close };
+
     /// One row of the statistic window: a half's total (no element, no
     /// state), a state summed over the elements, an element's total or one
-    /// state of an element. Null when the window is closed or there is no
-    /// such element.
-    pub fn statisticRow(self: *const Ui, translation: bool, element: ?usize, state: ?State) ?Counts {
-        const statistic = self.statistics orelse return null;
+    /// state of an element. Null when the window is closed, there is no
+    /// snapshot, or it has no such element (one added since).
+    pub fn statisticRow(self: *const Ui, counted: Counted, translation: bool, element: ?usize, state: ?State) ?Counts {
+        if (self.statistics == null) return null;
+        const statistic = switch (counted) {
+            .now => self.statistics.?,
+            .last_close => self.session.lastClose() orelse return null,
+        };
         const half = if (translation) statistic.translation else statistic.original;
         const stats = elk_core.stats;
         if (element) |index| {
@@ -1325,12 +1360,15 @@ pub const Ui = struct {
         defer self.drawSpellingWindow();
         defer self.drawSpellOptions();
         defer self.drawHelpWindow();
+        defer self.drawAboutWindow();
         if (self.short) self.drawShortMenu(window) else self.drawMenu(window);
         self.rows_drawn = 0;
         self.drawn.clearRetainingCapacity();
         self.state_buttons_drawn = false;
         self.description_drawn = false;
         self.toolbar_drawn = .none;
+        self.tree_drawn = false;
+        self.status_drawn = false;
         if (!self.session.isOpen()) {
             ig.igTextUnformatted(if (self.short)
                 "No database is open. The short layout opens the elk.xml beside ELK, built from the .upd update files there."
@@ -1341,13 +1379,18 @@ pub const Ui = struct {
         }
         if (self.short) self.drawShortToolbar(window) else self.drawFilterBar();
         const avail = ig.igGetContentRegionAvail();
-        const body_height = avail.y - ig.igGetFrameHeightWithSpacing();
-        if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
-        ig.igEndChild();
-        ig.igSameLine();
+        const status = self.short or self.settings.show_status_bar or self.session.failureText().len != 0;
+        const body_height = if (status) avail.y - ig.igGetFrameHeightWithSpacing() else 0;
+        if (self.settings.show_tree) {
+            if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
+            ig.igEndChild();
+            ig.igSameLine();
+            self.tree_drawn = true;
+        }
         if (ig.igBeginChild("text", .{ .x = 0, .y = body_height }, 0, 0)) self.drawText();
         ig.igEndChild();
-        self.drawStatus();
+        if (status) self.drawStatus();
+        self.status_drawn = status;
     }
 
     /// The global shortcuts and the autosave clock, held while a job runs.
@@ -1546,6 +1589,29 @@ pub const Ui = struct {
         if (!ig.igBeginMenu("Help")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx("Contents", "F1", false, true)) self.openHelp();
+        ig.igSeparator();
+        if (ig.igMenuItem("About Blitzkrieg ELK...")) self.about_open = true;
+    }
+
+    /// Help > About: the name, the version and what the kit is.
+    fn drawAboutWindow(self: *Ui) void {
+        self.about_drawn = false;
+        if (!self.about_open) return;
+        const viewport = ig.igGetMainViewport();
+        const centre: ig.ImVec2 = .{ .x = viewport.*.WorkPos.x + viewport.*.WorkSize.x * 0.5, .y = viewport.*.WorkPos.y + viewport.*.WorkSize.y * 0.4 };
+        ig.igSetNextWindowPosEx(centre, ig.ImGuiCond_Appearing, .{ .x = 0.5, .y = 0.5 });
+        var open = true;
+        if (ig.igBegin("About Blitzkrieg ELK", &open, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+            self.about_drawn = true;
+            ig.igTextUnformatted(app_title);
+            ig.igTextUnformatted(app_version);
+            ig.igPushTextWrapPos(ig.igGetFontSize() * 28);
+            ig.igTextUnformatted(about_kit);
+            ig.igPopTextWrapPos();
+            if (ig.igButton("OK")) open = false;
+        }
+        ig.igEnd();
+        if (!open) self.about_open = false;
     }
 
     /// `IDR_SHORT_MAINFRAME`'s menu: Exit; Next and Previous; the statistic;
@@ -1871,7 +1937,11 @@ pub const Ui = struct {
     fn drawViewMenu(self: *Ui) void {
         if (!ig.igBeginMenu("View")) return;
         defer ig.igEndMenu();
+        if (ig.igMenuItemEx("ELK Tree", null, self.settings.show_tree, true)) self.toggleTree();
         if (ig.igMenuItemEx("ELK Statistic", null, false, self.session.isOpen())) self.openStatistics();
+        if (self.short) return;
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Status Bar", null, self.settings.show_status_bar, true)) self.toggleStatusBar();
     }
 
     /// The Find window, laid out as the Windows Find dialog the MFC ELK
@@ -1926,38 +1996,40 @@ pub const Ui = struct {
     /// each with its four states summed over the elements and then each
     /// element ("Name, VERSION: v") with its four states; Items, Words,
     /// Word Symbols and Symbols, the thousands set apart. The two halves
-    /// start open, the elements closed.
+    /// start open, the elements closed. The same four again "at last close"
+    /// are the snapshot elk.xml kept (B10), "-" where it has none.
     fn drawStatisticsWindow(self: *Ui) void {
         self.statistics_drawn = false;
         const statistic = self.statistics orelse return;
         if (!self.session.isOpen()) return self.closeStatistics();
         const font = ig.igGetFontSize();
-        ig.igSetNextWindowSize(.{ .x = font * 44, .y = font * 24 }, ig.ImGuiCond_Appearing);
+        ig.igSetNextWindowSize(.{ .x = font * 80, .y = font * 24 }, ig.ImGuiCond_Appearing);
         var open = true;
         if (ig.igBegin("ELK Statistic", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.statistics_drawn = true;
             const table_flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Resizable | ig.ImGuiTableFlags_ScrollY;
-            if (ig.igBeginTableEx("statistic", 5, table_flags, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
+            if (ig.igBeginTableEx("statistic", 9, table_flags, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
                 ig.igTableSetupScrollFreeze(0, 1);
                 ig.igTableSetupColumnEx("Tree", ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
                 for ([_][*:0]const u8{ "Items", "Words", "Word Symbols", "Symbols" }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
+                for ([_][*:0]const u8{ "Items at last close", "Words", "Word Symbols", "Symbols" }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
                 ig.igTableHeadersRow();
                 const tree = &self.session.tree.?;
                 for ([_]bool{ false, true }) |translation| {
                     ig.igPushIDInt(@intFromBool(translation));
                     defer ig.igPopID();
                     const label = if (translation) "Translation" else "Original Text";
-                    if (tableRow(label, ig.ImGuiTreeNodeFlags_DefaultOpen, null, self.statisticRow(translation, null, null).?)) {
+                    if (tableRow(label, ig.ImGuiTreeNodeFlags_DefaultOpen, null, self.statisticRow(.now, translation, null, null).?, self.statisticRow(.last_close, translation, null, null))) {
                         defer ig.igTreePop();
-                        for (std.enums.values(State)) |state| _ = tableRow(stateName(state), ig.ImGuiTreeNodeFlags_Leaf, stateColour(state), self.statisticRow(translation, null, state).?);
+                        for (std.enums.values(State)) |state| _ = tableRow(stateName(state), ig.ImGuiTreeNodeFlags_Leaf, stateColour(state), self.statisticRow(.now, translation, null, state).?, self.statisticRow(.last_close, translation, null, state));
                         const half = if (translation) statistic.translation else statistic.original;
                         for (0..half.len) |element| {
                             ig.igPushIDInt(@intCast(element));
                             defer ig.igPopID();
                             const root = tree.rootOf(element) orelse continue;
-                            if (tableRow(tree.nodes[root].name, 0, null, self.statisticRow(translation, element, null).?)) {
+                            if (tableRow(tree.nodes[root].name, 0, null, self.statisticRow(.now, translation, element, null).?, self.statisticRow(.last_close, translation, element, null))) {
                                 defer ig.igTreePop();
-                                for (std.enums.values(State)) |state| _ = tableRow(stateName(state), ig.ImGuiTreeNodeFlags_Leaf, stateColour(state), self.statisticRow(translation, element, state).?);
+                                for (std.enums.values(State)) |state| _ = tableRow(stateName(state), ig.ImGuiTreeNodeFlags_Leaf, stateColour(state), self.statisticRow(.now, translation, element, state).?, self.statisticRow(.last_close, translation, element, state));
                             }
                         }
                     }
@@ -2244,9 +2316,9 @@ pub fn stateColour(state: State) u32 {
 }
 
 /// A row of the statistic table: a tree node in the first column, the four
-/// counts right-aligned after it. Returns whether a node with children is
-/// open (the caller pops it then).
-fn tableRow(label: []const u8, flags: ig.ImGuiTreeNodeFlags, colour: ?u32, counts: Counts) bool {
+/// counts right-aligned after it, then the last close's four or dashes.
+/// Returns whether a node with children is open (the caller pops it then).
+fn tableRow(label: []const u8, flags: ig.ImGuiTreeNodeFlags, colour: ?u32, counts: Counts, last_close: ?Counts) bool {
     ig.igTableNextRow();
     _ = ig.igTableNextColumn();
     var label_buffer: [512:0]u8 = undefined;
@@ -2255,10 +2327,13 @@ fn tableRow(label: []const u8, flags: ig.ImGuiTreeNodeFlags, colour: ?u32, count
     const leaf = flags & ig.ImGuiTreeNodeFlags_Leaf != 0;
     const open = ig.igTreeNodeEx(text.ptr, flags | ig.ImGuiTreeNodeFlags_SpanFullWidth | (if (leaf) ig.ImGuiTreeNodeFlags_NoTreePushOnOpen else 0));
     if (colour != null) ig.igPopStyleColor();
-    for ([_]i32{ counts.texts, counts.words, counts.word_symbols, counts.symbols }) |value| {
+    const then = last_close orelse Counts{};
+    const values = [_]i32{ counts.texts, counts.words, counts.word_symbols, counts.symbols, then.texts, then.words, then.word_symbols, then.symbols };
+    for (values, 0..) |value, column| {
         _ = ig.igTableNextColumn();
         var number_buffer: [24:0]u8 = undefined;
-        const number = elk_core.stats.formatCount(number_buffer[0 .. number_buffer.len - 1], value);
+        const number = if (column >= 4 and last_close == null) "-" else elk_core.stats.formatCount(number_buffer[0 .. number_buffer.len - 1], value);
+        if (number.ptr != &number_buffer) @memcpy(number_buffer[0..number.len], number);
         number_buffer[number.len] = 0;
         const width = ig.igCalcTextSize(&number_buffer).x;
         ig.igSetCursorPosX(ig.igGetCursorPosX() + @max(0, ig.igGetContentRegionAvail().x - width));

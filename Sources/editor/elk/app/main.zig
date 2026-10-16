@@ -29,10 +29,13 @@
 //! falls back to All), Cancel keeps what it would have dropped, and a
 //! fourth run finds the dialog's result and the mode in elk.cfg. A fifth
 //! copy proves View > ELK Statistic, its counts asserted against the
-//! numbers of the tracked database, and Edit > Find...: hits in the
+//! numbers of the tracked database and its "at last close" against the
+//! snapshot elk.xml holds, and Edit > Find...: hits in the
 //! translation and the original, the resume within a field, the wrap, Match
-//! case and Whole word missing, Up reaching the text above, and a second
-//! run finding the text and options in elk.cfg. A sixth copy proves the pak
+//! case and Whole word missing, Up reaching the text above; View > ELK Tree
+//! and Status Bar turned off and Help > About; and a second run finding the
+//! text and options in elk.cfg, the tree and the status line still off, and
+//! the counts the first run's Exit kept as the snapshot. A sixth copy proves the pak
 //! export against a scratch game folder, never a real one: File > Export to
 //! language mod by name and by a folder answered for Browse..., each pak
 //! read back by the core with all 2,852 texts; Install to game warning
@@ -223,7 +226,10 @@ const filter_edit_reopen_schedule =
 /// twice and in the name's original once, nowhere else; the Russian
 /// original of the desc says "Кубанском", which Whole word "Kuba" misses.
 /// "Rommel" is in Tunis's original and translation, Tobruk (above it) and
-/// Africa (below it).
+/// Africa (below it). The copy's elk.xml holds the MFC ELK's snapshot of an
+/// older database (2,968 texts) as the statistic window's "at last close";
+/// Exit keeps the counts made here in its place, which the second run shows.
+/// The tree and the status line are turned off before Exit, About opened.
 const kuban_desc = "medals/german/kuban/desc";
 const kuban_name = "medals/german/kuban/name";
 const tunis = "scenarios/chapters/allies/tunis/description";
@@ -232,7 +238,9 @@ const find_schedule =
     "2:expect=open,2:do=statistics,4:expect=statistics:1," ++
     "4:expect=statistic:original/total=2852/42146/223983/279715,4:expect=statistic:original/0=2852/42146/223983/279715," ++
     "4:expect=statistic:original/not_translated=885/19166/100693/122903,4:expect=statistic:translation/translated=4/55/263/316," ++
-    "4:expect=statistic:translation/0.approved=593/183/1059/1180,5:do=statistics_close,7:expect=statistics:0," ++
+    "4:expect=statistic:translation/0.approved=593/183/1059/1180," ++
+    "4:expect=last_close:original/total=2968/53860/277016/344482,4:expect=last_close:translation/0.approved=1017/7080/35259/42123," ++
+    "4:expect=last_close:original/1=none,4:expect=tree:1,4:expect=status_bar:1,5:do=statistics_close,7:expect=statistics:0," ++
     // From nothing selected: the three hits in the tree's order, then round.
     "8:do=find_dialog,10:expect=find_dialog:1,10:do=find_next:kuban,12:expect=found:" ++ kuban_desc ++ "=translation:4," ++
     "12:expect=expanded:medals/german/kuban=1,13:do=find_next:kuban,15:expect=found:" ++ kuban_desc ++ "=translation:68," ++
@@ -244,13 +252,19 @@ const find_schedule =
     // Up from Tunis: its own two hits, then Tobruk above it.
     "30:do=find_option:whole_word=0,30:do=find_option:down=0,30:do=select_key:" ++ tunis ++ "," ++
     "31:do=find_next:Rommel,33:expect=found:" ++ tunis ++ "=original:617,34:do=find_next:Rommel,36:expect=found:" ++ tunis ++ "=translation:618," ++
-    "37:do=find_next:Rommel,39:expect=found:" ++ tobruk ++ "=original:858,40:do=find_close,42:expect=find_dialog:0,43:exit";
+    "37:do=find_next:Rommel,39:expect=found:" ++ tobruk ++ "=original:858,40:do=find_close,42:expect=find_dialog:0," ++
+    "42:do=view_tree,42:do=view_status_bar,44:expect=tree:0,44:expect=status_bar:0,44:do=about,46:expect=about:1," ++
+    "46:do=about_close,48:expect=about:0,49:exit";
 /// The second run on the same elk.cfg: the text and Up are kept; Down from
-/// nothing selected finds Tobruk, the first text that has it.
+/// nothing selected finds Tobruk, the first text that has it. The tree and
+/// the status line stay off; "at last close" is what the first run counted.
 const find_reopen_schedule =
-    "2:expect=open,2:expect=find_text:Rommel,2:expect=find_option:down=0,2:expect=find_option:match_case=0," ++
-    "2:expect=find_option:whole_word=0,3:key=f+ctrl,5:expect=find_dialog:1,5:do=find_option:down=1," ++
-    "6:do=find_next:Rommel,8:expect=found:" ++ tobruk ++ "=original:858,9:exit";
+    "2:expect=open,2:expect=tree:0,2:expect=status_bar:0,2:do=statistics," ++
+    "4:expect=last_close:original/total=2852/42146/223983/279715,4:expect=last_close:translation/0.approved=593/183/1059/1180," ++
+    "4:do=statistics_close,5:do=view_tree,7:expect=tree:1,7:expect=status_bar:0," ++
+    "8:expect=find_text:Rommel,2:expect=find_option:down=0,2:expect=find_option:match_case=0," ++
+    "8:expect=find_option:whole_word=0,9:key=f+ctrl,11:expect=find_dialog:1,11:do=find_option:down=1," ++
+    "12:do=find_next:Rommel,14:expect=found:" ++ tobruk ++ "=original:858,15:exit";
 
 /// The pak export pass. The scratch game folder holds one loose text of the
 /// database, the Exit Game label E-06 changed, so Install to game warns.
@@ -602,7 +616,7 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (worked.code != 0) return worked.code;
     const updated = smokePackages(gpa, io, environ, source, scratch);
     if (updated.code != 0) return updated.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod (by filter too) and into the game and Run Game, spell check's walk with Add to dictionary kept over a restart, the description view, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole, Import from Game and Import from PAK/UPD on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, updated.frames, result.fonts, elk_path });
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic with the snapshot Exit keeps, Find, View > ELK Tree and Status Bar kept over a restart, About, the export to a mod (by filter too) and into the game and Run Game, spell check's walk with Add to dictionary kept over a restart, the description view, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole, Import from Game and Import from PAK/UPD on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, updated.frames, result.fonts, elk_path });
     return 0;
 }
 

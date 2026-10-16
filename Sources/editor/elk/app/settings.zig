@@ -18,7 +18,10 @@
 //! folder ELK runs from, which is the game's when ELK is installed beside it.
 //! Spell check keeps its dictionary folder (`spell_folder=`, empty meaning
 //! `dictionaries` beside ELK) and language (`spell_language=`, a dictionary's
-//! name such as `en_US`; empty or missing takes the folder's first). The rest
+//! name such as `en_US`; empty or missing takes the folder's first). View >
+//! ELK Tree and View > Status Bar keep whether the tree and the status line
+//! show (`show_tree=`, `show_status_bar=`, on unless the file says `0`, the
+//! MFC frame's saved bar state). The rest
 //! of D-16 (last PAK and XLS folders, fonts, toolbars) joins with the
 //! features that use it.
 //!
@@ -61,6 +64,9 @@ pub const Settings = struct {
     current_filter_storage: FixedPath = .{},
     /// Browse collapses the branch it leaves (`bCollapseItem`, B5).
     collapse_item: bool = true,
+    /// View > ELK Tree and View > Status Bar.
+    show_tree: bool = true,
+    show_status_bar: bool = true,
     /// Edit > Find...'s text and options (`SSearchParam`).
     find_text_storage: FixedPath = .{},
     find_down: bool = true,
@@ -262,6 +268,10 @@ pub fn parse(text: []const u8) Settings {
             settings.current_filter_storage.set(value);
         } else if (std.mem.eql(u8, key, "collapse_item")) {
             settings.collapse_item = !std.mem.eql(u8, value, "0");
+        } else if (std.mem.eql(u8, key, "show_tree")) {
+            settings.show_tree = !std.mem.eql(u8, value, "0");
+        } else if (std.mem.eql(u8, key, "show_status_bar")) {
+            settings.show_status_bar = !std.mem.eql(u8, value, "0");
         } else if (std.mem.eql(u8, key, "find_text")) {
             // Untrimmed: a search may start or end with a space.
             settings.setFindText(std.mem.trimEnd(u8, raw_line, "\r")[std.mem.indexOfScalar(u8, raw_line, '=').? + 1 ..]);
@@ -293,6 +303,8 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
     }
     try writer.print("current_filter={s}\n", .{settings.currentFilter()});
     try writer.print("collapse_item={d}\n", .{@intFromBool(settings.collapse_item)});
+    try writer.print("show_tree={d}\n", .{@intFromBool(settings.show_tree)});
+    try writer.print("show_status_bar={d}\n", .{@intFromBool(settings.show_status_bar)});
     try writer.print("find_text={s}\n", .{settings.findText()});
     try writer.print("find_down={d}\n", .{@intFromBool(settings.find_down)});
     try writer.print("find_match_case={d}\n", .{@intFromBool(settings.find_match_case)});
@@ -418,6 +430,17 @@ test "collapse-item is on unless the file turns it off" {
     var writer: std.Io.Writer = .fixed(&buffer);
     try format(&.{ .collapse_item = false }, &writer);
     try testing.expect(!parse(writer.buffered()).collapse_item);
+}
+
+test "the tree and the status bar show unless the file hides them" {
+    const defaults = parse("");
+    try testing.expect(defaults.show_tree and defaults.show_status_bar);
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&.{ .show_tree = false, .show_status_bar = false }, &writer);
+    const back = parse(writer.buffered());
+    try testing.expect(!back.show_tree and !back.show_status_bar);
+    try testing.expect(!parse("show_tree=0\n").show_tree and parse("show_tree=0\n").show_status_bar);
 }
 
 test "the find options round-trip, the text with its spaces" {
