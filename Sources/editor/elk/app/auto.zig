@@ -53,6 +53,11 @@
 //!   do=spell_add:<word>      the Spelling window's Add to dictionary on the
 //!                            word's first row (the window drawn last frame)
 //!   do=spell_close           the Spelling window's Close
+//!   do=spell_ignore  do=spell_ignore_all  the window's Ignore and Ignore
+//!                            All on the walk's current word
+//!   do=spell_change:<text>   type the text into Change to, press Change
+//!   do=spell_change_all:<text>  the same, press Change All
+//!   do=spell_check           the window's Check Again
 //!   do=spell_options         Tools > Spelling Options...
 //!   do=spell_folder:<path>   the options' Dictionary folder, relative to the
 //!                            runner's dialog folder if set; `-` is empty
@@ -133,6 +138,11 @@
 //!   expect=spelling:<0|1>    whether the last frame drew the Spelling window
 //!   expect=misspelt:<word>=<0|1>  whether the last check listed the word
 //!   expect=suggestion:<word>=<suggestion>  the word's first suggestion
+//!   expect=spell_current:<word>@<offset>  the walk's current word and its
+//!                            byte offset in the translation; `-` for none
+//!   expect=spell_change:<text>  what the Change to box holds
+//!   expect=description:<text>  the last frame drew the description view
+//!                            holding exactly the text; `-` is empty
 //!   expect=user_word:<word>  the word is a line of custom.dic on disk
 //!   expect=can_export:<0|1>  expect=can_run_game:<0|1>  whether the File
 //!                            menu's export commands and Run Game are enabled
@@ -359,6 +369,20 @@ pub const Runner = struct {
             } else {
                 const index = spellRow(ui, named.arg) orelse return self.fail("do=spell_add: the window lists no {s}", .{named.arg});
                 ui.addToDictionary(index);
+            }
+        } else if (is(named, "spell_check")) {
+            if (!ui.spell_drawn) return self.fail("do=spell_check: the Spelling window is not shown", .{});
+            ui.checkAgain();
+        } else if (is(named, "spell_ignore") or is(named, "spell_ignore_all") or is(named, "spell_change") or is(named, "spell_change_all")) {
+            if (!ui.spell_drawn) return self.fail("do={s}: the Spelling window is not shown", .{named.name});
+            if (ui.currentMisspelling() == null) return self.fail("do={s}: the walk has no current word", .{named.name});
+            if (is(named, "spell_ignore")) {
+                ui.ignoreWord();
+            } else if (is(named, "spell_ignore_all")) {
+                ui.ignoreAll();
+            } else {
+                ui.setChange(named.arg);
+                if (is(named, "spell_change")) ui.changeWord() else ui.changeAll();
             }
         } else if (is(named, "spell_options")) {
             ui.openSpellOptions();
@@ -643,6 +667,21 @@ pub const Runner = struct {
             const suggestions = ui.spell_results[index].suggestions;
             if (suggestions.len == 0 or !std.mem.eql(u8, suggestions[0], named.arg[eq + 1 ..]))
                 return self.fail("expect=suggestion: {s} has {d} suggestions, wanted {s} first", .{ named.arg[0..eq], suggestions.len, named.arg[eq + 1 ..] });
+        } else if (is(named, "spell_current")) {
+            var buffer: [256]u8 = undefined;
+            const shown = if (ui.currentMisspelling()) |index|
+                try std.fmt.bufPrint(&buffer, "{s}@{d}", .{ ui.spell_results[index].text, ui.spell_results[index].word.offset })
+            else
+                "-";
+            if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=spell_current: the walk is at {s}, wanted {s}", .{ shown, named.arg });
+        } else if (is(named, "spell_change")) {
+            const held = std.mem.sliceTo(&ui.spell_change_buffer, 0);
+            if (!std.mem.eql(u8, held, named.arg)) return self.fail("expect=spell_change: Change to holds \"{s}\", wanted \"{s}\"", .{ held, named.arg });
+        } else if (is(named, "description")) {
+            if (!ui.description_drawn) return self.fail("expect=description: the description view is not shown", .{});
+            const wanted = if (std.mem.eql(u8, named.arg, "-")) "" else named.arg;
+            const shown = session.description.text();
+            if (!std.mem.eql(u8, shown, wanted)) return self.fail("expect=description: the view holds \"{s}\", wanted \"{s}\"", .{ shown, wanted });
         } else if (is(named, "user_word")) {
             try self.userWord(ui, named.arg);
         } else if (is(named, "can_export") or is(named, "can_run_game")) {

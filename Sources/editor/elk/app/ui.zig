@@ -1,6 +1,7 @@
 //! The extended layout's minimum for a translator: File and Browse menus,
 //! the filter bar, the text tree coloured by state, the selected text's
-//! original, its translation and the state buttons, and a status line.
+//! original, its description (C1, read-only like the MFC view's), its
+//! translation and the state buttons, and a status line.
 //! Every save point goes through the session (D-15): leaving a text, Save
 //! (Ctrl+S), Close, Exit and the 30-second autosave. Browse First,
 //! Previous (Ctrl+P, Alt+P), Next (Ctrl+N, Alt+N) and Last walk the texts
@@ -19,9 +20,12 @@
 //! route is the default, since the game reads a mod before its loose files;
 //! Install to game warns when a loose folder would hide its `Data/Texts.pak`
 //! and offers the mod instead; Run Game plays the mod exported this session
-//! in ELK's own test profile. Tools > Spelling (F7) lists the misspelt words
-//! of the selected text's translation with Hunspell's suggestions and an Add
-//! to dictionary button for each; Tools > Spelling Options... picks the
+//! in ELK's own test profile. Tools > Spelling (F7) walks the misspelt words
+//! of the selected text's translation from its start: the current one with
+//! a Change to box, Ignore, Ignore All, Change and Change All, then every
+//! one with Hunspell's suggestions and an Add to dictionary button; a
+//! correction edits the translation box, which the D-15 save points write.
+//! Tools > Spelling Options... picks the
 //! dictionary folder and the language. Without a dictionary both say why
 //! spell check is off, and Spelling is disabled (spelling.zig). File >
 //! Import from spreadsheet... and Export to spreadsheet... exchange the
@@ -122,6 +126,10 @@ pub const Ui = struct {
     /// Set by `do=focus:translation`: the translation box takes the keyboard
     /// at the next frame.
     focus_translation: bool = false,
+    /// Part of the translation box's ID, moved on when spell check changes
+    /// the translation: an active box keeps its own copy of the text and
+    /// would write it back, a new one reads the buffer.
+    translation_generation: u32 = 0,
     /// How many tree rows the last frame drew (the smoke's proof the tree
     /// was laid out).
     rows_drawn: usize = 0,
@@ -138,6 +146,8 @@ pub const Ui = struct {
     scroll_to: ?u32 = null,
     /// The last frame drew the state buttons (a scripted press needs them).
     state_buttons_drawn: bool = false,
+    /// The last frame drew the description view.
+    description_drawn: bool = false,
     /// Added to the autosave clock: the scripted runs' `do=wait`, so 30
     /// seconds pass without waiting them out.
     clock_offset_ms: u64 = 0,
@@ -182,6 +192,12 @@ pub const Ui = struct {
     spell_arena: ?std.heap.ArenaAllocator = null,
     spell_text: ?usize = null,
     spell_checked: []const u8 = "",
+    /// The walk's place in the checked translation: the current word is the
+    /// first listed at or after it. Ignore moves it past the word, so it
+    /// holds for this run only; Check Again starts it over.
+    spell_cursor: usize = 0,
+    /// The Change to box, filled with the current word's first suggestion.
+    spell_change_buffer: [256:0]u8 = @splat(0),
     /// Tools > Spelling Options...: the Dictionary folder box.
     spell_options_open: bool = false,
     spell_options_drawn: bool = false,
@@ -643,6 +659,12 @@ pub const Ui = struct {
     pub fn openSpelling(self: *Ui) void {
         if (!self.canSpell()) return;
         self.spell_open = true;
+        self.checkAgain();
+    }
+
+    /// Check Again: a new run, the walk from the start of the translation.
+    pub fn checkAgain(self: *Ui) void {
+        self.spell_cursor = 0;
         self.checkSpelling();
     }
 
@@ -685,6 +707,80 @@ pub const Ui = struct {
         self.spell_arena = arena;
         self.spell_results = results;
         self.spell_text = index;
+        self.fillChange();
+    }
+
+    /// The walk's current word, an index into `spell_results`; null when
+    /// the walk is through or the list no longer matches the text.
+    pub fn currentMisspelling(self: *const Ui) ?usize {
+        if (self.spellStale()) return null;
+        for (self.spell_results, 0..) |result, index| if (result.word.offset >= self.spell_cursor) return index;
+        return null;
+    }
+
+    /// The Change to box takes the current word's first suggestion, else
+    /// the word itself to be typed over.
+    fn fillChange(self: *Ui) void {
+        const index = self.currentMisspelling() orelse return self.setChange("");
+        const result = self.spell_results[index];
+        self.setChange(if (result.suggestions.len != 0) result.suggestions[0] else result.text);
+    }
+
+    pub fn setChange(self: *Ui, text: []const u8) void {
+        const len = @min(text.len, self.spell_change_buffer.len);
+        @memcpy(self.spell_change_buffer[0..len], text[0..len]);
+        self.spell_change_buffer[len] = 0;
+    }
+
+    /// Ignore: the walk goes on past the current word; Check Again finds it
+    /// again.
+    pub fn ignoreWord(self: *Ui) void {
+        const index = self.currentMisspelling() orelse return;
+        const word = self.spell_results[index].word;
+        self.spell_cursor = word.offset + word.len;
+        self.fillChange();
+    }
+
+    /// Ignore All: the word passes every check until ELK exits.
+    pub fn ignoreAll(self: *Ui) void {
+        const index = self.currentMisspelling() orelse return;
+        self.spelling().ignore(self.spell_results[index].text) catch {
+            self.session.fail("spell check ran out of memory", .{});
+            return;
+        };
+        self.checkSpelling();
+    }
+
+    /// Change: the current word replaced by the Change to box in the
+    /// translation, the walk on past the correction.
+    pub fn changeWord(self: *Ui) void {
+        const index = self.currentMisspelling() orelse return;
+        const word = self.spell_results[index].word;
+        const with = std.mem.sliceTo(&self.spell_change_buffer, 0);
+        const changed = elk_core.spell.replaceWord(self.gpa, self.session.translation.text(), word, with) catch return self.session.fail("spell check ran out of memory", .{});
+        defer self.gpa.free(changed);
+        self.correct(changed, word.offset + with.len);
+    }
+
+    /// Change All: every occurrence of the current word in the translation
+    /// replaced, the walk on past the current one's correction.
+    pub fn changeAll(self: *Ui) void {
+        const index = self.currentMisspelling() orelse return;
+        const result = self.spell_results[index];
+        const with = std.mem.sliceTo(&self.spell_change_buffer, 0);
+        const replaced = elk_core.spell.replaceAll(self.gpa, self.session.translation.text(), result.text, with, result.word.offset + result.word.len) catch
+            return self.session.fail("spell check ran out of memory", .{});
+        defer self.gpa.free(replaced.text);
+        self.correct(replaced.text, replaced.kept);
+    }
+
+    /// A correction is an edit of the translation box like a typed one:
+    /// dirty until a D-15 save point writes it.
+    fn correct(self: *Ui, text: []const u8, cursor: usize) void {
+        self.session.translation.set(self.gpa, text) catch return self.session.fail("spell check ran out of memory", .{});
+        self.translation_generation +%= 1;
+        self.spell_cursor = cursor;
+        self.checkSpelling();
     }
 
     /// The list no longer matches the text: another one is selected or
@@ -1233,6 +1329,7 @@ pub const Ui = struct {
         self.rows_drawn = 0;
         self.drawn.clearRetainingCapacity();
         self.state_buttons_drawn = false;
+        self.description_drawn = false;
         self.toolbar_drawn = .none;
         if (!self.session.isOpen()) {
             ig.igTextUnformatted(if (self.short)
@@ -1610,15 +1707,16 @@ pub const Ui = struct {
         if (ig.igMenuItem("Spelling Options...")) self.openSpellOptions();
     }
 
-    /// Tools > Spelling's window: each misspelt word of the translation, its
-    /// place and suggestions, and Add to dictionary. The MFC ELK stopped at
-    /// each word in turn and asked to add it; this lists them all at once.
+    /// Tools > Spelling's window: the walk's current word with Change to,
+    /// Ignore, Ignore All, Change and Change All, as the MFC ELK stopped at
+    /// each word in turn; below it each misspelt word of the translation,
+    /// its place and suggestions, and Add to dictionary.
     fn drawSpellingWindow(self: *Ui) void {
         self.spell_drawn = false;
         if (!self.spell_open) return;
         if (!self.session.isOpen()) return self.closeSpelling();
         const font = ig.igGetFontSize();
-        ig.igSetNextWindowSize(.{ .x = font * 36, .y = font * 18 }, ig.ImGuiCond_Appearing);
+        ig.igSetNextWindowSize(.{ .x = font * 36, .y = font * 24 }, ig.ImGuiCond_Appearing);
         var open = true;
         if (ig.igBegin("Spelling", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.spell_drawn = true;
@@ -1630,6 +1728,7 @@ pub const Ui = struct {
                 std.mem.printSentinel(&line, "{s}", .{state.reason()}, 0) catch "";
             ig.igTextUnformatted(heading.ptr);
             if (self.spellStale()) ig.igTextUnformatted("The translation changed since the check; press Check Again.");
+            self.drawSpellWalk(&line);
             if (self.spell_results.len == 0) {
                 ig.igTextUnformatted("No misspelt words in this translation.");
             } else if (ig.igBeginTableEx("words", 4, ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_ScrollY, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
@@ -1661,13 +1760,50 @@ pub const Ui = struct {
                 if (added) |index| self.addToDictionary(index);
             }
             ig.igBeginDisabled(!self.canSpell());
-            if (ig.igButton("Check Again")) self.checkSpelling();
+            if (ig.igButton("Check Again")) self.checkAgain();
             ig.igEndDisabled();
             ig.igSameLine();
             if (ig.igButton("Close")) open = false;
         }
         ig.igEnd();
         if (!open) self.closeSpelling();
+    }
+
+    /// The walk's part of the Spelling window. A suggestion clicked fills
+    /// Change to; the buttons act on the current word.
+    fn drawSpellWalk(self: *Ui, line: *[1024:0]u8) void {
+        const index = self.currentMisspelling() orelse {
+            if (!self.spellStale() and self.spell_results.len != 0) ig.igTextUnformatted("The walk is through this translation.");
+            ig.igSeparator();
+            return;
+        };
+        const result = self.spell_results[index];
+        printText(line, "Not in dictionary: {s} (at {d})", .{ result.text, result.word.offset });
+        ig.igTextUnformatted("Change to:");
+        ig.igSameLine();
+        ig.igSetNextItemWidth(ig.igGetFontSize() * 14);
+        _ = ig.igInputText("##change", &self.spell_change_buffer, self.spell_change_buffer.len, 0);
+        for (result.suggestions[0..@min(result.suggestions.len, 6)], 0..) |suggestion, at| {
+            ig.igPushIDInt(@intCast(at));
+            defer ig.igPopID();
+            if (at != 0) ig.igSameLine();
+            const label = std.mem.printSentinel(line, "{s}", .{suggestion}, 0) catch continue;
+            if (ig.igSmallButton(label.ptr)) self.setChange(suggestion);
+        }
+        // Acted on after the buttons: each checks again, which frees `result`.
+        const actions = [_]struct { label: [*:0]const u8, act: *const fn (*Ui) void }{
+            .{ .label = "Ignore", .act = ignoreWord },
+            .{ .label = "Ignore All", .act = ignoreAll },
+            .{ .label = "Change", .act = changeWord },
+            .{ .label = "Change All", .act = changeAll },
+        };
+        var pressed: ?*const fn (*Ui) void = null;
+        for (actions, 0..) |action, at| {
+            if (at != 0) ig.igSameLine();
+            if (ig.igButton(action.label)) pressed = action.act;
+        }
+        ig.igSeparator();
+        if (pressed) |act| act(self);
     }
 
     /// Tools > Spelling Options...: the dictionary folder (Enter or Use
@@ -2001,14 +2137,21 @@ pub const Ui = struct {
             ig.igTextUnformatted("Select a text in the list.");
             return;
         };
-        const half = (ig.igGetContentRegionAvail().y - 2 * ig.igGetTextLineHeightWithSpacing() - ig.igGetFrameHeightWithSpacing()) / 2;
+        const third = (ig.igGetContentRegionAvail().y - 3 * ig.igGetTextLineHeightWithSpacing() - ig.igGetFrameHeightWithSpacing()) / 3;
         // The text's own ID, so an edit box active on the previous text does
         // not carry its buffer over to this one.
         ig.igPushIDInt(@intCast(index));
         defer ig.igPopID();
         ig.igTextUnformatted("Original");
         if (self.session.original.storage(self.gpa)) |storage| {
-            _ = ig.igInputTextMultilineEx("##original", storage.ptr, storage.len, .{ .x = -1, .y = half }, ig.ImGuiInputTextFlags_ReadOnly, null, null);
+            _ = ig.igInputTextMultilineEx("##original", storage.ptr, storage.len, .{ .x = -1, .y = third }, ig.ImGuiInputTextFlags_ReadOnly, null, null);
+        } else |_| {}
+        // The MFC view's "Item description:", read-only with select and
+        // copy; where Find shows a hit in a description.
+        ig.igTextUnformatted("Description");
+        if (self.session.description.storage(self.gpa)) |storage| {
+            _ = ig.igInputTextMultilineEx("##description", storage.ptr, storage.len, .{ .x = -1, .y = third }, ig.ImGuiInputTextFlags_ReadOnly, null, null);
+            self.description_drawn = true;
         } else |_| {}
         self.drawStateButtons();
         ig.igTextUnformatted("Translation");
@@ -2017,6 +2160,8 @@ pub const Ui = struct {
             ig.igSetKeyboardFocusHere();
             self.focus_translation = false;
         }
+        ig.igPushIDInt(@bitCast(self.translation_generation));
+        defer ig.igPopID();
         if (self.session.translation.storage(self.gpa)) |storage| {
             _ = ig.igInputTextMultilineEx("##translation", storage.ptr, storage.len, .{ .x = -1, .y = -1 }, ig.ImGuiInputTextFlags_CallbackResize, resizeTranslation, self);
             self.session.translation.settle();

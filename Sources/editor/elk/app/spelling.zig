@@ -22,6 +22,9 @@ pub const Spelling = struct {
     languages: [][]u8 = &.{},
     language: ?usize = null,
     user: spell.UserDictionary = .{},
+    /// The Spelling window's Ignore All: accepted until ELK exits, in no
+    /// file, and kept over another dictionary or language.
+    ignored: spell.UserDictionary = .{},
     /// Null keeps added words for this run only (a scripted run with no
     /// elk.cfg).
     user_path: ?[]u8 = null,
@@ -35,6 +38,7 @@ pub const Spelling = struct {
     pub fn deinit(self: *Spelling) void {
         self.unload();
         self.user.deinit(self.gpa);
+        self.ignored.deinit(self.gpa);
         if (self.user_path) |path| self.gpa.free(path);
     }
 
@@ -104,11 +108,26 @@ pub const Spelling = struct {
         return self.languages[self.language orelse return ""];
     }
 
-    /// The misspelt words of `text`, allocated in `allocator`; none while
-    /// spell check is off.
+    /// The misspelt words of `text` Ignore All has not taken, allocated in
+    /// `allocator`; none while spell check is off.
     pub fn check(self: *Spelling, allocator: std.mem.Allocator, text: []const u8) ![]Word {
         const loaded = &(self.hunspell orelse return allocator.alloc(Word, 0));
-        return spell.misspellings(allocator, loaded.engine(), &self.user, text);
+        const found = try spell.misspellings(allocator, loaded.engine(), &self.user, text);
+        var kept: usize = 0;
+        for (found) |word| {
+            if (self.ignored.contains(word.of(text))) continue;
+            found[kept] = word;
+            kept += 1;
+        }
+        // Shrinking in place keeps the caller's free of the slice valid.
+        if (allocator.resize(found, kept)) return found[0..kept];
+        defer allocator.free(found);
+        return allocator.dupe(Word, found[0..kept]);
+    }
+
+    /// Ignore All: the word passes every check until ELK exits.
+    pub fn ignore(self: *Spelling, word: []const u8) !void {
+        _ = try self.ignored.add(self.gpa, word);
     }
 
     pub fn suggest(self: *Spelling, allocator: std.mem.Allocator, word: []const u8) ![]const []const u8 {
@@ -228,6 +247,26 @@ test "Add to dictionary clears the flag, lands in custom.dic and holds after a r
     const found = try again.check(testing.allocator, "Redy redy tank");
     defer testing.allocator.free(found);
     try testing.expectEqual(@as(usize, 0), found.len);
+}
+
+test "Ignore All passes the word for the session, in no file, over another load" {
+    const io = testing.io;
+    const cwd = std.Io.Dir.cwd();
+    const root = scratch ++ "/ignore";
+    cwd.deleteTree(io, root) catch {};
+    try writeTestDictionary(io, root ++ "/dictionaries");
+    try cwd.createDirPath(io, root ++ "/user");
+    var spelling = Spelling.init(testing.allocator, io);
+    defer spelling.deinit();
+    spelling.configure(root ++ "/dictionaries", test_language, root ++ "/user");
+    try spelling.ignore("zorg");
+    spelling.configure(root ++ "/dictionaries", test_language, root ++ "/user");
+    const text = "zorg tank redy zorg";
+    const found = try spelling.check(testing.allocator, text);
+    defer testing.allocator.free(found);
+    try testing.expectEqual(@as(usize, 1), found.len);
+    try testing.expectEqualStrings("redy", found[0].of(text));
+    try testing.expectError(error.FileNotFound, cwd.access(io, root ++ "/user/" ++ spell.user_dictionary_name, .{}));
 }
 
 test "without a usable dictionary spell check is off with the reason" {

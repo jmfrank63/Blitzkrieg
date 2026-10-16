@@ -89,6 +89,38 @@ pub fn misspellings(allocator: std.mem.Allocator, engine: Engine, user: *const U
     return found.toOwnedSlice(allocator);
 }
 
+/// The Spelling window's Change: `text` with `word` replaced by `with`.
+pub fn replaceWord(allocator: std.mem.Allocator, text: []const u8, word: Word, with: []const u8) ![]u8 {
+    return std.mem.concat(allocator, u8, &.{ text[0..word.offset], with, text[word.offset + word.len ..] });
+}
+
+/// Change All's result: the text, how many words it replaced, and the
+/// offset asked to be kept, moved to where it is in the new text.
+pub const Replaced = struct { text: []u8, count: usize, kept: usize };
+
+/// Change All: every word of `text` (as `nextWord` splits it) that is
+/// `misspelt`, byte for byte, replaced by `with`; a longer word holding it
+/// is left alone. `kept` is an offset of `text` at a word's end or between
+/// words, as the walk's position is.
+pub fn replaceAll(allocator: std.mem.Allocator, text: []const u8, misspelt: []const u8, with: []const u8, kept: usize) !Replaced {
+    var out: std.ArrayListUnmanaged(u8) = .empty;
+    errdefer out.deinit(allocator);
+    var count: usize = 0;
+    var moved = kept;
+    var copied: usize = 0;
+    var at: usize = 0;
+    while (nextWord(text, at)) |word| : (at = word.offset + word.len) {
+        if (!std.mem.eql(u8, word.of(text), misspelt)) continue;
+        try out.appendSlice(allocator, text[copied..word.offset]);
+        try out.appendSlice(allocator, with);
+        copied = word.offset + word.len;
+        count += 1;
+        if (copied <= kept) moved = moved + with.len - misspelt.len;
+    }
+    try out.appendSlice(allocator, text[copied..]);
+    return .{ .text = try out.toOwnedSlice(allocator), .count = count, .kept = moved };
+}
+
 /// `custom.dic`: UTF-8, one word per line, `#` starting a comment line, so
 /// the legacy `CUSTOM.DIC` and its `#LID 1049` header read as no words.
 /// Lines that are not UTF-8 (a legacy code page's words) are skipped.
@@ -299,6 +331,33 @@ test "the pass lists each unknown word where it stands; the user dictionary acce
     try testing.expectEqual(@as(usize, 12), found[1].offset);
     try testing.expectEqualStrings("redy", found[1].of(text));
     try testing.expectEqual(@as(usize, 32), found[2].offset);
+}
+
+test "Change replaces one word; Change All every whole word, the walk's place moved with them" {
+    const text = "teh tank, teh-teh tehs: teh";
+    const one = try replaceWord(testing.allocator, text, .{ .offset = 10, .len = 3 }, "the");
+    defer testing.allocator.free(one);
+    try testing.expectEqualStrings("teh tank, the-teh tehs: teh", one);
+
+    // From the second "teh" (ending at 13): the two before and at it move
+    // the place by one byte each; "tehs" is another word.
+    const all = try replaceAll(testing.allocator, text, "teh", "thee", 13);
+    defer testing.allocator.free(all.text);
+    try testing.expectEqualStrings("thee tank, thee-thee tehs: thee", all.text);
+    try testing.expectEqual(@as(usize, 4), all.count);
+    try testing.expectEqual(@as(usize, 15), all.kept);
+    try testing.expectEqualStrings("thee", all.text[11..15]);
+
+    // Cyrillic, and nothing to replace.
+    const short = try replaceAll(testing.allocator, "Кубанн и Кубанн", "Кубанн", "Кубань", 0);
+    defer testing.allocator.free(short.text);
+    try testing.expectEqualStrings("Кубань и Кубань", short.text);
+    try testing.expectEqual(@as(usize, 0), short.kept);
+    const none = try replaceAll(testing.allocator, text, "tank,", "x", 4);
+    defer testing.allocator.free(none.text);
+    try testing.expectEqualStrings(text, none.text);
+    try testing.expectEqual(@as(usize, 0), none.count);
+    try testing.expectEqual(@as(usize, 4), none.kept);
 }
 
 test "custom.dic: the legacy header is a comment, words one per line, an added word appended" {

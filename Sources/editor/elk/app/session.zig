@@ -185,6 +185,8 @@ pub const Session = struct {
     /// The selected text, an index into `tree.texts`.
     selected: ?usize = null,
     original: TextBuffer = .{},
+    /// The selected text's description (C1), read-only like the original.
+    description: TextBuffer = .{},
     translation: TextBuffer = .{},
     /// The translation as it was when the text was selected or last saved:
     /// the edit is dirty while the buffer differs from it.
@@ -213,6 +215,7 @@ pub const Session = struct {
         self.drop();
         self.path_storage.deinit(self.gpa);
         self.original.deinit(self.gpa);
+        self.description.deinit(self.gpa);
         self.translation.deinit(self.gpa);
         self.saved_translation.deinit(self.gpa);
     }
@@ -283,10 +286,13 @@ pub const Session = struct {
         const chosen = self.textAt(index);
         const original = try database.readOriginal(self.gpa, chosen.element, chosen.key);
         defer self.gpa.free(original);
+        const description = try database.readDescription(self.gpa, chosen.element, chosen.key);
+        defer self.gpa.free(description);
         const translation = try database.readTranslation(self.gpa, chosen.element, chosen.key);
         defer self.gpa.free(translation);
         const property = try database.readState(chosen.element, chosen.key);
         try self.original.set(self.gpa, original);
+        try self.description.set(self.gpa, description);
         try self.translation.set(self.gpa, translation);
         self.saved_translation.clearRetainingCapacity();
         try self.saved_translation.appendSlice(self.gpa, translation);
@@ -632,6 +638,34 @@ test "the tracked database lists every text and shows the selected one" {
     try session.select(0);
     try session.close();
     try testing.expect(!session.isOpen());
+}
+
+test "a selected text shows its own description, else its folder's" {
+    const io = testing.io;
+    const root = try fixture(io, "description");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    const own = try std.fs.path.join(testing.allocator, &.{ root, "game_data_base/medals/1/name.dsc" });
+    defer testing.allocator.free(own);
+    const folder = try std.fs.path.join(testing.allocator, &.{ root, "game_data_base/medals/_folder.dsc" });
+    defer testing.allocator.free(folder);
+    const cwd = std.Io.Dir.cwd();
+    for ([_][]const u8{ own, folder }, [_][]const u8{ "Медаль за отвагу", "All medals" }) |path, text| {
+        const bytes = try elk.text_codec.fromEditor(testing.allocator, text);
+        defer testing.allocator.free(bytes);
+        try cwd.writeFile(io, .{ .sub_path = path, .data = bytes });
+    }
+    var session = Session.init(testing.allocator, io);
+    defer session.deinit();
+    try session.open(elk_path);
+    try session.select(session.find("medals/1/name").?);
+    try testing.expectEqualStrings("Медаль за отвагу", session.description.text());
+    try cwd.deleteFile(io, own);
+    try session.close();
+    try session.open(elk_path);
+    try session.select(session.find("medals/1/name").?);
+    try testing.expectEqualStrings("All medals", session.description.text());
 }
 
 test "each save point writes an edited translation and turns it Translated" {

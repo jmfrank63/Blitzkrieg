@@ -44,7 +44,11 @@
 //! folder is missing, on with a generated test dictionary chosen in Spelling
 //! Options, F7 listing a typed misspelling with its suggestion, Add to
 //! dictionary writing custom.dic beside the run's elk.cfg and clearing the
-//! flag, and a second run still accepting the word. An eighth copy proves
+//! flag, the walk's Ignore, Change All, Ignore All, Check Again and Change
+//! (the corrections in the box, then saved), and a second run still
+//! accepting the added word but not the ignored one; the same copy's
+//! description view (C1) shows a text's own `.dsc`, Find's hit in it and a
+//! folder's `_folder.dsc`. An eighth copy proves
 //! the spreadsheet exchange (D-10): Export to spreadsheet writing all 2,852
 //! texts to `.xlsx` (the default for a name without extension) and `.csv`
 //! and refusing `.xls`; Import from spreadsheet setting an edited
@@ -286,20 +290,42 @@ const cancelled_mod = "ELKCancelled";
 /// The spell check pass. The install has no `dictionaries` folder beside
 /// ELK, so spell check starts off; the copy's own folder then gets the
 /// generated test dictionary (spelling.zig), chosen through the options.
-const spell_typed = "The tanks are redy and teh medals";
+/// The walk: Ignore passes "are", Change All turns both "teh" into "the",
+/// Ignore All takes "zorg", Check Again finds "are" again, Change makes it
+/// "is"; the translation box, not yet the disk, holds each correction
+/// until Save. The description view then shows the text's own `.dsc`
+/// (written into the copy, Data/ELK has none), Find's hit in it, and the
+/// Kuban texts' `_folder.dsc`. A schedule's argument holds no space, so
+/// these texts part their words with other spelling delimiters.
+const spell_typed = "The_tanks_are_redy_and_teh_medals;teh_tank:zorg";
+const spell_changed_all = "The_tanks_are_redy_and_the_medals;the_tank:zorg";
+const spell_changed = "The_tanks_is_redy_and_the_medals;the_tank:zorg";
+const own_description = "The-Smoke-medal-of-the-smoke-test";
+const folder_description = "German-medals";
 const spell_schedule =
     "2:expect=open,2:do=select_key:" ++ smoke_key ++ ",3:expect=can_spell:0,3:expect=spell_reason_has:dictionaries," ++
     "4:do=spell_options,5:do=spell_folder:dictionaries,6:expect=spell_language:" ++ spelling_mod.test_language ++ ",6:expect=can_spell:1," ++
     "7:do=focus:translation,9:key=a+ctrl,10:text=" ++ spell_typed ++ "," ++
     "13:key=f7,15:expect=spelling:1,15:expect=misspelt:redy=1,15:expect=misspelt:teh=1,15:expect=misspelt:tanks=0," ++
-    "15:expect=suggestion:redy=ready,15:expect=suggestion:teh=the,16:do=spell_add:redy,18:expect=misspelt:redy=0," ++
-    "18:expect=misspelt:teh=1,18:expect=user_word:redy,19:do=spell_close,21:expect=spelling:0,22:exit";
+    "15:expect=suggestion:redy=ready,15:expect=suggestion:teh=the,15:expect=spell_current:are@10," ++
+    "16:do=spell_add:redy,18:expect=misspelt:redy=0,18:expect=misspelt:teh=1,18:expect=user_word:redy,18:expect=spell_current:are@10," ++
+    "19:do=spell_ignore,20:expect=spell_current:teh@23,20:expect=spell_change:the,20:expect=misspelt:are=1," ++
+    "21:do=spell_change_all:the,23:expect=translation:" ++ spell_changed_all ++ ",23:expect=spell_current:zorg@43,23:expect=dirty:1," ++
+    "24:do=spell_ignore_all,26:expect=spell_current:-,26:expect=misspelt:zorg=0," ++
+    "27:do=spell_check,28:expect=spell_current:are@10,28:expect=misspelt:zorg=0," ++
+    "29:do=spell_change:is,31:expect=spell_current:-,33:expect=translation:" ++ spell_changed ++ ",33:expect=disk:" ++ smoke_key ++ "=," ++
+    "34:do=save,36:expect=dirty:0,36:expect=disk:" ++ smoke_key ++ "=" ++ spell_changed ++ ",36:expect=state:" ++ smoke_key ++ "=translated," ++
+    "37:do=spell_close,39:expect=spelling:0," ++
+    "39:expect=description:" ++ own_description ++ ",40:do=find_dialog,42:do=find_next:Smoke-medal," ++
+    "44:expect=found:" ++ smoke_key ++ "=description:4,44:expect=description:" ++ own_description ++ ",45:do=find_close," ++
+    "46:do=select_key:" ++ kuban_desc ++ ",48:expect=description:" ++ folder_description ++ ",49:exit";
 /// The second run on the same elk.cfg: the folder and language are kept,
-/// and in the saved translation (its other misspelling still listed) the
-/// added word is still accepted.
+/// and in the saved translation the added word is still accepted, the
+/// word Ignore All took is flagged again.
 const spell_reopen_schedule =
     "2:expect=open,2:expect=spell_language:" ++ spelling_mod.test_language ++ ",2:do=select_key:" ++ smoke_key ++ "," ++
-    "3:do=spell,5:expect=spelling:1,5:expect=misspelt:redy=0,5:expect=misspelt:teh=1,6:exit";
+    "3:do=spell,5:expect=spelling:1,5:expect=misspelt:redy=0,5:expect=misspelt:teh=0,5:expect=misspelt:zorg=1," ++
+    "5:expect=spell_current:zorg@42,6:exit";
 
 /// The spreadsheet pass: exports to `.xlsx` (the name without extension)
 /// and `.csv`, `.xls` refused; an edited translation set back by importing
@@ -576,7 +602,7 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (worked.code != 0) return worked.code;
     const updated = smokePackages(gpa, io, environ, source, scratch);
     if (updated.code != 0) return updated.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod (by filter too) and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole, Import from Game and Import from PAK/UPD on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, updated.frames, result.fonts, elk_path });
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod (by filter too) and into the game and Run Game, spell check's walk with Add to dictionary kept over a restart, the description view, the spreadsheet export and import, the short layout with its update and Help, the worker's progress modal and Cancel leaving every file whole, Import from Game and Import from PAK/UPD on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, worked.frames, updated.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -683,6 +709,10 @@ fn smokeSpell(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
         std.debug.print("elk: smoke FAIL: could not write the test dictionary into {s}: {s}\n", .{ dictionaries, @errorName(err) });
         return .{ .code = 1 };
     };
+    writeDescriptions(gpa, io, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not write the descriptions into {s}: {s}\n", .{ folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
     cwd.deleteFile(io, cfg_path) catch {};
     var user_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const user_path = std.fmt.bufPrint(&user_buffer, "{s}{c}{s}", .{ std.fs.path.dirname(cfg_path) orelse ".", std.fs.path.sep, elk.spell.user_dictionary_name }) catch return .{ .code = 1 };
@@ -694,6 +724,22 @@ fn smokeSpell(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = spell_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (spell check after a restart)" });
     if (again.code != 0) return again;
     return .{ .code = 0, .frames = first.frames + again.frames };
+}
+
+/// The spell pass's descriptions: the smoke text's own `.dsc` and a
+/// `_folder.dsc` for the Kuban texts, in the editor's file encoding.
+fn writeDescriptions(gpa: std.mem.Allocator, io: std.Io, folder: []const u8) !void {
+    const files = [_]struct { relative: []const u8, text: []const u8 }{
+        .{ .relative = "game_data_base/" ++ smoke_key ++ ".dsc", .text = own_description },
+        .{ .relative = "game_data_base/medals/german/_folder.dsc", .text = folder_description },
+    };
+    for (files) |file| {
+        const path = try std.fs.path.join(gpa, &.{ folder, file.relative });
+        defer gpa.free(path);
+        const bytes = try elk.text_codec.fromEditor(gpa, file.text);
+        defer gpa.free(bytes);
+        try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = bytes });
+    }
 }
 
 /// The smoke's spreadsheet pass on an eighth copy, `<scratch>-sheet`, the

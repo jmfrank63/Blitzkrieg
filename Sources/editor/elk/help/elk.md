@@ -17,7 +17,7 @@ You do not lose work: ELK saves the text you were editing when you move to anoth
 
 ## The text tree
 
-The left side is the tree of all the game's texts, in folders as the game keeps them. Click a text to show it: its original at the top, its translation below. Open a folder with its arrow or by double-clicking it.
+The left side is the tree of all the game's texts, in folders as the game keeps them. Click a text to show it: its original at the top, its description (a note for translators, when the text has one) under it, and its translation below. The original and the description are read-only, but you can select and copy from them. Open a folder with its arrow or by double-clicking it.
 
 Each row has the colour of its state, and a folder has the colour of the least finished text in it, so a red folder still holds work.
 
@@ -49,7 +49,7 @@ View > ELK Statistic counts the texts, words and characters of the originals and
 
 ## Spell check
 
-Tools > Spelling (F7) lists the misspelt words of the translation you are editing, each with suggestions. Add to dictionary keeps a word, such as a name, in your own dictionary file custom.dic, so it is never flagged again.
+Tools > Spelling (F7) checks the translation you are editing from its start. It stops at each misspelt word in turn and puts its best suggestion in the Change to box; click another suggestion or type your own. Ignore skips the word this time, Ignore All skips it until you close ELK, Change replaces it with the Change to text, and Change All replaces it everywhere in the translation. Check Again starts over. A change is an edit like a typed one and is saved like one. Below, every misspelt word is listed with its suggestions; Add to dictionary keeps a word, such as a name, in your own dictionary file custom.dic, so it is never flagged again.
 
 Spell check needs a Hunspell dictionary, a .dic and a .aff file of your language, for example from LibreOffice. Put them in the dictionaries folder beside ELK, or choose another folder and the language under Tools > Spelling Options.... Until a dictionary is found, Spelling is off and says why.
 

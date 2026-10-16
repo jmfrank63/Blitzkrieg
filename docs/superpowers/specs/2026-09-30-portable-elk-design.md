@@ -486,7 +486,7 @@ std-only, headless, no UI. Modules:
   dialog and are not kept). *Adaptation:* the MFC ELK selected the hit's
   characters in its edit box; the status line names the field and offset
   instead, and a description hit has no description view to show it until
-  C1. The core's `stats` module is `CreateStatistic` with
+  C1 (shown since the spell walk slice below). The core's `stats` module is `CreateStatistic` with
   `GetTextCounts` and its quirk (a word starts after a run of spelling
   delimiters but ends only at a blank, a trailing delimiter run counts an
   empty word), counting UTF-16 code units where the MBCS build counted the
@@ -563,7 +563,8 @@ std-only, headless, no UI. Modules:
   check:* every misspelt word is listed at once instead of one per F7 from
   the last position, and the list names the offset instead of selecting
   the word in the edit box. *Not yet:* Ignore, Ignore All, Change and
-  Change All (F1's superset), the misspelt words marked inside the edit box,
+  Change All (F1's superset; done in the spell walk slice below), the
+  misspelt words marked inside the edit box,
   a Browse... for the folder, a redistributable dictionary committed with
   its licence. `test-elk-app` runs Hunspell on the generated pair: a known
   word, a plural from the affix rule, Cyrillic and numbers pass, "redy"
@@ -679,6 +680,29 @@ std-only, headless, no UI. Modules:
   package import keeps the files before the Cancel, each whole, deletes
   nothing and leaves `elk.xml` as it was. Reading the package (the game
   folder's files, the archive) is not counted and cannot be cancelled.
+  *Spell walk and description view slice (2026-10-16):* the Spelling
+  window walks the misspelt words from a place in the translation, as
+  `OnToolsSpelling` stopped at one word per F7: the current word is the
+  first listed at or after it, with a Change to box holding its first
+  suggestion (a suggestion clicked replaces it). Ignore moves the place
+  past the word, for this run only (Check Again starts over from the
+  start); Ignore All passes the word in every check until ELK exits, kept
+  in no file; Change replaces the word with the box's text and Change All
+  every word of the translation that is the misspelling byte for byte
+  (`spell.replaceWord`, `spell.replaceAll`, whole words as `nextWord`
+  splits them), the place moving past the current word's correction. A
+  correction is an edit of the translation box like a typed one: dirty,
+  written by the D-15 save points, an edited text turning Translated; the
+  box takes a new ImGui ID so an active one does not write its old copy
+  back. The list below keeps Add to dictionary. C1: the description view
+  sits between the original and the state buttons, read-only with select
+  and copy as the MFC `IDC_IV_ORIGINAL_DESCRIPTION_EDIT` (`ES_READONLY`)
+  was, holding the core's description lookup for the selected text, so a
+  Find hit in a description is now in view (the status line still names
+  the offset; the characters are not selected). Data/ELK has no `.dsc`, so
+  the tests write theirs into scratch copies. *Not yet:* the misspelt word
+  selected in the edit box, Ignore All ignoring case, a folder's
+  description shown when the folder is selected (C4).
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,
