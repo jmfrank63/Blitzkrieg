@@ -1,0 +1,4 @@
+# anim <name> <keys> <action key> <AABB_A> <AABB_D>, then key <node> <key> <pos x y z> <rot x y z w>
+anim Idle 2 1 -1 -1
+key 1 0 0 0 0 0 0 0 1
+key 1 1 0 0 0.5 0 0 0.7071068 0.7071068

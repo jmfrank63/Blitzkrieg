@@ -119,9 +119,6 @@ if ($IncludeEditors) {
     if (Copy-OptionalEditor -SourcePath (Join-Path $repoRoot "Sources/src/bin/editor.exe") -DestinationPath (Join-Path $editorsDir "editor.exe")) {
         $copiedEditorsCount++
     }
-    if (Copy-OptionalEditor -SourcePath (Join-Path $repoRoot "Sources/src/bin/ExcelExporter.exe") -DestinationPath (Join-Path $editorsDir "ExcelExporter.exe")) {
-        $copiedEditorsCount++
-    }
     if (Copy-OptionalEditor -SourcePath (Join-Path $repoRoot "Sources/elk/ELK.exe") -DestinationPath (Join-Path $editorsDir "ELK.exe")) {
         $copiedEditorsCount++
     }

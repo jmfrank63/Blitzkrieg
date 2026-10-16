@@ -26,9 +26,6 @@ This is the **Blitzkrieg** game source code - a legacy Visual Studio C++ project
 - **Data linking:** Build creates junction from output folder to `Data/` directory
 - **Precompiled headers:** Most projects use `StdAfx.h`
 
-### Build Scripts
-- **`Sources/src/clear.bat`** - Cleans build artifacts
-
 ## Dependencies
 
 ### Included SDKs

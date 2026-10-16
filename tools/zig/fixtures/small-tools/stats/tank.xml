@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<base>
+	<History><Action>Exported as</Action></History>
+	<RPG MaxHP="120" Price="40">
+		<KeyName>Tank &amp; crew</KeyName>
+		<Armor Front="30" Side="20"/>
+		<Guns>
+			<item Weapon="75mm" Ammo="80"/>
+			<item Weapon="MG34" Ammo="3000"/>
+		</Guns>
+	</RPG>
+</base>
