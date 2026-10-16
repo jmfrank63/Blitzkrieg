@@ -1,0 +1,4 @@
+; bk-sprite fixture: an animation whose frame picture is missing
+[death]
+dirs=1
+dir0 seq=0

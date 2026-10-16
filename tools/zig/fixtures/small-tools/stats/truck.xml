@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<base>
+	<!-- edited by hand -->
+	<RPG MaxHP="40" Price="10">
+		<KeyName>Truck</KeyName>
+		<Armor Front="5" Side="5"/>
+		<Cargo><![CDATA[shells <75mm>]]></Cargo>
+	</RPG>
+</base>

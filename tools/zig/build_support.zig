@@ -64,7 +64,7 @@ pub fn sourceSets(platform: PlatformTarget) SourceSets {
     const linux = &.{ "Sources/src/Platform/Linux/Paths.cpp", "Sources/src/Platform/Linux/System.cpp" };
     const macos = &.{ "Sources/src/Platform/MacOS/Paths.mm", "Sources/src/Platform/MacOS/System.mm" };
     const windows_oracle = &.{ "Sources/src/Platform/WindowsOracle" };
-    const excluded_utilities = &.{ "BuildVersion", "BetaKeyGen", "FontGen", "GFX legacy renderer" };
+    const excluded_utilities = &.{ "GFX legacy renderer" };
     return .{
         .shared = shared,
         .windows = if (isWindows(platform)) windows else &.{},

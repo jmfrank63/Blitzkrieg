@@ -41,14 +41,11 @@ zig build misc
 zig build image
 zig build lualib
 zig build net
-zig build buildversion
-zig build betakeygen
 zig build input
 zig build formats
 zig build anim
 zig build common
 zig build ui
-zig build fontgen
 zig build sfx
 zig build gfx
 zig build randommapgen
@@ -74,10 +71,6 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 
 `Net` is mirrored as a DLL using `Sources/src/Net/net.def`. It links the Zig-built `Misc` artifact plus the same Winsock and ODBC system libraries as the Visual Studio project. The OpenSpy placeholder source files are not included yet because they are not part of the current `.vcxproj` source list.
 
-`BuildVersion` is the first Zig-built executable target. It mirrors the legacy console utility and uses an explicit `mainCRTStartup` entry point so the MSVC CRT calls the existing `main` function.
-
-`BetaKeyGen` mirrors the legacy beta key console utility. It links the Zig-built `Misc` and `zlib` artifacts and enables the `_DO_BETA_CHECK` define used by the Visual Studio project.
-
 `Input` is mirrored as a DLL using `Sources/src/Input/Input.def`. It links the Zig-built `Misc` artifact plus the DirectInput, WinMM, COM support, and ODBC system libraries used by the Visual Studio project.
 
 `Formats` is mirrored as a static library. This slice also tightens a few shared headers for Clang compatibility while preserving MSVC builds: dependent iterator types now use `typename`, `CSaverAccessor` accepts `CPtr<IStructureSaver>` directly, and an old unsigned fill cast is now standard C++.
@@ -88,7 +81,7 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 
 `UI` is mirrored as a DLL using `Sources/src/UI/UI.def`. This slice adds narrowly scoped Clang/MSVC compatibility fixes in shared UI/GFX helper code and links the Zig-built `Misc`, `Common`, and `LuaLib` artifacts.
 
-`FontGen` is mirrored as a console utility. It links the Zig-built `Image`, `Common`, `Formats`, and `Misc` artifacts plus the Win32 GDI/User libraries used by the font atlas generator.
+`FontGen` is no longer built: `zig build bk-font` replaced it on every platform (Phase 8, `docs/modding-tools.md`).
 
 `SFX` is mirrored as a DLL using `Sources/src/SFX/Sound.def`. It builds the open-audio backend and the embedded Xiph Ogg/Vorbis C sources with `SFX_USE_OPEN_AUDIO_BACKEND`.
 

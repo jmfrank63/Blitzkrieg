@@ -71,6 +71,24 @@ test "playable source parser excludes declared non-playable arrays" {
     try std.testing.expectEqualStrings("input.cpp", sources[0]);
 }
 
+test "an empty non-playable manifest is valid once the last developer utility is gone" {
+    const text =
+        "const runtime_platform_playable_source_arrays = &.{ \"input_sources\" };\n" ++
+        "const runtime_platform_non_playable_source_arrays = &.{};\n" ++
+        "const input_sources = &.{ \"input.cpp\" };\n";
+    const sources = try audit.parsePlayableSources(std.testing.allocator, text);
+    defer std.testing.allocator.free(sources);
+    defer for (sources) |source| std.testing.allocator.free(source);
+    try std.testing.expectEqual(@as(usize, 1), sources.len);
+}
+
+test "a missing non-playable manifest still fails" {
+    const text =
+        "const runtime_platform_playable_source_arrays = &.{ \"input_sources\" };\n" ++
+        "const input_sources = &.{ \"input.cpp\" };\n";
+    try std.testing.expectError(error.MissingNonPlayableSourceArrayManifest, audit.parsePlayableSources(std.testing.allocator, text));
+}
+
 test "new source arrays must be classified loudly" {
     const text =
         "const runtime_platform_playable_source_arrays = &.{ \"input_sources\" };\n" ++

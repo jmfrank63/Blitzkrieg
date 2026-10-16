@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><RPG MaxHP="300" Price="90"><!-- heavy --><KeyName>Tiger</KeyName><Armor Front="100" Side="80"/><Guns><item Weapon="88mm" Ammo="92"/></Guns></RPG></base>

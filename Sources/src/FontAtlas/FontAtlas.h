@@ -1,0 +1,67 @@
+#ifndef __FONT_ATLAS_H__
+#define __FONT_ATLAS_H__
+#pragma once
+// The font generator FontGen.exe and ELK's CFontGen used to be: a TrueType face
+// rendered into one glyph atlas plus the SFontFormat that describes it, with no
+// HDC, no dialog and no globals, so bk-font and ELK's font page share it
+// (Phase 8, D-12..D-14). Glyphs are rasterised with the vendored
+// imstb_truetype.h; the layout is FontGen's, so the game draws the result the
+// way it draws the shipped fonts.
+//
+// Include after the module's StdAfx.h: fmtFont.h needs the engine's basic
+// types and IStructureSaver.
+#include "../Formats/fmtFont.h"
+
+namespace FontAtlas
+{
+// FontGen's character range: every byte 32..255 of the chosen code page.
+const int FIRST_CHAR = 32;
+const int LAST_CHAR = 255;
+// The character drawn for anything the font lacks. FontGen took GDI's
+// tmDefaultChar, which is 0x1F for TrueType faces: the face's .notdef box.
+const BYTE DEFAULT_CHAR = 0x1F;
+
+struct SFontRequest
+{
+	const BYTE *pFontData;								// a TrueType/OpenType file (or .ttc) in memory; read only during Build
+	int nFontDataSize;
+	int nFaceIndex;												// the face inside a collection; 0 for a plain .ttf
+	std::string szFaceName;								// stored lower-cased; empty takes the face's family name
+	int nHeight;													// cell height in pixels, ascent + descent (FontGen's -h, GDI's positive height)
+	int nWeight;													// 100..900; 600 and more emboldens a face that is not bold itself
+	bool bItalic;													// slants a face that is not italic itself
+	bool bAntialias;											// false keeps every pixel fully on or off
+	int nCodePage;												// 1250, 1251 or 1252
+	SFontRequest() : pFontData( 0 ), nFontDataSize( 0 ), nFaceIndex( 0 ), nHeight( 20 ), nWeight( 400 ),
+		bItalic( false ), bAntialias( true ), nCodePage( 1252 ) {  }
+};
+
+struct SFontImage
+{
+	int nSizeX, nSizeY;										// powers of two, as FontGen sized them
+	std::vector<DWORD> pixels;						// nSizeX * nSizeY, top row first; white with alpha = coverage
+	SFontImage() : nSizeX( 0 ), nSizeY( 0 ) {  }
+};
+
+struct SFontAtlas
+{
+	SFontFormat format;										// what the game reads from 1.tfd
+	SFontImage image;											// what it reads from 1.tga (IImageProcessor::CreateImage's layout)
+};
+
+// The GDI charset byte FontGen stored in SFontMetrics::cCharSet for a code
+// page; false for a code page the library does not know.
+bool GetCharSet( int nCodePage, BYTE *pCharSet );
+// The Unicode character byte c of the code page stands for (undefined bytes map
+// to U+0080..U+009F as Windows maps them); 0 for an unknown code page.
+WORD ToUnicode( int nCodePage, BYTE c );
+// The index of the face in pFontData whose family name is szName, preferring
+// the bold/italic style asked for; -1 when no face has that name.
+int FindFace( const BYTE *pFontData, int nFontDataSize, const std::string &szName, bool bBold, bool bItalic );
+// Renders the request into pAtlas. False with the reason in *pszError when the
+// font cannot be read, the request is out of range or the atlas would be
+// larger than 4096x4096.
+bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszError );
+}
+
+#endif // __FONT_ATLAS_H__

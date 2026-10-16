@@ -127,66 +127,6 @@ const cppflags_release = &.{
     "-Wno-unused-command-line-argument",
 };
 
-const cppflags_beta_debug = &.{
-    "-std=c++17",
-    "-D_HAS_AUTO_PTR_ETC=1",
-    "-D_WINDOWS",
-    "-DWIN32",
-    "-D_DEBUG",
-    "-D_DO_ASSERT_SLOW",
-    "-D_DO_CHECKED_CAST",
-    "-D_STL_RANGE_CHECK",
-    "-D_MT",
-    "-D_DLL",
-    "-D_DO_BETA_CHECK",
-    "-fms-extensions",
-    "-fms-compatibility",
-    "-fdelayed-template-parsing",
-    "-Wno-deprecated-declarations",
-    "-Wno-microsoft-template",
-    "-Wno-nonportable-include-path",
-    "-Wno-reserved-user-defined-literal",
-    "-Wno-comment",
-    "-Wno-enum-compare",
-    "-Wno-microsoft-enum-forward-reference",
-    "-Wno-return-type",
-    "-Wno-address-of-temporary",
-    "-Wno-non-pod-varargs",
-    "-Wno-extra-tokens",
-    "-Wno-parentheses-equality",
-    "-Wno-switch",
-    "-Wno-unused-command-line-argument",
-};
-
-const cppflags_beta_release = &.{
-    "-std=c++17",
-    "-D_HAS_AUTO_PTR_ETC=1",
-    "-D_WINDOWS",
-    "-DWIN32",
-    "-DNDEBUG",
-    "-D_FINALRELEASE",
-    "-D_MT",
-    "-D_DLL",
-    "-D_DO_BETA_CHECK",
-    "-fms-extensions",
-    "-fms-compatibility",
-    "-fdelayed-template-parsing",
-    "-Wno-deprecated-declarations",
-    "-Wno-microsoft-template",
-    "-Wno-nonportable-include-path",
-    "-Wno-reserved-user-defined-literal",
-    "-Wno-comment",
-    "-Wno-enum-compare",
-    "-Wno-microsoft-enum-forward-reference",
-    "-Wno-return-type",
-    "-Wno-address-of-temporary",
-    "-Wno-non-pod-varargs",
-    "-Wno-extra-tokens",
-    "-Wno-parentheses-equality",
-    "-Wno-switch",
-    "-Wno-unused-command-line-argument",
-};
-
 const cflags_sfx_debug = &.{
     "-D_WINDOWS",
     "-DWIN32",
@@ -380,19 +320,6 @@ const net_sources = &.{
     "Sources/src/Net/Streams.cpp",
 };
 
-const buildversion_sources = &.{
-    "Sources/src/buildversion/StdAfx.cpp",
-    "Sources/src/buildversion/BuildVersion.cpp",
-    "Sources/src/buildversion/main.cpp",
-    "Sources/src/buildversion/StringTokenizer.cpp",
-};
-
-const betakeygen_sources = &.{
-    "Sources/src/betakeygen/StdAfx.cpp",
-    "Sources/src/betakeygen/BetaKey.cpp",
-    "Sources/src/betakeygen/main.cpp",
-};
-
 const input_sources = &.{
     "Sources/src/Input/GlobalsLoader.cpp",
     "Sources/src/Input/StdAfx.cpp",
@@ -482,12 +409,6 @@ const ui_sources = &.{
     "Sources/src/UI/MaskManager.cpp",
     "Sources/src/UI/UIMask.cpp",
     "Sources/src/UI/UIObjectFactory.cpp",
-};
-
-const fontgen_sources = &.{
-    "Sources/src/FontGen/GlobalsLoader.cpp",
-    "Sources/src/FontGen/StdAfx.cpp",
-    "Sources/src/FontGen/FontGen.cpp",
 };
 
 const sfx_cpp_sources = &.{
@@ -670,9 +591,7 @@ const runtime_platform_playable_source_arrays = &.{
     "sfx_cpp_sources", "sfx_c_sources",  "gfx_sources",     "gfx_gpu_sources", "randommapgen_sources", "main_sources",
     "game_sources",    "windows_game_sources",
 };
-const runtime_platform_non_playable_source_arrays = &.{
-    "buildversion_sources", "betakeygen_sources", "fontgen_sources",
-};
+const runtime_platform_non_playable_source_arrays = &.{};
 const runtime_platform_playable_link_module_names = &.{
     "module",     "game_module",    "net_module", "input_module", "sfx_module",
     "gfx_module", "gfx_gpu_module",
@@ -1944,6 +1863,165 @@ pub fn build(b: *std.Build) void {
     const season_textures_test_step = b.step("test-season-textures", "Run the season texture tool's codec and transform tests");
     season_textures_test_step.dependOn(&season_textures_tests.step);
     if (test_mode == .run) season_textures_test_step.dependOn(&b.addRunArtifact(season_textures_tests).step);
+
+    // The bk-* modding tools (Phase 8). `bk-pak` makes, unpacks, lists and
+    // verifies `.pak` archives with the release packager's own writer. It is
+    // std-only Zig, so it is built for the selected target and installed to
+    // zig-out/bin; its tests run a host build. `test-bk-tools` is the shared
+    // command-line convention test every bk-* tool is registered in.
+    const bk_pak = b.addExecutable(.{
+        .name = "bk-pak",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_pak.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_pak_step = b.step("bk-pak", "Build and install the bk-pak .pak archive tool");
+    bk_pak_step.dependOn(&b.addInstallArtifact(bk_pak, .{}).step);
+    const bk_pak_host = b.addExecutable(.{
+        .name = "bk-pak",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_pak.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    const bk_tools_options = b.addOptions();
+    bk_tools_options.addOptionPath("bk_pak", bk_pak_host.getEmittedBin());
+    const bk_tools_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_tool_conventions_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    bk_tools_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_tools_tests = b.addTest(.{ .root_module = bk_tools_test_module });
+    const bk_tools_tests_run = b.addRunArtifact(bk_tools_tests);
+    // The options hold build-root-relative paths; the test resolves them
+    // from its cwd.
+    bk_tools_tests_run.setCwd(b.path("."));
+    const bk_tools_test_step = b.step("test-bk-tools", "Run the bk-* tools' shared command-line convention test");
+    bk_tools_test_step.dependOn(&bk_tools_tests.step);
+    if (test_mode == .run) bk_tools_test_step.dependOn(&bk_tools_tests_run.step);
+    const bk_tool_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_tool.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    }) });
+    const bk_pak_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_pak_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    }) });
+    const bk_pak_test_step = b.step("test-bk-pak", "Run the bk-pak archive tests and the bk-* convention test");
+    bk_pak_test_step.dependOn(&bk_tool_tests.step);
+    bk_pak_test_step.dependOn(&bk_pak_tests.step);
+    bk_pak_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) {
+        bk_pak_test_step.dependOn(&b.addRunArtifact(bk_tool_tests).step);
+        bk_pak_test_step.dependOn(&b.addRunArtifact(bk_pak_tests).step);
+    }
+    // `bk-table` (D-08..D-11): ExcelExporter's stat sheets, exported as TSV and
+    // imported by patching values in place. std-only Zig like bk-pak, built
+    // the same way, staged beside it in Tools/ and in the convention test.
+    const bk_table = b.addExecutable(.{
+        .name = "bk-table",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_table.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_table_step = b.step("bk-table", "Build and install the bk-table stat sheet tool");
+    bk_table_step.dependOn(&b.addInstallArtifact(bk_table, .{}).step);
+    const bk_table_host = b.addExecutable(.{
+        .name = "bk-table",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_table.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_table", bk_table_host.getEmittedBin());
+    const bk_table_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_table_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    }) });
+    const bk_table_test_step = b.step("test-bk-table", "Run the bk-table sheet and XML tests and the bk-* convention test");
+    bk_table_test_step.dependOn(&bk_table_tests.step);
+    bk_table_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_table_test_step.dependOn(&b.addRunArtifact(bk_table_tests).step);
+    // `bk-image` (D-21): OffsetRomb's tile offsetter, std-only Zig like
+    // bk-table, built the same way, staged beside it in Tools/ and in the
+    // convention test. Its own test runs the host build against the goldens.
+    const bk_image = b.addExecutable(.{
+        .name = "bk-image",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_image.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_image_step = b.step("bk-image", "Build and install the bk-image image conversion tool");
+    bk_image_step.dependOn(&b.addInstallArtifact(bk_image, .{}).step);
+    const bk_image_host = b.addExecutable(.{
+        .name = "bk-image",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_image.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_image", bk_image_host.getEmittedBin());
+    const bk_image_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_image_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    bk_image_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_image_tests = b.addTest(.{ .root_module = bk_image_test_module });
+    const bk_image_tests_run = b.addRunArtifact(bk_image_tests);
+    bk_image_tests_run.setCwd(b.path("."));
+    const bk_image_test_step = b.step("test-bk-image", "Run the bk-image golden tests and the bk-* convention test");
+    bk_image_test_step.dependOn(&bk_image_tests.step);
+    bk_image_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_image_test_step.dependOn(&bk_image_tests_run.step);
+    // `bk-video` (D-22): convert_bik_to_ogv.ps1 as a std-only Zig wrapper over
+    // ffmpeg/ffprobe on PATH, built and staged like bk-image. Its tests convert
+    // tracked Bink movies; the ones that need ffmpeg skip, saying so, without it.
+    const bk_video = b.addExecutable(.{
+        .name = "bk-video",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_video.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_video_step = b.step("bk-video", "Build and install the bk-video Bink to Ogg Theora converter");
+    bk_video_step.dependOn(&b.addInstallArtifact(bk_video, .{}).step);
+    const bk_video_host = b.addExecutable(.{
+        .name = "bk-video",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_video.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_video", bk_video_host.getEmittedBin());
+    const bk_video_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_video_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    bk_video_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_video_tests = b.addTest(.{ .root_module = bk_video_test_module });
+    const bk_video_tests_run = b.addRunArtifact(bk_video_tests);
+    bk_video_tests_run.setCwd(b.path("."));
+    const bk_video_test_step = b.step("test-bk-video", "Run the bk-video conversion tests (ffmpeg ones skip without ffmpeg) and the bk-* convention test");
+    bk_video_test_step.dependOn(&bk_video_tests.step);
+    bk_video_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_video_test_step.dependOn(&bk_video_tests_run.step);
     // The same tool, run by every staging (install-game, and so
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
@@ -2225,8 +2303,6 @@ pub fn build(b: *std.Build) void {
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, platform_runtime, sdl_dynamic);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
-    const buildversion = if (platform == .windows_x64) addBuildVersion(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic) else null;
-    const betakeygen = if (platform == .windows_x64) addBetaKeyGen(b, target, optimize, toolchain, zlib, misc, platform_runtime, sdl_dynamic) else null;
     const input = addInput(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
     addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic);
     const formats = addFormats(b, target, optimize, toolchain);
@@ -2234,7 +2310,6 @@ pub fn build(b: *std.Build) void {
     const anim = addAnim(b, target, optimize, toolchain, misc, platform_runtime, formats, sdl_dynamic);
     const common = addCommon(b, target, optimize, toolchain);
     const ui = addUI(b, target, optimize, toolchain, misc, platform_runtime, common, lualib, sdl_dynamic);
-    const fontgen = if (platform == .windows_x64) addFontGen(b, target, optimize, toolchain, image, common, formats, misc, platform_runtime, sdl_dynamic) else null;
     const sfx = addSFX(b, target, optimize, toolchain, misc, platform_runtime, common, sdl_dynamic);
     addSfxModuleTest(b, target, toolchain, platform_runtime, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
     addBkMemoryCSourcesTest(b, target, platform, toolchain, optimize, test_mode, zlib, libpng, lualib, sdl_dynamic, sdl_dynamic_dep.path("include"));
@@ -2245,6 +2320,20 @@ pub fn build(b: *std.Build) void {
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const map_file = addMapFile(b, target, optimize, toolchain);
     addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    const bk_font = addBkFont(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    // bk-font is in the shared convention test too. It runs the installed
+    // executable, which finds the engine libraries beside it or in ../lib.
+    bk_tools_options.addOption([]const u8, "bk_font", if (target.result.os.tag == .windows) "zig-out/bin/bk-font.exe" else "zig-out/bin/bk-font");
+    bk_tools_tests_run.step.dependOn(bk_font.install);
+    // The option is a plain path string, so the binary is named as an input:
+    // a changed bk-font runs the test again instead of reusing a cached pass.
+    bk_tools_tests_run.addFileInput(bk_font.tool.getEmittedBin());
+    setUserRootsForTest(bk_tools_tests_run, "bk-tools-user");
+    // That test judges stdout, stderr and exit codes. A debug bk-font carries
+    // BkMemory's exit-time leak check, which in its default mode turns the
+    // engine's process-lifetime statics into exit 3 and in count mode adds a
+    // stderr line; test-bk-font runs the tool with the count, this test without.
+    bk_tools_tests_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
@@ -2252,6 +2341,17 @@ pub fn build(b: *std.Build) void {
     // API (which Zig's resinator does not produce correctly for runtime reads).
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
+    // bk-map, like bk-font, is in the convention test as the installed
+    // executable, its binary a file input of that run.
+    const bk_map = addBkMap(b, target, optimize, toolchain, map_file, main, randommapgen, formats, misc, lualib, zlib, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    bk_tools_options.addOption([]const u8, "bk_map", if (target.result.os.tag == .windows) "zig-out/bin/bk-map.exe" else "zig-out/bin/bk-map");
+    bk_tools_tests_run.step.dependOn(bk_map.install);
+    bk_tools_tests_run.addFileInput(bk_map.tool.getEmittedBin());
+    // bk-sprite, the same way.
+    const bk_sprite = addBkSprite(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
+    bk_tools_tests_run.step.dependOn(bk_sprite.install);
+    bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
     const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common, sdl_dynamic_dep.path("include"));
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
@@ -2271,14 +2371,11 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(image);
     b.installArtifact(lualib);
     b.installArtifact(net);
-    if (buildversion) |artifact| b.installArtifact(artifact);
-    if (betakeygen) |artifact| b.installArtifact(artifact);
     b.installArtifact(input);
     b.installArtifact(formats);
     b.installArtifact(anim);
     b.installArtifact(common);
     b.installArtifact(ui);
-    if (fontgen) |artifact| b.installArtifact(artifact);
     b.installArtifact(sfx);
     b.installArtifact(gfx);
     b.installArtifact(randommapgen);
@@ -2340,16 +2437,6 @@ pub fn build(b: *std.Build) void {
     const net_module_test_step = b.step("test-net-module", "Load the real Net module and verify its factory contract");
     net_module_test_step.dependOn(&net_module_test_run.step);
 
-    if (buildversion) |artifact| {
-        const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
-        buildversion_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
-    }
-
-    if (betakeygen) |artifact| {
-        const betakeygen_step = b.step("betakeygen", "Build the BetaKeyGen console utility");
-        betakeygen_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
-    }
-
     const input_step = b.step("input", "Build the Input dynamic library");
     input_step.dependOn(&b.addInstallArtifact(input, .{}).step);
 
@@ -2364,11 +2451,6 @@ pub fn build(b: *std.Build) void {
 
     const ui_step = b.step("ui", "Build the UI dynamic library");
     ui_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
-
-    if (fontgen) |artifact| {
-        const fontgen_step = b.step("fontgen", "Build the FontGen console utility");
-        fontgen_step.dependOn(&b.addInstallArtifact(artifact, .{}).step);
-    }
 
     const sfx_step = b.step("sfx", "Build the SFX dynamic library");
     sfx_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
@@ -2547,6 +2629,11 @@ pub fn build(b: *std.Build) void {
         .root_module = stage_module,
     });
 
+    // bk-map and bk-sprite link the engine libraries and find them, from
+    // Tools/, by their loader-relative path to the game folder. A Windows
+    // executable has no such path and would not start there, so on Windows
+    // they stay in zig-out/bin.
+    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table, bk_image, bk_video, bk_font.tool } else &.{ bk_pak, bk_table, bk_image, bk_video, bk_font.tool, bk_map.tool, bk_sprite.tool };
     const stage_game_inputs: StageGameInputs = .{
         .tool = stage_tool,
         .game_all_step = game_all_step,
@@ -2557,6 +2644,7 @@ pub fn build(b: *std.Build) void {
         .debug_files = stage_debug_files,
         .metadata_files = stage_metadata_files,
         .editors_supported = target.result.os.tag == .windows,
+        .tools = b.allocator.dupe(*std.Build.Step.Compile, staged_tools) catch @panic("OOM"),
     };
     const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
@@ -2565,6 +2653,31 @@ pub fn build(b: *std.Build) void {
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_step.dependOn(&install_game_cmd.step);
+
+    // D-14's measured look on the real Game: the staged bk-font writes the
+    // fixture font into mods/bkfonttest of the install, the Game's own
+    // main-menu captures with the shipped font, the generated one and the
+    // generated one with no ink are measured against each other and against
+    // the font's description (tools/zig/bk_font_game_reads_it.zig). It needs
+    // a desktop and a GPU, so it is not part of `test`.
+    const bk_font_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_font_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, bk_font_game_reads_module, toolchain);
+    }
+    const bk_font_game_reads_tests = b.addTest(.{ .root_module = bk_font_game_reads_module });
+    const bk_font_game_reads_run = b.addRunArtifact(bk_font_game_reads_tests);
+    bk_font_game_reads_run.setCwd(b.path("."));
+    bk_font_game_reads_run.setEnvironmentVariable("BK_FONT_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    bk_font_game_reads_run.setEnvironmentVariable("BK_FONT_TOOL", rootPath(b, b.fmt("{s}/Tools/bk-font{s}", .{ stage_root, target.result.exeFileExt() })));
+    bk_font_game_reads_run.has_side_effects = true;
+    bk_font_game_reads_run.step.dependOn(install_game_step);
+    const bk_font_game_reads_step = b.step("bk-font-game-reads-it", "Generate the fixture font into a mod with bk-font, capture the real Game's main menu with it, without it and with its ink removed, and prove from the frames that it draws the font legibly in the medium-font windows only (D-14)");
+    bk_font_game_reads_step.dependOn(&bk_font_game_reads_tests.step);
+    if (test_mode == .run) bk_font_game_reads_step.dependOn(&bk_font_game_reads_run.step);
 
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
@@ -3458,6 +3571,9 @@ const StageGameInputs = struct {
     debug_files: []const []const u8,
     metadata_files: []const []const u8,
     editors_supported: bool,
+    /// The bk-* modding tools, staged into <install>/Tools on every platform
+    /// (Phase 8, D-27), so the release zip carries them.
+    tools: []const *std.Build.Step.Compile,
 };
 
 /// The one way to create a stage-game run (install-game, package-game,
@@ -3479,6 +3595,12 @@ fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const 
     run.addArg(install_dir);
     addStageLayoutArgs(run, inputs.game_name, inputs.runtime_files, inputs.debug_files, inputs.metadata_files, inputs.editors_supported);
     run.step.dependOn(inputs.game_all_step);
+    // addFileArg both names the exact binary this build produced and orders
+    // the run after its compile, as --map-editor does.
+    for (inputs.tools) |tool| {
+        run.addArg("--tool");
+        run.addFileArg(tool.getEmittedBin());
+    }
     // Staging copies the third-party notice out of a plain path, the way it
     // copies the shader blobs, so an edited licence text has to be part of the
     // cache key or the staged and packaged copies keep the superseded notice.
@@ -4382,87 +4504,6 @@ fn addNet(
     });
 }
 
-fn addBuildVersion(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    misc: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-) *std.Build.Step.Compile {
-    const buildversion_module = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-    });
-    linkEngineCxxRuntimeEngine(b, buildversion_module, optimize);
-    addProjectIncludePaths(b, buildversion_module);
-    addMsvcIncludePaths(b, buildversion_module, toolchain);
-    addMsvcLibraryPaths(b, buildversion_module, toolchain);
-    buildversion_module.addIncludePath(b.path("Sources/src/buildversion"));
-    buildversion_module.addCSourceFiles(.{
-        .files = buildversion_sources,
-        .flags = cppflagsForOptimize(optimize),
-    });
-    buildversion_module.linkLibrary(misc);
-    buildversion_module.linkLibrary(platform_runtime);
-    linkSdlImport(buildversion_module, target, sdl_dynamic);
-    if (target.result.os.tag == .windows) {
-        buildversion_module.linkSystemLibrary("odbc32", .{});
-        buildversion_module.linkSystemLibrary("odbccp32", .{});
-    }
-
-    const buildversion = b.addExecutable(.{
-        .name = "BuildVersion",
-        .root_module = buildversion_module,
-    });
-    buildversion.subsystem = .console;
-    buildversion.entry = .{ .symbol_name = "mainCRTStartup" };
-    return buildversion;
-}
-
-fn addBetaKeyGen(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    zlib: *std.Build.Step.Compile,
-    misc: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-) *std.Build.Step.Compile {
-    const betakeygen_module = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-    });
-    linkEngineCxxRuntimeEngine(b, betakeygen_module, optimize);
-    addProjectIncludePaths(b, betakeygen_module);
-    addMsvcIncludePaths(b, betakeygen_module, toolchain);
-    addMsvcLibraryPaths(b, betakeygen_module, toolchain);
-    betakeygen_module.addIncludePath(b.path("Sources/src/betakeygen"));
-    betakeygen_module.addIncludePath(b.path("Sources/src/zlib"));
-    betakeygen_module.addCSourceFiles(.{
-        .files = betakeygen_sources,
-        .flags = cppflagsBetaForOptimize(optimize),
-    });
-    betakeygen_module.linkLibrary(misc);
-    betakeygen_module.linkLibrary(platform_runtime);
-    linkSdlImport(betakeygen_module, target, sdl_dynamic);
-    betakeygen_module.linkLibrary(zlib);
-    if (target.result.os.tag == .windows) {
-        betakeygen_module.linkSystemLibrary("odbc32", .{});
-        betakeygen_module.linkSystemLibrary("odbccp32", .{});
-    }
-
-    const betakeygen = b.addExecutable(.{
-        .name = "BetaKeyGen",
-        .root_module = betakeygen_module,
-    });
-    betakeygen.subsystem = .console;
-    betakeygen.entry = .{ .symbol_name = "mainCRTStartup" };
-    return betakeygen;
-}
-
 fn addInput(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -4714,6 +4755,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/stats_export.cpp",
             "Sources/src/ResourceModel/image_export.cpp",
             "Sources/src/ResourceModel/compose.cpp",
+            "Sources/src/ResourceModel/anim_names.cpp",
             "Sources/src/ResourceModel/items/weapon/weapon_export.cpp",
             "Sources/src/ResourceModel/items/mine/mine_export.cpp",
             "Sources/src/ResourceModel/items/medal/medal_export.cpp",
@@ -4878,56 +4920,6 @@ fn addUI(
         .root_module = ui_module,
         .win32_module_definition = if (target.result.os.tag == .windows) b.path("Sources/src/UI/UI.def") else null,
     });
-}
-
-fn addFontGen(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    image: *std.Build.Step.Compile,
-    common: *std.Build.Step.Compile,
-    formats: *std.Build.Step.Compile,
-    misc: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-) *std.Build.Step.Compile {
-    const fontgen_module = b.createModule(.{
-        .target = target,
-        .optimize = optimize,
-    });
-    linkEngineCxxRuntimeEngine(b, fontgen_module, optimize);
-    addProjectIncludePaths(b, fontgen_module);
-    addMsvcIncludePaths(b, fontgen_module, toolchain);
-    addMsvcLibraryPaths(b, fontgen_module, toolchain);
-    fontgen_module.addIncludePath(b.path("Sources/src/FontGen"));
-    fontgen_module.addIncludePath(b.path("Sources/src/Image"));
-    fontgen_module.addIncludePath(b.path("Sources/src/Common"));
-    fontgen_module.addIncludePath(b.path("Sources/src/Formats"));
-    fontgen_module.addCSourceFiles(.{
-        .files = fontgen_sources,
-        .flags = cppflagsForOptimize(optimize),
-    });
-    fontgen_module.linkLibrary(image);
-    fontgen_module.linkLibrary(common);
-    fontgen_module.linkLibrary(formats);
-    fontgen_module.linkLibrary(misc);
-    fontgen_module.linkLibrary(platform_runtime);
-    linkSdlImport(fontgen_module, target, sdl_dynamic);
-    if (target.result.os.tag == .windows) {
-        fontgen_module.linkSystemLibrary("user32", .{});
-        fontgen_module.linkSystemLibrary("gdi32", .{});
-        fontgen_module.linkSystemLibrary("odbc32", .{});
-        fontgen_module.linkSystemLibrary("odbccp32", .{});
-    }
-
-    const fontgen = b.addExecutable(.{
-        .name = "FontGen",
-        .root_module = fontgen_module,
-    });
-    fontgen.subsystem = .console;
-    fontgen.entry = .{ .symbol_name = "mainCRTStartup" };
-    return fontgen;
 }
 
 fn addSFX(
@@ -5347,14 +5339,6 @@ fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) v
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-}
-
-fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
-    if (build_target_os != .windows) return &portable_cppflags;
-    return switch (optimize) {
-        .debug => cppflags_beta_debug,
-        .safe, .fast, .small => cppflags_beta_release,
-    };
 }
 
 fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
@@ -6793,6 +6777,443 @@ fn addMapFileTest(
     const step_m2_sweep = b.step("test-map-files-m2-sweep", "Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
+}
+
+const BkFont = struct {
+    /// Installs bk-font and every engine library it loads at run time.
+    install: *std.Build.Step,
+    tool: *std.Build.Step.Compile,
+};
+
+/// Points a test run's user root (Platform/Paths.cpp: XDG_DATA_HOME on macOS
+/// and Linux, BK_USER_ROOT on Windows) under zig-out/local-test, so loading
+/// StreamIO never creates folders in the user's own profile.
+fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
+    const b = run.step.owner;
+    const root = rootPath(b, b.fmt("zig-out/local-test/{s}", .{name}));
+    run.setEnvironmentVariable("XDG_DATA_HOME", root);
+    run.setEnvironmentVariable("BK_USER_ROOT", root);
+}
+
+fn addBkFont(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    image: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) BkFont {
+    // bk-font (Phase 8, D-12..D-15): FontGen.exe's job on the FontAtlas
+    // library. A C++ console program on the engine libraries (D-03), built
+    // with map-file-test's recipe; the SFontFormat and TGA writers are the
+    // engine's own, loaded at run time from StreamIO and Image.
+    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
+    const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const u8{ "tools/zig/bk_font.cpp", "tools/zig/bk_font_test.cpp" }) |module, main_file| {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+        addProjectIncludePaths(b, module);
+        module.addIncludePath(b.path("Sources/src/Image"));
+        module.addCSourceFiles(.{ .files = font_atlas_files, .flags = cppflagsForOptimize(optimize) });
+        module.addCSourceFiles(.{ .files = &.{main_file}, .flags = cppflagsForOptimize(optimize) });
+        addMsvcIncludePaths(b, module, toolchain);
+        addLinuxCxxIncludePaths(b, module);
+        addMsvcLibraryPaths(b, module, toolchain);
+        addMacosSysrootPaths(b, module, target);
+        module.linkLibrary(formats);
+        module.linkLibrary(misc);
+        module.linkLibrary(platform_runtime);
+        // Misc's System.cpp reaches SDL; nothing here opens a window.
+        linkSdlImport(module, target, sdl_dynamic);
+    }
+    // Loader-relative library paths, so the installed tool runs from any
+    // directory: beside the libraries (a game install), zig-out/bin with them
+    // in zig-out/lib, or one level below them (a Tools/ folder in the game).
+    for ([_][]const u8{ "", "/../lib", "/.." }) |suffix| {
+        switch (target.result.os.tag) {
+            .linux => tool_module.addRPathSpecial(b.fmt("$ORIGIN{s}", .{suffix})),
+            .macos => tool_module.addRPathSpecial(b.fmt("@loader_path{s}", .{suffix})),
+            else => {},
+        }
+    }
+    const tool = b.addExecutable(.{ .name = "bk-font", .root_module = tool_module });
+    tool.subsystem = .console;
+    if (target.result.os.tag == .windows) tool.entry = .{ .symbol_name = "mainCRTStartup" };
+    const test_exe = b.addExecutable(.{ .name = "bk-font-test", .root_module = test_module });
+    test_exe.subsystem = .console;
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
+
+    // The tool imports BkMemory and PlatformRuntime, StreamIO imports
+    // StreamIOOptionsAbi and Image takes SDL: all of them are installed with
+    // the tool (see addMapFileTest).
+    const install = b.step("bk-font", "Build and install the bk-font font generator and the engine libraries it loads");
+    for ([_]*std.Build.Step.Compile{ tool, bk_memory_artifact.?, streamio_zig, image, options_bridge, platform_runtime, sdl_dynamic }) |artifact| {
+        install.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
+
+    // The fixture font through the installed tool into zig-out/local-test,
+    // then the test reads that back with the engine's readers and checks it
+    // and a set of in-process builds against D-14.
+    const module_root = if (target.result.os.tag == .windows)
+        rootPath(b, "zig-out/bin")
+    else
+        rootPath(b, "zig-out/lib");
+    const fixture = rootPath(b, "tools/zig/fixtures/fonts/ProggyClean.ttf");
+    const output = rootPath(b, "zig-out/local-test/bk-font/proggyclean-13");
+    const generate = b.addRunArtifact(tool);
+    setLeakReportLog(generate);
+    setUserRootsForTest(generate, "bk-font-user");
+    generate.setCwd(b.path("."));
+    generate.addArgs(&.{ "--ttf", fixture, "--height", "13", "--charset", "ansi", "--out", output, "--force", "--modules", module_root });
+    generate.step.dependOn(install);
+    addPathDir(generate, rootPath(b, "zig-out/bin"));
+    const check = b.addRunArtifact(test_exe);
+    setLeakReportLog(check);
+    setUserRootsForTest(check, "bk-font-user");
+    check.setCwd(b.path("."));
+    check.addArgs(&.{ module_root, fixture, output });
+    check.step.dependOn(&generate.step);
+    addPathDir(check, rootPath(b, "zig-out/bin"));
+    const step = b.step("test-bk-font", "Generate a font with bk-font and check it with the engine's readers (D-14)");
+    step.dependOn(&test_exe.step);
+    step.dependOn(install);
+    if (test_mode == .run) step.dependOn(&check.step);
+    return .{ .install = install, .tool = tool };
+}
+
+const BkMap = struct {
+    /// Installs bk-map and every engine library it loads at run time.
+    install: *std.Build.Step,
+    tool: *std.Build.Step.Compile,
+};
+
+fn addBkMap(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    map_file: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    image: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) BkMap {
+    // bk-map (Phase 8, D-16..D-19): bzmconvertor's to-bzm/to-xml and obj2mod
+    // legs and imagedefrag's minimap creator, a C++ console program on the
+    // engine libraries (D-03) built with bk-font's recipe. Maps go through
+    // MapFile (the Map Editor's reader and writer), the minimap through
+    // RandomMapGen's CreateMiniMapImage with Main's object database.
+    const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const tool_files = &.{ "tools/zig/bk_map.cpp", "tools/zig/bk_map_obj2mod.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    const test_files = &.{ "tools/zig/bk_map_test.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const []const u8{ tool_files, test_files }) |module, files| {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+        addProjectIncludePaths(b, module);
+        module.addIncludePath(b.path("Sources/src/Formats"));
+        module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+        module.addIncludePath(b.path("Sources/src/Common"));
+        module.addIncludePath(b.path("Sources/src/Main"));
+        module.addIncludePath(b.path("Sources/src/Image"));
+        module.addCSourceFiles(.{ .files = files, .flags = cppflagsForOptimize(optimize) });
+        addMsvcIncludePaths(b, module, toolchain);
+        addLinuxCxxIncludePaths(b, module);
+        addMsvcLibraryPaths(b, module, toolchain);
+        addMacosSysrootPaths(b, module, target);
+        // The object database is Main's; Main brings Lua and zlib with it and,
+        // on Windows, the system imports addEngineHostedTool lists.
+        if (target.result.os.tag == .windows) {
+            linkComSupport(module, optimize);
+            for ([_][]const u8{ "version", "winmm", "odbc32", "odbccp32", "shlwapi", "advapi32", "user32", "gdi32", "shell32" }) |name| {
+                module.linkSystemLibrary(name, .{});
+            }
+        }
+        module.linkLibrary(map_file);
+        module.linkLibrary(main_lib);
+        module.linkLibrary(randommapgen);
+        module.linkLibrary(formats);
+        module.linkLibrary(misc);
+        module.linkLibrary(lualib);
+        module.linkLibrary(zlib);
+        module.linkLibrary(platform_runtime);
+        // Misc's System.cpp reaches SDL; nothing here opens a window.
+        linkSdlImport(module, target, sdl_dynamic);
+    }
+    // Loader-relative library paths, as bk-font: beside the libraries, in
+    // zig-out/bin with them in zig-out/lib, or in the game's Tools/ folder.
+    for ([_][]const u8{ "", "/../lib", "/.." }) |suffix| {
+        switch (target.result.os.tag) {
+            .linux => tool_module.addRPathSpecial(b.fmt("$ORIGIN{s}", .{suffix})),
+            .macos => tool_module.addRPathSpecial(b.fmt("@loader_path{s}", .{suffix})),
+            else => {},
+        }
+    }
+    const tool = b.addExecutable(.{ .name = "bk-map", .root_module = tool_module });
+    const test_exe = b.addExecutable(.{ .name = "bk-map-test", .root_module = test_module });
+    for ([_]*std.Build.Step.Compile{ tool, test_exe }) |exe| {
+        exe.subsystem = .console;
+        if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        // The engine modules it loads resolve RTTI and the host globals from
+        // the executable, as they do from Game.
+        if (target.result.os.tag == .linux) exe.rdynamic = true;
+    }
+    const install = b.step("bk-map", "Build and install the bk-map map converter and the engine libraries it loads");
+    for ([_]*std.Build.Step.Compile{ tool, bk_memory_artifact.?, streamio_zig, image, options_bridge, platform_runtime, sdl_dynamic }) |artifact| {
+        install.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
+
+    // The tracked maps through the installed tool into zig-out/local-test:
+    // Data/Maps/Allies (eight maps in nested folders, the directory mirror
+    // included) and Data/Maps/Tutorial (six, four of them with reinforcement
+    // groups whose saved order the formats leave open) to .xml and back to
+    // .bzm, the two shipped .xml maps to .bzm (directory mode) and one back
+    // to .xml (one file), a minimap, and the obj2mod fixture. bk-map-test then
+    // judges what they wrote with MapEquivalence, byte comparisons and the
+    // engine's own readers.
+    const module_root = if (target.result.os.tag == .windows)
+        rootPath(b, "zig-out/bin")
+    else
+        rootPath(b, "zig-out/lib");
+    const work = "zig-out/local-test/bk-map";
+    const fixtures = "tools/zig/fixtures/small-tools/obj2mod";
+    const BkMapRun = struct {
+        args: []const []const u8,
+        after: ?usize = null,
+        stdout: ?[]const u8 = null,
+        stderr: ?[]const u8 = null,
+    };
+    const runs = [_]BkMapRun{
+        .{ .args = &.{ "to-xml", "Data/Maps/Allies", "--out", work ++ "/Allies/xml", "--force" } },
+        .{ .args = &.{ "to-bzm", work ++ "/Allies/xml", "--out", work ++ "/Allies/bzm", "--force" }, .after = 0 },
+        .{ .args = &.{ "to-xml", "Data/Maps/Tutorial", "--out", work ++ "/Tutorial/xml", "--force" } },
+        .{ .args = &.{ "to-bzm", work ++ "/Tutorial/xml", "--out", work ++ "/Tutorial/bzm", "--force" }, .after = 2 },
+        .{ .args = &.{ "to-bzm", "Data/Maps", "--out", work ++ "/shipped-xml", "--force" } },
+        .{ .args = &.{ "to-xml", work ++ "/shipped-xml/river3d.bzm", "--out", work ++ "/shipped-xml/back", "--force" }, .after = 4 },
+        .{ .args = &.{ "minimap", "Data/Maps/Multiplayer/coldwinter.bzm", "--size", "128", "--out", work ++ "/minimap", "--data", "Data", "--force" } },
+        .{ .args = &.{ "obj2mod", fixtures ++ "/tank.obj", work ++ "/obj/tank.mod", fixtures ++ "/tank.skeleton.txt", fixtures ++ "/tank.anim.txt" }, .stdout = b.fmt("Converted OBJ to MOD: {s} -> {s}\n", .{ hostPath(b, fixtures ++ "/tank.obj"), hostPath(b, work ++ "/obj/tank.mod") }) },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/tank.obj", fixtures ++ "/tank.skeleton.txt", fixtures ++ "/tank.anim.txt" }, .stdout = "Validation passed: mesh=4 verts, skeleton=2 nodes, animations=1\n" },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/tank.obj", fixtures ++ "/two-roots.skeleton.txt" }, .stderr = "bk-map: Validation error: skeleton graph must have exactly 1 root, found 2\n" },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/tank.obj", fixtures ++ "/tank.skeleton.txt", fixtures ++ "/bad-action.anim.txt" }, .stderr = "bk-map: Validation error: animation 'Idle' action key 5 is out of range [0, 2)\n" },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/bad-face.obj" }, .stderr = b.fmt("bk-map: OBJ face references vertex 9, out of range [1, 4]: {s}\n", .{hostPath(b, fixtures ++ "/bad-face.obj")}) },
+    };
+    var run_steps: [runs.len]*std.Build.Step.Run = undefined;
+    const check = b.addRunArtifact(test_exe);
+    setLeakReportLog(check);
+    setUserRootsForTest(check, "bk-map-user");
+    check.setCwd(b.path("."));
+    check.addArgs(&.{ module_root, "Data", work, "Data/Maps/Allies", "Data/Maps/Tutorial" });
+    addPathDir(check, rootPath(b, "zig-out/bin"));
+    for (runs, 0..) |spec, i| {
+        const run = b.addRunArtifact(tool);
+        setUserRootsForTest(run, "bk-map-user");
+        run.setCwd(b.path("."));
+        run.addArgs(spec.args);
+        run.addArgs(if (std.mem.eql(u8, spec.args[0], "validate-obj2mod")) &.{} else &.{ "--modules", module_root });
+        run.step.dependOn(install);
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        if (spec.after) |index| run.step.dependOn(&run_steps[index].step);
+        if (spec.stdout != null or spec.stderr != null) {
+            // Judged by its streams, so without the debug leak count's line.
+            run.setEnvironmentVariable("BK_MEM_REPORT", "0");
+            run.expectExitCode(if (spec.stderr != null) 1 else 0);
+            run.expectStdOutEqual(spec.stdout orelse "");
+            run.expectStdErrEqual(spec.stderr orelse "");
+        } else {
+            setLeakReportLog(run);
+        }
+        // The tool reads Data and the fixtures by plain path; a changed map
+        // or fixture is a changed run.
+        run.has_side_effects = true;
+        run_steps[i] = run;
+        check.step.dependOn(&run.step);
+    }
+    const step = b.step("test-bk-map", "Convert the tracked maps with bk-map and judge them with MapEquivalence and the engine's readers");
+    step.dependOn(&test_exe.step);
+    step.dependOn(install);
+    if (test_mode == .run) step.dependOn(&check.step);
+
+    // D-29's opt-in tier: every map of Data/Maps to .xml and back, judged by
+    // MapEquivalence. The .xml leg parses about 120 MB of maps, over three
+    // minutes in a debug build, so it is a step of its own like
+    // test-map-files-all, and leaves the byte cycles (another parse of every
+    // map) to the default tier.
+    const all_work = work ++ "/all";
+    const all_check = b.addRunArtifact(test_exe);
+    setLeakReportLog(all_check);
+    setUserRootsForTest(all_check, "bk-map-user");
+    all_check.setCwd(b.path("."));
+    all_check.addArgs(&.{ module_root, "Data", all_work, "Data/Maps", "--maps-only" });
+    addPathDir(all_check, rootPath(b, "zig-out/bin"));
+    var previous: ?*std.Build.Step = null;
+    for ([_][]const []const u8{
+        &.{ "to-xml", "Data/Maps", "--out", all_work ++ "/Maps/xml", "--force" },
+        &.{ "to-bzm", all_work ++ "/Maps/xml", "--out", all_work ++ "/Maps/bzm", "--force" },
+    }) |args| {
+        const run = b.addRunArtifact(tool);
+        setLeakReportLog(run);
+        setUserRootsForTest(run, "bk-map-user");
+        run.setCwd(b.path("."));
+        run.addArgs(args);
+        run.addArgs(&.{ "--modules", module_root });
+        run.step.dependOn(install);
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        if (previous) |step_before| run.step.dependOn(step_before);
+        run.has_side_effects = true;
+        previous = &run.step;
+    }
+    all_check.step.dependOn(previous.?);
+    const step_all = b.step("test-bk-map-all", "Convert every Data/Maps map with bk-map to .xml and back and judge it with MapEquivalence");
+    step_all.dependOn(&test_exe.step);
+    if (test_mode == .run) step_all.dependOn(&all_check.step);
+    return .{ .install = install, .tool = tool };
+}
+
+const BkSprite = struct {
+    /// Installs bk-sprite and every engine library it loads at run time.
+    install: *std.Build.Step,
+    tool: *std.Build.Step.Compile,
+};
+
+fn addBkSprite(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    image: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) BkSprite {
+    // bk-sprite (Phase 8, D-20): spcomp's sprite composer, a C++ console
+    // program on the engine libraries (D-03) built with bk-font's recipe. The
+    // frames are packed by Image's ComposeImages and written by its TGA
+    // writer, the .san by Formats' SSpriteAnimationFormat saver; the animation
+    // slots come from the Resource Editor exporter's own name table.
+    const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    const test_files = &.{ "tools/zig/bk_sprite_test.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const []const u8{ tool_files, test_files }) |module, files| {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+        addProjectIncludePaths(b, module);
+        module.addIncludePath(b.path("Sources/src/Image"));
+        module.addCSourceFiles(.{ .files = files, .flags = cppflagsForOptimize(optimize) });
+        addMsvcIncludePaths(b, module, toolchain);
+        addLinuxCxxIncludePaths(b, module);
+        addMsvcLibraryPaths(b, module, toolchain);
+        addMacosSysrootPaths(b, module, target);
+        module.linkLibrary(formats);
+        module.linkLibrary(misc);
+        module.linkLibrary(platform_runtime);
+        // Misc's System.cpp reaches SDL; nothing here opens a window.
+        linkSdlImport(module, target, sdl_dynamic);
+    }
+    // Loader-relative library paths, as bk-font: beside the libraries, in
+    // zig-out/bin with them in zig-out/lib, or in the game's Tools/ folder.
+    for ([_][]const u8{ "", "/../lib", "/.." }) |suffix| {
+        switch (target.result.os.tag) {
+            .linux => tool_module.addRPathSpecial(b.fmt("$ORIGIN{s}", .{suffix})),
+            .macos => tool_module.addRPathSpecial(b.fmt("@loader_path{s}", .{suffix})),
+            else => {},
+        }
+    }
+    const tool = b.addExecutable(.{ .name = "bk-sprite", .root_module = tool_module });
+    const test_exe = b.addExecutable(.{ .name = "bk-sprite-test", .root_module = test_module });
+    for ([_]*std.Build.Step.Compile{ tool, test_exe }) |exe| {
+        exe.subsystem = .console;
+        if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        // The engine modules it loads resolve RTTI and the host globals from
+        // the executable, as they do from Game.
+        if (target.result.os.tag == .linux) exe.rdynamic = true;
+    }
+    const install = b.step("bk-sprite", "Build and install the bk-sprite sprite composer and the engine libraries it loads");
+    for ([_]*std.Build.Step.Compile{ tool, bk_memory_artifact.?, streamio_zig, image, options_bridge, platform_runtime, sdl_dynamic }) |artifact| {
+        install.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
+
+    // The fixture description through the installed tool into
+    // zig-out/local-test, twice (the outputs must be the same bytes), and
+    // three broken descriptions that must fail with their reason. bk-sprite-
+    // test then reads what the good runs wrote with the engine's readers.
+    const module_root = if (target.result.os.tag == .windows)
+        rootPath(b, "zig-out/bin")
+    else
+        rootPath(b, "zig-out/lib");
+    const work = "zig-out/local-test/bk-sprite";
+    const fixture = "tools/zig/fixtures/small-tools/sprite";
+    const bad = "tools/zig/fixtures/small-tools/sprite-bad";
+    const BkSpriteRun = struct {
+        args: []const []const u8,
+        stderr: ?[]const u8 = null,
+    };
+    const runs = [_]BkSpriteRun{
+        .{ .args = &.{ "compose", fixture, work ++ "/fixture", "--force" } },
+        .{ .args = &.{ "compose", fixture, work ++ "/again/fixture", "--force" } },
+        .{ .args = &.{ "compose", bad ++ "/unknown", work ++ "/bad" }, .stderr = "bk-sprite: animation \"walk\" is not an animation slot of the sprite format\n" },
+        .{ .args = &.{ "compose", bad ++ "/range", work ++ "/bad" }, .stderr = "bk-sprite: frame 2 of dir 0 of animation \"idle\" is not one of its frames 0..1\n" },
+        .{ .args = &.{ "compose", bad ++ "/missing", work ++ "/bad" }, .stderr = b.fmt("bk-sprite: cannot open image {s}\n", .{hostPath(b, bad ++ "/missing/death/000.tga")}) },
+    };
+    const check = b.addRunArtifact(test_exe);
+    setLeakReportLog(check);
+    setUserRootsForTest(check, "bk-sprite-user");
+    check.setCwd(b.path("."));
+    check.addArgs(&.{ module_root, fixture, work ++ "/fixture", work ++ "/again/fixture" });
+    addPathDir(check, rootPath(b, "zig-out/bin"));
+    for (runs) |spec| {
+        const run = b.addRunArtifact(tool);
+        setUserRootsForTest(run, "bk-sprite-user");
+        run.setCwd(b.path("."));
+        run.addArgs(spec.args);
+        run.addArgs(&.{ "--modules", module_root });
+        run.step.dependOn(install);
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        if (spec.stderr) |stderr| {
+            // Judged by its streams, so without the debug leak count's line.
+            run.setEnvironmentVariable("BK_MEM_REPORT", "0");
+            run.expectExitCode(1);
+            run.expectStdOutEqual("");
+            run.expectStdErrEqual(stderr);
+        } else {
+            setLeakReportLog(run);
+        }
+        // The tool reads the fixtures by plain path; a changed fixture is a
+        // changed run.
+        run.has_side_effects = true;
+        check.step.dependOn(&run.step);
+    }
+    const step = b.step("test-bk-sprite", "Compose the fixture sprite with bk-sprite and judge it with the engine's readers");
+    step.dependOn(&test_exe.step);
+    step.dependOn(install);
+    if (test_mode == .run) step.dependOn(&check.step);
+    return .{ .install = install, .tool = tool };
+}
+
+/// A build-root-relative path with the host's separators, as a tool prints it.
+/// The replacement runs only on a Windows host (this file compiles for the
+/// host, so Linux never analyses the branch); replaceOwned allocates the
+/// result, because b.dupe's slice is const there.
+fn hostPath(b: *std.Build, path: []const u8) []const u8 {
+    const copy = b.dupe(path);
+    if (std.fs.path.sep == '\\') return std.mem.replaceOwned(u8, b.allocator, copy, "/", "\\") catch @panic("OOM");
+    return copy;
 }
 
 fn addEditorBridgeTest(

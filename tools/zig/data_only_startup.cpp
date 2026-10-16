@@ -10,6 +10,7 @@
 #include "../../Sources/src/StreamIO/RandomGen.h"
 #include "../../Sources/src/Platform/DynamicLibrary.h"
 #include "../../Sources/src/StreamIO/StreamIOTypes.h"
+#include "../../Sources/src/Image/Image.h"
 
 typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
 typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();
@@ -28,7 +29,7 @@ GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 
 namespace NDataOnly
 {
-static std::string SharedLibraryName( const char *pszRoot )
+static std::string SharedLibraryName( const char *pszRoot, const char *pszModule )
 {
 	std::string szPath( pszRoot ? pszRoot : "." );
 #if defined(_WIN32) || defined(_WIN64)
@@ -45,18 +46,18 @@ static std::string SharedLibraryName( const char *pszRoot )
 	if ( !szPath.empty() && szPath[szPath.size() - 1] != cSeparator )
 		szPath += cSeparator;
 #if defined(_WIN32) || defined(_WIN64)
-	return szPath + "StreamIO.dll";
+	return szPath + pszModule + ".dll";
 #elif defined(__APPLE__)
-	return szPath + "libStreamIO.dylib";
+	return szPath + "lib" + pszModule + ".dylib";
 #else
-	return szPath + "libStreamIO.so";
+	return szPath + "lib" + pszModule + ".so";
 #endif
 }
 
-bool Start( const char *pszModuleRoot, const char *pszDataRoot )
+bool StartStreamIO( const char *pszModuleRoot )
 {
 	static NPlatform::DynamicLibrary streamio;
-	const std::string szLibrary = SharedLibraryName( pszModuleRoot );
+	const std::string szLibrary = SharedLibraryName( pszModuleRoot, "StreamIO" );
 	if ( !streamio.IsLoaded() && !streamio.Load( szLibrary.c_str() ) )
 	{
 		// Say whether the file is even there: "load failed" alone cannot tell a
@@ -85,6 +86,13 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 		fprintf( stderr, "data-only startup: %s loaded but a hook is missing\n", szLibrary.c_str() );
 		return false;
 	}
+	return true;
+}
+
+bool Start( const char *pszModuleRoot, const char *pszDataRoot )
+{
+	if ( !StartStreamIO( pszModuleRoot ) )
+		return false;
 	// The same pattern the game opens (GameMain.cpp:551): the loose Data
 	// directory plus any .pak beside it, so a storage-relative name resolves
 	// whether the file is loose or archived.
@@ -97,5 +105,33 @@ bool Start( const char *pszModuleRoot, const char *pszDataRoot )
 	}
 	RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 	return true;
+}
+
+bool StartImage( const char *pszModuleRoot )
+{
+	static NPlatform::DynamicLibrary image;
+	const std::string szLibrary = SharedLibraryName( pszModuleRoot, "Image" );
+	if ( !image.IsLoaded() && !image.Load( szLibrary.c_str() ) )
+	{
+		fprintf( stderr, "data-only startup: cannot load %s: %s\n", szLibrary.c_str(), image.GetError() );
+		return false;
+	}
+	typedef const SModuleDescriptor* (STDCALL *GETMODULEDESCRIPTOR_HOOK)();
+	GETMODULEDESCRIPTOR_HOOK hook = reinterpret_cast<GETMODULEDESCRIPTOR_HOOK>( image.GetFunction( "GetModuleDescriptor" ) );
+	const SModuleDescriptor *pDesc = hook != 0 ? hook() : 0;
+	CPtr<IImageProcessor> pProcessor = pDesc != 0 && pDesc->pFactory != 0 ? CreateObject<IImageProcessor>( pDesc->pFactory, IMAGE_PROCESSOR ) : 0;
+	if ( pProcessor == 0 )
+	{
+		fprintf( stderr, "data-only startup: %s has no image processor\n", szLibrary.c_str() );
+		return false;
+	}
+	RegisterSingleton( IImageProcessor::tidTypeID, pProcessor );
+	return true;
+}
+
+void Stop()
+{
+	if ( GetSingletonGlobal() != 0 )
+		GetSingletonGlobal()->Done();
 }
 }

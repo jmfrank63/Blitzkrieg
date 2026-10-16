@@ -1,0 +1,71 @@
+#include "StdAfx.h"
+#include "tool_host.h"
+
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#elif !defined(_WIN32)
+#include <unistd.h>
+#endif
+
+namespace fs = std::filesystem;
+
+namespace NToolHost
+{
+fs::path InputPath( std::string szArg )
+{
+#if !defined(_WIN32)
+	for ( size_t i = 0; i < szArg.size(); ++i )
+		if ( szArg[i] == '\\' )
+			szArg[i] = '/';
+#endif
+	return fs::path( szArg );
+}
+
+std::string EnginePath( const fs::path &path )
+{
+	std::string szPath = path.string();
+	for ( size_t i = 0; i < szPath.size(); ++i )
+		if ( szPath[i] == '/' )
+			szPath[i] = '\\';
+	return szPath;
+}
+
+fs::path ExecutableDirectory()
+{
+#if defined(_WIN32)
+	wchar_t szPath[4096];
+	const DWORD nLength = GetModuleFileNameW( 0, szPath, 4096 );
+	return nLength > 0 && nLength < 4096 ? fs::path( std::wstring( szPath, nLength ) ).parent_path() : fs::path();
+#elif defined(__APPLE__)
+	char szPath[4096];
+	uint32_t nSize = sizeof( szPath );
+	return _NSGetExecutablePath( szPath, &nSize ) == 0 ? fs::path( szPath ).parent_path() : fs::path();
+#else
+	char szPath[4096];
+	const ssize_t nLength = readlink( "/proc/self/exe", szPath, sizeof( szPath ) - 1 );
+	return nLength > 0 ? fs::path( std::string( szPath, nLength ) ).parent_path() : fs::path();
+#endif
+}
+
+fs::path ModuleRoot( const std::string &szModules )
+{
+	if ( !szModules.empty() )
+		return InputPath( szModules );
+#if defined(_WIN32)
+	const char szStreamIO[] = "StreamIO.dll";
+#elif defined(__APPLE__)
+	const char szStreamIO[] = "libStreamIO.dylib";
+#else
+	const char szStreamIO[] = "libStreamIO.so";
+#endif
+	const fs::path exe = ExecutableDirectory();
+	const fs::path candidates[3] = { exe, exe.parent_path() / "lib", exe.parent_path() };
+	for ( int i = 0; i < 3; ++i )
+	{
+		std::error_code ec;
+		if ( fs::exists( candidates[i] / szStreamIO, ec ) )
+			return candidates[i];
+	}
+	return exe;
+}
+}

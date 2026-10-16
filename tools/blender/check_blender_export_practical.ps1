@@ -1,19 +1,10 @@
 $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$converter = Join-Path $root "Sources\src\BZMConvertor\Debug\BZMConvertor.exe"
+# bk-map finds the engine's StreamIO beside it in zig-out\bin.
+$converter = Join-Path $root "zig-out\bin\bk-map.exe"
 if (-not (Test-Path $converter)) {
-    throw "BZMConvertor.exe was not found at $converter. Build /t:BZMConvertor first."
-}
-
-$converterDir = Split-Path -Parent $converter
-$configuration = Split-Path -Leaf $converterDir
-$streamio = Join-Path $root "Sources\src\StreamIO\$configuration\StreamIO.dll"
-if (Test-Path $streamio) {
-    Copy-Item -LiteralPath $streamio -Destination (Join-Path $converterDir "StreamIO.dll") -Force
-}
-else {
-    throw "StreamIO.dll was not found at $streamio. Build /t:StreamIO first."
+    throw "bk-map.exe was not found at $converter. Run zig build bk-map first."
 }
 
 $blender = Get-Command blender -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
@@ -25,7 +16,7 @@ if (-not $blender) {
     throw "Blender executable was not found. Install Blender or add blender.exe to PATH."
 }
 
-$temp = Join-Path $root "Sources\src\BZMConvertor\Debug\blender_export_practical"
+$temp = Join-Path $root "zig-out\local-test\blender_export_practical"
 if (Test-Path $temp) {
     Remove-Item -LiteralPath $temp -Recurse -Force
 }
@@ -90,7 +81,7 @@ if not exporter.write_animations(animation_path, bpy.context):
 
 result = exporter.run_converter(converter_path, obj_path, out_path, skeleton_path, animation_path)
 if result.returncode != 0:
-    raise RuntimeError("BZMConvertor failed with exit code %d" % result.returncode)
+    raise RuntimeError("bk-map obj2mod failed with exit code %d" % result.returncode)
 "@ | Set-Content -LiteralPath $blenderScript -Encoding UTF8
 
 & $blender --background --factory-startup --python $blenderScript
@@ -127,11 +118,11 @@ key 0 1 0 0 0 0 0 0 1
 
 Push-Location (Split-Path -Parent $converter)
 try {
-    & $converter -validateobj2mod $obj $skeleton $animation
-    if ($LASTEXITCODE -ne 0) { throw "BZMConvertor validation failed with exit code $LASTEXITCODE" }
+    & $converter validate-obj2mod $obj $skeleton $animation
+    if ($LASTEXITCODE -ne 0) { throw "bk-map validate-obj2mod failed with exit code $LASTEXITCODE" }
 
-    & $converter -obj2mod $obj $mod $skeleton $animation
-    if ($LASTEXITCODE -ne 0) { throw "BZMConvertor conversion failed with exit code $LASTEXITCODE" }
+    & $converter obj2mod $obj $mod $skeleton $animation
+    if ($LASTEXITCODE -ne 0) { throw "bk-map obj2mod failed with exit code $LASTEXITCODE" }
 }
 finally {
     Pop-Location

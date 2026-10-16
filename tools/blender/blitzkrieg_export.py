@@ -4,7 +4,7 @@ bl_info = {
     "version": (0, 1, 0),
     "blender": (3, 6, 0),
     "location": "File > Export > Blitzkrieg MOD",
-    "description": "Exports Blender meshes through the open BZMConvertor OBJ to MOD path",
+    "description": "Exports Blender meshes through bk-map obj2mod, the open OBJ to MOD path",
     "category": "Import-Export",
 }
 
@@ -87,7 +87,7 @@ def format_animation_key(node_index, key_index, pos, quat):
 def build_converter_command(converter_path, obj_path, mod_path, skeleton_path=None, animation_path=None):
     command = [
         str(converter_path),
-        "-obj2mod",
+        "obj2mod",
         str(obj_path),
         str(mod_path),
     ]
@@ -339,12 +339,13 @@ if bpy is not None:
 
         filter_glob: StringProperty(default="*.mod", options={"HIDDEN"})
         converter_path: StringProperty(
-            name="BZMConvertor.exe",
+            name="bk-map",
+            description="The bk-map tool (the game's Tools folder, or zig-out/bin); empty runs bk-map from PATH",
             subtype="FILE_PATH",
             default="",
         )
-        run_bzmconvertor: BoolProperty(
-            name="Run BZMConvertor",
+        run_converter: BoolProperty(
+            name="Run bk-map obj2mod",
             default=True,
         )
         keep_intermediate: BoolProperty(
@@ -366,11 +367,11 @@ if bpy is not None:
             write_skeleton(skeleton_path, context)
             has_animation = self.export_animations and write_animations(animation_path, context)
 
-            if self.run_bzmconvertor:
-                converter = pathlib.Path(self.converter_path) if self.converter_path else pathlib.Path("BZMConvertor.exe")
+            if self.run_converter:
+                converter = pathlib.Path(self.converter_path) if self.converter_path else pathlib.Path("bk-map")
                 result = run_converter(converter, obj_path, mod_path, skeleton_path, animation_path if has_animation else None)
                 if result.returncode != 0:
-                    self.report({"ERROR"}, "BZMConvertor failed with exit code %d" % result.returncode)
+                    self.report({"ERROR"}, "bk-map obj2mod failed with exit code %d" % result.returncode)
                     return {"CANCELLED"}
 
             if not self.keep_intermediate:
