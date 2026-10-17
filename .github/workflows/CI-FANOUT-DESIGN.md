@@ -1,9 +1,34 @@
 # CI fan-out design: build once per platform, run tiers in parallel
 
-Status: ready for planning (2026-10-17). Not implemented. Options 3 (per-area
-path filters) and 4 (Windows and macOS only on dispatch, main and pull
-requests) are live in `cross-platform.yml`; this note covers options 1 and 2,
-which attack the wall time of the runs that still execute everything.
+Status: implemented on fix/ci-fast (2026-10-18), first full run pending. Options 3
+(per-area path filters) and 4 (Windows and macOS only on dispatch, main and pull
+requests) are live in `cross-platform.yml`; this note covers options 1 and 2, which
+attack the wall time of the runs that still execute everything.
+
+## What the measurements changed (2026-10-18)
+
+- The compile, not the tiers, set most of the wall time: every product job spent 18
+  to 45 minutes compiling before its first test printed (run 39035514549), and the
+  restored caches did not help. Zig 0.17 reuses a C or C++ object only when the stat
+  (size, inode, mtime) of its own source matches the manifest exactly; a new checkout
+  or an unpacked cache has new inodes, so every object compiles again although no
+  byte changed. Measured locally: new inodes on every source file, 148 s rebuild and
+  652 objects; a changed header is hashed again and costs nothing.
+- `tools/zig/cache_restat.zig` fixes that: it writes the current stat into every
+  manifest entry whose file still hashes to the recorded digest. After it, the same
+  rebuild takes 2 s and compiles nothing; a changed source or header still rebuilds
+  exactly its objects (1 and 4). Every job runs it right after restoring or
+  unpacking a cache, so the caches restored from main now save the compile too.
+- Three tiers ran long in one process and now run in slices: test-editor-bridge
+  (64 minutes on Windows, 5 slices), test-resource-bridge (68, 44 of them in the
+  shipped objects' negative-tile scan, 7 slices with the scan in 4 parts) and the
+  random missions sweep (42, 3 shards by template). Each slice passes alone on Linux.
+- The "Open mechanics" question below: without cache_restat a tier job that
+  downloads the build's `.zig-cache` compiles everything again (probe runs 39049729234
+  and 39052418537). With it, the tier job should run `zig build <tier>` from the
+  downloaded cache and compile nothing, so no `-Dprebuilt` steps would be needed; the
+  first full run on fix/ci-fast checks that on the runners. The archive is about
+  4.3 GB on Linux (75 s to pack, 25 s to upload, 75 s to download, 60 s to unpack).
 
 ## Problem
 
