@@ -60,8 +60,13 @@ pub fn main(init: std.process.Init) !void {
     }
     var roots: [5]std.Io.Dir = undefined;
     roots[0] = std.Io.Dir.cwd();
-    for (roots[1..], paths) |*root, path| {
+    for (roots[1..], paths, 0..) |*root, path, i| {
         root.* = std.Io.Dir.cwd().openDir(io, path, .{}) catch |err| {
+            // No cache was restored (a new key starts empty): nothing to restat.
+            if (i == 0 and err == error.FileNotFound) {
+                std.debug.print("cache_restat: no cache at {s}, nothing to do\n", .{path});
+                return;
+            }
             std.debug.print("cache_restat: cannot open {s}: {t}\n", .{ path, err });
             std.process.exit(2);
         };
@@ -75,7 +80,13 @@ pub fn main(init: std.process.Init) !void {
     var known: std.StringHashMapUnmanaged(?Known) = .empty;
     var reported: std.StringHashMapUnmanaged(void) = .empty;
     const verbose = if (init.environ_map.get("BK_RESTAT_VERBOSE")) |v| std.mem.eql(u8, v, "1") else false;
-    var manifests_dir = try local.openDir(io, "h", .{ .iterate = true });
+    var manifests_dir = local.openDir(io, "h", .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => {
+            std.debug.print("cache_restat: the cache has no manifests, nothing to do\n", .{});
+            return;
+        },
+        else => |e| return e,
+    };
     defer manifests_dir.close(io);
 
     var n_manifests: usize = 0;
