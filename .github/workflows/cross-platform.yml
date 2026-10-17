@@ -15,6 +15,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  # A new run on the same branch supersedes the previous one: no stacking.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
