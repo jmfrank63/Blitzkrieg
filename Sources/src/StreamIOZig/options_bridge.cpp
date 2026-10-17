@@ -392,6 +392,14 @@ public:
             unsigned short cur_type = VT_EMPTY; const char *cur = api.value(state_, name.c_str(), &cur_type);
             if (cur && *cur && !EqualAsciiIgnoreCase(cur, "Off")) { values[1] = cur; count = 2; }
         }
+        else if (fill && std::strcmp(fill, "GetLanguages") == 0) {
+            // The settings screen lists the installed language mods itself (it
+            // scans mods\); like the cloud row, this fallback keeps the stored
+            // choice selectable.
+            values[0] = "Default"; count = 1;
+            unsigned short cur_type = VT_EMPTY; const char *cur = api.value(state_, name.c_str(), &cur_type);
+            if (cur && *cur && !EqualAsciiIgnoreCase(cur, "Default")) { values[1] = cur; count = 2; }
+        }
         for (int i = 0; i < count; ++i) drops_.push_back({values[i]}); return drops_;
     }
     IOptionSystemIterator *BK_STDCALL CreateIterator(unsigned long mask) override { return new OptionIterator(this, mask); }

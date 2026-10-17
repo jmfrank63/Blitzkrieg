@@ -48,54 +48,7 @@ const kind_filters = blk: {
 /// another thread, or after the editor quit, so it is a global.
 var dialog_slot: DialogSlot = .{};
 
-const DialogSlot = struct {
-    state: std.atomic.Value(u8) = .init(@intFromEnum(State.idle)),
-    buffer: [logic.path_capacity]u8 = undefined,
-    len: usize = 0,
-
-    const State = enum(u8) { idle, waiting, arrived, cancelled, failed };
-
-    fn request(self: *DialogSlot) bool {
-        return self.state.cmpxchgStrong(@intFromEnum(State.idle), @intFromEnum(State.waiting), .acquire, .monotonic) == null;
-    }
-
-    fn deliver(self: *DialogSlot, text: ?[]const u8, failed: bool) void {
-        if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
-        const chosen = text orelse {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        };
-        self.len = @min(chosen.len, self.buffer.len);
-        @memcpy(self.buffer[0..self.len], chosen[0..self.len]);
-        self.state.store(@intFromEnum(if (failed or chosen.len > self.buffer.len) State.failed else State.arrived), .release);
-    }
-
-    const Taken = union(enum) { path: []const u8, cancelled, failed: []const u8 };
-
-    fn take(self: *DialogSlot) ?Taken {
-        const state: State = @enumFromInt(self.state.load(.acquire));
-        const result: Taken = switch (state) {
-            .idle, .waiting => return null,
-            .arrived => .{ .path = self.buffer[0..self.len] },
-            .cancelled => .cancelled,
-            .failed => .{ .failed = self.buffer[0..self.len] },
-        };
-        self.state.store(@intFromEnum(State.idle), .release);
-        return result;
-    }
-};
-
-fn dialogCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filter: c_int) callconv(.c) void {
-    _ = filter;
-    const slot: *DialogSlot = @ptrCast(@alignCast(userdata orelse return));
-    if (filelist == null) {
-        const reason = sdl3.c.SDL_GetError();
-        slot.deliver(if (reason != null) std.mem.span(reason) else "no reason given", true);
-        return;
-    }
-    const first = filelist[0];
-    slot.deliver(if (first != null) std.mem.span(first) else null, false);
-}
+const DialogSlot = kit.dialogs.PathSlot(void, logic.path_capacity);
 
 /// ImGui keeps the ini file's name by pointer for the whole session.
 var layout_ini_path: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
@@ -414,7 +367,7 @@ pub const Ui = struct {
         if (dialog_slot.take()) |taken| {
             self.dialog_open = null;
             switch (taken) {
-                .path => |p| self.session.dialogAnswered(&context, p),
+                .path => |p| self.session.dialogAnswered(&context, p.path),
                 .cancelled => self.session.dialogAnswered(&context, null),
                 .failed => |reason| {
                     self.session.dialogAnswered(&context, null);
@@ -440,7 +393,7 @@ pub const Ui = struct {
     }
 
     fn showDialog(self: *Ui, which: lifecycle.Dialog) void {
-        if (!dialog_slot.request()) return;
+        if (!dialog_slot.request({})) return;
         self.dialog_open = which;
         var folder_z: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
         var location: ?[*:0]const u8 = null;
@@ -448,10 +401,10 @@ pub const Ui = struct {
             if (std.mem.printSentinel(&folder_z, "{s}", .{self.settings.projectsFolder()}, 0)) |z| location = z.ptr else |_| {}
         }
         switch (which) {
-            .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &dialog_slot, self.window, &open_filters, open_filters.len, location, false),
+            .open => sdl3.c.SDL_ShowOpenFileDialog(DialogSlot.callback, &dialog_slot, self.window, &open_filters, open_filters.len, location, false),
             .save_as, .save_as_for_prompt => {
                 const index: usize = @intCast(@intFromEnum(self.session.life.doc.kind));
-                sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, &dialog_slot, self.window, &kind_filters[index], 1, location);
+                sdl3.c.SDL_ShowSaveFileDialog(DialogSlot.callback, &dialog_slot, self.window, &kind_filters[index], 1, location);
             },
         }
     }

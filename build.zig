@@ -2788,6 +2788,9 @@ pub fn build(b: *std.Build) void {
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
     const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
+    // Phase 7: ELK, on the editors' platforms and installed beside them, but
+    // with no engine (D-01); the package steps do not stage it yet.
+    if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep, random_missions_repeat);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -3448,6 +3451,97 @@ pub fn build(b: *std.Build) void {
     resource_core_step.dependOn(&resource_core_tests.step);
     if (test_mode == .run) resource_core_step.dependOn(&resource_core_tests_run.step);
     test_step.dependOn(resource_core_step);
+    // The ELK core tier (Phase 7, D-02): std-only Zig, no kit, no engine, so
+    // it runs on every target. It reads the database through the engine's
+    // own std-only XML reader and runs from the repository root, because its
+    // byte-identity tests read the tracked Data/ELK and Data/AmericanELK and
+    // write their scratch copies under zig-out/local-test/elk.
+    const elk_xml_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/StreamIOZig/xml.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    // The imports read .pak and .upd files with the engine's own zip reader
+    // (D-08), std-only like the XML reader.
+    const elk_zip_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/StreamIOZig/zip.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const elk_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/elk/core/root.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "xml", .module = elk_xml_module },
+            .{ .name = "zip", .module = elk_zip_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, elk_core_module, toolchain);
+    }
+    const elk_core_tests = b.addTest(.{ .root_module = elk_core_module });
+    const elk_core_tests_run = b.addRunArtifact(elk_core_tests);
+    elk_core_tests_run.setCwd(b.path("."));
+    const elk_core_step = b.step("test-elk-core", "Run the ELK core tests (text database, codec, elk.xml, imports, pak export by filter too, spreadsheets, progress and Cancel) against the tracked Data/ELK");
+    elk_core_step.dependOn(&elk_core_tests.step);
+    if (test_mode == .run) elk_core_step.dependOn(&elk_core_tests_run.step);
+    test_step.dependOn(elk_core_step);
+    // The ELK app's pure parts (session model, elk.cfg, spell check): plain
+    // Zig over the core and the kit's settings helpers, no SDL, ImGui or
+    // window, so it runs everywhere the core tier does, from the repository
+    // root for the same tracked Data/ELK. The spell check's tests run the
+    // vendored Hunspell itself on the tracked test dictionary.
+    const elk_app_logic_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/elk/app/logic.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk_core", .module = elk_core_module },
+            .{ .name = "editor_kit", .module = editor_kit_module },
+        },
+    });
+    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain));
+    // The help text embedded in ELK (D-02): its own module, since the
+    // Markdown lives in Sources/editor/elk/help, outside the app's folder.
+    const elk_help_module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = .debug });
+    const elk_help_tests = b.addTest(.{ .root_module = elk_help_module });
+    const elk_help_tests_run = b.addRunArtifact(elk_help_tests);
+    addMsvcLibraryPaths(b, elk_app_logic_module, toolchain);
+    if (target.result.abi == .msvc) elk_app_logic_module.link_libc = true else linkMsvcRuntime(elk_app_logic_module, .debug);
+    const elk_app_logic_tests = b.addTest(.{ .root_module = elk_app_logic_module });
+    const elk_app_logic_tests_run = b.addRunArtifact(elk_app_logic_tests);
+    elk_app_logic_tests_run.setCwd(b.path("."));
+    const elk_app_logic_step = b.step("test-elk-app", "Run the ELK app's pure logic tests (session model and save points, elk.cfg, the embedded help) against the tracked Data/ELK");
+    elk_app_logic_step.dependOn(&elk_app_logic_tests.step);
+    if (test_mode == .run) elk_app_logic_step.dependOn(&elk_app_logic_tests_run.step);
+    elk_app_logic_step.dependOn(&elk_help_tests.step);
+    if (test_mode == .run) elk_app_logic_step.dependOn(&elk_help_tests_run.step);
+    test_step.dependOn(elk_app_logic_step);
+    // E-06 on the real Game: the tracked Data/ELK exported to mods/ELKTest of
+    // the install, the Game's own main-menu capture before and after a marker
+    // translation of one label, and the frames measured
+    // (tools/zig/elk_game_reads_it.zig); and E-11, the Game's Language option
+    // switched to that mod and back on the real settings screen. It needs a
+    // desktop and a GPU, so it is not part of `test`.
+    const elk_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/elk_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "elk", .module = elk_core_module }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, elk_game_reads_module, toolchain);
+    }
+    const elk_game_reads_tests = b.addTest(.{ .root_module = elk_game_reads_module });
+    const elk_game_reads_run = b.addRunArtifact(elk_game_reads_tests);
+    elk_game_reads_run.setCwd(b.path("."));
+    elk_game_reads_run.setEnvironmentVariable("BK_ELK_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    elk_game_reads_run.has_side_effects = true;
+    elk_game_reads_run.step.dependOn(install_game_step);
+    const elk_game_reads_step = b.step("elk-game-reads-it", "Export the tracked Data/ELK to mods/ELKTest, capture the real Game's main menu before and after a marker translation of one label and prove from the frames that it shows the marker there (E-06); then switch the Game's Language option to the mod and back on its settings screen and across a restart, measured the same way (E-11)");
+    elk_game_reads_step.dependOn(&elk_game_reads_tests.step);
+    if (test_mode == .run) elk_game_reads_step.dependOn(&elk_game_reads_run.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
@@ -5261,6 +5355,50 @@ fn addEditorImgui(
     });
     if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
+}
+
+/// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
+/// library: the C API in `hunspell.h` is all ELK calls. The CRT rules are
+/// editor-imgui's: the release CRT on MSVC, libc only on Linux (the
+/// consumer links libstdc++), the C++ runtime named on macOS.
+fn addHunspell(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = cxx_optimize,
+    });
+    module.addIncludePath(b.path("vendor/hunspell/src/hunspell"));
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    if (target.result.os.tag == .linux) {
+        module.link_libc = true;
+    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    // Hunspell uses the standard library's streams and strings, whose MSVC
+    // half is the C++ runtime's import library, not part of the C CRT.
+    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "msvcprtd" else "msvcprt", .{});
+    module.addCSourceFiles(.{
+        .root = b.path("vendor/hunspell/src/hunspell"),
+        .files = &.{
+            "affentry.cxx",
+            "affixmgr.cxx",
+            "csutil.cxx",
+            "filemgr.cxx",
+            "hashmgr.cxx",
+            "hunspell.cxx",
+            "hunzip.cxx",
+            "phonet.cxx",
+            "replist.cxx",
+            "suggestmgr.cxx",
+        },
+        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+    });
+    return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
@@ -9385,6 +9523,92 @@ fn editorAppKit(
     addMsvcIncludePaths(b, kit_module, toolchain);
     addMsvcLibraryPaths(b, kit_module, toolchain);
     return .{ .sdl = sdl_module, .kit = kit_module };
+}
+
+/// Phase 7 (D-01, D-02): ELK, the localisation kit, its own executable on the
+/// ELK core and the kit, with no engine. It links SDL and BkMemory (the
+/// allocator audit's rule) and editor-imgui, and is installed beside Game so
+/// the staged libSDL3 and BkMemory are found through its rpath, as the
+/// editors' are.
+fn addElk(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_imgui_module: *std.Build.Module,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    const app_kit = editorAppKit(b, target, optimize, toolchain, editor_imgui_module, sdl_include);
+    // The core for the app's target; test-elk-core builds its own for the host.
+    // Help > About's version is the game's (`game_version`).
+    const elk_build = b.addOptions();
+    elk_build.addOption([]const u8, "version", b.fmt("{d}.{d}.{d}", .{ game_version.major, game_version.minor, game_version.patch }));
+    const core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/elk/core/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "xml", .module = b.createModule(.{ .root_source_file = b.path("Sources/src/StreamIOZig/xml.zig"), .target = target, .optimize = optimize }) },
+            .{ .name = "zip", .module = b.createModule(.{ .root_source_file = b.path("Sources/src/StreamIOZig/zip.zig"), .target = target, .optimize = optimize }) },
+        },
+    });
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/elk/app/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = app_kit.sdl },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "editor_kit", .module = app_kit.kit },
+            .{ .name = "elk_core", .module = core_module },
+            .{ .name = "elk_help", .module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = optimize }) },
+            .{ .name = "elk_build", .module = elk_build.createModule() },
+        },
+    });
+    // The editor-overlay-spike's recipe, the other engine-less ImGui program:
+    // on MSVC Zig's libc is the one CRT, elsewhere the executable pulls in the
+    // C++ runtime editor-imgui needs.
+    addMsvcLibraryPaths(b, module, toolchain);
+    if (target.result.abi == .msvc) module.link_libc = true else linkMsvcRuntime(module, optimize);
+    if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
+    linkSdlImport(module, target, sdl_dynamic);
+    linkBkMemoryAllocator(b, module, false);
+    module.linkLibrary(addHunspell(b, target, optimize, toolchain));
+    const exe = b.addExecutable(.{ .name = "ELK", .root_module = module });
+    switch (target.result.os.tag) {
+        // No console on a double-click; the scripted modes attach to the
+        // parent's (crt.attachParentConsole).
+        .windows => exe.subsystem = .windows,
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+    const install_step = b.step("install-elk", "Install ELK, the localisation kit, into the game installation");
+    install_step.dependOn(&install_exe.step);
+
+    // The installed ELK on scratch copies of the tracked Data/ELK, in a
+    // hidden window: the tree, the edit boxes, the state buttons and the
+    // save points of D-15, the autosave through a killed frame loop
+    // included, each proved on disk. Launched from zig-out like the editors'
+    // host checks; it needs a GPU device, so it is not part of `test`.
+    const smoke_run = b.addSystemCommand(&.{rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename }))});
+    setLeakReportLog(smoke_run);
+    smoke_run.setCwd(b.path("zig-out"));
+    smoke_run.addArgs(&.{ "--smoke", rootPath(b, "Data/ELK"), rootPath(b, "zig-out/local-test/elk/app-smoke") });
+    // Reads Data/ELK and writes its scratch copy, neither a declared input.
+    smoke_run.has_side_effects = true;
+    smoke_run.step.dependOn(&install_exe.step);
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod (by filter too) and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), the short layout started from its .upd files with Help, and the D-14 worker: the progress modal mid-run and its Cancel, a cancelled import leaving every file whole; Import from Game into a new database and Import from PAK/UPD of usa01.pak, cancelled, whole and repeated");
+    smoke_step.dependOn(&install_exe.step);
+    if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }
 
 /// M001 S05: ResourceEditor, built and installed the way addMapEditor builds

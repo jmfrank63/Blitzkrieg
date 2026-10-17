@@ -119,11 +119,44 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   as the bare element name (`game`), which the MFC ELK also accepts (it keeps
   only the part after the last backslash), so no host path leaks into the
   file and it is portable.
+  Recorded in 07-01: the project's own `Path` (which the MFC ELK replaced on
+  open with where it opened the file) is written as the bare file name
+  (`elk.xml`) for the same reason. The texts are the `.elk` files, as the MFC
+  tree was filled from them; a state file without an original (the tracked
+  database has 3,777) is left alone. A state outside 0..3 reads as "Not
+  translated", the clamp the MFC import applied. The description lookup
+  keeps the MFC order (`<key>.dsc`, then `_folder.dsc` from the text's
+  parent folder upward, skipping its own folder) but stops at the database
+  folder instead of climbing on to the drive root.
+  Recorded in 07-02 (imports): an import is `UpdateELK` given one file,
+  whose name picks the element (`<title>_<n>`, cut at the last underscore
+  even when no number follows), `LastUpdateNumber` and the kind (`.upd`
+  complete, anything else partial); a missing element is added and a
+  missing `elk.xml` created, which is how the MFC ELK made a new database
+  (it had no New command). The MFC state rule is kept as written: a changed
+  original makes a Translated or Approved text Outdated and any other text
+  Not translated, so an Outdated text whose original changes again drops to
+  Not translated. A complete update deletes only the `.elk` of texts it
+  lacks. `resource.description` is read over the element's description as
+  the data tree did: a field it lacks keeps its value (`game_1.upd`'s copy
+  has no `Fonts`; the tracked `elk.xml` kept `Fonts="1"`). Element names
+  match the file title without regard to case; a file whose bytes would not
+  change is not rewritten, so a repeated import writes nothing; the Version
+  names the bare package file and its time is UTC at two-second steps. Import
+  from game reads the loose `.txt`/`.dsc`/`.description` files of a data
+  folder straight into the database (no intermediate `.pak`), its Version
+  time being the newest file's. Re-importing `game_1.upd`, from which
+  `Data/ELK` was built, leaves every database file byte-identical.
 - **D-06 Text codec.** Files are UTF-16LE with `FF FE`; reads also tolerate a
   missing BOM and a big-endian BOM; writes always use `FF FE`, CRLF, and strip
   trailing CR/LF/NUL exactly like `CELK::FromWideText`. An untouched text
   written back is byte-identical to what the MFC ELK wrote. The UI works in
   UTF-8 with LF.
+  Recorded in 07-01: a file without a BOM reads as UTF-16LE; the editor side
+  is WTF-8 so a lone surrogate survives; "untouched" means the text encodes
+  to what the file already reads as, and then the file is not rewritten,
+  which also keeps the 1,361 tracked originals and 3 translations that end in
+  a CR/LF/NUL run (never written by `FromWideText`) byte-identical.
 - **D-07 No code page.** The MFC ELK converted to an ANSI code page for its
   edit control and for the font's character table. The portable ELK is
   Unicode throughout and the setting is dropped (an old value is read and
@@ -136,6 +169,20 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   `Sources/src/StreamIOZig/zip.zig` (CRC checked) and with `unzip -t`. Zig's
   `std.compress.flate.Compress` replaces `zip.exe`; the zip reader is
   `zip.zig` imported as a module (it is std-only).
+  Recorded in 07-02 (export): `zip_writer.zig` sorts the entries byte-wise
+  by name (so `a-b.txt` precedes `a.txt`) and gives every entry the DOS time
+  1980-01-01 00:00:00, where zip.exe took the file system's order and each
+  file's time; the engine only passes the stamp on as a stream's time, and
+  the fixed one makes two exports of one database byte-identical. An entry
+  is stored when deflating would not shrink it, as zip.exe did. No extra
+  fields (zip.exe wrote NT security descriptors and Unix times), no Zip64;
+  names that differ only in case are refused, since the game would reach
+  only one. The pick is `ExportToPAK`'s: the translation's bytes when the
+  state is not Not translated and the translation has more than its BOM
+  (only-filled, which every MFC caller set), else the original's, both
+  copied unchanged. Importing an export back (named as the element's
+  update, since the file name picks the element) and exporting again gives
+  the same bytes.
 - **D-09 Where the output goes.** The game mounts overlays (mods) first,
   then loose files, then archives (`bk_storage_open` order in
   `StreamIOZig/streamio.zig`). A `Data/Texts.pak` is therefore **shadowed**
@@ -146,6 +193,22 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   offer the mod route instead. Run Game launches `Game -windowed
   -mod=<Name>` (or `-mod=None`) in a dedicated `ELKTest` profile, never the
   user's profile, saves or cloud sync (same rule as Map Editor D-02).
+  Recorded in 07-02 (export): the headless core has both destinations,
+  `mods/<Name>/data/texts.pak` and `Data/Texts.pak`, existing folders and
+  file found whatever their case, and writes a mod's `data/mod.xml`
+  (`MODName` the mod's name, `MODVersion` 1.0, the Resource Editor's form)
+  when it has none, because the game mounts no mod folder without one; an
+  existing `mod.xml` is left alone. The shadow warning and Run Game belong
+  to 07-07.
+  Recorded in 07-07 (pak export UI, 2026-10-16): the warning counts the
+  project's texts that have a loose `<game>/Data/<key>.txt` (found whatever
+  its case, as the game finds it) and names the loose folder they are in
+  (`Data/Textes`); it appears only when there is one. Run Game is the kit's
+  test launch, `Game -editor-test -profile=ELKTest -mod=<Name> -windowed`
+  with no map: `-editor-test` keeps the profile session-only, leaves
+  `profiles/active.cfg` alone and cloud sync off, as for the Map and
+  Resource Editors; `-mod=None` is not offered, since the mod is what Run
+  Game is for.
 - **D-10 Spreadsheet formats.** `.xlsx` (read and write, the new default),
   `.csv` (UTF-8 with BOM, RFC 4180, read and write), and legacy `.xls` BIFF8
   (**read only**, so translators' existing files import). The Excel ODBC route
@@ -156,6 +219,22 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   original mismatch, Translated otherwise, write only when the bytes
   differ). The backtick-for-apostrophe substitution is applied only when
   reading legacy `.xls`; new exports do not substitute.
+  As built (07-03/07-07): new exports do not trim either (the MFC export
+  trimmed trailing `\t\r\n ` off the three texts; 38 tracked translations
+  end in a space), so an export imported back changes nothing. A row whose
+  element or text the database lacks is reported and skipped (the MFC
+  import wrote files for it). The State and Description columns are written
+  but not read; columns are found by header name. The `.xlsx` is read with a
+  scanner of the core's own, not the engine's `xml.zig`, which trims text
+  and reads `&#233;` as one byte; zips go through the engine's `zip.zig` and
+  `zip_writer.zig` (D-08). The BIFF8 reader takes what `Data/ELK/desc.xls`
+  holds (header DIFAT only, Workbook stream in the FAT, `BOUNDSHEET`,
+  `SST`/`CONTINUE`, `LABELSST`), plus `RK`/`NUMBER` as shortest decimal text
+  and `BLANK`/`MULBLANK` as empty; other cell records, a FAT beyond 109
+  sectors and a Workbook in the mini stream fail with their own error. The
+  independent decoder is LibreOffice 24.2; it also opened the written
+  `.xlsx` of all 2,852 texts with every cell equal, and its own `.xlsx` of
+  them read back equal. Excel itself was not available to check.
 - **D-11 Spell check: Hunspell.** Hunspell (tri-licensed MPL/GPL/LGPL) is
   vendored and built by `zig build`; it reads `.aff`/`.dic` dictionaries from
   a dictionary folder the user picks (default `<ELK dir>/dictionaries`), the
@@ -169,6 +248,21 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   the platform spell checkers (two code paths, not testable headless,
   no user-chosen dictionaries), Word automation (Windows only, needs Office),
   and dropping spell check.
+  Recorded in 07-05 and 07-07 (spell check, 2026-10-16): Hunspell 1.7.2 is
+  vendored as source (`vendor/hunspell`, MPL 1.1 of its tri-licence) and
+  built as a static library that ELK and `test-elk-app` link; ELK calls its
+  C API. Only UTF-8 dictionaries are loaded: Hunspell compares bytes in the
+  dictionary's own encoding and ELK's texts are UTF-8, so a dictionary in
+  another `SET` (KOI8-R, ISO8859-x) leaves spell check off with a reason
+  that names the encoding. `custom.dic` lives beside `elk.cfg` (the legacy
+  `CUSTOM.DIC` there is found under either name); its lines that are not
+  UTF-8 are skipped, and an added word is also given to Hunspell, so its
+  capitalised form passes too. The wanted language missing from the folder,
+  the first one found is loaded, as `DEFAULT_LANGUAGE_INDEX` chose. No
+  dictionary is committed yet: the tests and the smoke generate a small
+  UTF-8 pair (`spelling.zig`, `en_TEST`), so the default folder
+  `<ELK dir>/dictionaries` is empty in an install and spell check starts off
+  there with its reason.
 - **D-12 Fonts: stb_truetype + FontKit.** Rasterise with `imstb_truetype.h`
   (already vendored under `vendor/dcimgui`), lay out the atlas with the same
   packing rule as `CFontGen::MeasureFont` (texture 64..4096 wide, 2:1 or 1:1,
@@ -283,6 +377,356 @@ std-only, headless, no UI. Modules:
 ### 3. ELK app (Zig, `Sources/editor/elk/app`)
 
 - SDL3 window and ImGui host from the kit; one window, docked panels.
+  *App shell slice (2026-10-15):* the kit's `host` starts the engine
+  (`BkEditorStart` owns the GPU device and the frame), which ELK does not
+  load, so ELK runs on the engine-less counterpart with the same
+  start / frame / stop shape. *Kit gaps closed (2026-10-15):* that window
+  host is `kit/window.zig` (moved from `elk/app`), and the file dialogs'
+  slot is `kit/dialogs.zig`'s `PathSlot(Kind, capacity)` with its SDL
+  callback, moved from the map editor's `panels_logic` with the resource
+  editor's four hand-rolled slots rebased on it. ELK's File > Open (Ctrl+O)
+  uses it; the opened database goes first in elk.cfg's recent list.
+  *Tree, states and autosave slice (2026-10-16):* the core's `tree` module
+  is the key tree (one root per element, titled `<name>, VERSION: <version>`,
+  folders and texts of a folder ordered together without regard to case,
+  each folder the lowest state below it, a text's change carried up to the
+  root); the app draws it clipped, coloured red / yellow / green / blue, and
+  selecting a text opens its folders and scrolls to it. The edit view's
+  state buttons write the selected text's state at once; Outdated shows but
+  cannot be chosen. A button press is kept over a later edit of that visit
+  only: `InputViewWindow` cleared `bManualState` on each text it loaded, so
+  an Approved text edited on a later visit is saved Translated. The 30 s
+  autosave counts from the moment the edit became dirty, on the session's
+  clock (the scripted runs move it with `do=wait`); the smoke kills the frame
+  loop (`do=kill`, no save point) with a later edit unsaved and reopens the
+  copy with the autosaved text in it. Folder bulk-set and the tree context
+  menu remain for their own slice.
+  *Navigation and filters slice (2026-10-16):* the core's `filter` module is
+  `SSimpleFilter::Check` (the text's folder path in the MFC tree's form,
+  `medals\1` in lower case, holding every substring of one condition; the
+  states mask; the `Changed` flag) and the five built-in filters; `tree`
+  browses First / Previous / Next / Last through a filter in the tree's
+  order, Previous and Next reaching nothing with no text selected as in
+  the MFC commands. The extended layout's filter bar holds the named
+  filters' combo and the four Browse buttons; the Browse menu has the MFC
+  order (Last, Next Ctrl+N, Previous Ctrl+P, First), each command enabled
+  when its step reaches a text, and a step lands in the translation box as
+  the MFC input view took the focus. Choosing a filter leaves the
+  selection where it is (`OnChangeFilter`). *Adaptation:* the MFC tree did
+  not show the filter; the new one dims the texts it rejects and the
+  folders that hold none it keeps (dimmed, not hidden, so the tree and its
+  state colours stay whole). Alt+N / Alt+P browse too, except while the
+  translation box is active: ImGui keeps Alt with a letter for text input
+  there (AltGr, macOS Option). elk.cfg keeps each named filter as one line,
+  `filter=<name>|<four 0/1 state flags>|<changed 0/1>|<conditions>`, the
+  conditions AND-lists of substrings joined by `,`, the lists by `;`, and
+  `current_filter=<name>`; a file with no `filter=` line gets the five
+  built-in ones, as the MFC ELK made them when the registry held none. The
+  smoke's fourth pass chooses Translated, sees the medal rows dimmed, walks
+  Data/ELK's four Translated texts by Alt+N, Ctrl+N, Ctrl+P and the menu,
+  stops at both ends, and a second run on the same elk.cfg starts with the
+  filter and walks it again. The short layout's single toolbar remains for
+  its own slice.
+  *Filter editor and collapse-item slice (2026-10-16):* the filter editor
+  moved from 07-07 into 07-06, which completes the browse side.
+  Browse > Create Filter... (also on the filter bar) is
+  `CCreateFilterDialog`: the named filters with their condition counts,
+  Add, Rename, Delete, the four state boxes, "Changed only" and the folder
+  conditions with Add / Remove Condition. It edits a copy of the settings;
+  OK writes elk.cfg, Cancel drops the edit. Names are made unique as
+  `GetUniqueFilterName` did (`name`, `name_0`, `name_1`, ...) and lose `|`
+  and control characters; Add appends, Rename keeps the position and the
+  current filter follows the new name; deleting the current filter falls
+  back to All. The first edit writes the five built-in filters into the
+  file, and the last filter cannot be deleted, since a file with none would
+  bring the five back. *Adaptations:* the name is typed in the dialog's own
+  Name box rather than a second dialog, and a condition is typed as folder
+  substrings joined by `&` (or `,`), lower-cased with `/` turned into `\`,
+  rather than ticked in a list of the database's folders: the check is the
+  same substring test, and the list showed exactly those lower-case
+  folder paths. *Collapse Item (B5),* read from
+  `CELKTreeWindow::DeselectItem`: with the mode on, each Browse step first
+  collapses the element (the tree root) holding the text it leaves, every
+  folder in it, and then opens the way to the text it reaches, so only
+  that path stays open. A click in the tree does not collapse anything, as
+  in the MFC tree, where only the Browse steps and Find called
+  `DeselectItem`. The mode is the Browse menu's first, checkable item, as
+  in the MFC menu, plus a check box on the filter bar (the MFC toolbar's
+  check button). It is on by default, as the MFC registry default was, and
+  is kept as `collapse_item=0|1`. Forcing it on in the short layout joins
+  that layout. While the dialog is open the translation box does not take
+  the keyboard, because its focus would close the modal. The smoke's
+  filter pass gains two runs: the expanded set with Collapse Item on and
+  off; a filter created through the dialog (Outdated, `medals&krest`),
+  applied and walked, renamed in place, a delete cancelled, then deleted
+  while current (the bar shows All); and a restart that finds the mode and
+  a kept filter in elk.cfg.
+  *Find and statistics slice (2026-10-16):* the core's `search` module is
+  `FindItem`: from where the last hit stopped (the text, the field, one past
+  the hit), each text's original, description and translation in that
+  order, then the next text in the tree's order (the previous one with Up;
+  within a text the fields are still read forwards), the filter playing no
+  part; Match case off lower-cases both sides (ASCII, Latin-1 and the basic
+  Cyrillic capitals, which keep their byte length, so a hit's offset is one
+  into the edit box's text), Whole word wants a spelling delimiter or the
+  text's end on either side. *Changes from the MFC search:* it wraps round
+  the tree and stops when it is back where it started (the MFC one stopped
+  at the end); a hit Whole word rejects no longer ends the field's search
+  (the MFC loop moved to the next field, so "cat" in "concatenate the cat"
+  was never found); with nothing selected it starts at the first text (the
+  MFC one did nothing); a text chosen by hand is searched from its start,
+  not from the last hit's field and position. Edit > Find... (Ctrl+F) is the
+  Windows Find dialog's layout, modeless as it was: Find what, Find Next
+  (Enter), Match whole word only, Match case, Up / Down, Cancel, which sends
+  the next search back to the start. The edit is saved before a search, the
+  hit's text is selected like a Browse step (Collapse Item included), and
+  elk.cfg keeps `find_text=`, `find_down=`, `find_match_case=` and
+  `find_whole_word=` (the registry's FindText, FindDown, FindMatchCase,
+  FindWholeWord; FindWindow and FindPosition were reset by closing the
+  dialog and are not kept). *Adaptation:* the MFC ELK selected the hit's
+  characters in its edit box; the status line names the field and offset
+  instead, and a description hit has no description view to show it until
+  C1 (shown since the spell walk slice below). The core's `stats` module is `CreateStatistic` with
+  `GetTextCounts` and its quirk (a word starts after a run of spelling
+  delimiters but ends only at a blank, a trailing delimiter run counts an
+  empty word), counting UTF-16 code units where the MBCS build counted the
+  code page's bytes; each text counts under the state the tree shows, in
+  both halves. View > ELK Statistic counts the database each time and shows
+  `CStatisticDialog`'s tree as a table: Original Text and Translation, each
+  with the four states summed over the elements and each element
+  (`<name>, VERSION: <version>`) with its four states, columns Items, Words,
+  Word Symbols and Symbols with the thousands set apart. *Measured:*
+  `Data/ELK/elk.xml`'s snapshot is of an older database (2,968 texts in other
+  states, the tracked one has 2,852), so equality is proved on
+  `Data/AmericanELK`: with the six files this project edited after the
+  snapshot (the credits, four option names) restored from
+  `tools/zig/fixtures/elk/american_snapshot`, every count of both halves
+  equals the stored `Statistic`. Not yet: storing the counts as the
+  snapshot (`Close` moved `statistic` to `previousStatistic` and saved
+  `elk.xml`), and D-14's worker thread with progress and Cancel for both
+  (a full find that misses reads every text's three files, about a second
+  on a Linux debug build). The smoke's fifth pass opens the statistic
+  window and asserts Data/ELK's counts, then finds "kuban" in the desc's
+  translation twice, the name's original, round to the desc again, misses
+  with Match case and with Whole word "Kuba", and goes Up from Tunis to
+  Tobruk; a second run finds the text and options in elk.cfg and opens
+  Find by Ctrl+F.
+  *Pak export UI slice (2026-10-16):* File > Export to language mod...,
+  Install to game... and Run Game, enabled while a database is open (Run
+  Game also while no game it started still runs). The export dialog's Mod
+  box takes a mod's name, or its folder directly in `<game>/mods` through
+  Browse... (the kit's folder dialog slot), and Export writes
+  `mods/<Name>/data/texts.pak` through the core's `exportTo`; the edit is
+  saved first, the element exported is the selected text's (the first with
+  none selected), and the status line ends with the summary, "exported
+  2852 texts to <path>". Install to game writes `Data/Texts.pak` at once
+  when nothing loose hides it, else D-09's warning names the count and the
+  loose folder, with Export to language mod... as the default button
+  (Enter), Install anyway and Cancel (Escape). Run Game exports the
+  session's mod again, so the edits since go with it as the MFC Run Game
+  packed first, and starts the game (above, D-09), its output in
+  `game.log` beside elk.cfg; before any export this session it opens the
+  export dialog as Export and Run. The game folder is elk.cfg's
+  `game_folder=`, else the folder ELK runs from (it is installed beside
+  Game). *Not yet:* a dialog to set the game folder (and finding it in the
+  Windows registry), the filtered export (D6) and the short layout's one
+  pak per project (D7), generated fonts in the export (E1, 07-04), and
+  D-14's worker and progress for the export (about a second for Data/ELK
+  on a Linux debug build). The smoke's sixth pass exports a copy of
+  Data/ELK into a scratch game folder, never a real one: by name and by a
+  folder answered for Browse..., each pak read back by the core with 2,852
+  texts; Install to game warns about the scratch game's one loose
+  Data/Textes text, Enter takes the mod route and writes nothing, Install
+  anyway writes `Data/Texts.pak`; Run Game's command line is asserted
+  argument by argument and, on Linux and macOS, a stand-in `Game` script
+  records the arguments it was started with; after Close the commands are
+  disabled.
+  *Spell check slice (2026-10-16):* the core's `spell` module holds
+  `CSpellChecker`'s three tables (`stats` takes them from it), `GetWord`
+  over UTF-8 (the tables' ASCII bytes only, so a multi-byte character is
+  never cut), the pass listing every word neither `custom.dic` nor the
+  speller accepts, `custom.dic` read and appended through a temporary file,
+  and the dictionary folder's languages (each `<name>.aff` and
+  `<name>.dic` pair); the speller is an `Engine` seam, so the core's tests
+  run without a dictionary. The app's `hunspell.zig` is the vendored
+  Hunspell behind that seam and `spelling.zig` the state: the folder and
+  language from elk.cfg (`spell_folder=`, `spell_language=`), the Hunspell
+  loaded or the reason spell check is off (no folder set, the folder does
+  not open, it holds no pair, the dictionary is not UTF-8). Tools > Spelling
+  (F7) is enabled with a selected text and a loaded dictionary, its
+  tooltip giving the reason otherwise; its window lists each misspelt word
+  of the translation with its place, Hunspell's suggestions and Add to
+  dictionary, which writes `custom.dic` and checks again; an edit since
+  the check is noted with Check Again. Tools > Spelling Options... is the
+  Dictionary folder box (empty is `dictionaries` beside ELK), the language
+  combo of the pairs found there, and the reason. *Changes from the MFC
+  check:* every misspelt word is listed at once instead of one per F7 from
+  the last position, and the list names the offset instead of selecting
+  the word in the edit box. *Not yet:* Ignore, Ignore All, Change and
+  Change All (F1's superset; done in the spell walk slice below), the
+  misspelt words marked inside the edit box,
+  a Browse... for the folder, a redistributable dictionary committed with
+  its licence. `test-elk-app` runs Hunspell on the generated pair: a known
+  word, a plural from the affix rule, Cyrillic and numbers pass, "redy"
+  and "teh" are flagged with "ready" and "the" first, Add to dictionary
+  clears the flag, appends to a legacy `CUSTOM.DIC` (header and CRLF kept)
+  and holds for a new run, and each off reason is shown; `test-elk-core`
+  holds the delimiter tables character for character against
+  `SpellChecker.cpp`. `elk-smoke`'s seventh pass starts with spell check
+  off (the install has no `dictionaries`), chooses the copy's folder of the
+  generated pair in the options, types a translation, lists its
+  misspellings by F7, adds one, finds it in `custom.dic`, and a second run
+  on the same elk.cfg still accepts it in the saved translation.
+  *Short layout and help slice (2026-10-16):* the core's
+  `packages.applyUpdates` is `UpdateELK` without a file: of the `.upd`
+  files beside `elk.xml`, the highest number per element (`game.upd`'s -1
+  loses to any number), imported when the element is new or records an
+  older `LastUpdateNumber`, the database created when missing. `--short`
+  (or `-short`) runs it on the `elk.xml` beside the executable and opens
+  that database; with no `.upd` there it opens nothing and says so, as
+  `OpenDefaultELK` refused; a path given with `--short` is a usage error.
+  The layout is `IDR_SHORT_MAINFRAME`'s menu (File: Exit; Browse: Next,
+  Previous; View: ELK Statistic; Tools: Find, Spelling, Spelling Options,
+  Export to language mod, Run Game, the two spreadsheet commands; Help) and
+  one toolbar in `SHORT_BUTTONS`' order; its filter is one of the five
+  fixed ones, starts at All each launch and is not written to elk.cfg;
+  Collapse Item is always on; Ctrl+O and Create Filter are absent. ImGui's
+  ini is off in both layouts, so the layout is the same each launch.
+  `--developer` stays the extended layout. Help > Contents (F1), in both
+  layouts, shows `Sources/editor/elk/help/elk.md`, embedded in the binary,
+  with its headings as a contents list that scrolls to the one clicked;
+  the text is written new for this ELK, plainly, for translators: what it
+  does, both layouts, opening and the save points, the tree, the states,
+  filters and browsing, Find, the statistic, spell check, the spreadsheets,
+  the export to a mod, the game's Language option, Install to game, Run
+  Game, the keys. *Changes from the MFC short layout:* its Export to PAK is
+  the export to a mod (D-09); the elements no `.upd` names stay in
+  `elk.xml` instead of being dropped with their translations. *Not yet:*
+  the per-project pak of D7, the View > ELK Tree toggle, Set Font Name and
+  Size, About, the Russian help and the conversion of the old `.doc`
+  help's remaining detail (D-18). `test-elk-core` applies the updates to a
+  copy of Data/ELK with `game_1.upd`, `game_2.upd` and `game.upd` beside it
+  (game_2 only, then nothing); `test-elk-app` parses the help and checks
+  every topic is there in the Markdown the window draws; `elk-smoke`'s ninth
+  pass starts `--short` on a copy with `game_1.upd` and `game_2.upd`,
+  sees the short toolbar, five filters and Collapse Item on, browses
+  through Translated, opens Help by F1 with every block drawn, then reads
+  game_2 in the copy's elk.xml through the core; a second run starts at All
+  again, applies nothing and opens Help from the menu.
+  *Filtered export and worker slice (2026-10-16):* D6 is the core's
+  `ExportOptions.filter`: as `ExportToPAK` with `pELKFilter`, a text the
+  filter rejects (`SSimpleFilter::Check` on its key and state file) gets no
+  entry at all; the fonts still go in, and `exportTo` returns the entries it
+  wrote. The export dialog offers "Only the texts the filter <name> admits"
+  in the extended layout while the current filter leaves texts out, as the
+  MFC "Export To PAK by Filter..." was in `IDR_MAINFRAME` only; Install to
+  game and Run Game's export stay unfiltered, as `UpdateGame` packed every
+  text. D-14 is the core's `progress` (atomic position, range and Cancel;
+  the work calls `advance` before each unit and stops between two with
+  `error.Cancelled`; `hold` lets a scripted run stop it at a known unit) and
+  the app's `jobs.zig`: one long operation at a time on its own thread with
+  std's default stack, its input copied. The session splits each operation
+  into `begin` (UI thread: the edit saved, the element and the search's
+  start fixed), `perform` (the worker: the core on the database's files,
+  the tree only read) and `finish` (UI thread: the failure, the reopen
+  after an import, the hit selected), and its synchronous commands are the
+  three in a row. On the worker now: the pak export (Export to language
+  mod, Install to game, Run Game's), Export and Import from spreadsheet,
+  and Find Next, whose miss reads every text (the freeze the find slice
+  measured). The Working modal shows the message, a bar of position in
+  range and Cancel (or Escape); it holds the rest of the UI off from the
+  start but stays invisible for its first 250 ms, so a Find Next that hits
+  at once does not flash it; the shortcuts and the autosave wait, and Exit
+  cancels the job and waits for it. Cancel is safe: a cancelled export
+  writes nothing (the pak, the mod.xml and the sheet are written after the
+  last unit); a cancelled import stops between two rows, the rows before it
+  imported with every file written through a temporary name and renamed
+  (`writeFileAtomic`), and saves no Version; a cancelled find selects
+  nothing. The scripted runs hold every entry but the modal's own
+  (`do=hold`, `do=wait_held`, `do=release`, `do=job_cancel`,
+  `expect=working`, `expect=busy:1`) while a job runs, the schedule's clock
+  standing still, and the frames drawn meanwhile do not count against the
+  frame limit (a job past a minute fails the run). `test-elk-core` tests
+  the progress across threads, the filtered pak (states and a condition)
+  and a cancelled export that leaves the old pak, and a sheet import held
+  after its first row and cancelled there, every other file unchanged and
+  no temporary file left; `test-elk-app` runs an export job held at its
+  100th text, released, and cancelled, which writes nothing. `elk-smoke`'s
+  sixth pass exports by the Translated filter, the pak read back by the
+  core with exactly the four texts the filter admits, then holds an export
+  at its 100th text, sees the modal at 100 of 2852 and cancels it from the
+  modal, the pak never written; a tenth pass imports a sheet giving every
+  text a marked translation, held at row 1000, the modal drawn at 1000 of
+  2852 over two frames, cancelled, and proves the D-14 rule from the disk:
+  no temporary file, elk.xml the source's, the core opening the copy and
+  reading every text, exactly 1000 texts carrying the sheet's translation
+  as Translated and every other file the source's, byte for byte; then a
+  Find Next that misses, held and released (the miss reported) and held
+  and cancelled, and the whole import, which changes the other 1852 texts
+  and leaves the same proof at 2852. *Not yet on the worker:* Open, the
+  statistic, Install to game's shadow check and the font generation (07-04,
+  which does not exist yet); spell
+  check runs on the one text being edited and has no check-everything to
+  move. Recorded for the package imports (07-07): File > Import from
+  Game... asks for the game's language folder (the folder holding
+  `Textes/` and `resource.description`) and File > Import from PAK/UPD...
+  for a `.pak` or `.upd`; both import into the open database on the worker,
+  one unit per package file, and are enabled while a database is open (the
+  MFC commands were always enabled and asked for the `elk.xml` too; a new
+  database is an `elk.xml` without elements). The game import is the
+  package `<element>.pak`, a partial update of the element the exports
+  write (`game` when there is none), so it deletes nothing and records
+  `LastUpdateNumber` -1 as the MFC import of a `game.pak` did. A cancelled
+  package import keeps the files before the Cancel, each whole, deletes
+  nothing and leaves `elk.xml` as it was. Reading the package (the game
+  folder's files, the archive) is not counted and cannot be cancelled.
+  *Spell walk and description view slice (2026-10-16):* the Spelling
+  window walks the misspelt words from a place in the translation, as
+  `OnToolsSpelling` stopped at one word per F7: the current word is the
+  first listed at or after it, with a Change to box holding its first
+  suggestion (a suggestion clicked replaces it). Ignore moves the place
+  past the word, for this run only (Check Again starts over from the
+  start); Ignore All passes the word in every check until ELK exits, kept
+  in no file; Change replaces the word with the box's text and Change All
+  every word of the translation that is the misspelling byte for byte
+  (`spell.replaceWord`, `spell.replaceAll`, whole words as `nextWord`
+  splits them), the place moving past the current word's correction. A
+  correction is an edit of the translation box like a typed one: dirty,
+  written by the D-15 save points, an edited text turning Translated; the
+  box takes a new ImGui ID so an active one does not write its old copy
+  back. The list below keeps Add to dictionary. C1: the description view
+  sits between the original and the state buttons, read-only with select
+  and copy as the MFC `IDC_IV_ORIGINAL_DESCRIPTION_EDIT` (`ES_READONLY`)
+  was, holding the core's description lookup for the selected text, so a
+  Find hit in a description is now in view (the status line still names
+  the offset; the characters are not selected). Data/ELK has no `.dsc`, so
+  the tests write theirs into scratch copies. *Not yet:* the misspelt word
+  selected in the edit box, Ignore All ignoring case, a folder's
+  description shown when the folder is selected (C4).
+  *UI polish slice (2026-10-16):* B10's snapshot: View > ELK Statistic's
+  counts become the project's `statistic` (`OnViewStatistic` counted into
+  `elk.statistic`), and Close, Exit and opening another database move it
+  to `previousStatistic` and write `elk.xml` (`CELK::Close`); a failed
+  write is named in the status line and closes anyway, as the MFC ELK
+  ignored it. The window adds the same four columns "at last close" from
+  the stored `PreviousStatistic`, "-" for an element it lacks. *Change:*
+  the MFC ELK wrote `elk.xml` on every Close, copying whatever statistic it
+  had read; this writes only when the window counted since the open, so
+  opening and closing leaves the file as it was (and a read-only install
+  is not written). An import's reopen drops the database instead of
+  closing it, so the project read before the import is never written over
+  the `elk.xml` the import wrote. G6: View > ELK Tree (both layouts) and
+  View > Status Bar (extended; `IDR_SHORT_MAINFRAME`'s View menu has no
+  Status Bar, so the short layout always shows it) are kept in elk.cfg as
+  `show_tree=` and `show_status_bar=`, on by default; a failure shows the
+  status line even when it is off. G10: Help > About Blitzkrieg ELK... in
+  both layouts: the name, "Version" and the game's version from
+  `build.zig`'s `game_version` (the `elk_build` option), and a new line
+  about the kit. `elk-smoke`'s find pass sees Data/ELK's stored snapshot
+  (2,968 texts) as "at last close", turns the tree and the status line off
+  and opens About; its second run finds both still off and the first run's
+  counts (2,852 texts) as "at last close". *Not yet:* About's screenshot
+  (G10's Shot).
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,
@@ -345,8 +789,8 @@ database (E-01) are each measured first and recorded in the plan summary.
 | 07-03 | Spreadsheet exchange: csv, xlsx, xls reader | 07-01 |
 | 07-04 | FontKit and font generation, font enumeration | 07-01 |
 | 07-05 | Spell check: Hunspell vendored, dictionaries, user dictionary | 07-01 |
-| 07-06 | ELK app shell: window, panels, tree, translation editing, navigation, filters UI, find, statistics window, recents, short mode, help, about, Customize, progress | 07-01, kit |
-| 07-07 | ELK app workflows: import/export dialogs, filter editor, fonts dialog, spell UI, run game, delete project, `BK_ELK_AUTO` | 07-02 to 07-06 |
+| 07-06 | ELK app shell: window, panels, tree, translation editing, navigation, filters UI and filter editor, find, statistics window, recents, short mode, help, about, Customize, progress | 07-01, kit |
+| 07-07 | ELK app workflows: import/export dialogs, fonts dialog, spell UI, run game, delete project, `BK_ELK_AUTO` | 07-02 to 07-06 |
 | 07-08 | Parity closure: CI on macOS and Windows, packaging, win-home run, delete the MFC ELK and binaries, docs | all |
 
 Waves: 07-01; then 07-02, 07-03, 07-04, 07-05 in parallel (independent
@@ -372,6 +816,43 @@ core modules); then 07-06; then 07-07; then 07-08.
   full-database open and sets a budget (target under 2 s on the shipped
   `Data/ELK`).
 
+## The Game's language option (scope change 2026-10-15)
+
+07-CONTEXT adds one game-side feature: Options > Settings > Gameplay has a
+**Language** row that selects the text source and applies at once, with no
+restart. It selects among packs, it is not a new localisation system.
+
+- The choices: `Default`, the texts the game ships (loose `Data/Textes` or
+  `Data/Texts.pak`), then every folder under `mods/` (any case) that carries
+  `data/texts.pak`, which is what ELK's mod export writes (D-09). The row
+  shows the mod's `MODName` from its `data/mod.xml`, or the folder name;
+  only `mod.xml` is read, not the mod's paks. The screen scans on every
+  opening (`ScanLanguages`, `GameTT/OptionEntryWrapper.cpp`).
+- The option is `GamePlay.Language` in `Data/Configs/defconf.cfg`, instant
+  apply, main options screen only (flag 1, like Cloud), stored in the
+  profile's `config.cfg` like every Gameplay setting. Its action
+  `SetLanguage` (StreamIO's option bridge) publishes the value as the global
+  `Text.Language`.
+- The Game's frame loop compares `Text.Language` with what is mounted just
+  before each step and calls `NMain::ApplyLanguage`: the chosen
+  `mods\<folder>\data\texts.pak` becomes the `LANGUAGE` overlay of the data
+  storage, last added so it wins over the base data and over a loaded MOD
+  (`CICChangeMOD` puts it back on top). A storage named by one `.pak` holds
+  that archive alone, none of its folder's other paks or loose files, so a
+  gameplay mod that also carries `texts.pak` lends only its texts
+  (`test-streamio`). Then `ITextManager::Reload` re-reads every text already
+  handed out into the same objects; labels keep pointers to them and the GPU
+  text compares the string each frame, so they draw the new language in the
+  very step that follows. Labels a screen copied out of a text (the settings
+  rows and tabs) are set again by the settings screen in that same step.
+- At start the option system's `Init` runs every action after the profile's
+  config is read, so the chosen language is mounted before the first frame;
+  a profile switch runs `Init` again.
+- Not covered: the in-mission options screen (a mission's loaded texts
+  would switch too, but nobody asked for it there); fonts (a language that
+  needs other glyphs needs its fonts as well, which the option does not
+  mount); the row's own texts are new and not in the ELK database yet.
+
 ## Exit criteria for Phase 7
 
 - **E-01** Opening `Data/ELK/elk.xml` (a copy) and saving without edits
@@ -380,6 +861,13 @@ core modules); then 07-06; then 07-07; then 07-08.
 - **E-02** Exporting the unmodified database produces a `.pak` whose entry
   names equal `Data/ELK/texts.pak`'s text entries and whose `.txt` bytes
   are equal, or each difference is listed and explained in the plan summary.
+  Recorded in 07-02: `Data/ELK/texts.pak` is the MFC export of 2002-12-03,
+  older than the database built from `game_1.upd`. Of the 2,712 texts both
+  carry, 2,213 are byte-identical and 499 differ because the texts were
+  re-imported since (a changed original, or a state dropped to Not
+  translated so the original now goes out); 227 texts (`movies/`, ...) are
+  only in the old pak and 140 (`medals/`, ...) only in the database. Names
+  agree, all lower case. `test-elk-core` pins these counts.
 - **E-03** Every import rule (partial, complete, Outdated, version string,
   auto-update pick-highest) passes a table test, and importing
   `game_21.upd` then `game_22.upd` into a fresh database gives the same
@@ -394,6 +882,24 @@ core modules); then 07-06; then 07-07; then 07-08.
 - **E-06** The game started with `-mod=<Name>` on an ELK-exported mod shows an
   edited string from the export (verified by the game's own text lookup and a
   capture), on macOS arm64 and on win-home.
+  Recorded on Linux x64 (`zig build elk-game-reads-it`,
+  `tools/zig/elk_game_reads_it.zig`): a copy of `Data/ELK` is exported to
+  `mods/ELKTest/data/texts.pak` of the install and the real Game run with
+  `-mod=ELKTest -profile=ELKTest`, its working directory, `XDG_DATA_HOME` and
+  `BK_USER_ROOT` in a scratch folder, to its own `-reference-scene` capture
+  of the main menu at 1024x768; then `textes/strings/imheader-gbutton-exitgame`
+  (Exit Game) gets the translation `ELK E-06 MARKER`, the database is
+  exported again and the Game captured the same way. Both runs exit 0;
+  BK_MOD_TRACE shows the label opened from the MOD and BK_UI_TRACE the
+  main menu at scale 1, so the button is at (650,527)-(970,577) as
+  `MainMenu.xml` places it; 1,795 pixels differ between the frames, all in
+  (732,543)-(890,563), inside the button. This found a Linux bug in the
+  game, fixed with it: `CICChangeMOD` lower-cases the mod's name and
+  StreamIO looked the `*.pak` folder up by that exact spelling, so a mod
+  folder `ELKTest` mounted its `mod.xml` (loose files resolve without regard
+  to case) but none of its paks; `loadArchives` now resolves the folder the
+  same way (`test-streamio`). macOS and Windows are left to CI and the
+  maintainer.
 - **E-07** `BK_ELK_AUTO` drives every menu command in both layouts on macOS
   and Windows without an error, with shot comparison.
 - **E-08** Spell check flags a known misspelling in an English text with
@@ -404,3 +910,18 @@ core modules); then 07-06; then 07-07; then 07-08.
 - **E-10** Every row of `07-PARITY.md` is verified; the MFC ELK, its shipped
   binaries and the `A7.sln` entry are gone; `zig build` still passes on all
   targets.
+- **E-11** The Game's Language option switches to an ELK-exported language
+  mod and back at once and keeps the choice across a restart. Recorded on
+  Linux x64 (`zig build elk-game-reads-it`, second test of
+  `tools/zig/elk_game_reads_it.zig`): the E-06 marker database exported to
+  `mods/ELKTest`, the real Game run windowed at the desktop size (1920x1080
+  here) in a scratch profile, driven by `BK_AUTO_UI` through Options >
+  Settings > Gameplay > Language and V. In the Exit Game button
+  ((1152,739)-(1605,813) on that window, from BK_UI_TRACE's layout of the
+  main menu), 3,494 pixels change with the mod chosen; with Default chosen
+  again the button is pixel-identical to the start; after a restart the
+  menu comes up with the marker, pixel-identical to the chosen frame, and
+  the log shows the mod mounted before the first scripted frame. Set on the
+  open main menu, the switch shows in the first frame drawn after it: the
+  frame before still has the marker, the frame after is identical to the
+  original (0 pixels). macOS and Windows are left to CI and the maintainer.

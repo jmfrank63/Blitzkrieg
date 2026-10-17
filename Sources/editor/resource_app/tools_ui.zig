@@ -36,53 +36,7 @@ const Target = enum { pak, source_folder, game_folder, mod_export, batch_src, ba
 /// global, as lifecycle_ui's and panels' own do.
 var dialog_slot: Slot = .{};
 
-const Slot = struct {
-    state: std.atomic.Value(u8) = .init(@intFromEnum(State.idle)),
-    target: Target = .pak,
-    buffer: [field_capacity]u8 = undefined,
-    len: usize = 0,
-
-    const State = enum(u8) { idle, waiting, arrived, cancelled };
-
-    fn request(self: *Slot, target: Target) bool {
-        if (self.state.cmpxchgStrong(@intFromEnum(State.idle), @intFromEnum(State.waiting), .acquire, .monotonic) != null) return false;
-        self.target = target;
-        return true;
-    }
-
-    fn deliver(self: *Slot, text: ?[]const u8) void {
-        if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
-        const chosen = text orelse {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        };
-        if (chosen.len > self.buffer.len) {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        }
-        self.len = chosen.len;
-        @memcpy(self.buffer[0..chosen.len], chosen);
-        self.state.store(@intFromEnum(State.arrived), .release);
-    }
-
-    fn take(self: *Slot) ?struct { target: Target, path: ?[]const u8 } {
-        const state: State = @enumFromInt(self.state.load(.acquire));
-        const path: ?[]const u8 = switch (state) {
-            .idle, .waiting => return null,
-            .arrived => self.buffer[0..self.len],
-            .cancelled => null,
-        };
-        self.state.store(@intFromEnum(State.idle), .release);
-        return .{ .target = self.target, .path = path };
-    }
-};
-
-fn dialogCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filter: c_int) callconv(.c) void {
-    _ = filter;
-    const slot: *Slot = @ptrCast(@alignCast(userdata orelse return));
-    if (filelist == null or filelist[0] == null) return slot.deliver(null);
-    slot.deliver(std.mem.span(filelist[0]));
-}
+const Slot = kit.dialogs.PathSlot(Target, field_capacity);
 
 const pak_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "PAK files", .pattern = "pak" }};
 
@@ -281,7 +235,11 @@ pub const Tools = struct {
     /// After the frame: an OS dialog's answer, the test game's exit, and the
     /// active sub-editor remembered (MFC's "Active Frame").
     pub fn afterFrame(self: *Tools) void {
-        if (dialog_slot.take()) |answer| if (answer.path) |path| self.dialogAnswered(answer.target, path);
+        // A cancel, a failed dialog or a path too long for the slot does nothing.
+        if (dialog_slot.take()) |answer| switch (answer) {
+            .path => |chosen| self.dialogAnswered(chosen.kind, chosen.path),
+            .failed, .cancelled => {},
+        };
         if (self.running) |*running| {
             if (running.poll(self.io)) |exit| {
                 self.running = null;
@@ -413,7 +371,7 @@ pub const Tools = struct {
         _ = self.bridge().modSettingsGet(&mod);
         var location_buffer: [field_capacity + 1]u8 = undefined;
         const location: ?[*:0]const u8 = if (std.mem.printSentinel(&location_buffer, "{s}", .{mod.exportDirSlice()}, 0)) |z| (if (z.len != 0) z.ptr else null) else |_| null;
-        sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, &dialog_slot, self.window, &pak_filters, pak_filters.len, location);
+        sdl3.c.SDL_ShowSaveFileDialog(Slot.callback, &dialog_slot, self.window, &pak_filters, pak_filters.len, location);
     }
 
     fn packMod(self: *Tools, chosen: []const u8) void {
@@ -456,7 +414,7 @@ pub const Tools = struct {
         if (!dialog_slot.request(target)) return;
         var location_buffer: [field_capacity + 1]u8 = undefined;
         const location: ?[*:0]const u8 = if (std.mem.printSentinel(&location_buffer, "{s}", .{current}, 0)) |z| (if (z.len != 0) z.ptr else null) else |_| null;
-        sdl3.c.SDL_ShowOpenFolderDialog(dialogCallback, &dialog_slot, self.window, location, false);
+        sdl3.c.SDL_ShowOpenFolderDialog(Slot.callback, &dialog_slot, self.window, location, false);
     }
 
     fn dialogAnswered(self: *Tools, target: Target, path: []const u8) void {

@@ -67,14 +67,31 @@ bool CTextManager::AddTextFile( const char *pszFileName )
 		std::wstring wszValue;
 		if ( ExtractKeyAndValue(szString.substr(nLastPos, nPos - nLastPos), &szKey, &wszValue) == true )
 		{
-			CPtr<CTextString> pTextString = new CTextString;
-			pTextString->SetText( NPlatform::WordStringData( NPlatform::WordStringFromWide( wszValue.c_str() ) ) );
-			shareString.AddPair( szKey, pTextString );
+			// A key read before - Reload re-reading the table - keeps its
+			// object, which labels may hold.
+			const std::u16string szValue = NPlatform::WordStringFromWide( wszValue.c_str() );
+			if ( shareString.HasData( szKey ) )
+				shareString.Get( szKey )->SetText( NPlatform::WordStringData( szValue ) );
+			else
+			{
+				CPtr<CTextString> pTextString = new CTextString;
+				pTextString->SetText( NPlatform::WordStringData( szValue ) );
+				shareString.AddPair( szKey, pTextString );
+			}
 		}
 		nLastPos = nPos + 1;
 	} while( nPos != std::wstring::npos );
 
+	if ( std::find( textFiles.begin(), textFiles.end(), pszFileName ) == textFiles.end() )
+		textFiles.push_back( pszFileName );
 	return true;
+}
+void CTextManager::Reload()
+{
+	shareDialog.ReloadAllData();
+	const std::vector<std::string> files = textFiles;
+	for ( int i = 0; i < files.size(); ++i )
+		AddTextFile( files[i].c_str() );
 }
 void CTextManager::Clear( const ISharedManager::EClearMode eMode, const int nUsage, const int nAmount ) 
 { 

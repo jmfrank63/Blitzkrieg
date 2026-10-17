@@ -2503,21 +2503,10 @@ fn showDialog(state: *State, kind: logic.DialogKind) void {
     }
 }
 
-/// SDL calls this when the user chose, cancelled or the dialog failed -
-/// maybe on another thread, maybe before SDL_Show*FileDialog returned. It
-/// only hands the answer to the slot; `act` does something with it in the
-/// frame loop.
-fn dialogCallback(userdata: ?*anyopaque, filelist: [*c]const [*c]const u8, filter: c_int) callconv(.c) void {
-    _ = filter;
-    const slot: *logic.PathSlot = @ptrCast(@alignCast(userdata orelse return));
-    if (filelist == null) {
-        const reason = sdl3.c.SDL_GetError();
-        slot.deliverFailure(if (reason != null) std.mem.span(reason) else "no reason given");
-        return;
-    }
-    const first = filelist[0];
-    slot.deliver(if (first != null) std.mem.span(first) else null);
-}
+/// SDL calls this when the user chose, cancelled or the dialog failed; it
+/// only hands the answer to the slot, and `act` does something with it in
+/// the frame loop.
+const dialogCallback = logic.PathSlot.callback;
 
 /// Once per frame, after `act` (main.zig's run loop): polls the running test
 /// game without blocking and feeds its exit to the prompt (D-06). Safe to

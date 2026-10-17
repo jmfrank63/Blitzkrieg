@@ -10,6 +10,8 @@ Port ELK, the Blitzkrieg localisation kit (`Sources/src/ELK`, 12,547 lines of MF
 
 The design spec is `docs/superpowers/specs/2026-09-30-portable-elk-design.md`; this file records the decisions (D-01 to D-20) that spec and the plans follow. The Resource Editor (Phase 6) is discussed in parallel and is assumed to extract a shared editor kit from the map editor; ELK reuses it. Out of scope: the other small tools (Phase 8, including the FontGen command-line tool, which will reuse ELK's font library), a new localisation system for the game itself (`docs/PLANNED_FEATURES.md` section 2), and Linux.
 
+**Scope change, 2026-10-15 (maintainer):** one game-side feature joins this phase. The Game's Options / Game Play menu gets a language option that switches language instantly, without a restart, and the game reads the language packs ELK exports through D-09's mod route. A new localisation system for the game remains out of scope; this option only selects among ELK-exported packs. It is built in later slices, after the database (07-01) and the pak export (07-02) exist. Linux is also in scope now: AGENTS.md makes it a build and test platform.
+
 </domain>
 
 <decisions>

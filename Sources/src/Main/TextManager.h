@@ -18,6 +18,7 @@ class CTextManager : public ITextManager
 	DECLARE_SERIALIZE;
 	CTextStringShare shareString;
 	CTextDialogShare shareDialog;
+	std::vector<std::string> textFiles;		// what AddTextFile read, for Reload
 public:
 	virtual void STDCALL SetSerialMode( ESharedDataSerialMode eSerialMode ) { shareDialog.SetSerialMode( eSerialMode ); }
 	virtual void STDCALL SetShareMode( ESharedDataSharingMode eShareMode ) { shareDialog.SetShareMode( eShareMode ); }
@@ -26,6 +27,7 @@ public:
 	virtual bool STDCALL AddTextFile( const char *pszFileName );
 	virtual IText* STDCALL GetString( const char *pszKey );
 	virtual IText* STDCALL GetDialog( const char *pszKey ) { return shareDialog.Get( pszKey ); }
+	virtual void STDCALL Reload();
 	virtual const char* STDCALL GetTextName( IText *pText )
 	{
 		if ( CTextDialog *pDlg = dynamic_cast<CTextDialog*>(pText) )

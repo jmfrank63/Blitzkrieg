@@ -1709,6 +1709,15 @@ int RunGame( const BkGameLaunchInfo &launch )
 						pCamera->SetAnchor( CVec3( fAnchorX, fAnchorY, 0.0f ) );
 				}
 			}
+			// The language option, applied the frame its value changes (the
+			// settings row, or the profile's choice at startup): the step below
+			// draws every label in the new language. Text.Language is what the
+			// option's SetLanguage action published.
+			{
+				const std::string szLanguage = GetGlobalVar( "Text.Language", "Default" );
+				if ( NStr::CompareAsciiNoCase( szLanguage.c_str(), NMain::GetLanguage() ) != 0 )
+					NMain::ApplyLanguage( szLanguage.c_str() );
+			}
 			if ( !pMainLoop->StepApp( bActive ) )
 				break;
 			// BK_REFERENCE_DELAY overrides the 5-frame main-menu capture point so a

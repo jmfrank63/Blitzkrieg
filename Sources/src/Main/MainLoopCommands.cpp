@@ -363,6 +363,42 @@ void ClearMOD()
 	GetSingleton<IUserProfile>()->SetMOD( "" );
 	NGeneratedData::Mount( "" );
 }
+// The chosen language's folder under mods\, or Default. Its texts.pak alone
+// is the LANGUAGE overlay (a storage named by one archive holds nothing else
+// of its folder), added last so its texts win over the base data and over a
+// loaded MOD.
+static std::string szLanguage = "Default";
+static bool MountLanguage()
+{
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	pStorage->RemoveStorage( "LANGUAGE" );
+	if ( szLanguage.empty() || NStr::CompareAsciiNoCase( szLanguage.c_str(), "Default" ) == 0 )
+		return true;
+	const std::string szPak = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + "mods\\" + szLanguage + "\\data\\texts.pak";
+	CPtr<IDataStorage> pLanguage = OpenStorage( szPak.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+	if ( pLanguage == 0 )
+		return false;
+	// An absent or unreadable pak still makes a storage, an empty one.
+	CPtr<IStorageEnumerator> pEnumerator = pLanguage->CreateEnumerator();
+	if ( pEnumerator == 0 )
+		return false;
+	pEnumerator->Reset( "*.*" );
+	if ( !pEnumerator->Next() )
+		return false;
+	return pStorage->AddStorage( pLanguage, "LANGUAGE" );
+}
+namespace NMain
+{
+void ApplyLanguage( const char *pszLanguage )
+{
+	szLanguage = pszLanguage ? pszLanguage : "";
+	const bool bMounted = MountLanguage();
+	GetSingleton<ITextManager>()->Reload();
+	NStr::DebugTrace( "language: \"%s\" %s, texts reloaded\n", szLanguage.c_str(), bMounted ? "mounted" : "has no texts.pak, the shipped texts stay" );
+}
+const char *GetLanguage() { return szLanguage.c_str(); }
+void RemountLanguage() { MountLanguage(); }
+}
 void CICChangeMOD::Configure( const char *pszConfig ) 
 { 
 	szMOD.clear();
@@ -399,6 +435,8 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 			GetSingleton<IUserProfile>()->SetMOD( szMOD );
 			// Above the mod, which the generated data overrides.
 			NGeneratedData::Mount( szMOD );
+			// And the chosen language above both.
+			NMain::RemountLanguage();
 		}
 		else
 			ClearMOD();

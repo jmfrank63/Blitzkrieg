@@ -679,79 +679,9 @@ fn hasMapExtension(path: []const u8) bool {
 
 pub const DialogKind = enum(u8) { open, save_as };
 
-/// The path an SDL file dialog chose, handed from its callback to the frame
-/// loop. SDL may call the callback on another thread (SDL_dialog.h), so the
-/// callback only writes into this slot and the main thread acts on it in its
-/// next frame. One dialog at a time: `request` refuses while one is up, so
-/// the callback never writes a buffer the main thread is reading. The state
-/// is the only thing both threads touch; the buffer is written before it is
-/// published (release) and read after it is seen (acquire).
-pub const PathSlot = struct {
-    state: std.atomic.Value(u8) = .init(@intFromEnum(State.idle)),
-    kind: DialogKind = .open,
-    buffer: [max_path]u8 = undefined,
-    len: usize = 0,
-
-    pub const max_path = 4096;
-    const State = enum(u8) { idle, waiting, arrived, failed, cancelled };
-
-    pub const Result = union(enum) {
-        path: struct { kind: DialogKind, path: []const u8 },
-        failed: []const u8,
-        cancelled,
-    };
-
-    /// Main thread, before showing a dialog. False while one is already up.
-    pub fn request(self: *PathSlot, kind: DialogKind) bool {
-        if (self.state.cmpxchgStrong(@intFromEnum(State.idle), @intFromEnum(State.waiting), .acquire, .monotonic) != null) return false;
-        self.kind = kind;
-        return true;
-    }
-
-    pub fn waiting(self: *const PathSlot) bool {
-        return self.state.load(.acquire) == @intFromEnum(State.waiting);
-    }
-
-    /// The dialog's callback, on whatever thread SDL calls it: the chosen
-    /// path, or null for a cancel - a result now, not silence, so the
-    /// unsaved-changes prompt can tell a cancelled Save As from one that
-    /// never happened (D-23). Ignored unless a dialog was requested.
-    pub fn deliver(self: *PathSlot, path: ?[]const u8) void {
-        if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
-        const chosen = path orelse {
-            self.state.store(@intFromEnum(State.cancelled), .release);
-            return;
-        };
-        if (chosen.len > self.buffer.len) return self.deliverFailure("the chosen path is too long");
-        @memcpy(self.buffer[0..chosen.len], chosen);
-        self.len = chosen.len;
-        self.state.store(@intFromEnum(State.arrived), .release);
-    }
-
-    /// The dialog's callback, when SDL reports an error instead of a choice.
-    pub fn deliverFailure(self: *PathSlot, message: []const u8) void {
-        if (self.state.load(.acquire) != @intFromEnum(State.waiting)) return;
-        const len = @min(message.len, self.buffer.len);
-        @memcpy(self.buffer[0..len], message[0..len]);
-        self.len = len;
-        self.state.store(@intFromEnum(State.failed), .release);
-    }
-
-    /// Main thread, once a frame: what arrived since the last call, once.
-    /// The slice stays valid until the next `request`, which cannot succeed
-    /// before this has emptied the slot.
-    pub fn take(self: *PathSlot) ?Result {
-        const state: State = @enumFromInt(self.state.load(.acquire));
-        const result: Result = switch (state) {
-            .idle, .waiting => return null,
-            .arrived => .{ .path = .{ .kind = self.kind, .path = self.buffer[0..self.len] } },
-            .failed => .{ .failed = self.buffer[0..self.len] },
-            .cancelled => .cancelled,
-        };
-        self.state.store(@intFromEnum(State.idle), .release);
-        return result;
-    }
-};
+/// The map's Open and Save As dialogs answer through the kit's slot
+/// (`kit.dialogs`); a scripted run delivers into it itself.
+pub const PathSlot = kit.dialogs.PathSlot(DialogKind, kit.dialogs.max_path);
 
 /// A fixed-buffer path, for a `Pending` that must outlive the frame it was
 /// made on (no allocation, matching `PathSlot`'s own buffers).
@@ -1837,35 +1767,6 @@ test "a dialog's path is written with the engine's separator, and a save gets an
     try std.testing.expectEqualStrings("\\tmp\\b", enginePath(&buffer, "/tmp/b", .open, .bzm).?);
     var tiny: [4]u8 = undefined;
     try std.testing.expect(enginePath(&tiny, "/tmp/b", .open, .bzm) == null);
-}
-
-test "the dialog slot: requested, path arrived, taken once; one dialog at a time; a cancel leaves nothing" {
-    var slot: PathSlot = .{};
-    try std.testing.expect(slot.take() == null);
-    slot.deliver("/ignored.bzm"); // no dialog was up
-    try std.testing.expect(slot.take() == null);
-
-    try std.testing.expect(slot.request(.open));
-    try std.testing.expect(!slot.request(.save_as));
-    try std.testing.expect(slot.take() == null); // still waiting
-    slot.deliver("/maps/a.bzm");
-    const got = slot.take().?;
-    try std.testing.expectEqual(DialogKind.open, got.path.kind);
-    try std.testing.expectEqualStrings("/maps/a.bzm", got.path.path);
-    try std.testing.expect(slot.take() == null);
-
-    try std.testing.expect(slot.request(.save_as));
-    slot.deliver(null);
-    try std.testing.expect(!slot.waiting());
-    switch (slot.take().?) {
-        .cancelled => {},
-        else => return error.TestUnexpectedResult,
-    }
-    try std.testing.expect(slot.take() == null);
-
-    try std.testing.expect(slot.request(.open));
-    slot.deliverFailure("no portal");
-    try std.testing.expectEqualStrings("no portal", slot.take().?.failed);
 }
 
 test "UnsavedPrompt: a clean map proceeds with Open or Quit at once" {

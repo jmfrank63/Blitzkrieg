@@ -88,6 +88,16 @@ namespace NMain
 	// Reads ui\ModStyles\<mod folder>\consts.xml over the constants the loaded
 	// mod shipped. Call it after SetupGlobalVarConsts; see the note there.
 	void SetupModStyleConsts();
+	// The language option (GamePlay.Language): Default is the texts the game
+	// ships, anything else the folder of a mod under mods\ whose
+	// data\texts.pak is mounted over them. ApplyLanguage mounts it and reloads
+	// every text in place, so the labels on screen change on the next frame;
+	// the Game's frame loop calls it whenever the option's value differs from
+	// GetLanguage. RemountLanguage puts the mounted pak back on top after a
+	// MOD change.
+	void ApplyLanguage( const char *pszLanguage );
+	const char *GetLanguage();
+	void RemountLanguage();
 	const SModuleDescriptor* STDCALL GetModuleDesc( int nType );
 	// Fills this executable's g_pGlobalSingleton, g_pGlobalSaveLoadSystem and
 	// g_pfnGlobalGetTempRawBuffer from StreamIO. Every module dylib declares
