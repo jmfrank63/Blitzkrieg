@@ -1,5 +1,7 @@
 name: Cross-platform validation
 
+# Since 2026-10-17 the jobs are gated by the changes job below (per-area
+# path filters; Windows and macOS only on dispatch, main and PRs).
 # The full matrix runs on every push and PR again (2026-10-12): the
 # ci-failing.yml companion that scoped branch pushes to the open Linux x64
 # failures is deleted, both of them green (38286700953's Resource Editor and
@@ -21,7 +23,92 @@ permissions:
 # "- Map Editor", so a run shows at a glance what works where. A combination that is not
 # tested has a job that never runs (if: false) and says why in its name. Decision 2026-10-08.
 jobs:
+  # Which product areas a push or PR touched (2026-10-17). Every product job
+  # needs this one and runs when the run was dispatched, the push is to main,
+  # or its area changed; Windows and macOS (10x and 2x billed minutes)
+  # additionally skip plain feature-branch pushes and run only on dispatch,
+  # main and pull requests. The mapping errs towards running:
+  #   core: anything that is not docs, not Sources/editor and not ELK-only,
+  #     so the engine, Data, tools/zig, vendor, build.zig and this workflow
+  #     all run every job. Unclassified paths land here too.
+  #   editors-shared: Sources/editor, which the Resource Editor, Map Editor
+  #     and platform jobs test (test-editor-core, -kit, test-resource-core)
+  #     and windows-game packages (package-game-editors).
+  #   elk: Sources/elk and Data/ELK; no job tests ELK, but windows-game
+  #     stages Sources/elk/ELK.exe into its package.
+  #   code: anything that is not docs; gates the Linux arm64 platform job.
+  # engine, tools and planning are reported for the run log only. The
+  # outputs are empty on dispatch and main, where every job is forced anyway.
+  changes:
+    name: "Changed areas"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      engine: ${{ steps.areas.outputs.engine }}
+      elk: ${{ steps.areas.outputs.elk }}
+      editors-shared: ${{ steps.areas.outputs.editors-shared }}
+      tools: ${{ steps.areas.outputs.tools }}
+      planning: ${{ steps.areas.outputs.planning }}
+      core: ${{ steps.rest.outputs.core }}
+      code: ${{ steps.rest.outputs.code }}
+    steps:
+      - name: Check out source
+        if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+        uses: actions/checkout@v6
+        with:
+          filter: blob:none
+      - name: Areas
+        id: areas
+        if: github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            engine:
+              - 'Sources/src/**'
+              - 'Data/**'
+            elk:
+              - 'Sources/elk/**'
+              - 'Sources/editor/elk/**'
+              - 'Data/ELK/**'
+              - 'Data/Textes/**'
+            editors-shared:
+              - 'Sources/editor/**'
+            tools:
+              - 'tools/zig/**'
+              - 'Sources/src/FontAtlas/**'
+              - 'Sources/src/ResourceModel/**'
+              - 'vendor/**'
+            planning:
+              - '.planning/**'
+              - 'docs/**'
+              - '*.md'
+      # A file counts for core or code when it matches none of the negated
+      # patterns, which needs the 'every' quantifier and so a second step.
+      - name: Everything else
+        id: rest
+        if: github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            core:
+              - '!.planning/**'
+              - '!docs/**'
+              - '!*.md'
+              - '!Sources/editor/**'
+              - '!Sources/elk/**'
+              - '!Data/ELK/**'
+            code:
+              - '!.planning/**'
+              - '!docs/**'
+              - '!*.md'
+
   windows-game:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true' || needs.changes.outputs.elk == 'true'))
     name: "Windows x64 MSVC - Game"
     runs-on: windows-latest
     # The cold build of the engine tier takes about 20 minutes here (run
@@ -322,6 +409,8 @@ jobs:
           if-no-files-found: ignore
 
   windows-resource-editor:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "Windows x64 MSVC - Resource Editor"
     runs-on: windows-latest
     # The Resource Editor's engine-hosted steps, split from windows-game
@@ -631,6 +720,8 @@ jobs:
           if-no-files-found: ignore
 
   windows-map-editor:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "Windows x64 MSVC - Map Editor"
     runs-on: windows-latest
     # The Map Editor's steps, split from windows-game (run 37691999377: 18
@@ -934,6 +1025,8 @@ jobs:
           if-no-files-found: ignore
 
   windows-mingw-platform:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "Windows x64 MinGW - platform only"
     # The GNU Windows ABI. Zig ships its own mingw-w64 headers and import
     # libraries, so unlike the MSVC job this one needs no Visual Studio lookup.
@@ -1104,6 +1197,8 @@ jobs:
         run: exit 0
 
   macos-game:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && needs.changes.outputs.core == 'true')
     name: "macOS arm64 - Game"
     # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
     # native module tests cannot silently run on an Intel host.
@@ -1319,6 +1414,8 @@ jobs:
           if-no-files-found: ignore
 
   macos-resource-editor:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "macOS arm64 - Resource Editor"
     runs-on: macos-14
     # Split from macos-game (2026-10-08) so each product shows its own result. It restores
@@ -1558,6 +1655,8 @@ jobs:
           if-no-files-found: ignore
 
   macos-map-editor:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "macOS arm64 - Map Editor"
     runs-on: macos-14
     # Split from macos-game (2026-10-08) so each product shows its own result. It restores
@@ -1755,6 +1854,8 @@ jobs:
           if-no-files-found: ignore
 
   macos-intel-platform:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "macOS x64 Intel - platform only"
     # Intel macOS is a supported target but had no job, so nothing caught that
     # its Cocoa adapters were never being compiled. SDL refuses to cross-compile
@@ -1985,6 +2086,8 @@ jobs:
         run: exit 0
 
   linux-game:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true'
     name: "Linux x64 - Game"
     runs-on: ubuntu-24.04
     # 33 minutes before the Resource Editor's engine-hosted tiers joined (run 37603215218);
@@ -2257,6 +2360,8 @@ jobs:
           if-no-files-found: ignore
 
   linux-resource-editor:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'
     name: "Linux x64 - Resource Editor"
     runs-on: ubuntu-24.04
     # Split from linux-game (2026-10-08) so each product shows its own result. It restores
@@ -2536,6 +2641,8 @@ jobs:
           if-no-files-found: ignore
 
   linux-map-editor:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'
     name: "Linux x64 - Map Editor"
     runs-on: ubuntu-24.04
     # Split from linux-game (2026-10-08) so each product shows its own result. It restores
@@ -2736,6 +2843,8 @@ jobs:
           if-no-files-found: ignore
 
   linux-arm-platform:
+    needs: [changes]
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.code == 'true'
     name: "Linux arm64 - platform only"
     # Raspberry Pi class target. GitHub's arm64 Linux runner executes the suites
     # natively, so this job proves the aarch64 build works rather than only that
