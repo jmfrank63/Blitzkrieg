@@ -215,14 +215,20 @@ jobs:
           zig version
 
 
+      # The month in the build cache's key: see the key below.
+      - name: Cache month
+        id: cache-month
+        shell: bash
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Zig build cache
         id: zig-build-cache
         uses: actions/cache/restore@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-
+            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-
 
 
       - name: Restore Unix Zig global cache
@@ -1292,14 +1298,20 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
 
+      # The month in the build cache's key: see the key below.
+      - name: Cache month
+        id: cache-month
+        shell: bash
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Zig build cache
         id: zig-build-cache
         uses: actions/cache/restore@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.17.0-
+            ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-
 
 
       - name: Restore Windows Zig global cache
@@ -2587,14 +2599,20 @@ jobs:
           zig version
 
 
+      # The month in the build cache's key: see the key below.
+      - name: Cache month
+        id: cache-month
+        shell: bash
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Zig build cache
         id: zig-build-cache
         uses: actions/cache/restore@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-aarch64-macos-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-aarch64-macos-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-aarch64-macos-zig-build-0.17.0-
+            ${{ runner.os }}-aarch64-macos-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-
 
 
       - name: Restore Unix Zig global cache
@@ -3520,14 +3538,20 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
 
+      # The month in the build cache's key: see the key below.
+      - name: Cache month
+        id: cache-month
+        shell: bash
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Zig build cache
         id: zig-build-cache
         uses: actions/cache/restore@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.17.0-
+            ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-
 
 
       - name: Restore Windows Zig global cache
@@ -3765,14 +3789,20 @@ jobs:
           zig version
 
 
+      # The month in the build cache's key: see the key below.
+      - name: Cache month
+        id: cache-month
+        shell: bash
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Zig build cache
         id: zig-build-cache
         uses: actions/cache/restore@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-x86_64-macos-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-x86_64-macos-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-x86_64-macos-zig-build-0.17.0-
+            ${{ runner.os }}-x86_64-macos-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-
 
 
       - name: Restore Unix Zig global cache
@@ -4035,14 +4065,20 @@ jobs:
           zig version
 
 
+      # The month in the build cache's key: see the key below.
+      - name: Cache month
+        id: cache-month
+        shell: bash
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Zig build cache
         id: zig-build-cache
         uses: actions/cache/restore@v5
         with:
           path: .zig-cache
-          key: ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          key: ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.17.0-
+            ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-
 
 
       - name: Restore Unix Zig global cache
