@@ -265,7 +265,7 @@ jobs:
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .zig-cache
@@ -273,7 +273,7 @@ jobs:
 
 
       - name: Save Unix Zig global cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-global-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ~/.cache/zig
@@ -1395,7 +1395,7 @@ jobs:
       # Saved here, not at job end: by now the debug engine and the release
       # game are built, and a job cut off later still leaves the next run warm.
       - name: Save Zig build cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .zig-cache
@@ -1403,7 +1403,7 @@ jobs:
 
 
       - name: Save Windows Zig global cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-global-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ~\AppData\Local\zig
@@ -2691,7 +2691,7 @@ jobs:
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .zig-cache
@@ -2699,7 +2699,7 @@ jobs:
 
 
       - name: Save Unix Zig global cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-global-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ~/.cache/zig
@@ -3686,7 +3686,7 @@ jobs:
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .zig-cache
@@ -3694,7 +3694,7 @@ jobs:
 
 
       - name: Save Windows Zig global cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-global-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ~\AppData\Local\zig
@@ -3970,7 +3970,7 @@ jobs:
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .zig-cache
@@ -3978,7 +3978,7 @@ jobs:
 
 
       - name: Save Unix Zig global cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-global-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ~/.cache/zig
@@ -4243,7 +4243,7 @@ jobs:
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .zig-cache
@@ -4251,7 +4251,7 @@ jobs:
 
 
       - name: Save Unix Zig global cache
-        if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
+        if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/ci-fast') && steps.zig-global-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: ~/.cache/zig
