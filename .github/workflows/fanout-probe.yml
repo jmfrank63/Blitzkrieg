@@ -128,6 +128,9 @@ jobs:
             ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.17.0-
       - name: Compile the engine tier
         run: |
+          findmnt -no OPTIONS --target . || true
+          touch "$RUNNER_TEMP/build-start"
+          sleep 2
           start=$(date +%s)
           zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=compile
           echo "compile took $(( $(date +%s) - start )) s"
@@ -135,8 +138,9 @@ jobs:
       - name: Pack the build
         run: |
           start=$(date +%s)
-          du -sh .zig-cache zig-out ~/.cache/zig
-          tar --zstd -cf "$RUNNER_TEMP/build.tar.zst" .zig-cache zig-out -C ~ .cache/zig
+          du -sh .zig-cache ~/.cache/zig zig-pkg || true
+          du -sh .zig-cache
+          tar -I "zstd -T0 -3" -cf "$RUNNER_TEMP/build.tar.zst" .zig-cache zig-pkg -C ~ .cache/zig
           ls -l "$RUNNER_TEMP/build.tar.zst"
           echo "pack took $(( $(date +%s) - start )) s"
 
@@ -256,7 +260,7 @@ jobs:
       - name: Unpack the build
         run: |
           start=$(date +%s)
-          tar --zstd -xf "$RUNNER_TEMP/build.tar.zst"
+          tar -I "zstd -T0 -d" -xf "$RUNNER_TEMP/build.tar.zst"
           mv .cache/zig ~/.cache/ 2>/dev/null || { mkdir -p ~/.cache && mv .cache/zig ~/.cache/zig; }
           rm -rf .cache "$RUNNER_TEMP/build.tar.zst"
           echo "unpack took $(( $(date +%s) - start )) s"
