@@ -2294,7 +2294,7 @@ pub fn build(b: *std.Build) void {
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
-    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover, cover-from=<n> (cover without its first n cases, to resume a cut-short run) or only=<text> (default all)") orelse "all";
+    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover, cover-from=<n> (cover without its first n cases, to resume a cut-short run), only=<text> or shard=<k>/<n> (the all sweep's templates k, k+n, ... for n CI jobs side by side; default all)") orelse "all";
     const random_missions_repeat = b.option(u32, "random-missions-repeat", "test-random-missions: generate the sweep this many times; from 4 on, fail if the heap grows over the second half of the rounds (default 1)") orelse 1;
 
     const zlib = addZlib(b, target, optimize, toolchain);
@@ -7467,6 +7467,10 @@ fn addEditorBridgeTest(
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
     run.addArg(rootPath(b, "zig-out/local-test"));
+    // CI runs the list in slices side by side (kShardStarts in the test); 0 is
+    // the whole list.
+    const shard = b.option(u32, "editor-bridge-shard", "test-editor-bridge: run only slice k (from 1) of the full list, for CI jobs side by side (default 0, the whole list)") orelse 0;
+    if (shard > 0) run.addArgs(&.{ "--shard", b.fmt("{d}", .{shard}) });
     // It reads the staged Data and engine, neither a file input of this step,
     // so a cached pass would say nothing about the installation now (the
     // same reason map-editor-smoke and test-map-editor-engine set this).
@@ -7744,6 +7748,10 @@ fn addResourceBridge(
         // temporary round-trip copies under argv[3] (zig-out/local-test/...).
         run.addArg(rootPath(b, "tools/zig/fixtures/resource_editor"));
         run.addArg(rootPath(b, "zig-out/local-test/resource_editor/t02"));
+        // CI runs the bridge tier in slices side by side (kShardStarts in the
+        // test); 0 is the whole run.
+        const shard = b.option(u32, "resource-bridge-shard", "test-resource-bridge: run only slice k (from 1), for CI jobs side by side (default 0, the whole run)") orelse 0;
+        if (shard > 0) run.addArgs(&.{ "--shard", b.fmt("{d}", .{shard}) });
     }
     // Reads the staged Data and modules, neither a file input of this step:
     // a cached pass would say nothing about the installation now.

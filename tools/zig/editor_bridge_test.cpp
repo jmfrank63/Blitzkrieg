@@ -11,6 +11,8 @@
 #include <cstring>
 #include <SDL3/SDL.h>
 #include "../../Sources/src/BkMemory/bk_memory_sdl.h"
+#include <chrono>
+#include <functional>
 #include <map>
 #include <set>
 #include "../../Sources/src/EditorBridge/bridge.h"
@@ -11735,6 +11737,52 @@ static int SkipOrFail( const char *pszTool, const std::string &szWhy )
 	return 0;
 }
 
+// One test of the full run, by name for its timing line and the slices.
+struct SBridgeTest
+{
+	const char *pszName;
+	std::function<void()> run;
+};
+
+// Where the slices of --shard begin: slice 1 is the start of the list up to
+// the first name here, slice k+1 starts at the k-th name. Cut from the
+// Windows CI timeline (run 39035514549, 64 minutes for the whole list) so no
+// slice runs much over 15 minutes there; the "took" lines rebalance them.
+static const char *const kShardStarts[] = {
+	"TestM3MultiSelect",
+	"TestM3HostRefusedKeepsPassengers",
+	"TestPaintRefusesTileOutsideTileset",
+	"TestM2VsoRendersOnGpu",
+};
+
+// The tests of slice nShard (from 1), as [*pnFirst, *pnEnd). False when
+// there is no such slice or a start name is not in the list, so a renamed
+// test cannot silently empty a slice.
+static bool ShardRange( const SBridgeTest *pTests, int nTests, int nShard, int *pnFirst, int *pnEnd )
+{
+	const int nStarts = int( sizeof( kShardStarts ) / sizeof( kShardStarts[0] ) );
+	if ( nShard < 1 || nShard > nStarts + 1 )
+		return false;
+	int bounds[sizeof( kShardStarts ) / sizeof( kShardStarts[0] ) + 2];
+	bounds[0] = 0;
+	bounds[nStarts + 1] = nTests;
+	for ( int k = 0; k < nStarts; ++k )
+	{
+		bounds[k + 1] = -1;
+		for ( int i = 0; i < nTests; ++i )
+			if ( strcmp( pTests[i].pszName, kShardStarts[k] ) == 0 )
+			{
+				bounds[k + 1] = i;
+				break;
+			}
+		if ( bounds[k + 1] <= bounds[k] )
+			return false;
+	}
+	*pnFirst = bounds[nShard - 1];
+	*pnEnd = bounds[nShard];
+	return true;
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -11786,6 +11834,7 @@ int main( int argc, char **argv )
 	// 04-13: `--m2-sweep` after the two positional arguments runs only the M2
 	// sweep (the local step test-editor-bridge-m2-sweep).
 	bool bM2Sweep = false, bPlayersOnly = false, bMinimapOnly = false, bLayersOnly = false, bRmgOnly = false;
+	int nShard = 0;
 	const char *pszCraftKind = 0, *pszCraftOut = 0;
 	for ( int i = 3; i < argc; ++i )
 	{
@@ -11805,6 +11854,9 @@ int main( int argc, char **argv )
 		// 05-05: `--craft <kind> <out>` writes one fixture map (CraftFixture) instead
 		// of running the tier (<out> is a file name under the scratch folder) - the build
 		// runs it before the scenarios that open them.
+		// `--shard <k>`: the k-th slice of the full run (kShardStarts), for CI.
+		if ( strcmp( argv[i], "--shard" ) == 0 && i + 1 < argc )
+			nShard = atoi( argv[i + 1] );
 		if ( strcmp( argv[i], "--craft" ) == 0 && i + 2 < argc )
 		{
 			pszCraftKind = argv[i + 1];
@@ -11905,122 +11957,148 @@ int main( int argc, char **argv )
 	}
 	else
 	{
-		// First, before any map is open (Task 1 carried).
-		TestEntryPointsBeforeAMap( pSession );
-		TestShippedMapOpens( pSession );
-		TestBridgeSpansAreBuilt( pSession );
-		TestUneditedSaveIsEquivalent( pSession, szScratch );
-		TestPathsAndTestMapPath( pSession );
-		TestObjectEdits( pSession, szScratch );
-		TestSaveVerifiesWhatItWrote( pSession, szScratch );
-		TestRefusedEditsReachNeither( pSession, szScratch );
-		TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch );
-		TestMapsOwnFields( pSession, szScratch );
-		TestObjectsReadBack( pSession );
-		TestUnknownObjectIsReadOnly( pSession, szScratch );
-		TestPaintReachesEngineAndFile( pSession, szScratch );
-		TestPaintUndoIsExact( pSession, szScratch );
-		TestPaintAtTheEdgeAndRefused( pSession, szScratch );
-		TestM3Altitudes( pSession, szScratch );
-		TestM3NewMap( pSession, szScratch );
-		TestM3Heights( pSession, szScratch );
-		TestM3UpdateMapAndFill( pSession, szScratch );
-		TestM3TileInfo( pSession );
-		TestM3Filters( pSession, pszRoot, szScratch );
-		TestM3Fields( pSession, szScratch );
-		TestM3CreateRandomMap( pSession, szScratch );
-		TestM3RmgContainers( pSession, szScratch );
-		TestM3RmgGraphs( pSession, szScratch );
-		TestM3RmgFieldSets( pSession, szScratch );
-		TestM3RmgTemplates( pSession, szScratch );
-		TestM3MultiSelect( pSession, szScratch );
-		TestM3PropertiesAndLinks( pSession, szScratch );
-		TestM3LinkCycleAndZeroID( pSession, szScratch );
-		TestM3HostRefusedKeepsPassengers( pSession, szScratch );
-		TestM3Damage( pSession, szScratch );
-		TestM3PlayersAndUnitCreation( pSession, szScratch );
-		TestM3CheckMap( pSession, szScratch );
-		TestM3MinimapReads( pSession, szScratch );
-		TestM3MinimapImages( pSession, szScratch );
-		TestM3LayerProbe( pSession, szScratch );
-		TestM3Layers( pSession, szScratch );
-		TestPaintRefusesTileOutsideTileset( pSession );
-		TestTilesetTilesAllPaint( pSession );
-		TestTilePicturesAndClose( pSession, szScratch );
-		TestDeleteRestoreKeepsTheObject( pSession, szScratch );
+		// The full run as a list, so CI can run it in slices side by side:
+		// --shard <k> runs the k-th slice of kShardStarts in a session of its
+		// own. A slice therefore starts from a fresh session, and every test
+		// sets up what it needs itself - running each slice alone proves it.
 		// The 640x480 the window was created at: BkEditorStart sets the mode to
 		// the window's own size. The middle of the screen is the middle of what
 		// the engine draws, so it is read from the bridge rather than assumed.
 		int nScreenWidth = 0, nScreenHeight = 0;
-		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads" );
-		printf( "editor-bridge: the screen is %dx%d\n", nScreenWidth, nScreenHeight );
-		TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight );
-		TestTerrainUnderTheCamera( pSession, szScratch );
-		TestZoomStepsBoundedAndAnchored( pSession, pWindow, szScratch );
-		TestWorldToScreenRoundTrip( pSession, nScreenWidth, nScreenHeight );
-		TestOverlayDeviceAndSize( pSession, pWindow );
-		// Read again rather than trusting the resize test to have put the
-		// screen back at the size it was.
-		Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, "the screen size reads after the resize test" );
-		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
-		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestM3PlacementGhost( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestSeasonPicksTheVisuals( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestMissingSeasonTextureFallsBack( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight );
-		TestObjectPictures( pSession, szScratch );
-		TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestDeleteIsRefusedWhileReferred( pSession, szScratch );
-		TestSharedLinkIDIsReadOnly( pSession, szScratch );
-		TestBrokenMapKeepsTheOpenOne( pSession, szScratch );
-		TestMissingStatsDoNotStopTheOpen( pSession );
-		TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch );
-		TestModsListSetAndClear( pSession, szScratch );
-		TestSaveRecordsTheMod( pSession, szScratch );
-		TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestM2VsoRendersOnGpu( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestM2CameraAnchors( pSession, szScratch );
-		TestM2OffMapAnchorUndo( pSession, szScratch );
-		TestM2ScriptIDs( pSession, szScratch );
-		TestM2Groups( pSession, szScratch );
-		TestM2ScriptFile( pSession, szScratch );
-		TestM2ScriptAreas( pSession, szScratch );
-		TestM2HideGroups( pSession, nScreenWidth, nScreenHeight, szScratch );
-		TestM2PaletteFilter( pSession, szScratch );
-		TestM2CascadeDelete( pSession, szScratch, false );
-		TestM2CascadeDelete( pSession, szScratch, true );
-		TestM2Roads( pSession, szScratch );
-		TestM2Rivers( pSession, szScratch );
-		TestM2RoadEdits( pSession, szScratch );
-		TestM2ShortVsoKeptAsRead( pSession, szScratch );
-		TestM2Bridges( pSession, szScratch );
-		TestM2EveryBridgeTypePlans( pSession );
-		TestM2BridgeDelete( pSession, szScratch );
-		TestM2SharedBridgeLinksKeptAsRead( pSession, szScratch );
-		TestM2BridgeRotateToggle( pSession, szScratch );
-		TestM2BridgeToggleSharedRefused( pSession, szScratch );
-		TestM2Fences( pSession, szScratch );
-		TestM2Entrenchments( pSession, szScratch );
-		TestM2EntrenchmentDelete( pSession, szScratch );
-		TestM2StartCommands( pSession, szScratch );
-		TestM2GroupHoldWarning( pSession, szScratch );
-		TestM2ReservePositions( pSession, szScratch );
-		TestM2AIGeneral( pSession, szScratch );
-		TestM2AISideShrinkRefused( pSession, szScratch );
-		// The overlay reaches a present made straight through the engine, so the
-		// check after the stop below can tell a removed overlay from a present
-		// that never happened.
-		g_nOverlayCalls = 0;
-		Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
-		Check( PresentThroughTheEngine() == 1 && g_nOverlayCalls >= 1,
-		       NStr::Format( "an overlay runs in a present made through the engine (%d calls)", g_nOverlayCalls ) );
-		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
-		const int nCallsAtStop = g_nOverlayCalls;
-		PresentThroughTheEngine();
-		Check( g_nOverlayCalls == nCallsAtStop,
-		       NStr::Format( "a stop removes the overlay (%d calls after it)", g_nOverlayCalls - nCallsAtStop ) );
+		const auto ReadScreenSize = [&]( const char *pszWhen ) {
+			Check( BkEditorScreenSize( pSession, &nScreenWidth, &nScreenHeight ) == BK_EDITOR_OK, NStr::Format( "the screen size reads %s", pszWhen ) );
+			printf( "editor-bridge: %s the screen is %dx%d\n", pszWhen, nScreenWidth, nScreenHeight );
+		};
+		ReadScreenSize( "at the start" );
+		const SBridgeTest tests[] = {
+			{ "TestEntryPointsBeforeAMap", [&] { TestEntryPointsBeforeAMap( pSession ); } },
+			{ "TestShippedMapOpens", [&] { TestShippedMapOpens( pSession ); } },
+			{ "TestBridgeSpansAreBuilt", [&] { TestBridgeSpansAreBuilt( pSession ); } },
+			{ "TestUneditedSaveIsEquivalent", [&] { TestUneditedSaveIsEquivalent( pSession, szScratch ); } },
+			{ "TestPathsAndTestMapPath", [&] { TestPathsAndTestMapPath( pSession ); } },
+			{ "TestObjectEdits", [&] { TestObjectEdits( pSession, szScratch ); } },
+			{ "TestSaveVerifiesWhatItWrote", [&] { TestSaveVerifiesWhatItWrote( pSession, szScratch ); } },
+			{ "TestRefusedEditsReachNeither", [&] { TestRefusedEditsReachNeither( pSession, szScratch ); } },
+			{ "TestPartlyRefusedEditRollsTheEngineBack", [&] { TestPartlyRefusedEditRollsTheEngineBack( pSession, szScratch ); } },
+			{ "TestMapsOwnFields", [&] { TestMapsOwnFields( pSession, szScratch ); } },
+			{ "TestObjectsReadBack", [&] { TestObjectsReadBack( pSession ); } },
+			{ "TestUnknownObjectIsReadOnly", [&] { TestUnknownObjectIsReadOnly( pSession, szScratch ); } },
+			{ "TestPaintReachesEngineAndFile", [&] { TestPaintReachesEngineAndFile( pSession, szScratch ); } },
+			{ "TestPaintUndoIsExact", [&] { TestPaintUndoIsExact( pSession, szScratch ); } },
+			{ "TestPaintAtTheEdgeAndRefused", [&] { TestPaintAtTheEdgeAndRefused( pSession, szScratch ); } },
+			{ "TestM3Altitudes", [&] { TestM3Altitudes( pSession, szScratch ); } },
+			{ "TestM3NewMap", [&] { TestM3NewMap( pSession, szScratch ); } },
+			{ "TestM3Heights", [&] { TestM3Heights( pSession, szScratch ); } },
+			{ "TestM3UpdateMapAndFill", [&] { TestM3UpdateMapAndFill( pSession, szScratch ); } },
+			{ "TestM3TileInfo", [&] { TestM3TileInfo( pSession ); } },
+			{ "TestM3Filters", [&] { TestM3Filters( pSession, pszRoot, szScratch ); } },
+			{ "TestM3Fields", [&] { TestM3Fields( pSession, szScratch ); } },
+			{ "TestM3CreateRandomMap", [&] { TestM3CreateRandomMap( pSession, szScratch ); } },
+			{ "TestM3RmgContainers", [&] { TestM3RmgContainers( pSession, szScratch ); } },
+			{ "TestM3RmgGraphs", [&] { TestM3RmgGraphs( pSession, szScratch ); } },
+			{ "TestM3RmgFieldSets", [&] { TestM3RmgFieldSets( pSession, szScratch ); } },
+			{ "TestM3RmgTemplates", [&] { TestM3RmgTemplates( pSession, szScratch ); } },
+			{ "TestM3MultiSelect", [&] { TestM3MultiSelect( pSession, szScratch ); } },
+			{ "TestM3PropertiesAndLinks", [&] { TestM3PropertiesAndLinks( pSession, szScratch ); } },
+			{ "TestM3LinkCycleAndZeroID", [&] { TestM3LinkCycleAndZeroID( pSession, szScratch ); } },
+			{ "TestM3HostRefusedKeepsPassengers", [&] { TestM3HostRefusedKeepsPassengers( pSession, szScratch ); } },
+			{ "TestM3Damage", [&] { TestM3Damage( pSession, szScratch ); } },
+			{ "TestM3PlayersAndUnitCreation", [&] { TestM3PlayersAndUnitCreation( pSession, szScratch ); } },
+			{ "TestM3CheckMap", [&] { TestM3CheckMap( pSession, szScratch ); } },
+			{ "TestM3MinimapReads", [&] { TestM3MinimapReads( pSession, szScratch ); } },
+			{ "TestM3MinimapImages", [&] { TestM3MinimapImages( pSession, szScratch ); } },
+			{ "TestM3LayerProbe", [&] { TestM3LayerProbe( pSession, szScratch ); } },
+			{ "TestM3Layers", [&] { TestM3Layers( pSession, szScratch ); } },
+			{ "TestPaintRefusesTileOutsideTileset", [&] { TestPaintRefusesTileOutsideTileset( pSession ); } },
+			{ "TestTilesetTilesAllPaint", [&] { TestTilesetTilesAllPaint( pSession ); } },
+			{ "TestTilePicturesAndClose", [&] { TestTilePicturesAndClose( pSession, szScratch ); } },
+			{ "TestDeleteRestoreKeepsTheObject", [&] { TestDeleteRestoreKeepsTheObject( pSession, szScratch ); } },
+			{ "TestCatalogueCameraAndFrame", [&] { TestCatalogueCameraAndFrame( pSession, nScreenWidth, nScreenHeight ); } },
+			{ "TestTerrainUnderTheCamera", [&] { TestTerrainUnderTheCamera( pSession, szScratch ); } },
+			{ "TestZoomStepsBoundedAndAnchored", [&] { TestZoomStepsBoundedAndAnchored( pSession, pWindow, szScratch ); } },
+			{ "TestWorldToScreenRoundTrip", [&] { TestWorldToScreenRoundTrip( pSession, nScreenWidth, nScreenHeight ); } },
+			{ "TestOverlayDeviceAndSize", [&] { TestOverlayDeviceAndSize( pSession, pWindow ); } },
+			// Read again rather than trusting the resize test to have put the
+			// screen back at the size it was.
+			{ "the screen size after the resize test", [&] { ReadScreenSize( "after the resize test" ); } },
+			{ "TestObjectUnderTheCursor", [&] { TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestPlacedObjectDrawsAndPicks", [&] { TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestM3PlacementGhost", [&] { TestM3PlacementGhost( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestSeasonPicksTheVisuals", [&] { TestSeasonPicksTheVisuals( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestMissingSeasonTextureFallsBack", [&] { TestMissingSeasonTextureFallsBack( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestYawMeasurement", [&] { TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestEveryGameTypeAnswers", [&] { TestEveryGameTypeAnswers( pSession, nScreenWidth, nScreenHeight ); } },
+			{ "TestObjectPictures", [&] { TestObjectPictures( pSession, szScratch ); } },
+			{ "TestSquadDeletesAndRestores", [&] { TestSquadDeletesAndRestores( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestDeleteIsRefusedWhileReferred", [&] { TestDeleteIsRefusedWhileReferred( pSession, szScratch ); } },
+			{ "TestSharedLinkIDIsReadOnly", [&] { TestSharedLinkIDIsReadOnly( pSession, szScratch ); } },
+			{ "TestBrokenMapKeepsTheOpenOne", [&] { TestBrokenMapKeepsTheOpenOne( pSession, szScratch ); } },
+			{ "TestMissingStatsDoNotStopTheOpen", [&] { TestMissingStatsDoNotStopTheOpen( pSession ); } },
+			{ "TestUnknownObjectDoesNotStopTheOpen", [&] { TestUnknownObjectDoesNotStopTheOpen( pSession, szScratch ); } },
+			{ "TestModsListSetAndClear", [&] { TestModsListSetAndClear( pSession, szScratch ); } },
+			{ "TestSaveRecordsTheMod", [&] { TestSaveRecordsTheMod( pSession, szScratch ); } },
+			{ "TestSoundList", [&] { TestSoundList( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestM2VsoRendersOnGpu", [&] { TestM2VsoRendersOnGpu( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestM2CameraAnchors", [&] { TestM2CameraAnchors( pSession, szScratch ); } },
+			{ "TestM2OffMapAnchorUndo", [&] { TestM2OffMapAnchorUndo( pSession, szScratch ); } },
+			{ "TestM2ScriptIDs", [&] { TestM2ScriptIDs( pSession, szScratch ); } },
+			{ "TestM2Groups", [&] { TestM2Groups( pSession, szScratch ); } },
+			{ "TestM2ScriptFile", [&] { TestM2ScriptFile( pSession, szScratch ); } },
+			{ "TestM2ScriptAreas", [&] { TestM2ScriptAreas( pSession, szScratch ); } },
+			{ "TestM2HideGroups", [&] { TestM2HideGroups( pSession, nScreenWidth, nScreenHeight, szScratch ); } },
+			{ "TestM2PaletteFilter", [&] { TestM2PaletteFilter( pSession, szScratch ); } },
+			{ "TestM2CascadeDelete", [&] { TestM2CascadeDelete( pSession, szScratch, false ); } },
+			{ "TestM2CascadeDelete", [&] { TestM2CascadeDelete( pSession, szScratch, true ); } },
+			{ "TestM2Roads", [&] { TestM2Roads( pSession, szScratch ); } },
+			{ "TestM2Rivers", [&] { TestM2Rivers( pSession, szScratch ); } },
+			{ "TestM2RoadEdits", [&] { TestM2RoadEdits( pSession, szScratch ); } },
+			{ "TestM2ShortVsoKeptAsRead", [&] { TestM2ShortVsoKeptAsRead( pSession, szScratch ); } },
+			{ "TestM2Bridges", [&] { TestM2Bridges( pSession, szScratch ); } },
+			{ "TestM2EveryBridgeTypePlans", [&] { TestM2EveryBridgeTypePlans( pSession ); } },
+			{ "TestM2BridgeDelete", [&] { TestM2BridgeDelete( pSession, szScratch ); } },
+			{ "TestM2SharedBridgeLinksKeptAsRead", [&] { TestM2SharedBridgeLinksKeptAsRead( pSession, szScratch ); } },
+			{ "TestM2BridgeRotateToggle", [&] { TestM2BridgeRotateToggle( pSession, szScratch ); } },
+			{ "TestM2BridgeToggleSharedRefused", [&] { TestM2BridgeToggleSharedRefused( pSession, szScratch ); } },
+			{ "TestM2Fences", [&] { TestM2Fences( pSession, szScratch ); } },
+			{ "TestM2Entrenchments", [&] { TestM2Entrenchments( pSession, szScratch ); } },
+			{ "TestM2EntrenchmentDelete", [&] { TestM2EntrenchmentDelete( pSession, szScratch ); } },
+			{ "TestM2StartCommands", [&] { TestM2StartCommands( pSession, szScratch ); } },
+			{ "TestM2GroupHoldWarning", [&] { TestM2GroupHoldWarning( pSession, szScratch ); } },
+			{ "TestM2ReservePositions", [&] { TestM2ReservePositions( pSession, szScratch ); } },
+			{ "TestM2AIGeneral", [&] { TestM2AIGeneral( pSession, szScratch ); } },
+			{ "TestM2AISideShrinkRefused", [&] { TestM2AISideShrinkRefused( pSession, szScratch ); } },
+		};
+		const int nTests = int( sizeof( tests ) / sizeof( tests[0] ) );
+		int nFirst = 0, nEnd = nTests;
+		if ( nShard > 0 && !ShardRange( tests, nTests, nShard, &nFirst, &nEnd ) )
+		{
+			Check( false, NStr::Format( "--shard %d names a slice (1 to %d)", nShard, int( sizeof( kShardStarts ) / sizeof( kShardStarts[0] ) ) + 1 ) );
+			nFirst = nEnd = 0;
+		}
+		for ( int i = nFirst; i < nEnd; ++i )
+		{
+			const auto testStart = std::chrono::steady_clock::now();
+			tests[i].run();
+			printf( "editor-bridge: %s took %.1f s\n", tests[i].pszName,
+			        std::chrono::duration<double>( std::chrono::steady_clock::now() - testStart ).count() );
+		}
+		if ( nEnd < nTests )
+			Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+		else
+		{
+			// The overlay reaches a present made straight through the engine, so the
+			// check after the stop below can tell a removed overlay from a present
+			// that never happened.
+			g_nOverlayCalls = 0;
+			Check( BkEditorSetOverlay( pSession, CountOverlay, &g_nOverlayCalls ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			Check( PresentThroughTheEngine() == 1 && g_nOverlayCalls >= 1,
+			       NStr::Format( "an overlay runs in a present made through the engine (%d calls)", g_nOverlayCalls ) );
+			Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+			const int nCallsAtStop = g_nOverlayCalls;
+			PresentThroughTheEngine();
+			Check( g_nOverlayCalls == nCallsAtStop,
+			       NStr::Format( "a stop removes the overlay (%d calls after it)", g_nOverlayCalls - nCallsAtStop ) );
+		}
 	}
 
 	SDL_DestroyWindow( pWindow );
