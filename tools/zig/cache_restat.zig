@@ -73,6 +73,8 @@ pub fn main(init: std.process.Init) !void {
     const prefixes = [5]std.Io.Dir{ roots[0], roots[2], roots[1], roots[3], roots[4] };
 
     var known: std.StringHashMapUnmanaged(?Known) = .empty;
+    var reported: std.StringHashMapUnmanaged(void) = .empty;
+    const verbose = if (init.environ_map.get("BK_RESTAT_VERBOSE")) |v| std.mem.eql(u8, v, "1") else false;
     var manifests_dir = try local.openDir(io, "h", .{ .iterate = true });
     defer manifests_dir.close(io);
 
@@ -136,6 +138,10 @@ pub fn main(init: std.process.Init) !void {
             const now = gop.value_ptr.* orelse continue;
             if (!std.mem.eql(u8, &now.digest, &file.digest)) {
                 n_changed += 1;
+                // BK_RESTAT_VERBOSE=1 names each file that differs, once: what
+                // the next build compiles again because of it.
+                if (verbose and (try reported.getOrPut(arena, key)).found_existing == false)
+                    std.debug.print("cache_restat: other contents: {s}\n", .{path});
                 continue;
             }
             if (file.size == now.size and file.inode == now.inode and file.mtime == now.mtime) continue;

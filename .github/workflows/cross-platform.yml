@@ -246,6 +246,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -443,6 +445,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -744,6 +748,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -1098,6 +1104,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -1329,6 +1337,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -1563,6 +1573,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -1887,6 +1899,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -2270,6 +2284,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -2630,6 +2646,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -2833,6 +2851,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -3072,6 +3092,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -3386,6 +3408,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -3569,6 +3593,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -3820,6 +3846,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
@@ -4096,6 +4124,8 @@ jobs:
       # still hashes to the recorded digest, so only what really changed builds.
       - name: Restat the Zig cache
         shell: bash
+        env:
+          BK_RESTAT_VERBOSE: "1"
         run: zig run tools/zig/cache_restat.zig -O ReleaseFast
 
 
