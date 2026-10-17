@@ -315,6 +315,9 @@ jobs:
     timeout-minutes: 60
 
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
@@ -618,6 +621,9 @@ jobs:
     # the caches linux-game saves and does not save its own. The engine renders on lavapipe.
     timeout-minutes: 60
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
@@ -976,6 +982,9 @@ jobs:
     # the caches linux-game saves and does not save its own. The engine renders on lavapipe.
     timeout-minutes: 60
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
@@ -1451,6 +1460,9 @@ jobs:
     timeout-minutes: 60
 
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
@@ -1776,18 +1788,25 @@ jobs:
     timeout-minutes: 60
 
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
         include:
           - { part: "core", label: "core, model and mod tiers", shard: "", sweep: "all" }
-          - { part: "bridge-1", label: "bridge tier 1/7", shard: "-Dresource-bridge-shard=1", sweep: "all" }
-          - { part: "bridge-2", label: "bridge tier 2/7", shard: "-Dresource-bridge-shard=2", sweep: "all" }
-          - { part: "bridge-3", label: "bridge tier 3/7", shard: "-Dresource-bridge-shard=3", sweep: "all" }
-          - { part: "bridge-4", label: "bridge tier 4/7", shard: "-Dresource-bridge-shard=4", sweep: "all" }
-          - { part: "bridge-5", label: "bridge tier 5/7", shard: "-Dresource-bridge-shard=5", sweep: "all" }
-          - { part: "bridge-6", label: "bridge tier 6/7", shard: "-Dresource-bridge-shard=6", sweep: "all" }
-          - { part: "bridge-7", label: "bridge tier 7/7", shard: "-Dresource-bridge-shard=7", sweep: "all" }
+          - { part: "bridge-1", label: "bridge tier 1/11", shard: "-Dresource-bridge-shard=1", sweep: "all" }
+          - { part: "bridge-2", label: "bridge tier 2/11", shard: "-Dresource-bridge-shard=2", sweep: "all" }
+          - { part: "bridge-3", label: "bridge tier 3/11", shard: "-Dresource-bridge-shard=3", sweep: "all" }
+          - { part: "bridge-4", label: "bridge tier 4/11", shard: "-Dresource-bridge-shard=4", sweep: "all" }
+          - { part: "bridge-5", label: "bridge tier 5/11", shard: "-Dresource-bridge-shard=5", sweep: "all" }
+          - { part: "bridge-6", label: "bridge tier 6/11", shard: "-Dresource-bridge-shard=6", sweep: "all" }
+          - { part: "bridge-7", label: "bridge tier 7/11", shard: "-Dresource-bridge-shard=7", sweep: "all" }
+          - { part: "bridge-8", label: "bridge tier 8/11", shard: "-Dresource-bridge-shard=8", sweep: "all" }
+          - { part: "bridge-9", label: "bridge tier 9/11", shard: "-Dresource-bridge-shard=9", sweep: "all" }
+          - { part: "bridge-10", label: "bridge tier 10/11", shard: "-Dresource-bridge-shard=10", sweep: "all" }
+          - { part: "bridge-11", label: "bridge tier 11/11", shard: "-Dresource-bridge-shard=11", sweep: "all" }
           - { part: "editor-1", label: "editor and autos 1", shard: "", sweep: "all" }
           - { part: "editor-2", label: "autos 2", shard: "", sweep: "all" }
           - { part: "editor-3", label: "autos 3 and the game", shard: "", sweep: "all" }
@@ -1937,7 +1956,7 @@ jobs:
       # S04 slice gate: the resource bridge through the engine, including the
       # preview captures (mesh, sprite, effect) measured by code.
       - name: Resource bridge tier
-        if: contains(fromJSON('["bridge-1", "bridge-2", "bridge-3", "bridge-4", "bridge-5", "bridge-6", "bridge-7"]'), matrix.part)
+        if: contains(fromJSON('["bridge-1", "bridge-2", "bridge-3", "bridge-4", "bridge-5", "bridge-6", "bridge-7", "bridge-8", "bridge-9", "bridge-10", "bridge-11"]'), matrix.part)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-resource-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run ${{ matrix.shard }} "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB" -Dbk-mem-stack-frames=0
@@ -2167,6 +2186,9 @@ jobs:
     timeout-minutes: 60
 
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
@@ -2723,13 +2745,15 @@ jobs:
     timeout-minutes: 60
 
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { part: "platform", label: "platform tests", shard: "", sweep: "all" }
           - { part: "engine", label: "engine tier", shard: "", sweep: "all" }
-          - { part: "random", label: "random missions", shard: "", sweep: "all" }
+          - { part: "random", label: "platform tests and random missions", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -2861,37 +2885,37 @@ jobs:
 
 
       - name: Compile StreamIO filesystem tests
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-files -Dtarget=aarch64-macos -Dtest-mode=compile
 
 
       - name: Run runtime module contract tests
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-modules -Dtarget=aarch64-macos -Dtest-mode=run
 
 
       - name: Compile platform foundation matrix
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-foundation -Dtarget=aarch64-macos -Dtest-mode=compile
 
 
       - name: Verify native runtime layout
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" verify-runtime -Dtarget=aarch64-macos -Dtest-mode=run
 
 
       - name: Run native staging tests
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-stage -Dtarget=aarch64-macos -Dtest-mode=run
 
 
       - name: Run diagnostics facade tests
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=aarch64-macos -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-gfxgpu-core -Dtarget=aarch64-macos -Dtest-mode=run
 
 
@@ -2908,7 +2932,7 @@ jobs:
       # a real window: wheel deltas (a trackpad swipe's fractions, flipped,
       # finger-marked), keys, text and timestamps. Needs a video driver.
       - name: SDL event translation
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-events -Dtarget=aarch64-macos -Dtest-mode=run
 
 
@@ -2932,13 +2956,13 @@ jobs:
       # use, so the engine and overlay tiers can be scheduled on fact
       # rather than on assumption. Never fails the build.
       - name: GPU device probe
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         continue-on-error: true
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" gpu-device-probe -Dtarget=aarch64-macos
 
 
       - name: Run GFX GPU factory test
-        if: matrix.part == 'platform'
+        if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" gfxgpu-factory-test -Dtarget=aarch64-macos -Dtest-mode=run
 
 
@@ -2965,6 +2989,9 @@ jobs:
     # run 38119220988, past the old 90 (cancelled).
     timeout-minutes: 60
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:
@@ -3282,6 +3309,9 @@ jobs:
     # run 38119220988, past the old 90.
     timeout-minutes: 60
 
+    # Each zig build lists what it could not take from the cache.
+    env:
+      ZIG_BUILD_SUMMARY: new
     strategy:
       fail-fast: false
       matrix:

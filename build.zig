@@ -92,6 +92,14 @@ const cppflags_debug = &.{
 var ubsan_trap = false;
 var build_target_os: std.Target.Os.Tag = .windows;
 var build_host_os: std.Target.Os.Tag = .windows;
+/// The machine the build runs on, for the tools it builds and runs itself (shadercross
+/// and its SPIRV-Tools, DXC and clang, the generators). b.graph.host is the native CPU,
+/// and a cached tool only hits on the same CPU model: CI runners differ, so a tier job
+/// on another model rebuilt the whole shader toolchain (run 39068432953: 18 seconds in
+/// one job, 30 minutes in another from the same cache). The baseline CPU hits on every
+/// runner. macOS keeps the native host: its runners share one CPU, and Zig fills in the
+/// SDK paths only for a native query.
+var portable_host: std.Build.ResolvedTarget = undefined;
 // Windows has two ABIs and only one of them is Visual Studio. The MSVC
 // helpers below used to gate on the OS alone, so a MinGW target picked up
 // Visual Studio include paths and the msvcrt/ucrt import libraries it has no
@@ -783,6 +791,7 @@ pub fn build(b: *std.Build) void {
     build_target_os = selected_target.result.os.tag;
     build_target_msvc = build_support.usesMsvc(platform);
     build_host_os = b.graph.host.result.os.tag;
+    portable_host = if (b.graph.host.result.os.tag == .macos) b.graph.host else b.resolveTargetQuery(.{ .cpu_model = .baseline });
     // Runtime eligibility follows the host OS and CPU. Windows can execute
     // an MSVC-targeted binary even when the Zig host itself reports the GNU
     // Windows ABI (the common Scoop Zig installation does); ABI selection is
@@ -794,8 +803,10 @@ pub fn build(b: *std.Build) void {
     // SDL distinguishes native macOS builds from cross-compiles using the
     // target query; forwarding `-Dtarget=aarch64-macos` verbatim on an Apple
     // Silicon host incorrectly makes SDL require an explicit SDK sysroot.
+    // Off macOS the dependencies get the baseline-CPU host (portable_host): with
+    // the native CPU a cached SDL only hit on the same CPU model.
     const dependency_target = if (native_target and
-        selected_target.result.abi == b.graph.host.result.abi) b.graph.host else selected_target;
+        selected_target.result.abi == b.graph.host.result.abi) portable_host else selected_target;
     // The project's own macOS modules link SDL's Apple frameworks transitively.
     // Zig only populates SDK framework search paths for a *native* target query,
     // so an explicit `-Dtarget=aarch64-macos` yields "searched paths: none" at
@@ -822,7 +833,7 @@ pub fn build(b: *std.Build) void {
 
     const runtime_platform_audit_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/runtime_platform_audit_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const runtime_platform_audit_tests = b.addTest(.{ .root_module = runtime_platform_audit_module });
@@ -836,7 +847,7 @@ pub fn build(b: *std.Build) void {
     // Reads Data, so it runs from the repository root.
     const mission_data_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/mission_data_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const mission_data_tests = b.addTest(.{ .root_module = mission_data_module });
@@ -848,7 +859,7 @@ pub fn build(b: *std.Build) void {
 
     const platform_linkage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_linkage_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const platform_linkage_tests = b.addTest(.{ .root_module = platform_linkage_module });
@@ -1315,7 +1326,7 @@ pub fn build(b: *std.Build) void {
 
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const foundation_matrix_tests = b.addTest(.{ .root_module = foundation_matrix_module });
@@ -1323,7 +1334,7 @@ pub fn build(b: *std.Build) void {
 
     const stage_tests_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/stage_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const stage_tests = b.addTest(.{ .root_module = stage_tests_module });
@@ -1338,7 +1349,7 @@ pub fn build(b: *std.Build) void {
 
     const package_tests_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const package_tests = b.addTest(.{ .root_module = package_tests_module });
@@ -1349,7 +1360,7 @@ pub fn build(b: *std.Build) void {
 
     const present_fit_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/present_fit.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const present_fit_tests = b.addTest(.{ .root_module = present_fit_module });
@@ -1360,7 +1371,7 @@ pub fn build(b: *std.Build) void {
 
     const runtime_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_runtime.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const runtime_verify_tests = b.addTest(.{ .root_module = runtime_verify_module });
@@ -1371,7 +1382,7 @@ pub fn build(b: *std.Build) void {
 
     const shader_parser_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const shader_parser_tests = b.addTest(.{ .root_module = shader_parser_module });
@@ -1382,7 +1393,7 @@ pub fn build(b: *std.Build) void {
 
     const hermeticity_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/build_hermeticity_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const hermeticity_test = b.addTest(.{ .root_module = hermeticity_module });
@@ -1395,7 +1406,7 @@ pub fn build(b: *std.Build) void {
     // host-side lint catches it on every platform, including the fast Linux tiers.
     const minmax_lint_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/windows_minmax_lint.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const minmax_lint_test = b.addTest(.{ .root_module = minmax_lint_module });
@@ -1592,7 +1603,7 @@ pub fn build(b: *std.Build) void {
 
     const shadercross_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_shadercross.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const shadercross_verify = b.addExecutable(.{
@@ -1608,7 +1619,7 @@ pub fn build(b: *std.Build) void {
 
     const shader_driver_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const shader_driver = b.addExecutable(.{
@@ -1661,7 +1672,7 @@ pub fn build(b: *std.Build) void {
 
     const shader_compare_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compare_trees.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const shader_compare = b.addExecutable(.{
@@ -1842,7 +1853,7 @@ pub fn build(b: *std.Build) void {
     // in a fraction of the time over all of Data/Units.
     const season_textures_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/season_textures.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .fast,
     });
     const season_textures = b.addExecutable(.{
@@ -1856,7 +1867,7 @@ pub fn build(b: *std.Build) void {
     season_textures_step.dependOn(&season_textures_run.step);
     const season_textures_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/season_textures.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const season_textures_tests = b.addTest(.{ .root_module = season_textures_test_module });
@@ -1883,7 +1894,7 @@ pub fn build(b: *std.Build) void {
         .name = "bk-pak",
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/zig/bk_pak.zig"),
-            .target = b.graph.host,
+            .target = portable_host,
             .optimize = .debug,
         }),
     });
@@ -1891,7 +1902,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_options.addOptionPath("bk_pak", bk_pak_host.getEmittedBin());
     const bk_tools_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_tool_conventions_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     bk_tools_test_module.addOptions("bk_tools", bk_tools_options);
@@ -1905,12 +1916,12 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) bk_tools_test_step.dependOn(&bk_tools_tests_run.step);
     const bk_tool_tests = b.addTest(.{ .root_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_tool.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     }) });
     const bk_pak_tests = b.addTest(.{ .root_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_pak_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     }) });
     const bk_pak_test_step = b.step("test-bk-pak", "Run the bk-pak archive tests and the bk-* convention test");
@@ -1938,14 +1949,14 @@ pub fn build(b: *std.Build) void {
         .name = "bk-table",
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/zig/bk_table.zig"),
-            .target = b.graph.host,
+            .target = portable_host,
             .optimize = .debug,
         }),
     });
     bk_tools_options.addOptionPath("bk_table", bk_table_host.getEmittedBin());
     const bk_table_tests = b.addTest(.{ .root_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_table_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     }) });
     const bk_table_test_step = b.step("test-bk-table", "Run the bk-table sheet and XML tests and the bk-* convention test");
@@ -1969,14 +1980,14 @@ pub fn build(b: *std.Build) void {
         .name = "bk-image",
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/zig/bk_image.zig"),
-            .target = b.graph.host,
+            .target = portable_host,
             .optimize = .debug,
         }),
     });
     bk_tools_options.addOptionPath("bk_image", bk_image_host.getEmittedBin());
     const bk_image_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_image_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     bk_image_test_module.addOptions("bk_tools", bk_tools_options);
@@ -2004,14 +2015,14 @@ pub fn build(b: *std.Build) void {
         .name = "bk-video",
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/zig/bk_video.zig"),
-            .target = b.graph.host,
+            .target = portable_host,
             .optimize = .debug,
         }),
     });
     bk_tools_options.addOptionPath("bk_video", bk_video_host.getEmittedBin());
     const bk_video_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_video_test.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     bk_video_test_module.addOptions("bk_tools", bk_tools_options);
@@ -2032,7 +2043,7 @@ pub fn build(b: *std.Build) void {
     // the 21-row Fixture table it mirrors from Sources/src/editor/*Frm.cpp.
     const resource_editor_fixtures_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .fast,
     });
     const resource_editor_fixtures_exe = b.addExecutable(.{
@@ -2052,7 +2063,7 @@ pub fn build(b: *std.Build) void {
     resource_editor_fixtures_step.dependOn(&resource_editor_fixtures_run.step);
     const resource_editor_fixtures_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const resource_editor_fixtures_tests = b.addTest(.{ .root_module = resource_editor_fixtures_test_module });
@@ -2357,12 +2368,12 @@ pub fn build(b: *std.Build) void {
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .fast,
     });
     const stage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/stage.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .fast,
     });
     b.installArtifact(zlib);
@@ -2696,7 +2707,7 @@ pub fn build(b: *std.Build) void {
     // itself. Off Windows it reports "not run" and succeeds.
     const bk_audit_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_memory_import_audit.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const bk_audit = b.addExecutable(.{ .name = "bk-memory-import-audit", .root_module = bk_audit_module });
@@ -2728,7 +2739,7 @@ pub fn build(b: *std.Build) void {
     // its own unit test proves a planted line is reported.
     const zig_audit_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/zig_allocator_audit.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const zig_audit = b.addExecutable(.{ .name = "zig-allocator-audit", .root_module = zig_audit_module });
@@ -2924,7 +2935,7 @@ pub fn build(b: *std.Build) void {
 
     const verify_x64_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_x64_runtime.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const verify_x64_tool = b.addExecutable(.{
@@ -2939,7 +2950,7 @@ pub fn build(b: *std.Build) void {
 
     const endurance_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_gfxgpu_endurance.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const endurance_tool = b.addExecutable(.{
@@ -7931,7 +7942,7 @@ fn addMapEditor(
     // count delta is the only signal a Zig-side leak shows.
     const leak_delta_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/leak_delta_check.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const leak_delta_check = b.addExecutable(.{ .name = "leak-delta-check", .root_module = leak_delta_module });
@@ -8003,7 +8014,7 @@ fn addMapEditor(
     // build_hermeticity_test.zig forbids this file spawning one of those.
     const delete_matching_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
@@ -9720,7 +9731,7 @@ fn addResourceEditor(
     // count must grow by 64 +/- 8.
     const leak_delta_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/leak_delta_check.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const leak_delta_check = b.addExecutable(.{ .name = "leak-delta-check", .root_module = leak_delta_module });
@@ -9777,7 +9788,7 @@ fn addResourceEditor(
     // start at once, and has its own scratch folder; the aggregate chains them in order.
     const delete_matching_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
-        .target = b.graph.host,
+        .target = portable_host,
         .optimize = .debug,
     });
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });

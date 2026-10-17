@@ -9491,7 +9491,11 @@ struct SBridgeTest
 // plus the list up to the first name here, slice k+1 starts at the k-th name.
 // Cut from the Windows CI timeline (run 39035514549: 68 minutes, 44 of them in
 // the shipped objects' negative-tile scan, which is why that scan comes in
-// four parts); the "took" lines rebalance them.
+// four parts), then rebalanced by the "took" lines of run 39068432953, where
+// the last slice took 48 minutes: the particle (1143 s), building scan (785 s)
+// and bridge (439 s) entries each start a slice of their own now. In a fresh
+// process the object scan's parts took 31 to 54 s each against 44 minutes in
+// one long run, so a long Windows process slows down as it goes.
 static const char *const kShardStarts[] = {
 	"T11::Run",
 	"S09Object::NegativeTiles 1/4",
@@ -9499,6 +9503,10 @@ static const char *const kShardStarts[] = {
 	"S09Object::NegativeTiles 3/4",
 	"S09Object::NegativeTiles 4/4",
 	"S09Fence::Fixture",
+	"S10Building::NegativeTiles",
+	"S11Bridge::Fixture",
+	"S12Particle::Fixture",
+	"S13Vso::OneFixture 3rd",
 };
 
 // The entries of slice nShard (from 1), as [*pnFirst, *pnEnd). False when
