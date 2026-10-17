@@ -132,7 +132,7 @@ jobs:
           touch "$RUNNER_TEMP/build-start"
           sleep 2
           start=$(date +%s)
-          zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=compile
+          zig build install-game test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=compile
           echo "compile took $(( $(date +%s) - start )) s"
 
       - name: Pack the build
