@@ -278,14 +278,12 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           zstd --version
           du -sh .zig-cache zig-pkg "$gparent/zig" || true
           mkdir -p "$RUNNER_TEMP/bk-build"
-          tar -cf - .zig-cache zig-pkg | zstd -T0 -3 -q -o "$RUNNER_TEMP/bk-build/build.tar.zst"
-          tar -C "$gparent" -cf - zig | zstd -T0 -3 -q -o "$RUNNER_TEMP/bk-build/global.tar.zst"
+          tar -cf - .zig-cache zig-pkg | zstd -T0 -1 -q -o "$RUNNER_TEMP/bk-build/build.tar.zst"
+          tar -C "$gparent" -cf - zig | zstd -T0 -1 -q -o "$RUNNER_TEMP/bk-build/global.tar.zst"
           ls -l "$RUNNER_TEMP/bk-build"
           echo "pack took $(( $(date +%s) - start )) s"
 
@@ -426,9 +424,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -729,9 +725,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -1085,9 +1079,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -1393,14 +1385,12 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="$LOCALAPPDATA"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$(cygpath -u "$LOCALAPPDATA")"
           zstd --version
           du -sh .zig-cache zig-pkg "$gparent/zig" || true
           mkdir -p "$RUNNER_TEMP/bk-build"
-          tar -cf - .zig-cache zig-pkg | zstd -T0 -3 -q -o "$RUNNER_TEMP/bk-build/build.tar.zst"
-          tar -C "$gparent" -cf - zig | zstd -T0 -3 -q -o "$RUNNER_TEMP/bk-build/global.tar.zst"
+          tar -cf - .zig-cache zig-pkg | zstd -T0 -1 -q -o "$RUNNER_TEMP/bk-build/build.tar.zst"
+          tar -C "$gparent" -cf - zig | zstd -T0 -1 -q -o "$RUNNER_TEMP/bk-build/global.tar.zst"
           ls -l "$RUNNER_TEMP/bk-build"
           echo "pack took $(( $(date +%s) - start )) s"
 
@@ -1548,9 +1538,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="$LOCALAPPDATA"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$(cygpath -u "$LOCALAPPDATA")"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -1874,9 +1862,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="$LOCALAPPDATA"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$(cygpath -u "$LOCALAPPDATA")"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -2259,9 +2245,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="$LOCALAPPDATA"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$(cygpath -u "$LOCALAPPDATA")"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -2670,14 +2654,12 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           zstd --version
           du -sh .zig-cache zig-pkg "$gparent/zig" || true
           mkdir -p "$RUNNER_TEMP/bk-build"
-          tar -cf - .zig-cache zig-pkg | zstd -T0 -3 -q -o "$RUNNER_TEMP/bk-build/build.tar.zst"
-          tar -C "$gparent" -cf - zig | zstd -T0 -3 -q -o "$RUNNER_TEMP/bk-build/global.tar.zst"
+          tar -cf - .zig-cache zig-pkg | zstd -T0 -1 -q -o "$RUNNER_TEMP/bk-build/build.tar.zst"
+          tar -C "$gparent" -cf - zig | zstd -T0 -1 -q -o "$RUNNER_TEMP/bk-build/global.tar.zst"
           ls -l "$RUNNER_TEMP/bk-build"
           echo "pack took $(( $(date +%s) - start )) s"
 
@@ -2820,9 +2802,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -3061,9 +3041,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
@@ -3377,9 +3355,7 @@ jobs:
         shell: bash
         run: |
           start=$(date +%s)
-          gparent="~/.cache"
-          [ "$gparent" = '$LOCALAPPDATA' ] && gparent="$(cygpath -u "$LOCALAPPDATA")"
-          eval gparent="$gparent"
+          gparent="$HOME/.cache"
           mkdir -p "$gparent"
           zstd -dc "$RUNNER_TEMP/bk-build/build.tar.zst" | tar -xf -
           zstd -dc "$RUNNER_TEMP/bk-build/global.tar.zst" | tar -C "$gparent" -xf -
