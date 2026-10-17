@@ -1,0 +1,271 @@
+name: Fan-out probe
+
+# Probe for CI-FANOUT-DESIGN.md: does a tier job that downloads the build
+# job's .zig-cache, zig-out and global cache run its tier without compiling?
+on:
+  push:
+    branches: ['fix/ci-fast']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-build:
+    name: "Probe Linux x64 - build"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
+            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
+            /Data/Maps/
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/AmericanELK/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+
+      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
+      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
+      # "skipped: no GPU device" fail instead of pass. VK_DRIVER_FILES pins the loader to
+      # lavapipe: the image also carries the gfxstream ICD (the /dev/dxg host-GPU driver), whose
+      # enumeration ran vkCreateInstance's ICD code whose allocations route through BkMemory's
+      # hooked operator new from a foreign thread - the measured startup SEGV of the random
+      # missions tier (38307115498's crash backtrace: gfxstream new -> bk_mem_alloc).
+      - name: Virtual display and software Vulkan
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          sleep 3
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
+          ls /usr/share/vulkan/icd.d/
+
+      - name: Install Zig 0.17.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.17.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.17.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.17.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+
+      - name: Restore Zig build cache
+        id: zig-build-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-
+
+      - name: Restore Unix Zig global cache
+        id: zig-global-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.17.0-
+      - name: Compile the engine tier
+        run: |
+          start=$(date +%s)
+          zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=compile
+          echo "compile took $(( $(date +%s) - start )) s"
+
+      - name: Pack the build
+        run: |
+          start=$(date +%s)
+          du -sh .zig-cache zig-out ~/.cache/zig
+          tar --zstd -cf "$RUNNER_TEMP/build.tar.zst" .zig-cache zig-out -C ~ .cache/zig
+          ls -l "$RUNNER_TEMP/build.tar.zst"
+          echo "pack took $(( $(date +%s) - start )) s"
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-linux-build
+          path: ${{ runner.temp }}/build.tar.zst
+          compression-level: 0
+          retention-days: 1
+
+  linux-tier:
+    name: "Probe Linux x64 - engine tier"
+    needs: [linux-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
+            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
+            /Data/Maps/
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/AmericanELK/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+
+      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
+      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
+      # "skipped: no GPU device" fail instead of pass. VK_DRIVER_FILES pins the loader to
+      # lavapipe: the image also carries the gfxstream ICD (the /dev/dxg host-GPU driver), whose
+      # enumeration ran vkCreateInstance's ICD code whose allocations route through BkMemory's
+      # hooked operator new from a foreign thread - the measured startup SEGV of the random
+      # missions tier (38307115498's crash backtrace: gfxstream new -> bk_mem_alloc).
+      - name: Virtual display and software Vulkan
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          sleep 3
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
+          ls /usr/share/vulkan/icd.d/
+
+      - name: Install Zig 0.17.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.17.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.17.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.17.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+
+      - name: Download the build
+        uses: actions/download-artifact@v4
+        with:
+          name: probe-linux-build
+          path: ${{ runner.temp }}
+
+      - name: Unpack the build
+        run: |
+          start=$(date +%s)
+          tar --zstd -xf "$RUNNER_TEMP/build.tar.zst"
+          mv .cache/zig ~/.cache/ 2>/dev/null || { mkdir -p ~/.cache && mv .cache/zig ~/.cache/zig; }
+          rm -rf .cache "$RUNNER_TEMP/build.tar.zst"
+          echo "unpack took $(( $(date +%s) - start )) s"
+
+      - name: Engine tier
+        shell: bash
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: |
+          start=$(date +%s)
+          zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary all 2>&1 | tee "$RUNNER_TEMP/summary.txt" | grep -vE "^\s*$" | tail -60
+          echo "tier took $(( $(date +%s) - start )) s"
