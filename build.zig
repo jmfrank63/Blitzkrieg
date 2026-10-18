@@ -3758,6 +3758,14 @@ const MacosRuntimeFixes = struct {
         }
         state.uses.put(b.allocator, compile, uses) catch @panic("OOM");
         if (!uses) return;
+        // The SDK the build was given (-Dsystem_include_path=<SDK>/usr/include, as CI passes it)
+        // wins over xcrun's choice, so headers and libc++ come from the same SDK.
+        if (state.sdk == null) if (system_include_path_option) |given| switch (given) {
+            .cwd_relative => |include| if (std.mem.endsWith(u8, include, "/usr/include")) {
+                state.sdk = include[0 .. include.len - "/usr/include".len];
+            },
+            else => {},
+        };
         if (state.sdk == null) state.sdk = std.zig.system.darwin.getSdk(b.allocator, b.graph.io, &target.result) orelse
             @panic("no macOS SDK: xcrun --sdk macosx --show-sdk-path failed (install the Xcode command line tools)");
         const sdk = state.sdk.?;
