@@ -5394,9 +5394,12 @@ fn addHunspell(
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
     } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
-    // Hunspell uses the standard library's streams and strings, whose MSVC
-    // half is the C++ runtime's import library, not part of the C CRT.
-    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "msvcprtd" else "msvcprt", .{});
+    // Hunspell uses the standard library's streams and strings, the C++ runtime
+    // rather than the C CRT. Its consumers (ELK, test-elk-app) link Zig's libc,
+    // the static CRT, so it is the static C++ runtime too: msvcprt, the DLL one,
+    // failed every link with "/failifmismatch: RuntimeLibrary" (MT_StaticRelease
+    // against MD_DynamicRelease, main run 39086936588).
+    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "libcpmtd" else "libcpmt", .{});
     module.addCSourceFiles(.{
         .root = b.path("vendor/hunspell/src/hunspell"),
         .files = &.{
@@ -5411,14 +5414,7 @@ fn addHunspell(
             "replist.cxx",
             "suggestmgr.cxx",
         },
-        // On MSVC the DLL CRT (-D_MT -D_DLL), like msvcprt linked above: without it
-        // the objects record the static runtime and every consumer failed to link
-        // ("/failifmismatch: RuntimeLibrary", MT_StaticRelease against msvcprt's
-        // MD_DynamicRelease; ELK and test-elk-app, run 39086936588).
-        .flags = if (target.result.abi == .msvc)
-            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" }
-        else
-            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
     });
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
