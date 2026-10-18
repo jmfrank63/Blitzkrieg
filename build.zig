@@ -3717,6 +3717,37 @@ const MacosRuntimeFixes = struct {
     runtime: std.StringHashMapUnmanaged(*std.Build.Module) = .empty,
     c_roots: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
     sdk: ?[]const u8 = null,
+    /// The flags every macOS C and C++ source gets, settled with the SDK.
+    flags: []const []const u8 = &.{},
+
+    /// The SDK the build was given (-Dsystem_include_path=<SDK>/usr/include, as CI passes it)
+    /// wins over xcrun's choice, so headers and libc++ come from the same SDK.
+    fn sdkRoot(state: *MacosRuntimeFixes, target: std.Build.ResolvedTarget) []const u8 {
+        if (state.sdk) |sdk| return sdk;
+        const b = state.b;
+        if (system_include_path_option) |given| switch (given) {
+            .cwd_relative => |include| if (std.mem.endsWith(u8, include, "/usr/include")) {
+                state.sdk = include[0 .. include.len - "/usr/include".len];
+            },
+            else => {},
+        };
+        if (state.sdk == null) state.sdk = std.zig.system.darwin.getSdk(b.allocator, b.graph.io, &target.result) orelse
+            @panic("no macOS SDK: xcrun --sdk macosx --show-sdk-path failed (install the Xcode command line tools)");
+        // libc++ 17 (SDK 14) gives std::bad_function_call no key function by default, so every
+        // translation unit using it carries a weak copy of its vtable and typeinfo and refers
+        // to that copy directly. Zig 0.17's Mach-O linker ranks the dylib's export above an
+        // object's weak definition (Apple's ld keeps the object's), so the direct reference
+        // pointed at an import: "failed to resolve relocations and write atoms: Overflow" for
+        // ResourceEditor and two tests on the macos-14 runner (an instrumented linker named
+        // __ZTINSt3__117bad_function_callE). Apple's libc++.dylib defines the key function, so
+        // saying so makes the headers match it: no weak copies, references through the GOT.
+        // libc++ 19 decides this from the deployment target instead.
+        var buffer: [256 << 10]u8 = undefined;
+        const header = std.Io.Dir.cwd().readFile(b.graph.io, b.pathJoin(&.{ state.sdk.?, "usr/include/c++/v1/__functional/function.h" }), &buffer) catch "";
+        const old_switch = std.mem.indexOf(u8, header, "#ifdef _LIBCPP_ABI_BAD_FUNCTION_CALL_KEY_FUNCTION") != null;
+        state.flags = if (old_switch) &.{ "-fno-use-cxa-atexit", "-D_LIBCPP_ABI_BAD_FUNCTION_CALL_KEY_FUNCTION" } else &.{"-fno-use-cxa-atexit"};
+        return state.sdk.?;
+    }
 
     fn visit(state: *MacosRuntimeFixes, step: *std.Build.Step) void {
         const b = state.b;
@@ -3726,6 +3757,7 @@ const MacosRuntimeFixes = struct {
         const compile = step.cast(std.Build.Step.Compile) orelse return;
         const target = compile.root_module.resolved_target orelse return;
         if (target.result.os.tag != .macos) return;
+        _ = state.sdkRoot(target);
         var modules: std.ArrayList(*std.Build.Module) = .empty;
         var listed: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty;
         modules.append(b.allocator, compile.root_module) catch @panic("OOM");
@@ -3744,10 +3776,10 @@ const MacosRuntimeFixes = struct {
                     if (library.isStaticLibrary() and (state.uses.get(library) orelse false)) uses = true;
                 },
                 .c_source_file => |source| if (first) {
-                    source.flags = std.mem.concat(b.allocator, []const u8, &.{ source.flags, &.{"-fno-use-cxa-atexit"} }) catch @panic("OOM");
+                    source.flags = std.mem.concat(b.allocator, []const u8, &.{ source.flags, state.flags }) catch @panic("OOM");
                 },
                 .c_source_files => |sources| if (first) {
-                    sources.flags = std.mem.concat(b.allocator, []const u8, &.{ sources.flags, &.{"-fno-use-cxa-atexit"} }) catch @panic("OOM");
+                    sources.flags = std.mem.concat(b.allocator, []const u8, &.{ sources.flags, state.flags }) catch @panic("OOM");
                 },
                 else => {},
             };
@@ -3758,17 +3790,7 @@ const MacosRuntimeFixes = struct {
         }
         state.uses.put(b.allocator, compile, uses) catch @panic("OOM");
         if (!uses) return;
-        // The SDK the build was given (-Dsystem_include_path=<SDK>/usr/include, as CI passes it)
-        // wins over xcrun's choice, so headers and libc++ come from the same SDK.
-        if (state.sdk == null) if (system_include_path_option) |given| switch (given) {
-            .cwd_relative => |include| if (std.mem.endsWith(u8, include, "/usr/include")) {
-                state.sdk = include[0 .. include.len - "/usr/include".len];
-            },
-            else => {},
-        };
-        if (state.sdk == null) state.sdk = std.zig.system.darwin.getSdk(b.allocator, b.graph.io, &target.result) orelse
-            @panic("no macOS SDK: xcrun --sdk macosx --show-sdk-path failed (install the Xcode command line tools)");
-        const sdk = state.sdk.?;
+        const sdk = state.sdkRoot(target);
         // As on Linux (addLinuxCxxIncludePaths): the C++ headers as an ordinary include path and
         // the C headers after them, so libc++'s #include_next reaches the SDK's C headers.
         for (modules.items) |module| {
