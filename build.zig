@@ -243,7 +243,6 @@ const libpng_sources = &.{
     "Sources/src/libpng/pngrtran.c",
     "Sources/src/libpng/pngrutil.c",
     "Sources/src/libpng/pngset.c",
-    "Sources/src/libpng/pngtest.c",
     "Sources/src/libpng/pngtrans.c",
     "Sources/src/libpng/pngvcrd.c",
     "Sources/src/libpng/pngwio.c",
@@ -2198,6 +2197,11 @@ pub fn build(b: *std.Build) void {
     // SafeAllocator report on stderr) and the explicit bk_mem_report path.
     const bk_consumer_a = addBkMemoryTestModule(b, target, platform, toolchain, optimize, .dynamic, "bk-memory-consumer-a", "tools/zig/bk_memory_consumer_a.cpp");
     const bk_consumer_b = addBkMemoryTestModule(b, target, platform, toolchain, optimize, .dynamic, "bk-memory-consumer-b", "tools/zig/bk_memory_consumer_b.cpp");
+    // Like every engine module: on Linux a Zig-linked shared object runs its C++
+    // static destructors at dlclose only through SharedObjectFinalize.cpp, and B's
+    // destructor is what the test unloads it to see.
+    addSharedObjectFinalizer(b, target, bk_consumer_a.root_module);
+    addSharedObjectFinalizer(b, target, bk_consumer_b.root_module);
     const bk_cross_test = addBkMemoryTestModule(b, target, platform, toolchain, optimize, null, "bk-memory-cross-module-test", "tools/zig/bk_memory_cross_module_test.cpp");
     const test_bk_memory_step = b.step("test-bk-memory", "Run the cross-DLL BkMemory allocator test and its planted-leak failure");
     test_bk_memory_step.dependOn(test_bk_memory_zig_step);
