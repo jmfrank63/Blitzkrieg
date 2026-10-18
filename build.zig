@@ -3674,7 +3674,122 @@ pub fn build(b: *std.Build) void {
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 
     b.default_step = game_all_step;
+    macosRuntimeFixes(b);
 }
+
+/// Two fixes for every macOS artifact, applied once the graph is complete so they reach every
+/// module, the dependencies' included. Without a macOS host there is no SDK; nothing changes.
+///
+/// C++ links the system's libc++.dylib, never Zig's bundled libc++. Zig turns `link_libcpp`
+/// (and `linkSystemLibrary("c++")`) into its own static libc++ and libc++abi, so each engine
+/// module carried a private copy of the C++ runtime: its own exception globals and type
+/// information, and thread-local variables that keep dyld from ever unloading the module. The
+/// pass clears the switch, compiles against the SDK's libc++ headers and links the SDK's
+/// libc++.tbd, one file for arm64 and x86_64.
+///
+/// C and C++ compile with -fno-use-cxa-atexit. Once a module can unload, its static destructors
+/// must run at dlclose: dyld calls __cxa_finalize_ranges with the image's executable ranges, and
+/// libc runs each handler whose DSO handle lies inside them. Zig 0.17's Mach-O linker gives
+/// ___dso_handle the address of __DATA,__data instead of the image's header
+/// (link/MachO/InternalObject.zig, allocateSyntheticSymbols; master is the same), so no handler
+/// ever matched: test-bk-memory unloaded consumer B, its destructor stayed queued and exit()
+/// jumped into the unmapped image (SIGSEGV; B linked by Apple's ld passed). With the flag the
+/// compiler registers destructors through atexit(), for which libc finds the calling image
+/// itself, and ___dso_handle is no longer used.
+fn macosRuntimeFixes(b: *std.Build) void {
+    if (b.graph.host.result.os.tag != .macos) return;
+    var state: MacosRuntimeFixes = .{ .b = b };
+    for (b.top_level_steps.values()) |top| state.visit(&top.step);
+}
+
+const MacosRuntimeFixes = struct {
+    b: *std.Build,
+    seen: std.AutoHashMapUnmanaged(*std.Build.Step, void) = .empty,
+    /// Each macOS compile step and whether its code, or a static library it links, used libc++.
+    uses: std.AutoHashMapUnmanaged(*std.Build.Step.Compile, bool) = .empty,
+    /// Modules already given the flag or the headers (a module can belong to several steps).
+    flagged: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
+    headers: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
+    /// One module per target holding only libc++.tbd, imported by every root that needs it. Zig
+    /// links the link objects of every module in a step's import graph, each module once, so a
+    /// library's root module imported by a test still yields one libc++ - dyld refuses an image
+    /// that names the same dylib twice.
+    runtime: std.StringHashMapUnmanaged(*std.Build.Module) = .empty,
+    c_roots: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
+    sdk: ?[]const u8 = null,
+
+    fn visit(state: *MacosRuntimeFixes, step: *std.Build.Step) void {
+        const b = state.b;
+        if ((state.seen.getOrPut(b.allocator, step) catch @panic("OOM")).found_existing) return;
+        // Dependencies first: a static library is settled before what links it.
+        for (step.dependencies.items) |dependency| state.visit(dependency);
+        const compile = step.cast(std.Build.Step.Compile) orelse return;
+        const target = compile.root_module.resolved_target orelse return;
+        if (target.result.os.tag != .macos) return;
+        var modules: std.ArrayList(*std.Build.Module) = .empty;
+        var listed: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty;
+        modules.append(b.allocator, compile.root_module) catch @panic("OOM");
+        listed.put(b.allocator, compile.root_module, {}) catch @panic("OOM");
+        var uses = false;
+        var i: usize = 0;
+        while (i < modules.items.len) : (i += 1) {
+            const module = modules.items[i];
+            if (module.link_libcpp orelse false) uses = true;
+            const first = !(state.flagged.getOrPut(b.allocator, module) catch @panic("OOM")).found_existing;
+            for (module.link_objects.items) |object| switch (object) {
+                .other_step => |library| {
+                    // A linked library is not always among the step's dependencies yet (those
+                    // are completed when the step runs), so it is settled here first.
+                    state.visit(&library.step);
+                    if (library.isStaticLibrary() and (state.uses.get(library) orelse false)) uses = true;
+                },
+                .c_source_file => |source| if (first) {
+                    source.flags = std.mem.concat(b.allocator, []const u8, &.{ source.flags, &.{"-fno-use-cxa-atexit"} }) catch @panic("OOM");
+                },
+                .c_source_files => |sources| if (first) {
+                    sources.flags = std.mem.concat(b.allocator, []const u8, &.{ sources.flags, &.{"-fno-use-cxa-atexit"} }) catch @panic("OOM");
+                },
+                else => {},
+            };
+            for (module.import_table.values()) |imported| {
+                if ((listed.getOrPut(b.allocator, imported) catch @panic("OOM")).found_existing) continue;
+                modules.append(b.allocator, imported) catch @panic("OOM");
+            }
+        }
+        state.uses.put(b.allocator, compile, uses) catch @panic("OOM");
+        if (!uses) return;
+        if (state.sdk == null) state.sdk = std.zig.system.darwin.getSdk(b.allocator, b.graph.io, &target.result) orelse
+            @panic("no macOS SDK: xcrun --sdk macosx --show-sdk-path failed (install the Xcode command line tools)");
+        const sdk = state.sdk.?;
+        // As on Linux (addLinuxCxxIncludePaths): the C++ headers as an ordinary include path and
+        // the C headers after them, so libc++'s #include_next reaches the SDK's C headers.
+        for (modules.items) |module| {
+            module.link_libcpp = false;
+            if ((state.headers.getOrPut(b.allocator, module) catch @panic("OOM")).found_existing) continue;
+            module.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/include/c++/v1" }) });
+            module.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/include" }) });
+        }
+        // A static library is only an archive of objects; what links it links the runtime.
+        if (compile.isStaticLibrary()) return;
+        compile.root_module.link_libc = true;
+        // A root without Zig source cannot import a module, and no graph can import it either:
+        // the tbd goes on it directly, once.
+        if (compile.root_module.root_source_file == null) {
+            if ((state.c_roots.getOrPut(b.allocator, compile.root_module) catch @panic("OOM")).found_existing) return;
+            compile.root_module.addObjectFile(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/lib/libc++.tbd" }) });
+            return;
+        }
+        const triple = target.result.zigTriple(b.allocator) catch @panic("OOM");
+        const gop = state.runtime.getOrPut(b.allocator, triple) catch @panic("OOM");
+        if (!gop.found_existing) {
+            // Zig imports only modules with a root source file; this one is empty.
+            const empty = b.addWriteFiles().add("bk_macos_libcxx.zig", "");
+            gop.value_ptr.* = b.createModule(.{ .root_source_file = empty, .target = target });
+            gop.value_ptr.*.addObjectFile(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/lib/libc++.tbd" }) });
+        }
+        compile.root_module.addImport("bk_macos_libcxx", gop.value_ptr.*);
+    }
+};
 
 /// What every stage-game run is built from. See addStageGameRun.
 const StageGameInputs = struct {
