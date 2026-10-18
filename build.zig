@@ -3523,7 +3523,7 @@ pub fn build(b: *std.Build) void {
     const elk_help_tests = b.addTest(.{ .root_module = elk_help_module });
     const elk_help_tests_run = b.addRunArtifact(elk_help_tests);
     addMsvcLibraryPaths(b, elk_app_logic_module, toolchain);
-    if (target.result.abi == .msvc) elk_app_logic_module.link_libc = true else linkMsvcRuntime(elk_app_logic_module, .debug);
+    linkMsvcRuntime(elk_app_logic_module, .debug);
     const elk_app_logic_tests = b.addTest(.{ .root_module = elk_app_logic_module });
     const elk_app_logic_tests_run = b.addRunArtifact(elk_app_logic_tests);
     elk_app_logic_tests_run.setCwd(b.path("."));
@@ -5373,19 +5373,19 @@ fn addEditorImgui(
 }
 
 /// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
-/// library: the C API in `hunspell.h` is all ELK calls. The CRT rules are
-/// editor-imgui's: the release CRT on MSVC, libc only on Linux (the
-/// consumer links libstdc++), the C++ runtime named on macOS.
+/// library: the C API in `hunspell.h` is all ELK calls. On MSVC it is built
+/// for the DLL CRT of its consumer's mode, which ELK links like the other
+/// editors; libc only on Linux (the consumer links libstdc++), the C++ runtime
+/// named on macOS.
 fn addHunspell(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
 ) *std.Build.Step.Compile {
-    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
     const module = b.createModule(.{
         .target = target,
-        .optimize = cxx_optimize,
+        .optimize = optimize,
     });
     module.addIncludePath(b.path("vendor/hunspell/src/hunspell"));
     addMsvcIncludePaths(b, module, toolchain);
@@ -5394,12 +5394,11 @@ fn addHunspell(
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
     } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
-    // Hunspell uses the standard library's streams and strings, the C++ runtime
-    // rather than the C CRT. Its consumers (ELK, test-elk-app) link Zig's libc,
-    // the static CRT, so it is the static C++ runtime too: msvcprt, the DLL one,
-    // failed every link with "/failifmismatch: RuntimeLibrary" (MT_StaticRelease
-    // against MD_DynamicRelease, main run 39086936588).
-    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "libcpmtd" else "libcpmt", .{});
+    // Its consumers (ELK, test-elk-app) link the DLL CRT of their build mode
+    // (linkMsvcRuntime), C++ runtime included, so hunspell is compiled for the
+    // same one: without -D_MT -D_DLL (and -D_DEBUG in Debug) its objects recorded
+    // the static release CRT and every link failed with "/failifmismatch:
+    // RuntimeLibrary" (main run 39086936588).
     module.addCSourceFiles(.{
         .root = b.path("vendor/hunspell/src/hunspell"),
         .files = &.{
@@ -5414,7 +5413,12 @@ fn addHunspell(
             "replist.cxx",
             "suggestmgr.cxx",
         },
-        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+        .flags = if (target.result.abi != .msvc)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" }
+        else if (optimize == .debug)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL", "-D_DEBUG" }
+        else
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" },
     });
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
@@ -9595,11 +9599,12 @@ fn addElk(
             .{ .name = "elk_build", .module = elk_build.createModule() },
         },
     });
-    // The editor-overlay-spike's recipe, the other engine-less ImGui program:
-    // on MSVC Zig's libc is the one CRT, elsewhere the executable pulls in the
-    // C++ runtime editor-imgui needs.
+    // The Map and Resource Editors' CRT: on MSVC the DLL CRT of the build's
+    // mode (linkMsvcRuntime), which hunspell is compiled for and crt.zig's debug
+    // report hooks need; Zig's libc, the static release CRT, had neither
+    // (main run 39086936588: RuntimeLibrary mismatch, then _CrtSetReportMode).
     addMsvcLibraryPaths(b, module, toolchain);
-    if (target.result.abi == .msvc) module.link_libc = true else linkMsvcRuntime(module, optimize);
+    linkMsvcRuntime(module, optimize);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
     linkSdlImport(module, target, sdl_dynamic);
     linkBkMemoryAllocator(b, module, false);
@@ -9608,7 +9613,11 @@ fn addElk(
     switch (target.result.os.tag) {
         // No console on a double-click; the scripted modes attach to the
         // parent's (crt.attachParentConsole).
-        .windows => exe.subsystem = .windows,
+        // The CRT's own entry, which calls the C main the app exports.
+        .windows => {
+            exe.subsystem = .windows;
+            exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        },
         .macos => exe.root_module.addRPathSpecial("@executable_path"),
         .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
         else => {},
