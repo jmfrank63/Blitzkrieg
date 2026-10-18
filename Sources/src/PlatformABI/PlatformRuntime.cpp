@@ -78,7 +78,17 @@ void *open_native_library(const std::string &path) {
     if (wide_length <= 0) return nullptr;
     std::wstring wide_path(static_cast<size_t>(wide_length), L'\0');
     if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path.data(), static_cast<int>(path.size()), wide_path.data(), wide_length) != wide_length) return nullptr;
-    return reinterpret_cast<void *>(LoadLibraryW(wide_path.c_str()));
+    // An absolute path resolves the library's own imports from its folder
+    // first (LOAD_WITH_ALTERED_SEARCH_PATH), as dlopen does through each
+    // module's $ORIGIN runpath. Plain LoadLibraryW searches the executable's
+    // folder: a bk-* tool in Tools\ loading the engine from the install root
+    // found StreamIO.dll but not the StreamIOOptionsAbi.dll it imports. The
+    // flag is undefined for a relative path, which keeps the default search.
+    const bool absolute = ( wide_path.size() > 2 && wide_path[1] == L':' && ( wide_path[2] == L'\\' || wide_path[2] == L'/' ) )
+        || ( wide_path.size() > 1 && ( wide_path[0] == L'\\' || wide_path[0] == L'/' ) && ( wide_path[1] == L'\\' || wide_path[1] == L'/' ) );
+    // The altered search reads the folder from backslashes only.
+    if ( absolute ) for ( wchar_t &c : wide_path ) if ( c == L'/' ) c = L'\\';
+    return reinterpret_cast<void *>( absolute ? LoadLibraryExW( wide_path.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH ) : LoadLibraryW( wide_path.c_str() ) );
 #else
     return dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif

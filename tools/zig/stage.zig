@@ -237,7 +237,74 @@ fn copyTools(io: std.Io, repo: std.Io.Dir, tool_paths: []const []const u8, desti
             std.debug.print("stage: tool '{s}' could not be staged: {s}\n", .{ tool_path, @errorName(err) });
             return error.MissingTool;
         };
+        if (std.ascii.endsWithIgnoreCase(tool_path, ".exe")) try copyToolImports(io, destination, try toolStagedPath(&name_buf, tool_path));
     }
+}
+
+/// Windows has no rpath: a tool in Tools\ finds the DLLs it imports only beside
+/// itself (or on PATH), not in the install root above it, where they are
+/// staged. Tools\bk-font.exe ended with STATUS_DLL_NOT_FOUND (0xC0000135; std
+/// reports the low byte, 53) before main, for the modder as for
+/// bk-font-game-reads-it. So every DLL a staged tool imports that the install
+/// root holds is copied beside it; system DLLs are not in the root and stay
+/// out. One instance still serves the process: the loader uses an already
+/// loaded DLL of the same module name whatever its folder, so the engine
+/// modules a tool loads from the root share the tool's BkMemory.dll.
+fn copyToolImports(io: std.Io, destination: std.Io.Dir, staged_tool: []const u8) !void {
+    const image = try destination.readFileAlloc(io, staged_tool, std.heap.page_allocator, .limited(256 << 20));
+    defer std.heap.page_allocator.free(image);
+    var names: [64][]const u8 = undefined;
+    for (peImports(image, &names)) |name| {
+        destination.access(io, name, .{}) catch continue;
+        var target_buf: [std.fs.max_path_bytes]u8 = undefined;
+        const target = try std.fmt.bufPrint(&target_buf, tools_dir ++ "/{s}", .{name});
+        destination.access(io, target, .{}) catch try copyFile(io, destination, name, destination, target);
+    }
+}
+
+/// The DLL names a PE image's import directory lists, at most `out.len`; none
+/// for anything that does not parse as one.
+pub fn peImports(image: []const u8, out: [][]const u8) []const []const u8 {
+    const reader = struct {
+        fn int(comptime T: type, bytes: []const u8, at: usize) ?T {
+            if (at + @sizeOf(T) > bytes.len) return null;
+            return std.mem.readInt(T, bytes[at..][0..@sizeOf(T)], .little);
+        }
+    };
+    const pe = reader.int(u32, image, 0x3c) orelse return out[0..0];
+    if (reader.int(u32, image, pe) != 0x00004550) return out[0..0];
+    const sections = reader.int(u16, image, pe + 6) orelse return out[0..0];
+    const optional_size = reader.int(u16, image, pe + 20) orelse return out[0..0];
+    const optional = pe + 24;
+    // The import directory is data directory 1: offset 120 in a PE32+ optional
+    // header, 104 in a PE32 one.
+    const magic = reader.int(u16, image, optional) orelse return out[0..0];
+    const import_rva = reader.int(u32, image, optional + @as(usize, if (magic == 0x20b) 120 else 104)) orelse return out[0..0];
+    const table = optional + optional_size;
+    const offset = struct {
+        fn of(bytes: []const u8, first: usize, count: u16, rva: u32) ?usize {
+            for (0..count) |i| {
+                const at = first + i * 40;
+                const virtual_size = reader.int(u32, bytes, at + 8) orelse return null;
+                const virtual_address = reader.int(u32, bytes, at + 12) orelse return null;
+                const raw_size = reader.int(u32, bytes, at + 16) orelse return null;
+                const raw_offset = reader.int(u32, bytes, at + 20) orelse return null;
+                if (rva >= virtual_address and rva < virtual_address + @max(virtual_size, raw_size)) return rva - virtual_address + raw_offset;
+            }
+            return null;
+        }
+    }.of;
+    var at = offset(image, table, sections, import_rva) orelse return out[0..0];
+    var count: usize = 0;
+    while (count < out.len) : (at += 20) {
+        const name_rva = reader.int(u32, image, at + 12) orelse break;
+        if (name_rva == 0) break;
+        const name_at = offset(image, table, sections, name_rva) orelse break;
+        const end = std.mem.indexOfScalarPos(u8, image, name_at, 0) orelse break;
+        out[count] = image[name_at..end];
+        count += 1;
+    }
+    return out[0..count];
 }
 
 /// Where the staged layout keeps the generated season textures, beside Data.
@@ -656,4 +723,29 @@ test "copy is the default data mode" {
 test "runtime replacement rejects stale image names" {
     try std.testing.expect(!shouldReplaceRuntime("Game.exe.stale"));
     try std.testing.expect(shouldReplaceRuntime("Game.exe"));
+}
+
+test "peImports lists a tool's DLLs" {
+    // A minimal PE32+ image: one section mapping RVA 0x1000 at file offset
+    // 0x200, holding one import descriptor named BkMemory.dll.
+    var image: [0x400]u8 = @splat(0);
+    std.mem.writeInt(u32, image[0x3c..][0..4], 0x80, .little);
+    std.mem.writeInt(u32, image[0x80..][0..4], 0x00004550, .little);
+    std.mem.writeInt(u16, image[0x86..][0..2], 1, .little); // sections
+    std.mem.writeInt(u16, image[0x94..][0..2], 240, .little); // optional header size
+    const optional = 0x98;
+    std.mem.writeInt(u16, image[optional..][0..2], 0x20b, .little);
+    std.mem.writeInt(u32, image[optional + 120 ..][0..4], 0x1000, .little);
+    const section = optional + 240;
+    std.mem.writeInt(u32, image[section + 8 ..][0..4], 0x200, .little);
+    std.mem.writeInt(u32, image[section + 12 ..][0..4], 0x1000, .little);
+    std.mem.writeInt(u32, image[section + 16 ..][0..4], 0x200, .little);
+    std.mem.writeInt(u32, image[section + 20 ..][0..4], 0x200, .little);
+    std.mem.writeInt(u32, image[0x200 + 12 ..][0..4], 0x1100, .little); // name RVA
+    @memcpy(image[0x300..][0.."BkMemory.dll".len], "BkMemory.dll");
+    var names: [4][]const u8 = undefined;
+    const found = peImports(&image, &names);
+    try std.testing.expectEqual(@as(usize, 1), found.len);
+    try std.testing.expectEqualStrings("BkMemory.dll", found[0]);
+    try std.testing.expectEqual(@as(usize, 0), peImports("not a PE image", &names).len);
 }
