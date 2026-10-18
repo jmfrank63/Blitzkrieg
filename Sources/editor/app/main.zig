@@ -144,6 +144,15 @@ fn plantZigLeaks(allocator: std.mem.Allocator, count: usize) void {
 }
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
+    const passed = try dispatch(minimal);
+    // Only after dispatch has returned: its defers free the argument list and
+    // the Io instance, which std.process.exit inside it skipped and BkMemory
+    // counted as leaks.
+    std.process.exit(if (passed) 0 else 1);
+}
+
+/// The mode the arguments ask for, run to its result.
+fn dispatch(minimal: std.process.Init.Minimal) !bool {
     crt.routeCrtReportsToStderr();
     const gpa = bk_memory.allocator;
     plantZigLeaks(gpa, plantZigLeakCount(gpa, minimal.environ));
@@ -189,43 +198,36 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const map = nextArg(rest.items, &index) orelse usage();
             const output = nextArg(rest.items, &index) orelse default_output;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try check(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return check(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--smoke")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const output = nextArg(rest.items, &index) orelse default_smoke_output;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try smokeRun(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return smokeRun(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_log;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try gameReadsIt(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return gameReadsIt(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it-m2")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m2_log;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try game_reads_m2.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return game_reads_m2.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it-m3")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m3_log;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (nextArg(rest.items, &index) != null) usage();
-        const passed = try interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
-        std.process.exit(if (passed) 0 else 1);
+        return interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
     }
-    const passed = try interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden);
-    std.process.exit(if (passed) 0 else 1);
+    return interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden);
 }
 
 /// `-mod=<Folder>` or `-mod=None`: the raw text after `=`, or null when `arg`
