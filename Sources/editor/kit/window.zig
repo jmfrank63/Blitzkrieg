@@ -33,6 +33,13 @@ pub const Window = struct {
     device: *c.SDL_GPUDevice,
     /// Hidden runs draw here; null when the swapchain is the target.
     offscreen: ?*c.SDL_GPUTexture,
+    /// The offscreen frame still on the GPU. Acquiring a swapchain texture waits for a free
+    /// one, so a visible window never runs ahead of the GPU; the offscreen target has no such
+    /// wait, and without this one a scripted run queued frames as fast as it could record them.
+    /// On lavapipe each frame's descriptor sets are mappings returned only when its work is
+    /// done: the ELK smoke peaked at 292,779 mappings and on the CI runner, whose limit is
+    /// vm.max_map_count's 65,530, an mmap failed inside vkAllocateDescriptorSets (run 39124407273).
+    in_flight: ?*c.SDL_GPUFence = null,
 
     /// On failure, `failureReason()` says why.
     pub fn start(options: Options) Error!Window {
@@ -81,6 +88,7 @@ pub const Window = struct {
 
     pub fn stop(self: *Window) void {
         _ = c.SDL_WaitForGPUIdle(self.device);
+        if (self.in_flight) |fence| c.SDL_ReleaseGPUFence(self.device, fence);
         ig.bk_imgui_backend_shutdown();
         ig.igDestroyContext(null);
         if (self.offscreen) |texture| c.SDL_ReleaseGPUTexture(self.device, texture) else c.SDL_ReleaseWindowFromGPUDevice(self.device, self.window);
@@ -106,6 +114,12 @@ pub const Window = struct {
     /// that has no swapchain texture this frame (minimised) skips drawing.
     pub fn endFrame(self: *Window) Error!void {
         ig.igRender();
+        if (self.in_flight) |fence| {
+            const fences = [_]?*c.SDL_GPUFence{fence};
+            _ = c.SDL_WaitForGPUFences(self.device, true, &fences, 1);
+            c.SDL_ReleaseGPUFence(self.device, fence);
+            self.in_flight = null;
+        }
         const command_buffer = c.SDL_AcquireGPUCommandBuffer(self.device) orelse return failWith(error.FrameFailed, sdlError());
         var target: ?*c.SDL_GPUTexture = self.offscreen;
         if (target == null) {
@@ -127,7 +141,9 @@ pub const Window = struct {
             c.SDL_EndGPURenderPass(pass);
             ig.bk_imgui_backend_render(@ptrCast(command_buffer), @ptrCast(texture));
         }
-        if (!c.SDL_SubmitGPUCommandBuffer(command_buffer)) return failWith(error.FrameFailed, sdlError());
+        if (self.offscreen != null) {
+            self.in_flight = c.SDL_SubmitGPUCommandBufferAndAcquireFence(command_buffer) orelse return failWith(error.FrameFailed, sdlError());
+        } else if (!c.SDL_SubmitGPUCommandBuffer(command_buffer)) return failWith(error.FrameFailed, sdlError());
     }
 
     pub fn setTitle(self: *Window, title: [*:0]const u8) void {

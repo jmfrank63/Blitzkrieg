@@ -30,7 +30,11 @@ const Result = struct {
 fn runIn(cwd: std.Io.Dir, argv: []const []const u8) !Result {
     const result = try std.process.run(std.testing.allocator, std.testing.io, .{
         .argv = argv,
-        .cwd = .{ .dir = cwd },
+        // The current directory is inherited, not passed: Dir.cwd() is AT_FDCWD,
+        // not a descriptor, and macOS's posix_spawn_file_actions_addfchdir_np
+        // refuses it with EBADF, which Zig treats as a bug and panics on
+        // (run 39093744040).
+        .cwd = if (cwd.handle == std.Io.Dir.cwd().handle) .inherit else .{ .dir = cwd },
         .stdout_limit = .limited(16 * 1024 * 1024),
         .stderr_limit = .limited(16 * 1024 * 1024),
     });

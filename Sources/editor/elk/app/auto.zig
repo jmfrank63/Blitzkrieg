@@ -193,6 +193,7 @@
 //!   expect=identical           every file of the opened copy is byte-identical
 //!                              to the source and none was added (smoke only)
 const std = @import("std");
+const builtin = @import("builtin");
 const kit = @import("editor_kit");
 const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
@@ -283,7 +284,11 @@ pub const Runner = struct {
         const scancode = c.SDL_GetScancodeFromName(name.ptr);
         if (scancode == c.SDL_SCANCODE_UNKNOWN) return self.fail("unknown key {s}", .{key_action.name});
         var mods: c.SDL_Keymod = 0;
-        if (key_action.mods.ctrl) mods |= c.SDL_KMOD_LCTRL;
+        // `ctrl` is the modifier of ELK's shortcuts (ImGuiMod_Ctrl: Ctrl+S saves). On macOS
+        // ImGui swaps Cmd and Ctrl (io.ConfigMacOSXBehaviors), so that modifier comes from the
+        // Cmd key, as Cmd+S saves in any Mac application; the Ctrl key would arrive as Super
+        // and Ctrl+S did nothing (run 39093744040: the save point found the old text on disk).
+        if (key_action.mods.ctrl) mods |= if (builtin.os.tag == .macos) c.SDL_KMOD_LGUI else c.SDL_KMOD_LCTRL;
         if (key_action.mods.shift) mods |= c.SDL_KMOD_LSHIFT;
         if (key_action.mods.alt) mods |= c.SDL_KMOD_LALT;
         if (key_action.mods.cmd) mods |= c.SDL_KMOD_LGUI;

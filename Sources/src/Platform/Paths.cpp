@@ -10,7 +10,15 @@
 #include <filesystem>
 
 namespace {
-std::string gBase, gUser;
+// Constructed on first use, not at namespace scope: the first caller is a
+// static constructor in another translation unit (the Game's
+// CGlobalsLoader, through the options bridge's ModuleRoot), which ran before
+// globals here were constructed. It assigned both strings, their constructors
+// then reset them to empty, and the two heap buffers were never freed - the
+// only engine blocks left at the Game's exit (BK_MEM_REPORT=log; gdb showed
+// the two Initialize calls). gInitialized is constant-initialised, so safe.
+std::string &BaseValue() { static std::string value; return value; }
+std::string &UserValue() { static std::string value; return value; }
 bool gInitialized = false;
 std::string ensureSeparator(std::string value) {
     const char separator =
@@ -26,12 +34,12 @@ std::string ensureSeparator(std::string value) {
 std::string join(const std::string &root, const char *name) { return ensureSeparator(root) + name; }
 void createWritableRoots() {
     std::error_code error;
-    std::filesystem::create_directories(gUser, error);
-    std::filesystem::create_directories(join(gUser, "saves"), error);
-    std::filesystem::create_directories(join(gUser, "logs"), error);
-    std::filesystem::create_directories(join(gUser, "cache"), error);
+    std::filesystem::create_directories(UserValue(), error);
+    std::filesystem::create_directories(join(UserValue(), "saves"), error);
+    std::filesystem::create_directories(join(UserValue(), "logs"), error);
+    std::filesystem::create_directories(join(UserValue(), "cache"), error);
     // In the game directory, beside the saves the game writes there.
-    std::filesystem::create_directories(join(gBase, "screenshots"), error);
+    std::filesystem::create_directories(join(BaseValue(), "screenshots"), error);
 }
 #if !defined(_WIN32)
 // The running executable's directory, never the working directory: a game or
@@ -70,45 +78,45 @@ bool Initialize() {
     // hooks would be freed through BkMemory. Repeating the call is harmless.
     BkMemoryInstallSdlFunctions();
 #endif
-    if (gInitialized && !gBase.empty() && !gUser.empty()) return true;
+    if (gInitialized && !BaseValue().empty() && !UserValue().empty()) return true;
     if (gInitialized) {
-        gBase.clear();
-        gUser.clear();
+        BaseValue().clear();
+        UserValue().clear();
         gInitialized = false;
     }
 #if defined(BLITZKRIEG_PATHS_TEST)
     return false;
 #elif defined(_WIN32)
     const char *base = SDL_GetBasePath();
-    if (base) gBase = ensureSeparator(base);
+    if (base) BaseValue() = ensureSeparator(base);
     // BK_USER_ROOT points the user root somewhere else, the Windows counterpart of
     // XDG_DATA_HOME in preferenceRoot: a scripted run (the editor's BK_EDITOR_AUTO scenarios in the
     // build) writes its maps, logs and records there and not into %APPDATA%.
     const char *userRoot = std::getenv("BK_USER_ROOT");
     if (userRoot && *userRoot) {
-        gUser = ensureSeparator(userRoot);
+        UserValue() = ensureSeparator(userRoot);
     } else if (char *preference = SDL_GetPrefPath("Nival", "Blitzkrieg")) {
-        gUser = ensureSeparator(preference);
+        UserValue() = ensureSeparator(preference);
         SDL_free(preference);
     }
 #else
-    gBase = ensureSeparator(executableRoot());
-    gUser = ensureSeparator(preferenceRoot());
+    BaseValue() = ensureSeparator(executableRoot());
+    UserValue() = ensureSeparator(preferenceRoot());
 #endif
-    gInitialized = !gBase.empty() && !gUser.empty();
+    gInitialized = !BaseValue().empty() && !UserValue().empty();
     if (gInitialized) createWritableRoots();
     return gInitialized;
 }
 void SetRoots(const char *base, const char *preference) {
-    gBase = ensureSeparator(base ? base : "");
-    gUser = ensureSeparator(preference ? preference : "");
-    gInitialized = !gBase.empty() && !gUser.empty();
+    BaseValue() = ensureSeparator(base ? base : "");
+    UserValue() = ensureSeparator(preference ? preference : "");
+    gInitialized = !BaseValue().empty() && !UserValue().empty();
     if (gInitialized) createWritableRoots();
 }
 void SetInjectedRootsForTest(const char *base, const char *preference) { SetRoots(base, preference); }
-void ClearInjectedRootsForTest() { gBase.clear(); gUser.clear(); gInitialized = false; }
-const std::string &BaseRoot() { Initialize(); return gBase; }
-const std::string &UserRoot() { Initialize(); return gUser; }
+void ClearInjectedRootsForTest() { BaseValue().clear(); UserValue().clear(); gInitialized = false; }
+const std::string &BaseRoot() { Initialize(); return BaseValue(); }
+const std::string &UserRoot() { Initialize(); return UserValue(); }
 // These are package directory names, not case-folded Windows paths.  Keeping
 // the canonical spelling here is required on case-sensitive filesystems.
 const std::string &DataRoot() { static std::string value; value = join(BaseRoot(), "Data"); return value; }
