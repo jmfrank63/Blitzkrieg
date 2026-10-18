@@ -1,6 +1,6 @@
-#include "../Platform/DynamicLibrary.h"
 #include "../Platform/LegacyVariant.h"
 #include "../Platform/Paths.h"
+#include "../PlatformABI/PlatformClient.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -101,9 +101,30 @@ static CoreApi api;
 // The bridge resolves callbacks from StreamIO itself.  Keeping this handle
 // process-lifetime avoids a shutdown-order race where the bridge's static
 // destructor dlcloses StreamIO after StreamIO has already begun teardown.
-static NPlatform::DynamicLibrary &CoreModule() {
-    static NPlatform::DynamicLibrary *module = new NPlatform::DynamicLibrary();
-    return *module;
+// Only the handle is kept, in static storage with a trivial destructor: the
+// heap NPlatform::DynamicLibrary this used to be, and its path and error
+// strings, were three blocks every process ended with (BK_MEM_REPORT=log on
+// bk-sprite compose).
+static BkPlatformUtf8Span Utf8(const char *text) { return BkPlatformUtf8Span{sizeof(BkPlatformUtf8Span), text, static_cast<uint32_t>(std::strlen(text))}; }
+struct CoreModuleHandle {
+    BkPlatformHandle handle = 0;
+    bool IsLoaded() const { return handle != 0; }
+    bool Load(const char *path) {
+        if (handle != 0) return true;
+        if (!BkPlatform::Client::IsAttached() && !BkPlatform::Client::Attach()) return false;
+        if (BkPlatform::Client::LibraryOpen(Utf8(path), &handle) == BK_PLATFORM_OK) return true;
+        handle = 0;
+        return false;
+    }
+    void *GetFunction(const char *name) const {
+        void *function = nullptr;
+        if (handle == 0 || !BkPlatform::Client::IsAttached() || BkPlatform::Client::LibrarySymbol(handle, Utf8(name), &function) != BK_PLATFORM_OK) return nullptr;
+        return function;
+    }
+};
+static CoreModuleHandle &CoreModule() {
+    static CoreModuleHandle module;
+    return module;
 }
 
 template <class T> static T Resolve(const char *name) { return reinterpret_cast<T>(CoreModule().GetFunction(name)); }

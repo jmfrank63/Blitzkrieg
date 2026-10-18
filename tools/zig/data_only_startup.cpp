@@ -7,6 +7,7 @@
 // database is only needed to pack frame indices, which this tier never does.
 #include "StdAfx.h"
 #include "data_only_startup.h"
+#include <SDL3/SDL.h>
 #include "../../Sources/src/StreamIO/RandomGen.h"
 #include "../../Sources/src/Platform/DynamicLibrary.h"
 #include "../../Sources/src/StreamIO/StreamIOTypes.h"
@@ -133,5 +134,9 @@ void Stop()
 {
 	if ( GetSingletonGlobal() != 0 )
 		GetSingletonGlobal()->Done();
+	// SDL keeps what SDL_GetBasePath found (Platform's Paths asks for it)
+	// until SDL_Quit; a tool never initialises SDL, so nothing else frees it
+	// (a block every bk-* run ended with). Safe without SDL_Init.
+	SDL_Quit();
 }
 }
