@@ -2202,6 +2202,14 @@ pub fn build(b: *std.Build) void {
     // destructor is what the test unloads it to see.
     addSharedObjectFinalizer(b, target, bk_consumer_a.root_module);
     addSharedObjectFinalizer(b, target, bk_consumer_b.root_module);
+    // macOS: dyld never unloads an image with thread-local variables, and in
+    // Debug Zig bundled its UBSan runtime (Zig code with thread-locals) into the
+    // consumers, so B stayed loaded at dlclose and its destructor ran only at exit
+    // (run 39093744040). Undefined behaviour still traps, without the runtime.
+    for ([_]*std.Build.Step.Compile{ bk_consumer_a, bk_consumer_b }) |consumer| {
+        consumer.root_module.sanitize_c = .trap;
+        consumer.bundle_ubsan_rt = false;
+    }
     const bk_cross_test = addBkMemoryTestModule(b, target, platform, toolchain, optimize, null, "bk-memory-cross-module-test", "tools/zig/bk_memory_cross_module_test.cpp");
     const test_bk_memory_step = b.step("test-bk-memory", "Run the cross-DLL BkMemory allocator test and its planted-leak failure");
     test_bk_memory_step.dependOn(test_bk_memory_zig_step);
