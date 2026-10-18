@@ -1362,6 +1362,10 @@ jobs:
           sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
 
 
+      - name: Install the fonts ELK draws with
+        run: sudo apt-get install --yes fonts-noto-core fonts-noto-cjk
+
+
 
       # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
       # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
