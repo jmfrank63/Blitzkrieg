@@ -739,7 +739,20 @@ test "import rules: changed, new, unchanged and missing texts, partial then comp
     // Names are lower case, existing folders found whatever their case.
     try expectFile(io, db, "Units/Tank/name.elk", utf16("N2"));
     try expectFile(io, db, "Units/Tank/name.xml", stateBytes(0, 0));
-    try testing.expect(!database.fixtureExists(io, db, "units"));
+    // No second folder in another case beside Units: listed, not looked up,
+    // since Windows and macOS find "units" as Units.
+    {
+        var dir = try std.Io.Dir.cwd().openDir(io, db, .{ .iterate = true });
+        defer dir.close(io);
+        var it = dir.iterate();
+        var spellings: usize = 0;
+        while (try it.next(io)) |entry| {
+            if (!std.ascii.eqlIgnoreCase(entry.name, "units")) continue;
+            spellings += 1;
+            try testing.expectEqualStrings("Units", entry.name);
+        }
+        try testing.expectEqual(@as(usize, 1), spellings);
+    }
     try expectFile(io, db, "new/folder/x.elk", utf16("X"));
     try expectFile(io, db, "new/x.dsc", utf16("About X"));
 
