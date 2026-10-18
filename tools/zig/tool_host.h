@@ -20,5 +20,9 @@ std::filesystem::path ExecutableDirectory();
 // else beside the tool (a game install), in ../lib (zig build's zig-out/bin
 // and zig-out/lib), or one level up (a Tools/ folder inside the game).
 std::filesystem::path ModuleRoot( const std::string &szModules );
+// stdout and stderr write the bytes the tool prints on every host. The MSVC
+// CRT's text mode turned each \n into \r\n on Windows, so test-bk-map's exact
+// stream checks failed there (run 39093744040) while the Zig tools passed.
+void BinaryStdio();
 }
 #endif // __TOOL_HOST_H__
