@@ -5391,9 +5391,12 @@ fn addHunspell(
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
+    // On MSVC as the engine's own C++ libraries: linkMsvcRuntime names the DLL
+    // CRT, and without it the C++ sources pulled in Zig's libc, the static CRT,
+    // whose _cexit and friends collided with ucrtd in ELK's link.
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
-    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    } else linkMsvcRuntime(module, optimize);
     // Its consumers (ELK, test-elk-app) link the DLL CRT of their build mode
     // (linkMsvcRuntime), C++ runtime included, so hunspell is compiled for the
     // same one: without -D_MT -D_DLL (and -D_DEBUG in Debug) its objects recorded
@@ -9605,7 +9608,13 @@ fn addElk(
     // (main run 39086936588: RuntimeLibrary mismatch, then _CrtSetReportMode).
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
-    if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
+    // imm32 for ImGui's IME; user32 and shell32 for ELK's own clipboard, window
+    // and ShellExecute calls, which Zig's libc used to bring along.
+    if (target.result.os.tag == .windows) {
+        module.linkSystemLibrary("imm32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
     linkSdlImport(module, target, sdl_dynamic);
     linkBkMemoryAllocator(b, module, false);
     module.linkLibrary(addHunspell(b, target, optimize, toolchain));
