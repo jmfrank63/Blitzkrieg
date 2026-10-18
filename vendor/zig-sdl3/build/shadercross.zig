@@ -66,6 +66,15 @@ fn addDeps(
     }
 }
 
+/// The host the tool is built for: the baseline CPU rather than the native one, so a
+/// cached shadercross (with its SPIRV-Tools, DXC and clang) hits on another CPU model
+/// too - CI runners differ. macOS keeps the native host, as Blitzkrieg's build.zig
+/// does (portable_host): Zig fills in the SDK paths only for a native query.
+fn toolHost(b: *std.Build) std.Build.ResolvedTarget {
+    if (b.graph.host.result.os.tag == .macos) return b.graph.host;
+    return b.resolveTargetQuery(.{ .cpu_model = .baseline });
+}
+
 /// Build the CLI executable.
 pub fn cli(
     b: *std.Build,
@@ -73,21 +82,22 @@ pub fn cli(
     use_sdl_dep_lib: bool,
     dxc_support: bool,
 ) ?*std.Build.Step.Compile {
+    const host = toolHost(b);
     const exe = b.addExecutable(.{
         .name = "shadercross",
         .root_module = b.createModule(.{
             .link_libc = true,
-            .target = b.graph.host,
+            .target = host,
             .optimize = .ReleaseFast,
         }),
     });
     const sdl_dep_lib: ?*std.Build.Step.Compile = if (use_sdl_dep_lib) brk: {
-        const lib = (b.lazyDependency("sdl", .{ .target = b.graph.host, .optimize = .ReleaseFast }) orelse return null).artifact("SDL3");
+        const lib = (b.lazyDependency("sdl", .{ .target = host, .optimize = .ReleaseFast }) orelse return null).artifact("SDL3");
         if (system_include_path) |val|
             lib.root_module.addSystemIncludePath(val);
         break :brk lib;
     } else null;
-    addDeps(b, b.graph.host, .ReleaseFast, system_include_path, sdl_dep_lib, true, dxc_support, exe) orelse return null;
+    addDeps(b, host, .ReleaseFast, system_include_path, sdl_dep_lib, true, dxc_support, exe) orelse return null;
     return exe;
 }
 

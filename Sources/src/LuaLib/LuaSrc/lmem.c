@@ -127,6 +127,15 @@ static void *debug_realloc (void *block, size_t size) {
 ** Real ISO (ANSI) systems do not need these tests;
 ** but some systems (Sun OS) are not that ISO...
 */
+#ifndef LUA_DEBUG
+/* Every build here has no LUA_DEBUG (Zig defines no _DEBUG), so this is the path
+** the game runs: through BkMemory like the debug allocator above, or Lua's blocks
+** stay out of the leak counts (test-bk-memory-c-sources: "no BkMemory allocation
+** seen" on Linux). */
+#define realloc(b, s)	bk_mem_realloc(b, s)
+#define free(b)		bk_mem_free(b)
+#endif
+
 #ifdef OLD_ANSI
 #define realloc(b,s)	((b) == NULL ? malloc(s) : (realloc)(b, s))
 #define free(b)		if (b) (free)(b)

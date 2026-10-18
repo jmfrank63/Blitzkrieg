@@ -4902,6 +4902,11 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 // now imports fails the test so the list cannot go stale.
 typedef std::function<bool( BkResSession *, std::string & )> TGridReader;
 
+// The scan in parts, so CI can run a long one in slices side by side: part k
+// of n imports the folders k, k+n, k+2n... of the sorted list. 1 of 1 is the
+// whole scan; the full run keeps it that way.
+static int g_nScanPart = 1, g_nScanParts = 1;
+
 static bool ReadRootGrids( BkResSession *pSession, int nRootType, std::string &szFailure )
 {
 	const int nRoot = FirstNodeOfType( pSession, nRootType );
@@ -4941,11 +4946,15 @@ static void ScanNegativeTiles( BkResSession *pSession, const std::string &szRoot
 			folders.push_back( it->path().parent_path() );
 	std::sort( folders.begin(), folders.end() );
 	const int nFolders = int( folders.size() );
+	std::vector<fs::path> part;
+	for ( int i = 0; i < nFolders; ++i )
+		if ( i % g_nScanParts == g_nScanPart - 1 )
+			part.push_back( folders[i] );
 	std::string szBefore;
-	for ( const fs::path &folder : folders )
+	for ( const fs::path &folder : part )
 		szBefore += folder.string() + "|" + ListingOf( folder ) + "\n";
 	int nChecked = 0, nNegative = 0, nUnimportable = 0, nFailed = 0;
-	for ( const fs::path &folder : folders )
+	for ( const fs::path &folder : part )
 	{
 		const std::string szRelative = fs::relative( folder, top, ec ).generic_string();
 		const std::pair<std::string, std::string> *pListed = nullptr;
@@ -4994,13 +5003,13 @@ static void ScanNegativeTiles( BkResSession *pSession, const std::string &szRoot
 		}
 		BkResClose( pSession );
 	}
-	std::printf( "NEGTILES %s checked=%d folders=%d negative=%d unimportable=%d\n", pszKind, nChecked, nFolders, nNegative, nUnimportable );
+	std::printf( "NEGTILES %s part %d of %d checked=%d folders=%d of %d negative=%d unimportable=%d\n", pszKind, g_nScanPart, g_nScanParts, nChecked, int( part.size() ), nFolders, nNegative, nUnimportable );
 	Check( nFolders >= nMinFolders && nFolders > 0, ( szKind + " negtiles: enough shipped folders were found" ).c_str() );
 	Check( nFailed == 0, ( szKind + " negtiles: no import, root or read failure other than the negative-tile refusal" ).c_str() );
-	Check( nChecked == nFolders, ( szKind + " negtiles: every shipped folder was checked" ).c_str() );
+	Check( nChecked == int( part.size() ), ( szKind + " negtiles: every shipped folder of the part was checked" ).c_str() );
 	Check( nNegative == 0, ( szKind + " negtiles: no shipped folder has a tile left of or above (0, 0)" ).c_str() );
 	std::string szAfter;
-	for ( const fs::path &folder : folders )
+	for ( const fs::path &folder : part )
 		szAfter += folder.string() + "|" + ListingOf( folder ) + "\n";
 	Check( szAfter == szBefore, ( szKind + " negtiles: nothing was written into Data" ).c_str() );
 }
@@ -9471,6 +9480,63 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// One entry of the run, by name for its timing line and the slices.
+struct SBridgeTest
+{
+	const char *pszName;
+	std::function<void()> run;
+};
+
+// Where the slices of --shard begin: slice 1 is the checks before the list
+// plus the list up to the first name here, slice k+1 starts at the k-th name.
+// Cut from the Windows CI timeline (run 39035514549: 68 minutes, 44 of them in
+// the shipped objects' negative-tile scan, which is why that scan comes in
+// four parts), then rebalanced by the "took" lines of run 39068432953, where
+// the last slice took 48 minutes: the particle (1143 s), building scan (785 s)
+// and bridge (439 s) entries each start a slice of their own now. In a fresh
+// process the object scan's parts took 31 to 54 s each against 44 minutes in
+// one long run, so a long Windows process slows down as it goes.
+static const char *const kShardStarts[] = {
+	"T11::Run",
+	"S09Object::NegativeTiles 1/4",
+	"S09Object::NegativeTiles 2/4",
+	"S09Object::NegativeTiles 3/4",
+	"S09Object::NegativeTiles 4/4",
+	"S09Fence::Fixture",
+	"S10Building::NegativeTiles",
+	"S11Bridge::Fixture",
+	"S12Particle::Fixture",
+	"S13Vso::OneFixture 3rd",
+};
+
+// The entries of slice nShard (from 1), as [*pnFirst, *pnEnd). False when
+// there is no such slice or a start name is not in the list, so a renamed
+// entry cannot silently empty a slice.
+static bool ShardRange( const SBridgeTest *pTests, int nTests, int nShard, int *pnFirst, int *pnEnd )
+{
+	const int nStarts = int( sizeof( kShardStarts ) / sizeof( kShardStarts[0] ) );
+	if ( nShard < 1 || nShard > nStarts + 1 )
+		return false;
+	int bounds[sizeof( kShardStarts ) / sizeof( kShardStarts[0] ) + 2];
+	bounds[0] = 0;
+	bounds[nStarts + 1] = nTests;
+	for ( int k = 0; k < nStarts; ++k )
+	{
+		bounds[k + 1] = -1;
+		for ( int i = 0; i < nTests; ++i )
+			if ( std::strcmp( pTests[i].pszName, kShardStarts[k] ) == 0 )
+			{
+				bounds[k + 1] = i;
+				break;
+			}
+		if ( bounds[k + 1] <= bounds[k] )
+			return false;
+	}
+	*pnFirst = bounds[nShard - 1];
+	*pnEnd = bounds[nShard];
+	return true;
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -9510,6 +9576,12 @@ int main( int argc, char **argv )
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	const std::string szFixtureRoot = argc > 2 ? argv[2] : ( szSelfDir + "/fixtures/resource_editor" );
 	const std::string szScratchRoot = argc > 3 ? argv[3] : ( szSelfDir + "/local-test/resource_editor/t02" );
+	// `--shard <k>` after the three positional arguments: the k-th slice of the
+	// run (kShardStarts), for CI.
+	int nShard = 0;
+	for ( int i = 4; i + 1 < argc; ++i )
+		if ( std::strcmp( argv[i], "--shard" ) == 0 )
+			nShard = std::atoi( argv[i + 1] );
 
 	FILE *pProbe = std::fopen( ( std::string( pszRoot ) + "/Data/consts.xml" ).c_str(), "rb" );
 	if ( pProbe == 0 )
@@ -9552,242 +9624,259 @@ int main( int argc, char **argv )
 		return 1;
 	}
 
-	// Smoke: BkResNew works for a fresh wpn project, kind round-trips, close.
-	Check( BkResNew( pSession, 0 ) == BK_EDITOR_OK, "BkResNew(wpn) answers OK" );
-	BkResKind newKind = -1;
-	Check( BkResKindOf( pSession, &newKind ) == BK_EDITOR_OK, "BkResKindOf after New answers OK" );
-	Check( newKind == 0, "KindOf after BkResNew(wpn) is 0" );
-	int nFreshCount = -1;
-	Check( BkResNodes( pSession, 0, 0, &nFreshCount ) == BK_EDITOR_OK, "BkResNodes answers OK with a null buffer" );
-	Check( nFreshCount == 1, "a fresh project exposes just the root node" );
-	Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose answers OK" );
-
-	// Round-trip every fixture.
-	for ( int i = 0; i < kFixtureCount; ++i )
-		RoundTripOne( pSession, szFixtureRoot, szScratchRoot, kFixtures[i] );
-	SaveOverExisting( pSession, szFixtureRoot, szScratchRoot );
-	MfcNewRoundTrips( pSession, szFixtureRoot, szScratchRoot );
-
-	// Delete->restore->save on three kinds whose fixture is an MFC item tree
-	// (S03 T02); msh and pcp join when T03/T04 replace their stub fixtures.
-	const char *pszRep[] = { "wpn", "trc", "unt" };
-	for ( int r = 0; r < 3; ++r )
+	// The checks before the list run with slice 1 (and the full run).
+	if ( nShard <= 1 )
 	{
-		Fixture fx = {};
+		// Smoke: BkResNew works for a fresh wpn project, kind round-trips, close.
+		Check( BkResNew( pSession, 0 ) == BK_EDITOR_OK, "BkResNew(wpn) answers OK" );
+		BkResKind newKind = -1;
+		Check( BkResKindOf( pSession, &newKind ) == BK_EDITOR_OK, "BkResKindOf after New answers OK" );
+		Check( newKind == 0, "KindOf after BkResNew(wpn) is 0" );
+		int nFreshCount = -1;
+		Check( BkResNodes( pSession, 0, 0, &nFreshCount ) == BK_EDITOR_OK, "BkResNodes answers OK with a null buffer" );
+		Check( nFreshCount == 1, "a fresh project exposes just the root node" );
+		Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose answers OK" );
+
+		// Round-trip every fixture.
 		for ( int i = 0; i < kFixtureCount; ++i )
-			if ( std::strcmp( kFixtures[i].pszExt, pszRep[r] ) == 0 ) { fx = kFixtures[i]; break; }
-		DeleteRestoreOne( pSession, szFixtureRoot, szScratchRoot, fx );
-	}
+			RoundTripOne( pSession, szFixtureRoot, szScratchRoot, kFixtures[i] );
+		SaveOverExisting( pSession, szFixtureRoot, szScratchRoot );
+		MfcNewRoundTrips( pSession, szFixtureRoot, szScratchRoot );
 
-	// MFC's lock (D-08): `locked_<user>` in the project's folder. Two
-	// sessions play two users through the BK_RESOURCE_EDITOR_USER seam; the
-	// second session is a bare BkEditorSession, which the data-only lock
-	// entries accept as well as a started one.
-	{
-		const std::string szDir = szScratchRoot + "/lock";
-		const std::string szProject = szDir + "/project.wpn";
-		std::error_code ec;
-		std::filesystem::remove_all( szDir, ec );
-		std::filesystem::create_directories( szDir, ec );
-		std::filesystem::copy_file( szFixtureRoot + "/wpn/project.wpn", szProject, ec );
-		BkEditorSession *pOther = new BkEditorSession();
-
-		SetLockUser( "alice" );
-		Check( BkResOpen( pSession, szProject.c_str() ) == BK_EDITOR_OK, "lock: alice opens" );
-		Check( BkResLock( pSession ) == BK_EDITOR_OK, "lock: alice locks" );
-		Check( std::filesystem::exists( szDir + "/locked_alice", ec ), "lock: locked_alice is in the project's folder" );
-		Check( !std::filesystem::exists( szProject + ".lock", ec ), "lock: no <path>.lock" );
-		Check( BkResLock( pSession ) == BK_EDITOR_OK, "lock: alice's own lock is hers again, as in MFC" );
-		char owner[256] = {};
-		Check( BkResLockOwner( pSession, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK && std::strcmp( owner, "alice" ) == 0,
-			"lock: BkResLockOwner names alice" );
-
-		SetLockUser( "bob" );
-		Check( BkResOpen( pOther, szProject.c_str() ) == BK_EDITOR_OK, "lock: bob opens" );
-		Check( BkResLock( pOther ) == BK_EDITOR_REFUSED, "lock: bob is refused while alice holds it" );
-		Check( std::strstr( BkEditorLastMessage( pOther ), "alice" ) != 0, "lock: the refusal names alice" );
-		Check( !std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: a refused lock leaves no file" );
-		owner[0] = 0;
-		Check( BkResLockOwner( pOther, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK && std::strcmp( owner, "alice" ) == 0,
-			"lock: bob sees alice as the owner" );
-		Check( BkResLockTakeOver( pOther ) == BK_EDITOR_OK, "lock: bob takes the lock over" );
-		Check( !std::filesystem::exists( szDir + "/locked_alice", ec ), "lock: the take-over removes locked_alice" );
-		Check( std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: the take-over writes locked_bob" );
-		Check( BkResClose( pOther ) == BK_EDITOR_OK, "lock: bob closes" );
-		Check( !std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: close removes locked_bob" );
-
-		SetLockUser( "alice" );
-		Check( BkResClose( pSession ) == BK_EDITOR_OK, "lock: alice closes" );
-		bool bStray = false;
-		for ( const auto &entry : std::filesystem::directory_iterator( szDir, ec ) )
+		// Delete->restore->save on three kinds whose fixture is an MFC item tree
+		// (S03 T02); msh and pcp join when T03/T04 replace their stub fixtures.
+		const char *pszRep[] = { "wpn", "trc", "unt" };
+		for ( int r = 0; r < 3; ++r )
 		{
-			const std::string szName = entry.path().filename().string();
-			if ( szName.compare( 0, 7, "locked_" ) == 0 || szName.find( ".lock" ) != std::string::npos )
-				bStray = true;
+			Fixture fx = {};
+			for ( int i = 0; i < kFixtureCount; ++i )
+				if ( std::strcmp( kFixtures[i].pszExt, pszRep[r] ) == 0 ) { fx = kFixtures[i]; break; }
+			DeleteRestoreOne( pSession, szFixtureRoot, szScratchRoot, fx );
 		}
-		Check( !bStray, "lock: no lock file is left behind" );
-		SetLockUser( 0 );
-		delete pOther;
-	}
 
-	// Node ids are stable: a delete or restore elsewhere in the tree leaves
-	// every other id - and the geometry keyed by it - where it was, and a
-	// restored node gets its old id back, so the undo history stays valid.
-	{
-		const std::string szIn = szFixtureRoot + "/bld/project.bld";
-		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "ids: BkResOpen bld" ) )
-			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-		else
+		// MFC's lock (D-08): `locked_<user>` in the project's folder. Two
+		// sessions play two users through the BK_RESOURCE_EDITOR_USER seam; the
+		// second session is a bare BkEditorSession, which the data-only lock
+		// entries accept as well as a started one.
 		{
-			const int nRoot = 1;
-			BkResPoint2 zero = { 3.0f, 4.0f };
-			Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "ids: BkResSetZeroPoint" );
-			// The stub fixture's <fixture> element is frame data outside the
-			// childs list, so the root has no child nodes; give it two to
-			// delete around.
-			const char szExtra[] = "<extra/>";
-			int nExtra = 0;
-			Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 0, &nExtra ) == BK_EDITOR_OK,
-				"ids: add a first child" );
-			Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 1, &nExtra ) == BK_EDITOR_OK,
-				"ids: add a second child" );
-			int nCount = 0;
-			BkResNodes( pSession, 0, 0, &nCount );
-			std::vector<BkResNodeRecord> nodes( nCount > 0 ? nCount : 1 );
-			BkResNodes( pSession, nodes.data(), nCount, &nCount );
-			std::vector<int> children;
-			for ( int i = 0; i < nCount; ++i )
-				if ( nodes[i].parent == nRoot )
-					children.push_back( nodes[i].id );
-			if ( Check( children.size() >= 2, "ids: the fixture root has two children" ) )
+			const std::string szDir = szScratchRoot + "/lock";
+			const std::string szProject = szDir + "/project.wpn";
+			std::error_code ec;
+			std::filesystem::remove_all( szDir, ec );
+			std::filesystem::create_directories( szDir, ec );
+			std::filesystem::copy_file( szFixtureRoot + "/wpn/project.wpn", szProject, ec );
+			BkEditorSession *pOther = new BkEditorSession();
+
+			SetLockUser( "alice" );
+			Check( BkResOpen( pSession, szProject.c_str() ) == BK_EDITOR_OK, "lock: alice opens" );
+			Check( BkResLock( pSession ) == BK_EDITOR_OK, "lock: alice locks" );
+			Check( std::filesystem::exists( szDir + "/locked_alice", ec ), "lock: locked_alice is in the project's folder" );
+			Check( !std::filesystem::exists( szProject + ".lock", ec ), "lock: no <path>.lock" );
+			Check( BkResLock( pSession ) == BK_EDITOR_OK, "lock: alice's own lock is hers again, as in MFC" );
+			char owner[256] = {};
+			Check( BkResLockOwner( pSession, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK && std::strcmp( owner, "alice" ) == 0,
+				"lock: BkResLockOwner names alice" );
+
+			SetLockUser( "bob" );
+			Check( BkResOpen( pOther, szProject.c_str() ) == BK_EDITOR_OK, "lock: bob opens" );
+			Check( BkResLock( pOther ) == BK_EDITOR_REFUSED, "lock: bob is refused while alice holds it" );
+			Check( std::strstr( BkEditorLastMessage( pOther ), "alice" ) != 0, "lock: the refusal names alice" );
+			Check( !std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: a refused lock leaves no file" );
+			owner[0] = 0;
+			Check( BkResLockOwner( pOther, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK && std::strcmp( owner, "alice" ) == 0,
+				"lock: bob sees alice as the owner" );
+			Check( BkResLockTakeOver( pOther ) == BK_EDITOR_OK, "lock: bob takes the lock over" );
+			Check( !std::filesystem::exists( szDir + "/locked_alice", ec ), "lock: the take-over removes locked_alice" );
+			Check( std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: the take-over writes locked_bob" );
+			Check( BkResClose( pOther ) == BK_EDITOR_OK, "lock: bob closes" );
+			Check( !std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: close removes locked_bob" );
+
+			SetLockUser( "alice" );
+			Check( BkResClose( pSession ) == BK_EDITOR_OK, "lock: alice closes" );
+			bool bStray = false;
+			for ( const auto &entry : std::filesystem::directory_iterator( szDir, ec ) )
 			{
-				const int nFirst = children[0], nSecond = children[1];
-				int nBlobSize = 0;
-				BkResDeleteNode( pSession, nFirst, 0, 0, &nBlobSize );
-				std::vector<unsigned char> blob( nBlobSize > 0 ? nBlobSize : 1 );
-				Check( BkResDeleteNode( pSession, nFirst, blob.data(), nBlobSize, &nBlobSize ) == BK_EDITOR_OK, "ids: BkResDeleteNode" );
-				int nAfter = 0;
-				BkResNodes( pSession, 0, 0, &nAfter );
-				Check( nAfter == nCount - 1, "ids: the delete removed exactly one node" );
-				std::vector<BkResNodeRecord> after( nAfter > 0 ? nAfter : 1 );
-				BkResNodes( pSession, after.data(), nAfter, &nAfter );
-				bool bSecondKept = false, bFirstGone = true;
-				for ( int i = 0; i < nAfter; ++i )
-				{
-					if ( after[i].id == nSecond && after[i].parent == nRoot ) bSecondKept = true;
-					if ( after[i].id == nFirst ) bFirstGone = false;
-				}
-				Check( bSecondKept, "ids: the surviving sibling keeps its id" );
-				Check( bFirstGone, "ids: the deleted id is gone" );
-				BkResPoint2 read_zero = { 0, 0 };
-				Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK && read_zero.x == zero.x && read_zero.y == zero.y,
-					"ids: the root's geometry survives a child delete" );
-				int nRestored = 0;
-				Check( BkResRestoreNode( pSession, blob.data(), nBlobSize, nRoot, 0, &nRestored ) == BK_EDITOR_OK, "ids: BkResRestoreNode" );
-				Check( nRestored == nFirst, "ids: a restored node gets its old id back" );
-				BkResNodes( pSession, after.data(), 0, &nAfter );
-				Check( nAfter == nCount, "ids: the restore brought the node count back" );
+				const std::string szName = entry.path().filename().string();
+				if ( szName.compare( 0, 7, "locked_" ) == 0 || szName.find( ".lock" ) != std::string::npos )
+					bStray = true;
 			}
-			BkResClose( pSession );
+			Check( !bStray, "lock: no lock file is left behind" );
+			SetLockUser( 0 );
+			delete pOther;
 		}
-		int nClosedCount = -1;
-		Check( BkResNodes( pSession, 0, 0, &nClosedCount ) == BK_EDITOR_REFUSED && nClosedCount == 0, "BkResNodes refuses when no project is open" );
+
+		// Node ids are stable: a delete or restore elsewhere in the tree leaves
+		// every other id - and the geometry keyed by it - where it was, and a
+		// restored node gets its old id back, so the undo history stays valid.
+		{
+			const std::string szIn = szFixtureRoot + "/bld/project.bld";
+			if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "ids: BkResOpen bld" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			else
+			{
+				const int nRoot = 1;
+				BkResPoint2 zero = { 3.0f, 4.0f };
+				Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "ids: BkResSetZeroPoint" );
+				// The stub fixture's <fixture> element is frame data outside the
+				// childs list, so the root has no child nodes; give it two to
+				// delete around.
+				const char szExtra[] = "<extra/>";
+				int nExtra = 0;
+				Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 0, &nExtra ) == BK_EDITOR_OK,
+					"ids: add a first child" );
+				Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 1, &nExtra ) == BK_EDITOR_OK,
+					"ids: add a second child" );
+				int nCount = 0;
+				BkResNodes( pSession, 0, 0, &nCount );
+				std::vector<BkResNodeRecord> nodes( nCount > 0 ? nCount : 1 );
+				BkResNodes( pSession, nodes.data(), nCount, &nCount );
+				std::vector<int> children;
+				for ( int i = 0; i < nCount; ++i )
+					if ( nodes[i].parent == nRoot )
+						children.push_back( nodes[i].id );
+				if ( Check( children.size() >= 2, "ids: the fixture root has two children" ) )
+				{
+					const int nFirst = children[0], nSecond = children[1];
+					int nBlobSize = 0;
+					BkResDeleteNode( pSession, nFirst, 0, 0, &nBlobSize );
+					std::vector<unsigned char> blob( nBlobSize > 0 ? nBlobSize : 1 );
+					Check( BkResDeleteNode( pSession, nFirst, blob.data(), nBlobSize, &nBlobSize ) == BK_EDITOR_OK, "ids: BkResDeleteNode" );
+					int nAfter = 0;
+					BkResNodes( pSession, 0, 0, &nAfter );
+					Check( nAfter == nCount - 1, "ids: the delete removed exactly one node" );
+					std::vector<BkResNodeRecord> after( nAfter > 0 ? nAfter : 1 );
+					BkResNodes( pSession, after.data(), nAfter, &nAfter );
+					bool bSecondKept = false, bFirstGone = true;
+					for ( int i = 0; i < nAfter; ++i )
+					{
+						if ( after[i].id == nSecond && after[i].parent == nRoot ) bSecondKept = true;
+						if ( after[i].id == nFirst ) bFirstGone = false;
+					}
+					Check( bSecondKept, "ids: the surviving sibling keeps its id" );
+					Check( bFirstGone, "ids: the deleted id is gone" );
+					BkResPoint2 read_zero = { 0, 0 };
+					Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK && read_zero.x == zero.x && read_zero.y == zero.y,
+						"ids: the root's geometry survives a child delete" );
+					int nRestored = 0;
+					Check( BkResRestoreNode( pSession, blob.data(), nBlobSize, nRoot, 0, &nRestored ) == BK_EDITOR_OK, "ids: BkResRestoreNode" );
+					Check( nRestored == nFirst, "ids: a restored node gets its old id back" );
+					BkResNodes( pSession, after.data(), 0, &nAfter );
+					Check( nAfter == nCount, "ids: the restore brought the node count back" );
+				}
+				BkResClose( pSession );
+			}
+			int nClosedCount = -1;
+			Check( BkResNodes( pSession, 0, 0, &nClosedCount ) == BK_EDITOR_REFUSED && nClosedCount == 0, "BkResNodes refuses when no project is open" );
+		}
 	}
 
-	// The cells, point and aimed channels where MFC keeps them (D014 item 2).
-	BuildingGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
-	ObjectGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
-	ItemGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
-
-	// The list channels where MFC keeps them (D014 item 2, part 2), and every
-	// channel on every fixture with no private geometry element written.
-	ListGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
-	EveryChannelOnEveryFixture( pSession, szFixtureRoot, szScratchRoot );
-
-	T10::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-
-	ExportRollback::Run( pSession, szFixtureRoot, szScratchRoot );
-
-	T11::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S06 T01: the trench exporter against the shipped entrenchment.
-	S06Export::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S06 T05: the mine, trench and squad previews.
-	S06Preview::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S06 T04: the sub-editors' tools, undo, redo and save on the real bridge.
-	S06Tools::Run( pSession, szFixtureRoot, szScratchRoot );
-
-	// S07 T05: the portable BuildAnimations and the .san writer.
-	S07Compose::Run( pszRoot, szFixtureRoot, szScratchRoot );
-	// S07 T06: the sprite exporter and its preview.
-	S07Sprite::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	S07Infantry::Run( pSession, szFixtureRoot, szScratchRoot );
-	// S08 T01: the unit exporter against the shipped 8_cm_GrWr34.
-	S08Mesh::Run( pSession, pszRoot, szScratchRoot );
-	S08Mesh::ImportRoundTrips( pSession, pszRoot, szScratchRoot );
-	S08Mesh::Graphics( pSession, szFixtureRoot, szScratchRoot );
-	// S08 T04: the unit preview's variants, locators and direction.
-	S08Preview::Run( pSession, szFixtureRoot, szScratchRoot );
-	// S08 T05: the unit editor's locator references, model switch and platform and gun nodes, undone and redone.
-	S08Undo::Run( pSession, szFixtureRoot, szScratchRoot );
-	// S09 T02: the object exporter and importer.
-	S09Object::Fixture( pSession, szFixtureRoot, szScratchRoot );
-	S09Object::Shipped( pSession, pszRoot, szScratchRoot );
-	S09Object::NegativeTiles( pSession, pszRoot );
-	// S09 T03: the fence exporter and importer.
-	S09Fence::Fixture( pSession, szFixtureRoot, szScratchRoot );
-	S09Fence::IndexHole( pSession, szFixtureRoot, szScratchRoot );
-	S09Fence::Shipped( pSession, pszRoot, szScratchRoot );
-	// S09 T04: the grid channels, passability origin consistency and the refusals that name channel and kind.
-	S09Channels::Object( pSession, szFixtureRoot, szScratchRoot );
-	S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot );
-	// S10 T03: the building exporter and importer.
-	S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot );
-	// S14 T01: the medal exporter and importer.
-	S14Medal::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S14 T02: the chapter and campaign exporters and importers.
-	S14ChapterCampaign::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S14 T03: the mission's minimap pictures and the map .xml to .bzm conversion.
-	S14Mission::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S14 T04: the mission exporter with its validation, the shipped mission import, and the GOG row (win-home only).
-	S14MissionExport::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
-	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
-	S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" );
-	S10Building::NegativeTiles( pSession, pszRoot );
-	// S10 T02: the building's tile-frame grids, sprite position and point children.
-	S09Channels::Building( pSession, szFixtureRoot, szScratchRoot );
-	// S11 T01: the bridge exporter and importer.
-	S11Bridge::Fixture( pSession, szFixtureRoot, szScratchRoot );
-	// S11 T02: every shipped bridge's round trip and the bridge negative-tile guard.
-	S11Bridge::Shipped( pSession, pszRoot, szScratchRoot );
-	S11Bridge::NegativeTiles( pSession, pszRoot );
-
-	// S12 T01: the particle exporter and importer.
-	S12Particle::Fixture( pSession, szFixtureRoot, szScratchRoot );
-	S12Particle::Shipped( pSession, pszRoot, szScratchRoot );
-	// S13 T01: Get particle info.
-	S12Particle::Info( pSession, szFixtureRoot, szScratchRoot );
-	// S13 T02: the Particle source toggle.
-	S12Particle::SourceMode( pSession, szFixtureRoot, szScratchRoot );
-
-	// S13 T05: the 3D road and river exporters and importers.
-	S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rd", 14 );
-	S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rv", 15 );
-	S13Vso::Refusals( pSession, szScratchRoot );
-	S13Vso::Shipped( pSession, pszRoot, szScratchRoot );
-	// S13 T06: the road and river previews on their terrain.
-	S13Terrain::Run( pSession, szFixtureRoot, szScratchRoot );
-	// S13 T07: the tileset exporter and the refused import.
-	S13Til::Fixture( pSession, szFixtureRoot, szScratchRoot );
-
-	// S12 T02: the effect exporter and the refused import.
-	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-
-	// S15 T03: the GUI screen through BkResGui*, its export and the palette fixture.
-	S15Gui::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
-
-	// S16 T15: the batch exports every kind from the files alone, as the single export does.
-	S16Batch::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// The rest as a list, so CI can run it in slices side by side: --shard <k>
+	// runs the k-th slice of kShardStarts. Each slice starts its own session,
+	// so every entry sets up what it needs itself - running each slice alone
+	// proves it. The full run is every slice in order.
+	const SBridgeTest tests[] = {
+		// The cells, point and aimed channels where MFC keeps them (D014 item 2).
+		{ "BuildingGeometryInMfcLayout", [&] { BuildingGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "ObjectGeometryInMfcLayout", [&] { ObjectGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "ItemGeometryInMfcLayout", [&] { ItemGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot ); } },
+		// The list channels where MFC keeps them (D014 item 2, part 2), and every
+		// channel on every fixture with no private geometry element written.
+		{ "ListGeometryInMfcLayout", [&] { ListGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "EveryChannelOnEveryFixture", [&] { EveryChannelOnEveryFixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "T10::Run", [&] { T10::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		{ "ExportRollback::Run", [&] { ExportRollback::Run( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "T11::Run", [&] { T11::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S06 T01: the trench exporter against the shipped entrenchment.
+		{ "S06Export::Run", [&] { S06Export::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S06 T05: the mine, trench and squad previews.
+		{ "S06Preview::Run", [&] { S06Preview::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S06 T04: the sub-editors' tools, undo, redo and save on the real bridge.
+		{ "S06Tools::Run", [&] { S06Tools::Run( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S07 T05: the portable BuildAnimations and the .san writer.
+		{ "S07Compose::Run", [&] { S07Compose::Run( pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S07 T06: the sprite exporter and its preview.
+		{ "S07Sprite::Run", [&] { S07Sprite::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		{ "S07Infantry::Run", [&] { S07Infantry::Run( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S08 T01: the unit exporter against the shipped 8_cm_GrWr34.
+		{ "S08Mesh::Run", [&] { S08Mesh::Run( pSession, pszRoot, szScratchRoot ); } },
+		{ "S08Mesh::ImportRoundTrips", [&] { S08Mesh::ImportRoundTrips( pSession, pszRoot, szScratchRoot ); } },
+		{ "S08Mesh::Graphics", [&] { S08Mesh::Graphics( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S08 T04: the unit preview's variants, locators and direction.
+		{ "S08Preview::Run", [&] { S08Preview::Run( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S08 T05: the unit editor's locator references, model switch and platform and gun nodes, undone and redone.
+		{ "S08Undo::Run", [&] { S08Undo::Run( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S09 T02: the object exporter and importer.
+		{ "S09Object::Fixture", [&] { S09Object::Fixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "S09Object::Shipped", [&] { S09Object::Shipped( pSession, pszRoot, szScratchRoot ); } },
+		{ "S09Object::NegativeTiles 1/4", [&] { S09Object::g_nScanPart = 1; S09Object::g_nScanParts = 4; S09Object::NegativeTiles( pSession, pszRoot ); S09Object::g_nScanPart = S09Object::g_nScanParts = 1; } },
+		{ "S09Object::NegativeTiles 2/4", [&] { S09Object::g_nScanPart = 2; S09Object::g_nScanParts = 4; S09Object::NegativeTiles( pSession, pszRoot ); S09Object::g_nScanPart = S09Object::g_nScanParts = 1; } },
+		{ "S09Object::NegativeTiles 3/4", [&] { S09Object::g_nScanPart = 3; S09Object::g_nScanParts = 4; S09Object::NegativeTiles( pSession, pszRoot ); S09Object::g_nScanPart = S09Object::g_nScanParts = 1; } },
+		{ "S09Object::NegativeTiles 4/4", [&] { S09Object::g_nScanPart = 4; S09Object::g_nScanParts = 4; S09Object::NegativeTiles( pSession, pszRoot ); S09Object::g_nScanPart = S09Object::g_nScanParts = 1; } },
+		// S09 T03: the fence exporter and importer.
+		{ "S09Fence::Fixture", [&] { S09Fence::Fixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "S09Fence::IndexHole", [&] { S09Fence::IndexHole( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "S09Fence::Shipped", [&] { S09Fence::Shipped( pSession, pszRoot, szScratchRoot ); } },
+		// S09 T04: the grid channels, passability origin consistency and the refusals that name channel and kind.
+		{ "S09Channels::Object", [&] { S09Channels::Object( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "S09Channels::Fence", [&] { S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S10 T03: the building exporter and importer.
+		{ "S10Building::Fixture", [&] { S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S14 T01: the medal exporter and importer.
+		{ "S14Medal::Run", [&] { S14Medal::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S14 T02: the chapter and campaign exporters and importers.
+		{ "S14ChapterCampaign::Run", [&] { S14ChapterCampaign::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S14 T03: the mission's minimap pictures and the map .xml to .bzm conversion.
+		{ "S14Mission::Run", [&] { S14Mission::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S14 T04: the mission exporter with its validation, the shipped mission import, and the GOG row (win-home only).
+		{ "S14MissionExport::Run", [&] { S14MissionExport::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
+		{ "S10Building::Shipped", [&] { S10Building::Shipped( pSession, pszRoot, szScratchRoot ); } },
+		{ "S10Building::Shipped europe/summer/e_house07_1", [&] { S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" ); } },
+		{ "S10Building::NegativeTiles", [&] { S10Building::NegativeTiles( pSession, pszRoot ); } },
+		// S10 T02: the building's tile-frame grids, sprite position and point children.
+		{ "S09Channels::Building", [&] { S09Channels::Building( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S11 T01: the bridge exporter and importer.
+		{ "S11Bridge::Fixture", [&] { S11Bridge::Fixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S11 T02: every shipped bridge's round trip and the bridge negative-tile guard.
+		{ "S11Bridge::Shipped", [&] { S11Bridge::Shipped( pSession, pszRoot, szScratchRoot ); } },
+		{ "S11Bridge::NegativeTiles", [&] { S11Bridge::NegativeTiles( pSession, pszRoot ); } },
+		// S12 T01: the particle exporter and importer.
+		{ "S12Particle::Fixture", [&] { S12Particle::Fixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		{ "S12Particle::Shipped", [&] { S12Particle::Shipped( pSession, pszRoot, szScratchRoot ); } },
+		// S13 T01: Get particle info.
+		{ "S12Particle::Info", [&] { S12Particle::Info( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S13 T02: the Particle source toggle.
+		{ "S12Particle::SourceMode", [&] { S12Particle::SourceMode( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S13 T05: the 3D road and river exporters and importers.
+		{ "S13Vso::OneFixture 3rd", [&] { S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rd", 14 ); } },
+		{ "S13Vso::OneFixture 3rv", [&] { S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rv", 15 ); } },
+		{ "S13Vso::Refusals", [&] { S13Vso::Refusals( pSession, szScratchRoot ); } },
+		{ "S13Vso::Shipped", [&] { S13Vso::Shipped( pSession, pszRoot, szScratchRoot ); } },
+		// S13 T06: the road and river previews on their terrain.
+		{ "S13Terrain::Run", [&] { S13Terrain::Run( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S13 T07: the tileset exporter and the refused import.
+		{ "S13Til::Fixture", [&] { S13Til::Fixture( pSession, szFixtureRoot, szScratchRoot ); } },
+		// S12 T02: the effect exporter and the refused import.
+		{ "S12Effect::Fixture", [&] { S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S15 T03: the GUI screen through BkResGui*, its export and the palette fixture.
+		{ "S15Gui::Run", [&] { S15Gui::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+		// S16 T15: the batch exports every kind from the files alone, as the single export does.
+		{ "S16Batch::Run", [&] { S16Batch::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot ); } },
+	};
+	const int nTests = int( sizeof( tests ) / sizeof( tests[0] ) );
+	int nFirst = 0, nEnd = nTests;
+	if ( nShard > 0 && !ShardRange( tests, nTests, nShard, &nFirst, &nEnd ) )
+	{
+		Check( false, ( "--shard " + std::to_string( nShard ) + " names a slice (1 to " + std::to_string( int( sizeof( kShardStarts ) / sizeof( kShardStarts[0] ) ) + 1 ) + ")" ).c_str() );
+		nFirst = nEnd = 0;
+	}
+	for ( int i = nFirst; i < nEnd; ++i )
+	{
+		const auto testStart = std::chrono::steady_clock::now();
+		tests[i].run();
+		std::printf( "resource-bridge: %s took %.1f s\n", tests[i].pszName,
+		             std::chrono::duration<double>( std::chrono::steady_clock::now() - testStart ).count() );
+	}
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

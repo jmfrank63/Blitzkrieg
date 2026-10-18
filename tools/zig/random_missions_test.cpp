@@ -3,10 +3,12 @@
 // read back, checked and opened in the engine. Needs a hidden SDL window and a
 // GPU device, as the engine tier does, and skips honestly where there is none.
 //
-// argv: <installation> <scratch> [all | cover | only=<text>] [repeat=<n>]
+// argv: <installation> <scratch> [all | cover | only=<text> | shard=<k>/<n>] [repeat=<n>]
 //   all     every gated chapter x every template of its setting x 3 difficulties
 //   cover   every gated chapter x template pair once, the difficulty rotating
 //   only=   the cases whose chapter or template name contains <text>
+//   shard=  the all sweep's templates k, k+n, k+2n... (k from 1), every case of a template in one
+//           shard, so CI runs the sweep as n jobs side by side
 //   repeat= the selected cases n times over: the same templates and terrain again, so a cache has
 //           seen them all after the first round and any further growth is a leak
 #include "StdAfx.h"
@@ -17,6 +19,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <map>
 #include <set>
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/MapFile/MapFile.h"
@@ -221,6 +224,13 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 	const size_t nSkip = bResume ? size_t( atoi( szSweep.c_str() + 11 ) ) : 0;
 	const bool bCover = szSweep == "cover" || bResume;
 	const std::string szOnly = bOnly ? Lower( szSweep.substr( 5 ) ) : std::string();
+	// "shard=K/N": the all sweep split by template, in the order the templates
+	// first appear. A template's cases stay together because its first case is
+	// the one that regenerates the map the others reuse.
+	int nShard = 0, nShards = 0;
+	if ( szSweep.compare( 0, 6, "shard=" ) == 0 && sscanf( szSweep.c_str() + 6, "%d/%d", &nShard, &nShards ) != 2 )
+		nShards = 0;
+	std::map<std::string, int> templateOrder;
 	for ( const char *pszCampaign : CAMPAIGNS )
 	{
 		const SCampaignStats *pCampaign = NGDB::GetGameStats<SCampaignStats>( pszCampaign, IObjectsDB::CAMPAIGN );
@@ -245,6 +255,9 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 					continue;
 				// The chapter screen's own rule (GameTT/Chapter.cpp).
 				if ( pMission->szSettingName != pChapter->szSettingName )
+					continue;
+				const int nOrder = templateOrder.emplace( szTemplate, int( templateOrder.size() ) ).first->second;
+				if ( nShards > 0 && nOrder % nShards != nShard - 1 )
 					continue;
 				for ( int nDifficulty = 0; nDifficulty < 3; ++nDifficulty )
 				{
@@ -525,7 +538,11 @@ int main( int argc, char **argv )
 		const auto start = std::chrono::steady_clock::now();
 		const std::vector<SCase> cases = CollectCases( szSweep );
 		// A sweep that selects nothing (a mistyped only= filter) tests nothing and must not pass.
-		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || szSweep.compare( 0, 11, "cover-from=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
+		// A shard holds about its share of the all sweep's cases.
+		int nShard = 0, nShards = 0;
+		const bool bShard = sscanf( szSweep.c_str(), "shard=%d/%d", &nShard, &nShards ) == 2 && nShards > 0 && nShard >= 1 && nShard <= nShards;
+		Check( szSweep.compare( 0, 6, "shard=" ) != 0 || bShard, "the shard is k/n with 1 <= k <= n (" + szSweep + ")" );
+		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || szSweep.compare( 0, 11, "cover-from=" ) == 0 || cases.size() * size_t( bShard ? nShards : 1 ) > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
 		int nFailedCases = 0;
 		const long long nMemoryAtStart = ProcessMemoryKb();
 		int nCase = 0;

@@ -6,16 +6,18 @@
 #include "bk_memory.h"
 #include "bk_memory_sdl.h"
 
-#include <csetjmp>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-
+// png.h first: on Linux libpng refuses to build when <setjmp.h> came before it
+// (pngconf.h "__png.h__ already includes setjmp.h"), and it includes it itself.
 extern "C" {
 #include "zlib.h"
 #include "png.h"
 #include "lua.h"
 }
+
+#include <csetjmp>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 namespace
 {
