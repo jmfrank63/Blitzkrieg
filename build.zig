@@ -3516,7 +3516,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
-    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain));
+    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain, .static));
     // The help text embedded in ELK (D-02): its own module, since the
     // Markdown lives in Sources/editor/elk/help, outside the app's folder.
     const elk_help_module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = .debug });
@@ -5373,30 +5373,43 @@ fn addEditorImgui(
 }
 
 /// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
-/// library: the C API in `hunspell.h` is all ELK calls. The CRT rules are
-/// editor-imgui's: the release CRT on MSVC, libc only on Linux (the
-/// consumer links libstdc++), the C++ runtime named on macOS.
+/// library: the C API in `hunspell.h` is all ELK calls. On MSVC it is built
+/// for the DLL CRT of its consumer's mode, which ELK links like the other
+/// editors; libc only on Linux (the consumer links libstdc++), the C++ runtime
+/// named on macOS.
 fn addHunspell(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    /// The CRT its consumer links on MSVC: .dll for ELK (the editors' recipe,
+    /// linkMsvcRuntime), .static for test-elk-app, whose host editor kit links
+    /// Zig's libc, the static release CRT.
+    crt: enum { dll, static },
 ) *std.Build.Step.Compile {
-    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
     const module = b.createModule(.{
         .target = target,
-        .optimize = cxx_optimize,
+        .optimize = optimize,
     });
     module.addIncludePath(b.path("vendor/hunspell/src/hunspell"));
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
+    // On MSVC as the engine's own C++ libraries: linkMsvcRuntime names the DLL
+    // CRT, and without it the C++ sources pulled in Zig's libc, the static CRT,
+    // whose _cexit and friends collided with ucrtd in ELK's link.
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
-    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
-    // Hunspell uses the standard library's streams and strings, whose MSVC
-    // half is the C++ runtime's import library, not part of the C CRT.
-    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "msvcprtd" else "msvcprt", .{});
+    } else if (target.result.abi != .msvc or crt == .dll) {
+        linkMsvcRuntime(module, optimize);
+    } else {
+        // Zig's libc and the C++ runtime that matches it (static, release).
+        module.link_libc = true;
+        module.linkSystemLibrary("libcpmt", .{});
+    }
+    // Compiled for the CRT `crt` names: for the DLL one -D_MT -D_DLL (and
+    // -D_DEBUG in Debug), or its objects record the static release CRT and the
+    // link fails with "/failifmismatch: RuntimeLibrary" (main run 39086936588).
     module.addCSourceFiles(.{
         .root = b.path("vendor/hunspell/src/hunspell"),
         .files = &.{
@@ -5411,7 +5424,12 @@ fn addHunspell(
             "replist.cxx",
             "suggestmgr.cxx",
         },
-        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+        .flags = if (target.result.abi != .msvc or crt == .static)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" }
+        else if (optimize == .debug)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL", "-D_DEBUG" }
+        else
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" },
     });
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
@@ -9592,20 +9610,31 @@ fn addElk(
             .{ .name = "elk_build", .module = elk_build.createModule() },
         },
     });
-    // The editor-overlay-spike's recipe, the other engine-less ImGui program:
-    // on MSVC Zig's libc is the one CRT, elsewhere the executable pulls in the
-    // C++ runtime editor-imgui needs.
+    // The Map and Resource Editors' CRT: on MSVC the DLL CRT of the build's
+    // mode (linkMsvcRuntime), which hunspell is compiled for and crt.zig's debug
+    // report hooks need; Zig's libc, the static release CRT, had neither
+    // (main run 39086936588: RuntimeLibrary mismatch, then _CrtSetReportMode).
     addMsvcLibraryPaths(b, module, toolchain);
-    if (target.result.abi == .msvc) module.link_libc = true else linkMsvcRuntime(module, optimize);
-    if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
+    linkMsvcRuntime(module, optimize);
+    // imm32 for ImGui's IME; user32 and shell32 for ELK's own clipboard, window
+    // and ShellExecute calls, which Zig's libc used to bring along.
+    if (target.result.os.tag == .windows) {
+        module.linkSystemLibrary("imm32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
     linkSdlImport(module, target, sdl_dynamic);
     linkBkMemoryAllocator(b, module, false);
-    module.linkLibrary(addHunspell(b, target, optimize, toolchain));
+    module.linkLibrary(addHunspell(b, target, optimize, toolchain, .dll));
     const exe = b.addExecutable(.{ .name = "ELK", .root_module = module });
     switch (target.result.os.tag) {
         // No console on a double-click; the scripted modes attach to the
         // parent's (crt.attachParentConsole).
-        .windows => exe.subsystem = .windows,
+        // The CRT's own entry, which calls the C main the app exports.
+        .windows => {
+            exe.subsystem = .windows;
+            exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        },
         .macos => exe.root_module.addRPathSpecial("@executable_path"),
         .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
         else => {},

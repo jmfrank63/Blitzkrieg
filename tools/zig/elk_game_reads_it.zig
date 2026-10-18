@@ -21,6 +21,15 @@ const database = elk.database;
 const packages = elk.packages;
 const testing = std.testing;
 
+/// The value of an environment variable the build step sets, or null.
+/// testing.environ.getPosix compiles only for POSIX targets (on Windows its
+/// block has no view(), run 39086936588); the map works everywhere.
+fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
+    var map = try testing.environ.createMap(allocator);
+    const value = map.get(key) orelse return null;
+    return try allocator.dupeSentinel(u8, value, 0);
+}
+
 const scratch = "zig-out/local-test/elk/game-reads-it";
 const mod_name = "ELKTest";
 /// `imheader-gbutton-exitgame` in Data/UI/MainMenu.xml: the button in the
@@ -54,7 +63,7 @@ test "the Game shows a main-menu label the ELK exported to a mod (E-06)" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const game = testing.environ.getPosix("BK_ELK_GAME") orelse {
+    const game = (try envValue(allocator, "BK_ELK_GAME")) orelse {
         std.debug.print("BK_ELK_GAME is not set: run zig build elk-game-reads-it\n", .{});
         return error.MissingGame;
     };
@@ -121,7 +130,7 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const game = testing.environ.getPosix("BK_ELK_GAME") orelse {
+    const game = (try envValue(allocator, "BK_ELK_GAME")) orelse {
         std.debug.print("BK_ELK_GAME is not set: run zig build elk-game-reads-it\n", .{});
         return error.MissingGame;
     };
