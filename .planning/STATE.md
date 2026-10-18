@@ -3,7 +3,7 @@ gsd_state_version: "1.0"
 current_plan: 11
 status: phase-5-complete
 stopped_at: "Phase 5 complete: 05-VERIFICATION passed, 05-UAT 14/14 (next: plan phase 6)"
-last_updated: "2026-10-05T14:30:00.000Z"
+last_updated: "2026-10-18T00:00:00.000Z"
 state_head: e4e3785da539c006609c35d0869bc5b30a9c7ca4
 progress:
   total_phases: 7
@@ -26,7 +26,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Milestone M001 (phase 6, Resource Editor portable port): S01 to S16 complete, S17 (validation remediation) in progress, T05 (this refresh) last.
+Milestone M001 (phase 6, Resource Editor portable port): S01 to S18 complete, milestone closed 2026-10-18.
 The MFC editor was deleted in c6b4329c6 (S16/T07, D037, released D050); PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87.
 Branch: feat/resource-editor.
 
@@ -37,7 +37,7 @@ replaced the GOG rows B-09.14 and B-14.5; found/imported/equal/accepted/failed t
 
 Open:
 - The hand try of the macOS and Windows release builds, deferred until CI works (D052).
-- CI: green on all eight jobs at 87122af73 (run 37712856614, 2026-10-08, seen with gh), after the Windows job was split in three; merged into main.
+- CI: green on Linux x64, Windows MSVC and macOS arm64, every Resource Editor tier included, in run 39068432953 (2026-10-17, f64a01df7, seen with gh); merged into main.
 - The next full sweep after S17, left to the maintainer.
 
 Spec: the closing entry is "Amendment (S16 T06, 2026-10-06)" in `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md`.
