@@ -145,7 +145,10 @@ const FramePointerSelfInfo = struct {
 const Header = extern struct {
     size: u64,
     align_log2: u8,
-    _reserved: [3]u8,
+    /// The `modules` entry of the code that called operator new, 0 for the
+    /// C ABI callers, which are all ours.
+    module: u8,
+    _reserved: [2]u8,
     magic: u32,
 };
 
@@ -165,6 +168,219 @@ var live_bytes: usize = 0;
 var closed: bool = false;
 var closed_free_count: usize = 0;
 var report_leaks: usize = 0;
+
+/// The modules that called operator new, so the exit report can tell our
+/// blocks from those of a foreign library. The replaced operator new is the
+/// whole process's on Linux and macOS, so libLLVM (loaded by Mesa's drivers)
+/// and Apple's CoreML (loaded by SDL's Metal stack) allocate through it too.
+/// Both build registries in their static initializers and keep them until the
+/// process ends: about 2,650 blocks in the Game on Linux, 4 per tool run on
+/// macOS. That memory is not ours to free, and counted as a leak it hid every
+/// leak of our own behind a count that never reaches 0. Each of our modules
+/// registers itself from new_delete.cpp; a module that never did is foreign,
+/// and its blocks are reported per library instead of as leaks. Ownership is
+/// decided at report time, so a module whose first allocation came before its
+/// registration still counts as ours.
+const ModuleEntry = struct {
+    /// The module's code range, [start, end). Both are 0 once our module has
+    /// unloaded, so a library loaded later at the same address is not taken for it.
+    start: usize,
+    end: usize,
+    own: bool,
+    /// The C++ runtime itself (libc++, libstdc++), whose own calls of
+    /// operator new are attributed to the code that called into the runtime.
+    runtime: bool,
+    live: usize,
+    name_len: u8,
+    name: [55]u8,
+};
+
+/// Entry 0 is the C ABI callers. 255 entries cover every library a process
+/// loads with room to spare; a module past them is entry 0, counted as ours.
+var modules: [256]ModuleEntry = @splat(.{ .start = 0, .end = 0, .own = true, .runtime = false, .live = 0, .name_len = 0, .name = @splat(0) });
+var module_count: usize = 1;
+var module_mutex: std.atomic.Mutex = .unlocked;
+
+inline fn lockModuleSpin() void {
+    while (!module_mutex.tryLock()) {
+        std.atomic.spinLoopHint();
+        std.Thread.yield() catch {};
+    }
+}
+
+/// A module's code range and file name, found from one address in it.
+const ModuleInfo = struct { start: usize, end: usize, path: []const u8 };
+
+fn findModule(address: usize) ?ModuleInfo {
+    switch (builtin.os.tag) {
+        .linux => {
+            const Search = struct {
+                address: usize,
+                found: ?ModuleInfo = null,
+
+                fn visit(info: *std.c.dl_phdr_info, _: usize, data: ?*anyopaque) callconv(.c) c_int {
+                    const search: *@This() = @ptrCast(@alignCast(data.?));
+                    var low: usize = std.math.maxInt(usize);
+                    var high: usize = 0;
+                    for (info.phdr[0..info.phnum]) |ph| {
+                        if (@intFromEnum(ph.type) != 1) continue; // PT_LOAD
+                        low = @min(low, info.addr + ph.vaddr);
+                        high = @max(high, info.addr + ph.vaddr + ph.memsz);
+                    }
+                    if (search.address < low or search.address >= high) return 0;
+                    const name = if (info.name) |n| std.mem.span(n) else "";
+                    search.found = .{ .start = low, .end = high, .path = if (name.len == 0) "main program" else name };
+                    return 1;
+                }
+            };
+            var search: Search = .{ .address = address };
+            _ = std.c.dl_iterate_phdr(Search.visit, &search);
+            return search.found;
+        },
+        .macos => {
+            var info: std.c.dl_info = undefined;
+            if (std.c.dladdr(@ptrFromInt(address), &info) == 0) return null;
+            // A return address is always in __TEXT, which starts at the header.
+            // The shared cache's images keep their other segments apart from
+            // __TEXT, so the whole image is not one range; __TEXT is.
+            const header: *const std.macho.mach_header_64 = @ptrCast(@alignCast(info.fbase));
+            var command: [*]const u8 = @ptrCast(info.fbase);
+            command += @sizeOf(std.macho.mach_header_64);
+            for (0..header.ncmds) |_| {
+                const lc: *const std.macho.load_command = @ptrCast(@alignCast(command));
+                if (lc.cmd == .SEGMENT_64) {
+                    const seg: *const std.macho.segment_command_64 = @ptrCast(@alignCast(command));
+                    if (std.mem.eql(u8, std.mem.sliceTo(&seg.segname, 0), "__TEXT")) {
+                        const start = @intFromPtr(info.fbase);
+                        return .{ .start = start, .end = start + seg.vmsize, .path = std.mem.span(info.fname) };
+                    }
+                }
+                command += lc.cmdsize;
+            }
+            return null;
+        },
+        .windows => {
+            const from_address = 0x4;
+            const unchanged_refcount = 0x2;
+            var handle: ?*anyopaque = null;
+            if (kernel32.GetModuleHandleExW(from_address | unchanged_refcount, @ptrFromInt(address), &handle) == 0) return null;
+            const base: [*]const u8 = @ptrCast(handle.?);
+            const nt = std.mem.readInt(u32, base[0x3c..][0..4], .little);
+            // SizeOfImage: the optional header starts 24 bytes into the NT
+            // headers and holds it at 56 in both PE32 and PE32+.
+            const size = std.mem.readInt(u32, base[nt + 24 + 56 ..][0..4], .little);
+            const S = struct {
+                var path: [260]u8 = undefined;
+            };
+            var wide: [260]u16 = undefined;
+            const n = kernel32.GetModuleFileNameW(handle, &wide, wide.len);
+            // The report prints the name only; non-ASCII characters become '?'.
+            for (wide[0..n], 0..) |ch, i| S.path[i] = if (ch < 0x80) @intCast(ch) else '?';
+            return .{ .start = @intFromPtr(base), .end = @intFromPtr(base) + size, .path = S.path[0..n] };
+        },
+        else => return null,
+    }
+}
+
+fn baseName(path: []const u8) []const u8 {
+    const slash = std.mem.lastIndexOfAny(u8, path, "/\\") orelse return path;
+    return path[slash + 1 ..];
+}
+
+fn entryFor(address: usize) u8 {
+    const n = @atomicLoad(usize, &module_count, .acquire);
+    for (modules[1..n], 1..) |*m, i| {
+        if (address >= @atomicLoad(usize, &m.start, .monotonic) and address < @atomicLoad(usize, &m.end, .monotonic)) return @intCast(i);
+    }
+    return addEntry(address, false);
+}
+
+/// `fresh` makes a new entry even when one covers the address: a module that
+/// registers is new to the process, and an entry still covering its range is
+/// a library unloaded before it.
+fn addEntry(address: usize, fresh: bool) u8 {
+    lockModuleSpin();
+    defer module_mutex.unlock();
+    const n = module_count;
+    for (modules[1..n], 1..) |*m, i| {
+        if (address < m.start or address >= m.end) continue;
+        if (!fresh) return @intCast(i);
+        @atomicStore(usize, &m.start, 0, .monotonic);
+        @atomicStore(usize, &m.end, 0, .monotonic);
+    }
+    if (n == modules.len) return 0;
+    const info = findModule(address) orelse return 0;
+    const name = baseName(info.path);
+    const m = &modules[n];
+    m.* = .{ .start = info.start, .end = info.end, .own = false, .runtime = false, .live = 0, .name_len = 0, .name = @splat(0) };
+    m.name_len = @intCast(@min(name.len, m.name.len));
+    @memcpy(m.name[0..m.name_len], name[0..m.name_len]);
+    m.runtime = std.mem.startsWith(u8, name, "libc++") or std.mem.startsWith(u8, name, "libstdc++");
+    @atomicStore(usize, &module_count, n + 1, .release);
+    return @intCast(n);
+}
+
+/// The entry of the code that called operator new. A call that the C++
+/// runtime made on someone's behalf (basic_string's out-of-line growth in
+/// libc++.1.dylib) belongs to the code that called the runtime, found by
+/// walking the frame chain from operator new's own frame. Only on macOS,
+/// whose ABI keeps a frame record in every frame of the system libraries;
+/// elsewhere our modules carry their C++ runtime inside them, and a foreign
+/// library's call through the system runtime is foreign either way.
+fn callerEntry(return_address: usize, frame: usize) u8 {
+    var ra = return_address;
+    var fp = frame;
+    var entry = entryFor(ra);
+    if (comptime !builtin.os.tag.isDarwin()) return entry;
+    var depth: usize = 0;
+    while (modules[entry].runtime and depth < 8) : (depth += 1) {
+        if (fp == 0 or fp % @sizeOf(usize) != 0) break;
+        const next: usize = @as(*const usize, @ptrFromInt(fp)).*;
+        // A frame record further up the same stack, never a wild pointer.
+        if (next <= fp or next - fp > 1 << 20 or next % @sizeOf(usize) != 0) break;
+        // arm64e system code may sign its saved return addresses; the
+        // address bits are the low 47.
+        ra = @as(*const usize, @ptrFromInt(next + @sizeOf(usize))).* & ((1 << 47) - 1);
+        fp = next;
+        entry = entryFor(ra);
+    }
+    return entry;
+}
+
+/// Blocks still live from modules that never registered.
+fn foreignLive() usize {
+    var total: usize = 0;
+    const n = @atomicLoad(usize, &module_count, .acquire);
+    for (modules[1..n]) |*m| {
+        if (!@atomicLoad(bool, &m.own, .monotonic)) total += @atomicLoad(usize, &m.live, .monotonic);
+    }
+    return total;
+}
+
+/// One line per foreign library with live blocks and, when `leaks` of our
+/// own are left, where they came from: the module whose operator new made
+/// them, or the C ABI (Zig code and the C libraries) for the rest. That
+/// names the module to look in without the per-block stacks, which on Linux
+/// cost the editors more than the run itself.
+fn logModules(leaks: usize) void {
+    const log = std.log.scoped(.BkMemory);
+    const n = @atomicLoad(usize, &module_count, .acquire);
+    if (leaks != 0) {
+        var by_operator_new: usize = 0;
+        for (modules[1..n]) |*m| {
+            const live = @atomicLoad(usize, &m.live, .monotonic);
+            if (!m.own or live == 0) continue;
+            by_operator_new += live;
+            log.warn("bk_mem: of those, {d} from {s}'s operator new", .{ live, m.name[0..m.name_len] });
+        }
+        if (leaks > by_operator_new) log.warn("bk_mem: of those, {d} from the C ABI", .{leaks - by_operator_new});
+    }
+    for (modules[1..n]) |*m| {
+        const live = @atomicLoad(usize, &m.live, .monotonic);
+        if (m.own or live == 0) continue;
+        log.warn("bk_mem: {d} foreign block(s) from {s}", .{ live, m.name[0..m.name_len] });
+    }
+}
 
 pub const std_options: std.Options = .{ .logFn = logToStderr };
 
@@ -212,7 +428,7 @@ fn checkHeader(user: [*]u8, what: []const u8) *Header {
     return h;
 }
 
-fn allocImpl(size: usize, alignment: usize, ra: usize) ?[*]u8 {
+fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
     if (@atomicLoad(bool, &closed, .acquire)) std.debug.panic("bk_mem_alloc after bk_mem_report", .{});
     const a = normalizeAlign(alignment) orelse return null;
     const pad = padFor(a.toByteUnits());
@@ -227,11 +443,13 @@ fn allocImpl(size: usize, alignment: usize, ra: usize) ?[*]u8 {
     headerOf(user).* = .{
         .size = size,
         .align_log2 = @intCast(@intFromEnum(a)),
-        ._reserved = .{ 0, 0, 0 },
+        .module = module,
+        ._reserved = .{ 0, 0 },
         .magic = live_magic,
     };
     _ = @atomicRmw(usize, &live_count, .Add, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Add, size, .monotonic);
+    if (module != 0) _ = @atomicRmw(usize, &modules[module].live, .Add, 1, .monotonic);
     return user;
 }
 
@@ -246,6 +464,7 @@ fn freeImpl(user: [*]u8, ra: usize) void {
     const pad = padFor(alignment.toByteUnits());
     const base = user - pad;
     h.magic = freed_magic;
+    if (h.module != 0) _ = @atomicRmw(usize, &modules[h.module].live, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_count, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Sub, size, .monotonic);
     if (comptime stack_frames != 0) lockRecordSpin();
@@ -254,7 +473,7 @@ fn freeImpl(user: [*]u8, ra: usize) void {
 }
 
 fn reallocImpl(user: ?[*]u8, new_size: usize, want_align: usize, ra: usize) ?[*]u8 {
-    const p = user orelse return allocImpl(new_size, want_align, ra);
+    const p = user orelse return allocImpl(new_size, want_align, ra, 0);
     if (new_size == 0) {
         freeImpl(p, ra);
         return null;
@@ -288,23 +507,23 @@ fn reallocImpl(user: ?[*]u8, new_size: usize, want_align: usize, ra: usize) ?[*]
 }
 
 fn moveBlock(old: [*]u8, old_size: usize, new_size: usize, alignment: usize, ra: usize) ?[*]u8 {
-    const fresh = allocImpl(new_size, alignment, ra) orelse return null;
+    const fresh = allocImpl(new_size, alignment, ra, headerOf(old).module) orelse return null;
     @memcpy(fresh[0..@min(old_size, new_size)], old[0..@min(old_size, new_size)]);
     freeImpl(old, ra);
     return fresh;
 }
 
 export fn bk_mem_alloc(size: usize) callconv(.c) ?*anyopaque {
-    return allocImpl(size, min_align, @returnAddress());
+    return allocImpl(size, min_align, @returnAddress(), 0);
 }
 
 export fn bk_mem_alloc_aligned(size: usize, alignment: usize) callconv(.c) ?*anyopaque {
-    return allocImpl(size, alignment, @returnAddress());
+    return allocImpl(size, alignment, @returnAddress(), 0);
 }
 
 export fn bk_mem_calloc(n: usize, size: usize) callconv(.c) ?*anyopaque {
     const total = std.math.mul(usize, n, size) catch return null;
-    const p = allocImpl(total, min_align, @returnAddress()) orelse return null;
+    const p = allocImpl(total, min_align, @returnAddress(), 0) orelse return null;
     @memset(p[0..total], 0);
     return p;
 }
@@ -346,6 +565,38 @@ export fn bk_mem_size(p: ?*anyopaque) callconv(.c) usize {
     return @intCast(checkHeader(ptr, "bk_mem_size").size);
 }
 
+/// operator new's entry: `caller` is its return address and `frame` its own
+/// frame record (0 when there is none), which attribute the block to the
+/// module that asked for it. An alignment of 0 is the default one.
+export fn bk_mem_alloc_from(size: usize, alignment: usize, caller: ?*const anyopaque, frame: ?*const anyopaque) callconv(.c) ?*anyopaque {
+    const module = callerEntry(@intFromPtr(caller), @intFromPtr(frame));
+    return allocImpl(size, if (alignment == 0) min_align else alignment, @returnAddress(), module);
+}
+
+/// Marks the module holding `address` as ours (see ModuleEntry).
+export fn bk_mem_register_module(address: ?*const anyopaque) callconv(.c) void {
+    const entry = addEntry(@intFromPtr(address), true);
+    if (entry != 0) @atomicStore(bool, &modules[entry].own, true, .monotonic);
+}
+
+/// Our module holding `address` is unloading: its range is forgotten, and
+/// its blocks still count as ours.
+export fn bk_mem_unregister_module(address: ?*const anyopaque) callconv(.c) void {
+    const a = @intFromPtr(address);
+    lockModuleSpin();
+    defer module_mutex.unlock();
+    for (modules[1..module_count]) |*m| {
+        if (a < m.start or a >= m.end) continue;
+        @atomicStore(usize, &m.start, 0, .monotonic);
+        @atomicStore(usize, &m.end, 0, .monotonic);
+    }
+}
+
+/// Live blocks of foreign libraries, which the leak counts leave out.
+export fn bk_mem_foreign_count() callconv(.c) usize {
+    return foreignLive();
+}
+
 export fn bk_mem_live_count() callconv(.c) usize {
     return @atomicLoad(usize, &live_count, .monotonic);
 }
@@ -355,8 +606,8 @@ export fn bk_mem_live_bytes() callconv(.c) usize {
 }
 
 /// Runs the final leak check now and closes the allocator. Returns the leak
-/// count (the live-block count when the backend keeps no leak records). Later
-/// calls return the same count.
+/// count (the live-block count when the backend keeps no leak records),
+/// without the blocks of foreign libraries. Later calls return the same count.
 export fn bk_mem_report() callconv(.c) usize {
     return reportImpl(true);
 }
@@ -367,7 +618,8 @@ fn reportImpl(print: bool) usize {
     if (@cmpxchgStrong(bool, &closed, false, true, .acq_rel, .acquire) != null) {
         return @atomicLoad(usize, &report_leaks, .acquire);
     }
-    const leaks: usize = if (use_safe) instance.deinitLog(print) else @atomicLoad(usize, &live_count, .monotonic);
+    const all: usize = if (use_safe) instance.deinitLog(print) else @atomicLoad(usize, &live_count, .monotonic);
+    const leaks = all -| foreignLive();
     @atomicStore(usize, &report_leaks, leaks, .release);
     return leaks;
 }
@@ -381,6 +633,8 @@ const kernel32 = struct {
     extern "kernel32" fn GetEnvironmentVariableA(name: [*:0]const u8, buffer: [*]u8, size: u32) callconv(.winapi) u32;
     extern "kernel32" fn GetCurrentProcess() callconv(.winapi) *anyopaque;
     extern "kernel32" fn TerminateProcess(process: *anyopaque, code: u32) callconv(.winapi) i32;
+    extern "kernel32" fn GetModuleHandleExW(flags: u32, address: ?*const anyopaque, module: *?*anyopaque) callconv(.winapi) i32;
+    extern "kernel32" fn GetModuleFileNameW(module: ?*anyopaque, name: [*]u16, size: u32) callconv(.winapi) u32;
 };
 
 const exit_leaks: u32 = 3;
@@ -466,7 +720,7 @@ fn detachHook() void {
     const leaks = if (policy == .log)
         reportImpl(true)
     else blk: {
-        const n = @atomicLoad(usize, &live_count, .monotonic);
+        const n = @atomicLoad(usize, &live_count, .monotonic) -| foreignLive();
         @atomicStore(usize, &report_leaks, n, .release);
         @atomicStore(bool, &closed, true, .release);
         break :blk n;
@@ -475,12 +729,12 @@ fn detachHook() void {
         // For `log` the full report with stacks came from reportImpl; this is the
         // one line a script can count, printed for a clean run too.
         log.warn("bk_mem: {d} leaked block(s)", .{leaks});
+        logModules(leaks);
         return;
     }
-    if (leaks > 0) {
-        log.err("{d} leaked block(s) at exit", .{leaks});
-        exitNow(exit_leaks);
-    }
+    if (leaks > 0) log.err("{d} leaked block(s) at exit", .{leaks});
+    logModules(leaks);
+    if (leaks > 0) exitNow(exit_leaks);
 }
 
 /// The DLL entry for the safe/smp builds, which link no libc: Zig's own
@@ -621,4 +875,58 @@ test "default stack depth follows the platform" {
         // counts the CI gates read never unwind anyway.
         0;
     try testing.expectEqual(expected, stack_frames);
+}
+
+/// An address in a library the test binary did not build: libc's malloc, or
+/// kernel32's GetCurrentProcess on Windows.
+fn foreignCodeAddress() ?*const anyopaque {
+    if (builtin.os.tag == .windows) {
+        const k32 = struct {
+            extern "kernel32" fn GetModuleHandleA(name: [*:0]const u8) callconv(.winapi) ?*anyopaque;
+            extern "kernel32" fn GetProcAddress(module: ?*anyopaque, name: [*:0]const u8) callconv(.winapi) ?*const anyopaque;
+        };
+        return k32.GetProcAddress(k32.GetModuleHandleA("kernel32.dll"), "GetCurrentProcess");
+    }
+    // RTLD_DEFAULT: 0 on glibc, -2 on Darwin.
+    const default_handle: ?*anyopaque = if (builtin.os.tag.isDarwin()) @ptrFromInt(std.math.maxInt(usize) - 1) else null;
+    return std.c.dlsym(default_handle, "malloc");
+}
+
+test "a foreign library's blocks are counted apart from ours" {
+    bk_mem_register_module(@ptrCast(&foreignCodeAddress));
+    const foreign = foreignCodeAddress() orelse return error.SkipZigTest;
+    const f0 = bk_mem_foreign_count();
+    const c0 = bk_mem_live_count();
+
+    const own = bk_mem_alloc_from(24, 0, @ptrFromInt(@returnAddress()), null).?;
+    try testing.expectEqual(f0, bk_mem_foreign_count());
+    const theirs = bk_mem_alloc_from(24, 64, foreign, null).?;
+    try testing.expectEqual(f0 + 1, bk_mem_foreign_count());
+    try testing.expectEqual(c0 + 2, bk_mem_live_count());
+    try testing.expectEqual(@as(usize, 0), @intFromPtr(theirs) % 64);
+
+    const entry = modules[headerOf(@ptrCast(theirs)).module];
+    try testing.expect(!entry.own);
+    try testing.expect(entry.name_len != 0);
+    try testing.expect(modules[headerOf(@ptrCast(own)).module].own);
+
+    // A block that moves stays the library's.
+    const moved = bk_mem_realloc_aligned(theirs, 32, 4096).?;
+    try testing.expectEqual(f0 + 1, bk_mem_foreign_count());
+    bk_mem_free(moved);
+    bk_mem_free(own);
+    try testing.expectEqual(f0, bk_mem_foreign_count());
+    try testing.expectEqual(c0, bk_mem_live_count());
+}
+
+test "an unloaded module's range is forgotten, its blocks stay ours" {
+    const here: *const anyopaque = @ptrCast(&foreignCodeAddress);
+    bk_mem_register_module(here);
+    const p = bk_mem_alloc_from(8, 0, here, null).?;
+    const index = headerOf(@ptrCast(p)).module;
+    bk_mem_unregister_module(here);
+    try testing.expectEqual(@as(usize, 0), modules[index].end);
+    try testing.expect(modules[index].own);
+    bk_mem_free(p);
+    bk_mem_register_module(here);
 }
