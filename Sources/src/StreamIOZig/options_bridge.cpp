@@ -362,7 +362,17 @@ public:
             std::fprintf(stderr, "BK_GFX_TRACE: option Set(\"GFX.Mode\") old=\"%s\" new=\"%s\"\n", old_text ? old_text : "<none>", text.c_str());
             std::fflush(stderr);
         }
-        const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt); if (ok) ApplyAction(name); return ok;
+        // The action runs only when the value changes. The Options screen's OK sets every row,
+        // changed or not, and re-running an untouched row's action undid the session's command
+        // line: started with -windowed, OK applied the profile's Fullscreen ON and the Game went
+        // fullscreen when the player had only picked a language (elk-game-reads-it on the 1024x768
+        // Windows runner: the shot after OK came at the display's size). -mode and -monitor are
+        // overridden the same way. Init() still runs every action once, at startup.
+        unsigned short before_type = 0; const char *before_text = api.value(state_, name.c_str(), &before_type);
+        const bool had = before_text != nullptr; const std::string before = had ? before_text : "";
+        const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt);
+        if (ok) { unsigned short after_type = 0; const char *after = api.value(state_, name.c_str(), &after_type); if (!had || !after || before != after || before_type != after_type) ApplyAction(name); }
+        return ok;
     }
     bool BK_STDCALL Remove(const std::string &name) override { return api.remove(state_, name.c_str()); }
     bool BK_STDCALL RemoveByMatch(const std::string &prefix) override { api.remove_prefix(state_, prefix.c_str()); return true; }
