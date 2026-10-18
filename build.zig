@@ -3516,14 +3516,14 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
-    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain));
+    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain, .static));
     // The help text embedded in ELK (D-02): its own module, since the
     // Markdown lives in Sources/editor/elk/help, outside the app's folder.
     const elk_help_module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = .debug });
     const elk_help_tests = b.addTest(.{ .root_module = elk_help_module });
     const elk_help_tests_run = b.addRunArtifact(elk_help_tests);
     addMsvcLibraryPaths(b, elk_app_logic_module, toolchain);
-    linkMsvcRuntime(elk_app_logic_module, .debug);
+    if (target.result.abi == .msvc) elk_app_logic_module.link_libc = true else linkMsvcRuntime(elk_app_logic_module, .debug);
     const elk_app_logic_tests = b.addTest(.{ .root_module = elk_app_logic_module });
     const elk_app_logic_tests_run = b.addRunArtifact(elk_app_logic_tests);
     elk_app_logic_tests_run.setCwd(b.path("."));
@@ -5382,6 +5382,10 @@ fn addHunspell(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    /// The CRT its consumer links on MSVC: .dll for ELK (the editors' recipe,
+    /// linkMsvcRuntime), .static for test-elk-app, whose host editor kit links
+    /// Zig's libc, the static release CRT.
+    crt: enum { dll, static },
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{
         .target = target,
@@ -5396,12 +5400,16 @@ fn addHunspell(
     // whose _cexit and friends collided with ucrtd in ELK's link.
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
-    } else linkMsvcRuntime(module, optimize);
-    // Its consumers (ELK, test-elk-app) link the DLL CRT of their build mode
-    // (linkMsvcRuntime), C++ runtime included, so hunspell is compiled for the
-    // same one: without -D_MT -D_DLL (and -D_DEBUG in Debug) its objects recorded
-    // the static release CRT and every link failed with "/failifmismatch:
-    // RuntimeLibrary" (main run 39086936588).
+    } else if (target.result.abi != .msvc or crt == .dll) {
+        linkMsvcRuntime(module, optimize);
+    } else {
+        // Zig's libc and the C++ runtime that matches it (static, release).
+        module.link_libc = true;
+        module.linkSystemLibrary("libcpmt", .{});
+    }
+    // Compiled for the CRT `crt` names: for the DLL one -D_MT -D_DLL (and
+    // -D_DEBUG in Debug), or its objects record the static release CRT and the
+    // link fails with "/failifmismatch: RuntimeLibrary" (main run 39086936588).
     module.addCSourceFiles(.{
         .root = b.path("vendor/hunspell/src/hunspell"),
         .files = &.{
@@ -5416,7 +5424,7 @@ fn addHunspell(
             "replist.cxx",
             "suggestmgr.cxx",
         },
-        .flags = if (target.result.abi != .msvc)
+        .flags = if (target.result.abi != .msvc or crt == .static)
             &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" }
         else if (optimize == .debug)
             &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL", "-D_DEBUG" }
@@ -9617,7 +9625,7 @@ fn addElk(
     }
     linkSdlImport(module, target, sdl_dynamic);
     linkBkMemoryAllocator(b, module, false);
-    module.linkLibrary(addHunspell(b, target, optimize, toolchain));
+    module.linkLibrary(addHunspell(b, target, optimize, toolchain, .dll));
     const exe = b.addExecutable(.{ .name = "ELK", .root_module = module });
     switch (target.result.os.tag) {
         // No console on a double-click; the scripted modes attach to the
