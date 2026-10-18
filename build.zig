@@ -5411,7 +5411,14 @@ fn addHunspell(
             "replist.cxx",
             "suggestmgr.cxx",
         },
-        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+        // On MSVC the DLL CRT (-D_MT -D_DLL), like msvcprt linked above: without it
+        // the objects record the static runtime and every consumer failed to link
+        // ("/failifmismatch: RuntimeLibrary", MT_StaticRelease against msvcprt's
+        // MD_DynamicRelease; ELK and test-elk-app, run 39086936588).
+        .flags = if (target.result.abi == .msvc)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" }
+        else
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
     });
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
