@@ -9558,10 +9558,13 @@ int main( int argc, char **argv )
 	SDL_SetHint( SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0" );
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
-		const char *pszError = SDL_GetError();
-		if ( std::strstr( pszError, "video driver" ) != 0 || std::strstr( pszError, "No available" ) != 0 )
-			return SkipOrFail( std::string( "no video driver (" ) + pszError + ")" );
-		std::printf( "FAIL: SDL_Init: %s\n", pszError );
+		// SDL_Quit even though SDL_Init failed: the environment copy SDL builds first is freed only there
+		// (a machine with no display fails here, and read as a leak of every environment variable).
+		const std::string szError = SDL_GetError();
+		SDL_Quit();
+		if ( szError.find( "video driver" ) != std::string::npos || szError.find( "No available" ) != std::string::npos )
+			return SkipOrFail( "no video driver (" + szError + ")" );
+		std::printf( "FAIL: SDL_Init: %s\n", szError.c_str() );
 		return 1;
 	}
 	SDL_Window *pWindow = SDL_CreateWindow( "resource-bridge-test", 640, 480, SDL_WINDOW_HIDDEN | SDL_WINDOW_NOT_FOCUSABLE );

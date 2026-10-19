@@ -4940,8 +4940,13 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 			if ( ISFX *pSFX = GetSingleton<ISFX>() )
 				pSFX->Done();
 		}
+		// Only a start that finished counted itself (BkEditorStart); a failed one, such as a machine
+		// without a GPU device, took the count below zero here and the registry release below never
+		// ran, leaving everything the failed start had built to the leak report.
+		const bool bCounted = pSession->bEngineStarted;
 		delete pSession;
-		--s_nBkEditorSessions;
+		if ( bCounted )
+			--s_nBkEditorSessions;
 		// The last session out releases the engine's singleton registry in the
 		// reverse of its registration order - the same owner-ordered release
 		// NMain::Finalize does for the game before it unloads the modules. The
