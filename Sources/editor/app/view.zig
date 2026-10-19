@@ -393,7 +393,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.right_via_ctrl = false;
             self.zoom_wheel = .{};
             self.pinch_zoom = .{};
-            self.selector = .{};
+            self.selector.reset();
             self.brush.gesture = 0;
             self.brush.painted.clearRetainingCapacity();
             self.placer.name = "";
