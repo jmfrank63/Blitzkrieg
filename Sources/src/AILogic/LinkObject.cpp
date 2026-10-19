@@ -5,42 +5,65 @@
 #include "MPLog.h"
 int CLinkObject::nCurUniqueID = 0;
 
-// Like GetLinkedObjects() below, these registries are leaked on purpose:
-// CLinkObject instances held by globals in other translation units
-// (theSuspendedUpdates and friends) are released during DLL teardown, after
-// namespace-scope statics of this file would already have been destroyed.
+namespace
+{
+// The registries live in one heap block owned by a function-local static, so they are
+// freed when the DLL is torn down. CLinkObject instances held by globals in other
+// translation units (theSuspendedUpdates and friends) can be released after that
+// owner is gone, or while it frees the registries' own contents; the block is
+// detached first and the destructor and SetLink skip the registries while
+// RegistriesAlive() is false.
+struct SLinkRegistries
+{
+	std::vector< CPtr<CLinkObject> > link2Object;
+	std::list<int> deletedObjects;
+	std::unordered_map< int, CPtr<CLinkObject> > unitsID2Object;
+	std::list<int> deletedUniqueObjects;
+	std::set<CLinkObject*> linkedObjects;
+};
+SLinkRegistries *pRegistries = 0;
+bool bRegistriesGone = false;
+struct SLinkRegistriesOwner
+{
+	SLinkRegistriesOwner() { pRegistries = new SLinkRegistries; }
+	~SLinkRegistriesOwner()
+	{
+		SLinkRegistries *p = pRegistries;
+		pRegistries = 0;
+		bRegistriesGone = true;
+		delete p;
+	}
+};
+SLinkRegistries& GetRegistries()
+{
+	static SLinkRegistriesOwner owner;
+	return *pRegistries;
+}
+bool RegistriesAlive()
+{
+	return !bRegistriesGone;
+}
+std::set<CLinkObject*>& GetLinkedObjects()
+{
+	return GetRegistries().linkedObjects;
+}
+}
+
 std::vector< CPtr<CLinkObject> >& CLinkObject::Link2Object()
 {
-	static std::vector< CPtr<CLinkObject> >* p = new std::vector< CPtr<CLinkObject> >;
-	return *p;
+	return GetRegistries().link2Object;
 }
 std::list<int>& CLinkObject::DeletedObjects()
 {
-	static std::list<int>* p = new std::list<int>;
-	return *p;
+	return GetRegistries().deletedObjects;
 }
 std::unordered_map< int, CPtr<CLinkObject> >& CLinkObject::UnitsID2Object()
 {
-	static std::unordered_map< int, CPtr<CLinkObject> >* p = new std::unordered_map< int, CPtr<CLinkObject> >;
-	return *p;
+	return GetRegistries().unitsID2Object;
 }
 std::list<int>& CLinkObject::DeletedUniqueObjects()
 {
-	static std::list<int>* p = new std::list<int>;
-	return *p;
-}
-
-namespace
-{
-std::set<CLinkObject*>& GetLinkedObjects()
-{
-	// CLinkObject instances can be constructed and destroyed by globals in
-	// other translation units while this DLL is being initialized or unloaded.
-	// Keep the registry alive for the DLL lifetime to avoid static
-	// initialization/destruction order dependencies.
-	static std::set<CLinkObject*>* linkedObjects = new std::set<CLinkObject*>;
-	return *linkedObjects;
-}
+	return GetRegistries().deletedUniqueObjects;
 }
 
 extern NTimer::STime curTime;

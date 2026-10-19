@@ -166,7 +166,7 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         const output = if (items.len > 2) items[2] else default_output;
         const picture = if (items.len > 3) items[3] else null;
         const passed = try check(gpa, io, kind, output, picture, mod);
-        std.process.exit(if (passed) 0 else 1);
+        exitFreeing(gpa, &rest, if (passed) 0 else 1);
     }
     if (items.len > 0 and std.mem.eql(u8, items[0], "--smoke")) {
         if (items.len > 3) usage();
@@ -174,14 +174,14 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         var output_buffer: [256]u8 = undefined;
         const output = if (items.len > 2) items[2] else std.fmt.bufPrint(&output_buffer, "{s}/smoke.{s}", .{ default_smoke_dir, kind.extension() }) catch unreachable;
         const passed = try smoke(gpa, io, kind, output, mod);
-        std.process.exit(if (passed) 0 else 1);
+        exitFreeing(gpa, &rest, if (passed) 0 else 1);
     }
     if (items.len > 0 and (std.mem.eql(u8, items[0], "--batch") or std.mem.eql(u8, items[0], "--batch-check"))) {
-        std.process.exit(batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check")));
+        exitFreeing(gpa, &rest, batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check")));
     }
     if (items.len > 0 and (std.mem.eql(u8, items[0], "--smoke-edit") or std.mem.eql(u8, items[0], "--auto"))) {
         if (items.len != 3) usage();
-        std.process.exit(scenarioMode(gpa, io, minimal.environ, items[0], items[1], items[2], mod));
+        exitFreeing(gpa, &rest, scenarioMode(gpa, io, minimal.environ, items[0], items[1], items[2], mod));
     }
     if (items.len > 1) usage();
     var first_kind: ?Kind = null;
@@ -194,6 +194,13 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         } else usage();
     }
     interactive(gpa, io, minimal.environ, first_kind, first_path, mod, hidden);
+}
+
+/// `std.process.exit` skips the deferred frees in `main`; the argument list is
+/// released first so BkMemory's exit report does not count it as a leak.
+fn exitFreeing(gpa: std.mem.Allocator, rest: *std.ArrayList([]const u8), code: u8) noreturn {
+    rest.deinit(gpa);
+    std.process.exit(code);
 }
 
 /// What -mod= asked for: nothing (leave the engine's own choice), no mod, or
