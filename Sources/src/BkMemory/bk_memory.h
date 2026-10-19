@@ -48,12 +48,29 @@ BK_MEMORY_API void bk_mem_free_sized(void *p, size_t size, size_t alignment);
 /* The requested size of a live block. */
 BK_MEMORY_API size_t bk_mem_size(void *p);
 
+/* operator new's entry. caller is its return address and frame its own frame
+ * record (NULL when it has none): together they name the module that asked
+ * for the block. alignment 0 is the default. */
+BK_MEMORY_API void *bk_mem_alloc_from(size_t size, size_t alignment, const void *caller, const void *frame);
+
+/* Every module of ours registers itself, with an address inside it, when it
+ * loads and unregisters when it unloads (new_delete.cpp does both). Blocks
+ * that operator new handed to any other library are foreign: the C++ runtime
+ * is the whole process's on Linux and macOS, so libLLVM and CoreML allocate
+ * through it, and their static registries live until the process ends. */
+BK_MEMORY_API void bk_mem_register_module(const void *address);
+BK_MEMORY_API void bk_mem_unregister_module(const void *address);
+
+/* Live blocks of foreign libraries, which the leak counts leave out. */
+BK_MEMORY_API size_t bk_mem_foreign_count(void);
+
 /* Cheap counters for tests to take deltas against. */
 BK_MEMORY_API size_t bk_mem_live_count(void);
 BK_MEMORY_API size_t bk_mem_live_bytes(void);
 
-/* Runs the final leak check now and returns the leak count. Afterwards a
- * free is a counted no-op and an alloc is a bug (panic).
+/* Runs the final leak check now and returns the leak count, foreign blocks
+ * not included. Afterwards a free is a counted no-op and an alloc is a bug
+ * (panic).
  *
  * The same check runs at library detach, steered by the BK_MEM_REPORT
  * environment variable (the default is on in Debug builds, off otherwise):
@@ -65,6 +82,8 @@ BK_MEMORY_API size_t bk_mem_live_bytes(void);
  *   count  as log, but the report is the summary line only, without the
  *        per-block stacks. For tiers whose leaks number in the hundreds of
  *        thousands, where symbolizing the stacks takes minutes.
+ * Every report also prints "bk_mem: N foreign block(s) from <library>" for
+ * each foreign library with live blocks; those never fail the exit code.
  * A backend without leak records ignores all of them. */
 BK_MEMORY_API size_t bk_mem_report(void);
 BK_MEMORY_API size_t bk_mem_closed_free_count(void);

@@ -572,6 +572,12 @@ bool StartEngineReaders( std::string *pszError )
 	return true;
 }
 
+void StopEngineReaders()
+{
+	if ( GetSingletonGlobal() != 0 )
+		GetSingletonGlobal()->Done();
+}
+
 SExportRead ReadExport( EExportKind kind, const std::string &szFile )
 {
 	SExportRead read;

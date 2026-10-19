@@ -251,6 +251,14 @@ namespace
             std::fprintf( stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError() );
         return borrowed_window != nullptr;
     }
+    // Everything EnsureBorrowedWindow created goes back before the leak report: SDL_Quit also
+    // frees SDL's cached environment, which the SDL_SetHint above builds.
+    void ReleaseBorrowedWindow()
+    {
+        if ( borrowed_window != nullptr ) SDL_DestroyWindow( borrowed_window );
+        borrowed_window = nullptr;
+        SDL_Quit();
+    }
     int texture_creates = 0, texture_uploads = 0, texture_releases = 0, target_creates = 0, target_binds = 0, buffer_creates = 0, buffer_uploads = 0, buffer_releases = 0;
     // Bounded: the adapter makes more calls than this buffer holds as the API
     // grows, and an unchecked write here smashes the globals next to it.
@@ -401,6 +409,7 @@ static int HarnessMain( int argc, char **argv )
 {
     InstallCrashHandler();
     const int recording = RunRecordingTest();
+    ReleaseBorrowedWindow();
     if ( recording != 0 ) { std::fprintf( stderr, "recording test failed: %d\n", recording ); return recording; }
     // On Windows this executable enters at main itself, not through the CRT
     // (build.zig explains why), so argc/argv hold whatever the kernel left in
@@ -443,6 +452,9 @@ static int HarnessMain( int argc, char **argv )
     }
 
     Stage( "Release the GFX object" );
+    // A new object holds no reference; the engine's CPtr takes the first. Releasing without that
+    // one drives the count to -1 and the object is never deleted.
+    object->AddRef();
     object->Release();
     Stage( "close the module" );
     PrintLoadedObjects();

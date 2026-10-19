@@ -12,6 +12,7 @@ const windows_crt = if (builtin.os.tag == .windows) struct {
     extern fn _set_abort_behavior(flags: c_uint, mask: c_uint) c_uint;
     extern fn _CrtSetReportMode(report_type: c_int, mode: c_int) c_int;
     extern fn _CrtSetReportFile(report_type: c_int, file: ?*anyopaque) ?*anyopaque;
+    extern fn exit(status: c_int) noreturn;
 } else struct {};
 
 /// A failed assert in a Windows debug build prints and then calls abort(),
@@ -52,6 +53,19 @@ pub fn minimalFromPeb() std.process.Init.Minimal {
         .args = .{ .vector = std.os.windows.peb().ProcessParameters.CommandLine.slice() },
         .environ = .{ .block = .global },
     };
+}
+
+/// Ends the process through the CRT's exit on Windows. Without libc Zig's own
+/// std.process.exit goes straight to RtlExitUserProcess, which skips the CRT's
+/// atexit list: the engine statics linked into the executable (the RPG stats
+/// and game database registries, the object factory, the unit tables) are never
+/// destroyed, and BkMemory's detach report, which runs inside that exit, counts
+/// their blocks as leaks. exit() runs those destructors first and then calls
+/// ExitProcess, so the report still runs last, as on ELF where libc's exit does
+/// the same.
+pub fn exit(status: u8) noreturn {
+    if (exports_c_main) windows_crt.exit(status);
+    std.process.exit(status);
 }
 
 /// True where the executable must export its own C main (see minimalFromPeb).

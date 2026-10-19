@@ -12,3 +12,7 @@ EXPORTS
     bk_mem_live_bytes @10
     bk_mem_report @11
     bk_mem_closed_free_count @12
+    bk_mem_alloc_from @13
+    bk_mem_register_module @14
+    bk_mem_unregister_module @15
+    bk_mem_foreign_count @16

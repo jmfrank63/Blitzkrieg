@@ -102,6 +102,11 @@ struct SCompareResult
 // cannot.
 bool StartEngineReaders( std::string *pszError );
 
+// Releases what the readers registered - the storage, the particle manager,
+// StreamIO's core services - so none of it is left at the exit's leak report.
+// Call once after the last comparison; the host quits SDL after it.
+void StopEngineReaders();
+
 // What the engine's reader makes of one stats file.
 struct SExportRead
 {

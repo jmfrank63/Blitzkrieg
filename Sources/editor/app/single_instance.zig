@@ -335,7 +335,7 @@ pub const Instance = struct {
     /// The socket file's inode when it was bound, to tell it from a file a
     /// later launch put at the same path; null when it could not be read.
     bound_inode: ?Io.File.INode = null,
-    /// Connection threads running; `max_connections` at most (one more is closed unanswered).
+    /// Connection threads running; `max_connections` at most (one more is told busy).
     connections: std.atomic.Value(u32) = .init(0),
     mutex: Io.Mutex = .init,
     queue: [queue_capacity]Entry = undefined,
@@ -466,7 +466,7 @@ pub const Instance = struct {
             if (self.connections.load(.acquire) >= max_connections) {
                 // Said, not just closed: a launch that heard nothing would call
                 // this live owner stale (WR-A01).
-                answerAndClose(self.io, stream, "busy\n");
+                answerBusy(self.io, stream);
                 continue;
             }
             _ = self.connections.fetchAdd(1, .acq_rel);
@@ -532,6 +532,45 @@ fn writeAnswer(io: Io, stream: net.Stream, answer: []const u8) void {
 fn answerAndClose(io: Io, stream: net.Stream, answer: []const u8) void {
     writeAnswer(io, stream, answer);
     stream.close(io);
+}
+
+/// Threads closing a `busy` connection gracefully; `max_connections` at most.
+var busy_closers: std.atomic.Value(u32) = .init(0);
+
+/// Tells a launch past the connection limit `busy` without losing the answer.
+/// Closing a socket whose received line was never read resets the connection,
+/// and on Windows a reset discards what the client had not read yet - our
+/// `busy` included, which the launch then took for a dropped line (CI
+/// 39172520188). So the line is read and thrown away before the close, on a
+/// short-lived thread of its own: a client that sends nothing must not hold the
+/// accept loop. Past `max_connections` such threads the answer goes the old way.
+fn answerBusy(io: Io, stream: net.Stream) void {
+    if (busy_closers.fetchAdd(1, .acq_rel) >= max_connections) {
+        _ = busy_closers.fetchSub(1, .acq_rel);
+        answerAndClose(io, stream, "busy\n");
+        return;
+    }
+    const thread = std.Thread.spawn(workerStack(128 * 1024), closeBusy, .{ io, stream }) catch {
+        _ = busy_closers.fetchSub(1, .acq_rel);
+        answerAndClose(io, stream, "busy\n");
+        return;
+    };
+    thread.detach();
+}
+
+fn closeBusy(io: Io, stream: net.Stream) void {
+    defer _ = busy_closers.fetchSub(1, .acq_rel);
+    defer stream.close(io);
+    // Bounded: a client that never closes is cut after a second.
+    var watchdog: Watchdog = .{ .io = io, .stream = stream, .timeout_ms = 1000 };
+    watchdog.start();
+    defer _ = watchdog.finish();
+    writeAnswer(io, stream, "busy\n");
+    stream.shutdown(io, .send) catch {};
+    // Until the client closes, having read the answer.
+    var read_buffer: [max_line + 2]u8 = undefined;
+    var reader = stream.reader(io, &read_buffer);
+    _ = reader.interface.discardRemaining() catch {};
 }
 
 /// A point `ms` from now on the monotonic clock. The waits here poll in short
