@@ -1,11 +1,13 @@
 #include "StdAfx.h"
 #include "SFX.h"
 #include "Platform/DynamicLibrary.h"
+#include <SDL3/SDL.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <vector>
 
 static bool Check(bool value, const char* message)
@@ -58,6 +60,31 @@ static bool CheckVoiceRamps(NPlatform::DynamicLibrary& module)
 	return true;
 }
 
+// What the game's UnloadAllModules does before the modules go: the module's
+// globals loader started StreamIO's core services (console, options, storage
+// buffers), which only the singleton's Done frees. SDL keeps the base path
+// Platform's Paths asked it for until SDL_Quit. Both were blocks every run
+// left at the exit's leak report.
+static void ReleaseEngine(const char* pszModule)
+{
+	std::string szPath(pszModule);
+	const size_t nSlash = szPath.find_last_of("/\\");
+	szPath = nSlash == std::string::npos ? std::string() : szPath.substr(0, nSlash + 1);
+#if defined(_WIN32)
+	szPath += "StreamIO.dll";
+#elif defined(__APPLE__)
+	szPath += "libStreamIO.dylib";
+#else
+	szPath += "libStreamIO.so";
+#endif
+	NPlatform::DynamicLibrary streamio(szPath.c_str());
+	using GetSingleton = ISingleton* (STDCALL*)();
+	const GetSingleton getSingleton = streamio.IsLoaded() ? reinterpret_cast<GetSingleton>(streamio.GetFunction("GetSingletonGlobal_Hook")) : nullptr;
+	if (ISingleton* singleton = getSingleton != nullptr ? getSingleton() : nullptr)
+		singleton->Done();
+	SDL_Quit();
+}
+
 int main(int argc, char** argv)
 {
 	if (!Check(argc == 2, "module path argument"))
@@ -82,6 +109,9 @@ int main(int argc, char** argv)
 	ISFX* sfx = static_cast<ISFX*>(descriptor->pFactory->CreateObject(SFX_SFX));
 	if (!Check(sfx != nullptr, "SFX factory object"))
 		return 7;
+	// A new object's count is 0 (CTRefCount); the Release below must take it
+	// to 0 and delete it, as a CPtr would, not to -1.
+	sfx->AddRef();
 	if (!Check(sfx->Init(0, SFX_OUTPUT_NO, 44100, 2), "no-device initialization"))
 	{
 		sfx->Release();
@@ -119,6 +149,7 @@ int main(int argc, char** argv)
 		sfx->Done();
 	}
 	sfx->Release();
+	ReleaseEngine(argv[1]);
 
 	std::printf("sfx module lifecycle passed: Sound v0100 types=6 no-device restart%s\n", bRealDevice ? " real-device" : "");
 	return 0;
