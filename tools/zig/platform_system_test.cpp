@@ -1,6 +1,8 @@
 #include "Platform/System.h"
 #include "bk_memory_sdl.h"
 
+#include <SDL3/SDL.h>
+
 #include <string>
 #include <vector>
 
@@ -21,7 +23,7 @@ static bool CaptureOpen( const char *url, const char * )
 	return true;
 }
 
-int main( int argc, char **argv )
+static int Run( int argc, char **argv )
 {
 	// Before System.cpp's first SDL call, in the child run as well.
 	BkMemoryInstallSdlFunctions();
@@ -41,4 +43,12 @@ int main( int argc, char **argv )
 #endif
 	if ( !NPlatform::RunProcess( { NPlatform::ExecutablePath() + childName, "--child" }, std::string(), &exitCode ) || exitCode != 17 ) return 6;
 	return 0;
+}
+
+int main( int argc, char **argv )
+{
+	const int result = Run( argc, argv );
+	// SDL_GetBasePath caches its answer for the process and only SDL_Quit frees it, with or without SDL_Init.
+	SDL_Quit();
+	return result;
 }

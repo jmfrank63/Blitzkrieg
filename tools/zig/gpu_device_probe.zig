@@ -14,11 +14,13 @@ const bk_memory = @import("bk_memory_allocator");
 
 pub fn main() !void {
     _ = bk_memory.installSdlMemoryFunctions(sdl3.c);
+    // SDL_Quit also after a failed init: SDL builds its environment copy before the video driver
+    // is chosen, and only SDL_Quit frees it (a runner with no display fails here).
+    defer sdl3.c.SDL_Quit();
     if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) {
         std.debug.print("gpu-probe: video=no ({s})\n", .{sdl.getError()});
         return;
     }
-    defer sdl3.c.SDL_Quit();
 
     // Ask for every shader format: the probe is about whether a device exists
     // at all, not about which shaders this build ships.
