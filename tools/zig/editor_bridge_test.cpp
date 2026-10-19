@@ -1815,6 +1815,33 @@ static int ChangedPixels( const std::vector<unsigned char> &rBefore, const std::
 	return nChanged;
 }
 
+// ChangedPixels without the falling snow: coldwinter's weather draws pure white
+// flakes that move between any two frames, so a box on bare snow differs by a
+// dozen flake pixels between captures seconds apart (12 on macos-14, run
+// 39258616107, every one white in one frame and plain snow in the other). A
+// pixel that is pure white in either frame is a flake, not a remnant: the
+// snow under the box is never brighter than about 230, and what the ghost
+// drew is darker still.
+static int ChangedPixelsBesidesFlakes( const std::vector<unsigned char> &rBefore, const std::vector<unsigned char> &rAfter,
+                                       int nWidth, int nHeight, int nLeft, int nTop, int nRight, int nBottom )
+{
+	if ( rBefore.size() != rAfter.size() || rBefore.size() < size_t( nWidth ) * nHeight * 4 )
+		return -1;
+	auto IsFlake = []( const unsigned char *p ) { return p[0] >= 250 && p[1] >= 250 && p[2] >= 250; };
+	int nChanged = 0;
+	for ( int y = Max( 0, nTop ); y < Min( nHeight, nBottom ); ++y )
+		for ( int x = Max( 0, nLeft ); x < Min( nWidth, nRight ); ++x )
+		{
+			const size_t n = ( size_t( y ) * nWidth + x ) * 4;
+			if ( IsFlake( &rBefore[n] ) || IsFlake( &rAfter[n] ) )
+				continue;
+			if ( abs( int( rBefore[n] ) - rAfter[n] ) + abs( int( rBefore[n + 1] ) - rAfter[n + 1] ) +
+			     abs( int( rBefore[n + 2] ) - rAfter[n + 2] ) > 48 )
+				++nChanged;
+		}
+	return nChanged;
+}
+
 // An object the editor places is drawn where it was put and answers a click
 // there, as the map's own objects do. The editor's placer goes from the click
 // to the object the way this check does - the screen point to the world point
@@ -2059,7 +2086,7 @@ static void TestM3PlacementGhost( BkEditorSession *pSession, int nScreenWidth, i
 	if ( !SaveFrame( pSession, szGone ) )
 		return;
 	const std::vector<unsigned char> gone = ReadFramePixels( szGone, &nWidth, &nHeight );
-	const int nLeft = ChangedPixels( base, gone, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT, int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 );
+	const int nLeft = ChangedPixelsBesidesFlakes( base, gone, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT, int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 );
 	Check( nLeft < PLACED_MIN_CHANGED / 4, NStr::Format( "the frame after a clear is the frame before the ghost (%d pixels differ)", nLeft ) );
 	Check( BkEditorSaveMap( pSession, szSavedWith.c_str() ) == BK_EDITOR_OK && SameBytes( szSavedBefore, szSavedWith ), "and the map is still byte for byte what it was" );
 
