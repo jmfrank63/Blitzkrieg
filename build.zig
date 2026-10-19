@@ -9599,6 +9599,13 @@ fn addMapEditor(
     const install_engine_test = b.addInstallArtifact(engine_test, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
     install_engine_test.step.dependOn(install_game_step);
     const engine_test_run = b.addRunArtifact(engine_test);
+    // A plain run, not the build's test protocol: in server mode the test
+    // runner ends with std.process.exit, which on Windows skips the CRT's exit
+    // (crt.zig's exit says why), so the engine statics linked into the test
+    // were never destroyed and BkMemory counted them as leaks. In terminal
+    // mode a passing run returns from main, through c_bridge_test.zig's
+    // crtMain into the CRT's exit; a failing one still exits 1.
+    engine_test_run.stdio = .infer_from_args;
     setLeakReportStrict(engine_test_run);
     engine_test_run.setCwd(b.path(stage_root));
     // What it reads - the staged Data and engine - is not a file input of the

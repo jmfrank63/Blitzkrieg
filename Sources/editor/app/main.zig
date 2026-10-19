@@ -300,11 +300,11 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // BK_EDITOR_AUTO (03-12-PLAN.md): read before settings/recovery below, so
     // an automated run never reaches either (the 03-07 rule, carried into
     // this plan's own binding constraints: automated runs never read or
-    // write the user's settings, recent list or recovery folder). Leaked
-    // deliberately, like BK_EDITOR_SETTINGS's override elsewhere in this
-    // file - a single-shot process, and auto.zig's parsed Scheduled entries
-    // borrow slices of this text for as long as the process runs.
+    // write the user's settings, recent list or recovery folder). Freed when
+    // this function returns, after `run`: auto.zig's parsed Scheduled entries
+    // borrow slices of this text for as long as the runner below runs.
     const auto_text: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null;
+    defer if (auto_text) |text| gpa.free(text);
     const automated = auto_text != null;
     // A packaged (.windows subsystem) MapEditor.exe run under BK_EDITOR_AUTO
     // still needs its frame/action log to reach the terminal or CI's log
@@ -348,6 +348,12 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     }
 
     var auto_runner: ?smoke.AutoRunner = null;
+    var auto_schedule: ?[]const auto_mod.Scheduled = null;
+    defer if (auto_schedule) |schedule| gpa.free(schedule);
+    var auto_dir: ?[]const u8 = null;
+    defer if (auto_dir) |dir| gpa.free(dir);
+    var auto_game_env: ?[]const u8 = null;
+    defer if (auto_game_env) |text| gpa.free(text);
     if (auto_text) |text| {
         // Automated modes must never open a real OS dialog, or land a
         // synthetic press on a panel under the real cursor - the same two
@@ -360,8 +366,12 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             std.debug.print("map-editor: BK_EDITOR_AUTO: bad token '{s}': {s} ({s})\n", .{ failure.token, failure.reason, @errorName(err) });
             crt.exit(2);
         };
+        // These outlive the `if`: the runner borrows them until `run` returns.
+        auto_schedule = schedule;
         const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
+        if (dir.ptr != default_auto_dir.ptr) auto_dir = dir;
         const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
+        auto_game_env = game_env;
         auto_runner = smoke.AutoRunner.init(&editor, &view, &real, &state, host.window, io, schedule, dir, game_env);
         if (environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME_TRACE")) |trace| {
             auto_runner.?.game_trace = trace.len != 0;
