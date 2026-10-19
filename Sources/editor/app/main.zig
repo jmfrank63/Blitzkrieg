@@ -148,7 +148,7 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
     // Only after dispatch has returned: its defers free the argument list and
     // the Io instance, which std.process.exit inside it skipped and BkMemory
     // counted as leaks.
-    std.process.exit(if (passed) 0 else 1);
+    crt.exit(if (passed) 0 else 1);
 }
 
 /// The mode the arguments ask for, run to its result.
@@ -358,7 +358,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         var failure: auto_mod.Failure = .{};
         const schedule = auto_mod.parse(gpa, text, &failure) catch |err| {
             std.debug.print("map-editor: BK_EDITOR_AUTO: bad token '{s}': {s} ({s})\n", .{ failure.token, failure.reason, @errorName(err) });
-            std.process.exit(2);
+            crt.exit(2);
         };
         const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
         const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
@@ -434,7 +434,7 @@ fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Envi
         .primary => |owner| return owner,
         .handed_off => {
             std.debug.print("map-editor: handed over to the running editor\n", .{});
-            std.process.exit(0);
+            crt.exit(0);
         },
         .unavailable => |why| {
             std.debug.print("map-editor: single instance is off: {s}\n", .{why});
@@ -909,7 +909,7 @@ fn fatal(step: []const u8, reason: []const u8) noreturn {
     var buffer: [768]u8 = undefined;
     const message = std.mem.printSentinel(&buffer, "{s} failed: {s}", .{ step, reason }, 0) catch "Map Editor failed to start";
     _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Map Editor", message, null);
-    std.process.exit(1);
+    crt.exit(1);
 }
 
 // The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why).
@@ -933,7 +933,7 @@ fn usage() noreturn {
     // needs this message to be visible there.
     crt.attachParentConsole();
     std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m3 <map> [<log>]\n", .{});
-    std.process.exit(2);
+    crt.exit(2);
 }
 
 fn fail(comptime format: []const u8, args: anytype) bool {

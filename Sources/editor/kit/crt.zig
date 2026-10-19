@@ -54,6 +54,19 @@ pub fn minimalFromPeb() std.process.Init.Minimal {
     };
 }
 
+/// Ends the process through the CRT's exit on Windows. Without libc Zig's own
+/// std.process.exit goes straight to RtlExitUserProcess, which skips the CRT's
+/// atexit list: the engine statics linked into the executable (the RPG stats
+/// and game database registries, the object factory, the unit tables) are never
+/// destroyed, and BkMemory's detach report, which runs inside that exit, counts
+/// their blocks as leaks. exit() runs those destructors first and then calls
+/// ExitProcess, so the report still runs last, as on ELF where libc's exit does
+/// the same.
+pub fn exit(status: u8) noreturn {
+    if (exports_c_main) windows_crt.exit(status);
+    std.process.exit(status);
+}
+
 /// True where the executable must export its own C main (see minimalFromPeb).
 pub const exports_c_main = builtin.os.tag == .windows and !builtin.link_libc;
 
