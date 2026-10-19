@@ -2277,6 +2277,20 @@ pub fn build(b: *std.Build) void {
         traced.expectStdErrMatch("C ABI block of");
         traced.step.dependOn(&planted.step);
         test_bk_memory_zig_host_step.dependOn(&traced.step);
+        // BK_ZIG_EXIT_CHURN: foreign threads allocate through the exit report.
+        // It must not count their blocks in flight as ours nor panic on an
+        // allocation after it; the window is narrow, so the run repeats.
+        var previous = &traced.step;
+        for (0..8) |_| {
+            const churn = b.addRunArtifact(bk_zig_host_test);
+            churn.setEnvironmentVariable("BK_MEM_REPORT", "1");
+            churn.setEnvironmentVariable("BK_ZIG_EXIT_CHURN", "1");
+            churn.expectExitCode(0);
+            churn.has_side_effects = true;
+            churn.step.dependOn(previous);
+            previous = &churn.step;
+        }
+        test_bk_memory_zig_host_step.dependOn(previous);
     }
     // Backend measurement: every backend as its own BkMemory build linked into
     // its own bench exe, one process per pass so the peak memory is per pass.
