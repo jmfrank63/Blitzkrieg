@@ -2279,9 +2279,14 @@ pub fn build(b: *std.Build) void {
         test_bk_memory_zig_host_step.dependOn(&traced.step);
         // BK_ZIG_EXIT_CHURN: foreign threads allocate through the exit report.
         // It must not count their blocks in flight as ours nor panic on an
-        // allocation after it; the window is narrow, so the run repeats.
+        // allocation after it; the window is narrow, so the run repeats. POSIX
+        // only: there exit() runs the report while the threads still run.
+        // Windows' ExitProcess kills them first, possibly inside an allocation,
+        // which the report rightly refuses as "allocator in use" (exit 4), and
+        // no foreign DLL reaches our operator new there anyway.
         var previous = &traced.step;
-        for (0..8) |_| {
+        const churn_runs: usize = if (target.result.os.tag == .windows) 0 else 8;
+        for (0..churn_runs) |_| {
             const churn = b.addRunArtifact(bk_zig_host_test);
             churn.setEnvironmentVariable("BK_MEM_REPORT", "1");
             churn.setEnvironmentVariable("BK_ZIG_EXIT_CHURN", "1");
