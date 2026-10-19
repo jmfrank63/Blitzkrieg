@@ -2728,7 +2728,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		std::vector<unsigned char> emptyRgb;
 		int nW = 0, nH = 0, nRefW = 0, nRefH = 0;
 		ReadCapture( empty.string(), emptyRgb, nW, nH );
-		long long nVirtual = 0;
+		long long nVirtual = 0, nVirtualUs = 0;
 		int nFrames = 0, nRefused = 0, nRounds = 0;
 		std::string szFirstRefusal;
 		bool bVisible = false;
@@ -2743,9 +2743,12 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				const BkEditorStatus nFrame = BkEditorFrame( pSession );
 				++nFrames;
 				const auto now = std::chrono::steady_clock::now();
-				const long long nDt = std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count();
+				// In microseconds, as Pump below: whole milliseconds count a
+				// sub-millisecond frame (the Linux runner's) as no time at all.
+				const long long nDtUs = std::chrono::duration_cast<std::chrono::microseconds>( now - last ).count();
 				last = now;
-				nVirtual += nDt < 100 ? nDt : 100;
+				nVirtualUs += nDtUs < 100000 ? nDtUs : 100000;
+				nVirtual = nVirtualUs / 1000;
 				if ( nFrame != BK_EDITOR_OK )
 				{
 					++nRefused;
@@ -2811,14 +2814,20 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		// drawn frame, bounded, so no pump outruns the burst's visible phase.
 		auto Pump = [&]( int nMs )
 		{
+			// Counted in microseconds, as the drew loop above: a frame that returns in under a
+			// millisecond added 0 in whole milliseconds, so a runner drawing
+			// such frames pumped until the two-minute ceiling instead of nMs,
+			// and the effect's burst faded long before the next capture
+			// (T11 took 193 s, run 39235874932).
 			const auto begin = std::chrono::steady_clock::now();
 			auto last = begin;
-			long long nPumped = 0;
-			while ( nPumped < nMs && nPumped >= 0 && nPumped < 1200 && std::chrono::steady_clock::now() - begin < std::chrono::minutes( 2 ) )
+			long long nPumpedUs = 0;
+			const long long nWantUs = (std::min<long long>)( nMs, 1200 ) * 1000;
+			while ( nPumpedUs < nWantUs && std::chrono::steady_clock::now() - begin < std::chrono::minutes( 2 ) )
 			{
 				BkEditorFrame( pSession );
 				const auto now = std::chrono::steady_clock::now();
-				nPumped += (std::min<long long>)( 100, std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count() );
+				nPumpedUs += (std::min<long long>)( 100000, std::chrono::duration_cast<std::chrono::microseconds>( now - last ).count() );
 				last = now;
 			}
 		};
