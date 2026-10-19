@@ -2268,6 +2268,15 @@ pub fn build(b: *std.Build) void {
         // One at a time: the planted report must not interleave with the clean run.
         planted.step.dependOn(&clean.step);
         test_bk_memory_zig_host_step.dependOn(&planted.step);
+        // BK_MEM_TRACE_CABI: the same planted leak, printed with its size and stack.
+        const traced = b.addRunArtifact(bk_zig_host_test);
+        traced.setEnvironmentVariable("BK_MEM_REPORT", "1");
+        traced.setEnvironmentVariable("BK_ZIG_PLANT_LEAK", "1");
+        traced.setEnvironmentVariable("BK_MEM_TRACE_CABI", "1");
+        traced.expectExitCode(3);
+        traced.expectStdErrMatch("C ABI block of");
+        traced.step.dependOn(&planted.step);
+        test_bk_memory_zig_host_step.dependOn(&traced.step);
     }
     // Backend measurement: every backend as its own BkMemory build linked into
     // its own bench exe, one process per pass so the peak memory is per pass.
@@ -7920,6 +7929,9 @@ fn addResourceBridge(
     // with --release must still print them when it stalls, as
     // resource-editor-game-reads-it does.
     run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
+    // A C ABI block left at exit is printed with its stack (bk_memory.zig's
+    // Traced): the Linux runner's one such leak never showed anywhere else.
+    run.setEnvironmentVariable("BK_MEM_TRACE_CABI", "1");
     run.addArg(".");
     if (tier.mod_roundtrip) {
         // The tracked mini-mod's data folder, then the scratch root. The real mod, when there

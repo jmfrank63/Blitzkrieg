@@ -428,6 +428,137 @@ fn checkHeader(user: [*]u8, what: []const u8) *Header {
     return h;
 }
 
+/// BK_MEM_TRACE_CABI=1 keeps a short stack for every live block of the C ABI
+/// (Zig code and the C libraries, which have no module of their own), so an
+/// exit report that finds some left prints where each came from. The stacks
+/// are the frame-pointer chain only: no unwind tables and no symbol lookup
+/// until the report, so the cost stays small enough for a CI tier. It exists
+/// for leaks only a CI runner shows: the Linux bridge tier's one C ABI block
+/// never reproduced on a workstation or in a container of the runner's image.
+const Traced = struct {
+    /// The user pointer; 0 is an empty slot.
+    ptr: usize,
+    size: usize,
+    frames: [trace_frames]usize,
+};
+const trace_frames = 8;
+const trace_slots = 1 << 16;
+var traced: [trace_slots]Traced = @splat(.{ .ptr = 0, .size = 0, .frames = @splat(0) });
+var traced_count: usize = 0;
+/// Blocks that found the table full: their leaks are counted, not traced.
+var traced_dropped: usize = 0;
+var trace_mutex: std.atomic.Mutex = .unlocked;
+/// 0 not read yet, 1 off, 2 on.
+var trace_state: u8 = 0;
+
+fn traceOn() bool {
+    const state = @atomicLoad(u8, &trace_state, .monotonic);
+    if (state != 0) return state == 2;
+    const on = blk: {
+        if (builtin.os.tag == .windows) {
+            var buf: [4]u8 = undefined;
+            const n = kernel32.GetEnvironmentVariableA("BK_MEM_TRACE_CABI", &buf, buf.len);
+            break :blk n == 1 and buf[0] == '1';
+        }
+        const raw = std.c.getenv("BK_MEM_TRACE_CABI") orelse break :blk false;
+        break :blk std.mem.eql(u8, std.mem.span(raw), "1");
+    };
+    @atomicStore(u8, &trace_state, if (on) 2 else 1, .monotonic);
+    return on;
+}
+
+inline fn lockTraceSpin() void {
+    while (!trace_mutex.tryLock()) {
+        std.atomic.spinLoopHint();
+        std.Thread.yield() catch {};
+    }
+}
+
+fn traceSlot(ptr: usize) usize {
+    return (ptr >> 4) *% 0x9E3779B97F4A7C15 >> (64 - 16);
+}
+
+/// The caller's return address, then the frame chain above the frame that
+/// called BkMemory. A frame record is believed only while it climbs the same
+/// stack, as in `callerEntry`.
+fn traceAdd(ptr: usize, size: usize, ra: usize, frame: usize) void {
+    var entry: Traced = .{ .ptr = ptr, .size = size, .frames = @splat(0) };
+    entry.frames[0] = ra;
+    var fp = frame;
+    var n: usize = 1;
+    var found_ra = false;
+    var hops: usize = 0;
+    while (n < trace_frames and hops < trace_frames + 4) : (hops += 1) {
+        if (fp == 0 or fp % @sizeOf(usize) != 0) break;
+        const next: usize = @as(*const usize, @ptrFromInt(fp)).*;
+        const ret: usize = @as(*const usize, @ptrFromInt(fp + @sizeOf(usize))).*;
+        // BkMemory's own frames come first; the chain is ours from the caller's.
+        if (found_ra) {
+            entry.frames[n] = ret;
+            n += 1;
+        } else if (ret == ra) {
+            found_ra = true;
+        }
+        if (next <= fp or next - fp > 1 << 20) break;
+        fp = next;
+    }
+    lockTraceSpin();
+    defer trace_mutex.unlock();
+    if (traced_count * 4 >= trace_slots * 3) {
+        traced_dropped += 1;
+        return;
+    }
+    var i = traceSlot(ptr);
+    while (traced[i].ptr != 0) i = (i + 1) % trace_slots;
+    traced[i] = entry;
+    traced_count += 1;
+}
+
+/// Linear probing with backward-shift deletion, so no tombstones pile up.
+fn traceRemove(ptr: usize) void {
+    lockTraceSpin();
+    defer trace_mutex.unlock();
+    var i = traceSlot(ptr);
+    while (traced[i].ptr != ptr) {
+        if (traced[i].ptr == 0) return;
+        i = (i + 1) % trace_slots;
+    }
+    traced_count -= 1;
+    var hole = i;
+    var j = i;
+    while (true) {
+        j = (j + 1) % trace_slots;
+        if (traced[j].ptr == 0) break;
+        const home = traceSlot(traced[j].ptr);
+        // Move j back into the hole unless its home lies cyclically in (hole, j].
+        const stays = if (hole <= j) (home > hole and home <= j) else (home > hole or home <= j);
+        if (stays) continue;
+        traced[hole] = traced[j];
+        hole = j;
+    }
+    traced[hole].ptr = 0;
+}
+
+/// Each traced block still live: its size, its first bytes and its stack.
+fn traceReport() void {
+    if (!traceOn()) return;
+    const log = std.log.scoped(.BkMemory);
+    lockTraceSpin();
+    defer trace_mutex.unlock();
+    if (traced_dropped != 0) log.warn("bk_mem: {d} C ABI block(s) found the trace table full", .{traced_dropped});
+    for (&traced) |*t| {
+        if (t.ptr == 0) continue;
+        const bytes: [*]const u8 = @ptrFromInt(t.ptr);
+        var text: [32]u8 = undefined;
+        const shown = @min(t.size, text.len);
+        for (bytes[0..shown], text[0..shown]) |b, *c| c.* = if (b >= 0x20 and b < 0x7f) b else '.';
+        log.warn("bk_mem: C ABI block of {d} byte(s) at 0x{x}: \"{s}\"", .{ t.size, t.ptr, text[0..shown] });
+        var n: usize = 0;
+        while (n < trace_frames and t.frames[n] != 0) n += 1;
+        std.debug.dumpStackTrace(&.{ .return_addresses = t.frames[0..n], .skipped = .unknown });
+    }
+}
+
 fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
     if (@atomicLoad(bool, &closed, .acquire)) std.debug.panic("bk_mem_alloc after bk_mem_report", .{});
     const a = normalizeAlign(alignment) orelse return null;
@@ -450,6 +581,7 @@ fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
     _ = @atomicRmw(usize, &live_count, .Add, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Add, size, .monotonic);
     if (module != 0) _ = @atomicRmw(usize, &modules[module].live, .Add, 1, .monotonic);
+    if (module == 0 and traceOn()) traceAdd(@intFromPtr(user), size, ra, @frameAddress());
     return user;
 }
 
@@ -464,6 +596,7 @@ fn freeImpl(user: [*]u8, ra: usize) void {
     const pad = padFor(alignment.toByteUnits());
     const base = user - pad;
     h.magic = freed_magic;
+    if (h.module == 0 and traceOn()) traceRemove(@intFromPtr(user));
     if (h.module != 0) _ = @atomicRmw(usize, &modules[h.module].live, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_count, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Sub, size, .monotonic);
@@ -496,6 +629,10 @@ fn reallocImpl(user: ?[*]u8, new_size: usize, want_align: usize, ra: usize) ?[*]
     if (remapped) |new_base| {
         const new_user = new_base + pad;
         headerOf(new_user).size = new_size;
+        if (headerOf(new_user).module == 0 and traceOn()) {
+            traceRemove(@intFromPtr(p));
+            traceAdd(@intFromPtr(new_user), new_size, ra, @frameAddress());
+        }
         if (new_size >= old_size) {
             _ = @atomicRmw(usize, &live_bytes, .Add, new_size - old_size, .monotonic);
         } else {
@@ -730,10 +867,12 @@ fn detachHook() void {
         // one line a script can count, printed for a clean run too.
         log.warn("bk_mem: {d} leaked block(s)", .{leaks});
         logModules(leaks);
+        if (leaks > 0) traceReport();
         return;
     }
     if (leaks > 0) log.err("{d} leaked block(s) at exit", .{leaks});
     logModules(leaks);
+    if (leaks > 0) traceReport();
     if (leaks > 0) exitNow(exit_leaks);
 }
 
@@ -850,6 +989,29 @@ test "live count and bytes track deltas" {
     bk_mem_free(null);
     try testing.expectEqual(c0, bk_mem_live_count());
     try testing.expectEqual(b0, bk_mem_live_bytes());
+}
+
+test "the C ABI trace keeps each live block once and forgets it when freed" {
+    const was = trace_state;
+    defer trace_state = was;
+    trace_state = 2;
+    const c0 = traced_count;
+    var blocks: [64]*anyopaque = undefined;
+    for (&blocks, 0..) |*b, i| b.* = bk_mem_alloc(8 + i).?;
+    try testing.expectEqual(c0 + blocks.len, traced_count);
+    // A realloc that moves or remaps keeps one entry, under the new pointer.
+    blocks[0] = bk_mem_realloc(blocks[0], 4096).?;
+    try testing.expectEqual(c0 + blocks.len, traced_count);
+    var i = traceSlot(@intFromPtr(blocks[0]));
+    while (traced[i].ptr != @intFromPtr(blocks[0])) i = (i + 1) % trace_slots;
+    try testing.expectEqual(@as(usize, 4096), traced[i].size);
+    try testing.expect(traced[i].frames[0] != 0);
+    // Freed in an order unlike the allocation's, so the backward shift runs over mixed homes.
+    var k: usize = 0;
+    while (k < blocks.len) : (k += 2) bk_mem_free(blocks[k]);
+    k = 1;
+    while (k < blocks.len) : (k += 2) bk_mem_free(blocks[k]);
+    try testing.expectEqual(c0, traced_count);
 }
 
 test "leak count through deinitLog on a local instance" {
