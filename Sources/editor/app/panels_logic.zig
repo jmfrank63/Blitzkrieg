@@ -3670,13 +3670,13 @@ pub fn storageNameFromBrowse(buffer: []u8, base_root: []const u8, os_path: []con
 /// direction used.
 pub fn rmgResultLine(buffer: []u8, map_name: []const u8, result: *const core.bridge.RmgGenerateResult) []const u8 {
     const angle: usize = if (result.angle >= 0 and result.angle < 4) @intCast(result.angle) else 0;
-    return std.fmt.bufPrint(buffer, "random map {s}: seed {d}, graph {d} ({s}), direction {s}", .{
+    return kit.l10n.say(buffer, "app.cmd.random_map_result", .{
         map_name,
         result.seed,
         result.graph,
         std.fs.path.basename(result.graphNameSlice()),
         RmgFields.direction_names[angle],
-    }) catch "random map created";
+    });
 }
 
 /// The context combo's entries: the MFC listed only the chapters' own
@@ -3714,10 +3714,10 @@ pub const ExportKind = enum {
     /// The MFC's own wording of "created", without its message box.
     pub fn noun(self: ExportKind) []const u8 {
         return switch (self) {
-            .graphs => "RMG graphs list",
-            .contexts => "RMG contexts list",
-            .patches => "RMG patches list",
-            .maps => "Maps list",
+            .graphs => kit.l10n.str("app.cmd.noun_graphs"),
+            .contexts => kit.l10n.str("app.cmd.noun_contexts"),
+            .patches => kit.l10n.str("app.cmd.noun_patches"),
+            .maps => kit.l10n.str("app.cmd.noun_maps"),
         };
     }
 

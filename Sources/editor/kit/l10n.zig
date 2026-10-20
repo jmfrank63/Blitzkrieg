@@ -362,6 +362,16 @@ pub fn format(buffer: []u8, comptime key: []const u8, args: anytype) error{NoSpa
     return result;
 }
 
+/// The text of `key` as a slice, for the callers that take one (status lines, notes).
+pub fn str(comptime key: []const u8) []const u8 {
+    return std.mem.span(t(key));
+}
+
+/// `format` into `buffer`, or the key's unfilled text when `buffer` is too small.
+pub fn say(buffer: []u8, comptime key: []const u8, args: anytype) []const u8 {
+    return format(buffer, key, args) catch str(key);
+}
+
 /// `format` with a terminating NUL, for the C API; null when `buffer` is too small.
 pub fn formatZ(buffer: []u8, comptime key: []const u8, args: anytype) ?[:0]const u8 {
     if (buffer.len == 0) return null;

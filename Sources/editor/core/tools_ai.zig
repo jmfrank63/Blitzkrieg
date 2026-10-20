@@ -16,6 +16,7 @@
 //! resize drag (its edits merge by gesture; a position the bridge refuses mid-drag is
 //! skipped and the drag goes on, as the Selector does).
 const std = @import("std");
+const l10n = @import("editor_kit").l10n;
 const editor_mod = @import("editor.zig");
 const fake_mod = @import("fake_bridge.zig");
 const bridge_mod = @import("bridge.zig");
@@ -179,7 +180,7 @@ pub const ScriptAreas = struct {
             .key => |key| switch (key) {
                 .delete => {
                     const index = self.selected orelse {
-                        editor.note("select a script area first");
+                        editor.note(l10n.str("app.core.select_a_script_area_first"));
                         return;
                     };
                     // IN-B06: a refused delete keeps the selection.
@@ -263,7 +264,7 @@ pub const ScriptAreas = struct {
                 if (contains(area, pointer.map_x, pointer.map_y)) picked = index;
             }
             self.selected = picked;
-            if (picked == null) editor.note("drag to draw a script area");
+            if (picked == null) editor.note(l10n.str("app.core.drag_to_draw_a_script"));
             return;
         }
         var name_buffer: [records.area_name_capacity]u8 = undefined;
@@ -276,7 +277,7 @@ pub const ScriptAreas = struct {
             .circle => area.r == 0,
         };
         if (empty) {
-            editor.note("that area is too small; drag further");
+            editor.note(l10n.str("app.core.that_area_is_too_small"));
             return;
         }
         self.selected = try editor.addScriptArea(area);
@@ -316,7 +317,7 @@ pub const StartTarget = struct {
 
     fn click(self: *StartTarget, editor: *Editor, pointer: Pointer) EditError!void {
         const index = self.index orelse {
-            editor.note("choose a start command and press Set target first");
+            editor.note(l10n.str("app.core.choose_a_start_command_and"));
             self.done = true;
             return;
         };
@@ -331,7 +332,7 @@ pub const StartTarget = struct {
         const commands = try editor.startCommands(editor.allocator);
         defer Editor.freeStartCommands(editor.allocator, commands);
         if (index >= commands.len) {
-            editor.note("that start command is gone");
+            editor.note(l10n.str("app.cmd.that_start_command_is_gone"));
             return error.Refused;
         }
         var command = commands[index];
@@ -431,7 +432,7 @@ pub const ReservePositions = struct {
                 .escape => self.clearPending(),
                 .delete => {
                     const index = self.selected orelse {
-                        editor.note("select a reserve position in the list first");
+                        editor.note(l10n.str("app.core.select_a_reserve_position_in"));
                         return;
                     };
                     // IN-B06: a refused delete keeps the selection.
@@ -451,7 +452,7 @@ pub const ReservePositions = struct {
     pub fn pick(self: *ReservePositions, editor: *Editor, pointer: Pointer) EditError!void {
         const link = pointer.object orelse {
             if (self.gun == null) {
-                editor.note("click a gun first, then its truck if it is towed, then the place");
+                editor.note(l10n.str("app.core.click_a_gun_first_then"));
                 return;
             }
             self.x = records.truncateToAi(pointer.map_x);
@@ -460,7 +461,7 @@ pub const ReservePositions = struct {
             return;
         };
         const object = editor.document.find(link) orelse {
-            editor.note("that object is not on the map");
+            editor.note(l10n.str("app.core.that_object_is_not_on"));
             return;
         };
         const role = try editor.reserveRole(object.nameSlice());
@@ -473,16 +474,16 @@ pub const ReservePositions = struct {
             },
             .truck => {
                 if (self.gun == null) {
-                    editor.note("click the gun first: a truck follows a towed gun");
+                    editor.note(l10n.str("app.core.click_the_gun_first_a"));
                     return;
                 }
                 if (self.gun_role != .towed) {
-                    editor.note("a self-propelled gun takes no truck");
+                    editor.note(l10n.str("app.core.a_self_propelled_gun_takes"));
                     return;
                 }
                 self.truck = link;
             },
-            .none => editor.note("that is not a gun or a truck: click a self-propelled or a towed gun, or a truck"),
+            .none => editor.note(l10n.str("app.core.that_is_not_a_gun")),
         }
     }
 
@@ -490,7 +491,7 @@ pub const ReservePositions = struct {
     /// the bridge says no; a note when the gun or the place is still missing.
     pub fn commit(self: *ReservePositions, editor: *Editor) EditError!void {
         const record = self.pendingRecord() orelse {
-            editor.note("pick a gun and a place first");
+            editor.note(l10n.str("app.core.pick_a_gun_and_a"));
             return;
         };
         self.selected = try editor.addReservePosition(record);
@@ -855,12 +856,12 @@ pub const AIGeneral = struct {
         var side = try editor.aiSide(allocator, self.side);
         defer side.deinit(allocator);
         const index = self.selected_parcel orelse {
-            editor.note("select a parcel first: click its centre or its arrow");
+            editor.note(l10n.str("app.core.select_a_parcel_first_click"));
             return;
         };
         if (index >= side.parcels.len) {
             self.reset();
-            editor.note("that parcel is gone");
+            editor.note(l10n.str("app.core.that_parcel_is_gone"));
             return;
         }
         const parcel = &side.parcelsMut()[index];
@@ -875,12 +876,12 @@ pub const AIGeneral = struct {
         var side = try editor.aiSide(allocator, self.side);
         defer side.deinit(allocator);
         const index = self.selected_parcel orelse {
-            editor.note("select a parcel or a point first");
+            editor.note(l10n.str("app.core.select_a_parcel_or_a"));
             return;
         };
         if (index >= side.parcels.len) {
             self.reset();
-            editor.note("that parcel is gone");
+            editor.note(l10n.str("app.core.that_parcel_is_gone"));
             return;
         }
         if (self.selected_point) |point_index| {
@@ -888,7 +889,7 @@ pub const AIGeneral = struct {
             // Delete meant for one point never takes the whole parcel (WR-B08).
             if (point_index >= side.parcels[index].points.len) {
                 self.selected_point = null;
-                editor.note("that point is gone");
+                editor.note(l10n.str("app.core.that_point_is_gone"));
                 return;
             }
             try side.removePoint(allocator, index, point_index);

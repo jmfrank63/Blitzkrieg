@@ -6,6 +6,7 @@ const document_mod = @import("document.zig");
 const history_mod = @import("history.zig");
 const tools = @import("tools.zig");
 const kit = @import("editor_kit");
+const l10n = kit.l10n;
 const files_mod = kit.files;
 const shipped_mod = kit.shipped;
 const records = @import("records.zig");
@@ -302,7 +303,8 @@ pub const Editor = struct {
             return err;
         };
         self.document.reload(self.allocator, self.bridge, path, info) catch |err| {
-            self.setStatus("the map opened but its objects could not be read: ", self.bridge.lastMessage());
+            var said: [512]u8 = undefined;
+            self.setStatus("", l10n.say(&said, "app.core.map_opened_unreadable", .{self.bridge.lastMessage()}));
             self.closeDocument();
             return err;
         };
@@ -332,7 +334,8 @@ pub const Editor = struct {
         self.document.deinit(self.allocator);
         self.document = .{};
         self.document.reload(self.allocator, self.bridge, "", info) catch |err| {
-            self.setStatus("the map was created but its fields could not be read: ", self.bridge.lastMessage());
+            var said: [512]u8 = undefined;
+            self.setStatus("", l10n.say(&said, "app.core.map_created_unreadable", .{self.bridge.lastMessage()}));
             self.closeDocument();
             return err;
         };
@@ -402,7 +405,7 @@ pub const Editor = struct {
         try new_path.appendSlice(self.allocator, path);
 
         const files = self.files orelse {
-            self.setStatus("", "saving needs a file system");
+            self.setStatus("", l10n.str("app.core.saving_needs_a_file_system"));
             return error.Failed;
         };
 
@@ -410,20 +413,18 @@ pub const Editor = struct {
             const cut = std.mem.lastIndexOfAny(u8, path, "/\\");
             const name = if (cut) |c| path[c + 1 ..] else path;
             var buffer: [200]u8 = undefined;
-            const message = std.fmt.bufPrint(&buffer, "{s} is inside a game's data folder, which is read-only - Save As into your maps folder instead", .{name}) catch
-                "a game's data folder is read-only - Save As into your maps folder instead";
-            self.setStatus("not saved: ", message);
+            self.setStatus("", l10n.say(&buffer, "app.core.not_saved_shipped", .{name}));
             return error.Refused;
         }
 
         var temp_buffer: [files_mod.max_path]u8 = undefined;
         const temp = files_mod.tempPathFor(&temp_buffer, path) orelse {
-            self.setStatus("", "the path is too long to save safely");
+            self.setStatus("", l10n.str("app.core.the_path_is_too_long"));
             return error.Failed;
         };
         var temp_os_buffer: [files_mod.max_path]u8 = undefined;
         const temp_os = files_mod.osPathFromEngine(&temp_os_buffer, temp) orelse {
-            self.setStatus("", "the path is too long to save safely");
+            self.setStatus("", l10n.str("app.core.the_path_is_too_long"));
             return error.Failed;
         };
         // A stale temp from an earlier failed save must not be mistaken for
@@ -439,7 +440,7 @@ pub const Editor = struct {
         var path_os_buffer: [files_mod.max_path]u8 = undefined;
         const path_os = files_mod.osPathFromEngine(&path_os_buffer, path) orelse {
             files.delete(temp_os);
-            self.setStatus("", "the path is too long to keep a backup of");
+            self.setStatus("", l10n.str("app.core.the_path_is_too_long_2"));
             return error.Failed;
         };
 
@@ -450,12 +451,12 @@ pub const Editor = struct {
                 var backup_buffer: [files_mod.max_path]u8 = undefined;
                 const backup_os = files_mod.backupPathFor(&backup_buffer, path_os) orelse {
                     files.delete(temp_os);
-                    self.setStatus("", "the path is too long to keep a backup of");
+                    self.setStatus("", l10n.str("app.core.the_path_is_too_long_2"));
                     return error.Failed;
                 };
                 files.copy(path_os, backup_os) catch {
                     files.delete(temp_os);
-                    self.saveFailureStatus("could not keep a backup of ", path_os, files.lastError());
+                    self.saveFailureStatus("app.core.backup_failed", path_os, files.lastError());
                     return error.Failed;
                 };
             }
@@ -474,7 +475,7 @@ pub const Editor = struct {
 
         files.rename(temp_os, path_os) catch {
             files.delete(temp_os);
-            self.saveFailureStatus("could not replace ", path_os, files.lastError());
+            self.saveFailureStatus("app.core.replace_failed", path_os, files.lastError());
             return error.Failed;
         };
 
@@ -483,14 +484,13 @@ pub const Editor = struct {
         self.history.markClean();
     }
 
-    /// "<prefix><name>: <reason>", the name being `path_os`'s last
+    /// The status text `key` fills with the name and the reason, the name being `path_os`'s last
     /// component - the status bar names the file, not its full path.
-    fn saveFailureStatus(self: *Editor, comptime prefix: []const u8, path_os: []const u8, reason: []const u8) void {
+    fn saveFailureStatus(self: *Editor, comptime key: []const u8, path_os: []const u8, reason: []const u8) void {
         const cut = std.mem.lastIndexOfAny(u8, path_os, "/\\");
         const name = if (cut) |c| path_os[c + 1 ..] else path_os;
         var buffer: [200]u8 = undefined;
-        const combined = std.fmt.bufPrint(&buffer, "{s}: {s}", .{ name, reason }) catch buffer[0..];
-        self.setStatus(prefix, combined);
+        self.setStatus("", l10n.say(&buffer, key, .{ name, reason }));
     }
 
     pub fn dirty(self: *const Editor) bool {
@@ -1360,7 +1360,7 @@ pub const Editor = struct {
         if (slot == -1) {
             wanted.neutral = anchor;
         } else wanted = wanted.withPlayer(@intCast(slot), anchor) orelse {
-            self.setStatus("camera anchors: ", "the editor edits the anchors of 32 players at most");
+            self.setStatus("", l10n.str("app.core.camera_anchors_the_editor_edits"));
             return error.Refused;
         };
         const value: records.Value = .{ .camera_anchors = wanted };
@@ -1398,7 +1398,7 @@ pub const Editor = struct {
     /// this edit can restore a verbatim path. An equal value records nothing.
     pub fn setScriptFile(self: *Editor, name: []const u8) EditError!void {
         if (name.len >= records.script_file_capacity) {
-            self.setStatus("script: ", "a script name is 63 characters at most");
+            self.setStatus("", l10n.str("app.core.script_a_script_name_is"));
             return error.Refused;
         }
         var file: records.ScriptFile = .{};
@@ -1451,7 +1451,7 @@ pub const Editor = struct {
     /// (Refused otherwise, nothing changed).
     pub fn renameScriptArea(self: *Editor, index: usize, name: []const u8) EditError!void {
         if (name.len >= records.area_name_capacity) {
-            self.setStatus("script area: ", "a name is 63 characters at most");
+            self.setStatus("", l10n.str("app.core.script_area_a_name_is"));
             return error.Refused;
         }
         var value: records.Value = undefined;
@@ -1549,7 +1549,7 @@ pub const Editor = struct {
     /// One undo step.
     pub fn addScriptIDToGroup(self: *Editor, group: i32, script_id: i32) EditError!void {
         if (script_id < records.min_script_id or script_id > records.max_script_id) {
-            self.setStatus("group: ", "a script ID in a group is 0..32000");
+            self.setStatus("", l10n.str("app.core.group_a_script_id_in"));
             return error.Refused;
         }
         var current: records.Value = undefined;
@@ -1557,7 +1557,7 @@ pub const Editor = struct {
         defer current.deinit(self.allocator);
         if (current.group.has(script_id)) {
             var buffer: [96]u8 = undefined;
-            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is already in group {d}", .{ script_id, group }) catch "already in the group");
+            self.note(l10n.say(&buffer, "app.core.script_id_is_already_in", .{ script_id, group }));
             return;
         }
         const ids = try self.allocator.alloc(i32, current.group.ids.len + 1);
@@ -1579,7 +1579,7 @@ pub const Editor = struct {
         defer current.deinit(self.allocator);
         const at = std.mem.indexOfScalar(i32, current.group.ids, script_id) orelse {
             var buffer: [96]u8 = undefined;
-            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is not in group {d}", .{ script_id, group }) catch "not in the group");
+            self.note(l10n.say(&buffer, "app.core.script_id_is_not_in", .{ script_id, group }));
             return;
         };
         const ids = try self.allocator.alloc(i32, current.group.ids.len - 1);
@@ -1669,11 +1669,11 @@ pub const Editor = struct {
     /// changes nothing.
     pub fn filterNew(self: *Editor, name: []const u8) EditError!void {
         if (!core_filters.nameValid(name)) {
-            self.setStatus("filters: ", "a filter name is 1..63 characters, no control characters, no |");
+            self.setStatus("", l10n.str("app.core.filters_a_filter_name_is"));
             return error.Refused;
         }
         if (self.filterNameTaken(name)) {
-            self.setStatus("filters: ", "a filter named that already exists");
+            self.setStatus("", l10n.str("app.core.filters_a_filter_named_that"));
             return error.Refused;
         }
         var filter: bridge_mod.ObjectFilter = .{};
@@ -1695,7 +1695,7 @@ pub const Editor = struct {
                 return;
             }
         }
-        self.setStatus("filters: ", "no filter is named that");
+        self.setStatus("", l10n.str("app.core.filters_no_filter_is_named"));
         return error.Refused;
     }
 
@@ -1704,15 +1704,15 @@ pub const Editor = struct {
     /// taken new name or a missing old one.
     pub fn filterRename(self: *Editor, old: []const u8, new: []const u8) EditError!void {
         const filter = self.findFilter(old) orelse {
-            self.setStatus("filters: ", "no filter is named that");
+            self.setStatus("", l10n.str("app.core.filters_no_filter_is_named"));
             return error.Refused;
         };
         if (!core_filters.nameValid(new)) {
-            self.setStatus("filters: ", "a filter name is 1..63 characters, no control characters, no |");
+            self.setStatus("", l10n.str("app.core.filters_a_filter_name_is"));
             return error.Refused;
         }
         if (!std.mem.eql(u8, old, new) and self.filterNameTaken(new)) {
-            self.setStatus("filters: ", "a filter named that already exists");
+            self.setStatus("", l10n.str("app.core.filters_a_filter_named_that"));
             return error.Refused;
         }
         filter.setName(new);
@@ -1730,16 +1730,16 @@ pub const Editor = struct {
         var updated = updated_in;
         const name = updated.nameSlice();
         const filter = self.findFilter(name) orelse {
-            self.setStatus("filters: ", "no filter is named that");
+            self.setStatus("", l10n.str("app.core.filters_no_filter_is_named"));
             return error.Refused;
         };
         if (updated.list_count < 0 or updated.list_count > bridge_mod.filter_max_lists) {
-            self.setStatus("filters: ", "a filter carries at most 8 word lists");
+            self.setStatus("", l10n.str("app.core.filters_a_filter_carries_at"));
             return error.Refused;
         }
         for (updated.lists[0..@intCast(updated.list_count)]) |list| {
             if (list.word_count < 0 or list.word_count > bridge_mod.filter_max_words) {
-                self.setStatus("filters: ", "a word list holds at most 8 words");
+                self.setStatus("", l10n.str("app.core.filters_a_word_list_holds"));
                 return error.Refused;
             }
         }
@@ -1840,7 +1840,7 @@ pub const Editor = struct {
         defer current.deinit(self.allocator);
         if (current.start_command.has(link_id)) {
             var buffer: [96]u8 = undefined;
-            self.note(std.fmt.bufPrint(&buffer, "unit {d} is already in start command {d}", .{ link_id, index }) catch "already in the command");
+            self.note(l10n.say(&buffer, "app.core.unit_is_already_in_start", .{ link_id, index }));
             return;
         }
         const units = try self.allocator.alloc(i32, current.start_command.units.len + 1);
@@ -1861,7 +1861,7 @@ pub const Editor = struct {
         defer current.deinit(self.allocator);
         const at = std.mem.indexOfScalar(i32, current.start_command.units, link_id) orelse {
             var buffer: [96]u8 = undefined;
-            self.note(std.fmt.bufPrint(&buffer, "unit {d} is not in start command {d}", .{ link_id, index }) catch "not in the command");
+            self.note(l10n.say(&buffer, "app.core.unit_is_not_in_start", .{ link_id, index }));
             return;
         };
         if (current.start_command.units.len == 1) return self.deleteStartCommand(index);
@@ -1988,14 +1988,14 @@ pub const Editor = struct {
     /// Refused with a note. One undo step.
     pub fn addMobileScriptID(self: *Editor, side: usize, id: i32) EditError!void {
         if (id < records.min_script_id or id > records.max_script_id) {
-            self.note("a mobile script ID is 0..32000");
+            self.note(l10n.str("app.core.a_mobile_script_id_is"));
             return error.Refused;
         }
         var current = try self.aiSide(self.allocator, side);
         defer current.deinit(self.allocator);
         if (current.hasMobile(id)) {
             var buffer: [96]u8 = undefined;
-            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is already a mobile ID of side {d}", .{ id, side }) catch "already a mobile script ID");
+            self.note(l10n.say(&buffer, "app.core.script_id_is_already_a", .{ id, side }));
             return;
         }
         try current.appendMobile(self.allocator, id);
@@ -2009,7 +2009,7 @@ pub const Editor = struct {
         defer current.deinit(self.allocator);
         if (!try current.removeMobile(self.allocator, id)) {
             var buffer: [96]u8 = undefined;
-            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is not a mobile ID of side {d}", .{ id, side }) catch "not a mobile script ID");
+            self.note(l10n.say(&buffer, "app.core.script_id_is_not_a", .{ id, side }));
             return;
         }
         try self.editAiSide(side, current, 0);
@@ -2284,11 +2284,11 @@ pub const Editor = struct {
     /// open (the bridge's own refusal, message carried).
     pub fn setLayer(self: *Editor, layer: layers_mod.Layer, shown: bool) EditError!void {
         if (!layers_mod.isToggle(layer)) {
-            self.setStatus("layers: ", "the fire ranges are a mode, not a toggle");
+            self.setStatus("", l10n.str("app.core.layers_the_fire_ranges_are"));
             return error.Refused;
         }
         if (!self.layerAvailable(layer)) {
-            self.setStatus("layers: ", "this renderer cannot draw that layer");
+            self.setStatus("", l10n.str("app.core.layers_this_renderer_cannot_draw"));
             return error.Refused;
         }
         try self.noteOutcome(self.bridge.setLayerShow(@intFromEnum(layer), shown));
@@ -2326,7 +2326,8 @@ pub const Editor = struct {
         // not saved yet, or deleted since) is a refusal like any other: the
         // mode that showed stays, the status line says which name.
         if (answer == .bad_argument and state.fire_mode == .filter) {
-            self.setStatus("fire range: ", self.bridge.lastMessage());
+            var said: [512]u8 = undefined;
+            self.setStatus("", l10n.say(&said, "app.core.fire_range_refused", .{self.bridge.lastMessage()}));
             return error.Refused;
         }
         try self.noteOutcome(answer);
@@ -3015,7 +3016,7 @@ pub const Editor = struct {
 
     fn reloadPlayersAfterEdit(self: *Editor) EditError!void {
         self.reloadPlayers() catch |err| {
-            self.setStatus("", "the edit went through but the map's players could not be read again; reopen the map");
+            self.setStatus("", l10n.str("app.core.the_edit_went_through_but"));
             return err;
         };
     }
@@ -3025,13 +3026,13 @@ pub const Editor = struct {
     /// the document's object list stale, which the status line says.
     fn reloadObjectsAfterEdit(self: *Editor) EditError!void {
         self.reloadObjects() catch |err| {
-            self.setStatus("", "the edit went through but the map's objects could not be read again; reopen the map");
+            self.setStatus("", l10n.str("app.core.the_edit_went_through_but_2"));
             return err;
         };
     }
 
     fn refuseBrokenReplay(self: *Editor) EditError {
-        self.setStatus("", "the undo history no longer matches the map after a failed undo or redo; reopen the map");
+        self.setStatus("", l10n.str("app.core.the_undo_history_no_longer"));
         return error.Failed;
     }
 
