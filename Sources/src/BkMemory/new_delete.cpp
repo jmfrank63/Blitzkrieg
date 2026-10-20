@@ -113,8 +113,20 @@ void operator delete[](void *p) noexcept { bk_mem_free(p); }
 void operator delete(void *p, const std::nothrow_t &) noexcept { bk_mem_free(p); }
 void operator delete[](void *p, const std::nothrow_t &) noexcept { bk_mem_free(p); }
 
-void operator delete(void *p, std::size_t size) noexcept { bk_mem_free_sized(p, size, 0); }
-void operator delete[](void *p, std::size_t size) noexcept { bk_mem_free_sized(p, size, 0); }
+// The size a sized delete passes is only cross-checked against the block's
+// header, and on Apple platforms it is not the platform's promise to keep:
+// the system libc++ is built without sized deallocation, and the inline
+// string code of a newer SDK computes a buffer's size by another rule than
+// the older system libc++ that allocated it (the macOS 15.1 SDK on macOS 14.8:
+// 25 bytes allocated, delete passed 24). The header is authoritative there.
+#if defined(__APPLE__)
+#  define BK_DELETE_SIZE(size) ((void)(size), std::size_t(0))
+#else
+#  define BK_DELETE_SIZE(size) (size)
+#endif
+
+void operator delete(void *p, std::size_t size) noexcept { bk_mem_free_sized(p, BK_DELETE_SIZE(size), 0); }
+void operator delete[](void *p, std::size_t size) noexcept { bk_mem_free_sized(p, BK_DELETE_SIZE(size), 0); }
 
 void operator delete(void *p, std::align_val_t alignment) noexcept
 {
@@ -126,11 +138,11 @@ void operator delete[](void *p, std::align_val_t alignment) noexcept
 }
 void operator delete(void *p, std::size_t size, std::align_val_t alignment) noexcept
 {
-	bk_mem_free_sized(p, size, static_cast<std::size_t>(alignment));
+	bk_mem_free_sized(p, BK_DELETE_SIZE(size), static_cast<std::size_t>(alignment));
 }
 void operator delete[](void *p, std::size_t size, std::align_val_t alignment) noexcept
 {
-	bk_mem_free_sized(p, size, static_cast<std::size_t>(alignment));
+	bk_mem_free_sized(p, BK_DELETE_SIZE(size), static_cast<std::size_t>(alignment));
 }
 void operator delete(void *p, std::align_val_t, const std::nothrow_t &) noexcept { bk_mem_free(p); }
 void operator delete[](void *p, std::align_val_t, const std::nothrow_t &) noexcept { bk_mem_free(p); }
