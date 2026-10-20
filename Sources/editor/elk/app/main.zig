@@ -373,7 +373,9 @@ const short_schedule =
     "8:expect=help:0,8:key=f1,10:expect=help:1,10:expect=help_has:--short,10:expect=help_has:Language,11:do=help_close,13:expect=help:0,14:exit";
 const short_reopen_schedule =
     "2:expect=open,2:expect=layout:short,2:expect=notice_has:0/2,3:expect=toolbar:short,3:expect=filter:All," ++
-    "4:do=help,6:expect=help:1,7:exit";
+    "4:do=help,6:expect=help:1,8:shot=" ++ short_shot_name ++ ",9:exit";
+/// The frame `short_reopen_schedule` captures with Help open; `smokeShort` reads it back.
+const short_shot_name = "short-help";
 
 /// The worker pass (D-14). `d14.csv` gives every text of the copy a new
 /// translation starting with `auto.whole_marker`; its import is held before
@@ -703,6 +705,42 @@ fn smokeFind(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, s
     return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
+/// `shot=`'s proof: `<folder>/<name>.tga` is a 32-bit TGA of the window's size whose pixels are
+/// not all one colour (a cleared target that was never drawn into would be).
+fn shotHasInk(gpa: std.mem.Allocator, io: std.Io, folder: []const u8, name: []const u8) bool {
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ folder, std.fs.path.sep, name }) catch return false;
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 << 20)) catch |err| {
+        std.debug.print("elk: smoke FAIL: shot {s} did not read back: {s}\n", .{ path, @errorName(err) });
+        return false;
+    };
+    defer gpa.free(bytes);
+    const wanted_w: u16 = 1280;
+    const wanted_h: u16 = 800;
+    if (bytes.len < 18 + @as(usize, wanted_w) * wanted_h * 4 or bytes[2] != 2 or bytes[16] != 32) {
+        std.debug.print("elk: smoke FAIL: shot {s} is not a 32-bit TGA of the window ({d} bytes)\n", .{ path, bytes.len });
+        return false;
+    }
+    const w = std.mem.readInt(u16, bytes[12..14], .little);
+    const h = std.mem.readInt(u16, bytes[14..16], .little);
+    if (w != wanted_w or h != wanted_h) {
+        std.debug.print("elk: smoke FAIL: shot {s} is {d}x{d}, wanted {d}x{d}\n", .{ path, w, h, wanted_w, wanted_h });
+        return false;
+    }
+    const pixels = bytes[18..][0 .. @as(usize, w) * h * 4];
+    const first = pixels[0..4];
+    var different: usize = 0;
+    var at: usize = 4;
+    while (at < pixels.len) : (at += 4) {
+        if (!std.mem.eql(u8, pixels[at..][0..4], first)) different += 1;
+    }
+    if (different < 100) {
+        std.debug.print("elk: smoke FAIL: shot {s} has no ink: {d} pixels differ from the first\n", .{ path, different });
+        return false;
+    }
+    return true;
+}
+
 /// The smoke's spell check pass on a seventh copy, `<scratch>-spell`, with
 /// its own `<scratch>-spell.cfg` and so `custom.dic` beside it; the test
 /// dictionary is written into the copy's `dictionaries` folder.
@@ -933,8 +971,9 @@ fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
             return .{ .code = 1 };
         }
     }
-    const again = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout after a restart)" });
+    const again = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_reopen_schedule, .shot_folder = folder, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout after a restart)" });
     if (again.code != 0) return again;
+    if (!shotHasInk(gpa, io, folder, short_shot_name)) return .{ .code = 1 };
     return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
@@ -1065,6 +1104,8 @@ const Script = struct {
     source_files: usize = 0,
     /// Where `do=answer` answers File > Open (Runner.dialog_folder).
     dialog_folder: []const u8 = "",
+    /// Where `shot=` writes its TGAs (Runner.shot_folder).
+    shot_folder: []const u8 = "",
     /// The run's own elk.cfg, read when it is there (a later run of the same
     /// pass) and written as ELK writes it; "" keeps the settings in memory.
     /// The user's own file is never touched.
@@ -1123,6 +1164,9 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .source_folder = script.source,
         .source_files = script.source_files,
         .dialog_folder = script.dialog_folder,
+        .shot_folder = script.shot_folder,
+        .gpa = gpa,
+        .io = io,
     };
     var frames: u32 = 0;
     const passed = loopCounting(&window, &ui, &runner, script.frame_limit, &frames);

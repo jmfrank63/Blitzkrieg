@@ -107,6 +107,29 @@ pub fn decodePng(allocator: std.mem.Allocator, bytes: []const u8) !Gray {
     return .{ .width = width, .height = height, .pixels = pixels };
 }
 
+/// A 32-bit uncompressed true-colour TGA (what `kit.capture.encodeTga` writes) as its luminance,
+/// top row first whichever origin the descriptor says.
+pub fn decodeTga(allocator: std.mem.Allocator, bytes: []const u8) !Gray {
+    if (bytes.len < 18) return error.NotTga;
+    const id_length: usize = bytes[0];
+    if (bytes[1] != 0 or bytes[2] != 2 or bytes[16] != 32) return error.UnsupportedTga;
+    const width: usize = std.mem.readInt(u16, bytes[12..14], .little);
+    const height: usize = std.mem.readInt(u16, bytes[14..16], .little);
+    if (width == 0 or height == 0) return error.NotTga;
+    const start = 18 + id_length;
+    if (bytes.len < start + width * height * 4) return error.TruncatedTga;
+    const top_first = bytes[17] & 0x20 != 0;
+    const pixels = try allocator.alloc(u8, width * height);
+    for (0..height) |y| {
+        const source_row = if (top_first) y else height - 1 - y;
+        for (0..width) |x| {
+            const p = bytes[start + (source_row * width + x) * 4 ..][0..4]; // B, G, R, A
+            pixels[y * width + x] = @intCast((@as(u32, p[2]) * 299 + @as(u32, p[1]) * 587 + @as(u32, p[0]) * 114) / 1000);
+        }
+    }
+    return .{ .width = width, .height = height, .pixels = pixels };
+}
+
 fn paeth(a: u8, b: u8, c: u8) u8 {
     const p = @as(i32, a) + b - c;
     const pa = @abs(p - a);
@@ -562,6 +585,34 @@ test "words split at wide gaps and the headline's gap is found" {
     try testing.expectEqual(@as(usize, 0), first.longest_gap);
     try testing.expectEqual(@as(usize, 2), headline(image, split[1], 0).longest_gap);
     try testing.expectEqual(Rect{ .x1 = 22, .y1 = 0, .x2 = 22 + 4, .y2 = 12 }, window(split[1], 0, 0.25));
+}
+
+test "decodeTga reads a top-left TGA, a bottom-left one and refuses others" {
+    const allocator = testing.allocator;
+    // Two pixels wide, two high: top row white, black; bottom row black, white.
+    var bytes: [18 + 16]u8 = @splat(0);
+    bytes[2] = 2;
+    bytes[12] = 2;
+    bytes[14] = 2;
+    bytes[16] = 32;
+    bytes[17] = 0x28;
+    const white = [4]u8{ 255, 255, 255, 255 };
+    const black = [4]u8{ 0, 0, 0, 255 };
+    bytes[18..][0..4].* = white;
+    bytes[22..][0..4].* = black;
+    bytes[26..][0..4].* = black;
+    bytes[30..][0..4].* = white;
+    const top = try decodeTga(allocator, &bytes);
+    defer allocator.free(top.pixels);
+    try testing.expectEqualSlices(u8, &.{ 255, 0, 0, 255 }, top.pixels);
+    bytes[17] = 0x08; // bottom-left origin: the rows are stored bottom first
+    const flipped = try decodeTga(allocator, &bytes);
+    defer allocator.free(flipped.pixels);
+    try testing.expectEqualSlices(u8, &.{ 0, 255, 255, 0 }, flipped.pixels);
+    try testing.expectError(error.TruncatedTga, decodeTga(allocator, bytes[0..30]));
+    bytes[16] = 24;
+    try testing.expectError(error.UnsupportedTga, decodeTga(allocator, &bytes));
+    try testing.expectError(error.NotTga, decodeTga(allocator, bytes[0..10]));
 }
 
 test "decodePng reads what hb-view writes" {

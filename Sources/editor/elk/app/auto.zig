@@ -4,9 +4,12 @@
 //! are, so the edit boxes see what a translator's keyboard would send;
 //! `do=` and `expect=` resolve against ELK's own commands and state.
 //!
-//! What ELK drives in this slice: `key=`, `text=`, `do=`, `expect=`, `exit`.
+//! What ELK drives in this slice: `key=`, `text=`, `do=`, `expect=`,
+//! `shot=<name>` (the last drawn frame written to `<shot_folder>/<name>.tga`
+//! by `Window.capture`; the run's scratch folder) and `exit`.
 //! The pointer actions, `open=`/`save`/`saveas=`, test-in-game and the
-//! screenshot actions fail the run as not driven yet.
+//! other screenshot actions (`compare=`, `differ=`) fail the run as not
+//! driven yet.
 //!
 //! While a long operation runs on the worker (D-14) only the entries that
 //! drive its modal run (`do=wait_held`, `do=release`, `do=job_cancel`,
@@ -218,6 +221,11 @@ pub const Runner = struct {
     /// Where a scripted dialog answers, standing in for the folder the user
     /// browsed to: the grammar's arguments are short, the paths are not.
     dialog_folder: []const u8 = "",
+    /// Where `shot=` writes its `<name>.tga`; "" is the working directory.
+    shot_folder: []const u8 = "",
+    /// Allocator for the capture's pixel buffer.
+    gpa: std.mem.Allocator = std.heap.page_allocator,
+    io: ?std.Io = null,
     /// Text events borrow their bytes until ImGui copies them in.
     text_storage: [schedule.max_arg_len + 1]u8 = undefined,
     failure_storage: [512]u8 = undefined,
@@ -274,8 +282,22 @@ pub const Runner = struct {
             .do => |named| try self.command(window, ui, named),
             .expect => |named| try self.expect(window, ui, named),
             .exit => ui.requestExit(),
+            .shot => |name| try self.shoot(window, name),
             else => self.fail("{s} is not driven by ELK yet", .{@tagName(action)}),
         }
+    }
+
+    /// `shot=`: the entries run before the frame is drawn, so this captures the frame the
+    /// previous iteration drew, which is what the preceding entries produced.
+    fn shoot(self: *Runner, window: *window_mod.Window, name: []const u8) !void {
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = if (self.shot_folder.len == 0)
+            std.fmt.bufPrint(&path_buffer, "{s}.tga", .{name})
+        else
+            std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ self.shot_folder, std.fs.path.sep, name });
+        const file = path catch return self.fail("shot={s}: path too long", .{name});
+        window.capture(self.gpa, self.io orelse return self.fail("shot={s}: the runner has no io", .{name}), file) catch
+            return self.fail("{s}", .{window_mod.failureReason()});
     }
 
     fn press(self: *Runner, window: *window_mod.Window, key_action: schedule.Key) !void {

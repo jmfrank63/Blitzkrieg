@@ -4,7 +4,7 @@ Reusable editor plumbing with no MapEditor-specific types. Only `host` touches
 the engine: it starts it through the shared `BkEditor*` C ABI (`bridge.h`).
 Any Zig editor on the kit (MapEditor, ResourceEditor, Mission, …) gets the
 same `files`, `shipped`, `script_file`, `autosave`, `history`, `settings`,
-`host`, `window`, `dialogs`, `crt`, `imgui`, `auto_schedule`, `pictures_cache`
+`host`, `window`, `capture`, `dialogs`, `crt`, `imgui`, `auto_schedule`, `pictures_cache`
 and `testlaunch`
 submodules and composes its own domain-specific state over them.
 
@@ -98,6 +98,16 @@ same `start`/`handleEvent`/`beginFrame`/`endFrame`/`stop` shape plus
 `setTitle` and `failureReason`. A hidden window draws into an offscreen
 texture rather than a swapchain. ELK runs on it; any editor that loads no
 engine gets it for free.
+
+`capture(alloc, io, path)` reads the last drawn frame of a hidden window back
+(a download transfer buffer and a copy pass on the offscreen texture) and
+writes it as an uncompressed 32-bit top-left TGA, printing
+`capture: <path> <w>x<h>`; a failure names the path and SDL's error in
+`failureReason()`. The file format is the pure `capture.encodeTga`, unit-tested
+without a device. A visible window cannot be captured. Linux is the proved
+platform; Windows and macOS are left to CI. ELK's `shot=<name>` writes
+`<name>.tga` this way, and `tools/zig/l10n_measure.zig`'s `decodeTga` reads it
+back for measuring.
 
 ## dialogs
 

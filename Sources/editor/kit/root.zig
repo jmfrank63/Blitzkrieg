@@ -20,6 +20,7 @@ pub const auto_schedule = @import("auto_schedule.zig");
 pub const pictures_cache = @import("pictures_cache.zig");
 pub const host = @import("host.zig");
 pub const window = @import("window.zig");
+pub const capture = @import("capture.zig");
 pub const dialogs = @import("dialogs.zig");
 // The ImGui wrapper lives under `kit/imgui/` so the kit is self-contained,
 // but it is reached through its own `editor_imgui` module (build.zig's
