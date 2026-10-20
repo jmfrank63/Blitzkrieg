@@ -1,0 +1,9 @@
+[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+
+# Projet de test de l'éditeur de médailles
+
+- Extension: `.mdc`
+- Mode de test: `runtime-reference`
+- Fichier de projet: aucun trouvé
+- Référence d'exécution: `Data\Medals\Allies\BronzeStar\1.xml`
+- Remarques: Aucun fichier de projet composer trouvé ; un XML d'exécution (médaille) est disponible.

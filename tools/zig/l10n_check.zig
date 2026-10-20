@@ -721,7 +721,32 @@ fn checkTableDir(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.D
 
 /// A document set of the real tree, as a path without the language part: `README` names README.md
 /// and README_<Language>.md in the repository root.
-pub const document_sets = [_][]const u8{ "README", "tools/guide/README" };
+pub const document_sets = [_][]const u8{
+    "README",
+    "tools/guide/README",
+    "Data/Editor/TestProjects/README",
+    "Data/Editor/TestProjects/01_GUI/README",
+    "Data/Editor/TestProjects/02_InfantryAnimation/README",
+    "Data/Editor/TestProjects/03_Sprite/README",
+    "Data/Editor/TestProjects/04_Effect/README",
+    "Data/Editor/TestProjects/05_Object/README",
+    "Data/Editor/TestProjects/06_Mesh/README",
+    "Data/Editor/TestProjects/07_Weapon/README",
+    "Data/Editor/TestProjects/08_Building/README",
+    "Data/Editor/TestProjects/09_TileSet/README",
+    "Data/Editor/TestProjects/10_Fence/README",
+    "Data/Editor/TestProjects/11_Particle/README",
+    "Data/Editor/TestProjects/12_Trench/README",
+    "Data/Editor/TestProjects/13_Squad/README",
+    "Data/Editor/TestProjects/14_Mine/README",
+    "Data/Editor/TestProjects/15_Bridge/README",
+    "Data/Editor/TestProjects/16_Mission/README",
+    "Data/Editor/TestProjects/17_Chapter/README",
+    "Data/Editor/TestProjects/18_Campaign/README",
+    "Data/Editor/TestProjects/19_3DRoad/README",
+    "Data/Editor/TestProjects/20_3DRiver/README",
+    "Data/Editor/TestProjects/21_Medal/README",
+};
 
 const DocLanguage = struct { code: []const u8, name: []const u8 };
 
