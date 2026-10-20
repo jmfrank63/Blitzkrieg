@@ -721,7 +721,7 @@ fn checkTableDir(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.D
 
 /// A document set of the real tree, as a path without the language part: `README` names README.md
 /// and README_<Language>.md in the repository root.
-pub const document_sets = [_][]const u8{"README"};
+pub const document_sets = [_][]const u8{ "README", "tools/guide/README" };
 
 const DocLanguage = struct { code: []const u8, name: []const u8 };
 
