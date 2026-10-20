@@ -3692,14 +3692,32 @@ pub fn build(b: *std.Build) void {
         addMsvcLibraryPaths(b, l10n_game_reads_module, toolchain);
     }
     const l10n_game_reads_tests = b.addTest(.{ .root_module = l10n_game_reads_module });
-    const l10n_game_reads_run = b.addRunArtifact(l10n_game_reads_tests);
-    l10n_game_reads_run.setCwd(b.path("."));
-    l10n_game_reads_run.setEnvironmentVariable("BK_L10N_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    l10n_game_reads_run.has_side_effects = true;
-    l10n_game_reads_run.step.dependOn(&language_mods_run.step);
-    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on the ru, zh-Hans, ja and hi language mods, capture the main menu, and measure every label against an hb-view raster of its string: correlation, the Hindi headline, short i and conjunct checks, the regional Han forms, and the live language switch (M002 R056, D066)");
+    // One shard per language (BK_L10N_LANGS), each well under the 10 minute foreground
+    // limit: the menu, the briefing, a live switch and a restart. The aggregate runs its
+    // own copy of every shard in a chain, so two Games never start at once; a shard run
+    // alone does not pull the others in.
+    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu and the first mission's briefing and measure them (hb-view for ru, zh-Hans, ja and hi; ink, difference from English and missing glyphs for es, fr, de, pt-BR and id), then a live switch and a restart (M002 R056, D066)");
+    const l10n_shards = [_][]const u8{ "en", "ru", "zh-hans", "ja", "hi", "es", "fr", "de", "pt-br", "id" };
+    var l10n_chain: ?*std.Build.Step = null;
+    for (l10n_shards) |code| {
+        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, live switch and restart on the real Game, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056)", .{code});
+        const shard_step = b.step(b.fmt("l10n-game-reads-it-{s}", .{code}), shard_about);
+        shard_step.dependOn(&l10n_game_reads_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(l10n_game_reads_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_L10N_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_L10N_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&language_mods_run.step);
+            if (chained) {
+                if (l10n_chain) |before| run.step.dependOn(before);
+                l10n_chain = &run.step;
+                if (test_mode == .run) l10n_game_reads_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
     l10n_game_reads_step.dependOn(&l10n_game_reads_tests.step);
-    if (test_mode == .run) l10n_game_reads_step.dependOn(&l10n_game_reads_run.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled

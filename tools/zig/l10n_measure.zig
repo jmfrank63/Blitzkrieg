@@ -126,6 +126,39 @@ pub fn inkBox(image: Gray, threshold: u8) ?Rect {
     return if (box.x2 == 0) null else box;
 }
 
+/// Pixels of `rect` (in a frame `stride` pixels wide) whose RGB differs between
+/// two RGBA frames by more than `tolerance` in any channel.
+pub fn changedPixels(a: []const u8, b: []const u8, stride: usize, rect: Rect, tolerance: u8) usize {
+    var changed: usize = 0;
+    for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
+        const at = (y * stride + x) * 4;
+        for (0..3) |c| {
+            if (@abs(@as(i16, a[at + c]) - @as(i16, b[at + c])) > tolerance) {
+                changed += 1;
+                break;
+            }
+        }
+    };
+    return changed;
+}
+
+/// Whether the image holds a `w` by `h` window in which at least `min_fill`
+/// (0..1) of the pixels are above `threshold`: the solid box a bitmap font
+/// draws for a code point it has no glyph for. Letter strokes at the sizes of
+/// the game's fonts leave such a window mostly empty.
+pub fn hasSolidBox(image: Gray, threshold: u8, w: usize, h: usize, min_fill: f64) bool {
+    if (image.width < w or image.height < h) return false;
+    const need: usize = @intFromFloat(@ceil(min_fill * @as(f64, @floatFromInt(w * h))));
+    for (0..image.height - h + 1) |y| for (0..image.width - w + 1) |x| {
+        var lit: usize = 0;
+        for (0..h) |dy| for (0..w) |dx| {
+            if (image.at(x + dx, y + dy) > threshold) lit += 1;
+        };
+        if (lit >= need) return true;
+    };
+    return false;
+}
+
 pub fn crop(allocator: std.mem.Allocator, image: Gray, rect: Rect) !Gray {
     const pixels = try allocator.alloc(u8, rect.width() * rect.height());
     for (0..rect.height()) |y| @memcpy(pixels[y * rect.width() ..][0..rect.width()], image.pixels[(rect.y1 + y) * image.width + rect.x1 ..][0..rect.width()]);
@@ -205,6 +238,40 @@ pub fn matchReference(allocator: std.mem.Allocator, frame_box: Gray, reference: 
     const reference_aspect = @as(f64, @floatFromInt(box.width())) / @as(f64, @floatFromInt(box.height()));
     const frame_aspect = @as(f64, @floatFromInt(frame_box.width)) / @as(f64, @floatFromInt(frame_box.height));
     return .{ .correlation = correlation(frame_box, scaled), .aspect = frame_aspect / reference_aspect };
+}
+
+/// The image smoothed by a box of `radius` pixels around each pixel (clamped at
+/// the edges). Text of about 11 pixels' height is hinted by the Game's own font
+/// raster, so its strokes sit a pixel off a shaper's; the smoothed images are
+/// compared instead.
+pub fn blur(allocator: std.mem.Allocator, image: Gray, radius: usize) !Gray {
+    const pixels = try allocator.alloc(u8, image.pixels.len);
+    for (0..image.height) |y| for (0..image.width) |x| {
+        var sum: usize = 0;
+        var count: usize = 0;
+        for (y -| radius..@min(y + radius + 1, image.height)) |yy| for (x -| radius..@min(x + radius + 1, image.width)) |xx| {
+            sum += image.at(xx, yy);
+            count += 1;
+        };
+        pixels[y * image.width + x] = @intCast(sum / count);
+    };
+    return .{ .width = image.width, .height = image.height, .pixels = pixels };
+}
+
+/// `matchReference` with both images smoothed by `blur` of `radius` first.
+pub fn matchReferenceBlurred(allocator: std.mem.Allocator, frame_box: Gray, reference: Gray, reference_threshold: u8, radius: usize) !Match {
+    const box = inkBox(reference, reference_threshold) orelse return error.NoInk;
+    const cut = try crop(allocator, reference, box);
+    defer allocator.free(cut.pixels);
+    const scaled = try resample(allocator, cut, frame_box.width, frame_box.height);
+    defer allocator.free(scaled.pixels);
+    const soft_reference = try blur(allocator, scaled, radius);
+    defer allocator.free(soft_reference.pixels);
+    const soft_frame = try blur(allocator, frame_box, radius);
+    defer allocator.free(soft_frame.pixels);
+    const reference_aspect = @as(f64, @floatFromInt(box.width())) / @as(f64, @floatFromInt(box.height()));
+    const frame_aspect = @as(f64, @floatFromInt(frame_box.width)) / @as(f64, @floatFromInt(frame_box.height));
+    return .{ .correlation = correlation(soft_frame, soft_reference), .aspect = frame_aspect / reference_aspect };
 }
 
 /// The words of a one-line box: runs of columns with ink, split where at
@@ -406,6 +473,10 @@ fn bars(x: usize, y: usize) u8 {
     return if (x % 8 < 4) 200 else 0;
 }
 
+fn shiftedBars(x: usize, y: usize) u8 {
+    return bars(x + 1, y);
+}
+
 test "resample keeps the mean and the pattern, crop and inkBox find the ink" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
@@ -430,6 +501,40 @@ test "resample keeps the mean and the pattern, crop and inkBox find the ink" {
 
 fn zero(_: usize, _: usize) u8 {
     return 0;
+}
+
+test "a solid box is found and thin strokes are not; changed pixels are counted per rect" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var strokes = try synthetic(allocator, 40, 20, bars);
+    // Bars of width 4 are lit 4 of every 8 columns: a 6 by 8 window is at most 4/6 lit.
+    try testing.expect(!hasSolidBox(strokes, 24, 6, 8, 0.9));
+    for (4..14) |y| for (10..20) |x| {
+        strokes.pixels[y * 40 + x] = 255;
+    };
+    try testing.expect(hasSolidBox(strokes, 24, 6, 8, 0.9));
+    try testing.expect(!hasSolidBox(try synthetic(allocator, 4, 4, zero), 24, 6, 8, 0.9));
+    const a = try allocator.alloc(u8, 4 * 4 * 4);
+    @memset(a, 10);
+    const b = try allocator.dupe(u8, a);
+    b[(1 * 4 + 2) * 4 + 1] = 40;
+    b[(3 * 4 + 3) * 4] = 12;
+    try testing.expectEqual(@as(usize, 1), changedPixels(a, b, 4, .{ .x1 = 0, .y1 = 0, .x2 = 4, .y2 = 4 }, 8));
+    try testing.expectEqual(@as(usize, 2), changedPixels(a, b, 4, .{ .x1 = 0, .y1 = 0, .x2 = 4, .y2 = 4 }, 1));
+    try testing.expectEqual(@as(usize, 0), changedPixels(a, b, 4, .{ .x1 = 0, .y1 = 0, .x2 = 2, .y2 = 4 }, 1));
+}
+
+test "smoothing makes a stroke pattern shifted by a pixel correlate" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const a = try synthetic(allocator, 40, 12, bars);
+    const b = try synthetic(allocator, 40, 12, shiftedBars);
+    const sharp = correlation(a, b);
+    const soft = correlation(try blur(allocator, a, 1), try blur(allocator, b, 1));
+    try testing.expect(soft > sharp);
+    try testing.expectEqual(@as(u8, 0), (try blur(allocator, try synthetic(allocator, 4, 4, zero), 1)).pixels[5]);
 }
 
 test "words split at wide gaps and the headline's gap is found" {
