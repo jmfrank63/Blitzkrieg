@@ -4055,6 +4055,23 @@ jobs:
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
+      # The packed build (5.7 GB) and its unpacked copy fill the runner's disk as they do in
+      # macos-build (run 39460191996: "No space left on device" in Unpack the build), so the
+      # unused Xcode versions and the Android SDK go first here too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          echo "selected Xcode: $keep"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
       - name: Download the build
         uses: actions/download-artifact@v8
         with:
@@ -4431,6 +4448,23 @@ jobs:
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
+      # The packed build (5.7 GB) and its unpacked copy fill the runner's disk as they do in
+      # macos-build (run 39460191996: "No space left on device" in Unpack the build), so the
+      # unused Xcode versions and the Android SDK go first here too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          echo "selected Xcode: $keep"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
       - name: Download the build
         uses: actions/download-artifact@v8
         with:
@@ -4782,6 +4816,23 @@ jobs:
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
+      # The packed build (5.7 GB) and its unpacked copy fill the runner's disk as they do in
+      # macos-build (run 39460191996: "No space left on device" in Unpack the build), so the
+      # unused Xcode versions and the Android SDK go first here too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          echo "selected Xcode: $keep"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
       - name: Download the build
         uses: actions/download-artifact@v8
         with:
@@ -5059,6 +5110,23 @@ jobs:
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
 
+      # The packed build (5.7 GB) and its unpacked copy fill the runner's disk as they do in
+      # macos-build (run 39460191996: "No space left on device" in Unpack the build), so the
+      # unused Xcode versions and the Android SDK go first here too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          echo "selected Xcode: $keep"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
       - name: Download the build
         uses: actions/download-artifact@v8
         with:
@@ -5280,6 +5348,23 @@ jobs:
           export PATH="${zig_home}:$PATH"
           echo "$zig_home" >> "$GITHUB_PATH"
           zig version
+
+      # The packed build (5.7 GB) and its unpacked copy fill the runner's disk as they do in
+      # macos-build (run 39460191996: "No space left on device" in Unpack the build), so the
+      # unused Xcode versions and the Android SDK go first here too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          echo "selected Xcode: $keep"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
       - name: Download the build
         uses: actions/download-artifact@v8
