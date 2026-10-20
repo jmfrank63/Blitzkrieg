@@ -3689,6 +3689,13 @@ pub fn build(b: *std.Build) void {
     l10n_check_run.has_side_effects = true;
     const l10n_check_step = b.step("l10n-check", "Fail with one `l10n-check: <rule>: <code>: <where>: <detail>` line per finding when an overlay text or state file is missing, stale or malformed (M002 S03)");
     l10n_check_step.dependOn(&l10n_check_run.step);
+    // Rewrites Localization/game/base-hashes.txt after the translations of a changed English text were reviewed (D075).
+    const l10n_update_base_run = b.addRunArtifact(l10n_check_exe);
+    l10n_update_base_run.addArg("--update-base");
+    l10n_update_base_run.setCwd(b.path("."));
+    l10n_update_base_run.has_side_effects = true;
+    const l10n_update_base_step = b.step("l10n-check-update-base", "Rewrite Localization/game/base-hashes.txt from the English texts of the scope keys, keeping its same-as-base lines (M002 S03)");
+    l10n_update_base_step.dependOn(&l10n_update_base_run.step);
     // The seeded-fault fixtures run the installed checker against trees written under zig-out/local-test/l10n-check.
     const l10n_check_install = b.addInstallArtifact(l10n_check_exe, .{});
     const l10n_check_unit = b.addTest(.{ .root_module = b.createModule(.{

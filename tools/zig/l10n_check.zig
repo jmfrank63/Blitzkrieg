@@ -13,6 +13,25 @@
 //! extension) every language overlay must hold. An overlay text is `<key>.txt` (UTF-16LE with a
 //! byte order mark) beside its state file `<key>.xml` (`<base State="n" .../>`, 0 not translated,
 //! 1 outdated, 2 translated, 3 approved, as Sources/editor/elk/core/state.zig names them).
+//!
+//! The English source of a key is its `Data/ELK/game_data_base/<key>.elk` (the original; the
+//! `.txt` beside it is a translation working copy, used only when no `.elk` exists). An overlay
+//! .xml cannot record which English text a translation was made from, so D075 keeps a tracked
+//! manifest, `Localization/game/base-hashes.txt`: `<key> <sha256 hex of the English bytes>` per
+//! scope key, plus `same-as-base <code> <key>` lines naming translations that may equal the
+//! English byte for byte (a proper name). Rule `stale` fires when the English bytes no longer
+//! match their hash, `base-hash-missing` when a scope key has no line, `untranslated` when an
+//! overlay text equals the English bytes without a `same-as-base` line. `--update-base` rewrites
+//! the manifest (`zig build l10n-check-update-base`) after a person reviewed the translations.
+//! Some Data/ELK originals are Russian; every comparison is against the base of that key.
+//!
+//! Rule `placeholder`: the multiset of substituted or interpreted tokens must be the same in the
+//! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
+//! `{n}` and no `$name`; the tokens present are hotkey names in angle brackets (`<Shift>`, `<Ctrl-1>`,
+//! `<F5>`), square-bracket keys (`[Q]`, `[DISABLED]`) and `#n` counters. The 25 in-scope originals
+//! hold none of them, only CRLF line breaks. The rule therefore counts printf codes (`%s`, `%d`,
+//! `%5.2f`; `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
+//! and a literal `\n`; square-bracket keys are left to the translator, who may write the local key.
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
 
@@ -113,11 +132,13 @@ fn readOptional(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, path: []
     };
 }
 
-/// Whether `rel` (forward slashes) exists below `root`, matching every component case-insensitively
-/// when the exact spelling is absent, as the Data tree of a case-sensitive file system needs.
-pub fn existsIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, rel: []const u8) !bool {
-    if (root.statFile(io, rel, .{})) |_| return true else |_| {}
+/// The spelling of `rel` (forward slashes) that exists below `root`, matching every component
+/// case-insensitively when the exact spelling is absent, as the Data tree of a case-sensitive file
+/// system needs; null when it does not exist.
+pub fn findIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, rel: []const u8) !?[]const u8 {
+    if (root.statFile(io, rel, .{})) |_| return rel else |_| {}
     var current = try root.openDir(io, ".", .{ .iterate = true });
+    var names: std.ArrayList([]const u8) = .empty;
     var parts = std.mem.tokenizeScalar(u8, rel, '/');
     while (parts.next()) |part| {
         const last = parts.peek() == null;
@@ -131,21 +152,181 @@ pub fn existsIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, 
         }
         const name = found orelse {
             current.close(io);
-            return false;
+            return null;
         };
+        try names.append(arena, name);
         if (last) {
             current.close(io);
-            return true;
+            return try std.mem.join(arena, "/", names.items);
         }
         const next = current.openDir(io, name, .{ .iterate = true }) catch {
             current.close(io);
-            return false;
+            return null;
         };
         current.close(io);
         current = next;
     }
     current.close(io);
-    return false;
+    return null;
+}
+
+pub fn existsIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, rel: []const u8) !bool {
+    return (try findIgnoreCase(io, arena, root, rel)) != null;
+}
+
+/// The English bytes of `key`: its `.elk` original, else its `.txt`; null when neither exists.
+pub fn readBase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, key: []const u8) !?[]u8 {
+    for ([_][]const u8{ "elk", "txt" }) |ext| {
+        const rel = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.{s}", .{ key, ext });
+        if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
+    }
+    return null;
+}
+
+pub const manifest_path = "Localization/game/base-hashes.txt";
+
+pub const SameAsBase = struct { code: []const u8, key: []const u8 };
+
+pub const Manifest = struct {
+    keys: []const []const u8,
+    hashes: []const []const u8,
+    same_as_base: []const SameAsBase,
+
+    pub fn hashOf(self: Manifest, key: []const u8) ?[]const u8 {
+        for (self.keys, self.hashes) |one, hash| {
+            if (std.mem.eql(u8, one, key)) return hash;
+        }
+        return null;
+    }
+
+    pub fn allowsSame(self: Manifest, code: []const u8, key: []const u8) bool {
+        for (self.same_as_base) |one| {
+            if (std.mem.eql(u8, one.code, code) and std.mem.eql(u8, one.key, key)) return true;
+        }
+        return false;
+    }
+};
+
+/// The lines of a `base-hashes.txt`: `<key> <hash>` and `same-as-base <code> <key>`; `#` lines and
+/// blank lines are skipped, and a line of any other shape is ignored so the scope check names it.
+pub fn parseManifest(arena: std.mem.Allocator, text: []const u8) !Manifest {
+    var keys: std.ArrayList([]const u8) = .empty;
+    var hashes: std.ArrayList([]const u8) = .empty;
+    var same: std.ArrayList(SameAsBase) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    while (lines.next()) |raw| {
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        var fields = std.mem.tokenizeScalar(u8, line, ' ');
+        const first = fields.next() orelse continue;
+        if (std.mem.eql(u8, first, "same-as-base")) {
+            const code = fields.next() orelse continue;
+            const key = fields.next() orelse continue;
+            try same.append(arena, .{ .code = code, .key = key });
+        } else {
+            const hash = fields.next() orelse continue;
+            try keys.append(arena, first);
+            try hashes.append(arena, hash);
+        }
+    }
+    return .{ .keys = keys.items, .hashes = hashes.items, .same_as_base = same.items };
+}
+
+pub fn hashHex(bytes: []const u8) [64]u8 {
+    var digest: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(bytes, &digest, .{});
+    return std.fmt.bytesToHex(digest, .lower);
+}
+
+fn lessString(_: void, a: []const u8, b: []const u8) bool {
+    return std.mem.lessThan(u8, a, b);
+}
+
+/// The substituted or interpreted tokens of a UTF-16LE text, sorted (see the module comment for
+/// which). A text without the byte order mark has none.
+pub fn placeholderTokens(arena: std.mem.Allocator, bytes: []const u8) ![]const []const u8 {
+    var tokens: std.ArrayList([]const u8) = .empty;
+    if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return tokens.items;
+    // Tokens are ASCII: every other unit becomes 0x80, which ends any token.
+    const count = (bytes.len - 2) / 2;
+    const ascii = try arena.alloc(u8, count);
+    for (ascii, 0..) |*c, i| {
+        const unit = std.mem.readInt(u16, bytes[2 + i * 2 ..][0..2], .little);
+        c.* = if (unit < 0x80) @intCast(unit) else 0x80;
+    }
+    var at: usize = 0;
+    while (at < ascii.len) {
+        const c = ascii[at];
+        var end: usize = at + 1;
+        var is_token = false;
+        switch (c) {
+            '%' => {
+                if (at + 1 < ascii.len and ascii[at + 1] == '%') {
+                    at += 2;
+                    continue;
+                }
+                var i = at + 1;
+                while (i < ascii.len and std.mem.indexOfScalar(u8, "-+ #0", ascii[i]) != null) i += 1;
+                while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
+                if (i < ascii.len and ascii[i] == '.') {
+                    i += 1;
+                    while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
+                }
+                if (i < ascii.len and std.ascii.isAlphabetic(ascii[i])) {
+                    end = i + 1;
+                    is_token = true;
+                }
+            },
+            '{' => {
+                var i = at + 1;
+                while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
+                if (i > at + 1 and i < ascii.len and ascii[i] == '}') {
+                    end = i + 1;
+                    is_token = true;
+                }
+            },
+            '$' => {
+                var i = at + 1;
+                while (i < ascii.len and (std.ascii.isAlphanumeric(ascii[i]) or ascii[i] == '_')) i += 1;
+                if (i > at + 1) {
+                    end = i;
+                    is_token = true;
+                }
+            },
+            '<' => {
+                var i = at + 1;
+                while (i < ascii.len and i - at <= 24 and ascii[i] != '>' and ascii[i] != '<' and ascii[i] > ' ' and ascii[i] != 0x80) i += 1;
+                if (i > at + 1 and i < ascii.len and ascii[i] == '>') {
+                    end = i + 1;
+                    is_token = true;
+                }
+            },
+            '\\' => {
+                if (at + 1 < ascii.len and ascii[at + 1] == 'n') {
+                    end = at + 2;
+                    is_token = true;
+                }
+            },
+            else => {},
+        }
+        if (is_token) try tokens.append(arena, ascii[at..end]);
+        at = end;
+    }
+    std.mem.sort([]const u8, tokens.items, {}, lessString);
+    return tokens.items;
+}
+
+fn tokensEqual(a: []const []const u8, b: []const []const u8) bool {
+    if (a.len != b.len) return false;
+    for (a, b) |x, y| {
+        if (!std.mem.eql(u8, x, y)) return false;
+    }
+    return true;
+}
+
+fn joinTokens(arena: std.mem.Allocator, tokens: []const []const u8) ![]const u8 {
+    if (tokens.len == 0) return "none";
+    return std.mem.join(arena, " ", tokens);
 }
 
 /// Overlay completeness and state (rules missing, missing-xml, state, stale, encoding, empty,
@@ -160,24 +341,37 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     const keys = try parseScope(arena, scope_text);
     if (keys.len == 0) try report.add("scope", "all", "Localization/game/scope.txt", "lists no key");
 
-    for (keys) |key| {
+    const manifest: ?Manifest = if (try readOptional(io, arena, root, manifest_path)) |text| try parseManifest(arena, text) else null;
+    if (manifest == null) try report.add("base-hash-missing", "all", manifest_path, "file is missing; run zig build l10n-check-update-base");
+
+    const bases = try arena.alloc(?[]u8, keys.len);
+    for (keys, bases) |key, *base_bytes| {
         report.checked += 1;
-        const as_elk = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.elk", .{key});
-        const as_txt = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.txt", .{key});
-        if (!try existsIgnoreCase(io, arena, root, as_elk) and !try existsIgnoreCase(io, arena, root, as_txt)) {
+        base_bytes.* = try readBase(io, arena, root, key);
+        const bytes = base_bytes.* orelse {
             try report.add("base-missing", "all", key, "no original text in Data/ELK/game_data_base");
+            continue;
+        };
+        const m = manifest orelse continue;
+        if (m.hashOf(key)) |recorded| {
+            const now = hashHex(bytes);
+            if (!std.mem.eql(u8, recorded, &now)) {
+                try report.add("stale", "all", key, "the English source changed since it was hashed in Localization/game/base-hashes.txt; review the translations, then run zig build l10n-check-update-base");
+            }
+        } else {
+            try report.add("base-hash-missing", "all", key, "no line in Localization/game/base-hashes.txt; run zig build l10n-check-update-base");
         }
     }
 
     for (languages.languages) |language| {
         const base = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base", .{language.code});
-        for (keys) |key| {
+        for (keys, bases) |key, base_bytes| {
             report.checked += 1;
             const txt_path = try std.fmt.allocPrint(arena, "{s}/{s}.txt", .{ base, key });
             const xml_path = try std.fmt.allocPrint(arena, "{s}/{s}.xml", .{ base, key });
             if (try readOptional(io, arena, root, txt_path)) |bytes| {
                 switch (textProblem(bytes)) {
-                    .ok => {},
+                    .ok => if (base_bytes) |english| try checkAgainstBase(report, manifest, language.code, key, english, bytes),
                     .no_bom => try report.add("encoding", language.code, key, "text lacks the UTF-16LE byte order mark"),
                     .odd_length => try report.addFmt("encoding", language.code, key, "text has an odd byte count ({d})", .{bytes.len}),
                     .unpaired_surrogate => |unit| try report.addFmt("encoding", language.code, key, "unpaired surrogate at unit {d}", .{unit}),
@@ -204,6 +398,64 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     }
 }
 
+/// Rules untranslated and placeholder for one overlay text against the English bytes of its key.
+fn checkAgainstBase(report: *Report, manifest: ?Manifest, code: []const u8, key: []const u8, english: []const u8, translation: []const u8) !void {
+    const arena = report.arena;
+    if (std.mem.eql(u8, english, translation)) {
+        const allowed = if (manifest) |m| m.allowsSame(code, key) else false;
+        if (!allowed) try report.addFmt("untranslated", code, key, "text equals the English original; translate it or add `same-as-base {s} {s}` to {s}", .{ code, key, manifest_path });
+    }
+    const want = try placeholderTokens(arena, english);
+    const have = try placeholderTokens(arena, translation);
+    if (!tokensEqual(want, have)) {
+        try report.addFmt("placeholder", code, key, "placeholders differ: English has {s}, translation has {s}", .{ try joinTokens(arena, want), try joinTokens(arena, have) });
+    }
+}
+
+/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every scope key, keeping
+/// the `same-as-base` lines. A scope key without an original is a finding and no file is written.
+pub fn updateBase(io: std.Io, report: *Report, root: std.Io.Dir) !void {
+    const arena = report.arena;
+    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse {
+        try report.add("scope", "all", "Localization/game/scope.txt", "file is missing");
+        return;
+    };
+    const keys = try arena.dupe([]const u8, try parseScope(arena, scope_text));
+    std.mem.sort([]const u8, keys, {}, lessString);
+    const old: Manifest = if (try readOptional(io, arena, root, manifest_path)) |text| try parseManifest(arena, text) else .{ .keys = &.{}, .hashes = &.{}, .same_as_base = &.{} };
+
+    var out: std.ArrayList(u8) = .empty;
+    try out.appendSlice(arena, manifest_header);
+    for (keys) |key| {
+        report.checked += 1;
+        const bytes = (try readBase(io, arena, root, key)) orelse {
+            try report.add("base-missing", "all", key, "no original text in Data/ELK/game_data_base");
+            continue;
+        };
+        const hash = hashHex(bytes);
+        try out.appendSlice(arena, try std.fmt.allocPrint(arena, "{s} {s}\r\n", .{ key, hash }));
+    }
+    if (report.findings.items.len != 0) return;
+    const same = try arena.dupe(SameAsBase, old.same_as_base);
+    std.mem.sort(SameAsBase, same, {}, lessSame);
+    for (same) |one| try out.appendSlice(arena, try std.fmt.allocPrint(arena, "same-as-base {s} {s}\r\n", .{ one.code, one.key }));
+    try root.writeFile(io, .{ .sub_path = manifest_path, .data = out.items });
+}
+
+fn lessSame(_: void, a: SameAsBase, b: SameAsBase) bool {
+    if (!std.mem.eql(u8, a.code, b.code)) return std.mem.lessThan(u8, a.code, b.code);
+    return std.mem.lessThan(u8, a.key, b.key);
+}
+
+const manifest_header =
+    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per scope key.\r\n" ++
+    "# The hash is of the English bytes in Data/ELK/game_data_base (the .elk original, else the .txt).\r\n" ++
+    "# l10n-check reports `stale` when the English text no longer matches its hash: review the\r\n" ++
+    "# translations of that key in every language, then rewrite this file with\r\n" ++
+    "#   zig build l10n-check-update-base\r\n" ++
+    "# A `same-as-base <code> <key>` line lets that translation equal the English (a proper name);\r\n" ++
+    "# the update keeps those lines.\r\n";
+
 fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, base: []const u8, keys: []const []const u8) !void {
     const arena = report.arena;
     var dir = root.openDir(io, base, .{ .iterate = true }) catch return;
@@ -228,7 +480,7 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, b
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
 
@@ -242,9 +494,12 @@ pub fn main(init: std.process.Init) !void {
     defer iterator.deinit();
     _ = iterator.skip();
     var root_path: []const u8 = ".";
+    var update_base = false;
     while (iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "--root")) {
             root_path = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--update-base")) {
+            update_base = true;
         } else usage();
     }
 
@@ -255,6 +510,13 @@ pub fn main(init: std.process.Init) !void {
     defer root.close(io);
 
     var report: Report = .{ .arena = arena };
+    if (update_base) {
+        try updateBase(io, &report, root);
+        for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+        if (report.findings.items.len != 0) std.process.exit(1);
+        std.debug.print("l10n-check: wrote {s} for {d} keys\n", .{ manifest_path, report.checked });
+        return;
+    }
     try checkOverlays(io, &report, root);
 
     for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
@@ -277,4 +539,29 @@ test "parseState reads the State attribute" {
     const testing = std.testing;
     try testing.expectEqual(@as(?u8, 3), parseState("<?xml version=\"1.0\"?>\r\n<base State=\"3\" Changed=\"1\"/>\r\n"));
     try testing.expectEqual(@as(?u8, null), parseState("<base/>"));
+}
+
+test "placeholderTokens finds printf codes, numbered slots, tags and a literal backslash n" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const text = "\xff\xfe" ++ "A %s and 100%% %5.2f {0} $name <br> <Ctrl-1> a < b \\n [Q]";
+    var bytes: std.ArrayList(u8) = .empty;
+    try bytes.appendSlice(arena, "\xff\xfe");
+    for (text[2..]) |c| try bytes.appendSlice(arena, &.{ c, 0 });
+    const tokens = try placeholderTokens(arena, bytes.items);
+    const want = [_][]const u8{ "$name", "%5.2f", "%s", "<Ctrl-1>", "<br>", "\\n", "{0}" };
+    try testing.expectEqual(want.len, tokens.len);
+    for (want, tokens) |w, t| try testing.expectEqualStrings(w, t);
+}
+
+test "parseManifest reads hashes and same-as-base lines" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const manifest = try parseManifest(arena_state.allocator(), "# c\r\nsome/key abc\r\n\r\nsame-as-base de some/key\r\n");
+    try testing.expectEqualStrings("abc", manifest.hashOf("some/key").?);
+    try testing.expect(manifest.allowsSame("de", "some/key"));
+    try testing.expect(!manifest.allowsSame("fr", "some/key"));
 }

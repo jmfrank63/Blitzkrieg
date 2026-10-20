@@ -57,9 +57,39 @@ fn buildTree(io: std.Io, allocator: std.mem.Allocator, case: []const u8) !std.Io
         try writeState(io, allocator, root, xml, 3);
     };
     // The base is spelled with another case than the scope keys, as a Data tree of the original game may be.
-    try write(io, root, "Data/ELK/game_data_base/Textes/Strings/ALPHA.elk", "x");
-    try write(io, root, "Data/ELK/game_data_base/scenarios/demo/beta.elk", "x");
+    try setBase(io, allocator, root, alpha_base, "Alpha original");
+    try setBase(io, allocator, root, beta_base, "Beta original");
+    try writeManifest(io, allocator, root, "");
     return root;
+}
+
+const alpha_base = "Data/ELK/game_data_base/Textes/Strings/ALPHA.elk";
+const beta_base = "Data/ELK/game_data_base/scenarios/demo/beta.elk";
+
+fn setBase(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, path: []const u8, text: []const u8) !void {
+    const bytes = try utf16le(allocator, text);
+    defer allocator.free(bytes);
+    try write(io, root, path, bytes);
+}
+
+/// The manifest of the two base files as they are now, then `extra` (whole lines) after them.
+fn writeManifest(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, extra: []const u8) !void {
+    var out: std.ArrayList(u8) = .empty;
+    defer out.deinit(allocator);
+    try out.appendSlice(allocator, "# fixture manifest\r\n");
+    const pairs = [_][2][]const u8{ .{ keys[0], alpha_base }, .{ keys[1], beta_base } };
+    for (pairs) |pair| {
+        const bytes = try root.readFileAlloc(io, pair[1], allocator, .limited(1 << 20));
+        defer allocator.free(bytes);
+        var digest: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(bytes, &digest, .{});
+        const hex = std.fmt.bytesToHex(digest, .lower);
+        const line = try std.fmt.allocPrint(allocator, "{s} {s}\r\n", .{ pair[0], hex });
+        defer allocator.free(line);
+        try out.appendSlice(allocator, line);
+    }
+    try out.appendSlice(allocator, extra);
+    try write(io, root, "Localization/game/base-hashes.txt", out.items);
 }
 
 const Outcome = struct { code: u8, stderr: []u8 };
@@ -159,6 +189,69 @@ test "extra_key: an overlay text outside the scope" {
 test "base_missing: a scope key the English base does not hold" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "base_missing");
-    try root.deleteFile(io, "Data/ELK/game_data_base/scenarios/demo/beta.elk");
+    try root.deleteFile(io, beta_base);
     try expectFinding(io, "base_missing", &root, "l10n-check: base-missing: all: scenarios/demo/beta: no original text in Data/ELK/game_data_base");
+}
+
+test "stale_text: the English text changed after the manifest was written" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "stale_text");
+    try setBase(io, testing.allocator, root, alpha_base, "Alpha revised");
+    try expectFinding(io, "stale_text", &root, "l10n-check: stale: all: textes/strings/alpha: the English source changed since it was hashed in Localization/game/base-hashes.txt; review the translations, then run zig build l10n-check-update-base");
+}
+
+test "base_hash_missing: a scope key without a manifest line" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "base_hash_missing");
+    try write(io, root, "Localization/game/base-hashes.txt", "# no lines\r\nscenarios/demo/beta 00\r\n");
+    // beta's recorded hash is wrong too, so the case keeps alpha missing and beta stale.
+    defer root.close(io);
+    const outcome = try runChecker(io, testing.allocator, "base_hash_missing");
+    defer testing.allocator.free(outcome.stderr);
+    const expected = try std.fmt.allocPrint(testing.allocator, "{s}\n{s}\nl10n-check: 2 findings, {d} checked\n", .{
+        "l10n-check: base-hash-missing: all: textes/strings/alpha: no line in Localization/game/base-hashes.txt; run zig build l10n-check-update-base",
+        "l10n-check: stale: all: scenarios/demo/beta: the English source changed since it was hashed in Localization/game/base-hashes.txt; review the translations, then run zig build l10n-check-update-base",
+        checked_total,
+    });
+    defer testing.allocator.free(expected);
+    try testing.expectEqual(@as(u8, 1), outcome.code);
+    try testing.expectEqualStrings(expected, outcome.stderr);
+}
+
+test "untranslated: an overlay text equal to the English original" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "untranslated");
+    try setBase(io, testing.allocator, root, de_alpha ++ ".txt", "Alpha original");
+    try expectFinding(io, "untranslated", &root, "l10n-check: untranslated: de: textes/strings/alpha: text equals the English original; translate it or add `same-as-base de textes/strings/alpha` to Localization/game/base-hashes.txt");
+}
+
+test "same_as_base_allowed: a listed translation may equal the English" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "same_as_base_allowed");
+    try setBase(io, testing.allocator, root, de_alpha ++ ".txt", "Alpha original");
+    try writeManifest(io, testing.allocator, root, "same-as-base de textes/strings/alpha\r\n");
+    root.close(io);
+    const outcome = try runChecker(io, testing.allocator, "same_as_base_allowed");
+    defer testing.allocator.free(outcome.stderr);
+    const expected = try std.fmt.allocPrint(testing.allocator, "l10n-check: 0 findings, {d} checked\n", .{checked_total});
+    defer testing.allocator.free(expected);
+    try testing.expectEqual(@as(u8, 0), outcome.code);
+    try testing.expectEqualStrings(expected, outcome.stderr);
+}
+
+test "broken_placeholder: a translation that lost a %s of the English" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "broken_placeholder");
+    try setBase(io, testing.allocator, root, alpha_base, "Alpha %s of %d");
+    try writeManifest(io, testing.allocator, root, "");
+    try setBase(io, testing.allocator, root, de_alpha ++ ".txt", "Alpha %d");
+    // The other eight languages still hold "Hello": they lose both tokens too.
+    root.close(io);
+    const outcome = try runChecker(io, testing.allocator, "broken_placeholder");
+    defer testing.allocator.free(outcome.stderr);
+    try testing.expectEqual(@as(u8, 1), outcome.code);
+    const de_line = "l10n-check: placeholder: de: textes/strings/alpha: placeholders differ: English has %d %s, translation has %d\n";
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, de_line) != null);
+    const fr_line = "l10n-check: placeholder: fr: textes/strings/alpha: placeholders differ: English has %d %s, translation has none\n";
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, fr_line) != null);
 }
