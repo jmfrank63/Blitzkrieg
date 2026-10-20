@@ -58,7 +58,7 @@
 //! outside fenced code (`doc-structure`) and its number of fenced code blocks (`doc-code`), and
 //! start with the language bar (`doc-bar`): ten links in the fixed order, each target one of the
 //! set's files (`doc-missing` reports one that does not exist), English pointing at the English file. A `<stem>_English.md` is `doc-extra`.
-//! S08 fills `document_sets` (the root README set, the tools guide, the test projects); `--doc-set <stem>` adds one.
+//! S08 fills `document_sets` (the root README set, the tools guide, the test projects); `--doc-set <stem>` adds one and `--no-default-docs` drops the built-in sets (the fixture tests).
 //!
 //! Rule `literal`: in the `strict_dirs` (the Map Editor, ELK and Resource Editor app directories;
 //! `--strict-dir <dir>` adds one), a known UI call whose first argument is a string literal is a
@@ -720,8 +720,8 @@ fn checkTableDir(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.D
 }
 
 /// A document set of the real tree, as a path without the language part: `README` names README.md
-/// and README_<Language>.md in the repository root. S08 adds the root README set here.
-pub const document_sets = [_][]const u8{};
+/// and README_<Language>.md in the repository root.
+pub const document_sets = [_][]const u8{"README"};
 
 const DocLanguage = struct { code: []const u8, name: []const u8 };
 
@@ -811,13 +811,13 @@ fn existsPlain(io: std.Io, root: std.Io.Dir, path: []const u8) !bool {
 }
 
 /// Rules doc-* for each document set (the constant ones plus `extra`).
-pub fn checkDocuments(io: std.Io, report: *Report, root: std.Io.Dir, extra: []const []const u8) !void {
+pub fn checkDocuments(io: std.Io, report: *Report, root: std.Io.Dir, defaults: []const []const u8, extra: []const []const u8) !void {
     const arena = report.arena;
-    if (document_sets.len == 0 and extra.len == 0) {
+    if (defaults.len == 0 and extra.len == 0) {
         try report.inactive.append(arena, "documents");
         return;
     }
-    for ([_][]const []const u8{ &document_sets, extra }) |sets| for (sets) |stem| {
+    for ([_][]const []const u8{ defaults, extra }) |sets| for (sets) |stem| {
         const en_path = try std.fmt.allocPrint(arena, "{s}.md", .{stem});
         report.checked += 1;
         const en_bytes = (try readOptional(io, arena, root, en_path)) orelse {
@@ -1153,7 +1153,7 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, b
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--strict-dir <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
 
@@ -1170,6 +1170,7 @@ pub fn main(init: std.process.Init) !void {
     var fonts_path: ?[]const u8 = null;
     var update_base = false;
     var doc_sets: std.ArrayList([]const u8) = .empty;
+    var default_docs: []const []const u8 = &document_sets;
     var strict: std.ArrayList([]const u8) = .empty;
     while (iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "--root")) {
@@ -1178,6 +1179,8 @@ pub fn main(init: std.process.Init) !void {
             fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--doc-set")) {
             try doc_sets.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
+        } else if (std.mem.eql(u8, arg, "--no-default-docs")) {
+            default_docs = &.{};
         } else if (std.mem.eql(u8, arg, "--strict-dir")) {
             try strict.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--update-base")) {
@@ -1209,7 +1212,7 @@ pub fn main(init: std.process.Init) !void {
         try report.addFmt("glyph", "all", fonts_path orelse "vendor/fonts", "cannot open the fonts directory ({s})", .{@errorName(err)});
         try checkTables(io, &report, root, null);
     }
-    try checkDocuments(io, &report, root, doc_sets.items);
+    try checkDocuments(io, &report, root, default_docs, doc_sets.items);
     try checkLiterals(io, &report, root, strict.items);
 
     for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
@@ -1320,19 +1323,28 @@ test "literalCall finds an English literal and skips wrapped text, format string
     try testing.expect(literalCall("c.my_igText(\"Hello\")") == null);
 }
 
-test "the document rule parses the real README.md and README_German.md" {
+test "the document rule finds no fault in the real README set and every translation is a real one" {
     const testing = std.testing;
     var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
     const cwd = std.Io.Dir.cwd();
+    var report: Report = .{ .arena = arena };
+    try checkDocuments(testing.io, &report, cwd, &document_sets, &.{});
+    for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+    try testing.expectEqual(@as(usize, 0), report.findings.items.len);
     const english = try parseDocument(arena, try cwd.readFileAlloc(testing.io, "README.md", arena, .limited(1 << 20)));
-    const german = try parseDocument(arena, try cwd.readFileAlloc(testing.io, "README_German.md", arena, .limited(1 << 20)));
     var top_level: usize = 0;
     for (english.levels) |level| top_level += @intFromBool(level == 1);
     try testing.expectEqual(@as(usize, 7), top_level);
-    // README_German.md is not yet a full translation (S08); it only has to parse, with its bar.
-    try testing.expect(german.levels.len > 0);
-    try testing.expectEqual(@as(usize, 10), (try linkTargets(arena, english.first_line)).len);
-    try testing.expectEqual(@as(usize, 10), (try linkTargets(arena, german.first_line)).len);
+    // The rule reads only headings, fences and the bar, so an empty or copied file needs its own check.
+    for (document_sets) |stem| {
+        const en_bytes = try cwd.readFileAlloc(testing.io, try std.fmt.allocPrint(arena, "{s}.md", .{stem}), arena, .limited(1 << 22));
+        for (doc_languages) |language| {
+            const path = try std.fmt.allocPrint(arena, "{s}_{s}.md", .{ stem, language.name });
+            const bytes = try cwd.readFileAlloc(testing.io, path, arena, .limited(1 << 22));
+            try testing.expect(!std.mem.eql(u8, bytes, en_bytes));
+            try testing.expect(bytes.len * 3 >= en_bytes.len and bytes.len <= en_bytes.len * 3);
+        }
+    }
 }

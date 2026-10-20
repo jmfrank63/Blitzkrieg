@@ -115,7 +115,7 @@ fn runCheckerWith(io: std.Io, allocator: std.mem.Allocator, case: []const u8, ex
     defer allocator.free(root);
     var argv: std.ArrayList([]const u8) = .empty;
     defer argv.deinit(allocator);
-    try argv.appendSlice(allocator, &.{ exe, "--root", root, "--fonts", "vendor/fonts" });
+    try argv.appendSlice(allocator, &.{ exe, "--root", root, "--fonts", "vendor/fonts", "--no-default-docs" });
     try argv.appendSlice(allocator, extra);
     const result = try std.process.run(allocator, io, .{ .argv = argv.items });
     allocator.free(result.stdout);
