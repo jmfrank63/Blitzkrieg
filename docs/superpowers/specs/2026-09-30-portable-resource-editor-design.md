@@ -1454,3 +1454,7 @@ Not claimed: no macOS or Windows result; the full resource sweep is left to the 
 - **Not measured.** The dialogs (Tools, Batch, PAK and the rest), the tree and Properties windows and the GUI Editor dock draw
   from the tables and pass the `l10n-check` gate, but no captured frame of them is measured; wrapped paragraphs and labels
   with arguments have no one-line hb-view reference. macOS and Windows are left to CI (S09).
+
+## Scenario checks and fonts (S07/T08)
+
+A slice that touches an editor's UI or fonts runs all of that editor's `resource-editor-auto-<editor>` tiers before it completes. Scenario expectations measure the drawn thing, not text: `shot_mark_cross:<shot>/<mark>/min|max/<n>` counts the span mark colour only inside one mark's own +-7px cross box (its label starts at +9px), so the number follows the two 2px diagonals (at least 24 exact pixels, measured 27) and not the UI font. `resource-editor-auto-bdg` uses it; the old whole-shot `shot_colour` of the mark colour counted the label and broke on the Noto fonts.

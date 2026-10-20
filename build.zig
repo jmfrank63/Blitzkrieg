@@ -11437,7 +11437,7 @@ const resource_auto_bdg =
     "414:expect=dirty:false," ++
     "416:shot=bdg_base," ++
     "417:expect=shot_colour:bdg_base/ff0000/max/300," ++
-    "417:expect=shot_colour:bdg_base/00ffff/min/150," ++
+    "417:expect=shot_mark_cross:bdg_base/begin/min/24," ++
     "417:expect=shot_colour:bdg_base/ff8000/max/0," ++
     "417:expect=span_mark:begin=home," ++
     "417:expect=span_mark:front=home," ++
@@ -11456,7 +11456,12 @@ const resource_auto_bdg =
     "425:expect=span_mark:front=moved," ++
     "425:expect=span_mark:back=moved," ++
     "427:shot=bdg_marks," ++
-    "428:expect=shot_colour:bdg_marks/00ffff/min/300," ++
+    "428:expect=shot_mark_cross:bdg_marks/begin/min/24," ++
+    "428:expect=shot_mark_cross:bdg_marks/end/min/24," ++
+    "428:expect=shot_mark_cross:bdg_marks/front/min/24," ++
+    "428:expect=shot_mark_cross:bdg_marks/back/min/24," ++
+    "428:expect=shot_mark_cross:bdg_base/end/max/0," ++
+    "428:expect=shot_mark_cross:bdg_base/back/max/0," ++
     "429:do=point:fire/13/10," ++
     "430:expect=points:fire=2," ++
     "431:shot=bdg_fire," ++
@@ -11481,7 +11486,7 @@ const resource_auto_bdg =
     "442:expect=dirty:false," ++
     "444:shot=bdg_undone," ++
     "445:expect=shot_colour:bdg_undone/ff0000/max/300," ++
-    "445:expect=shot_colour:bdg_undone/00ffff/min/150," ++
+    "445:expect=shot_mark_cross:bdg_undone/begin/min/24," ++
     "445:expect=shot_colour:bdg_undone/ff8000/max/0," ++
     "445:differ=bdg_tiles/bdg_undone@0.01," ++
     "446:do=redo," ++

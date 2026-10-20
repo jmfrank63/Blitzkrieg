@@ -113,6 +113,9 @@
 //!          lines:<n>  the Object's one-way line count  zero_tile:<x>/<y>  the zero point's tile (Object)
 //!          sprite_tile:<x>/<y>  the sprite's tile (Fence)  sprite:moved|home  against where sprite_move found it
 //!          shot_colour:<shot>/<RRGGBB>/min|max/<n>  the pixels of exactly that colour in a shot
+//!          shot_mark_cross:<shot>/<begin|end|front|back>/min|max/<n>  the span mark colour's pixels inside that mark's
+//!          own +-7px cross box, as drawn in the last frame (label excluded, so no UI font changes the number); a mark
+//!          not drawn counts as an error
 //!          points:<shoot|fire|smoke|dir>=<n>  the Building's point count of a family
 //!          point:<shoot|fire|smoke|dir>/<i>=<angle>/<cone>  one point's stored direction and cone (angle within 1 degree)
 //!          entrance_tile:<x>/<y>  the Building's entrance tile
@@ -2422,6 +2425,46 @@ const Runner = struct {
         return null;
     }
 
+    /// `<shot>/<mark>/min|max/<n>`: the span-mark-coloured pixels in the cross box of one mark. The box is the
+    /// square of +-7px the cross is drawn in (panels.zig drawSpanMarks); its label starts 9px right of the centre,
+    /// so it is outside, and the count follows the two 2px diagonals only, not the UI font.
+    fn shotMarkCross(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const shot = parts.next() orelse "";
+        const mark_text = parts.next() orelse "";
+        const bound = parts.next() orelse "";
+        const limit_text = parts.next() orelse "";
+        const mark = parseSpanMark(mark_text) orelse return self.fail("shot_mark_cross needs <shot>/<begin|end|front|back>/min|max/<n>", .{});
+        const limit = std.fmt.parseInt(usize, limit_text, 10) catch return self.fail("shot_mark_cross needs <shot>/<mark>/min|max/<n>", .{});
+        const is_min = std.mem.eql(u8, bound, "min");
+        if (!is_min and !std.mem.eql(u8, bound, "max")) return self.fail("shot_mark_cross needs min or max, not '{s}'", .{bound});
+        const at = self.panels.span_cross_at[@intFromEnum(mark)] orelse return self.fail("expect=shot_mark_cross:{s}: the last frame drew no {s} mark", .{ arg, mark_text });
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = self.shotPath(&path_buffer, shot) orelse return self.fail("shot_mark_cross: the path is too long", .{});
+        const bytes = readFile(self.io, self.gpa, path) catch |err| return self.fail("shot_mark_cross: {s}: {s}", .{ path, @errorName(err) });
+        defer self.gpa.free(bytes);
+        const tga = schedule.Tga.parse(bytes) catch return self.fail("shot_mark_cross: {s} is not a TGA", .{path});
+        const scale = @as(f32, @floatFromInt(tga.width)) / self.windowWidth();
+        const want = grid.span_mark_color;
+        const x0: i32 = @intFromFloat(@floor((at.x - 7) * scale));
+        const x1: i32 = @intFromFloat(@ceil((at.x + 7) * scale));
+        const y0: i32 = @intFromFloat(@floor((at.y - 7) * scale));
+        const y1: i32 = @intFromFloat(@ceil((at.y + 7) * scale));
+        var count: usize = 0;
+        var y = @max(y0, 0);
+        while (y <= y1 and y < tga.height) : (y += 1) {
+            var x = @max(x0, 0);
+            while (x <= x1 and x < tga.width) : (x += 1) {
+                const p = tga.pixel(@intCast(x), @intCast(y));
+                if (p[2] == (want >> 16 & 0xff) and p[1] == (want >> 8 & 0xff) and p[0] == (want & 0xff)) count += 1;
+            }
+        }
+        std.debug.print("resource-editor: auto: {s} has {d} mark pixels in the {s} cross ({s} {d})\n", .{ shot, count, mark_text, bound, limit });
+        if (is_min and count < limit) return self.fail("expect=shot_mark_cross:{s} was false: {d} pixels, at least {d} wanted", .{ arg, count, limit });
+        if (!is_min and count > limit) return self.fail("expect=shot_mark_cross:{s} was false: {d} pixels, at most {d} wanted", .{ arg, count, limit });
+        return null;
+    }
+
     /// `<shot>/<i>`: the displayed handle of stored key i is in the shot. The
     /// 5x5 pixels at the handle's drawn place (the widget's own key-to-pixel
     /// mapping, scaled to the capture) must hold one colour, at least 20 of
@@ -2884,6 +2927,7 @@ const Runner = struct {
         if (eql(u8, name, "shot_picture")) return self.shotPicture(arg);
         if (eql(u8, name, "shot_minimap")) return self.shotMinimap(arg);
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
+        if (eql(u8, name, "shot_mark_cross")) return self.shotMarkCross(arg);
         if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
         if (eql(u8, name, "gui_rect")) return self.guiRect(arg);
         if (eql(u8, name, "gui_same")) return self.guiSame(arg);

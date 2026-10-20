@@ -70,6 +70,10 @@ pub const Panels = struct {
     /// The Object and Fence editors' grid tools: the editor in use and the
     /// overlay's zoom.
     grid_editor: ?grid.GridEditor = null,
+    /// Where the last frame drew the centre of each span mark's cross (begin, end, front, back), in window
+    /// pixels, or null when it drew none. The scenario's shot_mark_cross measures the cross box from this,
+    /// so the check follows the mark's geometry and not the label font.
+    span_cross_at: [4]?ig.ImVec2 = .{ null, null, null, null },
     grid_zoom: f32 = 1,
     status: [256]u8 = undefined,
     status_len: usize = 0,
@@ -745,7 +749,8 @@ pub const Panels = struct {
         } else {
             ig.ImDrawList_AddCircle(draw_list, marker, 5, grid.toImGui(0xffffffff));
         }
-        if (registration.has(.span_marks)) drawSpanMarks(b, editor, node, view, draw_list);
+        self.span_cross_at = .{ null, null, null, null };
+        if (registration.has(.span_marks)) drawSpanMarks(b, editor, node, view, draw_list, &self.span_cross_at);
         if (registration.has(.fire)) self.drawBuildingPoints(b, editor, node, view, draw_list);
         if (editor.hover) |tile| {
             const corners = tileQuad(view, tile[0], tile[1]);
@@ -781,7 +786,7 @@ pub const Panels = struct {
     /// SetBridgeType's red line and the span marks as labelled crosses: Begin
     /// and End always, and the active part's group cross with its Front and
     /// Back, as GFXDraw draws them for the active span.
-    fn drawSpanMarks(b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList) void {
+    fn drawSpanMarks(b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList, drawn_at: *[4]?ig.ImVec2) void {
         const line = grid.spanLine(editor.bridge_type);
         ig.ImDrawList_AddLineEx(draw_list, screenOf(view, line[0]), screenOf(view, line[1]), grid.toImGui(grid.span_line_color), 1);
         const marks = grid.readSpanMarks(editor.allocator, b, node) catch return;
@@ -794,9 +799,10 @@ pub const Panels = struct {
             .{ .at = core.point_tools.centre_span_mark, .label = l10n.str("resource_app.span_mark.centre"), .centre = true },
         };
         const colour = grid.toImGui(grid.span_mark_color);
-        for (crosses) |cross| {
+        for (crosses, 0..) |cross, index| {
             if (cross.centre and editor.span_group != .centre) continue;
             const at = screenOf(view, grid.worldToGrid(cross.at));
+            if (index < drawn_at.len) drawn_at[index] = at;
             ig.ImDrawList_AddLineEx(draw_list, .{ .x = at.x - 7, .y = at.y - 7 }, .{ .x = at.x + 7, .y = at.y + 7 }, colour, 2);
             ig.ImDrawList_AddLineEx(draw_list, .{ .x = at.x - 7, .y = at.y + 7 }, .{ .x = at.x + 7, .y = at.y - 7 }, colour, 2);
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 9, .y = at.y - 7 }, colour, cross.label.ptr, cross.label.ptr + cross.label.len);
