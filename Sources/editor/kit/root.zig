@@ -24,6 +24,7 @@ pub const capture = @import("capture.zig");
 pub const dialogs = @import("dialogs.zig");
 pub const fonts = @import("fonts.zig");
 pub const l10n = @import("l10n.zig");
+pub const language_picker = @import("language_picker.zig");
 // The ImGui wrapper lives under `kit/imgui/` so the kit is self-contained,
 // but it is reached through its own `editor_imgui` module (build.zig's
 // `editor_imgui_module`), not through this re-export, because a file can

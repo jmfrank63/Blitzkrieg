@@ -77,6 +77,8 @@ pub const Settings = struct {
     /// Spell check's dictionary folder; empty is `dictionaries` beside ELK.
     spell_folder_storage: FixedPath = .{},
     spell_language_storage: FixedPath = .{},
+    /// The shared `ui_language` key (D061): `system` or a language code, as written.
+    ui_language_storage: FixedPath = .{},
 
     pub fn spellFolder(self: *const Settings) []const u8 {
         return self.spell_folder_storage.slice();
@@ -494,4 +496,20 @@ test "the file lives in the game's user root unless the seam names one" {
     if (std.fs.path.sep == '/') try testing.expectEqualStrings("/r/elk/elk.cfg", settingsPath(&path_buffer, null, "/r/").?);
     try testing.expectEqualStrings("t.cfg", settingsPath(&path_buffer, "t.cfg", "/r/").?);
     try testing.expectEqual(@as(?[]const u8, null), settingsPath(&path_buffer, null, ""));
+}
+
+test "ui_language: the default writes nothing, a code and an unknown value round-trip as written" {
+    var settings: Settings = .{};
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try std.testing.expect(std.mem.indexOf(u8, writer.buffered(), "ui_language") == null);
+    try std.testing.expectEqualStrings("system", ks.uiLanguage(&parse(writer.buffered())));
+    for ([_][]const u8{ "ru", "xx" }) |value| {
+        settings.ui_language_storage.set(value);
+        writer = .fixed(&buffer);
+        try format(&settings, &writer);
+        const again = parse(writer.buffered());
+        try std.testing.expectEqualStrings(value, ks.uiLanguage(&again));
+    }
 }

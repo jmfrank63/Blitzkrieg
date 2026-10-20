@@ -36,6 +36,8 @@ pub const Settings = struct {
     recent_count: usize = 0,
     game_parameters: FixedPath = .{},
     hidden_panels: u32 = 0,
+    /// The shared `ui_language` key (D061): empty is `system`, otherwise the value as written.
+    ui_language_storage: FixedPath = .{},
     /// The Editors menu's last choice as the kind's integer
     /// (`panels_logic.restoreEditor` turns it back into a sub-editor); null
     /// until one was chosen.
@@ -312,4 +314,20 @@ test "the user's template folder sits beside the settings file" {
     const sep = [_]u8{std.fs.path.sep};
     try testing.expectEqualStrings("/tmp/cfg" ++ sep ++ "templates", templatesPath(&buffer, "/tmp/cfg/x.cfg").?);
     try testing.expect(templatesPath(&buffer, "x.cfg") == null);
+}
+
+test "ui_language: the default writes nothing, a code and an unknown value round-trip as written" {
+    var settings: Settings = .{};
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try std.testing.expect(std.mem.indexOf(u8, writer.buffered(), "ui_language") == null);
+    try std.testing.expectEqualStrings("system", ks.uiLanguage(&parse(writer.buffered())));
+    for ([_][]const u8{ "ru", "xx" }) |value| {
+        settings.ui_language_storage.set(value);
+        writer = .fixed(&buffer);
+        try format(&settings, &writer);
+        const again = parse(writer.buffered());
+        try std.testing.expectEqualStrings(value, ks.uiLanguage(&again));
+    }
 }

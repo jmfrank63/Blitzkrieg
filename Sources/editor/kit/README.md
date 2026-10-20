@@ -214,3 +214,19 @@ tables.
 - Hindi results are encoded with `fonts.encodeHindi`; load the fonts before the first lookup.
 
 Its tests run in `zig build test-editor-kit`.
+
+## language_picker
+
+The shared language combo (D061). `draw(current)` shows a combo labelled `kit.language.label` with
+System first, then the ten languages under their own names (Hindi cluster-encoded), and returns
+`?Choice` with the new `ui_language` value on the frame a row other than the current one is picked.
+The caller applies it between frames: store it in the settings, call `l10n.setLanguage` and
+`fonts.reload`. `valueAt(row)` and `rowOf(value)` are the pure row/value mapping (an unknown value
+selects System).
+
+The `ui_language` key is shared: `settings.applySharedKey` reads it into a caller's
+`ui_language_storage` (a `FixedPath`, duck-typed with `@hasField`), `uiLanguage(&settings)` returns
+it or `system`, and `writeSharedTailKeys` writes `ui_language=<v>` only when it is not `system`, so
+files that never chose a language stay byte-identical. A value is kept as written, even when
+unknown. ELK, the Map Editor and the Resource Editor all carry the key; ELK's `spell_language`
+stays a separate setting.
