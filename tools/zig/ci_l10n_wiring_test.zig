@@ -3,7 +3,8 @@
 //! `zig build` step is named in the expected job. A step counts only on a `zig build` line, so a
 //! comment or a step name that merely mentions it does not. Every Linux job that runs a measured tier
 //! must also install libharfbuzz-bin, because the measured tiers fail without hb-view (D069).
-//! Rows for macOS and Windows are added to `expected` by the task that wires those jobs.
+//! macOS jobs install hb-view with `brew install harfbuzz` and run the measured tiers; Windows jobs run
+//! only the contract tiers and compile the measured ones (D088), and the last test keeps it so.
 const std = @import("std");
 const testing = std.testing;
 
@@ -31,7 +32,42 @@ const expected = [_]Row{
     .{ .job = "linux-build", .step = "test-bk-l10n" },
     .{ .job = "linux-build", .step = "test-bk-tools-l10n" },
     .{ .job = "linux-build", .step = "test-l10n-measure" },
+    // macOS runs everything Linux does that needs hb-view, through Homebrew's harfbuzz (D088).
+    .{ .job = "macos-game", .step = "install-language-mods" },
+    .{ .job = "macos-elk", .step = "elk-l10n-auto" },
+    .{ .job = "macos-map-editor", .step = "map-editor-l10n-auto" },
+    .{ .job = "macos-resource-editor", .step = "resource-editor-l10n-auto" },
+    .{ .job = "macos-tools", .step = "test-bk-l10n" },
+    .{ .job = "macos-tools", .step = "test-bk-tools-l10n" },
+    .{ .job = "macos-tools", .step = "test-l10n-measure" },
+    .{ .job = "macos-build", .step = "install-language-mods" },
+    .{ .job = "macos-build", .step = "elk-l10n-auto" },
+    .{ .job = "macos-build", .step = "map-editor-l10n-auto" },
+    .{ .job = "macos-build", .step = "resource-editor-l10n-auto" },
+    .{ .job = "macos-build", .step = "test-bk-l10n" },
+    .{ .job = "macos-build", .step = "test-bk-tools-l10n" },
+    .{ .job = "macos-build", .step = "test-l10n-measure" },
+    // Windows runs the contract tiers; the measured ones are only compiled there (D088).
+    .{ .job = "windows-game", .step = "language-mods" },
+    .{ .job = "windows-tools", .step = "test-bk-l10n" },
+    .{ .job = "windows-tools", .step = "test-bk-tools-l10n" },
+    .{ .job = "windows-build", .step = "install-language-mods" },
+    .{ .job = "windows-build", .step = "elk-l10n-auto" },
+    .{ .job = "windows-build", .step = "map-editor-l10n-auto" },
+    .{ .job = "windows-build", .step = "resource-editor-l10n-auto" },
+    .{ .job = "windows-build", .step = "test-bk-l10n" },
+    .{ .job = "windows-build", .step = "test-bk-tools-l10n" },
+    .{ .job = "windows-build", .step = "test-l10n-measure" },
 };
+
+/// The macOS jobs that run a measured tier, and so need hb-view from Homebrew.
+const macos_measured_jobs = [_][]const u8{ "macos-game", "macos-elk", "macos-map-editor", "macos-resource-editor", "macos-tools" };
+
+/// The Windows jobs that run tests. None of them may run a measured tier: there is no hb-view there.
+const windows_run_jobs = [_][]const u8{ "windows-game", "windows-resource-editor", "windows-map-editor", "windows-elk", "windows-tools" };
+
+/// The steps whose reference rasters come from hb-view.
+const measured_steps = [_][]const u8{ "elk-l10n-auto", "map-editor-l10n-auto", "resource-editor-l10n-auto", "test-l10n-measure", "l10n-game-reads-it" };
 
 /// The Linux jobs that run a measured tier, and so need hb-view.
 const measured_jobs = [_][]const u8{ "linux-game", "linux-elk", "linux-map-editor", "linux-resource-editor", "linux-tools" };
@@ -100,6 +136,57 @@ test "every Linux job with a measured tier installs hb-view" {
         if (std.mem.indexOf(u8, text, "libharfbuzz-bin") == null) {
             std.debug.print("ci-l10n-wiring: {s} runs a measured tier but does not install libharfbuzz-bin\n", .{job});
             return error.HbViewMissing;
+        }
+    }
+}
+
+/// Whether a non-comment line of the job installs harfbuzz.
+fn installsHarfbuzz(job: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, job, '\n');
+    while (lines.next()) |raw| {
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        if (std.mem.indexOf(u8, line, "install") != null and std.mem.indexOf(u8, line, "harfbuzz") != null) return true;
+    }
+    return false;
+}
+
+/// Whether a `zig build` line of the job names a step that starts with the prefix.
+fn runsStepPrefix(job: []const u8, prefix: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, job, '\n');
+    while (lines.next()) |raw| {
+        if (std.mem.indexOf(u8, raw, "zig build") == null) continue;
+        var words = std.mem.tokenizeAny(u8, raw, " \t\r\"'");
+        while (words.next()) |word| if (std.mem.startsWith(u8, word, prefix)) return true;
+    }
+    return false;
+}
+
+test "every macOS job with a measured tier installs harfbuzz" {
+    const workflow = try readWorkflow(testing.allocator);
+    defer testing.allocator.free(workflow);
+    for (macos_measured_jobs) |job| {
+        const text = jobText(workflow, job) orelse return error.JobMissing;
+        if (!installsHarfbuzz(text)) {
+            std.debug.print("ci-l10n-wiring: {s} runs a measured tier but has no `brew install harfbuzz`\n", .{job});
+            return error.HbViewMissing;
+        }
+    }
+    const game = jobText(workflow, "macos-game") orelse return error.JobMissing;
+    try testing.expect(runsStepPrefix(game, "l10n-game-reads-it"));
+}
+
+test "no Windows job runs a measured tier without hb-view" {
+    const workflow = try readWorkflow(testing.allocator);
+    defer testing.allocator.free(workflow);
+    for (windows_run_jobs) |job| {
+        const text = jobText(workflow, job) orelse return error.JobMissing;
+        if (installsHarfbuzz(text)) continue;
+        for (measured_steps) |step| {
+            if (runsStepPrefix(text, step)) {
+                std.debug.print("ci-l10n-wiring: {s} runs `{s}` (measured) but installs no hb-view; Windows only compiles it (D088)\n", .{ job, step });
+                return error.MeasuredTierOnWindows;
+            }
         }
     }
 }

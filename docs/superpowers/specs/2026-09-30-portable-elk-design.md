@@ -944,3 +944,16 @@ restart. It selects among packs, it is not a new localisation system.
   `tools/zig/verify_runtime.zig`) lists every missing mod file, Noto face and tools guide of the staged install
   as `verify-runtime: missing <path>`. This zig has no `mustRunAfter`, so the verifier depends on the install
   steps instead of racing them. A mod keeps its `mod.xml` in `data/`, beside `texts.pak`.
+
+### CI: which platforms run which l10n tiers (D088)
+
+The measured tiers compare drawn frames with hb-view's rasters and fail without hb-view (D069). Linux installs it
+with `libharfbuzz-bin`, macOS arm64 with `brew install harfbuzz`; both run the ten `l10n-game-reads-it-<code>`
+shards (macos-game parts `l10n-1` and `l10n-2`), `elk-l10n-auto`, `map-editor-l10n-auto`,
+`resource-editor-l10n-auto` (a `l10n` part in each macOS editor job) and, in the tools job, `test-bk-l10n`,
+`test-bk-tools-l10n` and `test-l10n-measure`. Windows MSVC has no supported hb-view package, so it runs the
+contract tiers only: `language-mods` (game part `l10n`), `test-bk-l10n` and `test-bk-tools-l10n`. Windows does
+not run `l10n-game-reads-it-*`, `elk-l10n-auto`, `map-editor-l10n-auto`, `resource-editor-l10n-auto` or
+`test-l10n-measure`; `windows-build` only compiles them. `test-ci-l10n-wiring` reads the workflow and fails when a
+row is missing or when a Windows job runs a measured tier without installing hb-view. No macOS or Windows result
+is recorded here: those jobs run when the maintainer pushes.
