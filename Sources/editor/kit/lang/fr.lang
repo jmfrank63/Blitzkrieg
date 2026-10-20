@@ -1,0 +1,3 @@
+# Kit string table: UTF-8, CRLF, key=value lines. Format: see ../README.md (l10n).
+kit.language.label=Langue
+kit.language.system=Système
