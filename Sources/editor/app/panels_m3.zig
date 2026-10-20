@@ -6,6 +6,7 @@ const std = @import("std");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
 const logic = @import("panels_logic.zig");
@@ -542,7 +543,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     // window's fields are appended to the docked panel. Renaming it moves them
     // into a floating window over the map, which the M2 and M3 scenarios' map
     // clicks then hit; recorded in deferred-items.md, not changed here.
-    const open = ig.igBegin("Properties", &state.properties_open, ig.ImGuiWindowFlags_NoCollapse);
+    const open = ig.igBegin(kit.l10n.id("app.props.title"), &state.properties_open, ig.ImGuiWindowFlags_NoCollapse);
     defer ig.igEnd();
     if (!open) return;
     const editor = state.editor;

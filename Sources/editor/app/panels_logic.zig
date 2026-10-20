@@ -317,12 +317,22 @@ pub fn tilePicturesStale(cached: []const u8, now: []const u8) bool {
 /// one object of the map carries (bridge.h, "The edits"): both are kept as
 /// they are.
 pub fn readOnlyReason(objects: []const ObjectRecord, object: ObjectRecord) ?[]const u8 {
-    if (!object.known) return "unknown to the object database";
+    return switch (readOnlyKind(objects, object) orelse return null) {
+        .unknown_type => "unknown to the object database",
+        .shared_link => "its link ID is shared",
+    };
+}
+
+/// Why an object is kept as it is, as a kind the panel words in the current language.
+pub const ReadOnlyKind = enum { unknown_type, shared_link };
+
+pub fn readOnlyKind(objects: []const ObjectRecord, object: ObjectRecord) ?ReadOnlyKind {
+    if (!object.known) return .unknown_type;
     var carriers: usize = 0;
     for (objects) |other| {
         if (other.link_id == object.link_id) carriers += 1;
     }
-    if (carriers > 1) return "its link ID is shared";
+    if (carriers > 1) return .shared_link;
     return null;
 }
 
