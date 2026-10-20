@@ -21,6 +21,15 @@
 //! - zh-Hans and ja: where the Simplified and the Japanese face draw a label
 //!   differently, the frame is nearer the language's own face.
 //!
+//! The first campaign mission's briefing (Allies, Operation Jupiter: Battle for
+//! Norway, a historical mission, so its text keys are fixed and no random map
+//! enters the frame) is captured the same way, against its own blank
+//! background, for the languages that have `briefing` set: the title, the three
+//! panel headers and the first objective are compared with hb-view like the
+//! menu's labels, and the description body must hold ink. BK_L10N_LANGS (a
+//! comma list of codes, default all) picks the languages, so a run can be
+//! sharded.
+//!
 //! Last, the Game starts on ru and switches to ja while it runs (the font
 //! cache clear of ApplyLanguage, T03): its capture must show ja's frame.
 //!
@@ -51,6 +60,14 @@ const width = 1024;
 const height = 768;
 const blank_mod = "l10n-blank";
 
+/// Whether BK_L10N_LANGS (a comma list of codes, default all) names `code`.
+fn selected(allocator: std.mem.Allocator, code: []const u8) !bool {
+    const list = (try envValue(allocator, "BK_L10N_LANGS")) orelse return true;
+    var codes = std.mem.splitScalar(u8, list, ',');
+    while (codes.next()) |one| if (std.mem.eql(u8, std.mem.trim(u8, one, " "), code)) return true;
+    return false;
+}
+
 // Thresholds. Each was measured on the first passing run (the values are in
 // the report) and set where it leaves room for the filter's and the
 // rasterisers' differences but not for a wrong glyph, wrong shaping or a
@@ -80,6 +97,9 @@ const min_matra_margin: f64 = 0.05;
 /// Hindi: the shaped label's correlation must beat the halant spelling's by
 /// this much.
 const min_conjunct_margin: f64 = 0.02;
+/// The briefing's description lines: at least this wide in ink (the first
+/// line, "Mission: ...", is already over 100 pixels).
+const min_body_width: usize = 100;
 /// Han: a character cell whose two faces' rasters correlate above this is
 /// not informative about the face.
 const han_informative_below: f64 = 0.90;
@@ -92,26 +112,84 @@ const min_face_margin: f64 = 0.01;
 /// animated; the buttons' own glyphs must not).
 const max_live_difference: usize = 25;
 
+const Ink = enum {
+    /// Gold text (the buttons, the briefing's title): the ink is the warmth the
+    /// label adds.
+    gold,
+    /// Grey or white text: the ink is the brightness the label adds.
+    bright,
+    /// Dark text over light metal (the briefing's panel headers and lines),
+    /// with a pale emboss that must not count: the ink is the brightness the
+    /// label takes away.
+    dark,
+};
+
 const Label = struct {
-    /// The overlay key below `textes/strings/`.
+    /// The overlay key below `dir`.
     key: []const u8,
     rect: Rect,
-    /// The header: FontSize 2 (the large font), grey text. The buttons use the
-    /// medium font and gold text.
-    large: bool = false,
+    /// The header of the main menu: FontSize 2 (the large font), grey text. The
+    /// buttons use the medium font and gold text.
+    ink: Ink = .gold,
+    /// The folder below `Localization/game/<code>/game_data_base/`.
+    dir: []const u8 = "textes/strings",
+
+    /// The path the Game traces when it opens the text, as the mod's pak names it.
+    fn tracedPath(self: Label, allocator: std.mem.Allocator) ![]u8 {
+        const path = try std.fmt.allocPrint(allocator, "{s}/{s}.txt", .{ self.dir, self.key });
+        std.mem.replaceScalar(u8, path, '/', '\\');
+        return path;
+    }
+
+    /// A file name for the label's hb-view raster.
+    fn stem(self: Label, allocator: std.mem.Allocator) ![]u8 {
+        const name = try std.fmt.allocPrint(allocator, "{s}-{s}", .{ self.dir, self.key });
+        std.mem.replaceScalar(u8, name, '/', '-');
+        return name;
+    }
 };
 
 /// The header (element 20001, FontSize 2) and the five buttons (FontSize 1) on
 /// the 1024x768 canvas, as in bk_font_game_reads_it.zig: the buttons are 320x50
 /// at x 650, y 267 + 65 * n; the header lies in the panel above them.
 const labels = [_]Label{
-    .{ .key = "imheader-mainmenu-header", .rect = .{ .x1 = 630, .y1 = 175, .x2 = 990, .y2 = 248 }, .large = true },
+    .{ .key = "imheader-mainmenu-header", .rect = .{ .x1 = 630, .y1 = 175, .x2 = 990, .y2 = 248 }, .ink = .bright },
     .{ .key = "imheader-gbutton-newgame", .rect = .{ .x1 = 650, .y1 = 267, .x2 = 970, .y2 = 317 } },
     .{ .key = "imheader-gbutton-multiplayer", .rect = .{ .x1 = 650, .y1 = 332, .x2 = 970, .y2 = 382 } },
     .{ .key = "imheader-gbutton-loadgame", .rect = .{ .x1 = 650, .y1 = 397, .x2 = 970, .y2 = 447 } },
     .{ .key = "imheader-gbutton-options", .rect = .{ .x1 = 650, .y1 = 462, .x2 = 970, .y2 = 512 } },
     .{ .key = "imheader-gbutton-exitgame", .rect = .{ .x1 = 650, .y1 = 527, .x2 = 970, .y2 = 577 } },
 };
+
+/// The briefing of the first Allied mission as the Game draws it at 1024x768
+/// (boxes measured on a captured English frame): the title in the top bar, the
+/// headers of the three panels, and the first objective, whose "+" icon lies
+/// left of x 72. The title is gold; the panel texts are grey on metal of
+/// different lightness, so each label takes the ink mode that its panel's
+/// text shows in (the objectives header and the objective are dark on light
+/// metal, the other two panel headers light on dark). The description panel's
+/// body wraps, so it is only checked for ink (`briefing_body`).
+const mission_dir = "scenarios/scenariomissions/allies/norway";
+const briefing_labels = [_]Label{
+    .{ .key = "header", .dir = mission_dir, .rect = .{ .x1 = 50, .y1 = 40, .x2 = 500, .y2 = 95 } },
+    .{ .key = "imheader-mission-objectives", .rect = .{ .x1 = 55, .y1 = 152, .x2 = 440, .y2 = 178 }, .ink = .dark },
+    .{ .key = "imheader-mission-map", .rect = .{ .x1 = 555, .y1 = 152, .x2 = 980, .y2 = 178 }, .ink = .bright },
+    .{ .key = "imheader-mission-desc", .rect = .{ .x1 = 555, .y1 = 433, .x2 = 940, .y2 = 458 }, .ink = .bright },
+    .{ .key = "0h", .dir = mission_dir, .rect = .{ .x1 = 72, .y1 = 200, .x2 = 440, .y2 = 228 }, .ink = .dark },
+};
+/// The description panel's text lines: "Mission: ...", "Type: ..." and the
+/// start of the description.
+const briefing_body = Label{ .key = "description", .dir = mission_dir, .rect = .{ .x1 = 555, .y1 = 485, .x2 = 935, .y2 = 625 }, .ink = .dark };
+/// The text keys the briefing opens besides the labels' own (the "Mission:",
+/// "Type:" and "Historical" lines of the description panel and its caption),
+/// as BK_MOD_TRACE shows them.
+const briefing_extra_keys = [_][]const u8{ "missiontext", "missiontypetext", "scenariomission", "missiondescriptiontext" };
+/// BK_AUTO_UI: the Allies campaign (index 2), its first chapter, then the
+/// chapter's first mission. The chapter screen resets the finish status, so it
+/// is cleared before the mission is named; the briefing is up by frame 360.
+const briefing_schedule = "60:campaign=2=scenarios\\campaigns\\allies\\allies,120:chapter=scenarios\\chapters\\allies\\norway\\1," ++
+    "240:var=Mission.Last.FinishStatus=-1,300:mission=scenarios\\scenariomissions\\allies\\norway\\1";
+const briefing_delay: u32 = 420;
 
 const Language = struct {
     code: []const u8,
@@ -120,10 +198,12 @@ const Language = struct {
     tag: []const u8,
     face: []const u8,
     script: ?[]const u8 = null,
+    /// Whether the briefing capture covers this language.
+    briefing: bool = false,
 };
 
 const languages = [_]Language{
-    .{ .code = "ru", .mod = "lang-ru", .tag = "ru", .face = "vendor/fonts/NotoSans-Regular.ttf" },
+    .{ .code = "ru", .mod = "lang-ru", .tag = "ru", .face = "vendor/fonts/NotoSans-Regular.ttf", .briefing = true },
     .{ .code = "zh-Hans", .mod = "lang-zh-hans", .tag = "zh-Hans", .face = "vendor/fonts/NotoSansSC-Regular.otf" },
     .{ .code = "ja", .mod = "lang-ja", .tag = "ja", .face = "vendor/fonts/NotoSansJP-Regular.otf" },
     .{ .code = "hi", .mod = "lang-hi", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
@@ -174,18 +254,30 @@ test "the Game draws the language mods' main menus as an independent shaper does
 
     var report = Report{ .allocator = allocator };
     var frames: [languages.len][]u8 = undefined;
+    var blank_briefing: ?[]u8 = null;
     for (languages, 0..) |language, index| {
+        if (!try selected(allocator, language.code)) continue;
         const run = try Run.init(io, allocator, game, game_root, root, language.code, language.mod);
         const frame = try run.capture(allocator, null, null);
         frames[index] = frame;
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "frame.tga" }), frame);
         try report.line("== {s} ({s})", .{ language.code, language.mod });
         try checkLanguage(io, allocator, language, run.folder, frame, blank, &report);
+        if (language.briefing) {
+            if (blank_briefing == null) {
+                blank_briefing = try blank_run.briefing(allocator, false);
+                try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", "briefing.tga" }), blank_briefing.?);
+            }
+            const shot = try run.briefing(allocator, true);
+            try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "briefing.tga" }), shot);
+            try report.line("-- {s} briefing", .{language.code});
+            try checkBriefing(io, allocator, language, run.folder, shot, blank_briefing.?, &report);
+        }
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, language.code, "report.txt" }), .data = report.lines.items });
     }
 
     // The font cache clear: ru running, ja chosen while it runs.
-    {
+    if (try selected(allocator, "ja")) {
         const ru = try Run.init(io, allocator, game, game_root, root, "switch", "lang-ru");
         const live = try ru.capture(allocator, "60:var=Text.Language=lang-ja", 160);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "switch", "frame.tga" }), live);
@@ -218,14 +310,17 @@ fn changedIn(a: []const u8, b: []const u8, rect: Rect) usize {
 /// The label's ink, per pixel: what the frame adds to the background in the
 /// label's own colour. The buttons' gold text over grey metal adds warmth
 /// (red minus blue); it is darker than the metal, and so is its shadow, so
-/// brightness would count both; the header's grey text over the dark panel
-/// adds brightness.
+/// brightness would count both; grey text over a dark panel adds brightness.
 fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const u8, label: Label) !Gray {
     const rect = label.rect;
     const pixels = try allocator.alloc(u8, rect.width() * rect.height());
     for (0..rect.height()) |y| for (0..rect.width()) |x| {
         const at = ((rect.y1 + y) * width + rect.x1 + x) * 4;
-        const added = if (label.large) luma(frame[at..][0..3]) - luma(background[at..][0..3]) else warmth(frame[at..][0..3]) - warmth(background[at..][0..3]);
+        const added = switch (label.ink) {
+            .bright => luma(frame[at..][0..3]) - luma(background[at..][0..3]),
+            .dark => luma(background[at..][0..3]) - luma(frame[at..][0..3]),
+            .gold => warmth(frame[at..][0..3]) - warmth(background[at..][0..3]),
+        };
         pixels[y * rect.width() + x] = @intCast(std.math.clamp(added, 0, 255));
     };
     return .{ .width = rect.width(), .height = rect.height(), .pixels = pixels };
@@ -240,8 +335,8 @@ fn warmth(rgb: []const u8) i32 {
 }
 
 /// The overlay's text for `key` as UTF-8.
-fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, key: []const u8) ![]u8 {
-    const path = try std.fmt.allocPrint(allocator, "Localization/game/{s}/game_data_base/textes/strings/{s}.txt", .{ code, key });
+fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
+    const path = try std.fmt.allocPrint(allocator, "Localization/game/{s}/game_data_base/{s}/{s}.txt", .{ code, label.dir, label.key });
     const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(1 << 16));
     if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return error.NotUtf16;
     const units = try allocator.alloc(u16, (bytes.len - 2) / 2);
@@ -263,15 +358,23 @@ fn hasCodepoint(text: []const u8, wanted: u21) bool {
     return false;
 }
 
-fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, report: *Report) !void {
+/// What `checkLabels` measured, for the checks that go on from it.
+const Measured = struct {
+    hb_folder: []const u8,
+    texts: []const []u8,
+    refs: []const Gray,
+    inks: []const Gray,
+};
+
+fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, set: []const Label, report: *Report) !Measured {
     const hb_folder = try std.fs.path.join(allocator, &.{ folder, "reference" });
     try std.Io.Dir.cwd().createDirPath(io, hb_folder);
-    const texts = try allocator.alloc([]u8, labels.len);
-    const refs = try allocator.alloc(Gray, labels.len);
-    const inks = try allocator.alloc(Gray, labels.len);
-    for (labels, 0..) |label, index| {
-        texts[index] = try overlayText(io, allocator, language.code, label.key);
-        refs[index] = try measure.hbView(allocator, io, hb_folder, label.key, texts[index], .{ .font = language.face, .language = language.tag, .script = language.script });
+    const texts = try allocator.alloc([]u8, set.len);
+    const refs = try allocator.alloc(Gray, set.len);
+    const inks = try allocator.alloc(Gray, set.len);
+    for (set, 0..) |label, index| {
+        texts[index] = try overlayText(io, allocator, language.code, label);
+        refs[index] = try measure.hbView(allocator, io, hb_folder, try label.stem(allocator), texts[index], .{ .font = language.face, .language = language.tag, .script = language.script });
         const full = try inkImage(allocator, frame, blank, label);
         const box = measure.inkBox(full, ink_threshold) orelse {
             try report.check(false, "{s} {s}: no ink in the label's box (the Game drew nothing there)", .{ language.code, label.key });
@@ -281,12 +384,12 @@ fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, f
         inks[index] = try measure.crop(allocator, full, box);
     }
 
-    for (labels, 0..) |label, index| {
+    for (set, 0..) |label, index| {
         const ink = inks[index];
         if (ink.width == full_width(label)) continue; // no ink: reported above
         const own = try measure.matchReference(allocator, ink, refs[index], 64);
         var best_other: f64 = -1;
-        for (labels, 0..) |_, other| {
+        for (set, 0..) |_, other| {
             if (other == index) continue;
             best_other = @max(best_other, (try measure.matchReference(allocator, ink, refs[other], 64)).correlation);
         }
@@ -295,8 +398,22 @@ fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, f
         try report.check(@abs(own.aspect - 1) <= max_aspect_error, "{s} {s}: width to height is {d:.3} of the reference's (within {d:.2})", .{ language.code, label.key, own.aspect, max_aspect_error });
     }
 
-    if (std.mem.eql(u8, language.code, "hi")) try checkHindi(io, allocator, language, hb_folder, texts, refs, inks, report);
-    if (std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja")) try checkHan(io, allocator, language, hb_folder, texts, inks, report);
+    return .{ .hb_folder = hb_folder, .texts = texts, .refs = refs, .inks = inks };
+}
+
+fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, report: *Report) !void {
+    const m = try checkLabels(io, allocator, language, folder, frame, blank, &labels, report);
+    if (std.mem.eql(u8, language.code, "hi")) try checkHindi(io, allocator, language, m.hb_folder, m.texts, m.refs, m.inks, report);
+    if (std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja")) try checkHan(io, allocator, language, m.hb_folder, m.texts, m.inks, report);
+}
+
+/// The briefing's labels as hb-view draws them, and ink in the description's
+/// body.
+fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, report: *Report) !void {
+    _ = try checkLabels(io, allocator, language, folder, frame, blank, &briefing_labels, report);
+    const body = try inkImage(allocator, frame, blank, briefing_body);
+    const box = measure.inkBox(body, ink_threshold);
+    try report.check(box != null and box.?.width() >= min_body_width, "{s} briefing description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, if (box) |b| b.width() else 0, min_body_width });
 }
 
 fn full_width(label: Label) usize {
@@ -463,18 +580,54 @@ const Run = struct {
     /// The main-menu capture (RGBA, alpha zero), optionally under a BK_AUTO_UI
     /// schedule and with the capture held back to `delay` frames.
     fn capture(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32) ![]u8 {
-        const path = try std.fmt.allocPrint(allocator, "{s}/capture.rgba", .{self.folder});
-        const log = try self.play(allocator, &.{ "-reference-scene", path, "-reference-resolution", "1024", "768", "-windowed", "-profile=L10n" }, schedule, delay, "capture");
-        try expectLine(log, self.folder, "BK_REFERENCE_SCENE: capture complete");
+        const log = try self.scene(allocator, schedule, delay, "capture");
         try expectLine(log, self.folder, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
         // The fonts come from the language mod: both sizes the menu uses, tfd and atlas.
         for ([_][]const u8{ "Fonts\\medium\\1.tfd", "Fonts\\medium\\1_h.dds", "Fonts\\large\\1.tfd", "Fonts\\large\\1_h.dds" }) |file| {
             const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"{s}\" from LANGUAGE", .{file});
             try expectLine(log, self.folder, line);
         }
-        const frame = try std.Io.Dir.cwd().readFileAlloc(self.io, path, allocator, .limited(16 << 20));
-        try testing.expectEqual(@as(usize, width * height * 4), frame.len);
-        return frame;
+        return self.frame(allocator, "capture");
+    }
+
+    /// The first mission's briefing capture. The log must show the schedule's
+    /// mission action reaching the screen, and, for a language that is not the
+    /// blank one (`keys` set), the Game opening every text key of the briefing
+    /// from the mod.
+    fn briefing(self: Run, allocator: std.mem.Allocator, keys: bool) ![]u8 {
+        const log = try self.scene(allocator, briefing_schedule, briefing_delay, "briefing");
+        try expectLine(log, self.folder, "BK_AUTO_UI: frame 300 action mission=scenarios\\scenariomissions\\allies\\norway\\1");
+        try expectLine(log, self.folder, "BK_UI_TRACE: reposition \"ui\\common\\mission\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
+        if (std.mem.indexOf(u8, log, "has no random mission entry") != null) {
+            std.debug.print("the Game could not open the briefing's mission; its logs are in {s}\n", .{self.folder});
+            return error.BriefingNotOpened;
+        }
+        if (keys) {
+            for (briefing_labels ++ [_]Label{briefing_body}) |label| {
+                const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"{s}\" from LANGUAGE", .{try label.tracedPath(allocator)});
+                try expectLine(log, self.folder, line);
+            }
+            for (briefing_extra_keys) |key| {
+                const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"textes\\strings\\{s}.txt\" from LANGUAGE", .{key});
+                try expectLine(log, self.folder, line);
+            }
+        }
+        return self.frame(allocator, "briefing");
+    }
+
+    /// One run of the Game to its `-reference-scene` capture, `<tag>.rgba`.
+    fn scene(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
+        const path = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ self.folder, tag });
+        const log = try self.play(allocator, &.{ "-reference-scene", path, "-reference-resolution", "1024", "768", "-windowed", "-profile=L10n" }, schedule, delay, tag);
+        try expectLine(log, self.folder, "BK_REFERENCE_SCENE: capture complete");
+        return log;
+    }
+
+    fn frame(self: Run, allocator: std.mem.Allocator, tag: []const u8) ![]u8 {
+        const path = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ self.folder, tag });
+        const bytes = try std.Io.Dir.cwd().readFileAlloc(self.io, path, allocator, .limited(16 << 20));
+        try testing.expectEqual(@as(usize, width * height * 4), bytes.len);
+        return bytes;
     }
 };
 

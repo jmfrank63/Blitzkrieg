@@ -1384,7 +1384,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 					}
 					else if ( szAction.compare( 0, 8, "mission=" ) == 0 )
 					{
-						// mission=<template mission name>: opens that random mission's
+						// mission=<mission name>: opens that mission's (random or historical)
 						// briefing from the chapter screen, which generates its map - what
 						// the chapter's OK does for a selected mission, except that the
 						// harness names the template instead of taking one of the three
@@ -1395,6 +1395,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 						std::string szChapter = GetGlobalVar( "Chapter.Current.Name", "" );
 						NStr::ToLower( szChapter );
 						int nIndex = -1;
+						int nIsTemplate = 1;
 						if ( const SChapterStats *pChapter = NGDB::GetGameStats<SChapterStats>( szChapter.c_str(), IObjectsDB::CHAPTER ) )
 						{
 							for ( int i = 0; i < pChapter->missions.size(); ++i )
@@ -1403,7 +1404,10 @@ int RunGame( const BkGameLaunchInfo &launch )
 								NStr::ToLower( szEntry );
 								const bool bTemplate = pChapter->missions[i].pMission != 0 && pChapter->missions[i].pMission->IsTemplate();
 								if ( szEntry == szMission || ( nIndex == -1 && bTemplate ) )
+								{
 									nIndex = i;
+									nIsTemplate = bTemplate ? 1 : 0;
+								}
 								if ( szEntry == szMission )
 									break;
 							}
@@ -1413,7 +1417,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 						else
 						{
 							SetGlobalVar( "Mission.Current.Index", nIndex );
-							SetGlobalVar( "Mission.Current.IsTemplate", 1 );
+							SetGlobalVar( "Mission.Current.IsTemplate", nIsTemplate );
 							SetGlobalVar( "Mission.Current.Name", szMission.c_str() );
 							pMainLoop->Command( MISSION_COMMAND_ABOUT_MISSION, "" );
 						}
