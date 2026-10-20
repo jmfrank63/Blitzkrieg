@@ -47,6 +47,7 @@
 #include "../../Sources/src/ResourceModel/exporter.h"
 #include "../../Sources/src/ResourceModel/project.h"
 #include "../../Sources/src/Main/RPGStats.h"
+#include <SDL3/SDL.h>
 #include "../../Sources/src/Platform/DynamicLibrary.h"
 #include "../../Sources/src/Platform/Paths.h"
 #include "../../Sources/src/Image/Image.h"
@@ -1840,5 +1841,9 @@ int main( int argc, char **argv )
 	Log( g_nFailures == 0 ? "VERDICT=PASS" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );
 	std::ofstream log( fs::path( argv[2] ) / "resource_model" / "comparator.log", std::ios::binary | std::ios::trunc );
 	log << g_szLog;
+	// Nothing the readers registered may be left at the exit's leak report;
+	// SDL keeps the base path Platform's Paths asked it for until SDL_Quit.
+	StopEngineReaders();
+	SDL_Quit();
 	return g_nFailures == 0 ? 0 : 1;
 }

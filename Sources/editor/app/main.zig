@@ -144,6 +144,15 @@ fn plantZigLeaks(allocator: std.mem.Allocator, count: usize) void {
 }
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
+    const passed = try dispatch(minimal);
+    // Only after dispatch has returned: its defers free the argument list and
+    // the Io instance, which std.process.exit inside it skipped and BkMemory
+    // counted as leaks.
+    crt.exit(if (passed) 0 else 1);
+}
+
+/// The mode the arguments ask for, run to its result.
+fn dispatch(minimal: std.process.Init.Minimal) !bool {
     crt.routeCrtReportsToStderr();
     const gpa = bk_memory.allocator;
     plantZigLeaks(gpa, plantZigLeakCount(gpa, minimal.environ));
@@ -189,43 +198,36 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const map = nextArg(rest.items, &index) orelse usage();
             const output = nextArg(rest.items, &index) orelse default_output;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try check(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return check(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--smoke")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const output = nextArg(rest.items, &index) orelse default_smoke_output;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try smokeRun(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return smokeRun(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_log;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try gameReadsIt(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return gameReadsIt(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it-m2")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m2_log;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try game_reads_m2.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return game_reads_m2.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (std.mem.eql(u8, arg, "--game-reads-it-m3")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m3_log;
             if (nextArg(rest.items, &index) != null) usage();
-            const passed = try game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
-            std.process.exit(if (passed) 0 else 1);
+            return game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (nextArg(rest.items, &index) != null) usage();
-        const passed = try interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
-        std.process.exit(if (passed) 0 else 1);
+        return interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
     }
-    const passed = try interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden);
-    std.process.exit(if (passed) 0 else 1);
+    return interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden);
 }
 
 /// `-mod=<Folder>` or `-mod=None`: the raw text after `=`, or null when `arg`
@@ -298,11 +300,11 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // BK_EDITOR_AUTO (03-12-PLAN.md): read before settings/recovery below, so
     // an automated run never reaches either (the 03-07 rule, carried into
     // this plan's own binding constraints: automated runs never read or
-    // write the user's settings, recent list or recovery folder). Leaked
-    // deliberately, like BK_EDITOR_SETTINGS's override elsewhere in this
-    // file - a single-shot process, and auto.zig's parsed Scheduled entries
-    // borrow slices of this text for as long as the process runs.
+    // write the user's settings, recent list or recovery folder). Freed when
+    // this function returns, after `run`: auto.zig's parsed Scheduled entries
+    // borrow slices of this text for as long as the runner below runs.
     const auto_text: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null;
+    defer if (auto_text) |text| gpa.free(text);
     const automated = auto_text != null;
     // A packaged (.windows subsystem) MapEditor.exe run under BK_EDITOR_AUTO
     // still needs its frame/action log to reach the terminal or CI's log
@@ -346,6 +348,12 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     }
 
     var auto_runner: ?smoke.AutoRunner = null;
+    var auto_schedule: ?[]const auto_mod.Scheduled = null;
+    defer if (auto_schedule) |schedule| gpa.free(schedule);
+    var auto_dir: ?[]const u8 = null;
+    defer if (auto_dir) |dir| gpa.free(dir);
+    var auto_game_env: ?[]const u8 = null;
+    defer if (auto_game_env) |text| gpa.free(text);
     if (auto_text) |text| {
         // Automated modes must never open a real OS dialog, or land a
         // synthetic press on a panel under the real cursor - the same two
@@ -356,10 +364,14 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         var failure: auto_mod.Failure = .{};
         const schedule = auto_mod.parse(gpa, text, &failure) catch |err| {
             std.debug.print("map-editor: BK_EDITOR_AUTO: bad token '{s}': {s} ({s})\n", .{ failure.token, failure.reason, @errorName(err) });
-            std.process.exit(2);
+            crt.exit(2);
         };
+        // These outlive the `if`: the runner borrows them until `run` returns.
+        auto_schedule = schedule;
         const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
+        if (dir.ptr != default_auto_dir.ptr) auto_dir = dir;
         const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
+        auto_game_env = game_env;
         auto_runner = smoke.AutoRunner.init(&editor, &view, &real, &state, host.window, io, schedule, dir, game_env);
         if (environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME_TRACE")) |trace| {
             auto_runner.?.game_trace = trace.len != 0;
@@ -432,7 +444,7 @@ fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Envi
         .primary => |owner| return owner,
         .handed_off => {
             std.debug.print("map-editor: handed over to the running editor\n", .{});
-            std.process.exit(0);
+            crt.exit(0);
         },
         .unavailable => |why| {
             std.debug.print("map-editor: single instance is off: {s}\n", .{why});
@@ -907,7 +919,7 @@ fn fatal(step: []const u8, reason: []const u8) noreturn {
     var buffer: [768]u8 = undefined;
     const message = std.mem.printSentinel(&buffer, "{s} failed: {s}", .{ step, reason }, 0) catch "Map Editor failed to start";
     _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Map Editor", message, null);
-    std.process.exit(1);
+    crt.exit(1);
 }
 
 // The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why).
@@ -931,7 +943,7 @@ fn usage() noreturn {
     // needs this message to be visible there.
     crt.attachParentConsole();
     std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m3 <map> [<log>]\n", .{});
-    std.process.exit(2);
+    crt.exit(2);
 }
 
 fn fail(comptime format: []const u8, args: anytype) bool {

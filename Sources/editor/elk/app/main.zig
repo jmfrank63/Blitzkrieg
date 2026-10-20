@@ -1205,3 +1205,19 @@ fn userRoot(gpa: std.mem.Allocator, environ: std.process.Environ, buffer: []u8) 
     defer if (home) |value| gpa.free(value);
     return settings_mod.posixUserRoot(buffer, xdg, home);
 }
+
+// The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why),
+// as in the Map and Resource Editors: the build makes the CRT's entry ELK's too.
+comptime {
+    if (crt.exports_c_main) @export(&crtMain, .{ .name = "main" });
+}
+
+fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
+    _ = argc;
+    _ = argv;
+    main(crt.minimalFromPeb()) catch |err| {
+        std.debug.print("elk: {s}\n", .{@errorName(err)});
+        return 1;
+    };
+    return 0;
+}

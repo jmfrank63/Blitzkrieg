@@ -13,7 +13,33 @@
 
 namespace {
 
-void *AllocOrThrow(std::size_t size, std::size_t alignment)
+// Each operator new passes its own return address and frame record, so
+// BkMemory can tell which module asked for the block (bk_mem_alloc_from).
+#define BK_CALLER __builtin_return_address(0), __builtin_frame_address(0)
+
+// The module registers before its other static constructors allocate and
+// unregisters after its static destructors have freed (priority 101 is the
+// first constructor and the last destructor). COFF has no priorities, and
+// there a foreign DLL never reaches this module's operator new anyway.
+#if defined(_WIN32)
+#  define BK_FIRST_CONSTRUCTOR __attribute__((constructor))
+#  define BK_LAST_DESTRUCTOR __attribute__((destructor))
+#else
+#  define BK_FIRST_CONSTRUCTOR __attribute__((constructor(101)))
+#  define BK_LAST_DESTRUCTOR __attribute__((destructor(101)))
+#endif
+
+BK_FIRST_CONSTRUCTOR void RegisterModule()
+{
+	bk_mem_register_module(reinterpret_cast<const void *>(&RegisterModule));
+}
+
+BK_LAST_DESTRUCTOR void UnregisterModule()
+{
+	bk_mem_unregister_module(reinterpret_cast<const void *>(&UnregisterModule));
+}
+
+void *AllocOrThrow(std::size_t size, std::size_t alignment, const void *caller, const void *frame)
 {
 	// operator new(0) must return a unique non-null pointer; BkMemory does
 	// that for size 0 as well, but 1 keeps the contract independent of it.
@@ -21,7 +47,7 @@ void *AllocOrThrow(std::size_t size, std::size_t alignment)
 		size = 1;
 	for (;;)
 	{
-		void *p = alignment ? bk_mem_alloc_aligned(size, alignment) : bk_mem_alloc(size);
+		void *p = bk_mem_alloc_from(size, alignment, caller, frame);
 		if (p)
 			return p;
 		std::new_handler handler = std::get_new_handler();
@@ -31,13 +57,13 @@ void *AllocOrThrow(std::size_t size, std::size_t alignment)
 	}
 }
 
-void *AllocNoThrow(std::size_t size, std::size_t alignment) noexcept
+void *AllocNoThrow(std::size_t size, std::size_t alignment, const void *caller, const void *frame) noexcept
 {
 	if (size == 0)
 		size = 1;
 	for (;;)
 	{
-		void *p = alignment ? bk_mem_alloc_aligned(size, alignment) : bk_mem_alloc(size);
+		void *p = bk_mem_alloc_from(size, alignment, caller, frame);
 		if (p)
 			return p;
 		std::new_handler handler = std::get_new_handler();
@@ -58,26 +84,26 @@ void *AllocNoThrow(std::size_t size, std::size_t alignment) noexcept
 
 // ---- new -------------------------------------------------------------
 
-void *operator new(std::size_t size) { return AllocOrThrow(size, 0); }
-void *operator new[](std::size_t size) { return AllocOrThrow(size, 0); }
-void *operator new(std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0); }
-void *operator new[](std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0); }
+void *operator new(std::size_t size) { return AllocOrThrow(size, 0, BK_CALLER); }
+void *operator new[](std::size_t size) { return AllocOrThrow(size, 0, BK_CALLER); }
+void *operator new(std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0, BK_CALLER); }
+void *operator new[](std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0, BK_CALLER); }
 
 void *operator new(std::size_t size, std::align_val_t alignment)
 {
-	return AllocOrThrow(size, static_cast<std::size_t>(alignment));
+	return AllocOrThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
 void *operator new[](std::size_t size, std::align_val_t alignment)
 {
-	return AllocOrThrow(size, static_cast<std::size_t>(alignment));
+	return AllocOrThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
 void *operator new(std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
 {
-	return AllocNoThrow(size, static_cast<std::size_t>(alignment));
+	return AllocNoThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
 void *operator new[](std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
 {
-	return AllocNoThrow(size, static_cast<std::size_t>(alignment));
+	return AllocNoThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
 
 // ---- delete ----------------------------------------------------------

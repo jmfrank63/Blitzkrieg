@@ -1,6 +1,6 @@
-#include "../Platform/DynamicLibrary.h"
 #include "../Platform/LegacyVariant.h"
 #include "../Platform/Paths.h"
+#include "../PlatformABI/PlatformClient.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -101,9 +101,30 @@ static CoreApi api;
 // The bridge resolves callbacks from StreamIO itself.  Keeping this handle
 // process-lifetime avoids a shutdown-order race where the bridge's static
 // destructor dlcloses StreamIO after StreamIO has already begun teardown.
-static NPlatform::DynamicLibrary &CoreModule() {
-    static NPlatform::DynamicLibrary *module = new NPlatform::DynamicLibrary();
-    return *module;
+// Only the handle is kept, in static storage with a trivial destructor: the
+// heap NPlatform::DynamicLibrary this used to be, and its path and error
+// strings, were three blocks every process ended with (BK_MEM_REPORT=log on
+// bk-sprite compose).
+static BkPlatformUtf8Span Utf8(const char *text) { return BkPlatformUtf8Span{sizeof(BkPlatformUtf8Span), text, static_cast<uint32_t>(std::strlen(text))}; }
+struct CoreModuleHandle {
+    BkPlatformHandle handle = 0;
+    bool IsLoaded() const { return handle != 0; }
+    bool Load(const char *path) {
+        if (handle != 0) return true;
+        if (!BkPlatform::Client::IsAttached() && !BkPlatform::Client::Attach()) return false;
+        if (BkPlatform::Client::LibraryOpen(Utf8(path), &handle) == BK_PLATFORM_OK) return true;
+        handle = 0;
+        return false;
+    }
+    void *GetFunction(const char *name) const {
+        void *function = nullptr;
+        if (handle == 0 || !BkPlatform::Client::IsAttached() || BkPlatform::Client::LibrarySymbol(handle, Utf8(name), &function) != BK_PLATFORM_OK) return nullptr;
+        return function;
+    }
+};
+static CoreModuleHandle &CoreModule() {
+    static CoreModuleHandle module;
+    return module;
 }
 
 template <class T> static T Resolve(const char *name) { return reinterpret_cast<T>(CoreModule().GetFunction(name)); }
@@ -362,7 +383,17 @@ public:
             std::fprintf(stderr, "BK_GFX_TRACE: option Set(\"GFX.Mode\") old=\"%s\" new=\"%s\"\n", old_text ? old_text : "<none>", text.c_str());
             std::fflush(stderr);
         }
-        const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt); if (ok) ApplyAction(name); return ok;
+        // The action runs only when the value changes. The Options screen's OK sets every row,
+        // changed or not, and re-running an untouched row's action undid the session's command
+        // line: started with -windowed, OK applied the profile's Fullscreen ON and the Game went
+        // fullscreen when the player had only picked a language (elk-game-reads-it on the 1024x768
+        // Windows runner: the shot after OK came at the display's size). -mode and -monitor are
+        // overridden the same way. Init() still runs every action once, at startup.
+        unsigned short before_type = 0; const char *before_text = api.value(state_, name.c_str(), &before_type);
+        const bool had = before_text != nullptr; const std::string before = had ? before_text : "";
+        const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt);
+        if (ok) { unsigned short after_type = 0; const char *after = api.value(state_, name.c_str(), &after_type); if (!had || !after || before != after || before_type != after_type) ApplyAction(name); }
+        return ok;
     }
     bool BK_STDCALL Remove(const std::string &name) override { return api.remove(state_, name.c_str()); }
     bool BK_STDCALL RemoveByMatch(const std::string &prefix) override { api.remove_prefix(state_, prefix.c_str()); return true; }

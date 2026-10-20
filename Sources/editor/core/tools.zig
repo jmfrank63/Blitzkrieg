@@ -221,6 +221,16 @@ pub const Selector = struct {
         return pickObjects(editor, pointer.screen_x - r, pointer.screen_y - r, pointer.screen_x + r, pointer.screen_y + r);
     }
 
+    /// Back to the idle state without dropping the two buffers: assigning a
+    /// fresh `.{}` over a selector forgets their allocations.
+    pub fn reset(self: *Selector) void {
+        var grabbed = self.grabbed;
+        var cycle = self.cycle;
+        grabbed.clearRetainingCapacity();
+        cycle.clearRetainingCapacity();
+        self.* = .{ .grabbed = grabbed, .cycle = cycle };
+    }
+
     pub fn deinit(self: *Selector, allocator: std.mem.Allocator) void {
         self.grabbed.deinit(allocator);
         self.cycle.deinit(allocator);

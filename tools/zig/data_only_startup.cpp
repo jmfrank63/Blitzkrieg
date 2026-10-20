@@ -7,6 +7,14 @@
 // database is only needed to pack frame indices, which this tier never does.
 #include "StdAfx.h"
 #include "data_only_startup.h"
+#if defined(_WIN32) || defined(_WIN64)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 #include "../../Sources/src/StreamIO/RandomGen.h"
 #include "../../Sources/src/Platform/DynamicLibrary.h"
 #include "../../Sources/src/StreamIO/StreamIOTypes.h"
@@ -133,5 +141,31 @@ void Stop()
 {
 	if ( GetSingletonGlobal() != 0 )
 		GetSingletonGlobal()->Done();
+	// SDL keeps what SDL_GetBasePath found (Platform's Paths asks for it, in
+	// the engine modules) until SDL_Quit; a tool never initialises SDL, so
+	// nothing else frees it (a block every bk-* run ended with). SDL_Quit is
+	// safe without SDL_Init. The tools do not link SDL themselves: it is the
+	// copy the modules loaded, found by name.
+	typedef void ( *SDL_QUIT )();
+#if defined(_WIN32) || defined(_WIN64)
+	HMODULE hSdl = GetModuleHandleA( "SDL3.dll" );
+	SDL_QUIT pfnQuit = hSdl != 0 ? reinterpret_cast<SDL_QUIT>( GetProcAddress( hSdl, "SDL_Quit" ) ) : 0;
+#else
+	// The modules are opened RTLD_LOCAL, so their SDL is not in the global
+	// scope; RTLD_NOLOAD finds the copy already loaded by its install name.
+#if defined(__APPLE__)
+	void *pSdl = dlopen( "@rpath/libSDL3.dylib", RTLD_NOW | RTLD_NOLOAD );
+	if ( pSdl == 0 ) pSdl = dlopen( "libSDL3.dylib", RTLD_NOW | RTLD_NOLOAD );
+#else
+	void *pSdl = dlopen( "libSDL3.so.0", RTLD_NOW | RTLD_NOLOAD );
+#endif
+	SDL_QUIT pfnQuit = pSdl != 0 ? reinterpret_cast<SDL_QUIT>( dlsym( pSdl, "SDL_Quit" ) ) : 0;
+#endif
+	if ( pfnQuit != 0 )
+		pfnQuit();
+#if !defined(_WIN32) && !defined(_WIN64)
+	if ( pSdl != 0 )
+		dlclose( pSdl );
+#endif
 }
 }

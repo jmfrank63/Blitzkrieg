@@ -3639,10 +3639,8 @@ static void TestScriptPathForms()
 	printf( "map-file: script path forms ok\n" );
 }
 
-int main( int argc, char **argv )
+static int Run( int argc, char **argv )
 {
-	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
-		return 1;
 	printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();
@@ -3701,6 +3699,17 @@ int main( int argc, char **argv )
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
+}
+
+int main( int argc, char **argv )
+{
+	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
+		return 1;
+	const int nResult = Run( argc, argv );
+	// The storage and StreamIO's core services go before the exit's leak
+	// report, as every bk-* tool does; they were 11 blocks of every run.
+	NDataOnly::Stop();
+	return nResult;
 }
 
 // The Fields tool's region records (M3, D-21, D-40.8's map-file half): the

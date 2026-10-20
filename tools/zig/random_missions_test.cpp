@@ -486,7 +486,11 @@ int main( int argc, char **argv )
 	BkMemoryInstallSdlFunctions();
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
-		const char *pszError = SDL_GetError();
+		// SDL_Quit even though SDL_Init failed: the environment copy SDL builds first is freed only there
+		// (a machine with no display fails here, and read as a leak of every environment variable).
+		const std::string szError = SDL_GetError();
+		SDL_Quit();
+		const char *pszError = szError.c_str();
 		if ( strstr( pszError, "video driver" ) != 0 || strstr( pszError, "No available" ) != 0 )
 		{
 			return SkipOrFail( "random-missions", std::string( "no video driver (" ) + pszError + ")" );

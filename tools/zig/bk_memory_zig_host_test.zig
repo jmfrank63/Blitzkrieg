@@ -4,11 +4,16 @@
 //! of the clean run is decided by BkMemory's detach report, so a Zig-side leak
 //! fails the process exactly like a C++ one. With BK_ZIG_PLANT_LEAK=1 one
 //! block is leaked from `plantZigLeak` and the report must name it and exit 3.
+//! With BK_ZIG_EXIT_CHURN=1 threads keep allocating as a foreign library
+//! through the process's exit, as Apple's QuartzCore and CoreAudio threads do
+//! on macOS, and the run must still end clean.
 
 const std = @import("std");
 const bk = @import("bk_memory_allocator");
 
 extern fn bk_mem_alloc(size: usize) callconv(.c) ?*anyopaque;
+extern fn bk_mem_alloc_from(size: usize, alignment: usize, caller: ?*const anyopaque, frame: ?*const anyopaque) callconv(.c) ?*anyopaque;
+extern fn bk_mem_realloc(p: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque;
 extern fn bk_mem_free(p: ?*anyopaque) callconv(.c) void;
 extern fn bk_mem_live_count() callconv(.c) usize;
 
@@ -26,6 +31,25 @@ noinline fn plantZigLeak() void {
     // Touch it so the allocation cannot be optimized away.
     @memset(block, 0xA5);
     std.mem.doNotOptimizeAway(block.ptr);
+}
+
+/// The exe never registers with BkMemory, so a block attributed to its code
+/// is a foreign library's: operator new's caller there is this address.
+noinline fn foreignCaller() ?*const anyopaque {
+    return @ptrFromInt(@returnAddress());
+}
+
+/// Allocates, grows and frees as a foreign library until the process is gone.
+/// The exit report runs while this still runs, so it meets blocks mid-flight
+/// and allocations after it has closed; neither is a leak of ours.
+fn churnForeign() void {
+    const caller = foreignCaller();
+    while (true) {
+        const p = bk_mem_alloc_from(64, 0, caller, null) orelse continue;
+        @memset(@as([*]u8, @ptrCast(p))[0..64], 0x5A);
+        const q = bk_mem_realloc(p, 4096) orelse p;
+        bk_mem_free(q);
+    }
 }
 
 fn fillAndVerify(buf: []u8, seed: u8) bool {
@@ -81,6 +105,14 @@ pub fn main(init: std.process.Init) !void {
 
     const plant = init.environ_map.get("BK_ZIG_PLANT_LEAK");
     if (plant != null and std.mem.eql(u8, plant.?, "1")) plantZigLeak();
+
+    const churn = init.environ_map.get("BK_ZIG_EXIT_CHURN");
+    if (churn != null and std.mem.eql(u8, churn.?, "1")) {
+        for (0..4) |_| {
+            const thread = try std.Thread.spawn(.{}, churnForeign, .{});
+            thread.detach();
+        }
+    }
 
     if (failures != 0) std.process.exit(1);
 }

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <new>
 #include <string>
 #include <thread>
 #include <typeinfo>
@@ -1797,7 +1798,14 @@ static void EnsureCoreServices()
     static bool initialized = false;
     if ( initialized ) return;
 
-    if (!singleton) singleton = new Singleton();
+    // Static storage, never destroyed, not the heap: Done empties the registry
+    // but the object stays reachable for whatever asks it afterwards (static
+    // destructors at exit find it empty), so there is no point at which
+    // deleting it is safe, and the heap copy was a block every process ended
+    // with (8,216 bytes, BK_MEM_REPORT=log on bk-sprite compose). A plain
+    // static would run its destructor at exit, before those late callers.
+    alignas(Singleton) static unsigned char singleton_storage[sizeof(Singleton)];
+    if (!singleton) singleton = new (singleton_storage) Singleton();
     if (!save_load_system) save_load_system = new SaveLoadSystem();
     if (!global_vars) global_vars = new GlobalVars();
     if (!random_gen) random_gen = new RandomGen();

@@ -31,6 +31,15 @@
 const std = @import("std");
 const testing = std.testing;
 
+/// The value of an environment variable the build step sets, or null.
+/// testing.environ.getPosix compiles only for POSIX targets (on Windows its
+/// block has no view(), run 39086936588); the map works everywhere.
+fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
+    var map = try testing.environ.createMap(allocator);
+    const value = map.get(key) orelse return null;
+    return try allocator.dupeSentinel(u8, value, 0);
+}
+
 const scratch = "zig-out/local-test/bk-font/game-reads-it";
 const fixture = "tools/zig/fixtures/fonts/ProggyClean.ttf";
 /// Lower case: CICChangeMOD lower-cases the mod's name before it opens the
@@ -82,11 +91,11 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const game = testing.environ.getPosix("BK_FONT_GAME") orelse {
+    const game = (try envValue(allocator, "BK_FONT_GAME")) orelse {
         std.debug.print("BK_FONT_GAME is not set: run zig build bk-font-game-reads-it\n", .{});
         return error.MissingGame;
     };
-    const tool = testing.environ.getPosix("BK_FONT_TOOL") orelse {
+    const tool = (try envValue(allocator, "BK_FONT_TOOL")) orelse {
         std.debug.print("BK_FONT_TOOL is not set: run zig build bk-font-game-reads-it\n", .{});
         return error.MissingTool;
     };

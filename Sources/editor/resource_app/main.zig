@@ -129,6 +129,15 @@ fn plantZigLeaks(allocator: std.mem.Allocator, count: usize) void {
 }
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
+    const code = try dispatch(minimal);
+    // Only after dispatch has returned: its defers free the argument list and
+    // the Io instance, which an exit inside it skipped and BkMemory counted as
+    // leaks (the map editor's main does the same).
+    crt.exit(code);
+}
+
+/// The exit code the arguments ask for, run to its result.
+fn dispatch(minimal: std.process.Init.Minimal) !u8 {
     crt.routeCrtReportsToStderr();
     const gpa = bk_memory.allocator;
     plantZigLeaks(gpa, plantZigLeakCount(gpa, minimal.environ));
@@ -166,7 +175,7 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         const output = if (items.len > 2) items[2] else default_output;
         const picture = if (items.len > 3) items[3] else null;
         const passed = try check(gpa, io, kind, output, picture, mod);
-        std.process.exit(if (passed) 0 else 1);
+        return if (passed) 0 else 1;
     }
     if (items.len > 0 and std.mem.eql(u8, items[0], "--smoke")) {
         if (items.len > 3) usage();
@@ -174,14 +183,14 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         var output_buffer: [256]u8 = undefined;
         const output = if (items.len > 2) items[2] else std.fmt.bufPrint(&output_buffer, "{s}/smoke.{s}", .{ default_smoke_dir, kind.extension() }) catch unreachable;
         const passed = try smoke(gpa, io, kind, output, mod);
-        std.process.exit(if (passed) 0 else 1);
+        return if (passed) 0 else 1;
     }
     if (items.len > 0 and (std.mem.eql(u8, items[0], "--batch") or std.mem.eql(u8, items[0], "--batch-check"))) {
-        std.process.exit(batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check")));
+        return batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check"));
     }
     if (items.len > 0 and (std.mem.eql(u8, items[0], "--smoke-edit") or std.mem.eql(u8, items[0], "--auto"))) {
         if (items.len != 3) usage();
-        std.process.exit(scenarioMode(gpa, io, minimal.environ, items[0], items[1], items[2], mod));
+        return scenarioMode(gpa, io, minimal.environ, items[0], items[1], items[2], mod);
     }
     if (items.len > 1) usage();
     var first_kind: ?Kind = null;
@@ -194,6 +203,7 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         } else usage();
     }
     interactive(gpa, io, minimal.environ, first_kind, first_path, mod, hidden);
+    return 0;
 }
 
 /// What -mod= asked for: nothing (leave the engine's own choice), no mod, or
@@ -660,7 +670,7 @@ fn fatal(step: []const u8, reason: []const u8) noreturn {
     const message = std.mem.printSentinel(&buffer, "{s} failed: {s}", .{ step, reason }, 0) catch "Resource Editor failed to start";
     std.debug.print("resource-editor: {s}\n", .{message});
     _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Resource Editor", message, null);
-    std.process.exit(1);
+    crt.exit(1);
 }
 
 // The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why).
@@ -681,7 +691,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 fn usage() noreturn {
     crt.attachParentConsole();
     std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n       ResourceEditor [-mod=...] --smoke-edit <project.unt> <scratch>\n       ResourceEditor [-mod=...] --auto <fixtures> <scratch>  (BK_EDITOR_AUTO)\n       " ++ batch_cli.usage_line ++ "\n", .{});
-    std.process.exit(2);
+    crt.exit(2);
 }
 
 fn fail(comptime format: []const u8, args: anytype) bool {

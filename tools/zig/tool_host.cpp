@@ -1,5 +1,10 @@
 #include "StdAfx.h"
 #include "tool_host.h"
+#include <cstdio>
+#if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -28,6 +33,14 @@ std::string EnginePath( const fs::path &path )
 		if ( szPath[i] == '/' )
 			szPath[i] = '\\';
 	return szPath;
+}
+
+void BinaryStdio()
+{
+#if defined(_WIN32)
+	_setmode( _fileno( stdout ), _O_BINARY );
+	_setmode( _fileno( stderr ), _O_BINARY );
+#endif
 }
 
 fs::path ExecutableDirectory()

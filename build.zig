@@ -685,14 +685,15 @@ fn dependencyRootPath(b: *std.Build, dep: *std.Build.Dependency, sub: []const u8
     return resolved;
 }
 
-/// Engine-hosted runs report leaks without failing the exit code (D079): LeakObjectsOnExit and
-/// the CLinkObject registries still leak until S04 fixes them, and a strict report would turn
-/// every tier red. The mode is `count`, not `log`: the engine tiers leak so many blocks that the
-/// stack report is over 100 MB and the Zig test runner times out symbolizing it. Run a tier by
-/// hand with BK_MEM_REPORT=log for the stacks. Remove the call sites (grep setLeakReportLog)
-/// when S04/S05 make the count zero.
-fn setLeakReportLog(run: *std.Build.Step.Run) void {
-    run.setEnvironmentVariable("BK_MEM_REPORT", "count");
+/// Engine-hosted runs fail on a leaked block of ours (exit 3), as every other tier does. They used to
+/// only count (D079) while LeakObjectsOnExit, the CLinkObject registries and the hosts' missing
+/// shutdowns leaked; those are fixed and the count is zero on every platform. The mode is the
+/// strict `1`, which counts without walking the records, so a tier with a regression fails at once
+/// instead of symbolizing stacks for minutes. Run a failing tier by hand with BK_MEM_REPORT=log
+/// (and -Dbk-mem-stack-frames=24 on Linux and macOS x64) for the stacks. Foreign libraries'
+/// blocks (libLLVM under Mesa, CoreML) are reported per library and never fail.
+fn setLeakReportStrict(run: *std.Build.Step.Run) void {
+    run.setEnvironmentVariable("BK_MEM_REPORT", "1");
 }
 
 /// Appends `dir` to the run step's PATH like the removed Run.addPathDir did.
@@ -1208,7 +1209,7 @@ pub fn build(b: *std.Build) void {
     platform_system_test.subsystem = .console;
     if (platform == .windows_x64) platform_system_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_system_run = b.addRunArtifact(platform_system_test);
-    setLeakReportLog(platform_system_run);
+    setLeakReportStrict(platform_system_run);
     platform_system_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     platform_system_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     addPathDir(platform_system_run, rootPath(b, if (platform == .windows_x64) "zig-out/bin" else "zig-out/lib"));
@@ -1810,11 +1811,10 @@ pub fn build(b: *std.Build) void {
     linkBkMemoryAllocator(b, gpu_device_probe_module, true);
     const gpu_device_probe = b.addExecutable(.{ .name = "gpu-device-probe", .root_module = gpu_device_probe_module });
     const gpu_device_probe_run = b.addRunArtifact(gpu_device_probe);
-    // The probe initialises the GPU stack (the Vulkan loader and its driver,
-    // through SDL's hooked allocator) and never tears it down, so its blocks
-    // would read as leaks at exit; the report stays informational, like the
-    // factory test's.
-    setLeakReportLog(gpu_device_probe_run);
+    // The probe tears SDL and the device down itself, also on a machine with no
+    // display or no GPU, and ends with no leaked block; the report stays the
+    // count like the other tiers'.
+    setLeakReportStrict(gpu_device_probe_run);
     gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(gpu_device_probe, .{}).step);
     gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
     gpu_device_probe_run.setCwd(b.path("."));
@@ -2202,6 +2202,14 @@ pub fn build(b: *std.Build) void {
     // destructor is what the test unloads it to see.
     addSharedObjectFinalizer(b, target, bk_consumer_a.root_module);
     addSharedObjectFinalizer(b, target, bk_consumer_b.root_module);
+    // macOS: dyld never unloads an image with thread-local variables, and in
+    // Debug Zig bundled its UBSan runtime (Zig code with thread-locals) into the
+    // consumers, so B stayed loaded at dlclose and its destructor ran only at exit
+    // (run 39093744040). Undefined behaviour still traps, without the runtime.
+    for ([_]*std.Build.Step.Compile{ bk_consumer_a, bk_consumer_b }) |consumer| {
+        consumer.root_module.sanitize_c = .trap;
+        consumer.bundle_ubsan_rt = false;
+    }
     const bk_cross_test = addBkMemoryTestModule(b, target, platform, toolchain, optimize, null, "bk-memory-cross-module-test", "tools/zig/bk_memory_cross_module_test.cpp");
     const test_bk_memory_step = b.step("test-bk-memory", "Run the cross-DLL BkMemory allocator test and its planted-leak failure");
     test_bk_memory_step.dependOn(test_bk_memory_zig_step);
@@ -2260,6 +2268,34 @@ pub fn build(b: *std.Build) void {
         // One at a time: the planted report must not interleave with the clean run.
         planted.step.dependOn(&clean.step);
         test_bk_memory_zig_host_step.dependOn(&planted.step);
+        // BK_MEM_TRACE_CABI: the same planted leak, printed with its size and stack.
+        const traced = b.addRunArtifact(bk_zig_host_test);
+        traced.setEnvironmentVariable("BK_MEM_REPORT", "1");
+        traced.setEnvironmentVariable("BK_ZIG_PLANT_LEAK", "1");
+        traced.setEnvironmentVariable("BK_MEM_TRACE_CABI", "1");
+        traced.expectExitCode(3);
+        traced.expectStdErrMatch("C ABI block of");
+        traced.step.dependOn(&planted.step);
+        test_bk_memory_zig_host_step.dependOn(&traced.step);
+        // BK_ZIG_EXIT_CHURN: foreign threads allocate through the exit report.
+        // It must not count their blocks in flight as ours nor panic on an
+        // allocation after it; the window is narrow, so the run repeats. POSIX
+        // only: there exit() runs the report while the threads still run.
+        // Windows' ExitProcess kills them first, possibly inside an allocation,
+        // which the report rightly refuses as "allocator in use" (exit 4), and
+        // no foreign DLL reaches our operator new there anyway.
+        var previous = &traced.step;
+        const churn_runs: usize = if (target.result.os.tag == .windows) 0 else 8;
+        for (0..churn_runs) |_| {
+            const churn = b.addRunArtifact(bk_zig_host_test);
+            churn.setEnvironmentVariable("BK_MEM_REPORT", "1");
+            churn.setEnvironmentVariable("BK_ZIG_EXIT_CHURN", "1");
+            churn.expectExitCode(0);
+            churn.has_side_effects = true;
+            churn.step.dependOn(previous);
+            previous = &churn.step;
+        }
+        test_bk_memory_zig_host_step.dependOn(previous);
     }
     // Backend measurement: every backend as its own BkMemory build linked into
     // its own bench exe, one process per pass so the peak memory is per pass.
@@ -2543,11 +2579,9 @@ pub fn build(b: *std.Build) void {
     // (gfxgpu_factory_test.cpp, ModulePathFromCommandLine).
     if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
     const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
-    // The GPU stack the factory loads (the Vulkan loader and its driver, through
-    // SDL's hooked allocator) leaks by design at process exit - the same
-    // third-party leak the Game's detach report stays off for - so the report
-    // is informational only and must not turn into the leak-gate exit 3.
-    setLeakReportLog(gfx_gpu_factory_test_run);
+    // The harness quits SDL and releases the GFX object it creates, so it ends
+    // with no leaked block; the report stays the count like the other tiers'.
+    setLeakReportStrict(gfx_gpu_factory_test_run);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
     // The module's own dependencies: on Windows a DLL's imports resolve from
     // the executable's directory and PATH, not from the DLL's, so the runtime
@@ -3516,7 +3550,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
-    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain));
+    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain, .static));
     // The help text embedded in ELK (D-02): its own module, since the
     // Markdown lives in Sources/editor/elk/help, outside the app's folder.
     const elk_help_module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = .debug });
@@ -3666,7 +3700,152 @@ pub fn build(b: *std.Build) void {
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 
     b.default_step = game_all_step;
+    macosRuntimeFixes(b);
 }
+
+/// Two fixes for every macOS artifact, applied once the graph is complete so they reach every
+/// module, the dependencies' included. Without a macOS host there is no SDK; nothing changes.
+///
+/// C++ links the system's libc++.dylib, never Zig's bundled libc++. Zig turns `link_libcpp`
+/// (and `linkSystemLibrary("c++")`) into its own static libc++ and libc++abi, so each engine
+/// module carried a private copy of the C++ runtime: its own exception globals and type
+/// information, and thread-local variables that keep dyld from ever unloading the module. The
+/// pass clears the switch, compiles against the SDK's libc++ headers and links the SDK's
+/// libc++.tbd, one file for arm64 and x86_64.
+///
+/// C and C++ compile with -fno-use-cxa-atexit. Once a module can unload, its static destructors
+/// must run at dlclose: dyld calls __cxa_finalize_ranges with the image's executable ranges, and
+/// libc runs each handler whose DSO handle lies inside them. Zig 0.17's Mach-O linker gives
+/// ___dso_handle the address of __DATA,__data instead of the image's header
+/// (link/MachO/InternalObject.zig, allocateSyntheticSymbols; master is the same), so no handler
+/// ever matched: test-bk-memory unloaded consumer B, its destructor stayed queued and exit()
+/// jumped into the unmapped image (SIGSEGV; B linked by Apple's ld passed). With the flag the
+/// compiler registers destructors through atexit(), for which libc finds the calling image
+/// itself, and ___dso_handle is no longer used.
+fn macosRuntimeFixes(b: *std.Build) void {
+    if (b.graph.host.result.os.tag != .macos) return;
+    var state: MacosRuntimeFixes = .{ .b = b };
+    for (b.top_level_steps.values()) |top| state.visit(&top.step);
+}
+
+const MacosRuntimeFixes = struct {
+    b: *std.Build,
+    seen: std.AutoHashMapUnmanaged(*std.Build.Step, void) = .empty,
+    /// Each macOS compile step and whether its code, or a static library it links, used libc++.
+    uses: std.AutoHashMapUnmanaged(*std.Build.Step.Compile, bool) = .empty,
+    /// Modules already given the flag or the headers (a module can belong to several steps).
+    flagged: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
+    headers: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
+    /// One module per target holding only libc++.tbd, imported by every root that needs it. Zig
+    /// links the link objects of every module in a step's import graph, each module once, so a
+    /// library's root module imported by a test still yields one libc++ - dyld refuses an image
+    /// that names the same dylib twice.
+    runtime: std.StringHashMapUnmanaged(*std.Build.Module) = .empty,
+    c_roots: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty,
+    sdk: ?[]const u8 = null,
+    /// The flags every macOS C and C++ source gets, settled with the SDK.
+    flags: []const []const u8 = &.{},
+
+    /// The SDK the build was given (-Dsystem_include_path=<SDK>/usr/include, as CI passes it)
+    /// wins over xcrun's choice, so headers and libc++ come from the same SDK.
+    fn sdkRoot(state: *MacosRuntimeFixes, target: std.Build.ResolvedTarget) []const u8 {
+        if (state.sdk) |sdk| return sdk;
+        const b = state.b;
+        if (system_include_path_option) |given| switch (given) {
+            .cwd_relative => |include| if (std.mem.endsWith(u8, include, "/usr/include")) {
+                state.sdk = include[0 .. include.len - "/usr/include".len];
+            },
+            else => {},
+        };
+        if (state.sdk == null) state.sdk = std.zig.system.darwin.getSdk(b.allocator, b.graph.io, &target.result) orelse
+            @panic("no macOS SDK: xcrun --sdk macosx --show-sdk-path failed (install the Xcode command line tools)");
+        // libc++ 17 (SDK 14) gives std::bad_function_call no key function by default, so every
+        // translation unit using it carries a weak copy of its vtable and typeinfo and refers
+        // to that copy directly. Zig 0.17's Mach-O linker ranks the dylib's export above an
+        // object's weak definition (Apple's ld keeps the object's), so the direct reference
+        // pointed at an import: "failed to resolve relocations and write atoms: Overflow" for
+        // ResourceEditor and two tests on the macos-14 runner (an instrumented linker named
+        // __ZTINSt3__117bad_function_callE). Apple's libc++.dylib defines the key function, so
+        // saying so makes the headers match it: no weak copies, references through the GOT.
+        // libc++ 19 decides this from the deployment target instead.
+        var buffer: [256 << 10]u8 = undefined;
+        const header = std.Io.Dir.cwd().readFile(b.graph.io, b.pathJoin(&.{ state.sdk.?, "usr/include/c++/v1/__functional/function.h" }), &buffer) catch "";
+        const old_switch = std.mem.indexOf(u8, header, "#ifdef _LIBCPP_ABI_BAD_FUNCTION_CALL_KEY_FUNCTION") != null;
+        state.flags = if (old_switch) &.{ "-fno-use-cxa-atexit", "-D_LIBCPP_ABI_BAD_FUNCTION_CALL_KEY_FUNCTION" } else &.{"-fno-use-cxa-atexit"};
+        return state.sdk.?;
+    }
+
+    fn visit(state: *MacosRuntimeFixes, step: *std.Build.Step) void {
+        const b = state.b;
+        if ((state.seen.getOrPut(b.allocator, step) catch @panic("OOM")).found_existing) return;
+        // Dependencies first: a static library is settled before what links it.
+        for (step.dependencies.items) |dependency| state.visit(dependency);
+        const compile = step.cast(std.Build.Step.Compile) orelse return;
+        const target = compile.root_module.resolved_target orelse return;
+        if (target.result.os.tag != .macos) return;
+        _ = state.sdkRoot(target);
+        var modules: std.ArrayList(*std.Build.Module) = .empty;
+        var listed: std.AutoHashMapUnmanaged(*std.Build.Module, void) = .empty;
+        modules.append(b.allocator, compile.root_module) catch @panic("OOM");
+        listed.put(b.allocator, compile.root_module, {}) catch @panic("OOM");
+        var uses = false;
+        var i: usize = 0;
+        while (i < modules.items.len) : (i += 1) {
+            const module = modules.items[i];
+            if (module.link_libcpp orelse false) uses = true;
+            const first = !(state.flagged.getOrPut(b.allocator, module) catch @panic("OOM")).found_existing;
+            for (module.link_objects.items) |object| switch (object) {
+                .other_step => |library| {
+                    // A linked library is not always among the step's dependencies yet (those
+                    // are completed when the step runs), so it is settled here first.
+                    state.visit(&library.step);
+                    if (library.isStaticLibrary() and (state.uses.get(library) orelse false)) uses = true;
+                },
+                .c_source_file => |source| if (first) {
+                    source.flags = std.mem.concat(b.allocator, []const u8, &.{ source.flags, state.flags }) catch @panic("OOM");
+                },
+                .c_source_files => |sources| if (first) {
+                    sources.flags = std.mem.concat(b.allocator, []const u8, &.{ sources.flags, state.flags }) catch @panic("OOM");
+                },
+                else => {},
+            };
+            for (module.import_table.values()) |imported| {
+                if ((listed.getOrPut(b.allocator, imported) catch @panic("OOM")).found_existing) continue;
+                modules.append(b.allocator, imported) catch @panic("OOM");
+            }
+        }
+        state.uses.put(b.allocator, compile, uses) catch @panic("OOM");
+        if (!uses) return;
+        const sdk = state.sdkRoot(target);
+        // As on Linux (addLinuxCxxIncludePaths): the C++ headers as an ordinary include path and
+        // the C headers after them, so libc++'s #include_next reaches the SDK's C headers.
+        for (modules.items) |module| {
+            module.link_libcpp = false;
+            if ((state.headers.getOrPut(b.allocator, module) catch @panic("OOM")).found_existing) continue;
+            module.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/include/c++/v1" }) });
+            module.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/include" }) });
+        }
+        // A static library is only an archive of objects; what links it links the runtime.
+        if (compile.isStaticLibrary()) return;
+        compile.root_module.link_libc = true;
+        // A root without Zig source cannot import a module, and no graph can import it either:
+        // the tbd goes on it directly, once.
+        if (compile.root_module.root_source_file == null) {
+            if ((state.c_roots.getOrPut(b.allocator, compile.root_module) catch @panic("OOM")).found_existing) return;
+            compile.root_module.addObjectFile(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/lib/libc++.tbd" }) });
+            return;
+        }
+        const triple = target.result.zigTriple(b.allocator) catch @panic("OOM");
+        const gop = state.runtime.getOrPut(b.allocator, triple) catch @panic("OOM");
+        if (!gop.found_existing) {
+            // Zig imports only modules with a root source file; this one is empty.
+            const empty = b.addWriteFiles().add("bk_macos_libcxx.zig", "");
+            gop.value_ptr.* = b.createModule(.{ .root_source_file = empty, .target = target });
+            gop.value_ptr.*.addObjectFile(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/lib/libc++.tbd" }) });
+        }
+        compile.root_module.addImport("bk_macos_libcxx", gop.value_ptr.*);
+    }
+};
 
 /// What every stage-game run is built from. See addStageGameRun.
 const StageGameInputs = struct {
@@ -3699,7 +3878,7 @@ const StageGameInputs = struct {
 /// build.zig to this helper.
 fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const u8) *std.Build.Step.Run {
     const run = b.addRunArtifact(inputs.tool);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.addArg(".");
     run.addArg(install_dir);
     addStageLayoutArgs(run, inputs.game_name, inputs.runtime_files, inputs.debug_files, inputs.metadata_files, inputs.editors_supported);
@@ -4695,7 +4874,7 @@ fn addInputModuleTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("zig-out/bin"));
     addPathDir(run, rootPath(b, "zig-out/bin"));
     run.addArg(if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin/Input.dll") else if (target.result.os.tag == .macos) rootPath(b, "zig-out/lib/libInput.dylib") else rootPath(b, "zig-out/lib/libInput.so"));
@@ -5145,6 +5324,8 @@ fn addSfxModuleTest(
     module.addIncludePath(b.path("Sources/src/SFX"));
     module.linkLibrary(misc);
     module.linkLibrary(platform_runtime);
+    // SDL_Quit at the end, on the same SDL the module loaded.
+    linkSdlImport(module, target, sdl_dynamic);
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
@@ -5156,9 +5337,9 @@ fn addSfxModuleTest(
     }
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
-    // The module test hosts StreamIOOptionsAbi, whose leaks predate the shared allocator; the
-    // report stays visible but does not decide this tier (D079).
-    run.setEnvironmentVariable("BK_MEM_REPORT", "log");
+    // The module test hosts StreamIOOptionsAbi, whose leaks are fixed; a block of ours left
+    // fails this tier like the others.
+    setLeakReportStrict(run);
     run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/SFX.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libSFX.dylib" else "zig-out/lib/libSFX.so");
     addPathDir(run, rootPath(b, "zig-out/bin"));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
@@ -5373,30 +5554,43 @@ fn addEditorImgui(
 }
 
 /// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
-/// library: the C API in `hunspell.h` is all ELK calls. The CRT rules are
-/// editor-imgui's: the release CRT on MSVC, libc only on Linux (the
-/// consumer links libstdc++), the C++ runtime named on macOS.
+/// library: the C API in `hunspell.h` is all ELK calls. On MSVC it is built
+/// for the DLL CRT of its consumer's mode, which ELK links like the other
+/// editors; libc only on Linux (the consumer links libstdc++), the C++ runtime
+/// named on macOS.
 fn addHunspell(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    /// The CRT its consumer links on MSVC: .dll for ELK (the editors' recipe,
+    /// linkMsvcRuntime), .static for test-elk-app, whose host editor kit links
+    /// Zig's libc, the static release CRT.
+    crt: enum { dll, static },
 ) *std.Build.Step.Compile {
-    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
     const module = b.createModule(.{
         .target = target,
-        .optimize = cxx_optimize,
+        .optimize = optimize,
     });
     module.addIncludePath(b.path("vendor/hunspell/src/hunspell"));
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
+    // On MSVC as the engine's own C++ libraries: linkMsvcRuntime names the DLL
+    // CRT, and without it the C++ sources pulled in Zig's libc, the static CRT,
+    // whose _cexit and friends collided with ucrtd in ELK's link.
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
-    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
-    // Hunspell uses the standard library's streams and strings, whose MSVC
-    // half is the C++ runtime's import library, not part of the C CRT.
-    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "msvcprtd" else "msvcprt", .{});
+    } else if (target.result.abi != .msvc or crt == .dll) {
+        linkMsvcRuntime(module, optimize);
+    } else {
+        // Zig's libc and the C++ runtime that matches it (static, release).
+        module.link_libc = true;
+        module.linkSystemLibrary("libcpmt", .{});
+    }
+    // Compiled for the CRT `crt` names: for the DLL one -D_MT -D_DLL (and
+    // -D_DEBUG in Debug), or its objects record the static release CRT and the
+    // link fails with "/failifmismatch: RuntimeLibrary" (main run 39086936588).
     module.addCSourceFiles(.{
         .root = b.path("vendor/hunspell/src/hunspell"),
         .files = &.{
@@ -5411,7 +5605,12 @@ fn addHunspell(
             "replist.cxx",
             "suggestmgr.cxx",
         },
-        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+        .flags = if (target.result.abi != .msvc or crt == .static)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" }
+        else if (optimize == .debug)
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL", "-D_DEBUG" }
+        else
+            &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" },
     });
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
@@ -5712,7 +5911,7 @@ fn addPortableModuleTest(
     });
     const test_exe = b.addExecutable(.{ .name = "platform-module-test", .root_module = module });
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     const test_step = b.step("test-platform-modules", "Run portable runtime module tests");
     test_step.dependOn(&test_exe.step);
@@ -5752,7 +5951,7 @@ fn addGameCommandLineTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "main" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     const test_step = b.step("test-game-command-line", "Run portable game command-line tests");
     test_step.dependOn(&test_exe.step);
@@ -5800,7 +5999,7 @@ fn addGameFrameTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -5837,7 +6036,7 @@ fn addGameSystemKeysTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     const test_step = b.step("test-game-system-keys", "Run the portable game system-key policy test");
     test_step.dependOn(&test_exe.step);
@@ -5867,7 +6066,7 @@ fn addGameMouseCaptureTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     const test_step = b.step("test-game-mouse-capture", "Run the portable mouse-confinement policy test");
     test_step.dependOn(&test_exe.step);
@@ -5916,7 +6115,7 @@ fn addGameLoopTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -5973,7 +6172,7 @@ fn addSdlApplicationTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&platform_runtime.step);
     test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
@@ -6011,7 +6210,7 @@ fn addInputCodesTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-codes", "Run portable legacy input code mapping tests");
     step.dependOn(&exe.step);
@@ -6041,7 +6240,7 @@ fn addPlatformInputTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-input", "Run portable keyboard and text event contract tests");
     step.dependOn(&exe.step);
@@ -6068,7 +6267,7 @@ fn addInputStateFixtureTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-state", "Run event-fed keyboard and mouse state contract tests");
     step.dependOn(&exe.step);
@@ -6103,7 +6302,7 @@ fn addWheelScrollTest(
         exe.entry = .{ .symbol_name = "mainCRTStartup" };
     }
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-wheel-scroll", "Run the mouse wheel and trackpad swipe translation tests");
     step.dependOn(&exe.step);
@@ -6136,7 +6335,7 @@ fn addInputHeaderAuditTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-headers", "Compile the portable Input header boundary audit");
     step.dependOn(&exe.step);
@@ -6165,7 +6364,7 @@ fn addInputTextRepeatTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-text-repeat", "Run deterministic Input text, repeat, and focus tests");
     step.dependOn(&exe.step);
@@ -6194,7 +6393,7 @@ fn addInputControllerTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-controller", "Run deterministic Input controller mapping tests");
     step.dependOn(&exe.step);
@@ -6223,7 +6422,7 @@ fn addInputBindingsTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-bindings", "Run deterministic Input binding and emulation tests");
     step.dependOn(&exe.step);
@@ -6253,7 +6452,7 @@ fn addPlatformClipboardTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-clipboard", "Run controller and clipboard contract tests");
     step.dependOn(&exe.step);
@@ -6298,7 +6497,7 @@ fn addPlatformControllerTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -6334,7 +6533,7 @@ fn addPlatformAudioTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-audio", "Run portable audio initialization contract tests");
     step.dependOn(&exe.step);
@@ -6363,7 +6562,7 @@ fn addAudioLifecycleFixtureTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-audio-lifecycle", "Run the miniaudio allocator and null-device lifecycle fixture");
     step.dependOn(&exe.step);
@@ -6398,7 +6597,7 @@ fn addAudioWorkerTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-audio-worker", "Run portable audio completion worker tests");
     step.dependOn(&exe.step);
@@ -6432,7 +6631,7 @@ fn addAudioStreamTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-audio-stream", "Run portable audio stream lifetime tests");
     step.dependOn(&exe.step);
@@ -6462,7 +6661,7 @@ fn addInputAudioGateTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-input-audio-gate", "Run the portable input and audio lifecycle gate");
     step.dependOn(&exe.step);
@@ -6526,7 +6725,7 @@ fn addPlatformSocketTypesTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-socket-types", "Run portable socket ABI contract tests");
     step.dependOn(&exe.step);
@@ -6557,7 +6756,7 @@ fn addPlatformNetworkTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-platform-network", "Run portable TCP and UDP socket tests");
     step.dependOn(&exe.step);
@@ -6600,7 +6799,7 @@ fn addNetLowestTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-netlowest", "Run NetLowest loopback UDP fixture");
     step.dependOn(&exe.step);
@@ -6646,7 +6845,7 @@ fn addNetworkWorkersTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-network-workers", "Run network worker cancellation and restart cycles");
     step.dependOn(&exe.step);
@@ -6680,7 +6879,7 @@ fn addPlatformSocketAbiTest(
         exe.entry = .{ .symbol_name = "mainCRTStartup" };
     }
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     addPathDir(run, rootPath(b, "zig-out/bin"));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
@@ -6722,7 +6921,7 @@ fn addNetworkSystemGateTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -6775,7 +6974,7 @@ fn addGameBootstrapSmoke(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     run.step.dependOn(&platform_runtime.step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
@@ -6879,7 +7078,7 @@ fn addMapFileTest(
     const sdl_install = b.addInstallArtifact(sdl_dynamic, .{});
     const platform_install = b.addInstallArtifact(platform_runtime, .{});
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("."));
     run.addArg(module_root);
     run.step.dependOn(&streamio_install.step);
@@ -6899,7 +7098,7 @@ fn addMapFileTest(
     if (test_mode == .run) step.dependOn(&run.step);
 
     const run_all = b.addRunArtifact(exe);
-    setLeakReportLog(run_all);
+    setLeakReportStrict(run_all);
     run_all.setCwd(b.path("."));
     run_all.addArg(module_root);
     run_all.addArg("--all");
@@ -6917,7 +7116,7 @@ fn addMapFileTest(
     // has, undone, must write the unedited file byte for byte. Local, like
     // test-map-files-all: not in the default test step or CI.
     const run_m2_sweep = b.addRunArtifact(exe);
-    setLeakReportLog(run_m2_sweep);
+    setLeakReportStrict(run_m2_sweep);
     run_m2_sweep.setCwd(b.path("."));
     run_m2_sweep.addArg(module_root);
     run_m2_sweep.addArg("--m2-sweep");
@@ -7020,14 +7219,14 @@ fn addBkFont(
     const fixture = rootPath(b, "tools/zig/fixtures/fonts/ProggyClean.ttf");
     const output = rootPath(b, "zig-out/local-test/bk-font/proggyclean-13");
     const generate = b.addRunArtifact(tool);
-    setLeakReportLog(generate);
+    setLeakReportStrict(generate);
     setUserRootsForTest(generate, "bk-font-user");
     generate.setCwd(b.path("."));
     generate.addArgs(&.{ "--ttf", fixture, "--height", "13", "--charset", "ansi", "--out", output, "--force", "--modules", module_root });
     generate.step.dependOn(install);
     addPathDir(generate, rootPath(b, "zig-out/bin"));
     const check = b.addRunArtifact(test_exe);
-    setLeakReportLog(check);
+    setLeakReportStrict(check);
     setUserRootsForTest(check, "bk-font-user");
     check.setCwd(b.path("."));
     check.addArgs(&.{ module_root, fixture, output });
@@ -7165,7 +7364,7 @@ fn addBkMap(
     };
     var run_steps: [runs.len]*std.Build.Step.Run = undefined;
     const check = b.addRunArtifact(test_exe);
-    setLeakReportLog(check);
+    setLeakReportStrict(check);
     setUserRootsForTest(check, "bk-map-user");
     check.setCwd(b.path("."));
     check.addArgs(&.{ module_root, "Data", work, "Data/Maps/Allies", "Data/Maps/Tutorial" });
@@ -7186,7 +7385,7 @@ fn addBkMap(
             run.expectStdOutEqual(spec.stdout orelse "");
             run.expectStdErrEqual(spec.stderr orelse "");
         } else {
-            setLeakReportLog(run);
+            setLeakReportStrict(run);
         }
         // The tool reads Data and the fixtures by plain path; a changed map
         // or fixture is a changed run.
@@ -7206,7 +7405,7 @@ fn addBkMap(
     // map) to the default tier.
     const all_work = work ++ "/all";
     const all_check = b.addRunArtifact(test_exe);
-    setLeakReportLog(all_check);
+    setLeakReportStrict(all_check);
     setUserRootsForTest(all_check, "bk-map-user");
     all_check.setCwd(b.path("."));
     all_check.addArgs(&.{ module_root, "Data", all_work, "Data/Maps", "--maps-only" });
@@ -7217,7 +7416,7 @@ fn addBkMap(
         &.{ "to-bzm", all_work ++ "/Maps/xml", "--out", all_work ++ "/Maps/bzm", "--force" },
     }) |args| {
         const run = b.addRunArtifact(tool);
-        setLeakReportLog(run);
+        setLeakReportStrict(run);
         setUserRootsForTest(run, "bk-map-user");
         run.setCwd(b.path("."));
         run.addArgs(args);
@@ -7325,7 +7524,7 @@ fn addBkSprite(
         .{ .args = &.{ "compose", bad ++ "/missing", work ++ "/bad" }, .stderr = b.fmt("bk-sprite: cannot open image {s}\n", .{hostPath(b, bad ++ "/missing/death/000.tga")}) },
     };
     const check = b.addRunArtifact(test_exe);
-    setLeakReportLog(check);
+    setLeakReportStrict(check);
     setUserRootsForTest(check, "bk-sprite-user");
     check.setCwd(b.path("."));
     check.addArgs(&.{ module_root, fixture, work ++ "/fixture", work ++ "/again/fixture" });
@@ -7345,7 +7544,7 @@ fn addBkSprite(
             run.expectStdOutEqual("");
             run.expectStdErrEqual(stderr);
         } else {
-            setLeakReportLog(run);
+            setLeakReportStrict(run);
         }
         // The tool reads the fixtures by plain path; a changed fixture is a
         // changed run.
@@ -7474,7 +7673,7 @@ fn addEditorBridgeTest(
     install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     // Run from the installation, and tell it so: cwd is what the engine's
     // relative data names resolve against.
     run.setCwd(b.path(stage_root));
@@ -7501,7 +7700,7 @@ fn addEditorBridgeTest(
     // Local only, like test-map-files-m2-sweep: not in the default test step
     // or CI.
     const run_m2_sweep = b.addRunArtifact(exe);
-    setLeakReportLog(run_m2_sweep);
+    setLeakReportStrict(run_m2_sweep);
     run_m2_sweep.setCwd(b.path(stage_root));
     run_m2_sweep.addArg(".");
     run_m2_sweep.addArg(rootPath(b, "zig-out/local-test"));
@@ -7516,7 +7715,7 @@ fn addEditorBridgeTest(
     // 05-05: the players, the unit creation and Check Map's fixes through the engine,
     // alone (the full tier above runs them too, among everything else).
     const run_m3_players = b.addRunArtifact(exe);
-    setLeakReportLog(run_m3_players);
+    setLeakReportStrict(run_m3_players);
     run_m3_players.setCwd(b.path(stage_root));
     run_m3_players.addArg(".");
     run_m3_players.addArg(rootPath(b, "zig-out/local-test"));
@@ -7530,7 +7729,7 @@ fn addEditorBridgeTest(
     // 05-07: the Minimap panel's reads and Create Minimap Images through the engine,
     // alone (the full tier above runs them too, among everything else).
     const run_m3_minimap = b.addRunArtifact(exe);
-    setLeakReportLog(run_m3_minimap);
+    setLeakReportStrict(run_m3_minimap);
     run_m3_minimap.setCwd(b.path(stage_root));
     run_m3_minimap.addArg(".");
     run_m3_minimap.addArg(rootPath(b, "zig-out/local-test"));
@@ -7545,7 +7744,7 @@ fn addEditorBridgeTest(
     // tier above runs it too, among everything else): the refusals, the seed, the
     // output folders, the mod stamp and the generated map's open.
     const run_m3_rmg = b.addRunArtifact(exe);
-    setLeakReportLog(run_m3_rmg);
+    setLeakReportStrict(run_m3_rmg);
     run_m3_rmg.setCwd(b.path(stage_root));
     run_m3_rmg.addArg(".");
     run_m3_rmg.addArg(rootPath(b, "zig-out/local-test"));
@@ -7560,7 +7759,7 @@ fn addEditorBridgeTest(
     // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
     // layer entries through the engine, alone (the full tier above runs them too).
     const run_m3_layers = b.addRunArtifact(exe);
-    setLeakReportLog(run_m3_layers);
+    setLeakReportStrict(run_m3_layers);
     run_m3_layers.setCwd(b.path(stage_root));
     run_m3_layers.addArg(".");
     run_m3_layers.addArg(rootPath(b, "zig-out/local-test"));
@@ -7583,7 +7782,7 @@ fn addEditorBridgeTest(
     var previous_craft: ?*std.Build.Step = null;
     for (craft_kinds) |entry| {
         const run_craft = b.addRunArtifact(exe);
-        setLeakReportLog(run_craft);
+        setLeakReportStrict(run_craft);
         run_craft.setCwd(b.path(stage_root));
         run_craft.addArg(".");
         run_craft.addArg(rootPath(b, "zig-out/local-test"));
@@ -7742,13 +7941,16 @@ fn addResourceBridge(
     install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path(stage_root));
     // The bridge's diagnostics (the preview-clock stall detector, the preview
     // timer trace) are BK_DEBUG_LOG-gated in a release build; a tier built
     // with --release must still print them when it stalls, as
     // resource-editor-game-reads-it does.
     run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
+    // A C ABI block left at exit is printed with its stack (bk_memory.zig's
+    // Traced): the Linux runner's one such leak never showed anywhere else.
+    run.setEnvironmentVariable("BK_MEM_TRACE_CABI", "1");
     run.addArg(".");
     if (tier.mod_roundtrip) {
         // The tracked mini-mod's data folder, then the scratch root. The real mod, when there
@@ -7902,7 +8104,7 @@ fn addMapEditor(
     // dyld loads a second libSDL3/libPlatformRuntime out of the cache
     // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("zig-out"));
     run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
@@ -7917,7 +8119,7 @@ fn addMapEditor(
     // Also launched from outside the installation, like `run` above; the
     // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
-    setLeakReportLog(absolute_run);
+    setLeakReportStrict(absolute_run);
     absolute_run.setCwd(b.path("zig-out"));
     absolute_run.addArgs(&.{ "--check", rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), rootPath(b, "zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
@@ -7927,7 +8129,7 @@ fn addMapEditor(
     // 03-08 Task 1: -mod=EditorTestMod loads the fixture mod's data like the
     // game and the host check's own acceptance criterion greps this line.
     const mod_run = b.addRunArtifact(exe);
-    setLeakReportLog(mod_run);
+    setLeakReportStrict(mod_run);
     mod_run.setCwd(b.path(stage_root));
     mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
     mod_run.step.dependOn(&install_exe.step);
@@ -7966,7 +8168,7 @@ fn addMapEditor(
     // SDL events: paint, place, select, drag, turn, delete, undo all of it,
     // Save As and reopen.
     const smoke_run = b.addRunArtifact(exe);
-    setLeakReportLog(smoke_run);
+    setLeakReportStrict(smoke_run);
     smoke_run.setCwd(b.path(stage_root));
     smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-smoke.bzm") });
     // What it reads - the staged Data and engine - is not a file input of the
@@ -7995,7 +8197,7 @@ fn addMapEditor(
     // same known-clear ground. BK_EDITOR_AUTO_GAME becomes the test game's
     // own BK_AUTO_UI: a shot (for a person to look at, unmeasured) then exit.
     const auto_run = b.addRunArtifact(exe);
-    setLeakReportLog(auto_run);
+    setLeakReportStrict(auto_run);
     auto_run.setCwd(b.path(stage_root));
     auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
@@ -8439,7 +8641,7 @@ fn addMapEditor(
         "358:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
-    setLeakReportLog(auto_m2_run);
+    setLeakReportStrict(auto_m2_run);
     auto_m2_run.setCwd(b.path(stage_root));
     auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
@@ -9332,7 +9534,7 @@ fn addMapEditor(
         "1550:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
-    setLeakReportLog(auto_m3_run);
+    setLeakReportStrict(auto_m3_run);
     auto_m3_run.setCwd(b.path(stage_root));
     auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
@@ -9360,7 +9562,7 @@ fn addMapEditor(
     // macos-14) through map-editor-game-reads-it-m3, which depends on it, so
     // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
-    setLeakReportLog(game_reads_it_run);
+    setLeakReportStrict(game_reads_it_run);
     game_reads_it_run.setCwd(b.path(stage_root));
     game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it.log") });
     // What it reads (the staged Data and Game) and the second process it
@@ -9378,7 +9580,7 @@ fn addMapEditor(
     // later M2 plan adds its edit to game_reads_m2.zig). After its M1 sibling, so
     // two games never start at once.
     const game_reads_it_m2_run = b.addRunArtifact(exe);
-    setLeakReportLog(game_reads_it_m2_run);
+    setLeakReportStrict(game_reads_it_m2_run);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
     game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
@@ -9398,7 +9600,7 @@ fn addMapEditor(
     // both exit 0 (game_reads_m3.zig). The fixture map is crafted by the bridge
     // test's `--craft` first. After its siblings, so two games never start at once.
     const game_reads_it_m3_run = b.addRunArtifact(exe);
-    setLeakReportLog(game_reads_it_m3_run);
+    setLeakReportStrict(game_reads_it_m3_run);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
     game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", rootPath(b, "zig-out/local-test/m3-short-railroad.bzm"), rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3.log") });
     // The authored leg writes its template, graph, container and field set under the
@@ -9428,7 +9630,14 @@ fn addMapEditor(
     const install_engine_test = b.addInstallArtifact(engine_test, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
     install_engine_test.step.dependOn(install_game_step);
     const engine_test_run = b.addRunArtifact(engine_test);
-    setLeakReportLog(engine_test_run);
+    // A plain run, not the build's test protocol: in server mode the test
+    // runner ends with std.process.exit, which on Windows skips the CRT's exit
+    // (crt.zig's exit says why), so the engine statics linked into the test
+    // were never destroyed and BkMemory counted them as leaks. In terminal
+    // mode a passing run returns from main, through c_bridge_test.zig's
+    // crtMain into the CRT's exit; a failing one still exits 1.
+    engine_test_run.stdio = .infer_from_args;
+    setLeakReportStrict(engine_test_run);
     engine_test_run.setCwd(b.path(stage_root));
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
@@ -9592,20 +9801,31 @@ fn addElk(
             .{ .name = "elk_build", .module = elk_build.createModule() },
         },
     });
-    // The editor-overlay-spike's recipe, the other engine-less ImGui program:
-    // on MSVC Zig's libc is the one CRT, elsewhere the executable pulls in the
-    // C++ runtime editor-imgui needs.
+    // The Map and Resource Editors' CRT: on MSVC the DLL CRT of the build's
+    // mode (linkMsvcRuntime), which hunspell is compiled for and crt.zig's debug
+    // report hooks need; Zig's libc, the static release CRT, had neither
+    // (main run 39086936588: RuntimeLibrary mismatch, then _CrtSetReportMode).
     addMsvcLibraryPaths(b, module, toolchain);
-    if (target.result.abi == .msvc) module.link_libc = true else linkMsvcRuntime(module, optimize);
-    if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
+    linkMsvcRuntime(module, optimize);
+    // imm32 for ImGui's IME; user32 and shell32 for ELK's own clipboard, window
+    // and ShellExecute calls, which Zig's libc used to bring along.
+    if (target.result.os.tag == .windows) {
+        module.linkSystemLibrary("imm32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
     linkSdlImport(module, target, sdl_dynamic);
     linkBkMemoryAllocator(b, module, false);
-    module.linkLibrary(addHunspell(b, target, optimize, toolchain));
+    module.linkLibrary(addHunspell(b, target, optimize, toolchain, .dll));
     const exe = b.addExecutable(.{ .name = "ELK", .root_module = module });
     switch (target.result.os.tag) {
         // No console on a double-click; the scripted modes attach to the
         // parent's (crt.attachParentConsole).
-        .windows => exe.subsystem = .windows,
+        // The CRT's own entry, which calls the C main the app exports.
+        .windows => {
+            exe.subsystem = .windows;
+            exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        },
         .macos => exe.root_module.addRPathSpecial("@executable_path"),
         .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
         else => {},
@@ -9623,7 +9843,7 @@ fn addElk(
     // included, each proved on disk. Launched from zig-out like the editors'
     // host checks; it needs a GPU device, so it is not part of `test`.
     const smoke_run = b.addSystemCommand(&.{rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename }))});
-    setLeakReportLog(smoke_run);
+    setLeakReportStrict(smoke_run);
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke", rootPath(b, "Data/ELK"), rootPath(b, "zig-out/local-test/elk/app-smoke") });
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
@@ -9719,7 +9939,7 @@ fn addResourceEditor(
     // the editor finds its installation beside its own executable, whatever
     // the working directory.
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path("zig-out"));
     // The tracked picture the docks half shows in the thumbnail list.
     run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
@@ -9756,7 +9976,7 @@ fn addResourceEditor(
     // the engine's reader reopens it, an export batch reports its project
     // and the missing gamma.cfg, the shipped Data folder is refused.
     const batch_run = b.addRunArtifact(exe);
-    setLeakReportLog(batch_run);
+    setLeakReportStrict(batch_run);
     batch_run.setCwd(b.path("zig-out"));
     batch_run.addArgs(&.{ "--batch-check", rootPath(b, "tools/zig/fixtures/resource_editor"), rootPath(b, "zig-out/local-test/resource_editor/batch") });
     batch_run.has_side_effects = true;
@@ -9768,7 +9988,7 @@ fn addResourceEditor(
     // The project half of the smoke: a copy of the tracked .unt opened,
     // edited, saved, undone, saved and compared byte for byte (scenario.zig).
     const smoke_run = b.addRunArtifact(exe);
-    setLeakReportLog(smoke_run);
+    setLeakReportStrict(smoke_run);
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke-edit", rootPath(b, "tools/zig/fixtures/resource_editor/unt/project.unt"), rootPath(b, "zig-out/local-test/resource_editor/smoke") });
     smoke_run.has_side_effects = true;
@@ -9777,7 +9997,7 @@ fn addResourceEditor(
     smoke_step.dependOn(&install_exe.step);
     // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
     const smoke_kind_run = b.addRunArtifact(exe);
-    setLeakReportLog(smoke_kind_run);
+    setLeakReportStrict(smoke_kind_run);
     smoke_kind_run.setCwd(b.path("zig-out"));
     smoke_kind_run.addArgs(&.{ "--smoke", "unt", rootPath(b, "zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
     smoke_kind_run.has_side_effects = true;
@@ -9818,7 +10038,7 @@ fn addResourceEditor(
     // kind, and the user data (profile, settings) lives apart from it so the run never touches the player's own.
     const game_reads_dir = rootPath(b, "zig-out/local-test/resource-editor-game-reads-it");
     const game_reads_run = b.addRunArtifact(exe);
-    setLeakReportLog(game_reads_run);
+    setLeakReportStrict(game_reads_run);
     game_reads_run.setCwd(b.path(stage_root));
     game_reads_run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), game_reads_dir });
     game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
@@ -9852,7 +10072,7 @@ fn addResourceAutoRun(
 ) *std.Build.Step {
     const auto_dir = rootPath(b, "zig-out/local-test/resource_editor/auto-" ++ auto.name);
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path(stage_root));
     run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
@@ -11562,7 +11782,7 @@ fn addEngineHostedTool(
     install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     // Run from the installation, and tell it so: cwd is what the engine's
     // relative data names resolve against.
     run.setCwd(b.path(stage_root));
@@ -11619,7 +11839,7 @@ fn addSdlEventTest(
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
-    setLeakReportLog(test_run);
+    setLeakReportStrict(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&platform_runtime.step);
     test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
@@ -11713,7 +11933,7 @@ fn addResourceModelScaffoldTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     // Fixtures live at repo-root-relative paths; the test defaults to the wpn
     // fixture and the CI run step passes no args so that default lands.
     run.setCwd(b.path("."));
@@ -11763,7 +11983,7 @@ fn addResourceModelFidelityTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     // The inventory, the xfail list and the projects are repo-root-relative;
     // the copies and fidelity.log go to zig-out/local-test/resource_model.
     run.setCwd(b.path("."));
@@ -11813,7 +12033,7 @@ fn addResourceModelReferencesTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     // Fixtures live at repo-root-relative paths; the test defaults to the wpn
     // fixture and the CI run step passes no args so that default lands.
     run.setCwd(b.path("."));
@@ -11866,7 +12086,7 @@ fn addResourceModelGridProjectionTest(
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.has_side_effects = true;
     const step = b.step("test-resource-grid-projection", "S09 T01: GridProjection tile and screen math, tile-list and grid helpers and one-way line tiles, headless");
     step.dependOn(&exe.step);
@@ -11974,7 +12194,7 @@ fn addResourceModelComparatorTest(
     install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
     run.addArg(rootPath(b, "zig-out/local-test"));
@@ -12051,7 +12271,7 @@ fn linkSdlImport(
 // repository.
 fn addSeasonData(b: *std.Build, tool: *std.Build.Step.Compile) std.Build.LazyPath {
     const run = b.addRunArtifact(tool);
-    setLeakReportLog(run);
+    setLeakReportStrict(run);
     run.setName("generate SeasonData");
     run.addDirectoryArg(b.path("Data"));
     run.addArg("--out");

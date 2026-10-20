@@ -7,9 +7,8 @@ class CLinkObject : public IUpdatableObj
 {
 	DECLARE_SERIALIZE;
 
-	// Deliberately leaked singletons: other globals (theSuspendedUpdates etc.)
-	// release CLinkObject instances during DLL teardown, after namespace-scope
-	// statics of this class would already have been destroyed.
+	// Freed at DLL teardown. Other globals (theSuspendedUpdates etc.) release
+	// CLinkObject instances after that; see RegistriesAlive() in LinkObject.cpp.
 	static std::vector< CPtr<CLinkObject> >& Link2Object();
 	static std::list<int>& DeletedObjects();
 	static std::list<int>& DeletedUniqueObjects();

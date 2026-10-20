@@ -14,6 +14,7 @@
 //! temporary file that is then renamed over the target, so a failed write
 //! leaves the previous file whole.
 const std = @import("std");
+const builtin = @import("builtin");
 const text_codec = @import("text_codec.zig");
 const state = @import("state.zig");
 const project_file = @import("project_file.zig");
@@ -267,15 +268,20 @@ pub const Resolved = struct {
 
 /// The OS path of `relative` (forward slashes) below `base`, each component
 /// matched without regard to case when its exact spelling is missing: the
-/// folders, then the file. From the first component that is missing at all,
-/// the rest is taken as spelled and `exists` is false.
+/// folders, then the file, each spelled as on disk. From the first component
+/// that is missing at all, the rest is taken as spelled and `exists` is false.
 pub fn resolve(gpa: std.mem.Allocator, io: std.Io, base: []const u8, relative: []const u8) !Resolved {
-    const cwd = std.Io.Dir.cwd();
-    const exact = try osPath(gpa, base, relative);
-    if (cwd.statFile(io, exact, .{})) |stat| {
-        if (stat.kind != .directory) return .{ .path = exact, .exists = true };
-    } else |_| {}
-    gpa.free(exact);
+    // On Linux a file found as spelled is spelled so on disk. Windows and
+    // macOS find it in any case, which returned the caller's spelling (Data/
+    // textes for a Data/Textes on disk, main run 39086936588), so there the
+    // components are looked up below as when the exact spelling is missing.
+    if (builtin.os.tag == .linux) {
+        const exact = try osPath(gpa, base, relative);
+        if (std.Io.Dir.cwd().statFile(io, exact, .{})) |stat| {
+            if (stat.kind != .directory) return .{ .path = exact, .exists = true };
+        } else |_| {}
+        gpa.free(exact);
+    }
 
     var path = try gpa.dupe(u8, base);
     errdefer gpa.free(path);

@@ -794,9 +794,14 @@ fn resolveCaseInsensitivePath(path: []const u8) ?[:0]u8 {
             std.Io.Dir.cwd().openDir(hostIo(), parent, .{ .iterate = true }) catch return null;
         defer directory.close(hostIo());
         var iterator = directory.iterate();
+        // An exact match wins over a spelling found earlier, which is freed:
+        // a folder can hold both (Effects and effects), in either order.
         var actual: ?[]u8 = null;
+        defer if (actual) |component| allocator.free(component);
         while (iterator.next(hostIo()) catch null) |entry| {
             if (std.mem.eql(u8, entry.name, wanted)) {
+                if (actual) |earlier| allocator.free(earlier);
+                actual = null;
                 actual = allocator.dupe(u8, entry.name) catch return null;
                 break;
             }
@@ -804,7 +809,6 @@ fn resolveCaseInsensitivePath(path: []const u8) ?[:0]u8 {
                 actual = allocator.dupe(u8, entry.name) catch return null;
         }
         const component = actual orelse return null;
-        defer allocator.free(component);
         if (resolved.items.len != 0 and resolved.items[resolved.items.len - 1] != '/')
             resolved.append(allocator, '/') catch return null;
         resolved.appendSlice(allocator, component) catch return null;
@@ -2039,6 +2043,31 @@ test "POSIX resource paths resolve legacy casing" {
     const resolved = resolveCaseInsensitivePath("Data/cursor/1.xml") orelse return error.TestUnexpectedResult;
     defer allocator.free(resolved);
     try std.testing.expectEqualStrings("Data/Cursor/1.xml", resolved);
+}
+
+test "a folder holding two spellings of a name resolves either without a leak" {
+    if (builtin.os.tag == .windows) return;
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(io, "Effects");
+    try tmp.dir.createDirPath(io, "effects");
+    try tmp.dir.writeFile(io, .{ .sub_path = "Effects/1.xml", .data = "<base/>" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "effects/1.xml", .data = "<base/>" });
+    const bk = struct {
+        extern fn bk_mem_live_count() callconv(.c) usize;
+    };
+    const live = bk.bk_mem_live_count();
+    // Whatever order the folder lists them in, one of the two spellings meets
+    // the other first: the copy of that match must be freed for the exact one.
+    for ([_][]const u8{ "Effects", "effects" }) |spelling| {
+        const wanted = try std.fmt.allocPrint(std.testing.allocator, ".zig-cache/tmp/{s}/{s}/1.xml", .{ tmp.sub_path, spelling });
+        defer std.testing.allocator.free(wanted);
+        const resolved = resolveCaseInsensitivePath(wanted) orelse return error.TestUnexpectedResult;
+        defer allocator.free(resolved);
+        try std.testing.expectEqualStrings(wanted, resolved);
+    }
+    try std.testing.expectEqual(live, bk.bk_mem_live_count());
 }
 
 test "storage existence probe resolves legacy casing like open does" {
