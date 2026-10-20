@@ -1,0 +1,7 @@
+# Fixture string table: UTF-8, CRLF, key=value lines.
+file.menu=Datei
+file.open=Öffnen...###file.open
+file.save=Speichern
+
+status.count=%d von {0} Dateien
+hint=Zum Speichern Strg+S drücken##hint

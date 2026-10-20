@@ -40,6 +40,28 @@
 //! each code point must be in cp1252. CR, LF and TAB are ignored. The tracked Unicode overlay is
 //! checked, never a generated pak (the Hindi private-use forms live only there, D058). The fonts are
 //! read from `--fonts <dir>`, default `<root>/vendor/fonts`.
+//!
+//! Rule `table-*` (D061): a string table directory holds `en.lang` and one `<code>.lang` of the nine
+//! languages, UTF-8, CRLF, `key=value` lines, `#` comment lines and blank lines. `en.lang` is the
+//! reference: `table-missing` (a key, or a whole file, absent), `table-extra` (a key en no longer
+//! has), `table-placeholder` (the printf codes and `{n}` differ), `table-id` (a `##`/`###` ImGui
+//! ID suffix differs from en, or a `###` suffix is not the key itself), `table-format` (a line
+//! without `=`, a duplicate key, an LF-only line, invalid UTF-8); `glyph` covers each value. The
+//! editors draw every table with Noto Sans plus the language's own face, so a code point must be
+//! in the language face or in NotoSans-Regular, for the Latin languages too (not cp1252 as the
+//! game's bitmap fonts need). `table_dirs` lists the real tree's directories; with none holding an
+//! `en.lang` the scope is `not active`.
+//!
+//! Rule `doc-*`: a document set is an English `<stem>.md` and nine `<stem>_<Language>.md`.
+//! Each needs to exist (`doc-missing`), have the English file's sequence of heading levels
+//! outside fenced code (`doc-structure`) and its number of fenced code blocks (`doc-code`), and
+//! start with the language bar (`doc-bar`): ten links in the fixed order, each target one of the
+//! set's files (`doc-missing` reports one that does not exist), English pointing at the English file. A `<stem>_English.md` is `doc-extra`.
+//! `document_sets` is empty until S08 adds the root README set (`--doc-set <stem>` adds one).
+//!
+//! Rule `literal`: in the `strict_dirs` (S04 to S07 add the migrated source directories;
+//! `--strict-dir <dir>` adds one), a known UI call whose first argument is a string literal is a
+//! finding: it must go through `l10n.t`, `l10n.id` or `l10n.format`.
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
 const cmap = @import("l10n_cmap.zig");
@@ -254,8 +276,7 @@ fn lessString(_: void, a: []const u8, b: []const u8) bool {
 /// The substituted or interpreted tokens of a UTF-16LE text, sorted (see the module comment for
 /// which). A text without the byte order mark has none.
 pub fn placeholderTokens(arena: std.mem.Allocator, bytes: []const u8) ![]const []const u8 {
-    var tokens: std.ArrayList([]const u8) = .empty;
-    if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return tokens.items;
+    if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return &.{};
     // Tokens are ASCII: every other unit becomes 0x80, which ends any token.
     const count = (bytes.len - 2) / 2;
     const ascii = try arena.alloc(u8, count);
@@ -263,9 +284,17 @@ pub fn placeholderTokens(arena: std.mem.Allocator, bytes: []const u8) ![]const [
         const unit = std.mem.readInt(u16, bytes[2 + i * 2 ..][0..2], .little);
         c.* = if (unit < 0x80) @intCast(unit) else 0x80;
     }
+    return scanTokens(arena, ascii, true);
+}
+
+/// The tokens of an ASCII view of a text (see `placeholderTokens`), sorted. A string table value
+/// counts only printf codes and `{n}` (`all_kinds` false): `$`, `<tag>` and a literal `\n` are
+/// ordinary characters there.
+fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]const []const u8 {
+    var tokens: std.ArrayList([]const u8) = .empty;
     var at: usize = 0;
     while (at < ascii.len) {
-        const c = ascii[at];
+        const c = if (!all_kinds and (ascii[at] == '$' or ascii[at] == '<' or ascii[at] == '\\')) 0 else ascii[at];
         var end: usize = at + 1;
         var is_token = false;
         switch (c) {
@@ -323,6 +352,15 @@ pub fn placeholderTokens(arena: std.mem.Allocator, bytes: []const u8) ![]const [
     }
     std.mem.sort([]const u8, tokens.items, {}, lessString);
     return tokens.items;
+}
+
+/// The tokens of a UTF-8 string table value: printf codes and `{n}` only, sorted.
+pub fn tableTokens(arena: std.mem.Allocator, value: []const u8) ![]const []const u8 {
+    const ascii = try arena.dupe(u8, value);
+    for (ascii) |*c| {
+        if (c.* >= 0x80) c.* = 0x80;
+    }
+    return scanTokens(arena, ascii, false);
 }
 
 fn tokensEqual(a: []const []const u8, b: []const []const u8) bool {
@@ -481,6 +519,413 @@ pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.
     }
 }
 
+/// The string table directories of the real tree, relative to the repository root.
+pub const table_dirs = [_][]const u8{ "Sources/editor/kit/lang", "tools/zig/lang" };
+
+pub const TableEntry = struct { key: []const u8, value: []const u8, line: usize };
+pub const TableProblem = struct { line: usize, detail: []const u8 };
+pub const Table = struct { entries: []const TableEntry, problems: []const TableProblem };
+
+/// The entries of a `.lang` file and what is wrong with its form. A problem on line 0 concerns the
+/// whole file. An LF-only line still yields its entry, so one fault is one finding.
+pub fn parseTable(arena: std.mem.Allocator, bytes: []const u8) !Table {
+    var entries: std.ArrayList(TableEntry) = .empty;
+    var problems: std.ArrayList(TableProblem) = .empty;
+    var seen: std.StringHashMapUnmanaged(usize) = .empty;
+    if (!std.unicode.utf8ValidateSlice(bytes)) try problems.append(arena, .{ .line = 0, .detail = "file is not valid UTF-8" });
+    var line_no: usize = 0;
+    var at: usize = 0;
+    while (at < bytes.len) {
+        line_no += 1;
+        const end = std.mem.indexOfScalarPos(u8, bytes, at, '\n');
+        var text = bytes[at .. end orelse bytes.len];
+        at = if (end) |e| e + 1 else bytes.len;
+        if (end != null) {
+            if (text.len > 0 and text[text.len - 1] == '\r') {
+                text = text[0 .. text.len - 1];
+            } else try problems.append(arena, .{ .line = line_no, .detail = "line ends with LF only, want CRLF" });
+        }
+        const trimmed = std.mem.trim(u8, text, " \t");
+        if (trimmed.len == 0 or trimmed[0] == '#') continue;
+        const eq = std.mem.indexOfScalar(u8, text, '=') orelse {
+            try problems.append(arena, .{ .line = line_no, .detail = "line has no `=`" });
+            continue;
+        };
+        const key = text[0..eq];
+        if (key.len == 0) {
+            try problems.append(arena, .{ .line = line_no, .detail = "line has an empty key" });
+            continue;
+        }
+        if (seen.get(key)) |first| {
+            try problems.append(arena, .{ .line = line_no, .detail = try std.fmt.allocPrint(arena, "duplicate key `{s}` (first on line {d})", .{ key, first }) });
+            continue;
+        }
+        try seen.put(arena, key, line_no);
+        try entries.append(arena, .{ .key = key, .value = text[eq + 1 ..], .line = line_no });
+    }
+    return .{ .entries = entries.items, .problems = problems.items };
+}
+
+/// The ImGui ID suffix of a table value: everything from the first `##` (`##hidden` or `###id`).
+pub fn idSuffix(value: []const u8) ?[]const u8 {
+    const at = std.mem.indexOf(u8, value, "##") orelse return null;
+    return value[at..];
+}
+
+fn optionalEql(a: ?[]const u8, b: ?[]const u8) bool {
+    if (a == null or b == null) return a == null and b == null;
+    return std.mem.eql(u8, a.?, b.?);
+}
+
+/// The face that lacks `code_point` for a table value, or null when it is covered (or no face
+/// could be read; the overlay glyph rule reports a missing font).
+fn missingFace(own: ?Face, latin: Face, code_point: u21) ?[]const u8 {
+    if (latin.table == null) return null;
+    if (own) |face| {
+        if (face.table == null or face.covers(code_point) or latin.covers(code_point)) return null;
+        return face.name;
+    }
+    return if (latin.covers(code_point)) null else latin.name;
+}
+
+fn checkValueGlyphs(report: *Report, code: []const u8, where: []const u8, value: []const u8, own: ?Face, latin: Face) !void {
+    var seen: std.ArrayList(u21) = .empty;
+    var view = std.unicode.Utf8View.init(value) catch return;
+    var it = view.iterator();
+    while (it.nextCodepoint()) |code_point| {
+        if (std.mem.indexOfScalar(u21, seen.items, code_point) != null) continue;
+        try seen.append(report.arena, code_point);
+        if (missingFace(own, latin, code_point)) |name| {
+            try report.addFmt("glyph", code, where, "U+{X:0>4} not in {s}", .{ code_point, name });
+        }
+    }
+}
+
+fn reportTableProblems(report: *Report, code: []const u8, path: []const u8, table: Table) !void {
+    for (table.problems) |problem| {
+        const where = if (problem.line == 0) path else try std.fmt.allocPrint(report.arena, "{s}:{d}", .{ path, problem.line });
+        try report.add("table-format", code, where, problem.detail);
+    }
+}
+
+/// A `###` suffix must be the key itself, so a renamed key cannot keep a stale widget ID.
+fn checkKeySuffix(report: *Report, code: []const u8, where: []const u8, key: []const u8, value: []const u8) !void {
+    const suffix = idSuffix(value) orelse return;
+    if (std.mem.startsWith(u8, suffix, "###") and !std.mem.eql(u8, suffix[3..], key)) {
+        try report.addFmt("table-id", code, where, "ID suffix {s} must be ###{s}", .{ suffix, key });
+    }
+}
+
+/// Rules table-* for every table directory of `table_dirs` that holds an `en.lang`; `fonts` null
+/// skips the glyph rule (the caller already reported why).
+pub fn checkTables(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.Dir) !void {
+    const arena = report.arena;
+    var active = false;
+    for (table_dirs) |dir| {
+        const en_path = try std.fmt.allocPrint(arena, "{s}/en.lang", .{dir});
+        const en_bytes = (try readOptional(io, arena, root, en_path)) orelse continue;
+        active = true;
+        try checkTableDir(io, report, root, fonts, dir, en_path, en_bytes);
+    }
+    if (!active) try report.inactive.append(arena, "tables");
+}
+
+fn checkTableDir(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.Dir, dir: []const u8, en_path: []const u8, en_bytes: []const u8) !void {
+    const arena = report.arena;
+    const latin: Face = if (fonts) |f| Face.load(io, arena, f, "NotoSans-Regular.ttf") else .{ .name = "NotoSans-Regular.ttf" };
+    const en = try parseTable(arena, en_bytes);
+    var en_index: std.StringHashMapUnmanaged(usize) = .empty;
+    for (en.entries, 0..) |entry, i| try en_index.put(arena, entry.key, i);
+    report.checked += 1;
+    try reportTableProblems(report, "en", en_path, en);
+    for (en.entries) |entry| {
+        const where = try std.fmt.allocPrint(arena, "{s}:{s}", .{ en_path, entry.key });
+        try checkKeySuffix(report, "en", where, entry.key, entry.value);
+        try checkValueGlyphs(report, "en", where, entry.value, null, latin);
+    }
+
+    for (languages.languages) |language| {
+        report.checked += 1;
+        const path = try std.fmt.allocPrint(arena, "{s}/{s}.lang", .{ dir, language.code });
+        const bytes = (try readOptional(io, arena, root, path)) orelse {
+            try report.add("table-missing", language.code, path, "no table file although en.lang exists");
+            continue;
+        };
+        const own: ?Face = if (language.face) |name| (if (fonts) |f| Face.load(io, arena, f, name) else null) else null;
+        const table = try parseTable(arena, bytes);
+        try reportTableProblems(report, language.code, path, table);
+        var have_index: std.StringHashMapUnmanaged(usize) = .empty;
+        for (table.entries, 0..) |entry, i| try have_index.put(arena, entry.key, i);
+
+        for (en.entries) |entry| {
+            if (have_index.contains(entry.key)) continue;
+            const where = try std.fmt.allocPrint(arena, "{s}:{s}", .{ path, entry.key });
+            try report.add("table-missing", language.code, where, "key is in en.lang but not here");
+        }
+        for (table.entries) |entry| {
+            const where = try std.fmt.allocPrint(arena, "{s}:{s}", .{ path, entry.key });
+            try checkValueGlyphs(report, language.code, where, entry.value, own, latin);
+            const english = en.entries[
+                en_index.get(entry.key) orelse {
+                    try report.add("table-extra", language.code, where, "key is not in en.lang");
+                    continue;
+                }
+            ];
+            const want = try tableTokens(arena, english.value);
+            const got = try tableTokens(arena, entry.value);
+            if (!tokensEqual(want, got)) {
+                try report.addFmt("table-placeholder", language.code, where, "placeholders differ: English has {s}, translation has {s}", .{ try joinTokens(arena, want), try joinTokens(arena, got) });
+            }
+            const want_id = idSuffix(english.value);
+            const got_id = idSuffix(entry.value);
+            if (!optionalEql(want_id, got_id)) {
+                try report.addFmt("table-id", language.code, where, "ID suffix {s} differs from English {s}", .{ got_id orelse "none", want_id orelse "none" });
+            } else try checkKeySuffix(report, language.code, where, entry.key, entry.value);
+        }
+    }
+}
+
+/// A document set of the real tree, as a path without the language part: `README` names README.md
+/// and README_<Language>.md in the repository root. S08 adds the root README set here.
+pub const document_sets = [_][]const u8{};
+
+const DocLanguage = struct { code: []const u8, name: []const u8 };
+
+/// The nine translations in the order of the language bar.
+const doc_languages = [_]DocLanguage{
+    .{ .code = "ru", .name = "Russian" },
+    .{ .code = "zh-Hans", .name = "Chinese" },
+    .{ .code = "hi", .name = "Hindi" },
+    .{ .code = "es", .name = "Spanish" },
+    .{ .code = "fr", .name = "French" },
+    .{ .code = "de", .name = "German" },
+    .{ .code = "pt-BR", .name = "Portuguese" },
+    .{ .code = "ja", .name = "Japanese" },
+    .{ .code = "id", .name = "Indonesian" },
+};
+
+pub const Document = struct {
+    /// The `#` count of each heading line outside fenced code.
+    levels: []const u8,
+    code_blocks: usize,
+    /// Line 1 without byte order mark and line break.
+    first_line: []const u8,
+};
+
+pub fn parseDocument(arena: std.mem.Allocator, bytes: []const u8) !Document {
+    var levels: std.ArrayList(u8) = .empty;
+    var code_blocks: usize = 0;
+    var in_fence = false;
+    const text = if (std.mem.startsWith(u8, bytes, "\xEF\xBB\xBF")) bytes[3..] else bytes;
+    var first_line: []const u8 = "";
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (lines.next()) |raw| {
+        number += 1;
+        const line = std.mem.trimEnd(u8, raw, "\r");
+        if (number == 1) first_line = line;
+        if (std.mem.startsWith(u8, std.mem.trimStart(u8, line, " "), "```")) {
+            if (!in_fence) code_blocks += 1;
+            in_fence = !in_fence;
+            continue;
+        }
+        if (in_fence) continue;
+        var hashes: usize = 0;
+        while (hashes < line.len and line[hashes] == '#') hashes += 1;
+        if (hashes >= 1 and hashes <= 6 and (hashes == line.len or line[hashes] == ' ')) try levels.append(arena, @intCast(hashes));
+    }
+    return .{ .levels = levels.items, .code_blocks = code_blocks, .first_line = first_line };
+}
+
+/// The targets of the `[label](target)` links of a line, in order.
+pub fn linkTargets(arena: std.mem.Allocator, line: []const u8) ![]const []const u8 {
+    var targets: std.ArrayList([]const u8) = .empty;
+    var at: usize = 0;
+    while (std.mem.indexOfPos(u8, line, at, "](")) |open| {
+        const start = open + 2;
+        const close = std.mem.indexOfScalarPos(u8, line, start, ')') orelse break;
+        try targets.append(arena, line[start..close]);
+        at = close + 1;
+    }
+    return targets.items;
+}
+
+fn checkBar(report: *Report, stem: []const u8, code: []const u8, path: []const u8, document: Document) !void {
+    const arena = report.arena;
+    const base = std.fs.path.basename(stem);
+    const targets = try linkTargets(arena, document.first_line);
+    const want_count = doc_languages.len + 1;
+    if (targets.len != want_count) {
+        try report.addFmt("doc-bar", code, path, "line 1 holds {d} links, want {d}", .{ targets.len, want_count });
+        return;
+    }
+    for (targets, 0..) |target, i| {
+        const want = if (i == 0)
+            try std.fmt.allocPrint(arena, "{s}.md", .{base})
+        else
+            try std.fmt.allocPrint(arena, "{s}_{s}.md", .{ base, doc_languages[i - 1].name });
+        if (!std.mem.eql(u8, target, want)) {
+            try report.addFmt("doc-bar", code, path, "link {d} targets {s}, want {s}", .{ i + 1, target, want });
+            return;
+        }
+    }
+}
+
+fn existsPlain(io: std.Io, root: std.Io.Dir, path: []const u8) !bool {
+    root.access(io, path, .{}) catch return false;
+    return true;
+}
+
+/// Rules doc-* for each document set (the constant ones plus `extra`).
+pub fn checkDocuments(io: std.Io, report: *Report, root: std.Io.Dir, extra: []const []const u8) !void {
+    const arena = report.arena;
+    if (document_sets.len == 0 and extra.len == 0) {
+        try report.inactive.append(arena, "documents");
+        return;
+    }
+    for ([_][]const []const u8{ &document_sets, extra }) |sets| for (sets) |stem| {
+        const en_path = try std.fmt.allocPrint(arena, "{s}.md", .{stem});
+        report.checked += 1;
+        const en_bytes = (try readOptional(io, arena, root, en_path)) orelse {
+            try report.add("doc-missing", "en", en_path, "English file does not exist");
+            continue;
+        };
+        const english = try parseDocument(arena, en_bytes);
+        try checkBar(report, stem, "en", en_path, english);
+        for (doc_languages) |language| {
+            report.checked += 1;
+            const path = try std.fmt.allocPrint(arena, "{s}_{s}.md", .{ stem, language.name });
+            const bytes = (try readOptional(io, arena, root, path)) orelse {
+                try report.add("doc-missing", language.code, path, "translation file does not exist");
+                continue;
+            };
+            const document = try parseDocument(arena, bytes);
+            try checkBar(report, stem, language.code, path, document);
+            try compareStructure(report, language.code, path, english, document);
+            if (document.code_blocks != english.code_blocks) {
+                try report.addFmt("doc-code", language.code, path, "has {d} fenced code blocks, English has {d}", .{ document.code_blocks, english.code_blocks });
+            }
+        }
+        const stray = try std.fmt.allocPrint(arena, "{s}_English.md", .{stem});
+        if (try existsPlain(io, root, stray)) {
+            try report.addFmt("doc-extra", "en", stray, "the English file is {s}.md; remove this copy", .{std.fs.path.basename(stem)});
+        }
+    };
+}
+
+fn compareStructure(report: *Report, code: []const u8, path: []const u8, english: Document, document: Document) !void {
+    const shared = @min(english.levels.len, document.levels.len);
+    for (english.levels[0..shared], document.levels[0..shared], 0..) |want, got, i| {
+        if (want != got) {
+            try report.addFmt("doc-structure", code, path, "heading {d} is level {d}, English has level {d}", .{ i + 1, got, want });
+            return;
+        }
+    }
+    if (english.levels.len != document.levels.len) {
+        try report.addFmt("doc-structure", code, path, "has {d} headings, English has {d}; they differ from heading {d}", .{ document.levels.len, english.levels.len, shared + 1 });
+    }
+}
+
+/// Directories whose Zig sources must not hold an English UI literal. S04 to S07 add the source
+/// directories they migrate to `l10n.t`; `--strict-dir <dir>` adds one for a fixture.
+pub const strict_dirs = [_][]const u8{};
+
+/// The UI calls whose first argument is text a person reads.
+const ui_calls = [_][]const u8{
+    "igText",            "igTextWrapped",  "igTextDisabled",    "igTextUnformatted", "igButton",        "igSmallButton",
+    "igMenuItem",        "igMenuItemEx",   "igMenuItemBoolPtr", "igBeginMenu",       "igBeginMenuEx",   "igBegin",
+    "igSelectable",      "igSelectableEx", "igCheckbox",        "igRadioButton",     "igSeparatorText", "igSetTooltip",
+    "igBeginPopupModal",
+};
+
+fn isIdentChar(c: u8) bool {
+    return std.ascii.isAlphanumeric(c) or c == '_';
+}
+
+/// Whether a literal holds a letter outside its printf codes: `"%s"` and `"##id"` are not English.
+fn hasLetters(literal: []const u8) bool {
+    var i: usize = 0;
+    while (i < literal.len) : (i += 1) {
+        if (literal[i] == '%') {
+            while (i + 1 < literal.len and std.mem.indexOfScalar(u8, "%-+ #0123456789.", literal[i + 1]) != null) i += 1;
+            if (i + 1 < literal.len) i += 1;
+            continue;
+        }
+        if (literal[i] == '#' and i + 1 < literal.len and literal[i + 1] == '#') break;
+        if (std.ascii.isAlphabetic(literal[i])) return true;
+    }
+    return false;
+}
+
+/// The first UI call on `line` whose first argument is a string literal, as `call("text")`.
+fn literalCall(line: []const u8) ?struct { call: []const u8, literal: []const u8 } {
+    const trimmed = std.mem.trimStart(u8, line, " \t");
+    if (std.mem.startsWith(u8, trimmed, "//")) return null;
+    var best: ?struct { at: usize, call: []const u8, literal: []const u8 } = null;
+    for (ui_calls) |call| {
+        var from: usize = 0;
+        while (std.mem.indexOfPos(u8, line, from, call)) |at| {
+            from = at + call.len;
+            if (at > 0 and isIdentChar(line[at - 1])) continue;
+            if (from >= line.len or line[from] != '(') continue;
+            var arg = from + 1;
+            while (arg < line.len and line[arg] == ' ') arg += 1;
+            if (arg >= line.len or line[arg] != '"') continue;
+            var close = arg + 1;
+            while (close < line.len and line[close] != '"') close += if (line[close] == '\\') 2 else 1;
+            if (close >= line.len) continue;
+            const literal = line[arg + 1 .. close];
+            if (!hasLetters(literal)) continue;
+            if (best == null or at < best.?.at) best = .{ .at = at, .call = call, .literal = literal };
+        }
+    }
+    const found = best orelse return null;
+    return .{ .call = found.call, .literal = found.literal };
+}
+
+fn lessPath(_: void, a: []const u8, b: []const u8) bool {
+    return std.mem.lessThan(u8, a, b);
+}
+
+/// Rule literal for each directory of `strict_dirs` plus `extra`.
+pub fn checkLiterals(io: std.Io, report: *Report, root: std.Io.Dir, extra: []const []const u8) !void {
+    const arena = report.arena;
+    if (strict_dirs.len == 0 and extra.len == 0) {
+        try report.inactive.append(arena, "literals");
+        return;
+    }
+    for ([_][]const []const u8{ &strict_dirs, extra }) |dirs| for (dirs) |dir_path| {
+        var dir = root.openDir(io, dir_path, .{ .iterate = true }) catch |err| {
+            try report.addFmt("literal", "all", dir_path, "cannot open the strict directory ({s})", .{@errorName(err)});
+            continue;
+        };
+        defer dir.close(io);
+        var files: std.ArrayList([]const u8) = .empty;
+        var walker = try dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next(io)) |entry| {
+            if (entry.kind != .file or !std.mem.endsWith(u8, entry.path, ".zig")) continue;
+            try files.append(arena, try arena.dupe(u8, entry.path));
+        }
+        std.mem.sort([]const u8, files.items, {}, lessPath);
+        for (files.items) |rel| {
+            report.checked += 1;
+            const path = try std.fmt.allocPrint(arena, "{s}/{s}", .{ dir_path, rel });
+            for (path) |*c| {
+                if (c.* == '\\') c.* = '/';
+            }
+            const bytes = (try readOptional(io, arena, root, path)) orelse continue;
+            var lines = std.mem.splitScalar(u8, bytes, '\n');
+            var number: usize = 0;
+            while (lines.next()) |raw| {
+                number += 1;
+                const found = literalCall(std.mem.trimEnd(u8, raw, "\r")) orelse continue;
+                try report.addFmt("literal", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ path, number }), "{s} takes the English literal \"{s}\"; wrap it in l10n.t, l10n.id or l10n.format", .{ found.call, found.literal });
+            }
+        }
+    };
+}
+
 /// Rules untranslated and placeholder for one overlay text against the English bytes of its key.
 fn checkAgainstBase(report: *Report, manifest: ?Manifest, code: []const u8, key: []const u8, english: []const u8, translation: []const u8) !void {
     const arena = report.arena;
@@ -563,7 +1008,7 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, b
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--strict-dir <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
 
@@ -579,11 +1024,17 @@ pub fn main(init: std.process.Init) !void {
     var root_path: []const u8 = ".";
     var fonts_path: ?[]const u8 = null;
     var update_base = false;
+    var doc_sets: std.ArrayList([]const u8) = .empty;
+    var strict: std.ArrayList([]const u8) = .empty;
     while (iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "--root")) {
             root_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--fonts")) {
             fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--doc-set")) {
+            try doc_sets.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
+        } else if (std.mem.eql(u8, arg, "--strict-dir")) {
+            try strict.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--update-base")) {
             update_base = true;
         } else usage();
@@ -608,7 +1059,13 @@ pub fn main(init: std.process.Init) !void {
     if (fonts) |*dir| {
         defer dir.close(io);
         try checkGlyphs(io, &report, root, dir.*);
-    } else |err| try report.addFmt("glyph", "all", fonts_path orelse "vendor/fonts", "cannot open the fonts directory ({s})", .{@errorName(err)});
+        try checkTables(io, &report, root, dir.*);
+    } else |err| {
+        try report.addFmt("glyph", "all", fonts_path orelse "vendor/fonts", "cannot open the fonts directory ({s})", .{@errorName(err)});
+        try checkTables(io, &report, root, null);
+    }
+    try checkDocuments(io, &report, root, doc_sets.items);
+    try checkLiterals(io, &report, root, strict.items);
 
     for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
     for (report.inactive.items) |scope| std.debug.print("l10n-check: {s}: not active\n", .{scope});
@@ -667,4 +1124,60 @@ test "parseManifest reads hashes and same-as-base lines" {
     try testing.expectEqualStrings("abc", manifest.hashOf("some/key").?);
     try testing.expect(manifest.allowsSame("de", "some/key"));
     try testing.expect(!manifest.allowsSame("fr", "some/key"));
+}
+
+test "parseTable reads entries and names format problems" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const good = try parseTable(arena, "# c\r\n\r\na=1\r\nb=x=y\r\n");
+    try testing.expectEqual(@as(usize, 0), good.problems.len);
+    try testing.expectEqual(@as(usize, 2), good.entries.len);
+    try testing.expectEqualStrings("x=y", good.entries[1].value);
+    try testing.expectEqual(@as(usize, 4), good.entries[1].line);
+    const bad = try parseTable(arena, "a=1\r\na=2\r\nnoequals\r\nb=\xff\r\nc=1\n");
+    try testing.expectEqual(@as(usize, 4), bad.problems.len);
+    try testing.expectEqualStrings("file is not valid UTF-8", bad.problems[0].detail);
+    try testing.expectEqualStrings("duplicate key `a` (first on line 1)", bad.problems[1].detail);
+    try testing.expectEqualStrings("line has no `=`", bad.problems[2].detail);
+    try testing.expectEqual(@as(usize, 5), bad.problems[3].line);
+}
+
+test "tableTokens counts printf codes and numbered slots only" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const tokens = try tableTokens(arena_state.allocator(), "%d of {0} <b> $x \\n 100%%");
+    try testing.expectEqual(@as(usize, 2), tokens.len);
+    try testing.expectEqualStrings("%d", tokens[0]);
+    try testing.expectEqualStrings("{0}", tokens[1]);
+}
+
+test "literalCall finds an English literal and skips wrapped text, format strings and comments" {
+    const testing = std.testing;
+    const found = literalCall("    _ = c.igButton(\"Save\", .{});").?;
+    try testing.expectEqualStrings("igButton", found.call);
+    try testing.expectEqualStrings("Save", found.literal);
+    try testing.expect(literalCall("c.igButton(l10n.t(\"file.save\"), .{})") == null);
+    try testing.expect(literalCall("c.igText(\"%s\", name)") == null);
+    try testing.expect(literalCall("// c.igText(\"Hello\")") == null);
+    try testing.expect(literalCall("c.my_igText(\"Hello\")") == null);
+}
+
+test "the document rule parses the real README.md and README_German.md" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const cwd = std.Io.Dir.cwd();
+    const english = try parseDocument(arena, try cwd.readFileAlloc(testing.io, "README.md", arena, .limited(1 << 20)));
+    const german = try parseDocument(arena, try cwd.readFileAlloc(testing.io, "README_German.md", arena, .limited(1 << 20)));
+    var top_level: usize = 0;
+    for (english.levels) |level| top_level += @intFromBool(level == 1);
+    try testing.expectEqual(@as(usize, 7), top_level);
+    // README_German.md is not yet a full translation (S08); it only has to parse, with its bar.
+    try testing.expect(german.levels.len > 0);
+    try testing.expectEqual(@as(usize, 10), (try linkTargets(arena, english.first_line)).len);
+    try testing.expectEqual(@as(usize, 10), (try linkTargets(arena, german.first_line)).len);
 }

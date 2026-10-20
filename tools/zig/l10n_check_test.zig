@@ -13,6 +13,12 @@ const keys = [_][]const u8{ "textes/strings/alpha", "scenarios/demo/beta" };
 /// Two base texts and two scope keys in each of nine languages.
 const checked_total = keys.len + codes.len * keys.len;
 
+/// The notes of the scopes no case enables: nothing is checked there and the log says so.
+const note_tables = "l10n-check: tables: not active\n";
+const note_documents = "l10n-check: documents: not active\n";
+const note_literals = "l10n-check: literals: not active\n";
+const all_inactive = note_tables ++ note_documents ++ note_literals;
+
 const state_xml = "<?xml version=\"1.0\"?>\r\n<base State=\"{d}\" Changed=\"1\"/>\r\n";
 
 fn utf16le(allocator: std.mem.Allocator, text: []const u8) ![]u8 {
@@ -95,6 +101,10 @@ fn writeManifest(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, ext
 const Outcome = struct { code: u8, stderr: []u8 };
 
 fn runChecker(io: std.Io, allocator: std.mem.Allocator, case: []const u8) !Outcome {
+    return runCheckerWith(io, allocator, case, &.{});
+}
+
+fn runCheckerWith(io: std.Io, allocator: std.mem.Allocator, case: []const u8, extra: []const []const u8) !Outcome {
     var map = try testing.environ.createMap(allocator);
     defer map.deinit();
     const exe = map.get("BK_L10N_CHECK_EXE") orelse {
@@ -103,7 +113,11 @@ fn runChecker(io: std.Io, allocator: std.mem.Allocator, case: []const u8) !Outco
     };
     const root = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ scratch, case });
     defer allocator.free(root);
-    const result = try std.process.run(allocator, io, .{ .argv = &.{ exe, "--root", root, "--fonts", "vendor/fonts" } });
+    var argv: std.ArrayList([]const u8) = .empty;
+    defer argv.deinit(allocator);
+    try argv.appendSlice(allocator, &.{ exe, "--root", root, "--fonts", "vendor/fonts" });
+    try argv.appendSlice(allocator, extra);
+    const result = try std.process.run(allocator, io, .{ .argv = argv.items });
     allocator.free(result.stdout);
     const code: u8 = switch (result.term) {
         .exited => |c| c,
@@ -117,7 +131,7 @@ fn expectFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const 
     defer root.close(io);
     const outcome = try runChecker(io, testing.allocator, case);
     defer testing.allocator.free(outcome.stderr);
-    const expected = try std.fmt.allocPrint(testing.allocator, "{s}\nl10n-check: 1 findings, {d} checked\n", .{ line, checked_total });
+    const expected = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ all_inactive ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total });
     defer testing.allocator.free(expected);
     try testing.expectEqual(@as(u8, 1), outcome.code);
     try testing.expectEqualStrings(expected, outcome.stderr);
@@ -131,7 +145,7 @@ test "a complete tree passes with the summary and nothing else" {
     root.close(io);
     const outcome = try runChecker(io, testing.allocator, "pass");
     defer testing.allocator.free(outcome.stderr);
-    const expected = try std.fmt.allocPrint(testing.allocator, "l10n-check: 0 findings, {d} checked\n", .{checked_total});
+    const expected = try std.fmt.allocPrint(testing.allocator, all_inactive ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total});
     defer testing.allocator.free(expected);
     try testing.expectEqual(@as(u8, 0), outcome.code);
     try testing.expectEqualStrings(expected, outcome.stderr);
@@ -208,7 +222,7 @@ test "base_hash_missing: a scope key without a manifest line" {
     defer root.close(io);
     const outcome = try runChecker(io, testing.allocator, "base_hash_missing");
     defer testing.allocator.free(outcome.stderr);
-    const expected = try std.fmt.allocPrint(testing.allocator, "{s}\n{s}\nl10n-check: 2 findings, {d} checked\n", .{
+    const expected = try std.fmt.allocPrint(testing.allocator, "{s}\n{s}\n" ++ all_inactive ++ "l10n-check: 2 findings, {d} checked\n", .{
         "l10n-check: base-hash-missing: all: textes/strings/alpha: no line in Localization/game/base-hashes.txt; run zig build l10n-check-update-base",
         "l10n-check: stale: all: scenarios/demo/beta: the English source changed since it was hashed in Localization/game/base-hashes.txt; review the translations, then run zig build l10n-check-update-base",
         checked_total,
@@ -233,7 +247,7 @@ test "same_as_base_allowed: a listed translation may equal the English" {
     root.close(io);
     const outcome = try runChecker(io, testing.allocator, "same_as_base_allowed");
     defer testing.allocator.free(outcome.stderr);
-    const expected = try std.fmt.allocPrint(testing.allocator, "l10n-check: 0 findings, {d} checked\n", .{checked_total});
+    const expected = try std.fmt.allocPrint(testing.allocator, all_inactive ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total});
     defer testing.allocator.free(expected);
     try testing.expectEqual(@as(u8, 0), outcome.code);
     try testing.expectEqualStrings(expected, outcome.stderr);
@@ -292,8 +306,221 @@ test "covered_hindi_with_ascii: Devanagari with ASCII and a Western digit passes
     root.close(io);
     const outcome = try runChecker(io, testing.allocator, "covered_hindi_with_ascii");
     defer testing.allocator.free(outcome.stderr);
-    const expected = try std.fmt.allocPrint(testing.allocator, "l10n-check: 0 findings, {d} checked\n", .{checked_total});
+    const expected = try std.fmt.allocPrint(testing.allocator, all_inactive ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total});
     defer testing.allocator.free(expected);
     try testing.expectEqual(@as(u8, 0), outcome.code);
     try testing.expectEqualStrings(expected, outcome.stderr);
+}
+
+const fixtures = "tools/zig/fixtures/l10n";
+const table_dir = "tools/zig/lang";
+
+fn readFixture(io: std.Io, allocator: std.mem.Allocator, name: []const u8) ![]u8 {
+    const path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ fixtures, name });
+    defer allocator.free(path);
+    return std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(1 << 20));
+}
+
+/// The fixture pair as a table directory: en.lang, and de.lang copied to the other eight codes.
+fn addTables(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir) !void {
+    const en = try readFixture(io, allocator, "tables/en.lang");
+    defer allocator.free(en);
+    const de = try readFixture(io, allocator, "tables/de.lang");
+    defer allocator.free(de);
+    try write(io, root, table_dir ++ "/en.lang", en);
+    for (codes) |code| {
+        const path = try std.fmt.allocPrint(allocator, "{s}/{s}.lang", .{ table_dir, code });
+        defer allocator.free(path);
+        try write(io, root, path, de);
+    }
+}
+
+const doc_names = [_][]const u8{ "Russian", "Chinese", "Hindi", "Spanish", "French", "German", "Portuguese", "Japanese", "Indonesian" };
+
+/// The fixture document set under docs/: README.md, and the German file copied to the other eight names.
+fn addDocuments(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir) !void {
+    const en = try readFixture(io, allocator, "docs/README.md");
+    defer allocator.free(en);
+    const de = try readFixture(io, allocator, "docs/README_German.md");
+    defer allocator.free(de);
+    try write(io, root, "docs/README.md", en);
+    for (doc_names) |name| {
+        const path = try std.fmt.allocPrint(allocator, "docs/README_{s}.md", .{name});
+        defer allocator.free(path);
+        try write(io, root, path, de);
+    }
+}
+
+/// Replaces `old` by `new` once in the file of the tree; the case is wrong when `old` is not there.
+fn edit(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, path: []const u8, old: []const u8, new: []const u8) !void {
+    const bytes = try root.readFileAlloc(io, path, allocator, .limited(1 << 20));
+    defer allocator.free(bytes);
+    try testing.expect(std.mem.indexOf(u8, bytes, old) != null);
+    const changed = try std.mem.replaceOwned(u8, allocator, bytes, old, new);
+    defer allocator.free(changed);
+    try write(io, root, path, changed);
+}
+
+/// Closes the tree, runs the checker with `extra` and expects `code` and exactly `want` on stderr.
+fn expectRun(io: std.Io, case: []const u8, root: *std.Io.Dir, extra: []const []const u8, code: u8, want: []const u8) !void {
+    root.close(io);
+    const outcome = try runCheckerWith(io, testing.allocator, case, extra);
+    defer testing.allocator.free(outcome.stderr);
+    try testing.expectEqual(code, outcome.code);
+    try testing.expectEqualStrings(want, outcome.stderr);
+}
+
+/// One finding in a tree where only the tables are active (ten files checked).
+fn expectTableFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const u8) !void {
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_documents ++ note_literals ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
+    defer testing.allocator.free(want);
+    try expectRun(io, case, root, &.{}, 1, want);
+}
+
+fn expectDocumentFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const u8) !void {
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_tables ++ note_literals ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
+    defer testing.allocator.free(want);
+    try expectRun(io, case, root, &.{ "--doc-set", "docs/README" }, 1, want);
+}
+
+const de_table = table_dir ++ "/de.lang";
+
+test "tables_pass: the fixture table in nine languages passes" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "tables_pass");
+    try addTables(io, testing.allocator, root);
+    const want = try std.fmt.allocPrint(testing.allocator, note_documents ++ note_literals ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
+    defer testing.allocator.free(want);
+    try expectRun(io, "tables_pass", &root, &.{}, 0, want);
+}
+
+test "table_missing_key: a key en.lang has and de.lang lacks" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_missing_key");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, de_table, "file.save=Speichern\r\n", "");
+    try expectTableFinding(io, "table_missing_key", &root, "l10n-check: table-missing: de: tools/zig/lang/de.lang:file.save: key is in en.lang but not here");
+}
+
+test "table_missing_file: a language without its table" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_missing_file");
+    try addTables(io, testing.allocator, root);
+    try root.deleteFile(io, table_dir ++ "/fr.lang");
+    try expectTableFinding(io, "table_missing_file", &root, "l10n-check: table-missing: fr: tools/zig/lang/fr.lang: no table file although en.lang exists");
+}
+
+test "table_extra_key: a key en.lang no longer has" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_extra_key");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, de_table, "file.save=Speichern\r\n", "file.save=Speichern\r\nfile.close=Schließen\r\n");
+    try expectTableFinding(io, "table_extra_key", &root, "l10n-check: table-extra: de: tools/zig/lang/de.lang:file.close: key is not in en.lang");
+}
+
+test "table_placeholder: a printf code that differs from en" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_placeholder");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, de_table, "%d von", "%s von");
+    try expectTableFinding(io, "table_placeholder", &root, "l10n-check: table-placeholder: de: tools/zig/lang/de.lang:status.count: placeholders differ: English has %d {0}, translation has %s {0}");
+}
+
+test "table_bad_id_suffix: an ID suffix that differs from en" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_bad_id_suffix");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, de_table, "###file.open", "###open");
+    try expectTableFinding(io, "table_bad_id_suffix", &root, "l10n-check: table-id: de: tools/zig/lang/de.lang:file.open: ID suffix ###open differs from English ###file.open");
+}
+
+test "table_id_not_key: a ### suffix that is not the key" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_id_not_key");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, table_dir ++ "/en.lang", "###file.open", "###other");
+    root.close(io);
+    const outcome = try runChecker(io, testing.allocator, "table_id_not_key");
+    defer testing.allocator.free(outcome.stderr);
+    try testing.expectEqual(@as(u8, 1), outcome.code);
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, "l10n-check: table-id: en: tools/zig/lang/en.lang:file.open: ID suffix ###other must be ###file.open\n") != null);
+}
+
+test "table_lf_line: a line that ends with LF only" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_lf_line");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, de_table, "file.menu=Datei\r\n", "file.menu=Datei\n");
+    try expectTableFinding(io, "table_lf_line", &root, "l10n-check: table-format: de: tools/zig/lang/de.lang:2: line ends with LF only, want CRLF");
+}
+
+test "table_glyph: a Han character in a German value" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "table_glyph");
+    try addTables(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, de_table, "Speichern\r\n", "Speichern直\r\n");
+    try expectTableFinding(io, "table_glyph", &root, "l10n-check: glyph: de: tools/zig/lang/de.lang:file.save: U+76F4 not in NotoSans-Regular.ttf");
+}
+
+test "docs_pass: the fixture document set passes" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "docs_pass");
+    try addDocuments(io, testing.allocator, root);
+    const want = try std.fmt.allocPrint(testing.allocator, note_tables ++ note_literals ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
+    defer testing.allocator.free(want);
+    try expectRun(io, "docs_pass", &root, &.{ "--doc-set", "docs/README" }, 0, want);
+}
+
+test "doc_structure: a heading at another level" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "doc_structure");
+    try addDocuments(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, "docs/README_German.md", "## Bauen", "### Bauen");
+    try expectDocumentFinding(io, "doc_structure", &root, "l10n-check: doc-structure: de: docs/README_German.md: heading 2 is level 3, English has level 2");
+}
+
+test "doc_code: a translation that lost its fenced code block" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "doc_code");
+    try addDocuments(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, "docs/README_German.md", "```sh\r\nzig build\r\n```\r\n", "");
+    try expectDocumentFinding(io, "doc_code", &root, "l10n-check: doc-code: de: docs/README_German.md: has 0 fenced code blocks, English has 1");
+}
+
+test "doc_bad_bar: two links of the language bar swapped" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "doc_bad_bar");
+    try addDocuments(io, testing.allocator, root);
+    try edit(io, testing.allocator, root, "docs/README_German.md", "[Français](README_French.md)        [Deutsch](README_German.md)", "[Deutsch](README_German.md)        [Français](README_French.md)");
+    try expectDocumentFinding(io, "doc_bad_bar", &root, "l10n-check: doc-bar: de: docs/README_German.md: link 6 targets README_German.md, want README_French.md");
+}
+
+test "doc_missing_translation: a language without its document" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "doc_missing_translation");
+    try addDocuments(io, testing.allocator, root);
+    try root.deleteFile(io, "docs/README_Hindi.md");
+    try expectDocumentFinding(io, "doc_missing_translation", &root, "l10n-check: doc-missing: hi: docs/README_Hindi.md: translation file does not exist");
+}
+
+test "doc_english_extra: a README_English.md beside the set" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "doc_english_extra");
+    try addDocuments(io, testing.allocator, root);
+    try write(io, root, "docs/README_English.md", "# copy\r\n");
+    try expectDocumentFinding(io, "doc_english_extra", &root, "l10n-check: doc-extra: en: docs/README_English.md: the English file is README.md; remove this copy");
+}
+
+test "literal_in_strict_dir: an English literal in a UI call" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "literal_in_strict_dir");
+    const ui = try readFixture(io, testing.allocator, "literals/ui.zig");
+    defer testing.allocator.free(ui);
+    try write(io, root, "literals/ui.zig", ui);
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_tables ++ note_documents ++ "l10n-check: 1 findings, {d} checked\n", .{
+        "l10n-check: literal: all: literals/ui.zig:6: igButton takes the English literal \"Save\"; wrap it in l10n.t, l10n.id or l10n.format",
+        checked_total + 1,
+    });
+    defer testing.allocator.free(want);
+    try expectRun(io, "literal_in_strict_dir", &root, &.{ "--strict-dir", "literals" }, 1, want);
 }
