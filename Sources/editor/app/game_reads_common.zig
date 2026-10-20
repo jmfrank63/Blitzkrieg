@@ -33,7 +33,7 @@ pub const Rig = struct {
     /// frames (main.zig's smokeRun/check convention: the bridge needs a drawn
     /// frame before it can resolve a screen point against the camera).
     /// False after printing why; `deinit` is safe either way.
-    pub fn open(self: *Rig, gpa: std.mem.Allocator, io: std.Io, label: []const u8, map: []const u8, mod_folder: ?[]const u8, mod_requested: bool) bool {
+    pub fn open(self: *Rig, gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, label: []const u8, map: []const u8, mod_folder: ?[]const u8, mod_requested: bool) bool {
         // See crt.attachParentConsole's doc comment: a packaged (.windows
         // subsystem) MapEditor.exe run from a terminal still needs this
         // mode's PASS/FAIL line to be visible there.
@@ -43,6 +43,11 @@ pub const Rig = struct {
             return false;
         };
         self.host_started = true;
+        // Scripted: English, whatever the machine's language (the fonts load in every mode).
+        _ = kit.language_picker.setup(gpa, io, environ, &core.settings.Settings{}, true) catch |err| {
+            std.debug.print("map-editor: {s} FAIL: the fonts did not load ({s})\n", .{ label, @errorName(err) });
+            return false;
+        };
         self.real = c_bridge.RealBridge.init(self.host.session);
         if (applyModArg(&self.real, mod_folder, mod_requested)) |reason| {
             std.debug.print("map-editor: {s} FAIL: the mod would not load: {s}\n", .{ label, reason });

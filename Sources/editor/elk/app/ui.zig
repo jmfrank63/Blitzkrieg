@@ -2517,29 +2517,9 @@ fn tableRow(label: []const u8, flags: ig.ImGuiTreeNodeFlags, colour: ?u32, count
     return open and !leaf;
 }
 
-/// The table code elk.cfg's `ui_language` stands for. `system` follows the operating system's
-/// preferred languages; a scripted run never does, so its frames are English on any machine.
+/// The table code elk.cfg's `ui_language` stands for (the kit's rule, shared by every editor).
 pub fn chooseLanguage(settings: *const settings_mod.Settings, scripted: bool) []const u8 {
-    const setting = kit.settings.uiLanguage(settings);
-    if (scripted and std.mem.eql(u8, setting, l10n.system_setting)) return "en";
-    var storage: [8][48]u8 = undefined;
-    var locales: [8][]const u8 = undefined;
-    var count: usize = 0;
-    var listed: c_int = 0;
-    if (sdl3.c.SDL_GetPreferredLocales(&listed)) |list| {
-        defer sdl3.c.SDL_free(@ptrCast(list));
-        while (count < locales.len and count < @as(usize, @intCast(listed))) : (count += 1) {
-            const locale = list[count] orelse break;
-            const language = std.mem.span(locale.*.language);
-            locales[count] = (if (locale.*.country) |country|
-                std.fmt.bufPrint(&storage[count], "{s}_{s}", .{ language, std.mem.span(country) })
-            else
-                std.fmt.bufPrint(&storage[count], "{s}", .{language})) catch language;
-        }
-    }
-    const resolved = l10n.resolveLanguage(setting, locales[0..count]);
-    if (resolved.unknown_setting) std.debug.print("l10n: unknown ui_language {s}, using {s}\n", .{ setting, resolved.code });
-    return resolved.code;
+    return language_picker.chooseLanguage(settings, scripted);
 }
 
 /// The longest help block, in bytes, the window draws: a Hindi paragraph is a few thousand bytes.

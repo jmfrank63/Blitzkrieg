@@ -506,18 +506,11 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     }
 
     // The language comes with the setting (ui_language), the fonts for it.
-    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
-    defer if (font_dir) |value| gpa.free(value);
-    const language = ui_mod.chooseLanguage(&settings, false);
-    _ = kit.fonts.load(gpa, io, font_dir, language) catch |err| {
+    _ = kit.language_picker.setup(gpa, io, environ, &settings, false) catch |err| {
         crt.attachParentConsole();
         std.debug.print("elk: the fonts did not load ({s})\n", .{@errorName(err)});
         return 1;
     };
-    const table_dir = envValue(gpa, environ, l10n.override_env);
-    defer if (table_dir) |value| gpa.free(value);
-    l10n.setOverrideDir(io, table_dir);
-    l10n.setLanguage(language);
 
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();

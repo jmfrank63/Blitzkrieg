@@ -18,6 +18,8 @@ const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
 const kit = @import("editor_kit");
+const l10n = kit.l10n;
+const language_picker = kit.language_picker;
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
@@ -253,6 +255,10 @@ pub const State = struct {
     /// changed.
     settings_changed: bool = false,
     settings_window_open: bool = false,
+    /// The language the Settings window's picker chose, applied between frames
+    /// (`applyPendingLanguage`): the font atlas and the tables never change under a frame in progress.
+    language_choice: [16]u8 = undefined,
+    language_choice_len: usize = 0,
     /// 05-11 (D-34): Tools > Options (the game's extra command line and the
     /// default save format; the two fields are edited here and commit on OK),
     /// Help > Keys and tools and Help > About.
@@ -2409,10 +2415,26 @@ pub fn applySettings(state: *State) void {
     state.settings_changed = true;
 }
 
+/// Between two frames: the picker's choice written to `ui_language` (the file is saved by the
+/// loop's `settings_changed` rule), the font atlas rebuilt for it and the tables switched.
+pub fn applyPendingLanguage(state: *State) void {
+    if (state.language_choice_len == 0) return;
+    const setting = state.language_choice[0..state.language_choice_len];
+    state.language_choice_len = 0;
+    state.settings.ui_language_storage.set(setting);
+    state.settings_changed = true;
+    const code = language_picker.chooseLanguage(&state.settings, state.automated);
+    _ = kit.fonts.reload(code) catch |err| {
+        std.debug.print("map-editor: the fonts did not reload for {s} ({s})\n", .{ code, @errorName(err) });
+        return;
+    };
+    l10n.setLanguage(code);
+}
+
 /// Edit > "Settings...": (re)opens the window and loads the maps-folder
 /// field's editing buffer fresh from `settings`, so a stale in-progress edit
 /// from a previous opening is never shown.
-fn openSettingsWindow(state: *State) void {
+pub fn openSettingsWindow(state: *State) void {
     state.settings_window_open = true;
     const folder = state.settings.mapsFolder();
     @memset(&state.maps_folder_edit, 0);
@@ -2427,11 +2449,19 @@ fn openSettingsWindow(state: *State) void {
 /// is deactivated, never once per frame of a drag or per keystroke.
 fn drawSettingsWindow(state: *State) void {
     if (!state.settings_window_open) return;
-    if (!ig.igBegin("Settings", &state.settings_window_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!ig.igBegin(l10n.id("app.settings.title"), &state.settings_window_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         ig.igEnd();
         return;
     }
     defer ig.igEnd();
+    l10n.noteWindowRect("app.settings.title");
+
+    if (language_picker.draw(kit.settings.uiLanguage(&state.settings))) |choice| {
+        const len = @min(choice.value.len, state.language_choice.len);
+        @memcpy(state.language_choice[0..len], choice.value[0..len]);
+        state.language_choice_len = len;
+    }
+    l10n.noteRect("kit.language.label");
 
     var scroll_speed = state.settings.scroll_speed;
     if (ig.igSliderFloatEx("Scroll and swipe speed", &scroll_speed, core.settings.min_scroll_speed, core.settings.max_scroll_speed, "%.2f", ig.ImGuiSliderFlags_Logarithmic)) {
@@ -2663,7 +2693,9 @@ fn drawMenuBar(state: *State) f32 {
     const height = ig.igGetFrameHeight();
     const editor = state.editor;
     const map_open = mapIsOpen(editor);
-    if (ig.igBeginMenu("File")) {
+    const file_open = ig.igBeginMenu(l10n.id("app.menu.file"));
+    l10n.noteRect("app.menu.file");
+    if (file_open) {
         // M3, D-23: New goes through the dialog; the map itself is built
         // once the unsaved-changes prompt, if any, has been answered.
         if (ig.igMenuItemEx("New...", new_map_shortcut_label, false, true)) openNewMapDialog(state);
@@ -2716,27 +2748,37 @@ fn drawMenuBar(state: *State) f32 {
         if (ig.igMenuItemEx("Quit", null, false, true)) state.actions.quit_requested = true;
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Edit")) {
+    const edit_open = ig.igBeginMenu(l10n.id("app.menu.edit"));
+    l10n.noteRect("app.menu.edit");
+    if (edit_open) {
         if (ig.igMenuItemEx("Undo", "Ctrl+Z", false, editor.history.canUndo())) state.view.undo(editor);
         if (ig.igMenuItemEx("Redo", "Ctrl+Y", false, editor.history.canRedo())) state.view.redo(editor);
         ig.igSeparator();
         if (ig.igMenuItemEx("Settings...", null, false, true)) openSettingsWindow(state);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Map")) {
+    const map_menu_open = ig.igBeginMenu(l10n.id("app.menu.map"));
+    l10n.noteRect("app.menu.map");
+    if (map_menu_open) {
         drawMapMenu(state, map_open);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Unit")) {
+    const unit_open = ig.igBeginMenu(l10n.id("app.menu.unit"));
+    l10n.noteRect("app.menu.unit");
+    if (unit_open) {
         drawUnitMenu(state, map_open);
         ig.igEndMenu();
     }
     // 05-06, D-32: Layers - the renderer's toggles and the fire ranges.
-    if (ig.igBeginMenu("Layers")) {
+    const layers_open = ig.igBeginMenu(l10n.id("app.menu.layers"));
+    l10n.noteRect("app.menu.layers");
+    if (layers_open) {
         panels_m3.drawLayersMenu(state, map_open);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Tools")) {
+    const tools_open = ig.igBeginMenu(l10n.id("app.menu.tools"));
+    l10n.noteRect("app.menu.tools");
+    if (tools_open) {
         for (&tool_registry.entries) |*item| {
             if (item.hidden) continue;
             var shortcut_buffer: [2:0]u8 = undefined;
@@ -2776,17 +2818,23 @@ fn drawMenuBar(state: *State) f32 {
         if (ig.igMenuItemEx("Options...", null, state.options_open, true)) panels_m3.openOptionsWindow(state);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("View")) {
+    const view_open = ig.igBeginMenu(l10n.id("app.menu.view"));
+    l10n.noteRect("app.menu.view");
+    if (view_open) {
         drawViewMenu(state, map_open);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Test")) {
+    const test_open = ig.igBeginMenu(l10n.id("app.menu.test"));
+    l10n.noteRect("app.menu.test");
+    if (test_open) {
         if (ig.igMenuItemEx("Test in game", "F5", false, documentLoaded(editor))) requestTestLaunch(state);
         ig.igEndMenu();
     }
     // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
     // is the help, About the product line.
-    if (ig.igBeginMenu("Help")) {
+    const help_open = ig.igBeginMenu(l10n.id("app.menu.help"));
+    l10n.noteRect("app.menu.help");
+    if (help_open) {
         if (ig.igMenuItemBoolPtr("Keys and tools", "F1", &state.help_keys_open, true)) {}
         if (ig.igMenuItemBoolPtr("About", null, &state.about_open, true)) {}
         ig.igEndMenu();

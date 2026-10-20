@@ -19,6 +19,7 @@
 const std = @import("std");
 const languages = @import("l10n_languages");
 const fonts = @import("fonts.zig");
+const imgui = @import("editor_imgui");
 
 /// The environment variable apps pass to `setOverrideDir`.
 pub const override_env = "BK_L10N_DIR";
@@ -129,7 +130,7 @@ fn countKeys(comptime bytes: []const u8) usize {
 
 /// The keys of `en.lang`, in file order. Every language indexes its values by position here.
 const en_keys = blk: {
-    @setEvalBranchQuota(1_000_000);
+    @setEvalBranchQuota(10_000_000);
     var out: [countKeys(embedded[0])][]const u8 = undefined;
     var n: usize = 0;
     var lines = std.mem.splitScalar(u8, embedded[0], '\n');
@@ -137,9 +138,6 @@ const en_keys = blk: {
         switch (classify(text)) {
             .skip, .bad => {},
             .entry => |e| {
-                for (out[0..n]) |earlier| {
-                    if (std.mem.eql(u8, earlier, e.key)) @compileError("l10n: duplicate key " ++ e.key);
-                }
                 out[n] = e.key;
                 n += 1;
             },
@@ -148,11 +146,46 @@ const en_keys = blk: {
     break :blk out;
 };
 
-pub fn keyIndex(comptime key: []const u8) usize {
-    inline for (en_keys, 0..) |known, i| {
-        if (comptime std.mem.eql(u8, known, key)) return i;
+/// The key lookup, built once at compile time: a comptime scan of a thousand keys per call site
+/// would multiply the compiler's work by the number of `t`/`id` calls.
+const key_map = blk: {
+    @setEvalBranchQuota(10_000_000);
+    var pairs: [en_keys.len]struct { []const u8, usize } = undefined;
+    for (en_keys, 0..) |key, i| pairs[i] = .{ key, i };
+    const map = std.StaticStringMap(usize).initComptime(pairs);
+    for (en_keys, 0..) |key, i| {
+        if (map.get(key).? != i) @compileError("l10n: duplicate key " ++ key);
     }
-    @compileError("l10n: unknown key " ++ key);
+    break :blk map;
+};
+
+pub fn keyIndex(comptime key: []const u8) usize {
+    return comptime key_map.get(key) orelse @compileError("l10n: unknown key " ++ key);
+}
+
+// ------------------------------------------------------------------ rect log
+
+/// Opt-in (the apps turn it on for `--l10n-auto`): `noteRect` prints where the last widget drew.
+pub var rect_log = false;
+
+/// After a widget labelled by `key`: logs `l10n-auto: rect <key> x y w h` (screen pixels) when
+/// `rect_log` is on, so the l10n tier can measure each label's frame. Normal runs print nothing.
+pub fn noteRect(comptime key: []const u8) void {
+    _ = keyIndex(key);
+    if (!rect_log) return;
+    const min = imgui.c.igGetItemRectMin();
+    const max = imgui.c.igGetItemRectMax();
+    std.debug.print("l10n-auto: rect {s} {d:.0} {d:.0} {d:.0} {d:.0}\n", .{ key, min.x, min.y, max.x - min.x, max.y - min.y });
+}
+
+/// Like `noteRect`, for the window being drawn (between its Begin and End): the title bar's text is
+/// the window's own `key`.
+pub fn noteWindowRect(comptime key: []const u8) void {
+    _ = keyIndex(key);
+    if (!rect_log) return;
+    const pos = imgui.c.igGetWindowPos();
+    const size = imgui.c.igGetWindowSize();
+    std.debug.print("l10n-auto: rect {s} {d:.0} {d:.0} {d:.0} {d:.0}\n", .{ key, pos.x, pos.y, size.x, size.y });
 }
 
 // -------------------------------------------------------------------- tables
@@ -216,12 +249,10 @@ fn build(index: usize) *Loaded {
         break :blk if (index == 0) &[_]Entry{} else parse(arena, embedded[index], null) catch &[_]Entry{};
     };
     for (entries) |entry| {
-        inline for (en_keys, 0..) |key, i| {
-            if (std.mem.eql(u8, key, entry.key)) loaded.raw[i] = arena.dupeSentinel(u8, entry.value, 0) catch @panic("l10n: out of memory");
-        }
+        if (key_map.get(entry.key)) |i| loaded.raw[i] = arena.dupeSentinel(u8, entry.value, 0) catch @panic("l10n: out of memory");
     }
     const english: ?*Loaded = if (index == 0) null else table(0);
-    inline for (en_keys, 0..) |key, i| {
+    for (en_keys, 0..) |key, i| {
         if (loaded.raw[i]) |text| {
             loaded.shown[i] = display(arena, index, text);
             loaded.shown_id[i] = std.fmt.allocPrintSentinel(arena, "{s}###{s}", .{ loaded.shown[i], key }, 0) catch @panic("l10n: out of memory");

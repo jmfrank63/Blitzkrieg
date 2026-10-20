@@ -157,6 +157,7 @@ pub const command_table = [_]Entry{
     .{ .name = "group_hide", .handler = groupHide },
     .{ .name = "group_select", .handler = groupSelect },
     .{ .name = "groups_window", .handler = groupsWindow },
+    .{ .name = "settings_window", .handler = settingsWindow },
     .{ .name = "script_file", .handler = scriptFile },
     .{ .name = "area_shape", .handler = areaShape },
     .{ .name = "area_name", .handler = areaName },
@@ -1776,6 +1777,16 @@ fn groupsWindow(state: *State, arg: []const u8) Outcome {
         state.groups_open = true;
     } else if (std.mem.eql(u8, arg, "0")) {
         state.groups_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=settings_window:on` opens the Settings window, `:off` closes it (`1` and `0` do the same).
+fn settingsWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "on") or std.mem.eql(u8, arg, "1")) {
+        panels.openSettingsWindow(state);
+    } else if (std.mem.eql(u8, arg, "off") or std.mem.eql(u8, arg, "0")) {
+        state.settings_window_open = false;
     } else return .bad_arg;
     return .ok;
 }

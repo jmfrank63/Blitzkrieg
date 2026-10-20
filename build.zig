@@ -8376,6 +8376,18 @@ fn addMapEditor(
     install_exe.step.dependOn(install_game_step);
     const install_step = b.step("install-map-editor", "Install MapEditor into the game installation");
     install_step.dependOn(&install_exe.step);
+    // The bundled Noto faces and their licence beside the executable (D078); kit/fonts.zig reads
+    // them from <exe dir>/Fonts/ or BK_FONT_DIR, and every step that runs the installed editor
+    // goes through install_exe.
+    const install_fonts = b.addInstallDirectory(.{
+        .source_dir = b.path("vendor/fonts"),
+        .install_dir = .{ .custom = stage_suffix },
+        .install_subdir = "Fonts",
+        .include_extensions = &.{ ".ttf", ".otf", ".txt" },
+    });
+    install_fonts.step.dependOn(install_game_step);
+    install_step.dependOn(&install_fonts.step);
+    install_exe.step.dependOn(&install_fonts.step);
 
     // Launched from zig-out, not the installation: MapEditor finds its
     // modules, Data, SeasonData and Shaders beside its own executable

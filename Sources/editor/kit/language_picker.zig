@@ -8,7 +8,9 @@
 const std = @import("std");
 const imgui = @import("editor_imgui");
 const l10n = @import("l10n.zig");
+const kit_settings = @import("settings.zig");
 const fonts = @import("fonts.zig");
+const sdl3 = @import("sdl3");
 
 const ig = imgui.c;
 
@@ -28,6 +30,47 @@ pub fn rowOf(value: []const u8) usize {
         if (std.ascii.eqlIgnoreCase(value, code)) return row;
     }
     return 0;
+}
+
+/// The table code a `ui_language` setting stands for. `system` follows the operating system's
+/// preferred languages; a scripted run never does, so its frames are English on any machine.
+pub fn chooseLanguage(settings: anytype, scripted: bool) []const u8 {
+    const setting = kit_settings.uiLanguage(settings);
+    if (scripted and std.mem.eql(u8, setting, l10n.system_setting)) return "en";
+    var storage: [8][48]u8 = undefined;
+    var locales: [8][]const u8 = undefined;
+    var count: usize = 0;
+    var listed: c_int = 0;
+    if (sdl3.c.SDL_GetPreferredLocales(&listed)) |list| {
+        defer sdl3.c.SDL_free(@ptrCast(list));
+        while (count < locales.len and count < @as(usize, @intCast(listed))) : (count += 1) {
+            const locale = list[count] orelse break;
+            const language = std.mem.span(locale.*.language);
+            locales[count] = (if (locale.*.country) |country|
+                std.fmt.bufPrint(&storage[count], "{s}_{s}", .{ language, std.mem.span(country) })
+            else
+                std.fmt.bufPrint(&storage[count], "{s}", .{language})) catch language;
+        }
+    }
+    const resolved = l10n.resolveLanguage(setting, locales[0..count]);
+    if (resolved.unknown_setting) std.debug.print("l10n: unknown ui_language {s}, using {s}\n", .{ setting, resolved.code });
+    return resolved.code;
+}
+
+/// What every editor does once its window and ImGui exist, before the first frame: resolves the
+/// language from `settings`, loads the bundled fonts for it (`BK_FONT_DIR` or `<exe dir>/Fonts`),
+/// points the tables at `BK_L10N_DIR` and selects the language. Returns the table code, or the
+/// font error (already named on stderr by the loader) so the caller can stop with its own prefix.
+pub fn setup(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, settings: anytype, scripted: bool) fonts.Error![]const u8 {
+    const code = chooseLanguage(settings, scripted);
+    const font_dir: ?[]const u8 = environ.getAlloc(gpa, fonts.dir_env) catch null;
+    defer if (font_dir) |value| gpa.free(value);
+    _ = try fonts.load(gpa, io, font_dir, code);
+    const table_dir: ?[]const u8 = environ.getAlloc(gpa, l10n.override_env) catch null;
+    defer if (table_dir) |value| gpa.free(value);
+    l10n.setOverrideDir(io, table_dir);
+    l10n.setLanguage(code);
+    return code;
 }
 
 /// What the picker returns when the user picks a row other than the current one.

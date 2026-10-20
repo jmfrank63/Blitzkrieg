@@ -527,7 +527,7 @@ fn keepEditedShot(gpa: std.mem.Allocator, io: std.Io, game_path: []const u8, log
 pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
     var rig: common.Rig = .{};
     defer rig.deinit();
-    if (!rig.open(gpa, io, label, map, mod_folder, mod_requested)) return false;
+    if (!rig.open(gpa, io, environ, label, map, mod_folder, mod_requested)) return false;
     const editor = &rig.editor;
     // D-01: a test copy goes through saveCopy, never editor.save: the
     // document must still be this map, edited and unsaved, at the end.
