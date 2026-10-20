@@ -1,8 +1,10 @@
+﻿[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+
 # Modding tools
 
 Seven command-line tools for making Blitzkrieg mods. They replace the Windows-only tools of 2003 and run on Windows, macOS and Linux. Every tool here writes files the game reads through its own loaders; none of them needs a game install unless it takes `--data`.
 
-Where they are: in the game folder's `Tools/` directory. On Windows that folder has `bk-pak`, `bk-table`, `bk-image` and `bk-video`; Linux and macOS also have `bk-map` and `bk-sprite`. `bk-font` is not in `Tools/` yet. The ones missing from your `Tools/` are built from source with `zig build bk-<name>` and land in `zig-out/bin`.
+Where they are: in the game folder's `Tools/` directory. On Windows that folder has `bk-pak`, `bk-table`, `bk-image`, `bk-video` and `bk-font`; Linux and macOS also have `bk-map` and `bk-sprite`. One missing from your `Tools/` is built from source with `zig build bk-<name>` and lands in `zig-out/bin`.
 
 ## Rules every tool follows
 
@@ -64,12 +66,15 @@ Renders characters 32..255 of a code page into a font folder like `Data/Fonts/sm
 
 ```text
 bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]
-        [--no-aa] [--charset <name>] [--face-index <n>] [--out <dir>] [--force]
-        [--modules <dir>]
+        [--no-aa] [--charset <name>] [--chars <file>] [--set <name>]
+        [--clusters <table>] [--script <tag>] [--language <tag>]
+        [--face-index <n>] [--out <dir>] [--force] [--modules <dir>]
 ```
 
 - `--height` is the cell height in pixels, ascent plus descent (default 20).
 - `--charset` is `ansi` (code page 1252, the default), `easteurope` (1250), `russian` (1251), or a code page number.
+- `--chars <file>` is a UTF-8 file: the font gets every distinct character of the Basic Multilingual Plane in it, plus ASCII 32..126; characters the face lacks are left out. `--set latin1`, `cyrillic` or `devanagari` adds a built-in range and can be repeated.
+- `--clusters <table>` is the cluster table the language-mods export wrote (`U+E000<TAB>cluster` lines): each cluster becomes one glyph under its Private Use Area character, shaped with the `--ttf` face. `--script` (default `Deva`) and `--language` (default `hi`) choose the shaping.
 - `--ttf` takes a `.ttf`, `.otf` or `.ttc` file. A face name is looked up in the system font folders, best effort; a file is the reliable way.
 - `--weight 600` or more picks the bold face or emboldens one; `--italic` picks or slants. `--no-aa` turns anti-aliasing off.
 - Check the font's licence before you ship it in a mod.

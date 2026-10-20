@@ -58,7 +58,7 @@
 //! outside fenced code (`doc-structure`) and its number of fenced code blocks (`doc-code`), and
 //! start with the language bar (`doc-bar`): ten links in the fixed order, each target one of the
 //! set's files (`doc-missing` reports one that does not exist), English pointing at the English file. A `<stem>_English.md` is `doc-extra`.
-//! `document_sets` is empty until S08 adds the root README set (`--doc-set <stem>` adds one).
+//! S08 fills `document_sets` (the root README set, the tools guide, the test projects); `--doc-set <stem>` adds one.
 //!
 //! Rule `literal`: in the `strict_dirs` (the Map Editor, ELK and Resource Editor app directories;
 //! `--strict-dir <dir>` adds one), a known UI call whose first argument is a string literal is a
