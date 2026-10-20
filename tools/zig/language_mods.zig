@@ -271,7 +271,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = language.mod }, .{ .shape = shape, .fonts = fonts.items });
         defer testing.allocator.free(written.path);
         pak_path = try allocator.dupe(u8, written.path);
-        const mod_xml = try std.fmt.allocPrint(allocator, "<?xml version=\"1.0\"?>\r\n<base><MODName>{s}</MODName><MODVersion>1.0</MODVersion><MODDesc></MODDesc></base>\r\n", .{language.name});
+        const mod_xml = try std.fmt.allocPrint(allocator, "<?xml version=\"1.0\"?>\r\n<base><MODName>{s}</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n", .{language.name});
         try database.writeFileAtomic(io, testing.allocator, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(written.path).?, "mod.xml" }), mod_xml);
     }
 

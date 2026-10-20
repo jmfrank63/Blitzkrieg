@@ -55,6 +55,7 @@ std::vector<SOptionDropListValue> ScanLanguages()
 	std::vector<SOptionDropListValue> languages( 1 );
 	languages[0].szProgName = "Default";
 	const std::string szMods = ModsFolder();
+	NStr::DebugTrace( "BK_L10N_TRACE: scanning languages in \"%s\"\n", szMods.c_str() );
 	if ( szMods.empty() )
 		return languages;
 	for ( NFile::CFileIterator it( ( szMods + "*" ).c_str() ); !it.IsEnd(); ++it )
@@ -68,6 +69,8 @@ std::vector<SOptionDropListValue> ScanLanguages()
 		language.szProgName = it.GetFileName();
 		languages.push_back( language );
 	}
+	for ( size_t i = 0; i < languages.size(); ++i )
+		NStr::DebugTrace( "BK_L10N_TRACE: language entry %d \"%s\" name \"%s\"\n", int( i ), languages[i].szProgName.c_str(), i == 0 ? "Default" : LanguageDisplayName( languages[i].szProgName ).c_str() );
 	return languages;
 }
 std::string LanguageDisplayName( const std::string &szFolder )
@@ -89,6 +92,21 @@ std::string LanguageDisplayName( const std::string &szFolder )
 		}
 	}
 	return szName.empty() ? szFolder : szName;
+}
+bool IsLanguageOnlyMod( const std::string &szFolder )
+{
+	const std::string szMods = ModsFolder();
+	const std::string szData = szMods.empty() ? std::string() : FindEntry( szMods + szFolder + "\\", "data", true );
+	const std::string szModXml = szData.empty() ? std::string() : FindEntry( szData + "\\", "mod.xml", false );
+	if ( szModXml.empty() )
+		return false;
+	std::string szType;
+	if ( CPtr<IDataStream> pStream = OpenFileStream( szModXml, STREAM_ACCESS_READ ) )
+	{
+		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+		saver.Add( "MODType", &szType );
+	}
+	return NStr::CompareAsciiNoCase( szType.c_str(), "language" ) == 0;
 }
 
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )

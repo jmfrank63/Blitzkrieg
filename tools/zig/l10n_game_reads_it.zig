@@ -291,11 +291,50 @@ test "the Game draws the language mods' main menus as an independent shaper does
         try report.check(worst <= max_live_difference, "ru then ja live: at most {d} pixels differ from ja started cold in any button's box (limit {d})", .{ worst, max_live_difference });
     }
 
+    try checkLists(allocator, blank_run, &report);
+
     try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "report.txt" }), .data = report.lines.items });
     if (report.failures != 0) {
         std.debug.print("l10n-game-reads-it: {d} measures failed; the report is {s}/report.txt\n", .{ report.failures, scratch });
         return error.MeasureFailed;
     }
+}
+
+/// The names Options > Language shows besides Default: each mod's MODName.
+const native_names = [_][]const u8{ "Русский", "简体中文", "日本語", "हिन्दी", "Español", "Français", "Deutsch", "Português (Brasil)", "Bahasa Indonesia" };
+/// MISSION_COMMAND_MODS_LIST (iMission.h: MISSION_BASE_VALUE 0x100e0000 + 245).
+const mods_list_command = "269353205";
+
+/// The gameplay mods list leaves the language mods out and Options > Language
+/// lists Default first, then the nine mods by their native names, as the
+/// Game's own trace lines (BK_L10N_TRACE) report them from one run: the
+/// settings screen and its Options page opened, then the mods list.
+fn checkLists(allocator: std.mem.Allocator, run: Run, report: *Report) !void {
+    const log = try run.play(allocator, &.{ "-windowed", "-profile=L10n" }, "60:settings,100:msg=10003,240:cancel,300:cancel,360:cmd=" ++ mods_list_command ++ ",420:exit", null, "lists");
+    var entries: usize = 0;
+    var language_entries: usize = 0;
+    var default_first = false;
+    var seen: [native_names.len]bool = @splat(false);
+    var leaked: usize = 0;
+    var lines = std.mem.splitScalar(u8, log, '\n');
+    while (lines.next()) |line| {
+        if (std.mem.indexOf(u8, line, "BK_L10N_TRACE: mods list entry ")) |_| {
+            entries += 1;
+            if (std.ascii.findIgnoreCase(line, "lang-") != null or std.ascii.findIgnoreCase(line, blank_mod) != null) leaked += 1;
+        } else if (std.mem.indexOf(u8, line, "BK_L10N_TRACE: language entry ")) |_| {
+            if (language_entries == 0) default_first = std.mem.indexOf(u8, line, "entry 0 \"Default\"") != null;
+            language_entries += 1;
+            for (native_names, 0..) |name, i| {
+                const quoted = try std.fmt.allocPrint(allocator, "name \"{s}\"", .{name});
+                if (std.mem.indexOf(u8, line, quoted) != null) seen[i] = true;
+            }
+        }
+    }
+    var all_seen = true;
+    for (seen) |one| all_seen = all_seen and one;
+    try report.line("== option and mods lists ({d} mods list entries, {d} language entries)", .{ entries, language_entries });
+    try report.check(entries > 0 and leaked == 0, "the gameplay mods list opened and shows no language mod ({d} entries, {d} language mods in it)", .{ entries, leaked });
+    try report.check(default_first and all_seen, "Options > Language lists Default first and the nine native names (default first {any}, names all present {any})", .{ default_first, all_seen });
 }
 
 fn changedIn(a: []const u8, b: []const u8, rect: Rect) usize {
@@ -663,7 +702,7 @@ fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const 
     defer db.deinit();
     const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = blank_mod }, .{ .fonts = fonts.items });
     defer testing.allocator.free(written.path);
-    const mod_xml = "<?xml version=\"1.0\"?>\r\n<base><MODName>l10n blank</MODName><MODVersion>1.0</MODVersion><MODDesc></MODDesc></base>\r\n";
+    const mod_xml = "<?xml version=\"1.0\"?>\r\n<base><MODName>l10n blank</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n";
     try database.writeFileAtomic(io, testing.allocator, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(written.path).?, "mod.xml" }), mod_xml);
 }
 

@@ -113,4 +113,7 @@ std::vector<SOptionDropListValue> ScanLanguages();
 // data\mod.xml, or the folder name without one. Empty for Default, which
 // has a text of its own.
 std::string LanguageDisplayName( const std::string &szFolder );
+// Whether the mod's data\mod.xml marks it <MODType>language</MODType>: such a
+// mod belongs to Options > Language and stays out of the gameplay mods list.
+bool IsLanguageOnlyMod( const std::string &szFolder );
 #endif // __OPTIONENTRYWRAPPER_H__
