@@ -4,7 +4,7 @@ Reusable editor plumbing with no MapEditor-specific types. Only `host` touches
 the engine: it starts it through the shared `BkEditor*` C ABI (`bridge.h`).
 Any Zig editor on the kit (MapEditor, ResourceEditor, Mission, …) gets the
 same `files`, `shipped`, `script_file`, `autosave`, `history`, `settings`,
-`host`, `window`, `capture`, `dialogs`, `crt`, `imgui`, `auto_schedule`, `pictures_cache`
+`host`, `window`, `capture`, `dialogs`, `fonts`, `l10n`, `crt`, `imgui`, `auto_schedule`, `pictures_cache`
 and `testlaunch`
 submodules and composes its own domain-specific state over them.
 
@@ -189,3 +189,28 @@ glyph. A full table logs `l10n: cluster table full` once and the text stays
 unshaped. Half forms take the advance of the cluster shaped alone (the S01 limit).
 Shaper.cpp and HarfBuzz are linked into `editor-imgui`. ELK's smoke draws a fixed
 Hindi text (`do=probe_hindi`), captures it and measures the ink.
+
+## l10n
+
+String tables (D061), one `lang/<code>.lang` per language: `en` and the nine of
+`tools/zig/l10n_languages.zig`, all embedded with `@embedFile`. The format is UTF-8 without a
+byte order mark, CRLF lines, `#` comment lines, `key=value` (the first `=` splits) with the
+escapes `\n`, `\t`, `\\` and the placeholders `{0}`..`{9}`. A table stores the text only; `id`
+appends `###<key>`. `tools/zig/l10n_check.zig` (`zig build l10n-check`) requires every language to
+hold exactly the keys of `en.lang`, the same placeholders, and only glyphs its Noto face covers,
+which is why the picker's native names come from `nativeName` (the language list), not from the
+tables.
+
+- `t("key")` and `id("key")` return a `[*:0]const u8` for the current language; the key is checked
+  against `en.lang` at compile time. Pointers stay valid for the life of the process.
+- `format(buf, "key", .{ "files", 3 })` and `formatZ` fill `{0}`..`{9}` from strings and integers.
+- `setLanguage(code)` switches the language; `resolveLanguage(setting, os_locales)` maps the
+  `ui_language` setting (`system` or a table code) and the operating system's locales
+  (`zh_CN`, `pt_PT`, `ja_JP.UTF-8`, ...) to a code, and `applySetting` also logs and selects it.
+- A key a language lacks shows the English text and logs `l10n: missing <code> <key>` once. An
+  unknown setting logs `l10n: unknown ui_language <value>, using <code>`.
+- `BK_L10N_DIR` (`setOverrideDir`, which apps call with the variable's value) loads
+  `<dir>/<code>.lang` instead of the embedded table, for tests that drop a key.
+- Hindi results are encoded with `fonts.encodeHindi`; load the fonts before the first lookup.
+
+Its tests run in `zig build test-editor-kit`.

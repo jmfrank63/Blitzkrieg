@@ -3469,11 +3469,14 @@ pub fn build(b: *std.Build) void {
             .{ .name = "sdl3", .module = sdl3 },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "bridge_c", .module = editorBridgeC(b, target, .debug, toolchain) },
+            .{ .name = "l10n_languages", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_languages.zig"), .target = target, .optimize = .debug }) },
         },
     });
     // bridge.h: the engine's C ABI; kit/host.zig imports its translation so any editor
     // on the kit (ResourceEditor, future tier editors) shares one wrapper.
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // kit/fonts.zig and kit/l10n.zig reach the HarfBuzz font loader in imgui_backend.cpp, which needs the C++ runtime.
+    if (!build_support.usesMsvc(platform)) linkCxxRuntime(editor_kit_module, target);
     // The test tiers build for the requested target. Only an MSVC target needs
     // the Visual Studio library paths (Zig's own libc supplies the runtime, and
     // naming vcruntimed too fails to link); MinGW has everything built in.
@@ -10029,6 +10032,7 @@ fn editorAppKit(
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "bridge_c", .module = editorBridgeC(b, target, optimize, toolchain) },
+            .{ .name = "l10n_languages", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_languages.zig"), .target = target, .optimize = optimize }) },
         },
     });
     // bridge.h, for kit/host.zig's translation.
