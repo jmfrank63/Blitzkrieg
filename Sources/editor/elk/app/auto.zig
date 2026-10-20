@@ -52,6 +52,7 @@
 //!   do=statistics_close      the statistic window's OK
 //!   do=help                  Help > Contents (the hot key is `key=f1`)
 //!   do=help_close            the help window's close button
+//!   do=probe_hindi           draw a fixed Hindi text, PUA-encoded, over a black strip (Ui.probe_rect)
 //!   do=about  do=about_close Help > About Blitzkrieg ELK... and its OK
 //!   do=view_tree             View > ELK Tree, turned over
 //!   do=view_status_bar       View > Status Bar, turned over (extended layout)
@@ -201,7 +202,6 @@ const kit = @import("editor_kit");
 const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const ui_mod = @import("ui.zig");
-const fonts = @import("fonts.zig");
 const help = @import("elk_help");
 const window_mod = kit.window;
 
@@ -394,6 +394,8 @@ pub const Runner = struct {
         } else if (is(named, "help_close")) {
             if (!ui.help_drawn) return self.fail("do=help_close: the help window is not shown", .{});
             ui.help_open = false;
+        } else if (is(named, "probe_hindi")) {
+            if (!ui.startProbe()) return self.fail("do=probe_hindi: the Devanagari face is not loaded", .{});
         } else if (is(named, "about")) {
             ui.about_open = true;
         } else if (is(named, "about_close")) {
@@ -566,8 +568,8 @@ pub const Runner = struct {
         } else if (is(named, "rows")) {
             if (ui.rows_drawn == 0) return self.fail("expect=rows: the tree drew no rows", .{});
         } else if (is(named, "glyphs")) {
-            for (fonts.samples) |codepoint| {
-                if (!fonts.covers(codepoint)) return self.fail("expect=glyphs: the font stack has no glyph for U+{X:0>4}", .{codepoint});
+            for (kit.fonts.samples) |codepoint| {
+                if (!kit.fonts.covers(codepoint)) return self.fail("expect=glyphs: the font stack has no glyph for U+{X:0>4}", .{codepoint});
             }
         } else if (is(named, "texts")) {
             const wanted = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("texts needs a number", .{});

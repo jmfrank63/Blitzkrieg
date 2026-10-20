@@ -84,7 +84,6 @@ const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const bk_memory = @import("bk_memory_allocator");
 const window_mod = kit.window;
-const fonts = @import("fonts.zig");
 const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
 const ui_mod = @import("ui.zig");
@@ -373,9 +372,11 @@ const short_schedule =
     "8:expect=help:0,8:key=f1,10:expect=help:1,10:expect=help_has:--short,10:expect=help_has:Language,11:do=help_close,13:expect=help:0,14:exit";
 const short_reopen_schedule =
     "2:expect=open,2:expect=layout:short,2:expect=notice_has:0/2,3:expect=toolbar:short,3:expect=filter:All," ++
-    "4:do=help,6:expect=help:1,8:shot=" ++ short_shot_name ++ ",9:exit";
+    "4:do=help,6:expect=help:1,8:shot=" ++ short_shot_name ++ ",9:do=probe_hindi,11:shot=" ++ hindi_shot_name ++ ",12:exit";
 /// The frame `short_reopen_schedule` captures with Help open; `smokeShort` reads it back.
 const short_shot_name = "short-help";
+/// The frame with the Hindi probe (Ui.probe_rect); `smokeShort` measures it.
+const hindi_shot_name = "hindi";
 
 /// The worker pass (D-14). `d14.csv` gives every text of the copy a new
 /// translation starting with `auto.whole_marker`; its import is held before
@@ -480,9 +481,14 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return 1;
     };
     defer window.stop();
-    const windir = envValue(gpa, environ, "WINDIR");
-    defer if (windir) |value| gpa.free(value);
-    _ = fonts.load(io, windir);
+    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
+    defer if (font_dir) |value| gpa.free(value);
+    // The language comes with the setting (ui_language); English until then.
+    _ = kit.fonts.load(gpa, io, font_dir, "en") catch |err| {
+        crt.attachParentConsole();
+        std.debug.print("elk: the fonts did not load ({s})\n", .{@errorName(err)});
+        return 1;
+    };
 
     var settings: settings_mod.Settings = .{};
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -741,6 +747,53 @@ fn shotHasInk(gpa: std.mem.Allocator, io: std.Io, folder: []const u8, name: []co
     return true;
 }
 
+/// The Hindi probe's proof (the full hb-view comparison is the l10n tier's): inside `Ui.probe_rect`
+/// the capture has white ink, spread over a run as wide as the clusters it holds and as tall as
+/// a headline with a vowel sign above and a letter below it. A cluster with no glyph is a single
+/// fallback box a few pixels wide, so a run this wide cannot be one.
+fn hindiHasClusters(gpa: std.mem.Allocator, io: std.Io, folder: []const u8, name: []const u8) bool {
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ folder, std.fs.path.sep, name }) catch return false;
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 << 20)) catch |err| {
+        std.debug.print("elk: smoke FAIL: shot {s} did not read back: {s}\n", .{ path, @errorName(err) });
+        return false;
+    };
+    defer gpa.free(bytes);
+    const w: usize = std.mem.readInt(u16, bytes[12..14], .little);
+    const h: usize = std.mem.readInt(u16, bytes[14..16], .little);
+    if (bytes.len < 18 + w * h * 4 or bytes[2] != 2 or bytes[16] != 32) {
+        std.debug.print("elk: smoke FAIL: shot {s} is not a 32-bit TGA\n", .{path});
+        return false;
+    }
+    const pixels = bytes[18..][0 .. w * h * 4];
+    const rect = ui_mod.Ui.probe_rect;
+    const x0: usize = @intFromFloat(rect[0]);
+    const y0: usize = @intFromFloat(rect[1]);
+    const x1: usize = @min(w, x0 + @as(usize, @intFromFloat(rect[2])));
+    const y1: usize = @min(h, y0 + @as(usize, @intFromFloat(rect[3])));
+    var lit: usize = 0;
+    var left: usize = x1;
+    var right: usize = 0;
+    var top: usize = y1;
+    var bottom: usize = 0;
+    for (y0..y1) |y| for (x0..x1) |x| {
+        if (pixels[(y * w + x) * 4 + 1] < 128) continue;
+        lit += 1;
+        left = @min(left, x);
+        right = @max(right, x);
+        top = @min(top, y);
+        bottom = @max(bottom, y);
+    };
+    const clusters = kit.fonts.clusterCount();
+    std.debug.print("elk: hindi probe: {d} lit pixels, ink {d}..{d} x {d}..{d}, {d} clusters\n", .{ lit, left, right, top, bottom, clusters });
+    // Measured once on Linux: 222 lit pixels, a run 71 pixels wide and 14 tall, 6 clusters.
+    if (lit < 150 or right < left or right - left + 1 < 60 or bottom < top or bottom - top + 1 < 12 or clusters < 4) {
+        std.debug.print("elk: smoke FAIL: the Hindi probe in {s} has no shaped clusters (wanted at least 150 lit pixels in a run 60x12 and 4 clusters)\n", .{path});
+        return false;
+    }
+    return true;
+}
+
 /// The smoke's spell check pass on a seventh copy, `<scratch>-spell`, with
 /// its own `<scratch>-spell.cfg` and so `custom.dic` beside it; the test
 /// dictionary is written into the copy's `dictionaries` folder.
@@ -974,6 +1027,7 @@ fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     const again = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_reopen_schedule, .shot_folder = folder, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout after a restart)" });
     if (again.code != 0) return again;
     if (!shotHasInk(gpa, io, folder, short_shot_name)) return .{ .code = 1 };
+    if (!hindiHasClusters(gpa, io, folder, hindi_shot_name)) return .{ .code = 1 };
     return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
@@ -1132,9 +1186,12 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         return .{ .code = 1 };
     };
     defer window.stop();
-    const windir = envValue(gpa, environ, "WINDIR");
-    defer if (windir) |value| gpa.free(value);
-    const loaded = fonts.load(io, windir);
+    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
+    defer if (font_dir) |value| gpa.free(value);
+    const loaded = kit.fonts.load(gpa, io, font_dir, "en") catch |err| {
+        std.debug.print("elk: {s} FAIL: the fonts did not load ({s})\n", .{ tier, @errorName(err) });
+        return .{ .code = 1 };
+    };
 
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();

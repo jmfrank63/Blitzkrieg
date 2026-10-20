@@ -5689,6 +5689,9 @@ fn addEditorImgui(
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addIncludePath(b.path("vendor/dcimgui/backends"));
     module.addIncludePath(b.path("Sources/editor/kit/imgui"));
+    // The Devanagari font loader in imgui_backend.cpp shapes with HarfBuzz.
+    module.addIncludePath(b.path("Sources/src/FontAtlas"));
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
     module.addIncludePath(sdl_include);
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
@@ -5717,6 +5720,7 @@ fn addEditorImgui(
             "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
             "Sources/editor/kit/imgui/imgui_backend.cpp",
+            "Sources/src/FontAtlas/Shaper.cpp",
         },
         // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
         // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
@@ -5727,6 +5731,7 @@ fn addEditorImgui(
         .flags = if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
     });
     if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
 }
 
@@ -10112,6 +10117,18 @@ fn addElk(
     install_exe.step.dependOn(install_game_step);
     const install_step = b.step("install-elk", "Install ELK, the localisation kit, into the game installation");
     install_step.dependOn(&install_exe.step);
+    // The bundled Noto faces and their licence beside the executable (D078);
+    // kit/fonts.zig reads them from <exe dir>/Fonts/ or BK_FONT_DIR.
+    const install_fonts = b.addInstallDirectory(.{
+        .source_dir = b.path("vendor/fonts"),
+        .install_dir = .{ .custom = stage_suffix },
+        .install_subdir = "Fonts",
+        .include_extensions = &.{ ".ttf", ".otf", ".txt" },
+    });
+    install_fonts.step.dependOn(install_game_step);
+    install_step.dependOn(&install_fonts.step);
+    // Every step that runs the installed ELK has the faces beside it.
+    install_exe.step.dependOn(&install_fonts.step);
 
     // The installed ELK on scratch copies of the tracked Data/ELK, in a
     // hidden window: the tree, the edit boxes, the state buttons and the

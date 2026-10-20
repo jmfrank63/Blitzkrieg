@@ -275,6 +275,10 @@ pub const Ui = struct {
     toolbar_drawn: Toolbar = .none,
     help_open: bool = false,
     help_drawn: bool = false,
+    /// The Hindi probe (`do=probe_hindi`): a fixed Hindi text, PUA-encoded, drawn over a black
+    /// strip at `probe_rect` so a captured frame proves the cluster loader. Empty is off.
+    probe: [256:0]u8 = undefined,
+    probe_len: usize = 0,
     /// The help's blocks the last frame drew, all of them when it is open.
     help_blocks_drawn: usize = 0,
     /// The heading the contents list was clicked on, scrolled to next frame.
@@ -1329,6 +1333,26 @@ pub const Ui = struct {
         return text catch app_title;
     }
 
+    /// Where the Hindi probe is drawn, in window pixels: x, y, width, height.
+    pub const probe_rect = [4]f32{ 20, 740, 600, 40 };
+    /// The probe's text: the native name of Hindi, a conjunct and a short-i matra word.
+    pub const probe_source = "\u{939}\u{93F}\u{928}\u{94D}\u{926}\u{940} \u{915}\u{94D}\u{937} \u{915}\u{93F}\u{924}\u{93E}\u{92C}";
+
+    /// Encodes `probe_source` and turns the probe on; false when the Devanagari face is not loaded.
+    pub fn startProbe(self: *Ui) bool {
+        const encoded = kit.fonts.encodeHindi(&self.probe, probe_source) orelse return false;
+        self.probe_len = encoded.len;
+        return true;
+    }
+
+    fn drawProbe(self: *Ui) void {
+        if (self.probe_len == 0) return;
+        const list = ig.igGetForegroundDrawList();
+        const min: ig.ImVec2 = .{ .x = probe_rect[0], .y = probe_rect[1] };
+        ig.ImDrawList_AddRectFilled(list, min, .{ .x = min.x + probe_rect[2], .y = min.y + probe_rect[3] }, 0xFF000000);
+        ig.ImDrawList_AddText(list, .{ .x = min.x + 4, .y = min.y + 10 }, 0xFFFFFFFF, &self.probe);
+    }
+
     pub fn draw(self: *Ui, window: *window_mod.Window) void {
         self.pollJob();
         if (self.job == null) {
@@ -1352,6 +1376,7 @@ pub const Ui = struct {
         // focuses the main window, which would close a modal opened before.
         // The Working modal comes after every dialog a job starts from.
         defer self.drawJobModal();
+        defer self.drawProbe();
         defer self.drawFilterDialog();
         defer self.drawExportDialog(window);
         defer self.drawInstallWarning();

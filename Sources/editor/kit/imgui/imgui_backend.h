@@ -2,6 +2,7 @@
 #define BK_EDITOR_IMGUI_BACKEND_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -74,6 +75,21 @@ void bk_imgui_backend_pointer_state(BkImguiPointerState *out);
    size and collapse state (and the .ini settings do), so the app's own
    FirstUseEver placement applies again from the next frame. */
 void bk_imgui_reset_window_layout(void);
+
+/* Devanagari (Hindi): ImGui cannot shape, so a Hindi text is stored as PUA
+   characters, one per shaped cluster (Sources/src/FontAtlas/Shaper.h), and a
+   font loader attached to the Devanagari face draws each of them as one glyph.
+   Merges the face (a .ttf in memory, copied) into the font being built, after
+   the base font; ImGui's atlas must be between igCreateContext and the first
+   frame, or cleared. */
+bool bkFontsAddDevanagari(const unsigned char *data, size_t size, float size_pixels);
+/* utf8 with its Devanagari clusters replaced by PUA characters, into out
+   (cap bytes, NUL-terminated); returns the byte length, -1 when out is too
+   small or no face is installed. A full cluster table logs "l10n: cluster
+   table full" once and returns the text unshaped. The table is process-wide. */
+int bkFontsEncodeHindi(const char *utf8, char *out, size_t cap);
+/* How many PUA slots are in use. */
+size_t bkFontsClusterCount(void);
 
 #ifdef __cplusplus
 }

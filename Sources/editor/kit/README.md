@@ -160,3 +160,32 @@ frame loop (`Running.poll` reimplements the OS non-blocking probe —
 Windows). std-only: no window toolkit, no engine bridge, no C — the module's
 own tests run on the host without a staged installation. Map-neutral: it
 spawns a sibling executable; the launcher knows nothing of maps.
+
+## fonts
+
+The UI font stack (D059, D078): the bundled Noto faces from `vendor/fonts`, never
+the system's, so a translation looks the same on every machine. Noto Sans is the
+base; Noto Sans Devanagari, Noto Sans SC and Noto Sans JP are merged into it at
+16 px, and ImGui rasterises glyphs on demand. The merge order depends on the
+language: `ja` puts JP before SC (the Han characters differ between the faces),
+every other language puts SC before JP (`mergeOrder`).
+
+The faces are read from `<exe dir>/Fonts/`, which `install-elk` fills with
+`vendor/fonts/*.ttf`, `*.otf` and `OFL.txt`, or from the directory in
+`BK_FONT_DIR` (`resolveDir`). A face that is not there is `error.FontMissing`
+and stderr names its full path. `load(gpa, io, override, code)` builds the atlas
+before the first frame; `reload(code)` rebuilds it between frames for a language
+switch. `covers(cp)` asks the stack for a glyph.
+
+ImGui draws one glyph per code point and cannot shape Devanagari, so Hindi goes
+through the cluster loader in `imgui/imgui_backend.cpp`, an `ImFontLoader`
+attached to the Devanagari face (ImGui's font loader API is internal and new in
+1.92). `encodeHindi(buffer, text)` shapes the text with HarfBuzz
+(`Sources/src/FontAtlas/Shaper.h`) and replaces each cluster of more than one code
+point by one Private Use Area character from a process-wide table (U+E000..U+F8FF,
+6400 slots); the loader draws such a character as the whole cluster, shaped again
+at the baked size and rasterised glyph by glyph with stb_truetype into one atlas
+glyph. A full table logs `l10n: cluster table full` once and the text stays
+unshaped. Half forms take the advance of the cluster shaped alone (the S01 limit).
+Shaper.cpp and HarfBuzz are linked into `editor-imgui`. ELK's smoke draws a fixed
+Hindi text (`do=probe_hindi`), captures it and measures the ink.
