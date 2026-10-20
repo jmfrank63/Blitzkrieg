@@ -2372,6 +2372,7 @@ pub fn build(b: *std.Build) void {
     const map_file = addMapFile(b, target, optimize, toolchain);
     addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     const bk_font = addBkFont(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    addBkShaperTest(b, target, optimize, toolchain, test_mode);
     // bk-font is in the shared convention test too. It runs the installed
     // executable, which finds the engine libraries beside it or in ../lib.
     bk_tools_options.addOption([]const u8, "bk_font", if (target.result.os.tag == .windows) "zig-out/bin/bk-font.exe" else "zig-out/bin/bk-font");
@@ -5615,6 +5616,80 @@ fn addHunspell(
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
 
+/// HarfBuzz (vendor/harfbuzz, M002 D058) as a static library: the amalgamated
+/// `harfbuzz.cc` with no FreeType, ICU or glib, so only the built-in OpenType
+/// shaper and Unicode data are compiled. The CRT choice is addHunspell's: the
+/// engine's DLL CRT on MSVC, libc only on Linux, the C++ runtime named on macOS.
+fn addHarfBuzz(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    crt: enum { dll, static },
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    if (target.result.os.tag == .linux) {
+        module.link_libc = true;
+    } else if (target.result.abi != .msvc or crt == .dll) {
+        linkMsvcRuntime(module, optimize);
+    } else {
+        module.link_libc = true;
+        module.linkSystemLibrary("libcpmt", .{});
+    }
+    // HarfBuzz is built upstream without exceptions and RTTI; -fno-exceptions also
+    // keeps libstdc++'s unwinder out of the consumers' link.
+    module.addCSourceFile(.{
+        .file = b.path("vendor/harfbuzz/src/harfbuzz.cc"),
+        .flags = if (target.result.abi != .msvc or crt == .static)
+            &.{ "-std=c++17", "-fno-exceptions", "-fno-rtti", "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", "-Wno-deprecated-declarations" }
+        else if (optimize == .debug)
+            &.{ "-std=c++17", "-fno-exceptions", "-fno-rtti", "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL", "-D_DEBUG" }
+        else
+            &.{ "-std=c++17", "-fno-exceptions", "-fno-rtti", "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" },
+    });
+    return b.addLibrary(.{ .name = "harfbuzz", .linkage = .static, .root_module = module });
+}
+
+/// test-bk-shaper: the shaper C ABI and the PUA cluster table on the vendored
+/// Noto faces (M002 D058). Standalone: it links HarfBuzz and Shaper.cpp only,
+/// reads the tracked vendor/fonts and checks them against SHA256SUMS.
+fn addBkShaperTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/bk_shaper_test.cpp" },
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    const exe = b.addExecutable(.{ .name = "bk-shaper-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    setLeakReportStrict(run);
+    run.setCwd(b.path("."));
+    run.addArg(rootPath(b, "vendor/fonts"));
+    const step = b.step("test-bk-shaper", "Shape Devanagari, Latin and Cyrillic with HarfBuzz and check the PUA cluster table (M002 D058)");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
         .debug => portable_cflags,
@@ -7165,13 +7240,17 @@ fn addBkFont(
     // library. A C++ console program on the engine libraries (D-03), built
     // with map-file-test's recipe; the SFontFormat and TGA writers are the
     // engine's own, loaded at run time from StreamIO and Image.
-    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
+    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
+    // Cluster glyphs (M002 D058) are shaped with HarfBuzz inside FontAtlas.
+    const harfbuzz = addHarfBuzz(b, target, optimize, toolchain, .dll);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const u8{ "tools/zig/bk_font.cpp", "tools/zig/bk_font_test.cpp" }) |module, main_file| {
         linkEngineCxxRuntimeEngine(b, module, optimize);
         addProjectIncludePaths(b, module);
         module.addIncludePath(b.path("Sources/src/Image"));
+        module.addIncludePath(b.path("vendor/harfbuzz/src"));
+        module.linkLibrary(harfbuzz);
         module.addCSourceFiles(.{ .files = font_atlas_files, .flags = cppflagsForOptimize(optimize) });
         module.addCSourceFiles(.{ .files = &.{main_file}, .flags = cppflagsForOptimize(optimize) });
         addMsvcIncludePaths(b, module, toolchain);
@@ -7231,6 +7310,27 @@ fn addBkFont(
     check.setCwd(b.path("."));
     check.addArgs(&.{ module_root, fixture, output });
     check.step.dependOn(&generate.step);
+    // The language-mod fonts (M002 D058): Cyrillic by --set, thirty Han by
+    // --chars, three Hindi clusters by --clusters, each from its vendored Noto
+    // face, written by the installed tool and read back by the test.
+    const unicode_root = rootPath(b, "zig-out/local-test/bk-font/unicode");
+    const unicode_runs = [_]struct { out: []const u8, ttf: []const u8, height: []const u8, args: []const []const u8 }{
+        .{ .out = "cyrillic", .ttf = "vendor/fonts/NotoSans-Regular.ttf", .height = "20", .args = &.{ "--set", "cyrillic", "--charset", "russian" } },
+        .{ .out = "han30", .ttf = "vendor/fonts/NotoSansSC-Regular.otf", .height = "24", .args = &.{ "--chars", "tools/zig/fixtures/fonts/han30.txt" } },
+        .{ .out = "hindi", .ttf = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .height = "24", .args = &.{ "--clusters", "tools/zig/fixtures/fonts/hindi-clusters.txt" } },
+    };
+    check.setEnvironmentVariable("BK_FONT_TEST_UNICODE", unicode_root);
+    for (unicode_runs) |run_def| {
+        const unicode_generate = b.addRunArtifact(tool);
+        setLeakReportStrict(unicode_generate);
+        setUserRootsForTest(unicode_generate, "bk-font-user");
+        unicode_generate.setCwd(b.path("."));
+        unicode_generate.addArgs(&.{ "--ttf", rootPath(b, run_def.ttf), "--height", run_def.height, "--out", b.fmt("{s}/{s}", .{ unicode_root, run_def.out }), "--force", "--modules", module_root });
+        for (run_def.args) |arg| unicode_generate.addArg(if (std.mem.startsWith(u8, arg, "tools/")) rootPath(b, arg) else arg);
+        unicode_generate.step.dependOn(install);
+        addPathDir(unicode_generate, rootPath(b, "zig-out/bin"));
+        check.step.dependOn(&unicode_generate.step);
+    }
     addPathDir(check, rootPath(b, "zig-out/bin"));
     const step = b.step("test-bk-font", "Generate a font with bk-font and check it with the engine's readers (D-14)");
     step.dependOn(&test_exe.step);

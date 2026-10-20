@@ -31,9 +31,20 @@ struct SFontRequest
 	int nWeight;													// 100..900; 600 and more emboldens a face that is not bold itself
 	bool bItalic;													// slants a face that is not italic itself
 	bool bAntialias;											// false keeps every pixel fully on or off
-	int nCodePage;												// 1250, 1251 or 1252
+	int nCodePage;												// 1250, 1251 or 1252: the charset byte, and the characters when codePoints is empty
+	// Unicode mode (language mods): when not empty these BMP code points are
+	// the font's characters instead of bytes 32..255 of the code page. A code
+	// point the face has no glyph for is left out (counted in
+	// SFontAtlas::nSkipped), so the game draws wDefaultChar for it.
+	std::vector<WORD> codePoints;
+	// Cluster glyphs: clusters[i] (UTF-16) is drawn as one glyph, shaped with
+	// szScript/szLanguage, and stored under the Private Use Area character
+	// U+E000 + i (CBkClusterTable's numbering). Only with codePoints.
+	std::vector<std::u16string> clusters;
+	std::string szScript;									// ISO 15924 tag for the shaper, "Deva" for Hindi
+	std::string szLanguage;								// BCP 47 tag, "hi"
 	SFontRequest() : pFontData( 0 ), nFontDataSize( 0 ), nFaceIndex( 0 ), nHeight( 20 ), nWeight( 400 ),
-		bItalic( false ), bAntialias( true ), nCodePage( 1252 ) {  }
+		bItalic( false ), bAntialias( true ), nCodePage( 1252 ), szScript( "Deva" ), szLanguage( "hi" ) {  }
 };
 
 struct SFontImage
@@ -47,6 +58,9 @@ struct SFontAtlas
 {
 	SFontFormat format;										// what the game reads from 1.tfd
 	SFontImage image;											// what it reads from 1.tga (IImageProcessor::CreateImage's layout)
+	int nSkipped;													// requested code points the face has no glyph for
+	int nClusters;												// cluster glyphs in the atlas
+	SFontAtlas() : nSkipped( 0 ), nClusters( 0 ) {  }
 };
 
 // The GDI charset byte FontGen stored in SFontMetrics::cCharSet for a code
@@ -60,7 +74,7 @@ WORD ToUnicode( int nCodePage, BYTE c );
 int FindFace( const BYTE *pFontData, int nFontDataSize, const std::string &szName, bool bBold, bool bItalic );
 // Renders the request into pAtlas. False with the reason in *pszError when the
 // font cannot be read, the request is out of range or the atlas would be
-// larger than 4096x4096.
+// larger than 4096x4096 (the message names the size and the glyph count).
 bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszError );
 }
 
