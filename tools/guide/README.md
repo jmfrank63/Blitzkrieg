@@ -19,7 +19,7 @@ A mod lives in `mods/<Name>/data/` beside the game's own `Data/`, with a `mod.xm
 
 ## Language
 
-Help and messages come in ten languages. Choose one with `--lang <code>` (for example `--lang=ja`), else the `BK_LANG` environment variable, else your system's language, else English. The `usage: ` and `bk-<tool>: ` prefixes, exit codes and summary lines do not change. On Windows, the legacy console window may lack CJK glyphs; Windows Terminal shows them.
+Help and messages come in ten languages. Choose one with `--lang <code>` (for example `--lang=ja`), else the `BK_LANG` environment variable, else your system's language, else English. (Tests pin the system's language with `BK_OS_LOCALES`, a comma-separated list that replaces what the system reports; empty means none. It is a test seam, not a setting.) The `usage: ` and `bk-<tool>: ` prefixes, exit codes and summary lines do not change. On Windows, the legacy console window may lack CJK glyphs; Windows Terminal shows them.
 
 ## Old tool, new command
 
