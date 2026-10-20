@@ -76,6 +76,10 @@
 //!   do=image_drag_cross:<dx>/<dy>   the first cross pressed on, dragged by that many picture pixels, released
 //!   do=keyframe:reset       the dock's Reset all
 //!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
+//!   do=open_menu:<key>      the next frame opens that menu bar menu (the l10n tier; the View menu draws its dock items)
+//!   do=dock:direction|thumbnails   that dock, drawn from then on (the l10n tier)
+//!   do=help_close           closes the Help window F1 (key=f1) opened
+//!   key=<name>              the key down and up (SDL's key names: escape, f1)
 //!   do=function_open        the Function window opened by Ctrl+F through the event queue, the docks drawn from then on (do=curve first)
 //!   do=curve_click:<t>/<v>  a left press and release on empty graph space of the displayed widget: adds a key (read back, then undone and redone)
 //!   do=curve_drag:<i>/<t>/<v>   key i pressed on its displayed handle, moved over four frames, released (read back, undone, redone)
@@ -208,15 +212,31 @@ fn onOff(on: bool) []const u8 {
 /// engine's frame.
 /// The l10n tier's menu bar: the scenario does not run the interactive loop's menus, so with
 /// `rect_log` on it draws the top-level labels (closed) for the tier to measure.
-fn drawL10nMenuBar() void {
+fn drawL10nMenuBar(docks: ?*docks_mod.Docks) void {
     if (!ig.igBeginMainMenuBar()) return;
     inline for (.{ "file", "edit", "tools", "editors", "view", "preview", "help" }) |name| {
         const key = "resource_app.menu." ++ name;
-        if (ig.igBeginMenuEx(kit.l10n.id(key), true)) ig.igEndMenu();
+        // do=open_menu:<key> opens the popup on the next frame, as a click on the title would.
+        if (open_menu_len != 0 and std.mem.eql(u8, open_menu[0..open_menu_len], key)) {
+            open_menu_len = 0;
+            _ = ig.igOpenPopup(kit.l10n.id(key), 0);
+        }
+        const open = ig.igBeginMenuEx(kit.l10n.id(key), true);
         kit.l10n.noteRect(key);
+        if (open) {
+            // Only the View menu's dock items have rects to measure here.
+            if (comptime std.mem.eql(u8, name, "view")) {
+                if (docks) |d| d.drawViewMenuItems();
+            }
+            ig.igEndMenu();
+        }
     }
     ig.igEndMainMenuBar();
 }
+
+/// The menu key do=open_menu asked for; the frame that draws its title opens the popup.
+var open_menu: [48]u8 = undefined;
+var open_menu_len: usize = 0;
 
 fn drawFrame(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) host_mod.HostError!void {
     return drawFrameWithDocks(host, panels, gpa, b, life, null, null, null);
@@ -228,11 +248,13 @@ fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std
     var event: sdl3.c.SDL_Event = undefined;
     while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
     host.beginFrame();
-    if (kit.l10n.rect_log) drawL10nMenuBar();
+    if (kit.l10n.rect_log) drawL10nMenuBar(docks);
     panels.draw(gpa, b, life, host.window);
     if (docks) |d| {
         d.handleShortcuts();
         d.drawDocks(folder, life, selected);
+        // Help and About are the interactive loop's dialogs; the l10n tier shows them too.
+        if (kit.l10n.rect_log) d.drawInfoDialogs();
     }
     try host.endFrame();
 }
@@ -574,6 +596,10 @@ const Runner = struct {
                 if (before_draw) return null;
                 return self.differ(d);
             },
+            .key => |pressed| {
+                if (!before_draw) return null;
+                return self.pressKey(pressed);
+            },
             .exit => return null,
             else => return self.fail("this action belongs to the Map Editor's tools and is not supported here", .{}),
         }
@@ -636,11 +662,45 @@ const Runner = struct {
         return null;
     }
 
+    /// `key=<name>`: the key goes down and up through the event queue, as a keyboard sends it.
+    fn pressKey(self: *Runner, pressed: schedule.Key) ?[]const u8 {
+        var name_buffer: [64:0]u8 = undefined;
+        if (pressed.name.len >= name_buffer.len) return self.fail("key: the name {s} is too long", .{pressed.name});
+        @memcpy(name_buffer[0..pressed.name.len], pressed.name);
+        name_buffer[pressed.name.len] = 0;
+        const scancode = sdl3.c.SDL_GetScancodeFromName(&name_buffer);
+        if (scancode == sdl3.c.SDL_SCANCODE_UNKNOWN) return self.fail("key: unknown key {s}", .{pressed.name});
+        const keycode = sdl3.c.SDL_GetKeyFromScancode(scancode, 0, false);
+        self.pushKey(keycode, scancode, 0, true);
+        self.pushKey(keycode, scancode, 0, false);
+        return null;
+    }
+
+    /// do=open_menu:<key> and do=dock:direction|help_close, the l10n tier's way to the popup and the
+    /// docks (the docks are made on first use).
+    fn l10nCommand(self: *Runner, named: schedule.Named) ?[]const u8 {
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const docks = &self.docks.?;
+        if (std.mem.eql(u8, named.name, "open_menu")) {
+            if (named.arg.len == 0 or named.arg.len > open_menu.len) return self.fail("open_menu needs a menu key", .{});
+            @memcpy(open_menu[0..named.arg.len], named.arg);
+            open_menu_len = named.arg.len;
+        } else if (std.mem.eql(u8, named.name, "help_close")) {
+            docks.show_help = false;
+        } else if (std.mem.eql(u8, named.arg, "direction")) {
+            docks.show_direction = true;
+        } else if (std.mem.eql(u8, named.arg, "thumbnails")) {
+            docks.show_thumbnails = true;
+        } else return self.fail("dock: {s} is not a dock the l10n tier shows", .{named.arg});
+        return null;
+    }
+
     fn command(self: *Runner, named: schedule.Named) ?[]const u8 {
         const b = self.bridge();
         const name = named.name;
         const eql = std.mem.eql;
         var buffer: [logic.path_capacity]u8 = undefined;
+        if (eql(u8, name, "open_menu") or eql(u8, name, "help_close") or eql(u8, name, "dock")) return self.l10nCommand(named);
         if (eql(u8, name, "new")) {
             const kind = logic.kindFromExtension(named.arg) orelse return self.fail("new: '{s}' is not a project extension", .{named.arg});
             self.life.newProject(self.gpa, b, kind) catch return self.fail("new {s}: {s}", .{ named.arg, b.lastMessage() });

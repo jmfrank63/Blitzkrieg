@@ -323,10 +323,12 @@ pub const Docks = struct {
 
     pub fn drawViewMenuItems(self: *Docks) void {
         if (ig.igMenuItemEx(l10n.id("resource_app.dock.thumbnails"), null, self.show_thumbnails, true)) self.show_thumbnails = !self.show_thumbnails;
+        l10n.noteRect("resource_app.dock.thumbnails");
         if (ig.igMenuItemEx(l10n.id("resource_app.dock.direction_button"), mod_label ++ "+D", self.show_direction, true)) self.show_direction = !self.show_direction;
         if (ig.igMenuItemEx(l10n.id("resource_app.dock.function_window"), mod_label ++ "+F", self.show_function, true)) self.show_function = !self.show_function;
         const terrain_preview = self.preview.begun == .road_3d or self.preview.begun == .river_3d;
         if (ig.igMenuItemEx(l10n.id("resource_app.dock.wireframe_view"), null, self.wireframe, terrain_preview)) self.toggleWireframe();
+        l10n.noteRect("resource_app.dock.wireframe_view");
     }
 
     pub fn drawPreviewMenuItems(self: *Docks, life: *logic.Lifecycle) void {
@@ -537,9 +539,14 @@ pub const Docks = struct {
     /// Import, Help and About: the windows that act on the session.
     pub fn drawDialogs(self: *Docks, ui: *lifecycle_ui.Ui, window: ?*sdl3.c.SDL_Window) void {
         if (self.show_import) self.drawImport(ui, window);
+        self.drawInfoDialogs();
+        if (self.show_source_name) self.drawSourceName(&ui.session.life);
+    }
+
+    /// Help and About, which need no session: the l10n tier's scenario draws these two.
+    pub fn drawInfoDialogs(self: *Docks) void {
         if (self.show_help) self.drawHelp();
         if (self.show_about) self.drawAbout();
-        if (self.show_source_name) self.drawSourceName(&ui.session.life);
     }
 
     /// The name a complex source scatters, asked once per session (MFC's
@@ -595,6 +602,11 @@ pub const Docks = struct {
         if (terrain) {
             ig.igText("%s", if (self.terrain.mode == .crossets) l10n.t("resource_app.thumbs.crossets") else l10n.t("resource_app.thumbs.terrains"));
         } else {
+            // The field takes what the two buttons leave, so a longer translation of either keeps
+            // Rescan inside the dock instead of past its edge.
+            const style = ig.igGetStyle().*;
+            const buttons = ig.igCalcTextSize(l10n.t("resource_app.thumbs.folder")).x + ig.igCalcTextSize(l10n.t("resource_app.thumbs.rescan")).x + 4 * style.FramePadding.x + 2 * style.ItemSpacing.x;
+            ig.igSetNextItemWidth(@max(40, ig.igGetContentRegionAvail().x - buttons));
             _ = ig.igInputText("##folder", &self.thumbs.folder, self.thumbs.folder.len, 0);
             ig.igSameLine();
             if (ig.igButton(l10n.id("resource_app.thumbs.folder"))) {

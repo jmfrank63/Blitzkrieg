@@ -65,8 +65,8 @@ The editors' own texts (M002 S04) live in `Sources/editor/kit/lang/<code>.lang`,
 (`en` and the nine above), embedded in the binaries. Keys carry their owner as a prefix: `kit.` for the
 shared kit (the language picker and `kit.common.*`, the verbs OK, Cancel, Yes, No, Apply, Close, Open, Save,
 Delete and Add), `elk.` for ELK, `app.` for the Map Editor (`app.m2.*` and `app.m3.*` for its second and third
-milestone's windows, `app.cmd.*` and `app.core.*` for command and core messages); the Resource Editor adds
-its own when it moves to the tables. To add a key: put it in `en.lang` first, then in all nine other tables with the same
+milestone's windows, `app.cmd.*` and `app.core.*` for command and core messages), `resource_app.` for the Resource Editor
+(`resource_app.gui.*` for its GUI Editor dock). To add a key: put it in `en.lang` first, then in all nine other tables with the same
 `{0}`..`{9}` placeholders (the glossaries above give the terms), call it as `l10n.t("<key>")` (a menu or
 window label that must keep its identity across languages as `l10n.id`), and run `zig build l10n-check`,
 which fails on a key one table lacks or holds extra, a changed placeholder, a glyph the language's Noto face
@@ -107,6 +107,17 @@ Players panel's labels lie inside their windows, so a translation that a layout 
 language and key. The drop fixture is `tools/zig/fixtures/l10n/map-editor-drop/ru.lang` (without
 `app.settings.use_default`); frames and `report.txt` are in `zig-out/local-test/map-editor/l10n-auto/<code>/`.
 Hindi labels with a conjunct may have a headline gap of three columns instead of two (the same half-form limit).
+
+The Resource Editor (M002 S06) draws every label of its app from the `resource_app.*` and `kit.common.*` keys, with the
+same `l10n.id` rule for titles (its `layout.ini` is reset once) and the same scripted-runs-stay-English rule (`--smoke`,
+`--smoke-edit`, `--check`, `--auto`, the batch CLI). A normal start reads `ui_language` from `resourceeditor.cfg`;
+Tools > Language switches it live. The engine's text (D081), the operating system's and the model's property names stay
+English. `zig build resource-editor-l10n-auto` (`tools/zig/resource_editor_l10n_auto.zig`, needs `hb-view`) is the same tier
+(`ResourceEditor --l10n-auto <fixtures> <scratch>`, `resourceeditor.cfg`), with four shots per language: the main window's menu
+bar, the View menu opened by `do=open_menu:<key>`, the Help window opened by `key=f1`, and a second sub-editor with the
+Thumbnails dock. It checks the fit as well (every measured label inside the frame, the Help rows inside the Help window).
+The drop fixture is `tools/zig/fixtures/l10n/resource-editor-drop/ru.lang` (without `resource_app.menu.help`); frames and
+`report.txt` are in `zig-out/local-test/resource-editor/l10n-auto/<code>/`. The dialogs are not measured by a frame.
 
 ## Glossaries
 

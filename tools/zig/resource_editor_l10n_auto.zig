@@ -1,15 +1,17 @@
 //! M002 S06 D066 on the real Resource Editor: the installed editor started hidden in each of the
-//! ten languages (the scratch cfg's `ui_language`) opens a new weapon project and draws its main
-//! window with the menu bar, and the captured frame is measured by code. The editor's
-//! `--l10n-auto` mode runs the schedule below, captures `main` and prints
+//! ten languages (the scratch cfg's `ui_language`) runs the `schedule` below and captures four
+//! frames: `main` (a new weapon project, the menu bar), `menu` (the View menu opened by
+//! `do=open_menu`), `help` (the Help window, opened by `key=f1`) and `subeditor` (a new sprite
+//! project with the Thumbnails dock). The editor's `--l10n-auto` mode prints
 //! `l10n-auto: rect <key> <x> <y> <w> <h>` for every label it draws (every frame; the last rect of
 //! a key before a shot is the captured layout, `RectsAre.before_shot`). This runner reads those
-//! lines, decodes the TGA, cuts each label's rect, takes the ink against the rect's own background
-//! and compares it with hb-view's raster of the table's text at the UI's 16 px in the language's
-//! Noto face (D069: the tier fails when hb-view is missing). The checks are those of the Map
-//! Editor tier (l10n_auto_common.zig): the correlation with hb-view, a frame that differs from
-//! English where the text differs, Hindi's headline and i matra, the regional Han faces. Later
-//! tasks of the slice add their shots to `schedule` and `shot_names`.
+//! lines, decodes the TGAs, cuts each measured label's rect (`measuredIn`), takes the ink against
+//! the rect's own background and compares it with hb-view's raster of the table's text at the UI's
+//! 16 px in the language's Noto face (D069: the tier fails when hb-view is missing). The checks are
+//! those of the Map Editor tier (l10n_auto_common.zig): the correlation with hb-view, a frame that
+//! differs from English where the text differs, Hindi's headline and i matra, the regional Han
+//! faces, and the fit: every measured label lies inside the frame, the Help rows and manual text
+//! inside the Help window.
 //!
 //! The missing-key case: `tools/zig/fixtures/l10n/resource-editor-drop/ru.lang` is ru.lang without
 //! `resource_app.menu.help`. The editor on ru with `BK_L10N_DIR` at a copy of it must log exactly
@@ -49,8 +51,8 @@ const fixtures_argument = "tools/zig/fixtures/resource_editor";
 
 /// The schedule (BK_EDITOR_AUTO frames): a new weapon project, a few frames to settle, then the
 /// main window. The rects logged before the shot are the captured layout.
-const schedule = "2:do=new:wpn,8:shot=main,10:exit";
-const shot_names = [_][]const u8{"main"};
+const schedule = "2:do=new:wpn,8:shot=main,9:do=open_menu:resource_app.menu.view,13:shot=menu,14:key=escape,17:key=f1,21:shot=help,22:do=help_close,23:do=new:spt,24:do=dock:thumbnails,30:shot=subeditor,32:exit";
+const shot_names = [_][]const u8{ "main", "menu", "help", "subeditor" };
 
 /// The menu bar the scenario draws: File, Edit, Tools, Editors, View, Preview and Help.
 const expected_titles = 7;
@@ -61,11 +63,25 @@ const least_han: usize = 1;
 /// (Editors, Tools and the like are the same word in several languages).
 const max_unchanged: usize = 3;
 
-/// Whether the shot is where the label is measured: the menu titles in the main frame.
+/// The labels measured against hb-view in each shot: the menu titles of the main frame, the View
+/// menu's dock items, the Help window's action rows, the Thumbnails dock's button of the second
+/// sub-editor. Wrapped paragraphs (the manual text) and labels with arguments have no one-line
+/// reference, so they are only held to the fit check.
 fn measuredIn(shot: []const u8, key: []const u8) bool {
     if (std.mem.eql(u8, shot, "main")) return std.mem.startsWith(u8, key, "resource_app.menu.");
+    if (std.mem.eql(u8, shot, "menu")) return std.mem.eql(u8, key, "resource_app.dock.thumbnails") or std.mem.eql(u8, key, "resource_app.dock.wireframe_view");
+    if (std.mem.eql(u8, shot, "help")) return std.mem.startsWith(u8, key, "resource_app.help.act.");
+    if (std.mem.eql(u8, shot, "subeditor")) return std.mem.eql(u8, key, "resource_app.thumbs.rescan");
     return false;
 }
+
+/// The labels of `shot` that must lie inside the Help window.
+fn fitsHelpWindow(shot: []const u8, key: []const u8) bool {
+    return std.mem.eql(u8, shot, "help") and (measuredIn(shot, key) or std.mem.eql(u8, key, "resource_app.help.manual_text"));
+}
+
+/// Labels per shot a whole run logs.
+const expected_measured = 7 + 2 + 3 + 1;
 
 // ------------------------------------------------------------------ running the Resource Editor
 
@@ -119,26 +135,40 @@ fn runEditor(allocator: std.mem.Allocator, setup: Setup, name: []const u8, code:
 fn measureItems(allocator: std.mem.Allocator, run: Run, table: []const u8, report: *Report, code: []const u8) ![]Item {
     var items: std.ArrayList(Item) = .empty;
     var titles: usize = 0;
+    var measured: usize = 0;
     for (run.shots) |shot| {
         const frame = run.frames.named(shot.name) orelse continue;
         for (shot.rects.items) |drawn| {
             if (!measuredIn(shot.name, drawn.key)) continue;
             if (std.mem.eql(u8, shot.name, "main")) titles += 1;
+            measured += 1;
             const item = (try common.cutLabel(allocator, shot, frame, drawn, table, report, code)) orelse continue;
             try items.append(allocator, item);
         }
     }
     try report.check(titles == expected_titles, "{s}: the Resource Editor logged {d} menu bar titles on the main frame (expected {d})", .{ code, titles, expected_titles });
+    try report.check(measured == expected_measured, "{s}: the Resource Editor logged {d} measured labels over the four shots (expected {d})", .{ code, measured, expected_measured });
     return items.items;
 }
 
-/// Every menu title inside the frame: what a clipped translation breaks. ImGui lays a widget out
-/// past the window's edge when it does not fit, so the logged rect ends beyond it.
+/// Every measured label inside the frame, and the Help window's rows and manual inside the Help
+/// window: what a clipped translation breaks. ImGui lays a widget out past the window's edge when
+/// it does not fit, so the logged rect ends beyond it.
 fn checkFit(run: Run, report: *Report, code: []const u8) !void {
     for (run.shots) |shot| {
+        var window: ?Drawn = null;
         for (shot.rects.items) |drawn| {
-            if (!measuredIn(shot.name, drawn.key)) continue;
-            try report.check(drawn.x + drawn.w <= shot.width, "{s} {s}: the menu title ends at {d:.0} inside the {d:.0} px window (fit)", .{ code, drawn.key, drawn.x + drawn.w, shot.width });
+            if (std.mem.eql(u8, shot.name, "help") and std.mem.eql(u8, drawn.key, "resource_app.window.help")) window = drawn;
+        }
+        for (shot.rects.items) |drawn| {
+            if (!measuredIn(shot.name, drawn.key) and !fitsHelpWindow(shot.name, drawn.key)) continue;
+            try report.check(drawn.x + drawn.w <= shot.width and drawn.y + drawn.h <= shot.height, "{s} {s}: the label ends at {d:.0},{d:.0} inside the {d:.0}x{d:.0} px window (fit)", .{ code, drawn.key, drawn.x + drawn.w, drawn.y + drawn.h, shot.width, shot.height });
+            if (!fitsHelpWindow(shot.name, drawn.key)) continue;
+            const frame = window orelse {
+                try report.check(false, "{s} {s}: the Help window logged no rect (fit)", .{ code, drawn.key });
+                continue;
+            };
+            try report.check(drawn.x >= frame.x and drawn.x + drawn.w <= frame.x + frame.w and drawn.y + drawn.h <= frame.y + frame.h, "{s} {s}: the label {d:.0},{d:.0} {d:.0}x{d:.0} lies inside the Help window {d:.0},{d:.0} {d:.0}x{d:.0} (fit)", .{ code, drawn.key, drawn.x, drawn.y, drawn.w, drawn.h, frame.x, frame.y, frame.w, frame.h });
         }
     }
 }
