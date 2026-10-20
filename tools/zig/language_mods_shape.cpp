@@ -48,8 +48,11 @@ long LmShaperEncode( SLmShaper *pShaper, const unsigned short *pText, size_t nLe
 	BkShapeFree( pShaped );
 	if ( !bOk )
 	{
-		strncpy( szError, szWhy.c_str(), nErrorSize - 1 );
-		szError[nErrorSize - 1] = 0;
+		if ( szError && nErrorSize > 0 )
+		{
+			strncpy( szError, szWhy.c_str(), nErrorSize - 1 );
+			szError[nErrorSize - 1] = 0;
+		}
 		return -1;
 	}
 	memcpy( pOut, result.data(), result.size() * sizeof( unsigned short ) );

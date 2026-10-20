@@ -17,6 +17,8 @@
 #include <vector>
 
 #include "../../Sources/src/FontAtlas/Shaper.h"
+// The language-mods C ABI, compiled into this test to reach LmShaperEncode.
+#include "language_mods_shape.cpp"
 
 static int g_nFailures = 0;
 #define CHECK( cond ) do { if ( !( cond ) ) { fprintf( stderr, "bk-shaper-test: FAILED %s (line %d)\n", #cond, __LINE__ ); ++g_nFailures; } } while ( 0 )
@@ -265,6 +267,109 @@ static void CheckErrors( const std::vector<unsigned char> &font )
 	printf( "bk-shaper-test: error text: %s\n", szError );
 }
 
+// Right-to-left text: HarfBuzz returns descending cluster values, so a range
+// taken from the next glyph's cluster underflows. Script and language stay null
+// so HarfBuzz guesses the direction. The faces may lack the glyphs (notdef),
+// which still yields one cluster per code point.
+static void CheckRightToLeft( const std::vector<unsigned char> &font )
+{
+	const char16_t *texts[3] = { u"\u05E9\u05DC\u05D5\u05DD \u05E2\u05D5\u05DC\u05DD", u"\u0645\u0631\u062D\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645", u"abc \u05D0\u05D1\u05D2 def" };
+	for ( int t = 0; t < 3; ++t )
+	{
+		const std::u16string text = texts[t];
+		SShapedGuard shaped( Shape( font, text, 0, 0 ) );
+		if ( !shaped.p )
+			continue;
+		std::vector<int> covered( text.size(), 0 );
+		bool bRanges = true;
+		for ( size_t i = 0; i < shaped.p->nClusters; ++i )
+		{
+			const SBkShapedCluster &c = shaped.p->pClusters[i];
+			printf( "bk-shaper-test: rtl %d cluster %zu: [%zu, %zu) glyphs %zu+%zu\n", t, i, c.nStart, c.nEnd, c.nGlyphStart, c.nGlyphCount );
+			if ( !( c.nStart < c.nEnd && c.nEnd <= text.size() ) )
+			{
+				fprintf( stderr, "bk-shaper-test: rtl text %d cluster %zu has bad range [%zu, %zu) of %zu\n", t, i, c.nStart, c.nEnd, text.size() );
+				bRanges = false;
+				continue;
+			}
+			for ( size_t u = c.nStart; u < c.nEnd; ++u )
+				++covered[u];
+		}
+		CHECK( bRanges );
+		bool bTiled = bRanges;
+		for ( size_t u = 0; u < covered.size(); ++u )
+			bTiled = bTiled && covered[u] == 1;
+		CHECK( bTiled );
+		if ( !bRanges || !bTiled )
+			continue;	// Encode would read outside the text
+		CBkClusterTable table;
+		std::u16string encoded;
+		std::string szError;
+		CHECK( table.Encode( (const unsigned short *)text.data(), *shaped.p, &encoded, &szError ) );
+		// Every cluster decodes back to its own part of the text.
+		size_t nUnits = 0;
+		for ( size_t i = 0; i < shaped.p->nClusters; ++i )
+			nUnits += shaped.p->pClusters[i].nEnd - shaped.p->pClusters[i].nStart;
+		CHECK( nUnits == text.size() );
+	}
+	// A cluster that is empty or runs backwards is an error, not an underflow.
+	SBkShapedCluster bad[2] = { { 3, 3, 0, 1 }, { 5, 2, 0, 1 } };
+	const std::u16string text = u"abcdefgh";
+	for ( int i = 0; i < 2; ++i )
+	{
+		SBkShaped fake = { &bad[i], 1, 0, 0, 1000, 0 };
+		CBkClusterTable table;
+		std::u16string encoded;
+		std::string szError;
+		CHECK( !table.Encode( (const unsigned short *)text.data(), fake, &encoded, &szError ) );
+		CHECK( !szError.empty() );
+		printf( "bk-shaper-test: bad cluster %d: %s\n", i, szError.c_str() );
+	}
+}
+
+// LmShaperEncode with a full cluster table: the message goes to the caller's
+// buffer only when there is one, truncated and terminated.
+static void CheckEncodeErrorBuffer( const std::vector<unsigned char> &font )
+{
+	SLmShaper *pShaper = LmShaperCreate( &font[0], font.size(), "Deva", "hi" );
+	for ( unsigned i = 0; i < 6400; ++i )
+	{
+		std::u16string cluster;
+		cluster += (char16_t)( 0x4E00 + i / 80 );
+		cluster += (char16_t)( 0x4E00 + i % 80 );
+		CHECK( pShaper->table.Add( cluster, 0 ) != 0 );
+	}
+	const std::u16string text = u"\u0915\u093F";
+	unsigned short out[8] = { 0 };
+
+	// Size 0: the sentinel buffer stays untouched, with and without a pointer.
+	char sentinel[16];
+	memset( sentinel, 0x5A, sizeof( sentinel ) );
+	CHECK( LmShaperEncode( pShaper, (const unsigned short *)text.data(), text.size(), out, sentinel, 0 ) == -1 );
+	bool bUntouched = true;
+	for ( size_t i = 0; i < sizeof( sentinel ); ++i )
+		bUntouched = bUntouched && sentinel[i] == 0x5A;
+	CHECK( bUntouched );
+	CHECK( LmShaperEncode( pShaper, (const unsigned short *)text.data(), text.size(), out, 0, 0 ) == -1 );
+
+	// A small buffer: truncated, terminated, nothing written past it.
+	char small[24];
+	memset( small, 0x5A, sizeof( small ) );
+	CHECK( LmShaperEncode( pShaper, (const unsigned short *)text.data(), text.size(), out, small, 10 ) == -1 );
+	CHECK( small[9] == 0 && strlen( small ) == 9 && strncmp( small, "shaper: P", 9 ) == 0 );
+	bool bTail = true;
+	for ( size_t i = 10; i < sizeof( small ); ++i )
+		bTail = bTail && small[i] == 0x5A;
+	CHECK( bTail );
+
+	// A roomy buffer gets the whole message.
+	char roomy[256];
+	CHECK( LmShaperEncode( pShaper, (const unsigned short *)text.data(), text.size(), out, roomy, sizeof( roomy ) ) == -1 );
+	CHECK( strstr( roomy, "PUA full" ) != 0 );
+	printf( "bk-shaper-test: encode error with size 0 left the buffer alone, size 10 gave '%s', size 256 gave '%s'\n", small, roomy );
+	LmShaperDestroy( pShaper );
+}
+
 int main( int argc, char **argv )
 {
 	if ( argc < 2 )
@@ -284,6 +389,8 @@ int main( int argc, char **argv )
 	CheckFull( deva );
 	CheckPlain( latin );
 	CheckErrors( latin );
+	CheckRightToLeft( latin );
+	CheckEncodeErrorBuffer( deva );
 	if ( g_nFailures )
 	{
 		fprintf( stderr, "bk-shaper-test: %d checks failed\n", g_nFailures );

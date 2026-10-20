@@ -25,8 +25,10 @@ struct SBkShapedGlyph
 };
 
 // The glyphs [nGlyphStart, nGlyphStart + nGlyphCount) draw the UTF-16 code
-// units [nStart, nEnd) of the text. Clusters come in visual (left to right)
-// order; a reordered matra stays inside the cluster of its consonant.
+// units [nStart, nEnd) of the text, with nStart < nEnd <= the text length.
+// Clusters come in visual (left to right) order, which for right to left text
+// means descending ranges; a reordered matra stays inside the cluster of its
+// consonant.
 struct SBkShapedCluster
 {
 	size_t nStart, nEnd;
@@ -77,7 +79,8 @@ public:
 	const std::u16string *Lookup( unsigned short wch ) const;
 	size_t Size() const { return entries.size(); }
 	// pText with every multi-code-point cluster of pShaped replaced by its PUA
-	// character; false (and *pszError) when the table is full.
+	// character; false (and *pszError) when the table is full or a cluster range
+	// is empty. The upper bound (nEnd <= text length) is the shaper's guarantee.
 	bool Encode( const unsigned short *pText, const SBkShaped &shaped, std::u16string *pResult, std::string *pszError );
 	// "U+E000<TAB>cluster" lines, UTF-8, CRLF, in order of first appearance.
 	std::string Serialize() const;

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <set>
+
 namespace
 {
 struct SShapedImpl
@@ -71,15 +73,24 @@ SBkShaped *BkShapeClusters( const unsigned char *pFont, size_t nFontSize, const 
 		SBkShapedGlyph glyph = { pInfo[i].codepoint, pPos[i].x_advance, pPos[i].y_advance, pPos[i].x_offset, pPos[i].y_offset };
 		pImpl->glyphs.push_back( glyph );
 		// Glyphs with the same cluster value form one cluster; HarfBuzz's default
-		// (monotone graphemes) keeps them adjacent for left to right text.
+		// (monotone graphemes) keeps them adjacent. The glyphs stay in visual
+		// order, so for right to left text the cluster values descend.
 		if ( i == 0 || pInfo[i].cluster != pInfo[i - 1].cluster )
 		{
 			SBkShapedCluster cluster = { pInfo[i].cluster, nLen, i, 0 };
-			if ( !pImpl->clusters.empty() )
-				pImpl->clusters.back().nEnd = pInfo[i].cluster;
 			pImpl->clusters.push_back( cluster );
 		}
 		pImpl->clusters.back().nGlyphCount++;
+	}
+	// A cluster ends where the next larger cluster starts (the text's end for
+	// the last one), whichever way the glyphs run.
+	std::set<size_t> starts;
+	for ( size_t i = 0; i < pImpl->clusters.size(); ++i )
+		starts.insert( pImpl->clusters[i].nStart );
+	for ( size_t i = 0; i < pImpl->clusters.size(); ++i )
+	{
+		const std::set<size_t>::const_iterator next = starts.upper_bound( pImpl->clusters[i].nStart );
+		pImpl->clusters[i].nEnd = next == starts.end() ? nLen : *next;
 	}
 	hb_buffer_destroy( pBuffer );
 	hb_font_destroy( pHbFont );
@@ -192,6 +203,18 @@ bool CBkClusterTable::Encode( const unsigned short *pText, const SBkShaped &shap
 	for ( size_t i = 0; i < shaped.nClusters; ++i )
 	{
 		const SBkShapedCluster &cluster = shaped.pClusters[i];
+		// Encode has no text length: BkShapeClusters guarantees nStart < nEnd <= nLen,
+		// so only the lower bound can be checked here.
+		if ( cluster.nEnd <= cluster.nStart )
+		{
+			if ( pszError )
+			{
+				char buf[96];
+				snprintf( buf, sizeof( buf ), "shaper: cluster %zu has the empty range [%zu, %zu)", i, cluster.nStart, cluster.nEnd );
+				*pszError = buf;
+			}
+			return false;
+		}
 		const std::u16string src( (const char16_t *)pText + cluster.nStart, cluster.nEnd - cluster.nStart );
 		const bool bSingle = src.size() == 1 || ( src.size() == 2 && src[0] >= 0xD800 && src[0] < 0xDC00 );
 		if ( bSingle )
