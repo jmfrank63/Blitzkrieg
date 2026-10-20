@@ -4,6 +4,7 @@
 #include "MeshManagerGpu.h"
 #include "TextureGpu.h"
 #include "FontGpu.h"
+#include "TextWrap.h"
 #include "..//Main//TextSystem.h"
 
 #include "..//GFX//GFXObjectFactory.h"
@@ -338,61 +339,29 @@ private:
     std::map<std::string, CObj<IGFXFont> > fonts_;
 };
 
+// Adapts a FontGpu to what WrapTextLinesWith asks of a font.
+struct FontGpuWrapMetrics
+{
+    const FontGpu *font;
+    const SFontFormat *format;
+    float Advance( WORD previous, WORD current ) const
+    {
+        const SFontFormat::SCharDesc &character = format->GetChar( current );
+        return character.fA + format->GetKern( previous, current ) + character.fB + character.fC;
+    }
+    float RunWidth( const WORD *text, int count ) const { return font->TextWidthFloat( text, count ); }
+};
+
 void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wrap_width,
     std::vector<std::pair<size_t, size_t> > &lines )
 {
-    lines.clear();
-    if ( !text ) return;
-    size_t length = 0;
-    while ( text[length] ) ++length;
-    const bool measure = font != 0 && wrap_width > 0.0f;
-    const SFontFormat *format = measure ? &font->GetFormat() : 0;
-    size_t line_begin = 0;
-    size_t last_space = static_cast<size_t>( -1 );
-    // Running width of [line_begin, index]. Measuring the whole prefix again
-    // for every character made the wrap quadratic, and a mission briefing pays
-    // that on every frame it is on screen. The terms have to be added in
-    // exactly the order FontGpu::TextWidth adds them: float addition is not
-    // associative, and centered or right-aligned text derives its x from these
-    // widths, so a single ulp of difference moves a line by a pixel.
-    float run_width = 0.0f;
-    WORD previous = 0;
-    for ( size_t index = 0; index <= length; ++index )
+    if ( font == 0 )
     {
-        // CRLF data would otherwise draw the carriage return as a missing glyph.
-        if ( index == length || text[index] == L'\n' || text[index] == L'\r' )
-        {
-            lines.push_back( std::make_pair( line_begin, index ) );
-            if ( index + 1 < length && text[index] == L'\r' && text[index + 1] == L'\n' ) ++index;
-            line_begin = index + 1;
-            last_space = static_cast<size_t>( -1 );
-            run_width = 0.0f;
-            previous = 0;
-            continue;
-        }
-        if ( text[index] == L' ' ) last_space = index;
-        if ( !measure ) continue;
-        const WORD current = text[index];
-        const SFontFormat::SCharDesc &character = format->GetChar( current );
-        run_width += character.fA + format->GetKern( previous, current ) + character.fB + character.fC;
-        previous = current;
-        if ( index == line_begin ) continue;
-        if ( run_width * scale <= wrap_width ) continue;
-        const bool break_on_space = last_space != static_cast<size_t>( -1 ) && last_space > line_begin;
-        const size_t break_at = break_on_space ? last_space : index;
-        lines.push_back( std::make_pair( line_begin, break_at ) );
-        line_begin = break_on_space ? break_at + 1 : break_at;
-        last_space = static_cast<size_t>( -1 );
-        // The word that moved down has to be measured again from the start of
-        // the new line, since the kerning against 0 differs from the kerning it
-        // had mid-line. Every character is measured at most twice this way, so
-        // the wrap stays linear. Breaking on a space that is itself the
-        // overflowing character leaves nothing on the new line yet, so the
-        // kerning partner has to go back to 0 with it.
-        const size_t carried = line_begin <= index ? index - line_begin + 1 : 0;
-        run_width = font->TextWidthFloat( text + line_begin, static_cast<int>( carried ) );
-        previous = carried != 0 ? text[index] : static_cast<WORD>( 0 );
+        WrapTextLinesWith<FontGpuWrapMetrics>( 0, text, scale, wrap_width, lines );
+        return;
     }
+    const FontGpuWrapMetrics metrics = { font, &font->GetFormat() };
+    WrapTextLinesWith( &metrics, text, scale, wrap_width, lines );
 }
 
 class TextGpu final : public IGFXText, public IGFXTextGpuFontProvider

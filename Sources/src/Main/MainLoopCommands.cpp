@@ -394,7 +394,11 @@ void ApplyLanguage( const char *pszLanguage )
 	szLanguage = pszLanguage ? pszLanguage : "";
 	const bool bMounted = MountLanguage();
 	GetSingleton<ITextManager>()->Reload();
-	NStr::DebugTrace( "language: \"%s\" %s, texts reloaded\n", szLanguage.c_str(), bMounted ? "mounted" : "has no texts.pak, the shipped texts stay" );
+	// The font manager caches by name, so a language with its own fonts (mods/<code>/data/fonts)
+	// would keep drawing the old glyphs. Screens already holding a font keep it
+	// until they are rebuilt; every later lookup reads the new storage.
+	GetSingleton<IFontManager>()->Clear( ISharedManager::CLEAR_ALL );
+	NStr::DebugTrace( "language: \"%s\" %s, texts reloaded, fonts cleared\n", szLanguage.c_str(), bMounted ? "mounted" : "has no texts.pak, the shipped texts stay" );
 }
 const char *GetLanguage() { return szLanguage.c_str(); }
 void RemountLanguage() { MountLanguage(); }

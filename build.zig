@@ -2951,6 +2951,28 @@ pub fn build(b: *std.Build) void {
     text_shadow_step.dependOn(&text_shadow_test.step);
     if (test_mode == .run) text_shadow_step.dependOn(&text_shadow_run.step);
 
+    // The GPU text wrap breaks CJK text that has no spaces, with kinsoku. The
+    // test drives the wrap template with a fixed-width font.
+    const text_wrap_module = b.createModule(.{ .target = target, .optimize = .debug });
+    if (platform != .windows_x64) {
+        text_wrap_module.link_libc = true;
+        text_wrap_module.link_libcpp = true;
+    }
+    text_wrap_module.addCSourceFile(.{
+        .file = b.path("tools/zig/gfx_text_wrap_test.cpp"),
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, text_wrap_module, toolchain);
+    addMsvcLibraryPaths(b, text_wrap_module, toolchain);
+    linkMsvcRuntime(text_wrap_module, .debug);
+    const text_wrap_test = b.addExecutable(.{ .name = "gfx-text-wrap-test", .root_module = text_wrap_module });
+    text_wrap_test.subsystem = .console;
+    if (platform == .windows_x64) text_wrap_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const text_wrap_run = b.addRunArtifact(text_wrap_test);
+    const text_wrap_step = b.step("test-gfx-text-wrap", "Check CJK text wraps between characters with kinsoku and Latin text wraps as before");
+    text_wrap_step.dependOn(&text_wrap_test.step);
+    if (test_mode == .run) text_wrap_step.dependOn(&text_wrap_run.step);
+
     const noise_seam_step = b.step("test-terrain-noise", "Check terrain noise coordinates are continuous across patches");
     noise_seam_step.dependOn(&noise_seam_test.step);
     if (test_mode == .run) noise_seam_step.dependOn(&noise_seam_run.step);
