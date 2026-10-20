@@ -326,6 +326,10 @@ test "placeholder_reordered_positional: swapped word order with the same codes p
     try expectPlaceholderCase("placeholder_reordered_positional", "%1$s has %2$d", "%2$d hat %1$s", "");
 }
 
+test "placeholder_unknown_conversion: %y is not a code" {
+    try expectPlaceholderCase("placeholder_unknown_conversion", "Rate 5%y", "Rate 5 Prozent", "");
+}
+
 test "placeholder_percent_percent: %% is not a code" {
     try expectPlaceholderCase("placeholder_percent_percent", "100%% of %d", "100 Prozent von %d", "");
 }

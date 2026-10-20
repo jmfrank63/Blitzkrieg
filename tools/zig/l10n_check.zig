@@ -350,7 +350,7 @@ fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]c
 
 /// The end of the complete C printf code that starts at the `%` at `at`, or null when the text
 /// there is not a complete code. The grammar is `%[n$][flags][width][.precision][length]conversion`:
-/// flags `-+ #0'`, width and precision as digits or `*` (`*n$`), lengths hh h l ll j z t L q. The
+/// flags `-+ #0'`, width and precision as digits or `*` (`*n$`), lengths hh h l ll j z t L q, conversions diouxXeEfFgGaAcspn plus C and S (the Windows CRT). The
 /// whole code is the token, so `%ld` and `%ls` or `%1$s` and `%2$s` differ.
 fn printfEnd(ascii: []const u8, at: usize) ?usize {
     var i = at + 1;
@@ -366,7 +366,7 @@ fn printfEnd(ascii: []const u8, at: usize) ?usize {
             break;
         }
     }
-    if (i < ascii.len and std.ascii.isAlphabetic(ascii[i])) return i + 1;
+    if (i < ascii.len and std.mem.indexOfScalar(u8, "diouxXeEfFgGaAcspnCS", ascii[i]) != null) return i + 1;
     return null;
 }
 
