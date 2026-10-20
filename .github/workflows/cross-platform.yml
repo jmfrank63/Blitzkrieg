@@ -123,6 +123,55 @@ jobs:
               - '!docs/**'
               - '!*.md'
 
+  # The localisation gate (M002 D063) has no area gate: it is cheap (plain Zig, no engine build,
+  # no Data beyond Data/ELK) and a docs-only or translation-only push, which no product job runs
+  # for, is exactly what can break it. It needs `changes` only to sit after it in the graph.
+  l10n-check:
+    needs: [changes]
+    name: "Linux x64 - l10n-check"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
+
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            # build.zig reads the engine's .vcxproj files while it evaluates its graph, so
+            # Sources is needed even though no engine step runs. Measured 2026-10-20 in a
+            # sparse worktree: this list passes the three steps below.
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            /Localization/
+            /Data/ELK/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Zig 0.17.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.17.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.17.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.17.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Localisation gate
+        run: zig build l10n-check test-l10n-check test-l10n-glossary -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary new
+
   linux-build:
     needs: [changes]
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true') || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true') || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true') || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (needs.changes.outputs.core == 'true' || needs.changes.outputs.elk == 'true')) || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (needs.changes.outputs.core == 'true' || needs.changes.outputs.tools == 'true'))

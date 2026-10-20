@@ -68,3 +68,42 @@ mission briefing). The S01 menu terms of `ru`, `zh-Hans`, `ja` and `hi` are the 
 of those four and all of `es`, `fr`, `de`, `pt-BR` and `id` are a machine seed that needs native review.
 The overlays (S02 T04), the S03 checker and the S08 documents take their terms from these files.
 `zig build test-l10n-glossary` checks that every file has the three sections, the table header and CRLF lines.
+
+## The completeness gate
+
+`zig build l10n-check` (`tools/zig/l10n_check.zig`, M002 S03) reads the tracked tree and fails when a
+translation is missing, stale or malformed. Every finding is one line on stderr,
+`l10n-check: <rule>: <code>: <where>: <detail>` (`<code>` is a language code or `all`, `<where>` an ELK key
+or a file), the run ends with `l10n-check: <n> findings, <m> checked`, and a scope with nothing to check yet
+prints `l10n-check: <scope>: not active`. Exit status is 1 on a finding. The tests are
+`zig build test-l10n-check test-l10n-glossary`; CI runs all three as the job `l10n-check` on every push,
+without an area gate, so a docs-only push is checked too (D063).
+
+Rules:
+
+- `missing`, `missing-xml`, `empty`, `extra`, `state`, `encoding`: every language overlay holds each scope key as a `.txt` (UTF-16LE with a
+  byte order mark) beside its `.xml` state file, and the state is not "not translated".
+- `stale`, `base-hash-missing`, `untranslated`: the English source of a key must still match its hash in
+  `Localization/game/base-hashes.txt`, and a translation must not equal the English bytes.
+- `placeholder`: the printf codes, `{n}`, `$name`, `<tag>` tokens and literal `\n` of the English text and
+  the translation are the same multiset.
+- `glyph`: each code point is in the language's face or NotoSans-Regular (ru, zh-Hans, ja, hi), or in cp1252
+  for the five Latin languages that draw with the game's bitmap fonts.
+- `table-missing`, `-extra`, `-placeholder`, `-id`, `-format`: a string table directory has `en.lang` and the
+  nine other `.lang` files with the same keys, placeholders and ImGui `##`/`###` ID suffixes.
+- `doc-missing`, `-structure`, `-code`, `-bar`, `-extra`: a document set (English `<stem>.md` and nine
+  `<stem>_<Language>.md`) has the same heading levels and code blocks and the language bar.
+- `literal`: in the strict source directories a UI call takes `l10n.t`, `l10n.id` or `l10n.format`, not an
+  English string literal.
+
+`Localization/game/scope.txt` lists the ELK keys (relative to `Data/ELK/game_data_base`, no extension) every
+overlay must hold. `Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per
+scope key, because an overlay `.xml` cannot record which English text it was made from. When `stale` fires,
+review the translations of that key in every language, then run `zig build l10n-check-update-base` to
+rewrite the file. A `same-as-base <code> <key>` line in the same file says that language's translation may
+equal the English byte for byte (a proper name); without it `untranslated` fires.
+
+Not active yet (each prints the note until its scope is filled): `table-*` until a directory with an
+`en.lang` is listed in `table_dirs`, `doc-*` until S08 adds the
+root README set to `document_sets`, and `literal` until S04 to S07 add the migrated source directories to
+`strict_dirs`. `--doc-set <stem>` and `--strict-dir <dir>` add one for a single run.
