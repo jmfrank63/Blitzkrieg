@@ -3577,7 +3577,24 @@ jobs:
           test "$(uname -m)" = "arm64"
           sw_vers
 
-
+      # The restored Zig cache (21 GB on run 39370812748) plus a full rebuild
+      # plus its packed copy filled the runner's disk when a change touched
+      # every module (run 39376572656: "No space left on device" in Pack the
+      # build). The image's other Xcode versions and the Android SDK are never
+      # used here; removing them leaves room for both.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          echo "selected Xcode: $keep"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
       - name: Install Zig 0.17.0
         shell: bash
