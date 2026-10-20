@@ -11,7 +11,7 @@ Localization/game/<code>/game_data_base/textes/<path>/<key>.txt   the translatio
 Localization/game/<code>/game_data_base/textes/<path>/<key>.xml   its state file (State="3": Approved)
 ```
 
-`<code>` is `ru`, `zh-Hans`, `ja` or `hi`. The tree mirrors `Data/ELK/game_data_base`, so an overlay file
+`<code>` is one of the nine language mods: `ru`, `zh-Hans`, `ja`, `hi`, `es`, `fr`, `de`, `pt-BR` or `id` (English is the game itself). The tree mirrors `Data/ELK/game_data_base`, so an overlay file
 replaces (or adds to) the database file of the same key; the originals (`.elk`) are never touched, and
 `Data/ELK` itself is never written (the step hashes it before and after). The `.txt` files are kept
 byte for byte (`Localization/**/*.txt -text -eol` in `.gitattributes`).
@@ -21,6 +21,16 @@ every text into Private Use Area characters, one per shaped cluster, and the gen
 glyph per such character (M002 D058).
 
 ## Texts
+
+Every language has the same seed set: the 14 main-menu keys of slice S01 plus the 11 keys the first Allied mission
+briefing reads (S02 T01): the mission's `0h`, `0`, `header` and `description` under
+`scenarios/scenariomissions/allies/norway/`, and `strings/imheader-mission-objectives`, `-map`, `-desc`,
+`scenariomission`, `missiontypetext`, `missiontext`, `missiondescriptiontext`. The Latin languages (`es`, `fr`, `de`,
+`pt-BR`, `id`) use the bitmap fonts and must stay inside cp1252; `language-mods` checks every key the overlay supplies (the English base still holds Russian
+tutorial and medal texts, which the Latin mods inherit and the build only counts).
+
+Review state: all of it is a machine seed (`ru` and the S01 menu texts of `zh-Hans`, `ja` and `hi` from slices S01,
+the rest from S02) using the terms of `Localization/glossary/<code>.md`; no native speaker has reviewed it yet.
 
 Slice S01 translates the main menu: its header (`strings/mainmenu`, `strings/imheader-mainmenu-header`) and
 the thirteen button labels `strings/imheader-gbutton-*` the main menu and its first sub-screens draw

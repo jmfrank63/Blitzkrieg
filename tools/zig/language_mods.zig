@@ -176,6 +176,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     // First export: which characters the texts use.
     var chars = @as([65536]bool, @splat(false));
     var texts: usize = 0;
+    var inherited: usize = 0;
     {
         stage = "export";
         const probe_root = try std.fs.path.join(allocator, &.{ root, "probe" });
@@ -188,8 +189,13 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
             texts += 1;
             if (language.face == null) {
                 if (cp1252Violation(entry.bytes)) |unit| {
-                    std.debug.print("language-mods: {s}: {s}: U+{X:0>4} is not in cp1252\n", .{ language.code, entry.name, unit });
-                    return error.NotInCp1252;
+                    // The English base still holds Russian tutorial and medal texts and a few
+                    // Cyrillic look-alike letters; only a key this overlay supplies is its to fix.
+                    const overlay_key = try std.fs.path.join(allocator, &.{ "Localization/game", language.code, "game_data_base", entry.name });
+                    if (cwd.access(io, overlay_key, .{})) {
+                        std.debug.print("language-mods: {s}: {s}: U+{X:0>4} is not in cp1252\n", .{ language.code, entry.name, unit });
+                        return error.NotInCp1252;
+                    } else |_| inherited += 1;
                 }
             }
             var at: usize = 2;
@@ -305,7 +311,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         try testing.expectEqualSlices(u8, overlay_text, packed_text);
     }
     if (language.face == null) {
-        std.debug.print("language-mods: {s}: {d} texts, {d} characters, bitmap fonts, texts only, installed {s}\n", .{ language.code, texts, distinct, pak_path });
+        std.debug.print("language-mods: {s}: {d} texts, {d} characters, bitmap fonts, texts only ({d} inherited base texts outside cp1252), installed {s}\n", .{ language.code, texts, distinct, inherited, pak_path });
     } else {
         std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s}, installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, pak_path });
     }
