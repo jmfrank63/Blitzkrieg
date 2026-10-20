@@ -14,9 +14,10 @@
 //! with a `mod.xml`. Data/ELK is hashed before and after: nothing writes it.
 //! BK_LM_GAME names the installed Game executable, BK_LM_FONT_TOOL the
 //! installed bk-font and BK_LM_MODULES the folder of the engine libraries it
-//! loads; `zig build language-mods` sets them. BK_LM_LANGS (comma separated
+//! loads; `zig build language-mods` sets them. BK_LM_LANGS (`-Dlm-langs`, comma separated
 //! codes) limits a shard to some of the languages; the default is all of them. A language whose
-//! overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left out.
+//! overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left out. BK_LM_OVERLAYS
+//! names another overlay root (default `Localization/game`), so a test can take a language away from a copy.
 const std = @import("std");
 const elk = @import("elk");
 const zip = @import("zip");
@@ -72,6 +73,9 @@ fn required(allocator: std.mem.Allocator, key: []const u8) ![:0]const u8 {
     };
 }
 
+/// Where the overlays are read from; BK_LM_OVERLAYS replaces it.
+var overlay_root: []const u8 = "Localization/game";
+
 /// The stage a failure happened in, named on the failing line.
 var stage: []const u8 = "assemble";
 
@@ -87,6 +91,7 @@ test "the language mods are built from the overlays through ELK's export" {
     const cwd_path = try std.process.currentPathAlloc(io, allocator);
 
     const filter = try envValue(allocator, "BK_LM_LANGS");
+    if (try envValue(allocator, "BK_LM_OVERLAYS")) |root| overlay_root = root;
     const allow_missing = if (try envValue(allocator, "BK_LM_ALLOW_MISSING")) |value| std.mem.eql(u8, value, "1") else false;
     const elk_before = try treeHash("Data/ELK");
     for (languages) |language| {
@@ -104,13 +109,13 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     const cwd = std.Io.Dir.cwd();
     // A missing overlay is an error: a sparse checkout without Localization/ must stop here, not
     // leave the mod out for a later step to miss. Only BK_LM_ALLOW_MISSING=1 leaves one out.
-    const overlay_folder = try std.fs.path.join(allocator, &.{ "Localization/game", language.code, "game_data_base" });
+    const overlay_folder = try std.fs.path.join(allocator, &.{ overlay_root, language.code, "game_data_base" });
     cwd.access(io, overlay_folder, .{}) catch {
         if (allow_missing) {
             std.debug.print("language-mods: {s}: no overlay at {s}, skipped (BK_LM_ALLOW_MISSING)\n", .{ language.code, overlay_folder });
             return;
         }
-        std.debug.print("language-mods: {s}: no overlay at {s}; check out Localization/ or set BK_LM_ALLOW_MISSING=1 for a deliberate subset\n", .{ language.code, overlay_folder });
+        std.debug.print("language-mods: {s}: no overlay at {s}; check out Localization/ or pass -Dlm-allow-missing (BK_LM_ALLOW_MISSING=1) for a deliberate subset\n", .{ language.code, overlay_folder });
         return error.OverlayMissing;
     };
     const root = try std.fs.path.join(allocator, &.{ scratch, language.code });
@@ -124,7 +129,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         stage = "assemble";
         try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
         try cwd.writeFile(io, .{ .sub_path = elk_xml, .data = try cwd.readFileAlloc(io, "Data/ELK/elk.xml", allocator, .limited(1 << 20)) });
-        const overlay = try std.fs.path.join(allocator, &.{ "Localization/game", language.code, "game_data_base" });
+        const overlay = try std.fs.path.join(allocator, &.{ overlay_root, language.code, "game_data_base" });
         try database.copyTree(io, overlay, try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
     }
     var db = try database.Database.open(testing.allocator, io, elk_xml);
@@ -155,7 +160,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
                 if (cp1252Violation(entry.bytes)) |unit| {
                     // The English base still holds Russian tutorial and medal texts and a few
                     // Cyrillic look-alike letters; only a key this overlay supplies is its to fix.
-                    const overlay_key = try std.fs.path.join(allocator, &.{ "Localization/game", language.code, "game_data_base", entry.name });
+                    const overlay_key = try std.fs.path.join(allocator, &.{ overlay_root, language.code, "game_data_base", entry.name });
                     if (cwd.access(io, overlay_key, .{})) {
                         std.debug.print("language-mods: {s}: {s}: U+{X:0>4} is not in cp1252\n", .{ language.code, entry.name, unit });
                         return error.NotInCp1252;
@@ -260,7 +265,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
             return error.FontMissing;
         }
     };
-    const overlay_text = try cwd.readFileAlloc(io, try std.mem.concat(allocator, u8, &.{ "Localization/game/", language.code, "/game_data_base/", probe_key, ".txt" }), allocator, .limited(1 << 20));
+    const overlay_text = try cwd.readFileAlloc(io, try std.mem.concat(allocator, u8, &.{ overlay_root, "/", language.code, "/game_data_base/", probe_key, ".txt" }), allocator, .limited(1 << 20));
     const packed_text = for (package.entries) |entry| {
         if (std.mem.eql(u8, entry.name, probe_key ++ ".txt")) break entry.bytes;
     } else return error.OverlayTextMissing;

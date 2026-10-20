@@ -191,23 +191,59 @@ test "no Windows job runs a measured tier without hb-view" {
     }
 }
 
-test "every job with an l10n step checks out Localization" {
+/// What the l10n tiers open in the checkout, each with the sparse-checkout lines that provide it:
+/// Localization/ (the overlays, the glossaries), vendor/ (fonts, harfbuzz), tools/ (the fixtures,
+/// the scripts) and the shipped Data the tiers stage or read (the ELK database, the Fonts).
+const Input = struct { what: []const u8, lines: []const []const u8 };
+const l10n_inputs = [_]Input{
+    .{ .what = "the overlays and glossaries", .lines = &.{"/Localization/"} },
+    .{ .what = "vendor/fonts and vendor/harfbuzz", .lines = &.{"/vendor/"} },
+    .{ .what = "tools/zig and its fixtures", .lines = &.{"/tools/"} },
+    .{ .what = "the ELK database", .lines = &.{"/Data/ELK/"} },
+    .{ .what = "the game's Fonts", .lines = &.{ "/Data/Fonts/", "/Data/" } },
+};
+
+/// Whether the job's text holds one of the lines on a line of its own (a sparse-checkout entry).
+fn hasSparseLine(job: []const u8, lines: []const []const u8) bool {
+    var it = std.mem.splitScalar(u8, job, '\n');
+    while (it.next()) |raw| {
+        const trimmed = std.mem.trim(u8, raw, " \t\r");
+        for (lines) |want| if (std.mem.eql(u8, trimmed, want)) return true;
+    }
+    return false;
+}
+
+test "every job with an l10n step checks out the inputs of the l10n tiers" {
     // The language mods and the glossary read Localization/ from the checkout, and the jobs are
     // sparse: without the folder language-mods had nothing to build (run 39446226101).
     const workflow = try readWorkflow(testing.allocator);
     defer testing.allocator.free(workflow);
     for (expected) |row| {
         const text = jobText(workflow, row.job) orelse return error.JobMissing;
-        var found = false;
-        var lines = std.mem.splitScalar(u8, text, '\n');
-        while (lines.next()) |raw| {
-            if (std.mem.eql(u8, std.mem.trim(u8, raw, " \t\r"), "/Localization/")) found = true;
-        }
-        if (!found) {
-            std.debug.print("ci-l10n-wiring: {s} runs `{s}` but its sparse checkout lacks /Localization/\n", .{ row.job, row.step });
-            return error.LocalizationMissing;
+        for (l10n_inputs) |input| {
+            if (hasSparseLine(text, input.lines)) continue;
+            std.debug.print("ci-l10n-wiring: {s} runs `{s}` but its sparse checkout lacks {s} (needs {s} for {s})\n", .{ row.job, row.step, input.lines[0], input.lines[0], input.what });
+            return error.SparseInputMissing;
         }
     }
+}
+
+test "the l10n-check job checks out the S08 document sets" {
+    const workflow = try readWorkflow(testing.allocator);
+    defer testing.allocator.free(workflow);
+    const text = jobText(workflow, "l10n-check") orelse return error.JobMissing;
+    for ([_][]const u8{ "/Localization/", "/Data/ELK/", "/Data/Editor/TestProjects/", "/vendor/", "/tools/" }) |path| {
+        if (!hasSparseLine(text, &.{path})) {
+            std.debug.print("ci-l10n-wiring: l10n-check lacks {s} in its sparse checkout\n", .{path});
+            return error.SparseInputMissing;
+        }
+    }
+}
+
+test "the sparse-input check notices a dropped line" {
+    const job = "          sparse-checkout: |\r\n            /*\r\n            /vendor/\r\n";
+    try testing.expect(hasSparseLine(job, &.{"/vendor/"}));
+    try testing.expect(!hasSparseLine(job, &.{"/Localization/"}));
 }
 
 test "the job splitter finds the last job and rejects a missing one" {

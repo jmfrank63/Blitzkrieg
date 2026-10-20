@@ -21,6 +21,15 @@ zig build install-game install-language-mods install-map-editor install-resource
 `data/texts.pak` of the nine languages, `Fonts/` with the four Noto faces and `OFL.txt` beside the editors and
 ELK, and the ten `Tools/README*.md`. The step depends on the install steps above, so it also works alone.
 
+
+## A missing overlay fails the run
+
+`language-mods` and `install-language-mods` stop with `language-mods: <code>: no overlay at <path>` and a nonzero exit when
+a language's overlay is not there, so a sparse checkout without `Localization/` fails at once instead of leaving mods out
+for a later step to miss (CI run 39446226101). A deliberate subset is the explicit option `-Dlm-allow-missing` (it sets `BK_LM_ALLOW_MISSING=1` for the test), which prints
+`skipped (BK_LM_ALLOW_MISSING)` for each language it leaves out; `-Dlm-langs=ru,ja` limits the run to some codes without it.
+`-Dlm-overlays=<folder>` reads the overlays from another root than `Localization/game`; the failure test uses a copy under
+`zig-out/local-test/`. The build step does not pass the caller's environment on, which is why these are build options.
 ## Layout
 
 ```

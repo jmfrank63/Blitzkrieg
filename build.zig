@@ -3689,6 +3689,13 @@ pub fn build(b: *std.Build) void {
     language_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
     language_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
     language_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    // The run step does not pass the caller's environment on, so the subset options are build options
+    // that export the variables the test reads: -Dlm-langs limits the codes, -Dlm-overlays reads the
+    // overlays from another root, and -Dlm-allow-missing is the one switch that lets a missing overlay
+    // be skipped instead of failing (D091).
+    if (b.option([]const u8, "lm-langs", "language-mods: comma separated language codes to build (BK_LM_LANGS); default all")) |codes| language_mods_run.setEnvironmentVariable("BK_LM_LANGS", codes);
+    if (b.option([]const u8, "lm-overlays", "language-mods: overlay root to read instead of Localization/game (BK_LM_OVERLAYS)")) |root| language_mods_run.setEnvironmentVariable("BK_LM_OVERLAYS", root);
+    if (b.option(bool, "lm-allow-missing", "language-mods: skip a language whose overlay is missing instead of failing (BK_LM_ALLOW_MISSING=1)") orelse false) language_mods_run.setEnvironmentVariable("BK_LM_ALLOW_MISSING", "1");
     language_mods_run.has_side_effects = true;
     language_mods_run.step.dependOn(install_game_step);
     language_mods_run.step.dependOn(bk_font.install);
