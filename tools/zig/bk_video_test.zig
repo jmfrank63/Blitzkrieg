@@ -28,8 +28,13 @@ const Result = struct {
 };
 
 fn runIn(cwd: std.Io.Dir, argv: []const []const u8) !Result {
+    // The messages are checked in English: the tool follows BK_LANG and then the machine's locale.
+    var environ = try std.testing.environ.createMap(std.testing.allocator);
+    defer environ.deinit();
+    try environ.put("BK_LANG", "en");
     const result = try std.process.run(std.testing.allocator, std.testing.io, .{
         .argv = argv,
+        .environ_map = &environ,
         // The current directory is inherited, not passed: Dir.cwd() is AT_FDCWD,
         // not a descriptor, and macOS's posix_spawn_file_actions_addfchdir_np
         // refuses it with EBADF, which Zig treats as a bug and panics on

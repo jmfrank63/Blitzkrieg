@@ -35,7 +35,7 @@ pub const Error = error{ Usage, Failed };
 
 /// Every table the tools share, embedded so an installed tool needs no files beside it. One
 /// `en.lang` holds the keys of all four Zig tools; a tool simply never asks for another's keys.
-const embedded = blk: {
+pub const embedded = blk: {
     var out: [bk_l10n.codes.len]bk_l10n.Embedded = undefined;
     for (bk_l10n.codes, 0..) |code, i| out[i] = .{ .code = code, .bytes = @embedFile("lang/" ++ code ++ ".lang") };
     break :blk out;
@@ -43,7 +43,7 @@ const embedded = blk: {
 
 /// Fails the build when a message key is not in `en.lang`, so a typo cannot reach a modder as the
 /// bare key.
-fn requireKey(comptime key: []const u8) void {
+pub fn requireKey(comptime key: []const u8) void {
     @setEvalBranchQuota(2_000_000);
     const en = embedded[0].bytes;
     const present = comptime std.mem.startsWith(u8, en, key ++ "=") or std.mem.indexOf(u8, en, "\n" ++ key ++ "=") != null;
@@ -82,12 +82,16 @@ pub const Context = struct {
     /// Like `fail`, with the reason from the string table: `key` names a text whose `{0}`..`{9}`
     /// are filled from `args` (strings or integers). Library error names stay English as arguments.
     pub fn failKey(ctx: *Context, comptime key: []const u8, args: anytype) error{Failed} {
-        requireKey(key);
+        ctx.noteKey(key, args);
+        return error.Failed;
+    }
+
+    /// `failKey` without the error: a warning line for a batch that goes on, `<tool>: <reason>`.
+    pub fn noteKey(ctx: *Context, comptime key: []const u8, args: anytype) void {
         const reason = ctx.formatKey(key, args);
         ctx.err.print("{s}: ", .{ctx.tool_name}) catch {};
         ctx.err.writeAll(reason) catch {};
         ctx.err.writeAll("\n") catch {};
-        return error.Failed;
     }
 
     /// The text of `key` in the run's language, for use as a `failKey` argument.
@@ -98,17 +102,7 @@ pub const Context = struct {
 
     /// `key` with its slots filled; on running out of memory the unfilled text is better than none.
     pub fn formatKey(ctx: *Context, comptime key: []const u8, args: anytype) []const u8 {
-        requireKey(key);
-        const template = ctx.texts.get(key);
-        var size: usize = template.len;
-        inline for (args) |arg| {
-            size += switch (@typeInfo(@TypeOf(arg))) {
-                .int, .comptime_int => 24,
-                else => arg.len,
-            };
-        }
-        const buffer = ctx.arena.alloc(u8, size) catch return template;
-        return ctx.texts.format(buffer, key, args) catch template;
+        return formatText(ctx.arena, ctx.texts, key, args);
     }
 
     fn report(ctx: *Context, comptime fmt: []const u8, args: anytype) void {
@@ -116,6 +110,22 @@ pub const Context = struct {
         ctx.err.print(fmt ++ "\n", args) catch {};
     }
 };
+
+/// `key` of `texts` with its slots filled, into `arena`; on running out of memory the unfilled text
+/// is better than none.
+pub fn formatText(arena: std.mem.Allocator, texts: *bk_l10n.Set, comptime key: []const u8, args: anytype) []const u8 {
+    requireKey(key);
+    const template = texts.get(key);
+    var size: usize = template.len;
+    inline for (args) |arg| {
+        size += switch (@typeInfo(@TypeOf(arg))) {
+            .int, .comptime_int => 24,
+            else => arg.len,
+        };
+    }
+    const buffer = arena.alloc(u8, size) catch return template;
+    return texts.format(buffer, key, args) catch template;
+}
 
 /// The help text: the English synopsis, then the translated paragraphs and the `--lang` paragraph.
 fn buildUsage(arena: std.mem.Allocator, texts: *bk_l10n.Set, comptime usage: Usage) std.mem.Allocator.Error![]const u8 {

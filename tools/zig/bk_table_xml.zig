@@ -31,6 +31,8 @@
 //! siblings with one name); the first is the one a sheet sees, as before.
 
 const std = @import("std");
+const bk_tool = @import("bk_tool.zig");
+const bk_l10n = @import("bk_l10n.zig");
 
 pub const Kind = enum { attribute, text, cdata, comment };
 
@@ -52,20 +54,44 @@ pub const Field = struct {
 /// source; `locate` turns it into the line and column a text editor shows.
 pub const Diagnostic = struct {
     offset: usize = 0,
-    buffer: [256]u8 = undefined,
-    len: usize = 0,
+    /// The string-table key of the reason and its arguments (the table fills `{0}`..`{2}`), so the
+    /// reason can be said in the run's language; see `render`.
+    key: []const u8 = "",
+    args: [max_args][]const u8 = @splat(""),
+    arg_count: usize = 0,
+    storage: [256]u8 = undefined,
 
-    pub fn message(diag: *const Diagnostic) []const u8 {
-        return diag.buffer[0..diag.len];
+    const max_args = 3;
+
+    fn set(diag: *Diagnostic, offset: usize, comptime key: []const u8, args: anytype) void {
+        bk_tool.requireKey(key);
+        diag.offset = offset;
+        diag.key = key;
+        diag.arg_count = args.len;
+        var used: usize = 0;
+        inline for (args, 0..) |arg, i| {
+            const text = switch (@typeInfo(@TypeOf(arg))) {
+                .int, .comptime_int => std.fmt.bufPrint(diag.storage[used..], "{d}", .{arg}) catch "",
+                else => arg,
+            };
+            // A name longer than the room left is cut: a reason that names half a tag still points at the line.
+            const room = @min(text.len, diag.storage.len - used);
+            if (@typeInfo(@TypeOf(arg)) == .int or @typeInfo(@TypeOf(arg)) == .comptime_int) {
+                diag.args[i] = text;
+                used += text.len;
+            } else {
+                @memcpy(diag.storage[used..][0..room], text[0..room]);
+                diag.args[i] = diag.storage[used..][0..room];
+                used += room;
+            }
+        }
     }
 
-    fn set(diag: *Diagnostic, offset: usize, comptime fmt: []const u8, args: anytype) void {
-        diag.offset = offset;
-        diag.len = (std.fmt.bufPrint(&diag.buffer, fmt, args) catch blk: {
-            const ellipsis = "...";
-            @memcpy(diag.buffer[diag.buffer.len - ellipsis.len ..], ellipsis);
-            break :blk @as([]u8, &diag.buffer);
-        }).len;
+    /// The reason in the language of `texts`, into `arena`.
+    pub fn render(diag: *const Diagnostic, arena: std.mem.Allocator, texts: *bk_l10n.Set) []const u8 {
+        const template = texts.get(diag.key);
+        const buffer = arena.alloc(u8, template.len + 3 * diag.storage.len) catch return template;
+        return bk_l10n.expand(buffer, template, diag.args[0..diag.arg_count]) catch template;
     }
 };
 
@@ -86,6 +112,13 @@ pub fn locate(source: []const u8, offset: usize) Location {
 }
 
 pub const Error = error{ Malformed, RootNotFound } || std.mem.Allocator.Error;
+
+/// Two upper-case hex digits of a byte, for the control-character reason.
+fn hex(c: u8) [2]u8 {
+    var out: [2]u8 = undefined;
+    _ = std.fmt.bufPrint(&out, "{X:0>2}", .{c}) catch unreachable;
+    return out;
+}
 
 const bom = "\xEF\xBB\xBF";
 const max_depth = 256;
@@ -121,8 +154,8 @@ const Parser = struct {
     /// The current element's path prefix, `Guns;item(01);` (empty at the root).
     prefix: std.ArrayList(u8) = .empty,
 
-    fn fail(p: *Parser, offset: usize, comptime fmt: []const u8, args: anytype) error{Malformed} {
-        p.diag.set(offset, fmt, args);
+    fn fail(p: *Parser, offset: usize, comptime key: []const u8, args: anytype) error{Malformed} {
+        p.diag.set(offset, key, args);
         return error.Malformed;
     }
 
@@ -142,20 +175,20 @@ const Parser = struct {
 
     fn parseDocument(p: *Parser) Error!void {
         if (std.mem.startsWith(u8, p.src, "\xFF\xFE") or std.mem.startsWith(u8, p.src, "\xFE\xFF"))
-            return p.fail(0, "UTF-16 is not supported; save the file as UTF-8", .{});
+            return p.fail(0, "table.xml.utf16", .{});
         if (std.mem.startsWith(u8, p.src, bom)) p.pos = bom.len;
         try p.checkCharacters();
         if (p.startsWith("<?xml") and p.pos + 5 < p.src.len and (isWhitespace(p.src[p.pos + 5]) or p.src[p.pos + 5] == '?'))
             try p.parseDeclaration();
         try p.skipMisc();
         if (p.pos >= p.src.len or p.src[p.pos] != '<')
-            return p.fail(p.pos, "expected the document element", .{});
+            return p.fail(p.pos, "table.xml.expected_document", .{});
         const document_start = p.pos;
         try p.parseElement(0, .document);
         try p.skipMisc();
-        if (p.pos < p.src.len) return p.fail(p.pos, "content after the document element", .{});
+        if (p.pos < p.src.len) return p.fail(p.pos, "table.xml.trailing_content", .{});
         if (!p.root_found) {
-            p.diag.set(document_start, "no <{s}> element under the document element", .{p.root_name});
+            p.diag.set(document_start, "table.xml.no_root", .{p.root_name});
             return error.RootNotFound;
         }
     }
@@ -168,13 +201,13 @@ const Parser = struct {
             const c = p.src[i];
             if (c < 0x80) {
                 if (c < 0x20 and c != '\t' and c != '\n' and c != '\r')
-                    return p.fail(i, "control character 0x{X:0>2} is not allowed in XML", .{c});
+                    return p.fail(i, "table.xml.control_char", .{hex(c)});
                 i += 1;
                 continue;
             }
-            const len = std.unicode.utf8ByteSequenceLength(c) catch return p.fail(i, "invalid UTF-8", .{});
-            if (i + len > p.src.len) return p.fail(i, "invalid UTF-8", .{});
-            _ = std.unicode.utf8Decode(p.src[i .. i + len]) catch return p.fail(i, "invalid UTF-8", .{});
+            const len = std.unicode.utf8ByteSequenceLength(c) catch return p.fail(i, "table.xml.invalid_utf8", .{});
+            if (i + len > p.src.len) return p.fail(i, "table.xml.invalid_utf8", .{});
+            _ = std.unicode.utf8Decode(p.src[i .. i + len]) catch return p.fail(i, "table.xml.invalid_utf8", .{});
             i += len;
         }
     }
@@ -189,37 +222,37 @@ const Parser = struct {
                 p.pos += 2;
                 return;
             }
-            if (p.pos >= p.src.len) return p.fail(p.pos, "unterminated XML declaration", .{});
-            if (!had_whitespace) return p.fail(p.pos, "expected whitespace or '?>' in the XML declaration", .{});
+            if (p.pos >= p.src.len) return p.fail(p.pos, "table.xml.decl_unterminated", .{});
+            if (!had_whitespace) return p.fail(p.pos, "table.xml.decl_whitespace", .{});
             const name_start = p.pos;
             const name = try p.parseName();
             _ = p.skipWhitespace();
-            if (!p.startsWith("=")) return p.fail(p.pos, "expected '=' after '{s}'", .{name});
+            if (!p.startsWith("=")) return p.fail(p.pos, "table.xml.decl_equals", .{name});
             p.pos += 1;
             _ = p.skipWhitespace();
             const value_start = p.pos + 1;
             const value = try p.parseDeclarationValue();
             if (std.mem.eql(u8, name, "version")) {
-                if (!std.mem.eql(u8, value, "1.0")) return p.fail(value_start, "XML version '{s}' is not supported; only 1.0 is", .{value});
+                if (!std.mem.eql(u8, value, "1.0")) return p.fail(value_start, "table.xml.decl_version", .{value});
             } else if (std.mem.eql(u8, name, "encoding")) {
                 if (!std.ascii.eqlIgnoreCase(value, "UTF-8") and !std.ascii.eqlIgnoreCase(value, "US-ASCII") and !std.ascii.eqlIgnoreCase(value, "ASCII"))
-                    return p.fail(value_start, "encoding '{s}' is not supported; save the file as UTF-8", .{value});
+                    return p.fail(value_start, "table.xml.decl_encoding", .{value});
             } else if (std.mem.eql(u8, name, "standalone")) {
                 if (!std.mem.eql(u8, value, "yes") and !std.mem.eql(u8, value, "no"))
-                    return p.fail(value_start, "standalone must be 'yes' or 'no'", .{});
+                    return p.fail(value_start, "table.xml.decl_standalone", .{});
             } else {
-                return p.fail(name_start, "unexpected '{s}' in the XML declaration", .{name});
+                return p.fail(name_start, "table.xml.decl_unexpected", .{name});
             }
         }
     }
 
     fn parseDeclarationValue(p: *Parser) error{Malformed}![]const u8 {
         if (p.pos >= p.src.len or (p.src[p.pos] != '"' and p.src[p.pos] != '\''))
-            return p.fail(p.pos, "expected a quoted value", .{});
+            return p.fail(p.pos, "table.xml.decl_quote", .{});
         const quote = p.src[p.pos];
         const start = p.pos + 1;
         const end = std.mem.indexOfScalarPos(u8, p.src, start, quote) orelse
-            return p.fail(p.pos, "unterminated value", .{});
+            return p.fail(p.pos, "table.xml.decl_value_open", .{});
         p.pos = end + 1;
         return p.src[start..end];
     }
@@ -231,11 +264,11 @@ const Parser = struct {
             if (p.startsWith("<!--")) {
                 _ = try p.parseComment();
             } else if (p.startsWith("<?xml")) {
-                return p.fail(p.pos, "the XML declaration must be at the very start of the file", .{});
+                return p.fail(p.pos, "table.xml.decl_position", .{});
             } else if (p.startsWith("<?")) {
-                return p.fail(p.pos, "processing instructions are not supported", .{});
+                return p.fail(p.pos, "table.xml.pi", .{});
             } else if (p.startsWith("<!DOCTYPE")) {
-                return p.fail(p.pos, "DOCTYPE declarations are not supported", .{});
+                return p.fail(p.pos, "table.xml.doctype", .{});
             } else return;
         }
     }
@@ -245,11 +278,11 @@ const Parser = struct {
         const start = p.pos;
         const content_start = p.pos + "<!--".len;
         const dashes = std.mem.indexOfPos(u8, p.src, content_start, "--") orelse
-            return p.fail(start, "unterminated comment", .{});
+            return p.fail(start, "table.xml.comment_open", .{});
         if (dashes + 2 >= p.src.len or p.src[dashes + 2] != '>') {
             if (std.mem.indexOfPos(u8, p.src, content_start, "-->") == null)
-                return p.fail(start, "unterminated comment", .{});
-            return p.fail(dashes, "'--' is not allowed inside a comment", .{});
+                return p.fail(start, "table.xml.comment_open", .{});
+            return p.fail(dashes, "table.xml.comment_dashes", .{});
         }
         p.pos = dashes + 3;
         return .{ content_start, dashes };
@@ -257,7 +290,7 @@ const Parser = struct {
 
     fn parseName(p: *Parser) error{Malformed}![]const u8 {
         const start = p.pos;
-        if (p.pos >= p.src.len or !isNameStart(p.src[p.pos])) return p.fail(p.pos, "expected a name", .{});
+        if (p.pos >= p.src.len or !isNameStart(p.src[p.pos])) return p.fail(p.pos, "table.xml.expected_name", .{});
         p.pos += 1;
         while (p.pos < p.src.len and isNameChar(p.src[p.pos])) p.pos += 1;
         return p.src[start..p.pos];
@@ -272,7 +305,7 @@ const Parser = struct {
     /// end tag. In `.collect` mode `prefix` already holds this element's prefix.
     fn parseElement(p: *Parser, depth: usize, mode_in: Mode) Error!void {
         const start = p.pos;
-        if (depth >= max_depth) return p.fail(start, "elements nested deeper than {d}", .{max_depth});
+        if (depth >= max_depth) return p.fail(start, "table.xml.too_deep", .{max_depth});
         p.pos += 1;
         const name = try p.parseName();
 
@@ -296,28 +329,28 @@ const Parser = struct {
                 p.pos += 1;
                 break;
             }
-            if (p.pos >= p.src.len) return p.fail(start, "<{s}> is never closed", .{name});
-            if (!had_whitespace) return p.fail(p.pos, "expected whitespace, '>' or '/>' in <{s}>", .{name});
+            if (p.pos >= p.src.len) return p.fail(start, "table.xml.never_closed", .{name});
+            if (!had_whitespace) return p.fail(p.pos, "table.xml.tag_whitespace", .{name});
 
             const attribute_start = p.pos;
             const attribute = try p.parseName();
             for (attribute_names.items) |seen| {
-                if (std.mem.eql(u8, seen, attribute)) return p.fail(attribute_start, "attribute '{s}' appears twice", .{attribute});
+                if (std.mem.eql(u8, seen, attribute)) return p.fail(attribute_start, "table.xml.attr_twice", .{attribute});
             }
             try attribute_names.append(p.arena, attribute);
             _ = p.skipWhitespace();
-            if (!p.startsWith("=")) return p.fail(p.pos, "expected '=' after attribute '{s}'", .{attribute});
+            if (!p.startsWith("=")) return p.fail(p.pos, "table.xml.attr_equals", .{attribute});
             p.pos += 1;
             _ = p.skipWhitespace();
             if (p.pos >= p.src.len or (p.src[p.pos] != '"' and p.src[p.pos] != '\''))
-                return p.fail(p.pos, "expected a quoted value for attribute '{s}'", .{attribute});
+                return p.fail(p.pos, "table.xml.attr_quote", .{attribute});
             const quote = p.src[p.pos];
             const value_start = p.pos + 1;
             var i = value_start;
             while (i < p.src.len and p.src[i] != quote) : (i += 1) {
-                if (p.src[i] == '<') return p.fail(i, "'<' is not allowed in an attribute value", .{});
+                if (p.src[i] == '<') return p.fail(i, "table.xml.attr_lt", .{});
             }
-            if (i >= p.src.len) return p.fail(p.pos, "unterminated value of attribute '{s}'", .{attribute});
+            if (i >= p.src.len) return p.fail(p.pos, "table.xml.attr_open", .{attribute});
             const value = try p.decode(value_start, i);
             if (mode == .collect) try p.addField(attribute, value, value_start, i, .attribute, quote);
             p.pos = i + 1;
@@ -330,15 +363,15 @@ const Parser = struct {
         };
         var item_index: usize = 0;
         while (true) {
-            if (p.pos >= p.src.len) return p.fail(start, "<{s}> is never closed", .{name});
+            if (p.pos >= p.src.len) return p.fail(start, "table.xml.never_closed", .{name});
             if (p.startsWith("</")) {
                 p.pos += 2;
                 const end_name_start = p.pos;
                 const end_name = try p.parseName();
                 if (!std.mem.eql(u8, end_name, name))
-                    return p.fail(end_name_start, "expected </{s}>, found </{s}>", .{ name, end_name });
+                    return p.fail(end_name_start, "table.xml.end_mismatch", .{ name, end_name });
                 _ = p.skipWhitespace();
-                if (!p.startsWith(">")) return p.fail(p.pos, "expected '>' to end </{s}>", .{name});
+                if (!p.startsWith(">")) return p.fail(p.pos, "table.xml.end_gt", .{name});
                 p.pos += 1;
                 return;
             } else if (p.startsWith("<!--")) {
@@ -348,14 +381,14 @@ const Parser = struct {
             } else if (p.startsWith("<![CDATA[")) {
                 const content_start = p.pos + "<![CDATA[".len;
                 const end = std.mem.indexOfPos(u8, p.src, content_start, "]]>") orelse
-                    return p.fail(p.pos, "unterminated CDATA section", .{});
+                    return p.fail(p.pos, "table.xml.cdata_open", .{});
                 if (mode == .collect and end > content_start)
                     try p.addField("#cdata-section", p.src[content_start..end], content_start, end, .cdata, 0);
                 p.pos = end + 3;
             } else if (p.startsWith("<?")) {
-                return p.fail(p.pos, "processing instructions are not supported", .{});
+                return p.fail(p.pos, "table.xml.pi", .{});
             } else if (p.startsWith("<!")) {
-                return p.fail(p.pos, "unexpected '<!' (only comments and CDATA are supported)", .{});
+                return p.fail(p.pos, "table.xml.bang", .{});
             } else if (p.src[p.pos] == '<') {
                 if (child_mode != .collect) {
                     try p.parseElement(depth + 1, child_mode);
@@ -376,7 +409,7 @@ const Parser = struct {
                 const text_start = p.pos;
                 const text_end = std.mem.indexOfScalarPos(u8, p.src, p.pos, '<') orelse p.src.len;
                 if (std.mem.indexOf(u8, p.src[text_start..text_end], "]]>")) |i|
-                    return p.fail(text_start + i, "']]>' is not allowed in text", .{});
+                    return p.fail(text_start + i, "table.xml.cdata_end_in_text", .{});
                 var trimmed_start = text_start;
                 var trimmed_end = text_end;
                 while (trimmed_start < trimmed_end and isWhitespace(p.src[trimmed_start])) trimmed_start += 1;
@@ -404,7 +437,7 @@ const Parser = struct {
                 continue;
             }
             const semicolon = std.mem.indexOfScalarPos(u8, p.src[0..end], i, ';') orelse
-                return p.fail(i, "'&' must start an entity such as &amp;", .{});
+                return p.fail(i, "table.xml.amp", .{});
             const reference = p.src[i + 1 .. semicolon];
             if (reference.len > 0 and reference[0] == '#') {
                 const digits = reference[1..];
@@ -412,8 +445,8 @@ const Parser = struct {
                     std.fmt.parseInt(u21, digits[1..], 16)
                 else
                     std.fmt.parseInt(u21, digits, 10)) catch
-                    return p.fail(i, "invalid character reference '&{s};'", .{reference});
-                if (!isXmlChar(code)) return p.fail(i, "invalid character reference '&{s};'", .{reference});
+                    return p.fail(i, "table.xml.char_ref", .{reference});
+                if (!isXmlChar(code)) return p.fail(i, "table.xml.char_ref", .{reference});
                 var buffer: [4]u8 = undefined;
                 const len = std.unicode.utf8Encode(code, &buffer) catch unreachable;
                 try out.appendSlice(p.arena, buffer[0..len]);
@@ -429,9 +462,9 @@ const Parser = struct {
                 else if (std.mem.eql(u8, reference, "apos"))
                     '\''
                 else if (reference.len == 0 or !isNameStart(reference[0]))
-                    return p.fail(i, "'&' must start an entity such as &amp;", .{})
+                    return p.fail(i, "table.xml.amp", .{})
                 else
-                    return p.fail(i, "unknown entity '&{s};'", .{reference});
+                    return p.fail(i, "table.xml.entity", .{reference});
                 try out.append(p.arena, replacement);
             }
             i = semicolon + 1;
