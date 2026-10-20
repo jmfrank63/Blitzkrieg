@@ -192,7 +192,7 @@ float RasterCluster( const stbtt_fontinfo &font, float fScale, const SBkShaped &
 				for ( int x = 0; x < nW; ++x )
 				{
 					BYTE &c = pRaster->coverage[size_t( part.y0 - nMinY + y ) * pRaster->nSizeX + part.x0 - nMinX + x];
-					c = std::max( c, one[size_t( y ) * nW + x] );
+					c = (std::max)( c, one[size_t( y ) * nW + x] );
 				}
 		}
 	}

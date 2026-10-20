@@ -6,6 +6,7 @@
 //! globals. Its memory comes from the page allocator and is left to the process exit, the way a
 //! tool's arguments are.
 const std = @import("std");
+const builtin = @import("builtin");
 const bk_l10n = @import("bk_l10n.zig");
 
 const embedded = blk: {
@@ -28,15 +29,34 @@ const State = struct {
 
 var state: ?State = null;
 
+/// The environment for the language choice. Windows reads it through kernel32, as BkMemory
+/// does: the library links no libc there, because its C++ tools run on the engine's DLL CRT
+/// and Zig's static release CRT beside it duplicates _cexit, _wctype and the rest. The values
+/// stay in `env_store` for the process, since the language choice keeps every one it reads.
 const EnvMap = struct {
     pub fn get(_: EnvMap, name: []const u8) ?[]const u8 {
         var zname: [64:0]u8 = undefined;
         if (name.len >= zname.len) return null;
         @memcpy(zname[0..name.len], name);
         zname[name.len] = 0;
+        if (builtin.os.tag == .windows) {
+            const room = env_store[env_used..];
+            const n = kernel32.GetEnvironmentVariableA(&zname, room.ptr, @intCast(room.len));
+            // 0 is unset; a result past the room is a value too long to keep.
+            if (n == 0 or n >= room.len) return null;
+            env_used += n;
+            return room[0..n];
+        }
         const value = std.c.getenv(&zname) orelse return null;
         return std.mem.span(value);
     }
+};
+
+var env_store: [4096]u8 = undefined;
+var env_used: usize = 0;
+
+const kernel32 = struct {
+    extern "kernel32" fn GetEnvironmentVariableA(name: [*:0]const u8, buffer: [*]u8, size: u32) callconv(.winapi) u32;
 };
 
 fn io() std.Io {
