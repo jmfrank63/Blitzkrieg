@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): ja.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  ヘルプとメッセージを別の言語({0})で表示します。\n指定がなければ BK_LANG、次に OS の言語で決まります。
+pak.usage.body=pack    <dir> 以下のすべてのファイルを、/ 区切りで並べ替えた無圧縮(stored)の\n        エントリとして書き込みます。ゲームがマウントし、リリース用パッケージャが\n        書き出すのと同じ形式で、同じツリーなら同じバイト列になります。\nunpack  アーカイブ全体を検査してから、stored と deflate のエントリを <dir> に\n        展開します。危険または破損したエントリがあれば何も書き込みません。\nlist    各エントリのサイズ、方式、アーカイブ内の名前を表示します。\nverify  各エントリの名前、CRC-32、サイズを検査します。
+pak.usage.note=既存の出力ファイルは --force を付けたときだけ置き換えます。Zip64 アーカイブ\n(65,535 エントリまたは 4 GiB を超えるもの)には対応していません。
+pak.err.exists={0} は既に存在します。置き換えるには --force を付けてください
+pak.err.inside={0} はパックするフォルダの中にあります
+pak.err.not_directory={0} はフォルダではありません
+pak.err.not_found={0}: そのようなファイルまたはフォルダはありません
+pak.err.too_many=ファイルが 65,535 個を超えています。Zip64 アーカイブには対応していません
+pak.err.too_large=アーカイブが 4 GiB を超えてしまいます。Zip64 アーカイブには対応していません
+pak.err.zip64={0} は Zip64 アーカイブ(65,535 エントリまたは 4 GiB を超えるもの)で、対応していません
+pak.err.unsafe_name={0}: エントリ '{1}' が出力フォルダの外に書き込まれてしまいます(.. 、絶対パス、ドライブ文字、または ':')
+pak.err.invalid_name={0}: エントリ名 '{1}' は有効な UTF-8 ではないか、NUL を含んでいます
+pak.err.duplicate={0}: エントリ '{1}' が 2 回出てきます
+pak.err.crc={0}: エントリ '{1}' が CRC-32 と一致しません
+pak.err.size={0}: エントリ '{1}' が記録されたサイズと一致しません
+pak.err.method={0}: エントリ '{1}' は stored でも deflate でもありません
+pak.err.encrypted={0}: 暗号化されたエントリには対応していません
+pak.err.not_zip={0} は zip アーカイブではないか、途中で切れています
+pak.err.entry_other={0}: エントリ '{1}': {2}
+pak.err.other={0}: {1}
+image.usage.body=offset-romb  地形タイルのひし形の2つの半分を OffsetRomb と同じように入れ替え、\n             古いオフセット配置で描かれたタイル画をゲームの配置に直します。\n             32ビット TGA を <out.tga> に書き出します。--out がなければ\n             <in.tga> を上書きします。
+image.err.no_file={0}: そのようなファイルはありません
+image.err.other={0}: {1}
+image.err.never_closes={0}: {1}x{2} の画像では OffsetRomb の線が閉じません
+image.err.tga_truncated=TGA ではないか、途中で切れています
+image.err.tga_unsupported=トゥルーカラー(24/32ビット)または8ビットグレーの TGA ではありません
+image.err.memory=メモリが足りません
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

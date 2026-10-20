@@ -1937,9 +1937,6 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/bk_l10n_test.zig"),
         .target = portable_host,
         .optimize = .debug,
-        .imports = &.{
-            .{ .name = "l10n_languages", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_languages.zig"), .target = portable_host, .optimize = .debug }) },
-        },
     }) });
     const bk_l10n_test_step = b.step("test-bk-l10n", "Run the bk-* tools' string-table runtime tests (M002 S07)");
     bk_l10n_test_step.dependOn(&bk_l10n_tests.step);

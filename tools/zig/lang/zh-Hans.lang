@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): zh-Hans.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  用另一种语言({0})显示帮助和消息。\n未指定时依次由 BK_LANG 和操作系统语言决定。
+pak.usage.body=pack    把 <dir> 下的每个文件按排序、以 / 分隔,作为存储(未压缩)条目写入:\n        这是游戏挂载、发布打包器写出的格式。同样的目录树,得到同样的字节。\nunpack  检查整个归档后,把存储和 deflate 条目解压到 <dir>;\n        只要有条目不安全或已损坏,就不写入任何内容。\nlist    显示每个条目的大小、方式和归档内名称。\nverify  检查每个条目的名称、CRC-32 和大小。
+pak.usage.note=已存在的输出文件只有加 --force 才会被替换。不支持 Zip64 归档\n(超过 65,535 个条目或 4 GiB)。
+pak.err.exists={0} 已存在;加 --force 可替换它
+pak.err.inside={0} 位于正在打包的目录之内
+pak.err.not_directory={0} 不是目录
+pak.err.not_found={0}:没有这个文件或目录
+pak.err.too_many=文件超过 65,535 个;不支持 Zip64 归档
+pak.err.too_large=归档将超过 4 GiB;不支持 Zip64 归档
+pak.err.zip64={0} 是 Zip64 归档(超过 65,535 个条目或 4 GiB),不受支持
+pak.err.unsafe_name={0}:条目 '{1}' 会被写到输出目录之外(.. 、绝对路径、盘符或 ':')
+pak.err.invalid_name={0}:条目名 '{1}' 不是有效的 UTF-8 或包含 NUL
+pak.err.duplicate={0}:条目 '{1}' 出现了两次
+pak.err.crc={0}:条目 '{1}' 与其 CRC-32 不符
+pak.err.size={0}:条目 '{1}' 与记录的大小不符
+pak.err.method={0}:条目 '{1}' 既不是存储也不是 deflate
+pak.err.encrypted={0}:不支持加密的条目
+pak.err.not_zip={0} 不是 zip 归档,或已被截断
+pak.err.entry_other={0}:条目 '{1}':{2}
+pak.err.other={0}:{1}
+image.usage.body=offset-romb  像 OffsetRomb 那样交换地形瓦片中菱形的两半,\n             把按旧偏移布局绘制的瓦片图转换成游戏所用的布局。\n             把 32 位 TGA 写入 <out.tga>;没有 --out 时覆盖 <in.tga>。
+image.err.no_file={0}:没有这个文件
+image.err.other={0}:{1}
+image.err.never_closes={0}:在 {1}x{2} 的图像上,OffsetRomb 的线条永远不会闭合
+image.err.tga_truncated=不是 TGA,或已被截断
+image.err.tga_unsupported=不是真彩色(24/32 位)或 8 位灰度的 TGA
+image.err.memory=内存不足
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

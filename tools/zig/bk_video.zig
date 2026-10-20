@@ -19,20 +19,15 @@
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
 
-const usage =
+const usage: bk_tool.Usage = .{
+    .synopsis =
     \\usage: bk-video convert [--input-root <dir>] [--force] [--no-recurse] [--what-if]
     \\                        [--ffmpeg <path>] [--ffprobe <path>]
     \\                        [--key-frame-interval <n>] [--audio-suffix <suffix>]
     \\
-    \\convert  turns every .bik under <dir> (default Data/movies) into an Ogg
-    \\         Theora <name>.ogv beside it, and its first audio track into a
-    \\         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and
-    \\         ffprobe from PATH. Existing outputs are kept unless --force.
-    \\         --no-recurse reads <dir> only, not below it. --what-if lists the
-    \\         jobs without running them. --key-frame-interval is ffmpeg's -g
-    \\         (default 1, every frame a key frame).
-    \\
-;
+    ,
+    .body = &.{"video.usage.body"},
+};
 
 pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-video", usage, run);

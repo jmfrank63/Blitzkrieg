@@ -29,25 +29,15 @@ const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
 const xml = @import("bk_table_xml.zig");
 
-const usage =
+const usage: bk_tool.Usage = .{
+    .synopsis =
     \\usage: bk-table export <mask> <folder> <out.tsv> [--ignore <fields.txt> | --only <fields.txt>]
     \\                       [--no-recurse] [--root <name>]
     \\       bk-table import <sheet.tsv> [--root <name>]
     \\
-    \\export  flattens every file under <folder> whose name matches <mask> (* and ?,
-    \\        any case) into a tab-separated sheet: a FileName column, then one
-    \\        column per field path (attributes, element text, item(NN) lists).
-    \\        --only keeps, --ignore drops the paths starting with a line's first
-    \\        word in <fields.txt>. --no-recurse reads <folder> only, not below it.
-    \\import  writes the cells of a sheet that differ from the files back into
-    \\        them, changing only those values' bytes. An empty cell or _ leaves a
-    \\        value alone; a missing file or field is reported and skipped.
-    \\        Legacy .txt sheets are accepted.
-    \\
-    \\The stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>
-    \\otherwise, under the document element; --root <name> overrides it.
-    \\
-;
+    ,
+    .body = &.{"table.usage.body"},
+};
 
 pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-table", usage, run);

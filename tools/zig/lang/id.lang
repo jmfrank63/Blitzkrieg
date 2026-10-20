@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): id.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  menampilkan bantuan dan pesan dalam bahasa lain ({0}).\nTanpa opsi ini, BK_LANG yang menentukan, lalu bahasa sistem operasi.
+pak.usage.body=pack    menulis setiap berkas di <dir> sebagai entri tersimpan (tidak\n        dikompres), terurut, dengan pemisah /: format yang dipasang gim dan\n        ditulis pengemas rilis. Pohon sama, byte sama.\nunpack  mengekstrak entri tersimpan dan deflate ke <dir> setelah memeriksa\n        seluruh arsip; tidak ada yang ditulis jika ada entri yang tidak aman\n        atau rusak.\nlist    menampilkan ukuran, metode, dan nama arsip setiap entri.\nverify  memeriksa nama, CRC-32, dan ukuran setiap entri.
+pak.usage.note=Berkas keluaran yang sudah ada hanya diganti dengan --force. Arsip Zip64\n(lebih dari 65.535 entri atau 4 GiB) tidak didukung.
+pak.err.exists={0} sudah ada; gunakan --force untuk menggantinya
+pak.err.inside={0} berada di dalam direktori yang sedang dikemas
+pak.err.not_directory={0} bukan direktori
+pak.err.not_found={0}: berkas atau direktori tidak ditemukan
+pak.err.too_many=lebih dari 65.535 berkas; arsip Zip64 tidak didukung
+pak.err.too_large=arsip akan melebihi 4 GiB; arsip Zip64 tidak didukung
+pak.err.zip64={0} adalah arsip Zip64 (lebih dari 65.535 entri atau 4 GiB), yang tidak didukung
+pak.err.unsafe_name={0}: entri '{1}' akan ditulis di luar direktori keluaran (.., jalur absolut, huruf drive, atau ':')
+pak.err.invalid_name={0}: nama entri '{1}' bukan UTF-8 yang valid atau berisi NUL
+pak.err.duplicate={0}: entri '{1}' muncul dua kali
+pak.err.crc={0}: entri '{1}' tidak cocok dengan CRC-32-nya
+pak.err.size={0}: entri '{1}' tidak cocok dengan ukuran yang tercatat
+pak.err.method={0}: entri '{1}' bukan tersimpan maupun deflate
+pak.err.encrypted={0}: entri terenkripsi tidak didukung
+pak.err.not_zip={0} bukan arsip zip atau terpotong
+pak.err.entry_other={0}: entri '{1}': {2}
+pak.err.other={0}: {1}
+image.usage.body=offset-romb  menukar dua belah ketupat pada ubin medan, seperti yang dilakukan\n             OffsetRomb, agar seni ubin yang digambar dalam tata letak offset lama\n             sesuai dengan tata letak gim. Menulis TGA 32-bit ke <out.tga>, atau\n             menimpa <in.tga> tanpa --out.
+image.err.no_file={0}: berkas tidak ditemukan
+image.err.other={0}: {1}
+image.err.never_closes={0}: garis OffsetRomb tidak pernah menutup pada gambar {1}x{2}
+image.err.tga_truncated=bukan TGA, atau terpotong
+image.err.tga_unsupported=bukan TGA warna asli (24/32-bit) atau abu-abu 8-bit
+image.err.memory=kehabisan memori
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

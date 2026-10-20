@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): fr.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  affiche l'aide et les messages dans une autre langue ({0}).\nSans elle, BK_LANG décide, puis la langue du système d'exploitation.
+pak.usage.body=pack    écrit chaque fichier de <dir> comme une entrée stockée (non\n        compressée), triée et avec des séparateurs / : le format que le jeu\n        monte et qu'écrit l'outil de publication. Même arbre, mêmes octets.\nunpack  extrait les entrées stockées et deflate dans <dir> après avoir\n        vérifié toute l'archive ; rien n'est écrit si une entrée est peu\n        sûre ou endommagée.\nlist    affiche la taille, la méthode et le nom de chaque entrée.\nverify  vérifie le nom, le CRC-32 et la taille de chaque entrée.
+pak.usage.note=Un fichier de sortie existant n'est remplacé qu'avec --force. Les archives\nZip64 (plus de 65 535 entrées ou 4 Gio) ne sont pas prises en charge.
+pak.err.exists={0} existe déjà ; utilisez --force pour le remplacer
+pak.err.inside={0} se trouve dans le dossier à empaqueter
+pak.err.not_directory={0} n'est pas un dossier
+pak.err.not_found={0} : fichier ou dossier introuvable
+pak.err.too_many=plus de 65 535 fichiers ; les archives Zip64 ne sont pas prises en charge
+pak.err.too_large=l'archive dépasserait 4 Gio ; les archives Zip64 ne sont pas prises en charge
+pak.err.zip64={0} est une archive Zip64 (plus de 65 535 entrées ou 4 Gio), ce qui n'est pas pris en charge
+pak.err.unsafe_name={0} : l'entrée '{1}' serait écrite hors du dossier de sortie (.., chemin absolu, lettre de lecteur ou ':')
+pak.err.invalid_name={0} : le nom d'entrée '{1}' n'est pas de l'UTF-8 valide ou contient un NUL
+pak.err.duplicate={0} : l'entrée '{1}' apparaît deux fois
+pak.err.crc={0} : l'entrée '{1}' ne correspond pas à son CRC-32
+pak.err.size={0} : l'entrée '{1}' ne correspond pas à sa taille enregistrée
+pak.err.method={0} : l'entrée '{1}' n'est ni stockée ni en deflate
+pak.err.encrypted={0} : les entrées chiffrées ne sont pas prises en charge
+pak.err.not_zip={0} n'est pas une archive zip ou est tronquée
+pak.err.entry_other={0} : entrée '{1}' : {2}
+pak.err.other={0} : {1}
+image.usage.body=offset-romb  échange les deux moitiés en losange d'une tuile de terrain, comme\n             le faisait OffsetRomb, pour amener au format du jeu les tuiles\n             dessinées dans l'ancienne disposition décalée. Écrit un TGA 32 bits\n             dans <out.tga>, ou par-dessus <in.tga> sans --out.
+image.err.no_file={0} : fichier introuvable
+image.err.other={0} : {1}
+image.err.never_closes={0} : les lignes d'OffsetRomb ne se ferment jamais sur une image de {1}x{2}
+image.err.tga_truncated=pas un TGA, ou tronqué
+image.err.tga_unsupported=pas un TGA en couleurs vraies (24/32 bits) ni en niveaux de gris 8 bits
+image.err.memory=mémoire insuffisante
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

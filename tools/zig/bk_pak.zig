@@ -17,24 +17,16 @@ const builtin = @import("builtin");
 const bk_tool = @import("bk_tool.zig");
 const stored_zip = @import("stored_zip.zig");
 
-const usage =
+const usage: bk_tool.Usage = .{
+    .synopsis =
     \\usage: bk-pak pack <dir> <out.pak> [--force]
     \\       bk-pak unpack <in.pak> <dir> [--force]
     \\       bk-pak list <in.pak>
     \\       bk-pak verify <in.pak>
     \\
-    \\pack    writes every file under <dir> as a stored (uncompressed) entry,
-    \\        sorted, with / separators: the format the game mounts and the
-    \\        release packager writes. Same tree, same bytes.
-    \\unpack  extracts stored and deflate entries into <dir> after checking the
-    \\        whole archive; nothing is written if any entry is unsafe or damaged.
-    \\list    prints size, method and archive name of every entry.
-    \\verify  checks every entry's name, CRC-32 and size.
-    \\
-    \\An existing output file is only replaced with --force. Zip64 archives
-    \\(more than 65,535 entries or 4 GiB) are not supported.
-    \\
-;
+    ,
+    .body = &.{ "pak.usage.body", "pak.usage.note" },
+};
 
 pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-pak", usage, run);
@@ -125,26 +117,26 @@ pub const Problem = struct {
 fn explain(ctx: *bk_tool.Context, err: anyerror, problem: *const Problem, path: []const u8) error{Failed} {
     const entry = problem.name();
     return switch (err) {
-        error.OutputExists => ctx.fail("{s} exists; pass --force to replace it", .{entry}),
-        error.OutputInsideSource => ctx.fail("{s} is inside the directory being packed", .{path}),
-        error.SourceNotDirectory => ctx.fail("{s} is not a directory", .{entry}),
-        error.FileNotFound => ctx.fail("{s}: no such file or directory", .{if (entry.len > 0) entry else path}),
-        error.TooManyEntries => ctx.fail("more than 65,535 files; Zip64 archives are not supported", .{}),
-        error.ArchiveTooLarge => ctx.fail("the archive would pass 4 GiB; Zip64 archives are not supported", .{}),
-        error.Zip64Unsupported => ctx.fail("{s} is a Zip64 archive (more than 65,535 entries or 4 GiB), which is not supported", .{path}),
-        error.UnsafeEntryName => ctx.fail("{s}: entry '{s}' would be written outside the output directory (.., absolute path, drive letter or ':')", .{ path, entry }),
-        error.InvalidEntryName => ctx.fail("{s}: entry name '{s}' is not valid UTF-8 or contains a NUL", .{ path, entry }),
-        error.DuplicateEntry => ctx.fail("{s}: entry '{s}' appears twice", .{ path, entry }),
-        error.ChecksumMismatch => ctx.fail("{s}: entry '{s}' does not match its CRC-32", .{ path, entry }),
-        error.SizeMismatch, error.ZipDecompressTruncated, error.ZipMismatchCompLen, error.ZipMismatchUncompLen, error.ZipBadDirectorySize => ctx.fail("{s}: entry '{s}' does not match its recorded size", .{ path, entry }),
-        error.UnsupportedCompressionMethod => ctx.fail("{s}: entry '{s}' is neither stored nor deflate", .{ path, entry }),
-        error.ZipEncryptionUnsupported => ctx.fail("{s}: encrypted entries are not supported", .{path}),
-        error.ZipNoEndRecord, error.EndOfStream => ctx.fail("{s} is not a zip archive or is truncated", .{path}),
-        error.PathAlreadyExists => ctx.fail("{s} exists; pass --force to replace it", .{entry}),
+        error.OutputExists => ctx.failKey("pak.err.exists", .{entry}),
+        error.OutputInsideSource => ctx.failKey("pak.err.inside", .{path}),
+        error.SourceNotDirectory => ctx.failKey("pak.err.not_directory", .{entry}),
+        error.FileNotFound => ctx.failKey("pak.err.not_found", .{if (entry.len > 0) entry else path}),
+        error.TooManyEntries => ctx.failKey("pak.err.too_many", .{}),
+        error.ArchiveTooLarge => ctx.failKey("pak.err.too_large", .{}),
+        error.Zip64Unsupported => ctx.failKey("pak.err.zip64", .{path}),
+        error.UnsafeEntryName => ctx.failKey("pak.err.unsafe_name", .{ path, entry }),
+        error.InvalidEntryName => ctx.failKey("pak.err.invalid_name", .{ path, entry }),
+        error.DuplicateEntry => ctx.failKey("pak.err.duplicate", .{ path, entry }),
+        error.ChecksumMismatch => ctx.failKey("pak.err.crc", .{ path, entry }),
+        error.SizeMismatch, error.ZipDecompressTruncated, error.ZipMismatchCompLen, error.ZipMismatchUncompLen, error.ZipBadDirectorySize => ctx.failKey("pak.err.size", .{ path, entry }),
+        error.UnsupportedCompressionMethod => ctx.failKey("pak.err.method", .{ path, entry }),
+        error.ZipEncryptionUnsupported => ctx.failKey("pak.err.encrypted", .{path}),
+        error.ZipNoEndRecord, error.EndOfStream => ctx.failKey("pak.err.not_zip", .{path}),
+        error.PathAlreadyExists => ctx.failKey("pak.err.exists", .{entry}),
         else => if (entry.len > 0)
-            ctx.fail("{s}: entry '{s}': {s}", .{ path, entry, @errorName(err) })
+            ctx.failKey("pak.err.entry_other", .{ path, entry, @errorName(err) })
         else
-            ctx.fail("{s}: {s}", .{ path, @errorName(err) }),
+            ctx.failKey("pak.err.other", .{ path, @errorName(err) }),
     };
 }
 

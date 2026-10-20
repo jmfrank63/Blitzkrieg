@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): ru.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  показывает справку и сообщения на другом языке ({0}).\nБез неё язык определяют BK_LANG, а затем язык операционной системы.
+pak.usage.body=pack    записывает каждый файл из <dir> как сохранённую (несжатую) запись,\n        по порядку, с разделителями /: в формате, который монтирует игра и\n        который пишет упаковщик релизов. То же дерево, те же байты.\nunpack  распаковывает сохранённые и deflate-записи в <dir> после проверки\n        всего архива; если какая-либо запись небезопасна или повреждена,\n        ничего не записывается.\nlist    выводит размер, метод и имя в архиве для каждой записи.\nverify  проверяет имя, CRC-32 и размер каждой записи.
+pak.usage.note=Существующий выходной файл заменяется только с --force. Архивы Zip64\n(более 65 535 записей или 4 ГиБ) не поддерживаются.
+pak.err.exists={0} уже существует; укажите --force, чтобы заменить
+pak.err.inside={0} находится внутри упаковываемой папки
+pak.err.not_directory={0} не является папкой
+pak.err.not_found={0}: нет такого файла или папки
+pak.err.too_many=более 65 535 файлов; архивы Zip64 не поддерживаются
+pak.err.too_large=архив превысил бы 4 ГиБ; архивы Zip64 не поддерживаются
+pak.err.zip64={0} — архив Zip64 (более 65 535 записей или 4 ГиБ), он не поддерживается
+pak.err.unsafe_name={0}: запись '{1}' была бы записана за пределы выходной папки (.., абсолютный путь, буква диска или ':')
+pak.err.invalid_name={0}: имя записи '{1}' не является допустимым UTF-8 или содержит NUL
+pak.err.duplicate={0}: запись '{1}' встречается дважды
+pak.err.crc={0}: запись '{1}' не совпадает со своей CRC-32
+pak.err.size={0}: запись '{1}' не совпадает с записанным размером
+pak.err.method={0}: запись '{1}' не сохранена и не сжата deflate
+pak.err.encrypted={0}: зашифрованные записи не поддерживаются
+pak.err.not_zip={0} не является архивом zip или обрезан
+pak.err.entry_other={0}: запись '{1}': {2}
+pak.err.other={0}: {1}
+image.usage.body=offset-romb  меняет местами две ромбовидные половины тайла местности, как\n             это делал OffsetRomb, чтобы привести рисунок тайла в старой смещённой\n             раскладке к раскладке игры. Записывает 32-битный TGA в <out.tga>\n             или поверх <in.tga>, если нет --out.
+image.err.no_file={0}: нет такого файла
+image.err.other={0}: {1}
+image.err.never_closes={0}: линии OffsetRomb никогда не замыкаются на изображении {1}x{2}
+image.err.tga_truncated=это не TGA или он обрезан
+image.err.tga_unsupported=это не TGA с истинным цветом (24/32 бита) и не 8-битный серый
+image.err.memory=не хватает памяти
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): en.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  shows help and messages in another language ({0}).\nWithout it, BK_LANG and then the operating system's language decide.
+pak.usage.body=pack    writes every file under <dir> as a stored (uncompressed) entry,\n        sorted, with / separators: the format the game mounts and the\n        release packager writes. Same tree, same bytes.\nunpack  extracts stored and deflate entries into <dir> after checking the\n        whole archive; nothing is written if any entry is unsafe or damaged.\nlist    prints size, method and archive name of every entry.\nverify  checks every entry's name, CRC-32 and size.
+pak.usage.note=An existing output file is only replaced with --force. Zip64 archives\n(more than 65,535 entries or 4 GiB) are not supported.
+pak.err.exists={0} exists; pass --force to replace it
+pak.err.inside={0} is inside the directory being packed
+pak.err.not_directory={0} is not a directory
+pak.err.not_found={0}: no such file or directory
+pak.err.too_many=more than 65,535 files; Zip64 archives are not supported
+pak.err.too_large=the archive would pass 4 GiB; Zip64 archives are not supported
+pak.err.zip64={0} is a Zip64 archive (more than 65,535 entries or 4 GiB), which is not supported
+pak.err.unsafe_name={0}: entry '{1}' would be written outside the output directory (.., absolute path, drive letter or ':')
+pak.err.invalid_name={0}: entry name '{1}' is not valid UTF-8 or contains a NUL
+pak.err.duplicate={0}: entry '{1}' appears twice
+pak.err.crc={0}: entry '{1}' does not match its CRC-32
+pak.err.size={0}: entry '{1}' does not match its recorded size
+pak.err.method={0}: entry '{1}' is neither stored nor deflate
+pak.err.encrypted={0}: encrypted entries are not supported
+pak.err.not_zip={0} is not a zip archive or is truncated
+pak.err.entry_other={0}: entry '{1}': {2}
+pak.err.other={0}: {1}
+image.usage.body=offset-romb  swaps the two diamond-shaped halves of a terrain tile, as\n             OffsetRomb did, to bring tile art drawn in the old offset layout\n             into the game's. Writes a 32-bit TGA to <out.tga>, or over\n             <in.tga> without --out.
+image.err.no_file={0}: no such file
+image.err.other={0}: {1}
+image.err.never_closes={0}: OffsetRomb's lines never close on a {1}x{2} image
+image.err.tga_truncated=not a TGA, or cut short
+image.err.tga_unsupported=not a true-colour (24/32-bit) or 8-bit grey TGA
+image.err.memory=out of memory
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

@@ -211,9 +211,15 @@ fn runTool(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, cwd: std.Io.Dir,
     defer argv.deinit(gpa);
     try argv.append(gpa, exe);
     try argv.appendSlice(gpa, args);
+    // The rules are checked in English: the tools follow BK_LANG and then the machine's locale, so
+    // the run must not depend on the machine it happens on.
+    var environ = try std.testing.environ.createMap(gpa);
+    defer environ.deinit();
+    try environ.put("BK_LANG", "en");
     const result = try std.process.run(gpa, io, .{
         .argv = argv.items,
         .cwd = .{ .dir = cwd },
+        .environ_map = &environ,
         .stdout_limit = .limited(1024 * 1024),
         .stderr_limit = .limited(1024 * 1024),
     });

@@ -21,7 +21,7 @@
 //!     };
 const std = @import("std");
 const builtin = @import("builtin");
-const languages = @import("l10n_languages");
+const languages = @import("l10n_languages.zig");
 
 /// The environment variable that replaces the embedded tables.
 pub const override_env = "BK_L10N_DIR";

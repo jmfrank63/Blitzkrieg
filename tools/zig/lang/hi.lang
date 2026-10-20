@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): hi.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  सहायता और संदेश किसी दूसरी भाषा ({0}) में दिखाता है।\nइसके बिना पहले BK_LANG, फिर ऑपरेटिंग सिस्टम की भाषा तय करती है।
+pak.usage.body=pack    <dir> की हर फाइल को क्रमबद्ध, / विभाजकों के साथ, संग्रहीत (बिना\n        संपीड़न की) प्रविष्टि के रूप में लिखता है: यही प्रारूप खेल माउंट करता है\n        और रिलीज़ पैकेजर लिखता है। वही ट्री, वही बाइट।\nunpack  पूरे आर्काइव की जाँच के बाद संग्रहीत और deflate प्रविष्टियों को <dir>\n        में निकालता है; कोई प्रविष्टि असुरक्षित या क्षतिग्रस्त हो तो कुछ नहीं लिखा जाता।\nlist    हर प्रविष्टि का आकार, विधि और आर्काइव में नाम दिखाता है।\nverify  हर प्रविष्टि का नाम, CRC-32 और आकार जाँचता है।
+pak.usage.note=मौजूदा आउटपुट फाइल केवल --force से बदली जाती है। Zip64 आर्काइव\n(65,535 से अधिक प्रविष्टियाँ या 4 GiB) समर्थित नहीं हैं।
+pak.err.exists={0} पहले से मौजूद है; बदलने के लिए --force दें
+pak.err.inside={0} उसी फोल्डर के अंदर है जिसे पैक किया जा रहा है
+pak.err.not_directory={0} फोल्डर नहीं है
+pak.err.not_found={0}: ऐसी कोई फाइल या फोल्डर नहीं है
+pak.err.too_many=65,535 से अधिक फाइलें; Zip64 आर्काइव समर्थित नहीं हैं
+pak.err.too_large=आर्काइव 4 GiB से बड़ा हो जाएगा; Zip64 आर्काइव समर्थित नहीं हैं
+pak.err.zip64={0} एक Zip64 आर्काइव है (65,535 से अधिक प्रविष्टियाँ या 4 GiB), जो समर्थित नहीं है
+pak.err.unsafe_name={0}: प्रविष्टि '{1}' आउटपुट फोल्डर के बाहर लिखी जाएगी (.., पूरा पथ, ड्राइव अक्षर या ':')
+pak.err.invalid_name={0}: प्रविष्टि का नाम '{1}' मान्य UTF-8 नहीं है या उसमें NUL है
+pak.err.duplicate={0}: प्रविष्टि '{1}' दो बार आई है
+pak.err.crc={0}: प्रविष्टि '{1}' अपने CRC-32 से मेल नहीं खाती
+pak.err.size={0}: प्रविष्टि '{1}' अपने दर्ज आकार से मेल नहीं खाती
+pak.err.method={0}: प्रविष्टि '{1}' न संग्रहीत है न deflate
+pak.err.encrypted={0}: एन्क्रिप्टेड प्रविष्टियाँ समर्थित नहीं हैं
+pak.err.not_zip={0} zip आर्काइव नहीं है या अधूरा है
+pak.err.entry_other={0}: प्रविष्टि '{1}': {2}
+pak.err.other={0}: {1}
+image.usage.body=offset-romb  भू-भाग की टाइल के दोनों समचतुर्भुज आधे भाग बदल देता है, जैसा\n             OffsetRomb करता था, ताकि पुराने ऑफ़सेट ढाँचे में बनी टाइल कला खेल के\n             ढाँचे में आ जाए। 32-बिट TGA को <out.tga> में लिखता है, या --out न\n             होने पर <in.tga> के ऊपर।
+image.err.no_file={0}: ऐसी कोई फाइल नहीं है
+image.err.other={0}: {1}
+image.err.never_closes={0}: {1}x{2} की छवि पर OffsetRomb की रेखाएँ कभी बंद नहीं होतीं
+image.err.tga_truncated=TGA नहीं है, या अधूरा है
+image.err.tga_unsupported=ट्रू-कलर (24/32-बिट) या 8-बिट ग्रे TGA नहीं है
+image.err.memory=मेमोरी समाप्त
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).

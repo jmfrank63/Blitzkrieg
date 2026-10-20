@@ -21,15 +21,13 @@
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
 
-const usage =
+const usage: bk_tool.Usage = .{
+    .synopsis =
     \\usage: bk-image offset-romb <in.tga> [--out <out.tga>]
     \\
-    \\offset-romb  swaps the two diamond-shaped halves of a terrain tile, as
-    \\             OffsetRomb did, to bring tile art drawn in the old offset layout
-    \\             into the game's. Writes a 32-bit TGA to <out.tga>, or over
-    \\             <in.tga> without --out.
-    \\
-;
+    ,
+    .body = &.{"image.usage.body"},
+};
 
 pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-image", usage, run);
@@ -62,15 +60,15 @@ fn run(ctx: *bk_tool.Context) !void {
     const cwd = std.Io.Dir.cwd();
 
     const bytes = cwd.readFileAlloc(ctx.io, in_path, arena, .limited(256 * 1024 * 1024)) catch |err| switch (err) {
-        error.FileNotFound => return ctx.fail("{s}: no such file", .{in_path}),
-        else => return ctx.fail("{s}: {s}", .{ in_path, @errorName(err) }),
+        error.FileNotFound => return ctx.failKey("image.err.no_file", .{in_path}),
+        else => return ctx.failKey("image.err.other", .{ in_path, @errorName(err) }),
     };
-    var image = readTga(arena, bytes) catch |err| return ctx.fail("{s}: {s}", .{ in_path, tgaErrorText(err) });
-    offsetRomb(&image) catch return ctx.fail("{s}: OffsetRomb's lines never close on a {d}x{d} image", .{ in_path, image.width, image.height });
+    var image = readTga(arena, bytes) catch |err| return ctx.failKey("image.err.other", .{ in_path, tgaErrorText(ctx, err) });
+    offsetRomb(&image) catch return ctx.failKey("image.err.never_closes", .{ in_path, image.width, image.height });
     const encoded = try writeTga(arena, image);
     if (std.fs.path.dirname(out_path)) |parent| try cwd.createDirPath(ctx.io, parent);
     cwd.writeFile(ctx.io, .{ .sub_path = out_path, .data = encoded }) catch |err|
-        return ctx.fail("{s}: {s}", .{ out_path, @errorName(err) });
+        return ctx.failKey("image.err.other", .{ out_path, @errorName(err) });
     try ctx.out.print("wrote {s}: {d}x{d}, romb halves swapped\n", .{ out_path, image.width, image.height });
 }
 
@@ -83,11 +81,11 @@ pub const Image = struct {
 
 pub const TgaError = error{ Truncated, Unsupported, OutOfMemory };
 
-fn tgaErrorText(err: TgaError) []const u8 {
+fn tgaErrorText(ctx: *bk_tool.Context, err: TgaError) []const u8 {
     return switch (err) {
-        error.Truncated => "not a TGA, or cut short",
-        error.Unsupported => "not a true-colour (24/32-bit) or 8-bit grey TGA",
-        error.OutOfMemory => "out of memory",
+        error.Truncated => ctx.text("image.err.tga_truncated"),
+        error.Unsupported => ctx.text("image.err.tga_unsupported"),
+        error.OutOfMemory => ctx.text("image.err.memory"),
     };
 }
 

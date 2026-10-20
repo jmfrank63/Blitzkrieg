@@ -1,0 +1,33 @@
+# Strings of the Zig bk-* tools (bk-pak, bk-image, bk-table, bk-video): de.
+# Format as the editor kit's tables (see tools/zig/bk_l10n.zig). Keep {0}..{9}, <placeholders>,
+# option and command names as in en.lang. The usage: and <tool>: prefixes are not here: they stay English.
+
+tool.usage.lang=--lang <code>  zeigt Hilfe und Meldungen in einer anderen Sprache ({0}).\nOhne Angabe entscheiden BK_LANG und danach die Sprache des Betriebssystems.
+pak.usage.body=pack    schreibt jede Datei unter <dir> als gespeicherten (unkomprimierten)\n        Eintrag, sortiert und mit / als Trenner: das Format, das das Spiel\n        einbindet und der Release-Packer schreibt. Gleicher Ordner, gleiche Bytes.\nunpack  entpackt gespeicherte und deflate-Einträge nach <dir>, nachdem das\n        ganze Archiv geprüft wurde; ist ein Eintrag unsicher oder beschädigt,\n        wird nichts geschrieben.\nlist    zeigt Größe, Methode und Archivnamen jedes Eintrags.\nverify  prüft Name, CRC-32 und Größe jedes Eintrags.
+pak.usage.note=Eine vorhandene Ausgabedatei wird nur mit --force ersetzt. Zip64-Archive\n(mehr als 65.535 Einträge oder 4 GiB) werden nicht unterstützt.
+pak.err.exists={0} existiert bereits; mit --force wird es ersetzt
+pak.err.inside={0} liegt in dem Ordner, der gepackt wird
+pak.err.not_directory={0} ist kein Ordner
+pak.err.not_found={0}: Datei oder Ordner nicht gefunden
+pak.err.too_many=mehr als 65.535 Dateien; Zip64-Archive werden nicht unterstützt
+pak.err.too_large=das Archiv würde 4 GiB überschreiten; Zip64-Archive werden nicht unterstützt
+pak.err.zip64={0} ist ein Zip64-Archiv (mehr als 65.535 Einträge oder 4 GiB), das nicht unterstützt wird
+pak.err.unsafe_name={0}: Der Eintrag '{1}' würde außerhalb des Ausgabeordners geschrieben (.., absoluter Pfad, Laufwerksbuchstabe oder ':')
+pak.err.invalid_name={0}: Der Eintragsname '{1}' ist kein gültiges UTF-8 oder enthält ein NUL
+pak.err.duplicate={0}: Der Eintrag '{1}' kommt zweimal vor
+pak.err.crc={0}: Der Eintrag '{1}' stimmt nicht mit seiner CRC-32 überein
+pak.err.size={0}: Der Eintrag '{1}' stimmt nicht mit seiner gespeicherten Größe überein
+pak.err.method={0}: Der Eintrag '{1}' ist weder gespeichert noch deflate
+pak.err.encrypted={0}: Verschlüsselte Einträge werden nicht unterstützt
+pak.err.not_zip={0} ist kein Zip-Archiv oder abgeschnitten
+pak.err.entry_other={0}: Eintrag '{1}': {2}
+pak.err.other={0}: {1}
+image.usage.body=offset-romb  vertauscht die beiden rautenförmigen Hälften einer Geländekachel wie\n             OffsetRomb, um in der alten Versatz-Anordnung gezeichnete Kachelgrafik\n             in die des Spiels zu bringen. Schreibt eine 32-Bit-TGA nach <out.tga>\n             oder ohne --out über <in.tga>.
+image.err.no_file={0}: Datei nicht gefunden
+image.err.other={0}: {1}
+image.err.never_closes={0}: Die Linien von OffsetRomb schließen sich bei einem Bild von {1}x{2} nie
+image.err.tga_truncated=keine TGA oder abgeschnitten
+image.err.tga_unsupported=keine True-Color-TGA (24/32 Bit) und keine 8-Bit-Graustufen-TGA
+image.err.memory=Speicher reicht nicht
+table.usage.body=export  flattens every file under <folder> whose name matches <mask> (* and ?,\n        any case) into a tab-separated sheet: a FileName column, then one\n        column per field path (attributes, element text, item(NN) lists).\n        --only keeps, --ignore drops the paths starting with a line's first\n        word in <fields.txt>. --no-recurse reads <folder> only, not below it.\nimport  writes the cells of a sheet that differ from the files back into\n        them, changing only those values' bytes. An empty cell or _ leaves a\n        value alone; a missing file or field is reported and skipped.\n        Legacy .txt sheets are accepted.\n\nThe stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>\notherwise, under the document element; --root <name> overrides it.
+video.usage.body=convert  turns every .bik under <dir> (default Data/movies) into an Ogg\n         Theora <name>.ogv beside it, and its first audio track into a\n         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and\n         ffprobe from PATH. Existing outputs are kept unless --force.\n         --no-recurse reads <dir> only, not below it. --what-if lists the\n         jobs without running them. --key-frame-interval is ffmpeg's -g\n         (default 1, every frame a key frame).
