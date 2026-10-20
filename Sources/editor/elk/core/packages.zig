@@ -450,12 +450,27 @@ pub const ExportOptions = struct {
     /// Generated fonts, named below `fonts/` (`medium/1.tfd`, `medium/1_c.dds`
     /// and so on), for an element whose `Fonts` flag is set.
     fonts: []const Entry = &.{},
+    /// A language whose script the game cannot draw character by character
+    /// (Devanagari): each exported text is rewritten before it goes into the
+    /// pak, the database itself stays real Unicode (M002 D058).
+    shape: ?Shaping = null,
     /// "Export to PAK by filter" (D6): only the texts the filter admits
     /// (`SSimpleFilter::Check` on each key and its state file) go into the
     /// pak; the MFC export wrote no file at all for the others.
     filter: ?filter_mod.Filter = null,
     /// D-14: one unit per text; a cancelled export writes nothing.
     progress: ?*Progress = null,
+};
+
+/// The rewrite `ExportOptions.shape` applies to every exported text. The
+/// shaper itself is C++ (HarfBuzz) and the core stays std-only Zig, so the
+/// caller brings it as a function; the cluster table it fills is the caller's
+/// too, and is written out next to the font it builds.
+pub const Shaping = struct {
+    context: ?*anyopaque = null,
+    /// `bytes` is one text as the database holds it (UTF-16LE with a byte-order
+    /// mark); returns the text to export in the same form, allocated with `gpa`.
+    rewrite: *const fn (context: ?*anyopaque, gpa: std.mem.Allocator, bytes: []const u8) anyerror![]u8,
 };
 
 /// A pak and how many entries it holds.
@@ -486,7 +501,8 @@ fn buildPak(gpa: std.mem.Allocator, db: *database.Database, element: usize, opti
         if (options.filter) |filter| if (!filter.matches(key, property)) continue;
         const translation = if (property.state != .not_translated) try db.readBytes(allocator, element, key, .translation) else null;
         const filled = if (translation) |bytes| !options.only_filled or bytes.len > 2 else false;
-        const bytes = if (filled) translation.? else try db.readBytes(allocator, element, key, .original) orelse "";
+        var bytes = if (filled) translation.? else try db.readBytes(allocator, element, key, .original) orelse "";
+        if (options.shape) |shape| bytes = try shape.rewrite(shape.context, allocator, bytes);
         try files.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ key, ".txt" }), .bytes = bytes });
     }
     for (options.fonts) |font| {
@@ -1074,6 +1090,70 @@ test "an export carries the translation or the original as the MFC export chose"
         try testing.expectEqual(case.names.len, filtered.len);
         for (case.names, filtered) |want, got| try testing.expectEqualStrings(want, got.name);
     }
+}
+
+/// A stand-in for the C++ shaper: every Devanagari code point becomes the
+/// Private Use Area character U+E000 + (code point - U+0900), the table being
+/// that shift, so the test needs no font. The real one is proved by the
+/// language-mods step.
+fn shiftDevanagari(context: ?*anyopaque, gpa: std.mem.Allocator, bytes: []const u8) anyerror![]u8 {
+    const calls: *usize = @ptrCast(@alignCast(context.?));
+    calls.* += 1;
+    const out = try gpa.dupe(u8, bytes);
+    var at: usize = 2;
+    while (at + 1 < out.len) : (at += 2) {
+        const unit = std.mem.readInt(u16, out[at..][0..2], .little);
+        if (unit >= 0x0900 and unit <= 0x097f) std.mem.writeInt(u16, out[at..][0..2], 0xE000 + (unit - 0x0900), .little);
+    }
+    return out;
+}
+
+test "an export through a shaper writes the rewritten texts, and none is byte-identical to before" {
+    const io = testing.io;
+    const root = try database.freshScratch(io, "export-shaped");
+    defer testing.allocator.free(root);
+    try database.writeFixture(io, root, "elk.xml", "<?xml version=\"1.0\"?>\r\n<base><Elements><item LastUpdateNumber=\"1\"><Path>game</Path></item></Elements></base>\r\n");
+    // U+0915 U+093F U+0938 U+094D U+0938 U+0947, "kisse", in UTF-16LE.
+    const hindi = "\xff\xfe\x15\x09\x3f\x09\x38\x09\x4d\x09\x38\x09\x47\x09";
+    const fixtures = [_][2][]const u8{
+        .{ "hi.elk", utf16("Credits") },  .{ "hi.txt", hindi }, .{ "hi.xml", stateBytes(3, 1) },
+        .{ "en.elk", utf16("Credits") },  .{ "en.txt", utf16("Back") },         .{ "en.xml", stateBytes(3, 1) },
+    };
+    for (fixtures) |fixture| {
+        const relative = try std.mem.concat(testing.allocator, u8, &.{ "game_data_base/", fixture[0] });
+        defer testing.allocator.free(relative);
+        try database.writeFixture(io, root, relative, fixture[1]);
+    }
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    var db = try database.Database.open(testing.allocator, io, elk_path);
+    defer db.deinit();
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+
+    const plain = try exportElement(testing.allocator, &db, 0, .{});
+    defer testing.allocator.free(plain);
+    const explicit_none = try exportElement(testing.allocator, &db, 0, .{ .shape = null });
+    defer testing.allocator.free(explicit_none);
+    try testing.expectEqualSlices(u8, plain, explicit_none);
+
+    var calls: usize = 0;
+    const shaped = try exportElement(testing.allocator, &db, 0, .{ .shape = .{ .context = &calls, .rewrite = shiftDevanagari } });
+    defer testing.allocator.free(shaped);
+    try testing.expectEqual(@as(usize, 2), calls);
+    const entries = try readBack(arena.allocator(), shaped);
+    try testing.expectEqual(@as(usize, 2), entries.len);
+    try testing.expectEqualStrings("en.txt", entries[0].name);
+    try testing.expectEqualSlices(u8, utf16("Back"), entries[0].bytes);
+    try testing.expectEqualStrings("hi.txt", entries[1].name);
+    var expected: std.ArrayListUnmanaged(u8) = .empty;
+    try expected.appendSlice(arena.allocator(), &.{ 0xff, 0xfe });
+    for ([_]u16{ 0xE015, 0xE03F, 0xE038, 0xE04D, 0xE038, 0xE047 }) |unit| {
+        var pair: [2]u8 = undefined;
+        std.mem.writeInt(u16, &pair, unit, .little);
+        try expected.appendSlice(arena.allocator(), &pair);
+    }
+    try testing.expectEqualSlices(u8, expected.items, entries[1].bytes);
 }
 
 test "an export goes to a mod, with a mod.xml when it has none, or into the game's Data" {

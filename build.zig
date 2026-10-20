@@ -3614,6 +3614,38 @@ pub fn build(b: *std.Build) void {
     const elk_game_reads_step = b.step("elk-game-reads-it", "Export the tracked Data/ELK to mods/ELKTest, capture the real Game's main menu before and after a marker translation of one label and prove from the frames that it shows the marker there (E-06); then switch the Game's Language option to the mod and back on its settings screen and across a restart, measured the same way (E-11)");
     elk_game_reads_step.dependOn(&elk_game_reads_tests.step);
     if (test_mode == .run) elk_game_reads_step.dependOn(&elk_game_reads_run.step);
+    // The language mods (M002 D060): lang-ru, lang-zh-hans, lang-ja and lang-hi
+    // of the install, built by ELK's pak export from Localization/ and the
+    // tracked Data/ELK, with bk-font's Noto fonts and, for Hindi, the HarfBuzz
+    // shaper rewriting the exported texts (tools/zig/language_mods.zig).
+    const language_mods_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/language_mods.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module } },
+    });
+    linkEngineCxxRuntimeEngine(b, language_mods_module, optimize);
+    language_mods_module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    language_mods_module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/language_mods_shape.cpp" },
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    addMsvcIncludePaths(b, language_mods_module, toolchain);
+    addMsvcLibraryPaths(b, language_mods_module, toolchain);
+    addLinuxCxxIncludePaths(b, language_mods_module);
+    language_mods_module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    const language_mods_tests = b.addTest(.{ .root_module = language_mods_module });
+    const language_mods_run = b.addRunArtifact(language_mods_tests);
+    language_mods_run.setCwd(b.path("."));
+    language_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    language_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
+    language_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    language_mods_run.has_side_effects = true;
+    language_mods_run.step.dependOn(install_game_step);
+    language_mods_run.step.dependOn(bk_font.install);
+    const language_mods_step = b.step("language-mods", "Build the ru, zh-Hans, ja and hi language mods from the Localization overlays through ELK's pak export, with their Noto fonts (Hindi shaped into Private Use Area clusters), and install them into the game's mods folder (M002 D060)");
+    language_mods_step.dependOn(&language_mods_tests.step);
+    if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
