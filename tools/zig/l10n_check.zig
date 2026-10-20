@@ -1024,23 +1024,84 @@ fn literalCall(line: []const u8) ?struct { call: []const u8, literal: []const u8
     return .{ .call = found.call, .literal = found.literal };
 }
 
-/// The first ID-bearing call on `line` whose first argument is `l10n.t(...)`.
-fn idCall(line: []const u8) ?[]const u8 {
-    const trimmed = std.mem.trimStart(u8, line, " \t");
-    if (std.mem.startsWith(u8, trimmed, "//")) return null;
-    var best: ?struct { at: usize, call: []const u8 } = null;
+/// `bytes` with comments and the inside of string and character literals blanked to spaces, line
+/// breaks kept, so a scan over the whole file never matches text that is not code.
+fn maskCode(arena: std.mem.Allocator, bytes: []const u8) ![]u8 {
+    const out = try arena.dupe(u8, bytes);
+    var i: usize = 0;
+    while (i < out.len) {
+        const ch = out[i];
+        if (ch == '/' and i + 1 < out.len and out[i + 1] == '/') {
+            while (i < out.len and out[i] != '\n') : (i += 1) out[i] = ' ';
+        } else if (ch == '\\' and i + 1 < out.len and out[i + 1] == '\\') {
+            while (i < out.len and out[i] != '\n') : (i += 1) out[i] = ' ';
+        } else if (ch == '"' or ch == '\'') {
+            i += 1;
+            while (i < out.len and out[i] != ch and out[i] != '\n') {
+                const step: usize = if (out[i] == '\\') 2 else 1;
+                var k: usize = 0;
+                while (k < step and i < out.len) : (k += 1) {
+                    if (out[i] != '\n') out[i] = ' ';
+                    i += 1;
+                }
+            }
+            if (i < out.len and out[i] == ch) i += 1;
+        } else i += 1;
+    }
+    return out;
+}
+
+fn skipSpace(code: []const u8, from: usize) usize {
+    var i = from;
+    while (i < code.len and std.ascii.isWhitespace(code[i])) i += 1;
+    return i;
+}
+
+fn lineOf(bytes: []const u8, at: usize) usize {
+    return std.mem.count(u8, bytes[0..at], "\n") + 1;
+}
+
+/// Rule literal, ID part, over the whole file so a call `zig fmt` wrapped is seen: an ID-bearing call
+/// whose first argument is `l10n.t(...)`, and a binding of `l10n.t` (an alias) outside kit/l10n.zig,
+/// which would hide such calls from this scan.
+fn scanIdRule(report: *Report, path: []const u8, bytes: []const u8) !void {
+    const arena = report.arena;
+    const code = try maskCode(arena, bytes);
     for (id_calls) |call| {
         var from: usize = 0;
-        while (std.mem.indexOfPos(u8, line, from, call)) |at| {
+        while (std.mem.indexOfPos(u8, code, from, call)) |at| {
             from = at + call.len;
-            if (at > 0 and isIdentChar(line[at - 1])) continue;
-            if (!std.mem.startsWith(u8, std.mem.trimStart(u8, line[from..], " "), "(")) continue;
-            const open = std.mem.indexOfScalarPos(u8, line, from, '(').?;
-            if (!std.mem.startsWith(u8, std.mem.trimStart(u8, line[open + 1 ..], " "), "l10n.t(")) continue;
-            if (best == null or at < best.?.at) best = .{ .at = at, .call = call };
+            if (at > 0 and (isIdentChar(code[at - 1]) or code[at - 1] == '@')) continue;
+            if (from < code.len and isIdentChar(code[from])) continue;
+            const open = skipSpace(code, from);
+            if (open >= code.len or code[open] != '(') continue;
+            const arg = skipSpace(code, open + 1);
+            if (!std.mem.startsWith(u8, code[arg..], "l10n.t(")) continue;
+            const where = try std.fmt.allocPrint(arena, "{s}:{d}", .{ path, lineOf(code, at) });
+            try report.addFmt("literal", "all", where, "{s} takes l10n.t as its label; use l10n.id so the ImGui ID does not depend on the language", .{call});
         }
     }
-    return if (best) |found| found.call else null;
+    if (std.mem.endsWith(u8, path, "kit/l10n.zig")) return;
+    var from: usize = 0;
+    while (std.mem.indexOfPos(u8, code, from, "l10n.t")) |at| {
+        from = at + "l10n.t".len;
+        if (at > 0 and isIdentChar(code[at - 1])) continue;
+        if (from < code.len and isIdentChar(code[from])) continue;
+        const next = skipSpace(code, from);
+        if (next >= code.len or (code[next] != ';' and code[next] != ',')) continue;
+        const where = try std.fmt.allocPrint(arena, "{s}:{d}", .{ path, lineOf(code, at) });
+        try report.addFmt("literal", "all", where, "l10n.t is bound to a name here; call l10n.t directly so the ID rule can see which labels are translated", .{});
+    }
+}
+
+/// Orders one file's findings by line; the sort is stable enough because a call reports once per line.
+fn byLine(_: void, a: Finding, b: Finding) bool {
+    return lineNumber(a.where) < lineNumber(b.where);
+}
+
+fn lineNumber(where: []const u8) usize {
+    const colon = std.mem.lastIndexOfScalar(u8, where, ':') orelse return 0;
+    return std.fmt.parseInt(usize, where[colon + 1 ..], 10) catch 0;
 }
 
 fn lessPath(_: void, a: []const u8, b: []const u8) bool {
@@ -1079,18 +1140,18 @@ pub fn checkLiterals(io: std.Io, report: *Report, root: std.Io.Dir, extra: []con
                 if (c.* == '\\') c.* = '/';
             }
             const bytes = (try readOptional(io, arena, root, path)) orelse continue;
+            const first_finding = report.findings.items.len;
             var lines = std.mem.splitScalar(u8, bytes, '\n');
             var number: usize = 0;
             while (lines.next()) |raw| {
                 number += 1;
                 const line = std.mem.trimEnd(u8, raw, "\r");
                 const where = try std.fmt.allocPrint(arena, "{s}:{d}", .{ path, number });
-                const found = literalCall(line) orelse {
-                    if (idCall(line)) |call| try report.addFmt("literal", "all", where, "{s} takes l10n.t as its label; use l10n.id so the ImGui ID does not depend on the language", .{call});
-                    continue;
-                };
+                const found = literalCall(line) orelse continue;
                 try report.addFmt("literal", "all", where, "{s} takes the English literal \"{s}\"; wrap it in l10n.t, l10n.id or l10n.format", .{ found.call, found.literal });
             }
+            try scanIdRule(report, path, bytes);
+            std.mem.sort(Finding, report.findings.items[first_finding..], {}, byLine);
         }
     };
     if (!scanned and extra.len == 0) try report.inactive.append(arena, "literals");
@@ -1346,6 +1407,42 @@ test "literalCall finds an English literal and skips wrapped text, format string
     try testing.expect(literalCall("c.igText(\"%s\", name)") == null);
     try testing.expect(literalCall("// c.igText(\"Hello\")") == null);
     try testing.expect(literalCall("c.my_igText(\"Hello\")") == null);
+}
+
+/// How many findings the ID rule reports for `source` as file `path`, and the line of the first.
+fn idFindings(path: []const u8, source: []const u8, first_line: *usize) !usize {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    var report: Report = .{ .arena = arena_state.allocator() };
+    try scanIdRule(&report, path, source);
+    if (report.findings.items.len != 0) {
+        const where = report.findings.items[0].where;
+        first_line.* = try std.fmt.parseInt(usize, where[std.mem.lastIndexOfScalar(u8, where, ':').? + 1 ..], 10);
+    }
+    return report.findings.items.len;
+}
+
+test "the ID rule sees wrapped calls and l10n.t aliases and keeps plain text, l10n.id and later arguments allowed" {
+    const testing = std.testing;
+    var line: usize = 0;
+    // (a) a wrapped call reports at the call's line
+    try testing.expectEqual(@as(usize, 1), try idFindings("app/a.zig", "const x = 1;\n    if (c.igButton(\n        l10n.t(\"file.save\"),\n        .{})) {}\n", &line));
+    try testing.expectEqual(@as(usize, 2), line);
+    // (b) whitespace between the name and the bracket, and the bracket and l10n.t
+    try testing.expectEqual(@as(usize, 1), try idFindings("app/a.zig", "c.igCheckbox  (\n\n  l10n.t(\"x\"), &v);\n", &line));
+    try testing.expectEqual(@as(usize, 1), line);
+    // (c) aliases outside kit/l10n.zig
+    try testing.expectEqual(@as(usize, 1), try idFindings("app/a.zig", "const tr = l10n.t;\n", &line));
+    try testing.expectEqual(@as(usize, 1), try idFindings("app/a.zig", "const t = @import(\"kit\").l10n.t;\n", &line));
+    try testing.expectEqual(@as(usize, 1), try idFindings("app/a.zig", "pub const t = l10n.t;\n", &line));
+    // (d) the same inside kit/l10n.zig
+    try testing.expectEqual(@as(usize, 0), try idFindings("Sources/editor/kit/l10n.zig", "pub const t = l10n.t;\n", &line));
+    // (e) plain text stays allowed, wrapped or not
+    try testing.expectEqual(@as(usize, 0), try idFindings("app/a.zig", "c.igTextUnformatted(l10n.t(\"a\"));\nc.igText(\n  l10n.t(\"b\"));\nc.igSetTooltip(\n l10n.t(\"c\"));\n", &line));
+    // (f) l10n.id stays allowed, wrapped or not
+    try testing.expectEqual(@as(usize, 0), try idFindings("app/a.zig", "c.igButton(l10n.id(\"a\"));\nc.igButton(\n  l10n.id(\"b\"));\n", &line));
+    // (g) l10n.t after the first argument stays allowed; so do calls in comments and strings, and a longer name
+    try testing.expectEqual(@as(usize, 0), try idFindings("app/a.zig", "c.igButton(label, l10n.t(\"x\"));\n// c.igButton(l10n.t(\"x\"))\nconst s = \"igButton(l10n.t(\";\nc.igButtonFoo(l10n.t(\"x\"));\nconst r = l10n.t(\"k\");\n", &line));
 }
 
 test "the document rule finds no fault in the real README set and every translation is a real one" {
