@@ -27,6 +27,10 @@ pub fn draw() void {
     setStatus(state, "Saved the map", .{});
     setStatusFrom(state, l10n.t("status.ok"), "Failed");
     note(state, "Careful");
+    say(&buf, "Saved the map", .{});
+    sayImport(state, "Imported", .{});
+    say(&buf, "file.saved", .{});
+    sayImport(state, "file.imported", .{});
     _ = c.igBeginCombo("##mode", l10n.t("file.mode"), 0);
     setStatus(state, l10n.format("file.saved", .{"x"}), .{});
     _ = c.igInputTextWithHint("##name", l10n.t("file.hint"), &buf, buf.len, 0, null, null);

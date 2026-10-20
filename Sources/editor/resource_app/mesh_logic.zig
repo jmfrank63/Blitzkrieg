@@ -8,6 +8,7 @@
 //! Runs under `zig build test-resource-app-logic` against the fake bridge.
 const std = @import("std");
 const core = @import("resource_core");
+const l10n = @import("editor_kit").l10n;
 const edit = @import("edit_logic.zig");
 const dl = @import("docks_logic.zig");
 
@@ -35,11 +36,9 @@ pub const Variant = enum(u8) {
     install = 1,
     transportable = 2,
 
-    pub fn label(self: Variant) [:0]const u8 {
+    pub fn label(self: Variant) [*:0]const u8 {
         return switch (self) {
-            .combat => "Combat",
-            .install => "Install",
-            .transportable => "Transportable",
+            inline else => |tag| l10n.t("resource_app.mesh_variant." ++ @tagName(tag)),
         };
     }
 };
@@ -95,8 +94,13 @@ pub fn pickAndSelect(gpa: std.mem.Allocator, doc: *const Document, selection: *e
 /// The line a pick miss logs: the click and the distance to the nearest
 /// locator marker.
 pub fn missText(buffer: []u8, at: Point2, nearest: ?Nearest) []const u8 {
-    if (nearest) |n| return std.fmt.bufPrint(buffer, "no locator at ({d:.0}, {d:.0}): the nearest is {d:.1} px away (radius {d:.0})", .{ at.x, at.y, n.distance, pick_radius_px }) catch buffer[0..0];
-    return std.fmt.bufPrint(buffer, "no locator at ({d:.0}, {d:.0}): the preview has none", .{ at.x, at.y }) catch buffer[0..0];
+    // The tables fill integers and strings, so the distances are formatted first.
+    const x: i32 = @intFromFloat(@round(at.x));
+    const y: i32 = @intFromFloat(@round(at.y));
+    const n = nearest orelse return l10n.say(buffer, "resource_app.mesh.miss_none", .{ x, y });
+    var distance: [24]u8 = undefined;
+    const away = std.fmt.bufPrint(&distance, "{d:.1}", .{n.distance}) catch "?";
+    return l10n.say(buffer, "resource_app.mesh.miss_nearest", .{ x, y, away, @as(i32, @intFromFloat(@round(pick_radius_px))) });
 }
 
 /// The preview toolbar's state: the variant shown and the two display
@@ -514,4 +518,12 @@ test "undo and redo: a platform and a gun inserted and deleted" {
     try expectText("LMainGun1", propText(&rig, restored, 1), "after undo of the delete", restored, 1);
     try rig.redo(gpa);
     try testing.expectEqual(count - 1, rig.doc.tree.nodes.items.len);
+}
+
+test "every mesh variant has a non-empty label in the string table" {
+    inline for (std.enums.values(Variant)) |tag| {
+        const text = std.mem.span(tag.label());
+        try std.testing.expect(text.len != 0);
+        try std.testing.expect(!std.mem.startsWith(u8, text, "resource_app."));
+    }
 }

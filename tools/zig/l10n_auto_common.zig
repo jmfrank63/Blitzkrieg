@@ -450,6 +450,12 @@ fn onGrid(allocator: std.mem.Allocator, reference: Gray, ink: Gray) !Gray {
 }
 
 pub fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, run: Run, items: []const Item, report: *Report) !void {
+    return checkHanAtLeast(io, allocator, language, run, items, report, 2);
+}
+
+/// `checkHan` for a frame whose labels hold few Han characters that the two faces draw differently (a
+/// menu bar of mostly kana): `least` of them must be informative.
+pub fn checkHanAtLeast(io: std.Io, allocator: std.mem.Allocator, language: Language, run: Run, items: []const Item, report: *Report, least: usize) !void {
     const own_is_sc = std.mem.eql(u8, language.code, "zh-Hans");
     const own_name = if (own_is_sc) "Simplified Chinese" else "Japanese";
     // Whole labels barely tell the faces apart, so the verdict is taken per Han character: the CJK
@@ -486,7 +492,7 @@ pub fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, ru
             won += @intFromBool(margin > 0);
         }
     }
-    try report.check(informative >= 2, "{s}: {d} Han characters are drawn differently by the two faces (at least 2: the labels have few)", .{ language.code, informative });
+    try report.check(informative >= least, "{s}: {d} Han characters are drawn differently by the two faces (at least {d}: the labels have few)", .{ language.code, informative, least });
     const mean = margin_sum / @as(f64, @floatFromInt(@max(informative, 1)));
     try report.check(mean >= min_face_margin, "{s}: over those characters the {s} face wins by {d:.3} on average (at least {d:.2}), in {d} of {d}", .{ language.code, own_name, mean, min_face_margin, won, informative });
     try report.check(won * 3 >= informative * 2, "{s}: the {s} face is nearer in {d} of {d} of those characters (at least two in three)", .{ language.code, own_name, won, informative });

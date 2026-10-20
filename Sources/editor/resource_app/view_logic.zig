@@ -5,6 +5,7 @@
 //! functions the menu calls. The toggles and the colour persist in
 //! resourceeditor.cfg (settings.zig); the flag does not, as in MFC.
 const std = @import("std");
+const l10n = @import("editor_kit").l10n;
 const settings_mod = @import("settings.zig");
 
 /// The four toggles, named as the auto tier's `do=view:<name>:<on|off>` says them.
@@ -22,12 +23,9 @@ pub const Part = enum {
     }
 
     /// The menu's label, MFC's View menu wording.
-    pub fn label(self: Part) [:0]const u8 {
+    pub fn label(self: Part) [*:0]const u8 {
         return switch (self) {
-            .toolbar => "Toolbar",
-            .status_bar => "Status Bar",
-            .tree => "Project Tree",
-            .inspector => "Object Inspector",
+            inline else => |tag| l10n.t("resource_app.view_part." ++ @tagName(tag)),
         };
     }
 };
@@ -148,4 +146,12 @@ test "part names, colour text and the picker's floats" {
     try testing.expectEqual(@as(u32, 0xff8000), packColour(1, 128.0 / 255.0, 0));
     const back = unpackColour(0x0a1b2c);
     try testing.expectEqual(@as(u32, 0x0a1b2c), packColour(back[0], back[1], back[2]));
+}
+
+test "every view part has a non-empty menu label in the string table" {
+    inline for (std.enums.values(Part)) |tag| {
+        const text = std.mem.span(tag.label());
+        try std.testing.expect(text.len != 0);
+        try std.testing.expect(!std.mem.startsWith(u8, text, "resource_app."));
+    }
 }

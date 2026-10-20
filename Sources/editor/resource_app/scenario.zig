@@ -131,6 +131,7 @@
 //! action prints the frame and the entry, and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
+const imgui = @import("editor_imgui");
 const kit = @import("editor_kit");
 const core = @import("resource_core");
 const host_mod = kit.host;
@@ -152,6 +153,7 @@ const view_logic = @import("view_logic.zig");
 const game_reads = @import("game_reads_logic.zig");
 
 const c = c_bridge.c;
+const ig = imgui.c;
 
 const Kind = core.bridge.Kind;
 const ResBridge = core.bridge.ResBridge;
@@ -204,6 +206,18 @@ fn onOff(on: bool) []const u8 {
 
 /// One frame of the interactive loop's drawing: events, the panels over the
 /// engine's frame.
+/// The l10n tier's menu bar: the scenario does not run the interactive loop's menus, so with
+/// `rect_log` on it draws the top-level labels (closed) for the tier to measure.
+fn drawL10nMenuBar() void {
+    if (!ig.igBeginMainMenuBar()) return;
+    inline for (.{ "file", "edit", "tools", "editors", "view", "preview", "help" }) |name| {
+        const key = "resource_app.menu." ++ name;
+        if (ig.igBeginMenuEx(kit.l10n.id(key), true)) ig.igEndMenu();
+        kit.l10n.noteRect(key);
+    }
+    ig.igEndMainMenuBar();
+}
+
 fn drawFrame(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) host_mod.HostError!void {
     return drawFrameWithDocks(host, panels, gpa, b, life, null, null, null);
 }
@@ -214,6 +228,7 @@ fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std
     var event: sdl3.c.SDL_Event = undefined;
     while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
     host.beginFrame();
+    if (kit.l10n.rect_log) drawL10nMenuBar();
     panels.draw(gpa, b, life, host.window);
     if (docks) |d| {
         d.handleShortcuts();
@@ -547,6 +562,12 @@ const Runner = struct {
                 var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
                 const path = self.shotPath(&buffer, name) orelse return self.fail("the shot path is too long", .{});
                 if (!capture(&self.real, self.gpa, path)) return self.fail("the frame was not captured: {s}", .{self.bridge().lastMessage()});
+                if (kit.l10n.rect_log) {
+                    var width: c_int = 0;
+                    var height: c_int = 0;
+                    _ = sdl3.c.SDL_GetWindowSizeInPixels(self.host.window, &width, &height);
+                    std.debug.print("l10n-auto: shot {s} {d}x{d}\n", .{ name, width, height });
+                }
                 return null;
             },
             .differ => |d| {
@@ -858,7 +879,7 @@ const Runner = struct {
             const mode = parseMode(named.arg) orelse return self.fail("generate_points needs smoke or dir", .{});
             if (mode != .smoke and mode != .dir_explosion) return self.fail("generate_points needs smoke or dir", .{});
             const editor = self.gridEditor(name) orelse return self.fail("generate_points: no grid editor is open (draw a frame after opening a bld)", .{});
-            editor.setTool(b, pointTool(mode)) catch return self.fail("generate_points: the {s} tool is not offered for .{s}", .{ pointTool(mode).label(), self.life.doc.kind.extension() });
+            editor.setTool(b, pointTool(mode)) catch return self.fail("generate_points: the {s} tool is not offered for .{s}", .{ std.mem.span(pointTool(mode).label()), self.life.doc.kind.extension() });
             editor.generate(b, &self.life.doc, &self.life.history) catch |err| return self.fail("generate_points:{s}: {s} {s}", .{ named.arg, @errorName(err), b.lastMessage() });
             return null;
         }
@@ -2164,7 +2185,7 @@ const Runner = struct {
             if (tile[0] < 0 or tile[1] < 0 or tile[0] >= grid.grid_tiles or tile[1] >= grid.grid_tiles)
                 return self.fail("{s}: tile {d}/{d} is outside the {d} x {d} grid", .{ verb, tile[0], tile[1], grid.grid_tiles, grid.grid_tiles });
         }
-        editor.setTool(b, tool) catch return self.fail("{s}: the {s} tool is not offered for .{s}", .{ verb, tool.label(), self.life.doc.kind.extension() });
+        editor.setTool(b, tool) catch return self.fail("{s}: the {s} tool is not offered for .{s}", .{ verb, std.mem.span(tool.label()), self.life.doc.kind.extension() });
         const start = editor.view.toScreen(grid.tileCentre(from[0], from[1]));
         const end = editor.view.toScreen(grid.tileCentre(to[0], to[1]));
         editor.press(b, start, erase) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });

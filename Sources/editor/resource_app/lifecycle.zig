@@ -15,6 +15,7 @@ const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
 const app_settings = @import("settings.zig");
 
+const l10n = kit.l10n;
 const bridge = core.bridge;
 const Kind = bridge.Kind;
 const ResBridge = bridge.ResBridge;
@@ -24,11 +25,13 @@ const Pending = logic.Pending;
 
 // --- Names ----------------------------------------------------------------
 
-/// File > New's label for a kind: its Editors menu label, and "GUI Editor"
-/// for the one kind the Editors menu leaves out.
-pub fn kindLabel(kind: Kind) [:0]const u8 {
-    if (logic.menuEntry(kind)) |entry| return entry.label;
-    return "GUI Editor";
+/// A kind's name in the current language: its Editors menu label, and the
+/// GUI Editor's for the one kind the Editors menu leaves out. One string
+/// table key per kind, so File > New, the Editors menu and the dialogs agree.
+pub fn kindLabel(kind: Kind) [*:0]const u8 {
+    switch (kind) {
+        inline else => |k| return l10n.t("resource_app.kind." ++ @tagName(k)),
+    }
 }
 
 /// `path` with the kind's extension appended when it has another one or
@@ -265,10 +268,11 @@ pub const Session = struct {
         return self.message_buffer[0..self.message_len];
     }
 
-    fn say(self: *Session, comptime format: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.message_buffer, format, args) catch blk: {
-            break :blk self.message_buffer[0..];
-        };
+    /// The status line's message: the string table's `key` filled with `args`
+    /// (engine text, such as the bridge's last message, passes through as an
+    /// argument and stays English), cut where the buffer ends.
+    fn say(self: *Session, comptime key: []const u8, args: anytype) void {
+        const text = l10n.format(&self.message_buffer, key, args) catch self.message_buffer[0..];
         self.message_len = text.len;
     }
 
@@ -357,17 +361,17 @@ pub const Session = struct {
         if (!self.lock_prompt.asking) return false;
         self.lock_prompt.asking = false;
         if (choice == .read_only) {
-            self.say("opened read-only: locked by {s}", .{self.lock_prompt.owner()});
+            self.say("resource_app.msg.lock_read_only", .{self.lock_prompt.owner()});
             return false;
         }
         if (ctx.take_over.call(ctx.take_over.ptr) != .ok) {
-            self.say("the lock was not taken over: {s}", .{ctx.bridge.lastMessage()});
+            self.say("resource_app.msg.lock_not_taken", .{ctx.bridge.lastMessage()});
             return false;
         }
         self.life.read_only = false;
         if (self.life.doc.lock_owner) |*current| current.deinit(ctx.allocator);
         self.life.doc.lock_owner = core.document.LockOwner.fromSlice(ctx.allocator, ctx.owner) catch null;
-        self.say("took the lock over from {s}", .{self.lock_prompt.owner()});
+        self.say("resource_app.msg.lock_taken", .{self.lock_prompt.owner()});
         return true;
     }
 
@@ -375,11 +379,11 @@ pub const Session = struct {
         switch (action) {
             .new_project => |kind| {
                 self.life.newProject(ctx.allocator, ctx.bridge, kind) catch {
-                    self.say("a new {s} project was refused: {s}", .{ kind.extension(), ctx.bridge.lastMessage() });
+                    self.say("resource_app.msg.new_refused", .{ kind.extension(), ctx.bridge.lastMessage() });
                     return;
                 };
                 self.dropRecovery(ctx);
-                self.say("new {s} project", .{kind.extension()});
+                self.say("resource_app.msg.new_ok", .{kind.extension()});
             },
             .open_dialog => self.dialog = .open,
             .open_path => |path| self.openPath(ctx, path.slice()),
@@ -388,19 +392,19 @@ pub const Session = struct {
                 // A refusal (a kind whose import is not ported) keeps the
                 // open project; the bridge's message names the kind.
                 self.life.importFromGame(ctx.allocator, ctx.bridge, import.kind, folder) catch {
-                    self.say("import of {s} from {s} refused: {s}", .{ import.kind.extension(), folder, ctx.bridge.lastMessage() });
+                    self.say("resource_app.msg.import_refused", .{ import.kind.extension(), folder, ctx.bridge.lastMessage() });
                     return;
                 };
                 self.dropRecovery(ctx);
-                self.say("imported a new, unsaved {s} project from {s}", .{ import.kind.extension(), folder });
+                self.say("resource_app.msg.import_ok", .{ import.kind.extension(), folder });
             },
             .close => {
                 self.life.closeProject(ctx.allocator, ctx.bridge) catch {
-                    self.say("close failed: {s}", .{ctx.bridge.lastMessage()});
+                    self.say("resource_app.msg.close_failed", .{ctx.bridge.lastMessage()});
                     return;
                 };
                 self.dropRecovery(ctx);
-                self.say("closed", .{});
+                self.say("resource_app.msg.closed", .{});
             },
             .quit => {
                 self.dropRecovery(ctx);
@@ -408,7 +412,7 @@ pub const Session = struct {
             },
             .switch_editor => |kind| {
                 const outcome = self.life.switchEditor(ctx.allocator, ctx.bridge, kind, ctx.owner) catch {
-                    self.say("switching to {s} failed: {s}", .{ kindLabel(kind), ctx.bridge.lastMessage() });
+                    self.say("resource_app.msg.switch_failed", .{ kindLabel(kind), ctx.bridge.lastMessage() });
                     return;
                 };
                 if (outcome != .unchanged) self.dropRecovery(ctx);
@@ -420,16 +424,16 @@ pub const Session = struct {
     }
 
     fn askLock(self: *Session) void {
-        const owner = if (self.life.doc.lock_owner) |o| o.name else "another user";
+        const owner = if (self.life.doc.lock_owner) |o| o.name else l10n.str("resource_app.lock.other_user");
         self.lock_prompt.ask(owner);
     }
 
     fn openPath(self: *Session, ctx: *const Ctx, path: []const u8) void {
         const outcome = self.life.openProject(ctx.allocator, ctx.bridge, path, ctx.owner) catch |err| {
             if (err == error.Refused and logic.kindFromPath(path) == null) {
-                self.say("{s} is not a resource project", .{path});
+                self.say("resource_app.msg.not_project", .{path});
             } else {
-                self.say("could not open {s}: {s}", .{ path, ctx.bridge.lastMessage() });
+                self.say("resource_app.msg.open_failed", .{ path, ctx.bridge.lastMessage() });
             }
             ctx.settings.forgetRecent(path);
             self.settings_changed = true;
@@ -446,7 +450,7 @@ pub const Session = struct {
             self.settings_changed = true;
         }
         switch (outcome) {
-            .opened => self.say("opened {s}", .{path}),
+            .opened => self.say("resource_app.msg.opened", .{path}),
             .read_only => self.askLock(),
         }
     }
@@ -456,7 +460,7 @@ pub const Session = struct {
     fn saveAsTo(self: *Session, ctx: *const Ctx, chosen: []const u8) bool {
         var buffer: [logic.path_capacity]u8 = undefined;
         const path = withExtension(&buffer, chosen, self.life.doc.kind) orelse {
-            self.say("the path is too long", .{});
+            self.say("resource_app.msg.path_too_long", .{});
             return false;
         };
         return self.saveTo(ctx, path);
@@ -468,7 +472,7 @@ pub const Session = struct {
     /// recent list, the projects folder and the recovery copy follow.
     fn saveTo(self: *Session, ctx: *const Ctx, path: []const u8) bool {
         if (isShipped(ctx, path)) {
-            self.say("{s} is shipped game data: save the project in a folder of your own", .{path});
+            self.say("resource_app.msg.shipped", .{path});
             return false;
         }
         const held: SessionBackups.Held = if (ctx.files) |files| self.backups.before(files, path) else .none;
@@ -478,7 +482,7 @@ pub const Session = struct {
         };
         if (ctx.files) |files| self.backups.after(ctx.allocator, files, path, held, ok);
         if (!ok) {
-            self.say("save failed: {s}", .{if (self.life.read_only and !isShipped(ctx, path)) "the project is locked by another user; use Save As" else ctx.bridge.lastMessage()});
+            self.say("resource_app.msg.save_failed", .{if (self.life.read_only and !isShipped(ctx, path)) l10n.str("resource_app.msg.save_locked") else ctx.bridge.lastMessage()});
             return false;
         }
         if (self.recovery_active) |active| {
@@ -489,7 +493,7 @@ pub const Session = struct {
             if (std.fs.path.dirname(path)) |folder| ctx.settings.projects_folder.set(folder);
             self.settings_changed = true;
         }
-        self.say("saved {s}", .{path});
+        self.say("resource_app.msg.saved", .{path});
         return true;
     }
 
@@ -527,21 +531,21 @@ pub const Session = struct {
                 var folder_buffer: [logic.path_capacity]u8 = undefined;
                 const path: []const u8 = if (self.recovery_active) |*active| active.slice() else blk: {
                     const folder = recoveryFolder(&folder_buffer, ctx.user_root) orelse {
-                        self.say("autosave failed: no user folder for the recovery copy", .{});
+                        self.say("resource_app.msg.autosave_no_folder", .{});
                         return .failed;
                     };
                     break :blk recoveryPath(&path_buffer, folder, self.life.doc.pathSlice(), self.life.doc.kind) orelse {
-                        self.say("autosave failed: the recovery path is too long", .{});
+                        self.say("resource_app.msg.autosave_path_long", .{});
                         return .failed;
                     };
                 };
                 const text = PathText.fromSlice(path) orelse return .failed;
                 if (ctx.bridge.save(text.slice()) != .ok) {
-                    self.say("autosave failed: {s}", .{ctx.bridge.lastMessage()});
+                    self.say("resource_app.msg.autosave_failed", .{ctx.bridge.lastMessage()});
                     return .failed;
                 }
                 self.recovery_active = text;
-                self.say("recovery copy written", .{});
+                self.say("resource_app.msg.recovery_written", .{});
                 return .{ .recovery = text };
             },
         }
@@ -629,12 +633,12 @@ const Harness = struct {
 test "File > New offers all 21 kinds with a label each" {
     var seen: usize = 0;
     inline for (std.enums.values(Kind)) |kind| {
-        try testing.expect(kindLabel(kind).len != 0);
+        try testing.expect(std.mem.span(kindLabel(kind)).len != 0);
         seen += 1;
     }
     try testing.expectEqual(@as(usize, 21), seen);
-    try testing.expectEqualStrings("GUI Editor", kindLabel(.gui_frame));
-    try testing.expectEqualStrings("Weapon Editor", kindLabel(.weapon));
+    try testing.expectEqualStrings("GUI Editor", std.mem.span(kindLabel(.gui_frame)));
+    try testing.expectEqualStrings("Weapon Editor", std.mem.span(kindLabel(.weapon)));
 }
 
 test "New for every kind opens an empty, clean, untitled project through the session" {

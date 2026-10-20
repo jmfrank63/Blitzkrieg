@@ -10332,6 +10332,18 @@ fn addResourceEditor(
     install_exe.step.dependOn(install_game_step);
     const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
     install_step.dependOn(&install_exe.step);
+    // The bundled Noto faces and their licence beside the executable (D078);
+    // kit/fonts.zig reads them from <exe dir>/Fonts/ or BK_FONT_DIR.
+    const install_fonts = b.addInstallDirectory(.{
+        .source_dir = b.path("vendor/fonts"),
+        .install_dir = .{ .custom = stage_suffix },
+        .install_subdir = "Fonts",
+        .include_extensions = &.{ ".ttf", ".otf", ".txt" },
+    });
+    install_fonts.step.dependOn(install_game_step);
+    install_step.dependOn(&install_fonts.step);
+    // Every step that runs the installed Resource Editor has the faces beside it.
+    install_exe.step.dependOn(&install_fonts.step);
 
     // Launched from zig-out like map-editor-host-check, for the same reason:
     // the editor finds its installation beside its own executable, whatever
@@ -10452,6 +10464,45 @@ fn addResourceEditor(
     const game_reads_step = b.step("resource-editor-game-reads-it", "Export one resource per object-side kind into a mod, play shipped maps with it in the real Game and prove from BK_MOD_TRACE that it read each exported file (result.log)");
     game_reads_step.dependOn(&install_exe.step);
     if (test_mode == .run) game_reads_step.dependOn(&cleanup_game_reads.step);
+
+    // M002 S06 D066: the installed Resource Editor in each of the ten languages draws its main window
+    // and menu bar; tools/zig/resource_editor_l10n_auto.zig measures the captured frames against
+    // hb-view's rasters of the tables' texts, and the missing-key case. It needs a GPU device and
+    // hb-view (D069) and fails without them. The exe's install brings the Fonts/ it loads. After the
+    // smoke so two engines never start at once; not part of the aggregate resource-editor-auto.
+    const l10n_auto_measure = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_auto_common = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_auto_common.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_measure", .module = l10n_auto_measure }},
+    });
+    const l10n_auto_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/resource_editor_l10n_auto.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_auto_common", .module = l10n_auto_common }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_auto_module, toolchain);
+    }
+    const l10n_auto_tests = b.addTest(.{ .root_module = l10n_auto_module });
+    const l10n_auto_run = b.addRunArtifact(l10n_auto_tests);
+    setLeakReportStrict(l10n_auto_run);
+    l10n_auto_run.setCwd(b.path("."));
+    l10n_auto_run.setEnvironmentVariable("BK_RESOURCE_EDITOR_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    // Reads the tables and the fixtures, writes its frames under zig-out/local-test.
+    l10n_auto_run.has_side_effects = true;
+    l10n_auto_run.step.dependOn(&install_exe.step);
+    l10n_auto_run.step.dependOn(&smoke_run.step);
+    const l10n_auto_step = b.step("resource-editor-l10n-auto", "Start the installed Resource Editor hidden in each of the ten languages (ui_language in a scratch resourceeditor.cfg), capture its main window with the menu bar, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages), then a table missing one key: one l10n: missing line and the label drawn in English (M002 S06, D066)");
+    l10n_auto_step.dependOn(&l10n_auto_tests.step);
+    l10n_auto_step.dependOn(&install_exe.step);
+    if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
     return exe;
 }
 

@@ -25,6 +25,7 @@ const ig = imgui.c;
 const Kind = core.bridge.Kind;
 const ModSettings = core.bridge.ModSettings;
 const testlaunch = kit.testlaunch;
+const l10n = kit.l10n;
 
 const field_capacity = 1024;
 const shortcut_label = if (builtin.os.tag == .macos) "Cmd" else "Ctrl";
@@ -57,6 +58,14 @@ const Modal = enum {
         };
     }
 };
+
+/// Begins a top-level menu of the menu bar, labelled by the string table's `key`, and notes where it
+/// drew for the l10n tier. The ID suffix keeps the menu's identity across language switches.
+pub fn beginTopMenu(comptime key: []const u8) bool {
+    const open = ig.igBeginMenuEx(l10n.id(key), true);
+    l10n.noteRect(key);
+    return open;
+}
 
 pub const Tools = struct {
     gpa: std.mem.Allocator,
@@ -93,6 +102,11 @@ pub const Tools = struct {
 
     running: ?testlaunch.Running = null,
     game_log: [field_capacity]u8 = @splat(0),
+
+    /// The Tools menu's language choice, applied between frames (`applyPendingLanguage`): the font
+    /// stack and the tables may not change under a frame in progress.
+    language_choice: [16]u8 = @splat(0),
+    language_choice_len: usize = 0,
 
     /// On the heap like lifecycle_ui.Ui: the edit buffers and the export
     /// report are tens of kilobytes. Hooks itself into `ui`'s File menu.
@@ -145,7 +159,7 @@ pub const Tools = struct {
     /// The Tools menu. MFC's SaveMapObjects is not here: it had no menu
     /// entry and no message-map entry (06-PARITY.md A-23).
     pub fn drawToolsMenu(self: *Tools) void {
-        if (!ig.igBeginMenuEx("Tools", true)) return;
+        if (!beginTopMenu("resource_app.menu.tools")) return;
         const state = self.ui.session.life.menuState();
         if (ig.igMenuItemEx("Set Directories...", shortcut_label ++ "+T", false, logic.isEnabled(.set_directories, state))) self.perform(.set_directories);
         if (ig.igMenuItemEx("Export Stats Only", shortcut_label ++ "+R", false, logic.isEnabled(.export_stats_only, state))) self.perform(.export_stats_only);
@@ -153,17 +167,45 @@ pub const Tools = struct {
         ig.igSeparator();
         const running = self.gameRunning();
         if (ig.igMenuItemEx(if (running) "Run Blitzkrieg (running)" else "Run Blitzkrieg", "F7", false, logic.isEnabled(.run_game, state) and !running)) self.perform(.run_game);
+        ig.igSeparator();
+        self.drawLanguage();
         ig.igEndMenu();
+    }
+
+    /// The kit's language picker. It only records the choice; `applyPendingLanguage` acts on it.
+    fn drawLanguage(self: *Tools) void {
+        if (kit.language_picker.draw(kit.settings.uiLanguage(&self.ui.settings))) |choice| {
+            const len = @min(choice.value.len, self.language_choice.len);
+            @memcpy(self.language_choice[0..len], choice.value[0..len]);
+            self.language_choice_len = len;
+        }
+    }
+
+    /// Between two frames: the picker's choice written to `ui_language` (and, in a persistent run,
+    /// to resourceeditor.cfg), the fonts rebuilt for it and the tables switched. A font that does
+    /// not load is logged and the language stays as it was.
+    fn applyPendingLanguage(self: *Tools) void {
+        if (self.language_choice_len == 0) return;
+        const setting = self.language_choice[0..self.language_choice_len];
+        self.language_choice_len = 0;
+        self.ui.settings.ui_language_storage.set(setting);
+        self.ui.session.settings_changed = true;
+        const code = kit.language_picker.chooseLanguage(&self.ui.settings, !self.ui.persistent);
+        _ = kit.fonts.reload(code) catch |err| {
+            std.debug.print("resource-editor: the fonts did not reload for {s} ({s})\n", .{ code, @errorName(err) });
+            return;
+        };
+        l10n.setLanguage(code);
     }
 
     /// The Editors menu: MFC's twenty entries with their separators, the
     /// active sub-editor checked. A choice goes through the session, which
     /// asks about unsaved changes, parks the open project and remembers it.
     pub fn drawEditorsMenu(self: *Tools) void {
-        if (!ig.igBeginMenuEx("Editors", true)) return;
+        if (!beginTopMenu("resource_app.menu.editors")) return;
         for (logic.editors_menu) |entry| {
             if (entry.separator_before) ig.igSeparator();
-            if (ig.igMenuItemEx(entry.label.ptr, null, entry.kind == self.ui.session.life.active, true)) self.switchEditor(entry.kind);
+            if (ig.igMenuItemEx(lifecycle.kindLabel(entry.kind), null, entry.kind == self.ui.session.life.active, true)) self.switchEditor(entry.kind);
         }
         ig.igEndMenu();
     }
@@ -171,12 +213,12 @@ pub const Tools = struct {
     /// The Editors combo in the menu bar (MFC's toolbar combo).
     pub fn drawEditorCombo(self: *Tools) void {
         const active = self.ui.session.life.active;
-        const preview: [*:0]const u8 = if (logic.menuEntry(active)) |entry| entry.label.ptr else lifecycle.kindLabel(active).ptr;
+        const preview: [*:0]const u8 = lifecycle.kindLabel(active);
         ig.igSetNextItemWidth(170);
         if (ig.igBeginCombo("##editors", preview, 0)) {
             for (logic.editors_menu) |entry| {
                 if (entry.separator_before) ig.igSeparator();
-                if (ig.igSelectableEx(entry.label.ptr, entry.kind == active, 0, .{ .x = 0, .y = 0 })) self.switchEditor(entry.kind);
+                if (ig.igSelectableEx(lifecycle.kindLabel(entry.kind), entry.kind == active, 0, .{ .x = 0, .y = 0 })) self.switchEditor(entry.kind);
             }
             ig.igEndCombo();
         }
@@ -235,6 +277,7 @@ pub const Tools = struct {
     /// After the frame: an OS dialog's answer, the test game's exit, and the
     /// active sub-editor remembered (MFC's "Active Frame").
     pub fn afterFrame(self: *Tools) void {
+        self.applyPendingLanguage();
         // A cancel, a failed dialog or a path too long for the slot does nothing.
         if (dialog_slot.take()) |answer| switch (answer) {
             .path => |chosen| self.dialogAnswered(chosen.kind, chosen.path),
@@ -513,7 +556,7 @@ pub const Tools = struct {
 
     fn drawBatch(self: *Tools) bool {
         const kinds = std.enums.values(Kind);
-        const preview: [*:0]const u8 = if (self.batch_kind == 0) "All projects" else lifecycle.kindLabel(kinds[self.batch_kind - 1]).ptr;
+        const preview: [*:0]const u8 = if (self.batch_kind == 0) "All projects" else lifecycle.kindLabel(kinds[self.batch_kind - 1]);
         if (ig.igBeginCombo("Projects", preview, 0)) {
             if (ig.igSelectableEx("All projects", self.batch_kind == 0, 0, .{ .x = 0, .y = 0 })) self.batch_kind = 0;
             for (kinds, 1..) |kind, i| {

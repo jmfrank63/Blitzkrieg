@@ -20,6 +20,7 @@
 //! STransLine in screen coordinates.
 const std = @import("std");
 const core = @import("resource_core");
+const l10n = @import("editor_kit").l10n;
 
 const tools = core.sub_editor_tools;
 const grid_tools = core.grid_tools;
@@ -324,23 +325,9 @@ pub const Tool = enum {
     // props): Begin and End on the red line, Front and Back across it.
     span_marks,
 
-    pub fn label(self: Tool) [:0]const u8 {
+    pub fn label(self: Tool) [*:0]const u8 {
         return switch (self) {
-            .move => "Move",
-            .draw_grid => "Draw grid",
-            .draw_transparency => "Draw transparency",
-            .set_zero => "Set zero",
-            .one_way_line => "One-way line",
-            .centre_on_tile => "Centre on tile",
-            .entrance => "Entrance",
-            .shoot => "Shoot points",
-            .fire => "Fire points",
-            .smoke => "Smoke points",
-            .dir_explosion => "Directed explosions",
-            .move_point => "Move point",
-            .horizontal => "Horizontal position",
-            .angle => "Angle and cone",
-            .span_marks => "Span marks",
+            inline else => |tag| l10n.t("resource_app.grid_tool." ++ @tagName(tag)),
         };
     }
 
@@ -826,16 +813,12 @@ pub const GridEditor = struct {
 
     /// The status line: the active tool and the tile under the cursor.
     pub fn statusLine(self: *const GridEditor, buffer: []u8) []const u8 {
-        const tool = self.tool.label();
+        const tool = std.mem.span(self.tool.label());
         if (self.tool.isPointTool()) {
-            if (self.active) |index| {
-                return std.fmt.bufPrint(buffer, "{s}: point {d} of the {s} list is active", .{ tool, index + 1, @tagName(self.family) }) catch tool;
-            }
+            if (self.active) |index| return l10n.say(buffer, "resource_app.grid.status_point", .{ tool, index + 1, @tagName(self.family) });
         }
-        if (self.hover) |tile| {
-            return std.fmt.bufPrint(buffer, "{s}: tile ({d}, {d})", .{ tool, tile[0], tile[1] }) catch tool;
-        }
-        return std.fmt.bufPrint(buffer, "{s}: outside the grid", .{tool}) catch tool;
+        if (self.hover) |tile| return l10n.say(buffer, "resource_app.grid.status_tile", .{ tool, tile[0], tile[1] });
+        return l10n.say(buffer, "resource_app.grid.status_outside", .{tool});
     }
 };
 
@@ -1634,7 +1617,7 @@ test "bridge registration: draw grid paints locked tiles, span marks and fire an
     for ([_]Tool{ .draw_grid, .set_zero, .span_marks, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle }) |tool| try testing.expect(bridge.has(tool));
     for ([_]Tool{ .move, .draw_transparency, .shoot, .entrance, .one_way_line, .centre_on_tile }) |tool| try testing.expect(!bridge.has(tool));
     try testing.expect(!registrationFor(.build).?.has(.span_marks));
-    try testing.expectEqualStrings("Span marks", Tool.span_marks.label());
+    try testing.expectEqualStrings("Span marks", std.mem.span(Tool.span_marks.label()));
     try testing.expect(!Tool.span_marks.isPointTool());
 }
 
@@ -1809,4 +1792,12 @@ test "span marks: Begin and End land on the line in world units, Front and Back 
     try testing.expectEqual(final[0], marks[0]);
     try rig.redo();
     try testing.expectEqual(final, try readSpanMarks(testing.allocator, bridge, rig.node));
+}
+
+test "every grid tool has a non-empty label in the string table" {
+    inline for (std.enums.values(Tool)) |tag| {
+        const text = std.mem.span(tag.label());
+        try std.testing.expect(text.len != 0);
+        try std.testing.expect(!std.mem.startsWith(u8, text, "resource_app."));
+    }
 }

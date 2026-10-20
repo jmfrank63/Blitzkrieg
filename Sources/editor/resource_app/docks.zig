@@ -974,7 +974,7 @@ pub const Docks = struct {
             _ = self.import_form.setFolder(dl.importStartFolder(&start, std.mem.sliceTo(&ui.paths.base_root, 0)));
         }
         ig.igTextWrapped("Builds a new, unsaved project from a game resource folder (the one holding its 1.xml). Infantry imports today; the other kinds come with their sub-editors.");
-        if (ig.igBeginCombo("Kind", lifecycle.kindLabel(self.import_form.kind).ptr, 0)) {
+        if (ig.igBeginCombo("Kind", lifecycle.kindLabel(self.import_form.kind), 0)) {
             for (std.enums.values(Kind)) |kind| {
                 var label: [64]u8 = undefined;
                 const text = std.mem.printSentinel(&label, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
@@ -996,9 +996,9 @@ pub const Docks = struct {
                 .go => |pending| {
                     var context = ui.ctx();
                     ui.session.request(&context, pending);
-                    self.sayImport("{s}", .{ui.session.message()});
+                    self.sayImport("resource_app.msg.plain", .{ui.session.message()});
                 },
-                .why_not => |why| self.sayImport("{s}", .{why}),
+                .why_not => |why| self.sayImport("resource_app.msg.plain", .{why}),
             }
         }
         ig.igSameLine();
@@ -1006,8 +1006,8 @@ pub const Docks = struct {
         if (self.import_note_len != 0) ig.igTextWrapped("%.*s", @as(c_int, @intCast(self.import_note_len)), &self.import_note);
     }
 
-    fn sayImport(self: *Docks, comptime format: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.import_note, format, args) catch self.import_note[0..];
+    fn sayImport(self: *Docks, comptime key: []const u8, args: anytype) void {
+        const text = kit.l10n.format(&self.import_note, key, args) catch self.import_note[0..];
         self.import_note_len = text.len;
     }
 

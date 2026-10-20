@@ -599,6 +599,8 @@ const literal_findings = [_]struct { call: []const u8, literal: []const u8 }{
     .{ .call = "setStatus", .literal = "Saved the map" },
     .{ .call = "setStatusFrom", .literal = "Failed" },
     .{ .call = "note", .literal = "Careful" },
+    .{ .call = "say", .literal = "Saved the map" },
+    .{ .call = "sayImport", .literal = "Imported" },
 };
 
 test "literal_in_strict_dir: an English literal in each kind of UI call" {

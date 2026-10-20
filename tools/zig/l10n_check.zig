@@ -879,7 +879,19 @@ const ui_calls = [_][]const u8{
 const hint_calls = [_][]const u8{"igInputTextWithHint"};
 
 /// Status-line helpers: every argument that is a string literal is shown to the user.
-const status_calls = [_][]const u8{ "setStatus", "setStatusFrom", "note" };
+const status_calls = [_][]const u8{ "setStatus", "setStatusFrom", "note", "say", "sayImport" };
+
+/// The status calls whose literal is a string table key, not a text: `say(&buffer, "app.saved", .{})`.
+const key_calls = [_][]const u8{ "say", "sayImport" };
+
+/// Whether a literal is shaped like a string table key: lowercase words joined by dots.
+fn isKeyShaped(literal: []const u8) bool {
+    if (std.mem.indexOfScalar(u8, literal, '.') == null) return false;
+    for (literal) |ch| {
+        if (!std.ascii.isLower(ch) and !std.ascii.isDigit(ch) and ch != '_' and ch != '.') return false;
+    }
+    return true;
+}
 
 fn inList(list: []const []const u8, name: []const u8) bool {
     for (list) |item| if (std.mem.eql(u8, item, name)) return true;
@@ -930,7 +942,9 @@ fn literalArg(line: []const u8, open: usize, name: []const u8) ?[]const u8 {
         if (arg_start and ch != ' ' and (ch != '(' or depth != 0)) {
             arg_start = false;
             if (depth == 1 and index < limit) {
-                if (literalAt(line, i)) |literal| return literal;
+                if (literalAt(line, i)) |literal| {
+                    if (!(inList(&key_calls, name) and isKeyShaped(literal))) return literal;
+                }
             }
         }
         switch (ch) {

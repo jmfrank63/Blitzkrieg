@@ -331,3 +331,12 @@ test "ui_language: the default writes nothing, a code and an unknown value round
         try std.testing.expectEqualStrings(value, ks.uiLanguage(&again));
     }
 }
+
+test "a scripted run speaks English for a system setting, and the setting's code wins otherwise" {
+    var settings: Settings = .{};
+    try testing.expectEqualStrings("en", kit.language_picker.chooseLanguage(&settings, true));
+    settings.ui_language_storage.set("ru");
+    try testing.expectEqualStrings("ru", kit.language_picker.chooseLanguage(&settings, true));
+    settings.ui_language_storage.set("zh-Hans");
+    try testing.expectEqualStrings("zh-Hans", kit.language_picker.chooseLanguage(&settings, false));
+}
