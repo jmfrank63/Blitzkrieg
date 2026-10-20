@@ -4103,6 +4103,15 @@ fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const 
         run.addArg("--tool");
         run.addFileArg(tool.getEmittedBin());
     }
+    // The tools guide in ten languages lives in tools/guide and stages to
+    // Tools/ under the same names; addFileArg makes an edited guide re-run
+    // staging. The root README translations are metadata files, which staging
+    // copies by plain path: they are cache inputs below.
+    for (package_policy.required_tool_docs) |staged| {
+        run.addArg("--tool-doc");
+        run.addFileArg(b.path(b.fmt("tools/guide/{s}", .{staged[("Tools/").len..]})));
+    }
+    for (inputs.metadata_files) |name| run.addFileInput(b.path(name));
     // Staging copies the third-party notice out of a plain path, the way it
     // copies the shader blobs, so an edited licence text has to be part of the
     // cache key or the staged and packaged copies keep the superseded notice.

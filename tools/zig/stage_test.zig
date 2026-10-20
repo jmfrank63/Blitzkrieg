@@ -1,5 +1,6 @@
 const std = @import("std");
 const stage = @import("stage.zig");
+const verify = @import("verify_runtime.zig");
 
 test "copy-data remains the default" {
     const options = stage.Options{ .repo_root = ".", .install_dir = "zig-out/game/test" };
@@ -86,6 +87,10 @@ test "stages through a destination path with spaces and non-ASCII characters" {
         .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "README.md" }),
         .data = "readme fixture",
     });
+    for (verify.translated_readme_files) |name| try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, name }),
+        .data = "readme fixture",
+    });
     try tmp.dir.writeFile(io, .{
         .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "Data/Maps/fixture.map" }),
         .data = "map fixture",
@@ -134,6 +139,7 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try expectStagedFile(destination, io, allocator, "LICENSE.md", "license fixture");
     try expectStagedFile(destination, io, allocator, "THIRD-PARTY-NOTICES.txt", "notices fixture");
     try expectStagedFile(destination, io, allocator, "README.md", "readme fixture");
+    try expectStagedFile(destination, io, allocator, "README_German.md", "readme fixture");
     try expectStagedFile(destination, io, allocator, "Data/Objects/SimpleObjects/common/summer/logs/01/1.xml", "log pile fixture");
     for ([_][]const u8{
         "Data/cache/compiled.bin",
@@ -229,6 +235,15 @@ fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.te
         .{ .path = "LICENSE.md", .data = "license fixture" },
         .{ .path = "Data/THIRD-PARTY-NOTICES.txt", .data = "notices fixture" },
         .{ .path = "README.md", .data = "readme fixture" },
+        .{ .path = "README_Chinese.md", .data = "readme fixture" },
+        .{ .path = "README_French.md", .data = "readme fixture" },
+        .{ .path = "README_German.md", .data = "readme fixture" },
+        .{ .path = "README_Hindi.md", .data = "readme fixture" },
+        .{ .path = "README_Indonesian.md", .data = "readme fixture" },
+        .{ .path = "README_Japanese.md", .data = "readme fixture" },
+        .{ .path = "README_Portuguese.md", .data = "readme fixture" },
+        .{ .path = "README_Russian.md", .data = "readme fixture" },
+        .{ .path = "README_Spanish.md", .data = "readme fixture" },
         .{ .path = "Data/Maps/kept.map", .data = "kept fixture" },
         .{ .path = "Data/Maps/edited.map", .data = "edited fixture" },
         .{ .path = "Data/Maps/dropped.map", .data = "dropped fixture" },
@@ -380,6 +395,57 @@ test "a missing bk-* tool binary fails the stage naming the path" {
     var options = fixture.options;
     options.tools = &.{"zig-out/bin/bk-nosuch"};
     try std.testing.expectError(error.MissingTool, stage.stage(io, allocator, options));
+}
+
+test "--tool-doc stages each guide file under Tools and prunes one no longer passed" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "tools/guide" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "tools/guide/README.md" }),
+        .data = "english guide",
+    });
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "tools/guide/README_German.md" }),
+        .data = "german guide",
+    });
+    // A guide an earlier stage shipped that this build no longer passes.
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.install_name, "Tools" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.install_name, "Tools/README_Retired.md" }),
+        .data = "retired guide",
+    });
+    var options = fixture.options;
+    options.tool_docs = &.{ "tools/guide/README.md", "tools/guide/README_German.md" };
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "Tools/README.md", "english guide");
+    try expectStagedFile(destination, io, allocator, "Tools/README_German.md", "german guide");
+    try expectStagedPathAbsent(destination, io, "Tools/README_Retired.md");
+    // The root README stays the project README, not the guide.
+    try expectStagedFile(destination, io, allocator, "README.md", "readme fixture");
+}
+
+test "a missing tools guide file fails the stage naming the path" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.tool_docs = &.{"tools/guide/README_Nosuch.md"};
+    try std.testing.expectError(error.MissingToolDoc, stage.stage(io, allocator, options));
 }
 
 test "a mods directory in the repository is never staged" {
