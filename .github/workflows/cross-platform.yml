@@ -58,7 +58,7 @@ jobs:
   # outputs are empty on dispatch and main, where every job is forced anyway.
   changes:
     name: "Changed areas"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
