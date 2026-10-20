@@ -8347,14 +8347,24 @@ fn addMapEditor(
         .target = target,
         .optimize = .debug,
     });
+    // The core reaches the kit's l10n, which imports editor_imgui, so the
+    // kit and core of this test are built on the stand-in too: the real
+    // editor-imgui archive would otherwise be linked (SDL, HarfBuzz and C++).
+    const view_app_kit = editorAppKit(b, target, .debug, toolchain, view_imgui_stub, sdl_include);
+    const view_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/core/root.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "editor_kit", .module = view_app_kit.kit }},
+    });
     const view_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/view.zig"),
         .target = target,
         .optimize = .debug,
         .imports = &.{
-            .{ .name = "sdl3", .module = sdl_module },
-            .{ .name = "editor_core", .module = core_module },
-            .{ .name = "editor_kit", .module = kit_module },
+            .{ .name = "sdl3", .module = view_app_kit.sdl },
+            .{ .name = "editor_core", .module = view_core_module },
+            .{ .name = "editor_kit", .module = view_app_kit.kit },
             .{ .name = "editor_imgui", .module = view_imgui_stub },
         },
     });
