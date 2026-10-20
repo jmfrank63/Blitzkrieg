@@ -28,6 +28,7 @@ const gui_dock = @import("gui_dock.zig");
 const lifecycle_ui = @import("lifecycle_ui.zig");
 
 const ig = imgui.c;
+const l10n = kit.l10n;
 const c = c_bridge.c;
 const Kind = core.bridge.Kind;
 const ResBridge = core.bridge.ResBridge;
@@ -113,14 +114,14 @@ const ImageFrame = struct {
         self.forget();
     }
 
-    fn say(self: *ImageFrame, comptime fmt: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.note, fmt, args) catch self.note[0..];
+    fn say(self: *ImageFrame, comptime key: []const u8, args: anytype) void {
+        const text = l10n.format(&self.note, key, args) catch self.note[0..];
         self.note_len = text.len;
     }
 
-    fn report(self: *ImageFrame, b: ResBridge, what: []const u8, err: core.bridge.EditError) void {
+    fn report(self: *ImageFrame, b: ResBridge, comptime what_key: []const u8, err: core.bridge.EditError) void {
         const why = b.lastMessage();
-        if (why.len != 0) self.say("{s}: {s}", .{ what, why }) else self.say("{s}: {s}", .{ what, @errorName(err) });
+        self.say("resource_app.msg.failed", .{ l10n.str(what_key), if (why.len != 0) why else @errorName(err) });
     }
 };
 
@@ -149,8 +150,8 @@ const Thumbnails = struct {
         self.names.clearRetainingCapacity();
     }
 
-    fn say(self: *Thumbnails, comptime format: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.note, format, args) catch self.note[0..];
+    fn say(self: *Thumbnails, comptime key: []const u8, args: anytype) void {
+        const text = l10n.format(&self.note, key, args) catch self.note[0..];
         self.note_len = text.len;
     }
 };
@@ -260,7 +261,7 @@ pub const Docks = struct {
         const b = self.real.bridge();
         if (b.previewWireframe(!self.wireframe) == .ok) {
             self.wireframe = !self.wireframe;
-        } else self.thumbs.say("wireframe: {s}", .{b.lastMessage()});
+        } else self.thumbs.say("resource_app.thumbs.wireframe_failed", .{b.lastMessage()});
     }
 
     /// Import terrains / Import crossets (OnImportTerrains, OnImportCrossets):
@@ -274,10 +275,10 @@ pub const Docks = struct {
     fn importTiles(self: *Docks, life: *logic.Lifecycle, path: []const u8, mode: tl.Mode) void {
         const b = self.real.bridge();
         const count = tl.importFile(self.gpa, b, life, path, mode) catch |err| {
-            self.thumbs.say("import {s}: {s}", .{ @tagName(mode), if (b.lastMessage().len != 0) b.lastMessage() else @errorName(err) });
+            self.thumbs.say("resource_app.thumbs.import_failed", .{ tileNoun(mode), if (b.lastMessage().len != 0) b.lastMessage() else @errorName(err) });
             return;
         };
-        self.thumbs.say("imported {d} {s} tiles from {s}", .{ count, @tagName(mode), std.fs.path.basename(path) });
+        self.thumbs.say("resource_app.thumbs.imported", .{ count, tileNoun(mode), std.fs.path.basename(path) });
         // The tiles on disk changed: read the list again.
         self.thumbs.scanned_once = false;
     }
@@ -316,37 +317,37 @@ pub const Docks = struct {
 
     /// Import at the top of the File menu (MFC's Ctrl+I, ID_IMPORT_XML_FILE).
     pub fn drawFileMenuItems(self: *Docks) void {
-        if (ig.igMenuItemEx("Import from game data...", mod_label ++ "+I", false, true)) self.show_import = true;
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.import_menu"), mod_label ++ "+I", false, true)) self.show_import = true;
         ig.igSeparator();
     }
 
     pub fn drawViewMenuItems(self: *Docks) void {
-        if (ig.igMenuItemEx("Thumbnails", null, self.show_thumbnails, true)) self.show_thumbnails = !self.show_thumbnails;
-        if (ig.igMenuItemEx("Direction Button", mod_label ++ "+D", self.show_direction, true)) self.show_direction = !self.show_direction;
-        if (ig.igMenuItemEx("Function Window", mod_label ++ "+F", self.show_function, true)) self.show_function = !self.show_function;
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.thumbnails"), null, self.show_thumbnails, true)) self.show_thumbnails = !self.show_thumbnails;
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.direction_button"), mod_label ++ "+D", self.show_direction, true)) self.show_direction = !self.show_direction;
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.function_window"), mod_label ++ "+F", self.show_function, true)) self.show_function = !self.show_function;
         const terrain_preview = self.preview.begun == .road_3d or self.preview.begun == .river_3d;
-        if (ig.igMenuItemEx("Wireframe", null, self.wireframe, terrain_preview)) self.toggleWireframe();
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.wireframe_view"), null, self.wireframe, terrain_preview)) self.toggleWireframe();
     }
 
     pub fn drawPreviewMenuItems(self: *Docks, life: *logic.Lifecycle) void {
-        if (ig.igMenuItemEx("Run", "F5", false, self.preview.begun != null)) self.runPreview();
-        if (ig.igMenuItemEx("Stop", null, false, self.preview.running)) self.stopPreview();
-        if (ig.igMenuItemEx("Wireframe", null, self.wireframe, self.preview.begun == .road_3d or self.preview.begun == .river_3d)) self.toggleWireframe();
-        if (ig.igMenuItemEx("Horizontal camera", null, self.horizontal_camera, self.preview.begun != null)) self.toggleCamera();
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.run"), "F5", false, self.preview.begun != null)) self.runPreview();
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.stop"), null, false, self.preview.running)) self.stopPreview();
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.wireframe_preview"), null, self.wireframe, self.preview.begun == .road_3d or self.preview.begun == .river_3d)) self.toggleWireframe();
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.horizontal_camera"), null, self.horizontal_camera, self.preview.begun != null)) self.toggleCamera();
         const til = life.is_open and life.doc.kind == .tile_set and !life.read_only;
-        if (ig.igMenuItemEx("Import terrains...", null, false, til)) self.requestTileImport(.terrains);
-        if (ig.igMenuItemEx("Import crossets...", null, false, til)) self.requestTileImport(.crossets);
-        if (ig.igMenuItemEx("Get particle info", null, false, self.preview.begun == .particle)) self.getParticleInfo();
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.import_terrains"), null, false, til)) self.requestTileImport(.terrains);
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.import_crossets"), null, false, til)) self.requestTileImport(.crossets);
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.particle_info"), null, false, self.preview.begun == .particle)) self.getParticleInfo();
         const source_mode = if (life.is_open) dl.SourceToggle.mode(self.real.bridge()) else null;
-        if (ig.igMenuItemEx("Particle source: complex", null, source_mode orelse false, source_mode != null)) _ = self.toggleParticleSource(life, null);
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.particle_source"), null, source_mode orelse false, source_mode != null)) _ = self.toggleParticleSource(life, null);
         ig.igSeparator();
         const text = self.preview.message();
         ig.igTextDisabled("%.*s", @as(c_int, @intCast(text.len)), text.ptr);
     }
 
     pub fn drawHelpMenuItems(self: *Docks) void {
-        if (ig.igMenuItemEx("About...", null, false, true)) self.show_about = true;
-        if (ig.igMenuItemEx("Help...", "F1", false, true)) self.show_help = true;
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.about_menu"), null, false, true)) self.show_about = true;
+        if (ig.igMenuItemEx(l10n.id("resource_app.dock.help_menu"), "F1", false, true)) self.show_help = true;
     }
 
     /// Ctrl/Cmd+D, +F, +I, F1 and F5, unless a text field has the keyboard.
@@ -403,7 +404,7 @@ pub const Docks = struct {
             ig.igSetNextWindowSize(.{ .x = 500, .y = 420 }, ig.ImGuiCond_FirstUseEver);
         }
         defer ig.igEnd();
-        if (!ig.igBegin("Image###image_frame", null, 0)) return;
+        if (!ig.igBegin(l10n.id("resource_app.window.image"), null, 0)) return;
 
         var path_buffer: [logic.path_capacity + 64]u8 = undefined;
         var mission: il.MissionPicture = .{ .action = .no_final_map, .path = null };
@@ -419,17 +420,20 @@ pub const Docks = struct {
 
         if (picked.hasShowCrosses()) {
             var show = frame.overlayFor(self.gpa).mode == .drag_crosses;
-            if (ig.igCheckbox("Show crosses", &show)) frame.overlayFor(self.gpa).setMode(b, if (show) .drag_crosses else .place);
+            const toggled = ig.igCheckbox(l10n.id("resource_app.image.show_crosses"), &show);
+            l10n.noteLabelRect("resource_app.image.show_crosses");
+            if (toggled) frame.overlayFor(self.gpa).setMode(b, if (show) .drag_crosses else .place);
             const low = ig.igGetItemRectMin();
             const high = ig.igGetItemRectMax();
             frame.crosses_toggle = .{ .x = low.x, .y = low.y, .w = high.x - low.x, .h = high.y - low.y };
             ig.igSameLine();
         }
-        if (ig.igButton("Reload picture")) frame.forget();
+        if (ig.igButton(l10n.id("resource_app.image.reload"))) frame.forget();
+        l10n.noteRect("resource_app.image.reload");
         if (frame.note_len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(frame.note_len)), &frame.note);
         const texture = frame.texture orelse {
-            if (project_folder == null) ig.igTextDisabled("Save the project to show its picture.") else if (path == null) {
-                if (picked == .mission) ig.igTextDisabled("%s", il.no_final_map_message.ptr) else ig.igTextDisabled("This project names no picture yet.");
+            if (project_folder == null) ig.igTextDisabled("%s", l10n.t("resource_app.image.save_first")) else if (path == null) {
+                if (picked == .mission) ig.igTextDisabled("%s", l10n.t(il.no_final_map_message)) else ig.igTextDisabled("%s", l10n.t("resource_app.image.no_picture"));
             }
             return;
         };
@@ -449,9 +453,9 @@ pub const Docks = struct {
         if (!life.read_only and picked.places()) {
             const mouse = ig.igGetMousePos();
             const at: core.bridge.Point2 = .{ .x = mouse.x, .y = mouse.y };
-            if (ig.igIsItemActivated()) overlay.press(b, &life.doc, picked, active, at) catch |err| frame.report(b, "place", err);
-            if (ig.igIsItemActive()) overlay.move(b, at) catch |err| frame.report(b, "place", err);
-            if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| frame.report(b, "place", err);
+            if (ig.igIsItemActivated()) overlay.press(b, &life.doc, picked, active, at) catch |err| frame.report(b, "resource_app.act.place", err);
+            if (ig.igIsItemActive()) overlay.move(b, at) catch |err| frame.report(b, "resource_app.act.place", err);
+            if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| frame.report(b, "resource_app.act.place", err);
             if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) overlay.cancel(b);
         }
         const draw_list = ig.igGetWindowDrawList();
@@ -486,15 +490,15 @@ pub const Docks = struct {
         if (frame.loadedFor(wanted)) return;
         frame.release();
         frame.remember(wanted);
-        frame.say("", .{});
+        frame.note_len = 0;
         var device: ?*anyopaque = null;
         var format: c_uint = 0;
         if (c.BkEditorGpuDevice(self.real.session, &device, &format) != c.BK_EDITOR_OK or device == null) {
-            frame.say("no graphics device to show the picture", .{});
+            frame.say("resource_app.image.no_device", .{});
             return;
         }
         const pixels = self.gpa.alloc(u8, @as(usize, @intCast(il.max_side)) * @as(usize, @intCast(il.max_side)) * 4) catch {
-            frame.say("out of memory for the picture", .{});
+            frame.say("resource_app.image.no_memory", .{});
             return;
         };
         defer self.gpa.free(pixels);
@@ -503,29 +507,31 @@ pub const Docks = struct {
         const created = kind == .mission and mission.action == .create_then_show and !life.read_only;
         if (kind == .mission and il.prepareMission(self.real.bridge(), mission, life.read_only) == .refused) {
             // A refused minimap shows the bridge's message and no picture.
-            frame.say("minimap: {s}", .{self.real.bridge().lastMessage()});
+            frame.say("resource_app.image.minimap", .{self.real.bridge().lastMessage()});
             return;
         }
         const status = c.BkEditorMinimapImage(self.real.session, wanted.ptr, pixels.ptr, @intCast(pixels.len), il.max_side, &width, &height);
         if (status != c.BK_EDITOR_OK) {
             const why = std.mem.span(c.BkEditorLastMessage(self.real.session));
-            frame.say("{s}: {s}", .{ wanted, why });
+            frame.say("resource_app.msg.failed", .{ wanted, why });
             return;
         }
         if (!il.realSize(width, height)) {
-            frame.say("{s}: {s}", .{ wanted, il.too_large_message });
+            frame.say("resource_app.msg.failed", .{ wanted, l10n.str(il.too_large_message) });
             return;
         }
         const size: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
         const texture = kit.pictures_cache.upload(device.?, .{ .width = width, .height = height, .bytes = pixels[0..size] }) orelse {
-            frame.say("{s}: the picture could not be uploaded", .{wanted});
+            frame.say("resource_app.image.upload_failed", .{wanted});
             return;
         };
         frame.texture = texture;
         frame.device = device;
         frame.width = width;
         frame.height = height;
-        if (kind == .mission) frame.say("decoded {s}{s}", .{ wanted, if (created) " (created)" else "" });
+        if (kind == .mission) {
+            if (created) frame.say("resource_app.image.decoded_created", .{wanted}) else frame.say("resource_app.image.decoded", .{wanted});
+        }
     }
 
     /// Import, Help and About: the windows that act on the session.
@@ -540,15 +546,15 @@ pub const Docks = struct {
     /// complex source item held it as a property; here the switch needs it).
     fn drawSourceName(self: *Docks, life: *logic.Lifecycle) void {
         ig.igSetNextWindowSize(.{ .x = 460, .y = 0 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBegin("Particle source###source_name", &self.show_source_name, ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (!ig.igBegin(l10n.id("resource_app.window.particle_source"), &self.show_source_name, ig.ImGuiWindowFlags_NoSavedSettings)) {
             ig.igEnd();
             return;
         }
         defer ig.igEnd();
-        ig.igTextWrapped("A complex source scatters another particle effect. Name it (for example effects\\particles\\flame).");
-        _ = ig.igInputText("Particle", &self.source_name, self.source_name.len - 1, 0);
+        ig.igTextWrapped("%s", l10n.t("resource_app.source.explain"));
+        _ = ig.igInputText(l10n.id("resource_app.source.particle"), &self.source_name, self.source_name.len - 1, 0);
         const name = std.mem.sliceTo(&self.source_name, 0);
-        if (ig.igButton("Switch to complex")) {
+        if (ig.igButton(l10n.id("resource_app.source.switch"))) {
             if (self.toggleParticleSource(life, name) == .switched) self.show_source_name = false;
         }
         const note = self.particle_source.note();
@@ -572,7 +578,7 @@ pub const Docks = struct {
     fn drawThumbnails(self: *Docks, project_folder: ?[]const u8, life: *logic.Lifecycle, selected: ?i32) void {
         const display = ig.igGetIO().*.DisplaySize;
         self.place(fixed_layout.thumbnails, display.x - 268, 28, 260, @max(200, display.y * 0.5));
-        if (!ig.igBegin("Thumbnails###thumbnails", &self.show_thumbnails, self.windowFlags())) {
+        if (!ig.igBegin(l10n.id("resource_app.window.thumbnails"), &self.show_thumbnails, self.windowFlags())) {
             ig.igEnd();
             return;
         }
@@ -587,11 +593,11 @@ pub const Docks = struct {
         if (!self.thumbs.scanned_once or !std.mem.eql(u8, folder, self.thumbs.scannedFolder())) self.scan(folder);
 
         if (terrain) {
-            ig.igText("%s", if (self.terrain.mode == .crossets) "Crossets" else "Terrains");
+            ig.igText("%s", if (self.terrain.mode == .crossets) l10n.t("resource_app.thumbs.crossets") else l10n.t("resource_app.thumbs.terrains"));
         } else {
             _ = ig.igInputText("##folder", &self.thumbs.folder, self.thumbs.folder.len, 0);
             ig.igSameLine();
-            if (ig.igButton("Folder...")) {
+            if (ig.igButton(l10n.id("resource_app.thumbs.folder"))) {
                 if (folder_slot.request(.thumbnails)) {
                     var start: [logic.path_capacity + 1]u8 = undefined;
                     const location = std.mem.printSentinel(&start, "{s}", .{folder}, 0) catch null;
@@ -600,11 +606,12 @@ pub const Docks = struct {
             }
         }
         ig.igSameLine();
-        if (ig.igButton("Rescan")) self.scan(folder);
+        if (ig.igButton(l10n.id("resource_app.thumbs.rescan"))) self.scan(folder);
+        l10n.noteRect("resource_app.thumbs.rescan");
         // WM_THUMB_LIST_DELETE: Delete removes the frame selected in the tree.
         if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput and ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) {
             dl.deleteSelectedFrame(self.gpa, self.real.bridge(), life, selected) catch |err| {
-                if (err != error.Refused) self.thumbs.say("delete frame: {s}", .{@errorName(err)});
+                if (err != error.Refused) self.thumbs.say("resource_app.thumbs.delete_failed", .{@errorName(err)});
             };
         }
         if (self.thumbs.note_len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(self.thumbs.note_len)), &self.thumbs.note);
@@ -659,10 +666,10 @@ pub const Docks = struct {
         _ = self;
         ig.igSeparator();
         const target = tl.addTarget(&life.doc, selected) orelse {
-            ig.igTextDisabled("Select a terrain or crosset to see its tiles");
+            ig.igTextDisabled("%s", l10n.t("resource_app.thumbs.select_target"));
             return;
         };
-        ig.igText("Tiles of the selected %s", if (target.mode == .crossets) "crosset" else "terrain");
+        ig.igText("%s", if (target.mode == .crossets) l10n.t("resource_app.thumbs.tiles_of_crosset") else l10n.t("resource_app.thumbs.tiles_of_terrain"));
         for (life.doc.tree.nodes.items) |node| {
             if (node.parent != target.id) continue;
             const name = node.displaySlice();
@@ -674,27 +681,27 @@ pub const Docks = struct {
     /// under the active terrain or crosset (DoubleClickOnThumbList).
     fn tileFromPicture(self: *Docks, life: *logic.Lifecycle, selected: ?i32, name: []const u8) void {
         const target = tl.addTarget(&life.doc, selected) orelse {
-            self.thumbs.say("{s}: select a terrain's Tiles or a crosset first", .{name});
+            self.thumbs.say("resource_app.thumbs.pick_target", .{name});
             return;
         };
         if (target.mode != self.terrain.mode) {
-            self.thumbs.say("{s}: the selected item takes {s} pictures", .{ name, if (target.mode == .crossets) "crosset" else "terrain" });
+            self.thumbs.say("resource_app.thumbs.wrong_target", .{ name, tileNoun(target.mode) });
             return;
         }
         const b = self.real.bridge();
         tl.addTile(self.gpa, b, life, selected, self.terrain.mode, name) catch |err| {
-            self.thumbs.say("{s}: the tile was not added ({s})", .{ name, if (b.lastMessage().len != 0) b.lastMessage() else @errorName(err) });
+            self.thumbs.say("resource_app.thumbs.tile_failed", .{ name, if (b.lastMessage().len != 0) b.lastMessage() else @errorName(err) });
             return;
         };
-        self.thumbs.say("{s} added", .{name});
+        self.thumbs.say("resource_app.thumbs.tile_added", .{name});
     }
 
     /// A double-click on a picture: a sprite or an infantry project takes it
     /// as a frame (SpriteFrm and AnimationFrm DoubleClickOnThumbList).
     fn frameFromPicture(self: *Docks, life: *logic.Lifecycle, selected: ?i32, name: []const u8) void {
         dl.addFrameFromPicture(self.gpa, self.real.bridge(), life, selected, name) catch |err| switch (err) {
-            error.Refused => self.thumbs.say("{s}: only a sprite, infantry or fence project takes a picture (not read-only, and a fence not twice)", .{name}),
-            else => self.thumbs.say("{s}: the frame was not added ({s})", .{ name, @errorName(err) }),
+            error.Refused => self.thumbs.say("resource_app.thumbs.frame_refused", .{name}),
+            else => self.thumbs.say("resource_app.thumbs.frame_failed", .{ name, @errorName(err) }),
         };
     }
 
@@ -710,11 +717,11 @@ pub const Docks = struct {
         @memcpy(self.thumbs.scanned[0..len], folder[0..len]);
         self.thumbs.scanned_len = len;
         if (folder.len == 0) {
-            self.thumbs.say("no folder: choose one, or save the project", .{});
+            self.thumbs.say("resource_app.thumbs.no_folder", .{});
             return;
         }
         var dir = std.Io.Dir.cwd().openDir(self.io, folder, .{ .iterate = true }) catch |err| {
-            self.thumbs.say("{s} cannot be read: {s}", .{ folder, @errorName(err) });
+            self.thumbs.say("resource_app.thumbs.unreadable", .{ folder, @errorName(err) });
             return;
         };
         defer dir.close(self.io);
@@ -729,7 +736,7 @@ pub const Docks = struct {
             };
         }
         dl.sortThumbnailNames(@ptrCast(self.thumbs.names.items));
-        if (self.thumbs.names.items.len == 0) self.thumbs.say("no .tga pictures in this folder", .{});
+        if (self.thumbs.names.items.len == 0) self.thumbs.say("resource_app.thumbs.none", .{});
     }
 
     /// `turns_unit`: the open project is a unit, whose preview follows the needle
@@ -740,7 +747,7 @@ pub const Docks = struct {
     fn drawDirection(self: *Docks, turns_unit: bool, turns_effect: bool) void {
         const display = ig.igGetIO().*.DisplaySize;
         self.place(fixed_layout.direction, display.x - 188, display.y - 230, 180, 190);
-        if (!ig.igBegin("Direction###direction", &self.show_direction, self.windowFlags())) {
+        if (!ig.igBegin(l10n.id("resource_app.window.direction"), &self.show_direction, self.windowFlags())) {
             ig.igEnd();
             return;
         }
@@ -765,7 +772,10 @@ pub const Docks = struct {
         var text: [32]u8 = undefined;
         const degrees = std.mem.printSentinel(&text, "{d:.2} ", .{dl.directionDegrees(self.direction_angle)}, 0) catch "";
         ig.ImDrawList_AddTextEx(draw_list, .{ .x = top_left.x + 2, .y = top_left.y + 3 }, ig.igGetColorU32(ig.ImGuiCol_Text), degrees.ptr, degrees.ptr + degrees.len);
-        ig.igText("Quadrant %d", @as(c_int, dl.directionQuadrant(self.direction_angle)));
+        var quadrant: [48]u8 = undefined;
+        const quadrant_text = l10n.say(&quadrant, "resource_app.dock.quadrant", .{dl.directionQuadrant(self.direction_angle)});
+        ig.igTextUnformattedEx(quadrant_text.ptr, quadrant_text.ptr + quadrant_text.len);
+        l10n.noteRect("resource_app.dock.quadrant");
     }
 
     /// (Re)loads the curve editor when the selection or the document moved;
@@ -796,7 +806,7 @@ pub const Docks = struct {
     }
 
     fn curveFailed(self: *Docks, err: anyerror) void {
-        const text = std.fmt.bufPrint(&self.curve_note, "the curve was not changed: {s} ({s})", .{ @errorName(err), self.real.bridge().lastMessage() }) catch self.curve_note[0..];
+        const text = l10n.format(&self.curve_note, "resource_app.function.curve_failed", .{ @errorName(err), self.real.bridge().lastMessage() }) catch self.curve_note[0..];
         self.curve_note_len = text.len;
     }
 
@@ -806,13 +816,13 @@ pub const Docks = struct {
             ig.igSetNextWindowPos(.{ .x = r.x, .y = r.y }, ig.ImGuiCond_Always);
             ig.igSetNextWindowSize(.{ .x = r.w, .y = r.h }, ig.ImGuiCond_Always);
         } else self.place(fixed_layout.function, 316, display.y - 200, @max(300, display.x - 520), 170);
-        if (!ig.igBegin("Function###function", &self.show_function, self.windowFlags())) {
+        if (!ig.igBegin(l10n.id("resource_app.window.function"), &self.show_function, self.windowFlags())) {
             ig.igEnd();
             return;
         }
         defer ig.igEnd();
         const editor = self.syncCurve(life, selected) orelse {
-            ig.igTextDisabled(dl.function_window_note);
+            ig.igTextDisabled("%s", l10n.t(dl.function_window_note));
             return;
         };
         if (self.curve_note_len != 0) ig.igTextColored(.{ .x = 1, .y = 0.5, .z = 0.5, .w = 1 }, "%.*s", @as(c_int, @intCast(self.curve_note_len)), &self.curve_note);
@@ -873,12 +883,12 @@ pub const Docks = struct {
             }
         }
         if (ig.igBeginPopup("curve_menu", 0)) {
-            if (ig.igMenuItem("Zoom in X")) _ = editor.zoomX(.in);
-            if (ig.igMenuItem("Zoom out X")) _ = editor.zoomX(.out);
-            if (ig.igMenuItem("Zoom in Y")) _ = editor.zoomY(.in);
-            if (ig.igMenuItem("Zoom out Y")) _ = editor.zoomY(.out);
+            if (ig.igMenuItem(l10n.id("resource_app.function.zoom_in_x"))) _ = editor.zoomX(.in);
+            if (ig.igMenuItem(l10n.id("resource_app.function.zoom_out_x"))) _ = editor.zoomX(.out);
+            if (ig.igMenuItem(l10n.id("resource_app.function.zoom_in_y"))) _ = editor.zoomY(.in);
+            if (ig.igMenuItem(l10n.id("resource_app.function.zoom_out_y"))) _ = editor.zoomY(.out);
             ig.igSeparator();
-            if (ig.igMenuItem("Reset all")) {
+            if (ig.igMenuItem(l10n.id("resource_app.function.reset_all"))) {
                 _ = editor.resetAll(b, &life.doc, &life.history) catch |err| self.curveFailed(err);
                 self.curve_revision = life.history.revision;
             }
@@ -930,7 +940,9 @@ pub const Docks = struct {
         const flags = ig.ImGuiWindowFlags_NoDecoration | ig.ImGuiWindowFlags_NoBackground | ig.ImGuiWindowFlags_NoInputs |
             ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoFocusOnAppearing | ig.ImGuiWindowFlags_NoNav;
         if (ig.igBegin("##preview_line", null, flags)) {
-            ig.igTextDisabled("Preview: %.*s", @as(c_int, @intCast(text.len)), text.ptr);
+            var line: [320]u8 = undefined;
+            const shown = l10n.say(&line, "resource_app.dock.preview_line", .{text});
+            ig.igTextDisabled("%.*s", @as(c_int, @intCast(shown.len)), shown.ptr);
         }
         ig.igEnd();
     }
@@ -964,7 +976,7 @@ pub const Docks = struct {
 
     fn drawImport(self: *Docks, ui: *lifecycle_ui.Ui, window: ?*sdl3.c.SDL_Window) void {
         ig.igSetNextWindowSize(.{ .x = 520, .y = 0 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBegin("Import from game data###import", &self.show_import, ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (!ig.igBegin(l10n.id("resource_app.window.import"), &self.show_import, ig.ImGuiWindowFlags_NoSavedSettings)) {
             ig.igEnd();
             return;
         }
@@ -973,8 +985,8 @@ pub const Docks = struct {
             var start: [logic.path_capacity]u8 = undefined;
             _ = self.import_form.setFolder(dl.importStartFolder(&start, std.mem.sliceTo(&ui.paths.base_root, 0)));
         }
-        ig.igTextWrapped("Builds a new, unsaved project from a game resource folder (the one holding its 1.xml). Infantry imports today; the other kinds come with their sub-editors.");
-        if (ig.igBeginCombo("Kind", lifecycle.kindLabel(self.import_form.kind), 0)) {
+        ig.igTextWrapped("%s", l10n.t("resource_app.import.explain"));
+        if (ig.igBeginCombo(l10n.id("resource_app.import.kind"), lifecycle.kindLabel(self.import_form.kind), 0)) {
             for (std.enums.values(Kind)) |kind| {
                 var label: [64]u8 = undefined;
                 const text = std.mem.printSentinel(&label, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
@@ -982,16 +994,18 @@ pub const Docks = struct {
             }
             ig.igEndCombo();
         }
-        _ = ig.igInputText("Folder", &self.import_form.folder, self.import_form.folder.len - 1, 0);
+        _ = ig.igInputText(l10n.id("resource_app.import.folder"), &self.import_form.folder, self.import_form.folder.len - 1, 0);
         ig.igSameLine();
-        if (ig.igButton("Browse...")) {
+        if (ig.igButton(l10n.id("resource_app.import.browse"))) {
             if (folder_slot.request(.import)) {
                 var start: [logic.path_capacity + 1]u8 = undefined;
                 const location = std.mem.printSentinel(&start, "{s}", .{self.import_form.folderSlice()}, 0) catch null;
                 sdl3.c.SDL_ShowOpenFolderDialog(FolderSlot.callback, &folder_slot, window, if (location) |l| l.ptr else null, false);
             }
         }
-        if (ig.igButton("Import")) {
+        const import_pressed = ig.igButton(l10n.id("resource_app.import.go"));
+        l10n.noteRect("resource_app.import.go");
+        if (import_pressed) {
             switch (self.import_form.request()) {
                 .go => |pending| {
                     var context = ui.ctx();
@@ -1002,7 +1016,7 @@ pub const Docks = struct {
             }
         }
         ig.igSameLine();
-        if (ig.igButton("Close")) self.show_import = false;
+        if (ig.igButton(l10n.id("kit.common.close"))) self.show_import = false;
         if (self.import_note_len != 0) ig.igTextWrapped("%.*s", @as(c_int, @intCast(self.import_note_len)), &self.import_note);
     }
 
@@ -1013,50 +1027,65 @@ pub const Docks = struct {
 
     fn drawHelp(self: *Docks) void {
         ig.igSetNextWindowSize(.{ .x = 520, .y = 0 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBegin("Help###help", &self.show_help, ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (!ig.igBegin(l10n.id("resource_app.window.help"), &self.show_help, ig.ImGuiWindowFlags_NoSavedSettings)) {
             ig.igEnd();
             return;
         }
         defer ig.igEnd();
-        ig.igSeparatorText("Shortcuts");
+        l10n.noteWindowRect("resource_app.window.help");
+        ig.igSeparatorText(l10n.t("resource_app.help.shortcuts"));
+        // The keys column fits its keys and the action column takes the rest and wraps, so a longer
+        // translation grows downwards and the window keeps its width.
         if (ig.igBeginTable("shortcuts", 2, ig.ImGuiTableFlags_RowBg)) {
-            for (dl.shortcuts) |shortcut| {
+            ig.igTableSetupColumnEx("##keys", ig.ImGuiTableColumnFlags_WidthFixed, 0, 0);
+            ig.igTableSetupColumnEx("##action", ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
+            inline for (dl.shortcuts) |shortcut| {
                 ig.igTableNextRow();
                 _ = ig.igTableSetColumnIndex(0);
                 var buffer: [64]u8 = undefined;
                 const keys = dl.shortcutKeys(&buffer, shortcut.keys, macos);
                 ig.igTextUnformattedEx(keys.ptr, keys.ptr + keys.len);
                 _ = ig.igTableSetColumnIndex(1);
-                ig.igTextUnformattedEx(shortcut.action.ptr, shortcut.action.ptr + shortcut.action.len);
+                ig.igTextWrapped("%s", l10n.t(shortcut.action));
+                if (comptime std.mem.eql(u8, shortcut.action, "resource_app.help.act.open")) l10n.noteRect("resource_app.help.act.open");
+                if (comptime std.mem.eql(u8, shortcut.action, "resource_app.help.act.import")) l10n.noteRect("resource_app.help.act.import");
+                if (comptime std.mem.eql(u8, shortcut.action, "resource_app.help.act.run")) l10n.noteRect("resource_app.help.act.run");
             }
             ig.igEndTable();
         }
-        ig.igSeparatorText("Manual");
-        ig.igTextWrapped("The MFC editor's reshelp.chm is not in the repository. The design and every feature are written in the spec:");
+        ig.igSeparatorText(l10n.t("resource_app.help.manual"));
+        ig.igTextWrapped("%s", l10n.t("resource_app.help.manual_text"));
+        l10n.noteRect("resource_app.help.manual_text");
         ig.igTextUnformatted(dl.spec_path);
-        if (ig.igButton("Open in the browser")) _ = sdl3.c.SDL_OpenURL(dl.spec_url);
+        if (ig.igButton(l10n.id("resource_app.help.open_browser"))) _ = sdl3.c.SDL_OpenURL(dl.spec_url);
         ig.igSameLine();
-        if (ig.igButton("Copy the link")) ig.igSetClipboardText(dl.spec_url);
+        if (ig.igButton(l10n.id("resource_app.help.copy_link"))) ig.igSetClipboardText(dl.spec_url);
         ig.igSameLine();
-        if (ig.igButton("Close")) self.show_help = false;
+        if (ig.igButton(l10n.id("kit.common.close"))) self.show_help = false;
     }
 
     fn drawAbout(self: *Docks) void {
-        if (!ig.igBegin("About Resource Editor###about", &self.show_about, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (!ig.igBegin(l10n.id("resource_app.window.about"), &self.show_about, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoSavedSettings)) {
             ig.igEnd();
             return;
         }
         defer ig.igEnd();
-        ig.igTextUnformatted(dl.about_title);
-        for (dl.about_mfc_lines) |line| ig.igTextUnformattedEx(line.ptr, line.ptr + line.len);
+        l10n.noteWindowRect("resource_app.window.about");
+        ig.igTextUnformatted(l10n.t(dl.about_title));
+        inline for (dl.about_mfc_lines) |line| ig.igTextUnformatted(l10n.t(line));
         ig.igSeparator();
-        ig.igTextUnformatted(dl.about_port);
-        ig.igTextUnformatted(dl.about_spec);
-        ig.igTextUnformatted(dl.about_source);
+        // Every long line wraps at one width, so AlwaysAutoResize cannot stretch the window to a
+        // translation.
         ig.igPushTextWrapPos(480);
-        ig.igTextUnformatted(dl.about_license);
+        ig.igTextUnformatted(l10n.t(dl.about_port));
+        var spec: [256]u8 = undefined;
+        const spec_line = l10n.say(&spec, dl.about_spec, .{dl.spec_path});
+        ig.igTextUnformattedEx(spec_line.ptr, spec_line.ptr + spec_line.len);
+        ig.igTextUnformatted(l10n.t(dl.about_source));
+        ig.igTextUnformatted(l10n.t(dl.about_license));
+        l10n.noteRect("resource_app.about.license");
         ig.igPopTextWrapPos();
-        if (ig.igButton("OK")) self.show_about = false;
+        if (ig.igButton(l10n.id("kit.common.ok"))) self.show_about = false;
     }
 
     fn takeFolder(self: *Docks, life: *logic.Lifecycle) void {
@@ -1074,6 +1103,11 @@ pub const Docks = struct {
         }
     }
 };
+
+/// The singular noun for the Terrain editor's kind of list, which the notes put into their sentences.
+fn tileNoun(mode: tl.Mode) []const u8 {
+    return if (mode == .crossets) l10n.str("resource_app.thumbs.noun_crosset") else l10n.str("resource_app.thumbs.noun_terrain");
+}
 
 /// Whether a file is there, MFC's GetFileAttributes != -1.
 fn fileExists(io: std.Io, path: []const u8) bool {

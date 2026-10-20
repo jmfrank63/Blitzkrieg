@@ -10,6 +10,9 @@ const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
 const grid = @import("grid_logic.zig");
 const edit = @import("edit_logic.zig");
+const kit = @import("editor_kit");
+
+const l10n = kit.l10n;
 
 const tools = core.sub_editor_tools;
 const bridge = core.bridge;
@@ -221,7 +224,7 @@ pub const PreviewSync = struct {
         if (!open) {
             if (self.asked == null) return .none;
             self.stop(b);
-            self.say("no project is open", .{});
+            self.say("resource_app.preview.no_project", .{});
             return .stopped;
         }
         if (self.asked == kind) return .none;
@@ -230,7 +233,7 @@ pub const PreviewSync = struct {
         switch (b.previewBegin(kind)) {
             .ok => {
                 self.begun = kind;
-                self.say("preview of .{s} ready: Run (F5) shows the project", .{kind.extension()});
+                self.say("resource_app.preview.ready", .{kind.extension()});
                 return .begun;
             },
             else => {
@@ -238,7 +241,7 @@ pub const PreviewSync = struct {
                 // old one only once it accepts the kind), so stop it here.
                 if (self.begun != null) _ = b.previewStop();
                 self.begun = null;
-                self.say("no preview: {s}", .{b.lastMessage()});
+                self.say("resource_app.preview.refused", .{b.lastMessage()});
                 return .refused;
             },
         }
@@ -248,16 +251,16 @@ pub const PreviewSync = struct {
     /// its animation through the bridge, as MFC's Run button did.
     pub fn run(self: *PreviewSync, b: ResBridge) bool {
         if (self.begun == null) {
-            if (self.message_len == 0) self.say("no preview for this project", .{});
+            if (self.message_len == 0) self.say("resource_app.preview.none", .{});
             return false;
         }
         if (b.previewShow() != .ok) {
             self.running = false;
-            self.say("the preview was not shown: {s}", .{b.lastMessage()});
+            self.say("resource_app.preview.not_shown", .{b.lastMessage()});
             return false;
         }
         self.running = true;
-        self.say("showing the project: {s}", .{b.lastMessage()});
+        self.say("resource_app.preview.showing", .{b.lastMessage()});
         // C3DRoadFrame draws a still terrain: Run only shows it, nothing plays.
         if (self.begun.? == .road_3d) {
             self.running = false;
@@ -265,7 +268,7 @@ pub const PreviewSync = struct {
         }
         if (b.previewPlayback(true) != .ok) {
             self.running = false;
-            self.say("the animation did not start: {s}", .{b.lastMessage()});
+            self.say("resource_app.preview.no_animation", .{b.lastMessage()});
             return false;
         }
         return true;
@@ -290,8 +293,8 @@ pub const PreviewSync = struct {
         return self.message_buffer[0..self.message_len];
     }
 
-    fn say(self: *PreviewSync, comptime format: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.message_buffer, format, args) catch self.message_buffer[0..];
+    fn say(self: *PreviewSync, comptime key: []const u8, args: anytype) void {
+        const text = l10n.format(&self.message_buffer, key, args) catch self.message_buffer[0..];
         self.message_len = text.len;
     }
 };
@@ -344,13 +347,13 @@ fn trimZeros(text: []const u8) []const u8 {
 
 /// The four status bar panes in MFC's order and wording.
 pub fn infoPanes(buffers: *[4][48]u8, info: ParticleInfo) [4][]const u8 {
-    const labels = [4][]const u8{ "Max particles", "Size", "Average size", "Average count" };
     const values = [4]f32{ info.max_count, info.max_size, info.average_size, info.average_count };
     var panes: [4][]const u8 = undefined;
-    for (0..4) |i| {
-        var number: [32]u8 = undefined;
-        panes[i] = std.fmt.bufPrint(&buffers[i], "{s} {s}", .{ labels[i], formatG(&number, values[i]) }) catch buffers[i][0..0];
-    }
+    var number: [32]u8 = undefined;
+    panes[0] = l10n.say(&buffers[0], "resource_app.particle.max_count", .{formatG(&number, values[0])});
+    panes[1] = l10n.say(&buffers[1], "resource_app.particle.size", .{formatG(&number, values[1])});
+    panes[2] = l10n.say(&buffers[2], "resource_app.particle.average_size", .{formatG(&number, values[2])});
+    panes[3] = l10n.say(&buffers[3], "resource_app.particle.average_count", .{formatG(&number, values[3])});
     return panes;
 }
 
@@ -375,7 +378,7 @@ pub const ParticleStatus = struct {
         var info: ParticleInfo = .{};
         const status = b.particleInfo(&info);
         if (status != .ok) {
-            const text = std.fmt.bufPrint(&self.note_buffer, "particle info: {s}", .{b.lastMessage()}) catch self.note_buffer[0..];
+            const text = l10n.format(&self.note_buffer, "resource_app.particle.info_note", .{b.lastMessage()}) catch self.note_buffer[0..];
             self.note_len = text.len;
             return false;
         }
@@ -432,8 +435,8 @@ pub const SourceToggle = struct {
         self.last_len = name.len;
     }
 
-    fn say(self: *SourceToggle, comptime fmt: []const u8, args: anytype) Outcome {
-        const text = std.fmt.bufPrint(&self.note_buffer, fmt, args) catch self.note_buffer[0..];
+    fn say(self: *SourceToggle, comptime key: []const u8, args: anytype) Outcome {
+        const text = l10n.format(&self.note_buffer, key, args) catch self.note_buffer[0..];
         self.note_len = text.len;
         return .refused;
     }
@@ -446,25 +449,25 @@ pub const SourceToggle = struct {
         self.note_len = 0;
         var complex = false;
         const status = t.bridge.particleSourceMode(&complex);
-        if (status != .ok) return self.say("particle source: {s}", .{t.bridge.lastMessage()});
+        if (status != .ok) return self.say("resource_app.psrc.reason", .{t.bridge.lastMessage()});
         const node = tools.firstOfClass(t.doc, tools.item_type.particle_complex_source) orelse
-            return self.say("particle source: the project has no complex source item", .{});
+            return self.say("resource_app.psrc.no_item", .{});
         const prop = tools.propIdByName(t.doc, node, "Particle reference") orelse
-            return self.say("particle source: the complex source has no Particle reference", .{});
+            return self.say("resource_app.psrc.no_reference", .{});
         var text: []const u8 = "";
         if (!complex) {
             const typed = if (name) |n| std.mem.trim(u8, n, " \t") else "";
             text = if (typed.len != 0) typed else if (name == null) self.lastName() else "";
             if (text.len == 0) {
                 if (name == null) return .need_name;
-                return self.say("particle source: a complex source needs the name of the particle it scatters", .{});
+                return self.say("resource_app.psrc.needs_name", .{});
             }
         } else if (tools.propValue(t.doc, node, prop)) |current| {
             self.remember(current);
         }
         edit.setProp(t, &.{node}, prop, text, 0) catch |err| {
             const why = t.bridge.lastMessage();
-            return self.say("particle source: {s}", .{if (why.len != 0) why else @errorName(err)});
+            return self.say("resource_app.psrc.reason", .{if (why.len != 0) why else @errorName(err)});
         };
         if (!complex) self.remember(text);
         expandFor(t, !complex);
@@ -513,8 +516,8 @@ pub const ImportForm = struct {
     /// The guarded action Import asks the lifecycle for, or why not.
     pub fn request(self: *const ImportForm) union(enum) { go: logic.Pending, why_not: []const u8 } {
         const folder = std.mem.trim(u8, self.folderSlice(), " \t");
-        if (folder.len == 0) return .{ .why_not = "choose the game folder that holds the resource's 1.xml" };
-        const text = PathText.fromSlice(folder) orelse return .{ .why_not = "the folder's path is too long" };
+        if (folder.len == 0) return .{ .why_not = l10n.str("resource_app.import.choose_folder") };
+        const text = PathText.fromSlice(folder) orelse return .{ .why_not = l10n.str("resource_app.import.path_long") };
         return .{ .go = .{ .import_from_game = .{ .kind = self.kind, .folder = text } } };
     }
 };
@@ -529,27 +532,29 @@ pub fn importStartFolder(buffer: []u8, base_root: []const u8) []const u8 {
 // --- Help and About (A-25, A-26) ------------------------------------------
 
 /// One line of Help's shortcut list. `keys` names Ctrl, which macOS shows
-/// as Cmd (`shortcutKeys`).
+/// as Cmd (`shortcutKeys`), and stays as written in every language; `action`
+/// is a string table key the drawing resolves (l10n.t takes a comptime key,
+/// so the list is walked with `inline for`).
 pub const Shortcut = struct { keys: []const u8, action: []const u8 };
 
 /// The keys the editor answers today, MFC's accelerators (editor.rc,
 /// IDR_EDITORTYPE) where it had them. reshelp.chm is not in the repository,
 /// so this list and the spec are the help.
 pub const shortcuts = [_]Shortcut{
-    .{ .keys = "Ctrl+O", .action = "Open a project" },
-    .{ .keys = "Ctrl+S", .action = "Save the project" },
-    .{ .keys = "Ctrl+Shift+S", .action = "Save the project as" },
-    .{ .keys = "Ctrl+I", .action = "Import from game data" },
-    .{ .keys = "Ctrl+Z", .action = "Undo" },
-    .{ .keys = "Ctrl+Y, Ctrl+Shift+Z", .action = "Redo" },
-    .{ .keys = "Insert", .action = "Insert an item (project tree)" },
-    .{ .keys = "Delete", .action = "Delete the selected items (project tree)" },
-    .{ .keys = "F2", .action = "Rename the item (project tree)" },
-    .{ .keys = "Ctrl+C", .action = "Expand or collapse every item of the project tree" },
-    .{ .keys = "Ctrl+D", .action = "Show or hide the direction button" },
-    .{ .keys = "Ctrl+F", .action = "Show or hide the function window" },
-    .{ .keys = "F5", .action = "Run the preview" },
-    .{ .keys = "F1", .action = "This help" },
+    .{ .keys = "Ctrl+O", .action = "resource_app.help.act.open" },
+    .{ .keys = "Ctrl+S", .action = "resource_app.help.act.save" },
+    .{ .keys = "Ctrl+Shift+S", .action = "resource_app.help.act.save_as" },
+    .{ .keys = "Ctrl+I", .action = "resource_app.help.act.import" },
+    .{ .keys = "Ctrl+Z", .action = "resource_app.help.act.undo" },
+    .{ .keys = "Ctrl+Y, Ctrl+Shift+Z", .action = "resource_app.help.act.redo" },
+    .{ .keys = "Insert", .action = "resource_app.help.act.insert" },
+    .{ .keys = "Delete", .action = "resource_app.help.act.delete" },
+    .{ .keys = "F2", .action = "resource_app.help.act.rename" },
+    .{ .keys = "Ctrl+C", .action = "resource_app.help.act.expand" },
+    .{ .keys = "Ctrl+D", .action = "resource_app.help.act.direction" },
+    .{ .keys = "Ctrl+F", .action = "resource_app.help.act.function" },
+    .{ .keys = "F5", .action = "resource_app.help.act.run" },
+    .{ .keys = "F1", .action = "resource_app.help.act.help" },
 };
 
 /// `keys` as the platform names the modifier.
@@ -565,21 +570,23 @@ pub const spec_path = "docs/superpowers/specs/2026-09-30-portable-resource-edito
 pub const spec_url = "https://github.com/jmfrank63/Blitzkrieg/blob/main/" ++ spec_path;
 
 /// IDD_ABOUTBOX's lines, then the port's own (as MapEditor's About has).
-pub const about_title = "Blitzkrieg Resource Editor";
+/// The lines are string table keys; the title, the spec path, the source
+/// address and the license file name inside the texts stay as they are.
+pub const about_title = "resource_app.about.title";
 pub const about_mfc_lines = [_][]const u8{
-    "Version 1.0",
-    "\xc2\xa9 2003 Nival Interactive. All rights reserved.",
-    "Blitzkrieg is a trademark of Nival Interactive.",
-    "Published by CDV Software Entertainment AG.",
+    "resource_app.about.version",
+    "resource_app.about.copyright",
+    "resource_app.about.trademark",
+    "resource_app.about.publisher",
 };
-pub const about_port = "Portable editor (Zig, Dear ImGui, the engine through resource_bridge.h), milestone M001";
-pub const about_spec = "Design: " ++ spec_path;
-pub const about_source = "Source: github.com/jmfrank63/Blitzkrieg";
-pub const about_license = "Blitzkrieg and its data belong to Nival International Ltd.; use is licensed for noncommercial purposes only (LICENSE.md).";
+pub const about_port = "resource_app.about.port";
+pub const about_spec = "resource_app.about.spec";
+pub const about_source = "resource_app.about.source";
+pub const about_license = "resource_app.about.license";
 
 /// The Function window's frame (A-15): MFC's CKeyFrameDockWnd edits a
 /// particle or effect track's keys; the editing is the curve widget in docks.zig over keyframe_logic.zig.
-pub const function_window_note = "Select a key-frame curve of a Particle or Effect project to edit it here.";
+pub const function_window_note = "resource_app.function.note";
 
 // --- Tests -------------------------------------------------------------------
 
@@ -823,7 +830,8 @@ test "help: every shortcut has keys and an action, Ctrl reads Cmd on macOS, the 
     try testing.expectEqualStrings("Cmd+Y, Cmd+Shift+Z", shortcutKeys(&buffer, "Ctrl+Y, Ctrl+Shift+Z", true));
     try testing.expectEqualStrings("Ctrl+O", shortcutKeys(&buffer, "Ctrl+O", false));
     try testing.expect(std.mem.endsWith(u8, spec_url, spec_path));
-    try testing.expectEqualStrings("Version 1.0", about_mfc_lines[0]);
+    inline for (shortcuts) |s| try testing.expect(l10n.str(s.action).len != 0);
+    try testing.expectEqualStrings("Version 1.0", l10n.str(about_mfc_lines[0]));
 }
 
 test "particle info: %g formatting follows printf" {
