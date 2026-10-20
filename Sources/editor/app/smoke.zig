@@ -801,7 +801,7 @@ pub const Script = struct {
         }
     }
 
-    fn pushWindowEvent(self: *Script, kind: u32) bool {
+    fn pushWindowEvent(self: *Script, kind: @FieldType(sdl.SDL_WindowEvent, "type")) bool {
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.window.type = kind;
         event.window.windowID = self.window_id;
