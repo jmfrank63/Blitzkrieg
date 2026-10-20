@@ -842,6 +842,20 @@ pub fn build(b: *std.Build) void {
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
 
+    // The CI workflow runs the l10n tiers (M002 S09 T03): a text check of cross-platform.yml.
+    const ci_l10n_wiring_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/ci_l10n_wiring_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    const ci_l10n_wiring_tests = b.addTest(.{ .root_module = ci_l10n_wiring_module });
+    const ci_l10n_wiring_run = b.addRunArtifact(ci_l10n_wiring_tests);
+    ci_l10n_wiring_run.setCwd(b.path("."));
+    ci_l10n_wiring_run.has_side_effects = true;
+    const ci_l10n_wiring_step = b.step("test-ci-l10n-wiring", "The CI workflow runs the l10n tiers in the jobs that own them and installs hb-view where a measured tier runs (M002 S09 T03)");
+    ci_l10n_wiring_step.dependOn(&ci_l10n_wiring_tests.step);
+    if (test_mode == .run) ci_l10n_wiring_step.dependOn(&ci_l10n_wiring_run.step);
+
     // Data/Scenarios against GOG Blitzkrieg 1.2 and the chapter screen's rules
     // (docs/superpowers/specs/2026-09-25-revive-random-missions-design.md).
     // Reads Data, so it runs from the repository root.
