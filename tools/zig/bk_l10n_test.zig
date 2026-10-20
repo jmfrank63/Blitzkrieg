@@ -391,3 +391,21 @@ test "every table has the keys of en.lang and uses the same slots" {
     }
     try testing.expectEqual(@as(usize, 0), failures);
 }
+
+test "no failure or message text in any table has a line break" {
+    // A failure is one `<tool>: ` line on stderr (D-04), so only the usage texts may span lines.
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var failures: usize = 0;
+    for (l10n.codes, tables) |code, bytes| {
+        for (try l10n.parse(arena, bytes, null)) |entry| {
+            if (std.mem.indexOf(u8, entry.key, ".usage.") != null) continue;
+            if (std.mem.indexOfAny(u8, entry.value, "\r\n") != null) {
+                std.debug.print("{s}.lang '{s}' has a line break\n", .{ code, entry.key });
+                failures += 1;
+            }
+        }
+    }
+    try testing.expectEqual(@as(usize, 0), failures);
+}

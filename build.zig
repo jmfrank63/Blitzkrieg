@@ -2414,6 +2414,30 @@ pub fn build(b: *std.Build) void {
     bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
     bk_tools_tests_run.step.dependOn(bk_sprite.install);
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
+    // The per-language half of the conventions (M002 S07): help in every language for the seven
+    // tools, the language order for a real process, and the dropped-key fallback. It runs the same
+    // executables, so it waits for the same installs and names the same binaries as inputs.
+    const bk_tools_l10n_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_tool_l10n_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    bk_tools_l10n_module.addOptions("bk_tools", bk_tools_options);
+    const bk_tools_l10n_tests = b.addTest(.{ .root_module = bk_tools_l10n_module });
+    const bk_tools_l10n_run = b.addRunArtifact(bk_tools_l10n_tests);
+    bk_tools_l10n_run.setCwd(b.path("."));
+    bk_tools_l10n_run.step.dependOn(bk_font.install);
+    bk_tools_l10n_run.step.dependOn(bk_map.install);
+    bk_tools_l10n_run.step.dependOn(bk_sprite.install);
+    bk_tools_l10n_run.addFileInput(bk_font.tool.getEmittedBin());
+    bk_tools_l10n_run.addFileInput(bk_map.tool.getEmittedBin());
+    bk_tools_l10n_run.addFileInput(bk_sprite.tool.getEmittedBin());
+    setUserRootsForTest(bk_tools_l10n_run, "bk-tools-l10n-user");
+    bk_tools_l10n_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
+    const bk_tools_l10n_step = b.step("test-bk-tools-l10n", "Run the bk-* tools' per-language help, language order and dropped-key tests (M002 S07)");
+    bk_tools_l10n_step.dependOn(&bk_tools_l10n_tests.step);
+    if (test_mode == .run) bk_tools_l10n_step.dependOn(&bk_tools_l10n_run.step);
+    bk_pak_test_step.dependOn(bk_tools_l10n_step);
     const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common, sdl_dynamic_dep.path("include"));
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
