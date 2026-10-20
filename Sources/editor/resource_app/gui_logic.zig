@@ -12,6 +12,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const core = @import("resource_core");
+const kit = @import("editor_kit");
 
 const tools = core.sub_editor_tools;
 const bridge_mod = core.bridge;
@@ -75,15 +76,15 @@ pub const View = struct {
 /// bits of UI.h's class type (UI_BASE_VALUE + 0x1100 + n).
 pub fn className(class_type: i32) []const u8 {
     return switch (class_type & 0xff) {
-        3 => "Button",
-        5 => "Static",
-        6 => "Status bar",
-        7 => "Dialog",
-        8 => "Slider",
-        9 => "Scrollbar",
-        10 => "List",
-        13 => "Scroll text",
-        else => "Window",
+        3 => kit.l10n.str("resource_app.gui.class_button"),
+        5 => kit.l10n.str("resource_app.gui.class_static"),
+        6 => kit.l10n.str("resource_app.gui.class_status_bar"),
+        7 => kit.l10n.str("resource_app.gui.class_dialog"),
+        8 => kit.l10n.str("resource_app.gui.class_slider"),
+        9 => kit.l10n.str("resource_app.gui.class_scrollbar"),
+        10 => kit.l10n.str("resource_app.gui.class_list"),
+        13 => kit.l10n.str("resource_app.gui.class_scroll_text"),
+        else => kit.l10n.str("resource_app.gui.class_window"),
     };
 }
 
@@ -336,8 +337,8 @@ pub const Overlay = struct {
         return self.mode == .select or self.mode == .drag or self.mode == .resize or self.mode == .draw;
     }
 
-    fn say(self: *Overlay, comptime fmt: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.last, fmt, args) catch self.last[0..];
+    fn say(self: *Overlay, comptime key: []const u8, args: anytype) void {
+        const text = kit.l10n.format(&self.last, key, args) catch self.last[0..];
         self.last_len = text.len;
     }
 
@@ -347,15 +348,22 @@ pub const Overlay = struct {
 
     /// The canvas status line: the mode, the selection and the last command.
     pub fn status(self: *const Overlay, buffer: []u8) []const u8 {
-        const mode = @tagName(self.mode);
-        const armed: []const u8 = if (self.armed) |path| std.fs.path.basename(path) else "";
-        return std.fmt.bufPrint(buffer, "mode {s}{s}{s} | {d} selected{s} | {s}", .{
+        const l10n = kit.l10n;
+        const mode = switch (self.mode) {
+            .free => l10n.str("resource_app.gui.mode_free"),
+            .select => l10n.str("resource_app.gui.mode_select"),
+            .drag => l10n.str("resource_app.gui.mode_drag"),
+            .resize => l10n.str("resource_app.gui.mode_resize"),
+            .draw => l10n.str("resource_app.gui.mode_draw"),
+        };
+        var armed_buffer: [160]u8 = undefined;
+        const armed: []const u8 = if (self.armed) |path| l10n.say(&armed_buffer, "resource_app.gui.status_drawing", .{std.fs.path.basename(path)}) else "";
+        return l10n.format(buffer, "resource_app.gui.status", .{
             mode,
-            if (armed.len != 0) ", drawing " else "",
             armed,
             self.selection.ids.items.len,
-            if (self.selection.primary() != null) " (first is primary)" else "",
-            if (self.last_len != 0) self.lastSaid() else "nothing done yet",
+            if (self.selection.primary() != null) l10n.str("resource_app.gui.status_primary") else "",
+            if (self.last_len != 0) self.lastSaid() else l10n.str("resource_app.gui.status_nothing"),
         }) catch buffer[0..0];
     }
 
@@ -484,14 +492,14 @@ pub const Overlay = struct {
                 }
                 var edits = try geometry.moveBy(self.allocator, windows, self.selection.ids.items, d.x, d.y);
                 defer edits.deinit(self.allocator);
-                try self.commitRects(bridge, doc, history, edits.items, "moved");
+                try self.commitRects(bridge, doc, history, edits.items, "resource_app.gui.said_moved");
             },
             .resize => {
                 const primary = self.selection.primary() orelse return;
                 const rc = self.resized(windows);
                 if (rc.eql(self.origin_rect)) return;
                 const edit = geometry.rectFor(windows, primary, rc) orelse return;
-                try self.commitRects(bridge, doc, history, &.{edit}, "resized");
+                try self.commitRects(bridge, doc, history, &.{edit}, "resource_app.gui.said_resized");
             },
             .select => {
                 if (@abs(self.at.x - self.start.x) < click_slop and @abs(self.at.y - self.start.y) < click_slop) {
@@ -502,7 +510,7 @@ pub const Overlay = struct {
                 defer self.allocator.free(found);
                 self.selection.clear();
                 try self.selection.ids.appendSlice(self.allocator, found);
-                self.say("selected {d}", .{found.len});
+                self.say("resource_app.gui.said_selected", .{found.len});
             },
             .draw => {
                 const path = self.armed orelse return;
@@ -518,10 +526,10 @@ pub const Overlay = struct {
         self.narrow_to = null;
     }
 
-    fn commitRects(self: *Overlay, bridge: ResBridge, doc: *Document, history: *History, edits: []const GuiRect, what: []const u8) Error!void {
+    fn commitRects(self: *Overlay, bridge: ResBridge, doc: *Document, history: *History, edits: []const GuiRect, comptime what_key: []const u8) Error!void {
         const command = (try gui_tools.setRects(self.allocator, bridge, &doc.gui_ids, edits)) orelse return;
         try tools.commit(self.allocator, bridge, doc, history, command, 0);
-        self.say("{s} {d}", .{ what, edits.len });
+        self.say(what_key, .{edits.len});
     }
 
     // --- Palette ----------------------------------------------------------------
@@ -536,7 +544,7 @@ pub const Overlay = struct {
         const command = try gui_tools.insertTemplate(self.allocator, &doc.gui_ids, parent, path, x, y);
         try tools.commit(self.allocator, bridge, doc, history, command, 0);
         try self.selectLastCreated(history);
-        self.say("placed {s}", .{std.fs.path.basename(path)});
+        self.say("resource_app.gui.said_placed", .{std.fs.path.basename(path)});
     }
 
     /// A template dropped from the palette at a screen point: one insert, as
@@ -570,7 +578,7 @@ pub const Overlay = struct {
         defer self.allocator.free(windows);
         var edits = try geometry.moveBy(self.allocator, windows, self.selection.ids.items, dx, dy);
         defer edits.deinit(self.allocator);
-        try self.commitRects(bridge, doc, history, edits.items, "nudged");
+        try self.commitRects(bridge, doc, history, edits.items, "resource_app.gui.said_nudged");
     }
 
     /// The Align menu: the other selected windows to the primary's edge.
@@ -579,7 +587,7 @@ pub const Overlay = struct {
         defer self.allocator.free(windows);
         var edits = try geometry.align_(self.allocator, windows, self.selection.ids.items, mode);
         defer edits.deinit(self.allocator);
-        try self.commitRects(bridge, doc, history, edits.items, @tagName(mode));
+        try self.commitRects(bridge, doc, history, edits.items, "resource_app.gui.said_aligned");
     }
 
     /// Equal width, height or size to the primary.
@@ -588,7 +596,7 @@ pub const Overlay = struct {
         defer self.allocator.free(windows);
         var edits = try geometry.equalize(self.allocator, windows, self.selection.ids.items, mode);
         defer edits.deinit(self.allocator);
-        try self.commitRects(bridge, doc, history, edits.items, "equal");
+        try self.commitRects(bridge, doc, history, edits.items, "resource_app.gui.said_equal");
     }
 
     /// Delete: the selection and its subtrees, one step.
@@ -596,7 +604,7 @@ pub const Overlay = struct {
         if (self.selection.ids.items.len == 0) return;
         const command = try gui_tools.delete(self.allocator, bridge, &doc.gui_ids, self.selection.ids.items);
         try tools.commit(self.allocator, bridge, doc, history, command, 0);
-        self.say("deleted {d}", .{self.selection.ids.items.len});
+        self.say("resource_app.gui.said_deleted", .{self.selection.ids.items.len});
         self.selection.clear();
     }
 
@@ -622,7 +630,7 @@ pub const Overlay = struct {
         const windows = try self.windowsOf(bridge);
         defer self.allocator.free(windows);
         try self.setClip(bridge, windows);
-        self.say("copied {d}", .{self.selection.ids.items.len});
+        self.say("resource_app.gui.said_copied", .{self.selection.ids.items.len});
     }
 
     /// Ctrl+X: the clipboard, then one delete step.
@@ -632,7 +640,7 @@ pub const Overlay = struct {
         defer self.allocator.free(windows);
         try self.setClip(bridge, windows);
         try self.deleteSelection(bridge, doc, history);
-        self.say("cut", .{});
+        self.say("resource_app.gui.said_cut", .{});
     }
 
     /// Ctrl+V: the copied group's top left lands `paste_inset` inside the
@@ -663,16 +671,17 @@ pub const Overlay = struct {
             else => &.{},
         };
         if (changes.len == 0) {
-            self.say("pasted", .{});
+            self.say("resource_app.gui.said_pasted", .{});
             return;
         }
         const windows = try self.windowsOf(bridge);
         defer self.allocator.free(windows);
         for (changes, 0..) |c, i| {
-            const name = if (geometry.find(windows, doc.gui_ids.actual(c.window))) |w| className(w.class_type) else "Window";
+            const name = if (geometry.find(windows, doc.gui_ids.actual(c.window))) |w| className(w.class_type) else kit.l10n.str("resource_app.gui.class_window");
             if (i != 0) try self.paste_log.append(self.allocator, '\n');
             const start = self.paste_log.items.len;
-            try self.paste_log.print(self.allocator, "paste: ElementID {d} -> {d} ({s})", .{ c.old, c.new, name });
+            var line_buffer: [160]u8 = undefined;
+            try self.paste_log.appendSlice(self.allocator, kit.l10n.say(&line_buffer, "resource_app.gui.said_paste_id", .{ c.old, c.new, name }));
             if (!builtin.is_test) std.debug.print("{s}\n", .{self.paste_log.items[start..]});
         }
         // The status line holds what fits, the lines joined by "; ".
@@ -699,14 +708,14 @@ pub const Overlay = struct {
     /// Edits a window's own ints (the inspector's Pos, Size and
     /// PositionFlag) as one step.
     pub fn setLocal(self: *Overlay, bridge: ResBridge, doc: *Document, history: *History, edit: GuiRect) Error!void {
-        try self.commitRects(bridge, doc, history, &.{edit}, "edited");
+        try self.commitRects(bridge, doc, history, &.{edit}, "resource_app.gui.said_edited");
     }
 
     /// Edits one attribute of a window as one undoable step.
     pub fn setAttribute(self: *Overlay, bridge: ResBridge, doc: *Document, history: *History, id: i32, name: []const u8, value: []const u8) Error!void {
         const command = try gui_tools.setAttr(self.allocator, bridge, &doc.gui_ids, id, name, value);
         try tools.commit(self.allocator, bridge, doc, history, command, 0);
-        self.say("{s} set", .{name});
+        self.say("resource_app.gui.said_attr_set", .{name});
     }
 
     /// The clipboard text of the one selected window as a template file, for

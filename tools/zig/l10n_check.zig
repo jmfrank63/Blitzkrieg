@@ -60,7 +60,7 @@
 //! set's files (`doc-missing` reports one that does not exist), English pointing at the English file. A `<stem>_English.md` is `doc-extra`.
 //! `document_sets` is empty until S08 adds the root README set (`--doc-set <stem>` adds one).
 //!
-//! Rule `literal`: in the `strict_dirs` (S04 to S07 add the migrated source directories;
+//! Rule `literal`: in the `strict_dirs` (the Map Editor, ELK and Resource Editor app directories;
 //! `--strict-dir <dir>` adds one), a known UI call whose first argument is a string literal is a
 //! finding: it must go through `l10n.t`, `l10n.id` or `l10n.format`.
 const std = @import("std");
@@ -860,9 +860,9 @@ fn compareStructure(report: *Report, code: []const u8, path: []const u8, english
     }
 }
 
-/// Directories whose Zig sources must not hold an English UI literal. S04 to S07 add the source
-/// directories they migrate to `l10n.t`; `--strict-dir <dir>` adds one for a fixture.
-pub const strict_dirs = [_][]const u8{ "Sources/editor/elk/app", "Sources/editor/app" };
+/// Directories whose Zig sources must not hold an English UI literal (M002 S04 to S06 migrated the
+/// app directories to `l10n.t`); `--strict-dir <dir>` adds one for a fixture.
+pub const strict_dirs = [_][]const u8{ "Sources/editor/elk/app", "Sources/editor/app", "Sources/editor/resource_app" };
 
 /// The UI calls whose first argument is text a person reads.
 const ui_calls = [_][]const u8{
@@ -907,7 +907,7 @@ fn hasLetters(literal: []const u8) bool {
     var i: usize = 0;
     while (i < literal.len) : (i += 1) {
         if (literal[i] == '%') {
-            while (i + 1 < literal.len and std.mem.indexOfScalar(u8, "%-+ #0123456789.", literal[i + 1]) != null) i += 1;
+            while (i + 1 < literal.len and std.mem.indexOfScalar(u8, "%-+ #0123456789.*", literal[i + 1]) != null) i += 1;
             if (i + 1 < literal.len) i += 1;
             continue;
         }

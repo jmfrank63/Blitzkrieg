@@ -879,10 +879,10 @@ pub const Docks = struct {
                 self.curve_revision = life.history.revision;
             }
             if (ig.igIsMouseClicked(ig.ImGuiMouseButton_Right)) {
-                _ = ig.igOpenPopup("curve_menu", 0);
+                _ = ig.igOpenPopup("##curve_menu", 0);
             }
         }
-        if (ig.igBeginPopup("curve_menu", 0)) {
+        if (ig.igBeginPopup("##curve_menu", 0)) {
             if (ig.igMenuItem(l10n.id("resource_app.function.zoom_in_x"))) _ = editor.zoomX(.in);
             if (ig.igMenuItem(l10n.id("resource_app.function.zoom_out_x"))) _ = editor.zoomX(.out);
             if (ig.igMenuItem(l10n.id("resource_app.function.zoom_in_y"))) _ = editor.zoomY(.in);

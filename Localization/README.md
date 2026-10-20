@@ -70,7 +70,7 @@ its own when it moves to the tables. To add a key: put it in `en.lang` first, th
 `{0}`..`{9}` placeholders (the glossaries above give the terms), call it as `l10n.t("<key>")` (a menu or
 window label that must keep its identity across languages as `l10n.id`), and run `zig build l10n-check`,
 which fails on a key one table lacks or holds extra, a changed placeholder, a glyph the language's Noto face
-does not cover, and a literal in the strict directories (`Sources/editor/elk/app`, `Sources/editor/app`). ELK's help is one file per language,
+does not cover, and a literal in the strict directories (`Sources/editor/elk/app`, `Sources/editor/app`, `Sources/editor/resource_app`). ELK's help is one file per language,
 `Sources/editor/elk/help/elk_<code>.md`, embedded.
 
 A key a table lacks shows the English text and logs `l10n: missing <code> <key>` once to stderr.

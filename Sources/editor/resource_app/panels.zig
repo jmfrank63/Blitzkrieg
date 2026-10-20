@@ -1105,7 +1105,7 @@ pub const Panels = struct {
         defer hits.deinit(gpa);
         edit.filterEntries(gpa, entries, std.mem.sliceTo(&picker.filter, 0), &hits) catch {};
         var accept = false;
-        if (ig.igBeginChild("entries", .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, ig.ImGuiChildFlags_Borders, 0)) {
+        if (ig.igBeginChild("##entries", .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, ig.ImGuiChildFlags_Borders, 0)) {
             for (hits.items) |i| {
                 const entry = &entries[i];
                 var item_buffer: [bridge.reference_name_capacity + 16]u8 = undefined;

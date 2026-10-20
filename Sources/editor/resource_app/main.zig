@@ -757,7 +757,7 @@ pub fn drawProbe() void {
     // Orange, as in MapEditor's check: its channels all differ, so a
     // red/blue swap in the readback fails isProbeColour.
     imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 128.0 / 255.0, .z = 0, .w = 1 });
-    _ = imgui.c.igBegin("probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
+    _ = imgui.c.igBegin("##probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
     imgui.c.igEnd();
     imgui.c.igPopStyleColor();
 }
