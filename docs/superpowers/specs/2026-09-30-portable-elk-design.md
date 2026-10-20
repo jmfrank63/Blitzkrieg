@@ -925,3 +925,13 @@ restart. It selects among packs, it is not a new localisation system.
   open main menu, the switch shows in the first frame drawn after it: the
   frame before still has the marker, the frame after is identical to the
   original (0 pixels). macOS and Windows are left to CI and the maintainer.
+
+## Localization of the editors (M002 S04, 2026-10-20)
+
+- D078: the bundled Noto faces are installed as `Fonts/` beside each editor's executable and loaded by
+  `kit/fonts.zig` (`BK_FONT_DIR` overrides); a missing face fails with its full path.
+- D079: ELK's help is one embedded file per language, `help/elk_<code>.md`, with `elk.md` for English.
+- The shared setting `ui_language` (`system` or a table code) is stored in `elk.cfg` beside the other keys,
+  written only when it is not `system`; ELK's UI, messages and help follow it, tables in
+  `Sources/editor/kit/lang`, and `BK_L10N_DIR` replaces a table for tests. `zig build elk-l10n-auto` measures
+  the ten languages and the missing-key case on Linux; macOS and Windows are left to CI.

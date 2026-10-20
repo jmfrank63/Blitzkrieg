@@ -59,6 +59,32 @@ written under `zig-out/local-test/l10n-game-reads-it/<code>/`.
 Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
 cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.
 
+## Editor tables
+
+The editors' own texts (M002 S04) live in `Sources/editor/kit/lang/<code>.lang`, one table per language
+(`en` and the nine above), embedded in the binaries. Keys carry their owner as a prefix: `kit.` for the
+shared kit (the language picker), `elk.` for ELK; the Map Editor and Resource Editor add theirs when they
+move to the tables. To add a key: put it in `en.lang` first, then in all nine other tables with the same
+`{0}`..`{9}` placeholders (the glossaries above give the terms), call it as `l10n.t("<key>")` (a menu or
+window label that must keep its identity across languages as `l10n.id`), and run `zig build l10n-check`,
+which fails on a key one table lacks or holds extra, a changed placeholder, a glyph the language's Noto face
+does not cover, and a literal in ELK's strict directory. ELK's help is one file per language,
+`Sources/editor/elk/help/elk_<code>.md`, embedded.
+
+A key a table lacks shows the English text and logs `l10n: missing <code> <key>` once to stderr.
+`BK_L10N_DIR=<dir>` makes ELK read `<dir>/<code>.lang` instead of the embedded table, and `BK_FONT_DIR=<dir>`
+reads the Noto faces from `<dir>` instead of `Fonts/` beside the executable; both are test seams.
+
+`zig build elk-l10n-auto` (`tools/zig/elk_l10n_auto.zig`, needs `hb-view`) starts the installed ELK hidden
+once per language with `ui_language` in a scratch `elk.cfg`, captures its main window, File menu and help
+(`ELK --l10n-auto`), and measures every label against hb-view's raster of the table's text. Hindi labels
+also pass the headline and i matra checks, `zh-Hans` and `ja` the regional Han face check, and the Latin
+languages must differ from the English frame. A tracked table that lacks one key
+(`tools/zig/fixtures/l10n/elk-drop/ru.lang`) must log exactly one `l10n: missing ru <key>` line and draw
+that label in English. Frames and a `report.txt` with one `ok` or `FAIL` line per check are kept under
+`zig-out/local-test/elk/l10n-auto/<code>/`. Hindi labels with a conjunct are held to a lower correlation
+because of the half-form limit below.
+
 ## Glossaries
 
 `Localization/glossary/<code>.md` holds one glossary per language (`ru`, `zh-Hans`, `ja`, `hi`, `es`, `fr`, `de`,

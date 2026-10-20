@@ -51,6 +51,8 @@
 //!   do=statistics            View > ELK Statistic
 //!   do=statistics_close      the statistic window's OK
 //!   do=help                  Help > Contents (the hot key is `key=f1`)
+//!   do=open_menu:<key>       the next frame opens the menu bar menu of that table key
+//!                            (`elk.menu.file`), as a click on its title would
 //!   do=help_close            the help window's close button
 //!   do=probe_hindi           draw a fixed Hindi text, PUA-encoded, over a black strip (Ui.probe_rect)
 //!   do=about  do=about_close Help > About Blitzkrieg ELK... and its OK
@@ -282,14 +284,18 @@ pub const Runner = struct {
             .do => |named| try self.command(window, ui, named),
             .expect => |named| try self.expect(window, ui, named),
             .exit => ui.requestExit(),
-            .shot => |name| try self.shoot(window, name),
+            .shot => |name| try self.shoot(window, ui, name),
             else => self.fail("{s} is not driven by ELK yet", .{@tagName(action)}),
         }
     }
 
     /// `shot=`: the entries run before the frame is drawn, so this captures the frame the
     /// previous iteration drew, which is what the preceding entries produced.
-    fn shoot(self: *Runner, window: *window_mod.Window, name: []const u8) !void {
+    ///
+    /// With the label log on (`ELK --l10n-auto`) the shot is followed by `l10n-auto: shot <name> <w>x<h>`
+    /// (the window's size in ImGui pixels) and one `l10n-auto: rect <key> <x> <y> <w> <h>` line per
+    /// label that frame drew, for the tier that measures the capture.
+    fn shoot(self: *Runner, window: *window_mod.Window, ui: *ui_mod.Ui, name: []const u8) !void {
         var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const path = if (self.shot_folder.len == 0)
             std.fmt.bufPrint(&path_buffer, "{s}.tga", .{name})
@@ -298,6 +304,12 @@ pub const Runner = struct {
         const file = path catch return self.fail("shot={s}: path too long", .{name});
         window.capture(self.gpa, self.io orelse return self.fail("shot={s}: the runner has no io", .{name}), file) catch
             return self.fail("{s}", .{window_mod.failureReason()});
+        if (!ui.rect_log) return;
+        const display = ui.displaySize();
+        std.debug.print("l10n-auto: shot {s} {d:.0}x{d:.0}\n", .{ name, display.x, display.y });
+        for (ui.rects[0..ui.rect_count]) |rect| {
+            std.debug.print("l10n-auto: rect {s} {d:.1} {d:.1} {d:.1} {d:.1}\n", .{ rect.key, rect.x, rect.y, rect.w, rect.h });
+        }
     }
 
     fn press(self: *Runner, window: *window_mod.Window, key_action: schedule.Key) !void {
@@ -391,6 +403,8 @@ pub const Runner = struct {
             ui.closeStatistics();
         } else if (is(named, "help")) {
             ui.openHelp();
+        } else if (is(named, "open_menu")) {
+            if (!ui.openMenu(named.arg)) return self.fail("do=open_menu: {s} is not a menu key", .{named.arg});
         } else if (is(named, "help_close")) {
             if (!ui.help_drawn) return self.fail("do=help_close: the help window is not shown", .{});
             ui.help_open = false;

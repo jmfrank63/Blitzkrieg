@@ -10149,6 +10149,39 @@ fn addElk(
     const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod (by filter too) and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), the short layout started from its .upd files with Help, and the D-14 worker: the progress modal mid-run and its Cancel, a cancelled import leaving every file whole; Import from Game into a new database and Import from PAK/UPD of usa01.pak, cancelled, whole and repeated");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
+
+    // M002 S04 D066: the installed ELK in each of the ten languages draws its main window, File
+    // menu and help; tools/zig/elk_l10n_auto.zig measures the captured frames against hb-view's
+    // rasters of the tables' texts, and the missing-key case. It needs a GPU device and hb-view
+    // (D069) and fails without them. The exe's install brings the Fonts/ it loads.
+    const l10n_auto_measure = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_auto_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/elk_l10n_auto.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = core_module },
+            .{ .name = "l10n_measure", .module = l10n_auto_measure },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_auto_module, toolchain);
+    }
+    const l10n_auto_tests = b.addTest(.{ .root_module = l10n_auto_module });
+    const l10n_auto_run = b.addRunArtifact(l10n_auto_tests);
+    l10n_auto_run.setCwd(b.path("."));
+    l10n_auto_run.setEnvironmentVariable("BK_ELK_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    // Reads Data/ELK and the tables, writes its frames under zig-out/local-test.
+    l10n_auto_run.has_side_effects = true;
+    l10n_auto_run.step.dependOn(&install_exe.step);
+    const l10n_auto_step = b.step("elk-l10n-auto", "Start the installed ELK hidden in each of the ten languages (ui_language in a scratch elk.cfg), capture its main window, File menu and help window, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages), then a table missing one key: one l10n: missing line and the label drawn in English (M002 S04, D066)");
+    l10n_auto_step.dependOn(&l10n_auto_tests.step);
+    l10n_auto_step.dependOn(&install_exe.step);
+    if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
 }
 
 /// M001 S05: ResourceEditor, built and installed the way addMapEditor builds

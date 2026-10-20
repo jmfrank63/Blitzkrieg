@@ -213,7 +213,9 @@ tables.
   `<dir>/<code>.lang` instead of the embedded table, for tests that drop a key.
 - Hindi results are encoded with `fonts.encodeHindi`; load the fonts before the first lookup.
 
-Its tests run in `zig build test-editor-kit`.
+Its tests run in `zig build test-editor-kit`. ELK's use of it is measured by `zig build elk-l10n-auto`
+(ten languages, frames captured with `capture`, the missing-key case through `BK_L10N_DIR`); see
+`Localization/README.md`, "Editor tables".
 
 ## language_picker
 

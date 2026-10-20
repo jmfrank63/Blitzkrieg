@@ -77,6 +77,11 @@
 //! cancelled, the 50 files in and elk.xml unchanged; then whole (the other
 //! 63), and again, which changes nothing.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
+//!
+//! `--l10n-auto <elk.xml> <scratch folder>` is the localisation tier's pass (tools/zig/elk_l10n_auto.zig):
+//! in the language of the scratch elk.cfg (`BK_ELK_SETTINGS`) it captures the main window, the File
+//! menu opened and the help window into the folder, and prints the rect of every label those frames
+//! drew as `l10n-auto: rect <key> <x> <y> <w> <h>`.
 const std = @import("std");
 const builtin = @import("builtin");
 const kit = @import("editor_kit");
@@ -453,6 +458,10 @@ fn run(minimal: std.process.Init.Minimal) !u8 {
         if (items.len != 3) usage();
         return smoke(gpa, io, minimal.environ, items[1], items[2]);
     }
+    if (items.len > 0 and std.mem.eql(u8, items[0], "--l10n-auto")) {
+        if (items.len != 3) usage();
+        return l10nAutoMode(gpa, io, minimal.environ, items[1], items[2]);
+    }
     if (items.len > 0 and std.mem.eql(u8, items[0], "--auto")) {
         if (items.len != 2) usage();
         return autoMode(gpa, io, minimal.environ, items[1]);
@@ -470,6 +479,7 @@ fn usage() noreturn {
         \\       ELK --short           (the elk.xml beside ELK, updated from its .upd files)
         \\       ELK --smoke <database folder> <scratch folder>
         \\       ELK --auto <elk.xml>    (the schedule in BK_ELK_AUTO)
+        \\       ELK --l10n-auto <elk.xml> <scratch folder>
         \\
     , .{});
     std.process.exit(2);
@@ -504,6 +514,9 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("elk: the fonts did not load ({s})\n", .{@errorName(err)});
         return 1;
     };
+    const table_dir = envValue(gpa, environ, l10n.override_env);
+    defer if (table_dir) |value| gpa.free(value);
+    l10n.setOverrideDir(io, table_dir);
     l10n.setLanguage(language);
 
     var session = session_mod.Session.init(gpa, io);
@@ -1152,6 +1165,28 @@ fn autoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, el
     return result.code;
 }
 
+/// What `--l10n-auto` captures: the main window, the File menu open, the help window. The frames
+/// leave a gap after each command so the frame the shot reads has drawn its effect.
+const l10n_auto_schedule =
+    "3:shot=main,4:do=open_menu:elk.menu.file,7:shot=menu,8:key=escape,10:do=help,13:shot=help,14:exit";
+
+fn l10nAutoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, elk_path: []const u8, scratch: []const u8) u8 {
+    crt.attachParentConsole();
+    const settings_path = envValue(gpa, environ, settings_mod.settings_env);
+    defer if (settings_path) |value| gpa.free(value);
+    const result = scripted(gpa, io, environ, .{
+        .elk_path = elk_path,
+        .text = l10n_auto_schedule,
+        .shot_folder = scratch,
+        .rect_log = true,
+        .settings_path = settings_path orelse "",
+        .frame_limit = smoke_frame_limit,
+        .tier = "l10n-auto",
+    });
+    if (result.code == 0) std.debug.print("elk: l10n-auto PASS: {d} frames\n", .{result.frames});
+    return result.code;
+}
+
 const Scripted = struct { code: u8, frames: u32 = 0, fonts: usize = 0 };
 
 const Script = struct {
@@ -1173,6 +1208,8 @@ const Script = struct {
     settings_path: []const u8 = "",
     /// The game folder the exports and Run Game use; "" keeps elk.cfg's.
     game_folder: []const u8 = "",
+    /// Logs the rect of every label a shot's frame drew (Ui.rect_log).
+    rect_log: bool = false,
     frame_limit: u32,
     tier: []const u8,
 };
@@ -1212,6 +1249,9 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         std.debug.print("elk: {s} FAIL: the fonts did not load ({s})\n", .{ tier, @errorName(err) });
         return .{ .code = 1 };
     };
+    const table_dir = envValue(gpa, environ, l10n.override_env);
+    defer if (table_dir) |value| gpa.free(value);
+    l10n.setOverrideDir(io, table_dir);
     l10n.setLanguage(language);
     var ui: ui_mod.Ui = .{
         .gpa = gpa,
@@ -1221,6 +1261,7 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .settings_path = script.settings_path,
         .environ = environ,
         .os_dialogs = false,
+        .rect_log = script.rect_log,
     };
     defer ui.deinit();
     if (script.short_folder.len != 0) {

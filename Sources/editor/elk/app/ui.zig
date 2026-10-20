@@ -280,6 +280,14 @@ pub const Ui = struct {
     /// strip at `probe_rect` so a captured frame proves the cluster loader. Empty is off.
     probe: [256:0]u8 = undefined,
     probe_len: usize = 0,
+    /// `ELK --l10n-auto`: the labels the last frame drew, each with its rect in window pixels, so the
+    /// tier that measures the captured frame knows where to look. Off unless the run asks.
+    rect_log: bool = false,
+    rects: [rect_capacity]DrawnRect = undefined,
+    rect_count: usize = 0,
+    /// The menu `do=open_menu:<key>` asked for; the frame that draws it opens its popup.
+    open_menu: [32]u8 = undefined,
+    open_menu_len: usize = 0,
     /// The help's blocks the last frame drew, all of them when it is open.
     help_blocks_drawn: usize = 0,
     /// The heading the contents list was clicked on, scrolled to next frame.
@@ -1346,6 +1354,63 @@ pub const Ui = struct {
         return text catch app_title;
     }
 
+    pub const rect_capacity = 48;
+
+    /// A label the last frame drew: its table key and the box that holds its ink, in window pixels.
+    pub const DrawnRect = struct { key: []const u8, x: f32, y: f32, w: f32, h: f32 };
+
+    /// Notes the item just submitted as the rect of the label `key` (menu items; the ink box of the
+    /// rect is the label, so only items without a shortcut text are noted).
+    fn noteRect(self: *Ui, comptime key: []const u8) void {
+        if (!self.rect_log or self.rect_count == self.rects.len) return;
+        const low = ig.igGetItemRectMin();
+        const high = ig.igGetItemRectMax();
+        self.rects[self.rect_count] = .{ .key = key, .x = low.x, .y = low.y, .w = high.x - low.x, .h = high.y - low.y };
+        self.rect_count += 1;
+    }
+
+    /// `ig.igBeginMenu` for a menu bar title: opens its popup first when `do=open_menu` asked for it,
+    /// and notes the title's box. The box is worked out before the call, because a menu that opens
+    /// leaves its popup as the last item.
+    fn beginMenu(self: *Ui, comptime key: []const u8) bool {
+        if (self.open_menu_len != 0 and std.mem.eql(u8, self.open_menu[0..self.open_menu_len], key)) {
+            self.open_menu_len = 0;
+            _ = ig.igOpenPopup(l10n.id(key), 0);
+        }
+        const at = ig.igGetCursorScreenPos();
+        const size = ig.igCalcTextSize(l10n.t(key));
+        const style = ig.igGetStyle().*;
+        if (self.rect_log and self.rect_count < self.rects.len) {
+            self.rects[self.rect_count] = .{ .key = key, .x = at.x, .y = at.y + 1, .w = size.x + style.ItemSpacing.x, .h = size.y + 2 * style.FramePadding.y - 2 };
+            self.rect_count += 1;
+        }
+        return ig.igBeginMenu(l10n.id(key));
+    }
+
+    /// Notes the title bar text of the window just begun, for `key`.
+    fn noteTitle(self: *Ui, comptime key: []const u8) void {
+        if (!self.rect_log or self.rect_count == self.rects.len) return;
+        const low = ig.igGetItemRectMin();
+        const high = ig.igGetItemRectMax();
+        const size = ig.igCalcTextSize(l10n.t(key));
+        const padding = ig.igGetStyle().*.FramePadding.x;
+        self.rects[self.rect_count] = .{ .key = key, .x = low.x + padding - 2, .y = low.y + 1, .w = size.x + 4, .h = high.y - low.y - 2 };
+        self.rect_count += 1;
+    }
+
+    /// The window's size in ImGui pixels, as the last frame was laid out.
+    pub fn displaySize(_: *const Ui) ig.ImVec2 {
+        return ig.igGetIO().*.DisplaySize;
+    }
+
+    /// `do=open_menu:<key>`: the next frame opens that menu, as a click on its title would.
+    pub fn openMenu(self: *Ui, key: []const u8) bool {
+        if (key.len == 0 or key.len > self.open_menu.len) return false;
+        @memcpy(self.open_menu[0..key.len], key);
+        self.open_menu_len = key.len;
+        return true;
+    }
+
     /// Where the Hindi probe is drawn, in window pixels: x, y, width, height.
     pub const probe_rect = [4]f32{ 20, 740, 600, 40 };
     /// The probe's text: the native name of Hindi, a conjunct and a short-i matra word.
@@ -1367,6 +1432,7 @@ pub const Ui = struct {
     }
 
     pub fn draw(self: *Ui, window: *window_mod.Window) void {
+        self.rect_count = 0;
         self.pollJob();
         if (self.job == null) {
             self.takeOpen();
@@ -1621,7 +1687,7 @@ pub const Ui = struct {
     }
 
     fn drawHelpMenu(self: *Ui) void {
-        if (!ig.igBeginMenu(l10n.id("elk.menu.help"))) return;
+        if (!self.beginMenu("elk.menu.help")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx(l10n.id("elk.help.contents"), "F1", false, true)) self.openHelp();
         ig.igSeparator();
@@ -1657,17 +1723,17 @@ pub const Ui = struct {
     fn drawShortMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenuBar()) return;
         defer ig.igEndMenuBar();
-        if (ig.igBeginMenu(l10n.id("elk.menu.file"))) {
+        if (self.beginMenu("elk.menu.file")) {
             defer ig.igEndMenu();
             if (ig.igMenuItem(l10n.id("elk.file.exit"))) self.requestExit();
         }
-        if (ig.igBeginMenu(l10n.id("elk.menu.browse"))) {
+        if (self.beginMenu("elk.menu.browse")) {
             defer ig.igEndMenu();
             if (ig.igMenuItemEx(l10n.id("elk.browse.next"), "Ctrl+N", false, self.canBrowse(.next))) _ = self.browse(.next);
             if (ig.igMenuItemEx(l10n.id("elk.browse.previous"), "Ctrl+P", false, self.canBrowse(.previous))) _ = self.browse(.previous);
         }
         self.drawViewMenu();
-        if (ig.igBeginMenu(l10n.id("elk.menu.tools"))) {
+        if (self.beginMenu("elk.menu.tools")) {
             defer ig.igEndMenu();
             if (ig.igMenuItemEx(l10n.id("elk.edit.find"), "Ctrl+F", false, self.session.isOpen())) self.openFind();
             if (ig.igMenuItemEx(l10n.id("elk.tools.spelling"), "F7", false, self.canSpell())) self.openSpelling();
@@ -1745,6 +1811,7 @@ pub const Ui = struct {
         var open = true;
         if (ig.igBegin(l10n.id("elk.helpwin.title"), &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.help_drawn = true;
+            self.noteTitle("elk.helpwin.title");
             var line: [help_line_bytes:0]u8 = undefined;
             var scratch: [help_line_bytes:0]u8 = undefined;
             const help_text = help.forLanguage(l10n.language());
@@ -1799,7 +1866,7 @@ pub const Ui = struct {
     /// speller; its tooltip says why not), and the options it had in the
     /// registry.
     fn drawToolsMenu(self: *Ui) void {
-        if (!ig.igBeginMenu(l10n.id("elk.menu.tools"))) return;
+        if (!self.beginMenu("elk.menu.tools")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx(l10n.id("elk.tools.spelling"), "F7", false, self.canSpell())) self.openSpelling();
         const reason = self.spelling().reason();
@@ -1998,13 +2065,13 @@ pub const Ui = struct {
     /// The MFC Edit menu's Find; Undo and the clipboard commands are the
     /// edit boxes' own keys.
     fn drawEditMenu(self: *Ui) void {
-        if (!ig.igBeginMenu(l10n.id("elk.menu.edit"))) return;
+        if (!self.beginMenu("elk.menu.edit")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx(l10n.id("elk.edit.find"), "Ctrl+F", false, self.session.isOpen())) self.openFind();
     }
 
     fn drawViewMenu(self: *Ui) void {
-        if (!ig.igBeginMenu(l10n.id("elk.menu.view"))) return;
+        if (!self.beginMenu("elk.menu.view")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx(l10n.id("elk.view.tree"), null, self.settings.show_tree, true)) self.toggleTree();
         if (ig.igMenuItemEx(l10n.id("elk.view.statistic"), null, false, self.session.isOpen())) self.openStatistics();
@@ -2114,7 +2181,7 @@ pub const Ui = struct {
     /// The MFC Browse menu's commands, in its order; each step is enabled
     /// when it reaches a text.
     fn drawBrowseMenu(self: *Ui) void {
-        if (!ig.igBeginMenu(l10n.id("elk.menu.browse"))) return;
+        if (!self.beginMenu("elk.menu.browse")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx(l10n.id("elk.browse.collapse"), null, self.settings.collapse_item, true)) self.toggleCollapseItem();
         ig.igSeparator();
@@ -2179,7 +2246,7 @@ pub const Ui = struct {
     }
 
     fn drawFileMenu(self: *Ui, window: *window_mod.Window) void {
-        if (!ig.igBeginMenu(l10n.id("elk.menu.file"))) return;
+        if (!self.beginMenu("elk.menu.file")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx(l10n.id("elk.file.open"), "Ctrl+O", false, !open_slot.waiting())) self.requestOpen(window);
         const settings_count = self.settings.recentCount();
@@ -2202,18 +2269,27 @@ pub const Ui = struct {
         const open = self.session.isOpen();
         if (ig.igMenuItemEx(l10n.id("elk.file.save"), "Ctrl+S", false, open)) self.session.save() catch {};
         if (ig.igMenuItemEx(l10n.id("elk.file.close"), null, false, open)) self.session.close() catch {};
+        self.noteRect("elk.file.close");
         ig.igSeparator();
         if (ig.igMenuItemEx(l10n.id("elk.file.import_game"), null, false, self.canImportPackage())) self.requestPackage(window, .game);
+        self.noteRect("elk.file.import_game");
         if (ig.igMenuItemEx(l10n.id("elk.file.import_pak"), null, false, self.canImportPackage())) self.requestPackage(window, .pak);
+        self.noteRect("elk.file.import_pak");
         const sheet_free = self.canExport() and !sheet_slot.waiting();
         if (ig.igMenuItemEx(l10n.id("elk.file.import_sheet"), null, false, sheet_free)) self.requestSheet(window, .import);
+        self.noteRect("elk.file.import_sheet");
         if (ig.igMenuItemEx(l10n.id("elk.file.export_sheet"), null, false, sheet_free)) self.requestSheet(window, .@"export");
+        self.noteRect("elk.file.export_sheet");
         ig.igSeparator();
         if (ig.igMenuItemEx(l10n.id("elk.file.export_mod"), null, false, self.canExport())) self.requestExportMod(false);
+        self.noteRect("elk.file.export_mod");
         if (ig.igMenuItemEx(l10n.id("elk.file.install"), null, false, self.canExport())) self.requestInstall();
+        self.noteRect("elk.file.install");
         if (ig.igMenuItemEx(l10n.id("elk.file.run_game"), null, false, self.canRunGame())) self.requestRunGame();
+        self.noteRect("elk.file.run_game");
         ig.igSeparator();
         if (ig.igMenuItem(l10n.id("elk.file.exit"))) self.requestExit();
+        self.noteRect("elk.file.exit");
     }
 
     /// The tree as rows: the open part of it, clipped to what the child
