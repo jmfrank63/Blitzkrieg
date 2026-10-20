@@ -459,3 +459,13 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.7: The editors' hidden test windows stay hidden (BACKLOG)
+
+**Goal:** A Map Editor or Resource Editor tier started hidden (kit/host.zig, SDL_WINDOW_HIDDEN | SDL_WINDOW_NOT_FOCUSABLE) never appears on the desktop. Today `BkEditorStart` calls IGFX::SetMode, and GraphicsEngineGpu's SetMode shows the window (it is how the game's own window, created hidden until a device exists, becomes visible); on GNOME Wayland the shown window also takes focus despite SDL_WINDOW_NOT_FOCUSABLE. Keeping it hidden is not enough: tried 2026-10-20 with a window property that SetMode honours, the device would not begin a scene on a hidden Wayland window, so host check and smoke failed. The renderer needs an offscreen target for a hidden window (as kit/window.zig already has for ELK), then the host check can assert the window stays hidden. Until then scripted runs drop the desktop's focus and pointer events (smoke.zig `isOsMouse`, fix/smoke-desktop-focus). Captured 2026-10-20.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
