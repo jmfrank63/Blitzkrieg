@@ -324,6 +324,9 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 
     var settings_path: ?[]const u8 = null;
     var settings_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    // Said once the language is set up below: the status line is text, and the language comes from
+    // the very file that did not read.
+    var settings_unread = false;
     if (!automated) {
         // D-24: mapeditor.cfg, independent of game profiles - never read or
         // written by --check/--smoke/--game-reads-it/BK_EDITOR_AUTO, only a
@@ -335,7 +338,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             state.settings = readSettingsFile(io, gpa, path) catch |err| switch (err) {
                 error.FileNotFound => core.settings.Settings{},
                 else => blk: {
-                    view.setStatus("", "the settings file did not read: using defaults");
+                    settings_unread = true;
                     break :blk core.settings.Settings{};
                 },
             };
@@ -361,6 +364,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     _ = kit.language_picker.setup(gpa, io, environ, &state.settings, automated) catch |err| {
         fatal("fonts", @errorName(err));
     };
+    if (settings_unread) view.setStatus("", std.mem.span(kit.l10n.t("app.status.settings_unread")));
 
     if (!automated) {
         // D-22, spec Errors -> Crashes: offered back once, at startup, before
@@ -1352,7 +1356,7 @@ fn drawProbe() void {
     // channels are all different, so any swap moves the measured colour
     // outside isProbeColour's asymmetric range below.
     imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 128.0 / 255.0, .z = 0, .w = 1 });
-    _ = imgui.c.igBegin("probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
+    _ = imgui.c.igBegin("##probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
     imgui.c.igEnd();
     imgui.c.igPopStyleColor();
 }

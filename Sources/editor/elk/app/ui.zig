@@ -1483,12 +1483,12 @@ pub const Ui = struct {
         const status = self.short or self.settings.show_status_bar or self.session.failureText().len != 0;
         const body_height = if (status) avail.y - ig.igGetFrameHeightWithSpacing() else 0;
         if (self.settings.show_tree) {
-            if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
+            if (ig.igBeginChild("##texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
             ig.igEndChild();
             ig.igSameLine();
             self.tree_drawn = true;
         }
-        if (ig.igBeginChild("text", .{ .x = 0, .y = body_height }, 0, 0)) self.drawText();
+        if (ig.igBeginChild("##text", .{ .x = 0, .y = body_height }, 0, 0)) self.drawText();
         ig.igEndChild();
         if (status) self.drawStatus();
         self.status_drawn = status;
@@ -1815,7 +1815,7 @@ pub const Ui = struct {
             var line: [help_line_bytes:0]u8 = undefined;
             var scratch: [help_line_bytes:0]u8 = undefined;
             const help_text = help.forLanguage(l10n.language());
-            if (ig.igBeginChild("contents", .{ .x = font * 14, .y = 0 }, ig.ImGuiChildFlags_Borders, 0)) {
+            if (ig.igBeginChild("##contents", .{ .x = font * 14, .y = 0 }, ig.ImGuiChildFlags_Borders, 0)) {
                 var blocks = help.Blocks.init(help_text);
                 var heading: usize = 0;
                 while (blocks.next()) |block| {
@@ -1829,7 +1829,7 @@ pub const Ui = struct {
             }
             ig.igEndChild();
             ig.igSameLine();
-            if (ig.igBeginChild("help", .{ .x = 0, .y = 0 }, 0, 0)) {
+            if (ig.igBeginChild("##help", .{ .x = 0, .y = 0 }, 0, 0)) {
                 ig.igPushTextWrapPos(0);
                 defer ig.igPopTextWrapPos();
                 var blocks = help.Blocks.init(help_text);

@@ -869,8 +869,22 @@ const ui_calls = [_][]const u8{
     "igText",            "igTextWrapped",  "igTextDisabled",    "igTextUnformatted", "igButton",        "igSmallButton",
     "igMenuItem",        "igMenuItemEx",   "igMenuItemBoolPtr", "igBeginMenu",       "igBeginMenuEx",   "igBegin",
     "igSelectable",      "igSelectableEx", "igCheckbox",        "igRadioButton",     "igSeparatorText", "igSetTooltip",
-    "igBeginPopupModal",
+    "igBeginPopupModal", "igBeginCombo",   "igInputText",       "igInputTextWithHint", "igInputFloat",  "igInputFloatEx",
+    "igInputInt",        "igSliderInt",    "igSliderFloat",     "igSliderFloatEx",   "igOpenPopup",     "igBeginPopup",
+    "igBeginTabItem",    "igBeginChild",   "igSetItemTooltip",  "igCollapsingHeader", "igTreeNode",    "text",
+    "beginPanel",
 };
+
+/// Calls whose second argument is user-visible too: the hint of an input field.
+const hint_calls = [_][]const u8{"igInputTextWithHint"};
+
+/// Status-line helpers: every argument that is a string literal is shown to the user.
+const status_calls = [_][]const u8{ "setStatus", "setStatusFrom", "note" };
+
+fn inList(list: []const []const u8, name: []const u8) bool {
+    for (list) |item| if (std.mem.eql(u8, item, name)) return true;
+    return false;
+}
 
 fn isIdentChar(c: u8) bool {
     return std.ascii.isAlphanumeric(c) or c == '_';
@@ -891,28 +905,70 @@ fn hasLetters(literal: []const u8) bool {
     return false;
 }
 
-/// The first UI call on `line` whose first argument is a string literal, as `call("text")`.
+/// The text of the string literal starting at `line[at]` (a quote), or null when the argument is
+/// not one or the literal has no letters.
+fn literalAt(line: []const u8, at: usize) ?[]const u8 {
+    if (at >= line.len or line[at] != '"') return null;
+    var close = at + 1;
+    while (close < line.len and line[close] != '"') close += if (line[close] == '\\') 2 else 1;
+    if (close >= line.len) return null;
+    const literal = line[at + 1 .. close];
+    return if (hasLetters(literal)) literal else null;
+}
+
+/// The first English literal among the arguments of the call opened at `line[open]`: the first
+/// argument, the second as well for `hint_calls`, every top-level argument for `status_calls`.
+fn literalArg(line: []const u8, open: usize, name: []const u8) ?[]const u8 {
+    const all = inList(&status_calls, name);
+    const limit: usize = if (all) std.math.maxInt(usize) else if (inList(&hint_calls, name)) 2 else 1;
+    var depth: usize = 0;
+    var index: usize = 0;
+    var arg_start = true;
+    var i = open;
+    while (i < line.len) : (i += 1) {
+        const ch = line[i];
+        if (arg_start and ch != ' ' and (ch != '(' or depth != 0)) {
+            arg_start = false;
+            if (depth == 1 and index < limit) {
+                if (literalAt(line, i)) |literal| return literal;
+            }
+        }
+        switch (ch) {
+            '"' => {
+                i += 1;
+                while (i < line.len and line[i] != '"') i += if (line[i] == '\\') 2 else 1;
+            },
+            '(', '[', '{' => depth += 1,
+            ')', ']', '}' => {
+                if (depth <= 1) return null;
+                depth -= 1;
+            },
+            ',' => if (depth == 1) {
+                index += 1;
+                arg_start = true;
+                if (index >= limit) return null;
+            },
+            else => {},
+        }
+    }
+    return null;
+}
+
+/// The first UI call on `line` with an English string literal argument, as `call("text")`.
 fn literalCall(line: []const u8) ?struct { call: []const u8, literal: []const u8 } {
     const trimmed = std.mem.trimStart(u8, line, " \t");
     if (std.mem.startsWith(u8, trimmed, "//")) return null;
     var best: ?struct { at: usize, call: []const u8, literal: []const u8 } = null;
-    for (ui_calls) |call| {
+    for ([_][]const []const u8{ &ui_calls, &status_calls }) |names| for (names) |call| {
         var from: usize = 0;
         while (std.mem.indexOfPos(u8, line, from, call)) |at| {
             from = at + call.len;
             if (at > 0 and isIdentChar(line[at - 1])) continue;
             if (from >= line.len or line[from] != '(') continue;
-            var arg = from + 1;
-            while (arg < line.len and line[arg] == ' ') arg += 1;
-            if (arg >= line.len or line[arg] != '"') continue;
-            var close = arg + 1;
-            while (close < line.len and line[close] != '"') close += if (line[close] == '\\') 2 else 1;
-            if (close >= line.len) continue;
-            const literal = line[arg + 1 .. close];
-            if (!hasLetters(literal)) continue;
+            const literal = literalArg(line, from, call) orelse continue;
             if (best == null or at < best.?.at) best = .{ .at = at, .call = call, .literal = literal };
         }
-    }
+    };
     const found = best orelse return null;
     return .{ .call = found.call, .literal = found.literal };
 }

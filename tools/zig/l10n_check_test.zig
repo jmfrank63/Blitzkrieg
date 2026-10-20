@@ -575,14 +575,50 @@ test "doc_english_extra: a README_English.md beside the set" {
     try expectDocumentFinding(io, "doc_english_extra", &root, "l10n-check: doc-extra: en: docs/README_English.md: the English file is README.md; remove this copy");
 }
 
-test "literal_in_strict_dir: an English literal in a UI call" {
+/// Every literal the fixture must report, in line order: the call name and the literal it takes.
+const literal_findings = [_]struct { call: []const u8, literal: []const u8 }{
+    .{ .call = "igButton", .literal = "Save" },
+    .{ .call = "igBeginCombo", .literal = "Mode" },
+    .{ .call = "igInputText", .literal = "Name" },
+    .{ .call = "igInputTextWithHint", .literal = "Type a name" },
+    .{ .call = "igInputFloat", .literal = "Scale" },
+    .{ .call = "igInputFloatEx", .literal = "Offset" },
+    .{ .call = "igInputInt", .literal = "Count" },
+    .{ .call = "igSliderInt", .literal = "Level" },
+    .{ .call = "igSliderFloat", .literal = "Zoom" },
+    .{ .call = "igSliderFloatEx", .literal = "Gamma" },
+    .{ .call = "igOpenPopup", .literal = "Confirm" },
+    .{ .call = "igBeginPopup", .literal = "Context" },
+    .{ .call = "igBeginTabItem", .literal = "Terrain" },
+    .{ .call = "igBeginChild", .literal = "Objects" },
+    .{ .call = "igSetItemTooltip", .literal = "Hint text" },
+    .{ .call = "igCollapsingHeader", .literal = "Advanced" },
+    .{ .call = "igTreeNode", .literal = "Branch" },
+    .{ .call = "text", .literal = "Hello" },
+    .{ .call = "beginPanel", .literal = "Tools" },
+    .{ .call = "setStatus", .literal = "Saved the map" },
+    .{ .call = "setStatusFrom", .literal = "Failed" },
+    .{ .call = "note", .literal = "Careful" },
+};
+
+test "literal_in_strict_dir: an English literal in each kind of UI call" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "literal_in_strict_dir");
     const ui = try readFixture(io, testing.allocator, "literals/ui.zig");
     defer testing.allocator.free(ui);
     try write(io, root, "literals/ui.zig", ui);
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_tables ++ note_documents ++ "l10n-check: 1 findings, {d} checked\n", .{
-        "l10n-check: literal: all: literals/ui.zig:6: igButton takes the English literal \"Save\"; wrap it in l10n.t, l10n.id or l10n.format",
+    var lines: std.ArrayList(u8) = .empty;
+    defer lines.deinit(testing.allocator);
+    // The first finding is on line 6; the rest start on line 9 of the fixture, one call per line.
+    for (literal_findings, 0..) |one, index| {
+        const line: usize = if (index == 0) 6 else index + 8;
+        const text = try std.fmt.allocPrint(testing.allocator, "l10n-check: literal: all: literals/ui.zig:{d}: {s} takes the English literal \"{s}\"; wrap it in l10n.t, l10n.id or l10n.format\n", .{ line, one.call, one.literal });
+        defer testing.allocator.free(text);
+        try lines.appendSlice(testing.allocator, text);
+    }
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ "l10n-check: {d} findings, {d} checked\n", .{
+        lines.items,
+        literal_findings.len,
         checked_total + 1,
     });
     defer testing.allocator.free(want);
