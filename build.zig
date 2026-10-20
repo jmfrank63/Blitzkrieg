@@ -3683,6 +3683,25 @@ pub fn build(b: *std.Build) void {
     const language_mods_step = b.step("language-mods", "Build the nine language mods (ru, zh-Hans, ja, hi with their Noto fonts, Hindi shaped into Private Use Area clusters; es, fr, de, pt-BR, id texts only on the bitmap fonts) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
     language_mods_step.dependOn(&language_mods_tests.step);
     if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
+    // The install form of the same run (D087): `language-mods` only runs under test_mode == .run and
+    // install-game does not depend on it, so a fresh install gets its mods/lang-<code>/ from this step,
+    // in every test mode.
+    const install_language_mods_step = b.step("install-language-mods", "Write the nine language mods into the game installation's mods folder (fresh-install step; M002 D087)");
+    install_language_mods_step.dependOn(&language_mods_run.step);
+    // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
+    // install-game's). The editor installs are added as its dependencies at the end of build().
+    const verify_install_l10n_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_install_l10n.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    const verify_install_l10n_exe = b.addExecutable(.{ .name = "verify-install-l10n", .root_module = verify_install_l10n_module });
+    const verify_install_l10n_run = b.addRunArtifact(verify_install_l10n_exe);
+    verify_install_l10n_run.setCwd(b.path("."));
+    verify_install_l10n_run.addArg(stage_root);
+    verify_install_l10n_run.has_side_effects = true;
+    const verify_install_l10n_step = b.step("verify-install-l10n", "Verify the staged install holds the ten languages: nine lang-* mods, editor Fonts, tools guide (run after install-game install-language-mods install-map-editor install-resource-editor install-elk)");
+    verify_install_l10n_step.dependOn(&verify_install_l10n_run.step);
     // The measures of the l10n-game-reads-it tier below (tools/zig/l10n_measure.zig): pure
     // functions over gray images and the hb-view runs that draw the references. It
     // needs hb-view on the PATH (libharfbuzz-bin) and fails without it (D069).
@@ -3912,6 +3931,14 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
+
+    // verify-install-l10n runs after the installs it checks. This zig has no mustRunAfter, and without an
+    // edge a command naming them together would race the verifier against the install, so the verifier
+    // depends on them: one command installs and checks the ten languages (the editor installs only
+    // exist where the editors build).
+    for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
+        if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
+    }
 
     b.default_step = game_all_step;
     macosRuntimeFixes(b);

@@ -4,6 +4,23 @@ The language mods (M002) are not translated files in the game: they are built by
 `language-mods` step (`zig build language-mods`) from the tracked ELK database `Data/ELK` plus the
 overlays in this folder, through ELK's own pak export (`exportTo`).
 
+## A fresh install
+
+`language-mods` only runs as a test tier and `install-game` does not depend on it, so a plain install holds
+no `mods/lang-<code>/`. The install step is `install-language-mods` (M002 D087); it writes the nine mods into
+the staged game in every build mode. One command installs the game, the nine mods, the editors with their
+`Fonts/` and ELK, then checks the result:
+
+```
+zig build install-game install-language-mods install-map-editor install-resource-editor install-elk verify-install-l10n
+```
+
+`verify-install-l10n` checks the staged folder of the build mode (`zig-out/game/<os>/<arch>/debug` or
+`release`; add `-Doptimize=ReleaseFast` for the release one). It prints one line
+`verify-runtime: missing <path>` for each absent item and exits 1: the `mods/lang-<code>/data/mod.xml` and
+`data/texts.pak` of the nine languages, `Fonts/` with the four Noto faces and `OFL.txt` beside the editors and
+ELK, and the ten `Tools/README*.md`. The step depends on the install steps above, so it also works alone.
+
 ## Layout
 
 ```

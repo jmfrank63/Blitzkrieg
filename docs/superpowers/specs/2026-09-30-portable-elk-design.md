@@ -935,3 +935,12 @@ restart. It selects among packs, it is not a new localisation system.
   written only when it is not `system`; ELK's UI, messages and help follow it, tables in
   `Sources/editor/kit/lang`, and `BK_L10N_DIR` replaces a table for tests. `zig build elk-l10n-auto` measures
   the ten languages and the missing-key case on Linux; macOS and Windows are left to CI.
+
+## The ten-language install (M002 S09, 2026-10-20)
+
+- D087: the language mods reach a fresh install through their own step, `install-language-mods`, which runs
+  `language_mods_run` in every test mode (`language-mods` stays a test tier and is unchanged); `install-game`
+  does not depend on it. `verify-install-l10n` (`tools/zig/verify_install_l10n.zig`, check in
+  `tools/zig/verify_runtime.zig`) lists every missing mod file, Noto face and tools guide of the staged install
+  as `verify-runtime: missing <path>`. This zig has no `mustRunAfter`, so the verifier depends on the install
+  steps instead of racing them. A mod keeps its `mod.xml` in `data/`, beside `texts.pak`.

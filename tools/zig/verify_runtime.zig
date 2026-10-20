@@ -79,6 +79,7 @@ pub const VerifyError = error{
     UnexpectedRuntimeEntry,
     UnexpectedShader,
     UnexpectedManifestEntry,
+    MissingL10nInstall,
 };
 
 pub fn runtimeName(target: RuntimeTarget) []const u8 {
@@ -614,4 +615,149 @@ fn expectLinuxManifestError(extra: []const u8, expected: VerifyError) !void {
         extra,
     } ++ staged_docs;
     try std.testing.expectError(expected, verifyStagedLayout(&names, .linux));
+}
+
+/// The ten-language install (M002 D087): the nine language mods the language-mods
+/// step writes below `mods/`, the Noto faces the editors and tools read from
+/// `Fonts/` beside their executables, and the tools guide. The mod folders come
+/// from the same table the language mods build reads, so a tenth language is
+/// required here the moment the build produces it.
+pub const l10n_languages = @import("l10n_languages.zig");
+
+/// The files every language mod holds, relative to `mods/<mod>/`; the game reads a mod's
+/// `mod.xml` from its `data/` folder, where language_mods.zig writes it.
+pub const language_mod_files = [_][]const u8{ "data/mod.xml", "data/texts.pak" };
+
+/// The licence travels with the faces it covers (SIL OFL).
+pub const font_licence_file = "Fonts/OFL.txt";
+
+/// Collect, in install order, every relative path the ten-language install
+/// lacks. The caller owns the returned paths; an empty list is a complete install.
+pub fn collectMissingL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, missing: *std.ArrayListUnmanaged([]const u8)) !void {
+    for (l10n_languages.languages) |language| {
+        for (language_mod_files) |file| {
+            const path = try std.fmt.allocPrint(allocator, "mods/{s}/{s}", .{ language.mod, file });
+            errdefer allocator.free(path);
+            try appendIfMissing(io, allocator, root, path, missing);
+        }
+    }
+    try appendIfMissing(io, allocator, root, try allocator.dupe(u8, font_licence_file), missing);
+    for (l10n_languages.languages) |language| {
+        const face = language.face orelse continue;
+        const path = try std.fmt.allocPrint(allocator, "Fonts/{s}", .{face});
+        try appendIfMissing(io, allocator, root, path, missing);
+    }
+    for (required_tool_docs) |doc| try appendIfMissing(io, allocator, root, try allocator.dupe(u8, doc), missing);
+}
+
+/// Takes ownership of `path`: kept in `missing` when the file is absent, freed otherwise.
+fn appendIfMissing(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, path: []const u8, missing: *std.ArrayListUnmanaged([]const u8)) !void {
+    errdefer allocator.free(path);
+    root.access(io, path, .{}) catch {
+        try missing.append(allocator, path);
+        return;
+    };
+    allocator.free(path);
+}
+
+/// Print one `verify-runtime: missing <path>` line per absent item and fail when
+/// there is any, so a failing install names everything to fix in one run.
+pub fn verifyL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir) !void {
+    var missing: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (missing.items) |path| allocator.free(path);
+        missing.deinit(allocator);
+    }
+    try collectMissingL10nInstall(io, allocator, root, &missing);
+    for (missing.items) |path| std.debug.print("verify-runtime: missing {s}\n", .{path});
+    if (missing.items.len != 0) return error.MissingL10nInstall;
+}
+
+fn writeL10nInstallFixture(io: std.Io, root: std.Io.Dir) !void {
+    for (l10n_languages.languages) |language| {
+        var buf: [96]u8 = undefined;
+        try root.createDirPath(io, try std.fmt.bufPrint(&buf, "mods/{s}/data", .{language.mod}));
+        for (language_mod_files) |file| {
+            const path = try std.fmt.bufPrint(&buf, "mods/{s}/{s}", .{ language.mod, file });
+            try root.writeFile(io, .{ .sub_path = path, .data = "x" });
+        }
+    }
+    try root.createDirPath(io, "Fonts");
+    try root.createDirPath(io, "Tools");
+    try root.writeFile(io, .{ .sub_path = font_licence_file, .data = "x" });
+    for (l10n_languages.languages) |language| {
+        const face = language.face orelse continue;
+        var buf: [96]u8 = undefined;
+        try root.writeFile(io, .{ .sub_path = try std.fmt.bufPrint(&buf, "Fonts/{s}", .{face}), .data = "x" });
+    }
+    for (required_tool_docs) |doc| try root.writeFile(io, .{ .sub_path = doc, .data = "x" });
+}
+
+fn expectMissing(io: std.Io, root: std.Io.Dir, expected: []const []const u8) !void {
+    const allocator = std.testing.allocator;
+    var missing: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (missing.items) |path| allocator.free(path);
+        missing.deinit(allocator);
+    }
+    try collectMissingL10nInstall(io, allocator, root, &missing);
+    try std.testing.expectEqual(expected.len, missing.items.len);
+    for (expected, missing.items) |want, got| try std.testing.expectEqualStrings(want, got);
+}
+
+test "l10n install requires nine language mods" {
+    try std.testing.expectEqual(@as(usize, 9), l10n_languages.languages.len);
+}
+
+test "l10n install check accepts a complete ten-language install" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try expectMissing(io, tmp.dir, &.{});
+    try verifyL10nInstall(io, std.testing.allocator, tmp.dir);
+}
+
+test "l10n install check names a language mod without its texts.pak" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteFile(io, "mods/lang-pt-br/data/texts.pak");
+    try expectMissing(io, tmp.dir, &.{"mods/lang-pt-br/data/texts.pak"});
+    try std.testing.expectError(error.MissingL10nInstall, verifyL10nInstall(io, std.testing.allocator, tmp.dir));
+}
+
+test "l10n install check names a missing mod.xml and a whole missing mod" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteFile(io, "mods/lang-ru/data/mod.xml");
+    try tmp.dir.deleteTree(io, "mods/lang-id");
+    try expectMissing(io, tmp.dir, &.{ "mods/lang-ru/data/mod.xml", "mods/lang-id/data/mod.xml", "mods/lang-id/data/texts.pak" });
+}
+
+test "l10n install check names the editor Fonts directory when it is missing" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteTree(io, "Fonts");
+    try expectMissing(io, tmp.dir, &.{
+        "Fonts/OFL.txt",
+        "Fonts/NotoSans-Regular.ttf",
+        "Fonts/NotoSansSC-Regular.otf",
+        "Fonts/NotoSansJP-Regular.otf",
+        "Fonts/NotoSansDevanagari-Regular.ttf",
+    });
+}
+
+test "l10n install check names a missing tools guide translation" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteFile(io, "Tools/README_Hindi.md");
+    try expectMissing(io, tmp.dir, &.{"Tools/README_Hindi.md"});
 }
