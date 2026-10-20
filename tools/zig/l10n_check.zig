@@ -29,8 +29,9 @@
 //! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
 //! `{n}` and no `$name`; the tokens present are hotkey names in angle brackets (`<Shift>`, `<Ctrl-1>`,
 //! `<F5>`), square-bracket keys (`[Q]`, `[DISABLED]`) and `#n` counters. The 25 in-scope originals
-//! hold none of them, only CRLF line breaks. The rule therefore counts printf codes (`%s`, `%d`,
-//! `%5.2f`; `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
+//! hold none of them, only CRLF line breaks. The rule therefore counts complete printf codes (`%s`, `%5.2f`,
+//! `%ld`, `%1$s`, `%-*.*lld`: position, flags, width, precision and length all belong to the token;
+//! `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
 //! and a literal `\n`; square-bracket keys are left to the translator, who may write the local key.
 //!
 //! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. A language with a
@@ -303,15 +304,8 @@ fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]c
                     at += 2;
                     continue;
                 }
-                var i = at + 1;
-                while (i < ascii.len and std.mem.indexOfScalar(u8, "-+ #0", ascii[i]) != null) i += 1;
-                while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
-                if (i < ascii.len and ascii[i] == '.') {
-                    i += 1;
-                    while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
-                }
-                if (i < ascii.len and std.ascii.isAlphabetic(ascii[i])) {
-                    end = i + 1;
+                if (printfEnd(ascii, at)) |code_end| {
+                    end = code_end;
                     is_token = true;
                 }
             },
@@ -352,6 +346,46 @@ fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]c
     }
     std.mem.sort([]const u8, tokens.items, {}, lessString);
     return tokens.items;
+}
+
+/// The end of the complete C printf code that starts at the `%` at `at`, or null when the text
+/// there is not a complete code. The grammar is `%[n$][flags][width][.precision][length]conversion`:
+/// flags `-+ #0'`, width and precision as digits or `*` (`*n$`), lengths hh h l ll j z t L q. The
+/// whole code is the token, so `%ld` and `%ls` or `%1$s` and `%2$s` differ.
+fn printfEnd(ascii: []const u8, at: usize) ?usize {
+    var i = at + 1;
+    const position = i;
+    while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
+    if (i == position or i >= ascii.len or ascii[i] != '$') i = position else i += 1;
+    while (i < ascii.len and std.mem.indexOfScalar(u8, "-+ #0'", ascii[i]) != null) i += 1;
+    i = starOrDigits(ascii, i);
+    if (i < ascii.len and ascii[i] == '.') i = starOrDigits(ascii, i + 1);
+    for ([_][]const u8{ "hh", "ll", "h", "l", "j", "z", "t", "L", "q" }) |length| {
+        if (std.mem.startsWith(u8, ascii[i..], length)) {
+            i += length.len;
+            break;
+        }
+    }
+    if (i < ascii.len and std.ascii.isAlphabetic(ascii[i])) return i + 1;
+    return null;
+}
+
+/// Past a width or precision at `i`: digits, or `*` with an optional `n$`.
+fn starOrDigits(ascii: []const u8, start: usize) usize {
+    var i = start;
+    if (i < ascii.len and ascii[i] == '*') {
+        i += 1;
+        const digits = i;
+        while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
+        if (i == digits or i >= ascii.len or ascii[i] != '$') {
+            i = digits;
+        } else {
+            i += 1;
+        }
+        return i;
+    }
+    while (i < ascii.len and std.ascii.isDigit(ascii[i])) i += 1;
+    return i;
 }
 
 /// The tokens of a UTF-8 string table value: printf codes and `{n}` only, sorted.
@@ -1106,6 +1140,16 @@ test "placeholderTokens finds printf codes, numbered slots, tags and a literal b
     const want = [_][]const u8{ "$name", "%5.2f", "%s", "<Ctrl-1>", "<br>", "\\n", "{0}" };
     try testing.expectEqual(want.len, tokens.len);
     for (want, tokens) |w, t| try testing.expectEqualStrings(w, t);
+}
+
+test "placeholderTokens keeps the whole printf code: position, flags, width, precision, length" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const tokens = try tableTokens(arena_state.allocator(), "%ld %ls %lld %hd %zu %1$s %2$d %-8.3lf %*d %.*s %2$*1$d %05d 100%% %%d %qd");
+    const want = [_][]const u8{ "%*d", "%-8.3lf", "%.*s", "%05d", "%1$s", "%2$*1$d", "%2$d", "%hd", "%ld", "%lld", "%ls", "%qd", "%zu" };
+    try testing.expectEqual(want.len, tokens.len);
+    for (want, tokens) |w, tok| try testing.expectEqualStrings(w, tok);
 }
 
 test "codePoints combines surrogates, drops CR LF TAB and repeats" {

@@ -270,6 +270,66 @@ test "broken_placeholder: a translation that lost a %s of the English" {
     try testing.expect(std.mem.indexOf(u8, outcome.stderr, fr_line) != null);
 }
 
+/// One overlay fixture whose English holds `english` and whose German translation holds `german`;
+/// the other eight languages hold the English plus a mark (so they are translated and keep every code), and only the German finding is asserted.
+fn expectPlaceholderCase(case: []const u8, english: []const u8, german: []const u8, want: []const u8) !void {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, case);
+    try setBase(io, testing.allocator, root, alpha_base, english);
+    try writeManifest(io, testing.allocator, root, "");
+    for (codes) |code| {
+        const path = try std.fmt.allocPrint(testing.allocator, "Localization/game/{s}/game_data_base/textes/strings/alpha.txt", .{code});
+        defer testing.allocator.free(path);
+        const others = try std.fmt.allocPrint(testing.allocator, "{s} !", .{english});
+        defer testing.allocator.free(others);
+        try setBase(io, testing.allocator, root, path, if (std.mem.eql(u8, code, "de")) german else others);
+    }
+    root.close(io);
+    const outcome = try runChecker(io, testing.allocator, case);
+    defer testing.allocator.free(outcome.stderr);
+    if (want.len == 0) {
+        try testing.expectEqual(@as(u8, 0), outcome.code);
+        try testing.expect(std.mem.indexOf(u8, outcome.stderr, "placeholder") == null);
+        return;
+    }
+    try testing.expectEqual(@as(u8, 1), outcome.code);
+    const line = try std.fmt.allocPrint(testing.allocator, "l10n-check: placeholder: de: textes/strings/alpha: placeholders differ: {s}\n", .{want});
+    defer testing.allocator.free(line);
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, line) != null);
+}
+
+test "placeholder_length: %ld changed to %ls" {
+    try expectPlaceholderCase("placeholder_length", "Count %ld", "Anzahl %ls", "English has %ld, translation has %ls");
+}
+
+test "placeholder_long_long: %lld changed to %ld" {
+    try expectPlaceholderCase("placeholder_long_long", "Total %lld", "Summe %ld", "English has %lld, translation has %ld");
+}
+
+test "placeholder_size: %zu changed to %u" {
+    try expectPlaceholderCase("placeholder_size", "Bytes %zu", "Bytes %u", "English has %zu, translation has %u");
+}
+
+test "placeholder_positional_dropped: %2$d lost" {
+    try expectPlaceholderCase("placeholder_positional_dropped", "%1$s has %2$d", "%1$s hat", "English has %1$s %2$d, translation has %1$s");
+}
+
+test "placeholder_positional_swapped: %1$s %2$d became %1$d %2$s" {
+    try expectPlaceholderCase("placeholder_positional_swapped", "%1$s has %2$d", "%1$d hat %2$s", "English has %1$s %2$d, translation has %1$d %2$s");
+}
+
+test "placeholder_width_precision: %5.2f changed to %f" {
+    try expectPlaceholderCase("placeholder_width_precision", "Value %5.2f", "Wert %f", "English has %5.2f, translation has %f");
+}
+
+test "placeholder_reordered_positional: swapped word order with the same codes passes" {
+    try expectPlaceholderCase("placeholder_reordered_positional", "%1$s has %2$d", "%2$d hat %1$s", "");
+}
+
+test "placeholder_percent_percent: %% is not a code" {
+    try expectPlaceholderCase("placeholder_percent_percent", "100%% of %d", "100 Prozent von %d", "");
+}
+
 fn utf16Units(allocator: std.mem.Allocator, units: []const u16) ![]u8 {
     var out: std.ArrayList(u8) = .empty;
     try out.appendSlice(allocator, &.{ 0xff, 0xfe });

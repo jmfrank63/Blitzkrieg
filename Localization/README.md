@@ -85,7 +85,8 @@ Rules:
   byte order mark) beside its `.xml` state file, and the state is not "not translated".
 - `stale`, `base-hash-missing`, `untranslated`: the English source of a key must still match its hash in
   `Localization/game/base-hashes.txt`, and a translation must not equal the English bytes.
-- `placeholder`: the printf codes, `{n}`, `$name`, `<tag>` tokens and literal `\n` of the English text and
+- `placeholder`: the complete C printf codes (`%[n$][flags][width][.precision][length]conversion`, so `%ld` and
+  `%ls`, `%1$s` and `%2$s` differ and `%%` is a literal), `{n}`, `$name`, `<tag>` tokens and literal `\n` of the English text and
   the translation are the same multiset.
 - `glyph`: each code point is in the language's face or NotoSans-Regular (ru, zh-Hans, ja, hi), or in cp1252
   for the five Latin languages that draw with the game's bitmap fonts.
