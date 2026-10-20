@@ -3661,6 +3661,20 @@ pub fn build(b: *std.Build) void {
     const l10n_measure_step = b.step("test-l10n-measure", "Unit tests of the l10n tier's measures: PNG decode, ink boxes, resampling, correlation, Hindi headline and matra measures, and hb-view's Simplified and Japanese Han forms (M002 D066)");
     l10n_measure_step.dependOn(&l10n_measure_tests.step);
     if (test_mode == .run) l10n_measure_step.dependOn(&l10n_measure_run.step);
+    // The glossaries in Localization/glossary share one structure (tools/zig/l10n_glossary_test.zig).
+    const l10n_glossary_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_glossary_test.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_glossary_tests = b.addTest(.{ .root_module = l10n_glossary_module });
+    const l10n_glossary_run = b.addRunArtifact(l10n_glossary_tests);
+    l10n_glossary_run.setCwd(b.path("."));
+    l10n_glossary_run.has_side_effects = true;
+    const l10n_glossary_step = b.step("test-l10n-glossary", "The nine glossaries in Localization/glossary have the same sections, table header and CRLF lines (M002 S02 T03)");
+    l10n_glossary_step.dependOn(&l10n_glossary_tests.step);
+    if (test_mode == .run) l10n_glossary_step.dependOn(&l10n_glossary_run.step);
+
     // M002 R056/D066 on the real Game: the language mods' main menus measured against
     // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
     // desktop, a GPU and hb-view, and fails without them; the mods are built first.

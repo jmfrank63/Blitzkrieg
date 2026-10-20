@@ -48,3 +48,13 @@ written under `zig-out/local-test/l10n-game-reads-it/<code>/`.
 
 Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
 cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.
+
+## Glossaries
+
+`Localization/glossary/<code>.md` holds one glossary per language (`ru`, `zh-Hans`, `ja`, `hi`, `es`, `fr`, `de`,
+`pt-BR`, `id`) with one structure: a title, a note on scope and review state, and three tables
+`| English term | Translation | Note |` for unit types, ranks and interface terms (the main menu and the
+mission briefing). The S01 menu terms of `ru`, `zh-Hans`, `ja` and `hi` are the overlay texts; the other terms
+of those four and all of `es`, `fr`, `de`, `pt-BR` and `id` are a machine seed that needs native review.
+The overlays (S02 T04), the S03 checker and the S08 documents take their terms from these files.
+`zig build test-l10n-glossary` checks that every file has the three sections, the table header and CRLF lines.
