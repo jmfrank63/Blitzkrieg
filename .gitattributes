@@ -59,3 +59,8 @@ tools/zig/fixtures/elk/** -text -eol
 *.zst binary
 *.tar binary
 *.gz binary
+
+# Vendored HarfBuzz is kept byte-exact (upstream LF); the Noto fonts and their checksum list too.
+vendor/harfbuzz/** -text
+vendor/fonts/** -text
+*.otf binary
