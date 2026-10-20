@@ -2486,13 +2486,14 @@ fn drawSettingsWindow(state: *State) void {
         @memcpy(state.language_choice[0..len], choice.value[0..len]);
         state.language_choice_len = len;
     }
-    l10n.noteRect("kit.language.label");
+    l10n.noteLabelRect("kit.language.label");
 
     var scroll_speed = state.settings.scroll_speed;
     if (ig.igSliderFloatEx(l10n.id("app.settings.scroll_speed"), &scroll_speed, core.settings.min_scroll_speed, core.settings.max_scroll_speed, "%.2f", ig.ImGuiSliderFlags_Logarithmic)) {
         state.settings.scroll_speed = scroll_speed;
         state.view.wheel_sensitivity = scroll_speed;
     }
+    l10n.noteLabelRect("app.settings.scroll_speed");
     if (ig.igIsItemDeactivatedAfterEdit()) applySettings(state);
 
     var autosave = state.settings.autosave;
@@ -2500,11 +2501,13 @@ fn drawSettingsWindow(state: *State) void {
         state.settings.autosave = autosave;
         applySettings(state);
     }
+    l10n.noteLabelRect("app.settings.autosave");
 
     var minutes: c_int = @intCast(state.settings.autosave_minutes);
     if (ig.igSliderInt(l10n.id("app.settings.autosave_minutes"), &minutes, @intCast(core.settings.min_autosave_minutes), @intCast(core.settings.max_autosave_minutes))) {
         state.settings.autosave_minutes = @intCast(minutes);
     }
+    l10n.noteLabelRect("app.settings.autosave_minutes");
     if (ig.igIsItemDeactivatedAfterEdit()) applySettings(state);
 
     var plain_folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -2512,11 +2515,14 @@ fn drawSettingsWindow(state: *State) void {
     const default_folder = logic.defaultMapsFolder(&plain_folder_buffer, userRoot(state), state.modFolder()) orelse "";
     const hint_z = std.mem.printSentinel(&hint_buffer, "{s}", .{default_folder}, 0) catch "";
     _ = ig.igInputTextWithHint(l10n.id("app.settings.maps_folder"), hint_z.ptr, &state.maps_folder_edit, state.maps_folder_edit.len + 1, 0);
+    l10n.noteLabelRect("app.settings.maps_folder");
     if (ig.igIsItemDeactivatedAfterEdit()) {
         state.settings.setMapsFolder(std.mem.sliceTo(&state.maps_folder_edit, 0));
         applySettings(state);
     }
-    if (ig.igButton(l10n.id("app.settings.use_default"))) {
+    const use_default = ig.igButton(l10n.id("app.settings.use_default"));
+    l10n.noteRect("app.settings.use_default");
+    if (use_default) {
         state.settings.setMapsFolder("");
         @memset(&state.maps_folder_edit, 0);
         applySettings(state);
@@ -4089,6 +4095,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
     const open = beginPanel(l10n.id("app.objects.title"), pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
+    l10n.noteWindowRect("app.objects.title");
     // M3, D-28: the direction wheel shares the filter input's row (the
     // input gives up its right margin), so the rows below keep the heights
     // the M1/M2 reference frames were captured with.
@@ -4164,6 +4171,14 @@ pub fn refreshActiveFilters(state: *State) void {
     state.filters_generation_seen = state.editor.filters_generation;
 }
 
+/// Continues the row with a small button labelled `text` when it fits before `right_edge`; otherwise
+/// the button starts a new row, where a longer translation would be clipped at the panel's edge.
+fn sameLineIfFits(right_edge: f32, text_z: [*:0]const u8) void {
+    const style = ig.igGetStyle();
+    const width = ig.igCalcTextSize(text_z).x + 2 * style.*.FramePadding.x;
+    if (ig.igGetItemRectMax().x + style.*.ItemSpacing.x + width <= right_edge) ig.igSameLine();
+}
+
 /// The palette's filter row (M3, D-31): the nine quick toggles (three per
 /// line, the MFC's check row), the filter combo and New/Delete Filter -
 /// every control a named command, so BK_EDITOR_AUTO drives the same path.
@@ -4171,6 +4186,7 @@ pub fn refreshActiveFilters(state: *State) void {
 /// editor's UpdateCheck); a plain click toggles its gate.
 fn drawPaletteFilters(state: *State) void {
     if (state.filters_generation_seen != state.editor.filters_generation) refreshActiveFilters(state);
+    const right_edge = ig.igGetCursorScreenPos().x + ig.igGetContentRegionAvail().x;
     const slot_count = core.settings.Settings.filter_slot_count;
     var i: usize = 0;
     while (i < slot_count) : (i += 1) {
@@ -4216,8 +4232,11 @@ fn drawPaletteFilters(state: *State) void {
     }
     ig.igSameLine();
     if (ig.igSmallButton(l10n.id("app.filter.new"))) state.filter_new_popup = true;
-    ig.igSameLine();
-    if (ig.igSmallButton(l10n.id("app.filter.delete"))) {
+    l10n.noteRect("app.filter.new");
+    sameLineIfFits(right_edge, l10n.t("app.filter.delete"));
+    const delete_pressed = ig.igSmallButton(l10n.id("app.filter.delete"));
+    l10n.noteRect("app.filter.delete");
+    if (delete_pressed) {
         if (combo_name.len != 0 and combo_name.len < state.filter_delete_popup.len) {
             @memcpy(state.filter_delete_popup[0..combo_name.len], combo_name[0..combo_name.len]);
             state.filter_delete_popup[combo_name.len] = 0;
@@ -4437,6 +4456,7 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
     const open = beginPanel(l10n.id("app.players.title"), pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
+    l10n.noteWindowRect("app.players.title");
     const editor = state.editor;
     if (!mapIsOpen(editor)) {
         text(tr("app.common.no_map"));
@@ -4454,12 +4474,14 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
         }
         ig.igEndCombo();
     }
+    l10n.noteLabelRect("app.players.map_type");
     if (map_type != info.map_type) state.view.noteEditResult(editor, editor.setMapType(map_type));
 
     var attacking: c_int = info.attacking_side;
     var side_items: [160]u8 = undefined;
     if (ig.igCombo(l10n.id("app.players.attacking"), &attacking, sideItems(&side_items, false)) and attacking != info.attacking_side)
         state.view.noteEditResult(editor, editor.setAttackingSide(attacking));
+    l10n.noteLabelRect("app.players.attacking");
 
     ig.igSeparatorText(l10n.t("app.players.diplomacy"));
     const entries = editor.document.diplomacy.items.len;

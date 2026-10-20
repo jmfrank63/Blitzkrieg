@@ -862,7 +862,7 @@ fn compareStructure(report: *Report, code: []const u8, path: []const u8, english
 
 /// Directories whose Zig sources must not hold an English UI literal. S04 to S07 add the source
 /// directories they migrate to `l10n.t`; `--strict-dir <dir>` adds one for a fixture.
-pub const strict_dirs = [_][]const u8{"Sources/editor/elk/app"};
+pub const strict_dirs = [_][]const u8{ "Sources/editor/elk/app", "Sources/editor/app" };
 
 /// The UI calls whose first argument is text a person reads.
 const ui_calls = [_][]const u8{

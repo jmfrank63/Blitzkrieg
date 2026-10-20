@@ -63,16 +63,18 @@ cluster has shaped alone (with a zero-width joiner), up to about a tenth wider t
 
 The editors' own texts (M002 S04) live in `Sources/editor/kit/lang/<code>.lang`, one table per language
 (`en` and the nine above), embedded in the binaries. Keys carry their owner as a prefix: `kit.` for the
-shared kit (the language picker), `elk.` for ELK; the Map Editor and Resource Editor add theirs when they
-move to the tables. To add a key: put it in `en.lang` first, then in all nine other tables with the same
+shared kit (the language picker and `kit.common.*`, the verbs OK, Cancel, Yes, No, Apply, Close, Open, Save,
+Delete and Add), `elk.` for ELK, `app.` for the Map Editor (`app.m2.*` and `app.m3.*` for its second and third
+milestone's windows, `app.cmd.*` and `app.core.*` for command and core messages); the Resource Editor adds
+its own when it moves to the tables. To add a key: put it in `en.lang` first, then in all nine other tables with the same
 `{0}`..`{9}` placeholders (the glossaries above give the terms), call it as `l10n.t("<key>")` (a menu or
 window label that must keep its identity across languages as `l10n.id`), and run `zig build l10n-check`,
 which fails on a key one table lacks or holds extra, a changed placeholder, a glyph the language's Noto face
-does not cover, and a literal in ELK's strict directory. ELK's help is one file per language,
+does not cover, and a literal in the strict directories (`Sources/editor/elk/app`, `Sources/editor/app`). ELK's help is one file per language,
 `Sources/editor/elk/help/elk_<code>.md`, embedded.
 
 A key a table lacks shows the English text and logs `l10n: missing <code> <key>` once to stderr.
-`BK_L10N_DIR=<dir>` makes ELK read `<dir>/<code>.lang` instead of the embedded table, and `BK_FONT_DIR=<dir>`
+`BK_L10N_DIR=<dir>` makes ELK and the Map Editor read `<dir>/<code>.lang` instead of the embedded table, and `BK_FONT_DIR=<dir>`
 reads the Noto faces from `<dir>` instead of `Fonts/` beside the executable; both are test seams.
 
 `zig build elk-l10n-auto` (`tools/zig/elk_l10n_auto.zig`, needs `hb-view`) starts the installed ELK hidden
@@ -84,6 +86,27 @@ languages must differ from the English frame. A tracked table that lacks one key
 that label in English. Frames and a `report.txt` with one `ok` or `FAIL` line per check are kept under
 `zig-out/local-test/elk/l10n-auto/<code>/`. Hindi labels with a conjunct are held to a lower correlation
 because of the half-form limit below.
+
+The Map Editor (M002 S05) draws every label of its app and core from the `app.*` and `kit.common.*` keys;
+window and popup titles are `l10n.id` (`Title###key`), so ImGui's saved window positions (`layout.ini`) are
+keyed by the key and reset once for people who had one. Scripted runs (`BK_EDITOR_AUTO`, `--smoke`,
+`--check`, `--game-reads-it`) draw English whatever the setting says, so their English assertions hold on
+any machine; a normal start reads `ui_language` from `mapeditor.cfg`, which the Settings window changes
+live. Texts that come from outside the tables stay English: the engine's reasons (`BkEditorLastMessage`),
+the operating system's (file and dialog errors) and `fatal()` before the language is known (D080).
+The data it shows (object type and game type names such as `SGVOGT_UNIT`, map and script file names) are
+the game's own and are not translated.
+
+`zig build map-editor-l10n-auto` (`tools/zig/map_editor_l10n_auto.zig`, needs `hb-view`) is the same
+tier for the Map Editor: one hidden start per language with `ui_language` in a scratch `mapeditor.cfg`
+(`MapEditor --l10n-auto <map> <folder>` under a fixed `BK_EDITOR_AUTO` schedule), capturing the main window
+with the menu bar, the Tools palette and the Settings dialog, and measuring every label the editor logs
+(`l10n-auto: rect <key> x y w h`) with the checks of the ELK tier (`tools/zig/l10n_auto_common.zig`). It also
+checks the fit: every Tools palette button, the Settings rows, the Objects panel's filter buttons and the
+Players panel's labels lie inside their windows, so a translation that a layout constant clips fails with its
+language and key. The drop fixture is `tools/zig/fixtures/l10n/map-editor-drop/ru.lang` (without
+`app.settings.use_default`); frames and `report.txt` are in `zig-out/local-test/map-editor/l10n-auto/<code>/`.
+Hindi labels with a conjunct may have a headline gap of three columns instead of two (the same half-form limit).
 
 ## Glossaries
 

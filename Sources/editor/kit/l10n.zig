@@ -160,7 +160,11 @@ const key_map = blk: {
 };
 
 pub fn keyIndex(comptime key: []const u8) usize {
-    return comptime key_map.get(key) orelse @compileError("l10n: unknown key " ++ key);
+    // A table past a thousand keys has long buckets: the lookup needs more than the default quota.
+    return comptime blk: {
+        @setEvalBranchQuota(100_000);
+        break :blk key_map.get(key) orelse @compileError("l10n: unknown key " ++ key);
+    };
 }
 
 // ------------------------------------------------------------------ rect log
@@ -176,6 +180,18 @@ pub fn noteRect(comptime key: []const u8) void {
     const min = imgui.c.igGetItemRectMin();
     const max = imgui.c.igGetItemRectMax();
     std.debug.print("l10n-auto: rect {s} {d:.0} {d:.0} {d:.0} {d:.0}\n", .{ key, min.x, min.y, max.x - min.x, max.y - min.y });
+}
+
+/// After a slider, input, checkbox or combo labelled by `key`: like `noteRect`, for the label's own
+/// text at the right end of the widget's rect (ImGui draws the label after the control), so the tier
+/// measures the label and not the control.
+pub fn noteLabelRect(comptime key: []const u8) void {
+    _ = keyIndex(key);
+    if (!rect_log) return;
+    const min = imgui.c.igGetItemRectMin();
+    const max = imgui.c.igGetItemRectMax();
+    const width = imgui.c.igCalcTextSize(t(key)).x;
+    std.debug.print("l10n-auto: rect {s} {d:.0} {d:.0} {d:.0} {d:.0}\n", .{ key, max.x - width, min.y, width, max.y - min.y });
 }
 
 /// Like `noteRect`, for the window being drawn (between its Begin and End): the title bar's text is

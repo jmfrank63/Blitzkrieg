@@ -213,9 +213,24 @@ tables.
   `<dir>/<code>.lang` instead of the embedded table, for tests that drop a key.
 - Hindi results are encoded with `fonts.encodeHindi`; load the fonts before the first lookup.
 
-Its tests run in `zig build test-editor-kit`. ELK's use of it is measured by `zig build elk-l10n-auto`
-(ten languages, frames captured with `capture`, the missing-key case through `BK_L10N_DIR`); see
-`Localization/README.md`, "Editor tables".
+- `str("key")` and `say(buf, "key", .{...})` give the text or the filled sentence as a slice, for the
+  calls that take one (status lines, notes); `say` falls back to the key's unfilled text when the buffer
+  is too small.
+- `rect_log` (off unless an app sets it for `--l10n-auto`) makes `noteRect(key)` (after a widget with its
+  label inside, such as a button or menu title), `noteLabelRect(key)` (after a widget whose label is drawn
+  at its right, such as a slider, input, checkbox or combo) and `noteWindowRect(key)` (inside a window)
+  print `l10n-auto: rect <key> x y w h`, so a tier measures where each label was drawn. Normal runs print
+  nothing.
+- `kit.common.*` holds the verbs every editor shows (OK, Cancel, Yes, No, Apply, Close, Open, Save, Delete,
+  Add); the Resource Editor reuses them.
+- The key lookup is a comptime `StaticStringMap`, sized for the Map Editor's 1,200 keys (`keyIndex` raises
+  the eval branch quota locally).
+
+Its tests run in `zig build test-editor-kit`. ELK's and the Map Editor's use of it is measured by
+`zig build elk-l10n-auto` and `zig build map-editor-l10n-auto` (ten languages, frames captured with
+`capture`, the missing-key case through `BK_L10N_DIR`); both share `tools/zig/l10n_auto_common.zig` (the log
+parser, thresholds, the reference correlation, the Hindi and Han checks). See `Localization/README.md`,
+"Editor tables".
 
 ## language_picker
 
@@ -223,7 +238,10 @@ The shared language combo (D061). `draw(current)` shows a combo labelled `kit.la
 System first, then the ten languages under their own names (Hindi cluster-encoded), and returns
 `?Choice` with the new `ui_language` value on the frame a row other than the current one is picked.
 The caller applies it between frames: store it in the settings, call `l10n.setLanguage` and
-`fonts.reload`. `valueAt(row)` and `rowOf(value)` are the pure row/value mapping (an unknown value
+`fonts.reload`. `setup(gpa, io, environ, &settings, scripted)` is what each editor calls once after its
+window and ImGui exist: it resolves the language (a scripted run that names none draws English), loads the
+fonts (`BK_FONT_DIR` or `<exe dir>/Fonts`), applies `BK_L10N_DIR` and selects the language; ELK and the
+Map Editor use it (the Resource Editor will). `valueAt(row)` and `rowOf(value)` are the pure row/value mapping (an unknown value
 selects System).
 
 The `ui_language` key is shared: `settings.applySharedKey` reads it into a caller's
