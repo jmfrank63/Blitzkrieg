@@ -3674,6 +3674,47 @@ pub fn build(b: *std.Build) void {
     const l10n_glossary_step = b.step("test-l10n-glossary", "The nine glossaries in Localization/glossary have the same sections, table header and CRLF lines (M002 S02 T03)");
     l10n_glossary_step.dependOn(&l10n_glossary_tests.step);
     if (test_mode == .run) l10n_glossary_step.dependOn(&l10n_glossary_run.step);
+    // The completeness gate (tools/zig/l10n_check.zig, M002 S03): plain Zig, no engine modules, no libc.
+    // `l10n-check` reads the tracked tree from the repository root and fails the build on a finding.
+    const l10n_check_exe = b.addExecutable(.{
+        .name = "l10n-check",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/l10n_check.zig"),
+            .target = target,
+            .optimize = .debug,
+        }),
+    });
+    const l10n_check_run = b.addRunArtifact(l10n_check_exe);
+    l10n_check_run.setCwd(b.path("."));
+    l10n_check_run.has_side_effects = true;
+    const l10n_check_step = b.step("l10n-check", "Fail with one `l10n-check: <rule>: <code>: <where>: <detail>` line per finding when an overlay text or state file is missing, stale or malformed (M002 S03)");
+    l10n_check_step.dependOn(&l10n_check_run.step);
+    // The seeded-fault fixtures run the installed checker against trees written under zig-out/local-test/l10n-check.
+    const l10n_check_install = b.addInstallArtifact(l10n_check_exe, .{});
+    const l10n_check_unit = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_check.zig"),
+        .target = target,
+        .optimize = .debug,
+    }) });
+    const l10n_check_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_check_test.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_check_tests = b.addTest(.{ .root_module = l10n_check_test_module });
+    const l10n_check_tests_run = b.addRunArtifact(l10n_check_tests);
+    l10n_check_tests_run.setCwd(b.path("."));
+    l10n_check_tests_run.setEnvironmentVariable("BK_L10N_CHECK_EXE", rootPath(b, b.fmt("zig-out/bin/l10n-check{s}", .{target.result.exeFileExt()})));
+    l10n_check_tests_run.has_side_effects = true;
+    l10n_check_tests_run.step.dependOn(&l10n_check_install.step);
+    const l10n_check_unit_run = b.addRunArtifact(l10n_check_unit);
+    const l10n_check_tests_step = b.step("test-l10n-check", "The l10n-check rules and one seeded-fault fixture per rule, each failing with its exact line (M002 S03)");
+    l10n_check_tests_step.dependOn(&l10n_check_tests.step);
+    l10n_check_tests_step.dependOn(&l10n_check_unit.step);
+    if (test_mode == .run) {
+        l10n_check_tests_step.dependOn(&l10n_check_tests_run.step);
+        l10n_check_tests_step.dependOn(&l10n_check_unit_run.step);
+    }
 
     // M002 R056/D066 on the real Game: the language mods' main menus measured against
     // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
