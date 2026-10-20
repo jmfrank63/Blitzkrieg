@@ -15,6 +15,10 @@ Where they are: in the game folder's `Tools/` directory. On Windows that folder 
 
 A mod lives in `mods/<Name>/data/` beside the game's own `Data/`, with a `mod.xml` naming it (`MODName`, `MODVersion`), and the game runs it with `-mod=<Name>`. The game reads the files in that folder and the files inside every `.pak` there alike.
 
+## Language
+
+Help and messages come in ten languages. Choose one with `--lang <code>` (for example `--lang=ja`), else the `BK_LANG` environment variable, else your system's language, else English. The `usage: ` and `bk-<tool>: ` prefixes, exit codes and summary lines do not change. On Windows, the legacy console window may lack CJK glyphs; Windows Terminal shows them.
+
 ## Old tool, new command
 
 | Old tool | New command |

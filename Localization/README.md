@@ -119,6 +119,18 @@ Thumbnails dock. It checks the fit as well (every measured label inside the fram
 The drop fixture is `tools/zig/fixtures/l10n/resource-editor-drop/ru.lang` (without `resource_app.menu.help`); frames and
 `report.txt` are in `zig-out/local-test/resource-editor/l10n-auto/<code>/`. The dialogs are not measured by a frame.
 
+## Tool tables
+
+The seven `bk-*` tools print their `--help` and messages from `tools/zig/lang/<code>.lang`, one table per language, embedded in each tool
+by `tools/zig/bk_l10n.zig` (the C++ tools use its C ABI, `bk_l10n.h`). The language is the first of `--lang <code>`, `BK_LANG`, the OS locale,
+then English. An unknown `--lang` value prints an English line listing the valid codes, then the usage, and exits 2.
+
+What stays English in every language, because scripts and CI parse it: the `usage: <tool> ` and `<tool>: ` prefixes, the synopsis and option
+names, exit codes, the summary lines and the debug logs.
+
+Two seams for tests and translators: `BK_L10N_DIR=<dir>` reads `<dir>/<code>.lang` instead of the embedded table, and `BK_DEBUG_LOG=1` makes a
+tool print `l10n: missing <code> <key>` on stderr (otherwise stderr stays empty on success). A key missing from a language falls back to English.
+
 ## Glossaries
 
 `Localization/glossary/<code>.md` holds one glossary per language (`ru`, `zh-Hans`, `ja`, `hi`, `es`, `fr`, `de`,
