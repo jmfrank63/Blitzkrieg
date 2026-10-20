@@ -74,13 +74,13 @@ jobs:
     steps:
       - name: Check out source
         if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           filter: blob:none
       - name: Areas
         id: areas
         if: github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             engine:
@@ -107,7 +107,7 @@ jobs:
       - name: Everything else
         id: rest
         if: github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           predicate-quantifier: every
           filters: |
@@ -143,7 +143,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -227,7 +227,7 @@ jobs:
 
       - name: Restore Zig build cache
         id: zig-build-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .zig-cache
           key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
@@ -238,7 +238,7 @@ jobs:
 
       - name: Restore Unix Zig global cache
         id: zig-global-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/zig
           key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -273,7 +273,7 @@ jobs:
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .zig-cache
           key: ${{ steps.zig-build-cache.outputs.cache-primary-key }}
@@ -282,7 +282,7 @@ jobs:
 
       - name: Save Unix Zig global cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/zig
           key: ${{ steps.zig-global-cache.outputs.cache-primary-key }}
@@ -304,7 +304,7 @@ jobs:
           echo "pack took $(( $(date +%s) - start )) s"
 
       - name: Upload the build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-build
           path: ${{ runner.temp }}/bk-build
@@ -345,7 +345,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -438,7 +438,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build
           path: ${{ runner.temp }}/bk-build
@@ -631,7 +631,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-game-outputs-${{ matrix.part }}
           path: |
@@ -695,7 +695,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -785,7 +785,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build
           path: ${{ runner.temp }}/bk-build
@@ -1017,7 +1017,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-resource-editor-outputs-${{ matrix.part }}
           path: |
@@ -1054,7 +1054,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -1144,7 +1144,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build
           path: ${{ runner.temp }}/bk-build
@@ -1265,7 +1265,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-map-editor-outputs-${{ matrix.part }}
           path: |
@@ -1302,7 +1302,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -1399,7 +1399,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build
           path: ${{ runner.temp }}/bk-build
@@ -1454,7 +1454,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-elk-outputs-${{ matrix.part }}
           path: |
@@ -1491,7 +1491,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -1588,7 +1588,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build
           path: ${{ runner.temp }}/bk-build
@@ -1677,7 +1677,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-tools-outputs-${{ matrix.part }}
           path: |
@@ -1706,7 +1706,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -1791,7 +1791,7 @@ jobs:
 
       - name: Restore Zig build cache
         id: zig-build-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .zig-cache
           key: ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
@@ -1802,7 +1802,7 @@ jobs:
 
       - name: Restore Windows Zig global cache
         id: zig-global-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~\AppData\Local\zig
           key: ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -1868,7 +1868,7 @@ jobs:
       # game are built, and a job cut off later still leaves the next run warm.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .zig-cache
           key: ${{ steps.zig-build-cache.outputs.cache-primary-key }}
@@ -1877,7 +1877,7 @@ jobs:
 
       - name: Save Windows Zig global cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~\AppData\Local\zig
           key: ${{ steps.zig-global-cache.outputs.cache-primary-key }}
@@ -1899,7 +1899,7 @@ jobs:
           echo "pack took $(( $(date +%s) - start )) s"
 
       - name: Upload the build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-build
           path: ${{ runner.temp }}/bk-build
@@ -1962,7 +1962,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -2038,7 +2038,7 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-build
           path: ${{ runner.temp }}/bk-build
@@ -2254,7 +2254,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-game-outputs-${{ matrix.part }}
           path: |
@@ -2342,7 +2342,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -2417,7 +2417,7 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-build
           path: ${{ runner.temp }}/bk-build
@@ -2685,7 +2685,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-resource-editor-outputs-${{ matrix.part }}
           path: |
@@ -2730,7 +2730,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -2805,7 +2805,7 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-build
           path: ${{ runner.temp }}/bk-build
@@ -3042,7 +3042,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-map-editor-outputs-${{ matrix.part }}
           path: |
@@ -3079,7 +3079,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -3155,7 +3155,7 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-build
           path: ${{ runner.temp }}/bk-build
@@ -3239,7 +3239,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-elk-outputs-${{ matrix.part }}
           path: |
@@ -3276,7 +3276,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -3356,7 +3356,7 @@ jobs:
           & (Join-Path $zigHome "zig.exe") version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows-build
           path: ${{ runner.temp }}/bk-build
@@ -3480,7 +3480,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-tools-outputs-${{ matrix.part }}
           path: |
@@ -3509,7 +3509,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -3608,7 +3608,7 @@ jobs:
 
       - name: Restore Zig build cache
         id: zig-build-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .zig-cache
           key: ${{ runner.os }}-aarch64-macos-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
@@ -3619,7 +3619,7 @@ jobs:
 
       - name: Restore Unix Zig global cache
         id: zig-global-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/zig
           key: ${{ runner.os }}-aarch64-macos-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -3659,7 +3659,7 @@ jobs:
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .zig-cache
           key: ${{ steps.zig-build-cache.outputs.cache-primary-key }}
@@ -3668,7 +3668,7 @@ jobs:
 
       - name: Save Unix Zig global cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/zig
           key: ${{ steps.zig-global-cache.outputs.cache-primary-key }}
@@ -3690,7 +3690,7 @@ jobs:
           echo "pack took $(( $(date +%s) - start )) s"
 
       - name: Upload the build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-build
           path: ${{ runner.temp }}/bk-build
@@ -3734,7 +3734,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -3824,7 +3824,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos-build
           path: ${{ runner.temp }}/bk-build
@@ -3955,7 +3955,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macos-game-outputs-${{ matrix.part }}
           path: |
@@ -4020,7 +4020,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -4108,7 +4108,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos-build
           path: ${{ runner.temp }}/bk-build
@@ -4300,7 +4300,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macos-resource-editor-outputs-${{ matrix.part }}
           path: |
@@ -4339,7 +4339,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -4427,7 +4427,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos-build
           path: ${{ runner.temp }}/bk-build
@@ -4545,7 +4545,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macos-map-editor-outputs-${{ matrix.part }}
           path: |
@@ -4582,7 +4582,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -4672,7 +4672,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos-build
           path: ${{ runner.temp }}/bk-build
@@ -4732,7 +4732,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macos-elk-outputs-${{ matrix.part }}
           path: |
@@ -4769,7 +4769,7 @@ jobs:
 
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -4863,7 +4863,7 @@ jobs:
           zig version
 
       - name: Download the build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos-build
           path: ${{ runner.temp }}/bk-build
@@ -4957,7 +4957,7 @@ jobs:
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macos-tools-outputs-${{ matrix.part }}
           path: |
@@ -4988,7 +4988,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -5023,7 +5023,7 @@ jobs:
 
       - name: Restore Zig build cache
         id: zig-build-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .zig-cache
           key: ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
@@ -5033,7 +5033,7 @@ jobs:
 
       - name: Restore Windows Zig global cache
         id: zig-global-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~\AppData\Local\zig
           key: ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -5110,7 +5110,7 @@ jobs:
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .zig-cache
           key: ${{ steps.zig-build-cache.outputs.cache-primary-key }}
@@ -5118,7 +5118,7 @@ jobs:
 
       - name: Save Windows Zig global cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~\AppData\Local\zig
           key: ${{ steps.zig-global-cache.outputs.cache-primary-key }}
@@ -5126,7 +5126,7 @@ jobs:
 
       - name: Upload generated outputs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-mingw-platform-outputs
           path: |
@@ -5199,7 +5199,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -5276,7 +5276,7 @@ jobs:
 
       - name: Restore Zig build cache
         id: zig-build-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .zig-cache
           key: ${{ runner.os }}-x86_64-macos-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
@@ -5286,7 +5286,7 @@ jobs:
 
       - name: Restore Unix Zig global cache
         id: zig-global-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/zig
           key: ${{ runner.os }}-x86_64-macos-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -5394,7 +5394,7 @@ jobs:
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .zig-cache
           key: ${{ steps.zig-build-cache.outputs.cache-primary-key }}
@@ -5402,7 +5402,7 @@ jobs:
 
       - name: Save Unix Zig global cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/zig
           key: ${{ steps.zig-global-cache.outputs.cache-primary-key }}
@@ -5410,7 +5410,7 @@ jobs:
 
       - name: Upload generated outputs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macos-intel-platform-outputs
           path: |
@@ -5471,7 +5471,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
@@ -5554,7 +5554,7 @@ jobs:
 
       - name: Restore Zig build cache
         id: zig-build-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .zig-cache
           key: ${{ runner.os }}-aarch64-linux-gnu-zig-build-0.17.0-${{ steps.cache-month.outputs.month }}-${{ github.sha }}
@@ -5564,7 +5564,7 @@ jobs:
 
       - name: Restore Unix Zig global cache
         id: zig-global-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/zig
           key: ${{ runner.os }}-aarch64-linux-gnu-zig-global-0.17.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
@@ -5667,7 +5667,7 @@ jobs:
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .zig-cache
           key: ${{ steps.zig-build-cache.outputs.cache-primary-key }}
@@ -5675,7 +5675,7 @@ jobs:
 
       - name: Save Unix Zig global cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-global-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/zig
           key: ${{ steps.zig-global-cache.outputs.cache-primary-key }}
@@ -5683,7 +5683,7 @@ jobs:
 
       - name: Upload generated outputs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-arm-platform-outputs
           path: |
