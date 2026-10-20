@@ -875,6 +875,18 @@ const ui_calls = [_][]const u8{
     "beginPanel",
 };
 
+/// The calls whose first argument is a label ImGui hashes into a widget ID. A translation there must
+/// be `l10n.id` (`shown###key`), or the ID changes with the language and equal translations collide.
+/// Plain text (igText*, igSeparatorText, tooltips, igCalcTextSize) is not on the list and keeps `l10n.t`.
+const id_calls = [_][]const u8{
+    "igButton",        "igSmallButton",        "igMenuItem",       "igMenuItemEx",      "igMenuItemBoolPtr", "igBeginMenu",
+    "igBeginMenuEx",   "igSelectable",         "igSelectableEx",   "igCheckbox",        "igRadioButton",     "igCombo",
+    "igBeginCombo",    "igInputText",          "igInputTextWithHint", "igInputFloat",   "igInputFloatEx",    "igInputInt",
+    "igInputIntEx",    "igSliderInt",          "igSliderFloat",    "igSliderFloatEx",   "igBeginTabItem",    "igCollapsingHeader",
+    "igTreeNode",      "igBeginPopup",         "igBeginPopupModal", "igOpenPopup",      "igBegin",           "igBeginChild",
+    "igTableSetupColumn", "igTableSetupColumnEx",
+};
+
 /// Calls whose second argument is user-visible too: the hint of an input field.
 const hint_calls = [_][]const u8{"igInputTextWithHint"};
 
@@ -987,6 +999,25 @@ fn literalCall(line: []const u8) ?struct { call: []const u8, literal: []const u8
     return .{ .call = found.call, .literal = found.literal };
 }
 
+/// The first ID-bearing call on `line` whose first argument is `l10n.t(...)`.
+fn idCall(line: []const u8) ?[]const u8 {
+    const trimmed = std.mem.trimStart(u8, line, " \t");
+    if (std.mem.startsWith(u8, trimmed, "//")) return null;
+    var best: ?struct { at: usize, call: []const u8 } = null;
+    for (id_calls) |call| {
+        var from: usize = 0;
+        while (std.mem.indexOfPos(u8, line, from, call)) |at| {
+            from = at + call.len;
+            if (at > 0 and isIdentChar(line[at - 1])) continue;
+            if (!std.mem.startsWith(u8, std.mem.trimStart(u8, line[from..], " "), "(")) continue;
+            const open = std.mem.indexOfScalarPos(u8, line, from, '(').?;
+            if (!std.mem.startsWith(u8, std.mem.trimStart(u8, line[open + 1 ..], " "), "l10n.t(")) continue;
+            if (best == null or at < best.?.at) best = .{ .at = at, .call = call };
+        }
+    }
+    return if (best) |found| found.call else null;
+}
+
 fn lessPath(_: void, a: []const u8, b: []const u8) bool {
     return std.mem.lessThan(u8, a, b);
 }
@@ -1027,8 +1058,13 @@ pub fn checkLiterals(io: std.Io, report: *Report, root: std.Io.Dir, extra: []con
             var number: usize = 0;
             while (lines.next()) |raw| {
                 number += 1;
-                const found = literalCall(std.mem.trimEnd(u8, raw, "\r")) orelse continue;
-                try report.addFmt("literal", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ path, number }), "{s} takes the English literal \"{s}\"; wrap it in l10n.t, l10n.id or l10n.format", .{ found.call, found.literal });
+                const line = std.mem.trimEnd(u8, raw, "\r");
+                const where = try std.fmt.allocPrint(arena, "{s}:{d}", .{ path, number });
+                const found = literalCall(line) orelse {
+                    if (idCall(line)) |call| try report.addFmt("literal", "all", where, "{s} takes l10n.t as its label; use l10n.id so the ImGui ID does not depend on the language", .{call});
+                    continue;
+                };
+                try report.addFmt("literal", "all", where, "{s} takes the English literal \"{s}\"; wrap it in l10n.t, l10n.id or l10n.format", .{ found.call, found.literal });
             }
         }
     };

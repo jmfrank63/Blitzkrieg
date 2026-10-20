@@ -153,7 +153,7 @@ pub const Panels = struct {
         ig.igSeparator();
         inline for (std.enums.values(view_logic.Part)) |tag| {
             const part = @field(view_logic.Part, @tagName(tag));
-            if (ig.igMenuItemEx(part.label(), null, self.view.shown(part), true)) self.setView(part, !self.view.shown(part));
+            if (ig.igMenuItemEx(part.labelId(), null, self.view.shown(part), true)) self.setView(part, !self.view.shown(part));
         }
         ig.igSeparator();
         if (ig.igMenuItemEx(l10n.id("resource_app.view.background"), null, false, true)) self.background_open = true;
@@ -375,7 +375,7 @@ pub const Panels = struct {
         if (ig.igMenuItemEx(l10n.id("resource_app.edit.delete"), "Delete", false, can_edit and !is_root)) self.deleteSelected(gpa, b, life);
         const actions = squad.treeActionsFor(&life.doc, id);
         for (actions.constSlice()) |action| {
-            if (ig.igMenuItemEx(action.label(), null, false, can_edit)) {
+            if (ig.igMenuItemEx(action.labelId(), null, false, can_edit)) {
                 squad.runTreeAction(gpa, b, &life.doc, &life.history, action, id) catch |err| return self.report(b, "resource_app.act.tree_action", err);
                 self.selection.prune(&life.doc);
             }
@@ -487,7 +487,7 @@ pub const Panels = struct {
             const variants = [_]mesh.Variant{ .combat, .install, .transportable };
             for (variants, 0..) |variant, i| {
                 if (i != 0) ig.igSameLine();
-                if (ig.igRadioButton(variant.label(), toolbar.variant == variant)) toolbar.setVariant(b, variant) catch |err| self.report(b, "resource_app.act.model_variant", err);
+                if (ig.igRadioButton(variant.labelId(), toolbar.variant == variant)) toolbar.setVariant(b, variant) catch |err| self.report(b, "resource_app.act.model_variant", err);
             }
             var locators = toolbar.show_locators;
             var boxes = toolbar.show_bounding_boxes;
@@ -576,7 +576,7 @@ pub const Panels = struct {
             // The point modes go on a second row, as BuildFrm's and BridgeFrm's toolbars group them.
             const new_row = tool == .entrance or (i != 0 and tool.isPointTool() and !registration.tools[i - 1].isPointTool() and registration.tools[i - 1] != .entrance);
             if (i != 0 and !new_row) ig.igSameLine();
-            if (ig.igRadioButton(tool.label(), editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "resource_app.act.grid_tool", err);
+            if (ig.igRadioButton(tool.labelId(), editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "resource_app.act.grid_tool", err);
         }
         if (life.doc.kind == .bridge) self.drawBridgeToolbar(life, editor);
         if (registration.has(.fire) and can_edit) {

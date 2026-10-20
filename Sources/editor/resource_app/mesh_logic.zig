@@ -41,6 +41,13 @@ pub const Variant = enum(u8) {
             inline else => |tag| l10n.t("resource_app.mesh_variant." ++ @tagName(tag)),
         };
     }
+
+    /// The same text as an ImGui label whose ID is the key, not the language.
+    pub fn labelId(self: Variant) [*:0]const u8 {
+        return switch (self) {
+            inline else => |tag| l10n.id("resource_app.mesh_variant." ++ @tagName(tag)),
+        };
+    }
 };
 
 /// The nearest locator marker to a screen point, by index into the list and

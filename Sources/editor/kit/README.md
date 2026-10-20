@@ -196,7 +196,7 @@ String tables (D061), one `lang/<code>.lang` per language: `en` and the nine of
 `tools/zig/l10n_languages.zig`, all embedded with `@embedFile`. The format is UTF-8 without a
 byte order mark, CRLF lines, `#` comment lines, `key=value` (the first `=` splits) with the
 escapes `\n`, `\t`, `\\` and the placeholders `{0}`..`{9}`. A table stores the text only; `id`
-appends `###<key>`. `tools/zig/l10n_check.zig` (`zig build l10n-check`) requires every language to
+appends `###<key>`: every ImGui label that is a translation (widget, menu, menu item, button, tab, header, popup, window) uses `id`, because ImGui hashes the label as the widget ID and `t` would change the ID per language and collide equal translations; `t` stays for plain text. `l10n-check` fails on an ID-bearing `ig*` call whose label is `l10n.t(`. `tools/zig/l10n_check.zig` (`zig build l10n-check`) requires every language to
 hold exactly the keys of `en.lang`, the same placeholders, and only glyphs its Noto face covers,
 which is why the picker's native names come from `nativeName` (the language list), not from the
 tables.

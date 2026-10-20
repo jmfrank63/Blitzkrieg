@@ -67,8 +67,8 @@ shared kit (the language picker and `kit.common.*`, the verbs OK, Cancel, Yes, N
 Delete and Add), `elk.` for ELK, `app.` for the Map Editor (`app.m2.*` and `app.m3.*` for its second and third
 milestone's windows, `app.cmd.*` and `app.core.*` for command and core messages), `resource_app.` for the Resource Editor
 (`resource_app.gui.*` for its GUI Editor dock). To add a key: put it in `en.lang` first, then in all nine other tables with the same
-`{0}`..`{9}` placeholders (the glossaries above give the terms), call it as `l10n.t("<key>")` (a menu or
-window label that must keep its identity across languages as `l10n.id`), and run `zig build l10n-check`,
+`{0}`..`{9}` placeholders (the glossaries above give the terms), call it as `l10n.t("<key>")` for plain text (`igText*`, tooltips, status, format results) and as `l10n.id("<key>")` for every ImGui label that is
+a widget, menu, menu item, button, tab, header, popup or window (ImGui hashes the label as the ID; `l10n.id` keeps it the same in every language and apart from an equal translation), and run `zig build l10n-check`,
 which fails on a key one table lacks or holds extra, a changed placeholder, a glyph the language's Noto face
 does not cover, and a literal in the strict directories (`Sources/editor/elk/app`, `Sources/editor/app`, `Sources/editor/resource_app`). ELK's help is one file per language,
 `Sources/editor/elk/help/elk_<code>.md`, embedded.
@@ -155,7 +155,7 @@ Rules:
 - `doc-missing`, `-structure`, `-code`, `-bar`, `-extra`: a document set (English `<stem>.md` and nine
   `<stem>_<Language>.md`) has the same heading levels and code blocks and the language bar.
 - `literal`: in the strict source directories a UI call takes `l10n.t`, `l10n.id` or `l10n.format`, not an
-  English string literal.
+  English string literal. An ID-bearing call (`igButton`, `igMenuItemEx`, `igBegin`, ...) whose label is `l10n.t(` fails too: use `l10n.id`.
 
 `Localization/game/scope.txt` lists the ELK keys (relative to `Data/ELK/game_data_base`, no extension) every
 overlay must hold. `Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per

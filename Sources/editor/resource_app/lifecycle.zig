@@ -34,6 +34,13 @@ pub fn kindLabel(kind: Kind) [*:0]const u8 {
     }
 }
 
+/// `kindLabel` as an ImGui label whose ID is the kind, not the language.
+pub fn kindId(kind: Kind) [*:0]const u8 {
+    switch (kind) {
+        inline else => |k| return l10n.id("resource_app.kind." ++ @tagName(k)),
+    }
+}
+
 /// `path` with the kind's extension appended when it has another one or
 /// none: the bridge picks the format from the extension, and a project
 /// saved as `gun` or `gun.txt` would not open as a weapon again.

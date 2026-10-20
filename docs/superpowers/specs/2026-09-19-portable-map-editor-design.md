@@ -610,7 +610,7 @@ The Map Editor runs on the kit string tables (`Sources/editor/kit/lang/<code>.la
   `Sources/editor/core` is a key. Windows, popups and menus whose identity must survive a language change
   use `l10n.id` (`Title###key`, the same key at the open and the begin site), so ImGui's own window state is
   keyed by the key: **the saved window positions in `layout.ini` reset once** for a person upgrading, and
-  View > Reset layout still forgets them. `l10n-check` enforces `Sources/editor/app` as a strict directory:
+  View > Reset layout still forgets them. Every other translated ImGui label (widget, menu item, button, tab, header) is `l10n.id` too (M002 S07/T07, D083), since ImGui hashes the label as the ID; `l10n.t` is for plain text, and `l10n-check` fails on an ID-bearing `ig*` call whose label is `l10n.t(`. `l10n-check` enforces `Sources/editor/app` as a strict directory:
   an English literal in a UI call is a finding.
 - **Pure modules** (`tool_registry`, `marker_logic`, `view_math`, `panels_logic`) return ids and enums and the
   panels translate, so the pure test tiers do not depend on the current language.

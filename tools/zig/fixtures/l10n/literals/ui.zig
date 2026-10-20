@@ -4,7 +4,7 @@ const l10n = @import("l10n.zig");
 
 pub fn draw() void {
     _ = c.igButton("Save", .{ .x = 0, .y = 0 });
-    _ = c.igButton(l10n.t("file.save"), .{ .x = 0, .y = 0 });
+    _ = c.igButton(l10n.id("file.save"), .{ .x = 0, .y = 0 });
     c.igText("%s", "not English");
     _ = c.igBeginCombo("Mode", "Preview", 0);
     _ = c.igInputText("Name", &buf, buf.len, 0, null, null);

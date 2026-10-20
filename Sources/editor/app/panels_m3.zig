@@ -1153,8 +1153,8 @@ pub fn drawLayersMenu(state: *State, map_open: bool) void {
     if (ig.igBeginMenu(title_text.ptr)) {
         defer ig.igEndMenu();
         const fire_mode = state.editor.layers.fire_mode;
-        if (ig.igMenuItemEx(l10n.t("app.m3.fire.off"), null, fire_mode == .off, map_open)) _ = commands.fireRange(state, "off");
-        if (ig.igMenuItemEx(l10n.t("app.m3.fire.selected"), null, fire_mode == .selected, map_open)) _ = commands.fireRange(state, "selected");
+        if (ig.igMenuItemEx(l10n.id("app.m3.fire.off"), null, fire_mode == .off, map_open)) _ = commands.fireRange(state, "off");
+        if (ig.igMenuItemEx(l10n.id("app.m3.fire.selected"), null, fire_mode == .selected, map_open)) _ = commands.fireRange(state, "selected");
         if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_AllowWhenDisabled) and ig.igBeginTooltip()) {
             panels.text(tr("app.m3.fire.tip_selected"));
             ig.igEndTooltip();
@@ -1196,7 +1196,7 @@ fn rmgCombo(
     var preview: [core.bridge.field_set_name_capacity + 16:0]u8 = undefined;
     const shown = if (field.len == 0) blank_label else std.mem.printSentinel(&preview, "{s}", .{field.slice()}, 0) catch blank_label;
     if (ig.igBeginCombo(label, shown.ptr, 0)) {
-        if (which == .setting and ig.igSelectableEx(l10n.t("app.m3.rmg.any_setting"), field.len == 0, 0, .{ .x = 0, .y = 0 })) field.set("");
+        if (which == .setting and ig.igSelectableEx(l10n.id("app.m3.rmg.any_setting"), field.len == 0, 0, .{ .x = 0, .y = 0 })) field.set("");
         for (names, 0..) |*entry, i| {
             const name = entry.nameSlice();
             var name_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
@@ -4012,9 +4012,9 @@ pub fn drawHelpKeysWindow(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     ig.igSeparatorText(l10n.t("app.m3.help.tools"));
     const flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_SizingFixedFit;
     if (ig.igBeginTableEx("##help_tools", 3, flags, .{ .x = 0, .y = 0 }, 0)) {
-        ig.igTableSetupColumn(l10n.t("app.m3.help.col_tool"), 0);
-        ig.igTableSetupColumn(l10n.t("app.m3.help.col_key"), 0);
-        ig.igTableSetupColumn(l10n.t("app.m3.help.col_also"), 0);
+        ig.igTableSetupColumn(l10n.id("app.m3.help.col_tool"), 0);
+        ig.igTableSetupColumn(l10n.id("app.m3.help.col_key"), 0);
+        ig.igTableSetupColumn(l10n.id("app.m3.help.col_also"), 0);
         ig.igTableHeadersRow();
         for (&tool_registry.entries) |*item| {
             if (item.hidden) continue;

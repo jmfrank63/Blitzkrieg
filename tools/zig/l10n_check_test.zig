@@ -626,3 +626,47 @@ test "literal_in_strict_dir: an English literal in each kind of UI call" {
     defer testing.allocator.free(want);
     try expectRun(io, "literal_in_strict_dir", &root, &.{ "--strict-dir", "literals" }, 1, want);
 }
+
+/// The ID-bearing calls of literal-ids/ui.zig that take l10n.t as their label, with the fixture line of each.
+const id_findings = [_]struct { call: []const u8, line: usize }{
+    .{ .call = "igButton", .line = 6 },
+    .{ .call = "igSmallButton", .line = 7 },
+    .{ .call = "igMenuItemEx", .line = 8 },
+    .{ .call = "igMenuItemBoolPtr", .line = 9 },
+    .{ .call = "igBeginMenuEx", .line = 10 },
+    .{ .call = "igSelectableEx", .line = 11 },
+    .{ .call = "igCheckbox", .line = 12 },
+    .{ .call = "igCombo", .line = 13 },
+    .{ .call = "igBeginCombo", .line = 14 },
+    .{ .call = "igInputIntEx", .line = 15 },
+    .{ .call = "igBeginTabItem", .line = 16 },
+    .{ .call = "igCollapsingHeader", .line = 17 },
+    .{ .call = "igBeginPopupModal", .line = 18 },
+    .{ .call = "igOpenPopup", .line = 19 },
+    .{ .call = "igBegin", .line = 20 },
+    .{ .call = "igTableSetupColumn", .line = 21 },
+    .{ .call = "igTableSetupColumnEx", .line = 22 },
+    .{ .call = "igInputTextWithHint", .line = 41 },
+};
+
+test "literal_id_label: an ig* label that is l10n.t fails, l10n.id and plain text pass" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "literal_id_label");
+    const ui = try readFixture(io, testing.allocator, "literal-ids/ui.zig");
+    defer testing.allocator.free(ui);
+    try write(io, root, "literal_ids/ui.zig", ui);
+    var lines: std.ArrayList(u8) = .empty;
+    defer lines.deinit(testing.allocator);
+    for (id_findings) |one| {
+        const text = try std.fmt.allocPrint(testing.allocator, "l10n-check: literal: all: literal_ids/ui.zig:{d}: {s} takes l10n.t as its label; use l10n.id so the ImGui ID does not depend on the language\n", .{ one.line, one.call });
+        defer testing.allocator.free(text);
+        try lines.appendSlice(testing.allocator, text);
+    }
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ "l10n-check: {d} findings, {d} checked\n", .{
+        lines.items,
+        id_findings.len,
+        checked_total + 1,
+    });
+    defer testing.allocator.free(want);
+    try expectRun(io, "literal_id_label", &root, &.{ "--strict-dir", "literal_ids" }, 1, want);
+}

@@ -1427,7 +1427,7 @@ Not claimed: no macOS or Windows result; the full resource sweep is left to the 
 - **Tables.** Every label the Zig app draws (menus, docks, dialogs, status lines and session messages, the 21 editor names
   and kind labels, the GUI Editor dock, Help and About) comes from the ten kit string tables under the `resource_app.*` keys
   (`resource_app.gui.*` for the GUI Editor); the verbs OK, Cancel and the like are `kit.common.*`. The `###` rule of the
-  Map Editor applies: a window, popup or menu title is `l10n.id`, so its ImGui identity is the key and not the translation.
+  Map Editor applies: a window, popup or menu title is `l10n.id`, so its ImGui identity is the key and not the translation. The same holds for every widget, menu item, button, tab and header label (M002 S07/T07, D083); `l10n.t` stays for plain text, and `l10n-check` fails on an ID-bearing `ig*` call whose label is `l10n.t(`.
   Existing `layout.ini` files hold the old English titles and are reset once; the docks return to their default places.
   `Sources/editor/resource_app` is a strict directory of `zig build l10n-check`: a literal label there fails the gate.
 - **Language.** A normal start reads `ui_language` from `resourceeditor.cfg`; Tools > Language (the kit's language picker)

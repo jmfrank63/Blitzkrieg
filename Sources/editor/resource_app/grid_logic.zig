@@ -331,6 +331,13 @@ pub const Tool = enum {
         };
     }
 
+    /// The same text as an ImGui label whose ID is the key, not the language.
+    pub fn labelId(self: Tool) [*:0]const u8 {
+        return switch (self) {
+            inline else => |tag| l10n.id("resource_app.grid_tool." ++ @tagName(tag)),
+        };
+    }
+
     /// The aimed family a place/select mode works on.
     pub fn family(self: Tool) ?point_tools.Mode {
         return switch (self) {

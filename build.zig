@@ -1931,6 +1931,19 @@ pub fn build(b: *std.Build) void {
         bk_pak_test_step.dependOn(&b.addRunArtifact(bk_tool_tests).step);
         bk_pak_test_step.dependOn(&b.addRunArtifact(bk_pak_tests).step);
     }
+    // The bk-* tools' string-table runtime (M002 S07, D062): the editor kit's .lang format without
+    // ImGui, std-only. Its tests run a host build.
+    const bk_l10n_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_l10n_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "l10n_languages", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_languages.zig"), .target = portable_host, .optimize = .debug }) },
+        },
+    }) });
+    const bk_l10n_test_step = b.step("test-bk-l10n", "Run the bk-* tools' string-table runtime tests (M002 S07)");
+    bk_l10n_test_step.dependOn(&bk_l10n_tests.step);
+    if (test_mode == .run) bk_l10n_test_step.dependOn(&b.addRunArtifact(bk_l10n_tests).step);
     // `bk-table` (D-08..D-11): ExcelExporter's stat sheets, exported as TSV and
     // imported by patching values in place. std-only Zig like bk-pak, built
     // the same way, staged beside it in Tools/ and in the convention test.

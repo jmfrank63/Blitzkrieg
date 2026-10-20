@@ -28,6 +28,13 @@ pub const Part = enum {
             inline else => |tag| l10n.t("resource_app.view_part." ++ @tagName(tag)),
         };
     }
+
+    /// The same text as an ImGui label whose ID is the key, not the language.
+    pub fn labelId(self: Part) [*:0]const u8 {
+        return switch (self) {
+            inline else => |tag| l10n.id("resource_app.view_part." ++ @tagName(tag)),
+        };
+    }
 };
 
 pub const View = struct {

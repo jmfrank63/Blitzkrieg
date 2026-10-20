@@ -1909,9 +1909,9 @@ pub const Ui = struct {
                 ig.igTextUnformatted(l10n.t("elk.spell.none"));
             } else if (ig.igBeginTableEx("words", 4, ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_ScrollY, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
                 ig.igTableSetupScrollFreeze(0, 1);
-                ig.igTableSetupColumnEx(l10n.t("elk.spell.word"), ig.ImGuiTableColumnFlags_WidthFixed, font * 8, 0);
-                ig.igTableSetupColumnEx(l10n.t("elk.spell.at"), ig.ImGuiTableColumnFlags_WidthFixed, font * 3, 0);
-                ig.igTableSetupColumnEx(l10n.t("elk.spell.suggestions"), ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
+                ig.igTableSetupColumnEx(l10n.id("elk.spell.word"), ig.ImGuiTableColumnFlags_WidthFixed, font * 8, 0);
+                ig.igTableSetupColumnEx(l10n.id("elk.spell.at"), ig.ImGuiTableColumnFlags_WidthFixed, font * 3, 0);
+                ig.igTableSetupColumnEx(l10n.id("elk.spell.suggestions"), ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
                 ig.igTableSetupColumnEx("", ig.ImGuiTableColumnFlags_WidthFixed, font * 9, 0);
                 ig.igTableHeadersRow();
                 var added: ?usize = null;
@@ -2146,7 +2146,7 @@ pub const Ui = struct {
             const table_flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Resizable | ig.ImGuiTableFlags_ScrollY;
             if (ig.igBeginTableEx("statistic", 9, table_flags, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
                 ig.igTableSetupScrollFreeze(0, 1);
-                ig.igTableSetupColumnEx(l10n.t("elk.statistic.tree"), ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
+                ig.igTableSetupColumnEx(l10n.id("elk.statistic.tree"), ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
                 for ([_][*:0]const u8{ l10n.t("elk.statistic.items"), l10n.t("elk.statistic.words"), l10n.t("elk.statistic.word_symbols"), l10n.t("elk.statistic.symbols") }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
                 for ([_][*:0]const u8{ l10n.t("elk.statistic.items_last_close"), l10n.t("elk.statistic.words"), l10n.t("elk.statistic.word_symbols"), l10n.t("elk.statistic.symbols") }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
                 ig.igTableHeadersRow();

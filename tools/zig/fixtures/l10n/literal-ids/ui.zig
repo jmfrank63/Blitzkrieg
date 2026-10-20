@@ -1,0 +1,51 @@
+//! Fixture for the id rule: a translated label of an ID-bearing call must use l10n.id; plain text keeps l10n.t.
+const c = @import("c.zig");
+const l10n = @import("l10n.zig");
+
+pub fn draw() void {
+    _ = c.igButton(l10n.t("file.label"), .{ .x = 0, .y = 0 });
+    _ = c.igSmallButton(l10n.t("file.label"));
+    _ = c.igMenuItemEx(l10n.t("file.label"), null, null, false, true);
+    _ = c.igMenuItemBoolPtr(l10n.t("file.label"), null, &open, true);
+    _ = c.igBeginMenuEx(l10n.t("file.label"), null, true);
+    _ = c.igSelectableEx(l10n.t("file.label"), false, 0, .{ .x = 0, .y = 0 });
+    _ = c.igCheckbox(l10n.t("file.label"), &flag);
+    _ = c.igCombo(l10n.t("file.label"), &index, items, 3, 5);
+    _ = c.igBeginCombo(l10n.t("file.label"), "Preview", 0);
+    _ = c.igInputIntEx(l10n.t("file.label"), &number, 1, 10, 0);
+    _ = c.igBeginTabItem(l10n.t("file.label"), null, 0);
+    _ = c.igCollapsingHeader(l10n.t("file.label"), 0);
+    _ = c.igBeginPopupModal(l10n.t("file.label"), null, 0);
+    _ = c.igOpenPopup(l10n.t("file.label"), 0);
+    _ = c.igBegin(l10n.t("file.label"), &open, 0);
+    _ = c.igTableSetupColumn(l10n.t("file.label"), 0, 0, 0);
+    _ = c.igTableSetupColumnEx(l10n.t("file.label"), 0, 0, 0);
+    // _ = c.igButton(l10n.t("file.comment"));
+    _ = c.igButton(l10n.id("file.label"), .{ .x = 0, .y = 0 });
+    _ = c.igSmallButton(l10n.id("file.label"));
+    _ = c.igMenuItemEx(l10n.id("file.label"), null, null, false, true);
+    _ = c.igMenuItemBoolPtr(l10n.id("file.label"), null, &open, true);
+    _ = c.igBeginMenuEx(l10n.id("file.label"), null, true);
+    _ = c.igSelectableEx(l10n.id("file.label"), false, 0, .{ .x = 0, .y = 0 });
+    _ = c.igCheckbox(l10n.id("file.label"), &flag);
+    _ = c.igCombo(l10n.id("file.label"), &index, items, 3, 5);
+    _ = c.igBeginCombo(l10n.id("file.label"), "Preview", 0);
+    _ = c.igInputIntEx(l10n.id("file.label"), &number, 1, 10, 0);
+    _ = c.igBeginTabItem(l10n.id("file.label"), null, 0);
+    _ = c.igCollapsingHeader(l10n.id("file.label"), 0);
+    _ = c.igBeginPopupModal(l10n.id("file.label"), null, 0);
+    _ = c.igOpenPopup(l10n.id("file.label"), 0);
+    _ = c.igBegin(l10n.id("file.label"), &open, 0);
+    _ = c.igTableSetupColumn(l10n.id("file.label"), 0, 0, 0);
+    _ = c.igTableSetupColumnEx(l10n.id("file.label"), 0, 0, 0);
+    _ = c.igInputTextWithHint(l10n.t("file.name"), l10n.t("file.hint"), &buf, buf.len, 0, null, null);
+    _ = c.igInputTextWithHint(l10n.id("file.name"), l10n.t("file.hint"), &buf, buf.len, 0, null, null);
+    c.igText(l10n.t("file.text"));
+    c.igTextUnformatted(l10n.t("file.text"));
+    c.igTextDisabled(l10n.t("file.text"));
+    c.igSeparatorText(l10n.t("file.text"));
+    c.igSetTooltip(l10n.t("file.tip"));
+    c.igSetItemTooltip(l10n.t("file.tip"));
+    _ = c.igCalcTextSize(l10n.t("file.text"), null, false, 0);
+    _ = c.igBeginCombo("##mode", l10n.t("file.mode"), 0);
+}

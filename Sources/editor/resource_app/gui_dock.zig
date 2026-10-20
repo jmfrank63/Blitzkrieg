@@ -196,10 +196,10 @@ pub const GuiDock = struct {
 
     fn drawAlignButtons(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
         const aligns = [_]struct { label: [*:0]const u8, mode: geometry.Align }{
-            .{ .label = l10n.t("resource_app.gui.left"), .mode = .left },
-            .{ .label = l10n.t("resource_app.gui.top"), .mode = .top },
-            .{ .label = l10n.t("resource_app.gui.right"), .mode = .right },
-            .{ .label = l10n.t("resource_app.gui.bottom"), .mode = .bottom },
+            .{ .label = l10n.id("resource_app.gui.left"), .mode = .left },
+            .{ .label = l10n.id("resource_app.gui.top"), .mode = .top },
+            .{ .label = l10n.id("resource_app.gui.right"), .mode = .right },
+            .{ .label = l10n.id("resource_app.gui.bottom"), .mode = .bottom },
         };
         ig.igTextUnformatted(l10n.t("resource_app.gui.align_label"));
         for (aligns) |entry| {
@@ -207,9 +207,9 @@ pub const GuiDock = struct {
             if (ig.igSmallButton(entry.label)) self.alignSelection(b, life, overlay, entry.mode);
         }
         const equals = [_]struct { label: [*:0]const u8, mode: geometry.Equal }{
-            .{ .label = l10n.t("resource_app.gui.equal_width"), .mode = .width },
-            .{ .label = l10n.t("resource_app.gui.equal_height"), .mode = .height },
-            .{ .label = l10n.t("resource_app.gui.equal_size"), .mode = .size },
+            .{ .label = l10n.id("resource_app.gui.equal_width"), .mode = .width },
+            .{ .label = l10n.id("resource_app.gui.equal_height"), .mode = .height },
+            .{ .label = l10n.id("resource_app.gui.equal_size"), .mode = .size },
         };
         for (equals) |entry| {
             ig.igSameLine();
@@ -225,24 +225,24 @@ pub const GuiDock = struct {
         ig.igSeparator();
         const can_edit = !life.read_only;
         const selected = overlay.selection.ids.items.len;
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.copy_windows"), "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.cut_windows"), "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.paste_windows"), "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
-        if (ig.igBeginMenuEx(l10n.t("resource_app.gui.align"), can_edit and selected >= 2)) {
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.copy_windows"), "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.cut_windows"), "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.paste_windows"), "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
+        if (ig.igBeginMenuEx(l10n.id("resource_app.gui.align"), can_edit and selected >= 2)) {
             self.drawAlignItems(b, life, overlay);
             ig.igEndMenu();
         }
     }
 
     fn drawAlignItems(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.left"), null, false, true)) self.alignSelection(b, life, overlay, .left);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.top"), null, false, true)) self.alignSelection(b, life, overlay, .top);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.right"), null, false, true)) self.alignSelection(b, life, overlay, .right);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.bottom"), null, false, true)) self.alignSelection(b, life, overlay, .bottom);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.left"), null, false, true)) self.alignSelection(b, life, overlay, .left);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.top"), null, false, true)) self.alignSelection(b, life, overlay, .top);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.right"), null, false, true)) self.alignSelection(b, life, overlay, .right);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.bottom"), null, false, true)) self.alignSelection(b, life, overlay, .bottom);
         ig.igSeparator();
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.equal_width"), null, false, true)) self.equalSelection(b, life, overlay, .width);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.equal_height"), null, false, true)) self.equalSelection(b, life, overlay, .height);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.equal_size"), null, false, true)) self.equalSelection(b, life, overlay, .size);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.equal_width"), null, false, true)) self.equalSelection(b, life, overlay, .width);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.equal_height"), null, false, true)) self.equalSelection(b, life, overlay, .height);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.equal_size"), null, false, true)) self.equalSelection(b, life, overlay, .size);
     }
 
     fn alignSelection(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, mode: geometry.Align) void {
@@ -297,17 +297,17 @@ pub const GuiDock = struct {
         defer ig.igEndPopup();
         const can_edit = !life.read_only;
         const selected = overlay.selection.ids.items.len;
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.copy"), "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.cut"), "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.paste"), "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.delete"), "Delete", false, can_edit and selected != 0)) overlay.deleteSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_delete", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.copy"), "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.cut"), "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.paste"), "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.delete"), "Delete", false, can_edit and selected != 0)) overlay.deleteSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_delete", err);
         ig.igSeparator();
-        if (ig.igBeginMenuEx(l10n.t("resource_app.gui.align"), can_edit and selected >= 2)) {
+        if (ig.igBeginMenuEx(l10n.id("resource_app.gui.align"), can_edit and selected >= 2)) {
             self.drawAlignItems(b, life, overlay);
             ig.igEndMenu();
         }
         ig.igSeparator();
-        if (ig.igMenuItemEx(l10n.t("resource_app.gui.create_template"), null, false, selected == 1 and self.user_folder_len != 0)) self.createTemplate(b, overlay);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.create_template"), null, false, selected == 1 and self.user_folder_len != 0)) self.createTemplate(b, overlay);
     }
 
     /// OnCreatenewtemplate: the one selected control as a template file in the
@@ -382,7 +382,7 @@ pub const GuiDock = struct {
             return;
         }
         ig.igTextDisabled(l10n.t("resource_app.gui.palette_hint"));
-        if (ig.igButton(l10n.t("resource_app.gui.disarm"))) overlay.arm(null) catch {};
+        if (ig.igButton(l10n.id("resource_app.gui.disarm"))) overlay.arm(null) catch {};
         var folder: []const u8 = "";
         var open = false;
         for (self.palette.entries, 0..) |entry, index| {
@@ -443,12 +443,12 @@ pub const GuiDock = struct {
         // Pos, Size and PositionFlag are one rect edit.
         var edit: core.bridge.GuiRect = .{ .id = id, .flag = window.flag, .x = window.x, .y = window.y, .w = window.w, .h = window.h };
         var changed = false;
-        changed = intField(l10n.t("resource_app.gui.pos_x"), &edit.x) or changed;
-        changed = intField(l10n.t("resource_app.gui.pos_y"), &edit.y) or changed;
-        changed = intField(l10n.t("resource_app.gui.size_w"), &edit.w) or changed;
-        changed = intField(l10n.t("resource_app.gui.size_h"), &edit.h) or changed;
-        changed = anchorField(l10n.t("resource_app.gui.horizontal_anchor"), &edit.flag, 0xf, &horizontalAnchors()) or changed;
-        changed = anchorField(l10n.t("resource_app.gui.vertical_anchor"), &edit.flag, 0xf0, &verticalAnchors()) or changed;
+        changed = intField(l10n.id("resource_app.gui.pos_x"), &edit.x) or changed;
+        changed = intField(l10n.id("resource_app.gui.pos_y"), &edit.y) or changed;
+        changed = intField(l10n.id("resource_app.gui.size_w"), &edit.w) or changed;
+        changed = intField(l10n.id("resource_app.gui.size_h"), &edit.h) or changed;
+        changed = anchorField(l10n.id("resource_app.gui.horizontal_anchor"), &edit.flag, 0xf, &horizontalAnchors()) or changed;
+        changed = anchorField(l10n.id("resource_app.gui.vertical_anchor"), &edit.flag, 0xf0, &verticalAnchors()) or changed;
         if (changed) overlay.setLocal(b, &life.doc, &life.history, edit) catch |err| self.report(b, "resource_app.gui.op_set_rect", err);
 
         ig.igSeparator();
@@ -484,12 +484,12 @@ fn intField(label: [*:0]const u8, value: *i32) bool {
     return true;
 }
 
-const Anchor = struct { label: [*:0]const u8, bits: i32 };
+const Anchor = struct { label: [*:0]const u8, id: [*:0]const u8, bits: i32 };
 fn horizontalAnchors() [3]Anchor {
-    return .{ .{ .label = l10n.t("resource_app.gui.left"), .bits = 0x1 }, .{ .label = l10n.t("resource_app.gui.middle"), .bits = 0x2 }, .{ .label = l10n.t("resource_app.gui.right"), .bits = 0x3 } };
+    return .{ .{ .label = l10n.t("resource_app.gui.left"), .id = l10n.id("resource_app.gui.left"), .bits = 0x1 }, .{ .label = l10n.t("resource_app.gui.middle"), .id = l10n.id("resource_app.gui.middle"), .bits = 0x2 }, .{ .label = l10n.t("resource_app.gui.right"), .id = l10n.id("resource_app.gui.right"), .bits = 0x3 } };
 }
 fn verticalAnchors() [3]Anchor {
-    return .{ .{ .label = l10n.t("resource_app.gui.top"), .bits = 0x10 }, .{ .label = l10n.t("resource_app.gui.middle"), .bits = 0x20 }, .{ .label = l10n.t("resource_app.gui.bottom"), .bits = 0x30 } };
+    return .{ .{ .label = l10n.t("resource_app.gui.top"), .id = l10n.id("resource_app.gui.top"), .bits = 0x10 }, .{ .label = l10n.t("resource_app.gui.middle"), .id = l10n.id("resource_app.gui.middle"), .bits = 0x20 }, .{ .label = l10n.t("resource_app.gui.bottom"), .id = l10n.id("resource_app.gui.bottom"), .bits = 0x30 } };
 }
 
 fn anchorField(label: [*:0]const u8, flag: *i32, mask: i32, anchors: []const Anchor) bool {
@@ -500,7 +500,7 @@ fn anchorField(label: [*:0]const u8, flag: *i32, mask: i32, anchors: []const Anc
     var changed = false;
     if (ig.igBeginCombo(label, current, 0)) {
         for (anchors) |a| {
-            if (ig.igSelectableEx(a.label, (flag.* & mask) == a.bits, 0, .{ .x = 0, .y = 0 })) {
+            if (ig.igSelectableEx(a.id, (flag.* & mask) == a.bits, 0, .{ .x = 0, .y = 0 })) {
                 flag.* = (flag.* & ~mask) | a.bits;
                 changed = true;
             }

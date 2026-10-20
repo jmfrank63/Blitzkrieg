@@ -205,7 +205,7 @@ pub const Tools = struct {
         if (!beginTopMenu("resource_app.menu.editors")) return;
         for (logic.editors_menu) |entry| {
             if (entry.separator_before) ig.igSeparator();
-            if (ig.igMenuItemEx(lifecycle.kindLabel(entry.kind), null, entry.kind == self.ui.session.life.active, true)) self.switchEditor(entry.kind);
+            if (ig.igMenuItemEx(lifecycle.kindId(entry.kind), null, entry.kind == self.ui.session.life.active, true)) self.switchEditor(entry.kind);
         }
         ig.igEndMenu();
     }
@@ -218,7 +218,7 @@ pub const Tools = struct {
         if (ig.igBeginCombo("##editors", preview, 0)) {
             for (logic.editors_menu) |entry| {
                 if (entry.separator_before) ig.igSeparator();
-                if (ig.igSelectableEx(lifecycle.kindLabel(entry.kind), entry.kind == active, 0, .{ .x = 0, .y = 0 })) self.switchEditor(entry.kind);
+                if (ig.igSelectableEx(lifecycle.kindId(entry.kind), entry.kind == active, 0, .{ .x = 0, .y = 0 })) self.switchEditor(entry.kind);
             }
             ig.igEndCombo();
         }
@@ -570,8 +570,8 @@ pub const Tools = struct {
         if (ig.igBeginCombo(l10n.id("resource_app.tools.batch.projects"), preview, 0)) {
             if (ig.igSelectableEx(l10n.id("resource_app.tools.batch.all"), self.batch_kind == 0, 0, .{ .x = 0, .y = 0 })) self.batch_kind = 0;
             for (kinds, 1..) |kind, i| {
-                var label_buffer: [64]u8 = undefined;
-                const label = std.mem.printSentinel(&label_buffer, "{s} (*.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
+                var label_buffer: [128]u8 = undefined;
+                const label = std.mem.printSentinel(&label_buffer, "{s} (*.{s})###batch_{s}", .{ lifecycle.kindLabel(kind), kind.extension(), @tagName(kind) }, 0) catch continue;
                 if (ig.igSelectableEx(label.ptr, self.batch_kind == i, 0, .{ .x = 0, .y = 0 })) self.batch_kind = i;
             }
             ig.igEndCombo();

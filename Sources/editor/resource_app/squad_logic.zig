@@ -200,6 +200,13 @@ pub const TreeAction = enum {
             inline else => |tag| l10n.t("resource_app.tree_action." ++ @tagName(tag)),
         };
     }
+
+    /// The same text as an ImGui label whose ID is the key, not the language.
+    pub fn labelId(self: TreeAction) [*:0]const u8 {
+        return switch (self) {
+            inline else => |tag| l10n.id("resource_app.tree_action." ++ @tagName(tag)),
+        };
+    }
 };
 
 pub const TreeActions = struct {

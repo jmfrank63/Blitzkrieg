@@ -1000,8 +1000,8 @@ pub const Docks = struct {
         ig.igTextWrapped("%s", l10n.t("resource_app.import.explain"));
         if (ig.igBeginCombo(l10n.id("resource_app.import.kind"), lifecycle.kindLabel(self.import_form.kind), 0)) {
             for (std.enums.values(Kind)) |kind| {
-                var label: [64]u8 = undefined;
-                const text = std.mem.printSentinel(&label, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
+                var label: [128]u8 = undefined;
+                const text = std.mem.printSentinel(&label, "{s} (.{s})###import_{s}", .{ lifecycle.kindLabel(kind), kind.extension(), @tagName(kind) }, 0) catch continue;
                 if (ig.igSelectableEx(text.ptr, kind == self.import_form.kind, 0, .{ .x = 0, .y = 0 })) self.import_form.kind = kind;
             }
             ig.igEndCombo();

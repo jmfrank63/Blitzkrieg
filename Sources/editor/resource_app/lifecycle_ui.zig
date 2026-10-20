@@ -203,7 +203,7 @@ pub const Ui = struct {
         if (new_open) {
             for (std.enums.values(Kind)) |kind| {
                 var label_buffer: [128]u8 = undefined;
-                const label = std.mem.printSentinel(&label_buffer, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
+                const label = std.mem.printSentinel(&label_buffer, "{s} (.{s})###new_{s}", .{ lifecycle.kindLabel(kind), kind.extension(), @tagName(kind) }, 0) catch continue;
                 if (ig.igMenuItemEx(label.ptr, null, false, true)) self.session.request(&context, .{ .new_project = kind });
             }
             ig.igEndMenu();
@@ -282,11 +282,11 @@ pub const Ui = struct {
         textLine(l10n.say(&line, "resource_app.unsaved.text", .{name}));
         var context = self.ctx();
         var choice: ?logic.UnsavedPrompt.Choice = null;
-        if (ig.igButton(l10n.t("resource_app.unsaved.save"))) choice = .save;
+        if (ig.igButton(l10n.id("resource_app.unsaved.save"))) choice = .save;
         ig.igSameLine();
-        if (ig.igButton(l10n.t("resource_app.unsaved.dont_save"))) choice = .dont_save;
+        if (ig.igButton(l10n.id("resource_app.unsaved.dont_save"))) choice = .dont_save;
         ig.igSameLine();
-        if (ig.igButton(l10n.t("resource_app.unsaved.cancel"))) choice = .cancel;
+        if (ig.igButton(l10n.id("resource_app.unsaved.cancel"))) choice = .cancel;
         if (choice) |answer| {
             ig.igCloseCurrentPopup();
             self.session.answerUnsaved(&context, answer);
@@ -304,9 +304,9 @@ pub const Ui = struct {
         textLine(l10n.str("resource_app.lock.question"));
         var context = self.ctx();
         var choice: ?lifecycle.LockPrompt.Choice = null;
-        if (ig.igButton(l10n.t("resource_app.lock.read_only"))) choice = .read_only;
+        if (ig.igButton(l10n.id("resource_app.lock.read_only"))) choice = .read_only;
         ig.igSameLine();
-        if (ig.igButton(l10n.t("resource_app.lock.take_over"))) choice = .take_over;
+        if (ig.igButton(l10n.id("resource_app.lock.take_over"))) choice = .take_over;
         if (choice) |answer| {
             ig.igCloseCurrentPopup();
             _ = self.session.answerLock(&context, answer);
@@ -329,9 +329,9 @@ pub const Ui = struct {
             const original = offer.original.slice();
             textLine(l10n.say(&line, "resource_app.recovery.line", .{ if (original.len == 0) l10n.str("resource_app.recovery.never_saved") else original, lifecycle.kindLabel(offer.kind), offer.unix_seconds }));
             ig.igSameLine();
-            const open = ig.igSmallButton(l10n.t("resource_app.recovery.open"));
+            const open = ig.igSmallButton(l10n.id("resource_app.recovery.open"));
             ig.igSameLine();
-            const discard = ig.igSmallButton(l10n.t("resource_app.recovery.discard"));
+            const discard = ig.igSmallButton(l10n.id("resource_app.recovery.discard"));
             ig.igPopID();
             if (open or discard) {
                 const taken = offer.*;
@@ -346,7 +346,7 @@ pub const Ui = struct {
                 break;
             }
         }
-        if (ig.igButton(l10n.t("resource_app.recovery.later"))) {
+        if (ig.igButton(l10n.id("resource_app.recovery.later"))) {
             self.offers_dismissed = true;
             ig.igCloseCurrentPopup();
         }

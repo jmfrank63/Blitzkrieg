@@ -522,6 +522,23 @@ test "t and id follow the language and id appends the key" {
     try std.testing.expectEqualStrings("ja", language());
 }
 
+test "id gives equal translations different ImGui IDs, and the same ID in every language" {
+    defer resetForTest();
+    resetForTest();
+    // Two buttons that read the same in a language share the text; ImGui hashes the part after ### when there is one.
+    const first = "resource_app.unsaved.cancel";
+    const second = "resource_app.common.cancel";
+    for (codes) |code| {
+        setLanguage(code);
+        try std.testing.expectEqualStrings(std.mem.span(t(first)), std.mem.span(t(second)));
+        const one = std.mem.span(id(first));
+        const two = std.mem.span(id(second));
+        try std.testing.expect(!std.mem.eql(u8, one, two));
+        try std.testing.expectEqualStrings("###" ++ first, one[std.mem.indexOf(u8, one, "###").?..]);
+        try std.testing.expectEqualStrings("###" ++ second, two[std.mem.indexOf(u8, two, "###").?..]);
+    }
+}
+
 test "an unknown code selects English" {
     defer resetForTest();
     resetForTest();
