@@ -159,6 +159,9 @@ comptime {
 const header_size = @sizeOf(Header);
 const live_magic: u32 = 0x4d4d4b42;
 const freed_magic: u32 = 0x46464b42;
+/// A block served after the exit report (`lateAlloc`): straight from the
+/// backing allocator, never counted and never freed.
+const late_magic: u32 = 0x4c4c4b42;
 const min_align: usize = 16;
 
 var live_count: usize = 0;
@@ -166,12 +169,13 @@ var live_bytes: usize = 0;
 /// Set once `bk_mem_report` has run: the backing memory is gone, so a free
 /// after that point is counted and ignored and an alloc is a bug.
 var closed: bool = false;
-/// Set when the exit report closed the allocator rather than an explicit
-/// `bk_mem_report`. On POSIX that report runs from exit() while the other
-/// threads still run, and a foreign library's thread (QuartzCore's and
-/// CoreAudio's on macOS) goes on allocating; those late blocks are served
-/// from the backing allocator, uncounted and never freed, because the
-/// process is ending and the verdict is already made.
+/// Set when the exit report starts, before it waits for allocations in
+/// flight. On POSIX that report runs from exit() while the other threads
+/// still run, and a foreign library's thread (QuartzCore's and CoreAudio's
+/// on macOS) goes on allocating; from then on its blocks are served from the
+/// backing allocator (`late_magic`), uncounted and never freed, because the
+/// process is ending. Frees of earlier blocks go on as before until the
+/// report closes the allocator.
 var closed_at_exit: bool = false;
 var closed_free_count: usize = 0;
 var report_leaks: usize = 0;
@@ -442,7 +446,7 @@ fn headerOf(user: [*]u8) *Header {
 
 fn checkHeader(user: [*]u8, what: []const u8) *Header {
     const h = headerOf(user);
-    if (h.magic != live_magic) {
+    if (h.magic != live_magic and h.magic != late_magic) {
         if (h.magic == freed_magic) std.debug.panic("{s}: double free of {*}", .{ what, user });
         std.debug.panic("{s}: {*} was not allocated by BkMemory (bad header magic)", .{ what, user });
     }
@@ -592,16 +596,14 @@ fn lateAlloc(size: usize, alignment: usize, ra: usize) ?[*]u8 {
         .align_log2 = @intCast(@intFromEnum(a)),
         .module = 0,
         ._reserved = .{ 0, 0 },
-        .magic = live_magic,
+        .magic = late_magic,
     };
     return user;
 }
 
 fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
-    if (@atomicLoad(bool, &closed, .acquire)) {
-        if (!@atomicLoad(bool, &closed_at_exit, .acquire)) std.debug.panic("bk_mem_alloc after bk_mem_report", .{});
-        return lateAlloc(size, alignment, ra);
-    }
+    if (@atomicLoad(bool, &closed_at_exit, .acquire)) return lateAlloc(size, alignment, ra);
+    if (@atomicLoad(bool, &closed, .acquire)) std.debug.panic("bk_mem_alloc after bk_mem_report", .{});
     const a = normalizeAlign(alignment) orelse return null;
     const pad = padFor(a.toByteUnits());
     const total = std.math.add(usize, pad, size) catch return null;
@@ -627,6 +629,8 @@ fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
 }
 
 fn freeImpl(user: [*]u8, ra: usize) void {
+    // A late block stays where it is: the process is ending.
+    if (headerOf(user).magic == late_magic) return;
     if (@atomicLoad(bool, &closed, .acquire)) {
         _ = @atomicRmw(usize, &closed_free_count, .Add, 1, .monotonic);
         return;
@@ -652,14 +656,14 @@ fn reallocImpl(user: ?[*]u8, new_size: usize, want_align: usize, ra: usize) ?[*]
         freeImpl(p, ra);
         return null;
     }
-    if (@atomicLoad(bool, &closed, .acquire)) {
-        if (!@atomicLoad(bool, &closed_at_exit, .acquire)) std.debug.panic("bk_mem_realloc after bk_mem_report", .{});
-        // The old block stays where it is, like every free after the report.
+    if (@atomicLoad(bool, &closed_at_exit, .acquire)) {
         const old_size: usize = @intCast(checkHeader(p, "bk_mem_realloc").size);
         const fresh = lateAlloc(new_size, want_align, ra) orelse return null;
         @memcpy(fresh[0..@min(old_size, new_size)], p[0..@min(old_size, new_size)]);
+        freeImpl(p, ra);
         return fresh;
     }
+    if (@atomicLoad(bool, &closed, .acquire)) std.debug.panic("bk_mem_realloc after bk_mem_report", .{});
     const h = checkHeader(p, "bk_mem_realloc");
     const old_size: usize = @intCast(h.size);
     const old_align: Alignment = @enumFromInt(h.align_log2);
@@ -877,18 +881,25 @@ fn detachHook() void {
     const policy = reportPolicy();
     if (policy == .off) return;
     const log = std.log.scoped(.BkMemory);
+    // First: from here every allocation is a late one, so a thread that goes
+    // on allocating (a foreign library's, or one of ours) stops entering the
+    // shards, and a hold the walk below sees is one already in flight.
+    @atomicStore(bool, &closed_at_exit, true, .release);
     if (use_safe) {
         const hold_is_permanent = builtin.os.tag == .windows;
         for (&instance.threads) |*t| {
             if (t.mutex == .unlocked) continue;
             if (!hold_is_permanent) {
-                // The holder unlocks within the allocation it is inside -
-                // microseconds, not the 100 ms this waits - so a hold that
-                // survives the wait is a genuinely stuck thread, and only
-                // that reaches the exit below.
+                // The holder unlocks within the allocation it is inside, and
+                // no allocation enters a shard any more (closed_at_exit), so
+                // a hold here is one in flight: microseconds, or as long as a
+                // loaded VM leaves the holder descheduled. 100 ms was not
+                // always enough on a CI runner (exit 4 with the exit churn,
+                // run 39370812748); a hold that survives a second is a
+                // genuinely stuck thread, and only that reaches the exit below.
                 var waits: usize = 0;
                 const nap: std.c.timespec = .{ .sec = 0, .nsec = 1_000_000 };
-                while (t.mutex != .unlocked and waits < 100) : (waits += 1) {
+                while (t.mutex != .unlocked and waits < 1000) : (waits += 1) {
                     _ = std.c.nanosleep(&nap, null);
                 }
             }
@@ -904,7 +915,6 @@ fn detachHook() void {
     // assertion mid-walk. The atomic live count is the same number without
     // touching the buckets; only the explicit BK_MEM_REPORT=log walks them,
     // and whoever set it asked for the per-block stacks.
-    @atomicStore(bool, &closed_at_exit, true, .release);
     const leaks = if (policy == .log)
         reportImpl(true)
     else blk: {
