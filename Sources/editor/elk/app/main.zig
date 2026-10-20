@@ -80,6 +80,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const kit = @import("editor_kit");
+const l10n = kit.l10n;
 const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const bk_memory = @import("bk_memory_allocator");
@@ -481,15 +482,6 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return 1;
     };
     defer window.stop();
-    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
-    defer if (font_dir) |value| gpa.free(value);
-    // The language comes with the setting (ui_language); English until then.
-    _ = kit.fonts.load(gpa, io, font_dir, "en") catch |err| {
-        crt.attachParentConsole();
-        std.debug.print("elk: the fonts did not load ({s})\n", .{@errorName(err)});
-        return 1;
-    };
-
     var settings: settings_mod.Settings = .{};
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var root_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -502,6 +494,17 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             settings = settings_mod.parse(bytes);
         } else |_| {}
     }
+
+    // The language comes with the setting (ui_language), the fonts for it.
+    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
+    defer if (font_dir) |value| gpa.free(value);
+    const language = ui_mod.chooseLanguage(&settings, false);
+    _ = kit.fonts.load(gpa, io, font_dir, language) catch |err| {
+        crt.attachParentConsole();
+        std.debug.print("elk: the fonts did not load ({s})\n", .{@errorName(err)});
+        return 1;
+    };
+    l10n.setLanguage(language);
 
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
@@ -561,6 +564,7 @@ fn loop(window: *window_mod.Window, ui: *ui_mod.Ui, runner: ?*auto.Runner, frame
             if (runner) |r| r.failure = "the schedule did not exit in time";
             return false;
         }
+        ui.applyPendingLanguage();
         window.beginFrame();
         ui.draw(window);
         window.endFrame() catch {
@@ -1140,7 +1144,10 @@ fn autoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, el
         return 2;
     };
     defer gpa.free(text);
-    const result = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = text, .frame_limit = auto_frame_limit, .tier = "auto" });
+    // The scratch elk.cfg of BK_ELK_SETTINGS, if any: its ui_language picks the run's language.
+    const settings_path = envValue(gpa, environ, settings_mod.settings_env);
+    defer if (settings_path) |value| gpa.free(value);
+    const result = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = text, .settings_path = settings_path orelse "", .frame_limit = auto_frame_limit, .tier = "auto" });
     if (result.code == 0) std.debug.print("elk: auto PASS: {d} frames\n", .{result.frames});
     return result.code;
 }
@@ -1186,13 +1193,6 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         return .{ .code = 1 };
     };
     defer window.stop();
-    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
-    defer if (font_dir) |value| gpa.free(value);
-    const loaded = kit.fonts.load(gpa, io, font_dir, "en") catch |err| {
-        std.debug.print("elk: {s} FAIL: the fonts did not load ({s})\n", .{ tier, @errorName(err) });
-        return .{ .code = 1 };
-    };
-
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
     var settings: settings_mod.Settings = .{};
@@ -1203,6 +1203,16 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         } else |_| {}
     }
     if (script.game_folder.len != 0) settings.game_folder_storage.set(script.game_folder);
+    // A scripted run follows ui_language when the scratch cfg sets one and is English otherwise,
+    // whatever the machine's locale.
+    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
+    defer if (font_dir) |value| gpa.free(value);
+    const language = ui_mod.chooseLanguage(&settings, true);
+    const loaded = kit.fonts.load(gpa, io, font_dir, language) catch |err| {
+        std.debug.print("elk: {s} FAIL: the fonts did not load ({s})\n", .{ tier, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    l10n.setLanguage(language);
     var ui: ui_mod.Ui = .{
         .gpa = gpa,
         .io = io,

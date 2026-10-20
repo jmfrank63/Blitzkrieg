@@ -13,12 +13,16 @@ const std = @import("std");
 const imgui = @import("editor_imgui");
 const elk = @import("elk_core");
 const settings_mod = @import("settings.zig");
+const l10n = @import("editor_kit").l10n;
 
 const ig = imgui.c;
 const Settings = settings_mod.Settings;
 const filter_mod = elk.filter;
 
-pub const popup_id = "Create Filter";
+/// The popup title, with an ID that does not change with the language.
+pub fn popupId() [*:0]const u8 {
+    return l10n.id("elk.filter_dialog.title");
+}
 
 pub const FilterDialog = struct {
     draft: Settings,
@@ -126,11 +130,11 @@ pub const FilterDialog = struct {
     pub fn draw(self: *FilterDialog) Outcome {
         self.drawn = false;
         if (self.opening) {
-            _ = ig.igOpenPopup(popup_id, 0);
+            _ = ig.igOpenPopup(popupId(), 0);
             self.opening = false;
         }
         ig.igSetNextWindowSize(.{ .x = ig.igGetFontSize() * 34, .y = 0 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBeginPopupModal(popup_id, null, 0)) return .cancel;
+        if (!ig.igBeginPopupModal(popupId(), null, 0)) return .cancel;
         defer ig.igEndPopup();
         self.drawn = true;
         if (self.pending) |outcome| {
@@ -139,7 +143,7 @@ pub const FilterDialog = struct {
         }
         var label: [settings_mod.max_path:0]u8 = undefined;
 
-        ig.igTextUnformatted("Filters");
+        ig.igTextUnformatted(l10n.t("elk.filter_dialog.filters"));
         if (ig.igBeginListBox("##filters", .{ .x = -1, .y = ig.igGetTextLineHeightWithSpacing() * 6 })) {
             for (0..self.draft.filterCount()) |index| {
                 const filter = self.draft.filterAt(index);
@@ -150,18 +154,18 @@ pub const FilterDialog = struct {
             }
             ig.igEndListBox();
         }
-        _ = ig.igInputText("Name", &self.name, self.name.len, 0);
+        _ = ig.igInputText(l10n.id("elk.filter_dialog.name"), &self.name, self.name.len, 0);
         const has_name = self.typedName().len != 0;
         ig.igBeginDisabled(!has_name or self.draft.filterCount() >= settings_mod.filter_capacity);
-        if (ig.igButton("Add")) _ = self.add();
+        if (ig.igButton(l10n.id("elk.filter_dialog.add"))) _ = self.add();
         ig.igEndDisabled();
         ig.igSameLine();
         ig.igBeginDisabled(!has_name or self.selected == null);
-        if (ig.igButton("Rename")) _ = self.rename();
+        if (ig.igButton(l10n.id("elk.filter_dialog.rename"))) _ = self.rename();
         ig.igEndDisabled();
         ig.igSameLine();
         ig.igBeginDisabled(self.selected == null or self.draft.filterCount() <= 1);
-        if (ig.igButton("Delete")) _ = self.delete();
+        if (ig.igButton(l10n.id("elk.filter_dialog.delete"))) _ = self.delete();
         ig.igEndDisabled();
 
         ig.igSeparator();
@@ -169,17 +173,17 @@ pub const FilterDialog = struct {
             var states = filter.states;
             var changed = filter.changed;
             var edited = false;
-            const names = [_][*:0]const u8{ "Not translated", "Outdated", "Translated", "Approved" };
+            const names = [_][*:0]const u8{ l10n.id("elk.state.not_translated"), l10n.id("elk.state.outdated"), l10n.id("elk.state.translated"), l10n.id("elk.state.approved") };
             for (names, &states, 0..) |name, *keep_state, index| {
                 if (index != 0) ig.igSameLine();
                 if (ig.igCheckbox(name, keep_state)) edited = true;
             }
-            if (ig.igCheckbox("Changed only", &changed)) edited = true;
+            if (ig.igCheckbox(l10n.id("elk.filter_dialog.changed_only"), &changed)) edited = true;
             if (edited) _ = self.setCriteria(states, changed);
 
             // The edit rewrote the line `filter` borrowed.
             const conditions = self.selectedFilter().?.conditions;
-            ig.igTextUnformatted("Folder conditions (any one; each holds every part)");
+            ig.igTextUnformatted(l10n.t("elk.filter_dialog.conditions"));
             if (ig.igBeginListBox("##conditions", .{ .x = -1, .y = ig.igGetTextLineHeightWithSpacing() * 4 })) {
                 for (0..filter_mod.conditionCount(conditions)) |index| {
                     const text = conditionLabel(&label, filter_mod.conditionAt(conditions, index)) catch continue;
@@ -189,22 +193,22 @@ pub const FilterDialog = struct {
                 }
                 ig.igEndListBox();
             }
-            _ = ig.igInputText("Condition", &self.condition, self.condition.len, 0);
+            _ = ig.igInputText(l10n.id("elk.filter_dialog.condition"), &self.condition, self.condition.len, 0);
             ig.igSameLine();
-            if (ig.igButton("Add Condition")) _ = self.addCondition(std.mem.sliceTo(&self.condition, 0));
+            if (ig.igButton(l10n.id("elk.filter_dialog.add_condition"))) _ = self.addCondition(std.mem.sliceTo(&self.condition, 0));
             ig.igSameLine();
             ig.igBeginDisabled(self.condition_selected == null);
-            if (ig.igButton("Remove Condition")) _ = self.removeCondition();
+            if (ig.igButton(l10n.id("elk.filter_dialog.remove_condition"))) _ = self.removeCondition();
             ig.igEndDisabled();
-        } else ig.igTextUnformatted("Select a filter.");
+        } else ig.igTextUnformatted(l10n.t("elk.filter_dialog.select"));
 
         ig.igSeparator();
-        if (ig.igButton("OK")) {
+        if (ig.igButton(l10n.id("elk.common.ok"))) {
             ig.igCloseCurrentPopup();
             return .ok;
         }
         ig.igSameLine();
-        if (ig.igButton("Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
+        if (ig.igButton(l10n.id("elk.common.cancel")) or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
             ig.igCloseCurrentPopup();
             return .cancel;
         }

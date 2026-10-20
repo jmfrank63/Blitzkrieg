@@ -862,7 +862,7 @@ fn compareStructure(report: *Report, code: []const u8, path: []const u8, english
 
 /// Directories whose Zig sources must not hold an English UI literal. S04 to S07 add the source
 /// directories they migrate to `l10n.t`; `--strict-dir <dir>` adds one for a fixture.
-pub const strict_dirs = [_][]const u8{};
+pub const strict_dirs = [_][]const u8{"Sources/editor/elk/app"};
 
 /// The UI calls whose first argument is text a person reads.
 const ui_calls = [_][]const u8{
@@ -928,12 +928,16 @@ pub fn checkLiterals(io: std.Io, report: *Report, root: std.Io.Dir, extra: []con
         try report.inactive.append(arena, "literals");
         return;
     }
-    for ([_][]const []const u8{ &strict_dirs, extra }) |dirs| for (dirs) |dir_path| {
+    var scanned = false;
+    for ([_][]const []const u8{ &strict_dirs, extra }, 0..) |dirs, pass| for (dirs) |dir_path| {
         var dir = root.openDir(io, dir_path, .{ .iterate = true }) catch |err| {
+            // A tree without the built-in directories (a seeded-fault fixture) has nothing of theirs to check.
+            if (pass == 0 and err == error.FileNotFound) continue;
             try report.addFmt("literal", "all", dir_path, "cannot open the strict directory ({s})", .{@errorName(err)});
             continue;
         };
         defer dir.close(io);
+        scanned = true;
         var files: std.ArrayList([]const u8) = .empty;
         var walker = try dir.walk(arena);
         defer walker.deinit();
@@ -958,6 +962,7 @@ pub fn checkLiterals(io: std.Io, report: *Report, root: std.Io.Dir, extra: []con
             }
         }
     };
+    if (!scanned and extra.len == 0) try report.inactive.append(arena, "literals");
 }
 
 /// Rules untranslated and placeholder for one overlay text against the English bytes of its key.

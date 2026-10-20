@@ -40,10 +40,10 @@ fn rowLabel(buffer: []u8, index: usize) [:0]const u8 {
     const name = l10n.nativeName(l10n.codes[index - 1]);
     if (std.mem.eql(u8, l10n.codes[index - 1], "hi")) {
         var plain: [64:0]u8 = undefined;
-        const z = std.fmt.bufPrintZ(&plain, "{s}", .{name}) catch return "hi";
+        const z = std.mem.printSentinel(&plain, "{s}", .{name}, 0) catch return "hi";
         if (fonts.encodeHindi(buffer, z)) |encoded| return encoded;
     }
-    return std.fmt.bufPrintZ(buffer, "{s}", .{name}) catch "?";
+    return std.mem.printSentinel(buffer, "{s}", .{name}, 0) catch "?";
 }
 
 /// Draws the combo labelled `kit.language.label` with `current` (a `ui_language` value) selected.
@@ -58,7 +58,7 @@ pub fn draw(current: []const u8) ?Choice {
     for (0..row_count) |row| {
         var label_buffer: [96:0]u8 = undefined;
         const label = rowLabel(&label_buffer, row);
-        if (ig.igSelectable_Bool(label.ptr, row == selected, 0, .{ .x = 0, .y = 0 }) and row != selected) {
+        if (ig.igSelectableEx(label.ptr, row == selected, 0, .{ .x = 0, .y = 0 }) and row != selected) {
             choice = .{ .value = valueAt(row).? };
         }
     }

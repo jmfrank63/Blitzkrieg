@@ -1,10 +1,34 @@
-//! ELK's help (D-02, D-18): `elk.md`, embedded in the binary so ELK needs
-//! no help file beside it, and its blocks for the Help window to draw. The
+//! ELK's help (D-02, D-18, D079): `elk.md` and its nine translations
+//! `elk_<code>.md`, embedded in the binary so ELK needs no help file beside it,
+//! and their blocks for the Help window to draw. The
 //! text keeps to the Markdown that window draws: `#` and `##` headings,
 //! `- ` bullets and paragraphs, each block on one line, no inline marks.
 const std = @import("std");
 
 pub const text = @embedFile("elk.md");
+
+const Translation = struct { code: []const u8, text: []const u8 };
+
+/// The nine translations, in the order of the kit's language list. English is `text`.
+const translations = [_]Translation{
+    .{ .code = "ru", .text = @embedFile("elk_ru.md") },
+    .{ .code = "zh-Hans", .text = @embedFile("elk_zh-Hans.md") },
+    .{ .code = "hi", .text = @embedFile("elk_hi.md") },
+    .{ .code = "es", .text = @embedFile("elk_es.md") },
+    .{ .code = "fr", .text = @embedFile("elk_fr.md") },
+    .{ .code = "de", .text = @embedFile("elk_de.md") },
+    .{ .code = "pt-BR", .text = @embedFile("elk_pt-BR.md") },
+    .{ .code = "ja", .text = @embedFile("elk_ja.md") },
+    .{ .code = "id", .text = @embedFile("elk_id.md") },
+};
+
+/// The help in the language `code` (`en`, `ru`, `zh-Hans`, ...); English for a code without one.
+pub fn forLanguage(code: []const u8) []const u8 {
+    for (translations) |translation| {
+        if (std.mem.eql(u8, translation.code, code)) return translation.text;
+    }
+    return text;
+}
 
 pub const Block = struct {
     kind: Kind,
@@ -93,4 +117,47 @@ test "the embedded help covers what ELK does and keeps to the Markdown the windo
     }
     try testing.expect(std.mem.indexOf(u8, text, "--short") != null);
     try testing.expect(std.mem.indexOf(u8, text, "Language") != null);
+}
+
+/// The kinds of the blocks of `source`, in order.
+fn structure(allocator: std.mem.Allocator, source: []const u8) !std.ArrayList(Block.Kind) {
+    var kinds: std.ArrayList(Block.Kind) = .empty;
+    errdefer kinds.deinit(allocator);
+    var blocks = Blocks.init(source);
+    while (blocks.next()) |block| try kinds.append(allocator, block.kind);
+    return kinds;
+}
+
+test "each translation has the block structure of the English help and keeps to the Markdown the window draws" {
+    var english = try structure(testing.allocator, text);
+    defer english.deinit(testing.allocator);
+    for (translations) |translation| {
+        var kinds = try structure(testing.allocator, translation.text);
+        defer kinds.deinit(testing.allocator);
+        if (!std.mem.eql(Block.Kind, english.items, kinds.items)) {
+            std.debug.print("help: {s} has {d} blocks, English {d}, or they differ in kind\n", .{ translation.code, kinds.items.len, english.items.len });
+            return error.StructureDiffers;
+        }
+        try testing.expect(std.mem.indexOf(u8, translation.text, "\r\n") != null);
+        try testing.expect(std.mem.indexOf(u8, translation.text, "--short") != null);
+        try testing.expect(std.mem.indexOf(u8, translation.text, "mods/") != null);
+        var blocks = Blocks.init(translation.text);
+        while (blocks.next()) |block| {
+            for ([_][]const u8{ "**", "`", "](", "#", "|" }) |mark| {
+                if (std.mem.indexOf(u8, block.text, mark) != null) {
+                    std.debug.print("help: {s}: \"{s}\" in \"{s}\"\n", .{ translation.code, mark, block.text });
+                    return error.UndrawnMarkdown;
+                }
+            }
+            const first = block.text[0];
+            try testing.expect(first != '*' and first != '>' and !std.ascii.isDigit(first) and first != ' ');
+        }
+    }
+}
+
+test "forLanguage picks the translation and falls back to English" {
+    try testing.expectEqualStrings(text, forLanguage("en"));
+    try testing.expectEqualStrings(text, forLanguage("xx"));
+    for (translations) |translation| try testing.expectEqualStrings(translation.text, forLanguage(translation.code));
+    try testing.expect(forLanguage("de").ptr != text.ptr);
 }

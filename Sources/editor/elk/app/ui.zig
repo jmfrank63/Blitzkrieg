@@ -74,11 +74,12 @@ pub const Step = session_mod.Step;
 const Statistic = session_mod.Statistic;
 const Counts = elk_core.stats.Counts;
 const elk_core = @import("elk_core");
+const l10n = kit.l10n;
+const language_picker = kit.language_picker;
 
+/// The name the window opens with, before elk.cfg and the fonts are read; `title` shows
+/// `elk.app.title` from the first frame on.
 pub const app_title = "Blitzkrieg ELK";
-/// Help > About's lines after the title (new text, G10).
-pub const app_version = "Version " ++ elk_build.version;
-pub const about_kit = "The localisation kit for Blitzkrieg Reloaded: translate the game's texts, check them and export them as a language mod. Zig and Dear ImGui, on Windows, macOS and Linux.";
 
 /// File > Open's answer. SDL may call back on another thread or after the
 /// window is gone, so it is a global, as the editors' own slots are.
@@ -115,9 +116,6 @@ const export_filters = [_]sdl3.c.SDL_DialogFileFilter{
     .{ .name = "CSV, UTF-8 (csv)", .pattern = "csv" },
 };
 const testlaunch = kit.testlaunch;
-const export_popup = "Export to language mod";
-const warning_popup = "Install to game";
-const job_popup = "Working";
 /// How long a job runs before its modal shows (it holds the UI off from the
 /// start), so a Find Next that hits at once does not flash it.
 const job_grace_ms = 250;
@@ -275,6 +273,9 @@ pub const Ui = struct {
     toolbar_drawn: Toolbar = .none,
     help_open: bool = false,
     help_drawn: bool = false,
+    /// The picker's choice, applied at the start of the next frame.
+    language_choice: [16]u8 = undefined,
+    language_choice_len: usize = 0,
     /// The Hindi probe (`do=probe_hindi`): a fixed Hindi text, PUA-encoded, drawn over a black
     /// strip at `probe_rect` so a captured frame proves the cluster loader. Empty is off.
     probe: [256:0]u8 = undefined,
@@ -378,7 +379,7 @@ pub const Ui = struct {
         switch (open_slot.take() orelse return) {
             .path => |chosen| self.openDatabase(chosen.path),
             .cancelled => {},
-            .failed => |reason| self.session.fail("the file dialog failed: {s}", .{reason}),
+            .failed => |reason| self.session.fail("elk.fail.dialog_file", .{reason}),
         }
     }
 
@@ -499,12 +500,12 @@ pub const Ui = struct {
     pub fn startShort(self: *Ui, folder: []const u8) void {
         self.short = true;
         var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return self.session.fail("the path of ELK's folder is too long", .{});
+        const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return self.session.fail("elk.fail.folder_path", .{});
         const applied = elk_core.packages.applyUpdates(self.gpa, self.io, elk_path) catch |err|
-            return self.session.fail("could not apply the updates beside {s}: {s}", .{ elk_path, @errorName(err) });
-        if (applied.found == 0) return self.session.fail("no .upd update file beside ELK in {s}", .{folder});
+            return self.session.fail("elk.fail.updates_apply", .{ elk_path, @errorName(err) });
+        if (applied.found == 0) return self.session.fail("elk.fail.no_upd", .{folder});
         self.openDatabase(elk_path);
-        if (self.session.isOpen()) self.notify("{d}/{d} updates beside elk.xml applied", .{ applied.imported, applied.found });
+        if (self.session.isOpen()) self.notify("elk.notice.updates_applied", .{ applied.imported, applied.found });
     }
 
     /// Help > Contents (F1).
@@ -580,7 +581,7 @@ pub const Ui = struct {
             .down = self.settings.find_down,
             .match_case = self.settings.find_match_case,
             .whole_word = self.settings.find_whole_word,
-        } } }, "Finding \"{s}\"...", .{text});
+        } } }, "elk.job.finding", .{text});
     }
 
     fn foundOrMissed(self: *Ui, search_from: ?elk_core.search.Cursor, found: ?session_mod.Hit) void {
@@ -740,7 +741,7 @@ pub const Ui = struct {
             break :collect results;
         } orelse {
             arena.deinit();
-            self.session.fail("spell check ran out of memory", .{});
+            self.session.fail("elk.fail.spell_memory", .{});
             return;
         };
         self.spell_arena = arena;
@@ -784,7 +785,7 @@ pub const Ui = struct {
     pub fn ignoreAll(self: *Ui) void {
         const index = self.currentMisspelling() orelse return;
         self.spelling().ignore(self.spell_results[index].text) catch {
-            self.session.fail("spell check ran out of memory", .{});
+            self.session.fail("elk.fail.spell_memory", .{});
             return;
         };
         self.checkSpelling();
@@ -796,7 +797,7 @@ pub const Ui = struct {
         const index = self.currentMisspelling() orelse return;
         const word = self.spell_results[index].word;
         const with = std.mem.sliceTo(&self.spell_change_buffer, 0);
-        const changed = elk_core.spell.replaceWord(self.gpa, self.session.translation.text(), word, with) catch return self.session.fail("spell check ran out of memory", .{});
+        const changed = elk_core.spell.replaceWord(self.gpa, self.session.translation.text(), word, with) catch return self.session.fail("elk.fail.spell_memory", .{});
         defer self.gpa.free(changed);
         self.correct(changed, word.offset + with.len);
     }
@@ -808,7 +809,7 @@ pub const Ui = struct {
         const result = self.spell_results[index];
         const with = std.mem.sliceTo(&self.spell_change_buffer, 0);
         const replaced = elk_core.spell.replaceAll(self.gpa, self.session.translation.text(), result.text, with, result.word.offset + result.word.len) catch
-            return self.session.fail("spell check ran out of memory", .{});
+            return self.session.fail("elk.fail.spell_memory", .{});
         defer self.gpa.free(replaced.text);
         self.correct(replaced.text, replaced.kept);
     }
@@ -816,7 +817,7 @@ pub const Ui = struct {
     /// A correction is an edit of the translation box like a typed one:
     /// dirty until a D-15 save point writes it.
     fn correct(self: *Ui, text: []const u8, cursor: usize) void {
-        self.session.translation.set(self.gpa, text) catch return self.session.fail("spell check ran out of memory", .{});
+        self.session.translation.set(self.gpa, text) catch return self.session.fail("elk.fail.spell_memory", .{});
         self.translation_generation +%= 1;
         self.spell_cursor = cursor;
         self.checkSpelling();
@@ -833,7 +834,7 @@ pub const Ui = struct {
     pub fn addToDictionary(self: *Ui, index: usize) void {
         if (index >= self.spell_results.len) return;
         self.spelling().addWord(self.spell_results[index].text) catch |err| {
-            self.session.fail("the user dictionary could not be written ({s})", .{@errorName(err)});
+            self.session.fail("elk.fail.dictionary_write", .{@errorName(err)});
             return;
         };
         self.checkSpelling();
@@ -876,7 +877,7 @@ pub const Ui = struct {
 
     fn knownGameFolder(self: *Ui, buffer: *[std.Io.Dir.max_path_bytes]u8) ?[]const u8 {
         return self.gameFolder(buffer) orelse {
-            self.session.fail("the game folder is unknown (game_folder in elk.cfg)", .{});
+            self.session.fail("elk.fail.game_unknown", .{});
             return null;
         };
     }
@@ -931,7 +932,7 @@ pub const Ui = struct {
         switch (mod_slot.take() orelse return) {
             .path => |chosen| self.setExportName(chosen.path),
             .cancelled => {},
-            .failed => |reason| self.session.fail("the folder dialog failed: {s}", .{reason}),
+            .failed => |reason| self.session.fail("elk.fail.dialog_folder", .{reason}),
         }
     }
 
@@ -955,11 +956,11 @@ pub const Ui = struct {
         const game = self.knownGameFolder(&game_buffer) orelse return false;
         const typed = std.mem.sliceTo(&self.export_name, 0);
         const name = session_mod.modName(game, typed) orelse {
-            self.session.fail("\"{s}\" is neither a mod's name nor a folder in {s}{c}mods", .{ typed, game, std.fs.path.sep });
+            self.session.fail("elk.fail.mod_name", .{ typed, game, std.fs.path.sep_str });
             return false;
         };
         const filter = if (self.export_filtered) self.exportFilter() else null;
-        if (!self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .{ .mod = name }, .filter = filter } }, "Exporting to the mod {s}...", .{name})) return false;
+        if (!self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .{ .mod = name }, .filter = filter } }, "elk.job.exporting_mod", .{name})) return false;
         self.job_then_run = self.export_then_run;
         self.export_failed = false;
         return true;
@@ -997,7 +998,7 @@ pub const Ui = struct {
                 .@"export" => self.exportSheet(chosen.path),
             },
             .cancelled => {},
-            .failed => |reason| self.session.fail("the file dialog failed: {s}", .{reason}),
+            .failed => |reason| self.session.fail("elk.fail.dialog_file", .{reason}),
         }
     }
 
@@ -1006,12 +1007,12 @@ pub const Ui = struct {
     pub fn exportSheet(self: *Ui, chosen: []const u8) void {
         var buffer: [settings_mod.max_path + 8]u8 = undefined;
         const path = if (std.fs.path.extension(chosen).len == 0) std.fmt.bufPrint(&buffer, "{s}.xlsx", .{chosen}) catch chosen else chosen;
-        _ = self.startJob(.{ .export_sheet = path }, "Exporting the texts to {s}...", .{path});
+        _ = self.startJob(.{ .export_sheet = path }, "elk.job.exporting_sheet", .{path});
     }
 
     /// Imports the sheet at `path` on the worker; `imported` sums it up.
     pub fn importSheet(self: *Ui, path: []const u8) void {
-        _ = self.startJob(.{ .import_sheet = path }, "Importing {s}...", .{path});
+        _ = self.startJob(.{ .import_sheet = path }, "elk.job.importing", .{path});
     }
 
     /// The import's summary: the rows read, the texts changed and what was
@@ -1020,11 +1021,18 @@ pub const Ui = struct {
         self.imported = .{ .rows = report.rows, .changed = report.changed, .outdated = report.outdated, .empty = report.empty, .missing = report.missing.len };
         var writer: std.Io.Writer = .fixed(&self.notice_storage);
         defer self.notice_len = writer.buffered().len;
-        writer.print("imported {s}: {d} rows read, changes applied to {d} ({d} outdated); skipped {d} without a translation and {d} missing", .{
+        var part: [640]u8 = undefined;
+        writer.writeAll(l10n.format(&part, "elk.notice.imported_sheet", .{
             std.fs.path.basename(path), report.rows, report.changed, report.outdated, report.empty, report.missing.len,
-        }) catch return;
-        if (report.missing.len != 0) writer.print(" (the first {s})", .{report.missing[0]}) catch return;
-        if (report.failed != 0) writer.print(", {d} not written: {s}", .{ report.failed, @errorName(report.first_failure.?) }) catch return;
+        }) catch return) catch return;
+        if (report.missing.len != 0) {
+            writer.writeAll(" ") catch return;
+            writer.writeAll(l10n.format(&part, "elk.notice.sheet_first_missing", .{report.missing[0]}) catch return) catch return;
+        }
+        if (report.failed != 0) {
+            writer.writeAll(", ") catch return;
+            writer.writeAll(l10n.format(&part, "elk.notice.sheet_failed", .{ report.failed, @errorName(report.first_failure.?) }) catch return) catch return;
+        }
     }
 
     /// File > Import from Game... and Import from PAK/UPD...: the OS folder
@@ -1048,7 +1056,7 @@ pub const Ui = struct {
         switch (package_slot.take() orelse return) {
             .path => |chosen| self.importPackage(chosen.kind, chosen.path),
             .cancelled => {},
-            .failed => |reason| self.session.fail("the import dialog failed: {s}", .{reason}),
+            .failed => |reason| self.session.fail("elk.fail.dialog_import", .{reason}),
         }
     }
 
@@ -1059,8 +1067,8 @@ pub const Ui = struct {
         @memcpy(self.package_last[0..len], path[0..len]);
         self.package_last_len = len;
         _ = switch (action) {
-            .game => self.startJob(.{ .import_game = .{ .folder = path } }, "Importing the game's texts from {s}...", .{path}),
-            .pak => self.startJob(.{ .import_pak = path }, "Importing {s}...", .{path}),
+            .game => self.startJob(.{ .import_game = .{ .folder = path } }, "elk.job.importing_game", .{path}),
+            .pak => self.startJob(.{ .import_pak = path }, "elk.job.importing", .{path}),
         };
     }
 
@@ -1073,8 +1081,8 @@ pub const Ui = struct {
             .import_game => |game| game.folder,
             else => work.import_pak,
         };
-        if (report.changedNothing()) return self.notify("imported {s}: nothing changed", .{source});
-        self.notify("imported {s}: {d} texts imported, {d} descriptions copied, {d} texts deleted", .{ source, report.originals, report.descriptions, report.deleted });
+        if (report.changedNothing()) return self.notify("elk.notice.imported_nothing", .{source});
+        self.notify("elk.notice.imported_package", .{ source, report.originals, report.descriptions, report.deleted });
     }
 
     /// File > Install to game...: `Data/Texts.pak` in the game folder, at
@@ -1117,7 +1125,7 @@ pub const Ui = struct {
     pub fn installToGame(self: *Ui) bool {
         var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const game = self.knownGameFolder(&game_buffer) orelse return false;
-        return self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .game } }, "Installing into {s}...", .{game});
+        return self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .game } }, "elk.job.installing", .{game});
     }
 
     /// File > Run Game (D-09): the mod exported this session, exported
@@ -1130,21 +1138,21 @@ pub const Ui = struct {
         var game_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const game = self.knownGameFolder(&game_buffer) orelse return;
         const mod = self.played_mod[0..self.played_mod_len];
-        if (self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .{ .mod = mod } } }, "Exporting to the mod {s}...", .{mod})) self.job_then_run = true;
+        if (self.startJob(.{ .export_pak = .{ .game_folder = game, .destination = .{ .mod = mod } } }, "elk.job.exporting_mod", .{mod})) self.job_then_run = true;
     }
 
     /// Starts `work` on the worker after `Session.begin` (the edit saved),
-    /// `format` the modal's message. False when a job is running already or
+    /// `key` the table key of the modal's message. False when a job is running already or
     /// it did not start, the reason in the status line.
-    fn startJob(self: *Ui, work: session_mod.Work, comptime format: []const u8, args: anytype) bool {
+    fn startJob(self: *Ui, work: session_mod.Work, comptime key: []const u8, args: anytype) bool {
         if (self.job != null) return false;
         const begun = self.session.begin(work) catch return false;
         var message: [768]u8 = undefined;
-        const text = std.fmt.bufPrint(&message, format, args) catch format;
+        const text = l10n.format(&message, key, args) catch key;
         const hold = self.hold_next;
         self.hold_next = null;
         self.job = jobs.Job.start(self.gpa, self.session, begun, text, self.now(), hold) catch |err| {
-            self.session.fail("the work did not start: {s}", .{@errorName(err)});
+            self.session.fail("elk.fail.work_start", .{@errorName(err)});
             return false;
         };
         self.job_then_run = false;
@@ -1191,12 +1199,12 @@ pub const Ui = struct {
         const outcome = self.session.finish(work, job.join()) catch |err| {
             if (err != error.Cancelled) return;
             switch (work) {
-                .export_pak => self.notify("export cancelled: nothing was written", .{}),
-                .export_sheet => |path| self.notify("export to {s} cancelled: nothing was written", .{path}),
-                .import_sheet => |path| self.notify("import of {s} cancelled after {d} of {d} rows: those rows are in, every file whole", .{ std.fs.path.basename(path), position, range }),
-                .import_pak => |path| self.notify("import of {s} cancelled after {d} of {d} files: those files are in, every file whole, elk.xml unchanged", .{ std.fs.path.basename(path), position, range }),
-                .import_game => |game| self.notify("import from {s} cancelled after {d} of {d} files: those files are in, every file whole, elk.xml unchanged", .{ game.folder, position, range }),
-                .find => self.notify("Find cancelled", .{}),
+                .export_pak => self.notify("elk.notice.export_cancelled", .{}),
+                .export_sheet => |path| self.notify("elk.notice.export_sheet_cancelled", .{path}),
+                .import_sheet => |path| self.notify("elk.notice.import_sheet_cancelled", .{ std.fs.path.basename(path), position, range }),
+                .import_pak => |path| self.notify("elk.notice.import_pak_cancelled", .{ std.fs.path.basename(path), position, range }),
+                .import_game => |game| self.notify("elk.notice.import_game_cancelled", .{ game.folder, position, range }),
+                .find => self.notify("elk.notice.find_cancelled", .{}),
             }
             return;
         };
@@ -1209,15 +1217,15 @@ pub const Ui = struct {
                         @memcpy(self.played_mod[0..name.len], name);
                         self.played_mod_len = name.len;
                         if (pak.filter) |filter|
-                            self.notify("exported {d} texts the filter {s} admits to {s}", .{ exported.entries, filter.name, exported.path })
+                            self.notify("elk.notice.exported_filtered", .{ exported.entries, filter.name, exported.path })
                         else
-                            self.notify("exported {d} texts to {s}", .{ exported.entries, exported.path });
+                            self.notify("elk.notice.exported", .{ exported.entries, exported.path });
                         if (self.job_then_run) self.launchGame();
                     },
-                    .game => self.notify("installed {d} texts to {s}", .{ exported.entries, exported.path }),
+                    .game => self.notify("elk.notice.installed", .{ exported.entries, exported.path }),
                 }
             },
-            .sheet_rows => |rows| self.notify("exported {d} rows to {s}", .{ rows, work.export_sheet }),
+            .sheet_rows => |rows| self.notify("elk.notice.exported_rows", .{ rows, work.export_sheet }),
             .imported => |report| {
                 var owned = report;
                 defer owned.deinit(self.gpa);
@@ -1236,9 +1244,9 @@ pub const Ui = struct {
         const game = self.knownGameFolder(&game_buffer) orelse return;
         var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const executable = if (builtin.os.tag == .windows) "Game.exe" else "Game";
-        const game_path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ game, std.fs.path.sep, executable }) catch return self.session.fail("the game path is too long", .{});
+        const game_path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ game, std.fs.path.sep, executable }) catch return self.session.fail("elk.fail.game_path", .{});
         const log_folder = std.fs.path.dirname(self.settings_path) orelse game;
-        const log = std.fmt.bufPrint(&self.game_log, "{s}{c}{s}", .{ log_folder, std.fs.path.sep, if (self.settings_path.len != 0) "game.log" else "elk-game.log" }) catch return self.session.fail("the game log path is too long", .{});
+        const log = std.fmt.bufPrint(&self.game_log, "{s}{c}{s}", .{ log_folder, std.fs.path.sep, if (self.settings_path.len != 0) "game.log" else "elk-game.log" }) catch return self.session.fail("elk.fail.game_log_path", .{});
         self.game_log_len = log.len;
         const mod = self.played_mod[0..self.played_mod_len];
         const options = session_mod.runGameOptions(game_path, mod, log);
@@ -1248,10 +1256,10 @@ pub const Ui = struct {
         self.launched_len = writer.buffered().len;
         self.game_exit = null;
         self.running = testlaunch.start(self.gpa, self.io, self.environ, options) catch |err| {
-            self.session.fail("{s} did not start: {s}", .{ game_path, @errorName(err) });
+            self.session.fail("elk.fail.game_start", .{ game_path, @errorName(err) });
             return;
         };
-        self.notify("Run Game: -mod={s} in the {s} profile (log {s})", .{ mod, session_mod.game_profile, log });
+        self.notify("elk.notice.run_game", .{ mod, session_mod.game_profile, log });
     }
 
     /// The game Run Game started: a failed exit is reported with its log.
@@ -1262,7 +1270,11 @@ pub const Ui = struct {
         self.game_exit = exit;
         switch (testlaunch.describe(exit)) {
             .clean => {},
-            .early_failure, .failure => self.session.fail("the Game ended with a failure (exit {?d}, signal {?d}); its output is in {s}", .{ exit.code, exit.signal, self.game_log[0..self.game_log_len] }),
+            .early_failure, .failure => {
+                var code: [16]u8 = undefined;
+                var signal: [16]u8 = undefined;
+                self.session.fail("elk.fail.game_ended", .{ optionalInt(&code, exit.code), optionalInt(&signal, exit.signal), self.game_log[0..self.game_log_len] });
+            },
         }
     }
 
@@ -1281,8 +1293,8 @@ pub const Ui = struct {
         return self.notice_storage[0..self.notice_len];
     }
 
-    fn notify(self: *Ui, comptime format: []const u8, args: anytype) void {
-        const written = std.fmt.bufPrint(&self.notice_storage, format, args) catch {
+    fn notify(self: *Ui, comptime key: []const u8, args: anytype) void {
+        const written = l10n.format(&self.notice_storage, key, args) catch {
             self.notice_len = self.notice_storage.len;
             return;
         };
@@ -1326,10 +1338,11 @@ pub const Ui = struct {
     /// frame showed it, or the application's name alone.
     pub fn title(self: *Ui) [:0]const u8 {
         const opened = self.session.openPath();
+        const name = std.mem.span(l10n.t("elk.app.title"));
         const text = if (opened.len == 0)
-            std.mem.printSentinel(&self.title_storage, "{s}", .{app_title}, 0)
+            std.mem.printSentinel(&self.title_storage, "{s}", .{name}, 0)
         else
-            std.mem.printSentinel(&self.title_storage, "{s} - {s}", .{ std.fs.path.basename(opened), app_title }, 0);
+            std.mem.printSentinel(&self.title_storage, "{s} - {s}", .{ std.fs.path.basename(opened), name }, 0);
         return text catch app_title;
     }
 
@@ -1370,7 +1383,7 @@ pub const Ui = struct {
         ig.igSetNextWindowSize(viewport.*.WorkSize, 0);
         const flags = ig.ImGuiWindowFlags_NoDecoration | ig.ImGuiWindowFlags_NoMove | ig.ImGuiWindowFlags_NoSavedSettings |
             ig.ImGuiWindowFlags_MenuBar | ig.ImGuiWindowFlags_NoBringToFrontOnFocus;
-        _ = ig.igBegin("ELK", null, flags);
+        _ = ig.igBegin(l10n.id("elk.window.main"), null, flags);
         defer ig.igEnd();
         // Last in the frame: a translation box activated in this frame
         // focuses the main window, which would close a modal opened before.
@@ -1395,10 +1408,7 @@ pub const Ui = struct {
         self.tree_drawn = false;
         self.status_drawn = false;
         if (!self.session.isOpen()) {
-            ig.igTextUnformatted(if (self.short)
-                "No database is open. The short layout opens the elk.xml beside ELK, built from the .upd update files there."
-            else
-                "No database is open. Open an elk.xml under File > Open, or pick one under File > Recent.");
+            ig.igTextUnformatted(if (self.short) l10n.t("elk.nodb.short") else l10n.t("elk.nodb.long"));
             self.drawFailure();
             return;
         }
@@ -1444,7 +1454,7 @@ pub const Ui = struct {
         self.job_drawn = false;
         const job = self.job orelse return;
         if (self.job_opening) {
-            _ = ig.igOpenPopup(job_popup, 0);
+            _ = ig.igOpenPopup(l10n.id("elk.job.title"), 0);
             self.job_opening = false;
         }
         const shown = job.progress.held.load(.acquire) or self.now() -| job.started_ms >= job_grace_ms;
@@ -1453,7 +1463,7 @@ pub const Ui = struct {
         if (!shown) ig.igPushStyleColor(ig.ImGuiCol_ModalWindowDimBg, 0);
         defer if (!shown) ig.igPopStyleColor();
         const hidden_flags = ig.ImGuiWindowFlags_NoDecoration | ig.ImGuiWindowFlags_NoBackground;
-        if (!ig.igBeginPopupModal(job_popup, null, ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_NoResize | if (shown) 0 else hidden_flags)) return;
+        if (!ig.igBeginPopupModal(l10n.id("elk.job.title"), null, ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_NoResize | if (shown) 0 else hidden_flags)) return;
         defer ig.igEndPopup();
         if (self.job_cancel_pending) {
             self.job_cancel_pending = false;
@@ -1474,7 +1484,7 @@ pub const Ui = struct {
         ig.igProgressBar(fraction, .{ .x = -1, .y = 0 }, counted.ptr);
         const cancelled = job.progress.cancelled.load(.acquire);
         ig.igBeginDisabled(cancelled);
-        if (ig.igButton(if (cancelled) "Cancelling..." else "Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) self.cancelJob();
+        if (ig.igButton(if (cancelled) l10n.id("elk.job.cancelling") else l10n.id("elk.common.cancel")) or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) self.cancelJob();
         ig.igEndDisabled();
     }
 
@@ -1494,12 +1504,12 @@ pub const Ui = struct {
         self.export_drawn = false;
         if (!self.export_open) return;
         if (self.export_opening) {
-            _ = ig.igOpenPopup(export_popup, 0);
+            _ = ig.igOpenPopup(l10n.id("elk.export.title"), 0);
             self.export_opening = false;
         }
         const font = ig.igGetFontSize();
         ig.igSetNextWindowSize(.{ .x = font * 36, .y = 0 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBeginPopupModal(export_popup, null, 0)) {
+        if (!ig.igBeginPopupModal(l10n.id("elk.export.title"), null, 0)) {
             self.export_open = false;
             return;
         }
@@ -1517,9 +1527,9 @@ pub const Ui = struct {
         const game = self.gameFolder(&game_buffer) orelse "";
         var line: [std.Io.Dir.max_path_bytes + 256:0]u8 = undefined;
         ig.igPushTextWrapPos(0);
-        ig.igTextUnformatted("The game reads a language mod before its loose files and archives, so nothing hides it. Start the game on it with File > Run Game.");
+        ig.igTextUnformatted(l10n.t("elk.export.intro"));
         ig.igPopTextWrapPos();
-        ig.igTextUnformatted("Mod (a name, or its folder in the game's mods):");
+        ig.igTextUnformatted(l10n.t("elk.export.mod_label"));
         if (ig.igIsWindowAppearing()) ig.igSetKeyboardFocusHere();
         ig.igSetNextItemWidth(font * 26);
         ig.igPushIDInt(self.export_name_generation);
@@ -1527,20 +1537,20 @@ pub const Ui = struct {
         ig.igPopID();
         ig.igSameLine();
         ig.igBeginDisabled(mod_slot.waiting());
-        if (ig.igButton("Browse...")) self.requestModFolder(window);
+        if (ig.igButton(l10n.id("elk.export.browse"))) self.requestModFolder(window);
         ig.igEndDisabled();
         const typed = std.mem.sliceTo(&self.export_name, 0);
         const name = session_mod.modName(game, typed);
-        const sep = std.fs.path.sep;
+        const sep = std.fs.path.sep_str;
         const shown: [:0]const u8 = if (name) |chosen|
-            std.mem.printSentinel(&line, "Writes {s}{c}mods{c}{s}{c}data{c}texts.pak", .{ game, sep, sep, chosen, sep, sep }, 0) catch ""
+            l10n.formatZ(&line, "elk.export.writes", .{ game, sep, chosen }) orelse ""
         else if (typed.len != 0)
-            std.mem.printSentinel(&line, "Not a mod's name, nor a folder in {s}{c}mods", .{ game, sep }, 0) catch ""
+            l10n.formatZ(&line, "elk.export.bad_name", .{ game, sep }) orelse ""
         else
             "";
         ig.igTextUnformatted(shown.ptr);
         if (self.exportFilter()) |filter| {
-            const label = std.mem.printSentinel(&line, "Only the texts the filter \"{s}\" admits", .{filter.name}, 0) catch "";
+            const label = l10n.formatZ(&line, "elk.export.only_filter", .{filter.name}) orelse "";
             _ = ig.igCheckbox(label.ptr, &self.export_filtered);
         }
         if (self.export_failed) {
@@ -1549,7 +1559,7 @@ pub const Ui = struct {
         }
         ig.igSeparator();
         ig.igBeginDisabled(name == null);
-        const pressed = ig.igButton(if (self.export_then_run) "Export and Run" else "Export");
+        const pressed = ig.igButton(if (self.export_then_run) l10n.id("elk.export.export_run") else l10n.id("elk.export.export"));
         ig.igEndDisabled();
         if ((pressed or entered) and name != null and self.exportToMod()) {
             ig.igCloseCurrentPopup();
@@ -1557,7 +1567,7 @@ pub const Ui = struct {
             return;
         }
         ig.igSameLine();
-        if (ig.igButton("Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
+        if (ig.igButton(l10n.id("elk.common.cancel")) or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
             ig.igCloseCurrentPopup();
             self.export_open = false;
         }
@@ -1569,11 +1579,11 @@ pub const Ui = struct {
         self.install_drawn = false;
         const shadow = self.install_warning orelse return;
         if (self.install_opening) {
-            _ = ig.igOpenPopup(warning_popup, 0);
+            _ = ig.igOpenPopup(l10n.id("elk.install.title"), 0);
             self.install_opening = false;
         }
         ig.igSetNextWindowSize(.{ .x = ig.igGetFontSize() * 36, .y = 0 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBeginPopupModal(warning_popup, null, 0)) return self.closeInstallWarning();
+        if (!ig.igBeginPopupModal(l10n.id("elk.install.title"), null, 0)) return self.closeInstallWarning();
         var choice: ?InstallChoice = null;
         {
             defer ig.igEndPopup();
@@ -1581,17 +1591,17 @@ pub const Ui = struct {
             choice = self.install_pending;
             self.install_pending = null;
             var line: [std.Io.Dir.max_path_bytes + 512:0]u8 = undefined;
-            const text = std.mem.printSentinel(&line, "{d} texts of this project are also loose files in {s}. The game reads loose files before Data/Texts.pak, so it would show those instead of the installed translations.\n\nA language mod is read before the loose files. Export to a language mod instead?", .{ shadow.count, shadow.folder.? }, 0) catch "";
+            const text = l10n.formatZ(&line, "elk.install.body", .{ shadow.count, shadow.folder.? }) orelse "";
             ig.igPushTextWrapPos(0);
             ig.igTextUnformatted(text.ptr);
             ig.igPopTextWrapPos();
             ig.igSeparator();
-            if (ig.igButton("Export to language mod...")) choice = .mod;
+            if (ig.igButton(l10n.id("elk.file.export_mod"))) choice = .mod;
             ig.igSetItemDefaultFocus();
             ig.igSameLine();
-            if (ig.igButton("Install anyway")) choice = .install;
+            if (ig.igButton(l10n.id("elk.install.anyway"))) choice = .install;
             ig.igSameLine();
-            if (ig.igButton("Cancel")) choice = .cancel;
+            if (ig.igButton(l10n.id("elk.common.cancel"))) choice = .cancel;
             if (choice == null and (ig.igIsKeyPressedEx(ig.ImGuiKey_Enter, false) or ig.igIsKeyPressedEx(ig.ImGuiKey_KeypadEnter, false))) choice = .mod;
             if (choice == null and ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) choice = .cancel;
             if (choice != null) ig.igCloseCurrentPopup();
@@ -1611,11 +1621,11 @@ pub const Ui = struct {
     }
 
     fn drawHelpMenu(self: *Ui) void {
-        if (!ig.igBeginMenu("Help")) return;
+        if (!ig.igBeginMenu(l10n.id("elk.menu.help"))) return;
         defer ig.igEndMenu();
-        if (ig.igMenuItemEx("Contents", "F1", false, true)) self.openHelp();
+        if (ig.igMenuItemEx(l10n.id("elk.help.contents"), "F1", false, true)) self.openHelp();
         ig.igSeparator();
-        if (ig.igMenuItem("About Blitzkrieg ELK...")) self.about_open = true;
+        if (ig.igMenuItem(l10n.id("elk.help.about"))) self.about_open = true;
     }
 
     /// Help > About: the name, the version and what the kit is.
@@ -1626,14 +1636,16 @@ pub const Ui = struct {
         const centre: ig.ImVec2 = .{ .x = viewport.*.WorkPos.x + viewport.*.WorkSize.x * 0.5, .y = viewport.*.WorkPos.y + viewport.*.WorkSize.y * 0.4 };
         ig.igSetNextWindowPosEx(centre, ig.ImGuiCond_Appearing, .{ .x = 0.5, .y = 0.5 });
         var open = true;
-        if (ig.igBegin("About Blitzkrieg ELK", &open, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (ig.igBegin(l10n.id("elk.about.title"), &open, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.about_drawn = true;
-            ig.igTextUnformatted(app_title);
-            ig.igTextUnformatted(app_version);
+            var version: [128:0]u8 = undefined;
+            ig.igTextUnformatted(l10n.t("elk.app.title"));
+            const version_text: [:0]const u8 = l10n.formatZ(&version, "elk.about.version", .{elk_build.version}) orelse "";
+            ig.igTextUnformatted(version_text.ptr);
             ig.igPushTextWrapPos(ig.igGetFontSize() * 28);
-            ig.igTextUnformatted(about_kit);
+            ig.igTextUnformatted(l10n.t("elk.about.kit"));
             ig.igPopTextWrapPos();
-            if (ig.igButton("OK")) open = false;
+            if (ig.igButton(l10n.id("elk.common.ok"))) open = false;
         }
         ig.igEnd();
         if (!open) self.about_open = false;
@@ -1645,28 +1657,30 @@ pub const Ui = struct {
     fn drawShortMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenuBar()) return;
         defer ig.igEndMenuBar();
-        if (ig.igBeginMenu("File")) {
+        if (ig.igBeginMenu(l10n.id("elk.menu.file"))) {
             defer ig.igEndMenu();
-            if (ig.igMenuItem("Exit")) self.requestExit();
+            if (ig.igMenuItem(l10n.id("elk.file.exit"))) self.requestExit();
         }
-        if (ig.igBeginMenu("Browse")) {
+        if (ig.igBeginMenu(l10n.id("elk.menu.browse"))) {
             defer ig.igEndMenu();
-            if (ig.igMenuItemEx("Next", "Ctrl+N", false, self.canBrowse(.next))) _ = self.browse(.next);
-            if (ig.igMenuItemEx("Previous", "Ctrl+P", false, self.canBrowse(.previous))) _ = self.browse(.previous);
+            if (ig.igMenuItemEx(l10n.id("elk.browse.next"), "Ctrl+N", false, self.canBrowse(.next))) _ = self.browse(.next);
+            if (ig.igMenuItemEx(l10n.id("elk.browse.previous"), "Ctrl+P", false, self.canBrowse(.previous))) _ = self.browse(.previous);
         }
         self.drawViewMenu();
-        if (ig.igBeginMenu("Tools")) {
+        if (ig.igBeginMenu(l10n.id("elk.menu.tools"))) {
             defer ig.igEndMenu();
-            if (ig.igMenuItemEx("Find...", "Ctrl+F", false, self.session.isOpen())) self.openFind();
-            if (ig.igMenuItemEx("Spelling", "F7", false, self.canSpell())) self.openSpelling();
-            if (ig.igMenuItem("Spelling Options...")) self.openSpellOptions();
+            if (ig.igMenuItemEx(l10n.id("elk.edit.find"), "Ctrl+F", false, self.session.isOpen())) self.openFind();
+            if (ig.igMenuItemEx(l10n.id("elk.tools.spelling"), "F7", false, self.canSpell())) self.openSpelling();
+            if (ig.igMenuItem(l10n.id("elk.tools.spelling_options"))) self.openSpellOptions();
             ig.igSeparator();
-            if (ig.igMenuItemEx("Export to language mod...", null, false, self.canExport())) self.requestExportMod(false);
-            if (ig.igMenuItemEx("Run Game", null, false, self.canRunGame())) self.requestRunGame();
+            self.drawLanguage();
+            ig.igSeparator();
+            if (ig.igMenuItemEx(l10n.id("elk.file.export_mod"), null, false, self.canExport())) self.requestExportMod(false);
+            if (ig.igMenuItemEx(l10n.id("elk.file.run_game"), null, false, self.canRunGame())) self.requestRunGame();
             ig.igSeparator();
             const sheet_free = self.canExport() and !sheet_slot.waiting();
-            if (ig.igMenuItemEx("Export to spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .@"export");
-            if (ig.igMenuItemEx("Import from spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .import);
+            if (ig.igMenuItemEx(l10n.id("elk.file.export_sheet"), null, false, sheet_free)) self.requestSheet(window, .@"export");
+            if (ig.igMenuItemEx(l10n.id("elk.file.import_sheet"), null, false, sheet_free)) self.requestSheet(window, .import);
         }
         self.drawHelpMenu();
     }
@@ -1679,8 +1693,8 @@ pub const Ui = struct {
         const Button = struct { label: [*:0]const u8, enabled: bool };
         const sheet_free = self.canExport() and !sheet_slot.waiting();
         const first = [_]Button{
-            .{ .label = "Run Game", .enabled = self.canRunGame() },
-            .{ .label = "Export to mod", .enabled = self.canExport() },
+            .{ .label = l10n.id("elk.toolbar.run_game"), .enabled = self.canRunGame() },
+            .{ .label = l10n.id("elk.toolbar.export_mod"), .enabled = self.canExport() },
         };
         for (first, 0..) |button, index| {
             if (index != 0) ig.igSameLine();
@@ -1694,14 +1708,14 @@ pub const Ui = struct {
         ig.igSameLine();
         self.drawFilterCombo();
         const rest = [_]Button{
-            .{ .label = "Back", .enabled = self.canBrowse(.previous) },
-            .{ .label = "Next", .enabled = self.canBrowse(.next) },
-            .{ .label = "Export to spreadsheet", .enabled = sheet_free },
-            .{ .label = "Import from spreadsheet", .enabled = sheet_free },
-            .{ .label = "Find", .enabled = true },
-            .{ .label = "Spelling", .enabled = self.canSpell() },
-            .{ .label = "Statistic", .enabled = true },
-            .{ .label = "Exit", .enabled = true },
+            .{ .label = l10n.id("elk.toolbar.back"), .enabled = self.canBrowse(.previous) },
+            .{ .label = l10n.id("elk.toolbar.next"), .enabled = self.canBrowse(.next) },
+            .{ .label = l10n.id("elk.toolbar.export_sheet"), .enabled = sheet_free },
+            .{ .label = l10n.id("elk.toolbar.import_sheet"), .enabled = sheet_free },
+            .{ .label = l10n.id("elk.toolbar.find"), .enabled = true },
+            .{ .label = l10n.id("elk.toolbar.spelling"), .enabled = self.canSpell() },
+            .{ .label = l10n.id("elk.toolbar.statistic"), .enabled = true },
+            .{ .label = l10n.id("elk.toolbar.exit"), .enabled = true },
         };
         for (rest, 0..) |button, index| {
             ig.igSameLine();
@@ -1729,15 +1743,17 @@ pub const Ui = struct {
         const font = ig.igGetFontSize();
         ig.igSetNextWindowSize(.{ .x = font * 50, .y = font * 32 }, ig.ImGuiCond_Appearing);
         var open = true;
-        if (ig.igBegin("ELK Help", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (ig.igBegin(l10n.id("elk.helpwin.title"), &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.help_drawn = true;
-            var line: [1024:0]u8 = undefined;
+            var line: [help_line_bytes:0]u8 = undefined;
+            var scratch: [help_line_bytes:0]u8 = undefined;
+            const help_text = help.forLanguage(l10n.language());
             if (ig.igBeginChild("contents", .{ .x = font * 14, .y = 0 }, ig.ImGuiChildFlags_Borders, 0)) {
-                var blocks = help.Blocks.init(help.text);
+                var blocks = help.Blocks.init(help_text);
                 var heading: usize = 0;
                 while (blocks.next()) |block| {
                     if (block.kind != .heading) continue;
-                    const label = std.mem.printSentinel(&line, "{s}", .{block.text}, 0) catch continue;
+                    const label = helpLine(&line, &scratch, block.text) orelse continue;
                     ig.igPushIDInt(@intCast(heading));
                     if (ig.igSelectableEx(label.ptr, false, 0, .{ .x = 0, .y = 0 })) self.help_jump = heading;
                     ig.igPopID();
@@ -1749,10 +1765,10 @@ pub const Ui = struct {
             if (ig.igBeginChild("help", .{ .x = 0, .y = 0 }, 0, 0)) {
                 ig.igPushTextWrapPos(0);
                 defer ig.igPopTextWrapPos();
-                var blocks = help.Blocks.init(help.text);
+                var blocks = help.Blocks.init(help_text);
                 var heading: usize = 0;
                 while (blocks.next()) |block| {
-                    const text = std.mem.printSentinel(&line, "{s}", .{block.text}, 0) catch continue;
+                    const text = helpLine(&line, &scratch, block.text) orelse continue;
                     switch (block.kind) {
                         .title => ig.igSeparatorText(text.ptr),
                         .heading => {
@@ -1783,9 +1799,9 @@ pub const Ui = struct {
     /// speller; its tooltip says why not), and the options it had in the
     /// registry.
     fn drawToolsMenu(self: *Ui) void {
-        if (!ig.igBeginMenu("Tools")) return;
+        if (!ig.igBeginMenu(l10n.id("elk.menu.tools"))) return;
         defer ig.igEndMenu();
-        if (ig.igMenuItemEx("Spelling", "F7", false, self.canSpell())) self.openSpelling();
+        if (ig.igMenuItemEx(l10n.id("elk.tools.spelling"), "F7", false, self.canSpell())) self.openSpelling();
         const reason = self.spelling().reason();
         if (reason.len != 0 and ig.igIsItemHovered(ig.ImGuiHoveredFlags_AllowWhenDisabled)) {
             var buffer: [1024:0]u8 = undefined;
@@ -1795,7 +1811,9 @@ pub const Ui = struct {
                 ig.igEndTooltip();
             }
         }
-        if (ig.igMenuItem("Spelling Options...")) self.openSpellOptions();
+        if (ig.igMenuItem(l10n.id("elk.tools.spelling_options"))) self.openSpellOptions();
+        ig.igSeparator();
+        self.drawLanguage();
     }
 
     /// Tools > Spelling's window: the walk's current word with Change to,
@@ -1809,24 +1827,24 @@ pub const Ui = struct {
         const font = ig.igGetFontSize();
         ig.igSetNextWindowSize(.{ .x = font * 36, .y = font * 24 }, ig.ImGuiCond_Appearing);
         var open = true;
-        if (ig.igBegin("Spelling", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (ig.igBegin(l10n.id("elk.spell.title"), &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.spell_drawn = true;
             var line: [1024:0]u8 = undefined;
             const state = self.spelling();
             const heading = if (state.available())
-                std.mem.printSentinel(&line, "Language: {s}", .{state.languageName()}, 0) catch ""
+                l10n.formatZ(&line, "elk.spell.language", .{state.languageName()}) orelse ""
             else
                 std.mem.printSentinel(&line, "{s}", .{state.reason()}, 0) catch "";
             ig.igTextUnformatted(heading.ptr);
-            if (self.spellStale()) ig.igTextUnformatted("The translation changed since the check; press Check Again.");
+            if (self.spellStale()) ig.igTextUnformatted(l10n.t("elk.spell.stale"));
             self.drawSpellWalk(&line);
             if (self.spell_results.len == 0) {
-                ig.igTextUnformatted("No misspelt words in this translation.");
+                ig.igTextUnformatted(l10n.t("elk.spell.none"));
             } else if (ig.igBeginTableEx("words", 4, ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_ScrollY, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
                 ig.igTableSetupScrollFreeze(0, 1);
-                ig.igTableSetupColumnEx("Word", ig.ImGuiTableColumnFlags_WidthFixed, font * 8, 0);
-                ig.igTableSetupColumnEx("At", ig.ImGuiTableColumnFlags_WidthFixed, font * 3, 0);
-                ig.igTableSetupColumnEx("Suggestions", ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
+                ig.igTableSetupColumnEx(l10n.t("elk.spell.word"), ig.ImGuiTableColumnFlags_WidthFixed, font * 8, 0);
+                ig.igTableSetupColumnEx(l10n.t("elk.spell.at"), ig.ImGuiTableColumnFlags_WidthFixed, font * 3, 0);
+                ig.igTableSetupColumnEx(l10n.t("elk.spell.suggestions"), ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
                 ig.igTableSetupColumnEx("", ig.ImGuiTableColumnFlags_WidthFixed, font * 9, 0);
                 ig.igTableHeadersRow();
                 var added: ?usize = null;
@@ -1844,17 +1862,17 @@ pub const Ui = struct {
                     line[writer.end] = 0;
                     ig.igTextUnformatted(&line);
                     _ = ig.igTableNextColumn();
-                    if (ig.igButton("Add to dictionary")) added = index;
+                    if (ig.igButton(l10n.id("elk.spell.add"))) added = index;
                 }
                 ig.igEndTable();
                 // After the table: adding checks again, which frees the rows.
                 if (added) |index| self.addToDictionary(index);
             }
             ig.igBeginDisabled(!self.canSpell());
-            if (ig.igButton("Check Again")) self.checkAgain();
+            if (ig.igButton(l10n.id("elk.spell.check_again"))) self.checkAgain();
             ig.igEndDisabled();
             ig.igSameLine();
-            if (ig.igButton("Close")) open = false;
+            if (ig.igButton(l10n.id("elk.common.close"))) open = false;
         }
         ig.igEnd();
         if (!open) self.closeSpelling();
@@ -1864,13 +1882,13 @@ pub const Ui = struct {
     /// Change to; the buttons act on the current word.
     fn drawSpellWalk(self: *Ui, line: *[1024:0]u8) void {
         const index = self.currentMisspelling() orelse {
-            if (!self.spellStale() and self.spell_results.len != 0) ig.igTextUnformatted("The walk is through this translation.");
+            if (!self.spellStale() and self.spell_results.len != 0) ig.igTextUnformatted(l10n.t("elk.spell.walk_done"));
             ig.igSeparator();
             return;
         };
         const result = self.spell_results[index];
-        printText(line, "Not in dictionary: {s} (at {d})", .{ result.text, result.word.offset });
-        ig.igTextUnformatted("Change to:");
+        printKey(line, "elk.spell.not_in_dictionary", .{ result.text, result.word.offset });
+        ig.igTextUnformatted(l10n.t("elk.spell.change_to"));
         ig.igSameLine();
         ig.igSetNextItemWidth(ig.igGetFontSize() * 14);
         _ = ig.igInputText("##change", &self.spell_change_buffer, self.spell_change_buffer.len, 0);
@@ -1883,10 +1901,10 @@ pub const Ui = struct {
         }
         // Acted on after the buttons: each checks again, which frees `result`.
         const actions = [_]struct { label: [*:0]const u8, act: *const fn (*Ui) void }{
-            .{ .label = "Ignore", .act = ignoreWord },
-            .{ .label = "Ignore All", .act = ignoreAll },
-            .{ .label = "Change", .act = changeWord },
-            .{ .label = "Change All", .act = changeAll },
+            .{ .label = l10n.id("elk.spell.ignore"), .act = ignoreWord },
+            .{ .label = l10n.id("elk.spell.ignore_all"), .act = ignoreAll },
+            .{ .label = l10n.id("elk.spell.change"), .act = changeWord },
+            .{ .label = l10n.id("elk.spell.change_all"), .act = changeAll },
         };
         var pressed: ?*const fn (*Ui) void = null;
         for (actions, 0..) |action, at| {
@@ -1906,18 +1924,18 @@ pub const Ui = struct {
         const font = ig.igGetFontSize();
         ig.igSetNextWindowSize(.{ .x = font * 36, .y = 0 }, ig.ImGuiCond_Appearing);
         var open = true;
-        if (ig.igBegin("Spelling Options", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (ig.igBegin(l10n.id("elk.spell_options.title"), &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.spell_options_drawn = true;
             const state = self.spelling();
             var line: [std.Io.Dir.max_path_bytes + 64:0]u8 = undefined;
-            ig.igTextUnformatted("Dictionary folder (empty: the dictionaries folder beside ELK):");
+            ig.igTextUnformatted(l10n.t("elk.spell_options.folder"));
             ig.igSetNextItemWidth(font * 26);
             const entered = ig.igInputText("##folder", &self.spell_folder_buffer, self.spell_folder_buffer.len, ig.ImGuiInputTextFlags_EnterReturnsTrue);
             ig.igSameLine();
-            if (ig.igButton("Use") or entered) self.setSpellFolder(std.mem.sliceTo(&self.spell_folder_buffer, 0));
+            if (ig.igButton(l10n.id("elk.spell_options.use")) or entered) self.setSpellFolder(std.mem.sliceTo(&self.spell_folder_buffer, 0));
             var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-            printText(&line, "Reading {s}", .{self.spellFolder(&folder_buffer)});
-            ig.igTextUnformatted("Language:");
+            printKey(&line, "elk.spell_options.reading", .{self.spellFolder(&folder_buffer)});
+            ig.igTextUnformatted(l10n.t("elk.spell_options.language"));
             ig.igSameLine();
             ig.igSetNextItemWidth(font * 12);
             const current = std.mem.printSentinel(&line, "{s}", .{state.languageName()}, 0) catch "";
@@ -1945,28 +1963,54 @@ pub const Ui = struct {
                 printText(&line, "{s}", .{reason});
                 ig.igPopTextWrapPos();
             }
-            if (ig.igButton("Close")) open = false;
+            if (ig.igButton(l10n.id("elk.common.close"))) open = false;
         }
         ig.igEnd();
         if (!open) self.spell_options_open = false;
     }
 
+    /// The kit's language picker, in the Tools menu. The choice is applied between frames
+    /// (`applyPendingLanguage`), the font stack and the tables not changing under a frame in progress.
+    fn drawLanguage(self: *Ui) void {
+        if (language_picker.draw(kit.settings.uiLanguage(self.settings))) |choice| {
+            const len = @min(choice.value.len, self.language_choice.len);
+            @memcpy(self.language_choice[0..len], choice.value[0..len]);
+            self.language_choice_len = len;
+        }
+    }
+
+    /// Between two frames: the picker's choice written to `ui_language` in elk.cfg, the fonts
+    /// rebuilt for it and the tables switched.
+    pub fn applyPendingLanguage(self: *Ui) void {
+        if (self.language_choice_len == 0) return;
+        const setting = self.language_choice[0..self.language_choice_len];
+        self.language_choice_len = 0;
+        self.settings.ui_language_storage.set(setting);
+        self.saveSettings();
+        const code = chooseLanguage(self.settings, !self.os_dialogs);
+        _ = kit.fonts.reload(code) catch |err| {
+            std.debug.print("elk: the fonts did not reload for {s} ({s})\n", .{ code, @errorName(err) });
+            return;
+        };
+        l10n.setLanguage(code);
+    }
+
     /// The MFC Edit menu's Find; Undo and the clipboard commands are the
     /// edit boxes' own keys.
     fn drawEditMenu(self: *Ui) void {
-        if (!ig.igBeginMenu("Edit")) return;
+        if (!ig.igBeginMenu(l10n.id("elk.menu.edit"))) return;
         defer ig.igEndMenu();
-        if (ig.igMenuItemEx("Find...", "Ctrl+F", false, self.session.isOpen())) self.openFind();
+        if (ig.igMenuItemEx(l10n.id("elk.edit.find"), "Ctrl+F", false, self.session.isOpen())) self.openFind();
     }
 
     fn drawViewMenu(self: *Ui) void {
-        if (!ig.igBeginMenu("View")) return;
+        if (!ig.igBeginMenu(l10n.id("elk.menu.view"))) return;
         defer ig.igEndMenu();
-        if (ig.igMenuItemEx("ELK Tree", null, self.settings.show_tree, true)) self.toggleTree();
-        if (ig.igMenuItemEx("ELK Statistic", null, false, self.session.isOpen())) self.openStatistics();
+        if (ig.igMenuItemEx(l10n.id("elk.view.tree"), null, self.settings.show_tree, true)) self.toggleTree();
+        if (ig.igMenuItemEx(l10n.id("elk.view.statistic"), null, false, self.session.isOpen())) self.openStatistics();
         if (self.short) return;
         ig.igSeparator();
-        if (ig.igMenuItemEx("Status Bar", null, self.settings.show_status_bar, true)) self.toggleStatusBar();
+        if (ig.igMenuItemEx(l10n.id("elk.view.status_bar"), null, self.settings.show_status_bar, true)) self.toggleStatusBar();
     }
 
     /// The Find window, laid out as the Windows Find dialog the MFC ELK
@@ -1980,9 +2024,9 @@ pub const Ui = struct {
         const centre: ig.ImVec2 = .{ .x = viewport.*.WorkPos.x + viewport.*.WorkSize.x * 0.5, .y = viewport.*.WorkPos.y + viewport.*.WorkSize.y * 0.3 };
         ig.igSetNextWindowPosEx(centre, ig.ImGuiCond_Appearing, .{ .x = 0.5, .y = 0.5 });
         var open = true;
-        if (ig.igBegin("Find", &open, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (ig.igBegin(l10n.id("elk.find.title"), &open, ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.find_drawn = true;
-            ig.igTextUnformatted("Find what:");
+            ig.igTextUnformatted(l10n.t("elk.find.what"));
             ig.igSameLine();
             if (self.find_focus) {
                 ig.igSetKeyboardFocusHere();
@@ -1993,25 +2037,25 @@ pub const Ui = struct {
             ig.igSameLine();
             const empty = self.find_buffer[0] == 0;
             ig.igBeginDisabled(empty);
-            const pressed = ig.igButton("Find Next");
+            const pressed = ig.igButton(l10n.id("elk.find.next"));
             ig.igEndDisabled();
             if ((entered or pressed) and !empty) {
                 self.findNext();
                 self.find_focus = entered;
             }
             var whole_word = self.settings.find_whole_word;
-            if (ig.igCheckbox("Match whole word only", &whole_word)) self.setFindOption(.whole_word, whole_word);
+            if (ig.igCheckbox(l10n.id("elk.find.whole_word"), &whole_word)) self.setFindOption(.whole_word, whole_word);
             ig.igSameLine();
-            ig.igTextUnformatted("  Direction:");
+            ig.igTextUnformatted(l10n.t("elk.find.direction"));
             ig.igSameLine();
-            if (ig.igRadioButton("Up", !self.settings.find_down)) self.setFindOption(.down, false);
+            if (ig.igRadioButton(l10n.id("elk.find.up"), !self.settings.find_down)) self.setFindOption(.down, false);
             ig.igSameLine();
-            if (ig.igRadioButton("Down", self.settings.find_down)) self.setFindOption(.down, true);
+            if (ig.igRadioButton(l10n.id("elk.find.down"), self.settings.find_down)) self.setFindOption(.down, true);
             var match_case = self.settings.find_match_case;
-            if (ig.igCheckbox("Match case", &match_case)) self.setFindOption(.match_case, match_case);
+            if (ig.igCheckbox(l10n.id("elk.find.match_case"), &match_case)) self.setFindOption(.match_case, match_case);
             ig.igSameLine();
-            if (ig.igButton("Cancel")) open = false;
-            if (self.find_missed) ig.igTextUnformatted("Not found.");
+            if (ig.igButton(l10n.id("elk.common.cancel"))) open = false;
+            if (self.find_missed) ig.igTextUnformatted(l10n.t("elk.find.not_found"));
         }
         ig.igEnd();
         if (!open) self.closeFind();
@@ -2030,20 +2074,20 @@ pub const Ui = struct {
         const font = ig.igGetFontSize();
         ig.igSetNextWindowSize(.{ .x = font * 80, .y = font * 24 }, ig.ImGuiCond_Appearing);
         var open = true;
-        if (ig.igBegin("ELK Statistic", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+        if (ig.igBegin(l10n.id("elk.statistic.title"), &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
             self.statistics_drawn = true;
             const table_flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Resizable | ig.ImGuiTableFlags_ScrollY;
             if (ig.igBeginTableEx("statistic", 9, table_flags, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
                 ig.igTableSetupScrollFreeze(0, 1);
-                ig.igTableSetupColumnEx("Tree", ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
-                for ([_][*:0]const u8{ "Items", "Words", "Word Symbols", "Symbols" }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
-                for ([_][*:0]const u8{ "Items at last close", "Words", "Word Symbols", "Symbols" }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
+                ig.igTableSetupColumnEx(l10n.t("elk.statistic.tree"), ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
+                for ([_][*:0]const u8{ l10n.t("elk.statistic.items"), l10n.t("elk.statistic.words"), l10n.t("elk.statistic.word_symbols"), l10n.t("elk.statistic.symbols") }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
+                for ([_][*:0]const u8{ l10n.t("elk.statistic.items_last_close"), l10n.t("elk.statistic.words"), l10n.t("elk.statistic.word_symbols"), l10n.t("elk.statistic.symbols") }) |heading| ig.igTableSetupColumnEx(heading, ig.ImGuiTableColumnFlags_WidthFixed, font * 6, 0);
                 ig.igTableHeadersRow();
                 const tree = &self.session.tree.?;
                 for ([_]bool{ false, true }) |translation| {
                     ig.igPushIDInt(@intFromBool(translation));
                     defer ig.igPopID();
-                    const label = if (translation) "Translation" else "Original Text";
+                    const label = std.mem.span(if (translation) l10n.t("elk.statistic.translation") else l10n.t("elk.statistic.original"));
                     if (tableRow(label, ig.ImGuiTreeNodeFlags_DefaultOpen, null, self.statisticRow(.now, translation, null, null).?, self.statisticRow(.last_close, translation, null, null))) {
                         defer ig.igTreePop();
                         for (std.enums.values(State)) |state| _ = tableRow(stateName(state), ig.ImGuiTreeNodeFlags_Leaf, stateColour(state), self.statisticRow(.now, translation, null, state).?, self.statisticRow(.last_close, translation, null, state));
@@ -2061,7 +2105,7 @@ pub const Ui = struct {
                 }
                 ig.igEndTable();
             }
-            if (ig.igButton("OK")) open = false;
+            if (ig.igButton(l10n.id("elk.common.ok"))) open = false;
         }
         ig.igEnd();
         if (!open) self.closeStatistics();
@@ -2070,21 +2114,21 @@ pub const Ui = struct {
     /// The MFC Browse menu's commands, in its order; each step is enabled
     /// when it reaches a text.
     fn drawBrowseMenu(self: *Ui) void {
-        if (!ig.igBeginMenu("Browse")) return;
+        if (!ig.igBeginMenu(l10n.id("elk.menu.browse"))) return;
         defer ig.igEndMenu();
-        if (ig.igMenuItemEx("Collapse Item", null, self.settings.collapse_item, true)) self.toggleCollapseItem();
+        if (ig.igMenuItemEx(l10n.id("elk.browse.collapse"), null, self.settings.collapse_item, true)) self.toggleCollapseItem();
         ig.igSeparator();
         const items = [_]struct { label: [*:0]const u8, keys: ?[*:0]const u8, step: Step }{
-            .{ .label = "Last", .keys = null, .step = .last },
-            .{ .label = "Next", .keys = "Ctrl+N", .step = .next },
-            .{ .label = "Previous", .keys = "Ctrl+P", .step = .previous },
-            .{ .label = "First", .keys = null, .step = .first },
+            .{ .label = l10n.id("elk.browse.last"), .keys = null, .step = .last },
+            .{ .label = l10n.id("elk.browse.next"), .keys = "Ctrl+N", .step = .next },
+            .{ .label = l10n.id("elk.browse.previous"), .keys = "Ctrl+P", .step = .previous },
+            .{ .label = l10n.id("elk.browse.first"), .keys = null, .step = .first },
         };
         for (items) |item| {
             if (ig.igMenuItemEx(item.label, item.keys, false, self.canBrowse(item.step))) _ = self.browse(item.step);
         }
         ig.igSeparator();
-        if (ig.igMenuItemEx("Create Filter...", null, false, self.session.isOpen())) self.openFilterDialog();
+        if (ig.igMenuItemEx(l10n.id("elk.browse.create_filter"), null, false, self.session.isOpen())) self.openFilterDialog();
     }
 
     /// The extended layout's filter bar (the MFC browse toolbar): the named
@@ -2106,25 +2150,25 @@ pub const Ui = struct {
         }
         ig.igSameLine();
         var collapse = self.settings.collapse_item;
-        if (ig.igCheckbox("Collapse Item", &collapse)) self.toggleCollapseItem();
+        if (ig.igCheckbox(l10n.id("elk.browse.collapse"), &collapse)) self.toggleCollapseItem();
         ig.igSameLine();
-        if (ig.igButton("Create Filter...")) self.openFilterDialog();
+        if (ig.igButton(l10n.id("elk.browse.create_filter"))) self.openFilterDialog();
     }
 
     /// The filter combo of either layout's toolbar.
     fn drawFilterCombo(self: *Ui) void {
         var name_buffer: [settings_mod.max_path:0]u8 = undefined;
         const current = std.mem.printSentinel(&name_buffer, "{s}", .{self.currentFilterName()}, 0) catch "";
-        ig.igTextUnformatted("Filter:");
+        var preview_buffer: [settings_mod.max_path:0]u8 = undefined;
+        ig.igTextUnformatted(l10n.t("elk.filter.label"));
         ig.igSameLine();
         ig.igSetNextItemWidth(ig.igGetFontSize() * 12);
-        if (ig.igBeginCombo("##filter", current.ptr, 0)) {
+        if (ig.igBeginCombo("##filter", filterLabel(&preview_buffer, current), 0)) {
             defer ig.igEndCombo();
             var label_buffer: [settings_mod.max_path:0]u8 = undefined;
             for (0..self.filterCount()) |index| {
                 const filter = self.filterAt(index);
-                const label = std.mem.printSentinel(&label_buffer, "{s}", .{filter.name}, 0) catch continue;
-                if (ig.igSelectableEx(label.ptr, std.mem.eql(u8, filter.name, current), 0, .{ .x = 0, .y = 0 })) {
+                if (ig.igSelectableEx(filterLabel(&label_buffer, filter.name), std.mem.eql(u8, filter.name, current), 0, .{ .x = 0, .y = 0 })) {
                     // The name borrows the settings it is written into.
                     var copy: [settings_mod.max_path]u8 = undefined;
                     @memcpy(copy[0..filter.name.len], filter.name);
@@ -2135,11 +2179,11 @@ pub const Ui = struct {
     }
 
     fn drawFileMenu(self: *Ui, window: *window_mod.Window) void {
-        if (!ig.igBeginMenu("File")) return;
+        if (!ig.igBeginMenu(l10n.id("elk.menu.file"))) return;
         defer ig.igEndMenu();
-        if (ig.igMenuItemEx("Open...", "Ctrl+O", false, !open_slot.waiting())) self.requestOpen(window);
+        if (ig.igMenuItemEx(l10n.id("elk.file.open"), "Ctrl+O", false, !open_slot.waiting())) self.requestOpen(window);
         const settings_count = self.settings.recentCount();
-        if (ig.igBeginMenuEx("Recent", settings_count != 0)) {
+        if (ig.igBeginMenuEx(l10n.id("elk.file.recent"), settings_count != 0)) {
             defer ig.igEndMenu();
             var path_buffer: [settings_mod.max_path:0]u8 = undefined;
             var index: usize = 0;
@@ -2156,20 +2200,20 @@ pub const Ui = struct {
             }
         }
         const open = self.session.isOpen();
-        if (ig.igMenuItemEx("Save", "Ctrl+S", false, open)) self.session.save() catch {};
-        if (ig.igMenuItemEx("Close", null, false, open)) self.session.close() catch {};
+        if (ig.igMenuItemEx(l10n.id("elk.file.save"), "Ctrl+S", false, open)) self.session.save() catch {};
+        if (ig.igMenuItemEx(l10n.id("elk.file.close"), null, false, open)) self.session.close() catch {};
         ig.igSeparator();
-        if (ig.igMenuItemEx("Import from Game...", null, false, self.canImportPackage())) self.requestPackage(window, .game);
-        if (ig.igMenuItemEx("Import from PAK/UPD...", null, false, self.canImportPackage())) self.requestPackage(window, .pak);
+        if (ig.igMenuItemEx(l10n.id("elk.file.import_game"), null, false, self.canImportPackage())) self.requestPackage(window, .game);
+        if (ig.igMenuItemEx(l10n.id("elk.file.import_pak"), null, false, self.canImportPackage())) self.requestPackage(window, .pak);
         const sheet_free = self.canExport() and !sheet_slot.waiting();
-        if (ig.igMenuItemEx("Import from spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .import);
-        if (ig.igMenuItemEx("Export to spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .@"export");
+        if (ig.igMenuItemEx(l10n.id("elk.file.import_sheet"), null, false, sheet_free)) self.requestSheet(window, .import);
+        if (ig.igMenuItemEx(l10n.id("elk.file.export_sheet"), null, false, sheet_free)) self.requestSheet(window, .@"export");
         ig.igSeparator();
-        if (ig.igMenuItemEx("Export to language mod...", null, false, self.canExport())) self.requestExportMod(false);
-        if (ig.igMenuItemEx("Install to game...", null, false, self.canExport())) self.requestInstall();
-        if (ig.igMenuItemEx("Run Game", null, false, self.canRunGame())) self.requestRunGame();
+        if (ig.igMenuItemEx(l10n.id("elk.file.export_mod"), null, false, self.canExport())) self.requestExportMod(false);
+        if (ig.igMenuItemEx(l10n.id("elk.file.install"), null, false, self.canExport())) self.requestInstall();
+        if (ig.igMenuItemEx(l10n.id("elk.file.run_game"), null, false, self.canRunGame())) self.requestRunGame();
         ig.igSeparator();
-        if (ig.igMenuItem("Exit")) self.requestExit();
+        if (ig.igMenuItem(l10n.id("elk.file.exit"))) self.requestExit();
     }
 
     /// The tree as rows: the open part of it, clipped to what the child
@@ -2231,7 +2275,7 @@ pub const Ui = struct {
 
     fn drawText(self: *Ui) void {
         const index = self.session.selected orelse {
-            ig.igTextUnformatted("Select a text in the list.");
+            ig.igTextUnformatted(l10n.t("elk.text.select"));
             return;
         };
         const third = (ig.igGetContentRegionAvail().y - 3 * ig.igGetTextLineHeightWithSpacing() - ig.igGetFrameHeightWithSpacing()) / 3;
@@ -2239,19 +2283,19 @@ pub const Ui = struct {
         // not carry its buffer over to this one.
         ig.igPushIDInt(@intCast(index));
         defer ig.igPopID();
-        ig.igTextUnformatted("Original");
+        ig.igTextUnformatted(l10n.t("elk.text.original"));
         if (self.session.original.storage(self.gpa)) |storage| {
             _ = ig.igInputTextMultilineEx("##original", storage.ptr, storage.len, .{ .x = -1, .y = third }, ig.ImGuiInputTextFlags_ReadOnly, null, null);
         } else |_| {}
         // The MFC view's "Item description:", read-only with select and
         // copy; where Find shows a hit in a description.
-        ig.igTextUnformatted("Description");
+        ig.igTextUnformatted(l10n.t("elk.text.description"));
         if (self.session.description.storage(self.gpa)) |storage| {
             _ = ig.igInputTextMultilineEx("##description", storage.ptr, storage.len, .{ .x = -1, .y = third }, ig.ImGuiInputTextFlags_ReadOnly, null, null);
             self.description_drawn = true;
         } else |_| {}
         self.drawStateButtons();
-        ig.igTextUnformatted("Translation");
+        ig.igTextUnformatted(l10n.t("elk.text.translation"));
         // Held while the dialog is open, whose modal the focus would close.
         if (self.focus_translation and !self.modalOpen()) {
             ig.igSetKeyboardFocusHere();
@@ -2268,14 +2312,12 @@ pub const Ui = struct {
     /// The edit view's state radio buttons. Outdated shows when an update
     /// set it but cannot be chosen.
     fn drawStateButtons(self: *Ui) void {
-        ig.igTextUnformatted("State:");
+        ig.igTextUnformatted(l10n.t("elk.text.state"));
         for ([_]State{ .not_translated, .outdated, .translated, .approved }) |state| {
-            var name: [32:0]u8 = undefined;
-            const label = std.mem.printSentinel(&name, "{s}", .{stateName(state)}, 0) catch continue;
             ig.igSameLine();
             ig.igBeginDisabled(state == .outdated);
             ig.igPushStyleColor(ig.ImGuiCol_Text, stateColour(state));
-            if (ig.igRadioButton(label.ptr, self.session.state == state)) self.pressState(state);
+            if (ig.igRadioButton(stateId(state), self.session.state == state)) self.pressState(state);
             ig.igPopStyleColor();
             ig.igEndDisabled();
         }
@@ -2284,31 +2326,31 @@ pub const Ui = struct {
 
     fn drawStatus(self: *Ui) void {
         var buffer: [1536:0]u8 = undefined;
+        var writer: std.Io.Writer = .fixed(buffer[0 .. buffer.len - 1]);
+        var part: [256]u8 = undefined;
         const failure = self.session.failureText();
-        // The MFC ELK selected the hit in its edit box; this names where it is.
-        var found_buffer: [96]u8 = undefined;
-        const found = if (self.session.last_hit) |hit| (if (self.session.selected == hit.text)
-            std.fmt.bufPrint(&found_buffer, " | found in the {s} at {d}", .{ @tagName(hit.field), hit.offset }) catch ""
-        else
-            "") else "";
         // The last export's or launch's summary closes the line.
         const notice_text = self.notice();
-        const separator = if (notice_text.len != 0) " | " else "";
-        const text = if (failure.len != 0)
-            std.mem.printSentinel(&buffer, "{s}{s}", .{ failure, if (self.exit_refused) " | Exit again to quit without saving" else "" }, 0)
-        else if (self.session.selected) |index|
-            std.mem.printSentinel(&buffer, "{d} texts | {s} | {s}{s}{s}{s}{s}", .{
-                self.session.textCount(),
-                self.session.textAt(index).key,
-                stateName(self.session.state),
-                if (self.session.dirty()) " | unsaved" else "",
-                found,
-                separator,
-                notice_text,
-            }, 0)
-        else
-            std.mem.printSentinel(&buffer, "{d} texts{s}{s}", .{ self.session.textCount(), separator, notice_text }, 0);
-        ig.igTextUnformatted((text catch return).ptr);
+        if (failure.len != 0) {
+            writer.writeAll(failure) catch {};
+            if (self.exit_refused) {
+                writer.writeAll(" | ") catch {};
+                writer.writeAll(std.mem.span(l10n.t("elk.status.exit_again"))) catch {};
+            }
+        } else {
+            writer.writeAll(l10n.format(&part, "elk.status.count", .{self.session.textCount()}) catch "") catch {};
+            if (self.session.selected) |index| {
+                writer.print(" | {s} | {s}", .{ self.session.textAt(index).key, stateName(self.session.state) }) catch {};
+                if (self.session.dirty()) writer.print(" | {s}", .{std.mem.span(l10n.t("elk.status.unsaved"))}) catch {};
+                // The MFC ELK selected the hit in its edit box; this names where it is.
+                if (self.session.last_hit) |hit| if (self.session.selected == hit.text) {
+                    writer.print(" | {s}", .{l10n.format(&part, "elk.status.found", .{ fieldName(hit.field), hit.offset }) catch ""}) catch {};
+                };
+            }
+            if (notice_text.len != 0) writer.print(" | {s}", .{notice_text}) catch {};
+        }
+        buffer[writer.end] = 0;
+        ig.igTextUnformatted(&buffer);
     }
 
     fn drawFailure(self: *Ui) void {
@@ -2320,13 +2362,45 @@ pub const Ui = struct {
     }
 };
 
-pub fn stateName(state: session_mod.State) []const u8 {
+/// The state's name in the current language.
+pub fn stateName(state: session_mod.State) [:0]const u8 {
+    return std.mem.span(switch (state) {
+        .not_translated => l10n.t("elk.state.not_translated"),
+        .outdated => l10n.t("elk.state.outdated"),
+        .translated => l10n.t("elk.state.translated"),
+        .approved => l10n.t("elk.state.approved"),
+    });
+}
+
+/// The state's name as a widget label, whose ID stays when the language changes.
+fn stateId(state: session_mod.State) [*:0]const u8 {
     return switch (state) {
-        .not_translated => "Not translated",
-        .outdated => "Outdated",
-        .translated => "Translated",
-        .approved => "Approved",
+        .not_translated => l10n.id("elk.state.not_translated"),
+        .outdated => l10n.id("elk.state.outdated"),
+        .translated => l10n.id("elk.state.translated"),
+        .approved => l10n.id("elk.state.approved"),
     };
+}
+
+/// A filter's name for display: the five built-in filters (their names are data, kept as the MFC
+/// ELK wrote them) in the current language, a filter the translator made as typed.
+fn filterLabel(buffer: *[settings_mod.max_path:0]u8, name: []const u8) [*:0]const u8 {
+    if (std.mem.eql(u8, name, "All")) return l10n.t("elk.filter.all");
+    if (std.mem.eql(u8, name, "Not Translated")) return l10n.t("elk.filter.not_translated");
+    if (std.mem.eql(u8, name, "Outdated")) return l10n.t("elk.filter.outdated");
+    if (std.mem.eql(u8, name, "Translated")) return l10n.t("elk.filter.translated");
+    if (std.mem.eql(u8, name, "Approved")) return l10n.t("elk.filter.approved");
+    const text = std.mem.printSentinel(buffer, "{s}", .{name}, 0) catch return "";
+    return text.ptr;
+}
+
+/// A find hit's field as the status line names it.
+fn fieldName(field: elk_core.search.Field) [:0]const u8 {
+    return std.mem.span(switch (field) {
+        .original => l10n.t("elk.field.original"),
+        .description => l10n.t("elk.field.description"),
+        .translation => l10n.t("elk.field.translation"),
+    });
 }
 
 /// The four states' colours (07-CONTEXT: red, yellow, green, blue), light
@@ -2365,6 +2439,55 @@ fn tableRow(label: []const u8, flags: ig.ImGuiTreeNodeFlags, colour: ?u32, count
         ig.igTextUnformatted(&number_buffer);
     }
     return open and !leaf;
+}
+
+/// The table code elk.cfg's `ui_language` stands for. `system` follows the operating system's
+/// preferred languages; a scripted run never does, so its frames are English on any machine.
+pub fn chooseLanguage(settings: *const settings_mod.Settings, scripted: bool) []const u8 {
+    const setting = kit.settings.uiLanguage(settings);
+    if (scripted and std.mem.eql(u8, setting, l10n.system_setting)) return "en";
+    var storage: [8][48]u8 = undefined;
+    var locales: [8][]const u8 = undefined;
+    var count: usize = 0;
+    var listed: c_int = 0;
+    if (sdl3.c.SDL_GetPreferredLocales(&listed)) |list| {
+        defer sdl3.c.SDL_free(@ptrCast(list));
+        while (count < locales.len and count < @as(usize, @intCast(listed))) : (count += 1) {
+            const locale = list[count] orelse break;
+            const language = std.mem.span(locale.*.language);
+            locales[count] = (if (locale.*.country) |country|
+                std.fmt.bufPrint(&storage[count], "{s}_{s}", .{ language, std.mem.span(country) })
+            else
+                std.fmt.bufPrint(&storage[count], "{s}", .{language})) catch language;
+        }
+    }
+    const resolved = l10n.resolveLanguage(setting, locales[0..count]);
+    if (resolved.unknown_setting) std.debug.print("l10n: unknown ui_language {s}, using {s}\n", .{ setting, resolved.code });
+    return resolved.code;
+}
+
+/// The longest help block, in bytes, the window draws: a Hindi paragraph is a few thousand bytes.
+const help_line_bytes = 6144;
+
+/// A help block as a drawable line: copied, and for Hindi turned into the merged font's
+/// cluster characters. Null when it does not fit.
+fn helpLine(line: *[help_line_bytes:0]u8, scratch: *[help_line_bytes:0]u8, text: []const u8) ?[:0]const u8 {
+    if (text.len >= help_line_bytes) return null;
+    if (!std.mem.eql(u8, l10n.language(), "hi")) return std.mem.printSentinel(line, "{s}", .{text}, 0) catch null;
+    const copied = std.mem.printSentinel(scratch, "{s}", .{text}, 0) catch return null;
+    return kit.fonts.encodeHindi(line, copied) orelse copied;
+}
+
+/// An exit code or signal for a message: its digits, or "none".
+fn optionalInt(buffer: []u8, value: anytype) []const u8 {
+    const number = value orelse return "none";
+    return std.fmt.bufPrint(buffer, "{d}", .{number}) catch "none";
+}
+
+/// One line of formatted text from the table; an empty line when it does not fit.
+fn printKey(buffer: anytype, comptime key: []const u8, args: anytype) void {
+    const text: [:0]const u8 = l10n.formatZ(buffer, key, args) orelse "";
+    ig.igTextUnformatted(text.ptr);
 }
 
 /// One line of formatted text; an empty line when it does not fit.
