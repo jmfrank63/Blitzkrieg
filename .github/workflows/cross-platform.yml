@@ -147,13 +147,15 @@ jobs:
             !/*/
             # build.zig reads the engine's .vcxproj files while it evaluates its graph, so
             # Sources is needed even though no engine step runs. Measured 2026-10-20 in a
-            # sparse worktree: this list passes the three steps below.
+            # sparse worktree: this list passes the three steps below. The S08 document sets also
+            # read Data/Editor/TestProjects/**/README*.md (22 doc-missing findings without it).
             /Sources/
             !/Sources/src/data/
             /tools/
             /vendor/
             /Localization/
             /Data/ELK/
+            /Data/Editor/TestProjects/
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.17.0
