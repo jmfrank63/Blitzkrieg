@@ -220,6 +220,7 @@ fn runTool(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, lang: []const u8
     var environ = try std.testing.environ.createMap(gpa);
     defer environ.deinit();
     try environ.put("BK_LANG", lang);
+    try environ.put("BK_OS_LOCALES", "");
     const result = try std.process.run(gpa, io, .{
         .argv = argv.items,
         .cwd = .{ .dir = cwd },

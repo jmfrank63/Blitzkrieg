@@ -196,7 +196,7 @@ pub fn main(
     };
     const tool_args = stripped.args;
 
-    var os_locales = bk_l10n.OsLocales.query();
+    var os_locales = bk_l10n.OsLocales.forEnv(env);
     var os_slots: [bk_l10n.OsLocales.max][]const u8 = undefined;
     texts.setLanguage(bk_l10n.resolve(stripped.lang, env, os_locales.slice(&os_slots)).code);
     const shown_usage = buildUsage(arena, &texts, usage) catch {

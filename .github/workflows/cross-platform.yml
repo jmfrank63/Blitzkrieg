@@ -205,6 +205,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -409,6 +410,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -829,6 +831,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1195,6 +1198,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1450,6 +1454,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1650,6 +1655,7 @@ jobs:
             /Sources/src/data/Movies/transition/close.bik
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1878,6 +1884,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -2135,6 +2142,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -2523,6 +2531,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -2911,6 +2920,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3260,6 +3270,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3461,6 +3472,7 @@ jobs:
             /Sources/src/data/Movies/transition/close.bik
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3703,6 +3715,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3947,6 +3960,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4308,6 +4322,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4642,6 +4657,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4900,6 +4916,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -5105,6 +5122,7 @@ jobs:
             /Sources/src/data/Movies/transition/close.bik
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml

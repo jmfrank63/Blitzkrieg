@@ -44,7 +44,7 @@ fn io() std.Io {
 }
 
 fn chooseLanguage(set: *bk_l10n.Set, lang: ?[]const u8, env: bk_l10n.EnvView) void {
-    var os_locales = bk_l10n.OsLocales.query();
+    var os_locales = bk_l10n.OsLocales.forEnv(env);
     var os_slots: [bk_l10n.OsLocales.max][]const u8 = undefined;
     set.setLanguage(bk_l10n.resolve(lang, env, os_locales.slice(&os_slots)).code);
 }

@@ -45,12 +45,13 @@ const Result = struct {
 };
 
 /// The variables the language order reads; every run starts without them.
-const language_variables = [_][]const u8{ "BK_LANG", "BK_L10N_DIR", "BK_DEBUG_LOG", "LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE" };
+const language_variables = [_][]const u8{ "BK_LANG", "BK_L10N_DIR", "BK_DEBUG_LOG", "LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE", "BK_OS_LOCALES" };
 
 const Env = struct { name: []const u8, value: []const u8 };
 
-/// Runs `exe` in `cwd` with the language variables cleared and then `env` set, so the result
-/// depends on nothing of the machine's locale.
+/// Runs `exe` in `cwd` with the language variables cleared, the operating system pinned to name no
+/// language (`BK_OS_LOCALES` empty: a Mac or Windows user's own language must not leak in), and then
+/// `env` set, so the result depends on nothing of the machine's locale.
 fn run(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, cwd: std.Io.Dir, env: []const Env, args: []const []const u8) !Result {
     var argv = std.ArrayList([]const u8).empty;
     defer argv.deinit(gpa);
@@ -59,6 +60,7 @@ fn run(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, cwd: std.Io.Dir, env
     var environ = try std.testing.environ.createMap(gpa);
     defer environ.deinit();
     for (language_variables) |name| _ = environ.swapRemove(name);
+    try environ.put("BK_OS_LOCALES", "");
     for (env) |entry| try environ.put(entry.name, entry.value);
     const result = try std.process.run(gpa, io, .{
         .argv = argv.items,
@@ -215,6 +217,12 @@ test "the language order holds for a real process" {
         // The terminal cannot show UTF-8, so the machine's locale gets English (the non-UTF-8 policy).
         .{ .args = &.{"--help"}, .env = &.{.{ .name = "LANG", .value = "ru_RU.KOI8-R" }}, .expect = "en" },
         .{ .args = &.{"--help"}, .env = &.{}, .expect = "en" },
+        // The operating system comes after the environment variables and before English.
+        .{ .args = &.{"--help"}, .env = &.{.{ .name = "BK_OS_LOCALES", .value = "fr" }}, .expect = "fr" },
+        .{ .args = &.{"--help"}, .env = &.{.{ .name = "BK_OS_LOCALES", .value = "xx,ru-RU,en-GB" }}, .expect = "ru" },
+        .{ .args = &.{"--help"}, .env = &.{ .{ .name = "BK_OS_LOCALES", .value = "fr" }, .{ .name = "LANG", .value = "de_DE.UTF-8" } }, .expect = "de" },
+        .{ .args = &.{"--help"}, .env = &.{ .{ .name = "BK_OS_LOCALES", .value = "fr" }, .{ .name = "BK_LANG", .value = "ja" } }, .expect = "ja" },
+        .{ .args = &.{ "--lang=de", "--help" }, .env = &.{.{ .name = "BK_OS_LOCALES", .value = "fr" }}, .expect = "de" },
     };
     for (cases) |case| {
         const expected = try pakHelp(gpa, io, exe, tmp.dir, case.expect);

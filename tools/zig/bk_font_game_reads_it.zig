@@ -362,6 +362,7 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
     try environ.put("BK_MEM_REPORT", "count");
     // bk-font's messages are English whatever the machine's language is.
     try environ.put("BK_LANG", "en");
+    try environ.put("BK_OS_LOCALES", "");
     const result = try std.process.run(allocator, io, .{
         .argv = &.{ tool, "--ttf", fixture, "--height", std.fmt.comptimePrint("{d}", .{font_height}), "--out", out, "--force" },
         .environ_map = &environ,

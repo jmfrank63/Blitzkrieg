@@ -15,7 +15,8 @@
 //! BK_LM_GAME names the installed Game executable, BK_LM_FONT_TOOL the
 //! installed bk-font and BK_LM_MODULES the folder of the engine libraries it
 //! loads; `zig build language-mods` sets them. BK_LM_LANGS (comma separated
-//! codes) limits a shard to some of the languages; the default is all of them.
+//! codes) limits a shard to some of the languages; the default is all of them. A language whose
+//! overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left out.
 const std = @import("std");
 const elk = @import("elk");
 const zip = @import("zip");
@@ -86,10 +87,11 @@ test "the language mods are built from the overlays through ELK's export" {
     const cwd_path = try std.process.currentPathAlloc(io, allocator);
 
     const filter = try envValue(allocator, "BK_LM_LANGS");
+    const allow_missing = if (try envValue(allocator, "BK_LM_ALLOW_MISSING")) |value| std.mem.eql(u8, value, "1") else false;
     const elk_before = try treeHash("Data/ELK");
     for (languages) |language| {
         if (!selected(filter, language.code)) continue;
-        build(io, allocator, language, game_root, font_tool, modules, cwd_path) catch |err| {
+        build(io, allocator, language, game_root, font_tool, modules, cwd_path, allow_missing) catch |err| {
             std.debug.print("language-mods: {s}: {s} failed: {s} (scratch: {s}/{s})\n", .{ language.code, stage, @errorName(err), scratch, language.code });
             return err;
         };
@@ -98,13 +100,18 @@ test "the language mods are built from the overlays through ELK's export" {
     try testing.expectEqual(elk_before, try treeHash("Data/ELK"));
 }
 
-fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root: []const u8, font_tool: []const u8, modules: []const u8, cwd_path: []const u8) !void {
+fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root: []const u8, font_tool: []const u8, modules: []const u8, cwd_path: []const u8, allow_missing: bool) !void {
     const cwd = std.Io.Dir.cwd();
-    // A Latin language whose overlay is not translated yet is left out.
+    // A missing overlay is an error: a sparse checkout without Localization/ must stop here, not
+    // leave the mod out for a later step to miss. Only BK_LM_ALLOW_MISSING=1 leaves one out.
     const overlay_folder = try std.fs.path.join(allocator, &.{ "Localization/game", language.code, "game_data_base" });
     cwd.access(io, overlay_folder, .{}) catch {
-        std.debug.print("language-mods: {s}: no overlay at {s}, skipped\n", .{ language.code, overlay_folder });
-        return;
+        if (allow_missing) {
+            std.debug.print("language-mods: {s}: no overlay at {s}, skipped (BK_LM_ALLOW_MISSING)\n", .{ language.code, overlay_folder });
+            return;
+        }
+        std.debug.print("language-mods: {s}: no overlay at {s}; check out Localization/ or set BK_LM_ALLOW_MISSING=1 for a deliberate subset\n", .{ language.code, overlay_folder });
+        return error.OverlayMissing;
     };
     const root = try std.fs.path.join(allocator, &.{ scratch, language.code });
     cwd.deleteTree(io, root) catch {};

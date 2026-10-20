@@ -191,6 +191,25 @@ test "no Windows job runs a measured tier without hb-view" {
     }
 }
 
+test "every job with an l10n step checks out Localization" {
+    // The language mods and the glossary read Localization/ from the checkout, and the jobs are
+    // sparse: without the folder language-mods had nothing to build (run 39446226101).
+    const workflow = try readWorkflow(testing.allocator);
+    defer testing.allocator.free(workflow);
+    for (expected) |row| {
+        const text = jobText(workflow, row.job) orelse return error.JobMissing;
+        var found = false;
+        var lines = std.mem.splitScalar(u8, text, '\n');
+        while (lines.next()) |raw| {
+            if (std.mem.eql(u8, std.mem.trim(u8, raw, " \t\r"), "/Localization/")) found = true;
+        }
+        if (!found) {
+            std.debug.print("ci-l10n-wiring: {s} runs `{s}` but its sparse checkout lacks /Localization/\n", .{ row.job, row.step });
+            return error.LocalizationMissing;
+        }
+    }
+}
+
 test "the job splitter finds the last job and rejects a missing one" {
     const sample = "jobs:\n  a:\n    x: 1\n  b:\n    run: zig build one two\n";
     try testing.expect(jobText(sample, "c") == null);

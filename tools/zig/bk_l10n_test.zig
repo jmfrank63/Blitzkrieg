@@ -138,6 +138,19 @@ test "the Windows language id map covers the nine languages and not Traditional 
     try testing.expect(l10n.langIdCode(0x0412) == null);
 }
 
+test "BK_OS_LOCALES replaces the system's answer, an empty value means none" {
+    var out: [l10n.OsLocales.max][]const u8 = undefined;
+    const pinned = l10n.OsLocales.forEnv(.{ .bk_os_locales = "xx, ru-RU,en-GB" });
+    const list = pinned.slice(&out);
+    try testing.expectEqual(@as(usize, 3), list.len);
+    try testing.expectEqualStrings("ru-RU", list[1]);
+    try testing.expectEqualStrings("ru", l10n.resolve(null, .{}, list).code);
+    try testing.expectEqual(l10n.Source.os_locale, l10n.resolve(null, .{}, list).source);
+    try testing.expectEqual(@as(usize, 0), l10n.OsLocales.forEnv(.{ .bk_os_locales = "" }).count);
+    // The environment variables still come first.
+    try testing.expectEqualStrings("de", l10n.resolve(null, .{ .lang = "de_DE.UTF-8" }, list).code);
+}
+
 test "OsLocales is empty on Linux and the console helper is a no-op" {
     if (@import("builtin").os.tag != .linux) return error.SkipZigTest;
     const os = l10n.OsLocales.query();

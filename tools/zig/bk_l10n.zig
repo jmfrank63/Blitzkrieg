@@ -10,7 +10,8 @@
 //! `resolve` is pure, so the order is tested without touching the process. A key a language lacks
 //! shows the English text and logs `l10n: missing <code> <key>` once on stderr, only when
 //! `BK_DEBUG_LOG=1`, so a successful run keeps an empty stderr. `BK_L10N_DIR` loads
-//! `<dir>/<code>.lang` instead of the embedded table, for tests.
+//! `<dir>/<code>.lang` instead of the embedded table, and `BK_OS_LOCALES` replaces the operating
+//! system's language list, both for tests.
 //!
 //! A tool embeds its tables where its own path resolves them:
 //!
@@ -25,6 +26,12 @@ const languages = @import("l10n_languages.zig");
 
 /// The environment variable that replaces the embedded tables.
 pub const override_env = "BK_L10N_DIR";
+
+/// A test seam: a comma list of locale codes (`fr`, `ru-RU,en-GB`) that stands in for the operating
+/// system's answer in `OsLocales.forEnv`, an empty value for "the system names none". It sits where
+/// the system sits in the order (after the environment locale variables), so a test can pin the
+/// system without the machine's language leaking in.
+pub const os_override_env = "BK_OS_LOCALES";
 
 /// `en` first, then the nine of M002 in the order of `l10n_languages`.
 pub const codes = blk: {
@@ -165,6 +172,7 @@ pub const EnvView = struct {
     language: ?[]const u8 = null,
     bk_l10n_dir: ?[]const u8 = null,
     bk_debug_log: ?[]const u8 = null,
+    bk_os_locales: ?[]const u8 = null,
 
     /// `map` is anything with `get(name) ?[]const u8`, such as `init.environ_map`.
     pub fn fromMap(map: anytype) EnvView {
@@ -176,6 +184,7 @@ pub const EnvView = struct {
             .language = map.get("LANGUAGE"),
             .bk_l10n_dir = map.get(override_env),
             .bk_debug_log = map.get("BK_DEBUG_LOG"),
+            .bk_os_locales = map.get(os_override_env),
         };
     }
 
@@ -349,6 +358,16 @@ pub const OsLocales = struct {
         @memcpy(self.names[self.count][0..name.len], name);
         self.lens[self.count] = @intCast(name.len);
         self.count += 1;
+    }
+
+    /// The locales a run uses: `BK_OS_LOCALES` when it is set (an empty value means the system names
+    /// none), otherwise what the system says. See `os_override_env`.
+    pub fn forEnv(env: EnvView) OsLocales {
+        const pinned = env.bk_os_locales orelse return query();
+        var found: OsLocales = .{};
+        var items = std.mem.tokenizeAny(u8, pinned, ", ");
+        while (items.next()) |name| found.add(name);
+        return found;
     }
 
     pub fn query() OsLocales {

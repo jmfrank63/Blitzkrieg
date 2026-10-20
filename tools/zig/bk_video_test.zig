@@ -32,6 +32,7 @@ fn runIn(cwd: std.Io.Dir, argv: []const []const u8) !Result {
     var environ = try std.testing.environ.createMap(std.testing.allocator);
     defer environ.deinit();
     try environ.put("BK_LANG", "en");
+    try environ.put("BK_OS_LOCALES", "");
     const result = try std.process.run(std.testing.allocator, std.testing.io, .{
         .argv = argv,
         .environ_map = &environ,

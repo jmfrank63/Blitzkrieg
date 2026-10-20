@@ -115,6 +115,7 @@ test "the bk-image executable writes the golden" {
     var environ = try std.testing.environ.createMap(gpa);
     defer environ.deinit();
     try environ.put("BK_LANG", "en");
+    try environ.put("BK_OS_LOCALES", "");
     for ([_][]const []const u8{
         &.{ exe, "offset-romb", "tiles\\tile.tga", "--out", "out/new.tga" },
         &.{ exe, "offset-romb", "tiles/tile.tga" },
