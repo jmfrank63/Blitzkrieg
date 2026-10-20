@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "bk_l10n.h"
 #include "data_only_startup.h"
 #include "tool_host.h"
 #include "../../Sources/src/FontAtlas/FontAtlas.h"
@@ -27,45 +28,21 @@
 
 namespace fs = std::filesystem;
 
-static const char USAGE[] =
-	"usage: bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]\n"
-	"               [--no-aa] [--charset <name>] [--chars <file>] [--set <name>]\n"
-	"               [--clusters <table>] [--script <tag>] [--language <tag>]\n"
-	"               [--face-index <n>] [--out <dir>] [--force] [--modules <dir>]\n"
-	"\n"
-	"Renders characters 32..255 of the charset's code page (or the characters of\n"
-	"--chars, --set and --clusters) into <dir>/1.tga and\n"
-	"describes them (metrics, texture rects, A/B/C spacing, kerning) in\n"
-	"<dir>/1.tfd, as FontGen did, plus <dir>/1_h.dds, the texture the game\n"
-	"reads: a font directory the game loads like Data/Fonts/small.\n"
-	"\n"
-	"--ttf        a .ttf/.otf/.ttc file, or a face name looked up in the system\n"
-	"             font folders (best effort; a file is the reliable way)\n"
-	"--height     cell height in pixels, ascent + descent (default 20)\n"
-	"--weight     400 regular (default); 600 or more picks the bold face of a\n"
-	"             name, or emboldens a face that is not bold\n"
-	"--italic     picks the italic face of a name, or slants one that is not\n"
-	"--no-aa      every pixel fully on or off\n"
-	"--charset    ansi or default (code page 1252, default), easteurope (1250),\n"
-	"             russian (1251), or the code page number\n"
-	"--chars      a UTF-8 file: every distinct BMP character in it, plus ASCII\n"
-	"             32..126 (Unicode mode; characters the face lacks are left out)\n"
-	"--set        latin1, cyrillic or devanagari: a built-in character range (Unicode\n"
-	"             mode; repeatable, and adds to --chars)\n"
-	"--clusters   the cluster table the language-mods export wrote (U+E000<TAB>cluster\n"
-	"             lines): every cluster becomes one glyph under its Private Use Area\n"
-	"             character, shaped with this --ttf (Unicode mode)\n"
-	"--script     the ISO 15924 tag the clusters are shaped with (default Deva)\n"
-	"--language   the BCP 47 tag the clusters are shaped with (default hi)\n"
-	"--face-index the face inside a .ttc collection (default 0)\n"
-	"--out        output directory, created if missing (default .)\n"
-	"--force      replace an existing font in <dir>\n"
-	"--modules    where the engine's StreamIO and Image libraries are (default:\n"
-	"             beside bk-font, then ../lib)\n";
+// The synopsis stays English; the paragraphs under it and the --lang line come from the tables.
+static std::string UsageText()
+{
+	return std::string( "usage: bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]\n"
+		"               [--no-aa] [--charset <name>] [--chars <file>] [--set <name>]\n"
+		"               [--clusters <table>] [--script <tag>] [--language <tag>]\n"
+		"               [--face-index <n>] [--out <dir>] [--force] [--modules <dir>]\n" )
+		+ "\n" + BK_T( "font.usage.intro" ) + "\n"
+		+ "\n" + BK_T( "font.usage.options" ) + "\n"
+		+ "\n" + BkFormat( "tool.usage.lang", { bk_l10n_valid_codes() } ) + "\n";
+}
 
 static int Usage()
 {
-	fputs( USAGE, stderr );
+	fputs( UsageText().c_str(), stderr );
 	return 2;
 }
 
@@ -230,7 +207,7 @@ static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd,
 	{
 		CPtr<IDataStream> pStream;
 		if ( !CreateOutput( tfd, &pStream ) )
-			return "cannot create " + fs::path( tfd ).make_preferred().string();
+			return BkFormat( "font.err.cannot_create", { fs::path( tfd ).make_preferred().string() } );
 		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::WRITE );
 		CSaverAccessor saver = pSaver;
 		// The reader (FontGpu::Load, CFont::Load) takes chunk 1 as the format.
@@ -240,7 +217,7 @@ static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd,
 	{
 		CPtr<IDataStream> pStream;
 		if ( pImage == 0 || !CreateOutput( tga, &pStream ) || !GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
-			return "cannot write " + fs::path( tga ).make_preferred().string();
+			return BkFormat( "cxx.err.cannot_write", { fs::path( tga ).make_preferred().string() } );
 	}
 	// The game's texture manager reads only DDS (TextureGpu probes 1_<quality>,
 	// then _h, _c, _l), so FontGen's 1.tga reached it through the resource
@@ -249,17 +226,20 @@ static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd,
 	CPtr<IDDSImage> pDDS = GetImageProcessor()->Compress( pImage, GFXPF_ARGB8888 );
 	CPtr<IDataStream> pStream;
 	if ( pDDS == 0 || !CreateOutput( dds, &pStream ) || !GetImageProcessor()->SaveImageAsDDS( pStream, pDDS ) )
-		return "cannot write " + fs::path( dds ).make_preferred().string();
+		return BkFormat( "cxx.err.cannot_write", { fs::path( dds ).make_preferred().string() } );
 	return std::string();
 }
 
 int main( int argc, char *argv[] )
 {
 	NToolHost::BinaryStdio();
+	const int nLanguage = NToolHost::StartLanguage( &argc, &argv, "bk-font", UsageText );
+	if ( nLanguage >= 0 )
+		return nLanguage;
 	for ( int i = 1; i < argc; ++i )
 		if ( strcmp( argv[i], "--help" ) == 0 || strcmp( argv[i], "-h" ) == 0 )
 		{
-			fputs( USAGE, stdout );
+			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
 	std::string szFont, szModules, szOut = ".", szChars, szClusters;
@@ -298,15 +278,15 @@ int main( int argc, char *argv[] )
 	if ( fs::is_regular_file( font, ec ) )
 	{
 		if ( !ReadFile( font, &data ) || data.empty() )
-			return Fail( "cannot read " + font.make_preferred().string() );
+			return Fail( BkFormat( "font.err.cannot_read", { font.make_preferred().string() } ) );
 	}
 	else if ( font.has_extension() || szFont.find_first_of( "/\\" ) != std::string::npos )
-		return Fail( "no font file " + font.make_preferred().string() );
+		return Fail( BkFormat( "font.err.no_file", { font.make_preferred().string() } ) );
 	else
 	{
 		int nFace = 0;
 		if ( !FindFaceFile( szFont, request.nWeight >= 600, request.bItalic, &font, &data, &nFace ) )
-			return Fail( "no font named \"" + szFont + "\" in the system font folders; pass the file with --ttf" );
+			return Fail( BkFormat( "font.err.no_name", { szFont } ) );
 		if ( !bFaceIndex )
 			request.nFaceIndex = nFace;
 		request.szFaceName = szFont;
@@ -319,7 +299,7 @@ int main( int argc, char *argv[] )
 		std::vector<BYTE> text;
 		fs::path chars = NToolHost::InputPath( szChars );
 		if ( !ReadFile( chars, &text ) )
-			return Fail( "cannot read " + chars.make_preferred().string() );
+			return Fail( BkFormat( "font.err.cannot_read", { chars.make_preferred().string() } ) );
 		AddCharsOf( text, &request.codePoints );
 	}
 	if ( !szClusters.empty() )
@@ -327,11 +307,11 @@ int main( int argc, char *argv[] )
 		std::vector<BYTE> text;
 		fs::path table = NToolHost::InputPath( szClusters );
 		if ( !ReadFile( table, &text ) )
-			return Fail( "cannot read " + table.make_preferred().string() );
+			return Fail( BkFormat( "font.err.cannot_read", { table.make_preferred().string() } ) );
 		CBkClusterTable clusters;
 		std::string szTableError;
 		if ( !clusters.Load( std::string( text.begin(), text.end() ), &szTableError ) )
-			return Fail( table.make_preferred().string() + ": " + szTableError );
+			return Fail( BkFormat( "tool.err.path_reason", { table.make_preferred().string(), szTableError } ) );
 		request.clusters = clusters.Entries();
 		if ( request.codePoints.empty() )
 			AddSet( "latin1", &request.codePoints );
@@ -342,22 +322,22 @@ int main( int argc, char *argv[] )
 	FontAtlas::SFontAtlas atlas;
 	std::string szError;
 	if ( !FontAtlas::Build( request, &atlas, &szError ) )
-		return Fail( font.make_preferred().string() + ": " + szError );
+		return Fail( BkFormat( "tool.err.path_reason", { font.make_preferred().string(), szError } ) );
 
 	const fs::path out = NToolHost::InputPath( szOut );
 	const fs::path tfd = out / "1.tfd";
 	const fs::path tga = out / "1.tga";
 	const fs::path dds = out / "1_h.dds";
 	if ( !bForce && ( fs::exists( tfd, ec ) || fs::exists( tga, ec ) || fs::exists( dds, ec ) ) )
-		return Fail( fs::path( out ).make_preferred().string() + " already holds a font; use --force to replace it" );
+		return Fail( BkFormat( "font.err.exists", { fs::path( out ).make_preferred().string() } ) );
 	fs::create_directories( out, ec );
 	if ( ec )
-		return Fail( "cannot create " + fs::path( out ).make_preferred().string() + ": " + ec.message() );
+		return Fail( BkFormat( "cxx.err.create", { fs::path( out ).make_preferred().string(), ec.message() } ) );
 
 	// The startup reports its own reason on stderr before this one.
 	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
 	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
-		return Fail( "the engine libraries did not load from " + szModuleRoot + " (see --modules)" );
+		return Fail( BkFormat( "cxx.err.libs", { szModuleRoot } ) );
 	const std::string szWriteError = WriteFont( atlas, tfd, tga, dds );
 	NDataOnly::Stop();
 	if ( !szWriteError.empty() )

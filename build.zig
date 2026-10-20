@@ -7414,6 +7414,24 @@ fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
     const root = rootPath(b, b.fmt("zig-out/local-test/{s}", .{name}));
     run.setEnvironmentVariable("XDG_DATA_HOME", root);
     run.setEnvironmentVariable("BK_USER_ROOT", root);
+    // The tools pin their messages in English here; the language of the machine must not decide a test.
+    run.setEnvironmentVariable("BK_LANG", "en");
+}
+
+/// The C ABI of the bk-* string tables (tools/zig/bk_l10n.h) as a static library for the C++ tools
+/// bk-font, bk-map and bk-sprite, so they choose the language and read tools/zig/lang/<code>.lang
+/// the way the Zig tools do (M002 S07, D062). Zig code, no C++ runtime: nothing here allocates
+/// through the CRT's operator new.
+fn addBkL10nC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_l10n_c.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    // CoreFoundation answers the macOS user's preferred languages (bk_l10n.OsLocales).
+    if (target.result.os.tag == .macos) module.linkFramework("CoreFoundation", .{});
+    return b.addLibrary(.{ .name = "bk-l10n", .root_module = module, .linkage = .static });
 }
 
 fn addBkFont(
@@ -7437,6 +7455,7 @@ fn addBkFont(
     const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
     // Cluster glyphs (M002 D058) are shaped with HarfBuzz inside FontAtlas.
     const harfbuzz = addHarfBuzz(b, target, optimize, toolchain, .dll);
+    const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const u8{ "tools/zig/bk_font.cpp", "tools/zig/bk_font_test.cpp" }) |module, main_file| {
@@ -7445,6 +7464,7 @@ fn addBkFont(
         module.addIncludePath(b.path("Sources/src/Image"));
         module.addIncludePath(b.path("vendor/harfbuzz/src"));
         module.linkLibrary(harfbuzz);
+        module.linkLibrary(l10n_c);
         module.addCSourceFiles(.{ .files = font_atlas_files, .flags = cppflagsForOptimize(optimize) });
         module.addCSourceFiles(.{ .files = &.{main_file}, .flags = cppflagsForOptimize(optimize) });
         addMsvcIncludePaths(b, module, toolchain);
@@ -7563,6 +7583,7 @@ fn addBkMap(
     // engine libraries (D-03) built with bk-font's recipe. Maps go through
     // MapFile (the Map Editor's reader and writer), the minimap through
     // RandomMapGen's CreateMiniMapImage with Main's object database.
+    const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     const tool_files = &.{ "tools/zig/bk_map.cpp", "tools/zig/bk_map_obj2mod.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
@@ -7591,6 +7612,7 @@ fn addBkMap(
         module.linkLibrary(map_file);
         module.linkLibrary(main_lib);
         module.linkLibrary(randommapgen);
+        module.linkLibrary(l10n_c);
         module.linkLibrary(formats);
         module.linkLibrary(misc);
         module.linkLibrary(lualib);
@@ -7753,6 +7775,7 @@ fn addBkSprite(
     // frames are packed by Image's ComposeImages and written by its TGA
     // writer, the .san by Formats' SSpriteAnimationFormat saver; the animation
     // slots come from the Resource Editor exporter's own name table.
+    const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
@@ -7766,6 +7789,7 @@ fn addBkSprite(
         addLinuxCxxIncludePaths(b, module);
         addMsvcLibraryPaths(b, module, toolchain);
         addMacosSysrootPaths(b, module, target);
+        module.linkLibrary(l10n_c);
         module.linkLibrary(formats);
         module.linkLibrary(misc);
         module.linkLibrary(platform_runtime);

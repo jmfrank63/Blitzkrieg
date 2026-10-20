@@ -1,6 +1,8 @@
 #include "StdAfx.h"
 #include "tool_host.h"
+#include "bk_l10n.h"
 #include <cstdio>
+#include <cstdlib>
 #if defined(_WIN32)
 #include <fcntl.h>
 #include <io.h>
@@ -40,7 +42,26 @@ void BinaryStdio()
 #if defined(_WIN32)
 	_setmode( _fileno( stdout ), _O_BINARY );
 	_setmode( _fileno( stderr ), _O_BINARY );
+	// Translated help reaches a Windows console as UTF-8; the old code page comes back at exit.
+	bk_l10n_console_utf8();
+	atexit( bk_l10n_console_restore );
 #endif
+}
+
+int StartLanguage( int *pArgc, char ***pppArgv, const char *pszTool, std::string ( *pfnUsage )() )
+{
+	const int nResult = bk_l10n_init( *pArgc, *pppArgv );
+	if ( nResult != BK_L10N_OK )
+	{
+		if ( nResult == BK_L10N_UNKNOWN_LANGUAGE )
+			fprintf( stderr, "%s: unknown language '%s'; use one of: %s\n", pszTool, bk_l10n_bad_value(), bk_l10n_valid_codes() );
+		else
+			fprintf( stderr, "%s: --lang needs a language code; use one of: %s\n", pszTool, bk_l10n_valid_codes() );
+		fputs( pfnUsage().c_str(), stderr );
+		return 2;
+	}
+	*pppArgv = bk_l10n_args( pArgc );
+	return -1;
 }
 
 fs::path ExecutableDirectory()

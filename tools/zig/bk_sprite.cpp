@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "bk_l10n.h"
 #include "data_only_startup.h"
 #include "tool_host.h"
 #include "../../Sources/src/Anim/Animation.h"
@@ -34,33 +35,19 @@
 
 namespace fs = std::filesystem;
 
-static const char USAGE[] =
-	"usage: bk-sprite compose <desc-dir> <out-name> [--force] [--modules <dir>]\n"
-	"\n"
-	"compose     packs the frames a sprite-sequence description names into\n"
-	"            <out-name>.tga and describes the animations in <out-name>.san,\n"
-	"            as spcomp did\n"
-	"\n"
-	"<desc-dir> holds anims.txt, one [section] per animation:\n"
-	"  dirs=<n>                 number of directions (required)\n"
-	"  dir<k> seq=<i>,<j>,...   frame indices of direction k (required)\n"
-	"  frametime=<ms>           one frame's show time (default 125)\n"
-	"  speed=<f>                translation speed (default 0)\n"
-	"  cycled=<0|1>             cycled or one-shot (default 1)\n"
-	"  shift=<x>,<y>            every frame's shift (default 0,0)\n"
-	"  dir<k> shift=<x>,<y>     direction k's frames' shift (default: shift)\n"
-	"  frame<i> shift=<x>,<y>   frame i's shift (default: its direction's)\n"
-	"Frame i of animation <name> is <desc-dir>/<name>/<iii>.tga; an animation\n"
-	"named default has the one frame <desc-dir>/1.tga. The section names are\n"
-	"the animation slots (idle, run, death, ...; default and effect are idle).\n"
-	"\n"
-	"--force     replace <out-name>.tga and .san when they are already there\n"
-	"--modules   where the engine's StreamIO and Image libraries are (default:\n"
-	"            beside bk-sprite, then ../lib, then ..)\n";
+// The synopsis stays English; the paragraphs under it and the --lang line come from the tables.
+static std::string UsageText()
+{
+	return std::string( "usage: bk-sprite compose <desc-dir> <out-name> [--force] [--modules <dir>]\n" )
+		+ "\n" + BK_T( "sprite.usage.compose" ) + "\n"
+		+ "\n" + BK_T( "sprite.usage.desc" ) + "\n"
+		+ "\n" + BK_T( "sprite.usage.options" ) + "\n"
+		+ "\n" + BkFormat( "tool.usage.lang", { bk_l10n_valid_codes() } ) + "\n";
+}
 
 static int Usage()
 {
-	fputs( USAGE, stderr );
+	fputs( UsageText().c_str(), stderr );
 	return 2;
 }
 
@@ -146,7 +133,7 @@ static std::string ReadIni( const fs::path &file, SIniTable *pTable )
 {
 	std::ifstream in( file, std::ios::binary );
 	if ( !in )
-		return "cannot read " + Shown( file );
+		return BkFormat( "sprite.err.cannot_read", { Shown( file ) } );
 	const std::string szText( ( std::istreambuf_iterator<char>( in ) ), std::istreambuf_iterator<char>() );
 	std::string szRow;
 	int nLine = 0;
@@ -170,7 +157,7 @@ static std::string ReadIni( const fs::path &file, SIniTable *pTable )
 		}
 		const size_t nEquals = szLine.find( '=' );
 		if ( nEquals == std::string::npos )
-			return NStr::Format( "%s, line %d: no name=value", Shown( file ).c_str(), nLine );
+			return BkFormat( "sprite.err.no_name_value", { Shown( file ), std::to_string( nLine ) } );
 		std::string szName = szLine.substr( 0, nEquals ), szValue = szLine.substr( nEquals + 1 );
 		NStr::TrimBoth( szName );
 		NStr::TrimBoth( szValue );
@@ -191,14 +178,14 @@ static std::string ReadDescription( const fs::path &descDir, std::vector<SAnimat
 	const fs::path table = descDir / "anims.txt";
 	std::error_code ec;
 	if ( !fs::is_regular_file( table, ec ) )
-		return "no anims.txt in " + Shown( descDir );
+		return BkFormat( "sprite.err.no_anims", { Shown( descDir ) } );
 	SIniTable reg;
 	const std::string szError = ReadIni( table, &reg );
 	if ( !szError.empty() )
 		return szError;
 	const std::vector<std::string> &szSections = reg.rows;
 	if ( szSections.empty() )
-		return Shown( table ) + " describes no animation";
+		return BkFormat( "sprite.err.no_animation", { Shown( table ) } );
 	pAnims->resize( szSections.size() );
 	std::unordered_map<int, std::string> slots;
 	std::vector<float> fvals;
@@ -210,28 +197,28 @@ static std::string ReadDescription( const fs::path &descDir, std::vector<SAnimat
 		bool bKnown = false;
 		anim.nSlot = NResourceModel::NCompose::GetActionFromName( anim.szName, &bKnown );
 		if ( !bKnown )
-			return "animation \"" + anim.szName + "\" is not an animation slot of the sprite format";
+			return BkFormat( "sprite.err.not_slot", { anim.szName } );
 		if ( slots.count( anim.nSlot ) != 0 )
-			return "animations \"" + slots[anim.nSlot] + "\" and \"" + anim.szName + "\" go to the same animation slot";
+			return BkFormat( "sprite.err.same_slot", { slots[anim.nSlot], anim.szName } );
 		slots[anim.nSlot] = anim.szName;
 		anim.nFrameTime = reg.GetInt( pszRow, "frametime", 125 );
 		anim.fSpeed = reg.GetFloat( pszRow, "speed", 0 );
 		anim.bCycled = reg.GetInt( pszRow, "cycled", true );
 		const int nNumDirs = reg.GetInt( pszRow, "dirs", 0 );
 		if ( nNumDirs <= 0 )
-			return NStr::Format( "number of dirs must be >0 (in animation \"%s\")", pszRow );
+			return BkFormat( "sprite.err.dirs", { pszRow } );
 		anim.dirs.resize( nNumDirs );
 		reg.GetArray( pszRow, "shift", fvals );
 		if ( fvals.size() == 2 )
 			anim.ptFrameShift.Set( fvals[0], fvals[1] );
 		else if ( fvals.size() != 0 )
-			return NStr::Format( "wrong number of components in the general frame shift for animation \"%s\"", pszRow );
+			return BkFormat( "sprite.err.shift", { pszRow } );
 		for ( int j = 0; j < anim.dirs.size(); ++j )
 		{
 			SDirDesc &dir = anim.dirs[j];
 			reg.GetArray( pszRow, NStr::Format( "dir%d seq", j ), dir.frames );
 			if ( dir.frames.empty() )
-				return NStr::Format( "number of frames must be >0 (for dir %d of animation \"%s\")", j, pszRow );
+				return BkFormat( "sprite.err.frames", { std::to_string( j ), pszRow } );
 			reg.GetArray( pszRow, NStr::Format( "dir%d shift", j ), fvals );
 			if ( fvals.size() == 2 )
 				dir.ptFrameShift.Set( fvals[0], fvals[1] );
@@ -249,7 +236,7 @@ static std::string ReadDescription( const fs::path &descDir, std::vector<SAnimat
 		for ( int j = 0; j < anim.dirs.size(); ++j )
 			for ( int k = 0; k < anim.dirs[j].frames.size(); ++k )
 				if ( anim.dirs[j].frames[k] < 0 || anim.dirs[j].frames[k] >= int( anim.frames.size() ) )
-					return NStr::Format( "frame %d of dir %d of animation \"%s\" is not one of its frames 0..%d", anim.dirs[j].frames[k], j, pszRow, int( anim.frames.size() ) - 1 );
+					return BkFormat( "sprite.err.frame_range", { std::to_string( anim.dirs[j].frames[k] ), std::to_string( j ), pszRow, std::to_string( int( anim.frames.size() ) - 1 ) } );
 	}
 	return std::string();
 }
@@ -296,10 +283,10 @@ static std::string Compose( const fs::path &descDir, std::vector<SAnimationDesc>
 			std::error_code ec;
 			CPtr<IDataStream> pStream = fs::is_regular_file( frame, ec ) ? OpenFileStream( NToolHost::EnginePath( frame ), STREAM_ACCESS_READ ) : 0;
 			if ( pStream == 0 )
-				return "cannot open image " + Shown( frame );
+				return BkFormat( "sprite.err.open_image", { Shown( frame ) } );
 			CPtr<IImage> pImage = pIP->LoadImage( pStream );
 			if ( pImage == 0 )
-				return "cannot load an image from " + Shown( frame );
+				return BkFormat( "sprite.err.load_image", { Shown( frame ) } );
 			holders.push_back( pImage );
 			images.push_back( pImage );
 			++nLastFrame;
@@ -312,11 +299,11 @@ static std::string Compose( const fs::path &descDir, std::vector<SAnimationDesc>
 	std::vector<RECT> rectsMain( images.size() );
 	CPtr<IImage> pImage = pIP->ComposeImages( &( images[0] ), &( rects[0] ), &( rectsMain[0] ), images.size() );
 	if ( pImage == 0 )
-		return "composing the frames failed";
+		return BK_T( "sprite.err.compose" );
 	{
 		CPtr<IDataStream> pStream;
 		if ( !CreateOutput( tga, &pStream ) || !pIP->SaveImageAsTGA( pStream, pImage ) )
-			return "cannot write " + Shown( tga );
+			return BkFormat( "cxx.err.cannot_write", { Shown( tga ) } );
 	}
 	for ( int i = 0; i < animdescs.size(); ++i )
 	{
@@ -339,7 +326,7 @@ static std::string Compose( const fs::path &descDir, std::vector<SAnimationDesc>
 	{
 		CPtr<IDataStream> pStream;
 		if ( !CreateOutput( san, &pStream ) )
-			return "cannot write " + Shown( san );
+			return BkFormat( "cxx.err.cannot_write", { Shown( san ) } );
 		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::WRITE );
 		CSaverAccessor saver = pSaver;
 		// The reader (SSpriteAnimationFormat::Load) takes chunk 1 as the format.
@@ -352,10 +339,13 @@ static std::string Compose( const fs::path &descDir, std::vector<SAnimationDesc>
 int main( int argc, char *argv[] )
 {
 	NToolHost::BinaryStdio();
+	const int nLanguage = NToolHost::StartLanguage( &argc, &argv, "bk-sprite", UsageText );
+	if ( nLanguage >= 0 )
+		return nLanguage;
 	for ( int i = 1; i < argc; ++i )
 		if ( strcmp( argv[i], "--help" ) == 0 || strcmp( argv[i], "-h" ) == 0 )
 		{
-			fputs( USAGE, stdout );
+			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
 	if ( argc < 2 || strcmp( argv[1], "compose" ) != 0 )
@@ -380,20 +370,20 @@ int main( int argc, char *argv[] )
 	const fs::path san = fs::path( out ) += ".san";
 	std::error_code ec;
 	if ( !fs::is_directory( descDir, ec ) )
-		return Fail( "no description directory " + Shown( descDir ) );
+		return Fail( BkFormat( "sprite.err.no_dir", { Shown( descDir ) } ) );
 	if ( !bForce && ( fs::exists( tga, ec ) || fs::exists( san, ec ) ) )
-		return Fail( Shown( fs::exists( tga, ec ) ? tga : san ) + " is already there; use --force to replace it" );
+		return Fail( BkFormat( "cxx.err.exists", { Shown( fs::exists( tga, ec ) ? tga : san ) } ) );
 	if ( out.has_parent_path() )
 	{
 		fs::create_directories( out.parent_path(), ec );
 		if ( ec )
-			return Fail( "cannot create " + Shown( out.parent_path() ) + ": " + ec.message() );
+			return Fail( BkFormat( "cxx.err.create", { Shown( out.parent_path() ), ec.message() } ) );
 	}
 
 	// The startup reports its own reason on stderr before this one.
 	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
 	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
-		return Fail( "the engine libraries did not load from " + szModuleRoot + " (see --modules)" );
+		return Fail( BkFormat( "cxx.err.libs", { szModuleRoot } ) );
 	std::string szSummary, szError;
 	try
 	{
@@ -404,7 +394,7 @@ int main( int argc, char *argv[] )
 	}
 	catch ( ... )
 	{
-		szError = "the engine threw while reading or writing";
+		szError = BK_T( "cxx.err.threw" );
 	}
 	NDataOnly::Stop();
 	if ( !szError.empty() )

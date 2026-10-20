@@ -188,6 +188,8 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     try cwd.createDirPath(io, user);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    // bk-font's messages are English whatever the machine's language is.
+    try environ.put("BK_LANG", "en");
 
     var fonts: std.ArrayListUnmanaged(packages.Entry) = .empty;
     var atlas_report: std.ArrayListUnmanaged(u8) = .empty;

@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "bk_l10n.h"
 #include "data_only_startup.h"
 #include "tool_host.h"
 #include "bk_map_obj2mod.h"
@@ -28,35 +29,23 @@
 
 namespace fs = std::filesystem;
 
-static const char USAGE[] =
-	"usage: bk-map to-bzm <in.xml|dir> [--out <dir>] [--force] [--data <dir>] [--modules <dir>]\n"
-	"       bk-map to-xml <in.bzm|dir> [--out <dir>] [--force] [--data <dir>] [--modules <dir>]\n"
-	"       bk-map minimap <map|dir> --size <px> [--out <dir>] [--force] [--data <dir>] [--modules <dir>]\n"
-	"       bk-map obj2mod <in.obj> <out.mod> [skeleton.txt] [anim.txt] [--modules <dir>]\n"
-	"       bk-map validate-obj2mod <in.obj> [skeleton.txt] [anim.txt]\n"
-	"\n"
-	"to-bzm      converts a map from .xml to the game's binary .bzm\n"
-	"to-xml      converts a map from .bzm to .xml\n"
-	"minimap     draws a map's minimap as <map>_c.dds, <map>_l.dds and <map>_h.dds,\n"
-	"            <px> square, with the object database and tilesets of --data\n"
-	"obj2mod     builds a .mod from the Blender exporter's OBJ and its optional\n"
-	"            skeleton and animation files (tools/blender)\n"
-	"validate-obj2mod  checks those files the way obj2mod does, writing nothing\n"
-	"\n"
-	"A directory is searched recursively (to-bzm takes its .xml files, to-xml its\n"
-	".bzm files, minimap both, the newer of the two when a map has both, as the\n"
-	"game reads it) and the tree is mirrored under --out.\n"
-	"\n"
-	"--out       output directory (default: beside each input)\n"
-	"--force     replace outputs that are already there\n"
-	"--data      the game's Data directory (default ./Data): a map names road and\n"
-	"            river descriptions, a minimap also needs objects and tilesets\n"
-	"--modules   where the engine's StreamIO and Image libraries are (default:\n"
-	"            beside bk-map, then ../lib, then ..)\n";
+// The synopsis stays English; the paragraphs under it and the --lang line come from the tables.
+static std::string UsageText()
+{
+	return std::string( "usage: bk-map to-bzm <in.xml|dir> [--out <dir>] [--force] [--data <dir>] [--modules <dir>]\n"
+		"       bk-map to-xml <in.bzm|dir> [--out <dir>] [--force] [--data <dir>] [--modules <dir>]\n"
+		"       bk-map minimap <map|dir> --size <px> [--out <dir>] [--force] [--data <dir>] [--modules <dir>]\n"
+		"       bk-map obj2mod <in.obj> <out.mod> [skeleton.txt] [anim.txt] [--modules <dir>]\n"
+		"       bk-map validate-obj2mod <in.obj> [skeleton.txt] [anim.txt]\n" )
+		+ "\n" + BK_T( "map.usage.commands" ) + "\n"
+		+ "\n" + BK_T( "map.usage.directory" ) + "\n"
+		+ "\n" + BK_T( "map.usage.options" ) + "\n"
+		+ "\n" + BkFormat( "tool.usage.lang", { bk_l10n_valid_codes() } ) + "\n";
+}
 
 static int Usage()
 {
-	fputs( USAGE, stderr );
+	fputs( UsageText().c_str(), stderr );
 	return 2;
 }
 
@@ -109,12 +98,12 @@ static bool CollectJobs( const fs::path &input, const fs::path &out, const char 
 		}
 		if ( ec )
 		{
-			*pError = "cannot list " + Shown( input ) + ": " + ec.message();
+			*pError = BkFormat( "map.err.cannot_list", { Shown( input ), ec.message() } );
 			return false;
 		}
 		if ( files.empty() )
 		{
-			*pError = "no " + std::string( bMinimap ? ".bzm or .xml" : pszFrom ) + " maps under " + Shown( input );
+			*pError = BkFormat( "map.err.no_maps", { bMinimap ? ".bzm or .xml" : pszFrom, Shown( input ) } );
 			return false;
 		}
 	}
@@ -122,7 +111,7 @@ static bool CollectJobs( const fs::path &input, const fs::path &out, const char 
 	{
 		if ( bMinimap ? !( HasExtension( input, ".bzm" ) || HasExtension( input, ".xml" ) ) : !HasExtension( input, pszFrom ) )
 		{
-			*pError = Shown( input ) + " is not a" + std::string( bMinimap ? " .bzm or .xml" : std::string( "n " ) + pszFrom ) + " map";
+			*pError = BkFormat( "map.err.not_map", { Shown( input ), bMinimap ? ".bzm or .xml" : pszFrom } );
 			return false;
 		}
 		root = input.parent_path();
@@ -130,7 +119,7 @@ static bool CollectJobs( const fs::path &input, const fs::path &out, const char 
 	}
 	else
 	{
-		*pError = "no such map or directory " + Shown( input );
+		*pError = BkFormat( "map.err.no_such", { Shown( input ) } );
 		return false;
 	}
 	std::sort( files.begin(), files.end() );
@@ -194,7 +183,7 @@ static bool CreateParent( const fs::path &file, std::string *pError )
 	std::error_code ec;
 	fs::create_directories( file.parent_path().empty() ? fs::path( "." ) : file.parent_path(), ec );
 	if ( ec )
-		*pError = "cannot create " + Shown( file.parent_path() ) + ": " + ec.message();
+		*pError = BkFormat( "cxx.err.create", { Shown( file.parent_path() ), ec.message() } );
 	return !ec;
 }
 
@@ -209,9 +198,9 @@ static std::string ConvertMaps( const std::vector<SJob> &jobs )
 			return szError;
 		CMapInfo map;
 		if ( !NMapFile::Read( NToolHost::EnginePath( fs::absolute( jobs[i].input ) ).c_str(), &map, &szError ) )
-			return Shown( jobs[i].input ) + ": " + Reason( szError );
+			return BkFormat( "tool.err.path_reason", { Shown( jobs[i].input ), Reason( szError ) } );
 		if ( !NMapFile::Write( NToolHost::EnginePath( fs::absolute( jobs[i].output ) ).c_str(), map, &szError ) )
-			return Shown( jobs[i].output ) + ": " + Reason( szError );
+			return BkFormat( "tool.err.path_reason", { Shown( jobs[i].output ), Reason( szError ) } );
 	}
 	return std::string();
 }
@@ -225,7 +214,7 @@ static std::string DrawMinimaps( const std::vector<SJob> &jobs, int nSize, const
 	RegisterSingleton( IObjectsDB::tidTypeID, pGDB );
 	GetSLS()->SetGDB( pGDB );
 	if ( !pGDB->LoadDB() )
-		return "the object database in " + Shown( data ) + " did not load";
+		return BkFormat( "map.err.db_load", { Shown( data ) } );
 	for ( size_t i = 0; i < jobs.size(); ++i )
 	{
 		std::string szError;
@@ -233,16 +222,16 @@ static std::string DrawMinimaps( const std::vector<SJob> &jobs, int nSize, const
 			return szError;
 		CMapInfo map;
 		if ( !NMapFile::Read( NToolHost::EnginePath( fs::absolute( jobs[i].input ) ).c_str(), &map, &szError ) )
-			return Shown( jobs[i].input ) + ": " + Reason( szError );
+			return BkFormat( "tool.err.path_reason", { Shown( jobs[i].input ), Reason( szError ) } );
 		map.UnpackFrameIndices();
 		CRMImageCreateParameterList parameters;
 		parameters.push_back( SRMImageCreateParameter( NToolHost::EnginePath( fs::absolute( jobs[i].output ) ), CTPoint<int>( nSize, nSize ), true ) );
 		if ( !map.CreateMiniMapImage( parameters ) )
-			return Shown( jobs[i].input ) + ": CMapInfo::CreateMiniMapImage failed (its tileset or the season's minimap.xml is not in " + Shown( data ) + ")";
+			return BkFormat( "map.err.minimap_failed", { Shown( jobs[i].input ), Shown( data ) } );
 		std::error_code ec;
 		for ( int n = 0; n < 3; ++n )
 			if ( !fs::exists( jobs[i].output.string() + MINIMAP_SUFFIXES[n], ec ) )
-				return Shown( jobs[i].output.string() + MINIMAP_SUFFIXES[n] ) + " was not written";
+				return BkFormat( "map.err.not_written", { Shown( jobs[i].output.string() + MINIMAP_SUFFIXES[n] ) } );
 	}
 	return std::string();
 }
@@ -268,17 +257,20 @@ static std::string Guard( TFunction function )
 	}
 	catch ( ... )
 	{
-		return "the engine threw while reading or writing";
+		return BK_T( "cxx.err.threw" );
 	}
 }
 
 int main( int argc, char *argv[] )
 {
 	NToolHost::BinaryStdio();
+	const int nLanguage = NToolHost::StartLanguage( &argc, &argv, "bk-map", UsageText );
+	if ( nLanguage >= 0 )
+		return nLanguage;
 	for ( int i = 1; i < argc; ++i )
 		if ( strcmp( argv[i], "--help" ) == 0 || strcmp( argv[i], "-h" ) == 0 )
 		{
-			fputs( USAGE, stdout );
+			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
 	if ( argc < 2 )
@@ -324,7 +316,7 @@ int main( int argc, char *argv[] )
 			return Fail( szError );
 		// The startup reports its own reason on stderr before this one.
 		if ( bObjToMod && !NDataOnly::StartStreamIO( moduleRoot.string().c_str() ) )
-			return Fail( "the engine libraries did not load from " + Shown( moduleRoot ) + " (see --modules)" );
+			return Fail( BkFormat( "cxx.err.libs", { Shown( moduleRoot ) } ) );
 		const bool bDone = NObjToMod::Run( paths[0], bObjToMod ? paths[1] : std::string(), paths[nFirstSidecar], paths[nFirstSidecar + 1], bValidate );
 		if ( bObjToMod )
 			NDataOnly::Stop();
@@ -341,17 +333,17 @@ int main( int argc, char *argv[] )
 		return Fail( szError );
 	fs::path existing;
 	if ( !bForce && FindExisting( jobs, bMinimap, &existing ) )
-		return Fail( Shown( existing ) + " is already there; use --force to replace it" );
+		return Fail( BkFormat( "cxx.err.exists", { Shown( existing ) } ) );
 
 	const fs::path data = NToolHost::InputPath( szData );
 	std::error_code ec;
 	if ( bMinimap && !fs::is_regular_file( data / "objects.xml", ec ) )
-		return Fail( "no object database (objects.xml) in " + Shown( data ) + "; give the game's Data with --data" );
+		return Fail( BkFormat( "map.err.no_objects", { Shown( data ) } ) );
 	if ( !fs::is_directory( data, ec ) )
-		return Fail( "no Data directory " + Shown( data ) + "; give the game's Data with --data" );
+		return Fail( BkFormat( "map.err.no_data", { Shown( data ) } ) );
 	if ( !NDataOnly::Start( moduleRoot.string().c_str(), NToolHost::EnginePath( fs::absolute( data ) ).c_str() ) ||
 	     ( bMinimap && !NDataOnly::StartImage( moduleRoot.string().c_str() ) ) )
-		return Fail( "the engine libraries did not load from " + Shown( moduleRoot ) + " (see --modules)" );
+		return Fail( BkFormat( "cxx.err.libs", { Shown( moduleRoot ) } ) );
 	const std::string szResult = Guard( [&]() { return bMinimap ? DrawMinimaps( jobs, nSize, data ) : ConvertMaps( jobs ); } );
 	NDataOnly::Stop();
 	if ( !szResult.empty() )

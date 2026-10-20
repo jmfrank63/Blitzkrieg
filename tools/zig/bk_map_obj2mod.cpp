@@ -20,9 +20,21 @@
 #include <map>
 #include <sstream>
 
+#include "bk_l10n.h"
 #include "bk_map_obj2mod.h"
 #include "tool_host.h"
 #include "../../Sources/src/Formats/fmtMesh.h"
+
+// A failure as "bk-map: <reason>": the prefix is English in every language, the reason comes from
+// the string table with {0}.. filled from the arguments.
+static std::string Str( const std::string &sz ) { return sz; }
+static std::string Str( const char *psz ) { return psz; }
+static std::string Str( int n ) { return std::to_string( n ); }
+static std::string Str( unsigned n ) { return std::to_string( n ); }
+static void Say( const char *pszKey, std::initializer_list<std::string> args )
+{
+	fprintf( stderr, "bk-map: %s\n", BkFormat( pszKey, args ).c_str() );
+}
 
 // The legacy command line's settings that the moved functions read.
 namespace NParams
@@ -98,7 +110,7 @@ namespace
 		std::ifstream ifs( szSkeletonInput.c_str() );
 		if ( !ifs.is_open() )
 		{
-			fprintf( stderr, "bk-map: Can't open skeleton file: %s\n", szSkeletonInput.c_str() );
+			Say( "obj2mod.err.skeleton_open", { Str( szSkeletonInput.c_str() ) } );
 			return false;
 		}
 
@@ -190,7 +202,7 @@ namespace
 		std::ifstream ifs( szAnimationInput.c_str() );
 		if ( !ifs.is_open() )
 		{
-			fprintf( stderr, "bk-map: Can't open animation file: %s\n", szAnimationInput.c_str() );
+			Say( "obj2mod.err.animation_open", { Str( szAnimationInput.c_str() ) } );
 			return false;
 		}
 
@@ -258,13 +270,12 @@ namespace
 	{
 		if ( skeleton.nodes.empty() )
 		{
-			fprintf( stderr, "bk-map: Validation error: skeleton has no nodes\n" );
+			Say( "obj2mod.err.no_nodes", {} );
 			return false;
 		}
 		if ( skeleton.nTopNode < 0 || skeleton.nTopNode >= (int)skeleton.nodes.size() )
 		{
-			fprintf( stderr, "bk-map: Validation error: top node index %d is out of range [0, %d)\n",
-				skeleton.nTopNode, (int)skeleton.nodes.size() );
+			Say( "obj2mod.err.top_range", { Str( skeleton.nTopNode ), Str( (int)skeleton.nodes.size() ) } );
 			return false;
 		}
 
@@ -274,12 +285,12 @@ namespace
 			const SSkeletonFormat::SNodeFormat &node = skeleton.nodes[i];
 			if ( node.nIndex != i )
 			{
-				fprintf( stderr, "bk-map: Validation error: node slot %d has nIndex=%d\n", i, node.nIndex );
+				Say( "obj2mod.err.node_slot", { Str( i ), Str( node.nIndex ) } );
 				return false;
 			}
 			if ( node.szName.empty() )
 			{
-				fprintf( stderr, "bk-map: Validation error: node %d has empty name\n", i );
+				Say( "obj2mod.err.node_name", { Str( i ) } );
 				return false;
 			}
 
@@ -288,13 +299,12 @@ namespace
 			{
 				if ( *child < 0 || *child >= (int)skeleton.nodes.size() )
 				{
-					fprintf( stderr, "bk-map: Validation error: node %d has out-of-range child %d\n", i, *child );
+					Say( "obj2mod.err.child_range", { Str( i ), Str( *child ) } );
 					return false;
 				}
 				if ( nParents[*child] != -1 )
 				{
-					fprintf( stderr, "bk-map: Validation error: node %d has multiple parents (%d, %d)\n",
-						*child, nParents[*child], i );
+					Say( "obj2mod.err.parents", { Str( *child ), Str( nParents[*child] ), Str( i ) } );
 					return false;
 				}
 				nParents[*child] = i;
@@ -306,12 +316,12 @@ namespace
 			nRoots += ( nParents[i] == -1 );
 		if ( nRoots != 1 )
 		{
-			fprintf( stderr, "bk-map: Validation error: skeleton graph must have exactly 1 root, found %d\n", nRoots );
+			Say( "obj2mod.err.roots", { Str( nRoots ) } );
 			return false;
 		}
 		if ( nParents[skeleton.nTopNode] != -1 )
 		{
-			fprintf( stderr, "bk-map: Validation error: declared top node %d has parent %d\n", skeleton.nTopNode, nParents[skeleton.nTopNode] );
+			Say( "obj2mod.err.top_parent", { Str( skeleton.nTopNode ), Str( nParents[skeleton.nTopNode] ) } );
 			return false;
 		}
 
@@ -330,7 +340,7 @@ namespace
 				{
 					if ( nState[*child] == 1 )
 					{
-						fprintf( stderr, "bk-map: Validation error: cycle detected at node %d -> %d\n", n, *child );
+						Say( "obj2mod.err.cycle", { Str( n ), Str( *child ) } );
 						return false;
 					}
 					if ( nState[*child] == 0 )
@@ -348,7 +358,7 @@ namespace
 		{
 			if ( nState[i] == 0 )
 			{
-				fprintf( stderr, "bk-map: Validation error: node %d is not reachable from top node %d\n", i, skeleton.nTopNode );
+				Say( "obj2mod.err.unreachable", { Str( i ), Str( skeleton.nTopNode ) } );
 				return false;
 			}
 		}
@@ -357,8 +367,7 @@ namespace
 		{
 			if ( *it < 0 || *it >= (int)skeleton.nodes.size() )
 			{
-				fprintf( stderr, "bk-map: Validation error: locator index %d is out of range [0, %d)\n",
-					*it, (int)skeleton.nodes.size() );
+				Say( "obj2mod.err.locator_range", { Str( *it ), Str( (int)skeleton.nodes.size() ) } );
 				return false;
 			}
 		}
@@ -373,24 +382,22 @@ namespace
 			const SAnimationFormat &anim = animations[i];
 			if ( anim.szName.empty() )
 			{
-				fprintf( stderr, "bk-map: Validation error: animation #%d has empty name\n", i );
+				Say( "obj2mod.err.anim_name", { Str( i ) } );
 				return false;
 			}
 			if ( anim.nodes.GetSizeY() != skeleton.GetNumNodes() )
 			{
-				fprintf( stderr, "bk-map: Validation error: animation '%s' has %d node rows but skeleton has %d nodes\n",
-					anim.szName.c_str(), anim.nodes.GetSizeY(), skeleton.GetNumNodes() );
+				Say( "obj2mod.err.anim_rows", { Str( anim.szName.c_str() ), Str( anim.nodes.GetSizeY() ), Str( skeleton.GetNumNodes() ) } );
 				return false;
 			}
 			if ( anim.nodes.GetSizeX() <= 0 )
 			{
-				fprintf( stderr, "bk-map: Validation error: animation '%s' has no keys\n", anim.szName.c_str() );
+				Say( "obj2mod.err.anim_keys", { Str( anim.szName.c_str() ) } );
 				return false;
 			}
 			if ( anim.nAction < 0 || anim.nAction >= anim.nodes.GetSizeX() )
 			{
-				fprintf( stderr, "bk-map: Validation error: animation '%s' action key %d is out of range [0, %d)\n",
-					anim.szName.c_str(), anim.nAction, anim.nodes.GetSizeX() );
+				Say( "obj2mod.err.anim_action", { Str( anim.szName.c_str() ), Str( anim.nAction ), Str( anim.nodes.GetSizeX() ) } );
 				return false;
 			}
 		}
@@ -401,20 +408,19 @@ namespace
 	{
 		if ( mesh.components.empty() )
 		{
-			fprintf( stderr, "bk-map: Validation error: OBJ generated no mesh components\n" );
+			Say( "obj2mod.err.no_components", {} );
 			return false;
 		}
 		if ( mesh.indices.empty() || ( mesh.indices.size() % 3 ) != 0 )
 		{
-			fprintf( stderr, "bk-map: Validation error: mesh index buffer must be non-empty triangles (size=%d)\n", (int)mesh.indices.size() );
+			Say( "obj2mod.err.index_buffer", { Str( (int)mesh.indices.size() ) } );
 			return false;
 		}
 		for ( int i = 0; i < (int)mesh.indices.size(); ++i )
 		{
 			if ( mesh.indices[i] >= mesh.components.size() )
 			{
-				fprintf( stderr, "bk-map: Validation error: mesh index %d references component %u out of range [0, %d)\n",
-					i, (unsigned)mesh.indices[i], (int)mesh.components.size() );
+				Say( "obj2mod.err.index_component", { Str( i ), Str( (unsigned)mesh.indices[i] ), Str( (int)mesh.components.size() ) } );
 				return false;
 			}
 		}
@@ -441,7 +447,7 @@ namespace
 		std::ifstream ifs( szObjInput.c_str() );
 		if ( !ifs.is_open() )
 		{
-			fprintf( stderr, "bk-map: Can't open OBJ file: %s\n", szObjInput.c_str() );
+			Say( "obj2mod.err.obj_open", { Str( szObjInput.c_str() ) } );
 			return false;
 		}
 
@@ -504,7 +510,7 @@ namespace
 						const SObjIndex &idx = triIdx[k];
 						if ( idx.v < 0 || idx.v >= (int)srcVerts.size() )
 						{
-							fprintf( stderr, "bk-map: OBJ face references vertex %d, out of range [1, %d]: %s\n", idx.v + 1, (int)srcVerts.size(), szObjInput.c_str() );
+							Say( "obj2mod.err.face_vertex", { Str( idx.v + 1 ), Str( (int)srcVerts.size() ), Str( szObjInput.c_str() ) } );
 							return false;
 						}
 
@@ -543,7 +549,7 @@ namespace
 
 		if ( mesh.components.empty() )
 		{
-			fprintf( stderr, "bk-map: OBJ has no mesh faces: %s\n", szObjInput.c_str() );
+			Say( "obj2mod.err.no_faces", { Str( szObjInput.c_str() ) } );
 			return false;
 		}
 
@@ -601,7 +607,7 @@ namespace
 		CPtr<IDataStream> pStream = CreateFileStream( NToolHost::EnginePath( outPath ).c_str(), STREAM_ACCESS_WRITE );
 		if ( pStream == 0 )
 		{
-			fprintf( stderr, "bk-map: Can't create output MOD: %s\n", outPath.c_str() );
+			Say( "obj2mod.err.mod_create", { Str( outPath.c_str() ) } );
 			return false;
 		}
 

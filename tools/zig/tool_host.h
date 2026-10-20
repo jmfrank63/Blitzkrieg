@@ -24,5 +24,9 @@ std::filesystem::path ModuleRoot( const std::string &szModules );
 // CRT's text mode turned each \n into \r\n on Windows, so test-bk-map's exact
 // stream checks failed there (run 39093744040) while the Zig tools passed.
 void BinaryStdio();
+// The language of the run (bk_l10n.h): --lang, BK_LANG, the OS, English. Takes --lang out of
+// *ppArgv and sets *pArgc. Returns -1 to carry on, or the exit code of a bad --lang, after the
+// one-line English message and the English usage (pfnUsage) on stderr, the way the Zig tools do.
+int StartLanguage( int *pArgc, char ***pppArgv, const char *pszTool, std::string ( *pfnUsage )() );
 }
 #endif // __TOOL_HOST_H__

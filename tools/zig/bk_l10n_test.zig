@@ -274,3 +274,120 @@ test "parse rejects a duplicate key, bad UTF-8, a BOM, a bad escape and a line w
     try testing.expectError(error.MissingEquals, l10n.parse(arena, "just text\r\n", null));
     try testing.expectError(error.EmptyKey, l10n.parse(arena, "=v\r\n", null));
 }
+
+// ------------------------------------------------------------------ the keys the tools use
+
+/// The key prefixes of the tools' tables: the Zig tools' own, `cxx` for what the three C++ tools
+/// share, and `tool` for what every tool does.
+const key_prefixes = [_][]const u8{ "tool", "pak", "image", "table", "video", "cxx", "sprite", "font", "map", "obj2mod" };
+
+/// The sources that ask for a key, as the build sees them.
+const tool_sources = [_][]const u8{
+    @embedFile("bk_tool.zig"),
+    @embedFile("bk_pak.zig"),
+    @embedFile("bk_image.zig"),
+    @embedFile("bk_table.zig"),
+    @embedFile("bk_table_xml.zig"),
+    @embedFile("bk_video.zig"),
+    @embedFile("bk_font.cpp"),
+    @embedFile("bk_map.cpp"),
+    @embedFile("bk_map_obj2mod.cpp"),
+    @embedFile("bk_sprite.cpp"),
+    @embedFile("tool_host.cpp"),
+};
+
+fn isKeyToken(token: []const u8) bool {
+    const dot = std.mem.indexOfScalar(u8, token, '.') orelse return false;
+    var known = false;
+    for (key_prefixes) |prefix| {
+        if (std.mem.eql(u8, token[0..dot], prefix)) known = true;
+    }
+    if (!known or dot + 1 == token.len) return false;
+    for (token) |c| {
+        if (!(std.ascii.isLower(c) or std.ascii.isDigit(c) or c == '.' or c == '_')) return false;
+    }
+    return true;
+}
+
+test "every key the tools ask for is in en.lang and every en.lang key is asked for" {
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const entries = try l10n.parse(arena, @embedFile("lang/en.lang"), null);
+
+    var used: std.StringHashMapUnmanaged(void) = .empty;
+    for (tool_sources) |source| {
+        var at: usize = 0;
+        while (std.mem.indexOfScalarPos(u8, source, at, '"')) |open| {
+            const close = std.mem.indexOfScalarPos(u8, source, open + 1, '"') orelse break;
+            // Every quote opens a candidate, so a '"' character literal cannot shift the pairing.
+            at = open + 1;
+            const token = source[open + 1 .. close];
+            if (std.mem.indexOfScalar(u8, token, '\n') != null) continue;
+            if (isKeyToken(token)) try used.put(arena, token, {});
+        }
+    }
+    var in_table: std.StringHashMapUnmanaged(void) = .empty;
+    for (entries) |entry| try in_table.put(arena, entry.key, {});
+
+    var failures: usize = 0;
+    var asked = used.keyIterator();
+    while (asked.next()) |key| {
+        if (!in_table.contains(key.*)) {
+            std.debug.print("key '{s}' is used by a tool but is not in en.lang\n", .{key.*});
+            failures += 1;
+        }
+    }
+    for (entries) |entry| {
+        if (!used.contains(entry.key)) {
+            std.debug.print("key '{s}' is in en.lang but no tool uses it\n", .{entry.key});
+            failures += 1;
+        }
+    }
+    try testing.expectEqual(@as(usize, 0), failures);
+}
+
+const tables = blk: {
+    var out: [l10n.codes.len][]const u8 = undefined;
+    for (l10n.codes, 0..) |code, i| out[i] = @embedFile("lang/" ++ code ++ ".lang");
+    break :blk out;
+};
+
+/// The `{0}`..`{9}` slots a text uses, as a bit set.
+fn slotsOf(text: []const u8) u16 {
+    var slots: u16 = 0;
+    var at: usize = 0;
+    while (at + 2 < text.len) : (at += 1) {
+        if (text[at] == '{' and text[at + 2] == '}' and std.ascii.isDigit(text[at + 1])) slots |= @as(u16, 1) << @intCast(text[at + 1] - '0');
+    }
+    return slots;
+}
+
+test "every table has the keys of en.lang and uses the same slots" {
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const reference = try l10n.parse(arena, tables[0], null);
+    var failures: usize = 0;
+    for (l10n.codes[1..], tables[1..]) |code, bytes| {
+        const entries = try l10n.parse(arena, bytes, null);
+        var by_key: std.StringHashMapUnmanaged([]const u8) = .empty;
+        for (entries) |entry| try by_key.put(arena, entry.key, entry.value);
+        for (reference) |entry| {
+            const text = by_key.get(entry.key) orelse {
+                std.debug.print("{s}.lang lacks '{s}'\n", .{ code, entry.key });
+                failures += 1;
+                continue;
+            };
+            if (slotsOf(text) != slotsOf(entry.value)) {
+                std.debug.print("{s}.lang '{s}' uses other slots than en.lang\n", .{ code, entry.key });
+                failures += 1;
+            }
+        }
+        if (entries.len != reference.len) {
+            std.debug.print("{s}.lang has {d} keys, en.lang {d}\n", .{ code, entries.len, reference.len });
+            failures += 1;
+        }
+    }
+    try testing.expectEqual(@as(usize, 0), failures);
+}
