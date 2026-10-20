@@ -699,6 +699,12 @@ pub const Script = struct {
                 return self.clickAt(.{ centre.x, centre.y });
             },
             .click_tile_cell => {
+                // The desktop taking focus away, as a shown window on a
+                // person's desktop gets it (GraphicsEngineGpu's SetMode shows
+                // the hidden host): `isOsMouse` drops it, so the click still
+                // chooses the tile. Unfiltered, ImGui's backend released its
+                // mouse state and the click missed the picker.
+                if (!self.pushWindowEvent(sdl.SDL_EVENT_WINDOW_FOCUS_LOST)) return false;
                 const entries = self.state.tileEntries();
                 const current = panels_logic.indexOfTile(entries, self.view.brush.tile) orelse return self.fail("the brush's tile {d} is not offered", .{self.view.brush.tile});
                 for (entries) |entry| {
@@ -793,6 +799,13 @@ pub const Script = struct {
                 return true;
             },
         }
+    }
+
+    fn pushWindowEvent(self: *Script, kind: @FieldType(sdl.SDL_WindowEvent, "type")) bool {
+        var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
+        event.window.type = kind;
+        event.window.windowID = self.window_id;
+        return self.push(&event);
     }
 
     fn push(self: *Script, event: *sdl.SDL_Event) bool {
@@ -1481,6 +1494,12 @@ pub const Driver = union(enum) {
             sdl.SDL_EVENT_MOUSE_MOTION => event.motion.which != smoke_mouse_id,
             sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP => event.button.which != smoke_mouse_id,
             sdl.SDL_EVENT_MOUSE_WHEEL => event.wheel.which != smoke_mouse_id,
+            // The desktop's pointer crossing the window and its focus moving:
+            // the run's input is the script's alone. A smoke on a person's
+            // desktop saw a focus gain and a pointer entry at frame 58 and
+            // then dirtied the map with a click meant for the tile picker
+            // (2026-10-20); a pushed focus loss misses the picker every time.
+            sdl.SDL_EVENT_WINDOW_MOUSE_ENTER, sdl.SDL_EVENT_WINDOW_MOUSE_LEAVE, sdl.SDL_EVENT_WINDOW_FOCUS_GAINED, sdl.SDL_EVENT_WINDOW_FOCUS_LOST => true,
             else => false,
         };
     }
