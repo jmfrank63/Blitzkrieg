@@ -1515,22 +1515,15 @@ pub fn build(b: *std.Build) void {
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
-    const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
+    const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"), .plain);
     const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
     editor_imgui_step.dependOn(&editor_imgui.step);
-    const editor_imgui_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "imgui_c", .module = addTranslatedHeaders(b, target, optimize, toolchain, &.{ "cimgui.h", "imgui_backend.h" }, &.{ b.path("vendor/dcimgui/src-docking"), b.path("Sources/editor/kit/imgui") }) }},
-    });
-    editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
-    editor_imgui_module.addIncludePath(b.path("Sources/editor/kit/imgui"));
-    // cimgui.h includes <assert.h>. A consumer that does not link libc
-    // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
-    // its @cImport on MSVC, so name the MSVC and UCRT ones here.
-    addMsvcIncludePaths(b, editor_imgui_module, toolchain);
-    editor_imgui_module.linkLibrary(editor_imgui);
+    const editor_imgui_module = editorImguiModule(b, target, optimize, toolchain, editor_imgui);
+    // The three editors run on the DLL CRT of the build mode (EditorImguiFlavour).
+    const editor_imgui_dll_crt_module = if (target.result.abi == .msvc)
+        editorImguiModule(b, target, optimize, toolchain, addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"), .dll_crt))
+    else
+        editor_imgui_module;
 
     const editor_overlay_spike_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/editor_overlay_spike.zig"),
@@ -2061,6 +2054,10 @@ pub fn build(b: *std.Build) void {
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
     const season_data = addSeasonData(b, season_textures);
 
+    // The bk-* tools and their tests ask macOS for the user's languages through CoreFoundation
+    // (bk_l10n.OsLocales), so each module that compiles bk_l10n.zig names the framework.
+    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
+
     // ResourceEditor fixture generator. See
     // tools/zig/resource_editor_fixtures.zig for the design rationale and
     // the 21-row Fixture table it mirrors from Sources/src/editor/*Frm.cpp.
@@ -2438,6 +2435,7 @@ pub fn build(b: *std.Build) void {
     });
     bk_tools_l10n_module.addOptions("bk_tools", bk_tools_options);
     const bk_tools_l10n_tests = b.addTest(.{ .root_module = bk_tools_l10n_module });
+    linkOsLocale(bk_tools_l10n_module);
     const bk_tools_l10n_run = b.addRunArtifact(bk_tools_l10n_tests);
     bk_tools_l10n_run.setCwd(b.path("."));
     bk_tools_l10n_run.step.dependOn(bk_font.install);
@@ -2881,14 +2879,14 @@ pub fn build(b: *std.Build) void {
     // Captured (rather than discarded, as before) so the package steps below
     // can stage this exact build of MapEditor beside Game (D-08); null on
     // every other platform, where there is no MapEditor to package.
-    const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
+    const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
-    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
     // Phase 7: ELK, on the editors' platforms and installed beside them, but
     // with no engine (D-01); the package steps do not stage it yet.
-    if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_dll_crt_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep, random_missions_repeat);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -5758,17 +5756,46 @@ fn addGfxGpuZig(
 // Dear ImGui (docking branch) with the dear_bindings C API and the SDL3 +
 // SDL GPU backends, for the portable editors. Static: it lives inside the
 // editor executable and shares the one dynamic SDL3 the game ships.
+/// The Zig module over an editor-imgui archive: its translated headers and the archive.
+fn editorImguiModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes, archive: *std.Build.Step.Compile) *std.Build.Module {
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "imgui_c", .module = addTranslatedHeaders(b, target, optimize, toolchain, &.{ "cimgui.h", "imgui_backend.h" }, &.{ b.path("vendor/dcimgui/src-docking"), b.path("Sources/editor/kit/imgui") }) }},
+    });
+    module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    module.addIncludePath(b.path("Sources/editor/kit/imgui"));
+    // cimgui.h includes <assert.h>. A consumer that does not link libc
+    // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
+    // its @cImport on MSVC, so name the MSVC and UCRT ones here.
+    addMsvcIncludePaths(b, module, toolchain);
+    module.linkLibrary(archive);
+    return module;
+}
+
+/// Which programs an editor-imgui archive is linked into, which on MSVC decides its CRT. Since
+/// M002 the archive holds the HarfBuzz shaper and the Devanagari loader, which use the C++
+/// standard library, so its objects carry the CRT's _ITERATOR_DEBUG_LEVEL and must match
+/// their program's: `plain` for the Zig programs and tests, which link Zig's static release
+/// CRT (and libcpmt through HarfBuzz), `dll_crt` for the three editors, which link the DLL
+/// CRT of the build mode (the debug one in Debug): the Map and Resource Editors for the
+/// engine, ELK for hunspell. Elsewhere the two are the same build.
+const EditorImguiFlavour = enum { plain, dll_crt };
+
 fn addEditorImgui(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     sdl_include: std.Build.LazyPath,
+    flavour: EditorImguiFlavour,
 ) *std.Build.Step.Compile {
-    // Zig links the release CRT for an MSVC target even in Debug, so the C++
-    // objects are built against the release CRT too: a debug build here
-    // references the debug CRT and the two cannot be linked together.
-    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
+    const dll_crt = target.result.abi == .msvc and flavour == .dll_crt;
+    // Zig links the release CRT for an MSVC target even in Debug, so the plain C++ objects
+    // are built against the release CRT too: a debug build here references the debug CRT
+    // and the two cannot be linked together. The dll_crt flavour follows the build's mode.
+    const cxx_optimize = if (target.result.abi == .msvc and !dll_crt) .fast else optimize;
     const module = b.createModule(.{
         .target = target,
         .optimize = cxx_optimize,
@@ -5795,7 +5822,7 @@ fn addEditorImgui(
     // consuming executable links them itself, so only libc is named here.
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
-    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    } else if (target.result.abi != .msvc or dll_crt) linkMsvcRuntime(module, optimize);
     module.addCSourceFiles(.{
         .files = &.{
             "vendor/dcimgui/src-docking/imgui.cpp",
@@ -5815,11 +5842,14 @@ fn addEditorImgui(
         // On MSVC the thread-safe static initialisers are left out (ImGui runs on
         // one thread) because their helpers live in the CRT, which the Zig test
         // tiers do not link; msvc_fltused.c stands in for the CRT's _fltused.
-        .flags = if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
+        // The dll_crt flavour takes the engine's flag set, the DLL CRT of its mode included.
+        .flags = if (dll_crt) cppflagsForTarget(target, optimize) else if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
     });
-    if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
-    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
-    return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
+    if (target.result.abi == .msvc and !dll_crt) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
+    // HarfBuzz to match: the DLL CRT build for the dll_crt flavour, the static release one
+    // (no _DEBUG, libcpmt) for the plain flavour on MSVC.
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, if (target.result.abi == .msvc and !dll_crt) .static else .dll));
+    return b.addLibrary(.{ .name = if (dll_crt) "editor-imgui-dll-crt" else "editor-imgui", .linkage = .static, .root_module = module });
 }
 
 /// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
@@ -7496,12 +7526,21 @@ fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
 /// bk-font, bk-map and bk-sprite, so they choose the language and read tools/zig/lang/<code>.lang
 /// the way the Zig tools do (M002 S07, D062). Zig code, no C++ runtime: nothing here allocates
 /// through the CRT's operator new.
+/// CoreFoundation for a module that compiles tools/zig/bk_l10n.zig on macOS, where its OsLocales
+/// asks CFLocaleCopyPreferredLanguages for the user's languages.
+fn linkOsLocale(module: *std.Build.Module) void {
+    if (module.resolved_target) |module_target| {
+        if (module_target.result.os.tag == .macos) module.linkFramework("CoreFoundation", .{});
+    }
+}
+
 fn addBkL10nC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
     const module = b.createModule(.{
         .root_source_file = b.path("tools/zig/bk_l10n_c.zig"),
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
+        // Not on Windows: the C++ tools that link it bring the engine's CRT (bk_l10n_c.zig EnvMap).
+        .link_libc = target.result.os.tag != .windows,
     });
     // CoreFoundation answers the macOS user's preferred languages (bk_l10n.OsLocales).
     if (target.result.os.tag == .macos) module.linkFramework("CoreFoundation", .{});
