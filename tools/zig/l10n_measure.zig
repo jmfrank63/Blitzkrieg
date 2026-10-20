@@ -398,6 +398,54 @@ pub fn correlationIn(allocator: std.mem.Allocator, a: Gray, b: Gray, a_rect: Rec
     return correlation(left, fitted);
 }
 
+/// How near a word's conjunct columns are to the shaped reference and to the
+/// halant spelling. The two references share everything before the conjunct, so
+/// a whole-label correlation hardly tells them apart (0.666 against 0.683 on a
+/// frame that was drawn right); only the columns from where they first differ
+/// to the end of the word are compared.
+pub const Conjunct = struct { shaped: f64, spelled: f64 };
+
+/// The shaped reference must win in the conjunct columns by this much. A frame
+/// drawn right wins by 0.14 and a frame drawn as the halant spelling loses by
+/// 0.33 (मुख्य, hb-view's Noto Sans Devanagari), so the margin sits between
+/// the two with room on both sides.
+pub const conjunct_margin: f64 = 0.08;
+
+/// `frame` and both references are cut to their ink boxes, `frame_word`,
+/// `shaped_word` and `spelled_word` are the same word's boxes in them. The
+/// conjunct starts at the first column where the two references' words differ
+/// (by more than `tolerance` summed over the rows, on the references' own
+/// grid, which is the same size for both). Each spelling is a hypothesis about
+/// where the frame's conjunct starts: the same share of the frame's word as of
+/// that reference's word. The frame's columns from there to the word's end are
+/// correlated with the reference's, resampled onto them.
+pub fn conjunctMatch(allocator: std.mem.Allocator, frame: Gray, frame_word: Rect, shaped: Gray, shaped_word: Rect, spelled: Gray, spelled_word: Rect, tolerance: usize) !Conjunct {
+    var prefix: usize = 0;
+    const common = @min(shaped_word.width(), spelled_word.width());
+    while (prefix < common) : (prefix += 1) {
+        var apart: usize = 0;
+        for (0..@min(shaped.height, spelled.height)) |y| {
+            const a: i32 = shaped.at(shaped_word.x1 + prefix, y);
+            const b: i32 = spelled.at(spelled_word.x1 + prefix, y);
+            apart += @abs(a - b);
+        }
+        if (apart > tolerance) break;
+    }
+    return .{
+        .shaped = try conjunctCorrelation(allocator, frame, frame_word, shaped, shaped_word, prefix),
+        .spelled = try conjunctCorrelation(allocator, frame, frame_word, spelled, spelled_word, prefix),
+    };
+}
+
+fn conjunctCorrelation(allocator: std.mem.Allocator, frame: Gray, frame_word: Rect, reference: Gray, reference_word: Rect, prefix: usize) !f64 {
+    const share = @as(f64, @floatFromInt(prefix)) / @as(f64, @floatFromInt(reference_word.width()));
+    const from = @as(usize, @intFromFloat(@round(share * @as(f64, @floatFromInt(frame_word.width())))));
+    if (frame_word.x1 + from >= frame_word.x2) return error.NoConjunct;
+    const mine = Rect{ .x1 = frame_word.x1 + from, .y1 = 0, .x2 = frame_word.x2, .y2 = frame.height };
+    const theirs = Rect{ .x1 = reference_word.x1 + prefix, .y1 = 0, .x2 = reference_word.x2, .y2 = reference.height };
+    return correlationIn(allocator, frame, reference, mine, theirs);
+}
+
 pub const HbOptions = struct {
     /// The face file.
     font: []const u8,
@@ -665,4 +713,51 @@ test "the halant spelling of त्र is wider than the conjunct and the matra 
     const swapped = try correlationIn(allocator, cut, cut, first, last);
     std.debug.print("कि: first third against itself {d:.2}, against the last third {d:.2}\n", .{ same, swapped });
     try testing.expect(same > 0.999 and swapped < 0.8);
+}
+
+test "the conjunct columns of मुख्य tell the captured shaped label from the halant spelling" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    try std.Io.Dir.cwd().createDirPath(testing.io, scratch_dir);
+    const face = "vendor/fonts/NotoSansDevanagari-Regular.ttf";
+    const text = "मुख्य मेनू";
+    const joined = try hbView(allocator, testing.io, scratch_dir, "hi-header", text, .{ .font = face, .language = "hi", .script = "Deva" });
+    const apart = try hbView(allocator, testing.io, scratch_dir, "hi-header-halant", text, .{ .font = face, .language = "hi", .script = "Deva", .features = halant_spelling });
+    const joined_cut = try crop(allocator, joined, inkBox(joined, 64).?);
+    const apart_cut = try crop(allocator, apart, inkBox(apart, 64).?);
+    const joined_words = try words(allocator, joined_cut, 64, 3);
+    const apart_words = try words(allocator, apart_cut, 64, 3);
+    try testing.expectEqual(@as(usize, 2), joined_words.len);
+    try testing.expectEqual(@as(usize, 2), apart_words.len);
+
+    // The Game's main menu header, in its own ink as the tier measures it, from
+    // the Linux run and from the macOS arm64 run of CI 39477983663 (whose
+    // whole-label check was 0.666 for the shaped reference against 0.683).
+    for ([_][]const u8{ "linux", "macos" }) |name| {
+        const path = try std.fmt.allocPrint(allocator, "tools/zig/fixtures/l10n/hi-header-ink-{s}.png", .{name});
+        const bytes = try std.Io.Dir.cwd().readFileAlloc(testing.io, path, allocator, .limited(1 << 20));
+        const full = try decodePng(allocator, bytes);
+        const ink = try crop(allocator, full, inkBox(full, 24).?);
+        const mine = try words(allocator, ink, 24, 3);
+        try testing.expectEqual(@as(usize, 2), mine.len);
+        const whole = try matchReference(allocator, ink, joined, 64);
+        const whole_apart = try matchReference(allocator, ink, apart, 64);
+        const c = try conjunctMatch(allocator, ink, mine[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
+        std.debug.print("{s}: whole label {d:.3} against {d:.3}; conjunct columns {d:.3} against {d:.3}\n", .{ name, whole.correlation, whole_apart.correlation, c.shaped, c.spelled });
+        try testing.expect(c.shaped - c.spelled >= conjunct_margin);
+    }
+
+    // The halant spelling drawn as the frame (the references' own raster, on the
+    // frame's height and width) loses, and the shaped reference drawn as the
+    // frame wins.
+    const drawn_apart = try resample(allocator, apart_cut, 102, 34);
+    const lost = try conjunctMatch(allocator, drawn_apart, (try words(allocator, drawn_apart, 64, 3))[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
+    std.debug.print("halant spelling as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ lost.shaped, lost.spelled });
+    try testing.expect(lost.shaped - lost.spelled < conjunct_margin);
+    try testing.expect(lost.spelled > lost.shaped);
+    const drawn_joined = try resample(allocator, joined_cut, 102, 34);
+    const won = try conjunctMatch(allocator, drawn_joined, (try words(allocator, drawn_joined, 64, 3))[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
+    std.debug.print("shaped reference as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ won.shaped, won.spelled });
+    try testing.expect(won.shaped - won.spelled >= conjunct_margin);
 }

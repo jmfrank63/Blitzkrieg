@@ -113,9 +113,12 @@ const headline_threshold: u8 = 8;
 /// last third.
 const min_matra_correlation: f64 = 0.4;
 const min_matra_margin: f64 = 0.05;
-/// Hindi: the shaped label's correlation must beat the halant spelling's by
-/// this much.
-const min_conjunct_margin: f64 = 0.02;
+/// Hindi: the columns of a word's conjunct (from where the shaped reference and
+/// the halant spelling first differ to the end of the word) must correlate with
+/// the shaped reference better than with the halant spelling by
+/// `measure.conjunct_margin`. The whole label is no measure of this: the two
+/// differ in one cluster, so their correlations with a correct frame were 0.666
+/// and 0.683 on macOS.
 /// The briefing's description lines: at least this wide in ink (the first
 /// line, "Mission: ...", is already over 100 pixels).
 const min_body_width: usize = 100;
@@ -580,12 +583,26 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
             const head = measure.headline(ink, word, headline_threshold);
             try report.check(head.longest_gap <= max_headline_gap, "hi {s} word {d} (columns {d}..{d}): headline row {d} has a gap of {d} columns (at most {d}, D058)", .{ label.key, n, word.x1, word.x2, head.row, head.longest_gap, max_headline_gap });
         }
-        // Conjuncts: the label drawn as hb-view's conjunct, not the halant spelling.
+        // Conjuncts: the word drawn as hb-view's conjunct, not the halant
+        // spelling, measured on the conjunct's own columns.
         if (hasCodepoint(texts[index], 0x094d)) {
             const apart = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ label.key, "-halant" }), texts[index], .{ .font = language.face.?, .language = language.tag, .script = language.script, .features = measure.halant_spelling });
-            const joined = try measure.matchReference(allocator, ink, refs[index], 64);
-            const spelled = try measure.matchReference(allocator, ink, apart, 64);
-            try report.check(joined.correlation - spelled.correlation >= min_conjunct_margin, "hi {s}: conjuncts: shaped reference {d:.3}, halant spelling {d:.3} (margin at least {d:.2})", .{ label.key, joined.correlation, spelled.correlation, min_conjunct_margin });
+            const joined_cut = try measure.crop(allocator, refs[index], measure.inkBox(refs[index], 64).?);
+            const apart_cut = try measure.crop(allocator, apart, measure.inkBox(apart, 64).?);
+            const joined_words = try measure.words(allocator, joined_cut, 64, 3);
+            const apart_words = try measure.words(allocator, apart_cut, 64, 3);
+            const text_words = std.mem.count(u8, texts[index], " ") + 1;
+            if (split.len != text_words or joined_words.len != text_words or apart_words.len != text_words) {
+                try report.check(false, "hi {s}: conjuncts: {d} words in the text, {d} in the frame, {d} in the reference and {d} in the halant spelling", .{ label.key, text_words, split.len, joined_words.len, apart_words.len });
+            } else {
+                var at: usize = 0;
+                var words_in = std.mem.splitScalar(u8, texts[index], ' ');
+                while (words_in.next()) |text_word| : (at += 1) {
+                    if (!hasCodepoint(text_word, 0x094d)) continue;
+                    const c = try measure.conjunctMatch(allocator, ink, split[at], joined_cut, joined_words[at], apart_cut, apart_words[at], 2 * 255);
+                    try report.check(c.shaped - c.spelled >= measure.conjunct_margin, "hi {s} word {d}: conjunct columns correlate {d:.3} with the shaped reference, {d:.3} with the halant spelling (margin at least {d:.2})", .{ label.key, at, c.shaped, c.spelled, measure.conjunct_margin });
+                }
+            }
         }
         // The short i matra: its bar lies where hb-view puts it, in the first
         // word that has the matra.
