@@ -4018,6 +4018,22 @@ jobs:
           test "$(uname -m)" = "arm64"
           sw_vers
 
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
 
 
       - name: Install Zig 0.17.0
@@ -4379,6 +4395,22 @@ jobs:
           test "$(uname -m)" = "arm64"
           sw_vers
 
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
 
       - name: Install Zig 0.17.0
         shell: bash
@@ -4714,6 +4746,22 @@ jobs:
           test "$(uname -m)" = "arm64"
           sw_vers
 
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
 
       - name: Install Zig 0.17.0
         shell: bash
@@ -4974,6 +5022,22 @@ jobs:
           test "$(uname -m)" = "arm64"
           sw_vers
 
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
+
 
 
       - name: Install Zig 0.17.0
@@ -5179,6 +5243,22 @@ jobs:
         run: |
           test "$(uname -m)" = "arm64"
           sw_vers
+
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
 
 
