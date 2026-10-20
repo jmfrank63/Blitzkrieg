@@ -166,6 +166,13 @@ var live_bytes: usize = 0;
 /// Set once `bk_mem_report` has run: the backing memory is gone, so a free
 /// after that point is counted and ignored and an alloc is a bug.
 var closed: bool = false;
+/// Set when the exit report closed the allocator rather than an explicit
+/// `bk_mem_report`. On POSIX that report runs from exit() while the other
+/// threads still run, and a foreign library's thread (QuartzCore's and
+/// CoreAudio's on macOS) goes on allocating; those late blocks are served
+/// from the backing allocator, uncounted and never freed, because the
+/// process is ending and the verdict is already made.
+var closed_at_exit: bool = false;
 var closed_free_count: usize = 0;
 var report_leaks: usize = 0;
 
@@ -195,7 +202,7 @@ const ModuleEntry = struct {
     name: [55]u8,
 };
 
-/// Entry 0 is the C ABI callers. 255 entries cover every library a process
+/// Entry 0 is the C ABI callers, ours. 255 entries cover every library a process
 /// loads with room to spare; a module past them is entry 0, counted as ours.
 var modules: [256]ModuleEntry = @splat(.{ .start = 0, .end = 0, .own = true, .runtime = false, .live = 0, .name_len = 0, .name = @splat(0) });
 var module_count: usize = 1;
@@ -357,6 +364,21 @@ fn foreignLive() usize {
     return total;
 }
 
+/// Blocks still live from our modules and the C ABI: the leak count. It is
+/// summed from the entries of our own rather than taken as the live count
+/// less the foreign blocks, because the exit report runs while a foreign
+/// thread may be inside an alloc or free. There the live count and its
+/// entry's count are one apart for a moment, and the difference was a
+/// phantom C ABI leak that failed a clean run (macOS, 2026-10-20).
+fn ownLive() usize {
+    var total: usize = 0;
+    const n = @atomicLoad(usize, &module_count, .acquire);
+    for (modules[0..n]) |*m| {
+        if (@atomicLoad(bool, &m.own, .monotonic)) total += @atomicLoad(usize, &m.live, .monotonic);
+    }
+    return total;
+}
+
 /// One line per foreign library with live blocks and, when `leaks` of our
 /// own are left, where they came from: the module whose operator new made
 /// them, or the C ABI (Zig code and the C libraries) for the rest. That
@@ -366,14 +388,13 @@ fn logModules(leaks: usize) void {
     const log = std.log.scoped(.BkMemory);
     const n = @atomicLoad(usize, &module_count, .acquire);
     if (leaks != 0) {
-        var by_operator_new: usize = 0;
         for (modules[1..n]) |*m| {
             const live = @atomicLoad(usize, &m.live, .monotonic);
             if (!m.own or live == 0) continue;
-            by_operator_new += live;
             log.warn("bk_mem: of those, {d} from {s}'s operator new", .{ live, m.name[0..m.name_len] });
         }
-        if (leaks > by_operator_new) log.warn("bk_mem: of those, {d} from the C ABI", .{leaks - by_operator_new});
+        const c_abi = @atomicLoad(usize, &modules[0].live, .monotonic);
+        if (c_abi != 0) log.warn("bk_mem: of those, {d} from the C ABI", .{c_abi});
     }
     for (modules[1..n]) |*m| {
         const live = @atomicLoad(usize, &m.live, .monotonic);
@@ -559,8 +580,28 @@ fn traceReport() void {
     }
 }
 
+/// An allocation after the exit report (see `closed_at_exit`), straight from
+/// the backing allocator: the SafeAllocator over it may already be torn down.
+fn lateAlloc(size: usize, alignment: usize, ra: usize) ?[*]u8 {
+    const a = normalizeAlign(alignment) orelse return null;
+    const pad = padFor(a.toByteUnits());
+    const total = std.math.add(usize, pad, size) catch return null;
+    const user = (backing.rawAlloc(total, a, ra) orelse return null) + pad;
+    headerOf(user).* = .{
+        .size = size,
+        .align_log2 = @intCast(@intFromEnum(a)),
+        .module = 0,
+        ._reserved = .{ 0, 0 },
+        .magic = live_magic,
+    };
+    return user;
+}
+
 fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
-    if (@atomicLoad(bool, &closed, .acquire)) std.debug.panic("bk_mem_alloc after bk_mem_report", .{});
+    if (@atomicLoad(bool, &closed, .acquire)) {
+        if (!@atomicLoad(bool, &closed_at_exit, .acquire)) std.debug.panic("bk_mem_alloc after bk_mem_report", .{});
+        return lateAlloc(size, alignment, ra);
+    }
     const a = normalizeAlign(alignment) orelse return null;
     const pad = padFor(a.toByteUnits());
     const total = std.math.add(usize, pad, size) catch return null;
@@ -580,7 +621,7 @@ fn allocImpl(size: usize, alignment: usize, ra: usize, module: u8) ?[*]u8 {
     };
     _ = @atomicRmw(usize, &live_count, .Add, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Add, size, .monotonic);
-    if (module != 0) _ = @atomicRmw(usize, &modules[module].live, .Add, 1, .monotonic);
+    _ = @atomicRmw(usize, &modules[module].live, .Add, 1, .monotonic);
     if (module == 0 and traceOn()) traceAdd(@intFromPtr(user), size, ra, @frameAddress());
     return user;
 }
@@ -597,7 +638,7 @@ fn freeImpl(user: [*]u8, ra: usize) void {
     const base = user - pad;
     h.magic = freed_magic;
     if (h.module == 0 and traceOn()) traceRemove(@intFromPtr(user));
-    if (h.module != 0) _ = @atomicRmw(usize, &modules[h.module].live, .Sub, 1, .monotonic);
+    _ = @atomicRmw(usize, &modules[h.module].live, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_count, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Sub, size, .monotonic);
     if (comptime stack_frames != 0) lockRecordSpin();
@@ -611,7 +652,14 @@ fn reallocImpl(user: ?[*]u8, new_size: usize, want_align: usize, ra: usize) ?[*]
         freeImpl(p, ra);
         return null;
     }
-    if (@atomicLoad(bool, &closed, .acquire)) std.debug.panic("bk_mem_realloc after bk_mem_report", .{});
+    if (@atomicLoad(bool, &closed, .acquire)) {
+        if (!@atomicLoad(bool, &closed_at_exit, .acquire)) std.debug.panic("bk_mem_realloc after bk_mem_report", .{});
+        // The old block stays where it is, like every free after the report.
+        const old_size: usize = @intCast(checkHeader(p, "bk_mem_realloc").size);
+        const fresh = lateAlloc(new_size, want_align, ra) orelse return null;
+        @memcpy(fresh[0..@min(old_size, new_size)], p[0..@min(old_size, new_size)]);
+        return fresh;
+    }
     const h = checkHeader(p, "bk_mem_realloc");
     const old_size: usize = @intCast(h.size);
     const old_align: Alignment = @enumFromInt(h.align_log2);
@@ -755,8 +803,10 @@ fn reportImpl(print: bool) usize {
     if (@cmpxchgStrong(bool, &closed, false, true, .acq_rel, .acquire) != null) {
         return @atomicLoad(usize, &report_leaks, .acquire);
     }
-    const all: usize = if (use_safe) instance.deinitLog(print) else @atomicLoad(usize, &live_count, .monotonic);
-    const leaks = all -| foreignLive();
+    // The records walk prints the stacks; the count is ownLive's, which a
+    // foreign thread mid-allocation cannot skew.
+    if (use_safe) _ = instance.deinitLog(print);
+    const leaks = ownLive();
     @atomicStore(usize, &report_leaks, leaks, .release);
     return leaks;
 }
@@ -854,10 +904,11 @@ fn detachHook() void {
     // assertion mid-walk. The atomic live count is the same number without
     // touching the buckets; only the explicit BK_MEM_REPORT=log walks them,
     // and whoever set it asked for the per-block stacks.
+    @atomicStore(bool, &closed_at_exit, true, .release);
     const leaks = if (policy == .log)
         reportImpl(true)
     else blk: {
-        const n = @atomicLoad(usize, &live_count, .monotonic) -| foreignLive();
+        const n = ownLive();
         @atomicStore(usize, &report_leaks, n, .release);
         @atomicStore(bool, &closed, true, .release);
         break :blk n;
@@ -1079,6 +1130,23 @@ test "a foreign library's blocks are counted apart from ours" {
     bk_mem_free(own);
     try testing.expectEqual(f0, bk_mem_foreign_count());
     try testing.expectEqual(c0, bk_mem_live_count());
+}
+
+test "the leak count is our entries' blocks, untouched by a foreign one in flight" {
+    const foreign = foreignCodeAddress() orelse return error.SkipZigTest;
+    const own0 = ownLive();
+    const c_abi = bk_mem_alloc(16).?;
+    try testing.expectEqual(own0 + 1, ownLive());
+    const theirs = bk_mem_alloc_from(24, 0, foreign, null).?;
+    try testing.expectEqual(own0 + 1, ownLive());
+    // A foreign free caught between its entry's count and the live count:
+    // the live count is one ahead of the entries, and none of that is ours.
+    _ = @atomicRmw(usize, &live_count, .Add, 1, .monotonic);
+    try testing.expectEqual(own0 + 1, ownLive());
+    _ = @atomicRmw(usize, &live_count, .Sub, 1, .monotonic);
+    bk_mem_free(theirs);
+    bk_mem_free(c_abi);
+    try testing.expectEqual(own0, ownLive());
 }
 
 test "an unloaded module's range is forgotten, its blocks stay ours" {
