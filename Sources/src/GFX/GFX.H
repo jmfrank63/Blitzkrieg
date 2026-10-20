@@ -117,6 +117,9 @@ interface IFontManager : public ISharedManager
 {
 	enum { tidTypeID = GFX_FONT_MANAGER };
 	virtual IGFXFont* STDCALL GetFont( const char *pszName ) = 0;
+	// Reads every cached font again from the data storage, in place: screens that already
+	// hold a font object draw the new one's glyphs (a language switch, ApplyLanguage).
+	virtual void STDCALL Reload() {}
 };
 interface IGFX : public IRefCount
 {

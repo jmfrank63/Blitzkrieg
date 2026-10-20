@@ -1,0 +1,512 @@
+//! The measures of the `l10n-game-reads-it` tier (M002 R056, D066): pure
+//! functions over 8-bit gray images, and the hb-view runs that draw the
+//! independent references. hb-view shapes with HarfBuzz and rasters with
+//! cairo, a stack that shares nothing with the game's bk-font atlas and the
+//! shaper that wrote the Private Use Area clusters, so agreement between a
+//! captured frame and its hb-view raster is evidence about the game and not
+//! about itself.
+//!
+//! D069: a missing hb-view is a failure, never a skip (`HbViewMissing`).
+const std = @import("std");
+const testing = std.testing;
+
+pub const Rect = struct {
+    x1: usize,
+    y1: usize,
+    x2: usize,
+    y2: usize,
+
+    pub fn width(self: Rect) usize {
+        return self.x2 - self.x1;
+    }
+    pub fn height(self: Rect) usize {
+        return self.y2 - self.y1;
+    }
+};
+
+/// An 8-bit gray image, top row first; `pixels` belongs to the allocator that
+/// made it.
+pub const Gray = struct {
+    width: usize,
+    height: usize,
+    pixels: []u8,
+
+    pub fn at(self: Gray, x: usize, y: usize) u8 {
+        return self.pixels[y * self.width + x];
+    }
+};
+
+/// A PNG of 8 bits per channel, gray, RGB or RGBA, not interlaced (what
+/// cairo writes), as its luminance.
+pub fn decodePng(allocator: std.mem.Allocator, bytes: []const u8) !Gray {
+    if (bytes.len < 8 or !std.mem.eql(u8, bytes[0..8], "\x89PNG\r\n\x1a\n")) return error.NotPng;
+    var at: usize = 8;
+    var width: usize = 0;
+    var height: usize = 0;
+    var channels: usize = 0;
+    var idat: std.ArrayList(u8) = .empty;
+    defer idat.deinit(allocator);
+    while (at + 12 <= bytes.len) {
+        const length = std.mem.readInt(u32, bytes[at..][0..4], .big);
+        const kind = bytes[at + 4 ..][0..4];
+        const body = bytes[at + 8 ..][0..length];
+        at += 12 + length;
+        if (std.mem.eql(u8, kind, "IHDR")) {
+            width = std.mem.readInt(u32, body[0..4], .big);
+            height = std.mem.readInt(u32, body[4..8], .big);
+            if (body[8] != 8 or body[12] != 0) return error.UnsupportedPng;
+            channels = switch (body[9]) {
+                0 => 1,
+                2 => 3,
+                6 => 4,
+                else => return error.UnsupportedPng,
+            };
+        } else if (std.mem.eql(u8, kind, "IDAT")) {
+            try idat.appendSlice(allocator, body);
+        } else if (std.mem.eql(u8, kind, "IEND")) break;
+    }
+    if (width == 0 or height == 0) return error.NotPng;
+
+    var input: std.Io.Reader = .fixed(idat.items);
+    var history: [std.compress.flate.max_window_len]u8 = undefined;
+    var inflate = std.compress.flate.Decompress.init(&input, .zlib, &history);
+    const stride = width * channels;
+    const raw = try inflate.reader.allocRemaining(allocator, .limited((stride + 1) * height));
+    defer allocator.free(raw);
+    if (raw.len != (stride + 1) * height) return error.TruncatedPng;
+
+    const pixels = try allocator.alloc(u8, width * height);
+    errdefer allocator.free(pixels);
+    const rows = try allocator.alloc(u8, stride * 2);
+    defer allocator.free(rows);
+    @memset(rows, 0);
+    var previous = rows[0..stride];
+    var current = rows[stride..];
+    for (0..height) |y| {
+        const filter = raw[y * (stride + 1)];
+        const line = raw[y * (stride + 1) + 1 ..][0..stride];
+        for (0..stride) |x| {
+            const left: u8 = if (x >= channels) current[x - channels] else 0;
+            const up = previous[x];
+            const up_left: u8 = if (x >= channels) previous[x - channels] else 0;
+            current[x] = line[x] +% switch (filter) {
+                0 => 0,
+                1 => left,
+                2 => up,
+                3 => @as(u8, @intCast((@as(u16, left) + up) / 2)),
+                4 => paeth(left, up, up_left),
+                else => return error.UnsupportedPng,
+            };
+        }
+        for (0..width) |x| {
+            const p = current[x * channels ..][0..channels];
+            pixels[y * width + x] = if (channels == 1) p[0] else @intCast((@as(u32, p[0]) * 299 + @as(u32, p[1]) * 587 + @as(u32, p[2]) * 114) / 1000);
+        }
+        std.mem.swap([]u8, &previous, &current);
+    }
+    return .{ .width = width, .height = height, .pixels = pixels };
+}
+
+fn paeth(a: u8, b: u8, c: u8) u8 {
+    const p = @as(i32, a) + b - c;
+    const pa = @abs(p - a);
+    const pb = @abs(p - b);
+    const pc = @abs(p - c);
+    if (pa <= pb and pa <= pc) return a;
+    return if (pb <= pc) b else c;
+}
+
+/// The smallest box holding every pixel above `threshold`, or null.
+pub fn inkBox(image: Gray, threshold: u8) ?Rect {
+    var box = Rect{ .x1 = image.width, .y1 = image.height, .x2 = 0, .y2 = 0 };
+    for (0..image.height) |y| for (0..image.width) |x| {
+        if (image.at(x, y) <= threshold) continue;
+        box = .{ .x1 = @min(box.x1, x), .y1 = @min(box.y1, y), .x2 = @max(box.x2, x + 1), .y2 = @max(box.y2, y + 1) };
+    };
+    return if (box.x2 == 0) null else box;
+}
+
+pub fn crop(allocator: std.mem.Allocator, image: Gray, rect: Rect) !Gray {
+    const pixels = try allocator.alloc(u8, rect.width() * rect.height());
+    for (0..rect.height()) |y| @memcpy(pixels[y * rect.width() ..][0..rect.width()], image.pixels[(rect.y1 + y) * image.width + rect.x1 ..][0..rect.width()]);
+    return .{ .width = rect.width(), .height = rect.height(), .pixels = pixels };
+}
+
+/// The image on a grid of `width` by `height`, every new pixel the mean of the
+/// area it covers (fractional edges weighted), the filter that keeps a
+/// downscaled hb-view raster comparable to a pixel the Game's linear filter
+/// drew.
+pub fn resample(allocator: std.mem.Allocator, image: Gray, width: usize, height: usize) !Gray {
+    const pixels = try allocator.alloc(u8, width * height);
+    const sx = @as(f64, @floatFromInt(image.width)) / @as(f64, @floatFromInt(width));
+    const sy = @as(f64, @floatFromInt(image.height)) / @as(f64, @floatFromInt(height));
+    for (0..height) |y| for (0..width) |x| {
+        const x0 = @as(f64, @floatFromInt(x)) * sx;
+        const x1 = x0 + sx;
+        const y0 = @as(f64, @floatFromInt(y)) * sy;
+        const y1 = y0 + sy;
+        var sum: f64 = 0;
+        var weight: f64 = 0;
+        var iy: usize = @intFromFloat(@floor(y0));
+        while (@as(f64, @floatFromInt(iy)) < y1 and iy < image.height) : (iy += 1) {
+            const wy = @min(y1, @as(f64, @floatFromInt(iy + 1))) - @max(y0, @as(f64, @floatFromInt(iy)));
+            var ix: usize = @intFromFloat(@floor(x0));
+            while (@as(f64, @floatFromInt(ix)) < x1 and ix < image.width) : (ix += 1) {
+                const wx = @min(x1, @as(f64, @floatFromInt(ix + 1))) - @max(x0, @as(f64, @floatFromInt(ix)));
+                sum += wx * wy * @as(f64, @floatFromInt(image.at(ix, iy)));
+                weight += wx * wy;
+            }
+        }
+        pixels[y * width + x] = @intFromFloat(@round(sum / weight));
+    };
+    return .{ .width = width, .height = height, .pixels = pixels };
+}
+
+/// Normalised correlation (Pearson) of two images of one size: 1 for the same
+/// ink pattern whatever its brightness, 0 for unrelated, negative for
+/// inverted. A constant image has no pattern and gives 0.
+pub fn correlation(a: Gray, b: Gray) f64 {
+    std.debug.assert(a.width == b.width and a.height == b.height);
+    const n: f64 = @floatFromInt(a.pixels.len);
+    var mean_a: f64 = 0;
+    var mean_b: f64 = 0;
+    for (a.pixels, b.pixels) |x, y| {
+        mean_a += @floatFromInt(x);
+        mean_b += @floatFromInt(y);
+    }
+    mean_a /= n;
+    mean_b /= n;
+    var cov: f64 = 0;
+    var var_a: f64 = 0;
+    var var_b: f64 = 0;
+    for (a.pixels, b.pixels) |x, y| {
+        const dx = @as(f64, @floatFromInt(x)) - mean_a;
+        const dy = @as(f64, @floatFromInt(y)) - mean_b;
+        cov += dx * dy;
+        var_a += dx * dx;
+        var_b += dy * dy;
+    }
+    if (var_a == 0 or var_b == 0) return 0;
+    return cov / @sqrt(var_a * var_b);
+}
+
+/// The ink of a frame box against a reference raster: the reference cut to its
+/// ink box and resampled onto the frame box's grid, then correlated.
+/// `aspect` is the reference's width to height over the frame's, 1 when the
+/// two boxes have the same proportions.
+pub const Match = struct { correlation: f64, aspect: f64 };
+
+pub fn matchReference(allocator: std.mem.Allocator, frame_box: Gray, reference: Gray, reference_threshold: u8) !Match {
+    const box = inkBox(reference, reference_threshold) orelse return error.NoInk;
+    const cut = try crop(allocator, reference, box);
+    defer allocator.free(cut.pixels);
+    const scaled = try resample(allocator, cut, frame_box.width, frame_box.height);
+    defer allocator.free(scaled.pixels);
+    const reference_aspect = @as(f64, @floatFromInt(box.width())) / @as(f64, @floatFromInt(box.height()));
+    const frame_aspect = @as(f64, @floatFromInt(frame_box.width)) / @as(f64, @floatFromInt(frame_box.height));
+    return .{ .correlation = correlation(frame_box, scaled), .aspect = frame_aspect / reference_aspect };
+}
+
+/// The words of a one-line box: runs of columns with ink, split where at
+/// least `min_gap` empty columns separate them. Boxes are relative to the image.
+pub fn words(allocator: std.mem.Allocator, image: Gray, threshold: u8, min_gap: usize) ![]Rect {
+    var list: std.ArrayList(Rect) = .empty;
+    var start: ?usize = null;
+    var empty: usize = 0;
+    for (0..image.width + 1) |x| {
+        var inked = false;
+        if (x < image.width) for (0..image.height) |y| {
+            if (image.at(x, y) > threshold) {
+                inked = true;
+                break;
+            }
+        };
+        if (inked) {
+            if (start == null) start = x;
+            empty = 0;
+        } else if (start != null) {
+            empty += 1;
+            if (empty >= min_gap or x == image.width) {
+                try list.append(allocator, .{ .x1 = start.?, .y1 = 0, .x2 = x + 1 - empty, .y2 = image.height });
+                start = null;
+                empty = 0;
+            }
+        }
+    }
+    return list.toOwnedSlice(allocator);
+}
+
+/// The headline (shirorekha) of a Devanagari word: the row with the most ink
+/// in the word's box, and along it the longest run of columns whose ink is at
+/// most `threshold` - the gap D058 forbids between joined letters.
+pub const Headline = struct { row: usize, longest_gap: usize };
+
+pub fn headline(image: Gray, word: Rect, threshold: u8) Headline {
+    var best_row: usize = word.y1;
+    var best_sum: u64 = 0;
+    for (word.y1..word.y2) |y| {
+        var sum: u64 = 0;
+        for (word.x1..word.x2) |x| sum += image.at(x, y);
+        if (sum > best_sum) {
+            best_sum = sum;
+            best_row = y;
+        }
+    }
+    // The bar may sit on either side of the brightest row once the raster is
+    // filtered; the longer-lit of the row and its two neighbours counts. Only
+    // the stretch between the row's first and last ink is a headline: a vowel
+    // sign hanging below can make the word wider than its bar.
+    var gap: usize = word.width();
+    var row = if (best_row > word.y1) best_row - 1 else best_row;
+    while (row <= @min(best_row + 1, word.y2 - 1)) : (row += 1) {
+        var first: ?usize = null;
+        var last: usize = 0;
+        for (word.x1..word.x2) |x| if (image.at(x, row) > threshold) {
+            if (first == null) first = x;
+            last = x;
+        };
+        var longest: usize = word.width();
+        if (first) |start| {
+            longest = 0;
+            var run: usize = 0;
+            for (start..last + 1) |x| {
+                if (image.at(x, row) > threshold) {
+                    run = 0;
+                } else {
+                    run += 1;
+                    longest = @max(longest, run);
+                }
+            }
+        }
+        gap = @min(gap, longest);
+    }
+    return .{ .row = best_row, .longest_gap = gap };
+}
+
+/// The box of `word` from `from` to `to` of its width (fractions), the full height.
+pub fn window(word: Rect, from: f64, to: f64) Rect {
+    const w: f64 = @floatFromInt(word.width());
+    return .{
+        .x1 = word.x1 + @as(usize, @intFromFloat(@round(w * from))),
+        .y1 = word.y1,
+        .x2 = word.x1 + @max(1, @as(usize, @intFromFloat(@round(w * to)))),
+        .y2 = word.y2,
+    };
+}
+
+/// The correlation of a region of one image with a region of another; the
+/// second is resampled onto the first's grid when the two differ by a pixel
+/// or so (the same word is a pixel wider in one raster than in the other).
+pub fn correlationIn(allocator: std.mem.Allocator, a: Gray, b: Gray, a_rect: Rect, b_rect: Rect) !f64 {
+    const left = try crop(allocator, a, a_rect);
+    defer allocator.free(left.pixels);
+    const right = try crop(allocator, b, b_rect);
+    defer allocator.free(right.pixels);
+    if (left.width == right.width and left.height == right.height) return correlation(left, right);
+    const fitted = try resample(allocator, right, left.width, left.height);
+    defer allocator.free(fitted.pixels);
+    return correlation(left, fitted);
+}
+
+pub const HbOptions = struct {
+    /// The face file.
+    font: []const u8,
+    /// em size in pixels; references are drawn large and scaled down.
+    size: u32 = 96,
+    language: []const u8,
+    script: ?[]const u8 = null,
+    /// A comma list in hb-view's `--features` syntax.
+    features: ?[]const u8 = null,
+};
+
+/// The OpenType features that make a conjunct or a half form, off: the
+/// halant spelling of a Devanagari cluster, reordering (the short i) still on.
+pub const halant_spelling = "-ccmp,-akhn,-rphf,-rkrf,-pref,-blwf,-abvf,-half,-pstf,-vatu,-cjct,-pres,-abvs,-blws,-psts,-haln";
+
+/// The text drawn by hb-view, white on black without margins, decoded. `scratch`
+/// is a folder that exists; the PNG is kept in it as `name`.png.
+pub fn hbView(allocator: std.mem.Allocator, io: std.Io, scratch: []const u8, name: []const u8, text: []const u8, options: HbOptions) !Gray {
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    const scoped = arena.allocator();
+    const out = try std.fmt.allocPrint(scoped, "{s}/{s}.png", .{ scratch, name });
+    var argv: std.ArrayList([]const u8) = .empty;
+    try argv.appendSlice(scoped, &.{
+        "hb-view",
+        try std.fmt.allocPrint(scoped, "--font-file={s}", .{options.font}),
+        try std.fmt.allocPrint(scoped, "--font-size={d}", .{options.size}),
+        try std.fmt.allocPrint(scoped, "--language={s}", .{options.language}),
+        "--output-format=png",
+        "--foreground=ffffff",
+        "--background=000000",
+        "--margin=0",
+        try std.fmt.allocPrint(scoped, "--output-file={s}", .{out}),
+    });
+    if (options.script) |script| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--script={s}", .{script}));
+    if (options.features) |features| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--features={s}", .{features}));
+    try argv.appendSlice(scoped, &.{ "--", text });
+    const result = std.process.run(allocator, io, .{
+        .argv = argv.items,
+        .timeout = .{ .duration = .{ .raw = .fromSeconds(60), .clock = .awake } },
+    }) catch |err| switch (err) {
+        error.FileNotFound => {
+            std.debug.print("hb-view is not installed (apt install libharfbuzz-bin): the tier fails without it (D069)\n", .{});
+            return error.HbViewMissing;
+        },
+        else => return err,
+    };
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    if (!result.term.success()) {
+        std.debug.print("hb-view ended {any}: {s}{s}\n", .{ result.term, result.stdout, result.stderr });
+        return error.HbViewFailed;
+    }
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, out, allocator, .limited(16 << 20));
+    defer allocator.free(bytes);
+    return decodePng(allocator, bytes);
+}
+
+// ----------------------------------------------------------------------------
+
+const scratch_dir = "zig-out/local-test/l10n-measure";
+
+fn synthetic(allocator: std.mem.Allocator, width: usize, height: usize, comptime fill: fn (usize, usize) u8) !Gray {
+    const pixels = try allocator.alloc(u8, width * height);
+    for (0..height) |y| for (0..width) |x| {
+        pixels[y * width + x] = fill(x, y);
+    };
+    return .{ .width = width, .height = height, .pixels = pixels };
+}
+
+fn diagonal(x: usize, y: usize) u8 {
+    return @intCast((x * 7 + y * 3) % 256);
+}
+fn inverse(x: usize, y: usize) u8 {
+    return 255 - diagonal(x, y);
+}
+fn brighter(x: usize, y: usize) u8 {
+    return diagonal(x, y) / 2 + 20;
+}
+fn noise(x: usize, y: usize) u8 {
+    return @intCast((x * 131 + y * 71 + x * y * 17) % 251);
+}
+
+test "correlation is 1 for the same pattern at any brightness, -1 inverted and near 0 for another" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const a = try synthetic(arena.allocator(), 40, 20, diagonal);
+    try testing.expectApproxEqAbs(@as(f64, 1), correlation(a, a), 1e-9);
+    try testing.expectApproxEqAbs(@as(f64, -1), correlation(a, try synthetic(arena.allocator(), 40, 20, inverse)), 1e-9);
+    try testing.expect(correlation(a, try synthetic(arena.allocator(), 40, 20, brighter)) > 0.99);
+    try testing.expect(@abs(correlation(a, try synthetic(arena.allocator(), 40, 20, noise))) < 0.3);
+}
+
+fn bars(x: usize, y: usize) u8 {
+    _ = y;
+    return if (x % 8 < 4) 200 else 0;
+}
+
+test "resample keeps the mean and the pattern, crop and inkBox find the ink" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const a = try synthetic(allocator, 64, 16, bars);
+    // Eight source columns (four bright, four dark) per new pixel: their mean.
+    const mean = try resample(allocator, a, 8, 4);
+    try testing.expectEqual(@as(u8, 100), mean.at(0, 0));
+    try testing.expectEqual(@as(u8, 100), mean.at(7, 3));
+    const same = try resample(allocator, a, 64, 16);
+    try testing.expectEqualSlices(u8, a.pixels, same.pixels);
+    var padded = try synthetic(allocator, 30, 12, zero);
+    for (3..7) |y| for (10..25) |x| {
+        padded.pixels[y * 30 + x] = 255;
+    };
+    const box = inkBox(padded, 0).?;
+    try testing.expectEqual(Rect{ .x1 = 10, .y1 = 3, .x2 = 25, .y2 = 7 }, box);
+    const cut = try crop(allocator, padded, box);
+    try testing.expectEqual(@as(usize, 15 * 4), cut.pixels.len);
+    try testing.expectEqual(@as(?Rect, null), inkBox(try synthetic(allocator, 4, 4, zero), 0));
+}
+
+fn zero(_: usize, _: usize) u8 {
+    return 0;
+}
+
+test "words split at wide gaps and the headline's gap is found" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    // Two words of a headline at row 2; the first has a vowel sign hanging
+    // below past the end of its bar, the second's headline has a hole of two columns.
+    var image = try synthetic(allocator, 40, 12, zero);
+    for (0..14) |x| image.pixels[2 * 40 + x] = 255;
+    for (3..10) |y| image.pixels[y * 40 + 1] = 255;
+    for (3..6) |y| for (14..17) |x| {
+        image.pixels[y * 40 + x] = 255;
+    };
+    for (22..38) |x| {
+        if (x == 29 or x == 30) continue;
+        image.pixels[2 * 40 + x] = 255;
+    }
+    const split = try words(allocator, image, 0, 4);
+    try testing.expectEqual(@as(usize, 2), split.len);
+    try testing.expectEqual(@as(usize, 0), split[0].x1);
+    try testing.expectEqual(@as(usize, 17), split[0].x2);
+    const first = headline(image, split[0], 0);
+    try testing.expectEqual(@as(usize, 2), first.row);
+    try testing.expectEqual(@as(usize, 0), first.longest_gap);
+    try testing.expectEqual(@as(usize, 2), headline(image, split[1], 0).longest_gap);
+    try testing.expectEqual(Rect{ .x1 = 22, .y1 = 0, .x2 = 22 + 4, .y2 = 12 }, window(split[1], 0, 0.25));
+}
+
+test "decodePng reads what hb-view writes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    try std.Io.Dir.cwd().createDirPath(testing.io, scratch_dir);
+    const latin = try hbView(allocator, testing.io, scratch_dir, "latin", "Hello", .{ .font = "vendor/fonts/NotoSans-Regular.ttf", .language = "en" });
+    try testing.expect(latin.width > 100 and latin.height > 50);
+    const box = inkBox(latin, 64).?;
+    try testing.expect(box.height() > 50 and box.height() <= latin.height);
+}
+
+test "hb-view draws the Simplified and Japanese forms of 直骨角化 differently" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    try std.Io.Dir.cwd().createDirPath(testing.io, scratch_dir);
+    const text = "直骨角化";
+    const sc = try hbView(allocator, testing.io, scratch_dir, "han-sc", text, .{ .font = "vendor/fonts/NotoSansSC-Regular.otf", .language = "zh-Hans" });
+    const jp = try hbView(allocator, testing.io, scratch_dir, "han-jp", text, .{ .font = "vendor/fonts/NotoSansJP-Regular.otf", .language = "ja" });
+    const sc_box = try crop(allocator, sc, inkBox(sc, 64).?);
+    const same = try matchReference(allocator, sc_box, sc, 64);
+    const other = try matchReference(allocator, sc_box, jp, 64);
+    std.debug.print("Han 直骨角化: SC against itself {d:.4}, against JP {d:.4}\n", .{ same.correlation, other.correlation });
+    try testing.expect(same.correlation > 0.999);
+    try testing.expect(other.correlation < same.correlation - 0.02);
+}
+
+test "the halant spelling of त्र is wider than the conjunct and the matra of कि is left of its consonant" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    try std.Io.Dir.cwd().createDirPath(testing.io, scratch_dir);
+    const face = "vendor/fonts/NotoSansDevanagari-Regular.ttf";
+    const joined = try hbView(allocator, testing.io, scratch_dir, "hi-tra", "मित्रों", .{ .font = face, .language = "hi", .script = "Deva" });
+    const apart = try hbView(allocator, testing.io, scratch_dir, "hi-tra-halant", "मित्रों", .{ .font = face, .language = "hi", .script = "Deva", .features = halant_spelling });
+    const joined_box = inkBox(joined, 64).?;
+    const apart_box = inkBox(apart, 64).?;
+    std.debug.print("मित्रों: conjunct {d} px wide, halant spelling {d}\n", .{ joined_box.width(), apart_box.width() });
+    try testing.expect(apart_box.width() > joined_box.width());
+    // कि: the matra's bar is in the first third of the cluster, so that third of
+    // the raster is like itself and not like the last third.
+    const ki = try hbView(allocator, testing.io, scratch_dir, "hi-ki", "कि", .{ .font = face, .language = "hi", .script = "Deva" });
+    const cut = try crop(allocator, ki, inkBox(ki, 64).?);
+    const whole = Rect{ .x1 = 0, .y1 = 0, .x2 = cut.width, .y2 = cut.height };
+    const first = window(whole, 0, 0.3);
+    const last = window(whole, 0.7, 1);
+    const same = try correlationIn(allocator, cut, cut, first, first);
+    const swapped = try correlationIn(allocator, cut, cut, first, last);
+    std.debug.print("कि: first third against itself {d:.2}, against the last third {d:.2}\n", .{ same, swapped });
+    try testing.expect(same > 0.999 and swapped < 0.8);
+}

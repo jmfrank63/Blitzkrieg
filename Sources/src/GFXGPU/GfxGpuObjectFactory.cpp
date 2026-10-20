@@ -50,9 +50,12 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
 
     ITextureManager *textures = GetSingleton<ITextureManager>( globals );
     if ( !textures ) return false;
-    texture_ = textures->GetTexture( (storage_name + "\\1").c_str() );
-    if ( !texture_ ) return false;
-    texture_->AddRef();
+    IGFXTexture *loaded = textures->GetTexture( (storage_name + "\\1").c_str() );
+    if ( !loaded ) return false;
+    loaded->AddRef();
+    // A font read again (FontManagerGpu::Reload) gives its old atlas back.
+    if ( texture_ ) texture_->Release();
+    texture_ = loaded;
     return true;
 }
 
@@ -322,6 +325,12 @@ public:
             }
         }
         return 0;
+    }
+    void STDCALL Reload() override
+    {
+        for ( std::map<std::string, CObj<IGFXFont> >::iterator it = fonts_.begin(); it != fonts_.end(); ++it )
+            if ( it->second != 0 )
+                it->second->Load( false );
     }
     IGFXFont * STDCALL GetFont( const char *name ) override
     {

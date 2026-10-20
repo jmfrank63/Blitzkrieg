@@ -36,3 +36,15 @@ The tier `l10n-game-reads-it` checks regional Han forms and Hindi shaping on the
 - `ja`: 直 in the tutorial label (`直感操作ガイド`) and 化 in the options label (`最適化オプション`).
 - `hi`: the reordered short i matra (कि) in the cutscenes label `किस्से`; the conjuncts क्ष in the tutorial
   label `प्रशिक्षण`, त्र in the multiplayer label `मित्रों के साथ` and श्र in the credits label `श्रेय`.
+
+## The measuring tier
+
+`zig build l10n-game-reads-it` (it builds the language mods first, and needs `hb-view` from
+`libharfbuzz-bin`; without it the tier fails, D069) starts the real Game on each language mod and measures
+the captured main menu against hb-view rasters of the same strings. The frame minus a capture of the menu
+with the same fonts blanked is the ink of the labels. Thresholds are named constants in
+`tools/zig/l10n_game_reads_it.zig`, each with how it was measured. Frames, the references and `report.txt` are
+written under `zig-out/local-test/l10n-game-reads-it/<code>/`.
+
+Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
+cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.

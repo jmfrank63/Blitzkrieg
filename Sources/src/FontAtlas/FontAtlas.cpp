@@ -499,7 +499,12 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 			RenderGlyph( font, fScale, nAscent, request, bEmbolden, bSlant, &glyphs[i] );
 		else
 		{
-			const std::u16string &cluster = request.clusters[glyphs[i].nCluster];
+			std::u16string cluster = request.clusters[glyphs[i].nCluster];
+			// A cluster that ends in a halant is a half form in its text (the next consonant
+			// follows it); alone, its halant would draw as a visible mark. The zero-width joiner
+			// asks for the half form, the glyph the shaped text has.
+			if ( !cluster.empty() && cluster[cluster.size() - 1] == 0x094D )
+				cluster += char16_t( 0x200D );
 			char szShapeError[256] = "";
 			SBkShaped *pShaped = cluster.empty() ? 0 : BkShapeClusters( request.pFontData, request.nFontDataSize,
 				reinterpret_cast<const unsigned short*>( cluster.data() ), cluster.size(), request.szScript.c_str(),

@@ -3646,6 +3646,46 @@ pub fn build(b: *std.Build) void {
     const language_mods_step = b.step("language-mods", "Build the ru, zh-Hans, ja and hi language mods from the Localization overlays through ELK's pak export, with their Noto fonts (Hindi shaped into Private Use Area clusters), and install them into the game's mods folder (M002 D060)");
     language_mods_step.dependOn(&language_mods_tests.step);
     if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
+    // The measures of the l10n-game-reads-it tier below (tools/zig/l10n_measure.zig): pure
+    // functions over gray images and the hb-view runs that draw the references. It
+    // needs hb-view on the PATH (libharfbuzz-bin) and fails without it (D069).
+    const l10n_measure_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_measure_tests = b.addTest(.{ .root_module = l10n_measure_module });
+    const l10n_measure_run = b.addRunArtifact(l10n_measure_tests);
+    l10n_measure_run.setCwd(b.path("."));
+    l10n_measure_run.has_side_effects = true;
+    const l10n_measure_step = b.step("test-l10n-measure", "Unit tests of the l10n tier's measures: PNG decode, ink boxes, resampling, correlation, Hindi headline and matra measures, and hb-view's Simplified and Japanese Han forms (M002 D066)");
+    l10n_measure_step.dependOn(&l10n_measure_tests.step);
+    if (test_mode == .run) l10n_measure_step.dependOn(&l10n_measure_run.step);
+    // M002 R056/D066 on the real Game: the language mods' main menus measured against
+    // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
+    // desktop, a GPU and hb-view, and fails without them; the mods are built first.
+    const l10n_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = elk_core_module },
+            .{ .name = "zip", .module = elk_zip_module },
+            .{ .name = "l10n_measure", .module = l10n_measure_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_game_reads_module, toolchain);
+    }
+    const l10n_game_reads_tests = b.addTest(.{ .root_module = l10n_game_reads_module });
+    const l10n_game_reads_run = b.addRunArtifact(l10n_game_reads_tests);
+    l10n_game_reads_run.setCwd(b.path("."));
+    l10n_game_reads_run.setEnvironmentVariable("BK_L10N_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    l10n_game_reads_run.has_side_effects = true;
+    l10n_game_reads_run.step.dependOn(&language_mods_run.step);
+    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on the ru, zh-Hans, ja and hi language mods, capture the main menu, and measure every label against an hb-view raster of its string: correlation, the Hindi headline, short i and conjunct checks, the regional Han forms, and the live language switch (M002 R056, D066)");
+    l10n_game_reads_step.dependOn(&l10n_game_reads_tests.step);
+    if (test_mode == .run) l10n_game_reads_step.dependOn(&l10n_game_reads_run.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
