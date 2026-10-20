@@ -3643,7 +3643,7 @@ pub fn build(b: *std.Build) void {
     language_mods_run.has_side_effects = true;
     language_mods_run.step.dependOn(install_game_step);
     language_mods_run.step.dependOn(bk_font.install);
-    const language_mods_step = b.step("language-mods", "Build the ru, zh-Hans, ja and hi language mods from the Localization overlays through ELK's pak export, with their Noto fonts (Hindi shaped into Private Use Area clusters), and install them into the game's mods folder (M002 D060)");
+    const language_mods_step = b.step("language-mods", "Build the nine language mods (ru, zh-Hans, ja, hi with their Noto fonts, Hindi shaped into Private Use Area clusters; es, fr, de, pt-BR, id texts only on the bitmap fonts) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
     language_mods_step.dependOn(&language_mods_tests.step);
     if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
     // The measures of the l10n-game-reads-it tier below (tools/zig/l10n_measure.zig): pure

@@ -1,6 +1,10 @@
 //! The language mods of M002 (D060, D068): `lang-ru`, `lang-zh-hans`,
-//! `lang-ja` and `lang-hi` of the installed game, built by ELK's own pak
-//! export from the tracked `Data/ELK` and the overlays of `Localization/`.
+//! `lang-ja` and `lang-hi` with fonts, and the texts-only `lang-es`,
+//! `lang-fr`, `lang-de`, `lang-pt-br` and `lang-id` of the installed game,
+//! built by ELK's own pak export from the tracked `Data/ELK` and the overlays
+//! of `Localization/`. The Latin languages draw with the game's cp1252 bitmap
+//! fonts (D059): their mods hold texts only, and every character of every text
+//! must map to cp1252 or the build fails naming the key and the code point.
 //! Per language: the database is copied to a scratch folder and the overlay
 //! laid over it; a first export (for Hindi through the shaper, which rewrites
 //! every text into Private Use Area characters) tells which characters the
@@ -10,7 +14,8 @@
 //! with a `mod.xml`. Data/ELK is hashed before and after: nothing writes it.
 //! BK_LM_GAME names the installed Game executable, BK_LM_FONT_TOOL the
 //! installed bk-font and BK_LM_MODULES the folder of the engine libraries it
-//! loads; `zig build language-mods` sets them.
+//! loads; `zig build language-mods` sets them. BK_LM_LANGS (comma separated
+//! codes) limits a shard to some of the languages; the default is all of them.
 const std = @import("std");
 const elk = @import("elk");
 const zip = @import("zip");
@@ -34,8 +39,9 @@ const Language = struct {
     mod: []const u8,
     /// The name the language option lists (`MODName`).
     name: []const u8,
-    /// The face below `vendor/fonts`.
-    face: []const u8,
+    /// The face below `vendor/fonts`; none for a language that draws with the
+    /// game's bitmap fonts and so ships texts only.
+    face: ?[]const u8 = null,
     /// Hindi only: the script the clusters are shaped with.
     shaped: bool = false,
 };
@@ -45,6 +51,11 @@ const languages = [_]Language{
     .{ .code = "zh-Hans", .mod = "lang-zh-hans", .name = "简体中文", .face = "NotoSansSC-Regular.otf" },
     .{ .code = "ja", .mod = "lang-ja", .name = "日本語", .face = "NotoSansJP-Regular.otf" },
     .{ .code = "hi", .mod = "lang-hi", .name = "हिन्दी", .face = "NotoSansDevanagari-Regular.ttf", .shaped = true },
+    .{ .code = "es", .mod = "lang-es", .name = "Español" },
+    .{ .code = "fr", .mod = "lang-fr", .name = "Français" },
+    .{ .code = "de", .mod = "lang-de", .name = "Deutsch" },
+    .{ .code = "pt-BR", .mod = "lang-pt-br", .name = "Português (Brasil)" },
+    .{ .code = "id", .mod = "lang-id", .name = "Bahasa Indonesia" },
 };
 
 /// The game's four font folders and their cell heights (Data/Fonts/*/1.tfd).
@@ -64,6 +75,36 @@ fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
     var map = try testing.environ.createMap(allocator);
     const value = map.get(key) orelse return null;
     return try allocator.dupeSentinel(u8, value, 0);
+}
+
+/// Whether BK_LM_LANGS (when set) lists `code`.
+fn selected(filter: ?[]const u8, code: []const u8) bool {
+    const list = filter orelse return true;
+    var codes = std.mem.tokenizeAny(u8, list, ", ");
+    while (codes.next()) |one| if (std.ascii.eqlIgnoreCase(one, code)) return true;
+    return false;
+}
+
+/// The Windows-1252 code point of a UTF-16 unit is defined when it is below
+/// 0x80, in 0xA0..0xFF, or one of the 27 characters cp1252 puts in 0x80..0x9F.
+fn inCp1252(unit: u16) bool {
+    if (unit < 0x80 or (unit >= 0xA0 and unit <= 0xFF)) return true;
+    return switch (unit) {
+        0x20AC, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x017D => true,
+        0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x017E, 0x0178 => true,
+        else => false,
+    };
+}
+
+/// The first code unit of an exported text (UTF-16LE after its byte order
+/// mark) that cp1252 cannot draw, or null.
+fn cp1252Violation(bytes: []const u8) ?u16 {
+    var at: usize = 2;
+    while (at + 1 < bytes.len) : (at += 2) {
+        const unit = std.mem.readInt(u16, bytes[at..][0..2], .little);
+        if (!inCp1252(unit)) return unit;
+    }
+    return null;
 }
 
 fn required(allocator: std.mem.Allocator, key: []const u8) ![:0]const u8 {
@@ -87,8 +128,10 @@ test "the language mods are built from the overlays through ELK's export" {
     const game_root = std.fs.path.dirname(game).?;
     const cwd_path = try std.process.currentPathAlloc(io, allocator);
 
+    const filter = try envValue(allocator, "BK_LM_LANGS");
     const elk_before = try treeHash("Data/ELK");
     for (languages) |language| {
+        if (!selected(filter, language.code)) continue;
         build(io, allocator, language, game_root, font_tool, modules, cwd_path) catch |err| {
             std.debug.print("language-mods: {s}: {s} failed: {s} (scratch: {s}/{s})\n", .{ language.code, stage, @errorName(err), scratch, language.code });
             return err;
@@ -100,6 +143,12 @@ test "the language mods are built from the overlays through ELK's export" {
 
 fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root: []const u8, font_tool: []const u8, modules: []const u8, cwd_path: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
+    // A Latin language whose overlay is not translated yet is left out.
+    const overlay_folder = try std.fs.path.join(allocator, &.{ "Localization/game", language.code, "game_data_base" });
+    cwd.access(io, overlay_folder, .{}) catch {
+        std.debug.print("language-mods: {s}: no overlay at {s}, skipped\n", .{ language.code, overlay_folder });
+        return;
+    };
     const root = try std.fs.path.join(allocator, &.{ scratch, language.code });
     cwd.deleteTree(io, root) catch {};
     const abs_root = try std.fs.path.join(allocator, &.{ cwd_path, root });
@@ -117,8 +166,8 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     var db = try database.Database.open(testing.allocator, io, elk_xml);
     defer db.deinit();
 
-    const face_path = try std.fs.path.join(allocator, &.{ "vendor/fonts", language.face });
-    const face = try cwd.readFileAlloc(io, face_path, allocator, .limited(64 << 20));
+    const face_path = if (language.face) |name| try std.fs.path.join(allocator, &.{ "vendor/fonts", name }) else "";
+    const face = if (language.face != null) try cwd.readFileAlloc(io, face_path, allocator, .limited(64 << 20)) else "";
     var shaping = Shaper{};
     defer if (shaping.handle) |handle| LmShaperDestroy(handle);
     if (language.shaped) shaping.handle = LmShaperCreate(face.ptr, face.len, "Deva", "hi");
@@ -137,6 +186,12 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         for (package.entries) |entry| {
             if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
             texts += 1;
+            if (language.face == null) {
+                if (cp1252Violation(entry.bytes)) |unit| {
+                    std.debug.print("language-mods: {s}: {s}: U+{X:0>4} is not in cp1252\n", .{ language.code, entry.name, unit });
+                    return error.NotInCp1252;
+                }
+            }
             var at: usize = 2;
             while (at + 1 < entry.bytes.len) : (at += 2) chars[std.mem.readInt(u16, entry.bytes[at..][0..2], .little)] = true;
         }
@@ -173,7 +228,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
 
     var fonts: std.ArrayListUnmanaged(packages.Entry) = .empty;
     var atlas_report: std.ArrayListUnmanaged(u8) = .empty;
-    for (sizes) |size| {
+    for (if (language.face != null) sizes[0..] else sizes[0..0]) |size| {
         stage = "bk-font";
         const out = try std.fs.path.join(allocator, &.{ abs_root, "fonts", size.name });
         var argv: std.ArrayListUnmanaged([]const u8) = .empty;
@@ -222,7 +277,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     const pak_bytes = try cwd.readFileAlloc(io, pak_path, allocator, .limited(256 << 20));
     var archive = try zip.Archive.parse(testing.allocator, pak_bytes);
     defer archive.deinit();
-    for (sizes) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
+    for (if (language.face != null) sizes[0..] else sizes[0..0]) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
         const name = try std.mem.concat(allocator, u8, &.{ "fonts/", size.name, "/", file });
         var found = false;
         for (archive.entries) |*entry| {
@@ -249,7 +304,28 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     } else {
         try testing.expectEqualSlices(u8, overlay_text, packed_text);
     }
-    std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s}, installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, pak_path });
+    if (language.face == null) {
+        std.debug.print("language-mods: {s}: {d} texts, {d} characters, bitmap fonts, texts only, installed {s}\n", .{ language.code, texts, distinct, pak_path });
+    } else {
+        std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s}, installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, pak_path });
+    }
+}
+
+test "a text with a character cp1252 lacks is named" {
+    const good = [_]u8{ 0xff, 0xfe, 'A', 0, 0xe9, 0, 0xac, 0x20, 0x26, 0x20 };
+    try testing.expectEqual(@as(?u16, null), cp1252Violation(&good));
+    // U+1EBD (e with tilde) is the known trap of the Latin overlays.
+    const bad = [_]u8{ 0xff, 0xfe, 'a', 0, 0xbd, 0x1e };
+    try testing.expectEqual(@as(?u16, 0x1EBD), cp1252Violation(&bad));
+    // 0x81 is one of the five holes of cp1252.
+    try testing.expectEqual(@as(?u16, 0x81), cp1252Violation(&[_]u8{ 0xff, 0xfe, 0x81, 0 }));
+}
+
+test "BK_LM_LANGS selects languages by code" {
+    try testing.expect(selected(null, "ru"));
+    try testing.expect(selected("de,ru", "ru"));
+    try testing.expect(!selected("de, fr", "ru"));
+    try testing.expect(selected("pt-br", "pt-BR"));
 }
 
 /// The export's rewrite for a shaped language: a text with Devanagari in it
