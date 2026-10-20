@@ -103,7 +103,7 @@ fn runChecker(io: std.Io, allocator: std.mem.Allocator, case: []const u8) !Outco
     };
     const root = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ scratch, case });
     defer allocator.free(root);
-    const result = try std.process.run(allocator, io, .{ .argv = &.{ exe, "--root", root } });
+    const result = try std.process.run(allocator, io, .{ .argv = &.{ exe, "--root", root, "--fonts", "vendor/fonts" } });
     allocator.free(result.stdout);
     const code: u8 = switch (result.term) {
         .exited => |c| c,
@@ -254,4 +254,46 @@ test "broken_placeholder: a translation that lost a %s of the English" {
     try testing.expect(std.mem.indexOf(u8, outcome.stderr, de_line) != null);
     const fr_line = "l10n-check: placeholder: fr: textes/strings/alpha: placeholders differ: English has %d %s, translation has none\n";
     try testing.expect(std.mem.indexOf(u8, outcome.stderr, fr_line) != null);
+}
+
+fn utf16Units(allocator: std.mem.Allocator, units: []const u16) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    try out.appendSlice(allocator, &.{ 0xff, 0xfe });
+    for (units) |unit| try out.appendSlice(allocator, &.{ @truncate(unit), @truncate(unit >> 8) });
+    return out.toOwnedSlice(allocator);
+}
+
+const ru_alpha = "Localization/game/ru/game_data_base/textes/strings/alpha";
+
+test "uncovered_glyph_cjk: a Han character in the Russian overlay" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "uncovered_glyph_cjk");
+    const bytes = try utf16Units(testing.allocator, &.{ 0x041F, 0x0440, 0x76F4 });
+    defer testing.allocator.free(bytes);
+    try write(io, root, ru_alpha ++ ".txt", bytes);
+    try expectFinding(io, "uncovered_glyph_cjk", &root, "l10n-check: glyph: ru: textes/strings/alpha: U+76F4 not in NotoSans-Regular.ttf");
+}
+
+test "uncovered_glyph_latin: a Cyrillic letter in the German overlay" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "uncovered_glyph_latin");
+    const bytes = try utf16Units(testing.allocator, &.{ 'G', 0x00FC, 0x0416 });
+    defer testing.allocator.free(bytes);
+    try write(io, root, de_alpha ++ ".txt", bytes);
+    try expectFinding(io, "uncovered_glyph_latin", &root, "l10n-check: glyph: de: textes/strings/alpha: U+0416 not in cp1252");
+}
+
+test "covered_hindi_with_ascii: Devanagari with ASCII and a Western digit passes" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "covered_hindi_with_ascii");
+    const bytes = try utf16Units(testing.allocator, &.{ 0x0915, 0x094D, 0x0937, ' ', 'A', 'B', '1', '.', '\r', '\n' });
+    defer testing.allocator.free(bytes);
+    try write(io, root, "Localization/game/hi/game_data_base/textes/strings/alpha.txt", bytes);
+    root.close(io);
+    const outcome = try runChecker(io, testing.allocator, "covered_hindi_with_ascii");
+    defer testing.allocator.free(outcome.stderr);
+    const expected = try std.fmt.allocPrint(testing.allocator, "l10n-check: 0 findings, {d} checked\n", .{checked_total});
+    defer testing.allocator.free(expected);
+    try testing.expectEqual(@as(u8, 0), outcome.code);
+    try testing.expectEqualStrings(expected, outcome.stderr);
 }

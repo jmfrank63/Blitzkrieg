@@ -32,8 +32,17 @@
 //! hold none of them, only CRLF line breaks. The rule therefore counts printf codes (`%s`, `%d`,
 //! `%5.2f`; `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
 //! and a literal `\n`; square-bracket keys are left to the translator, who may write the local key.
+//!
+//! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. A language with a
+//! face (ru, zh-Hans, ja, hi) needs each code point in its face or in NotoSans-Regular (the Hindi
+//! texts hold ASCII and punctuation the Devanagari face lacks), read from the fonts' `cmap`
+//! (tools/zig/l10n_cmap.zig); the five Latin languages draw with the game's cp1252 bitmap fonts, so
+//! each code point must be in cp1252. CR, LF and TAB are ignored. The tracked Unicode overlay is
+//! checked, never a generated pak (the Hindi private-use forms live only there, D058). The fonts are
+//! read from `--fonts <dir>`, default `<root>/vendor/fonts`.
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
+const cmap = @import("l10n_cmap.zig");
 
 pub const Finding = struct {
     rule: []const u8,
@@ -398,6 +407,80 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     }
 }
 
+/// A font read once and its `cmap`, or the reason it cannot be used.
+const Face = struct {
+    name: []const u8,
+    bytes: []u8 = &.{},
+    table: ?cmap.Cmap = null,
+
+    fn load(io: std.Io, arena: std.mem.Allocator, fonts: std.Io.Dir, name: []const u8) Face {
+        var face: Face = .{ .name = name };
+        face.bytes = fonts.readFileAlloc(io, name, arena, .limited(64 << 20)) catch return face;
+        face.table = cmap.Cmap.init(face.bytes) catch null;
+        return face;
+    }
+
+    fn covers(self: Face, code_point: u21) bool {
+        const table = self.table orelse return false;
+        return table.covers(code_point) catch false;
+    }
+};
+
+fn lessCodePoint(_: void, a: u21, b: u21) bool {
+    return a < b;
+}
+
+/// The distinct code points of a UTF-16LE text (after its byte order mark, surrogates combined),
+/// ascending, without CR, LF and TAB. An unpaired surrogate is left to the encoding rule.
+pub fn codePoints(arena: std.mem.Allocator, bytes: []const u8) ![]const u21 {
+    var found: std.ArrayList(u21) = .empty;
+    var at: usize = 2;
+    while (at + 1 < bytes.len) : (at += 2) {
+        var unit: u21 = std.mem.readInt(u16, bytes[at..][0..2], .little);
+        if (unit >= 0xD800 and unit <= 0xDBFF) {
+            if (at + 3 >= bytes.len) break;
+            const low = std.mem.readInt(u16, bytes[at + 2 ..][0..2], .little);
+            if (low < 0xDC00 or low > 0xDFFF) continue;
+            unit = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
+            at += 2;
+        } else if (unit >= 0xDC00 and unit <= 0xDFFF) continue;
+        if (unit == '\r' or unit == '\n' or unit == '\t') continue;
+        if (std.mem.indexOfScalar(u21, found.items, unit) == null) try found.append(arena, unit);
+    }
+    std.mem.sort(u21, found.items, {}, lessCodePoint);
+    return found.items;
+}
+
+/// Rule glyph: every code point of every in-scope overlay text is covered by the language's font
+/// (or NotoSans-Regular), or by cp1252 for a language without a face. One finding per code point.
+pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.Dir) !void {
+    const arena = report.arena;
+    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse return;
+    const keys = try parseScope(arena, scope_text);
+    const latin = Face.load(io, arena, fonts, "NotoSans-Regular.ttf");
+    if (latin.table == null) try report.add("glyph", "all", latin.name, "font is missing or has no usable cmap");
+    for (languages.languages) |language| {
+        var own: ?Face = null;
+        if (language.face) |name| {
+            own = Face.load(io, arena, fonts, name);
+            if (own.?.table == null) try report.add("glyph", language.code, name, "font is missing or has no usable cmap");
+        }
+        for (keys) |key| {
+            const path = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.txt", .{ language.code, key });
+            const bytes = (try readOptional(io, arena, root, path)) orelse continue;
+            if (textProblem(bytes) != .ok) continue;
+            for (try codePoints(arena, bytes)) |code_point| {
+                if (own) |face| {
+                    if (face.table == null or face.covers(code_point) or latin.covers(code_point)) continue;
+                    try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in {s}", .{ code_point, face.name });
+                } else if (code_point > 0xFFFF or !languages.inCp1252(@intCast(code_point))) {
+                    try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in cp1252", .{code_point});
+                }
+            }
+        }
+    }
+}
+
 /// Rules untranslated and placeholder for one overlay text against the English bytes of its key.
 fn checkAgainstBase(report: *Report, manifest: ?Manifest, code: []const u8, key: []const u8, english: []const u8, translation: []const u8) !void {
     const arena = report.arena;
@@ -480,7 +563,7 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, b
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
 
@@ -494,10 +577,13 @@ pub fn main(init: std.process.Init) !void {
     defer iterator.deinit();
     _ = iterator.skip();
     var root_path: []const u8 = ".";
+    var fonts_path: ?[]const u8 = null;
     var update_base = false;
     while (iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "--root")) {
             root_path = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--fonts")) {
+            fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--update-base")) {
             update_base = true;
         } else usage();
@@ -518,11 +604,20 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
     try checkOverlays(io, &report, root);
+    var fonts = if (fonts_path) |path| std.Io.Dir.cwd().openDir(io, path, .{}) else root.openDir(io, "vendor/fonts", .{});
+    if (fonts) |*dir| {
+        defer dir.close(io);
+        try checkGlyphs(io, &report, root, dir.*);
+    } else |err| try report.addFmt("glyph", "all", fonts_path orelse "vendor/fonts", "cannot open the fonts directory ({s})", .{@errorName(err)});
 
     for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
     for (report.inactive.items) |scope| std.debug.print("l10n-check: {s}: not active\n", .{scope});
     std.debug.print("l10n-check: {d} findings, {d} checked\n", .{ report.findings.items.len, report.checked });
     if (report.findings.items.len != 0) std.process.exit(1);
+}
+
+test {
+    _ = cmap;
 }
 
 test "textProblem tells the byte order mark, length, surrogates and empty text apart" {
@@ -554,6 +649,14 @@ test "placeholderTokens finds printf codes, numbered slots, tags and a literal b
     const want = [_][]const u8{ "$name", "%5.2f", "%s", "<Ctrl-1>", "<br>", "\\n", "{0}" };
     try testing.expectEqual(want.len, tokens.len);
     for (want, tokens) |w, t| try testing.expectEqualStrings(w, t);
+}
+
+test "codePoints combines surrogates, drops CR LF TAB and repeats" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const points = try codePoints(arena_state.allocator(), &.{ 0xff, 0xfe, 'b', 0, '\r', 0, '\n', 0, 'a', 0, 'b', 0, 0x3d, 0xd8, 0x00, 0xde });
+    try testing.expectEqualSlices(u21, &.{ 'a', 'b', 0x1F600 }, points);
 }
 
 test "parseManifest reads hashes and same-as-base lines" {

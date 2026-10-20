@@ -3715,6 +3715,8 @@ pub fn build(b: *std.Build) void {
     l10n_check_tests_run.has_side_effects = true;
     l10n_check_tests_run.step.dependOn(&l10n_check_install.step);
     const l10n_check_unit_run = b.addRunArtifact(l10n_check_unit);
+    // The cmap tests read the vendored fonts from the repository root.
+    l10n_check_unit_run.setCwd(b.path("."));
     const l10n_check_tests_step = b.step("test-l10n-check", "The l10n-check rules and one seeded-fault fixture per rule, each failing with its exact line (M002 S03)");
     l10n_check_tests_step.dependOn(&l10n_check_tests.step);
     l10n_check_tests_step.dependOn(&l10n_check_unit.step);
