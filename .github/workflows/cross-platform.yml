@@ -138,7 +138,7 @@ jobs:
           git config --global http.postBuffer 157286400
 
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           filter: blob:none
