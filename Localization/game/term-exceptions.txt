@@ -40,3 +40,8 @@ es textes/help load game # running text: the key is Carga rápida, the quick-loa
 es textes/help save game # running text: the key is Guardado rápido, the quick-save key, not the Guardar partida menu
 es textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJUGADOR (139 px), so the heading is the abbreviation MULTIJUG.
 pt-BR textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJOGADOR (139 px), so the heading is the abbreviation MULTIJOG.
+id textes/ui/intermission/credits/credits engineer # the credits line "Sound Engineer" is Teknisi Suara, an audio technician, not a military zeni (sapper).
+id buildings/africa/summer/a_cisterns/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+id buildings/africa/summer/a_cisterns/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+id buildings/ussr/summer/cistern/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+id buildings/ussr/summer/cistern/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.

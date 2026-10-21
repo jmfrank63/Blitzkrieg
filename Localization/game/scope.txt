@@ -29,3 +29,7 @@ whole-database de
 whole-database fr
 whole-database es
 whole-database pt-BR
+prefix id textes
+prefix id buildings
+prefix id medals
+prefix id units/humans
