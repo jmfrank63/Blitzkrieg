@@ -15,9 +15,12 @@ const logic = @import("panels_logic.zig");
 const marker_logic = @import("marker_logic.zig");
 const testlaunch = kit.testlaunch;
 const minimap = @import("minimap.zig");
+const l10n = kit.l10n;
 
 const State = panels.State;
 const records = core.records;
+const tr = l10n.str;
+const say = l10n.say;
 
 /// What a command or predicate said. `refused`: the editor said no and its
 /// status line holds why (or a predicate is false; for `check`, a false
@@ -157,6 +160,7 @@ pub const command_table = [_]Entry{
     .{ .name = "group_hide", .handler = groupHide },
     .{ .name = "group_select", .handler = groupSelect },
     .{ .name = "groups_window", .handler = groupsWindow },
+    .{ .name = "settings_window", .handler = settingsWindow },
     .{ .name = "script_file", .handler = scriptFile },
     .{ .name = "area_shape", .handler = areaShape },
     .{ .name = "area_name", .handler = areaName },
@@ -441,7 +445,7 @@ pub fn gotoAnchor(state: *State, slot: i32) Outcome {
     const anchors = readAnchors(state) orelse return .refused;
     const anchor = if (slot == neutral_slot) anchors.neutral else anchors.slot(@intCast(slot));
     if (anchor.isUnset()) {
-        state.view.setStatus("camera anchor: ", "that anchor is not set");
+        state.view.setStatus("", tr("app.cmd.camera_anchor_that_anchor_is"));
         return .refused;
     }
     state.view.centreOn(state.real, anchor.x, anchor.y);
@@ -519,7 +523,7 @@ const UpdateProgress = struct {
 pub fn mapUpdate(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     if (!panels.documentLoaded(state.editor)) {
-        state.editor.note("no map to update");
+        state.editor.note(tr("app.cmd.no_map_to_update"));
         return .refused;
     }
     var progress = UpdateProgress{};
@@ -544,7 +548,7 @@ pub fn mapUpdate(state: *State, arg: []const u8) Outcome {
 /// already said yes by naming the command.
 pub fn mapFill(state: *State, arg: []const u8) Outcome {
     if (!panels.documentLoaded(state.editor)) {
-        state.editor.note("no map to fill");
+        state.editor.note(tr("app.cmd.no_map_to_fill"));
         return .refused;
     }
     var tile: u8 = state.view.brush.tile;
@@ -644,7 +648,7 @@ pub fn fireRange(state: *State, arg: []const u8) Outcome {
     if (!std.mem.startsWith(u8, arg, prefix)) return .bad_arg;
     var buffer: [128]u8 = undefined;
     const name = logic.resolveFilterName(&buffer, state.editor.filtersSlice(), arg[prefix.len..]) orelse {
-        state.view.setStatus("fire range: ", "no filter is named that");
+        state.view.setStatus("", tr("app.cmd.fire_range_no_filter_is"));
         return .refused;
     };
     return fireRangeFilter(state, name);
@@ -696,14 +700,11 @@ fn tileInfo(state: *State, arg: []const u8) Outcome {
         tile = @intCast(parsed);
     }
     const info = state.real.describeTile(tile) orelse {
-        state.editor.note("the map's tileset does not list that tile");
+        state.editor.note(tr("app.cmd.the_map_s_tileset_does"));
         return .refused;
     };
     var line: [160]u8 = undefined;
-    const text = std.fmt.bufPrint(&line, "tile {d}: {s}, {d} variants", .{
-        tile, std.mem.sliceTo(&info.terrain, 0), info.variant_count,
-    }) catch "tile";
-    state.editor.note(text);
+    state.editor.note(say(&line, "app.cmd.tile_info", .{ tile, std.mem.sliceTo(&info.terrain, 0), info.variant_count }));
     return .ok;
 }
 
@@ -716,7 +717,7 @@ fn tileInfo(state: *State, arg: []const u8) Outcome {
 /// the format's extension when it names none.
 fn saveAsFormat(state: *State, arg: []const u8, which: core.settings.Format) Outcome {
     if (!panels.documentLoaded(state.editor)) {
-        state.editor.note("no map to save");
+        state.editor.note(tr("app.cmd.no_map_to_save"));
         return .refused;
     }
     if (arg.len == 0) {
@@ -738,7 +739,7 @@ fn saveAsFormat(state: *State, arg: []const u8, which: core.settings.Format) Out
     // that may not be there yet, so it is made (the saveas verb's own rule).
     if (std.fs.path.dirname(arg)) |folder| std.Io.Dir.cwd().createDirPath(state.io, folder) catch {};
     if (!state.actions.dialog.request(.save_as)) {
-        state.editor.note("a dialog is already open");
+        state.editor.note(tr("app.cmd.a_dialog_is_already_open"));
         return .refused;
     }
     state.save_as_format_forced = which;
@@ -783,7 +784,7 @@ fn paletteCount(state: *State, arg: []const u8) Outcome {
     }
     if (count == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "palette_count is {d}, not {d}", .{ count, want }) catch "palette_count differs");
+    state.editor.note(say(&buffer, "app.cmd.palette_count_is_not", .{ count, want }));
     return .refused;
 }
 
@@ -963,7 +964,7 @@ pub fn chooseBridgeType(state: *State, name: []const u8) Outcome {
 fn selectedBridge(state: *State) ?usize {
     if (!panels.mapIsOpen(state.editor)) return null;
     const index = state.view.bridge_tool.selected orelse {
-        state.editor.note("click a bridge to select it first");
+        state.editor.note(tr("app.cmd.click_a_bridge_to_select"));
         return null;
     };
     return index;
@@ -1060,7 +1061,7 @@ fn fenceDelta(state: *State, arg: []const u8) Outcome {
     // The scenario runner prints the status line with a false predicate: say
     // what the count is, so a wrong expectation is one run, not a search.
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "fence_delta is {d}, not {d}", .{ delta, want }) catch "fence_delta differs");
+    state.editor.note(say(&buffer, "app.cmd.fence_delta_is_not", .{ delta, want }));
     return .refused;
 }
 
@@ -1096,7 +1097,7 @@ fn trenchDelta(state: *State, arg: []const u8) Outcome {
     const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.trench_count_at_open));
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "trench_delta is {d}, not {d}", .{ delta, want }) catch "trench_delta differs");
+    state.editor.note(say(&buffer, "app.cmd.trench_delta_is_not", .{ delta, want }));
     return .refused;
 }
 
@@ -1110,7 +1111,7 @@ fn scriptId(state: *State, arg: []const u8) Outcome {
     const value = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
     const link_id = state.editor.selection orelse {
-        state.editor.note("select an object first");
+        state.editor.note(tr("app.cmd.select_an_object_first"));
         return .refused;
     };
     return resultOutcome(state, state.editor.setScriptID(link_id, value, 0));
@@ -1124,7 +1125,7 @@ fn scriptIdIs(state: *State, arg: []const u8) Outcome {
     const object = state.editor.document.find(link_id) orelse return .refused;
     if (object.script_id == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "script_id is {d}, not {d}", .{ object.script_id, want }) catch "script_id differs");
+    state.editor.note(say(&buffer, "app.cmd.script_id_is_not", .{ object.script_id, want }));
     return .refused;
 }
 
@@ -1189,7 +1190,7 @@ fn objectRef(state: *State, text: []const u8) ?i32 {
         const members = state.editor.selectionMembers(state.allocator) catch return null;
         defer state.allocator.free(members);
         if (index >= members.len) {
-            state.editor.note("the selection holds fewer objects");
+            state.editor.note(tr("app.cmd.the_selection_holds_fewer_objects"));
             return null;
         }
         return members[index];
@@ -1249,7 +1250,7 @@ fn selectionCountIs(state: *State, arg: []const u8) Outcome {
     const got = state.editor.selectionCount();
     if (got == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "{d} objects selected, not {d}", .{ got, want }) catch "selection differs");
+    state.editor.note(say(&buffer, "app.cmd.objects_selected_not", .{ got, want }));
     return .refused;
 }
 
@@ -1261,7 +1262,7 @@ fn objectsIs(state: *State, arg: []const u8) Outcome {
     const got = state.editor.document.objects.items.len;
     if (got == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "{d} objects on the map, not {d}", .{ got, want }) catch "object count differs");
+    state.editor.note(say(&buffer, "app.cmd.objects_on_the_map_not", .{ got, want }));
     return .refused;
 }
 
@@ -1278,7 +1279,7 @@ fn placerAngleIs(state: *State, arg: []const u8) Outcome {
     const got_rounded: i32 = @intFromFloat(got);
     if (@abs(logic.wheelDeltaDegrees(want, got_rounded)) <= tolerance) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "placer angle is {d}, not {d}", .{ got_rounded, want }) catch "placer angle differs");
+    state.editor.note(say(&buffer, "app.cmd.placer_angle_is_not", .{ got_rounded, want }));
     return .refused;
 }
 
@@ -1292,7 +1293,7 @@ fn angleIs(state: *State, arg: []const u8) Outcome {
     const got: i32 = @intFromFloat(logic.directionToDegrees(object.dir));
     if (got == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "angle is {d}, not {d}", .{ got, want }) catch "angle differs");
+    state.editor.note(say(&buffer, "app.cmd.angle_is_not", .{ got, want }));
     return .refused;
 }
 
@@ -1306,7 +1307,12 @@ fn hpIs(state: *State, arg: []const u8) Outcome {
     const got_percent = object.hp * 100.0;
     if (@abs(got_percent - want_percent) < 0.011) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "hp is {d:.2}%, not {d:.2}%", .{ got_percent, want_percent }) catch "hp differs");
+    var got_text: [24]u8 = undefined;
+    var want_text: [24]u8 = undefined;
+    state.editor.note(say(&buffer, "app.cmd.hp_differs", .{
+        std.fmt.bufPrint(&got_text, "{d:.2}", .{got_percent}) catch "?",
+        std.fmt.bufPrint(&want_text, "{d:.2}", .{want_percent}) catch "?",
+    }));
     return .refused;
 }
 
@@ -1319,7 +1325,7 @@ fn linkWithIs(state: *State, arg: []const u8) Outcome {
     const object = state.editor.document.find(link_id) orelse return .refused;
     if (object.link_with == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "linked with {d}, not {d}", .{ object.link_with, want }) catch "link differs");
+    state.editor.note(say(&buffer, "app.cmd.linked_with_not", .{ object.link_with, want }));
     return .refused;
 }
 
@@ -1363,7 +1369,7 @@ fn propsSet(state: *State, arg: []const u8) Outcome {
     const members = state.editor.selectionMembers(state.allocator) catch return .refused;
     defer state.allocator.free(members);
     if (members.len == 0) {
-        state.editor.note("select an object first");
+        state.editor.note(tr("app.cmd.select_an_object_first"));
         return .refused;
     }
     // The formation rides only when every member is a squad: any other
@@ -1372,7 +1378,7 @@ fn propsSet(state: *State, arg: []const u8) Outcome {
         for (members) |member| {
             const object = state.editor.document.find(member) orelse return .refused;
             if (!isSquadName(state, object.nameSlice())) {
-                state.editor.note("only a squad carries a formation");
+                state.editor.note(tr("app.cmd.only_a_squad_carries_a"));
                 return .refused;
             }
         }
@@ -1508,7 +1514,7 @@ fn areasDelta(state: *State, arg: []const u8) Outcome {
     const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.areas_at_open));
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "areas_delta is {d}, not {d}", .{ delta, want }) catch "areas_delta differs");
+    state.editor.note(say(&buffer, "app.cmd.areas_delta_is_not", .{ delta, want }));
     return .refused;
 }
 
@@ -1522,7 +1528,7 @@ fn areaNamed(state: *State, arg: []const u8) Outcome {
         if (std.mem.eql(u8, area.nameSlice(), arg)) return .ok;
     }
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "no area is named {s}", .{arg}) catch "no area has that name");
+    state.editor.note(say(&buffer, "app.cmd.no_area_is_named", .{arg}));
     return .refused;
 }
 
@@ -1560,7 +1566,7 @@ fn scriptChoose(state: *State, arg: []const u8) Outcome {
     return switch (panels.pickScript(state, arg, false)) {
         .chosen => .ok,
         .asked => blk: {
-            state.editor.note("a different file of that name is beside the map; the Replace it? question is up");
+            state.editor.note(tr("app.cmd.a_different_file_of_that"));
             break :blk .refused;
         },
         .refused => .refused,
@@ -1577,7 +1583,7 @@ fn scriptBeside(state: *State, arg: []const u8) Outcome {
     const path = kit.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, arg) orelse return .bad_arg;
     if (files.exists(path)) return .ok;
     var note: [160]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&note, "{s}.lua is not beside the map", .{arg}) catch "the script is not beside the map");
+    state.editor.note(say(&note, "app.cmd.lua_is_not_beside_the", .{arg}));
     return .refused;
 }
 
@@ -1589,23 +1595,23 @@ fn scriptBeside(state: *State, arg: []const u8) Outcome {
 fn testGameScript(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0 or !kit.script_file.isBareName(arg)) return .bad_arg;
     if (state.test_game_log_len == 0) {
-        state.editor.note("no test game has been started");
+        state.editor.note(tr("app.cmd.no_test_game_has_been"));
         return .refused;
     }
     const log_path = state.test_game_log_buffer[0..state.test_game_log_len];
     const log = std.Io.Dir.cwd().readFileAlloc(state.io, log_path, state.allocator, .limited(16 << 20)) catch {
-        state.editor.note("the test game's log did not read");
+        state.editor.note(tr("app.cmd.the_test_game_s_log"));
         return .refused;
     };
     defer state.allocator.free(log);
     const trace = testlaunch.parseMapTrace(log);
     var note: [200]u8 = undefined;
     const script = trace.script orelse {
-        state.editor.note(std.fmt.bufPrint(&note, "the test game's log {s} has no BK_MAP_TRACE script line", .{log_path}) catch "no script line");
+        state.editor.note(say(&note, "app.cmd.the_test_game_s_log_2", .{log_path}));
         return .refused;
     };
     if (std.mem.eql(u8, script.name.slice(), arg) and script.loaded and script.init) return .ok;
-    state.editor.note(std.fmt.bufPrint(&note, "the test game's script is \"{s}\" loaded={} init={}, not {s} run", .{ script.name.slice(), script.loaded, script.init, arg }) catch "the test game's script differs");
+    state.editor.note(say(&note, "app.cmd.test_game_script_differs", .{ script.name.slice(), if (script.loaded) "true" else "false", if (script.init) "true" else "false", arg }));
     return .refused;
 }
 
@@ -1641,7 +1647,7 @@ fn scriptFileIs(state: *State, arg: []const u8) Outcome {
     const have = readScriptFile(state, &buffer) orelse return .refused;
     if (std.mem.eql(u8, have, want)) return .ok;
     var note: [128]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&note, "the script file is \"{s}\", not \"{s}\"", .{ have, want }) catch "the script file differs");
+    state.editor.note(say(&note, "app.cmd.the_script_file_is_not", .{ have, want }));
     return .refused;
 }
 
@@ -1698,7 +1704,7 @@ pub fn hideGroup(state: *State, group: i32, hide: bool) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
     if (state.findGroup(group) == null) {
         var buffer: [64]u8 = undefined;
-        state.editor.note(std.fmt.bufPrint(&buffer, "there is no reinforcement group {d}", .{group}) catch "no such group");
+        state.editor.note(say(&buffer, "app.cmd.there_is_no_reinforcement_group", .{group}));
         return .refused;
     }
     state.setGroupChecked(group, hide);
@@ -1713,7 +1719,7 @@ pub fn selectGroupObjects(state: *State, group: i32) Outcome {
     if (!panels.mapIsOpen(editor)) return .refused;
     const row = state.findGroup(group) orelse {
         var buffer: [64]u8 = undefined;
-        editor.note(std.fmt.bufPrint(&buffer, "there is no reinforcement group {d}", .{group}) catch "no such group");
+        editor.note(say(&buffer, "app.cmd.there_is_no_reinforcement_group", .{group}));
         return .refused;
     };
     state.group_selected = group;
@@ -1729,9 +1735,12 @@ pub fn selectGroupObjects(state: *State, group: i32) Outcome {
     if (first) |link_id| {
         state.view.selectTool(editor, .select);
         editor.selection = link_id;
-        editor.note(std.fmt.bufPrint(&buffer, "{d} {s} of group {d}'s script IDs; the first is selected", .{ count, if (count == 1) "object carries one" else "objects carry them", group }) catch "objects selected");
+        editor.note(if (count == 1)
+            say(&buffer, "app.cmd.group_ids_one_object", .{group})
+        else
+            say(&buffer, "app.cmd.group_ids_objects", .{ count, group }));
     } else {
-        editor.note(std.fmt.bufPrint(&buffer, "no object carries a script ID of group {d}", .{group}) catch "no objects");
+        editor.note(say(&buffer, "app.cmd.no_object_carries_a_script", .{group}));
     }
     return .ok;
 }
@@ -1780,6 +1789,16 @@ fn groupsWindow(state: *State, arg: []const u8) Outcome {
     return .ok;
 }
 
+/// `do=settings_window:on` opens the Settings window, `:off` closes it (`1` and `0` do the same).
+fn settingsWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "on") or std.mem.eql(u8, arg, "1")) {
+        panels.openSettingsWindow(state);
+    } else if (std.mem.eql(u8, arg, "off") or std.mem.eql(u8, arg, "0")) {
+        state.settings_window_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
 /// `expect=group_has:900:4245`: group 900 holds script ID 4245.
 fn groupHas(state: *State, arg: []const u8) Outcome {
     const pair = parsePair(arg) orelse return .bad_arg;
@@ -1796,7 +1815,7 @@ fn groupsDelta(state: *State, arg: []const u8) Outcome {
     const delta = @as(i64, @intCast(state.groups.items.len)) - @as(i64, @intCast(state.groups_at_open));
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "groups_delta is {d}, not {d}", .{ delta, want }) catch "groups_delta differs");
+    state.editor.note(say(&buffer, "app.cmd.groups_delta_is_not", .{ delta, want }));
     return .refused;
 }
 
@@ -1808,7 +1827,7 @@ fn hiddenCount(state: *State, arg: []const u8) Outcome {
     state.syncHiddenGroups();
     if (state.hidden_object_count == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "hidden_count is {d}, not {d}", .{ state.hidden_object_count, want }) catch "hidden_count differs");
+    state.editor.note(say(&buffer, "app.cmd.hidden_count_is_not", .{ state.hidden_object_count, want }));
     return .refused;
 }
 
@@ -1824,7 +1843,7 @@ pub fn addStartCommandForSelection(state: *State) Outcome {
     const editor = state.editor;
     if (!panels.mapIsOpen(editor)) return .refused;
     const link_id = editor.selection orelse {
-        editor.note("select a unit first");
+        editor.note(tr("app.cmd.select_a_unit_first"));
         return .refused;
     };
     const index = editor.addStartCommand(link_id) catch |err| {
@@ -1851,7 +1870,7 @@ fn startcmdsDelta(state: *State, arg: []const u8) Outcome {
     const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.startcmds_at_open));
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "startcmds_delta is {d}, not {d}", .{ delta, want }) catch "startcmds_delta differs");
+    state.editor.note(say(&buffer, "app.cmd.startcmds_delta_is_not", .{ delta, want }));
     return .refused;
 }
 
@@ -1868,7 +1887,7 @@ fn readStartCommand(state: *State, index: usize) ?records.StartCommand {
 /// The selected command of the window, or a note and null.
 fn selectedStartCommand(state: *State) ?usize {
     const index = state.startcmd_selected orelse {
-        state.editor.note("select a start command first");
+        state.editor.note(tr("app.cmd.select_a_start_command_first"));
         return null;
     };
     return index;
@@ -1904,7 +1923,7 @@ pub fn deleteStartCommandAt(state: *State, index: usize) Outcome {
 pub fn addSelectedUnitTo(state: *State, index: usize) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
     const link_id = state.editor.selection orelse {
-        state.editor.note("select a unit on the map first");
+        state.editor.note(tr("app.cmd.select_a_unit_on_the"));
         return .refused;
     };
     return resultOutcome(state, state.editor.addUnitToStartCommand(index, link_id));
@@ -1932,7 +1951,7 @@ pub fn beginTarget(state: *State, index: usize) Outcome {
     if (readStartCommand(state, index)) |command| {
         state.allocator.free(command.units);
     } else {
-        state.editor.note("that start command is gone");
+        state.editor.note(tr("app.cmd.that_start_command_is_gone"));
         return .refused;
     }
     state.view.beginStartTarget(state.editor, index);
@@ -1949,7 +1968,7 @@ fn startcmdType(state: *State, arg: []const u8) Outcome {
         if (std.mem.eql(u8, item.nameSlice(), arg)) return setStartCommandType(state, index, item.id);
     }
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "no action type is named {s}", .{arg}) catch "no such action type");
+    state.editor.note(say(&buffer, "app.cmd.no_action_type_is_named", .{arg}));
     return .refused;
 }
 
@@ -2024,7 +2043,7 @@ fn startcmdUnits(state: *State, arg: []const u8) Outcome {
     defer state.allocator.free(command.units);
     if (command.units.len == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "start command {d} has {d} units, not {d}", .{ parsed.index, command.units.len, want }) catch "unit count differs");
+    state.editor.note(say(&buffer, "app.cmd.start_command_has_units_not", .{ parsed.index, command.units.len, want }));
     return .refused;
 }
 
@@ -2041,7 +2060,7 @@ fn startcmdTargetIs(state: *State, arg: []const u8) Outcome {
     const is_pos = !is_link and (command.x != 0 or command.y != 0);
     if ((want_link and is_link) or (!want_link and is_pos)) return .ok;
     var buffer: [128]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "start command {d}: link {d}, point {d:.0},{d:.0}", .{ parsed.index, command.link_id, command.x, command.y }) catch "target differs");
+    state.editor.note(say(&buffer, "app.cmd.start_command_target", .{ parsed.index, command.link_id, @as(i64, @intFromFloat(@round(command.x))), @as(i64, @intFromFloat(@round(command.y))) }));
     return .refused;
 }
 
@@ -2056,7 +2075,7 @@ fn startcmdIs(state: *State, arg: []const u8) Outcome {
         if (item.id == command.cmd_type and std.mem.eql(u8, item.nameSlice(), parsed.rest)) return .ok;
     }
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "start command {d} has type {d}, not {s}", .{ parsed.index, command.cmd_type, parsed.rest }) catch "type differs");
+    state.editor.note(say(&buffer, "app.cmd.start_command_has_type_not", .{ parsed.index, command.cmd_type, parsed.rest }));
     return .refused;
 }
 
@@ -2085,7 +2104,7 @@ fn reserveMode(state: *State, _: []const u8) Outcome {
 /// The Reserve Positions tool, or a note that it is not in hand.
 fn reserveTool(state: *State) ?*core.tools_ai.ReservePositions {
     if (state.view.tool != .reserve_positions) {
-        state.editor.note("Unit > Artillery positions mode first");
+        state.editor.note(tr("app.cmd.unit_artillery_positions_mode_first"));
         return null;
     }
     return &state.view.reserve_tool;
@@ -2145,7 +2164,7 @@ fn placerRole(state: *State, arg: []const u8) Outcome {
         return .ok;
     }
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "the catalogue has no placeable unit of role {s}", .{arg}) catch "no such unit");
+    state.editor.note(say(&buffer, "app.cmd.the_catalogue_has_no_placeable", .{arg}));
     return .refused;
 }
 
@@ -2166,7 +2185,7 @@ fn placerName(state: *State, arg: []const u8) Outcome {
         return .ok;
     }
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "the catalogue has no placeable object named {s}", .{arg}) catch "no such unit");
+    state.editor.note(say(&buffer, "app.cmd.the_catalogue_has_no_placeable_2", .{arg}));
     return .refused;
 }
 
@@ -2180,7 +2199,7 @@ fn reserveDelta(state: *State, arg: []const u8) Outcome {
     const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.reserve_at_open));
     if (delta == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "reserve_delta is {d}, not {d}", .{ delta, want }) catch "reserve_delta differs");
+    state.editor.note(say(&buffer, "app.cmd.reserve_delta_is_not", .{ delta, want }));
     return .refused;
 }
 
@@ -2247,7 +2266,7 @@ fn aiPointHere(state: *State, _: []const u8) Outcome {
     var side = state.editor.aiSide(state.allocator, tool.side) catch return .refused;
     defer side.deinit(state.allocator);
     if (core.tools_ai.AIGeneral.hitHandle(side, .{ centre.map_x, centre.map_y }) != null or core.tools_ai.AIGeneral.parcelContaining(side, .{ centre.map_x, centre.map_y }) == null) {
-        state.editor.note("the centre of the view is not inside a parcel of this side, or is on a handle: move the view");
+        state.editor.note(tr("app.cmd.the_centre_of_the_view"));
         return .refused;
     }
     const result = blk: {
@@ -2333,7 +2352,7 @@ fn parcelsDelta(state: *State, arg: []const u8) Outcome {
     const delta = @as(i64, @intCast(side.parcels.len)) - @as(i64, @intCast(opened));
     if (delta == want) return .ok;
     var buffer: [112]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "side {d} holds {d} parcels more than at open, not {d}", .{ parsed.side, delta, want }) catch "parcels differs");
+    state.editor.note(say(&buffer, "app.cmd.side_holds_parcels_more_than", .{ parsed.side, delta, want }));
     return .refused;
 }
 
@@ -2346,7 +2365,7 @@ fn mobileHas(state: *State, arg: []const u8) Outcome {
     defer side.deinit(state.allocator);
     if (side.hasMobile(id)) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "side {d} has no mobile script ID {d}", .{ parsed.side, id }) catch "no such mobile ID");
+    state.editor.note(say(&buffer, "app.cmd.side_has_no_mobile_script", .{ parsed.side, id }));
     return .refused;
 }
 
@@ -2446,7 +2465,7 @@ fn filterSelect(state: *State, arg: []const u8) Outcome {
         state.settings.filter_active.set("");
     } else {
         if (findFilterByName(state, arg) == null) {
-            state.view.setStatus("filter: ", "no filter is named that");
+            state.view.setStatus("", tr("app.cmd.filter_no_filter_is_named"));
             return .refused;
         }
         state.settings.filter_active.set(arg);
@@ -2474,7 +2493,7 @@ fn filterAssign(state: *State, arg: []const u8) Outcome {
     if (slot >= core.settings.Settings.filter_slot_count) return .bad_arg;
     const combo = state.settings.filter_active.slice();
     if (combo.len == 0) {
-        state.view.setStatus("filter: ", "select a filter in the combo first, then Ctrl+click a toggle to assign it");
+        state.view.setStatus("", tr("app.cmd.filter_select_a_filter_in"));
         return .refused;
     }
     state.settings.setFilterSlot(slot, combo);
@@ -2583,7 +2602,7 @@ fn filterWords(state: *State, arg: []const u8) Outcome {
     if (list_index >= core.bridge.filter_max_lists) return .bad_arg;
     const words_text = rest[list_end + 1 ..];
     const filter = findFilterByName(state, name) orelse {
-        state.view.setStatus("filter: ", "no filter is named that");
+        state.view.setStatus("", tr("app.cmd.filter_no_filter_is_named"));
         return .refused;
     };
     var updated = filter.*;
@@ -2594,11 +2613,11 @@ fn filterWords(state: *State, arg: []const u8) Outcome {
     while (it.next()) |word| {
         if (word.len == 0) continue;
         if (count == core.bridge.filter_max_words) {
-            state.view.setStatus("filter: ", "a word list holds at most 8 words");
+            state.view.setStatus("", tr("app.cmd.filter_a_word_list_holds"));
             return .refused;
         }
         if (word.len >= core.bridge.filter_word_capacity) {
-            state.view.setStatus("filter: ", "a word is at most 31 characters");
+            state.view.setStatus("", tr("app.cmd.filter_a_word_is_at"));
             return .refused;
         }
         words[count] = word;
@@ -2684,12 +2703,12 @@ fn fieldsApply(state: *State, arg: []const u8) Outcome {
     const tool = &state.view.fields_tool;
     var points: [core.tools_fields.max_points]core.bridge.FieldVec3 = undefined;
     const count = tool.applyPoints(&points) orelse {
-        state.view.setStatus("fields: ", std.fmt.bufPrint(&diag_buffer, "the polygon is not closed: {d} point(s), state {s}", .{ tool.points().len, @tagName(tool.state) }) catch "the polygon is not closed: three points and a real area are needed");
+        state.view.setStatus("", say(&diag_buffer, "app.cmd.fields_the_polygon_is_not", .{ tool.points().len, @tagName(tool.state) }));
         return .refused;
     };
     const name = std.mem.sliceTo(&state.fields_set_name, 0);
     if (name.len == 0) {
-        state.view.setStatus("fields: ", "no field set is chosen");
+        state.view.setStatus("", tr("app.cmd.fields_no_field_set_is"));
         return .refused;
     }
     if (!panels.mapIsOpen(state.editor)) return .refused;
@@ -2703,9 +2722,7 @@ fn fieldsApply(state: *State, arg: []const u8) Outcome {
     const map_season = state.editor.document.info.season;
     if (season != map_season and !confirmed and !passability_only) {
         var buffer: [160]u8 = undefined;
-        const message = std.fmt.bufPrint(&buffer, "the field set's season ({d}) differs from the map's ({d}); apply anyway?", .{ season, map_season }) catch
-            "the field set's season differs from the map's";
-        state.view.setStatus("fields: ", message);
+        state.view.setStatus("", say(&buffer, "app.cmd.fields_season_differs", .{ season, map_season }));
         return .refused;
     }
 
@@ -2736,7 +2753,7 @@ fn fieldsApply(state: *State, arg: []const u8) Outcome {
             const one = std.fmt.bufPrint(pts[len..], "{s}({d:.0},{d:.0})", .{ if (i != 0) " " else "", pt.x, pt.y }) catch break;
             len += one.len;
         }
-        state.editor.note(std.fmt.bufPrint(&diag_buffer, "fields polygon: {s}", .{pts[0..len]}) catch "fields polygon: ?");
+        state.editor.note(say(&diag_buffer, "app.cmd.fields_polygon", .{pts[0..len]}));
     }
     if (outcome == .ok) {
         // The MFC cleared the points on a successful place
@@ -2756,7 +2773,7 @@ fn fieldsVertexAdd(state: *State, arg: []const u8) Outcome {
     const wy = std.fmt.parseFloat(f32, arg[colon + 1 ..]) catch return .bad_arg;
     if (!std.math.isFinite(wx) or !std.math.isFinite(wy)) return .bad_arg;
     if (!state.view.fields_tool.vertexAdd(wx, wy)) {
-        state.view.setStatus("fields: ", "the polygon holds 64 points at most");
+        state.view.setStatus("", tr("app.cmd.fields_the_polygon_holds_64"));
         return .refused;
     }
     return .ok;
@@ -2899,7 +2916,7 @@ fn unitCreationIs(state: *State, arg: []const u8) Outcome {
     const got = ucFieldText(&buffer, &unit, field);
     if (std.mem.eql(u8, got, arg[eq + 1 ..])) return .ok;
     var note: [128]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&note, "player {d}'s {s} is {s}, not {s}", .{ state.uc_player, arg[0..eq], got, arg[eq + 1 ..] }) catch "unit creation differs");
+    state.editor.note(say(&note, "app.cmd.player_s_is_not", .{ state.uc_player, arg[0..eq], got, arg[eq + 1 ..] }));
     return .refused;
 }
 
@@ -2913,7 +2930,7 @@ fn addAppear(state: *State, point: records.Vec3) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
     var unit = state.editor.unitCreation(state.uc_player) catch |err| return resultOutcome(state, err);
     if (!unit.addAppear(point)) {
-        state.editor.note("a player holds 32 appear points at most");
+        state.editor.note(tr("app.cmd.a_player_holds_32_appear"));
         return .refused;
     }
     return resultOutcome(state, state.editor.editUnitCreation(state.uc_player, unit, 0));
@@ -2971,7 +2988,7 @@ fn playersIs(state: *State, arg: []const u8) Outcome {
     const got = state.editor.document.diplomacy.items.len;
     if (got == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "the table holds {d} entries, not {d}", .{ got, want }) catch "player count differs");
+    state.editor.note(say(&buffer, "app.cmd.the_table_holds_entries_not", .{ got, want }));
     return .refused;
 }
 
@@ -2984,7 +3001,7 @@ fn playerIs(state: *State, arg: []const u8) Outcome {
     const object = state.editor.document.find(link_id) orelse return .refused;
     if (object.player == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "object {d} belongs to player {d}, not {d}", .{ link_id, object.player, want }) catch "owner differs");
+    state.editor.note(say(&buffer, "app.cmd.object_belongs_to_player_not", .{ link_id, object.player, want }));
     return .refused;
 }
 
@@ -3021,11 +3038,11 @@ fn writeCheckLog(state: *State) void {
     defer out.deinit();
     core.checks.writeLog(&out.writer, state.check_findings) catch return;
     if (std.fs.path.dirname(path)) |dir| std.Io.Dir.cwd().createDirPath(state.io, dir) catch {
-        state.view.setStatus("check map: ", "the log folder could not be made");
+        state.view.setStatus("", tr("app.cmd.check_map_the_log_folder"));
         return;
     };
     std.Io.Dir.cwd().writeFile(state.io, .{ .sub_path = path, .data = out.written() }) catch {
-        state.view.setStatus("check map: ", "the log could not be written");
+        state.view.setStatus("", tr("app.cmd.check_map_the_log_could"));
     };
 }
 
@@ -3045,7 +3062,7 @@ fn runChecks(state: *State) bool {
 fn checkMapCommand(state: *State, _: []const u8) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
     if (!runChecks(state)) {
-        state.view.setStatus("check map: ", "the checks could not run");
+        state.view.setStatus("", tr("app.cmd.check_map_the_checks_could"));
         return .refused;
     }
     state.check_open = true;
@@ -3053,7 +3070,7 @@ fn checkMapCommand(state: *State, _: []const u8) Outcome {
     writeCheckLog(state);
     var buffer: [96]u8 = undefined;
     const count = state.check_findings.len;
-    state.view.setStatus("check map: ", if (count == 0) "no problems found" else std.fmt.bufPrint(&buffer, "{d} finding(s)", .{count}) catch "findings");
+    state.view.setStatus("", if (count == 0) tr("app.cmd.check_map_no_problems") else say(&buffer, "app.cmd.check_map_findings", .{count}));
     return .ok;
 }
 
@@ -3065,7 +3082,7 @@ pub fn noteChecksAfterSave(state: *State) void {
     if (!runChecks(state)) return;
     if (state.check_findings.len == 0) return;
     var buffer: [112]u8 = undefined;
-    state.view.setStatus("checks failed: ", std.fmt.bufPrint(&buffer, "{d} finding(s) - Map > Check Map lists them; the save is as it was", .{state.check_findings.len}) catch "findings - Map > Check Map");
+    state.view.setStatus("", say(&buffer, "app.cmd.checks_failed_finding_s_map", .{state.check_findings.len}));
 }
 
 /// `do=check_map_fix_all[:remove]`: Fix all as ONE undo step. Without `remove` the
@@ -3087,7 +3104,7 @@ fn checkMapFixAll(state: *State, arg: []const u8) Outcome {
     _ = runChecks(state);
     writeCheckLog(state);
     var buffer: [112]u8 = undefined;
-    state.view.setStatus("check map: ", std.fmt.bufPrint(&buffer, "fixed {d}, left {d}, refused {d}", .{ report.fixed, report.left, report.refused }) catch "fixed");
+    state.view.setStatus("", say(&buffer, "app.cmd.check_map_fixed_left_refused", .{ report.fixed, report.left, report.refused }));
     return .ok;
 }
 
@@ -3114,7 +3131,7 @@ pub fn jumpToFinding(state: *State, index: usize) Outcome {
         return .ok;
     }
     if (finding.kind == .short_vso and !finding.world) {
-        state.view.setStatus("check map: ", "that road has no control point to go to");
+        state.view.setStatus("", tr("app.cmd.check_map_that_road_has"));
         return .refused;
     }
     const world = if (finding.world) marker_logic.Vec2{ .x = finding.x, .y = finding.y } else marker_logic.aiToWorld(.{ .x = finding.x, .y = finding.y });
@@ -3138,13 +3155,13 @@ fn checkFindingsIs(state: *State, arg: []const u8) Outcome {
         const got = core.checks.count(state.check_findings, kind);
         if (got == want) return .ok;
         var buffer: [96]u8 = undefined;
-        state.editor.note(std.fmt.bufPrint(&buffer, "{d} {s} finding(s), not {d}", .{ got, arg[0..eq], want }) catch "finding count differs");
+        state.editor.note(say(&buffer, "app.cmd.finding_s_not", .{ got, arg[0..eq], want }));
         return .refused;
     }
     const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
     if (state.check_findings.len == want) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "{d} finding(s), not {d}", .{ state.check_findings.len, want }) catch "finding count differs");
+    state.editor.note(say(&buffer, "app.cmd.finding_s_not_2", .{ state.check_findings.len, want }));
     return .refused;
 }
 
@@ -3154,12 +3171,12 @@ fn checkLogHas(state: *State, arg: []const u8) Outcome {
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = checkLogPath(&path_buffer, state) orelse return .refused;
     const bytes = std.Io.Dir.cwd().readFileAlloc(state.io, path, state.allocator, .limited(1024 * 1024)) catch {
-        state.editor.note("checkmap_log.txt is not there");
+        state.editor.note(tr("app.cmd.checkmap_log_txt_is_not"));
         return .refused;
     };
     defer state.allocator.free(bytes);
     if (std.mem.indexOf(u8, bytes, arg) != null) return .ok;
-    state.editor.note("checkmap_log.txt does not hold that text");
+    state.editor.note(tr("app.cmd.checkmap_log_txt_does_not"));
     return .refused;
 }
 
@@ -3210,7 +3227,7 @@ fn minimapMode(state: *State, arg: []const u8) Outcome {
 fn minimapClick(state: *State, arg: []const u8) Outcome {
     const at = logic.parseMinimapClick(arg) orelse return .bad_arg;
     if (!minimap.clickPercent(state, at[0], at[1])) {
-        state.view.setStatus("minimap: ", "the minimap is not shown");
+        state.view.setStatus("", tr("app.cmd.minimap_the_minimap_is_not"));
         return .refused;
     }
     return .ok;
@@ -3224,13 +3241,13 @@ fn minimapClick(state: *State, arg: []const u8) Outcome {
 pub fn minimapCreate(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     if (!panels.documentLoaded(state.editor)) {
-        state.view.setStatus("minimap: ", "no map is open");
+        state.view.setStatus("", tr("app.cmd.minimap_no_map_is_open"));
         return .refused;
     }
     if (panels.documentNeedsSaveAs(state) or state.editor.dirty()) {
         state.minimap.create_pending = true;
         state.actions.save_requested = true;
-        state.view.setStatus("minimap: ", "saving the map first");
+        state.view.setStatus("", tr("app.cmd.minimap_saving_the_map_first"));
         return .ok;
     }
     return if (minimap.createNow(state)) .ok else .refused;
@@ -3349,11 +3366,11 @@ fn rmgGenerateCommand(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     if (state.rmg_phase != .idle) return .refused;
     if (!state.rmg_fields.okEnabled()) {
-        state.view.setStatus("random map: ", "a template, a context and a map name are needed");
+        state.view.setStatus("", tr("app.cmd.random_map_a_template_a"));
         return .refused;
     }
     const params = state.rmg_fields.toParams() orelse {
-        state.view.setStatus("random map: ", "the seed is a whole number, or blank for a fresh one");
+        state.view.setStatus("", tr("app.cmd.random_map_the_seed_is"));
         return .refused;
     };
     state.rmg_open = false;
@@ -3432,7 +3449,7 @@ fn exportList(state: *State, kind: logic.ExportKind) Outcome {
     defer names.deinit(state.allocator);
     for (kind.extensions()) |extension| {
         if (!readStorageFiles(state, kind.folder(), extension, &names)) {
-            state.view.setStatus("export: ", "the list could not be read from the data");
+            state.view.setStatus("", tr("app.cmd.export_the_list_could_not"));
             return .refused;
         }
     }
@@ -3451,7 +3468,7 @@ fn exportList(state: *State, kind: logic.ExportKind) Outcome {
             defer state.allocator.free(graphs);
             var graph_read: usize = 0;
             if (graph_total != 0 and state.editor.bridge.rmgTemplateGraphs(template.ptr, graphs, &graph_read) != .ok) {
-                state.view.setStatus("export: ", "a template's graphs could not be read");
+                state.view.setStatus("", tr("app.cmd.export_a_template_s_graphs"));
                 return .refused;
             }
             const entries = [_]logic.TemplateGraphs{.{ .name = file, .graphs = graphs[0..@min(graph_read, graphs.len)] }};
@@ -3467,15 +3484,15 @@ fn exportList(state: *State, kind: logic.ExportKind) Outcome {
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const path = exportPath(&path_buffer, state, kind) orelse return .refused;
     if (std.fs.path.dirname(path)) |dir| std.Io.Dir.cwd().createDirPath(state.io, dir) catch {
-        state.view.setStatus("export: ", "the logs folder could not be made");
+        state.view.setStatus("", tr("app.cmd.export_the_logs_folder_could"));
         return .refused;
     };
     std.Io.Dir.cwd().writeFile(state.io, .{ .sub_path = path, .data = out.written() }) catch {
-        state.view.setStatus("export: ", "the list could not be written");
+        state.view.setStatus("", tr("app.cmd.export_the_list_could_not_2"));
         return .refused;
     };
     var message: [std.Io.Dir.max_path_bytes + 48]u8 = undefined;
-    state.view.setStatus("", std.fmt.bufPrint(&message, "{s} created: {s}", .{ kind.noun(), path }) catch "list created");
+    state.view.setStatus("", say(&message, "app.cmd.created", .{ kind.noun(), path }));
     return .ok;
 }
 
@@ -3520,10 +3537,16 @@ fn exportLinesAtLeast(state: *State, arg: []const u8) Outcome {
 // puts its words on the status line.
 // ---------------------------------------------------------------------------
 
+/// A refusal of the composers, with the "composer: " lead the status line always gave it.
+fn composerStatus(state: *State, message: []const u8) void {
+    var buffer: [512]u8 = undefined;
+    state.view.setStatus("", say(&buffer, "app.cmd.composer_said", .{message}));
+}
+
 fn composerResult(state: *State, result: anytype) Outcome {
     _ = result catch {
         const said = state.composers.message();
-        state.view.setStatus("composer: ", if (said.len != 0) said else state.editor.status());
+        composerStatus(state, if (said.len != 0) said else state.editor.status());
         return .refused;
     };
     return .ok;
@@ -3534,7 +3557,7 @@ fn composerSave(state: *State, saved: anytype) Outcome {
     switch (result) {
         .saved => return .ok,
         .needs_save_as, .failed => {
-            state.view.setStatus("composer: ", state.composers.message());
+            composerStatus(state, state.composers.message());
             return .refused;
         },
     }
@@ -3576,7 +3599,7 @@ fn rmgcPatchAdd(state: *State, arg: []const u8) Outcome {
     var names = [_][]const u8{arg};
     const added = state.composers.addPatches(state.editor, &names) catch return composerResult(state, @as(error{Failed}!void, error.Failed));
     if (added == 1) return .ok;
-    state.view.setStatus("composer: ", state.composers.message());
+    composerStatus(state, state.composers.message());
     return .refused;
 }
 
@@ -3629,7 +3652,7 @@ fn rmgcImport(state: *State, arg: []const u8) Outcome {
             return .ok;
         } else |_| return composerResult(state, @as(error{Failed}!void, error.Failed));
     }
-    state.view.setStatus("composer: ", "no such map in the user's maps folder");
+    state.view.setStatus("", tr("app.cmd.composer_no_such_map_in"));
     return .refused;
 }
 
@@ -3725,7 +3748,7 @@ fn canvasDrag(state: *State, arg: []const u8, ctrl: bool) Outcome {
     return switch (outcome) {
         .node_added, .node_moved, .node_resized, .link_added => .ok,
         else => blk: {
-            state.view.setStatus("composer: ", state.composers.message());
+            composerStatus(state, state.composers.message());
             break :blk .refused;
         },
     };
@@ -3747,7 +3770,7 @@ fn rmggNode(state: *State, arg: []const u8) Outcome {
     if (name.len == 0) return .bad_arg;
     const result = state.composers.setNodeContainer(state.editor, index, if (std.mem.eql(u8, name, "-")) "" else name);
     if (result) |_| return .ok else |_| {
-        state.view.setStatus("composer: ", state.composers.message());
+        composerStatus(state, state.composers.message());
         return .refused;
     }
 }
@@ -4121,7 +4144,7 @@ fn rmgfSet(state: *State, arg: []const u8) Outcome {
     const kind = std.meta.stringToEnum(core.composers.Composers.HeightField, arg[0..colon]) orelse return .bad_arg;
     const changed = state.composers.setFieldHeights(state.editor, kind, arg[colon + 1 ..]) catch return .refused;
     if (!changed) {
-        state.view.setStatus("composer: ", state.composers.message());
+        composerStatus(state, state.composers.message());
         return .refused;
     }
     return .ok;
@@ -4275,7 +4298,7 @@ fn rmgtSaveAs(state: *State, arg: []const u8) Outcome {
 fn rmgtAdded(state: *State, added: anytype, want: usize) Outcome {
     const count = added catch return composerResult(state, @as(error{Failed}!void, error.Failed));
     if (count == want) return .ok;
-    state.view.setStatus("composer: ", state.composers.message());
+    composerStatus(state, state.composers.message());
     return .refused;
 }
 
@@ -4409,7 +4432,7 @@ fn rmgtUnitsSet(state: *State, arg: []const u8) Outcome {
     const value = arg[colon + 2 + equals ..];
     const changed = state.composers.setTemplateUnit(state.editor, player, field_name, value) catch return .refused;
     if (!changed) {
-        state.view.setStatus("composer: ", state.composers.message());
+        composerStatus(state, state.composers.message());
         return .refused;
     }
     return .ok;
@@ -4807,6 +4830,6 @@ fn placeGhostIs(state: *State, arg: []const u8) Outcome {
     const got: i32 = @intFromFloat(logic.directionToDegrees(dir));
     if (@abs(logic.wheelDeltaDegrees(want, got)) <= tolerance) return .ok;
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "the ghost is turned {d} degrees, not {d}", .{ got, want }) catch "ghost turn differs");
+    state.editor.note(say(&buffer, "app.cmd.the_ghost_is_turned_degrees", .{ got, want }));
     return .refused;
 }

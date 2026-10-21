@@ -8,7 +8,9 @@
 //! Runs under `zig build test-resource-app-logic` against the fake bridge.
 const std = @import("std");
 const core = @import("resource_core");
+const kit = @import("editor_kit");
 
+const l10n = kit.l10n;
 const tools = core.sub_editor_tools;
 const bridge_mod = core.bridge;
 const ResBridge = bridge_mod.ResBridge;
@@ -59,8 +61,8 @@ pub fn realSize(width: i32, height: i32) bool {
     return width > 0 and height > 0 and width < max_side and height < max_side;
 }
 
-/// The message for a picture `realSize` refuses.
-pub const too_large_message = "the picture is 2048 pixels or more on a side; positions would not be real pixels";
+/// The string table key of the message for a picture `realSize` refuses.
+pub const too_large_message = "resource_app.image.too_large";
 
 /// The path BkEditorMinimapImage decodes (it takes "<base>.xml" and reads
 /// "<base>.tga"): the picture named by the Chapter, Campaign or Medal's
@@ -111,7 +113,8 @@ pub const MissionPicture = struct {
     path: ?[:0]const u8,
 };
 
-pub const no_final_map_message = "This mission has no Final map yet; set it to show its minimap.";
+/// The string table key of what a Mission without a Final map shows.
+pub const no_final_map_message = "resource_app.image.no_final_map";
 
 /// CMissionFrame::ComposeEditor (MissionFrm.cpp:206-226): with a Final map the
 /// frame always shows map_h.dds beside the project and makes it first when it
@@ -688,7 +691,7 @@ test "image: a mission with a Final map shows map_h.dds and makes it when missin
     var picture = missionPicture(&buffer, &rig.doc, "/p", false);
     try testing.expectEqual(MissionAction.no_final_map, picture.action);
     try testing.expect(picture.path == null);
-    try testing.expect(std.mem.indexOf(u8, no_final_map_message, "Final map") != null);
+    try testing.expect(std.mem.indexOf(u8, l10n.str(no_final_map_message), "Final map") != null);
     try testing.expectEqual(Prepared.ready, prepareMission(bridge, picture, false));
     try testing.expectEqual(@as(u32, 0), rig.fake.minimap_requests);
 

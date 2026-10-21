@@ -5,6 +5,7 @@
 //! under `zig build test-resource-app-logic` against resource_core's fake
 //! bridge, without the engine's libraries or a GPU, on every target.
 const std = @import("std");
+const kit = @import("editor_kit");
 const core = @import("resource_core");
 
 const bridge = core.bridge;
@@ -37,40 +38,41 @@ test {
 
 // --- Editors menu ---------------------------------------------------------
 
-/// One entry of the Editors menu: the kind it switches to, MFC's label, and
-/// whether MFC drew a separator above it.
+/// One entry of the Editors menu: the kind it switches to and whether MFC
+/// drew a separator above it. The label is the kind's string table key
+/// (`lifecycle.kindLabel`), so the menu follows the language.
 pub const EditorEntry = struct {
     kind: Kind,
-    label: [:0]const u8,
     separator_before: bool = false,
 };
 
 /// The Editors menu exactly as MFC's IDR_MAINFRAME menu lists it
-/// (Sources/src/editor/editor.rc, POPUP "Editors"), labels, order and
-/// separators included. Twenty entries for 21 kinds: MFC's CMainFrame::OnCreate
-/// has CreateGUIFrame commented out, so the GUI frame (gui) has no menu entry.
+/// (Sources/src/editor/editor.rc, POPUP "Editors"), order and separators
+/// included (the English labels are the `resource_app.kind.*` entries).
+/// Twenty entries for 21 kinds: MFC's CMainFrame::OnCreate has
+/// CreateGUIFrame commented out, so the GUI frame (gui) has no menu entry.
 /// A .gui project is still reached by New and by opening the file.
 pub const editors_menu = [_]EditorEntry{
-    .{ .kind = .mesh_unit, .label = "Unit Editor" },
-    .{ .kind = .animation_infantry, .label = "Infantry Editor" },
-    .{ .kind = .squad, .label = "Squad Editor" },
-    .{ .kind = .weapon, .label = "Weapon Editor" },
-    .{ .kind = .mine, .label = "Mine Editor" },
-    .{ .kind = .particle, .label = "Particle Editor", .separator_before = true },
-    .{ .kind = .sprite, .label = "Sprite Editor" },
-    .{ .kind = .effect, .label = "Effect Editor" },
-    .{ .kind = .build, .label = "Building Editor", .separator_before = true },
-    .{ .kind = .object, .label = "Object Editor" },
-    .{ .kind = .fence, .label = "Fence Editor" },
-    .{ .kind = .bridge, .label = "Bridge Editor" },
-    .{ .kind = .trench, .label = "Trench Editor" },
-    .{ .kind = .mission, .label = "Mission Editor", .separator_before = true },
-    .{ .kind = .chapter, .label = "Chapter Editor" },
-    .{ .kind = .campaign, .label = "Campaign Editor" },
-    .{ .kind = .medal, .label = "Medal Editor" },
-    .{ .kind = .tile_set, .label = "Terrain Editor", .separator_before = true },
-    .{ .kind = .road_3d, .label = "Road Editor" },
-    .{ .kind = .river_3d, .label = "River Editor" },
+    .{ .kind = .mesh_unit },
+    .{ .kind = .animation_infantry },
+    .{ .kind = .squad },
+    .{ .kind = .weapon },
+    .{ .kind = .mine },
+    .{ .kind = .particle, .separator_before = true },
+    .{ .kind = .sprite },
+    .{ .kind = .effect },
+    .{ .kind = .build, .separator_before = true },
+    .{ .kind = .object },
+    .{ .kind = .fence },
+    .{ .kind = .bridge },
+    .{ .kind = .trench },
+    .{ .kind = .mission, .separator_before = true },
+    .{ .kind = .chapter },
+    .{ .kind = .campaign },
+    .{ .kind = .medal },
+    .{ .kind = .tile_set, .separator_before = true },
+    .{ .kind = .road_3d },
+    .{ .kind = .river_3d },
 };
 
 /// The sub-editor shown before any was chosen: CEditorApp::LoadLastActiveModuleID
@@ -496,8 +498,8 @@ test "the Editors menu is MFC's: 20 entries, its order, labels and separators" {
         .campaign,   .medal,              .tile_set, .road_3d, .river_3d,
     };
     for (editors_menu, expected) |entry, kind| try testing.expectEqual(kind, entry.kind);
-    try testing.expectEqualStrings("Unit Editor", editors_menu[0].label);
-    try testing.expectEqualStrings("Terrain Editor", editors_menu[17].label);
+    try testing.expectEqualStrings("Unit Editor", std.mem.span(kit.l10n.t("resource_app.kind.mesh_unit")));
+    try testing.expectEqualStrings("Terrain Editor", std.mem.span(kit.l10n.t("resource_app.kind.tile_set")));
     var separators: [5]usize = undefined;
     var n: usize = 0;
     for (editors_menu, 0..) |entry, i| if (entry.separator_before) {

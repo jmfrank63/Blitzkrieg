@@ -925,3 +925,35 @@ restart. It selects among packs, it is not a new localisation system.
   open main menu, the switch shows in the first frame drawn after it: the
   frame before still has the marker, the frame after is identical to the
   original (0 pixels). macOS and Windows are left to CI and the maintainer.
+
+## Localization of the editors (M002 S04, 2026-10-20)
+
+- D078: the bundled Noto faces are installed as `Fonts/` beside each editor's executable and loaded by
+  `kit/fonts.zig` (`BK_FONT_DIR` overrides); a missing face fails with its full path.
+- D079: ELK's help is one embedded file per language, `help/elk_<code>.md`, with `elk.md` for English.
+- The shared setting `ui_language` (`system` or a table code) is stored in `elk.cfg` beside the other keys,
+  written only when it is not `system`; ELK's UI, messages and help follow it, tables in
+  `Sources/editor/kit/lang`, and `BK_L10N_DIR` replaces a table for tests. `zig build elk-l10n-auto` measures
+  the ten languages and the missing-key case on Linux; macOS and Windows are left to CI.
+
+## The ten-language install (M002 S09, 2026-10-20)
+
+- D087: the language mods reach a fresh install through their own step, `install-language-mods`, which runs
+  `language_mods_run` in every test mode (`language-mods` stays a test tier and is unchanged); `install-game`
+  does not depend on it. `verify-install-l10n` (`tools/zig/verify_install_l10n.zig`, check in
+  `tools/zig/verify_runtime.zig`) lists every missing mod file, Noto face and tools guide of the staged install
+  as `verify-runtime: missing <path>`. This zig has no `mustRunAfter`, so the verifier depends on the install
+  steps instead of racing them. A mod keeps its `mod.xml` in `data/`, beside `texts.pak`.
+
+### CI: which platforms run which l10n tiers (D088)
+
+The measured tiers compare drawn frames with hb-view's rasters and fail without hb-view (D069). Linux installs it
+with `libharfbuzz-bin`, macOS arm64 with `brew install harfbuzz`; both run the ten `l10n-game-reads-it-<code>`
+shards (macos-game parts `l10n-1` and `l10n-2`), `elk-l10n-auto`, `map-editor-l10n-auto`,
+`resource-editor-l10n-auto` (a `l10n` part in each macOS editor job) and, in the tools job, `test-bk-l10n`,
+`test-bk-tools-l10n` and `test-l10n-measure`. Windows MSVC has no supported hb-view package, so it runs the
+contract tiers only: `language-mods` (game part `l10n`), `test-bk-l10n` and `test-bk-tools-l10n`. Windows does
+not run `l10n-game-reads-it-*`, `elk-l10n-auto`, `map-editor-l10n-auto`, `resource-editor-l10n-auto` or
+`test-l10n-measure`; `windows-build` only compiles them. `test-ci-l10n-wiring` reads the workflow and fails when a
+row is missing or when a Windows job runs a measured tier without installing hb-view. No macOS or Windows result
+is recorded here: those jobs run when the maintainer pushes.

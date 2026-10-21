@@ -21,6 +21,7 @@
 //! Drags are world (Vis) units, the pointer's `world_x`/`world_y`: the bridge
 //! plans in the scene's units and converts each span to map units itself.
 const std = @import("std");
+const l10n = @import("editor_kit").l10n;
 const editor_mod = @import("editor.zig");
 const fake_mod = @import("fake_bridge.zig");
 const bridge_mod = @import("bridge.zig");
@@ -125,7 +126,7 @@ pub const BridgeTool = struct {
                     return;
                 }
                 if (self.desc_len == 0) {
-                    editor.note("choose a bridge type in the Bridges panel first");
+                    editor.note(l10n.str("app.core.choose_a_bridge_type_in"));
                     return;
                 }
                 self.selected = try editor.drawBridge(self.desc(), begin[0], begin[1], end[0], end[1]);
@@ -135,7 +136,7 @@ pub const BridgeTool = struct {
                 // index stays; the MFC tool had no rotate, it redrew.
                 .rotate_left, .rotate_right => {
                     const index = self.selected orelse {
-                        editor.note("click a bridge to select it first");
+                        editor.note(l10n.str("app.cmd.click_a_bridge_to_select"));
                         return;
                     };
                     try editor.rotateBridge(index);
@@ -143,14 +144,14 @@ pub const BridgeTool = struct {
                 // Enter (D-12): built during play, WoodenBig_Heavy only.
                 .enter => {
                     const index = self.selected orelse {
-                        editor.note("click a bridge to select it first");
+                        editor.note(l10n.str("app.cmd.click_a_bridge_to_select"));
                         return;
                     };
                     try editor.toggleBridgeBuild(index);
                 },
                 .delete => {
                     const index = self.selected orelse {
-                        editor.note("click a bridge to select it first");
+                        editor.note(l10n.str("app.cmd.click_a_bridge_to_select"));
                         return;
                     };
                     // IN-B06: a refused delete keeps the selection; anything
@@ -238,7 +239,7 @@ pub const FenceTool = struct {
                 // jitter of the release.
                 if (dx * dx + dy * dy <= click_pixels * click_pixels) end = begin;
                 if (self.desc_len == 0) {
-                    editor.note("choose a fence type in the Fences panel first");
+                    editor.note(l10n.str("app.core.choose_a_fence_type_in"));
                     return;
                 }
                 try editor.drawFences(self.desc(), begin[0], begin[1], end[0], end[1], pointer.ctrl);
@@ -385,7 +386,7 @@ pub const EntrenchmentTool = struct {
                     // MFC: Delete acts only while no polyline is started.
                     if (self.drawing()) return;
                     const index = self.selected orelse self.hovered orelse {
-                        editor.note("click an entrenchment, or point at one, to delete it");
+                        editor.note(l10n.str("app.core.click_an_entrenchment_or_point"));
                         return;
                     };
                     // IN-B06: a refusal (units inside) keeps the selection.
@@ -411,7 +412,7 @@ pub const EntrenchmentTool = struct {
             if (std.math.hypot(x - last[0], y - last[1]) <= trench_same_point) return;
         }
         if (self.len == max_trench_points) {
-            editor.note("a trench takes at most 256 points: double-click to finish it");
+            editor.note(l10n.str("app.core.a_trench_takes_at_most"));
             return;
         }
         if (self.len == 0) self.selected = null;
@@ -423,7 +424,7 @@ pub const EntrenchmentTool = struct {
     /// Fewer than two is a note, not a command, and keeps the point.
     fn commit(self: *EntrenchmentTool, editor: *Editor) EditError!void {
         if (self.len < 2) {
-            editor.note("a trench needs two points: click where it runs, then double-click");
+            editor.note(l10n.str("app.core.a_trench_needs_two_points"));
             return;
         }
         var points: [max_trench_points]records.Vec3 = undefined;

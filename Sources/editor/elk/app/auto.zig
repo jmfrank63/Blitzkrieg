@@ -4,9 +4,12 @@
 //! are, so the edit boxes see what a translator's keyboard would send;
 //! `do=` and `expect=` resolve against ELK's own commands and state.
 //!
-//! What ELK drives in this slice: `key=`, `text=`, `do=`, `expect=`, `exit`.
+//! What ELK drives in this slice: `key=`, `text=`, `do=`, `expect=`,
+//! `shot=<name>` (the last drawn frame written to `<shot_folder>/<name>.tga`
+//! by `Window.capture`; the run's scratch folder) and `exit`.
 //! The pointer actions, `open=`/`save`/`saveas=`, test-in-game and the
-//! screenshot actions fail the run as not driven yet.
+//! other screenshot actions (`compare=`, `differ=`) fail the run as not
+//! driven yet.
 //!
 //! While a long operation runs on the worker (D-14) only the entries that
 //! drive its modal run (`do=wait_held`, `do=release`, `do=job_cancel`,
@@ -48,7 +51,10 @@
 //!   do=statistics            View > ELK Statistic
 //!   do=statistics_close      the statistic window's OK
 //!   do=help                  Help > Contents (the hot key is `key=f1`)
+//!   do=open_menu:<key>       the next frame opens the menu bar menu of that table key
+//!                            (`elk.menu.file`), as a click on its title would
 //!   do=help_close            the help window's close button
+//!   do=probe_hindi           draw a fixed Hindi text, PUA-encoded, over a black strip (Ui.probe_rect)
 //!   do=about  do=about_close Help > About Blitzkrieg ELK... and its OK
 //!   do=view_tree             View > ELK Tree, turned over
 //!   do=view_status_bar       View > Status Bar, turned over (extended layout)
@@ -198,7 +204,6 @@ const kit = @import("editor_kit");
 const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const ui_mod = @import("ui.zig");
-const fonts = @import("fonts.zig");
 const help = @import("elk_help");
 const window_mod = kit.window;
 
@@ -218,6 +223,11 @@ pub const Runner = struct {
     /// Where a scripted dialog answers, standing in for the folder the user
     /// browsed to: the grammar's arguments are short, the paths are not.
     dialog_folder: []const u8 = "",
+    /// Where `shot=` writes its `<name>.tga`; "" is the working directory.
+    shot_folder: []const u8 = "",
+    /// Allocator for the capture's pixel buffer.
+    gpa: std.mem.Allocator = std.heap.page_allocator,
+    io: ?std.Io = null,
     /// Text events borrow their bytes until ImGui copies them in.
     text_storage: [schedule.max_arg_len + 1]u8 = undefined,
     failure_storage: [512]u8 = undefined,
@@ -274,7 +284,31 @@ pub const Runner = struct {
             .do => |named| try self.command(window, ui, named),
             .expect => |named| try self.expect(window, ui, named),
             .exit => ui.requestExit(),
+            .shot => |name| try self.shoot(window, ui, name),
             else => self.fail("{s} is not driven by ELK yet", .{@tagName(action)}),
+        }
+    }
+
+    /// `shot=`: the entries run before the frame is drawn, so this captures the frame the
+    /// previous iteration drew, which is what the preceding entries produced.
+    ///
+    /// With the label log on (`ELK --l10n-auto`) the shot is followed by `l10n-auto: shot <name> <w>x<h>`
+    /// (the window's size in ImGui pixels) and one `l10n-auto: rect <key> <x> <y> <w> <h>` line per
+    /// label that frame drew, for the tier that measures the capture.
+    fn shoot(self: *Runner, window: *window_mod.Window, ui: *ui_mod.Ui, name: []const u8) !void {
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = if (self.shot_folder.len == 0)
+            std.fmt.bufPrint(&path_buffer, "{s}.tga", .{name})
+        else
+            std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ self.shot_folder, std.fs.path.sep, name });
+        const file = path catch return self.fail("shot={s}: path too long", .{name});
+        window.capture(self.gpa, self.io orelse return self.fail("shot={s}: the runner has no io", .{name}), file) catch
+            return self.fail("{s}", .{window_mod.failureReason()});
+        if (!ui.rect_log) return;
+        const display = ui.displaySize();
+        std.debug.print("l10n-auto: shot {s} {d:.0}x{d:.0}\n", .{ name, display.x, display.y });
+        for (ui.rects[0..ui.rect_count]) |rect| {
+            std.debug.print("l10n-auto: rect {s} {d:.1} {d:.1} {d:.1} {d:.1}\n", .{ rect.key, rect.x, rect.y, rect.w, rect.h });
         }
     }
 
@@ -369,9 +403,13 @@ pub const Runner = struct {
             ui.closeStatistics();
         } else if (is(named, "help")) {
             ui.openHelp();
+        } else if (is(named, "open_menu")) {
+            if (!ui.openMenu(named.arg)) return self.fail("do=open_menu: {s} is not a menu key", .{named.arg});
         } else if (is(named, "help_close")) {
             if (!ui.help_drawn) return self.fail("do=help_close: the help window is not shown", .{});
             ui.help_open = false;
+        } else if (is(named, "probe_hindi")) {
+            if (!ui.startProbe()) return self.fail("do=probe_hindi: the Devanagari face is not loaded", .{});
         } else if (is(named, "about")) {
             ui.about_open = true;
         } else if (is(named, "about_close")) {
@@ -544,8 +582,8 @@ pub const Runner = struct {
         } else if (is(named, "rows")) {
             if (ui.rows_drawn == 0) return self.fail("expect=rows: the tree drew no rows", .{});
         } else if (is(named, "glyphs")) {
-            for (fonts.samples) |codepoint| {
-                if (!fonts.covers(codepoint)) return self.fail("expect=glyphs: the font stack has no glyph for U+{X:0>4}", .{codepoint});
+            for (kit.fonts.samples) |codepoint| {
+                if (!kit.fonts.covers(codepoint)) return self.fail("expect=glyphs: the font stack has no glyph for U+{X:0>4}", .{codepoint});
             }
         } else if (is(named, "texts")) {
             const wanted = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("texts needs a number", .{});

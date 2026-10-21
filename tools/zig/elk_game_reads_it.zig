@@ -16,6 +16,7 @@
 //! removed from the installation afterwards. BK_ELK_GAME names the installed
 //! Game executable; `zig build elk-game-reads-it` sets it.
 const std = @import("std");
+const timed_run = @import("timed_run.zig");
 const elk = @import("elk");
 const database = elk.database;
 const packages = elk.packages;
@@ -229,9 +230,13 @@ const Layout = struct {
     }
 };
 
+/// The main menu's layout when the run's first shot was taken: the last
+/// reposition before it, as the window may still settle after the first one
+/// (on macbook-air-frank's 1440x900 screen it shrank from 799 to 797 rows).
 fn menuLayout(log: []const u8) !Layout {
     const prefix = "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen ";
-    const start = (std.mem.indexOf(u8, log, prefix) orelse return error.GameLineMissing) + prefix.len;
+    const first_shot = std.mem.indexOf(u8, log, " action shot") orelse return error.GameLineMissing;
+    const start = (std.mem.lastIndexOf(u8, log[0..first_shot], prefix) orelse return error.GameLineMissing) + prefix.len;
     const line = log[start .. std.mem.indexOfScalarPos(u8, log, start, '\n') orelse log.len];
     // "<w>x<h> -> parent <pw>x<ph> at (<x>,<y>) scale <sx>,<sy> ..."
     var fields = std.mem.tokenizeAny(u8, line, " x(),\r");
@@ -280,7 +285,7 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_UI_TRACE", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_AUTO_UI", schedule);
-    const result = try std.process.run(allocator, io, .{
+    const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-windowed", "-profile=ELKLanguage" },
         .cwd = .{ .path = user },
         .environ_map = &environ,
@@ -335,7 +340,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
-    const result = try std.process.run(allocator, io, .{
+    const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=ELKTest" },
         .cwd = .{ .path = user },
         .environ_map = &environ,

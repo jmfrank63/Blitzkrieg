@@ -1,0 +1,34 @@
+# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per scope key.
+# The hash is of the English bytes in Data/ELK/game_data_base (the .elk original, else the .txt).
+# l10n-check reports `stale` when the English text no longer matches its hash: review the
+# translations of that key in every language, then rewrite this file with
+#   zig build l10n-check-update-base
+# A `same-as-base <code> <key>` line lets that translation equal the English (a proper name);
+# the update keeps those lines.
+scenarios/scenariomissions/allies/norway/0 a1ff91ff321fdf5d1f39d947589ca02b2a63cb4dfbd0f976e00949a7d0007abd
+scenarios/scenariomissions/allies/norway/0h ca75202caa575af7f3212e20af0dc9cc1e5b42968252b8be96c353e6c9567db8
+scenarios/scenariomissions/allies/norway/description de7bb2b9382377065863782bfa13508d6895e26d701e3535c80b0eb8e7bca427
+scenarios/scenariomissions/allies/norway/header fdc57f4d14340529415eb1b8b3ccd07bd48dd732fa87c808bfcd8f033b20d5e9
+textes/strings/imheader-gbutton-back fc979496c84dddf3c4f76ca6f24df572a371817843849d5ff11536353b1a9504
+textes/strings/imheader-gbutton-credits 0b74a8fe9ab935374f453cc6234c5a56caa29a8171b4bf81e6b888c428a2278b
+textes/strings/imheader-gbutton-custom 7a7644c7a5ce7cca4794566d1c67e918c772379350f878ef01d8629ec943b705
+textes/strings/imheader-gbutton-cutscenes 2f27d14695cfa008bfa281e1def32232ce09d6d79856e200ae8afc554b6816c5
+textes/strings/imheader-gbutton-exitgame 4780b335e6b23de023a28b29bb80b7dbff5efdbce8778aba2d7892dadc24857e
+textes/strings/imheader-gbutton-loadgame 1174f546fe94f714788553e9af38473a79a3625be33e550b74dacdddc272d11a
+textes/strings/imheader-gbutton-multiplayer 8810cf893012244fb6d0a2390b769b9ef4dbe5b84c3ed6d7676a1461e548dc64
+textes/strings/imheader-gbutton-newgame e620d50ba978e6a0f4d92eba090a2e61fb193a39bc60ac781d703ebe24409f97
+textes/strings/imheader-gbutton-options f32381a1e38b5621e7abac3756158e64e0de4942170a6eb3045a5a2d6f0f9cdf
+textes/strings/imheader-gbutton-scenario d2a5df4ed03df262f2fe66dfbf1b5f01b942d7749234130fae00ba57f4245981
+textes/strings/imheader-gbutton-settings 958d350603cbce8e0939027838da052e3bc620ed03ecb3203b3a57b701af41db
+textes/strings/imheader-gbutton-tutorial 39106be633e3ea9ba9d3242a6b65d5b8a5d2dd9765d9daf3509a0ac11b9cf158
+textes/strings/imheader-mainmenu-header 1959b37065328d080ec8cf024c28546fe95e3e47490f9d45b332b044a7df1aff
+textes/strings/imheader-mission-desc e5b6840e92afef97e01f1ade14a1eeafa41fb2b566dd988af71161566420dce5
+textes/strings/imheader-mission-map 43c779b1fd965d1b35ff71eeaea99d6cca664bc1f22a59f345b82a4caa7704d4
+textes/strings/imheader-mission-objectives c533e967c8cb65916828fd63a17bdecdbd2d804240475d848689e09fca161c42
+textes/strings/mainmenu 418f93a6e2eb1cb0af697e69ea8bcbe87158fc7a72deb0b9207f9fab262c7560
+textes/strings/missiondescriptiontext 836f6b43a3c47defe765ee26f7f5549e51137808b07d22e340be2a111ee202c8
+textes/strings/missiontext 0cb75736cd43545676b6a657746dd9988f80ea18e32325bd5ed01dfb2255ae0f
+textes/strings/missiontypetext 6bd67541fdd65d6a2140e30cebe0086d6d22151d8c0ed7ed850f6b2beb4666af
+textes/strings/scenariomission 85869fc36d1c06aa5aa636c43afaee1dfcce854294f7c95898aa2b86bbb20fc1
+same-as-base de textes/strings/missiontext
+same-as-base fr textes/strings/imheader-gbutton-options

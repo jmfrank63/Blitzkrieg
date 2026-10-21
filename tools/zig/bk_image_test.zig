@@ -112,11 +112,15 @@ test "the bk-image executable writes the golden" {
     try tmp.dir.writeFile(io, .{ .sub_path = "tiles/tile.tga", .data = tile64x32 });
     const exe = try std.Io.Dir.cwd().realPathFileAlloc(io, bk_tools.bk_image, gpa);
     defer gpa.free(exe);
+    var environ = try std.testing.environ.createMap(gpa);
+    defer environ.deinit();
+    try environ.put("BK_LANG", "en");
+    try environ.put("BK_OS_LOCALES", "");
     for ([_][]const []const u8{
         &.{ exe, "offset-romb", "tiles\\tile.tga", "--out", "out/new.tga" },
         &.{ exe, "offset-romb", "tiles/tile.tga" },
     }, [_][]const u8{ "out/new.tga", "tiles/tile.tga" }) |argv, written| {
-        const result = try std.process.run(gpa, io, .{ .argv = argv, .cwd = .{ .dir = tmp.dir } });
+        const result = try std.process.run(gpa, io, .{ .argv = argv, .cwd = .{ .dir = tmp.dir }, .environ_map = &environ });
         defer gpa.free(result.stdout);
         defer gpa.free(result.stderr);
         try std.testing.expectEqualStrings("", result.stderr);

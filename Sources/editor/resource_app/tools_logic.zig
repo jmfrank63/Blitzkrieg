@@ -27,6 +27,7 @@ const ExportReport = bridge.ExportReport;
 const Warning = bridge.Warning;
 const Files = kit.files.Files;
 const testlaunch = kit.testlaunch;
+const l10n = kit.l10n;
 
 /// D-02 for this editor: Run Blitzkrieg plays in a session-only profile of
 /// its own, never the player's and never the Map Editor's test profile.
@@ -223,9 +224,9 @@ pub const ExportBlock = enum {
 
     pub fn text(self: ExportBlock) []const u8 {
         return switch (self) {
-            .no_project => "no project is open",
-            .untitled => "save the project first: an export reads its sources beside the project file",
-            .recovery_copy => "this is a recovery copy: save it with Save As before exporting",
+            .no_project => l10n.str("resource_app.tools.block.no_project"),
+            .untitled => l10n.str("resource_app.tools.block.untitled"),
+            .recovery_copy => l10n.str("resource_app.tools.block.recovery"),
         };
     }
 };
@@ -286,15 +287,25 @@ pub fn runExport(b: ResBridge, life: *const logic.Lifecycle, recovery_active: bo
 /// The report's text, line by line: a heading with the counts, the warnings
 /// (and how many did not fit), then the missing gamma.cfg.
 pub fn formatExportReport(outcome: *const ExportOutcome, writer: *std.Io.Writer) std.Io.Writer.Error!void {
-    const title = if (outcome.stats_only) "Export Stats Only" else "Export Result";
+    const title = if (outcome.stats_only) l10n.str("resource_app.tools.title.export_stats") else l10n.str("resource_app.tools.title.export_result");
     if (outcome.status != .ok) {
-        try writer.print("{s} refused: {s}\n", .{ title, outcome.message() });
+        try putLine(writer, "", "resource_app.tools.export.refused", .{ title, outcome.message() });
     } else {
-        try writer.print("{s}: written {d}, skipped {d}, warnings {d}\n", .{ title, outcome.report.written, outcome.report.skipped, outcome.report.warning_total });
+        try putLine(writer, "", "resource_app.tools.export.counts", .{ title, outcome.report.written, outcome.report.skipped, outcome.report.warning_total });
     }
     for (outcome.warningLines()) |*line| try writer.print("  {s}\n", .{line.textSlice()});
-    if (outcome.report.warning_total > max_report_warnings) try writer.print("  ... and {d} more\n", .{outcome.report.warning_total - max_report_warnings});
-    if (outcome.status == .ok and outcome.gamma_missing) try writer.print("no gamma.cfg in the project's folder or above it: picture options are 0\n", .{});
+    if (outcome.report.warning_total > max_report_warnings) try putLine(writer, "  ", "resource_app.tools.export.more", .{outcome.report.warning_total - max_report_warnings});
+    if (outcome.status == .ok and outcome.gamma_missing) try putLine(writer, "", "resource_app.tools.export.no_gamma", .{});
+}
+
+/// One report line: the string table's `key` filled with `args`, after `indent`, and a line break.
+/// The report lines of the Tools dialogs and the command line's batch report share it; the command
+/// line never selects a language, so its lines stay English (the tiers parse them).
+fn putLine(writer: *std.Io.Writer, indent: []const u8, comptime key: []const u8, args: anytype) std.Io.Writer.Error!void {
+    var buffer: [3072]u8 = undefined;
+    try writer.writeAll(indent);
+    try writer.writeAll(l10n.say(&buffer, key, args));
+    try writer.writeByte('\n');
 }
 
 // --- Compress to PAK ---------------------------------------------------------
@@ -513,31 +524,37 @@ pub fn runBatch(allocator: std.mem.Allocator, b: ResBridge, files: Files, reques
 
 pub fn formatBatchReport(summary: *const BatchSummary, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     const request = summary.request;
-    const verb = if (request.flags.open_save) "open and save" else "export";
-    try writer.print("batch {s} {s}: {s} -> {s}{s}\n", .{ verb, request.mask.label(), request.src, request.dst, if (request.flags.force) " (forced)" else "" });
+    var head: [3072]u8 = undefined;
+    const head_text = if (request.flags.open_save)
+        l10n.say(&head, "resource_app.tools.batch.head_resave", .{ request.mask.label(), request.src, request.dst })
+    else
+        l10n.say(&head, "resource_app.tools.batch.head_export", .{ request.mask.label(), request.src, request.dst });
+    try writer.writeAll(head_text);
+    if (request.flags.force) {
+        try writer.writeByte(' ');
+        try writer.writeAll(l10n.str("resource_app.tools.batch.forced"));
+    }
+    try writer.writeByte('\n');
     if (!summary.ran()) {
-        try writer.print("refused: {s}\n", .{summary.message()});
+        try putLine(writer, "", "resource_app.tools.batch.refused", .{summary.message()});
         return;
     }
-    try writer.print("projects {d}, {s} {d}, failed {d}; files written {d}, skipped {d}\n", .{
-        summary.project_count,
-        if (request.flags.open_save) "re-saved" else "exported",
-        summary.succeeded(),
-        summary.failed_projects,
-        summary.report.written,
-        summary.report.skipped,
-    });
+    if (request.flags.open_save) {
+        try putLine(writer, "", "resource_app.tools.batch.counts_resave", .{ summary.project_count, summary.succeeded(), summary.failed_projects, summary.report.written, summary.report.skipped });
+    } else {
+        try putLine(writer, "", "resource_app.tools.batch.counts_export", .{ summary.project_count, summary.succeeded(), summary.failed_projects, summary.report.written, summary.report.skipped });
+    }
     if (summary.failed.items.len != 0) {
-        try writer.print("failed:\n", .{});
+        try putLine(writer, "", "resource_app.tools.batch.failed_header", .{});
         for (summary.failed.items) |line| try writer.print("  {s}: {s}\n", .{ line.project, line.reason });
     }
     if (summary.other.items.len != 0) {
-        try writer.print("warnings:\n", .{});
+        try putLine(writer, "", "resource_app.tools.batch.warnings_header", .{});
         for (summary.other.items) |line| try writer.print("  {s}\n", .{line});
     }
-    if (summary.report.warning_total > max_report_warnings) try writer.print("  ... and {d} more warnings\n", .{summary.report.warning_total - max_report_warnings});
+    if (summary.report.warning_total > max_report_warnings) try putLine(writer, "  ", "resource_app.tools.batch.more_warnings", .{summary.report.warning_total - max_report_warnings});
     if (summary.missing_gamma.items.len != 0) {
-        try writer.print("missing gamma.cfg ({d}):\n", .{summary.missing_gamma.items.len});
+        try putLine(writer, "", "resource_app.tools.batch.missing_gamma", .{summary.missing_gamma.items.len});
         for (summary.missing_gamma.items) |path| try writer.print("  {s}\n", .{path});
     }
 }

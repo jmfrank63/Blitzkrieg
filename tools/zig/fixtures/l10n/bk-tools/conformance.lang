@@ -1,0 +1,10 @@
+# Conformance fixture for the .lang format shared by the editor kit and tools/zig/bk_l10n.zig.
+
+plain=Hello
+equals=a=b=c
+escapes=line one\nline two\ttabbed \\ slash
+slots={1} of {0}: {2} {9}
+   # an indented comment
+empty=
+unicode=日本語 – ünï
+brace=literal { and {x} stay

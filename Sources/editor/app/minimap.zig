@@ -24,6 +24,7 @@ const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
 const kit = @import("editor_kit");
+const l10n = kit.l10n;
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
 const logic = @import("panels_logic.zig");
@@ -363,7 +364,7 @@ pub fn clickPercent(state: *State, x_percent: f32, y_percent: f32) bool {
 pub fn setMode(state: *State, mode: Mode) bool {
     const mm = &state.minimap;
     if (mode == .game and probeGame(state) != .present) {
-        state.view.setStatus("minimap: ", "this map has no minimap picture of its own - Map > Create Minimap Images makes one");
+        state.view.setStatus("", std.mem.span(l10n.t("app.m2.minimap.no_game")));
         return false;
     }
     mm.mode = mode;
@@ -385,7 +386,8 @@ pub fn createNow(state: *State) bool {
     const path = if (state.editor.files) |files| (files.realPath(os_path, &real_buffer) orelse os_path) else os_path;
     const result = state.editor.bridge.createMinimapImages(path);
     if (result != .ok) {
-        state.view.setStatus("minimap pictures: ", state.editor.bridge.lastMessage());
+        var failed: [300]u8 = undefined;
+        state.view.setStatus("", l10n.format(&failed, "app.m2.minimap.pictures_failed", .{state.editor.bridge.lastMessage()}) catch std.mem.span(l10n.t("app.m2.minimap.pictures_failed")));
         return false;
     }
     mm.game = .unknown;
@@ -393,7 +395,7 @@ pub fn createNow(state: *State) bool {
     if (probeGame(state) != .present) mm.mode = .editor;
     var note: [200]u8 = undefined;
     const base = logic.minimapImageBase(document_path) orelse document_path;
-    state.view.setStatus("minimap: ", std.fmt.bufPrint(&note, "wrote {s}_large and {s} as .tga and _c/_l/_h.dds", .{ logic.baseName(base), logic.baseName(base) }) catch "wrote the minimap pictures");
+    state.view.setStatus("", l10n.format(&note, "app.m2.minimap.wrote", .{ logic.baseName(base), logic.baseName(base) }) catch std.mem.span(l10n.t("app.m2.minimap.wrote")));
     return true;
 }
 
@@ -408,29 +410,29 @@ pub fn draw(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     if (!mm.visible) return;
     ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
     ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
-    const open = ig.igBegin("Minimap", &mm.visible, ig.ImGuiWindowFlags_NoCollapse);
+    const open = ig.igBegin(l10n.id("app.window.minimap"), &mm.visible, ig.ImGuiWindowFlags_NoCollapse);
     defer ig.igEnd();
     if (!open) return;
     if (!panels.documentLoaded(state.editor)) {
-        panels.text("no map open");
+        panels.text(std.mem.span(l10n.t("app.common.no_map")));
         return;
     }
     refresh(state);
 
     // The MFC bar's own three buttons, and the grid.
-    if (ig.igRadioButton("Editor", mm.mode == .editor)) _ = commands.run(state, "minimap_mode", "editor");
+    if (ig.igRadioButton(l10n.id("app.m2.minimap.editor"), mm.mode == .editor)) _ = commands.run(state, "minimap_mode", "editor");
     ig.igSameLine();
     ig.igBeginDisabled(mm.game == .missing);
-    if (ig.igRadioButton("Game", mm.mode == .game)) _ = commands.run(state, "minimap_mode", "game");
+    if (ig.igRadioButton(l10n.id("app.m2.minimap.game"), mm.mode == .game)) _ = commands.run(state, "minimap_mode", "game");
     ig.igEndDisabled();
     ig.igSameLine();
-    if (ig.igButton("Create")) _ = commands.run(state, "minimap_create", "");
+    if (ig.igButton(l10n.id("app.m2.minimap.create"))) _ = commands.run(state, "minimap_create", "");
     if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
-        panels.text("Writes the map's minimap pictures beside the saved map (Map > Create Minimap Images)");
+        panels.text(std.mem.span(l10n.t("app.m2.minimap.tip")));
         ig.igEndTooltip();
     }
     ig.igSameLine();
-    _ = ig.igCheckbox("Grid", &mm.show_grid);
+    _ = ig.igCheckbox(l10n.id("app.m2.minimap.grid"), &mm.show_grid);
 
     const info = state.editor.document.info;
     const avail = ig.igGetContentRegionAvail();

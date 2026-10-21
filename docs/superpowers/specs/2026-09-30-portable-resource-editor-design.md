@@ -1421,3 +1421,40 @@ Not claimed: no macOS or Windows result; the full resource sweep is left to the 
   (`GogBrandenburgertor`, `GogArdennen40`) were removed from `resource_bridge_test.cpp`.
 - **End state.** The MFC editor was deleted in c6b4329c6 (`PRE_DELETE b8aa895bb`). The maintainer's full Linux sweep at c6b4329c6 gave VERDICT=PASS with 41 tiers.
   Not claimed: any macOS or Windows result.
+
+## Amendment (M002 S06, 2026-10-20): the Resource Editor is localised
+
+- **Tables.** Every label the Zig app draws (menus, docks, dialogs, status lines and session messages, the 21 editor names
+  and kind labels, the GUI Editor dock, Help and About) comes from the ten kit string tables under the `resource_app.*` keys
+  (`resource_app.gui.*` for the GUI Editor); the verbs OK, Cancel and the like are `kit.common.*`. The `###` rule of the
+  Map Editor applies: a window, popup or menu title is `l10n.id`, so its ImGui identity is the key and not the translation. The same holds for every widget, menu item, button, tab and header label (M002 S07/T07, D083); `l10n.t` stays for plain text, and `l10n-check` fails on an ID-bearing `ig*` call whose label is `l10n.t(`.
+  Existing `layout.ini` files hold the old English titles and are reset once; the docks return to their default places.
+  `Sources/editor/resource_app` is a strict directory of `zig build l10n-check`: a literal label there fails the gate.
+- **Language.** A normal start reads `ui_language` from `resourceeditor.cfg`; Tools > Language (the kit's language picker)
+  switches it live and stores it. The bundled Noto faces load at every start path. `--smoke`, `--smoke-edit`, `--check`,
+  `--auto` and the batch CLI draw English whatever the setting or the operating system's locale says, so the scripted tiers'
+  English assertions hold on every machine (`LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 zig build resource-editor-auto-core`
+  passes; the machine has no de_DE locale installed, so this shows the setting is not read from the environment, not that a
+  German locale is handled).
+- **What stays English (D081).** The engine's text (`BkEditorLastMessage`, reasons from the bridge), the operating system's
+  messages and the data the editor shows (property names from the model, file and folder names) are not translated. A line
+  built from both, such as an export report, has its frame translated and the engine's reason inside it in English.
+- **Tier.** `zig build resource-editor-l10n-auto` (`tools/zig/resource_editor_l10n_auto.zig`, needs `hb-view`) starts the
+  installed editor hidden once per language (`ResourceEditor --l10n-auto <fixtures> <scratch>`, `ui_language` in a scratch
+  cfg) and runs one schedule: a new weapon project (`main`: the seven menu bar titles), `do=open_menu:resource_app.menu.view`
+  (`menu`: the View menu's dock items), `key=f1` (`help`: the Help window's action rows), then a new sprite project with the
+  Thumbnails dock (`subeditor`: its Rescan button). Each measured label is cut from the captured frame and compared with
+  hb-view's raster of the table's text; a frame must differ from English where the text differs; Hindi and the Han faces get
+  their extra checks. The fit check holds every measured label inside the frame, and the Help rows and manual text inside
+  the Help window. A missing-key case (`tools/zig/fixtures/l10n/resource-editor-drop/ru.lang`, ru without
+  `resource_app.menu.help`) logs one `l10n: missing ru ...` line and draws that title in English. Frames, the log and
+  `report.txt` are in `zig-out/local-test/resource-editor/l10n-auto/<code>/`.
+- **Found by the fit check.** The Thumbnails dock's folder field, Folder button and Rescan button did not fit the 260 px dock,
+  in English too: Rescan was clipped at the window edge. The field now takes the width the two buttons leave.
+- **Not measured.** The dialogs (Tools, Batch, PAK and the rest), the tree and Properties windows and the GUI Editor dock draw
+  from the tables and pass the `l10n-check` gate, but no captured frame of them is measured; wrapped paragraphs and labels
+  with arguments have no one-line hb-view reference. macOS and Windows are left to CI (S09).
+
+## Scenario checks and fonts (S07/T08)
+
+A slice that touches an editor's UI or fonts runs all of that editor's `resource-editor-auto-<editor>` tiers before it completes. Scenario expectations measure the drawn thing, not text: `shot_mark_cross:<shot>/<mark>/min|max/<n>` counts the span mark colour only inside one mark's own +-7px cross box (its label starts at +9px), so the number follows the two 2px diagonals (at least 24 exact pixels, measured 27) and not the UI font. `resource-editor-auto-bdg` uses it; the old whole-shot `shot_colour` of the mark colour counted the label and broke on the Noto fonts.

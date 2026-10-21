@@ -21,6 +21,13 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
   cannot run the full sweep at all. Run the individual tiers your change touches in the foreground instead (each is
   well under 10 minutes). The maintainer runs `tools/zig/run-resource-sweep.sh` at the end of each slice; a task whose
   plan asks for the full sweep records "full sweep left to the maintainer" plus the tiers it did run, and completes.
+- A slice that touches an editor's UI or fonts runs all of that editor's auto tiers (`resource-editor-auto-<editor>`, or the
+  Map Editor tiers) before it completes: S06's Noto fonts broke `resource-editor-auto-bdg` and nobody ran it. Scenario checks measure
+  the drawn thing (for example `shot_mark_cross` counts a span mark's own cross box), never text that depends on the UI font.
+- Never run two `zig build` commands at once in the same checkout, not even as two parallel tool calls: they share
+  `zig-out`, so one stages libraries while the other's editor or game runs on them. At S06 of M002 that made
+  `resource-editor-planted-leak` exit 1 with 99 "leaked" blocks twice; run one after the other, or name several steps
+  in one `zig build` call.
 
 ## Rules
 

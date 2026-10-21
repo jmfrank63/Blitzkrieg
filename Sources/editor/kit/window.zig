@@ -12,11 +12,12 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
+const tga = @import("capture.zig");
 
 const c = sdl3.c;
 const ig = imgui.c;
 
-pub const Error = error{ SdlInitFailed, WindowFailed, NoDevice, ImguiFailed, FrameFailed };
+pub const Error = error{ SdlInitFailed, WindowFailed, NoDevice, ImguiFailed, FrameFailed, CaptureFailed };
 
 pub const Options = struct {
     title: [*:0]const u8,
@@ -31,6 +32,9 @@ const clear_colour: c.SDL_FColor = .{ .r = 0.06, .g = 0.06, .b = 0.06, .a = 1.0 
 pub const Window = struct {
     window: *c.SDL_Window,
     device: *c.SDL_GPUDevice,
+    /// The offscreen target's size, which `capture` reads back.
+    width: u32,
+    height: u32,
     /// Hidden runs draw here; null when the swapchain is the target.
     offscreen: ?*c.SDL_GPUTexture,
     /// The offscreen frame still on the GPU. Acquiring a swapchain texture waits for a free
@@ -83,7 +87,7 @@ pub const Window = struct {
         ig.igGetIO().*.IniFilename = null;
         if (!ig.bk_imgui_backend_init(@ptrCast(window), @ptrCast(device), @intCast(format)))
             return failWith(error.ImguiFailed, "the ImGui SDL3/SDL_GPU backend did not initialise");
-        return .{ .window = window, .device = device, .offscreen = offscreen };
+        return .{ .window = window, .device = device, .width = @intCast(options.width), .height = @intCast(options.height), .offscreen = offscreen };
     }
 
     pub fn stop(self: *Window) void {
@@ -146,6 +150,62 @@ pub const Window = struct {
         } else if (!c.SDL_SubmitGPUCommandBuffer(command_buffer)) return failWith(error.FrameFailed, sdlError());
     }
 
+    /// Writes the last drawn frame of a hidden window to `path` as a 32-bit TGA and prints
+    /// `capture: <path> <w>x<h>`. The frame is read back from the offscreen texture through a
+    /// download transfer buffer, so a visible window (swapchain target) cannot be captured.
+    /// On failure `failureReason()` names the path and SDL_GetError.
+    pub fn capture(self: *Window, alloc: std.mem.Allocator, io: std.Io, path: []const u8) Error!void {
+        const texture = self.offscreen orelse return failFmt("capture {s}: only a hidden window has an offscreen frame to read", .{path});
+        if (self.in_flight) |fence| {
+            const fences = [_]?*c.SDL_GPUFence{fence};
+            _ = c.SDL_WaitForGPUFences(self.device, true, &fences, 1);
+            c.SDL_ReleaseGPUFence(self.device, fence);
+            self.in_flight = null;
+        }
+        const size: u32 = self.width * self.height * 4;
+        var info = std.mem.zeroes(c.SDL_GPUTransferBufferCreateInfo);
+        info.usage = c.SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+        info.size = size;
+        const transfer = c.SDL_CreateGPUTransferBuffer(self.device, &info) orelse
+            return failFmt("capture {s}: no transfer buffer: {s}", .{ path, sdlError() });
+        defer c.SDL_ReleaseGPUTransferBuffer(self.device, transfer);
+
+        const command_buffer = c.SDL_AcquireGPUCommandBuffer(self.device) orelse
+            return failFmt("capture {s}: no command buffer: {s}", .{ path, sdlError() });
+        const pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse {
+            _ = c.SDL_CancelGPUCommandBuffer(command_buffer);
+            return failFmt("capture {s}: no copy pass: {s}", .{ path, sdlError() });
+        };
+        var source = std.mem.zeroes(c.SDL_GPUTextureRegion);
+        source.texture = texture;
+        source.w = self.width;
+        source.h = self.height;
+        source.d = 1;
+        var destination = std.mem.zeroes(c.SDL_GPUTextureTransferInfo);
+        destination.transfer_buffer = transfer;
+        c.SDL_DownloadFromGPUTexture(pass, &source, &destination);
+        c.SDL_EndGPUCopyPass(pass);
+        const fence = c.SDL_SubmitGPUCommandBufferAndAcquireFence(command_buffer) orelse
+            return failFmt("capture {s}: submit failed: {s}", .{ path, sdlError() });
+        const fences = [_]?*c.SDL_GPUFence{fence};
+        const waited = c.SDL_WaitForGPUFences(self.device, true, &fences, 1);
+        c.SDL_ReleaseGPUFence(self.device, fence);
+        if (!waited) return failFmt("capture {s}: download did not finish: {s}", .{ path, sdlError() });
+
+        const mapped = c.SDL_MapGPUTransferBuffer(self.device, transfer, false) orelse
+            return failFmt("capture {s}: map failed: {s}", .{ path, sdlError() });
+        defer c.SDL_UnmapGPUTransferBuffer(self.device, transfer);
+        const pixels: [*]const u8 = @ptrCast(mapped);
+        const bytes = tga.encodeTga(alloc, self.width, self.height, pixels[0..size]) catch |err|
+            return failFmt("capture {s}: {s}", .{ path, @errorName(err) });
+        defer alloc.free(bytes);
+        const cwd = std.Io.Dir.cwd();
+        if (std.fs.path.dirname(path)) |parent| cwd.createDirPath(io, parent) catch {};
+        cwd.writeFile(io, .{ .sub_path = path, .data = bytes }) catch |err|
+            return failFmt("capture {s}: {s}", .{ path, @errorName(err) });
+        std.debug.print("capture: {s} {d}x{d}\n", .{ path, self.width, self.height });
+    }
+
     pub fn setTitle(self: *Window, title: [*:0]const u8) void {
         _ = c.SDL_SetWindowTitle(self.window, title);
     }
@@ -163,6 +223,12 @@ fn failWith(err: Error, reason: []const u8) Error {
     failure_len = @min(reason.len, failure_buffer.len);
     @memcpy(failure_buffer[0..failure_len], reason[0..failure_len]);
     return err;
+}
+
+fn failFmt(comptime format: []const u8, args: anytype) Error {
+    const reason = std.fmt.bufPrint(&failure_buffer, format, args) catch failure_buffer[0..];
+    failure_len = reason.len;
+    return error.CaptureFailed;
 }
 
 fn sdlError() []const u8 {

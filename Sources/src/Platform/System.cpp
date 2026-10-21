@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -19,6 +20,7 @@ extern char **environ;
 namespace
 {
 NPlatform::UiHandler gErrorHandler = nullptr;
+bool gUnattended = false;
 NPlatform::UiHandler gOpenHandler = nullptr;
 // The cursor this module created, so it can be destroyed when replaced.
 SDL_Cursor *gOwnedCursor = nullptr;
@@ -96,6 +98,8 @@ bool SetEnvironment( const char *name, const char *value )
 bool ShowError( const char *title, const char *text )
 {
 	if ( gErrorHandler != nullptr ) return gErrorHandler( title, text );
+	fprintf( stderr, "%s: %s\n", title != nullptr ? title : "Error", text != nullptr ? text : "" );
+	if ( gUnattended ) return false;
 	return SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title != nullptr ? title : "Error", text != nullptr ? text : "", nullptr );
 }
 
@@ -115,6 +119,11 @@ bool OpenFile( const char *path )
 		url = "file://" + ( !url.empty() && url[0] == '/' ? std::string() : "/" ) + url;
 	}
 	return OpenUrl( url.c_str() );
+}
+
+void SetUnattended( const bool unattended )
+{
+	gUnattended = unattended;
 }
 
 void SetUiHandlers( const UiHandler errorHandler, const UiHandler openHandler )

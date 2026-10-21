@@ -317,12 +317,22 @@ pub fn tilePicturesStale(cached: []const u8, now: []const u8) bool {
 /// one object of the map carries (bridge.h, "The edits"): both are kept as
 /// they are.
 pub fn readOnlyReason(objects: []const ObjectRecord, object: ObjectRecord) ?[]const u8 {
-    if (!object.known) return "unknown to the object database";
+    return switch (readOnlyKind(objects, object) orelse return null) {
+        .unknown_type => "unknown to the object database",
+        .shared_link => "its link ID is shared",
+    };
+}
+
+/// Why an object is kept as it is, as a kind the panel words in the current language.
+pub const ReadOnlyKind = enum { unknown_type, shared_link };
+
+pub fn readOnlyKind(objects: []const ObjectRecord, object: ObjectRecord) ?ReadOnlyKind {
+    if (!object.known) return .unknown_type;
     var carriers: usize = 0;
     for (objects) |other| {
         if (other.link_id == object.link_id) carriers += 1;
     }
-    if (carriers > 1) return "its link ID is shared";
+    if (carriers > 1) return .shared_link;
     return null;
 }
 
@@ -392,6 +402,18 @@ pub fn formatTitle(buffer: []u8, path: []const u8, dirty: bool, read_only: bool)
         std.mem.printSentinel(buffer, plain, .{}, 0) catch "";
 }
 
+/// The words of the window title that are text, not data: the product name and the two marks.
+/// The defaults are the English ones, which the unit tests and the scripted runs see; the app
+/// fills them from the string tables.
+pub const TitleWords = struct {
+    product: []const u8 = "Map Editor",
+    /// Follows the name and the star, with its own leading space and brackets.
+    read_only: []const u8 = " (read-only)",
+    /// Follows the size, with its own leading space: " MOD: AP2". Empty with no mod; the mod key
+    /// shown must already be in it.
+    mod: []const u8 = "",
+};
+
 /// The window title's M3 shape (D-34/PARITY F15), the MFC SetWindowTitle's
 /// own fields (TemplateEditorFrame1.cpp:153-205): the map's name with its
 /// extension, `*` when modified, the size in patches, and the mod key. A
@@ -408,28 +430,51 @@ pub fn formatTitleM3(
     size_patches: ?[2]i32,
     mod_key: []const u8,
 ) [:0]const u8 {
-    const plain = "Map Editor";
-    if (name.len == 0 and size_patches == null) return std.mem.printSentinel(buffer, plain, .{}, 0) catch "";
-    var tail: [96]u8 = undefined;
+    var mod_text: [112]u8 = undefined;
+    const mod = if (mod_key.len == 0) "" else std.fmt.bufPrint(&mod_text, " MOD: {s}", .{mod_key}) catch return plainZero(buffer, .{});
+    return formatTitleWords(buffer, .{ .mod = mod }, name, dirty, read_only, size_patches);
+}
+
+/// `formatTitleM3` with the title's words given, for a language other than English.
+pub fn formatTitleWords(
+    buffer: []u8,
+    words: TitleWords,
+    name: []const u8,
+    dirty: bool,
+    read_only: bool,
+    size_patches: ?[2]i32,
+) [:0]const u8 {
+    if (name.len == 0 and size_patches == null) return plainZero(buffer, words);
+    var tail: [160]u8 = undefined;
     var tail_len: usize = 0;
     const star = if (dirty) "*" else "";
-    const suffix = if (read_only) " (read-only)" else "";
+    const suffix = if (read_only) words.read_only else "";
     if (size_patches) |size| {
-        tail_len += (std.fmt.bufPrint(tail[tail_len..], " {d}x{d}", .{ size[0], size[1] }) catch return plainZero(buffer)).len;
+        tail_len += (std.fmt.bufPrint(tail[tail_len..], " {d}x{d}", .{ size[0], size[1] }) catch return plainZero(buffer, words)).len;
     }
-    if (mod_key.len != 0) {
-        tail_len += (std.fmt.bufPrint(tail[tail_len..], " MOD: {s}", .{mod_key}) catch return plainZero(buffer)).len;
+    if (words.mod.len != 0) {
+        if (words.mod.len > tail.len - tail_len) return plainZero(buffer, words);
+        @memcpy(tail[tail_len..][0..words.mod.len], words.mod);
+        tail_len += words.mod.len;
     }
     // The MFC's own budget (MAX_NAME_SIZE 133), star and read-only mark
     // included: clip the NAME, never the fields after it.
     const budget = if (133 > tail_len + star.len + suffix.len) 133 - tail_len - star.len - suffix.len else 0;
-    const shown = if (name.len > budget) name[0..budget] else name;
-    return std.mem.printSentinel(buffer, plain ++ " - {s}{s}{s}{s}", .{ shown, star, suffix, tail[0..tail_len] }, 0) catch
-        plainZero(buffer);
+    const shown = clipUtf8(name, budget);
+    return std.mem.printSentinel(buffer, "{s} - {s}{s}{s}{s}", .{ words.product, shown, star, suffix, tail[0..tail_len] }, 0) catch
+        plainZero(buffer, words);
 }
 
-fn plainZero(buffer: []u8) [:0]const u8 {
-    return std.mem.printSentinel(buffer, "Map Editor", .{}, 0) catch "";
+/// The longest prefix of `text` that fits `limit` bytes without cutting a UTF-8 sequence.
+fn clipUtf8(text: []const u8, limit: usize) []const u8 {
+    if (text.len <= limit) return text;
+    var end = limit;
+    while (end > 0 and text[end] & 0xC0 == 0x80) end -= 1;
+    return text[0..end];
+}
+
+fn plainZero(buffer: []u8, words: TitleWords) [:0]const u8 {
+    return std.mem.printSentinel(buffer, "{s}", .{words.product}, 0) catch "";
 }
 
 /// The status bar's VIS/SCRIPT coordinate line (M3, D-34/PARITY V6), the MFC
@@ -1571,6 +1616,25 @@ test "formatTitleM3: the MFC's own fields - name, star, patches, mod (F15)" {
     const titled = formatTitleM3(&buffer, long_name, false, false, .{ 16, 16 }, "AP2");
     try std.testing.expect(std.mem.indexOf(u8, titled, " 16x16 MOD: AP2") != null);
     try std.testing.expect(titled.len < 160);
+}
+
+test "formatTitleWords: the product name and the marks come from the caller; a clip never cuts a UTF-8 sequence" {
+    var buffer: [320]u8 = undefined;
+    const words = TitleWords{ .product = "Karteneditor", .read_only = " (schreibgesch\xc3\xbctzt)", .mod = " Mod: AP2" };
+    try std.testing.expectEqualStrings("Karteneditor", formatTitleWords(&buffer, words, "", false, false, null));
+    try std.testing.expectEqualStrings(
+        "Karteneditor - a.bzm* (schreibgesch\xc3\xbctzt) 16x16 Mod: AP2",
+        formatTitleWords(&buffer, words, "a.bzm", true, true, .{ 16, 16 }),
+    );
+    // Two-byte letters: 133 bytes would end in the middle of one, so the clip stops a byte earlier.
+    var long_name: [200]u8 = undefined;
+    for (0..100) |i| {
+        long_name[2 * i] = 0xc3;
+        long_name[2 * i + 1] = 0xbc;
+    }
+    const titled = formatTitleWords(&buffer, .{}, &long_name, false, false, null);
+    try std.testing.expect(std.unicode.utf8ValidateSlice(titled));
+    try std.testing.expect(titled.len <= "Map Editor - ".len + 133);
 }
 
 test "visScriptLine: values and the MFC's own dashes (V6)" {
@@ -3606,13 +3670,13 @@ pub fn storageNameFromBrowse(buffer: []u8, base_root: []const u8, os_path: []con
 /// direction used.
 pub fn rmgResultLine(buffer: []u8, map_name: []const u8, result: *const core.bridge.RmgGenerateResult) []const u8 {
     const angle: usize = if (result.angle >= 0 and result.angle < 4) @intCast(result.angle) else 0;
-    return std.fmt.bufPrint(buffer, "random map {s}: seed {d}, graph {d} ({s}), direction {s}", .{
+    return kit.l10n.say(buffer, "app.cmd.random_map_result", .{
         map_name,
         result.seed,
         result.graph,
         std.fs.path.basename(result.graphNameSlice()),
         RmgFields.direction_names[angle],
-    }) catch "random map created";
+    });
 }
 
 /// The context combo's entries: the MFC listed only the chapters' own
@@ -3650,10 +3714,10 @@ pub const ExportKind = enum {
     /// The MFC's own wording of "created", without its message box.
     pub fn noun(self: ExportKind) []const u8 {
         return switch (self) {
-            .graphs => "RMG graphs list",
-            .contexts => "RMG contexts list",
-            .patches => "RMG patches list",
-            .maps => "Maps list",
+            .graphs => kit.l10n.str("app.cmd.noun_graphs"),
+            .contexts => kit.l10n.str("app.cmd.noun_contexts"),
+            .patches => kit.l10n.str("app.cmd.noun_patches"),
+            .maps => kit.l10n.str("app.cmd.noun_maps"),
         };
     }
 

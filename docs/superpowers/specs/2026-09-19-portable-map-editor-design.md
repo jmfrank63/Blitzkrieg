@@ -600,6 +600,39 @@ Settled by the overlay spike (plan
   to None, showed 1359 unknown objects. A running test game is its own
   process on its own copy and keeps running.
 
+### Localization (M002 S05, D080)
+
+The Map Editor runs on the kit string tables (`Sources/editor/kit/lang/<code>.lang`, ten languages, see
+`Sources/editor/kit/README.md`), through `app.*` keys and the shared `kit.common.*` verbs.
+
+- **Tables and IDs.** Every ImGui label, window and popup title, status message, dialog title, file filter
+  name, data-table header, tool name, help and About text of `Sources/editor/app` and the notes of
+  `Sources/editor/core` is a key. Windows, popups and menus whose identity must survive a language change
+  use `l10n.id` (`Title###key`, the same key at the open and the begin site), so ImGui's own window state is
+  keyed by the key: **the saved window positions in `layout.ini` reset once** for a person upgrading, and
+  View > Reset layout still forgets them. Every other translated ImGui label (widget, menu item, button, tab, header) is `l10n.id` too (M002 S07/T07, D083), since ImGui hashes the label as the ID; `l10n.t` is for plain text, and `l10n-check` fails on an ID-bearing `ig*` call whose label is `l10n.t(`. `l10n-check` enforces `Sources/editor/app` as a strict directory:
+  an English literal in a UI call is a finding.
+- **Pure modules** (`tool_registry`, `marker_logic`, `view_math`, `panels_logic`) return ids and enums and the
+  panels translate, so the pure test tiers do not depend on the current language.
+- **Fonts.** The bundled Noto faces are installed beside the executable (`<stage>/Fonts`, from
+  `vendor/fonts`) and loaded in every mode; the language is chosen in the Settings window (the shared
+  language combo) and applies between frames. `ui_language` is the shared `mapeditor.cfg` key.
+- **Scripted runs draw English.** `BK_EDITOR_AUTO`, `--smoke`, `--check` and `--game-reads-it` resolve
+  `system` to English, so every existing tier keeps its English assertions and drives the editor by key
+  (named commands, tool labels). Only `--l10n-auto <map> <folder>` reads `ui_language` from the scratch cfg
+  `BK_EDITOR_SETTINGS` names (nothing else from it) and turns on the rect log.
+- **English exceptions.** Text produced outside the tables stays English: the engine's reasons
+  (`BkEditorLastMessage`), the operating system's (`kit/files`, SDL, file dialogs), `fatal()` before the
+  language is known, the game's own data names (`SGVOGT_*`, object, map and script names) and the text the
+  tests print.
+- **The tier.** `zig build map-editor-l10n-auto` starts the installed editor hidden in each language,
+  captures the main window with the menu bar, the Tools palette and the Settings dialog, measures each
+  logged label against hb-view and the fit of the palette, the dialog, the Objects panel's filter buttons
+  and the Players panel's labels (the Objects panel's Delete Filter button now starts a new row when it
+  does not fit), and runs the dropped-key case (`tools/zig/fixtures/l10n/map-editor-drop/ru.lang`).
+  The measuring code is shared with ELK's tier in `tools/zig/l10n_auto_common.zig`. It needs a GPU device
+  and hb-view; macOS and Windows are left to CI.
+
 ## Data flow
 
 **Startup.** Open the window, start the engine through the bridge on it, fill

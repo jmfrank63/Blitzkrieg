@@ -19,20 +19,15 @@
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
 
-const usage =
+const usage: bk_tool.Usage = .{
+    .synopsis =
     \\usage: bk-video convert [--input-root <dir>] [--force] [--no-recurse] [--what-if]
     \\                        [--ffmpeg <path>] [--ffprobe <path>]
     \\                        [--key-frame-interval <n>] [--audio-suffix <suffix>]
     \\
-    \\convert  turns every .bik under <dir> (default Data/movies) into an Ogg
-    \\         Theora <name>.ogv beside it, and its first audio track into a
-    \\         <name><suffix>.ogg sidecar (suffix .audio), with ffmpeg and
-    \\         ffprobe from PATH. Existing outputs are kept unless --force.
-    \\         --no-recurse reads <dir> only, not below it. --what-if lists the
-    \\         jobs without running them. --key-frame-interval is ffmpeg's -g
-    \\         (default 1, every frame a key frame).
-    \\
-;
+    ,
+    .body = &.{"video.usage.body"},
+};
 
 pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-video", usage, run);
@@ -98,8 +93,8 @@ fn convert(ctx: *bk_tool.Context, options: Options) !void {
     var names: std.ArrayList([]const u8) = .empty;
     {
         var dir = cwd.openDir(io, root, .{ .iterate = true }) catch |err| switch (err) {
-            error.FileNotFound, error.NotDir => return ctx.fail("input root does not exist: {s}", .{root}),
-            else => return ctx.fail("{s}: {s}", .{ root, @errorName(err) }),
+            error.FileNotFound, error.NotDir => return ctx.failKey("video.err.no_root", .{root}),
+            else => return ctx.failKey("tool.err.path_reason", .{ root, @errorName(err) }),
         };
         defer dir.close(io);
         if (options.recurse) {
@@ -150,7 +145,7 @@ fn convert(ctx: *bk_tool.Context, options: Options) !void {
                 "libtheora",    "-q:v",         "7",         "-g",   key_frames,
                 "-c:a",         "libvorbis",    "-q:a",      "4",    ogv,
             };
-            if (try runFfmpeg(ctx, &argv, "ffmpeg failed", bik)) converted += 1 else failed += 1;
+            if (try runFfmpeg(ctx, &argv, false, bik)) converted += 1 else failed += 1;
         }
 
         if (!try hasAudioStream(ctx, ffprobe, bik)) continue;
@@ -169,7 +164,7 @@ fn convert(ctx: *bk_tool.Context, options: Options) !void {
             ffmpeg, "-hide_banner", "-y",        "-i",   bik,  "-map", "0:a:0",
             "-vn",  "-c:a",         "libvorbis", "-q:a", "4",  audio,
         };
-        if (try runFfmpeg(ctx, &argv, "ffmpeg audio extraction failed", bik)) audio_converted += 1 else failed += 1;
+        if (try runFfmpeg(ctx, &argv, true, bik)) audio_converted += 1 else failed += 1;
     }
 
     try ctx.out.print("BIK to OGV conversion finished. Converted={d} Skipped={d} AudioConverted={d} AudioSkipped={d} Failed={d}\n", .{ converted, skipped, audio_converted, audio_skipped, failed });
@@ -204,8 +199,8 @@ fn requireTool(ctx: *bk_tool.Context, exe: []const u8, comptime name: []const u8
         .stdout_limit = .limited(1024 * 1024),
         .stderr_limit = .limited(1024 * 1024),
     }) catch |err| switch (err) {
-        error.FileNotFound => return ctx.fail(name ++ " was not found ({s}). Install ffmpeg or pass " ++ flag ++ " <path-to-" ++ name ++ ">.", .{exe}),
-        else => return ctx.fail(name ++ " could not be started ({s}): {s}", .{ exe, @errorName(err) }),
+        error.FileNotFound => return ctx.failKey("video.err.tool_missing", .{ name, exe, flag }),
+        else => return ctx.failKey("video.err.tool_start", .{ name, exe, @errorName(err) }),
     };
     ctx.gpa.free(result.stdout);
     ctx.gpa.free(result.stderr);
@@ -226,7 +221,7 @@ fn hasAudioStream(ctx: *bk_tool.Context, ffprobe: []const u8, bik: []const u8) !
 /// Runs one ffmpeg job with its output captured; on failure reports the
 /// script's warning plus ffmpeg's last line, and returns false so the batch
 /// goes on.
-fn runFfmpeg(ctx: *bk_tool.Context, argv: []const []const u8, comptime what: []const u8, bik: []const u8) !bool {
+fn runFfmpeg(ctx: *bk_tool.Context, argv: []const []const u8, comptime audio: bool, bik: []const u8) !bool {
     // ffmpeg's progress lines grow with the movie's length; 64 MiB is far
     // beyond the longest shipped movie's.
     const result = try std.process.run(ctx.gpa, ctx.io, .{
@@ -243,9 +238,9 @@ fn runFfmpeg(ctx: *bk_tool.Context, argv: []const []const u8, comptime what: []c
     if (code == @as(?u8, 0)) return true;
     const last = lastLine(result.stderr);
     if (code) |c| {
-        ctx.err.print("bk-video: " ++ what ++ " for {s} with exit code {d}: {s}\n", .{ bik, c, last }) catch {};
+        if (audio) ctx.noteKey("video.err.audio_exit", .{ bik, c, last }) else ctx.noteKey("video.err.convert_exit", .{ bik, c, last });
     } else {
-        ctx.err.print("bk-video: " ++ what ++ " for {s}, ffmpeg did not exit normally: {s}\n", .{ bik, last }) catch {};
+        if (audio) ctx.noteKey("video.err.audio_abnormal", .{ bik, last }) else ctx.noteKey("video.err.convert_abnormal", .{ bik, last });
     }
     return false;
 }

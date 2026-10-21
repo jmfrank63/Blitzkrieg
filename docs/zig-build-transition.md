@@ -81,7 +81,7 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 
 `UI` is mirrored as a DLL using `Sources/src/UI/UI.def`. This slice adds narrowly scoped Clang/MSVC compatibility fixes in shared UI/GFX helper code and links the Zig-built `Misc`, `Common`, and `LuaLib` artifacts.
 
-`FontGen` is no longer built: `zig build bk-font` replaced it on every platform (Phase 8, `docs/modding-tools.md`).
+`FontGen` is no longer built: `zig build bk-font` replaced it on every platform (Phase 8, `tools/guide/README.md`).
 
 `SFX` is mirrored as a DLL using `Sources/src/SFX/Sound.def`. It builds the open-audio backend and the embedded Xiph Ogg/Vorbis C sources with `SFX_USE_OPEN_AUDIO_BACKEND`.
 

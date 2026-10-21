@@ -123,6 +123,57 @@ jobs:
               - '!docs/**'
               - '!*.md'
 
+  # The localisation gate (M002 D063) has no area gate: it is cheap (plain Zig, no engine build,
+  # no Data beyond Data/ELK) and a docs-only or translation-only push, which no product job runs
+  # for, is exactly what can break it. It needs `changes` only to sit after it in the graph.
+  l10n-check:
+    needs: [changes]
+    name: "Linux x64 - l10n-check"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
+
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            # build.zig reads the engine's .vcxproj files while it evaluates its graph, so
+            # Sources is needed even though no engine step runs. Measured 2026-10-20 in a
+            # sparse worktree: this list passes the three steps below. The S08 document sets also
+            # read Data/Editor/TestProjects/**/README*.md (22 doc-missing findings without it).
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            /Localization/
+            /Data/ELK/
+            /Data/Editor/TestProjects/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Zig 0.17.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.17.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.17.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.17.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Localisation gate
+        run: zig build l10n-check test-l10n-check test-l10n-glossary -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary new
+
   linux-build:
     needs: [changes]
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true') || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true') || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true') || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (needs.changes.outputs.core == 'true' || needs.changes.outputs.elk == 'true')) || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (needs.changes.outputs.core == 'true' || needs.changes.outputs.tools == 'true'))
@@ -154,6 +205,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -262,7 +314,7 @@ jobs:
 
       - name: Compile the tiers
         shell: bash
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-smoke gfxgpu-factory-test install-game install-map-editor install-resource-editor map-editor-host-check resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-smoke test-bk-font test-bk-image test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
+        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
 
       - name: Compile the tiers with --release=fast
         shell: bash
@@ -333,6 +385,8 @@ jobs:
           - { part: "platform", label: "platform tests", shard: "", sweep: "all" }
           - { part: "engine", label: "engine tier", shard: "", sweep: "all" }
           - { part: "random", label: "random missions", shard: "", sweep: "all" }
+          - { part: "l10n-1", label: "languages en to hi", shard: "", sweep: "all" }
+          - { part: "l10n-2", label: "languages es to id", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -356,6 +410,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -402,7 +457,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1 libharfbuzz-bin
 
 
 
@@ -500,6 +555,10 @@ jobs:
         if: matrix.part == 'platform'
         run: zig build test-platform-debug -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Run system facade tests
+        if: matrix.part == 'platform'
+        run: zig build test-platform-system -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
 
 
       - name: Run GFX GPU effect table tests
@@ -537,6 +596,76 @@ jobs:
           zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=${{ matrix.sweep }} || code=$?
           for f in core core.*; do [ -f "$f" ] && gzip -1 "$f" && echo "core kept: $f.gz"; done
           exit ${code:-0}
+
+
+
+      # M002 S09: the real Game on English and the nine language mods, one step per language.
+      # The shards measure against hb-view's rasters (libharfbuzz-bin above) and render on
+      # lavapipe; the mods are installed first, and split over two parts for the 60 minutes.
+      - name: Install the language mods
+        if: contains(fromJSON('["l10n-1", "l10n-2"]'), matrix.part)
+        run: zig build install-game install-language-mods -Dtarget=x86_64-linux-gnu
+
+
+      - name: Game reads its languages (en)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-en -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (ru)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-ru -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (zh-hans)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-zh-hans -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (ja)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-ja -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (hi)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-hi -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (es)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-es -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (fr)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-fr -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (de)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-de -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (pt-br)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-pt-br -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads its languages (id)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build l10n-game-reads-it-id -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
 
@@ -706,6 +835,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -751,7 +881,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1 libharfbuzz-bin
 
 
       # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
@@ -1013,6 +1143,13 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Resource Editor in ten languages
+        if: matrix.part == 'editor-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-l10n-auto -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
 
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
@@ -1065,6 +1202,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1110,7 +1248,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1 libharfbuzz-bin
 
 
       # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
@@ -1239,6 +1377,13 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Map Editor in ten languages
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-l10n-auto -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
 
       - name: Build the Map Editor overlay spike
         if: matrix.part == 'all'
@@ -1313,6 +1458,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1359,7 +1505,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1 libharfbuzz-bin
 
 
       - name: Install the fonts ELK draws with
@@ -1449,6 +1595,13 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build elk-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: ELK in ten languages
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build elk-l10n-auto -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
 
 
       - name: Upload generated outputs
@@ -1506,6 +1659,7 @@ jobs:
             /Sources/src/data/Movies/transition/close.bik
             /tools/
             /vendor/
+            /Localization/
             # The resource tiers (test-resource-model, test-resource-bridge and the mod
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
@@ -1552,7 +1706,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1 libharfbuzz-bin
 
 
 
@@ -1672,6 +1826,23 @@ jobs:
         if: matrix.part == 'all'
         run: zig build test-season-textures -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: bk-* string tables
+        if: matrix.part == 'all'
+        run: zig build test-bk-l10n -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
+      - name: bk-* tools in ten languages
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-bk-tools-l10n -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
+      - name: l10n measures
+        if: matrix.part == 'all'
+        run: zig build test-l10n-measure -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
 
 
       - name: Upload generated outputs
@@ -1717,6 +1888,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -1849,7 +2021,7 @@ jobs:
 
       - name: Compile the tiers
         shell: pwsh
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-smoke gfxgpu-factory-test install-game install-map-editor install-resource-editor map-editor-host-check test-bk-font test-bk-image test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-random-missions test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB" --summary new
+        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-l10n-auto test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-random-missions test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB" --summary new
 
       - name: Compile the tiers with --release=fast
         shell: pwsh
@@ -1950,6 +2122,7 @@ jobs:
           - { part: "random-2", label: "random missions 2/3", shard: "", sweep: "shard=2/3" }
           - { part: "random-3", label: "random missions 3/3", shard: "", sweep: "shard=3/3" }
           - { part: "gate", label: "leak gate and packages", shard: "", sweep: "all" }
+          - { part: "l10n", label: "language mods", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -1973,6 +2146,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -2123,6 +2297,10 @@ jobs:
         if: matrix.part == 'platform'
         run: zig build test-platform-debug -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Run system facade tests
+        if: matrix.part == 'platform'
+        run: zig build test-platform-system -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
 
 
       - name: Run GFX GPU effect table tests
@@ -2251,6 +2429,14 @@ jobs:
 
       # The logs and captures, not the staged and copied Data trees or the packages:
       # those made each upload 1-2 GB, 7 minutes here (run 37712856614). Same in every job.
+      # M002 S09, D088: Windows builds the nine language mods and runs the contract checks; the
+      # measured l10n tiers (hb-view rasters) run on Linux and macOS and are only compiled here.
+      - name: Build the language mods
+        if: matrix.part == 'l10n'
+        shell: pwsh
+        run: zig build language-mods -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
@@ -2353,6 +2539,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -2741,6 +2928,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3090,6 +3278,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3291,6 +3480,7 @@ jobs:
             /Sources/src/data/Movies/transition/close.bik
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3477,6 +3667,19 @@ jobs:
 
       # The logs and captures, not the staged and copied Data trees or the packages:
       # those made each upload 1-2 GB, 7 minutes here (run 37712856614). Same in every job.
+      - name: bk-* string tables
+        if: matrix.part == 'all'
+        shell: pwsh
+        run: zig build test-bk-l10n -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: bk-* tools in ten languages
+        if: matrix.part == 'all'
+        shell: pwsh
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-bk-tools-l10n -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
@@ -3520,6 +3723,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3665,7 +3869,7 @@ jobs:
 
       - name: Compile the tiers
         shell: bash
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-smoke gfxgpu-factory-test install-game install-map-editor install-resource-editor map-editor-host-check resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-smoke test-bk-font test-bk-image test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-events test-platform-files test-platform-foundation test-platform-modules test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" -Dtarget=aarch64-macos --summary new
+        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-events test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" -Dtarget=aarch64-macos --summary new
 
       - name: Compile the tiers with --release=fast
         shell: bash
@@ -3739,6 +3943,8 @@ jobs:
         include:
           - { part: "engine", label: "engine tier", shard: "", sweep: "all" }
           - { part: "random", label: "platform tests and random missions", shard: "", sweep: "all" }
+          - { part: "l10n-1", label: "languages en to hi", shard: "", sweep: "all" }
+          - { part: "l10n-2", label: "languages es to id", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -3762,6 +3968,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -3818,6 +4025,22 @@ jobs:
         run: |
           test "$(uname -m)" = "arm64"
           sw_vers
+
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
 
 
@@ -3908,6 +4131,10 @@ jobs:
         if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=aarch64-macos -Dtest-mode=run
 
+      - name: Run system facade tests
+        if: matrix.part == 'random'
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=aarch64-macos -Dtest-mode=run
+
 
 
       - name: Run GFX GPU effect table tests
@@ -3969,6 +4196,80 @@ jobs:
 
 
 
+      # M002 S09: the real Game on English and the nine language mods, one step per language, split
+      # over two parts as on Linux. The shards measure against hb-view's rasters (D088).
+      # D088: the measured tiers compare against hb-view's rasters; Homebrew's harfbuzz ships it.
+      - name: Install hb-view
+        if: contains(fromJSON('["l10n-1", "l10n-2"]'), matrix.part)
+        run: |
+          brew install harfbuzz
+          command -v hb-view
+
+      - name: Install the language mods
+        if: contains(fromJSON('["l10n-1", "l10n-2"]'), matrix.part)
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" install-game install-language-mods -Dtarget=aarch64-macos
+
+      - name: Game reads its languages (en)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-en -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (ru)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-ru -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (zh-hans)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-zh-hans -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (ja)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-ja -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (hi)
+        if: matrix.part == 'l10n-1'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-hi -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (es)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-es -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (fr)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-fr -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (de)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-de -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (pt-br)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-pt-br -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Game reads its languages (id)
+        if: matrix.part == 'l10n-2'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" l10n-game-reads-it-id -Dtarget=aarch64-macos -Dtest-mode=run
+
+
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
@@ -4026,6 +4327,7 @@ jobs:
         include:
           - { part: "bridge", label: "core, model and bridge tiers", shard: "", sweep: "all" }
           - { part: "editor", label: "editor and autos", shard: "", sweep: "all" }
+          - { part: "l10n", label: "ten languages", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -4048,6 +4350,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4103,6 +4406,22 @@ jobs:
         run: |
           test "$(uname -m)" = "arm64"
           sw_vers
+
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
 
       - name: Install Zig 0.17.0
@@ -4314,6 +4633,20 @@ jobs:
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-resource-model -Dtarget=aarch64-macos -Dtest-mode=run
 
 
+      # D088: the measured tiers compare against hb-view's rasters; Homebrew's harfbuzz ships it.
+      - name: Install hb-view
+        if: matrix.part == 'l10n'
+        run: |
+          brew install harfbuzz
+          command -v hb-view
+
+      - name: Resource Editor in ten languages
+        if: matrix.part == 'l10n'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" resource-editor-l10n-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
@@ -4345,6 +4678,7 @@ jobs:
       matrix:
         include:
           - { part: "all", label: "all tiers", shard: "", sweep: "all" }
+          - { part: "l10n", label: "ten languages", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -4367,6 +4701,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4422,6 +4757,22 @@ jobs:
         run: |
           test "$(uname -m)" = "arm64"
           sw_vers
+
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
 
       - name: Install Zig 0.17.0
@@ -4559,6 +4910,20 @@ jobs:
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-rmg-determinism -Dtarget=aarch64-macos -Dtest-mode=run
 
 
+      # D088: the measured tiers compare against hb-view's rasters; Homebrew's harfbuzz ships it.
+      - name: Install hb-view
+        if: matrix.part == 'l10n'
+        run: |
+          brew install harfbuzz
+          command -v hb-view
+
+      - name: Map Editor in ten languages
+        if: matrix.part == 'l10n'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" map-editor-l10n-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
@@ -4587,6 +4952,7 @@ jobs:
       matrix:
         include:
           - { part: "all", label: "all tiers", shard: "", sweep: "all" }
+          - { part: "l10n", label: "ten languages", shard: "", sweep: "all" }
     steps:
       # The partial clone fetches blobs lazily and has died mid-fetch on the
       # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
@@ -4610,6 +4976,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4666,6 +5033,22 @@ jobs:
         run: |
           test "$(uname -m)" = "arm64"
           sw_vers
+
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
 
 
@@ -4746,6 +5129,20 @@ jobs:
 
 
 
+      # D088: the measured tiers compare against hb-view's rasters; Homebrew's harfbuzz ships it.
+      - name: Install hb-view
+        if: matrix.part == 'l10n'
+        run: |
+          brew install harfbuzz
+          command -v hb-view
+
+      - name: ELK in ten languages
+        if: matrix.part == 'l10n'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" elk-l10n-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+
       - name: Upload generated outputs
         # Only when the part failed: on Windows the upload alone took 5.5 minutes.
         if: failure()
@@ -4801,6 +5198,7 @@ jobs:
             /Sources/src/data/Movies/transition/close.bik
             /tools/
             /vendor/
+            /Localization/
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
@@ -4857,6 +5255,22 @@ jobs:
         run: |
           test "$(uname -m)" = "arm64"
           sw_vers
+
+      # The macOS build is 7 GB packed and about 21 GB unpacked (run 39460191996:
+      # "No space left on device" in a tier job's unpack). The build job frees the
+      # image's spare Xcode versions and the Android SDK; each tier job does too.
+      - name: Free disk space
+        shell: bash
+        run: |
+          df -h /
+          keep=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && continue
+            [ "$(cd "$app" && pwd -P)" = "$keep" ] && continue
+            sudo rm -rf "$app"
+          done
+          sudo rm -rf "$HOME/Library/Android"
+          df -h /
 
 
 
@@ -4969,6 +5383,28 @@ jobs:
         if: matrix.part == 'all'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-season-textures -Dtarget=aarch64-macos -Dtest-mode=run
 
+
+
+      # D088: the measured tiers compare against hb-view's rasters; Homebrew's harfbuzz ships it.
+      - name: Install hb-view
+        if: matrix.part == 'all'
+        run: |
+          brew install harfbuzz
+          command -v hb-view
+
+      - name: bk-* string tables
+        if: matrix.part == 'all'
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-bk-l10n -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: bk-* tools in ten languages
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-bk-tools-l10n -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: l10n measures
+        if: matrix.part == 'all'
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-l10n-measure -Dtarget=aarch64-macos -Dtest-mode=run
 
 
       - name: Upload generated outputs
@@ -5094,6 +5530,9 @@ jobs:
 
       - name: Run diagnostics facade tests
         run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run system facade tests
+        run: zig build test-platform-system -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -5351,6 +5790,9 @@ jobs:
 
       - name: Run diagnostics facade tests
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run system facade tests
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=x86_64-macos -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -5625,6 +6067,9 @@ jobs:
 
       - name: Run diagnostics facade tests
         run: zig build test-platform-debug -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run system facade tests
+        run: zig build test-platform-system -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests

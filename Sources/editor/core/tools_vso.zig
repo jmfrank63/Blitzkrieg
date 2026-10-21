@@ -23,6 +23,7 @@
 //! Points are world (Vis) units, the pointer's `world_x`/`world_y`: roads and
 //! rivers are saved in the scene's units, not the map's (bridge.h).
 const std = @import("std");
+const l10n = @import("editor_kit").l10n;
 const editor_mod = @import("editor.zig");
 const fake_mod = @import("fake_bridge.zig");
 const bridge_mod = @import("bridge.zig");
@@ -505,7 +506,7 @@ pub const RoadsRivers = struct {
     fn addPoint(self: *RoadsRivers, editor: *Editor, pointer: Pointer) void {
         if (self.pending_len == 0) self.deselect();
         if (self.pending_len == max_pending) {
-            editor.note("a road or river takes at most 256 points at a time: finish it first");
+            editor.note(l10n.str("app.core.a_road_or_river_takes"));
             return;
         }
         self.pending[self.pending_len] = .{ .x = pointer.world_x, .y = pointer.world_y, .z = 0 };
@@ -518,7 +519,7 @@ pub const RoadsRivers = struct {
         if (self.pending_len == 0) return;
         defer self.pending_len = 0;
         if (self.pending_len < 2) {
-            editor.note("a road or river needs at least two points");
+            editor.note(l10n.str("app.core.a_road_or_river_needs"));
             return;
         }
         const index = try editor.addVso(self.kind, self.desc(), self.pendingPoints(), self.width_tiles, self.opacity);

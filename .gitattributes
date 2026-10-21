@@ -20,6 +20,8 @@
 # Legacy game data text is UTF-16LE; CRLF normalization corrupts the byte pairs.
 Data/**/*.txt -text -eol
 Sources/src/data/**/*.txt -text -eol
+# The language mods' overlay texts are UTF-16LE like Data/ELK's.
+Localization/**/*.txt -text -eol
 # The Resource Editor reference-list fixtures stand in for Data files and are compared byte for byte.
 tools/zig/fixtures/resource_editor/references_root/** -text -eol
 # The ELK statistic fixtures are UTF-16LE text files of the database, as Data/AmericanELK holds them.
@@ -59,3 +61,8 @@ tools/zig/fixtures/elk/** -text -eol
 *.zst binary
 *.tar binary
 *.gz binary
+
+# Vendored HarfBuzz is kept byte-exact (upstream LF); the Noto fonts and their checksum list too.
+vendor/harfbuzz/** -text
+vendor/fonts/** -text
+*.otf binary

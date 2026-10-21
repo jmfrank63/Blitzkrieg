@@ -139,3 +139,7 @@ Waves: 08-01 first; 08-02, 08-03, 08-04 in parallel after it (08-02 pulled earli
 - Removing `Sources/src/bin/{editor.exe, MapEditor.exe}` and the empty `Sources/sdk/openspy-core`: belong to Phases 5/6 and the GameSpy replacement work.
 
 </deferred>
+
+## Update 2026-10-20 (M002/S07)
+
+M002/S07 added `--lang`, `BK_LANG` and OS-locale selection to all seven tools and localised their help and messages in ten languages per D062 (shared `tools/zig/bk_l10n.zig`, tables in `tools/zig/lang/`). Machine-readable output is unchanged: the `usage: <tool> ` and `<tool>: ` prefixes, exit codes, one-line failure rule and summary lines stay English.

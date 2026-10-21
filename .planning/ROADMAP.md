@@ -469,3 +469,13 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.8: The Game frees what it loaded when its startup fails (BACKLOG)
+
+**Goal:** When `RunGame` gives up during startup (`Can't initialize game...`, `Can't load game modules...`, the other `return 0xDEAD` paths in Sources/src/Game/GameMain.cpp) it returns without NMain::Finalize, and BkMemory reports the modules' blocks as leaked: 1408 on win-home on 2026-10-21, when the GFX device could not be created under ssh (903 from Input.dll, 419 from the C ABI, 47 from Game.exe). Every failure path must tear down what was set up up to that point, so the exit report is clean and a failed start shows only its reason. Prove it with a test that forces each failure (an invalid renderer or a missing module root) and checks the report. Captured 2026-10-21.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)

@@ -281,9 +281,25 @@ pub fn applySharedKey(settings: anytype, key: []const u8, value: []const u8) boo
         // externally-edited file with extras just stops adding - not a reason
         // to fail the rest of the file.
         return true;
+    } else if (std.mem.eql(u8, key, "ui_language")) {
+        // Kept as written, even when no table has it: l10n logs and falls back
+        // at use, and a newer build's language survives a round trip.
+        if (@hasField(@TypeOf(settings.*), "ui_language_storage")) settings.ui_language_storage.set(value);
+        return true;
     }
     return false;
 }
+
+/// The `ui_language` of a settings struct that carries one: `system` when it
+/// has none or the file names none.
+pub fn uiLanguage(settings: anytype) []const u8 {
+    if (!@hasField(@TypeOf(settings.*), "ui_language_storage")) return system_language;
+    const value = settings.ui_language_storage.slice();
+    return if (value.len == 0) system_language else value;
+}
+
+/// The `ui_language` value that follows the operating system (`l10n.system_setting`).
+pub const system_language = "system";
 
 /// Writes every generic key of `settings` (in a stable order). Composed
 /// callers (MapEditor's own Settings) write this first, then their own keys,
@@ -323,6 +339,8 @@ pub fn writeGenericTailKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Wr
 pub fn writeSharedTailKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     if (settings.gameParameters().len != 0) try writer.print("game_parameters={s}\n", .{settings.gameParameters()});
     if (settings.hidden_panels != 0) try writer.print("hidden_panels={d}\n", .{settings.hidden_panels});
+    // Only when chosen, so a file that never named a language stays byte-identical.
+    if (!std.mem.eql(u8, uiLanguage(settings), system_language)) try writer.print("ui_language={s}\n", .{uiLanguage(settings)});
 }
 
 /// Writes every recent line in file order (most recent first).
@@ -456,6 +474,45 @@ test "applySharedKey leaves the map-only keys to applyGenericKey" {
     try std.testing.expect(applyGenericKey(&settings, "default_format", "xml"));
     try std.testing.expectEqual(Format.xml, settings.default_format);
     try std.testing.expect(!settings.autosave);
+}
+
+test "ui_language is shared by any settings struct that carries the storage" {
+    const Carrier = struct {
+        scroll_speed: f32 = 1,
+        autosave: bool = true,
+        autosave_minutes: u32 = 2,
+        game_parameters: FixedPath = .{},
+        hidden_panels: u32 = 0,
+        recent_storage: [recent_capacity]FixedPath = @splat(.{}),
+        recent_count: usize = 0,
+        ui_language_storage: FixedPath = .{},
+        fn gameParameters(self: *const @This()) []const u8 {
+            return self.game_parameters.slice();
+        }
+    };
+    var settings: Carrier = .{};
+    try std.testing.expectEqualStrings("system", uiLanguage(&settings));
+    try std.testing.expect(applySharedKey(&settings, "ui_language", "ru"));
+    try std.testing.expectEqualStrings("ru", uiLanguage(&settings));
+    var buffer: [64]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try writeSharedTailKeys(&settings, &writer);
+    try std.testing.expectEqualStrings("ui_language=ru\n", writer.buffered());
+    // `system` is the default and is not written; an unknown value is.
+    _ = applySharedKey(&settings, "ui_language", "system");
+    writer = .fixed(&buffer);
+    try writeSharedTailKeys(&settings, &writer);
+    try std.testing.expectEqualStrings("", writer.buffered());
+    _ = applySharedKey(&settings, "ui_language", "xx");
+    writer = .fixed(&buffer);
+    try writeSharedTailKeys(&settings, &writer);
+    try std.testing.expectEqualStrings("ui_language=xx\n", writer.buffered());
+}
+
+test "a settings struct without the storage ignores ui_language" {
+    var settings: Settings = .{};
+    try std.testing.expect(applySharedKey(&settings, "ui_language", "ru"));
+    try std.testing.expectEqualStrings("system", uiLanguage(&settings));
 }
 
 test "formatExtension returns the right suffix" {

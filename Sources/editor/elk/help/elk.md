@@ -8,6 +8,7 @@ ELK, the Blitzkrieg localisation kit, is where you translate the game's texts. I
 - ELK path/to/elk.xml opens that database.
 - ELK --short is the translator layout: it opens the elk.xml beside the program, first brings it up to date with the newest .upd update file there, and shows one toolbar with the five fixed filters. It starts the same way every time.
 - ELK --developer, or no option at all, is the extended layout with every menu, the named filters you make yourself and the list of recent databases.
+- The language of ELK's menus, messages and this help is chosen under Tools > Language. ELK remembers it; System follows the language of your operating system.
 
 ## Opening and saving
 

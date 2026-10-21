@@ -29,6 +29,7 @@
 const std = @import("std");
 const elk = @import("elk_core");
 const testlaunch = @import("editor_kit").testlaunch;
+const l10n = @import("editor_kit").l10n;
 
 const Database = elk.database.Database;
 pub const Tree = elk.tree.Tree;
@@ -255,12 +256,12 @@ pub const Session = struct {
     pub fn open(self: *Session, elk_path: []const u8) !void {
         try self.close();
         var database = Database.open(self.gpa, self.io, elk_path) catch |err| {
-            self.fail("could not open {s}: {s}", .{ elk_path, @errorName(err) });
+            self.fail("elk.fail.open", .{ elk_path, @errorName(err) });
             return err;
         };
         errdefer database.deinit();
         var tree = Tree.build(self.gpa, &database) catch |err| {
-            self.fail("could not read the texts of {s}: {s}", .{ elk_path, @errorName(err) });
+            self.fail("elk.fail.read_texts", .{ elk_path, @errorName(err) });
             return err;
         };
         errdefer tree.deinit();
@@ -288,7 +289,7 @@ pub const Session = struct {
         database.project.previous_statistic = database.project.statistic;
         database.save() catch |err| {
             self.drop();
-            self.fail("could not keep the statistic in elk.xml: {s}", .{@errorName(err)});
+            self.fail("elk.fail.keep_statistic", .{@errorName(err)});
             return;
         };
         self.drop();
@@ -371,7 +372,7 @@ pub const Session = struct {
         const tree = &(self.tree orelse return error.NoDatabaseOpen);
         const database = &self.database.?;
         const counted = elk.stats.compute(allocator, self.gpa, database, tree) catch |err| {
-            self.fail("could not count the texts: {s}", .{@errorName(err)});
+            self.fail("elk.fail.count", .{@errorName(err)});
             return err;
         };
         const arena = database.project.arena.allocator();
@@ -515,13 +516,13 @@ pub const Session = struct {
             if (err == error.Cancelled) return err;
             switch (work) {
                 .export_pak => |pak| switch (pak.destination) {
-                    .mod => |name| self.fail("could not export to the mod \"{s}\" in {s}: {s}", .{ name, pak.game_folder, @errorName(err) }),
-                    .game => self.fail("could not install into {s}: {s}", .{ pak.game_folder, @errorName(err) }),
+                    .mod => |name| self.fail("elk.fail.export_mod", .{ name, pak.game_folder, @errorName(err) }),
+                    .game => self.fail("elk.fail.install", .{ pak.game_folder, @errorName(err) }),
                 },
-                .export_sheet => |path| self.fail("could not export to {s}: {s}", .{ path, @errorName(err) }),
-                .import_sheet, .import_pak => |path| self.fail("could not import {s}: {s}", .{ path, @errorName(err) }),
-                .import_game => |game| self.fail("could not import the game's texts from {s}: {s}", .{ game.folder, @errorName(err) }),
-                .find => |search| self.fail("could not search for \"{s}\": {s}", .{ search.options.text, @errorName(err) }),
+                .export_sheet => |path| self.fail("elk.fail.export_sheet", .{ path, @errorName(err) }),
+                .import_sheet, .import_pak => |path| self.fail("elk.fail.import", .{ path, @errorName(err) }),
+                .import_game => |game| self.fail("elk.fail.import_game", .{ game.folder, @errorName(err) }),
+                .find => |search| self.fail("elk.fail.search", .{ search.options.text, @errorName(err) }),
             }
             return err;
         };
@@ -546,7 +547,7 @@ pub const Session = struct {
     pub fn shadowed(self: *Session, game_folder: []const u8) !Shadow {
         const database = &(self.database orelse return error.NoDatabaseOpen);
         return elk.packages.shadowedTexts(self.gpa, self.io, database, self.exportElement(), game_folder) catch |err| {
-            self.fail("could not look for loose texts in {s}: {s}", .{ game_folder, @errorName(err) });
+            self.fail("elk.fail.loose", .{ game_folder, @errorName(err) });
             return err;
         };
     }
@@ -562,7 +563,7 @@ pub const Session = struct {
         const chosen = self.textAt(index);
         const edited = self.translation.text();
         _ = database.writeTranslation(chosen.element, chosen.key, edited) catch |err| {
-            self.fail("could not save {s}: {s}", .{ chosen.key, @errorName(err) });
+            self.fail("elk.fail.save", .{ chosen.key, @errorName(err) });
             return err;
         };
         if (!self.manual_state) try self.writeState(index, .translated);
@@ -586,7 +587,7 @@ pub const Session = struct {
     fn writeState(self: *Session, index: usize, new_state: State) !void {
         const chosen = self.textAt(index);
         _ = self.database.?.setState(chosen.element, chosen.key, new_state) catch |err| {
-            self.fail("could not save the state of {s}: {s}", .{ chosen.key, @errorName(err) });
+            self.fail("elk.fail.save_state", .{ chosen.key, @errorName(err) });
             return err;
         };
         self.tree.?.setTextState(@intCast(index), new_state);
@@ -628,10 +629,10 @@ pub const Session = struct {
         self.resetFind();
     }
 
-    /// Keeps a failure for the status line; ELK's own (a failed file
-    /// dialog) go here too.
-    pub fn fail(self: *Session, comptime format: []const u8, args: anytype) void {
-        const written = std.fmt.bufPrint(&self.failure_storage, format, args) catch {
+    /// Keeps a failure for the status line, the text of the table key `key`; ELK's own (a failed
+    /// file dialog) go here too.
+    pub fn fail(self: *Session, comptime key: []const u8, args: anytype) void {
+        const written = l10n.format(&self.failure_storage, key, args) catch {
             // Cut to the buffer: the start of the message says what failed.
             self.failure_len = self.failure_storage.len;
             return;

@@ -206,6 +206,12 @@ fn dispatch(minimal: std.process.Init.Minimal) !bool {
             if (nextArg(rest.items, &index) != null) usage();
             return smokeRun(gpa, io, minimal.environ, map, output, mod_folder, mod_requested);
         }
+        if (std.mem.eql(u8, arg, "--l10n-auto")) {
+            const map = nextArg(rest.items, &index) orelse usage();
+            const scratch = nextArg(rest.items, &index) orelse usage();
+            if (nextArg(rest.items, &index) != null) usage();
+            return interactive(gpa, io, minimal.environ, map, mod_folder, mod_requested, true, scratch);
+        }
         if (std.mem.eql(u8, arg, "--game-reads-it")) {
             const map = nextArg(rest.items, &index) orelse usage();
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_log;
@@ -225,9 +231,9 @@ fn dispatch(minimal: std.process.Init.Minimal) !bool {
             return game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
         }
         if (nextArg(rest.items, &index) != null) usage();
-        return interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
+        return interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden, null);
     }
-    return interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden);
+    return interactive(gpa, io, minimal.environ, null, mod_folder, mod_requested, hidden, null);
 }
 
 /// `-mod=<Folder>` or `-mod=None`: the raw text after `=`, or null when `arg`
@@ -262,7 +268,7 @@ const applyModArg = game_reads_common.applyModArg;
 /// Returns false only for an automated (BK_EDITOR_AUTO) run whose schedule
 /// failed - `main` turns that into exit code 1; a plain interactive session
 /// always returns true.
-fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool, hidden: bool) !bool {
+fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool, hidden: bool, l10n_auto_dir: ?[]const u8) !bool {
     // 05-11 (D-34, PARITY F13): before the window and the engine exist - a second
     // launch hands its map to the running editor and exits here; the first one
     // goes on and answers on its socket for as long as it runs.
@@ -306,6 +312,10 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     const auto_text: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null;
     defer if (auto_text) |text| gpa.free(text);
     const automated = auto_text != null;
+    if (l10n_auto_dir != null and !automated) {
+        std.debug.print("map-editor: --l10n-auto needs a BK_EDITOR_AUTO schedule\n", .{});
+        crt.exit(2);
+    }
     // A packaged (.windows subsystem) MapEditor.exe run under BK_EDITOR_AUTO
     // still needs its frame/action log to reach the terminal or CI's log
     // (crt.attachParentConsole's doc comment); a plain interactive session
@@ -314,6 +324,9 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 
     var settings_path: ?[]const u8 = null;
     var settings_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    // Said once the language is set up below: the status line is text, and the language comes from
+    // the very file that did not read.
+    var settings_unread = false;
     if (!automated) {
         // D-24: mapeditor.cfg, independent of game profiles - never read or
         // written by --check/--smoke/--game-reads-it/BK_EDITOR_AUTO, only a
@@ -325,7 +338,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             state.settings = readSettingsFile(io, gpa, path) catch |err| switch (err) {
                 error.FileNotFound => core.settings.Settings{},
                 else => blk: {
-                    view.setStatus("", "the settings file did not read: using defaults");
+                    settings_unread = true;
                     break :blk core.settings.Settings{};
                 },
             };
@@ -339,6 +352,19 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // D-32 (M3): the Layers menu starts from what the last session left; the
     // editor re-applies it to the renderer after every open and new map.
     state.editor.layers = state.settings.layers;
+
+    // --l10n-auto: the language is the one thing read from the scratch cfg (BK_EDITOR_SETTINGS),
+    // and the widgets log where they drew.
+    if (l10n_auto_dir != null) {
+        state.settings.ui_language_storage = readUiLanguage(io, gpa, environ);
+        kit.l10n.rect_log = true;
+    }
+    // The fonts and the string tables, before the first frame: the setting's language, or English
+    // for an automated run that names none.
+    _ = kit.language_picker.setup(gpa, io, environ, &state.settings, automated) catch |err| {
+        fatal("fonts", @errorName(err));
+    };
+    if (settings_unread) view.setStatus("", std.mem.span(kit.l10n.t("app.status.settings_unread")));
 
     if (!automated) {
         // D-22, spec Errors -> Crashes: offered back once, at startup, before
@@ -368,8 +394,8 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         };
         // These outlive the `if`: the runner borrows them until `run` returns.
         auto_schedule = schedule;
-        const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
-        if (dir.ptr != default_auto_dir.ptr) auto_dir = dir;
+        const dir: []const u8 = l10n_auto_dir orelse (environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir);
+        if (l10n_auto_dir == null and dir.ptr != default_auto_dir.ptr) auto_dir = dir;
         const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
         auto_game_env = game_env;
         auto_runner = smoke.AutoRunner.init(&editor, &view, &real, &state, host.window, io, schedule, dir, game_env);
@@ -404,6 +430,18 @@ fn enableLayoutPersistence(io: std.Io, settings_path: ?[]const u8) void {
     const path = std.mem.printSentinel(&layout_ini_path, "{s}{c}layout.ini", .{ folder, std.fs.path.sep }, 0) catch return;
     std.Io.Dir.cwd().createDirPath(io, folder) catch return;
     imgui.c.igGetIO().*.IniFilename = path.ptr;
+}
+
+/// `--l10n-auto`: the `ui_language` of the cfg BK_EDITOR_SETTINGS names, and nothing else from it.
+/// No cfg or no such line is `system`, which a scripted run turns into English.
+fn readUiLanguage(io: std.Io, gpa: std.mem.Allocator, environ: std.process.Environ) core.settings.FixedPath {
+    var language: core.settings.FixedPath = .{};
+    const path = environ.getAlloc(gpa, "BK_EDITOR_SETTINGS") catch return language;
+    defer gpa.free(path);
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 * 1024)) catch return language;
+    defer gpa.free(bytes);
+    language = core.settings.parse(bytes).ui_language_storage;
+    return language;
 }
 
 /// Takes the single-instance endpoint, or hands this launch's map to the editor
@@ -584,12 +622,13 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         }
         view.update(editor, real, host.window, dt_seconds);
 
+        panels.applyPendingLanguage(state);
         host.beginFrame();
         panels.draw(state);
         // A lost frame is reported until the next frame presents: it is
         // the frame's own message, not an edit's, so no edit is needed to
         // clear it (the status line's source tag, WINDOWS.md 1).
-        if (host.endFrame()) |_| view.clearStatusFrom(.frame) else |err| view.setStatusFrom(.frame, "failed: ", @errorName(err));
+        if (host.endFrame()) |_| view.clearStatusFrom(.frame) else |err| view.setStatusFailedFrom(.frame, @errorName(err));
         // After the frame: Save, the dialogs Open and Save As show, a path
         // one of them delivered during this frame's events, and Quit.
         if (panels.act(state)) running = false;
@@ -631,6 +670,10 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
         return false;
     };
     defer host.stop();
+    _ = kit.language_picker.setup(gpa, io, environ, &core.settings.Settings{}, true) catch |err| {
+        std.debug.print("map-editor: smoke FAIL: the fonts did not load ({s})\n", .{@errorName(err)});
+        return false;
+    };
 
     var real = c_bridge.RealBridge.init(host.session);
     if (applyModArg(&real, mod_folder, mod_requested)) |reason| {
@@ -711,7 +754,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // against the camera it placed.
     var rig: game_reads_common.Rig = .{};
     defer rig.deinit();
-    if (!rig.open(gpa, io, "game reads it", map, mod_folder, mod_requested)) return false;
+    if (!rig.open(gpa, io, environ, "game reads it", map, mod_folder, mod_requested)) return false;
     const real = &rig.real;
     const editor = &rig.editor;
     // D-01: the document below must still be exactly this, unsaved - a test
@@ -976,6 +1019,8 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
         return fail("the host did not start ({s}: {s})", .{ @errorName(err), host_mod.failureReason() });
     };
     defer host.stop();
+    _ = kit.language_picker.setup(gpa, io, environ, &core.settings.Settings{}, true) catch |err|
+        return fail("the fonts did not load ({s})", .{@errorName(err)});
 
     var real = c_bridge.RealBridge.init(host.session);
     if (applyModArg(&real, mod_folder, mod_requested)) |reason|
@@ -1311,7 +1356,7 @@ fn drawProbe() void {
     // channels are all different, so any swap moves the measured colour
     // outside isProbeColour's asymmetric range below.
     imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 128.0 / 255.0, .z = 0, .w = 1 });
-    _ = imgui.c.igBegin("probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
+    _ = imgui.c.igBegin("##probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
     imgui.c.igEnd();
     imgui.c.igPopStyleColor();
 }

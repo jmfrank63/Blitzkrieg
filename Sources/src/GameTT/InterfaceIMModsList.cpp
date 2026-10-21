@@ -6,6 +6,7 @@
 #include "InterfaceIMModsList.h"
 #include "MainMenu.h"
 #include "MultiplayerCommandManager.h"
+#include "OptionEntryWrapper.h"
 CInterfaceIMModsList::~CInterfaceIMModsList()
 {
 }
@@ -26,7 +27,17 @@ bool CInterfaceIMModsList::Init()
 }
 void CInterfaceIMModsList::PrepareList( std::vector<std::string> *pFiles )
 {
+	// Language mods are chosen under Options > Language, not here.
+	for ( std::vector<std::string>::iterator it = pFiles->begin(); it != pFiles->end(); )
+	{
+		if ( IsLanguageOnlyMod( *it ) )
+			it = pFiles->erase( it );
+		else
+			++it;
+	}
 	pFiles->push_back( "" );
+	for ( size_t i = 0; i < pFiles->size(); ++i )
+		NStr::DebugTrace( "BK_L10N_TRACE: mods list entry %d \"%s\"\n", int( i ), (*pFiles)[i].c_str() );
 }
 bool CInterfaceIMModsList::FillListItem( IUIListRow *pRow, const std::string &szMODPath, bool *pSelectedItem )
 {

@@ -7,9 +7,13 @@
 //! operation that fails, and one that succeeds, all run in a fresh temporary
 //! directory its `setup` fills. build.zig passes each executable's path in the
 //! `bk_tools` options module; adding a tool is a row here and an option there.
+//!
+//! The rules hold in every language (M002 S07, D062): the test runs each tool once per table code,
+//! chosen with `BK_LANG`, because the prefixes, exit codes and line counts are parsed by scripts.
 
 const std = @import("std");
 const bk_tools = @import("bk_tools");
+const bk_l10n = @import("bk_l10n.zig");
 
 const Tool = struct {
     name: []const u8,
@@ -206,14 +210,21 @@ const Result = struct {
     }
 };
 
-fn runTool(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, cwd: std.Io.Dir, args: []const []const u8) !Result {
+fn runTool(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, lang: []const u8, cwd: std.Io.Dir, args: []const []const u8) !Result {
     var argv = std.ArrayList([]const u8).empty;
     defer argv.deinit(gpa);
     try argv.append(gpa, exe);
     try argv.appendSlice(gpa, args);
+    // The language is set with BK_LANG: the tools would otherwise follow the machine's locale, and
+    // the run must not depend on the machine it happens on.
+    var environ = try std.testing.environ.createMap(gpa);
+    defer environ.deinit();
+    try environ.put("BK_LANG", lang);
+    try environ.put("BK_OS_LOCALES", "");
     const result = try std.process.run(gpa, io, .{
         .argv = argv.items,
         .cwd = .{ .dir = cwd },
+        .environ_map = &environ,
         .stdout_limit = .limited(1024 * 1024),
         .stderr_limit = .limited(1024 * 1024),
     });
@@ -228,7 +239,7 @@ fn lineCount(text: []const u8) usize {
     return std.mem.count(u8, text, "\n");
 }
 
-fn checkTool(tool: Tool) !void {
+fn checkTool(tool: Tool, lang: []const u8) !void {
     const io = std.testing.io;
     const gpa = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
@@ -242,7 +253,7 @@ fn checkTool(tool: Tool) !void {
     defer gpa.free(usage_prefix);
 
     for ([_][]const []const u8{ &.{"--help"}, &.{"-h"}, &.{ tool.succeeding[0], "--help" } }) |args| {
-        const result = try runTool(gpa, io, exe, tmp.dir, args);
+        const result = try runTool(gpa, io, exe, lang, tmp.dir, args);
         defer result.deinit(gpa);
         try std.testing.expectEqual(@as(u8, 0), result.code);
         try std.testing.expect(std.mem.startsWith(u8, result.stdout, usage_prefix));
@@ -250,7 +261,7 @@ fn checkTool(tool: Tool) !void {
     }
 
     for (tool.bad_usage) |args| {
-        const result = try runTool(gpa, io, exe, tmp.dir, args);
+        const result = try runTool(gpa, io, exe, lang, tmp.dir, args);
         defer result.deinit(gpa);
         std.testing.expectEqual(@as(u8, 2), result.code) catch |err| {
             std.debug.print("{s}: bad usage {any} exited {d}\n", .{ tool.name, args, result.code });
@@ -261,7 +272,7 @@ fn checkTool(tool: Tool) !void {
     }
 
     {
-        const result = try runTool(gpa, io, exe, tmp.dir, tool.failing);
+        const result = try runTool(gpa, io, exe, lang, tmp.dir, tool.failing);
         defer result.deinit(gpa);
         try std.testing.expectEqual(@as(u8, 1), result.code);
         try std.testing.expectEqualStrings("", result.stdout);
@@ -271,7 +282,7 @@ fn checkTool(tool: Tool) !void {
     }
 
     {
-        const result = try runTool(gpa, io, exe, tmp.dir, tool.succeeding);
+        const result = try runTool(gpa, io, exe, lang, tmp.dir, tool.succeeding);
         defer result.deinit(gpa);
         std.testing.expectEqual(@as(u8, 0), result.code) catch |err| {
             std.debug.print("{s}: success case failed: {s}\n", .{ tool.name, result.stderr });
@@ -285,11 +296,13 @@ fn checkTool(tool: Tool) !void {
     }
 }
 
-test "every bk tool follows the shared command-line conventions" {
-    for (tools) |tool| {
-        checkTool(tool) catch |err| {
-            std.debug.print("convention broken by {s}\n", .{tool.name});
-            return err;
-        };
+test "every bk tool follows the shared command-line conventions in every language" {
+    for (bk_l10n.codes) |lang| {
+        for (tools) |tool| {
+            checkTool(tool, lang) catch |err| {
+                std.debug.print("convention broken by {s} in {s}\n", .{ tool.name, lang });
+                return err;
+            };
+        }
     }
 }

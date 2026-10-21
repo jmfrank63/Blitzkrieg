@@ -6,6 +6,8 @@
 //!   ResourceEditor [-mod=...] --batch-check <fixtures> <scratch>      the batch tier
 //!   ResourceEditor [-mod=...] --smoke-edit <project.unt> <scratch>    open, edit, save, undo, save, compare
 //!   ResourceEditor [-mod=...] --auto <fixtures> <scratch>             BK_EDITOR_AUTO's schedule (scenario.zig)
+//!   ResourceEditor [-mod=...] --l10n-auto <fixtures> <scratch>        the same, in the language of the cfg
+//!                                                                     BK_RESOURCE_EDITOR_SETTINGS names
 //!
 //! <kind> is a project extension the MFC editor registered (wpn, mcp, trc,
 //! scp, spt, unt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc,
@@ -174,7 +176,7 @@ fn dispatch(minimal: std.process.Init.Minimal) !u8 {
         const kind = if (items.len > 1) parseKind(items[1]) orelse usage() else default_kind;
         const output = if (items.len > 2) items[2] else default_output;
         const picture = if (items.len > 3) items[3] else null;
-        const passed = try check(gpa, io, kind, output, picture, mod);
+        const passed = try check(gpa, io, minimal.environ, kind, output, picture, mod);
         return if (passed) 0 else 1;
     }
     if (items.len > 0 and std.mem.eql(u8, items[0], "--smoke")) {
@@ -182,13 +184,13 @@ fn dispatch(minimal: std.process.Init.Minimal) !u8 {
         const kind = if (items.len > 1) parseKind(items[1]) orelse usage() else default_kind;
         var output_buffer: [256]u8 = undefined;
         const output = if (items.len > 2) items[2] else std.fmt.bufPrint(&output_buffer, "{s}/smoke.{s}", .{ default_smoke_dir, kind.extension() }) catch unreachable;
-        const passed = try smoke(gpa, io, kind, output, mod);
+        const passed = try smoke(gpa, io, minimal.environ, kind, output, mod);
         return if (passed) 0 else 1;
     }
     if (items.len > 0 and (std.mem.eql(u8, items[0], "--batch") or std.mem.eql(u8, items[0], "--batch-check"))) {
         return batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check"));
     }
-    if (items.len > 0 and (std.mem.eql(u8, items[0], "--smoke-edit") or std.mem.eql(u8, items[0], "--auto"))) {
+    if (items.len > 0 and (std.mem.eql(u8, items[0], "--smoke-edit") or std.mem.eql(u8, items[0], "--auto") or std.mem.eql(u8, items[0], "--l10n-auto"))) {
         if (items.len != 3) usage();
         return scenarioMode(gpa, io, minimal.environ, items[0], items[1], items[2], mod);
     }
@@ -294,12 +296,19 @@ fn drawTree(tree: *const Tree, kind: Kind) void {
     const io = imgui.c.igGetIO();
     imgui.c.igSetNextWindowPos(.{ .x = io.*.DisplaySize.x - tree_window.w - tree_window.margin, .y = tree_window.margin + 20 }, imgui.c.ImGuiCond_Always);
     imgui.c.igSetNextWindowSize(.{ .x = tree_window.w, .y = tree_window.h }, imgui.c.ImGuiCond_Always);
-    var title_buffer: [64]u8 = undefined;
-    const title = std.mem.printSentinel(&title_buffer, "Project ({s})###project", .{kind.extension()}, 0) catch "Project###project";
+    // The ID suffix keeps the window's identity (and its place) across language switches.
+    var title_buffer: [160]u8 = undefined;
+    const title = blk: {
+        const text = kit.l10n.format(title_buffer[0 .. title_buffer.len - 11], "resource_app.tree.title", .{kind.extension()}) catch break :blk "###project";
+        const suffix = "###project";
+        @memcpy(title_buffer[text.len..][0..suffix.len], suffix);
+        title_buffer[text.len + suffix.len] = 0;
+        break :blk title_buffer[0 .. text.len + suffix.len :0];
+    };
     if (imgui.c.igBegin(title.ptr, null, imgui.c.ImGuiWindowFlags_NoSavedSettings)) {
         if (tree.count == 0 and tree.total != 0) {
             var line_buffer: [64]u8 = undefined;
-            const line = std.mem.printSentinel(&line_buffer, "{d} nodes", .{tree.total}, 0) catch "";
+            const line = kit.l10n.say(&line_buffer, "resource_app.tree.nodes", .{tree.total});
             imgui.c.igTextUnformattedEx(line.ptr, line.ptr + line.len);
         }
         for (tree.nodes[0..tree.count], 0..) |*node, i| {
@@ -319,8 +328,8 @@ fn drawTree(tree: *const Tree, kind: Kind) void {
 fn drawMenu(quit: *bool) ?Kind {
     var chosen: ?Kind = null;
     if (!imgui.c.igBeginMainMenuBar()) return null;
-    if (imgui.c.igBeginMenuEx("File", true)) {
-        if (imgui.c.igBeginMenuEx("New", true)) {
+    if (tools_ui.beginTopMenu("resource_app.menu.file")) {
+        if (imgui.c.igBeginMenuEx(kit.l10n.id("resource_app.menu.new"), true)) {
             for (std.enums.values(Kind)) |kind| {
                 var label_buffer: [16]u8 = undefined;
                 const label = std.mem.printSentinel(&label_buffer, "{s}", .{kind.extension()}, 0) catch unreachable;
@@ -329,11 +338,37 @@ fn drawMenu(quit: *bool) ?Kind {
             imgui.c.igEndMenu();
         }
         imgui.c.igSeparator();
-        if (imgui.c.igMenuItemEx("Quit", null, false, true)) quit.* = true;
+        if (imgui.c.igMenuItemEx(kit.l10n.id("resource_app.menu.quit"), null, false, true)) quit.* = true;
         imgui.c.igEndMenu();
     }
     imgui.c.igEndMainMenuBar();
     return chosen;
+}
+
+/// The fonts and the string tables, before the first frame, for the language `settings` names (the
+/// OS locale when it says `system`, English for a `scripted` run). A font that does not load is
+/// the scripted tiers' failure; the interactive mode logs it and keeps ImGui's default font, with
+/// the tables still following the setting. Returns the font error's name on a scripted failure.
+fn startLanguage(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, settings: anytype, scripted: bool) ?[]const u8 {
+    _ = kit.language_picker.setup(gpa, io, environ, settings, scripted) catch |err| {
+        std.debug.print("resource-editor: the fonts did not load ({s})\n", .{@errorName(err)});
+        if (scripted) return @errorName(err);
+        kit.l10n.setLanguage(kit.language_picker.chooseLanguage(settings, scripted));
+    };
+    return null;
+}
+
+/// --l10n-auto: the language is the one thing read from the scratch cfg that
+/// BK_RESOURCE_EDITOR_SETTINGS names; a run with no cfg stays on `system`, which a scripted run
+/// resolves to English.
+fn readUiLanguage(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ) settings_mod.Settings {
+    var settings: settings_mod.Settings = .{};
+    const path = environ.getAlloc(gpa, settings_mod.settings_env) catch return settings;
+    defer gpa.free(path);
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 * 1024)) catch return settings;
+    defer gpa.free(bytes);
+    settings.ui_language_storage = settings_mod.parse(bytes).ui_language_storage;
+    return settings;
 }
 
 fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, first_kind: ?Kind, first_path: ?[]const u8, mod: ModRequest, hidden: bool) void {
@@ -348,6 +383,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     const session = resSession(&host);
     const ui = lifecycle_ui.Ui.create(gpa, io, environ, host.session, host.window, !hidden) catch |err| fatal("the editor state", @errorName(err));
     defer ui.destroy();
+    if (startLanguage(gpa, io, environ, &ui.settings, hidden)) |reason| fatal("fonts", reason);
     defer _ = c.BkResClose(session);
     ui.start(first_path, first_kind);
     var tree: Tree = .{};
@@ -383,12 +419,12 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         docks.syncPreview(&ui.session.life);
         host.beginFrame();
         if (imgui.c.igBeginMainMenuBar()) {
-            if (imgui.c.igBeginMenuEx("File", true)) {
+            if (tools_ui.beginTopMenu("resource_app.menu.file")) {
                 docks.drawFileMenuItems();
                 ui.drawFileMenuItems();
                 imgui.c.igEndMenu();
             }
-            if (imgui.c.igBeginMenuEx("Edit", true)) {
+            if (tools_ui.beginTopMenu("resource_app.menu.edit")) {
                 panels.drawEditMenuItems(gpa, ui.real.bridge(), &ui.session.life);
                 tools.drawEditMenuItems();
                 docks.gui.drawEditMenuItems(ui.real.bridge(), &ui.session.life);
@@ -396,16 +432,16 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             }
             tools.drawToolsMenu();
             tools.drawEditorsMenu();
-            if (imgui.c.igBeginMenuEx("View", true)) {
+            if (tools_ui.beginTopMenu("resource_app.menu.view")) {
                 docks.drawViewMenuItems();
                 panels.drawViewMenuItems(gpa, ui.real.bridge(), &ui.session.life);
                 imgui.c.igEndMenu();
             }
-            if (imgui.c.igBeginMenuEx("Preview", true)) {
+            if (tools_ui.beginTopMenu("resource_app.menu.preview")) {
                 docks.drawPreviewMenuItems(&ui.session.life);
                 imgui.c.igEndMenu();
             }
-            if (imgui.c.igBeginMenuEx("Help", true)) {
+            if (tools_ui.beginTopMenu("resource_app.menu.help")) {
                 docks.drawHelpMenuItems();
                 imgui.c.igEndMenu();
             }
@@ -446,12 +482,13 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
 /// and refuses to run without one.
 fn scenarioMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, mode: []const u8, first: []const u8, scratch: []const u8, mod: ModRequest) u8 {
     crt.attachParentConsole();
-    const is_auto = std.mem.eql(u8, mode, "--auto");
-    const tier = if (is_auto) "auto" else "smoke";
+    const l10n_auto = std.mem.eql(u8, mode, "--l10n-auto");
+    const is_auto = l10n_auto or std.mem.eql(u8, mode, "--auto");
+    const tier = if (l10n_auto) "l10n-auto" else if (is_auto) "auto" else "smoke";
     const schedule_text: ?[]const u8 = if (is_auto) (environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null) else null;
     defer if (schedule_text) |text| gpa.free(text);
     if (is_auto and schedule_text == null) {
-        std.debug.print("resource-editor: auto FAIL: BK_EDITOR_AUTO is not set\n", .{});
+        std.debug.print("resource-editor: {s} FAIL: BK_EDITOR_AUTO is not set\n", .{tier});
         return 2;
     }
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
@@ -465,6 +502,12 @@ fn scenarioMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ
     defer host.stop();
     if (applyMod(&host, mod)) |reason| {
         std.debug.print("resource-editor: {s} FAIL: the mod would not load: {s}\n", .{ tier, reason });
+        return 1;
+    }
+    var language_settings = if (l10n_auto) readUiLanguage(gpa, io, environ) else settings_mod.Settings{};
+    kit.l10n.rect_log = l10n_auto;
+    if (startLanguage(gpa, io, environ, &language_settings, true)) |reason| {
+        std.debug.print("resource-editor: {s} FAIL: the fonts did not load: {s}\n", .{ tier, reason });
         return 1;
     }
     const passed = if (is_auto) scenario.auto(gpa, io, environ, &host, schedule_text.?, first, scratch) else scenario.smokeEdit(gpa, io, &host, first, scratch);
@@ -498,7 +541,7 @@ fn batchMode(gpa: std.mem.Allocator, io: std.Io, args: []const []const u8, mod: 
     return batch_cli.check(gpa, io, host.session, std.mem.sliceTo(&paths.base_root, 0), args);
 }
 
-fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, picture: ?[]const u8, mod: ModRequest) !bool {
+fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, kind: Kind, output: []const u8, picture: ?[]const u8, mod: ModRequest) !bool {
     crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     const output_z = try gpa.dupeSentinel(u8, output, 0);
@@ -513,6 +556,8 @@ fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, pic
     };
     defer host.stop();
     if (applyMod(&host, mod)) |reason| return fail("the mod would not load: {s}", .{reason});
+    var default_settings: settings_mod.Settings = .{};
+    if (startLanguage(gpa, io, environ, &default_settings, true)) |reason| return fail("the fonts did not load: {s}", .{reason});
 
     const session = resSession(&host);
     if (c.BkResNew(session, @intFromEnum(kind)) != c.BK_EDITOR_OK)
@@ -594,7 +639,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, pic
     return true;
 }
 
-fn smoke(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod: ModRequest) !bool {
+fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, kind: Kind, output: []const u8, mod: ModRequest) !bool {
     crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     std.Io.Dir.cwd().deleteFile(io, output) catch |err| switch (err) {
@@ -613,6 +658,8 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod
     };
     defer host.stop();
     if (applyMod(&host, mod)) |reason| return smokeFail("the mod would not load: {s}", .{reason});
+    var default_settings: settings_mod.Settings = .{};
+    if (startLanguage(gpa, io, environ, &default_settings, true)) |reason| return smokeFail("the fonts did not load: {s}", .{reason});
 
     const session = resSession(&host);
     if (c.BkResNew(session, @intFromEnum(kind)) != c.BK_EDITOR_OK)
@@ -690,7 +737,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 
 fn usage() noreturn {
     crt.attachParentConsole();
-    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n       ResourceEditor [-mod=...] --smoke-edit <project.unt> <scratch>\n       ResourceEditor [-mod=...] --auto <fixtures> <scratch>  (BK_EDITOR_AUTO)\n       " ++ batch_cli.usage_line ++ "\n", .{});
+    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n       ResourceEditor [-mod=...] --smoke-edit <project.unt> <scratch>\n       ResourceEditor [-mod=...] --auto <fixtures> <scratch>  (BK_EDITOR_AUTO)\n       ResourceEditor [-mod=...] --l10n-auto <fixtures> <scratch>  (BK_EDITOR_AUTO, BK_RESOURCE_EDITOR_SETTINGS)\n       " ++ batch_cli.usage_line ++ "\n", .{});
     crt.exit(2);
 }
 
@@ -710,7 +757,7 @@ pub fn drawProbe() void {
     // Orange, as in MapEditor's check: its channels all differ, so a
     // red/blue swap in the readback fails isProbeColour.
     imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 128.0 / 255.0, .z = 0, .w = 1 });
-    _ = imgui.c.igBegin("probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
+    _ = imgui.c.igBegin("##probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
     imgui.c.igEnd();
     imgui.c.igPopStyleColor();
 }

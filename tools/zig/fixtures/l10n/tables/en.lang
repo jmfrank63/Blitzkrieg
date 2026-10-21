@@ -1,0 +1,7 @@
+# Fixture string table: UTF-8, CRLF, key=value lines.
+file.menu=File
+file.open=Open...###file.open
+file.save=Save
+
+status.count=%d of {0} files
+hint=Press Ctrl+S to save##hint

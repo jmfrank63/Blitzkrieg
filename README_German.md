@@ -1,91 +1,156 @@
 ﻿[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
 
 
-
 [![Blitzkrieg Trailer](Blitzkrieg.png)](https://www.youtube.com/watch?v=zNxMvTcsJbk)
 
+Dieses Repository ist ein persönliches Projekt von Johannes Maria Frank. Ich nutze es zum Spaß und zum Lernen, besonders um agentisches Programmieren an bestehenden Anwendungen (Brownfield) zu üben. Das ursprüngliche README ist in `readme_original` erhalten.
 
-
-Dieses Repository ist ein persönliches Projekt von Johannes Maria Frank. Ich nutze es zum Spaß und zum Lernen, besonders um agentisches Programmieren in Brownfield-Anwendungen zu üben. Das ursprüngliche README ist in `readme_original` erhalten.
-
-Warnung: Dieses Projekt befindet sich noch in Arbeit.
-
+Achtung: Dieses Projekt ist in Arbeit.
 
 
 # Was dieses Repository heute kann
 
-- Enthält den vollständigen Blitzkrieg Singleplayer-Quellcode und Spieldaten.
+- Enthält den vollständigen Quellcode des Einzelspielermodus von Blitzkrieg samt Spieldaten.
 
-- Lässt sich sauber aus einer frischen `A7.sln`-Lösung mit modernen MSVC-Tools kompilieren.
+- Baut das ganze Spiel mit `zig build` (Zig + clang) für sechs Ziele — Windows (MSVC und MinGW), macOS (Intel und Apple Silicon) und Linux (x86_64 und arm64) — und erzeugt ein lauffähiges Installationsverzeichnis unter `zig-out/game/<os>/<arch>/<config>`. Nur das MSVC-Ziel braucht Visual Studio; Zig bringt für alle anderen seine eigene Toolchain mit.
 
-- Startet standardmäßig in einem echten Fenster; `-fullscreen` bleibt als Kommandozeilenoption verfügbar.
+- Wird als native **64-Bit**-Game.exe gebaut und gestartet (`zig build install-game -Dtarget=x86_64-windows-msvc`); die 32-Bit-Ziele sind eingestellt. Kampagnenmissionen und Tutorials sind in x64 spielbar, einschließlich Speichern/Laden, Video und Ton.
 
-- Das Tutorial funktioniert jetzt im Build `Debug | Win32`; Einheiten können ausgewählt und bewegt werden, während das Laufzeit-Debugging weitergeht.
+- Wird mit einer vollständigen Zig-Implementierung anstelle von StreamIO.dll ausgeliefert (`Sources/src/StreamIOZig`) — die gesamte Persistenzschicht der Engine: binäre Objektgraphen zum Speichern und Laden, XML-Datenbäume, die Objektfabrik, globale Variablen, Konsole und Optionen.
 
-- Enthält native Ausnahmeberichterstattung und moderne Debug-Unterstützung.
+- Übersetzt den alten C++-Code mit clang und aktiviertem UBSan, was Dutzende latenter Fehler aufgedeckt und behoben hat, die der MSVC-Build von 2003 stillschweigend duldete — darunter ein 22 Jahre alter Absturz durch einen rein virtuellen Aufruf beim Abbau von Panzer und Turm.
 
-- Verwendet Git-Submodule für fehlende Bibliotheken.
+- Prüft jedes unterstützte Ziel in der CI und führt die Testsuiten der Plattformen nativ auf einem eigenen Runner aus — Linux x86_64 und arm64, Windows MSVC und MinGW, macOS Intel und Apple Silicon — statt nur zu cross-kompilieren.
 
-- Unterstützt sowohl nativen C++- als auch WinDbg-Debugging in VS Code Insiders.
+- Baut weiterhin sauber aus der ursprünglichen Solution `A7.sln` unter moderner MSVC-Toolchain (`Debug | Win32`) als Verhaltensreferenz.
 
-- Hat das veraltete BugSlay-Crash-Handling entfernt und durch standardmäßige C++-Asserts ersetzt.
+- Läuft standardmäßig in einem echten Fenster; `-fullscreen` bleibt als Kommandozeilenoption erhalten.
 
+- Nutzt Git-Submodule für fehlende Bibliotheken.
 
+- Unterstützt natives C++- und WinDbg-Debugging in VS Code Insiders sowie Skripte zur Absturzerfassung ohne Oberfläche unter `tools/zig/`.
 
-# Spiel mit Visual Studio 2026 Insiders ausführen
+- Bietet einen Hilfs-Workflow zum Verpacken komprimierter Filmdateien unter `VideoAssets/`.
 
-1. Klone das Repository mit Submodulen, oder führe in einem bestehenden Checkout `git submodule update --init --recursive` aus.
-
-2. Installiere Visual Studio 2026 Insiders / Visual Studio 18 mit dem Workload Desktopentwicklung mit C++, der VS-2026-MSVC-Toolchain und einem Windows 10 oder Windows 11 SDK.
-
-3. Öffne `Sources/src/A7.sln`.
-
-4. Wähle `Debug | Win32`.
-
-5. Baue das Projekt `Game`, oder baue die gesamte Lösung.
-
-6. Starte das Projekt `Game` mit F5, oder führe `Sources/src/Game/Debug/Game.exe` direkt aus.
-
-7. Das Spiel startet standardmäßig im Fenstermodus. Füge `-fullscreen` zu den Befehlsargumenten des Game-Projekts hinzu, wenn du das alte Vollbildverhalten möchtest.
-
-Wenn ein Build keine DLL nach `Sources/src/Game/Debug` kopieren kann, schließe alle laufenden `Game.exe`-Prozesse und baue erneut.
+- Hat die alte BugSlay-Absturzbehandlung entfernt und durch Standard-C++-Asserts ersetzt.
 
 
+# Blender-Asset-Konvertierung und -Prüfung
 
-# Verlauf bisher
+Die Ersatz-Pipeline für Maya40 ist in `docs/blender-replacement.md` dokumentiert.
 
-- Fehlende Bibliotheken wurden gefunden und als Git-Submodule hinzugefügt.
+Kurzbefehle:
 
-- Es wurde eine Windows XP SP3-VM mit Visual Studio 6 eingerichtet, um die ursprüngliche Umgebung zu prüfen.
+- Konvertieren: `bk-map obj2mod <input.obj> <output.mod> [skeleton.txt] [animation.txt]`
 
-- VS6 war instabil und stürzte oft ab, daher wurde der Fokus auf moderne Werkzeuge verlagert.
-
-- Visual Studio 2010 wurde installiert und das alte `.dwr`-Projekt in `.sln` konvertiert.
-
-- Die Lösung wurde in VS 2026 Insiders geladen und alle Abhängigkeiten aktualisiert.
-
-- Zwei Wochen agentengesteuertes Codieren führten dazu, dass die Lösung aus einem sauberen Zustand ohne Fehler und Warnungen kompilierte.
-
-- Das Laufzeit-Debugging ist nun über das Anfangsmenü hinausgekommen: Das Tutorial lädt und ist spielbar, einschließlich Auswahl und Bewegung eines Panzers.
-
-- Die Entwicklung wurde wegen besserer Werkzeuge nach VS Code Insiders verlagert.
-
-- Zwei Debug-Pfade wurden konfiguriert: nativer C++ und WinDbg.
-
-- BugSlay wurde entfernt, weil es das Debugging erschwerte und in einem Fall nach einem Absturz selbst ausfiel.
-
-- BugSlay wurde durch einfache standardmäßige C++-Asserts ersetzt.
-
-- Mit entferntem BugSlay ist das Projekt nun bereit, die gezielte Laufzeit-Debugging-Phase bis zum vollständigen Start fortzusetzen.
+- Nur prüfen: `bk-map validate-obj2mod <input.obj> [skeleton.txt] [animation.txt]`
 
 
+# Unterstützte Plattformen
 
-# Roadmap
+`zig build` akzeptiert sechs Ziele. Eines wird mit `-Dtarget=` übergeben; der erzeugte Baum ist als `zig-out/game/<os>/<arch>/<config>` aufgebaut, sodass mehrere Ziele und beide Optimierungsstufen nebeneinander liegen, statt sich zu überschreiben.
 
-1. Weitere verbleibende Laufzeitausnahmen jenseits des nun funktionierenden Tutorial-Pfads beseitigen.
+| Plattform | Target-Triple | Status |
+| --- | --- | --- |
+| Windows (MSVC) | `x86_64-windows-msvc` | Spielbar |
+| macOS (Apple Silicon) | `aarch64-macos` | Spielbar |
+| macOS (Intel) | `x86_64-macos` | Wird gebaut; nicht spielgetestet |
+| Linux (x86_64) | `x86_64-linux-gnu` | In Arbeit |
+| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | Nur Plattformschicht |
+| Windows (MinGW) | `x86_64-windows-gnu` | Nur Plattformschicht |
 
-2. Die Kompilierung auf Zig umstellen.
+„Nur Plattformschicht“ bedeutet: Das Ziel wird gebaut und besteht die Plattform-Testsuiten, aber der vollständige Spiel-Build wurde dafür noch nicht in Betrieb genommen.
 
-3. FMOD, Stingray und Bink durch Open-Source-Alternativen ersetzen.
+Nur `x86_64-windows-msvc` braucht eine Visual-Studio-Installation. Zig liefert für jedes andere Ziel, auch MinGW, eigene Toolchain, Header und Import-Bibliotheken mit.
 
-4. C++-Projekte nach und nach durch Zig-Code ersetzen.
+Jedes Ziel wird vom Workflow `Cross-platform validation` auf einem Runner der eigenen Architektur geprüft, damit die Suiten tatsächlich laufen und nicht bloß gelinkt werden.
+
+
+# Das Spiel mit Zig starten (empfohlen)
+
+1. Das Repository mit Submodulen klonen oder in einem vorhandenen Checkout `git submodule update --init --recursive` ausführen.
+
+2. Zig installieren (0.17 oder neuer). Für `x86_64-windows-msvc` werden außerdem die MSVC-Toolchain und ein Windows SDK benötigt (die Pfade lassen sich mit `-Dmsvc-include`/`-Dwindows-sdk-include` und den zugehörigen `lib`-Optionen ändern, falls sie von den Standardwerten in `build.zig` abweichen). Kein anderes Ziel braucht sie.
+
+3. `zig build install-game -Dtarget=<triple> --release=fast` ausführen, um zu spielen, oder `--release=fast` weglassen für einen Debug-Build. Ohne `-Dtarget` wird für den Host gebaut.
+
+4. Die erzeugte Programmdatei starten — `zig-out/game/windows/x86_64/release/Game.exe` unter Windows, `zig-out/game/macos/arm64/release/Game` auf Apple Silicon (`.../debug/...` ohne `--release=fast`). Der erzeugte Baum ist nach der enthaltenen Optimierung benannt, sodass sich beide nie überschreiben.
+
+5. `zig build package` erstellt verteilbare Zip-Pakete; `zig build test` führt die Zig-Unit-Tests und den C++-ABI-Smoke-Test aus.
+
+
+# Das Spiel mit Visual Studio 2026 Insiders starten
+
+1. Das Repository mit Submodulen klonen oder in einem vorhandenen Checkout `git submodule update --init --recursive` ausführen.
+
+2. Visual Studio 2026 Insiders / Visual Studio 18 mit der Workload „Desktopentwicklung mit C++“, der MSVC-Toolchain von VS 2026 und einem Windows-10- oder Windows-11-SDK installieren.
+
+3. `Sources/src/A7.sln` öffnen.
+
+4. `Debug | Win32` auswählen.
+
+5. Das Projekt `Game` oder die gesamte Solution bauen.
+
+6. Das Projekt `Game` mit F5 starten oder `Sources/src/Game/Debug/Game.exe` direkt ausführen.
+
+7. Das Spiel startet standardmäßig im Fenster. Mit `-fullscreen` in den Befehlszeilenargumenten des Projekts `Game` kehrt das alte Vollbildverhalten zurück.
+
+Kann ein Build eine DLL nicht nach `Sources/src/Game/Debug` kopieren, den laufenden `Game.exe`-Prozess beenden und erneut bauen.
+
+
+# Bisheriger Verlauf
+
+- Die fehlenden Bibliotheken gefunden und als Git-Submodule eingebunden.
+
+- Eine Windows-XP-SP3-VM mit Visual Studio 6 aufgesetzt, um die Originalumgebung zu studieren.
+
+- VS 6 war instabil und stürzte oft ab, daher wechselte die Arbeit zu moderner Werkzeugkette.
+
+- Visual Studio 2010 installiert und das alte `.dwr`-Projekt in eine `.sln` umgewandelt.
+
+- Die Solution in VS 2026 Insiders geladen und alle Abhängigkeiten aktualisiert.
+
+- Zwei Wochen agentisches Programmieren, bis die Solution aus sauberem Zustand ohne Fehler und Warnungen kompilierte.
+
+- Das Debuggen zur Laufzeit ist nun über das Startmenü hinaus: Das Tutorial lädt und ist spielbar, einschließlich Auswahl und Bewegung eines Panzers.
+
+- Die Entwicklung zu VS Code Insiders verlegt, um bessere Werkzeuge zu haben.
+
+- Zwei Debug-Wege eingerichtet: natives C++ und WinDbg.
+
+- BugSlay entfernt, weil es das Debuggen erschwerte und in einem Fall nach einem Absturz selbst abstürzte.
+
+- BugSlay durch einfache Standard-C++-Asserts ersetzt.
+
+- Ohne BugSlay ist das Projekt bereit für gezieltes Laufzeit-Debugging bis zum vollständigen Durchlauf.
+
+- Den Build auf Zig umgestellt: `build.zig` kompiliert jedes Projekt mit clang, linkt gegen die MSVC-Toolchain und legt ein lauffähiges Spiel-Layout ab.
+
+- StreamIO.dll — die Persistenz- und Dienstschicht der Engine — durch eine Zig-Implementierung samt C++-ABI-Brücke ersetzt und dabei das Objektgraph-Format beim Speichern/Laden, XML-Lesen/-Schreiben, Optionen und Leistungsregressionen pro Frame repariert.
+
+- Das Spiel unter dem Zig-Build von Anfang bis Ende spielbar gemacht: Kampagnen, Tutorials, Entern, Luftfahrt, Speichern/Laden, synchrones Video, korrekte Minimap bei modernen Auflösungen.
+
+- Das Spiel auf 64 Bit portiert: Zeigerabschneidungen im Renderer, x87-`_control87`-Aufrufe, `#pragma pack(1)` auf STL-Typen, x86-Inline-Assembler (durch portable SSE-Intrinsics ersetzt), den Lua-Unit-Zeigerkanal und die Objekt-IDs im Speicherformat repariert.
+
+- Den x64-Build durch die Tutorials Absturz für Absturz spielgetestet, wobei UBSan jedes 20 Jahre alte undefinierte Verhalten auf Datei und Zeile genau benannte: Minimap-Koordinaten, Formations-Hashing, Winkelrechnung beim Bombardement und mehr.
+
+- Von Win32 auf eine portable Plattformschicht umgestellt: SDL3 für Fenster, Eingabe und Audio, ein SDL-GPU-Renderer anstelle des DirectX-Pfads und ein kleiner nativer Adapter je Betriebssystem.
+
+- Das Spiel auf macOS in Betrieb genommen, wo es auf Apple Silicon spielbar ist; Linux folgt.
+
+- Linux arm64 (Raspberry-Pi-Klasse) und die Windows-GNU-ABI (MinGW) als Ziele hinzugefügt, wofür im ganzen Build „Ist das Windows?“ von „Ist das Visual Studio?“ getrennt werden musste. Dabei zeigte sich, dass Intel-macOS ganz ohne seine Cocoa-Adapter kompiliert wurde, dass der Linux-Job mangels C-Laufzeit rot war und dass die Linux-C++-Pfade an das x86_64-Multiarch-Triple gebunden waren.
+
+- Alle sechs Ziele unter CI gestellt, jedes auf einem Runner der eigenen Architektur.
+
+
+# Fahrplan
+
+1. Den 64-Bit-Build durch die restlichen Tutorials und Kampagnen stabilisieren.
+
+2. Den vollständigen Spiel-Build auf Linux arm64 und MinGW in Betrieb nehmen — heute sind nur ihre Plattformschichten validiert — und Intel-macOS spielgetestet prüfen.
+
+3. Ein Werkzeug bauen, das 32-Bit-Spielstände in das 64-Bit-Format umwandelt.
+
+4. FMOD, Stingray und Bink durch Open-Source-Alternativen ersetzen.
+
+5. C++-Projekte nach und nach durch Zig-Code ersetzen, mit dem StreamIO-Port als Vorlage.

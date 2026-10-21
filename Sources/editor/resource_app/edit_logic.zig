@@ -12,6 +12,7 @@
 //! drops the step, so the project is clean again if that was the saved state.
 const std = @import("std");
 const core = @import("resource_core");
+const l10n = @import("editor_kit").l10n;
 
 const bridge = core.bridge;
 const ResBridge = bridge.ResBridge;
@@ -102,29 +103,11 @@ pub const RefType = enum(i32) {
     road_texture,
     water_texture,
 
-    /// The picker's title, as RefDlg.cpp's caption names each list.
-    pub fn label(self: RefType) []const u8 {
+    /// The picker's title, as RefDlg.cpp's caption names each list (the
+    /// `resource_app.ref_type.*` entries carry the English captions).
+    pub fn label(self: RefType) [*:0]const u8 {
         return switch (self) {
-            .animations => "Sprites",
-            .func_particles => "Particles",
-            .effects => "Effects",
-            .weapons => "Weapons",
-            .soldier => "Infantry",
-            .actions => "Actions",
-            .scenario_missions => "Missions",
-            .template_missions => "Template missions",
-            .chapters => "Chapters",
-            .sounds => "Sounds",
-            .setting => "Settings",
-            .asks => "Acknowledgements",
-            .crater => "Craters",
-            .deathhole => "Death holes",
-            .map => "Maps",
-            .music => "Music",
-            .movie => "Movies",
-            .particle_texture => "Particle textures",
-            .road_texture => "Road textures",
-            .water_texture => "Water textures",
+            inline else => |tag| l10n.t("resource_app.ref_type." ++ @tagName(tag)),
         };
     }
 };
@@ -1443,4 +1426,12 @@ test "reference lists and property strings are read through the bridge, cached a
     // Picking from a reference list is an ordinary property write.
     try setProp(fx.target(), &.{fx.shell_a}, 1, comboText(.str, strings, 2).?.slice(), 0);
     try testing.expectEqualStrings("bomb", fx.value(fx.shell_a, 1));
+}
+
+test "every reference list has a non-empty picker title in the string table" {
+    inline for (std.enums.values(RefType)) |tag| {
+        const text = std.mem.span(tag.label());
+        try std.testing.expect(text.len != 0);
+        try std.testing.expect(!std.mem.startsWith(u8, text, "resource_app."));
+    }
 }

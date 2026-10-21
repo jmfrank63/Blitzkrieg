@@ -22,7 +22,23 @@ const macos_runtime_names = [_][]const u8{
 };
 
 pub const shader_manifest_name = "Shaders/GfxGpu/gfxgpu-shaders.manifest";
-pub const required_metadata_files = [_][]const u8{ "LICENSE.md", "README.md" };
+/// The nine README translations stage at the root beside README.md, so the
+/// language bar every README carries links to files the install holds.
+pub const translated_readme_files = [_][]const u8{
+    "README_Chinese.md",    "README_French.md",   "README_German.md",
+    "README_Hindi.md",      "README_Indonesian.md", "README_Japanese.md",
+    "README_Portuguese.md", "README_Russian.md",  "README_Spanish.md",
+};
+pub const required_metadata_files = [_][]const u8{ "LICENSE.md", "README.md" } ++ translated_readme_files;
+
+/// The tools guide in ten languages, staged under Tools/ beside the bk-* tools
+/// it describes (tools/guide in the repository).
+pub const required_tool_docs = [_][]const u8{
+    "Tools/README.md",         "Tools/README_Chinese.md",    "Tools/README_French.md",
+    "Tools/README_German.md",  "Tools/README_Hindi.md",      "Tools/README_Indonesian.md",
+    "Tools/README_Japanese.md", "Tools/README_Portuguese.md", "Tools/README_Russian.md",
+    "Tools/README_Spanish.md",
+};
 pub const required_data_files = [_][]const u8{"Data/Configs/defconf.cfg"};
 
 /// rclone ships beside the game executable so cloud sync works on a machine
@@ -51,6 +67,7 @@ pub const VerifyError = error{
     MissingConfig,
     MissingDefaultConfig,
     MissingMetadata,
+    MissingToolDoc,
     MissingBundledTool,
     MissingThirdPartyNotices,
     MissingDataRoot,
@@ -62,6 +79,7 @@ pub const VerifyError = error{
     UnexpectedRuntimeEntry,
     UnexpectedShader,
     UnexpectedManifestEntry,
+    MissingL10nInstall,
 };
 
 pub fn runtimeName(target: RuntimeTarget) []const u8 {
@@ -137,6 +155,12 @@ pub fn verifyStagedLayout(names: []const []const u8, target: RuntimeTarget) Veri
     if (!containsPath(names, "defconf.cfg")) return error.MissingDefaultConfig;
     for (required_metadata_files) |required| {
         if (!containsPath(names, required)) return error.MissingMetadata;
+    }
+    for (required_tool_docs) |required| {
+        if (!containsPath(names, required)) {
+            std.debug.print("verify-runtime: missing tools guide file: {s}\n", .{required});
+            return error.MissingToolDoc;
+        }
     }
     if (!containsPath(names, bundledToolName(target))) return error.MissingBundledTool;
     if (!containsPath(names, third_party_notices_name)) return error.MissingThirdPartyNotices;
@@ -373,28 +397,30 @@ test "runtime verifier rejects duplicate runtime copies" {
     try std.testing.expect(!hasExactlyOneRuntime(&.{ "Game", "libPlatformRuntime.so", "libPlatformRuntime.so" }, .linux));
 }
 
+const staged_docs = translated_readme_files ++ required_tool_docs;
+
 test "staged layout verifier accepts every target matrix" {
-    try verifyStagedLayout(&.{
+    try verifyStagedLayout(&([_][]const u8{
         "Game.exe",           "PlatformRuntime.dll",                 "StreamIO.dll",          "StreamIOOptionsAbi.dll", "Anim.dll",
         "GFXGPU.dll",         "SDL3.dll",                            "Image.dll",             "Input.dll",              "Net.dll",
         "SFX.dll",            "UI.dll",                              "Scene.dll",             "AILogic.dll",            "GameTT.dll",
         shader_manifest_name, "Shaders/GfxGpu/textured.vertex.dxil", "config.cfg",            "defconf.cfg",            "LICENSE.md",
         "README.md",          "Data/Configs/defconf.cfg",            "Data/Maps/fixture.map", "rclone.exe",             third_party_notices_name,
-    }, .windows);
-    try verifyStagedLayout(&.{
+    } ++ staged_docs), .windows);
+    try verifyStagedLayout(&([_][]const u8{
         "Game",               "libPlatformRuntime.so",                "libStreamIO.so",        "libStreamIOOptionsAbi.so", "libAnim.so",
         "libGFXGPU.so",       "libSDL3.so.0",                         "libImage.so",           "libInput.so",              "libNet.so",
         "libSFX.so",          "libUI.so",                             "libScene.so",           "libAILogic.so",            "libGameTT.so",
         shader_manifest_name, "Shaders/GfxGpu/textured.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
         "README.md",          "Data/Configs/defconf.cfg",             "Data/Maps/fixture.map", "rclone",                   third_party_notices_name,
-    }, .linux);
-    try verifyStagedLayout(&.{
+    } ++ staged_docs), .linux);
+    try verifyStagedLayout(&([_][]const u8{
         "Game",               "libPlatformRuntime.dylib",           "libStreamIO.dylib",     "libStreamIOOptionsAbi.dylib", "libAnim.dylib",
         "libGFXGPU.dylib",    "libSDL3.dylib",                      "libImage.dylib",        "libInput.dylib",              "libNet.dylib",
         "libSFX.dylib",       "libUI.dylib",                        "libScene.dylib",        "libAILogic.dylib",            "libGameTT.dylib",
         shader_manifest_name, "Shaders/GfxGpu/textured.vertex.msl", "config.cfg",            "defconf.cfg",                 "LICENSE.md",
         "README.md",          "Data/Configs/defconf.cfg",           "Data/Maps/fixture.map", "rclone",                      third_party_notices_name,
-    }, .macos);
+    } ++ staged_docs), .macos);
 }
 
 test "staged layout ships the bundled rclone with the notice its licence requires" {
@@ -407,7 +433,7 @@ test "staged layout ships the bundled rclone with the notice its licence require
         "libSFX.so",          "libUI.so",                          "libScene.so",           "libAILogic.so",            "libGameTT.so",
         shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
         "README.md",          "Data/Configs/defconf.cfg",          "Data/Maps/fixture.map",
-    };
+    } ++ staged_docs;
     try verifyStagedLayout(&(engine ++ [_][]const u8{ "rclone", third_party_notices_name }), .linux);
     try std.testing.expectError(error.MissingBundledTool, verifyStagedLayout(&(engine ++ [_][]const u8{third_party_notices_name}), .linux));
     try std.testing.expectError(error.MissingThirdPartyNotices, verifyStagedLayout(&(engine ++ [_][]const u8{"rclone"}), .linux));
@@ -427,7 +453,7 @@ test "staged layout requires canonical metadata and essential data roots" {
         "libSFX.so",                "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
         shader_manifest_name,       "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              "LICENSE.md",
         "Data/Configs/defconf.cfg", "Data/Maps/fixture.map",             "rclone",         third_party_notices_name,   "README.md",
-    };
+    } ++ staged_docs;
     try std.testing.expect(isValidStagedLayout(&complete, .linux));
 
     try std.testing.expect(!isValidStagedLayout(complete[0 .. complete.len - 1], .linux));
@@ -438,8 +464,39 @@ test "staged layout requires canonical metadata and essential data roots" {
         "libSFX.so",          "libUI.so",                          "libScene.so",            "libAILogic.so",            "libGameTT.so",
         shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",             "defconf.cfg",              "LICENSE.md",
         "README.md",          "rclone",                            third_party_notices_name,
-    };
+    } ++ staged_docs;
     try std.testing.expect(!isValidStagedLayout(&missing_data, .linux));
+}
+
+test "staged layout requires the tools guide in every language" {
+    const complete = [_][]const u8{
+        "Game",                     "libPlatformRuntime.so",             "libStreamIO.so", "libStreamIOOptionsAbi.so", "libAnim.so",
+        "libGFXGPU.so",             "libSDL3.so.0",                      "libImage.so",    "libInput.so",              "libNet.so",
+        "libSFX.so",                "libUI.so",                          "libScene.so",    "libAILogic.so",            "libGameTT.so",
+        shader_manifest_name,       "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",     "defconf.cfg",              "LICENSE.md",
+        "Data/Configs/defconf.cfg", "Data/Maps/fixture.map",             "rclone",         third_party_notices_name,   "README.md",
+    } ++ staged_docs;
+    try verifyStagedLayout(&complete, .linux);
+    // Each guide file is required on its own: dropping any one is named.
+    for (required_tool_docs) |dropped| {
+        var kept: [complete.len - 1][]const u8 = undefined;
+        var count: usize = 0;
+        for (complete) |name| {
+            if (std.mem.eql(u8, name, dropped)) continue;
+            kept[count] = name;
+            count += 1;
+        }
+        try std.testing.expectError(error.MissingToolDoc, verifyStagedLayout(&kept, .linux));
+    }
+    // A missing root translation is a metadata fault, not a guide fault.
+    var no_german: [complete.len - 1][]const u8 = undefined;
+    var n: usize = 0;
+    for (complete) |name| {
+        if (std.mem.eql(u8, name, "README_German.md")) continue;
+        no_german[n] = name;
+        n += 1;
+    }
+    try std.testing.expectError(error.MissingMetadata, verifyStagedLayout(&no_german, .linux));
 }
 
 test "staged layout verifier rejects missing required entries" {
@@ -528,6 +585,7 @@ fn createLinuxStageFixture(io: std.Io, root: std.Io.Dir) !void {
     try root.createDirPath(io, "Shaders/GfxGpu");
     try root.createDirPath(io, "Data/Configs");
     try root.createDirPath(io, "Data/Maps");
+    try root.createDirPath(io, "Tools");
     for (requiredRuntimeNames(.linux)) |name| try touchFile(io, root, name);
     try touchFile(io, root, shader_manifest_name);
     try touchFile(io, root, "Shaders/GfxGpu/probe.vertex.spirv");
@@ -535,6 +593,7 @@ fn createLinuxStageFixture(io: std.Io, root: std.Io.Dir) !void {
     try touchFile(io, root, "defconf.cfg");
     try touchFile(io, root, "LICENSE.md");
     try touchFile(io, root, "README.md");
+    for (staged_docs) |name| try touchFile(io, root, name);
     try touchFile(io, root, "Data/Configs/defconf.cfg");
     try touchFile(io, root, "Data/Maps/fixture.map");
     try touchFile(io, root, bundledToolName(.linux));
@@ -554,6 +613,151 @@ fn expectLinuxManifestError(extra: []const u8, expected: VerifyError) !void {
         shader_manifest_name, "Shaders/GfxGpu/probe.vertex.spirv", "config.cfg",            "defconf.cfg",              "LICENSE.md",
         "README.md",          "Data/Configs/defconf.cfg",          "Data/Maps/fixture.map", "rclone",                   third_party_notices_name,
         extra,
-    };
+    } ++ staged_docs;
     try std.testing.expectError(expected, verifyStagedLayout(&names, .linux));
+}
+
+/// The ten-language install (M002 D087): the nine language mods the language-mods
+/// step writes below `mods/`, the Noto faces the editors and tools read from
+/// `Fonts/` beside their executables, and the tools guide. The mod folders come
+/// from the same table the language mods build reads, so a tenth language is
+/// required here the moment the build produces it.
+pub const l10n_languages = @import("l10n_languages.zig");
+
+/// The files every language mod holds, relative to `mods/<mod>/`; the game reads a mod's
+/// `mod.xml` from its `data/` folder, where language_mods.zig writes it.
+pub const language_mod_files = [_][]const u8{ "data/mod.xml", "data/texts.pak" };
+
+/// The licence travels with the faces it covers (SIL OFL).
+pub const font_licence_file = "Fonts/OFL.txt";
+
+/// Collect, in install order, every relative path the ten-language install
+/// lacks. The caller owns the returned paths; an empty list is a complete install.
+pub fn collectMissingL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, missing: *std.ArrayListUnmanaged([]const u8)) !void {
+    for (l10n_languages.languages) |language| {
+        for (language_mod_files) |file| {
+            const path = try std.fmt.allocPrint(allocator, "mods/{s}/{s}", .{ language.mod, file });
+            errdefer allocator.free(path);
+            try appendIfMissing(io, allocator, root, path, missing);
+        }
+    }
+    try appendIfMissing(io, allocator, root, try allocator.dupe(u8, font_licence_file), missing);
+    for (l10n_languages.languages) |language| {
+        const face = language.face orelse continue;
+        const path = try std.fmt.allocPrint(allocator, "Fonts/{s}", .{face});
+        try appendIfMissing(io, allocator, root, path, missing);
+    }
+    for (required_tool_docs) |doc| try appendIfMissing(io, allocator, root, try allocator.dupe(u8, doc), missing);
+}
+
+/// Takes ownership of `path`: kept in `missing` when the file is absent, freed otherwise.
+fn appendIfMissing(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, path: []const u8, missing: *std.ArrayListUnmanaged([]const u8)) !void {
+    errdefer allocator.free(path);
+    root.access(io, path, .{}) catch {
+        try missing.append(allocator, path);
+        return;
+    };
+    allocator.free(path);
+}
+
+/// Print one `verify-runtime: missing <path>` line per absent item and fail when
+/// there is any, so a failing install names everything to fix in one run.
+pub fn verifyL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir) !void {
+    var missing: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (missing.items) |path| allocator.free(path);
+        missing.deinit(allocator);
+    }
+    try collectMissingL10nInstall(io, allocator, root, &missing);
+    for (missing.items) |path| std.debug.print("verify-runtime: missing {s}\n", .{path});
+    if (missing.items.len != 0) return error.MissingL10nInstall;
+}
+
+fn writeL10nInstallFixture(io: std.Io, root: std.Io.Dir) !void {
+    for (l10n_languages.languages) |language| {
+        var buf: [96]u8 = undefined;
+        try root.createDirPath(io, try std.fmt.bufPrint(&buf, "mods/{s}/data", .{language.mod}));
+        for (language_mod_files) |file| {
+            const path = try std.fmt.bufPrint(&buf, "mods/{s}/{s}", .{ language.mod, file });
+            try root.writeFile(io, .{ .sub_path = path, .data = "x" });
+        }
+    }
+    try root.createDirPath(io, "Fonts");
+    try root.createDirPath(io, "Tools");
+    try root.writeFile(io, .{ .sub_path = font_licence_file, .data = "x" });
+    for (l10n_languages.languages) |language| {
+        const face = language.face orelse continue;
+        var buf: [96]u8 = undefined;
+        try root.writeFile(io, .{ .sub_path = try std.fmt.bufPrint(&buf, "Fonts/{s}", .{face}), .data = "x" });
+    }
+    for (required_tool_docs) |doc| try root.writeFile(io, .{ .sub_path = doc, .data = "x" });
+}
+
+fn expectMissing(io: std.Io, root: std.Io.Dir, expected: []const []const u8) !void {
+    const allocator = std.testing.allocator;
+    var missing: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (missing.items) |path| allocator.free(path);
+        missing.deinit(allocator);
+    }
+    try collectMissingL10nInstall(io, allocator, root, &missing);
+    try std.testing.expectEqual(expected.len, missing.items.len);
+    for (expected, missing.items) |want, got| try std.testing.expectEqualStrings(want, got);
+}
+
+test "l10n install requires nine language mods" {
+    try std.testing.expectEqual(@as(usize, 9), l10n_languages.languages.len);
+}
+
+test "l10n install check accepts a complete ten-language install" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try expectMissing(io, tmp.dir, &.{});
+    try verifyL10nInstall(io, std.testing.allocator, tmp.dir);
+}
+
+test "l10n install check names a language mod without its texts.pak" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteFile(io, "mods/lang-pt-br/data/texts.pak");
+    try expectMissing(io, tmp.dir, &.{"mods/lang-pt-br/data/texts.pak"});
+    try std.testing.expectError(error.MissingL10nInstall, verifyL10nInstall(io, std.testing.allocator, tmp.dir));
+}
+
+test "l10n install check names a missing mod.xml and a whole missing mod" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteFile(io, "mods/lang-ru/data/mod.xml");
+    try tmp.dir.deleteTree(io, "mods/lang-id");
+    try expectMissing(io, tmp.dir, &.{ "mods/lang-ru/data/mod.xml", "mods/lang-id/data/mod.xml", "mods/lang-id/data/texts.pak" });
+}
+
+test "l10n install check names the editor Fonts directory when it is missing" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteTree(io, "Fonts");
+    try expectMissing(io, tmp.dir, &.{
+        "Fonts/OFL.txt",
+        "Fonts/NotoSans-Regular.ttf",
+        "Fonts/NotoSansSC-Regular.otf",
+        "Fonts/NotoSansJP-Regular.otf",
+        "Fonts/NotoSansDevanagari-Regular.ttf",
+    });
+}
+
+test "l10n install check names a missing tools guide translation" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.deleteFile(io, "Tools/README_Hindi.md");
+    try expectMissing(io, tmp.dir, &.{"Tools/README_Hindi.md"});
 }

@@ -1,0 +1,27 @@
+# ELK keys every language overlay must translate (M002 S03 l10n-check).
+# One key per line, relative to game_data_base, no extension.
+scenarios/scenariomissions/allies/norway/0
+scenarios/scenariomissions/allies/norway/0h
+scenarios/scenariomissions/allies/norway/description
+scenarios/scenariomissions/allies/norway/header
+textes/strings/imheader-gbutton-back
+textes/strings/imheader-gbutton-credits
+textes/strings/imheader-gbutton-custom
+textes/strings/imheader-gbutton-cutscenes
+textes/strings/imheader-gbutton-exitgame
+textes/strings/imheader-gbutton-loadgame
+textes/strings/imheader-gbutton-multiplayer
+textes/strings/imheader-gbutton-newgame
+textes/strings/imheader-gbutton-options
+textes/strings/imheader-gbutton-scenario
+textes/strings/imheader-gbutton-settings
+textes/strings/imheader-gbutton-tutorial
+textes/strings/imheader-mainmenu-header
+textes/strings/imheader-mission-desc
+textes/strings/imheader-mission-map
+textes/strings/imheader-mission-objectives
+textes/strings/mainmenu
+textes/strings/missiondescriptiontext
+textes/strings/missiontext
+textes/strings/missiontypetext
+textes/strings/scenariomission

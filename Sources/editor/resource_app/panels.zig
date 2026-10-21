@@ -18,6 +18,7 @@ const view_logic = @import("view_logic.zig");
 const grid = @import("grid_logic.zig");
 
 const ig = imgui.c;
+const l10n = kit.l10n;
 const bridge = core.bridge;
 const ResBridge = bridge.ResBridge;
 const ReferenceEntry = bridge.ReferenceEntry;
@@ -26,8 +27,6 @@ const NodeRecord = bridge.NodeRecord;
 const Point2 = bridge.Point2;
 
 const drag_payload = "BK_RES_NODE";
-const rename_popup = "Rename item";
-const picker_popup = "Choose reference";
 const mod_label = if (builtin.os.tag == .macos) "Cmd" else "Ctrl";
 
 /// Where a browse dialog's callback writes its answer: SDL may call back on
@@ -71,6 +70,10 @@ pub const Panels = struct {
     /// The Object and Fence editors' grid tools: the editor in use and the
     /// overlay's zoom.
     grid_editor: ?grid.GridEditor = null,
+    /// Where the last frame drew the centre of each span mark's cross (begin, end, front, back), in window
+    /// pixels, or null when it drew none. The scenario's shot_mark_cross measures the cross box from this,
+    /// so the check follows the mark's geometry and not the label font.
+    span_cross_at: [4]?ig.ImVec2 = .{ null, null, null, null },
     grid_zoom: f32 = 1,
     status: [256]u8 = undefined,
     status_len: usize = 0,
@@ -116,14 +119,16 @@ pub const Panels = struct {
         self.refs.invalidate(gpa);
     }
 
-    fn say(self: *Panels, comptime format: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.status, format, args) catch self.status[0..];
+    /// A status message: `key` of the string tables filled with `args`.
+    fn say(self: *Panels, comptime key: []const u8, args: anytype) void {
+        const text = l10n.format(&self.status, key, args) catch &.{};
         self.status_len = text.len;
     }
 
-    fn report(self: *Panels, b: ResBridge, what: []const u8, err: bridge.EditError) void {
+    /// A failed action as "<what>: <why>"; `what_key` names the action (`resource_app.act.*`).
+    fn report(self: *Panels, b: ResBridge, comptime what_key: []const u8, err: bridge.EditError) void {
         const why = b.lastMessage();
-        if (why.len != 0) self.say("{s}: {s}", .{ what, why }) else self.say("{s}: {s}", .{ what, @errorName(err) });
+        self.say("resource_app.msg.failed", .{ l10n.str(what_key), if (why.len != 0) why else @errorName(err) });
     }
 
     fn target(life: *logic.Lifecycle, gpa: std.mem.Allocator, b: ResBridge) edit.Target {
@@ -135,15 +140,15 @@ pub const Panels = struct {
     /// Edit menu items, inside the main menu bar's Edit menu.
     pub fn drawEditMenuItems(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         const state = life.menuState();
-        if (ig.igMenuItemEx("Undo", mod_label ++ "+Z", false, logic.isEnabled(.undo, state))) self.undo(gpa, b, life);
-        if (ig.igMenuItemEx("Redo", mod_label ++ "+Y", false, logic.isEnabled(.redo, state))) self.redo(gpa, b, life);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.undo"), mod_label ++ "+Z", false, logic.isEnabled(.undo, state))) self.undo(gpa, b, life);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.redo"), mod_label ++ "+Y", false, logic.isEnabled(.redo, state))) self.redo(gpa, b, life);
         ig.igSeparator();
         const primary = self.selection.primary;
         const can_edit = life.is_open and !life.read_only;
         const insertable = if (primary) |p| edit.insertClassFor(&life.doc, p) != null else false;
-        if (ig.igMenuItemEx("Insert item", "Insert", false, can_edit and insertable)) self.insertUnder(gpa, b, life, primary.?);
-        if (ig.igMenuItemEx("Delete item", "Delete", false, can_edit and self.selection.ids.items.len != 0)) self.deleteSelected(gpa, b, life);
-        if (ig.igMenuItemEx("Rename item", "F2", false, can_edit and primary != null)) self.beginRename(life, primary.?);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.insert"), "Insert", false, can_edit and insertable)) self.insertUnder(gpa, b, life, primary.?);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.delete"), "Delete", false, can_edit and self.selection.ids.items.len != 0)) self.deleteSelected(gpa, b, life);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.rename"), "F2", false, can_edit and primary != null)) self.beginRename(life, primary.?);
     }
 
     /// View menu items that belong to the panels (A-13, A-16, A-17), inside the
@@ -152,11 +157,11 @@ pub const Panels = struct {
         ig.igSeparator();
         inline for (std.enums.values(view_logic.Part)) |tag| {
             const part = @field(view_logic.Part, @tagName(tag));
-            if (ig.igMenuItemEx(part.label().ptr, null, self.view.shown(part), true)) self.setView(part, !self.view.shown(part));
+            if (ig.igMenuItemEx(part.labelId(), null, self.view.shown(part), true)) self.setView(part, !self.view.shown(part));
         }
         ig.igSeparator();
-        if (ig.igMenuItemEx("Set Background Colour...", null, false, true)) self.background_open = true;
-        if (ig.igMenuItemEx("Expand/Collapse all", mod_label ++ "+C", false, life.is_open)) self.toggleExpandAll(gpa, b, life);
+        if (ig.igMenuItemEx(l10n.id("resource_app.view.background"), null, false, true)) self.background_open = true;
+        if (ig.igMenuItemEx(l10n.id("resource_app.view.expand_all"), mod_label ++ "+C", false, life.is_open)) self.toggleExpandAll(gpa, b, life);
     }
 
     pub fn setView(self: *Panels, part: view_logic.Part, on: bool) void {
@@ -173,8 +178,8 @@ pub const Panels = struct {
     pub fn toggleExpandAll(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         if (!life.is_open) return;
         const expand = self.view.flipExpand();
-        const moved = edit.setExpandAll(target(life, gpa, b), expand) catch |err| return self.report(b, "expand all", err);
-        self.say("{s} {d} items", .{ if (expand) "expanded" else "collapsed", moved });
+        const moved = edit.setExpandAll(target(life, gpa, b), expand) catch |err| return self.report(b, "resource_app.act.expand_all", err);
+        if (expand) self.say("resource_app.msg.expanded", .{moved}) else self.say("resource_app.msg.collapsed", .{moved});
     }
 
     /// Fills the window behind every ImGui window with the chosen colour,
@@ -190,9 +195,9 @@ pub const Panels = struct {
     fn drawBackgroundPicker(self: *Panels) void {
         if (!self.background_open) return;
         var rgb = view_logic.unpackColour(self.view.background orelse 0x808080);
-        if (ig.igBegin("Set Background Colour", &self.background_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (ig.igBegin(l10n.id("resource_app.window.background"), &self.background_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
             if (ig.igColorPicker3("##background", &rgb, 0)) self.setBackground(view_logic.packColour(rgb[0], rgb[1], rgb[2]));
-            if (ig.igButton("Engine colour")) {
+            if (ig.igButton(l10n.id("resource_app.view.engine_colour"))) {
                 if (self.view.background != null) self.view_changed = true;
                 self.view.background = null;
             }
@@ -221,29 +226,29 @@ pub const Panels = struct {
 
     fn undo(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         self.active = null;
-        _ = edit.undo(target(life, gpa, b)) catch |err| self.report(b, "undo", err);
+        _ = edit.undo(target(life, gpa, b)) catch |err| self.report(b, "resource_app.act.undo", err);
         self.selection.prune(&life.doc);
     }
 
     fn redo(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         self.active = null;
-        _ = edit.redo(target(life, gpa, b)) catch |err| self.report(b, "redo", err);
+        _ = edit.redo(target(life, gpa, b)) catch |err| self.report(b, "resource_app.act.redo", err);
         self.selection.prune(&life.doc);
     }
 
     fn insertUnder(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, parent: i32) void {
         if (edit.insertClassFor(&life.doc, parent) == null) {
-            self.say("this item takes no inserted children here", .{});
+            self.say("resource_app.msg.no_children", .{});
             return;
         }
-        const id = edit.insert(target(life, gpa, b), parent) catch |err| return self.report(b, "insert", err);
+        const id = edit.insert(target(life, gpa, b), parent) catch |err| return self.report(b, "resource_app.act.insert", err);
         _ = edit.setExpand(target(life, gpa, b), parent, true) catch {};
         self.selection.only(gpa, id) catch {};
     }
 
     fn deleteSelected(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         if (self.selection.ids.items.len == 0) return;
-        edit.deleteNodes(target(life, gpa, b), self.selection.ids.items) catch |err| return self.report(b, "delete", err);
+        edit.deleteNodes(target(life, gpa, b), self.selection.ids.items) catch |err| return self.report(b, "resource_app.act.delete", err);
         self.selection.prune(&life.doc);
     }
 
@@ -290,8 +295,9 @@ pub const Panels = struct {
         const display = ig.igGetIO().*.DisplaySize;
         ig.igSetNextWindowPos(.{ .x = 8, .y = 28 }, ig.ImGuiCond_FirstUseEver);
         ig.igSetNextWindowSize(.{ .x = 300, .y = @max(200, display.y * 0.55) }, ig.ImGuiCond_FirstUseEver);
-        var title_buffer: [96]u8 = undefined;
-        const title = std.mem.printSentinel(&title_buffer, "Project{s}###project_tree", .{if (life.read_only) " (read-only)" else ""}, 0) catch "Project###project_tree";
+        var title_buffer: [160]u8 = undefined;
+        const name = if (life.read_only) l10n.str("resource_app.window.project_read_only") else l10n.str("resource_app.window.project");
+        const title = std.mem.printSentinel(&title_buffer, "{s}###project_tree", .{name}, 0) catch "###project_tree";
         defer ig.igEnd();
         if (!ig.igBegin(title.ptr, null, 0)) {
             self.tree_focused = false;
@@ -319,7 +325,7 @@ pub const Panels = struct {
         if (has_children) ig.igSetNextItemOpen(record.expand, ig.ImGuiCond_Always);
         const open = ig.igTreeNodeEx(label.ptr, flags);
         if (ig.igIsItemToggledOpen() and has_children) {
-            _ = edit.setExpand(target(life, gpa, b), id, !record.expand) catch |err| self.report(b, "expand", err);
+            _ = edit.setExpand(target(life, gpa, b), id, !record.expand) catch |err| self.report(b, "resource_app.act.expand", err);
         } else if (ig.igIsItemClicked()) {
             const io = ig.igGetIO();
             self.selection.click(gpa, id, io.*.KeyCtrl or io.*.KeySuper, io.*.KeyShift, self.order.items) catch {};
@@ -352,8 +358,8 @@ pub const Panels = struct {
                 if (payload.*.DataSize == @sizeOf(i32)) {
                     const dragged = @as(*const i32, @ptrCast(@alignCast(payload.*.Data))).*;
                     if (edit.dropPlace(&life.doc, dragged, id)) |place| {
-                        edit.move(target(life, gpa, b), dragged, place) catch |err| self.report(b, "move", err);
-                    } else self.say("the item cannot go there", .{});
+                        edit.move(target(life, gpa, b), dragged, place) catch |err| self.report(b, "resource_app.act.move", err);
+                    } else self.say("resource_app.msg.cannot_go_there", .{});
                 }
             }
             ig.igEndDragDropTarget();
@@ -369,21 +375,21 @@ pub const Panels = struct {
         const can_edit = !life.read_only;
         const is_root = edit.rootId(&life.doc) == id;
         const place = edit.placeOf(&life.doc, id);
-        if (ig.igMenuItemEx("Insert item", "Insert", false, can_edit and edit.insertClassFor(&life.doc, id) != null)) self.insertUnder(gpa, b, life, id);
-        if (ig.igMenuItemEx("Delete item", "Delete", false, can_edit and !is_root)) self.deleteSelected(gpa, b, life);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.insert"), "Insert", false, can_edit and edit.insertClassFor(&life.doc, id) != null)) self.insertUnder(gpa, b, life, id);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.delete"), "Delete", false, can_edit and !is_root)) self.deleteSelected(gpa, b, life);
         const actions = squad.treeActionsFor(&life.doc, id);
         for (actions.constSlice()) |action| {
-            if (ig.igMenuItemEx(action.label().ptr, null, false, can_edit)) {
-                squad.runTreeAction(gpa, b, &life.doc, &life.history, action, id) catch |err| return self.report(b, "tree action", err);
+            if (ig.igMenuItemEx(action.labelId(), null, false, can_edit)) {
+                squad.runTreeAction(gpa, b, &life.doc, &life.history, action, id) catch |err| return self.report(b, "resource_app.act.tree_action", err);
                 self.selection.prune(&life.doc);
             }
         }
-        if (ig.igMenuItemEx("Rename item", "F2", false, can_edit)) self.beginRename(life, id);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.rename"), "F2", false, can_edit)) self.beginRename(life, id);
         ig.igSeparator();
         const up_ok = can_edit and !is_root and place != null and place.?.index > 0;
         const down_ok = can_edit and !is_root and place != null and place.?.index + 1 < edit.childCount(&life.doc, place.?.parent);
-        if (ig.igMenuItemEx("Move up", null, false, up_ok)) edit.moveBy(target(life, gpa, b), id, -1) catch |err| self.report(b, "move", err);
-        if (ig.igMenuItemEx("Move down", null, false, down_ok)) edit.moveBy(target(life, gpa, b), id, 1) catch |err| self.report(b, "move", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.move_up"), null, false, up_ok)) edit.moveBy(target(life, gpa, b), id, -1) catch |err| self.report(b, "resource_app.act.move", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.edit.move_down"), null, false, down_ok)) edit.moveBy(target(life, gpa, b), id, 1) catch |err| self.report(b, "resource_app.act.move", err);
     }
 
     /// SquadFrm's view of the formation: a marker per member, the zero point
@@ -396,7 +402,7 @@ pub const Panels = struct {
         ig.igSetNextWindowPos(.{ .x = display.x - 408, .y = 28 }, ig.ImGuiCond_FirstUseEver);
         ig.igSetNextWindowSize(.{ .x = 400, .y = 360 }, ig.ImGuiCond_FirstUseEver);
         defer ig.igEnd();
-        if (!ig.igBegin("Formation###formation", null, 0)) return;
+        if (!ig.igBegin(l10n.id("resource_app.window.formation"), null, 0)) return;
         // The selected formation, else the first one.
         var formation: ?i32 = null;
         if (self.selection.primary) |node| if (edit.findNode(&life.doc, node)) |record| {
@@ -404,7 +410,7 @@ pub const Panels = struct {
         };
         if (formation == null) formation = tools.firstOfClass(&life.doc, tools.item_type.squad_formation_props);
         const node = formation orelse {
-            ig.igTextDisabled("This squad has no formation.");
+            ig.igTextDisabled(l10n.t("resource_app.formation.none"));
             return;
         };
         if (self.overlay == null or self.overlay.?.formation != node) {
@@ -413,14 +419,14 @@ pub const Panels = struct {
         }
         const overlay = &self.overlay.?;
         const can_edit = !life.read_only;
-        const modes = [_]struct { mode: squad.Mode, label: [:0]const u8 }{
-            .{ .mode = .drag, .label = "Move members" },
-            .{ .mode = .set_zero, .label = "Set zero point" },
-            .{ .mode = .direction, .label = "Direction arrow" },
+        const modes = [_]struct { mode: squad.Mode, label: [*:0]const u8 }{
+            .{ .mode = .drag, .label = l10n.id("resource_app.formation.move_members") },
+            .{ .mode = .set_zero, .label = l10n.id("resource_app.formation.set_zero") },
+            .{ .mode = .direction, .label = l10n.id("resource_app.formation.direction") },
         };
         for (modes, 0..) |entry, i| {
             if (i != 0) ig.igSameLine();
-            if (ig.igRadioButton(entry.label.ptr, overlay.mode == entry.mode)) overlay.setMode(b, entry.mode);
+            if (ig.igRadioButton(entry.label, overlay.mode == entry.mode)) overlay.setMode(b, entry.mode);
         }
         var slots = tools.readGeometry(b, node, .formation_positions) catch return;
         defer slots.deinit(gpa);
@@ -439,9 +445,9 @@ pub const Panels = struct {
         if (can_edit) {
             const mouse = ig.igGetMousePos();
             const at: Point2 = .{ .x = mouse.x, .y = mouse.y };
-            if (ig.igIsItemActivated()) overlay.press(b, at) catch |err| self.report(b, "formation", err);
-            if (ig.igIsItemActive()) overlay.move(b, at) catch |err| self.report(b, "formation", err);
-            if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "formation", err);
+            if (ig.igIsItemActivated()) overlay.press(b, at) catch |err| self.report(b, "resource_app.act.formation", err);
+            if (ig.igIsItemActive()) overlay.move(b, at) catch |err| self.report(b, "resource_app.act.formation", err);
+            if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "resource_app.act.formation", err);
             if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) overlay.cancel(b);
         }
 
@@ -481,23 +487,23 @@ pub const Panels = struct {
         ig.igSetNextWindowPosEx(.{ .x = display.x / 2, .y = 28 }, ig.ImGuiCond_FirstUseEver, .{ .x = 0.5, .y = 0 });
         ig.igSetNextWindowSize(.{ .x = 0, .y = 0 }, ig.ImGuiCond_FirstUseEver);
         const toolbar = &self.mesh_toolbar;
-        if (ig.igBegin("Unit preview###mesh_preview", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (ig.igBegin(l10n.id("resource_app.window.mesh_preview"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
             const variants = [_]mesh.Variant{ .combat, .install, .transportable };
             for (variants, 0..) |variant, i| {
                 if (i != 0) ig.igSameLine();
-                if (ig.igRadioButton(variant.label().ptr, toolbar.variant == variant)) toolbar.setVariant(b, variant) catch |err| self.report(b, "model variant", err);
+                if (ig.igRadioButton(variant.labelId(), toolbar.variant == variant)) toolbar.setVariant(b, variant) catch |err| self.report(b, "resource_app.act.model_variant", err);
             }
             var locators = toolbar.show_locators;
             var boxes = toolbar.show_bounding_boxes;
-            const changed_locators = ig.igCheckbox("Show locators", &locators);
+            const changed_locators = ig.igCheckbox(l10n.id("resource_app.mesh.show_locators"), &locators);
             ig.igSameLine();
-            const changed_boxes = ig.igCheckbox("Bounding boxes", &boxes);
-            if (changed_locators or changed_boxes) toolbar.setShow(b, locators, boxes) catch |err| self.report(b, "show locators", err);
+            const changed_boxes = ig.igCheckbox(l10n.id("resource_app.mesh.bounding_boxes"), &boxes);
+            if (changed_locators or changed_boxes) toolbar.setShow(b, locators, boxes) catch |err| self.report(b, "resource_app.act.show_locators", err);
         }
         ig.igEnd();
         if (!toolbar.show_locators) return;
 
-        const markers = mesh.readLocators(b, &self.mesh_locators) catch |err| return self.report(b, "locators", err);
+        const markers = mesh.readLocators(b, &self.mesh_locators) catch |err| return self.report(b, "resource_app.act.locators", err);
         const draw_list = ig.igGetForegroundDrawList();
         const ink = ig.igGetColorU32(ig.ImGuiCol_PlotHistogram);
         const active = ig.igGetColorU32(ig.ImGuiCol_Text);
@@ -518,8 +524,7 @@ pub const Panels = struct {
             switch (pick) {
                 .node => {},
                 .miss => |nearest| {
-                    var text: [160]u8 = undefined;
-                    self.say("{s}", .{mesh.missText(&text, at, nearest)});
+                    self.status_len = mesh.missText(&self.status, at, nearest).len;
                 },
             }
         }
@@ -536,13 +541,13 @@ pub const Panels = struct {
         ig.igSetNextWindowPosEx(.{ .x = display.x / 2, .y = 28 }, ig.ImGuiCond_FirstUseEver, .{ .x = 0.5, .y = 0 });
         ig.igSetNextWindowSize(.{ .x = 0, .y = 0 }, ig.ImGuiCond_FirstUseEver);
         defer ig.igEnd();
-        if (!ig.igBegin("Grid tools###grid_frame", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+        if (!ig.igBegin(l10n.id("resource_app.window.grid_tools"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
         if (life.doc.kind == .fence) self.drawFenceLists(gpa, life);
         const node = grid.targetNode(&life.doc, life.doc.kind, self.selection.primary) orelse {
             if (life.doc.kind == .fence) {
-                ig.igTextDisabled("This fence has no segment yet: double-click a picture in Thumbnails.");
+                ig.igTextDisabled(l10n.t("resource_app.grid.no_segment"));
             } else {
-                ig.igTextDisabled("This project has no root item for the grid tools.");
+                ig.igTextDisabled(l10n.t("resource_app.grid.no_root"));
             }
             return;
         };
@@ -575,23 +580,23 @@ pub const Panels = struct {
             // The point modes go on a second row, as BuildFrm's and BridgeFrm's toolbars group them.
             const new_row = tool == .entrance or (i != 0 and tool.isPointTool() and !registration.tools[i - 1].isPointTool() and registration.tools[i - 1] != .entrance);
             if (i != 0 and !new_row) ig.igSameLine();
-            if (ig.igRadioButton(tool.label().ptr, editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "grid tool", err);
+            if (ig.igRadioButton(tool.labelId(), editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "resource_app.act.grid_tool", err);
         }
         if (life.doc.kind == .bridge) self.drawBridgeToolbar(life, editor);
         if (registration.has(.fire) and can_edit) {
             // OnUpdateGeneratePoints: only the smoke and directed-explosion modes.
             ig.igBeginDisabled(!editor.canGenerate());
-            if (ig.igButton("Generate points")) editor.generate(b, &life.doc, &life.history) catch |err| self.report(b, "generate points", err);
+            if (ig.igButton(l10n.id("resource_app.grid.generate_points"))) editor.generate(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.act.generate_points", err);
             ig.igEndDisabled();
             ig.igSameLine();
             ig.igBeginDisabled(!(editor.tool.isPointTool() and editor.active != null and editor.family != .dir_explosion));
-            if (ig.igButton("Delete point")) editor.deleteActive(b, &life.doc, &life.history) catch |err| self.report(b, "delete point", err);
+            if (ig.igButton(l10n.id("resource_app.grid.delete_point"))) editor.deleteActive(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.act.delete_point", err);
             ig.igEndDisabled();
         }
         if (editor.tool == .draw_transparency) {
             var label: [4:0]u8 = undefined;
             _ = std.mem.printSentinel(&label, "{d}", .{editor.transparency_value}, 0) catch {};
-            if (ig.igBeginCombo("Transparency", &label, 0)) {
+            if (ig.igBeginCombo(l10n.id("resource_app.grid.transparency"), &label, 0)) {
                 var value: u8 = 1;
                 while (value <= core.grid_tools.max_transparency_value) : (value += 1) {
                     var item: [4:0]u8 = undefined;
@@ -602,9 +607,9 @@ pub const Panels = struct {
             }
         }
         if (can_edit) {
-            const channels = [_]struct { label: [:0]const u8, channel: ?core.bridge.GeometryChannel }{
-                .{ .label = "Clear locked tiles", .channel = registration.passability },
-                .{ .label = "Clear transparency", .channel = registration.transparency },
+            const channels = [_]struct { label: [*:0]const u8, channel: ?core.bridge.GeometryChannel }{
+                .{ .label = l10n.id("resource_app.grid.clear_locked"), .channel = registration.passability },
+                .{ .label = l10n.id("resource_app.grid.clear_transparency"), .channel = registration.transparency },
             };
             var shown: usize = 0;
             for (channels) |entry| {
@@ -612,16 +617,16 @@ pub const Panels = struct {
                 const grid_node = editor.gridNode() orelse continue;
                 if (shown != 0) ig.igSameLine();
                 shown += 1;
-                if (!ig.igButton(entry.label.ptr)) continue;
+                if (!ig.igButton(entry.label)) continue;
                 const command = core.grid_tools.clearGrid(gpa, b, grid_node, channel) catch |err| {
-                    self.report(b, "clear", err);
+                    self.report(b, "resource_app.act.clear", err);
                     continue;
                 };
-                if (command) |c| core.sub_editor_tools.commit(gpa, b, &life.doc, &life.history, c, 0) catch |err| self.report(b, "clear", err);
+                if (command) |c| core.sub_editor_tools.commit(gpa, b, &life.doc, &life.history, c, 0) catch |err| self.report(b, "resource_app.act.clear", err);
             }
         }
-        _ = ig.igSliderFloat("Zoom", &self.grid_zoom, 0.25, 3);
-        var line: [96]u8 = undefined;
+        _ = ig.igSliderFloat(l10n.id("resource_app.grid.zoom"), &self.grid_zoom, 0.25, 3);
+        var line: [256]u8 = undefined;
         const text = editor.statusLine(&line);
         ig.igTextUnformattedEx(text.ptr, text.ptr + text.len);
 
@@ -632,22 +637,20 @@ pub const Panels = struct {
     /// span part and the cross its Front and Back are measured from.
     fn drawBridgeToolbar(self: *Panels, life: *logic.Lifecycle, editor: *grid.GridEditor) void {
         _ = self;
-        const part_name = if (editor.part) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else "(none)";
-        var text: [bridge.name_capacity + 96:0]u8 = undefined;
-        const line = std.mem.printSentinel(&text, "Span part: {s} ({s} spans), {s} bridge", .{ part_name, @tagName(editor.span_group), @tagName(editor.bridge_type) }, 0) catch "";
+        const part_name = if (editor.part) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else l10n.str("resource_app.value.none");
+        var text: [bridge.name_capacity + 192]u8 = undefined;
+        const line = l10n.say(&text, "resource_app.grid.span_part", .{ part_name, @tagName(editor.span_group), @tagName(editor.bridge_type) });
         ig.igTextUnformattedEx(line.ptr, line.ptr + line.len);
         if (editor.tool != .span_marks) return;
-        const marks = [_]struct { mark: core.point_tools.SpanMark, label: [:0]const u8 }{
-            .{ .mark = .begin, .label = "Begin" },
-            .{ .mark = .end, .label = "End" },
-            .{ .mark = .front, .label = "Front" },
-            .{ .mark = .back, .label = "Back" },
+        const marks = [_]struct { mark: core.point_tools.SpanMark, label: [*:0]const u8 }{
+            .{ .mark = .begin, .label = l10n.id("resource_app.span_mark.begin") },
+            .{ .mark = .end, .label = l10n.id("resource_app.span_mark.end") },
+            .{ .mark = .front, .label = l10n.id("resource_app.span_mark.front") },
+            .{ .mark = .back, .label = l10n.id("resource_app.span_mark.back") },
         };
         for (marks, 0..) |entry, i| {
             if (i != 0) ig.igSameLine();
-            var label: [24:0]u8 = undefined;
-            const shown = std.mem.printSentinel(&label, "{s}##span_mark", .{entry.label}, 0) catch entry.label;
-            if (ig.igRadioButton(shown.ptr, editor.span_mark == entry.mark)) editor.span_mark = entry.mark;
+            if (ig.igRadioButton(entry.label, editor.span_mark == entry.mark)) editor.span_mark = entry.mark;
         }
     }
 
@@ -658,9 +661,9 @@ pub const Panels = struct {
     fn drawFenceLists(self: *Panels, gpa: std.mem.Allocator, life: *logic.Lifecycle) void {
         const insert = grid.activeInsert(&life.doc, self.selection.primary);
         var current: [bridge.name_capacity + 8:0]u8 = undefined;
-        const current_name = if (insert) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else "(none)";
+        const current_name = if (insert) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else l10n.str("resource_app.value.none");
         _ = std.mem.printSentinel(&current, "{s}", .{current_name}, 0) catch {};
-        if (ig.igBeginCombo("Insert type", &current, 0)) {
+        if (ig.igBeginCombo(l10n.id("resource_app.fence.insert_type"), &current, 0)) {
             for (life.doc.tree.nodes.items) |*node| {
                 if (!core.sub_editor_tools.isClass(node, core.sub_editor_tools.item_type.fence_insert)) continue;
                 var label: [bridge.name_capacity + 16:0]u8 = undefined;
@@ -746,7 +749,8 @@ pub const Panels = struct {
         } else {
             ig.ImDrawList_AddCircle(draw_list, marker, 5, grid.toImGui(0xffffffff));
         }
-        if (registration.has(.span_marks)) drawSpanMarks(b, editor, node, view, draw_list);
+        self.span_cross_at = .{ null, null, null, null };
+        if (registration.has(.span_marks)) drawSpanMarks(b, editor, node, view, draw_list, &self.span_cross_at);
         if (registration.has(.fire)) self.drawBuildingPoints(b, editor, node, view, draw_list);
         if (editor.hover) |tile| {
             const corners = tileQuad(view, tile[0], tile[1]);
@@ -762,42 +766,43 @@ pub const Panels = struct {
         }
         const left: c_int = ig.ImGuiMouseButton_Left;
         const right: c_int = ig.ImGuiMouseButton_Right;
-        if (ig.igIsMouseClickedEx(left, false)) editor.press(b, at, false) catch |err| self.report(b, "grid tool", err);
+        if (ig.igIsMouseClickedEx(left, false)) editor.press(b, at, false) catch |err| self.report(b, "resource_app.act.grid_tool", err);
         if (ig.igIsMouseClickedEx(right, false)) {
             if (editor.tool == .one_way_line) {
-                editor.rightClick(b, &life.doc, &life.history) catch |err| self.report(b, "grid tool", err);
+                editor.rightClick(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.act.grid_tool", err);
             } else if (editor.tool.isPointTool()) {
-                editor.deletePointAt(b, &life.doc, &life.history, at) catch |err| self.report(b, "delete point", err);
+                editor.deletePointAt(b, &life.doc, &life.history, at) catch |err| self.report(b, "resource_app.act.delete_point", err);
             } else {
-                editor.press(b, at, true) catch |err| self.report(b, "grid tool", err);
+                editor.press(b, at, true) catch |err| self.report(b, "resource_app.act.grid_tool", err);
             }
         }
-        editor.move(b, at) catch |err| self.report(b, "grid tool", err);
-        if (ig.igIsMouseReleased(left)) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "grid tool", err);
+        editor.move(b, at) catch |err| self.report(b, "resource_app.act.grid_tool", err);
+        if (ig.igIsMouseReleased(left)) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "resource_app.act.grid_tool", err);
         // The right button's release ends an erase stroke; with no stroke it must not set a zero or centre the sprite.
-        if (ig.igIsMouseReleased(right) and editor.busy()) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "grid tool", err);
+        if (ig.igIsMouseReleased(right) and editor.busy()) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "resource_app.act.grid_tool", err);
         if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) editor.cancel(b);
     }
 
     /// SetBridgeType's red line and the span marks as labelled crosses: Begin
     /// and End always, and the active part's group cross with its Front and
     /// Back, as GFXDraw draws them for the active span.
-    fn drawSpanMarks(b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList) void {
+    fn drawSpanMarks(b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList, drawn_at: *[4]?ig.ImVec2) void {
         const line = grid.spanLine(editor.bridge_type);
         ig.ImDrawList_AddLineEx(draw_list, screenOf(view, line[0]), screenOf(view, line[1]), grid.toImGui(grid.span_line_color), 1);
         const marks = grid.readSpanMarks(editor.allocator, b, node) catch return;
         const papa = grid.spanPapa(marks, editor.span_group);
-        const crosses = [_]struct { at: Point2, label: []const u8 }{
-            .{ .at = marks[0], .label = "Begin" },
-            .{ .at = marks[1], .label = "End" },
-            .{ .at = grid.spanOffset(papa, marks[2].x, editor.bridge_type), .label = "Front" },
-            .{ .at = grid.spanOffset(papa, marks[2].y, editor.bridge_type), .label = "Back" },
-            .{ .at = core.point_tools.centre_span_mark, .label = "Centre" },
+        const crosses = [_]struct { at: Point2, label: []const u8, centre: bool = false }{
+            .{ .at = marks[0], .label = l10n.str("resource_app.span_mark.begin") },
+            .{ .at = marks[1], .label = l10n.str("resource_app.span_mark.end") },
+            .{ .at = grid.spanOffset(papa, marks[2].x, editor.bridge_type), .label = l10n.str("resource_app.span_mark.front") },
+            .{ .at = grid.spanOffset(papa, marks[2].y, editor.bridge_type), .label = l10n.str("resource_app.span_mark.back") },
+            .{ .at = core.point_tools.centre_span_mark, .label = l10n.str("resource_app.span_mark.centre"), .centre = true },
         };
         const colour = grid.toImGui(grid.span_mark_color);
-        for (crosses) |cross| {
-            if (std.mem.eql(u8, cross.label, "Centre") and editor.span_group != .centre) continue;
+        for (crosses, 0..) |cross, index| {
+            if (cross.centre and editor.span_group != .centre) continue;
             const at = screenOf(view, grid.worldToGrid(cross.at));
+            if (index < drawn_at.len) drawn_at[index] = at;
             ig.ImDrawList_AddLineEx(draw_list, .{ .x = at.x - 7, .y = at.y - 7 }, .{ .x = at.x + 7, .y = at.y + 7 }, colour, 2);
             ig.ImDrawList_AddLineEx(draw_list, .{ .x = at.x - 7, .y = at.y + 7 }, .{ .x = at.x + 7, .y = at.y - 7 }, colour, 2);
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 9, .y = at.y - 7 }, colour, cross.label.ptr, cross.label.ptr + cross.label.len);
@@ -858,23 +863,23 @@ pub const Panels = struct {
 
     fn drawRename(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         if (self.rename_open) {
-            _ = ig.igOpenPopup(rename_popup, 0);
+            _ = ig.igOpenPopup(l10n.id("resource_app.rename.title"), 0);
             self.rename_open = false;
         }
-        if (!ig.igBeginPopupModal(rename_popup, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+        if (!ig.igBeginPopupModal(l10n.id("resource_app.rename.title"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
         defer ig.igEndPopup();
         if (ig.igIsWindowAppearing()) ig.igSetKeyboardFocusHere();
-        const entered = ig.igInputText("Name", &self.rename_buffer, self.rename_buffer.len, ig.ImGuiInputTextFlags_EnterReturnsTrue);
-        if (entered or ig.igButton("OK")) {
+        const entered = ig.igInputText(l10n.id("resource_app.rename.name"), &self.rename_buffer, self.rename_buffer.len, ig.ImGuiInputTextFlags_EnterReturnsTrue);
+        if (entered or ig.igButton(l10n.id("resource_app.common.ok"))) {
             if (self.rename_node) |node| {
                 const name = std.mem.sliceTo(&self.rename_buffer, 0);
-                edit.rename(target(life, gpa, b), node, name) catch |err| self.report(b, "rename", err);
+                edit.rename(target(life, gpa, b), node, name) catch |err| self.report(b, "resource_app.act.rename", err);
             }
             self.rename_node = null;
             ig.igCloseCurrentPopup();
         }
         ig.igSameLine();
-        if (ig.igButton("Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
+        if (ig.igButton(l10n.id("resource_app.common.cancel")) or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
             self.rename_node = null;
             ig.igCloseCurrentPopup();
         }
@@ -897,7 +902,7 @@ pub const Panels = struct {
         ig.igSetNextWindowPos(.{ .x = 8, .y = 36 + @max(200, display.y * 0.55) }, ig.ImGuiCond_FirstUseEver);
         ig.igSetNextWindowSize(.{ .x = 300, .y = @max(160, display.y * 0.4 - 44) }, ig.ImGuiCond_FirstUseEver);
         defer ig.igEnd();
-        if (!ig.igBegin("Properties###inspector", null, 0)) return;
+        if (!ig.igBegin(l10n.id("resource_app.window.properties"), null, 0)) return;
         if (self.strings_revision != life.history.revision or self.strings_primary != self.selection.primary) {
             self.dropStrings(gpa);
             self.strings_revision = life.history.revision;
@@ -905,12 +910,11 @@ pub const Panels = struct {
         }
         const primary = self.selection.primary orelse return;
         const node = edit.findNode(&life.doc, primary) orelse return;
-        var heading: [bridge.name_capacity + 48]u8 = undefined;
+        var heading: [bridge.name_capacity + 96:0]u8 = undefined;
         const others = self.selection.ids.items.len -| 1;
         const head = if (others == 0)
             std.mem.printSentinel(&heading, "{s}", .{node.displaySlice()}, 0) catch ""
-        else
-            std.mem.printSentinel(&heading, "{s} (+{d} selected)", .{ node.displaySlice(), others }, 0) catch "";
+        else if (l10n.formatZ(&heading, "resource_app.inspector.selected", .{ node.displaySlice(), others })) |text| text else "";
         ig.igSeparatorText(head.ptr);
         if (life.read_only) ig.igBeginDisabled(true);
         defer if (life.read_only) ig.igEndDisabled();
@@ -946,7 +950,7 @@ pub const Panels = struct {
         var targets: std.ArrayListUnmanaged(i32) = .empty;
         defer targets.deinit(gpa);
         edit.editTargets(gpa, &life.doc, &self.selection, prop_id, &targets) catch return;
-        edit.setProp(target(life, gpa, b), targets.items, prop_id, text, gesture) catch |err| return self.report(b, "edit", err);
+        edit.setProp(target(life, gpa, b), targets.items, prop_id, text, gesture) catch |err| return self.report(b, "resource_app.act.edit", err);
         self.status_len = 0;
     }
 
@@ -1035,7 +1039,7 @@ pub const Panels = struct {
             self.active = null;
             if (edit.parseTyped(widget, kind, typed)) |text| {
                 self.write(gpa, b, life, prop.id, text.slice(), 0);
-            } else self.say("\"{s}\" is not a valid {s}", .{ typed, @tagName(widget) });
+            } else self.say("resource_app.msg.invalid_value", .{ typed, @tagName(widget) });
         } else if (is_active and !ig.igIsItemActive()) self.active = null;
     }
 
@@ -1072,7 +1076,7 @@ pub const Panels = struct {
         if (self.selection.primary != key.node) return;
         const strings = self.stringsOf(gpa, b, key);
         const source: ?[]const u8 = if (strings.len > 0) strings[0].nameSlice() else null;
-        const value = edit.browseValue(chosen, source, life.doc.pathSlice()) orelse return self.say("the chosen path is too long for the property", .{});
+        const value = edit.browseValue(chosen, source, life.doc.pathSlice()) orelse return self.say("resource_app.msg.chosen_path_long", .{});
         self.write(gpa, b, life, key.prop_id, value.slice(), 0);
     }
 
@@ -1083,33 +1087,31 @@ pub const Panels = struct {
     /// mask of their ids).
     fn drawPicker(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         if (self.picker_open) {
-            _ = ig.igOpenPopup(picker_popup, 0);
+            _ = ig.igOpenPopup(l10n.id("resource_app.picker.title"), 0);
             self.picker_open = false;
         }
         ig.igSetNextWindowSize(.{ .x = 420, .y = 460 }, ig.ImGuiCond_Appearing);
-        if (!ig.igBeginPopupModal(picker_popup, null, 0)) return;
+        if (!ig.igBeginPopupModal(l10n.id("resource_app.picker.title"), null, 0)) return;
         defer ig.igEndPopup();
         if (self.picker == null) {
             ig.igCloseCurrentPopup();
             return;
         }
         const picker = &self.picker.?;
-        var title_buffer: [64]u8 = undefined;
-        const title = std.mem.printSentinel(&title_buffer, "{s}", .{picker.ref_type.label()}, 0) catch "";
-        ig.igSeparatorText(title.ptr);
+        ig.igSeparatorText(picker.ref_type.label());
         const entries = self.refs.get(gpa, b, picker.ref_type) catch |err| {
-            self.report(b, "reference list", err);
+            self.report(b, "resource_app.act.reference_list", err);
             ig.igCloseCurrentPopup();
             self.picker = null;
             return;
         };
         ig.igSetNextItemWidth(-std.math.floatMin(f32));
-        _ = ig.igInputTextWithHint("##filter", "Filter", &picker.filter, picker.filter.len, 0);
+        _ = ig.igInputTextWithHint("##filter", l10n.t("resource_app.picker.filter"), &picker.filter, picker.filter.len, 0);
         var hits: std.ArrayListUnmanaged(usize) = .empty;
         defer hits.deinit(gpa);
         edit.filterEntries(gpa, entries, std.mem.sliceTo(&picker.filter, 0), &hits) catch {};
         var accept = false;
-        if (ig.igBeginChild("entries", .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, ig.ImGuiChildFlags_Borders, 0)) {
+        if (ig.igBeginChild("##entries", .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, ig.ImGuiChildFlags_Borders, 0)) {
             for (hits.items) |i| {
                 const entry = &entries[i];
                 var item_buffer: [bridge.reference_name_capacity + 16]u8 = undefined;
@@ -1126,9 +1128,9 @@ pub const Panels = struct {
             }
         }
         ig.igEndChild();
-        if (ig.igButton("OK")) accept = true;
+        if (ig.igButton(l10n.id("resource_app.common.ok"))) accept = true;
         ig.igSameLine();
-        const cancel = ig.igButton("Cancel") or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false);
+        const cancel = ig.igButton(l10n.id("resource_app.common.cancel")) or ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false);
         if (accept) {
             if (picker.multi) {
                 if (edit.actionMaskText(picker.kind, picker.mask)) |text| self.write(gpa, b, life, picker.prop_id, text.slice(), 0);

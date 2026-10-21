@@ -9,6 +9,7 @@
 //! Runs under `zig build test-resource-app-logic` against the fake bridge.
 const std = @import("std");
 const core = @import("resource_core");
+const l10n = @import("editor_kit").l10n;
 
 const tools = core.sub_editor_tools;
 const bridge_mod = core.bridge;
@@ -194,14 +195,16 @@ pub const TreeAction = enum {
     add_source,
     remove_source,
 
-    pub fn label(self: TreeAction) [:0]const u8 {
+    pub fn label(self: TreeAction) [*:0]const u8 {
         return switch (self) {
-            .add_shoot_type => "Add shoot type",
-            .delete_shoot_type => "Delete shoot type",
-            .add_crater => "Add crater",
-            .delete_crater => "Delete crater",
-            .add_source => "Add source",
-            .remove_source => "Remove source",
+            inline else => |tag| l10n.t("resource_app.tree_action." ++ @tagName(tag)),
+        };
+    }
+
+    /// The same text as an ImGui label whose ID is the key, not the language.
+    pub fn labelId(self: TreeAction) [*:0]const u8 {
+        return switch (self) {
+            inline else => |tag| l10n.id("resource_app.tree_action." ++ @tagName(tag)),
         };
     }
 };
@@ -523,4 +526,12 @@ test "tree actions: the weapon's shoot types and craters and the trench's source
     // An action that does not fit the node is refused and records nothing.
     try testing.expectError(error.Refused, runTreeAction(testing.allocator, bridge, &rig.doc, &rig.history, .delete_crater, sources));
     try testing.expectEqual(@as(usize, 6), rig.history.undo_stack.items.len);
+}
+
+test "every tree action has a non-empty label in the string table" {
+    inline for (std.enums.values(TreeAction)) |tag| {
+        const text = std.mem.span(tag.label());
+        try std.testing.expect(text.len != 0);
+        try std.testing.expect(!std.mem.startsWith(u8, text, "resource_app."));
+    }
 }

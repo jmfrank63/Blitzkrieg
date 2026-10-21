@@ -842,6 +842,20 @@ pub fn build(b: *std.Build) void {
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
 
+    // The CI workflow runs the l10n tiers (M002 S09 T03): a text check of cross-platform.yml.
+    const ci_l10n_wiring_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/ci_l10n_wiring_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    const ci_l10n_wiring_tests = b.addTest(.{ .root_module = ci_l10n_wiring_module });
+    const ci_l10n_wiring_run = b.addRunArtifact(ci_l10n_wiring_tests);
+    ci_l10n_wiring_run.setCwd(b.path("."));
+    ci_l10n_wiring_run.has_side_effects = true;
+    const ci_l10n_wiring_step = b.step("test-ci-l10n-wiring", "The CI workflow runs the l10n tiers in the jobs that own them and installs hb-view where a measured tier runs (M002 S09 T03)");
+    ci_l10n_wiring_step.dependOn(&ci_l10n_wiring_tests.step);
+    if (test_mode == .run) ci_l10n_wiring_step.dependOn(&ci_l10n_wiring_run.step);
+
     // Data/Scenarios against GOG Blitzkrieg 1.2 and the chapter screen's rules
     // (docs/superpowers/specs/2026-09-25-revive-random-missions-design.md).
     // Reads Data, so it runs from the repository root.
@@ -1212,8 +1226,8 @@ pub fn build(b: *std.Build) void {
     setLeakReportStrict(platform_system_run);
     platform_system_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     platform_system_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    addPathDir(platform_system_run, rootPath(b, if (platform == .windows_x64) "zig-out/bin" else "zig-out/lib"));
-    if (platform != .windows_x64) platform_system_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    addPathDir(platform_system_run, rootPath(b, if (build_support.isWindows(platform)) "zig-out/bin" else "zig-out/lib"));
+    if (!build_support.isWindows(platform)) platform_system_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const platform_system_step = b.step("test-platform-system", "Run portable system facade tests");
     platform_system_step.dependOn(&platform_system_test.step);
     if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
@@ -1501,22 +1515,15 @@ pub fn build(b: *std.Build) void {
     });
     const sdl3 = sdl3_dep.module("sdl3");
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
-    const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
+    const editor_imgui = addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"), .plain);
     const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
     editor_imgui_step.dependOn(&editor_imgui.step);
-    const editor_imgui_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "imgui_c", .module = addTranslatedHeaders(b, target, optimize, toolchain, &.{ "cimgui.h", "imgui_backend.h" }, &.{ b.path("vendor/dcimgui/src-docking"), b.path("Sources/editor/kit/imgui") }) }},
-    });
-    editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
-    editor_imgui_module.addIncludePath(b.path("Sources/editor/kit/imgui"));
-    // cimgui.h includes <assert.h>. A consumer that does not link libc
-    // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
-    // its @cImport on MSVC, so name the MSVC and UCRT ones here.
-    addMsvcIncludePaths(b, editor_imgui_module, toolchain);
-    editor_imgui_module.linkLibrary(editor_imgui);
+    const editor_imgui_module = editorImguiModule(b, target, optimize, toolchain, editor_imgui);
+    // The three editors run on the DLL CRT of the build mode (EditorImguiFlavour).
+    const editor_imgui_dll_crt_module = if (target.result.abi == .msvc)
+        editorImguiModule(b, target, optimize, toolchain, addEditorImgui(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"), .dll_crt))
+    else
+        editor_imgui_module;
 
     const editor_overlay_spike_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/editor_overlay_spike.zig"),
@@ -1931,6 +1938,16 @@ pub fn build(b: *std.Build) void {
         bk_pak_test_step.dependOn(&b.addRunArtifact(bk_tool_tests).step);
         bk_pak_test_step.dependOn(&b.addRunArtifact(bk_pak_tests).step);
     }
+    // The bk-* tools' string-table runtime (M002 S07, D062): the editor kit's .lang format without
+    // ImGui, std-only. Its tests run a host build.
+    const bk_l10n_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_l10n_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    }) });
+    const bk_l10n_test_step = b.step("test-bk-l10n", "Run the bk-* tools' string-table runtime tests (M002 S07)");
+    bk_l10n_test_step.dependOn(&bk_l10n_tests.step);
+    if (test_mode == .run) bk_l10n_test_step.dependOn(&b.addRunArtifact(bk_l10n_tests).step);
     // `bk-table` (D-08..D-11): ExcelExporter's stat sheets, exported as TSV and
     // imported by patching values in place. std-only Zig like bk-pak, built
     // the same way, staged beside it in Tools/ and in the convention test.
@@ -2036,6 +2053,10 @@ pub fn build(b: *std.Build) void {
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
     const season_data = addSeasonData(b, season_textures);
+
+    // The bk-* tools and their tests ask macOS for the user's languages through CoreFoundation
+    // (bk_l10n.OsLocales), so each module that compiles bk_l10n.zig names the framework.
+    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
 
     // ResourceEditor fixture generator. See
     // tools/zig/resource_editor_fixtures.zig for the design rationale and
@@ -2372,6 +2393,7 @@ pub fn build(b: *std.Build) void {
     const map_file = addMapFile(b, target, optimize, toolchain);
     addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     const bk_font = addBkFont(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    addBkShaperTest(b, target, optimize, toolchain, test_mode);
     // bk-font is in the shared convention test too. It runs the installed
     // executable, which finds the engine libraries beside it or in ../lib.
     bk_tools_options.addOption([]const u8, "bk_font", if (target.result.os.tag == .windows) "zig-out/bin/bk-font.exe" else "zig-out/bin/bk-font");
@@ -2403,6 +2425,31 @@ pub fn build(b: *std.Build) void {
     bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
     bk_tools_tests_run.step.dependOn(bk_sprite.install);
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
+    // The per-language half of the conventions (M002 S07): help in every language for the seven
+    // tools, the language order for a real process, and the dropped-key fallback. It runs the same
+    // executables, so it waits for the same installs and names the same binaries as inputs.
+    const bk_tools_l10n_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_tool_l10n_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    bk_tools_l10n_module.addOptions("bk_tools", bk_tools_options);
+    const bk_tools_l10n_tests = b.addTest(.{ .root_module = bk_tools_l10n_module });
+    linkOsLocale(bk_tools_l10n_module);
+    const bk_tools_l10n_run = b.addRunArtifact(bk_tools_l10n_tests);
+    bk_tools_l10n_run.setCwd(b.path("."));
+    bk_tools_l10n_run.step.dependOn(bk_font.install);
+    bk_tools_l10n_run.step.dependOn(bk_map.install);
+    bk_tools_l10n_run.step.dependOn(bk_sprite.install);
+    bk_tools_l10n_run.addFileInput(bk_font.tool.getEmittedBin());
+    bk_tools_l10n_run.addFileInput(bk_map.tool.getEmittedBin());
+    bk_tools_l10n_run.addFileInput(bk_sprite.tool.getEmittedBin());
+    setUserRootsForTest(bk_tools_l10n_run, "bk-tools-l10n-user");
+    bk_tools_l10n_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
+    const bk_tools_l10n_step = b.step("test-bk-tools-l10n", "Run the bk-* tools' per-language help, language order and dropped-key tests (M002 S07)");
+    bk_tools_l10n_step.dependOn(&bk_tools_l10n_tests.step);
+    if (test_mode == .run) bk_tools_l10n_step.dependOn(&bk_tools_l10n_run.step);
+    bk_pak_test_step.dependOn(bk_tools_l10n_step);
     const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common, sdl_dynamic_dep.path("include"));
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
@@ -2832,14 +2879,14 @@ pub fn build(b: *std.Build) void {
     // Captured (rather than discarded, as before) so the package steps below
     // can stage this exact build of MapEditor beside Game (D-08); null on
     // every other platform, where there is no MapEditor to package.
-    const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
+    const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
-    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
     // Phase 7: ELK, on the editors' platforms and installed beside them, but
     // with no engine (D-01); the package steps do not stage it yet.
-    if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_dll_crt_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep, random_missions_repeat);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -2949,6 +2996,28 @@ pub fn build(b: *std.Build) void {
     const text_shadow_step = b.step("test-ui-text-shadow", "Check a text shadow is drawn only where it reads as a shadow");
     text_shadow_step.dependOn(&text_shadow_test.step);
     if (test_mode == .run) text_shadow_step.dependOn(&text_shadow_run.step);
+
+    // The GPU text wrap breaks CJK text that has no spaces, with kinsoku. The
+    // test drives the wrap template with a fixed-width font.
+    const text_wrap_module = b.createModule(.{ .target = target, .optimize = .debug });
+    if (platform != .windows_x64) {
+        text_wrap_module.link_libc = true;
+        text_wrap_module.link_libcpp = true;
+    }
+    text_wrap_module.addCSourceFile(.{
+        .file = b.path("tools/zig/gfx_text_wrap_test.cpp"),
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, text_wrap_module, toolchain);
+    addMsvcLibraryPaths(b, text_wrap_module, toolchain);
+    linkMsvcRuntime(text_wrap_module, .debug);
+    const text_wrap_test = b.addExecutable(.{ .name = "gfx-text-wrap-test", .root_module = text_wrap_module });
+    text_wrap_test.subsystem = .console;
+    if (platform == .windows_x64) text_wrap_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const text_wrap_run = b.addRunArtifact(text_wrap_test);
+    const text_wrap_step = b.step("test-gfx-text-wrap", "Check CJK text wraps between characters with kinsoku and Latin text wraps as before");
+    text_wrap_step.dependOn(&text_wrap_test.step);
+    if (test_mode == .run) text_wrap_step.dependOn(&text_wrap_run.step);
 
     const noise_seam_step = b.step("test-terrain-noise", "Check terrain noise coordinates are continuous across patches");
     noise_seam_step.dependOn(&noise_seam_test.step);
@@ -3446,11 +3515,14 @@ pub fn build(b: *std.Build) void {
             .{ .name = "sdl3", .module = sdl3 },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "bridge_c", .module = editorBridgeC(b, target, .debug, toolchain) },
+            .{ .name = "l10n_languages", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_languages.zig"), .target = target, .optimize = .debug }) },
         },
     });
     // bridge.h: the engine's C ABI; kit/host.zig imports its translation so any editor
     // on the kit (ResourceEditor, future tier editors) shares one wrapper.
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // kit/fonts.zig and kit/l10n.zig reach the HarfBuzz font loader in imgui_backend.cpp, which needs the C++ runtime.
+    if (!build_support.usesMsvc(platform)) linkCxxRuntime(editor_kit_module, target);
     // The test tiers build for the requested target. Only an MSVC target needs
     // the Visual Studio library paths (Zig's own libc supplies the runtime, and
     // naming vcruntimed too fails to link); MinGW has everything built in.
@@ -3591,6 +3663,186 @@ pub fn build(b: *std.Build) void {
     const elk_game_reads_step = b.step("elk-game-reads-it", "Export the tracked Data/ELK to mods/ELKTest, capture the real Game's main menu before and after a marker translation of one label and prove from the frames that it shows the marker there (E-06); then switch the Game's Language option to the mod and back on its settings screen and across a restart, measured the same way (E-11)");
     elk_game_reads_step.dependOn(&elk_game_reads_tests.step);
     if (test_mode == .run) elk_game_reads_step.dependOn(&elk_game_reads_run.step);
+    // The language mods (M002 D060): lang-ru, lang-zh-hans, lang-ja and lang-hi
+    // of the install, built by ELK's pak export from Localization/ and the
+    // tracked Data/ELK, with bk-font's Noto fonts and, for Hindi, the HarfBuzz
+    // shaper rewriting the exported texts (tools/zig/language_mods.zig).
+    const language_mods_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/language_mods.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module } },
+    });
+    linkEngineCxxRuntimeEngine(b, language_mods_module, optimize);
+    language_mods_module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    language_mods_module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/language_mods_shape.cpp" },
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    addMsvcIncludePaths(b, language_mods_module, toolchain);
+    addMsvcLibraryPaths(b, language_mods_module, toolchain);
+    addLinuxCxxIncludePaths(b, language_mods_module);
+    language_mods_module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    const language_mods_tests = b.addTest(.{ .root_module = language_mods_module });
+    const language_mods_run = b.addRunArtifact(language_mods_tests);
+    language_mods_run.setCwd(b.path("."));
+    language_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    language_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
+    language_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    // The run step does not pass the caller's environment on, so the subset options are build options
+    // that export the variables the test reads: -Dlm-langs limits the codes, -Dlm-overlays reads the
+    // overlays from another root, and -Dlm-allow-missing is the one switch that lets a missing overlay
+    // be skipped instead of failing (D091).
+    if (b.option([]const u8, "lm-langs", "language-mods: comma separated language codes to build (BK_LM_LANGS); default all")) |codes| language_mods_run.setEnvironmentVariable("BK_LM_LANGS", codes);
+    if (b.option([]const u8, "lm-overlays", "language-mods: overlay root to read instead of Localization/game (BK_LM_OVERLAYS)")) |root| language_mods_run.setEnvironmentVariable("BK_LM_OVERLAYS", root);
+    if (b.option(bool, "lm-allow-missing", "language-mods: skip a language whose overlay is missing instead of failing (BK_LM_ALLOW_MISSING=1)") orelse false) language_mods_run.setEnvironmentVariable("BK_LM_ALLOW_MISSING", "1");
+    language_mods_run.has_side_effects = true;
+    language_mods_run.step.dependOn(install_game_step);
+    language_mods_run.step.dependOn(bk_font.install);
+    const language_mods_step = b.step("language-mods", "Build the nine language mods (ru, zh-Hans, ja, hi with their Noto fonts, Hindi shaped into Private Use Area clusters; es, fr, de, pt-BR, id texts only on the bitmap fonts) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
+    language_mods_step.dependOn(&language_mods_tests.step);
+    if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
+    // The install form of the same run (D087): `language-mods` only runs under test_mode == .run and
+    // install-game does not depend on it, so a fresh install gets its mods/lang-<code>/ from this step,
+    // in every test mode.
+    const install_language_mods_step = b.step("install-language-mods", "Write the nine language mods into the game installation's mods folder (fresh-install step; M002 D087)");
+    install_language_mods_step.dependOn(&language_mods_run.step);
+    // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
+    // install-game's). The editor installs are added as its dependencies at the end of build().
+    const verify_install_l10n_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_install_l10n.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    const verify_install_l10n_exe = b.addExecutable(.{ .name = "verify-install-l10n", .root_module = verify_install_l10n_module });
+    const verify_install_l10n_run = b.addRunArtifact(verify_install_l10n_exe);
+    verify_install_l10n_run.setCwd(b.path("."));
+    verify_install_l10n_run.addArg(stage_root);
+    verify_install_l10n_run.has_side_effects = true;
+    const verify_install_l10n_step = b.step("verify-install-l10n", "Verify the staged install holds the ten languages: nine lang-* mods, editor Fonts, tools guide (run after install-game install-language-mods install-map-editor install-resource-editor install-elk)");
+    verify_install_l10n_step.dependOn(&verify_install_l10n_run.step);
+    // The measures of the l10n-game-reads-it tier below (tools/zig/l10n_measure.zig): pure
+    // functions over gray images and the hb-view runs that draw the references. It
+    // needs hb-view on the PATH (libharfbuzz-bin) and fails without it (D069).
+    const l10n_measure_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_measure_tests = b.addTest(.{ .root_module = l10n_measure_module });
+    const l10n_measure_run = b.addRunArtifact(l10n_measure_tests);
+    l10n_measure_run.setCwd(b.path("."));
+    l10n_measure_run.has_side_effects = true;
+    const l10n_measure_step = b.step("test-l10n-measure", "Unit tests of the l10n tier's measures: PNG decode, ink boxes, resampling, correlation, Hindi headline and matra measures, and hb-view's Simplified and Japanese Han forms (M002 D066)");
+    l10n_measure_step.dependOn(&l10n_measure_tests.step);
+    if (test_mode == .run) l10n_measure_step.dependOn(&l10n_measure_run.step);
+    // The glossaries in Localization/glossary share one structure (tools/zig/l10n_glossary_test.zig).
+    const l10n_glossary_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_glossary_test.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_glossary_tests = b.addTest(.{ .root_module = l10n_glossary_module });
+    const l10n_glossary_run = b.addRunArtifact(l10n_glossary_tests);
+    l10n_glossary_run.setCwd(b.path("."));
+    l10n_glossary_run.has_side_effects = true;
+    const l10n_glossary_step = b.step("test-l10n-glossary", "The nine glossaries in Localization/glossary have the same sections, table header and CRLF lines (M002 S02 T03)");
+    l10n_glossary_step.dependOn(&l10n_glossary_tests.step);
+    if (test_mode == .run) l10n_glossary_step.dependOn(&l10n_glossary_run.step);
+    // The completeness gate (tools/zig/l10n_check.zig, M002 S03): plain Zig, no engine modules, no libc.
+    // `l10n-check` reads the tracked tree from the repository root and fails the build on a finding.
+    const l10n_check_exe = b.addExecutable(.{
+        .name = "l10n-check",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/l10n_check.zig"),
+            .target = target,
+            .optimize = .debug,
+        }),
+    });
+    const l10n_check_run = b.addRunArtifact(l10n_check_exe);
+    l10n_check_run.setCwd(b.path("."));
+    l10n_check_run.has_side_effects = true;
+    const l10n_check_step = b.step("l10n-check", "Fail with one `l10n-check: <rule>: <code>: <where>: <detail>` line per finding when an overlay text or state file is missing, stale or malformed (M002 S03)");
+    l10n_check_step.dependOn(&l10n_check_run.step);
+    // Rewrites Localization/game/base-hashes.txt after the translations of a changed English text were reviewed (D075).
+    const l10n_update_base_run = b.addRunArtifact(l10n_check_exe);
+    l10n_update_base_run.addArg("--update-base");
+    l10n_update_base_run.setCwd(b.path("."));
+    l10n_update_base_run.has_side_effects = true;
+    const l10n_update_base_step = b.step("l10n-check-update-base", "Rewrite Localization/game/base-hashes.txt from the English texts of the scope keys, keeping its same-as-base lines (M002 S03)");
+    l10n_update_base_step.dependOn(&l10n_update_base_run.step);
+    // The seeded-fault fixtures run the installed checker against trees written under zig-out/local-test/l10n-check.
+    const l10n_check_install = b.addInstallArtifact(l10n_check_exe, .{});
+    const l10n_check_unit = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_check.zig"),
+        .target = target,
+        .optimize = .debug,
+    }) });
+    const l10n_check_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_check_test.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_check_tests = b.addTest(.{ .root_module = l10n_check_test_module });
+    const l10n_check_tests_run = b.addRunArtifact(l10n_check_tests);
+    l10n_check_tests_run.setCwd(b.path("."));
+    l10n_check_tests_run.setEnvironmentVariable("BK_L10N_CHECK_EXE", rootPath(b, b.fmt("zig-out/bin/l10n-check{s}", .{target.result.exeFileExt()})));
+    l10n_check_tests_run.has_side_effects = true;
+    l10n_check_tests_run.step.dependOn(&l10n_check_install.step);
+    const l10n_check_unit_run = b.addRunArtifact(l10n_check_unit);
+    // The cmap tests read the vendored fonts from the repository root.
+    l10n_check_unit_run.setCwd(b.path("."));
+    const l10n_check_tests_step = b.step("test-l10n-check", "The l10n-check rules and one seeded-fault fixture per rule, each failing with its exact line (M002 S03)");
+    l10n_check_tests_step.dependOn(&l10n_check_tests.step);
+    l10n_check_tests_step.dependOn(&l10n_check_unit.step);
+    if (test_mode == .run) {
+        l10n_check_tests_step.dependOn(&l10n_check_tests_run.step);
+        l10n_check_tests_step.dependOn(&l10n_check_unit_run.step);
+    }
+
+    // M002 R056/D066 on the real Game: the language mods' main menus measured against
+    // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
+    // desktop, a GPU and hb-view, and fails without them; the mods are built first.
+    const l10n_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = elk_core_module },
+            .{ .name = "zip", .module = elk_zip_module },
+            .{ .name = "l10n_measure", .module = l10n_measure_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_game_reads_module, toolchain);
+    }
+    const l10n_game_reads_tests = b.addTest(.{ .root_module = l10n_game_reads_module });
+    // One shard per language (BK_L10N_LANGS), each well under the 10 minute foreground
+    // limit: the menu, the briefing, a live switch and a restart. The aggregate runs its
+    // own copy of every shard in a chain, so two Games never start at once; a shard run
+    // alone does not pull the others in.
+    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu and the first mission's briefing and measure them (hb-view for ru, zh-Hans, ja and hi; ink, difference from English and missing glyphs for es, fr, de, pt-BR and id), then a live switch and a restart (M002 R056, D066)");
+    const l10n_shards = [_][]const u8{ "en", "ru", "zh-hans", "ja", "hi", "es", "fr", "de", "pt-br", "id" };
+    var l10n_chain: ?*std.Build.Step = null;
+    for (l10n_shards) |code| {
+        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, live switch and restart on the real Game, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056)", .{code});
+        const shard_step = b.step(b.fmt("l10n-game-reads-it-{s}", .{code}), shard_about);
+        shard_step.dependOn(&l10n_game_reads_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(l10n_game_reads_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_L10N_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_L10N_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&language_mods_run.step);
+            if (chained) {
+                if (l10n_chain) |before| run.step.dependOn(before);
+                l10n_chain = &run.step;
+                if (test_mode == .run) l10n_game_reads_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    l10n_game_reads_step.dependOn(&l10n_game_reads_tests.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
@@ -3698,6 +3950,14 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
+
+    // verify-install-l10n runs after the installs it checks. This zig has no mustRunAfter, and without an
+    // edge a command naming them together would race the verifier against the install, so the verifier
+    // depends on them: one command installs and checks the ten languages (the editor installs only
+    // exist where the editors build).
+    for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
+        if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
+    }
 
     b.default_step = game_all_step;
     macosRuntimeFixes(b);
@@ -3889,6 +4149,15 @@ fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const 
         run.addArg("--tool");
         run.addFileArg(tool.getEmittedBin());
     }
+    // The tools guide in ten languages lives in tools/guide and stages to
+    // Tools/ under the same names; addFileArg makes an edited guide re-run
+    // staging. The root README translations are metadata files, which staging
+    // copies by plain path: they are cache inputs below.
+    for (package_policy.required_tool_docs) |staged| {
+        run.addArg("--tool-doc");
+        run.addFileArg(b.path(b.fmt("tools/guide/{s}", .{staged[("Tools/").len..]})));
+    }
+    for (inputs.metadata_files) |name| run.addFileInput(b.path(name));
     // Staging copies the third-party notice out of a plain path, the way it
     // copies the shader blobs, so an edited licence text has to be part of the
     // cache key or the staged and packaged copies keep the superseded notice.
@@ -5494,17 +5763,46 @@ fn addGfxGpuZig(
 // Dear ImGui (docking branch) with the dear_bindings C API and the SDL3 +
 // SDL GPU backends, for the portable editors. Static: it lives inside the
 // editor executable and shares the one dynamic SDL3 the game ships.
+/// The Zig module over an editor-imgui archive: its translated headers and the archive.
+fn editorImguiModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes, archive: *std.Build.Step.Compile) *std.Build.Module {
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "imgui_c", .module = addTranslatedHeaders(b, target, optimize, toolchain, &.{ "cimgui.h", "imgui_backend.h" }, &.{ b.path("vendor/dcimgui/src-docking"), b.path("Sources/editor/kit/imgui") }) }},
+    });
+    module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    module.addIncludePath(b.path("Sources/editor/kit/imgui"));
+    // cimgui.h includes <assert.h>. A consumer that does not link libc
+    // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
+    // its @cImport on MSVC, so name the MSVC and UCRT ones here.
+    addMsvcIncludePaths(b, module, toolchain);
+    module.linkLibrary(archive);
+    return module;
+}
+
+/// Which programs an editor-imgui archive is linked into, which on MSVC decides its CRT. Since
+/// M002 the archive holds the HarfBuzz shaper and the Devanagari loader, which use the C++
+/// standard library, so its objects carry the CRT's _ITERATOR_DEBUG_LEVEL and must match
+/// their program's: `plain` for the Zig programs and tests, which link Zig's static release
+/// CRT (and libcpmt through HarfBuzz), `dll_crt` for the three editors, which link the DLL
+/// CRT of the build mode (the debug one in Debug): the Map and Resource Editors for the
+/// engine, ELK for hunspell. Elsewhere the two are the same build.
+const EditorImguiFlavour = enum { plain, dll_crt };
+
 fn addEditorImgui(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     sdl_include: std.Build.LazyPath,
+    flavour: EditorImguiFlavour,
 ) *std.Build.Step.Compile {
-    // Zig links the release CRT for an MSVC target even in Debug, so the C++
-    // objects are built against the release CRT too: a debug build here
-    // references the debug CRT and the two cannot be linked together.
-    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
+    const dll_crt = target.result.abi == .msvc and flavour == .dll_crt;
+    // Zig links the release CRT for an MSVC target even in Debug, so the plain C++ objects
+    // are built against the release CRT too: a debug build here references the debug CRT
+    // and the two cannot be linked together. The dll_crt flavour follows the build's mode.
+    const cxx_optimize = if (target.result.abi == .msvc and !dll_crt) .fast else optimize;
     const module = b.createModule(.{
         .target = target,
         .optimize = cxx_optimize,
@@ -5512,6 +5810,9 @@ fn addEditorImgui(
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addIncludePath(b.path("vendor/dcimgui/backends"));
     module.addIncludePath(b.path("Sources/editor/kit/imgui"));
+    // The Devanagari font loader in imgui_backend.cpp shapes with HarfBuzz.
+    module.addIncludePath(b.path("Sources/src/FontAtlas"));
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
     module.addIncludePath(sdl_include);
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
@@ -5528,7 +5829,7 @@ fn addEditorImgui(
     // consuming executable links them itself, so only libc is named here.
     if (target.result.os.tag == .linux) {
         module.link_libc = true;
-    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    } else if (target.result.abi != .msvc or dll_crt) linkMsvcRuntime(module, optimize);
     module.addCSourceFiles(.{
         .files = &.{
             "vendor/dcimgui/src-docking/imgui.cpp",
@@ -5540,6 +5841,7 @@ fn addEditorImgui(
             "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
             "Sources/editor/kit/imgui/imgui_backend.cpp",
+            "Sources/src/FontAtlas/Shaper.cpp",
         },
         // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
         // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
@@ -5547,10 +5849,14 @@ fn addEditorImgui(
         // On MSVC the thread-safe static initialisers are left out (ImGui runs on
         // one thread) because their helpers live in the CRT, which the Zig test
         // tiers do not link; msvc_fltused.c stands in for the CRT's _fltused.
-        .flags = if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
+        // The dll_crt flavour takes the engine's flag set, the DLL CRT of its mode included.
+        .flags = if (dll_crt) cppflagsForTarget(target, optimize) else if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
     });
-    if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
-    return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
+    if (target.result.abi == .msvc and !dll_crt) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
+    // HarfBuzz to match: the DLL CRT build for the dll_crt flavour, the static release one
+    // (no _DEBUG, libcpmt) for the plain flavour on MSVC.
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, if (target.result.abi == .msvc and !dll_crt) .static else .dll));
+    return b.addLibrary(.{ .name = if (dll_crt) "editor-imgui-dll-crt" else "editor-imgui", .linkage = .static, .root_module = module });
 }
 
 /// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
@@ -5613,6 +5919,80 @@ fn addHunspell(
             &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" },
     });
     return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
+}
+
+/// HarfBuzz (vendor/harfbuzz, M002 D058) as a static library: the amalgamated
+/// `harfbuzz.cc` with no FreeType, ICU or glib, so only the built-in OpenType
+/// shaper and Unicode data are compiled. The CRT choice is addHunspell's: the
+/// engine's DLL CRT on MSVC, libc only on Linux, the C++ runtime named on macOS.
+fn addHarfBuzz(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    crt: enum { dll, static },
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    if (target.result.os.tag == .linux) {
+        module.link_libc = true;
+    } else if (target.result.abi != .msvc or crt == .dll) {
+        linkMsvcRuntime(module, optimize);
+    } else {
+        module.link_libc = true;
+        module.linkSystemLibrary("libcpmt", .{});
+    }
+    // HarfBuzz is built upstream without exceptions and RTTI; -fno-exceptions also
+    // keeps libstdc++'s unwinder out of the consumers' link.
+    module.addCSourceFile(.{
+        .file = b.path("vendor/harfbuzz/src/harfbuzz.cc"),
+        .flags = if (target.result.abi != .msvc or crt == .static)
+            &.{ "-std=c++17", "-fno-exceptions", "-fno-rtti", "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", "-Wno-deprecated-declarations" }
+        else if (optimize == .debug)
+            &.{ "-std=c++17", "-fno-exceptions", "-fno-rtti", "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL", "-D_DEBUG" }
+        else
+            &.{ "-std=c++17", "-fno-exceptions", "-fno-rtti", "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC_ERROR", "-Wno-deprecated-declarations", "-D_MT", "-D_DLL" },
+    });
+    return b.addLibrary(.{ .name = "harfbuzz", .linkage = .static, .root_module = module });
+}
+
+/// test-bk-shaper: the shaper C ABI and the PUA cluster table on the vendored
+/// Noto faces (M002 D058). Standalone: it links HarfBuzz and Shaper.cpp only,
+/// reads the tracked vendor/fonts and checks them against SHA256SUMS.
+fn addBkShaperTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    module.addCSourceFiles(.{
+        .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/bk_shaper_test.cpp" },
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    const exe = b.addExecutable(.{ .name = "bk-shaper-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    setLeakReportStrict(run);
+    run.setCwd(b.path("."));
+    run.addArg(rootPath(b, "vendor/fonts"));
+    const step = b.step("test-bk-shaper", "Shape Devanagari, Latin and Cyrillic with HarfBuzz and check the PUA cluster table (M002 D058)");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
@@ -7145,6 +7525,33 @@ fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
     const root = rootPath(b, b.fmt("zig-out/local-test/{s}", .{name}));
     run.setEnvironmentVariable("XDG_DATA_HOME", root);
     run.setEnvironmentVariable("BK_USER_ROOT", root);
+    // The tools pin their messages in English here; the language of the machine must not decide a test.
+    run.setEnvironmentVariable("BK_LANG", "en");
+}
+
+/// The C ABI of the bk-* string tables (tools/zig/bk_l10n.h) as a static library for the C++ tools
+/// bk-font, bk-map and bk-sprite, so they choose the language and read tools/zig/lang/<code>.lang
+/// the way the Zig tools do (M002 S07, D062). Zig code, no C++ runtime: nothing here allocates
+/// through the CRT's operator new.
+/// CoreFoundation for a module that compiles tools/zig/bk_l10n.zig on macOS, where its OsLocales
+/// asks CFLocaleCopyPreferredLanguages for the user's languages.
+fn linkOsLocale(module: *std.Build.Module) void {
+    if (module.resolved_target) |module_target| {
+        if (module_target.result.os.tag == .macos) module.linkFramework("CoreFoundation", .{});
+    }
+}
+
+fn addBkL10nC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_l10n_c.zig"),
+        .target = target,
+        .optimize = optimize,
+        // Not on Windows: the C++ tools that link it bring the engine's CRT (bk_l10n_c.zig EnvMap).
+        .link_libc = target.result.os.tag != .windows,
+    });
+    // CoreFoundation answers the macOS user's preferred languages (bk_l10n.OsLocales).
+    if (target.result.os.tag == .macos) module.linkFramework("CoreFoundation", .{});
+    return b.addLibrary(.{ .name = "bk-l10n", .root_module = module, .linkage = .static });
 }
 
 fn addBkFont(
@@ -7165,13 +7572,19 @@ fn addBkFont(
     // library. A C++ console program on the engine libraries (D-03), built
     // with map-file-test's recipe; the SFontFormat and TGA writers are the
     // engine's own, loaded at run time from StreamIO and Image.
-    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
+    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
+    // Cluster glyphs (M002 D058) are shaped with HarfBuzz inside FontAtlas.
+    const harfbuzz = addHarfBuzz(b, target, optimize, toolchain, .dll);
+    const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const u8{ "tools/zig/bk_font.cpp", "tools/zig/bk_font_test.cpp" }) |module, main_file| {
         linkEngineCxxRuntimeEngine(b, module, optimize);
         addProjectIncludePaths(b, module);
         module.addIncludePath(b.path("Sources/src/Image"));
+        module.addIncludePath(b.path("vendor/harfbuzz/src"));
+        module.linkLibrary(harfbuzz);
+        module.linkLibrary(l10n_c);
         module.addCSourceFiles(.{ .files = font_atlas_files, .flags = cppflagsForOptimize(optimize) });
         module.addCSourceFiles(.{ .files = &.{main_file}, .flags = cppflagsForOptimize(optimize) });
         addMsvcIncludePaths(b, module, toolchain);
@@ -7231,6 +7644,27 @@ fn addBkFont(
     check.setCwd(b.path("."));
     check.addArgs(&.{ module_root, fixture, output });
     check.step.dependOn(&generate.step);
+    // The language-mod fonts (M002 D058): Cyrillic by --set, thirty Han by
+    // --chars, three Hindi clusters by --clusters, each from its vendored Noto
+    // face, written by the installed tool and read back by the test.
+    const unicode_root = rootPath(b, "zig-out/local-test/bk-font/unicode");
+    const unicode_runs = [_]struct { out: []const u8, ttf: []const u8, height: []const u8, args: []const []const u8 }{
+        .{ .out = "cyrillic", .ttf = "vendor/fonts/NotoSans-Regular.ttf", .height = "20", .args = &.{ "--set", "cyrillic", "--charset", "russian" } },
+        .{ .out = "han30", .ttf = "vendor/fonts/NotoSansSC-Regular.otf", .height = "24", .args = &.{ "--chars", "tools/zig/fixtures/fonts/han30.txt" } },
+        .{ .out = "hindi", .ttf = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .height = "24", .args = &.{ "--clusters", "tools/zig/fixtures/fonts/hindi-clusters.txt" } },
+    };
+    check.setEnvironmentVariable("BK_FONT_TEST_UNICODE", unicode_root);
+    for (unicode_runs) |run_def| {
+        const unicode_generate = b.addRunArtifact(tool);
+        setLeakReportStrict(unicode_generate);
+        setUserRootsForTest(unicode_generate, "bk-font-user");
+        unicode_generate.setCwd(b.path("."));
+        unicode_generate.addArgs(&.{ "--ttf", rootPath(b, run_def.ttf), "--height", run_def.height, "--out", b.fmt("{s}/{s}", .{ unicode_root, run_def.out }), "--force", "--modules", module_root });
+        for (run_def.args) |arg| unicode_generate.addArg(if (std.mem.startsWith(u8, arg, "tools/")) rootPath(b, arg) else arg);
+        unicode_generate.step.dependOn(install);
+        addPathDir(unicode_generate, rootPath(b, "zig-out/bin"));
+        check.step.dependOn(&unicode_generate.step);
+    }
     addPathDir(check, rootPath(b, "zig-out/bin"));
     const step = b.step("test-bk-font", "Generate a font with bk-font and check it with the engine's readers (D-14)");
     step.dependOn(&test_exe.step);
@@ -7269,6 +7703,7 @@ fn addBkMap(
     // engine libraries (D-03) built with bk-font's recipe. Maps go through
     // MapFile (the Map Editor's reader and writer), the minimap through
     // RandomMapGen's CreateMiniMapImage with Main's object database.
+    const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     const tool_files = &.{ "tools/zig/bk_map.cpp", "tools/zig/bk_map_obj2mod.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
@@ -7297,6 +7732,7 @@ fn addBkMap(
         module.linkLibrary(map_file);
         module.linkLibrary(main_lib);
         module.linkLibrary(randommapgen);
+        module.linkLibrary(l10n_c);
         module.linkLibrary(formats);
         module.linkLibrary(misc);
         module.linkLibrary(lualib);
@@ -7459,6 +7895,7 @@ fn addBkSprite(
     // frames are packed by Image's ComposeImages and written by its TGA
     // writer, the .san by Formats' SSpriteAnimationFormat saver; the animation
     // slots come from the Resource Editor exporter's own name table.
+    const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
@@ -7472,6 +7909,7 @@ fn addBkSprite(
         addLinuxCxxIncludePaths(b, module);
         addMsvcLibraryPaths(b, module, toolchain);
         addMacosSysrootPaths(b, module, target);
+        module.linkLibrary(l10n_c);
         module.linkLibrary(formats);
         module.linkLibrary(misc);
         module.linkLibrary(platform_runtime);
@@ -8063,14 +8501,24 @@ fn addMapEditor(
         .target = target,
         .optimize = .debug,
     });
+    // The core reaches the kit's l10n, which imports editor_imgui, so the
+    // kit and core of this test are built on the stand-in too: the real
+    // editor-imgui archive would otherwise be linked (SDL, HarfBuzz and C++).
+    const view_app_kit = editorAppKit(b, target, .debug, toolchain, view_imgui_stub, sdl_include);
+    const view_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/core/root.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "editor_kit", .module = view_app_kit.kit }},
+    });
     const view_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/view.zig"),
         .target = target,
         .optimize = .debug,
         .imports = &.{
-            .{ .name = "sdl3", .module = sdl_module },
-            .{ .name = "editor_core", .module = core_module },
-            .{ .name = "editor_kit", .module = kit_module },
+            .{ .name = "sdl3", .module = view_app_kit.sdl },
+            .{ .name = "editor_core", .module = view_core_module },
+            .{ .name = "editor_kit", .module = view_app_kit.kit },
             .{ .name = "editor_imgui", .module = view_imgui_stub },
         },
     });
@@ -8092,6 +8540,18 @@ fn addMapEditor(
     install_exe.step.dependOn(install_game_step);
     const install_step = b.step("install-map-editor", "Install MapEditor into the game installation");
     install_step.dependOn(&install_exe.step);
+    // The bundled Noto faces and their licence beside the executable (D078); kit/fonts.zig reads
+    // them from <exe dir>/Fonts/ or BK_FONT_DIR, and every step that runs the installed editor
+    // goes through install_exe.
+    const install_fonts = b.addInstallDirectory(.{
+        .source_dir = b.path("vendor/fonts"),
+        .install_dir = .{ .custom = stage_suffix },
+        .install_subdir = "Fonts",
+        .include_extensions = &.{ ".ttf", ".otf", ".txt" },
+    });
+    install_fonts.step.dependOn(install_game_step);
+    install_step.dependOn(&install_fonts.step);
+    install_exe.step.dependOn(&install_fonts.step);
 
     // Launched from zig-out, not the installation: MapEditor finds its
     // modules, Data, SeasonData and Shaders beside its own executable
@@ -9618,6 +10078,45 @@ fn addMapEditor(
     const game_reads_it_m3_step = b.step("map-editor-game-reads-it-m3", "Load a map whose railroads hold fewer than two control points in the real Game and prove it exits cleanly (05-05, D-33)");
     game_reads_it_m3_step.dependOn(&cleanup_autoshots_game_reads_m3.step);
 
+    // M002 S05 D066: the installed Map Editor in each of the ten languages draws its main window,
+    // Tools palette and Settings dialog; tools/zig/map_editor_l10n_auto.zig measures the captured
+    // frames against hb-view's rasters of the tables' texts (and the fit of the palette and the
+    // dialog), and the missing-key case. It needs a GPU device and hb-view (D069) and fails without
+    // them. The exe's install brings the Fonts/ it loads. Like elk-l10n-auto, it shares
+    // tools/zig/l10n_auto_common.zig.
+    const l10n_auto_measure = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_auto_common = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_auto_common.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_measure", .module = l10n_auto_measure }},
+    });
+    const l10n_auto_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/map_editor_l10n_auto.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_auto_common", .module = l10n_auto_common }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_auto_module, toolchain);
+    }
+    const l10n_auto_tests = b.addTest(.{ .root_module = l10n_auto_module });
+    const l10n_auto_run = b.addRunArtifact(l10n_auto_tests);
+    setLeakReportStrict(l10n_auto_run);
+    l10n_auto_run.setCwd(b.path("."));
+    l10n_auto_run.setEnvironmentVariable("BK_MAP_EDITOR_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    // Reads the staged installation and the tables, writes its frames under zig-out/local-test.
+    l10n_auto_run.has_side_effects = true;
+    l10n_auto_run.step.dependOn(&install_exe.step);
+    const l10n_auto_step = b.step("map-editor-l10n-auto", "Start the installed Map Editor hidden in each of the ten languages (ui_language in a scratch mapeditor.cfg), capture its main window with the menu bar, the Tools palette and the Settings dialog, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages) and the fit of the palette and the dialog, then a table missing one key: one l10n: missing line and the label drawn in English (M002 S05, D066)");
+    l10n_auto_step.dependOn(&l10n_auto_tests.step);
+    l10n_auto_step.dependOn(&install_exe.step);
+    if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
+
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots
     // are the running executable's directory (SDL_GetBasePath). A Run step
@@ -9748,6 +10247,7 @@ fn editorAppKit(
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "bridge_c", .module = editorBridgeC(b, target, optimize, toolchain) },
+            .{ .name = "l10n_languages", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_languages.zig"), .target = target, .optimize = optimize }) },
         },
     });
     // bridge.h, for kit/host.zig's translation.
@@ -9836,6 +10336,18 @@ fn addElk(
     install_exe.step.dependOn(install_game_step);
     const install_step = b.step("install-elk", "Install ELK, the localisation kit, into the game installation");
     install_step.dependOn(&install_exe.step);
+    // The bundled Noto faces and their licence beside the executable (D078);
+    // kit/fonts.zig reads them from <exe dir>/Fonts/ or BK_FONT_DIR.
+    const install_fonts = b.addInstallDirectory(.{
+        .source_dir = b.path("vendor/fonts"),
+        .install_dir = .{ .custom = stage_suffix },
+        .install_subdir = "Fonts",
+        .include_extensions = &.{ ".ttf", ".otf", ".txt" },
+    });
+    install_fonts.step.dependOn(install_game_step);
+    install_step.dependOn(&install_fonts.step);
+    // Every step that runs the installed ELK has the faces beside it.
+    install_exe.step.dependOn(&install_fonts.step);
 
     // The installed ELK on scratch copies of the tracked Data/ELK, in a
     // hidden window: the tree, the edit boxes, the state buttons and the
@@ -9852,6 +10364,46 @@ fn addElk(
     const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod (by filter too) and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), the short layout started from its .upd files with Help, and the D-14 worker: the progress modal mid-run and its Cancel, a cancelled import leaving every file whole; Import from Game into a new database and Import from PAK/UPD of usa01.pak, cancelled, whole and repeated");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
+
+    // M002 S04 D066: the installed ELK in each of the ten languages draws its main window, File
+    // menu and help; tools/zig/elk_l10n_auto.zig measures the captured frames against hb-view's
+    // rasters of the tables' texts, and the missing-key case. It needs a GPU device and hb-view
+    // (D069) and fails without them. The exe's install brings the Fonts/ it loads.
+    const l10n_auto_measure = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    // What this tier and map-editor-l10n-auto share: the log parser, the thresholds and the checks.
+    const l10n_auto_common = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_auto_common.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_measure", .module = l10n_auto_measure }},
+    });
+    const l10n_auto_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/elk_l10n_auto.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = core_module },
+            .{ .name = "l10n_auto_common", .module = l10n_auto_common },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_auto_module, toolchain);
+    }
+    const l10n_auto_tests = b.addTest(.{ .root_module = l10n_auto_module });
+    const l10n_auto_run = b.addRunArtifact(l10n_auto_tests);
+    l10n_auto_run.setCwd(b.path("."));
+    l10n_auto_run.setEnvironmentVariable("BK_ELK_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    // Reads Data/ELK and the tables, writes its frames under zig-out/local-test.
+    l10n_auto_run.has_side_effects = true;
+    l10n_auto_run.step.dependOn(&install_exe.step);
+    const l10n_auto_step = b.step("elk-l10n-auto", "Start the installed ELK hidden in each of the ten languages (ui_language in a scratch elk.cfg), capture its main window, File menu and help window, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages), then a table missing one key: one l10n: missing line and the label drawn in English (M002 S04, D066)");
+    l10n_auto_step.dependOn(&l10n_auto_tests.step);
+    l10n_auto_step.dependOn(&install_exe.step);
+    if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
 }
 
 /// M001 S05: ResourceEditor, built and installed the way addMapEditor builds
@@ -9934,6 +10486,18 @@ fn addResourceEditor(
     install_exe.step.dependOn(install_game_step);
     const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
     install_step.dependOn(&install_exe.step);
+    // The bundled Noto faces and their licence beside the executable (D078);
+    // kit/fonts.zig reads them from <exe dir>/Fonts/ or BK_FONT_DIR.
+    const install_fonts = b.addInstallDirectory(.{
+        .source_dir = b.path("vendor/fonts"),
+        .install_dir = .{ .custom = stage_suffix },
+        .install_subdir = "Fonts",
+        .include_extensions = &.{ ".ttf", ".otf", ".txt" },
+    });
+    install_fonts.step.dependOn(install_game_step);
+    install_step.dependOn(&install_fonts.step);
+    // Every step that runs the installed Resource Editor has the faces beside it.
+    install_exe.step.dependOn(&install_fonts.step);
 
     // Launched from zig-out like map-editor-host-check, for the same reason:
     // the editor finds its installation beside its own executable, whatever
@@ -10054,6 +10618,45 @@ fn addResourceEditor(
     const game_reads_step = b.step("resource-editor-game-reads-it", "Export one resource per object-side kind into a mod, play shipped maps with it in the real Game and prove from BK_MOD_TRACE that it read each exported file (result.log)");
     game_reads_step.dependOn(&install_exe.step);
     if (test_mode == .run) game_reads_step.dependOn(&cleanup_game_reads.step);
+
+    // M002 S06 D066: the installed Resource Editor in each of the ten languages draws its main window
+    // and menu bar; tools/zig/resource_editor_l10n_auto.zig measures the captured frames against
+    // hb-view's rasters of the tables' texts, and the missing-key case. It needs a GPU device and
+    // hb-view (D069) and fails without them. The exe's install brings the Fonts/ it loads. After the
+    // smoke so two engines never start at once; not part of the aggregate resource-editor-auto.
+    const l10n_auto_measure = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_measure.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_auto_common = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_auto_common.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_measure", .module = l10n_auto_measure }},
+    });
+    const l10n_auto_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/resource_editor_l10n_auto.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_auto_common", .module = l10n_auto_common }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, l10n_auto_module, toolchain);
+    }
+    const l10n_auto_tests = b.addTest(.{ .root_module = l10n_auto_module });
+    const l10n_auto_run = b.addRunArtifact(l10n_auto_tests);
+    setLeakReportStrict(l10n_auto_run);
+    l10n_auto_run.setCwd(b.path("."));
+    l10n_auto_run.setEnvironmentVariable("BK_RESOURCE_EDITOR_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    // Reads the tables and the fixtures, writes its frames under zig-out/local-test.
+    l10n_auto_run.has_side_effects = true;
+    l10n_auto_run.step.dependOn(&install_exe.step);
+    l10n_auto_run.step.dependOn(&smoke_run.step);
+    const l10n_auto_step = b.step("resource-editor-l10n-auto", "Start the installed Resource Editor hidden in each of the ten languages (ui_language in a scratch resourceeditor.cfg), capture its main window with the menu bar, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages), then a table missing one key: one l10n: missing line and the label drawn in English (M002 S06, D066)");
+    l10n_auto_step.dependOn(&l10n_auto_tests.step);
+    l10n_auto_step.dependOn(&install_exe.step);
+    if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
     return exe;
 }
 
@@ -10930,7 +11533,7 @@ const resource_auto_bdg =
     "414:expect=dirty:false," ++
     "416:shot=bdg_base," ++
     "417:expect=shot_colour:bdg_base/ff0000/max/300," ++
-    "417:expect=shot_colour:bdg_base/00ffff/min/150," ++
+    "417:expect=shot_mark_cross:bdg_base/begin/min/24," ++
     "417:expect=shot_colour:bdg_base/ff8000/max/0," ++
     "417:expect=span_mark:begin=home," ++
     "417:expect=span_mark:front=home," ++
@@ -10949,7 +11552,12 @@ const resource_auto_bdg =
     "425:expect=span_mark:front=moved," ++
     "425:expect=span_mark:back=moved," ++
     "427:shot=bdg_marks," ++
-    "428:expect=shot_colour:bdg_marks/00ffff/min/300," ++
+    "428:expect=shot_mark_cross:bdg_marks/begin/min/24," ++
+    "428:expect=shot_mark_cross:bdg_marks/end/min/24," ++
+    "428:expect=shot_mark_cross:bdg_marks/front/min/24," ++
+    "428:expect=shot_mark_cross:bdg_marks/back/min/24," ++
+    "428:expect=shot_mark_cross:bdg_base/end/max/0," ++
+    "428:expect=shot_mark_cross:bdg_base/back/max/0," ++
     "429:do=point:fire/13/10," ++
     "430:expect=points:fire=2," ++
     "431:shot=bdg_fire," ++
@@ -10974,7 +11582,7 @@ const resource_auto_bdg =
     "442:expect=dirty:false," ++
     "444:shot=bdg_undone," ++
     "445:expect=shot_colour:bdg_undone/ff0000/max/300," ++
-    "445:expect=shot_colour:bdg_undone/00ffff/min/150," ++
+    "445:expect=shot_mark_cross:bdg_undone/begin/min/24," ++
     "445:expect=shot_colour:bdg_undone/ff8000/max/0," ++
     "445:differ=bdg_tiles/bdg_undone@0.01," ++
     "446:do=redo," ++

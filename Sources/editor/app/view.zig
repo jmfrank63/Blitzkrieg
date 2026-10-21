@@ -9,6 +9,7 @@ const std = @import("std");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const view_math = @import("view_math.zig");
 const tool_registry = @import("tool_registry.zig");
 
@@ -259,6 +260,17 @@ pub fn ViewWith(comptime Input: type) type {
         /// did not cause (a lost GPU frame, say).
         pub fn setStatus(self: *Self, prefix: []const u8, message: []const u8) void {
             self.status.set(.general, prefix, message);
+        }
+
+        /// "failed: <reason>" in the UI's language, as the general message.
+        pub fn setStatusFailed(self: *Self, reason: []const u8) void {
+            self.setStatusFailedFrom(.general, reason);
+        }
+
+        /// `setStatusFailed` for a message that only `source` clears (a lost frame, say).
+        pub fn setStatusFailedFrom(self: *Self, source: view_math.StatusSource, reason: []const u8) void {
+            var buffer: [512]u8 = undefined;
+            self.status.set(source, "", kit.l10n.say(&buffer, "app.status.failed", .{reason}));
         }
 
         /// A message the operation that set it clears again once it succeeds
@@ -1024,8 +1036,8 @@ pub fn ViewWith(comptime Input: type) type {
         fn noteToolError(self: *Self, editor: *Editor, err: EditError) void {
             switch (err) {
                 error.Refused => self.clearStatus(),
-                error.OutOfMemory => self.setStatus("failed: ", "out of memory"),
-                error.Failed => self.setStatus("failed: ", editor.status()),
+                error.OutOfMemory => self.setStatusFailed(kit.l10n.str("app.status.out_of_memory")),
+                error.Failed => self.setStatusFailed(editor.status()),
             }
         }
 
@@ -1761,7 +1773,7 @@ test "view: a failed edit shows 'failed: ', the next good edit clears it; a tagg
     rig.view.noteEditResult(&rig.editor, {});
     try testing.expectEqualStrings("", rig.view.statusLine());
 
-    rig.view.setStatusFrom(.frame, "failed: ", "DeviceLost");
+    rig.view.setStatusFailedFrom(.frame, "DeviceLost");
     rig.view.clearStatusFrom(.test_launch);
     try testing.expectEqualStrings("failed: DeviceLost", rig.view.statusLine());
     rig.view.clearStatusFrom(.frame);

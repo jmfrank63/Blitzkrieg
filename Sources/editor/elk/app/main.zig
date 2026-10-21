@@ -77,14 +77,19 @@
 //! cancelled, the 50 files in and elk.xml unchanged; then whole (the other
 //! 63), and again, which changes nothing.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
+//!
+//! `--l10n-auto <elk.xml> <scratch folder>` is the localisation tier's pass (tools/zig/elk_l10n_auto.zig):
+//! in the language of the scratch elk.cfg (`BK_ELK_SETTINGS`) it captures the main window, the File
+//! menu opened and the help window into the folder, and prints the rect of every label those frames
+//! drew as `l10n-auto: rect <key> <x> <y> <w> <h>`.
 const std = @import("std");
 const builtin = @import("builtin");
 const kit = @import("editor_kit");
+const l10n = kit.l10n;
 const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const bk_memory = @import("bk_memory_allocator");
 const window_mod = kit.window;
-const fonts = @import("fonts.zig");
 const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
 const ui_mod = @import("ui.zig");
@@ -373,7 +378,11 @@ const short_schedule =
     "8:expect=help:0,8:key=f1,10:expect=help:1,10:expect=help_has:--short,10:expect=help_has:Language,11:do=help_close,13:expect=help:0,14:exit";
 const short_reopen_schedule =
     "2:expect=open,2:expect=layout:short,2:expect=notice_has:0/2,3:expect=toolbar:short,3:expect=filter:All," ++
-    "4:do=help,6:expect=help:1,7:exit";
+    "4:do=help,6:expect=help:1,8:shot=" ++ short_shot_name ++ ",9:do=probe_hindi,11:shot=" ++ hindi_shot_name ++ ",12:exit";
+/// The frame `short_reopen_schedule` captures with Help open; `smokeShort` reads it back.
+const short_shot_name = "short-help";
+/// The frame with the Hindi probe (Ui.probe_rect); `smokeShort` measures it.
+const hindi_shot_name = "hindi";
 
 /// The worker pass (D-14). `d14.csv` gives every text of the copy a new
 /// translation starting with `auto.whole_marker`; its import is held before
@@ -449,6 +458,10 @@ fn run(minimal: std.process.Init.Minimal) !u8 {
         if (items.len != 3) usage();
         return smoke(gpa, io, minimal.environ, items[1], items[2]);
     }
+    if (items.len > 0 and std.mem.eql(u8, items[0], "--l10n-auto")) {
+        if (items.len != 3) usage();
+        return l10nAutoMode(gpa, io, minimal.environ, items[1], items[2]);
+    }
     if (items.len > 0 and std.mem.eql(u8, items[0], "--auto")) {
         if (items.len != 2) usage();
         return autoMode(gpa, io, minimal.environ, items[1]);
@@ -466,6 +479,7 @@ fn usage() noreturn {
         \\       ELK --short           (the elk.xml beside ELK, updated from its .upd files)
         \\       ELK --smoke <database folder> <scratch folder>
         \\       ELK --auto <elk.xml>    (the schedule in BK_ELK_AUTO)
+        \\       ELK --l10n-auto <elk.xml> <scratch folder>
         \\
     , .{});
     std.process.exit(2);
@@ -478,10 +492,6 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return 1;
     };
     defer window.stop();
-    const windir = envValue(gpa, environ, "WINDIR");
-    defer if (windir) |value| gpa.free(value);
-    _ = fonts.load(io, windir);
-
     var settings: settings_mod.Settings = .{};
     var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var root_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -494,6 +504,13 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             settings = settings_mod.parse(bytes);
         } else |_| {}
     }
+
+    // The language comes with the setting (ui_language), the fonts for it.
+    _ = kit.language_picker.setup(gpa, io, environ, &settings, false) catch |err| {
+        crt.attachParentConsole();
+        std.debug.print("elk: the fonts did not load ({s})\n", .{@errorName(err)});
+        return 1;
+    };
 
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
@@ -553,6 +570,7 @@ fn loop(window: *window_mod.Window, ui: *ui_mod.Ui, runner: ?*auto.Runner, frame
             if (runner) |r| r.failure = "the schedule did not exit in time";
             return false;
         }
+        ui.applyPendingLanguage();
         window.beginFrame();
         ui.draw(window);
         window.endFrame() catch {
@@ -701,6 +719,89 @@ fn smokeFind(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, s
     const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = find_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (Find after a restart)" });
     if (again.code != 0) return again;
     return .{ .code = 0, .frames = first.frames + again.frames };
+}
+
+/// `shot=`'s proof: `<folder>/<name>.tga` is a 32-bit TGA of the window's size whose pixels are
+/// not all one colour (a cleared target that was never drawn into would be).
+fn shotHasInk(gpa: std.mem.Allocator, io: std.Io, folder: []const u8, name: []const u8) bool {
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ folder, std.fs.path.sep, name }) catch return false;
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 << 20)) catch |err| {
+        std.debug.print("elk: smoke FAIL: shot {s} did not read back: {s}\n", .{ path, @errorName(err) });
+        return false;
+    };
+    defer gpa.free(bytes);
+    const wanted_w: u16 = 1280;
+    const wanted_h: u16 = 800;
+    if (bytes.len < 18 + @as(usize, wanted_w) * wanted_h * 4 or bytes[2] != 2 or bytes[16] != 32) {
+        std.debug.print("elk: smoke FAIL: shot {s} is not a 32-bit TGA of the window ({d} bytes)\n", .{ path, bytes.len });
+        return false;
+    }
+    const w = std.mem.readInt(u16, bytes[12..14], .little);
+    const h = std.mem.readInt(u16, bytes[14..16], .little);
+    if (w != wanted_w or h != wanted_h) {
+        std.debug.print("elk: smoke FAIL: shot {s} is {d}x{d}, wanted {d}x{d}\n", .{ path, w, h, wanted_w, wanted_h });
+        return false;
+    }
+    const pixels = bytes[18..][0 .. @as(usize, w) * h * 4];
+    const first = pixels[0..4];
+    var different: usize = 0;
+    var at: usize = 4;
+    while (at < pixels.len) : (at += 4) {
+        if (!std.mem.eql(u8, pixels[at..][0..4], first)) different += 1;
+    }
+    if (different < 100) {
+        std.debug.print("elk: smoke FAIL: shot {s} has no ink: {d} pixels differ from the first\n", .{ path, different });
+        return false;
+    }
+    return true;
+}
+
+/// The Hindi probe's proof (the full hb-view comparison is the l10n tier's): inside `Ui.probe_rect`
+/// the capture has white ink, spread over a run as wide as the clusters it holds and as tall as
+/// a headline with a vowel sign above and a letter below it. A cluster with no glyph is a single
+/// fallback box a few pixels wide, so a run this wide cannot be one.
+fn hindiHasClusters(gpa: std.mem.Allocator, io: std.Io, folder: []const u8, name: []const u8) bool {
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ folder, std.fs.path.sep, name }) catch return false;
+    const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64 << 20)) catch |err| {
+        std.debug.print("elk: smoke FAIL: shot {s} did not read back: {s}\n", .{ path, @errorName(err) });
+        return false;
+    };
+    defer gpa.free(bytes);
+    const w: usize = std.mem.readInt(u16, bytes[12..14], .little);
+    const h: usize = std.mem.readInt(u16, bytes[14..16], .little);
+    if (bytes.len < 18 + w * h * 4 or bytes[2] != 2 or bytes[16] != 32) {
+        std.debug.print("elk: smoke FAIL: shot {s} is not a 32-bit TGA\n", .{path});
+        return false;
+    }
+    const pixels = bytes[18..][0 .. w * h * 4];
+    const rect = ui_mod.Ui.probe_rect;
+    const x0: usize = @intFromFloat(rect[0]);
+    const y0: usize = @intFromFloat(rect[1]);
+    const x1: usize = @min(w, x0 + @as(usize, @intFromFloat(rect[2])));
+    const y1: usize = @min(h, y0 + @as(usize, @intFromFloat(rect[3])));
+    var lit: usize = 0;
+    var left: usize = x1;
+    var right: usize = 0;
+    var top: usize = y1;
+    var bottom: usize = 0;
+    for (y0..y1) |y| for (x0..x1) |x| {
+        if (pixels[(y * w + x) * 4 + 1] < 128) continue;
+        lit += 1;
+        left = @min(left, x);
+        right = @max(right, x);
+        top = @min(top, y);
+        bottom = @max(bottom, y);
+    };
+    const clusters = kit.fonts.clusterCount();
+    std.debug.print("elk: hindi probe: {d} lit pixels, ink {d}..{d} x {d}..{d}, {d} clusters\n", .{ lit, left, right, top, bottom, clusters });
+    // Measured once on Linux: 222 lit pixels, a run 71 pixels wide and 14 tall, 6 clusters.
+    if (lit < 150 or right < left or right - left + 1 < 60 or bottom < top or bottom - top + 1 < 12 or clusters < 4) {
+        std.debug.print("elk: smoke FAIL: the Hindi probe in {s} has no shaped clusters (wanted at least 150 lit pixels in a run 60x12 and 4 clusters)\n", .{path});
+        return false;
+    }
+    return true;
 }
 
 /// The smoke's spell check pass on a seventh copy, `<scratch>-spell`, with
@@ -933,8 +1034,10 @@ fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
             return .{ .code = 1 };
         }
     }
-    const again = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout after a restart)" });
+    const again = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_reopen_schedule, .shot_folder = folder, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout after a restart)" });
     if (again.code != 0) return again;
+    if (!shotHasInk(gpa, io, folder, short_shot_name)) return .{ .code = 1 };
+    if (!hindiHasClusters(gpa, io, folder, hindi_shot_name)) return .{ .code = 1 };
     return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
@@ -1047,8 +1150,33 @@ fn autoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, el
         return 2;
     };
     defer gpa.free(text);
-    const result = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = text, .frame_limit = auto_frame_limit, .tier = "auto" });
+    // The scratch elk.cfg of BK_ELK_SETTINGS, if any: its ui_language picks the run's language.
+    const settings_path = envValue(gpa, environ, settings_mod.settings_env);
+    defer if (settings_path) |value| gpa.free(value);
+    const result = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = text, .settings_path = settings_path orelse "", .frame_limit = auto_frame_limit, .tier = "auto" });
     if (result.code == 0) std.debug.print("elk: auto PASS: {d} frames\n", .{result.frames});
+    return result.code;
+}
+
+/// What `--l10n-auto` captures: the main window, the File menu open, the help window. The frames
+/// leave a gap after each command so the frame the shot reads has drawn its effect.
+const l10n_auto_schedule =
+    "3:shot=main,4:do=open_menu:elk.menu.file,7:shot=menu,8:key=escape,10:do=help,13:shot=help,14:exit";
+
+fn l10nAutoMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, elk_path: []const u8, scratch: []const u8) u8 {
+    crt.attachParentConsole();
+    const settings_path = envValue(gpa, environ, settings_mod.settings_env);
+    defer if (settings_path) |value| gpa.free(value);
+    const result = scripted(gpa, io, environ, .{
+        .elk_path = elk_path,
+        .text = l10n_auto_schedule,
+        .shot_folder = scratch,
+        .rect_log = true,
+        .settings_path = settings_path orelse "",
+        .frame_limit = smoke_frame_limit,
+        .tier = "l10n-auto",
+    });
+    if (result.code == 0) std.debug.print("elk: l10n-auto PASS: {d} frames\n", .{result.frames});
     return result.code;
 }
 
@@ -1065,12 +1193,16 @@ const Script = struct {
     source_files: usize = 0,
     /// Where `do=answer` answers File > Open (Runner.dialog_folder).
     dialog_folder: []const u8 = "",
+    /// Where `shot=` writes its TGAs (Runner.shot_folder).
+    shot_folder: []const u8 = "",
     /// The run's own elk.cfg, read when it is there (a later run of the same
     /// pass) and written as ELK writes it; "" keeps the settings in memory.
     /// The user's own file is never touched.
     settings_path: []const u8 = "",
     /// The game folder the exports and Run Game use; "" keeps elk.cfg's.
     game_folder: []const u8 = "",
+    /// Logs the rect of every label a shot's frame drew (Ui.rect_log).
+    rect_log: bool = false,
     frame_limit: u32,
     tier: []const u8,
 };
@@ -1091,10 +1223,6 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         return .{ .code = 1 };
     };
     defer window.stop();
-    const windir = envValue(gpa, environ, "WINDIR");
-    defer if (windir) |value| gpa.free(value);
-    const loaded = fonts.load(io, windir);
-
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
     var settings: settings_mod.Settings = .{};
@@ -1105,6 +1233,19 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         } else |_| {}
     }
     if (script.game_folder.len != 0) settings.game_folder_storage.set(script.game_folder);
+    // A scripted run follows ui_language when the scratch cfg sets one and is English otherwise,
+    // whatever the machine's locale.
+    const font_dir = envValue(gpa, environ, kit.fonts.dir_env);
+    defer if (font_dir) |value| gpa.free(value);
+    const language = ui_mod.chooseLanguage(&settings, true);
+    const loaded = kit.fonts.load(gpa, io, font_dir, language) catch |err| {
+        std.debug.print("elk: {s} FAIL: the fonts did not load ({s})\n", .{ tier, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    const table_dir = envValue(gpa, environ, l10n.override_env);
+    defer if (table_dir) |value| gpa.free(value);
+    l10n.setOverrideDir(io, table_dir);
+    l10n.setLanguage(language);
     var ui: ui_mod.Ui = .{
         .gpa = gpa,
         .io = io,
@@ -1113,6 +1254,7 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .settings_path = script.settings_path,
         .environ = environ,
         .os_dialogs = false,
+        .rect_log = script.rect_log,
     };
     defer ui.deinit();
     if (script.short_folder.len != 0) {
@@ -1123,6 +1265,9 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .source_folder = script.source,
         .source_files = script.source_files,
         .dialog_folder = script.dialog_folder,
+        .shot_folder = script.shot_folder,
+        .gpa = gpa,
+        .io = io,
     };
     var frames: u32 = 0;
     const passed = loopCounting(&window, &ui, &runner, script.frame_limit, &frames);

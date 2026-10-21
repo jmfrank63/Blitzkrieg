@@ -18,6 +18,9 @@ const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
 const kit = @import("editor_kit");
+const l10n = kit.l10n;
+const view_math = @import("view_math.zig");
+const language_picker = kit.language_picker;
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
@@ -44,8 +47,10 @@ pub const TestLaunchPrompt = logic.TestLaunchPrompt;
 /// The dialogs' filter. SDL wants the extensions alone, `;`-separated
 /// (SDL_DialogFileFilter), and the list must outlive the dialog, which
 /// reports after the call that showed it returned - hence a global.
-const map_filters = [_]sdl3.c.SDL_DialogFileFilter{
-    .{ .name = "Blitzkrieg maps (*.bzm;*.xml)", .pattern = "bzm;xml" },
+/// The names are filled in by `fillFilterNames` each time a dialog opens, so they follow the
+/// language; the pointers come from the string tables and live as long as the process.
+var map_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "", .pattern = "bzm;xml" },
 };
 
 /// Where a dialog's callback writes its answer. A global, not a field of
@@ -63,12 +68,39 @@ var script_slot: logic.PathSlot = .{};
 var rmg_slot: logic.PathSlot = .{};
 /// The Containers Composer's Browse for a patch map (05-09, D-10).
 var patch_slot: logic.PathSlot = .{};
-const rmg_filters = [_]sdl3.c.SDL_DialogFileFilter{
-    .{ .name = "RMG files (*.xml)", .pattern = "xml" },
+var rmg_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "", .pattern = "xml" },
 };
-const script_filters = [_]sdl3.c.SDL_DialogFileFilter{
-    .{ .name = "Lua scripts (*.lua)", .pattern = "lua" },
+var script_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "", .pattern = "lua" },
 };
+
+fn fillFilterNames() void {
+    map_filters[0].name = l10n.t("app.filter.maps");
+    rmg_filters[0].name = l10n.t("app.filter.rmg");
+    script_filters[0].name = l10n.t("app.filter.lua");
+}
+
+/// Opens an OS file dialog like SDL_ShowOpenFileDialog / SDL_ShowSaveFileDialog, but with a title
+/// in the current language, which the plain calls cannot carry.
+fn showFileDialog(
+    kind: sdl3.c.SDL_FileDialogType,
+    slot: *logic.PathSlot,
+    window: ?*sdl3.c.SDL_Window,
+    filters: []const sdl3.c.SDL_DialogFileFilter,
+    location: ?[*:0]const u8,
+    title: [*:0]const u8,
+) void {
+    fillFilterNames();
+    const props = sdl3.c.SDL_CreateProperties();
+    defer sdl3.c.SDL_DestroyProperties(props);
+    _ = sdl3.c.SDL_SetPointerProperty(props, sdl3.c.SDL_PROP_FILE_DIALOG_FILTERS_POINTER, @constCast(@ptrCast(filters.ptr)));
+    _ = sdl3.c.SDL_SetNumberProperty(props, sdl3.c.SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER, @intCast(filters.len));
+    _ = sdl3.c.SDL_SetPointerProperty(props, sdl3.c.SDL_PROP_FILE_DIALOG_WINDOW_POINTER, window);
+    if (location) |where| _ = sdl3.c.SDL_SetStringProperty(props, sdl3.c.SDL_PROP_FILE_DIALOG_LOCATION_STRING, where);
+    _ = sdl3.c.SDL_SetStringProperty(props, sdl3.c.SDL_PROP_FILE_DIALOG_TITLE_STRING, title);
+    sdl3.c.SDL_ShowFileDialogWithProperties(kind, dialogCallback, slot, props);
+}
 
 /// The panels' layout, in screen pixels, for their first appearance.
 const layout = struct {
@@ -86,7 +118,6 @@ const layout = struct {
 
 /// The map types the map file names (CMapInfo::GAME_TYPE,
 /// Sources/src/RandomMapGen/MapInfo_Types.h), TYPE_COUNT of them.
-const map_type_names = [_][:0]const u8{ "single player", "flag control", "sabotage" };
 
 /// One entry of the recovery-offer modal (D-22, spec Errors -> Crashes): the
 /// recovery copy's own OS path, and its sidecar's original document path and
@@ -253,6 +284,10 @@ pub const State = struct {
     /// changed.
     settings_changed: bool = false,
     settings_window_open: bool = false,
+    /// The language the Settings window's picker chose, applied between frames
+    /// (`applyPendingLanguage`): the font atlas and the tables never change under a frame in progress.
+    language_choice: [16]u8 = undefined,
+    language_choice_len: usize = 0,
     /// 05-11 (D-34): Tools > Options (the game's extra command line and the
     /// default save format; the two fields are edited here and commit on OK),
     /// Help > Keys and tools and Help > About.
@@ -911,10 +946,10 @@ pub const State = struct {
         // Editor.save's own read-only refusal (D-18) judges against the
         // same installation the panels do.
         editor.setBaseRoot(std.mem.sliceTo(&state.paths.base_root, 0));
-        state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
+        state.loadCatalogue() catch view.setStatus("", tr("app.status.catalogue_unread"));
         // The object filters (M3, D-31): the session's one read; the palette
         // re-reads when a generation moves (a composer save or edit).
-        editor.loadFilters() catch view.setStatus("failed: ", "the object filters did not read");
+        editor.loadFilters() catch view.setStatus("", tr("app.status.filters_unread"));
         state.mapOpened();
         return state;
     }
@@ -1007,7 +1042,7 @@ pub const State = struct {
         self.catalogue = &.{};
         self.order = &.{};
         self.sound_names = &.{};
-        self.loadCatalogue() catch self.view.setStatus("failed: ", "the object catalogue did not read");
+        self.loadCatalogue() catch self.view.setStatus("", tr("app.status.catalogue_unread"));
     }
 
     pub fn tiles(self: *const State) []const u8 {
@@ -1743,7 +1778,7 @@ pub fn act(state: *State) bool {
             // Task 5, carried from plan 5: a second Open or Save As while a
             // dialog is already up used to be dropped silently.
             .dialog_busy => {
-                state.view.setStatusFrom(.dialog, "", "a dialog is already open");
+                state.view.setStatusFrom(.dialog, "", tr("app.status.dialog_busy"));
                 return quit;
             },
             // The dialog that was busy has ended: "a dialog is already
@@ -1840,7 +1875,7 @@ pub fn act(state: *State) bool {
                 } else |_| if (!documentLoaded(state.editor)) state.mapOpened();
             },
             .dialog_failed => |message| {
-                state.view.setStatusFrom(.dialog, "the file dialog failed: ", message);
+                sayStatus(state.view, .dialog, "app.status.dialog_failed", .{message});
                 state.minimap.create_pending = false;
             },
             .switch_mod => |folder| performModSwitch(state, folder),
@@ -1919,20 +1954,20 @@ pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
     const files = state.editor.files orelse return false;
     var note: [200]u8 = undefined;
     switch (kit.script_file.copyAlong(files, baseRoot(state), pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
-        .copied => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua copied beside the new map", .{pending.name()}) catch "copied"),
+        .copied => state.view.setStatus("", say(&note, "app.script.copied", .{pending.name()})),
         // A file of that name appeared beside the new map after the question
         // was put: nothing is replaced; the question is asked again as
         // "Replace it?".
         .exists => {
             pending.replace = true;
             pending.active = true;
-            state.view.setStatus("script: ", std.fmt.bufPrint(&note, "a different {s}.lua is beside the new map now; nothing was copied", .{pending.name()}) catch "a different script is beside the new map now");
+            state.view.setStatus("", say(&note, "app.script.differs", .{pending.name()}));
             return false;
         },
-        .missing => state.view.setStatus("script: ", "the script is not beside the old map any more"),
-        .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua could not be copied: {s}", .{ pending.name(), files.lastError() }) catch "could not be copied"),
-        .not_a_bare_name => state.view.setStatus("script: ", "the script's name is not a plain name, so it was not copied"),
-        .shipped => state.view.setStatus("script: ", "the new map is inside a game's data folder, which is read-only; the script was not copied"),
+        .missing => state.view.setStatus("", tr("app.script.missing_old")),
+        .failed => state.view.setStatus("", say(&note, "app.script.copy_failed", .{ pending.name(), files.lastError() })),
+        .not_a_bare_name => state.view.setStatus("", tr("app.script.bad_name")),
+        .shipped => state.view.setStatus("", tr("app.script.shipped_new")),
     }
     return true;
 }
@@ -1961,19 +1996,19 @@ pub fn openScript(state: *State) bool {
     var value_buffer: [core.records.script_file_capacity]u8 = undefined;
     const value = scriptValue(state, &value_buffer) orelse return false;
     if (value.len == 0) {
-        state.view.setStatus("script: ", "the map names no script");
+        state.view.setStatus("", tr("app.script.none_named"));
         return false;
     }
     var url_buffer: [kit.files.max_path + 64]u8 = undefined;
     const url = kit.script_file.folderUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
-        state.view.setStatus("script: ", "the script file is not beside the map");
+        state.view.setStatus("", tr("app.script.not_beside"));
         return false;
     };
     var z_buffer: [kit.files.max_path + 65]u8 = undefined;
     const url_z = std.mem.printSentinel(&z_buffer, "{s}", .{url}, 0) catch return false;
     if (!state.os_dialogs) return true; // the scripted runs check the URL, not the desktop
     if (panels_m2.openUrlWithSystem(url_z)) |reason| {
-        state.view.setStatus("script: ", reason);
+        sayStatus(state.view, .general, "app.script.reason", .{reason});
         return false;
     }
     return true;
@@ -1984,7 +2019,7 @@ pub fn openScript(state: *State) bool {
 /// read-only (Save As into your maps folder first).
 pub fn chooseOtherScript(state: *State) void {
     if (documentIsShipped(state)) {
-        state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
+        state.view.setStatus("", tr("app.script.shipped"));
         return;
     }
     // IN-C05: with OS dialogs off nothing would ever answer the slot, so it is
@@ -1998,7 +2033,7 @@ pub fn chooseOtherScript(state: *State) void {
         if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{folder}, 0)) |z| default_location = z.ptr else |_| {}
     }
     state.os_dialogs_opened += 1;
-    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &script_slot, state.window, &script_filters, script_filters.len, default_location, false);
+    showFileDialog(sdl3.c.SDL_FILEDIALOG_OPENFILE, &script_slot, state.window, &script_filters, default_location, l10n.t("app.dialog.choose_script"));
 }
 
 /// Each frame: what the Lua file dialog answered, once. A picked file goes beside
@@ -2008,7 +2043,7 @@ fn pollScriptPick(state: *State) void {
     const result = script_slot.take() orelse return;
     switch (result) {
         .cancelled => {},
-        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .failed => |message| sayStatus(state.view, .general, "app.status.dialog_failed", .{message}),
         .path => |chosen| _ = pickScript(state, chosen.path, false),
     }
 }
@@ -2024,11 +2059,11 @@ pub const PickOutcome = enum { chosen, asked, refused };
 pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) PickOutcome {
     const files = state.editor.files orelse return .refused;
     if (documentIsShipped(state)) {
-        state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
+        state.view.setStatus("", tr("app.script.shipped"));
         return .refused;
     }
     const name = kit.script_file.pickedName(picked) orelse {
-        state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only");
+        state.view.setStatus("", tr("app.script.choose_name"));
         return .refused;
     };
     switch (kit.script_file.copyInto(files, baseRoot(state), state.editor.document.path.items, picked, overwrite)) {
@@ -2041,9 +2076,9 @@ pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) PickOutcom
             state.script_pick_active = true;
             return .asked;
         },
-        .not_a_bare_name => state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only"),
-        .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&state.script_note, "{s} could not be copied beside the map: {s}", .{ name, files.lastError() }) catch "the script could not be copied"),
-        .shipped => state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first"),
+        .not_a_bare_name => state.view.setStatus("", tr("app.script.choose_name")),
+        .failed => state.view.setStatus("", say(&state.script_note, "app.script.copy_failed_beside", .{ name, files.lastError() })),
+        .shipped => state.view.setStatus("", tr("app.script.shipped")),
     }
     return .refused;
 }
@@ -2119,9 +2154,9 @@ fn autosaveIntoMapFile(state: *State, now_ms: u64) void {
     if (result) |_| {
         var buffer: [64]u8 = undefined;
         const name = logic.baseName(state.editor.document.path.items);
-        state.view.setStatus("", std.fmt.bufPrint(&buffer, "autosaved {s}", .{name}) catch "autosaved");
+        state.view.setStatus("", say(&buffer, "app.status.autosaved", .{name}));
     } else |_| {
-        state.view.setStatus("autosave failed: ", state.editor.status());
+        sayStatus(state.view, .general, "app.status.autosave_failed", .{state.editor.status()});
     }
 }
 
@@ -2133,32 +2168,32 @@ fn writeRecoveryCopy(state: *State, now_ms: u64) void {
     state.autosave.wrote(now_ms);
     var name_buffer: [300]u8 = undefined;
     const name = kit.autosave.recoveryName(&name_buffer, state.editor.document.path.items, ".bzm") orelse {
-        state.view.setStatus("autosave failed: ", "the recovery file name is too long");
+        state.view.setStatus("", tr("app.status.autosave_name_long"));
         return;
     };
     var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const folder = recoveryFolder(&folder_buffer, state) orelse {
-        state.view.setStatus("autosave failed: ", "the recovery folder's path is too long");
+        state.view.setStatus("", tr("app.status.autosave_folder_long"));
         return;
     };
     std.Io.Dir.cwd().createDirPath(state.io, folder) catch {};
     var os_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const os_path = std.fmt.bufPrint(&os_path_buffer, "{s}{c}{s}", .{ folder, std.fs.path.sep, name }) catch {
-        state.view.setStatus("autosave failed: ", "the recovery path is too long");
+        state.view.setStatus("", tr("app.status.autosave_path_long"));
         return;
     };
     var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const engine_path = logic.enginePath(&engine_buffer, os_path, .open, .bzm) orelse {
-        state.view.setStatus("autosave failed: ", "the recovery path is too long");
+        state.view.setStatus("", tr("app.status.autosave_path_long"));
         return;
     };
     if (state.real.saveCopy(engine_path) != .ok) {
-        state.view.setStatus("autosave failed: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+        sayStatus(state.view, .general, "app.status.autosave_failed", .{std.mem.span(c.BkEditorLastMessage(state.real.session))});
         return;
     }
     writeRecoverySidecar(state, os_path);
     state.recovery_active = logic.PathText.init(os_path);
-    state.view.setStatus("", "recovery copy written");
+    state.view.setStatus("", tr("app.status.recovery_written"));
 }
 
 /// `<recovery copy>.txt`: the original OS path, then the unix time, one per
@@ -2228,7 +2263,7 @@ pub fn scanRecoveryOffers(state: *State) void {
 /// this session.
 fn drawRecoveryPrompt(state: *State) void {
     if (state.recovery_offers_count == 0 or state.recovery_prompt_dismissed) return;
-    const popup_id = "Unsaved work from an earlier session";
+    const popup_id = l10n.id("app.recovery.title");
     if (!state.recovery_popup_shown) {
         _ = ig.igOpenPopup(popup_id, 0);
         state.recovery_popup_shown = true;
@@ -2240,12 +2275,12 @@ fn drawRecoveryPrompt(state: *State) void {
         ig.igPushIDInt(@intCast(index));
         var line: [400]u8 = undefined;
         const original_name = logic.baseName(offer.originalPath());
-        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ if (original_name.len == 0) "(a map that was never saved)" else original_name, offer.unix_time }) catch "?";
+        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ if (original_name.len == 0) tr("app.recovery.never_saved") else original_name, offer.unix_time }) catch "?";
         text(label);
         ig.igSameLine();
-        const opened = ig.igSmallButton("Open");
+        const opened = ig.igSmallButton(l10n.id("kit.common.open"));
         ig.igSameLine();
-        const discarded = ig.igSmallButton("Discard");
+        const discarded = ig.igSmallButton(l10n.id("app.recovery.discard"));
         ig.igPopID();
         if (opened) {
             openRecoveryOffer(state, offer);
@@ -2261,7 +2296,7 @@ fn drawRecoveryPrompt(state: *State) void {
     }
     if (state.recovery_offers_count == 0) {
         ig.igCloseCurrentPopup();
-    } else if (ig.igButton("Later")) {
+    } else if (ig.igButton(l10n.id("app.recovery.later"))) {
         state.recovery_prompt_dismissed = true;
         ig.igCloseCurrentPopup();
     }
@@ -2271,7 +2306,7 @@ fn drawRecoveryPrompt(state: *State) void {
 fn openRecoveryOffer(state: *State, offer: RecoveryOffer) void {
     var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const engine_path = logic.enginePath(&engine_buffer, offer.filePath(), .open, .bzm) orelse {
-        state.view.setStatus("failed: ", "the recovery path is too long");
+        state.view.setStatus("", tr("app.status.recovery_path_long"));
         return;
     };
     const result = state.editor.open(engine_path);
@@ -2282,7 +2317,7 @@ fn openRecoveryOffer(state: *State, offer: RecoveryOffer) void {
         // recovery_active lets autosave keep writing this same file until then.
         state.recovery_active = logic.PathText.init(offer.filePath());
     } else |_| {
-        state.view.setStatus("failed: ", state.editor.status());
+        sayStatus(state.view, .general, "app.status.failed", .{state.editor.status()});
     }
 }
 
@@ -2309,38 +2344,38 @@ fn removeRecoveryOffer(state: *State, index: usize) void {
 /// return, per D-03's model, since BkEditorUpdateMap runs to completion
 /// inside its command.
 fn drawTerrainModals(state: *State) void {
-    if (ig.igBeginPopupModal("Fill Entire Map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ig.igBeginPopupModal(l10n.id("app.fill.title"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         var line: [160]u8 = undefined;
-        var what: []const u8 = "the brush tile's terrain type";
+        var what: []const u8 = tr("app.fill.brush_terrain");
         if (logic.indexOfTile(state.tile_entries[0..state.tile_count], state.view.brush.tile)) |at| {
             const terrain = state.tile_entries[at].terrain.slice();
             if (terrain.len != 0) what = terrain;
         }
-        text(std.fmt.bufPrint(&line, "Every tile of the map becomes terrain type {s}.", .{what}) catch "Every tile of the map becomes the brush tile's terrain type.");
-        text("The whole map is replaced - only undo takes it back.");
+        text(say(&line, "app.fill.terrain", .{what}));
+        text(tr("app.fill.warning"));
         ig.igSeparator();
-        if (ig.igSmallButton("Fill")) {
+        if (ig.igSmallButton(l10n.id("app.fill.fill"))) {
             _ = commands.mapFill(state, "");
             ig.igCloseCurrentPopup();
         }
         ig.igSameLine();
-        if (ig.igSmallButton("Cancel")) ig.igCloseCurrentPopup();
+        if (ig.igSmallButton(l10n.id("kit.common.cancel"))) ig.igCloseCurrentPopup();
         ig.igEndPopup();
     }
     if (state.update_report_open) {
         state.update_report_open = false;
-        _ = ig.igOpenPopup("Update Map", 0);
+        _ = ig.igOpenPopup(l10n.id("app.update.title"), 0);
     }
-    if (ig.igBeginPopupModal("Update Map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ig.igBeginPopupModal(l10n.id("app.update.title"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         var line: [96]u8 = undefined;
-        text(std.fmt.bufPrint(&line, "The map is updated - {d} of {d} steps reported.", .{ state.update_steps, state.update_total }) catch "The map is updated.");
-        if (ig.igSmallButton("OK")) ig.igCloseCurrentPopup();
+        text(say(&line, "app.update.report", .{ state.update_steps, state.update_total }));
+        if (ig.igSmallButton(l10n.id("kit.common.ok"))) ig.igCloseCurrentPopup();
         ig.igEndPopup();
     }
 }
 
 fn drawUnsavedPrompt(state: *State) void {
-    const popup_id = "Unsaved changes";
+    const popup_id = l10n.id("app.unsaved.title");
     if (state.actions.prompt.isAsking()) {
         if (!state.unsaved_popup_shown) {
             _ = ig.igOpenPopup(popup_id, 0);
@@ -2352,15 +2387,13 @@ fn drawUnsavedPrompt(state: *State) void {
     if (!ig.igBeginPopupModal(popup_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
     var buffer: [300]u8 = undefined;
     const name = logic.baseName(state.editor.document.path.items);
-    const shown_name = if (name.len != 0) name else "This map";
-    const message = std.fmt.bufPrint(&buffer, "{s} has changes that are not saved.", .{shown_name}) catch
-        "This map has changes that are not saved.";
-    text(message);
-    if (ig.igButton("Save")) state.actions.answer_pending = .save;
+    const shown_name = if (name.len != 0) name else tr("app.unsaved.this_map");
+    text(say(&buffer, "app.unsaved.message", .{shown_name}));
+    if (ig.igButton(l10n.id("kit.common.save"))) state.actions.answer_pending = .save;
     ig.igSameLine();
-    if (ig.igButton("Don't save")) state.actions.answer_pending = .dont_save;
+    if (ig.igButton(l10n.id("app.unsaved.dont_save"))) state.actions.answer_pending = .dont_save;
     ig.igSameLine();
-    if (ig.igButton("Cancel")) state.actions.answer_pending = .cancel;
+    if (ig.igButton(l10n.id("kit.common.cancel"))) state.actions.answer_pending = .cancel;
     if (state.actions.answer_pending != null) ig.igCloseCurrentPopup();
     ig.igEndPopup();
 }
@@ -2375,19 +2408,17 @@ fn drawUnsavedPrompt(state: *State) void {
 /// as plain untrusted bytes.
 fn drawUnknownObjectsPrompt(state: *State) void {
     if (state.unknown_types_count == 0) return;
-    const popup_id = "Objects this game does not know";
+    const popup_id = l10n.id("app.unknown.title");
     if (!state.unknown_popup_shown) {
         _ = ig.igOpenPopup(popup_id, 0);
         state.unknown_popup_shown = true;
     }
     if (!ig.igBeginPopupModal(popup_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
     var buffer: [200]u8 = undefined;
-    const message = std.fmt.bufPrint(&buffer, "{d} objects of {d} types are kept unchanged in the map and are not shown.", .{ state.unknown_objects_total, state.unknown_types_count }) catch
-        "Some objects are kept unchanged in the map and are not shown.";
-    text(message);
+    text(say(&buffer, "app.unknown.message", .{ state.unknown_objects_total, state.unknown_types_count }));
     const rows = @as(f32, @floatFromInt(state.unknown_types_count));
     const child_height = std.math.clamp(rows * ig.igGetTextLineHeightWithSpacing(), ig.igGetTextLineHeightWithSpacing(), 200);
-    if (ig.igBeginChild("unknown-types", .{ .x = 320, .y = child_height }, ig.ImGuiChildFlags_Borders, 0)) {
+    if (ig.igBeginChild(l10n.id("app.unknown.title"), .{ .x = 320, .y = child_height }, ig.ImGuiChildFlags_Borders, 0)) {
         for (state.unknown_types[0..state.unknown_types_count]) |entry| {
             var row_buffer: [core.bridge.name_capacity + 16]u8 = undefined;
             const row = std.fmt.bufPrint(&row_buffer, "{s} x {d}", .{ entry.nameSlice(), entry.count }) catch entry.nameSlice();
@@ -2395,8 +2426,8 @@ fn drawUnknownObjectsPrompt(state: *State) void {
         }
     }
     ig.igEndChild();
-    text("Maps made for a mod need that mod: File > Mod.");
-    if (ig.igButton("OK")) ig.igCloseCurrentPopup();
+    text(tr("app.unknown.hint"));
+    if (ig.igButton(l10n.id("kit.common.ok"))) ig.igCloseCurrentPopup();
     ig.igEndPopup();
 }
 
@@ -2409,10 +2440,26 @@ pub fn applySettings(state: *State) void {
     state.settings_changed = true;
 }
 
+/// Between two frames: the picker's choice written to `ui_language` (the file is saved by the
+/// loop's `settings_changed` rule), the font atlas rebuilt for it and the tables switched.
+pub fn applyPendingLanguage(state: *State) void {
+    if (state.language_choice_len == 0) return;
+    const setting = state.language_choice[0..state.language_choice_len];
+    state.language_choice_len = 0;
+    state.settings.ui_language_storage.set(setting);
+    state.settings_changed = true;
+    const code = language_picker.chooseLanguage(&state.settings, state.automated);
+    _ = kit.fonts.reload(code) catch |err| {
+        std.debug.print("map-editor: the fonts did not reload for {s} ({s})\n", .{ code, @errorName(err) });
+        return;
+    };
+    l10n.setLanguage(code);
+}
+
 /// Edit > "Settings...": (re)opens the window and loads the maps-folder
 /// field's editing buffer fresh from `settings`, so a stale in-progress edit
 /// from a previous opening is never shown.
-fn openSettingsWindow(state: *State) void {
+pub fn openSettingsWindow(state: *State) void {
     state.settings_window_open = true;
     const folder = state.settings.mapsFolder();
     @memset(&state.maps_folder_edit, 0);
@@ -2427,41 +2474,55 @@ fn openSettingsWindow(state: *State) void {
 /// is deactivated, never once per frame of a drag or per keystroke.
 fn drawSettingsWindow(state: *State) void {
     if (!state.settings_window_open) return;
-    if (!ig.igBegin("Settings", &state.settings_window_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!ig.igBegin(l10n.id("app.settings.title"), &state.settings_window_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         ig.igEnd();
         return;
     }
     defer ig.igEnd();
+    l10n.noteWindowRect("app.settings.title");
+
+    if (language_picker.draw(kit.settings.uiLanguage(&state.settings))) |choice| {
+        const len = @min(choice.value.len, state.language_choice.len);
+        @memcpy(state.language_choice[0..len], choice.value[0..len]);
+        state.language_choice_len = len;
+    }
+    l10n.noteLabelRect("kit.language.label");
 
     var scroll_speed = state.settings.scroll_speed;
-    if (ig.igSliderFloatEx("Scroll and swipe speed", &scroll_speed, core.settings.min_scroll_speed, core.settings.max_scroll_speed, "%.2f", ig.ImGuiSliderFlags_Logarithmic)) {
+    if (ig.igSliderFloatEx(l10n.id("app.settings.scroll_speed"), &scroll_speed, core.settings.min_scroll_speed, core.settings.max_scroll_speed, "%.2f", ig.ImGuiSliderFlags_Logarithmic)) {
         state.settings.scroll_speed = scroll_speed;
         state.view.wheel_sensitivity = scroll_speed;
     }
+    l10n.noteLabelRect("app.settings.scroll_speed");
     if (ig.igIsItemDeactivatedAfterEdit()) applySettings(state);
 
     var autosave = state.settings.autosave;
-    if (ig.igCheckbox("Autosave", &autosave)) {
+    if (ig.igCheckbox(l10n.id("app.settings.autosave"), &autosave)) {
         state.settings.autosave = autosave;
         applySettings(state);
     }
+    l10n.noteLabelRect("app.settings.autosave");
 
     var minutes: c_int = @intCast(state.settings.autosave_minutes);
-    if (ig.igSliderInt("Every ... minutes", &minutes, @intCast(core.settings.min_autosave_minutes), @intCast(core.settings.max_autosave_minutes))) {
+    if (ig.igSliderInt(l10n.id("app.settings.autosave_minutes"), &minutes, @intCast(core.settings.min_autosave_minutes), @intCast(core.settings.max_autosave_minutes))) {
         state.settings.autosave_minutes = @intCast(minutes);
     }
+    l10n.noteLabelRect("app.settings.autosave_minutes");
     if (ig.igIsItemDeactivatedAfterEdit()) applySettings(state);
 
     var plain_folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var hint_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     const default_folder = logic.defaultMapsFolder(&plain_folder_buffer, userRoot(state), state.modFolder()) orelse "";
     const hint_z = std.mem.printSentinel(&hint_buffer, "{s}", .{default_folder}, 0) catch "";
-    _ = ig.igInputTextWithHint("Maps folder", hint_z.ptr, &state.maps_folder_edit, state.maps_folder_edit.len + 1, 0);
+    _ = ig.igInputTextWithHint(l10n.id("app.settings.maps_folder"), hint_z.ptr, &state.maps_folder_edit, state.maps_folder_edit.len + 1, 0);
+    l10n.noteLabelRect("app.settings.maps_folder");
     if (ig.igIsItemDeactivatedAfterEdit()) {
         state.settings.setMapsFolder(std.mem.sliceTo(&state.maps_folder_edit, 0));
         applySettings(state);
     }
-    if (ig.igButton("Use default")) {
+    const use_default = ig.igButton(l10n.id("app.settings.use_default"));
+    l10n.noteRect("app.settings.use_default");
+    if (use_default) {
         state.settings.setMapsFolder("");
         @memset(&state.maps_folder_edit, 0);
         applySettings(state);
@@ -2498,8 +2559,8 @@ fn showDialog(state: *State, kind: logic.DialogKind) void {
     if (!state.os_dialogs) return;
     state.os_dialogs_opened += 1;
     switch (kind) {
-        .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location, false),
-        .save_as => sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, slot, state.window, &map_filters, map_filters.len, default_location),
+        .open => showFileDialog(sdl3.c.SDL_FILEDIALOG_OPENFILE, slot, state.window, &map_filters, default_location, l10n.t("app.dialog.open_map")),
+        .save_as => showFileDialog(sdl3.c.SDL_FILEDIALOG_SAVEFILE, slot, state.window, &map_filters, default_location, l10n.t("app.dialog.save_map")),
     }
 }
 
@@ -2599,9 +2660,9 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         .game_parameters = state.settings.gameParameters(),
     }) catch |err| {
         const message = if (err == error.FileNotFound)
-            std.fmt.bufPrint(buffer, "No game beside the Map Editor at {s}", .{game_path}) catch "No game beside the Map Editor"
+            say(buffer, "app.status.test_no_game", .{game_path})
         else
-            std.fmt.bufPrint(buffer, "the game would not start: {s}", .{@errorName(err)}) catch "the game would not start";
+            say(buffer, "app.status.test_no_start", .{@errorName(err)});
         return .{ .report_failure = message };
     };
     state.test_game = running;
@@ -2612,7 +2673,7 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
 /// D-06's still-running prompt, and the exit report (bad code or an early
 /// failure); a clean exit is never shown at all (TestLaunchPrompt.report()).
 fn drawTestLaunchModals(state: *State) void {
-    const restart_id = "Test in game##restart";
+    const restart_id = l10n.id("app.test.restart_title");
     if (state.test_prompt.isAskingRestart()) {
         if (!state.test_restart_popup_shown) {
             _ = ig.igOpenPopup(restart_id, 0);
@@ -2622,21 +2683,21 @@ fn drawTestLaunchModals(state: *State) void {
         state.test_restart_popup_shown = false;
     }
     if (ig.igBeginPopupModal(restart_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
-        text("A test game is still running.");
-        if (ig.igButton("Restart with this version")) {
+        text(tr("app.test.running"));
+        if (ig.igButton(l10n.id("app.test.restart"))) {
             state.test_prompt.answer(.restart);
             if (state.test_game) |*running| running.terminate(state.io);
             ig.igCloseCurrentPopup();
         }
         ig.igSameLine();
-        if (ig.igButton("Keep it running")) {
+        if (ig.igButton(l10n.id("app.test.keep"))) {
             state.test_prompt.answer(.keep);
             ig.igCloseCurrentPopup();
         }
         ig.igEndPopup();
     }
 
-    const report_id = "Test in game##report";
+    const report_id = l10n.id("app.test.report_title");
     if (state.test_prompt.report() != null) {
         if (!state.test_report_popup_shown) {
             _ = ig.igOpenPopup(report_id, 0);
@@ -2648,7 +2709,7 @@ fn drawTestLaunchModals(state: *State) void {
     if (state.test_prompt.report()) |message| {
         if (ig.igBeginPopupModal(report_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
             text(message);
-            if (ig.igButton("OK")) {
+            if (ig.igButton(l10n.id("kit.common.ok"))) {
                 state.test_prompt.acknowledgeReport();
                 ig.igCloseCurrentPopup();
             }
@@ -2663,15 +2724,17 @@ fn drawMenuBar(state: *State) f32 {
     const height = ig.igGetFrameHeight();
     const editor = state.editor;
     const map_open = mapIsOpen(editor);
-    if (ig.igBeginMenu("File")) {
+    const file_open = ig.igBeginMenu(l10n.id("app.menu.file"));
+    l10n.noteRect("app.menu.file");
+    if (file_open) {
         // M3, D-23: New goes through the dialog; the map itself is built
         // once the unsaved-changes prompt, if any, has been answered.
-        if (ig.igMenuItemEx("New...", new_map_shortcut_label, false, true)) openNewMapDialog(state);
-        if (ig.igMenuItemEx("Open...", null, false, true)) state.actions.open_requested = true;
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.new"), new_map_shortcut_label, false, true)) openNewMapDialog(state);
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.open"), null, false, true)) state.actions.open_requested = true;
         // 05-08, D-01: Create Random Map - the generator's own dialog, the
         // map opened afterwards as any other.
-        if (ig.igMenuItemEx("Create Random Map...", null, false, state.rmg_phase == .idle)) openRmgDialog(state);
-        if (ig.igBeginMenu("Open Recent")) {
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.random"), null, false, state.rmg_phase == .idle)) openRmgDialog(state);
+        if (ig.igBeginMenu(l10n.id("app.menu.file.recent"))) {
             if (!state.recent_menu_open_prev) refreshRecentExistsCache(state);
             state.recent_menu_open_prev = true;
             drawOpenRecentItems(state);
@@ -2681,7 +2744,7 @@ fn drawMenuBar(state: *State) f32 {
         }
         // D-26: None and every installed mod; the active one checked.
         // Switching guards through the same unsaved-changes prompt as Open.
-        if (ig.igBeginMenu("Mod")) {
+        if (ig.igBeginMenu(l10n.id("app.menu.file.mod"))) {
             if (!state.mod_menu_open_prev) refreshModList(state);
             state.mod_menu_open_prev = true;
             drawModItems(state);
@@ -2692,8 +2755,8 @@ fn drawMenuBar(state: *State) f32 {
         // The Save family works on a never-saved map too (D-23/D-24): what
         // matters is a loaded document, not a path on disk.
         const saveable = documentLoaded(editor);
-        if (ig.igMenuItemEx("Save", null, false, saveable)) state.actions.save_requested = true;
-        if (ig.igMenuItemEx("Save As...", null, false, saveable)) {
+        if (ig.igMenuItemEx(l10n.id("kit.common.save"), null, false, saveable)) state.actions.save_requested = true;
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.save_as"), null, false, saveable)) {
             // A plain Save As: no forced format, the setting's default is it.
             state.save_as_format_forced = null;
             state.actions.save_as_requested = true;
@@ -2701,94 +2764,110 @@ fn drawMenuBar(state: *State) f32 {
         // M3, D-24: both convert the map's format for this and later saves -
         // the bridge takes the format from the path's extension, so the
         // forced one is what an extensionless path is given.
-        if (ig.igMenuItemEx("Save as XML", save_xml_shortcut_label, false, saveable)) requestSaveAsFormat(state, .xml);
-        if (ig.igMenuItemEx("Save as BZM", save_bzm_shortcut_label, false, saveable)) requestSaveAsFormat(state, .bzm);
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.save_xml"), save_xml_shortcut_label, false, saveable)) requestSaveAsFormat(state, .xml);
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.save_bzm"), save_bzm_shortcut_label, false, saveable)) requestSaveAsFormat(state, .bzm);
         // 03-15 gap fix: through the unsaved-changes prompt (D-23), like Open.
-        if (ig.igMenuItemEx("Close", close_shortcut_label, false, map_open)) state.actions.close_requested = true;
+        if (ig.igMenuItemEx(l10n.id("kit.common.close"), close_shortcut_label, false, map_open)) state.actions.close_requested = true;
         ig.igSeparator();
         // D-21: switchable from the menu, not only the Settings window.
         var autosave_on = state.settings.autosave;
-        if (ig.igMenuItemBoolPtr("Autosave", null, &autosave_on, true)) {
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.file.autosave"), null, &autosave_on, true)) {
             state.settings.autosave = autosave_on;
             applySettings(state);
         }
         ig.igSeparator();
-        if (ig.igMenuItemEx("Quit", null, false, true)) state.actions.quit_requested = true;
+        if (ig.igMenuItemEx(l10n.id("app.menu.file.quit"), null, false, true)) state.actions.quit_requested = true;
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Edit")) {
-        if (ig.igMenuItemEx("Undo", "Ctrl+Z", false, editor.history.canUndo())) state.view.undo(editor);
-        if (ig.igMenuItemEx("Redo", "Ctrl+Y", false, editor.history.canRedo())) state.view.redo(editor);
+    const edit_open = ig.igBeginMenu(l10n.id("app.menu.edit"));
+    l10n.noteRect("app.menu.edit");
+    if (edit_open) {
+        if (ig.igMenuItemEx(l10n.id("app.menu.edit.undo"), "Ctrl+Z", false, editor.history.canUndo())) state.view.undo(editor);
+        if (ig.igMenuItemEx(l10n.id("app.menu.edit.redo"), "Ctrl+Y", false, editor.history.canRedo())) state.view.redo(editor);
         ig.igSeparator();
-        if (ig.igMenuItemEx("Settings...", null, false, true)) openSettingsWindow(state);
+        if (ig.igMenuItemEx(l10n.id("app.menu.edit.settings"), null, false, true)) openSettingsWindow(state);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Map")) {
+    const map_menu_open = ig.igBeginMenu(l10n.id("app.menu.map"));
+    l10n.noteRect("app.menu.map");
+    if (map_menu_open) {
         drawMapMenu(state, map_open);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Unit")) {
+    const unit_open = ig.igBeginMenu(l10n.id("app.menu.unit"));
+    l10n.noteRect("app.menu.unit");
+    if (unit_open) {
         drawUnitMenu(state, map_open);
         ig.igEndMenu();
     }
     // 05-06, D-32: Layers - the renderer's toggles and the fire ranges.
-    if (ig.igBeginMenu("Layers")) {
+    const layers_open = ig.igBeginMenu(l10n.id("app.menu.layers"));
+    l10n.noteRect("app.menu.layers");
+    if (layers_open) {
         panels_m3.drawLayersMenu(state, map_open);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Tools")) {
+    const tools_open = ig.igBeginMenu(l10n.id("app.menu.tools"));
+    l10n.noteRect("app.menu.tools");
+    if (tools_open) {
         for (&tool_registry.entries) |*item| {
             if (item.hidden) continue;
             var shortcut_buffer: [2:0]u8 = undefined;
             const shortcut = tool_registry.shortcutText(item, &shortcut_buffer);
-            if (ig.igMenuItemEx(item.label, if (shortcut.len == 0) null else shortcut.ptr, state.view.tool == item.id, true)) state.view.selectTool(editor, item.id);
+            if (ig.igMenuItemEx(toolLabel(item.id), if (shortcut.len == 0) null else shortcut.ptr, state.view.tool == item.id, true)) state.view.selectTool(editor, item.id);
         }
         // M3, D-18: the Heights window (the MFC terrain tab's dialog) beside
         // the tool it drives - the tool is the gesture, the window the fields.
         ig.igSeparator();
-        if (ig.igMenuItemBoolPtr("Heights...", null, &state.heights_open, true)) {}
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.heights"), null, &state.heights_open, true)) {}
         // M3, D-31: the Filters Composer (the MFC's CreateFilterDialog), a
         // Tools window like every composer (D-06).
-        if (ig.igMenuItemBoolPtr("Filters Composer...", null, &state.filters_composer_open, true)) {}
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.filters"), null, &state.filters_composer_open, true)) {}
         // M3, D-06/D-11: the Containers and Graphs Composers (05-09).
-        if (ig.igMenuItemBoolPtr("Containers Composer...", null, &state.containers_open, true)) state.composers.ensureScanned(state.editor);
-        if (ig.igMenuItemBoolPtr("Graphs Composer...", null, &state.graphs_open, true)) state.composers.ensureScanned(state.editor);
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.containers"), null, &state.containers_open, true)) state.composers.ensureScanned(state.editor);
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.graphs"), null, &state.graphs_open, true)) state.composers.ensureScanned(state.editor);
         // 05-10: the Fields Composer (the MFC's RMG_CreateFieldDialog).
-        if (ig.igMenuItemBoolPtr("Fields Composer...", null, &state.fields_composer_open, true)) state.composers.ensureScanned(state.editor);
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.fields_composer"), null, &state.fields_composer_open, true)) state.composers.ensureScanned(state.editor);
         // 05-10: the Templates Composer (the MFC's RMG_CreateTemplateDialog).
-        if (ig.igMenuItemBoolPtr("Templates Composer...", null, &state.templates_composer_open, true)) state.composers.ensureScanned(state.editor);
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.templates"), null, &state.templates_composer_open, true)) state.composers.ensureScanned(state.editor);
         // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
-        if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.fields"), null, &state.fields_open, true)) {}
         // M3, D-26: the Properties window (the MFC CPropertieDialog); it
         // also opens on a double-click, Enter or Space on a selection.
-        if (ig.igMenuItemBoolPtr("Properties...", null, &state.properties_open, map_open)) {}
+        if (ig.igMenuItemBoolPtr(l10n.id("app.menu.tools.properties"), null, &state.properties_open, map_open)) {}
         // 05-08, D-13: the MFC's Tools 0..3, each writing its list to
         // <UserRoot>mapeditor/logs (ID_TOOL_4 is not a feature: it would
         // rewrite Data).
-        if (ig.igBeginMenu("Export lists")) {
+        if (ig.igBeginMenu(l10n.id("app.menu.tools.export"))) {
             inline for (comptime std.enums.values(logic.ExportKind)) |kind| {
-                if (ig.igMenuItemEx(kind.menuLabel().ptr, null, false, true)) _ = commands.run(state, "export_lists", @tagName(kind));
+                if (ig.igMenuItemEx(exportLabel(kind), null, false, true)) _ = commands.run(state, "export_lists", @tagName(kind));
             }
             ig.igEndMenu();
         }
         // 05-11, D-34 (PARITY T2): the game's extra command line and the default save format.
         ig.igSeparator();
-        if (ig.igMenuItemEx("Options...", null, state.options_open, true)) panels_m3.openOptionsWindow(state);
+        if (ig.igMenuItemEx(l10n.id("app.menu.tools.options"), null, state.options_open, true)) panels_m3.openOptionsWindow(state);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("View")) {
+    const view_open = ig.igBeginMenu(l10n.id("app.menu.view"));
+    l10n.noteRect("app.menu.view");
+    if (view_open) {
         drawViewMenu(state, map_open);
         ig.igEndMenu();
     }
-    if (ig.igBeginMenu("Test")) {
-        if (ig.igMenuItemEx("Test in game", "F5", false, documentLoaded(editor))) requestTestLaunch(state);
+    const test_open = ig.igBeginMenu(l10n.id("app.menu.test"));
+    l10n.noteRect("app.menu.test");
+    if (test_open) {
+        if (ig.igMenuItemEx(l10n.id("app.menu.test.run"), "F5", false, documentLoaded(editor))) requestTestLaunch(state);
         ig.igEndMenu();
     }
     // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
     // is the help, About the product line.
-    if (ig.igBeginMenu("Help")) {
-        if (ig.igMenuItemBoolPtr("Keys and tools", "F1", &state.help_keys_open, true)) {}
-        if (ig.igMenuItemBoolPtr("About", null, &state.about_open, true)) {}
+    const help_open = ig.igBeginMenu(l10n.id("app.menu.help"));
+    l10n.noteRect("app.menu.help");
+    if (help_open) {
+        if (ig.igMenuItemBoolPtr(l10n.id("app.window.keys_and_tools"), "F1", &state.help_keys_open, true)) {}
+        if (ig.igMenuItemBoolPtr(l10n.id("app.window.about"), null, &state.about_open, true)) {}
         ig.igEndMenu();
     }
     ig.igEndMainMenuBar();
@@ -2817,26 +2896,105 @@ pub const ViewWindow = enum {
     about,
 };
 
-pub fn viewWindowLabel(window: ViewWindow) [:0]const u8 {
+pub fn viewWindowLabel(window: ViewWindow) [*:0]const u8 {
     return switch (window) {
-        .heights => "Heights",
-        .fields => "Fields",
-        .minimap => "Minimap",
-        .properties_window => "Properties window",
-        .groups => "Reinforcement groups",
-        .start_commands => "Start commands",
-        .script => "Script",
-        .unit_creation => "Unit Creation Info",
-        .check_map => "Check Map",
-        .filters_composer => "Filters Composer",
-        .containers_composer => "Containers Composer",
-        .graphs_composer => "Graphs Composer",
-        .fields_composer => "Fields Composer",
-        .templates_composer => "Templates Composer",
-        .options => "Options",
-        .keys_and_tools => "Keys and tools",
-        .about => "About",
+        .heights => l10n.id("app.window.heights"),
+        .fields => l10n.id("app.window.fields"),
+        .minimap => l10n.id("app.window.minimap"),
+        .properties_window => l10n.id("app.window.properties"),
+        .groups => l10n.id("app.window.groups"),
+        .start_commands => l10n.id("app.window.start_commands"),
+        .script => l10n.id("app.window.script"),
+        .unit_creation => l10n.id("app.window.unit_creation"),
+        .check_map => l10n.id("app.window.check_map"),
+        .filters_composer => l10n.id("app.window.filters_composer"),
+        .containers_composer => l10n.id("app.window.containers_composer"),
+        .graphs_composer => l10n.id("app.window.graphs_composer"),
+        .fields_composer => l10n.id("app.window.fields_composer"),
+        .templates_composer => l10n.id("app.window.templates_composer"),
+        .options => l10n.id("app.window.options"),
+        .keys_and_tools => l10n.id("app.window.keys_and_tools"),
+        .about => l10n.id("app.window.about"),
     };
+}
+
+/// The docked panels' names in the View menu, in the current language.
+pub fn panelLabel(id: logic.PanelId) [*:0]const u8 {
+    return switch (id) {
+        .tools => l10n.t("app.panel.tools"),
+        .objects => l10n.t("app.panel.objects"),
+        .properties => l10n.t("app.panel.properties"),
+        .players => l10n.t("app.panel.players"),
+        .camera_anchors => l10n.t("app.panel.camera_anchors"),
+        .sounds => l10n.t("app.panel.sounds"),
+        .status_bar => l10n.t("app.panel.status_bar"),
+    };
+}
+
+/// View > Markers entries in the current language (marker_logic's English labels stay the
+/// names the tests and logs use).
+fn markerLabel(kind: marker_logic.MarkerKind) [*:0]const u8 {
+    return switch (kind) {
+        .camera_anchors => l10n.t("app.panel.camera_anchors"),
+        .roads_rivers => l10n.t("app.marker.roads_rivers"),
+        .script_areas => l10n.t("app.marker.script_areas"),
+        .parcels => l10n.t("app.marker.parcels"),
+        .start_commands => l10n.t("app.window.start_commands"),
+        .reserve_positions => l10n.t("app.marker.reserve_positions"),
+        .groups => l10n.t("app.window.groups"),
+        .selection_outline => l10n.t("app.marker.selection_outline"),
+    };
+}
+
+/// Tools > Export lists entries in the current language.
+fn exportLabel(kind: logic.ExportKind) [*:0]const u8 {
+    return switch (kind) {
+        .graphs => l10n.t("app.export.graphs"),
+        .contexts => l10n.t("app.export.contexts"),
+        .patches => l10n.t("app.export.patches"),
+        .maps => l10n.t("app.export.maps"),
+    };
+}
+
+/// A tool's name in the Tools menu and the tool palette, in the current language; the registry's
+/// English label stays the `tool=` word of the scripts and logs.
+pub fn toolLabel(id: tool_registry.ToolId) [*:0]const u8 {
+    return switch (id) {
+        .select => l10n.t("app.tool.select"),
+        .brush => l10n.t("app.tool.brush"),
+        .place => l10n.t("app.tool.place"),
+        .roads_rivers => l10n.t("app.tool.roads_rivers"),
+        .bridge => l10n.t("app.tool.bridge"),
+        .fence => l10n.t("app.tool.fence"),
+        .entrenchment => l10n.t("app.tool.entrenchment"),
+        .script_areas => l10n.t("app.tool.script_areas"),
+        .start_target => l10n.t("app.tool.start_target"),
+        .reserve_positions => l10n.t("app.tool.reserve_positions"),
+        .ai_general => l10n.t("app.tool.ai_general"),
+        .heights => l10n.t("app.window.heights"),
+        .fields => l10n.t("app.window.fields"),
+        .damage => l10n.t("app.tool.damage"),
+    };
+}
+
+/// After the tool's button: where it drew, for the language tier's frame measurement.
+fn noteToolRect(id: tool_registry.ToolId) void {
+    switch (id) {
+        .select => l10n.noteRect("app.tool.select"),
+        .brush => l10n.noteRect("app.tool.brush"),
+        .place => l10n.noteRect("app.tool.place"),
+        .roads_rivers => l10n.noteRect("app.tool.roads_rivers"),
+        .bridge => l10n.noteRect("app.tool.bridge"),
+        .fence => l10n.noteRect("app.tool.fence"),
+        .entrenchment => l10n.noteRect("app.tool.entrenchment"),
+        .script_areas => l10n.noteRect("app.tool.script_areas"),
+        .start_target => l10n.noteRect("app.tool.start_target"),
+        .reserve_positions => l10n.noteRect("app.tool.reserve_positions"),
+        .ai_general => l10n.noteRect("app.tool.ai_general"),
+        .heights => l10n.noteRect("app.window.heights"),
+        .fields => l10n.noteRect("app.window.fields"),
+        .damage => l10n.noteRect("app.tool.damage"),
+    }
 }
 
 /// Whether the window's flag may be turned on with no map open.
@@ -2916,24 +3074,24 @@ pub fn columnsAtDefault(state: *const State) bool {
 /// View (05-11, D-34): the view, the layout, every docked panel and floating
 /// window with a check, the status bar and the markers.
 fn drawViewMenu(state: *State, map_open: bool) void {
-    if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
-    if (ig.igMenuItemEx("Reset layout", null, false, true)) state.layout_reset_pending = true;
+    if (ig.igMenuItemEx(l10n.id("app.menu.view.reset_view"), "Home", false, map_open)) state.view.resetView(state.real);
+    if (ig.igMenuItemEx(l10n.id("app.menu.view.reset_layout"), null, false, true)) state.layout_reset_pending = true;
     ig.igSeparator();
     inline for (comptime std.enums.values(logic.PanelId)) |id| {
         var shown = !logic.panelHidden(state.settings.hidden_panels, id);
-        if (ig.igMenuItemBoolPtr(logic.panelLabel(id).ptr, null, &shown, true)) setPanelVisible(state, id, shown);
+        if (ig.igMenuItemBoolPtr(panelLabel(id), null, &shown, true)) setPanelVisible(state, id, shown);
     }
     ig.igSeparator();
     inline for (comptime std.enums.values(ViewWindow)) |window| {
         const flag = viewWindowFlag(state, window);
         var on = flag.*;
-        if (ig.igMenuItemBoolPtr(viewWindowLabel(window).ptr, null, &on, map_open or !viewWindowNeedsMap(window))) setViewWindow(state, window, on);
+        if (ig.igMenuItemBoolPtr(viewWindowLabel(window), null, &on, map_open or !viewWindowNeedsMap(window))) setViewWindow(state, window, on);
     }
     ig.igSeparator();
-    if (ig.igBeginMenu("Markers")) {
+    if (ig.igBeginMenu(l10n.id("app.menu.view.markers"))) {
         inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {
             var on = state.marker_set.has(kind);
-            if (ig.igMenuItemBoolPtr(kind.label(), null, &on, true)) state.marker_set.setKind(kind, on);
+            if (ig.igMenuItemBoolPtr(markerLabel(kind), null, &on, true)) state.marker_set.setKind(kind, on);
         }
         ig.igEndMenu();
     }
@@ -2946,12 +3104,12 @@ pub fn openFromSecondInstance(state: *State, os_path: []const u8) void {
     const verdict = logic.dropVerdict(os_path);
     if (verdict != .open) {
         var note: [256]u8 = undefined;
-        state.view.setStatus("second instance: ", logic.dropNote(&note, verdict, os_path));
+        sayStatus(state.view, .general, "app.status.second_instance", .{dropNote(&note, verdict, os_path)});
         return;
     }
     state.actions.requestOpenPath(os_path);
     state.open_origin = .second_instance;
-    state.view.setStatus("opened from second instance: ", os_path);
+    sayStatus(state.view, .general, "app.status.second_instance_opened", .{os_path});
     std.debug.print("map-editor: opened from second instance: {s}\n", .{os_path});
 }
 
@@ -2962,7 +3120,7 @@ pub fn dropFile(state: *State, os_path: []const u8) bool {
     const verdict = logic.dropVerdict(os_path);
     if (verdict != .open) {
         var note: [256]u8 = undefined;
-        state.view.setStatus("drop: ", logic.dropNote(&note, verdict, os_path));
+        sayStatus(state.view, .general, "app.status.drop", .{dropNote(&note, verdict, os_path)});
         return false;
     }
     state.actions.requestOpenPath(os_path);
@@ -2978,10 +3136,10 @@ pub fn dropFile(state: *State, os_path: []const u8) bool {
 fn drawUnitMenu(state: *State, map_open: bool) void {
     state.refreshStartActions();
     const can_add = map_open and state.editor.selection != null and state.startcmd_actions.len != 0;
-    if (ig.igMenuItemEx("Add start command", null, false, can_add)) _ = commands.run(state, "startcmd_add", "");
-    if (ig.igMenuItemBoolPtr("Start commands...", null, &state.startcmds_open, map_open)) {}
+    if (ig.igMenuItemEx(l10n.id("app.menu.unit.add_command"), null, false, can_add)) _ = commands.run(state, "startcmd_add", "");
+    if (ig.igMenuItemBoolPtr(l10n.id("app.menu.unit.commands"), null, &state.startcmds_open, map_open)) {}
     ig.igSeparator();
-    if (ig.igMenuItemEx("Artillery positions mode", null, state.view.tool == .reserve_positions, map_open)) _ = commands.run(state, "reserve_mode", "");
+    if (ig.igMenuItemEx(l10n.id("app.menu.unit.artillery"), null, state.view.tool == .reserve_positions, map_open)) _ = commands.run(state, "reserve_mode", "");
 }
 
 /// Map > Player camera (D-22): the ground point under the screen's centre
@@ -2989,36 +3147,36 @@ fn drawUnitMenu(state: *State, map_open: bool) void {
 /// neutral one - the same commands the Camera anchors panel and
 /// BK_EDITOR_AUTO's `do=` run.
 fn drawMapMenu(state: *State, map_open: bool) void {
-    if (ig.igBeginMenu("Player camera")) {
+    if (ig.igBeginMenu(l10n.id("app.menu.map.camera"))) {
         const player: i32 = @max(state.view.placer.player, 0);
-        var label: [48:0]u8 = undefined;
-        const label_text = std.mem.printSentinel(&label, "Set camera for player {d}", .{player}, 0) catch "Set camera for player";
+        var label: [160:0]u8 = undefined;
+        const label_text: [*:0]const u8 = if (l10n.formatZ(&label, "app.menu.map.camera_player", .{player})) |z| z.ptr else l10n.t("app.menu.map.camera");
         if (ig.igMenuItemEx(label_text, null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, player);
-        if (ig.igMenuItemEx("Set neutral camera", null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, commands.neutral_slot);
+        if (ig.igMenuItemEx(l10n.id("app.menu.map.camera_neutral"), null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, commands.neutral_slot);
         ig.igEndMenu();
     }
     // D-16: the Group Manager.
-    if (ig.igMenuItemBoolPtr("Reinforcement groups...", null, &state.groups_open, map_open)) {}
+    if (ig.igMenuItemBoolPtr(l10n.id("app.menu.map.groups"), null, &state.groups_open, map_open)) {}
     // D-20: the map's script file.
-    if (ig.igMenuItemBoolPtr("Script...", null, &state.script_open, map_open)) {}
+    if (ig.igMenuItemBoolPtr(l10n.id("app.menu.map.script"), null, &state.script_open, map_open)) {}
     // 05-05, D-30: the per-player Unit Creation Info (the MFC's Edit > Unit Creation Info).
-    if (ig.igMenuItemBoolPtr("Unit Creation Info...", null, &state.uc_open, map_open)) {}
+    if (ig.igMenuItemBoolPtr(l10n.id("app.menu.map.unit_creation"), null, &state.uc_open, map_open)) {}
     // 05-05, D-33: the MFC's Check Map, its results in a window with jump-to, Fix all
     // as one undo step; Save only says when the checks find something.
-    if (ig.igMenuItemEx("Check Map", null, false, map_open)) _ = commands.run(state, "check_map", "");
+    if (ig.igMenuItemEx(l10n.id("app.window.check_map"), null, false, map_open)) _ = commands.run(state, "check_map", "");
     // 05-07, D-17: the minimap pictures beside the saved map - an explicit command, never part of Save.
-    if (ig.igMenuItemEx("Create Minimap Images", null, false, map_open)) _ = commands.run(state, "minimap_create", "");
+    if (ig.igMenuItemEx(l10n.id("app.menu.map.minimap"), null, false, map_open)) _ = commands.run(state, "minimap_create", "");
     // D-20/D-22 (M3): the terrain composite, the whole-map fill (its
     // confirmation asks before the command runs) and the two toggles, whose
     // live copy is the bridge session's and whose persisted copy is the
     // settings'.
     ig.igSeparator();
-    if (ig.igMenuItemEx("Update Map", update_shortcut_label, false, map_open)) _ = commands.mapUpdate(state, "");
-    if (ig.igMenuItemEx("Fill Entire Map...", null, false, map_open)) _ = ig.igOpenPopup("Fill Entire Map", 0);
+    if (ig.igMenuItemEx(l10n.id("app.menu.map.update"), update_shortcut_label, false, map_open)) _ = commands.mapUpdate(state, "");
+    if (ig.igMenuItemEx(l10n.id("app.menu.map.fill"), null, false, map_open)) _ = ig.igOpenPopup(l10n.id("app.fill.title"), 0);
     var instant_on = state.settings.instant_update;
-    if (ig.igMenuItemBoolPtr("Instant Update Map Mode", null, &instant_on, map_open)) _ = commands.instantUpdate(state, "");
+    if (ig.igMenuItemBoolPtr(l10n.id("app.menu.map.instant"), null, &instant_on, map_open)) _ = commands.instantUpdate(state, "");
     var fit_on = state.settings.fit_to_grid;
-    if (ig.igMenuItemBoolPtr("Fit Objects To Grid", null, &fit_on, map_open)) _ = commands.fitGrid(state, "");
+    if (ig.igMenuItemBoolPtr(l10n.id("app.menu.map.fit"), null, &fit_on, map_open)) _ = commands.fitGrid(state, "");
 }
 
 /// File > Open Recent (D-27): every entry's existence, checked once for the
@@ -3044,7 +3202,7 @@ fn pathExists(io: std.Io, os_path: []const u8) bool {
 fn drawOpenRecentItems(state: *State) void {
     const count = state.settings.recentCount();
     if (count == 0) {
-        ig.igTextDisabled("(none)");
+        ig.igTextDisabled(l10n.t("app.menu.recent.none"));
         return;
     }
     var index: usize = 0;
@@ -3062,7 +3220,7 @@ fn drawOpenRecentItems(state: *State) void {
         }
         if (!exists) {
             ig.igSameLine();
-            if (ig.igSmallButton("Remove")) {
+            if (ig.igSmallButton(l10n.id("app.menu.recent.remove"))) {
                 state.settings.removeRecent(index);
                 state.settings_changed = true;
                 removed = true;
@@ -3080,7 +3238,7 @@ fn drawOpenRecentItems(state: *State) void {
         }
     }
     ig.igSeparator();
-    if (ig.igMenuItemEx("Clear list", null, false, true)) {
+    if (ig.igMenuItemEx(l10n.id("app.menu.recent.clear"), null, false, true)) {
         while (state.settings.recentCount() != 0) state.settings.removeRecent(0);
         state.settings_changed = true;
     }
@@ -3101,7 +3259,7 @@ pub fn refreshModList(state: *State) void {
 /// again does nothing at all (`requestSwitchMod`'s own no-op).
 fn drawModItems(state: *State) void {
     const active = state.modFolder();
-    if (ig.igMenuItemEx("None", null, active == null, true)) state.actions.requestSwitchMod("", active);
+    if (ig.igMenuItemEx(l10n.id("app.menu.mod.none"), null, active == null, true)) state.actions.requestSwitchMod("", active);
     var i: usize = 0;
     while (i < state.mod_list_count) : (i += 1) {
         const mod = state.mod_list_buffer[i];
@@ -3140,11 +3298,11 @@ fn performModSwitch(state: *State, folder: []const u8) void {
     const had_map = mapIsOpen(state.editor);
     switch (logic.switchModClosingMap(state.editor, state.real, folder)) {
         .refused => {
-            state.view.setStatus("the mod would not load: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+            sayStatus(state.view, .general, "app.status.mod_refused", .{std.mem.span(c.BkEditorLastMessage(state.real.session))});
             return;
         },
         .failed => {
-            state.view.setStatus("failed: the mod switch did not finish: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+            sayStatus(state.view, .general, "app.status.mod_switch_failed", .{std.mem.span(c.BkEditorLastMessage(state.real.session))});
         },
         .switched => {
             state.setModFolder(if (folder.len == 0) null else folder);
@@ -3187,7 +3345,7 @@ fn performClose(state: *State) void {
     if (result == .ok) {
         state.view.clearStatus();
     } else {
-        state.view.setStatus("the engine did not close the map cleanly: ", std.mem.span(c.BkEditorLastMessage(state.real.session)));
+        sayStatus(state.view, .general, "app.status.close_failed", .{std.mem.span(c.BkEditorLastMessage(state.real.session))});
     }
 }
 
@@ -3426,7 +3584,7 @@ pub fn browseRmg(state: *State, target: u8) void {
         if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{folder}, 0)) |z| default_location = z.ptr else |_| {}
     } else |_| {}
     state.os_dialogs_opened += 1;
-    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &rmg_slot, state.window, &rmg_filters, rmg_filters.len, default_location, false);
+    showFileDialog(sdl3.c.SDL_FILEDIALOG_OPENFILE, &rmg_slot, state.window, &rmg_filters, default_location, l10n.t("app.dialog.choose_rmg"));
 }
 
 /// Browse in the Containers Composer's patch picker (05-09, D-10): the OS
@@ -3443,7 +3601,7 @@ pub fn browsePatch(state: *State) void {
         if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{folder}, 0)) |z| default_location = z.ptr else |_| {}
     } else |_| {}
     state.os_dialogs_opened += 1;
-    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &patch_slot, state.window, &map_filters, map_filters.len, default_location, false);
+    showFileDialog(sdl3.c.SDL_FILEDIALOG_OPENFILE, &patch_slot, state.window, &map_filters, default_location, l10n.t("app.dialog.choose_patch"));
 }
 
 /// Each frame: what the patch Browse answered, once.
@@ -3451,17 +3609,17 @@ fn pollPatchBrowse(state: *State) void {
     const result = patch_slot.take() orelse return;
     switch (result) {
         .cancelled => {},
-        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .failed => |message| sayStatus(state.view, .general, "app.status.dialog_failed", .{message}),
         .path => |chosen| {
             var buffer: [core.bridge.field_set_name_capacity]u8 = undefined;
             if (logic.patchNameFromBrowse(&buffer, baseRoot(state), chosen.path)) |name| {
                 var names = [_][]const u8{name};
                 _ = state.composers.addPatches(state.editor, &names) catch {};
-                state.view.setStatus("containers: ", state.composers.message());
+                sayStatus(state.view, .general, "app.status.containers", .{state.composers.message()});
             } else if (state.composers.beginImport(state.editor, chosen.path)) |_| {
                 state.cc_popup = .import_copy;
             } else |_| {
-                state.view.setStatus("containers: ", state.composers.message());
+                sayStatus(state.view, .general, "app.status.containers", .{state.composers.message()});
             }
         },
     }
@@ -3476,7 +3634,7 @@ fn pollRmgBrowse(state: *State) void {
     state.rmg_browse_target = 0;
     switch (result) {
         .cancelled => {},
-        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .failed => |message| sayStatus(state.view, .general, "app.status.dialog_failed", .{message}),
         .path => |chosen| {
             var buffer: [core.bridge.field_set_name_capacity]u8 = undefined;
             const name = logic.storageNameFromBrowse(&buffer, baseRoot(state), chosen.path) orelse {
@@ -3503,28 +3661,29 @@ fn pollRmgBrowse(state: *State) void {
 /// has been answered.
 fn drawNewMapDialog(state: *State) void {
     if (!state.new_map_dialog_open) return;
-    if (!ig.igBegin("New Map", &state.new_map_dialog_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!ig.igBegin(l10n.id("app.newmap.title"), &state.new_map_dialog_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         ig.igEnd();
         return;
     }
     defer ig.igEnd();
-    ig.igText("A new map is never saved: the first save is a Save As.");
+    ig.igTextUnformatted(l10n.t("app.newmap.note"));
     var size_x = state.new_map_fields.size_x;
-    if (ig.igInputIntEx("Size X", &size_x, 1, 4, 0)) {
+    if (ig.igInputIntEx(l10n.id("app.newmap.size_x"), &size_x, 1, 4, 0)) {
         state.new_map_fields.size_x = size_x;
         if (state.new_map_square) state.new_map_fields.size_y = size_x;
     }
     var size_y = state.new_map_fields.size_y;
-    if (ig.igInputIntEx("Size Y", &size_y, 1, 4, 0)) {
+    if (ig.igInputIntEx(l10n.id("app.newmap.size_y"), &size_y, 1, 4, 0)) {
         state.new_map_fields.size_y = size_y;
         if (state.new_map_square) state.new_map_fields.size_x = size_y;
     }
-    _ = ig.igCheckbox("Square", &state.new_map_square);
+    _ = ig.igCheckbox(l10n.id("app.newmap.square"), &state.new_map_square);
     if (state.new_map_square) state.new_map_fields.size_y = state.new_map_fields.size_x;
     var season: c_int = state.new_map_fields.season;
-    if (ig.igCombo("Season", &season, "Summer\x00Winter\x00Africa\x00Spring\x00") and season != state.new_map_fields.season)
+    var seasons_buffer: [256]u8 = undefined;
+    if (ig.igCombo(l10n.id("app.newmap.season"), &season, seasonItems(&seasons_buffer)) and season != state.new_map_fields.season)
         state.new_map_fields.season = season;
-    _ = ig.igInputTextWithHint("Name", "new map", &state.new_map_name_edit, state.new_map_name_edit.len + 1, 0);
+    _ = ig.igInputTextWithHint(l10n.id("app.newmap.name"), l10n.t("app.newmap.name_hint"), &state.new_map_name_edit, state.new_map_name_edit.len + 1, 0);
 
     // The mod, the MFC dialog's combo: the current one, none, or an
     // installed folder ("" is "current" in the params' own meaning, "none"
@@ -3539,12 +3698,12 @@ fn drawNewMapDialog(state: *State) void {
     }
     var preview_buffer: [128:0]u8 = undefined;
     const preview: [*:0]const u8 = modPreview(&preview_buffer, state, mod_choice);
-    if (ig.igBeginCombo("Mod", preview, 0)) {
-        if (ig.igSelectableEx("current mod", mod_choice == 0, 0, .{ .x = 0, .y = 0 })) {
+    if (ig.igBeginCombo(l10n.id("app.menu.file.mod"), preview, 0)) {
+        if (ig.igSelectableEx(l10n.id("app.newmap.current_mod"), mod_choice == 0, 0, .{ .x = 0, .y = 0 })) {
             state.new_map_fields.mod_folder.set("");
             mod_choice = 0;
         }
-        if (ig.igSelectableEx("none", mod_choice == 1, 0, .{ .x = 0, .y = 0 })) {
+        if (ig.igSelectableEx(l10n.id("app.newmap.no_mod"), mod_choice == 1, 0, .{ .x = 0, .y = 0 })) {
             state.new_map_fields.mod_folder.set("none");
             mod_choice = 1;
         }
@@ -3560,12 +3719,12 @@ fn drawNewMapDialog(state: *State) void {
     }
 
     ig.igSpacing();
-    const create = ig.igButton("Create") and blk: {
+    const create = ig.igButton(l10n.id("app.newmap.create")) and blk: {
         state.new_map_fields.name.set(std.mem.sliceTo(&state.new_map_name_edit, 0));
         break :blk state.new_map_fields.clampToValid();
     };
     ig.igSameLine();
-    const cancel = ig.igButton("Cancel");
+    const cancel = ig.igButton(l10n.id("kit.common.cancel"));
     if (create or cancel) state.new_map_dialog_open = false;
     if (create) {
         // The prompt, if any, asks before the map is built - exactly Open's
@@ -3577,11 +3736,26 @@ fn drawNewMapDialog(state: *State) void {
 /// The mod combo's preview text: "current mod", "none", or the chosen
 /// mod's own "name version".
 fn modPreview(buffer: *[128:0]u8, state: *State, choice: c_int) [*:0]const u8 {
-    if (choice == 0) return "current mod";
-    if (choice == 1) return "none";
+    if (choice == 0) return l10n.t("app.newmap.current_mod");
+    if (choice == 1) return l10n.t("app.newmap.no_mod");
     const mod = state.mod_list_buffer[@intCast(choice - 2)];
-    const shown = std.mem.printSentinel(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }, 0) catch return "current mod";
+    const shown = std.mem.printSentinel(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }, 0) catch return l10n.t("app.newmap.current_mod");
     return shown.ptr;
+}
+
+/// The season combo's items as ImGui wants them: the four names, each followed by a NUL, in the
+/// order of the bridge's season numbers.
+fn seasonItems(buffer: *[256]u8) [*:0]const u8 {
+    var at: usize = 0;
+    inline for (.{ "app.newmap.summer", "app.newmap.winter", "app.newmap.africa", "app.newmap.spring" }) |key| {
+        const name = std.mem.span(l10n.t(key));
+        const take = @min(name.len, buffer.len -| at -| 2);
+        @memcpy(buffer[at..][0..take], name[0..take]);
+        buffer[at + take] = 0;
+        at += take + 1;
+    }
+    buffer[at] = 0;
+    return @ptrCast(buffer);
 }
 
 /// Every panel's widgets leave room for their labels to the right.
@@ -3617,10 +3791,37 @@ pub fn text(slice: []const u8) void {
     ig.igTextUnformattedEx(slice.ptr, slice.ptr + slice.len);
 }
 
+/// The text of `key` as a slice, for the calls that take one (`text`, the status line).
+fn tr(comptime key: []const u8) []const u8 {
+    return std.mem.span(l10n.t(key));
+}
+
+/// `key` with its `{0}`.. slots filled, into `buffer`: whole sentences, so a language orders its own
+/// words. The key's unfilled text when `buffer` is too small.
+fn say(buffer: []u8, comptime key: []const u8, args: anytype) []const u8 {
+    return l10n.format(buffer, key, args) catch tr(key);
+}
+
+/// `logic.dropNote` in the current language: the verdict and the file's own name.
+fn dropNote(buffer: []u8, verdict: logic.DropVerdict, os_path: []const u8) []const u8 {
+    return switch (verdict) {
+        .open => "",
+        .not_a_map => say(buffer, "app.status.drop_not_a_map", .{logic.baseName(os_path)}),
+        .bad_path => tr("app.status.drop_bad_path"),
+    };
+}
+
+/// The status line from a sentence key (the view copies it, so the buffer lives only here).
+fn sayStatus(view: *View, source: view_math.StatusSource, comptime key: []const u8, args: anytype) void {
+    var buffer: [512]u8 = undefined;
+    view.setStatusFrom(source, "", say(&buffer, key, args));
+}
+
 fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
-    const open = beginPanel("Tools", pos, size, cond, &state.left_width);
+    const open = beginPanel(l10n.id("app.tools.title"), pos, size, cond, &state.left_width);
     defer endPanel(open);
     if (!open) return;
+    l10n.noteWindowRect("app.tools.title");
     const view = state.view;
     // The buttons flow onto a new row when the next would not fit (04-06: a
     // fifth tool did not fit the default panel width and was clipped).
@@ -3631,27 +3832,28 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
         if (item.hidden) continue;
         defer first_button = false;
         if (!first_button) {
-            const width = ig.igCalcTextSize(item.label).x + 2 * style.*.FramePadding.x;
+            const width = ig.igCalcTextSize(toolLabel(item.id)).x + 2 * style.*.FramePadding.x;
             if (ig.igGetItemRectMax().x + style.*.ItemSpacing.x + width <= right_edge) ig.igSameLine();
         }
         const active = view.tool == item.id;
         // The active tool's button wears the pressed colour.
         if (active) ig.igPushStyleColorImVec4(ig.ImGuiCol_Button, ig.igGetStyleColorVec4(ig.ImGuiCol_ButtonActive).*);
-        if (ig.igButton(item.label)) view.selectTool(state.editor, item.id);
+        if (ig.igButton(toolLabel(item.id))) view.selectTool(state.editor, item.id);
+        noteToolRect(item.id);
         if (active) ig.igPopStyleColor();
     }
-    ig.igSeparatorText("Brush");
+    ig.igSeparatorText(l10n.t("app.tools.brush_header"));
+    l10n.noteRect("app.tools.brush_header");
     if (state.tile_count == 0) {
         if (!mapIsOpen(state.editor)) {
-            text("no map open: no tiles to paint");
+            text(tr("app.tools.no_map"));
         } else {
             // Task 5, carried from plan 5: this used to say "no map open"
             // here too, dropping the bridge's own reason (tilesetTiles
             // failed) or saying nothing about why (the tileset is empty).
             var buffer: [300]u8 = undefined;
             const reason = state.tileReason();
-            const message = std.fmt.bufPrint(&buffer, "no tiles to paint: {s}", .{reason}) catch "no tiles to paint";
-            text(message);
+            text(say(&buffer, "app.tools.no_tiles", .{reason}));
         }
     } else {
         drawTilePicker(state);
@@ -3660,7 +3862,7 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     // sizes included, 2x2 the default - in place of M1's 0..4 radius slider.
     var brush_label: [10:0]u8 = undefined;
     const label = std.mem.printSentinel(&brush_label, "{d}x{d}", .{ view.brush.size, view.brush.size }, 0) catch "2x2";
-    if (ig.igBeginCombo("brush", label.ptr, 0)) {
+    if (ig.igBeginCombo(l10n.id("app.tools.brush_size"), label.ptr, 0)) {
         var brush_choice: i32 = 1;
         while (brush_choice <= 16) : (brush_choice += 1) {
             var entry_buffer: [10:0]u8 = undefined;
@@ -3709,7 +3911,7 @@ fn drawTilePicker(state: *State) void {
 
     var preview: [96]u8 = undefined;
     const current: logic.TileEntry = if (logic.indexOfTile(entries, view.brush.tile)) |index| entries[index] else .{ .tile = view.brush.tile };
-    const preview_text = logic.tileLabel(&preview, current);
+    const preview_text = tileLabelText(&preview, current);
     const style = ig.igGetStyle();
     const grid_width = tile_picker_columns * (tile_cell_width + style.*.ItemSpacing.x) + 2 * style.*.WindowPadding.x + style.*.ScrollbarSize;
     const viewport_height = ig.igGetMainViewport().*.Size.y;
@@ -3740,6 +3942,17 @@ fn drawTilePicker(state: *State) void {
     drawTileGrid(state);
 }
 
+/// `logic.tileLabel` in the current language: "tile 12 - Snow", or "tile 12" alone when the tileset
+/// gave no terrain type. NUL-terminated for ImGui, cut to `buffer` if it must be.
+fn tileLabelText(buffer: []u8, entry: logic.TileEntry) [:0]const u8 {
+    const terrain = entry.terrain.slice();
+    const shown = if (terrain.len != 0)
+        l10n.formatZ(buffer, "app.tile.label", .{ entry.tile, terrain })
+    else
+        l10n.formatZ(buffer, "app.tile.label_short", .{entry.tile});
+    return shown orelse "";
+}
+
 fn drawTileGrid(state: *State) void {
     const entries = state.tileEntries();
     const style = ig.igGetStyle();
@@ -3751,7 +3964,7 @@ fn drawTileGrid(state: *State) void {
         defer start = group.end;
         var header: [300]u8 = undefined;
         const terrain = entries[group.start].terrain.slice();
-        const header_text = std.mem.printSentinel(&header, "{s} ({d})", .{ if (terrain.len != 0) terrain else "other tiles", group.end - group.start }, 0) catch "tiles";
+        const header_text = std.mem.printSentinel(&header, "{s} ({d})", .{ if (terrain.len != 0) terrain else tr("app.tile.other"), group.end - group.start }, 0) catch "tiles";
         ig.igSeparatorText(header_text.ptr);
         for (entries[group.start..group.end], 0..) |entry, i| {
             if (i % columns != 0) ig.igSameLine();
@@ -3778,7 +3991,7 @@ fn drawTileCell(state: *State, entry: logic.TileEntry, cell_height: f32) void {
     if (visible) state.tile_cell_centres[entry.tile] = .{ .x = top_left.x + tile_cell_width / 2, .y = top_left.y + cell_height / 2 };
     if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
         var label: [96]u8 = undefined;
-        text(logic.tileLabel(&label, entry));
+        text(tileLabelText(&label, entry));
         ig.igEndTooltip();
     }
     // Tile properties (M3, D-35/TR2): the palette's context menu shows the
@@ -3789,9 +4002,9 @@ fn drawTileCell(state: *State, entry: logic.TileEntry, cell_height: f32) void {
         if (state.real.describeTile(entry.tile)) |info| {
             var line: [128]u8 = undefined;
             text(std.fmt.bufPrint(&line, "{s}", .{std.mem.sliceTo(&info.terrain, 0)}) catch "?");
-            text(std.fmt.bufPrint(&line, "{d} variants", .{info.variant_count}) catch "? variants");
+            text(say(&line, "app.tile.variants", .{info.variant_count}));
         } else {
-            text("no properties");
+            text(tr("app.tile.no_properties"));
         }
         ig.igEndPopup();
     }
@@ -3879,14 +4092,15 @@ pub fn refreshAvailableObjects(state: *State) void {
 }
 
 fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
-    const open = beginPanel("Objects", pos, size, cond, null);
+    const open = beginPanel(l10n.id("app.objects.title"), pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
+    l10n.noteWindowRect("app.objects.title");
     // M3, D-28: the direction wheel shares the filter input's row (the
     // input gives up its right margin), so the rows below keep the heights
     // the M1/M2 reference frames were captured with.
     ig.igPushItemWidth(ig.igGetContentRegionAvail().x - 56);
-    _ = ig.igInputTextWithHint("##filter", "filter", &state.filter, state.filter.len + 1, 0);
+    _ = ig.igInputTextWithHint("##filter", l10n.t("app.objects.filter_hint"), &state.filter, state.filter.len + 1, 0);
     ig.igPopItemWidth();
     const filter = std.mem.sliceTo(&state.filter, 0);
     ig.igSameLine();
@@ -3894,7 +4108,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
     ig.igNewLine();
     drawPaletteFilters(state);
     if (state.catalogue.len == 0) {
-        text("the object catalogue is empty");
+        text(tr("app.objects.empty"));
         return;
     }
     const placing = state.view.placer.name;
@@ -3957,6 +4171,14 @@ pub fn refreshActiveFilters(state: *State) void {
     state.filters_generation_seen = state.editor.filters_generation;
 }
 
+/// Continues the row with a small button labelled `text` when it fits before `right_edge`; otherwise
+/// the button starts a new row, where a longer translation would be clipped at the panel's edge.
+fn sameLineIfFits(right_edge: f32, text_z: [*:0]const u8) void {
+    const style = ig.igGetStyle();
+    const width = ig.igCalcTextSize(text_z).x + 2 * style.*.FramePadding.x;
+    if (ig.igGetItemRectMax().x + style.*.ItemSpacing.x + width <= right_edge) ig.igSameLine();
+}
+
 /// The palette's filter row (M3, D-31): the nine quick toggles (three per
 /// line, the MFC's check row), the filter combo and New/Delete Filter -
 /// every control a named command, so BK_EDITOR_AUTO drives the same path.
@@ -3964,6 +4186,7 @@ pub fn refreshActiveFilters(state: *State) void {
 /// editor's UpdateCheck); a plain click toggles its gate.
 fn drawPaletteFilters(state: *State) void {
     if (state.filters_generation_seen != state.editor.filters_generation) refreshActiveFilters(state);
+    const right_edge = ig.igGetCursorScreenPos().x + ig.igGetContentRegionAvail().x;
     const slot_count = core.settings.Settings.filter_slot_count;
     var i: usize = 0;
     while (i < slot_count) : (i += 1) {
@@ -3992,9 +4215,9 @@ fn drawPaletteFilters(state: *State) void {
 
     const combo_name = state.settings.filter_active.slice();
     var preview_buffer: [65:0]u8 = undefined;
-    const shown: [:0]const u8 = std.mem.printSentinel(&preview_buffer, "{s}", .{if (combo_name.len != 0) combo_name else "(no filter)"}, 0) catch "(no filter)";
+    const shown: [:0]const u8 = std.mem.printSentinel(&preview_buffer, "{s}", .{if (combo_name.len != 0) combo_name else tr("app.filter.none")}, 0) catch std.mem.span(l10n.t("app.filter.none"));
     if (ig.igBeginCombo("##filtercombo", shown.ptr, 0)) {
-        if (ig.igSelectableEx("(no filter)", combo_name.len == 0, 0, .{ .x = 0, .y = 0 })) {
+        if (ig.igSelectableEx(l10n.id("app.filter.none"), combo_name.len == 0, 0, .{ .x = 0, .y = 0 })) {
             _ = commands.run(state, "filter_select", "");
         }
         for (state.editor.filtersSlice()) |*entry| {
@@ -4008,16 +4231,19 @@ fn drawPaletteFilters(state: *State) void {
         ig.igEndCombo();
     }
     ig.igSameLine();
-    if (ig.igSmallButton("New Filter")) state.filter_new_popup = true;
-    ig.igSameLine();
-    if (ig.igSmallButton("Delete Filter")) {
+    if (ig.igSmallButton(l10n.id("app.filter.new"))) state.filter_new_popup = true;
+    l10n.noteRect("app.filter.new");
+    sameLineIfFits(right_edge, l10n.t("app.filter.delete"));
+    const delete_pressed = ig.igSmallButton(l10n.id("app.filter.delete"));
+    l10n.noteRect("app.filter.delete");
+    if (delete_pressed) {
         if (combo_name.len != 0 and combo_name.len < state.filter_delete_popup.len) {
             @memcpy(state.filter_delete_popup[0..combo_name.len], combo_name[0..combo_name.len]);
             state.filter_delete_popup[combo_name.len] = 0;
-            _ = ig.igOpenPopup("Delete filter?", 0);
+            _ = ig.igOpenPopup(l10n.id("app.filter.delete_title"), 0);
         } else if (combo_name.len != 0) {
             // CR-A03: a hand-edited mapeditor.cfg can name more than the popup's buffer holds.
-            state.view.setStatus("filter: ", "that filter name is too long to delete here");
+            state.view.setStatus("", tr("app.status.filter_name_long"));
         }
     }
     drawPaletteFilterPopups(state);
@@ -4029,29 +4255,29 @@ fn drawPaletteFilterPopups(state: *State) void {
     if (state.filter_new_popup) {
         state.filter_new_popup = false;
         state.filter_new_edit = @as([64:0]u8, @splat(0));
-        _ = ig.igOpenPopup("New filter", 0);
+        _ = ig.igOpenPopup(l10n.id("app.filter.new_title"), 0);
     }
-    if (ig.igBeginPopupModal("New filter", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
-        _ = ig.igInputTextWithHint("##newfiltername", "name", &state.filter_new_edit, state.filter_new_edit.len + 1, 0);
-        if (ig.igButton("OK")) {
+    if (ig.igBeginPopupModal(l10n.id("app.filter.new_title"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        _ = ig.igInputTextWithHint("##newfiltername", l10n.t("app.filter.name_hint"), &state.filter_new_edit, state.filter_new_edit.len + 1, 0);
+        if (ig.igButton(l10n.id("kit.common.ok"))) {
             _ = commands.run(state, "filter_new", std.mem.sliceTo(&state.filter_new_edit, 0));
             ig.igCloseCurrentPopup();
         }
         ig.igSameLine();
-        if (ig.igButton("Cancel")) ig.igCloseCurrentPopup();
+        if (ig.igButton(l10n.id("kit.common.cancel"))) ig.igCloseCurrentPopup();
         ig.igEndPopup();
     }
-    if (ig.igBeginPopupModal("Delete filter?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
-        var buffer: [96]u8 = undefined;
-        const message = std.fmt.bufPrint(&buffer, "Do you really want to DELETE the filter \"{s}\"?", .{std.mem.sliceTo(&state.filter_delete_popup, 0)}) catch
-            "Do you really want to DELETE this filter?";
+    if (ig.igBeginPopupModal(l10n.id("app.filter.delete_title"), null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var buffer: [256]u8 = undefined;
+        const message = l10n.format(&buffer, "app.filter.delete_question", .{std.mem.sliceTo(&state.filter_delete_popup, 0)}) catch
+            tr("app.filter.delete_fallback");
         text(message);
-        if (ig.igButton("Delete")) {
+        if (ig.igButton(l10n.id("kit.common.delete"))) {
             _ = commands.run(state, "filter_delete", std.mem.sliceTo(&state.filter_delete_popup, 0));
             ig.igCloseCurrentPopup();
         }
         ig.igSameLine();
-        if (ig.igButton("Cancel")) ig.igCloseCurrentPopup();
+        if (ig.igButton(l10n.id("kit.common.cancel"))) ig.igCloseCurrentPopup();
         ig.igEndPopup();
     }
 }
@@ -4115,7 +4341,7 @@ fn drawPlaceholderLabel(draw_list: *ig.ImDrawList, top_left: ig.ImVec2, name: []
 }
 
 fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
-    const open = beginPanel("Properties", pos, size, cond, &state.right_width);
+    const open = beginPanel(l10n.id("app.props.title"), pos, size, cond, &state.right_width);
     defer endPanel(open);
     if (!open) return;
     const editor = state.editor;
@@ -4129,21 +4355,24 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
     }
     const link_id = editor.selection orelse {
         state.edit = .{};
-        text("nothing selected");
+        text(tr("app.props.nothing"));
         return;
     };
     const object = editor.document.find(link_id) orelse {
         state.edit = .{};
-        text("nothing selected");
+        text(tr("app.props.nothing"));
         return;
     };
     const record = object.*;
-    labelled("name", record.nameSlice());
+    labelled(tr("app.props.name"), record.nameSlice());
     var number: [32]u8 = undefined;
-    labelled("link ID", std.fmt.bufPrint(&number, "{d}", .{record.link_id}) catch "?");
-    if (logic.readOnlyReason(editor.document.objects.items, record)) |reason| {
-        text("kept as it is:");
-        text(reason);
+    labelled(tr("app.props.link_id"), std.fmt.bufPrint(&number, "{d}", .{record.link_id}) catch "?");
+    if (logic.readOnlyKind(editor.document.objects.items, record)) |kind| {
+        text(tr("app.props.kept"));
+        text(switch (kind) {
+            .unknown_type => tr("app.props.unknown_type"),
+            .shared_link => tr("app.props.shared_link"),
+        });
         state.edit = .{};
         return;
     }
@@ -4162,28 +4391,28 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
     }
     var active = false;
     var committed = false;
-    _ = ig.igInputFloatEx("x", &edit.x, 0, 0, "%.1f", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.field.x"), &edit.x, 0, 0, "%.1f", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    _ = ig.igInputFloatEx("y", &edit.y, 0, 0, "%.1f", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.field.y"), &edit.y, 0, 0, "%.1f", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    _ = ig.igInputFloatEx("direction", &edit.degrees, 0, 0, "%.2f deg", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.props.direction"), &edit.degrees, 0, 0, "%.2f deg", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
     const players = editor.document.info.player_count;
     const player_max = @max(players - 1, record.player, 0);
-    _ = ig.igSliderInt("player", &edit.player, 0, player_max);
+    _ = ig.igSliderInt(l10n.id("app.props.player"), &edit.player, 0, player_max);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
     // D-15: the object's script ID, which a reinforcement group names and a
     // Lua script finds the object by. -1 is none.
-    _ = ig.igInputIntEx("Script ID", &edit.script_id, 1, 10, 0);
+    _ = ig.igInputIntEx(l10n.id("app.props.script_id"), &edit.script_id, 1, 10, 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
     if (edit.script_id == -1) {
         ig.igSameLine();
-        text("none");
+        text(tr("app.props.none"));
     }
     edit.active = active;
 
@@ -4224,33 +4453,37 @@ fn labelled(label: []const u8, value: []const u8) void {
 }
 
 fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
-    const open = beginPanel("Players", pos, size, cond, null);
+    const open = beginPanel(l10n.id("app.players.title"), pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
+    l10n.noteWindowRect("app.players.title");
     const editor = state.editor;
     if (!mapIsOpen(editor)) {
-        text("no map open");
+        text(tr("app.common.no_map"));
         return;
     }
     const info = editor.document.info;
     var map_type: c_int = info.map_type;
     var preview: [32:0]u8 = undefined;
-    const known_type = map_type >= 0 and map_type < map_type_names.len;
-    const preview_text = if (known_type) map_type_names[@intCast(map_type)] else std.mem.printSentinel(&preview, "type {d}", .{map_type}, 0) catch "type ?";
-    if (ig.igBeginCombo("map type", preview_text.ptr, 0)) {
-        for (map_type_names, 0..) |name, index| {
+    const known_type = map_type >= 0 and map_type < map_type_count;
+    const preview_text: [*:0]const u8 = if (known_type) mapTypeName(@intCast(map_type)) else (l10n.formatZ(&preview, "app.players.type_n", .{map_type}) orelse @as([:0]const u8, "?")).ptr;
+    if (ig.igBeginCombo(l10n.id("app.players.map_type"), preview_text, 0)) {
+        for (0..map_type_count) |index| {
             const selected = index == map_type;
-            if (ig.igSelectableEx(name.ptr, selected, 0, .{ .x = 0, .y = 0 })) map_type = @intCast(index);
+            if (ig.igSelectableEx(mapTypeName(index), selected, 0, .{ .x = 0, .y = 0 })) map_type = @intCast(index);
         }
         ig.igEndCombo();
     }
+    l10n.noteLabelRect("app.players.map_type");
     if (map_type != info.map_type) state.view.noteEditResult(editor, editor.setMapType(map_type));
 
     var attacking: c_int = info.attacking_side;
-    if (ig.igCombo("attacking side", &attacking, "side 0\x00side 1\x00") and attacking != info.attacking_side)
+    var side_items: [160]u8 = undefined;
+    if (ig.igCombo(l10n.id("app.players.attacking"), &attacking, sideItems(&side_items, false)) and attacking != info.attacking_side)
         state.view.noteEditResult(editor, editor.setAttackingSide(attacking));
+    l10n.noteLabelRect("app.players.attacking");
 
-    ig.igSeparatorText("Diplomacy");
+    ig.igSeparatorText(l10n.t("app.players.diplomacy"));
     const entries = editor.document.diplomacy.items.len;
     if (state.selected_player != null and (entries == 0 or state.selected_player.? >= entries - 1)) state.selected_player = null;
     // The MFC dialog's buttons and keys (TabSimpleObjectsDiplomacyDialog.cpp:263, 434),
@@ -4258,23 +4491,26 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
     // set its side. The keys are this window's while it is focused, as the start
     // commands' Delete is.
     var action: PlayersAction = .none;
-    if (ig.igButton("Add")) action = .add;
-    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Add a player before the neutral (Insert)");
+    if (ig.igButton(l10n.id("kit.common.add"))) action = .add;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("%s", l10n.t("app.players.tip_add"));
     ig.igSameLine();
-    if (ig.igButton("Del")) action = .delete;
-    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Delete the selected player; its objects become the neutral's (Delete)");
+    if (ig.igButton(l10n.id("app.players.del"))) action = .delete;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("%s", l10n.t("app.players.tip_del"));
     ig.igSameLine();
-    if (ig.igButton("S0")) action = .side0;
-    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Put the selected player on side 0 (0)");
+    if (ig.igButton(l10n.id("app.players.s0"))) action = .side0;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("%s", l10n.t("app.players.tip_s0"));
     ig.igSameLine();
-    if (ig.igButton("S1")) action = .side1;
-    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Put the selected player on side 1 (1)");
+    if (ig.igButton(l10n.id("app.players.s1"))) action = .side1;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("%s", l10n.t("app.players.tip_s1"));
     for (editor.document.diplomacy.items, 0..) |side, player| {
         ig.igPushIDInt(@intCast(player));
         defer ig.igPopID();
         const neutral = player + 1 == entries;
         var label: [32:0]u8 = undefined;
-        const label_text = (if (neutral) std.mem.printSentinel(&label, "{d} (neutral)", .{player}, 0) else std.mem.printSentinel(&label, "{d}", .{player}, 0)) catch continue;
+        const label_text: [:0]const u8 = if (neutral)
+            l10n.formatZ(&label, "app.players.row_neutral", .{player}) orelse continue
+        else
+            std.mem.printSentinel(&label, "{d}", .{player}, 0) catch continue;
         // The row: the player's number selects it (the MFC list's selection); the
         // neutral entry is listed but never selected - it cannot be deleted or re-sided.
         const selected = state.selected_player != null and state.selected_player.? == player;
@@ -4282,7 +4518,7 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
         ig.igSameLine();
         ig.igSetNextItemWidth(110);
         var value: c_int = side;
-        if (ig.igCombo("##side", &value, "side 0\x00side 1\x00neutral\x00") and value != side)
+        if (ig.igCombo("##side", &value, sideItems(&side_items, true)) and value != side)
             state.view.noteEditResult(editor, editor.setDiplomacy(@intCast(player), value));
     }
     if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput) {
@@ -4306,6 +4542,37 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
     }
 }
 
+const map_type_count = 3;
+
+/// The map types the Players panel's combo offers, in `info.map_type` order.
+fn mapTypeName(index: usize) [*:0]const u8 {
+    return switch (index) {
+        0 => l10n.t("app.players.type_single"),
+        1 => l10n.t("app.players.type_flag"),
+        else => l10n.t("app.players.type_sabotage"),
+    };
+}
+
+/// "side 0", "side 1" (and "neutral") as `igCombo`'s zero-separated list, in the current language.
+fn sideItems(buffer: []u8, with_neutral: bool) [*:0]const u8 {
+    var len: usize = 0;
+    inline for (.{ 0, 1 }) |side| {
+        const item = l10n.format(buffer[len .. buffer.len - 2], "app.players.side", .{side}) catch "";
+        len += item.len + 1;
+        buffer[len - 1] = 0;
+    }
+    if (with_neutral) {
+        const item = tr("app.players.neutral");
+        const room = buffer.len - 2 - len;
+        const used = @min(item.len, room);
+        @memcpy(buffer[len .. len + used], item[0..used]);
+        len += used + 1;
+        buffer[len - 1] = 0;
+    }
+    buffer[len] = 0;
+    return @ptrCast(buffer.ptr);
+}
+
 const PlayersAction = enum { none, add, delete, side0, side1 };
 
 /// The map's own sound list: one row per sound, name and world position and
@@ -4313,7 +4580,7 @@ const PlayersAction = enum { none, add, delete, side0, side1 };
 /// as one `editor.editSound` (`drawProperties`' own pattern) - and "Add at
 /// view centre"/"Delete". View markers are `View.drawOverlay`'s (view.zig).
 fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
-    const open = beginPanel("Sounds", pos, size, cond, null);
+    const open = beginPanel(l10n.id("app.sounds.title"), pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
     const editor = state.editor;
@@ -4322,7 +4589,7 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
         state.sounds_generation_seen = editor.sounds_generation;
     }
     if (!mapIsOpen(editor)) {
-        text("no map open");
+        text(tr("app.common.no_map"));
         return;
     }
     // A click on another row, or the selected one going away from under it
@@ -4332,7 +4599,7 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
         commitSoundEdit(state, state.sound_edit.index);
 
     if (state.sounds.len == 0) {
-        text("no sounds");
+        text(tr("app.sounds.none"));
     } else {
         for (state.sounds, 0..) |sound, index| {
             ig.igPushIDInt(@intCast(index));
@@ -4346,9 +4613,9 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
     }
 
     ig.igSeparator();
-    if (ig.igButton("Add at view centre")) addSoundAtViewCentre(state);
+    if (ig.igButton(l10n.id("app.sounds.add"))) addSoundAtViewCentre(state);
     ig.igSameLine();
-    if (ig.igButton("Delete")) {
+    if (ig.igButton(l10n.id("kit.common.delete"))) {
         if (state.selected_sound) |index| if (index < state.sounds.len) {
             state.view.noteEditResult(editor, editor.deleteSound(index));
             state.selected_sound = null;
@@ -4362,7 +4629,7 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
     // game that starts its view elsewhere is not mistaken for a silent sound.
     ig.igPushTextWrapPos(0);
     ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
-    text(logic.sound_panel_note);
+    text(tr("app.sounds.note"));
     ig.igPopStyleColor();
     ig.igPopTextWrapPos();
 
@@ -4394,7 +4661,7 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
 
     var active = false;
     var committed = false;
-    if (ig.igBeginCombo("sound", &edit.name_buffer, 0)) {
+    if (ig.igBeginCombo(l10n.id("app.sounds.sound"), &edit.name_buffer, 0)) {
         for (state.sound_names) |candidate| {
             ig.igPushIDPtr(candidate.ptr);
             defer ig.igPopID();
@@ -4408,26 +4675,26 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
         }
         ig.igEndCombo();
     }
-    _ = ig.igInputFloatEx("x", &edit.x, 0, 0, "%.1f", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.field.x"), &edit.x, 0, 0, "%.1f", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    _ = ig.igInputFloatEx("y", &edit.y, 0, 0, "%.1f", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.field.y"), &edit.y, 0, 0, "%.1f", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    _ = ig.igInputFloatEx("repeat (s)", &edit.repeat_seconds, 0, 0, "%.1f", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.sounds.repeat"), &edit.repeat_seconds, 0, 0, "%.1f", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    _ = ig.igInputFloatEx("random repeat (s)", &edit.repeat_random_seconds, 0, 0, "%.1f", 0);
+    _ = ig.igInputFloatEx(l10n.id("app.sounds.random_repeat"), &edit.repeat_random_seconds, 0, 0, "%.1f", 0);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    if (ig.igCheckbox("mute in combat", &edit.mute_in_combat)) committed = true;
-    _ = ig.igSliderInt("min radius", &edit.min_radius, 0, 50);
+    if (ig.igCheckbox(l10n.id("app.sounds.mute"), &edit.mute_in_combat)) committed = true;
+    _ = ig.igSliderInt(l10n.id("app.sounds.min_radius"), &edit.min_radius, 0, 50);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    _ = ig.igSliderInt("max radius", &edit.max_radius, 0, 50);
+    _ = ig.igSliderInt(l10n.id("app.sounds.max_radius"), &edit.max_radius, 0, 50);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
-    if (logic.soundRadiusError(edit.min_radius, edit.max_radius)) |message| text(message);
+    if (logic.soundRadiusError(edit.min_radius, edit.max_radius) != null) text(tr("app.sounds.radius_error"));
     edit.active = active;
 
     if (committed) commitSoundEdit(state, index);
@@ -4492,7 +4759,7 @@ fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     ig.igSetNextWindowSize(size, ig.ImGuiCond_Always);
     defer ig.igEnd();
     const flags = ig.ImGuiWindowFlags_NoDecoration | ig.ImGuiWindowFlags_NoMove | ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_NoFocusOnAppearing | ig.ImGuiWindowFlags_NoBringToFrontOnFocus;
-    if (!ig.igBegin("status", null, flags)) return;
+    if (!ig.igBegin(l10n.id("app.bar.window"), null, flags)) return;
     var buffer: [1024]u8 = undefined;
     const line = statusLine(state, &buffer);
     text(line);
@@ -4505,10 +4772,13 @@ fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 pub fn statusLine(state: *State, buffer: []u8) []const u8 {
     var len: usize = 0;
     append(buffer, &len, "{t}", .{state.view.tool});
-    if (!mapIsOpen(state.editor)) append(buffer, &len, " | no map open", .{});
+    var part: [96]u8 = undefined;
+    if (!mapIsOpen(state.editor)) append(buffer, &len, " | {s}", .{tr("app.common.no_map")});
     if (state.view.hover) |hover| {
-        if (hover.tile) |tile| append(buffer, &len, " | tile {d},{d}", .{ tile[0], tile[1] });
-        append(buffer, &len, " | map {d:.0},{d:.0}", .{ hover.map_x, hover.map_y });
+        if (hover.tile) |tile| append(buffer, &len, " | {s}", .{say(&part, "app.bar.tile", .{ tile[0], tile[1] })});
+        var map_x: [24]u8 = undefined;
+        var map_y: [24]u8 = undefined;
+        append(buffer, &len, " | {s}", .{say(&part, "app.bar.map", .{ fixed(&map_x, hover.map_x, 0), fixed(&map_y, hover.map_y, 0) })});
     }
     // VIS/SCRIPT (V6), the MFC InputState.cpp's own pair: VIS is the cursor's
     // world position in world cells (z on the bridge's own z=0 convention -
@@ -4516,13 +4786,13 @@ pub fn statusLine(state: *State, buffer: []u8) []const u8 {
     // No cursor: the MFC's own dashes.
     var coord_buffer: [96]u8 = undefined;
     const vis_script = if (state.view.hover) |hover|
-        logic.visScriptLine(
+        visScriptText(
             &coord_buffer,
             .{ hover.world_x / view_mod.world_cell_size, hover.world_y / view_mod.world_cell_size, 0.0 },
             .{ @intFromFloat(@round(hover.map_x)), @intFromFloat(@round(hover.map_y)) },
         )
     else
-        logic.visScriptLine(&coord_buffer, null, null);
+        visScriptText(&coord_buffer, null, null);
     append(buffer, &len, " | {s}", .{vis_script});
     // The object line (V6): the one selected object's name, Script ID and
     // position (map/AI units, as the records hold them), or the MFC's own
@@ -4533,14 +4803,18 @@ pub fn statusLine(state: *State, buffer: []u8) []const u8 {
     var object_buffer: [192]u8 = undefined;
     const object_line = if (state.editor.selection) |link_id|
         (if (state.editor.document.find(link_id)) |record|
-            logic.objectLine(&object_buffer, 1, record.nameSlice(), record.script_id, .{ record.x, record.y }, null)
+            objectText(&object_buffer, record.nameSlice(), record.script_id, .{ record.x, record.y })
         else
-            logic.objectLine(&object_buffer, 0, "", -1, null, null))
+            tr("app.bar.object_none"))
     else
-        logic.objectLine(&object_buffer, 0, "", -1, null, null);
+        tr("app.bar.object_none");
     append(buffer, &len, " | {s}", .{object_line});
     // "Hide checked" (D-16): how many objects the checked groups hold back.
-    if (state.hidden_object_count != 0) append(buffer, &len, " | {d} {s} hidden", .{ state.hidden_object_count, if (state.hidden_object_count == 1) "object" else "objects" });
+    if (state.hidden_object_count == 1) {
+        append(buffer, &len, " | {s}", .{say(&part, "app.bar.hidden_one", .{state.hidden_object_count})});
+    } else if (state.hidden_object_count != 0) {
+        append(buffer, &len, " | {s}", .{say(&part, "app.bar.hidden_many", .{state.hidden_object_count})});
+    }
     const editor_status = state.editor.status();
     const view_status = state.view.statusLine();
     if (view_status.len != 0 and std.mem.endsWith(u8, view_status, editor_status)) {
@@ -4552,6 +4826,28 @@ pub fn statusLine(state: *State, buffer: []u8) []const u8 {
         if (view_status.len != 0) append(buffer, &len, " | {s}", .{view_status});
     }
     return buffer[0..len];
+}
+
+/// `value` with `decimals` places, into `buffer`.
+fn fixed(buffer: []u8, value: f32, comptime decimals: u8) []const u8 {
+    return std.fmt.bufPrint(buffer, "{d:." ++ std.fmt.comptimePrint("{d}", .{decimals}) ++ "}", .{value}) catch "?";
+}
+
+/// `logic.visScriptLine` in the current language.
+fn visScriptText(buffer: []u8, vis: ?[3]f32, script: ?[2]i32) []const u8 {
+    const v = vis orelse return tr("app.bar.vis_script_none");
+    const sc = script orelse return tr("app.bar.vis_script_none");
+    var a: [24]u8 = undefined;
+    var b: [24]u8 = undefined;
+    var d: [24]u8 = undefined;
+    return say(buffer, "app.bar.vis_script", .{ fixed(&a, v[0], 2), fixed(&b, v[1], 2), fixed(&d, v[2], 2), sc[0], sc[1] });
+}
+
+/// `logic.objectLine` for one selected object, in the current language.
+fn objectText(buffer: []u8, name: []const u8, script_id: i32, pos_ai: [2]f32) []const u8 {
+    var x: [24]u8 = undefined;
+    var y: [24]u8 = undefined;
+    return say(buffer, "app.bar.object", .{ name, script_id, fixed(&x, pos_ai[0], 2), fixed(&y, pos_ai[1], 2) });
 }
 
 /// Appends what fits; a status line cut short is still a status line.
@@ -4581,11 +4877,21 @@ fn updateTitle(state: *State) void {
         @divTrunc(@as(i32, @intCast(state.editor.document.info.width_tiles)), 16),
         @divTrunc(@as(i32, @intCast(state.editor.document.info.height_tiles)), 16),
     } else null;
-    const mod_key: []const u8 = if (state.real.activeMod()) |mod|
-        std.mem.sliceTo(&mod.name, 0)
-    else
-        "";
-    const title = logic.formatTitleM3(&buffer, name, state.editor.dirty(), documentIsShipped(state), size_patches, mod_key);
+    var read_only_text: [96]u8 = undefined;
+    var mod_text: [160]u8 = undefined;
+    const words = logic.TitleWords{
+        .product = std.mem.span(l10n.t("app.title.product")),
+        .read_only = std.fmt.bufPrint(&read_only_text, " ({s})", .{std.mem.span(l10n.t("app.title.read_only"))}) catch " (read-only)",
+        .mod = if (state.real.activeMod()) |mod| blk: {
+            var key_buffer: [96]u8 = undefined;
+            const key = std.fmt.bufPrint(&key_buffer, "{s}", .{std.mem.sliceTo(&mod.name, 0)}) catch "";
+            const formatted = l10n.format(mod_text[1..], "app.title.mod", .{key}) catch "";
+            if (formatted.len == 0) break :blk "";
+            mod_text[0] = ' ';
+            break :blk mod_text[0 .. formatted.len + 1];
+        } else "",
+    };
+    const title = logic.formatTitleWords(&buffer, words, name, state.editor.dirty(), documentIsShipped(state), size_patches);
     if (std.mem.eql(u8, title, state.title[0..state.title_len])) return;
     _ = sdl3.c.SDL_SetWindowTitle(state.window, title.ptr);
     const len = @min(title.len, state.title.len);

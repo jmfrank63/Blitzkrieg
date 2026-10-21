@@ -21,6 +21,7 @@ const logic = @import("panels_logic.zig");
 const app_settings = @import("settings.zig");
 
 const ig = imgui.c;
+const l10n = kit.l10n;
 const Kind = core.bridge.Kind;
 const kind_count = logic.kind_count;
 
@@ -32,17 +33,20 @@ const all_pattern: [:0]const u8 = blk: {
     for (std.enums.values(Kind), 0..) |kind, i| joined = joined ++ (if (i == 0) "" else ";") ++ kind.extension();
     break :blk std.fmt.comptimePrint("{s}", .{joined});
 };
-const open_filters = [_]sdl3.c.SDL_DialogFileFilter{
-    .{ .name = "Resource projects", .pattern = all_pattern.ptr },
+const kind_patterns = blk: {
+    var patterns: [kind_count][:0]const u8 = undefined;
+    for (std.enums.values(Kind), 0..) |kind, i| patterns[i] = std.fmt.comptimePrint("{s}", .{kind.extension()});
+    break :blk patterns;
 };
-const kind_filters = blk: {
-    var filters: [kind_count]sdl3.c.SDL_DialogFileFilter = undefined;
-    for (std.enums.values(Kind), 0..) |kind, i| {
-        const pattern = std.fmt.comptimePrint("{s}", .{kind.extension()});
-        filters[i] = .{ .name = lifecycle.kindLabel(kind).ptr, .pattern = pattern.ptr };
-    }
-    break :blk filters;
-};
+/// The filters' names follow the language, so they are filled when a dialog
+/// opens; the dialog keeps the pointers, hence the globals.
+var open_filters: [1]sdl3.c.SDL_DialogFileFilter = undefined;
+var kind_filters: [kind_count]sdl3.c.SDL_DialogFileFilter = undefined;
+
+fn fillFilters() void {
+    open_filters[0] = .{ .name = l10n.t("resource_app.file.filter_projects"), .pattern = all_pattern.ptr };
+    for (std.enums.values(Kind), 0..) |kind, i| kind_filters[i] = .{ .name = lifecycle.kindLabel(kind), .pattern = kind_patterns[i].ptr };
+}
 
 /// Where the dialog's callback writes its answer: SDL may call back on
 /// another thread, or after the editor quit, so it is a global.
@@ -194,16 +198,21 @@ pub const Ui = struct {
     pub fn drawFileMenuItems(self: *Ui) void {
         var context = self.ctx();
         const state = self.session.life.menuState();
-        if (ig.igBeginMenuEx("New", true)) {
+        const new_open = ig.igBeginMenuEx(l10n.id("resource_app.menu.new"), true);
+        l10n.noteRect("resource_app.menu.new");
+        if (new_open) {
             for (std.enums.values(Kind)) |kind| {
-                var label_buffer: [64]u8 = undefined;
-                const label = std.mem.printSentinel(&label_buffer, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
+                var label_buffer: [128]u8 = undefined;
+                const label = std.mem.printSentinel(&label_buffer, "{s} (.{s})###new_{s}", .{ lifecycle.kindLabel(kind), kind.extension(), @tagName(kind) }, 0) catch continue;
                 if (ig.igMenuItemEx(label.ptr, null, false, true)) self.session.request(&context, .{ .new_project = kind });
             }
             ig.igEndMenu();
         }
-        if (ig.igMenuItemEx("Open...", mod_label ++ "+O", false, logic.isEnabled(.open_project, state))) self.session.request(&context, .open_dialog);
-        if (ig.igBeginMenuEx("Open Recent", self.settings.recentCount() != 0)) {
+        if (ig.igMenuItemEx(l10n.id("resource_app.file.open"), mod_label ++ "+O", false, logic.isEnabled(.open_project, state))) self.session.request(&context, .open_dialog);
+        l10n.noteRect("resource_app.file.open");
+        const recent_open = ig.igBeginMenuEx(l10n.id("resource_app.file.open_recent"), self.settings.recentCount() != 0);
+        l10n.noteRect("resource_app.file.open_recent");
+        if (recent_open) {
             var i: usize = 0;
             while (i < self.settings.recentCount()) : (i += 1) {
                 var label_buffer: [logic.path_capacity + 1]u8 = undefined;
@@ -215,21 +224,26 @@ pub const Ui = struct {
             }
             ig.igEndMenu();
         }
-        if (ig.igMenuItemEx("Close", null, false, logic.isEnabled(.close_project, state))) self.session.request(&context, .close);
+        if (ig.igMenuItemEx(l10n.id("resource_app.file.close"), null, false, logic.isEnabled(.close_project, state))) self.session.request(&context, .close);
+        l10n.noteRect("resource_app.file.close");
         ig.igSeparator();
-        if (ig.igMenuItemEx("Save", mod_label ++ "+S", false, logic.isEnabled(.save, state))) self.session.save(&context);
-        if (ig.igMenuItemEx("Save As...", mod_label ++ "+Shift+S", false, logic.isEnabled(.save_as, state))) self.session.saveAs();
+        if (ig.igMenuItemEx(l10n.id("resource_app.file.save"), mod_label ++ "+S", false, logic.isEnabled(.save, state))) self.session.save(&context);
+        l10n.noteRect("resource_app.file.save");
+        if (ig.igMenuItemEx(l10n.id("resource_app.file.save_as"), mod_label ++ "+Shift+S", false, logic.isEnabled(.save_as, state))) self.session.saveAs();
+        l10n.noteRect("resource_app.file.save_as");
         ig.igSeparator();
-        if (ig.igMenuItemEx("Autosave", null, self.settings.autosave, true)) {
+        if (ig.igMenuItemEx(l10n.id("resource_app.file.autosave"), null, self.settings.autosave, true)) {
             self.settings.autosave = !self.settings.autosave;
             self.session.settings_changed = true;
         }
+        l10n.noteRect("resource_app.file.autosave");
         if (self.file_menu_tools) |hook| {
             ig.igSeparator();
             hook.draw(hook.ptr);
         }
         ig.igSeparator();
-        if (ig.igMenuItemEx("Exit", null, false, true)) self.session.request(&context, .quit);
+        if (ig.igMenuItemEx(l10n.id("resource_app.file.exit"), null, false, true)) self.session.request(&context, .quit);
+        l10n.noteRect("resource_app.file.exit");
     }
 
     /// Ctrl/Cmd+O, +S and +Shift+S, unless a text field has the keyboard.
@@ -260,19 +274,19 @@ pub const Ui = struct {
 
     fn drawUnsavedPrompt(self: *Ui) void {
         if (!self.session.prompt.isAsking()) return;
-        const id = "Unsaved changes";
+        const id = l10n.id("resource_app.unsaved.title");
         openOnce(id);
         if (!ig.igBeginPopupModal(id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
-        var line: [logic.path_capacity + 64]u8 = undefined;
-        const name = self.session.life.doc.pathSlice() orelse "The new project";
-        textLine(std.fmt.bufPrint(&line, "{s} has unsaved changes. Save them?", .{name}) catch "Save the changes?");
+        var line: [logic.path_capacity + 256]u8 = undefined;
+        const name = self.session.life.doc.pathSlice() orelse l10n.str("resource_app.unsaved.new_project");
+        textLine(l10n.say(&line, "resource_app.unsaved.text", .{name}));
         var context = self.ctx();
         var choice: ?logic.UnsavedPrompt.Choice = null;
-        if (ig.igButton("Save")) choice = .save;
+        if (ig.igButton(l10n.id("resource_app.unsaved.save"))) choice = .save;
         ig.igSameLine();
-        if (ig.igButton("Don't save")) choice = .dont_save;
+        if (ig.igButton(l10n.id("resource_app.unsaved.dont_save"))) choice = .dont_save;
         ig.igSameLine();
-        if (ig.igButton("Cancel")) choice = .cancel;
+        if (ig.igButton(l10n.id("resource_app.unsaved.cancel"))) choice = .cancel;
         if (choice) |answer| {
             ig.igCloseCurrentPopup();
             self.session.answerUnsaved(&context, answer);
@@ -282,17 +296,17 @@ pub const Ui = struct {
 
     fn drawLockPrompt(self: *Ui) void {
         if (!self.session.lock_prompt.asking) return;
-        const id = "Project locked";
+        const id = l10n.id("resource_app.lock.title");
         openOnce(id);
         if (!ig.igBeginPopupModal(id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
         var line: [512]u8 = undefined;
-        textLine(std.fmt.bufPrint(&line, "The project is locked by {s}.", .{self.session.lock_prompt.owner()}) catch "The project is locked by another user.");
-        textLine("Open it read-only (save only with Save As), or take the lock over?");
+        textLine(l10n.say(&line, "resource_app.lock.text", .{self.session.lock_prompt.owner()}));
+        textLine(l10n.str("resource_app.lock.question"));
         var context = self.ctx();
         var choice: ?lifecycle.LockPrompt.Choice = null;
-        if (ig.igButton("Read-only")) choice = .read_only;
+        if (ig.igButton(l10n.id("resource_app.lock.read_only"))) choice = .read_only;
         ig.igSameLine();
-        if (ig.igButton("Take over")) choice = .take_over;
+        if (ig.igButton(l10n.id("resource_app.lock.take_over"))) choice = .take_over;
         if (choice) |answer| {
             ig.igCloseCurrentPopup();
             _ = self.session.answerLock(&context, answer);
@@ -304,20 +318,20 @@ pub const Ui = struct {
     /// or Later (kept for the next start).
     fn drawRecoveryPrompt(self: *Ui) void {
         if (self.offer_count == 0 or self.offers_dismissed or self.session.busy()) return;
-        const id = "Unsaved work from an earlier session";
+        const id = l10n.id("resource_app.recovery.title");
         openOnce(id);
         if (!ig.igBeginPopupModal(id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
         var index: usize = 0;
         while (index < self.offer_count) : (index += 1) {
             const offer = &self.offers[index];
             ig.igPushIDInt(@intCast(index));
-            var line: [logic.path_capacity + 64]u8 = undefined;
+            var line: [logic.path_capacity + 256]u8 = undefined;
             const original = offer.original.slice();
-            textLine(std.fmt.bufPrint(&line, "{s} ({s}) - {d}", .{ if (original.len == 0) "a project never saved" else original, lifecycle.kindLabel(offer.kind), offer.unix_seconds }) catch "?");
+            textLine(l10n.say(&line, "resource_app.recovery.line", .{ if (original.len == 0) l10n.str("resource_app.recovery.never_saved") else original, lifecycle.kindLabel(offer.kind), offer.unix_seconds }));
             ig.igSameLine();
-            const open = ig.igSmallButton("Open");
+            const open = ig.igSmallButton(l10n.id("resource_app.recovery.open"));
             ig.igSameLine();
-            const discard = ig.igSmallButton("Discard");
+            const discard = ig.igSmallButton(l10n.id("resource_app.recovery.discard"));
             ig.igPopID();
             if (open or discard) {
                 const taken = offer.*;
@@ -332,7 +346,7 @@ pub const Ui = struct {
                 break;
             }
         }
-        if (ig.igButton("Later")) {
+        if (ig.igButton(l10n.id("resource_app.recovery.later"))) {
             self.offers_dismissed = true;
             ig.igCloseCurrentPopup();
         }
@@ -347,9 +361,9 @@ pub const Ui = struct {
         if (ig.igBegin("##status", null, flags)) {
             var line: [1024]u8 = undefined;
             const life = &self.session.life;
-            const doc = if (!life.is_open) "no project" else life.doc.pathSlice() orelse "untitled";
-            const lock = if (life.read_only) " [read-only]" else "";
-            textLine(std.fmt.bufPrint(&line, "{s}{s}{s}   {s}", .{ doc, if (life.dirty()) " *" else "", lock, self.session.message() }) catch "");
+            const doc = if (!life.is_open) l10n.str("resource_app.status.no_project") else life.doc.pathSlice() orelse l10n.str("resource_app.status.untitled");
+            const lock = if (life.read_only) l10n.str("resource_app.status.read_only") else "";
+            textLine(std.fmt.bufPrint(&line, "{s}{s}{s}{s}   {s}", .{ doc, if (life.dirty()) " *" else "", if (life.read_only) " " else "", lock, self.session.message() }) catch "");
         }
         ig.igEnd();
     }
@@ -395,6 +409,7 @@ pub const Ui = struct {
     fn showDialog(self: *Ui, which: lifecycle.Dialog) void {
         if (!dialog_slot.request({})) return;
         self.dialog_open = which;
+        fillFilters();
         var folder_z: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
         var location: ?[*:0]const u8 = null;
         if (self.settings.projectsFolder().len != 0) {
@@ -418,7 +433,7 @@ pub const Ui = struct {
         self.title_dirty = dirty;
         self.title_path_len = path_len;
         var buffer: [logic.path_capacity + 64]u8 = undefined;
-        const name = if (!life.is_open) "" else if (path.len == 0) "untitled" else std.fs.path.basename(path);
+        const name = if (!life.is_open) "" else if (path.len == 0) l10n.str("resource_app.status.untitled") else std.fs.path.basename(path);
         const title = std.mem.printSentinel(&buffer, "{s}{s}{s}Resource Editor", .{ name, if (dirty) " *" else "", if (name.len != 0) " - " else "" }, 0) catch return;
         _ = sdl3.c.SDL_SetWindowTitle(self.window, title.ptr);
     }

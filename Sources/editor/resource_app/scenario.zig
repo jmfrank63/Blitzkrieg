@@ -76,6 +76,10 @@
 //!   do=image_drag_cross:<dx>/<dy>   the first cross pressed on, dragged by that many picture pixels, released
 //!   do=keyframe:reset       the dock's Reset all
 //!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
+//!   do=open_menu:<key>      the next frame opens that menu bar menu (the l10n tier; the View menu draws its dock items)
+//!   do=dock:direction|thumbnails   that dock, drawn from then on (the l10n tier)
+//!   do=help_close           closes the Help window F1 (key=f1) opened
+//!   key=<name>              the key down and up (SDL's key names: escape, f1)
 //!   do=function_open        the Function window opened by Ctrl+F through the event queue, the docks drawn from then on (do=curve first)
 //!   do=curve_click:<t>/<v>  a left press and release on empty graph space of the displayed widget: adds a key (read back, then undone and redone)
 //!   do=curve_drag:<i>/<t>/<v>   key i pressed on its displayed handle, moved over four frames, released (read back, undone, redone)
@@ -109,6 +113,9 @@
 //!          lines:<n>  the Object's one-way line count  zero_tile:<x>/<y>  the zero point's tile (Object)
 //!          sprite_tile:<x>/<y>  the sprite's tile (Fence)  sprite:moved|home  against where sprite_move found it
 //!          shot_colour:<shot>/<RRGGBB>/min|max/<n>  the pixels of exactly that colour in a shot
+//!          shot_mark_cross:<shot>/<begin|end|front|back>/min|max/<n>  the span mark colour's pixels inside that mark's
+//!          own +-7px cross box, as drawn in the last frame (label excluded, so no UI font changes the number); a mark
+//!          not drawn counts as an error
 //!          points:<shoot|fire|smoke|dir>=<n>  the Building's point count of a family
 //!          point:<shoot|fire|smoke|dir>/<i>=<angle>/<cone>  one point's stored direction and cone (angle within 1 degree)
 //!          entrance_tile:<x>/<y>  the Building's entrance tile
@@ -131,6 +138,7 @@
 //! action prints the frame and the entry, and exits 1.
 const std = @import("std");
 const sdl3 = @import("sdl3");
+const imgui = @import("editor_imgui");
 const kit = @import("editor_kit");
 const core = @import("resource_core");
 const host_mod = kit.host;
@@ -152,6 +160,7 @@ const view_logic = @import("view_logic.zig");
 const game_reads = @import("game_reads_logic.zig");
 
 const c = c_bridge.c;
+const ig = imgui.c;
 
 const Kind = core.bridge.Kind;
 const ResBridge = core.bridge.ResBridge;
@@ -204,6 +213,34 @@ fn onOff(on: bool) []const u8 {
 
 /// One frame of the interactive loop's drawing: events, the panels over the
 /// engine's frame.
+/// The l10n tier's menu bar: the scenario does not run the interactive loop's menus, so with
+/// `rect_log` on it draws the top-level labels (closed) for the tier to measure.
+fn drawL10nMenuBar(docks: ?*docks_mod.Docks) void {
+    if (!ig.igBeginMainMenuBar()) return;
+    inline for (.{ "file", "edit", "tools", "editors", "view", "preview", "help" }) |name| {
+        const key = "resource_app.menu." ++ name;
+        // do=open_menu:<key> opens the popup on the next frame, as a click on the title would.
+        if (open_menu_len != 0 and std.mem.eql(u8, open_menu[0..open_menu_len], key)) {
+            open_menu_len = 0;
+            _ = ig.igOpenPopup(kit.l10n.id(key), 0);
+        }
+        const open = ig.igBeginMenuEx(kit.l10n.id(key), true);
+        kit.l10n.noteRect(key);
+        if (open) {
+            // Only the View menu's dock items have rects to measure here.
+            if (comptime std.mem.eql(u8, name, "view")) {
+                if (docks) |d| d.drawViewMenuItems();
+            }
+            ig.igEndMenu();
+        }
+    }
+    ig.igEndMainMenuBar();
+}
+
+/// The menu key do=open_menu asked for; the frame that draws its title opens the popup.
+var open_menu: [48]u8 = undefined;
+var open_menu_len: usize = 0;
+
 fn drawFrame(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) host_mod.HostError!void {
     return drawFrameWithDocks(host, panels, gpa, b, life, null, null, null);
 }
@@ -214,10 +251,13 @@ fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std
     var event: sdl3.c.SDL_Event = undefined;
     while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
     host.beginFrame();
+    if (kit.l10n.rect_log) drawL10nMenuBar(docks);
     panels.draw(gpa, b, life, host.window);
     if (docks) |d| {
         d.handleShortcuts();
         d.drawDocks(folder, life, selected);
+        // Help and About are the interactive loop's dialogs; the l10n tier shows them too.
+        if (kit.l10n.rect_log) d.drawInfoDialogs();
     }
     try host.endFrame();
 }
@@ -547,11 +587,21 @@ const Runner = struct {
                 var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
                 const path = self.shotPath(&buffer, name) orelse return self.fail("the shot path is too long", .{});
                 if (!capture(&self.real, self.gpa, path)) return self.fail("the frame was not captured: {s}", .{self.bridge().lastMessage()});
+                if (kit.l10n.rect_log) {
+                    var width: c_int = 0;
+                    var height: c_int = 0;
+                    _ = sdl3.c.SDL_GetWindowSizeInPixels(self.host.window, &width, &height);
+                    std.debug.print("l10n-auto: shot {s} {d}x{d}\n", .{ name, width, height });
+                }
                 return null;
             },
             .differ => |d| {
                 if (before_draw) return null;
                 return self.differ(d);
+            },
+            .key => |pressed| {
+                if (!before_draw) return null;
+                return self.pressKey(pressed);
             },
             .exit => return null,
             else => return self.fail("this action belongs to the Map Editor's tools and is not supported here", .{}),
@@ -615,11 +665,45 @@ const Runner = struct {
         return null;
     }
 
+    /// `key=<name>`: the key goes down and up through the event queue, as a keyboard sends it.
+    fn pressKey(self: *Runner, pressed: schedule.Key) ?[]const u8 {
+        var name_buffer: [64:0]u8 = undefined;
+        if (pressed.name.len >= name_buffer.len) return self.fail("key: the name {s} is too long", .{pressed.name});
+        @memcpy(name_buffer[0..pressed.name.len], pressed.name);
+        name_buffer[pressed.name.len] = 0;
+        const scancode = sdl3.c.SDL_GetScancodeFromName(&name_buffer);
+        if (scancode == sdl3.c.SDL_SCANCODE_UNKNOWN) return self.fail("key: unknown key {s}", .{pressed.name});
+        const keycode = sdl3.c.SDL_GetKeyFromScancode(scancode, 0, false);
+        self.pushKey(keycode, scancode, 0, true);
+        self.pushKey(keycode, scancode, 0, false);
+        return null;
+    }
+
+    /// do=open_menu:<key> and do=dock:direction|help_close, the l10n tier's way to the popup and the
+    /// docks (the docks are made on first use).
+    fn l10nCommand(self: *Runner, named: schedule.Named) ?[]const u8 {
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const docks = &self.docks.?;
+        if (std.mem.eql(u8, named.name, "open_menu")) {
+            if (named.arg.len == 0 or named.arg.len > open_menu.len) return self.fail("open_menu needs a menu key", .{});
+            @memcpy(open_menu[0..named.arg.len], named.arg);
+            open_menu_len = named.arg.len;
+        } else if (std.mem.eql(u8, named.name, "help_close")) {
+            docks.show_help = false;
+        } else if (std.mem.eql(u8, named.arg, "direction")) {
+            docks.show_direction = true;
+        } else if (std.mem.eql(u8, named.arg, "thumbnails")) {
+            docks.show_thumbnails = true;
+        } else return self.fail("dock: {s} is not a dock the l10n tier shows", .{named.arg});
+        return null;
+    }
+
     fn command(self: *Runner, named: schedule.Named) ?[]const u8 {
         const b = self.bridge();
         const name = named.name;
         const eql = std.mem.eql;
         var buffer: [logic.path_capacity]u8 = undefined;
+        if (eql(u8, name, "open_menu") or eql(u8, name, "help_close") or eql(u8, name, "dock")) return self.l10nCommand(named);
         if (eql(u8, name, "new")) {
             const kind = logic.kindFromExtension(named.arg) orelse return self.fail("new: '{s}' is not a project extension", .{named.arg});
             self.life.newProject(self.gpa, b, kind) catch return self.fail("new {s}: {s}", .{ named.arg, b.lastMessage() });
@@ -858,7 +942,7 @@ const Runner = struct {
             const mode = parseMode(named.arg) orelse return self.fail("generate_points needs smoke or dir", .{});
             if (mode != .smoke and mode != .dir_explosion) return self.fail("generate_points needs smoke or dir", .{});
             const editor = self.gridEditor(name) orelse return self.fail("generate_points: no grid editor is open (draw a frame after opening a bld)", .{});
-            editor.setTool(b, pointTool(mode)) catch return self.fail("generate_points: the {s} tool is not offered for .{s}", .{ pointTool(mode).label(), self.life.doc.kind.extension() });
+            editor.setTool(b, pointTool(mode)) catch return self.fail("generate_points: the {s} tool is not offered for .{s}", .{ std.mem.span(pointTool(mode).label()), self.life.doc.kind.extension() });
             editor.generate(b, &self.life.doc, &self.life.history) catch |err| return self.fail("generate_points:{s}: {s} {s}", .{ named.arg, @errorName(err), b.lastMessage() });
             return null;
         }
@@ -2164,7 +2248,7 @@ const Runner = struct {
             if (tile[0] < 0 or tile[1] < 0 or tile[0] >= grid.grid_tiles or tile[1] >= grid.grid_tiles)
                 return self.fail("{s}: tile {d}/{d} is outside the {d} x {d} grid", .{ verb, tile[0], tile[1], grid.grid_tiles, grid.grid_tiles });
         }
-        editor.setTool(b, tool) catch return self.fail("{s}: the {s} tool is not offered for .{s}", .{ verb, tool.label(), self.life.doc.kind.extension() });
+        editor.setTool(b, tool) catch return self.fail("{s}: the {s} tool is not offered for .{s}", .{ verb, std.mem.span(tool.label()), self.life.doc.kind.extension() });
         const start = editor.view.toScreen(grid.tileCentre(from[0], from[1]));
         const end = editor.view.toScreen(grid.tileCentre(to[0], to[1]));
         editor.press(b, start, erase) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
@@ -2338,6 +2422,46 @@ const Runner = struct {
         std.debug.print("resource-editor: auto: {s} has {d} pixels of #{s} ({s} {d})\n", .{ shot, count, hex, bound, limit });
         if (is_min and count < limit) return self.fail("expect=shot_colour:{s} was false: #{s} fills {d} pixels, at least {d} wanted", .{ arg, hex, count, limit });
         if (!is_min and count > limit) return self.fail("expect=shot_colour:{s} was false: #{s} fills {d} pixels, at most {d} wanted", .{ arg, hex, count, limit });
+        return null;
+    }
+
+    /// `<shot>/<mark>/min|max/<n>`: the span-mark-coloured pixels in the cross box of one mark. The box is the
+    /// square of +-7px the cross is drawn in (panels.zig drawSpanMarks); its label starts 9px right of the centre,
+    /// so it is outside, and the count follows the two 2px diagonals only, not the UI font.
+    fn shotMarkCross(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const shot = parts.next() orelse "";
+        const mark_text = parts.next() orelse "";
+        const bound = parts.next() orelse "";
+        const limit_text = parts.next() orelse "";
+        const mark = parseSpanMark(mark_text) orelse return self.fail("shot_mark_cross needs <shot>/<begin|end|front|back>/min|max/<n>", .{});
+        const limit = std.fmt.parseInt(usize, limit_text, 10) catch return self.fail("shot_mark_cross needs <shot>/<mark>/min|max/<n>", .{});
+        const is_min = std.mem.eql(u8, bound, "min");
+        if (!is_min and !std.mem.eql(u8, bound, "max")) return self.fail("shot_mark_cross needs min or max, not '{s}'", .{bound});
+        const at = self.panels.span_cross_at[@intFromEnum(mark)] orelse return self.fail("expect=shot_mark_cross:{s}: the last frame drew no {s} mark", .{ arg, mark_text });
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = self.shotPath(&path_buffer, shot) orelse return self.fail("shot_mark_cross: the path is too long", .{});
+        const bytes = readFile(self.io, self.gpa, path) catch |err| return self.fail("shot_mark_cross: {s}: {s}", .{ path, @errorName(err) });
+        defer self.gpa.free(bytes);
+        const tga = schedule.Tga.parse(bytes) catch return self.fail("shot_mark_cross: {s} is not a TGA", .{path});
+        const scale = @as(f32, @floatFromInt(tga.width)) / self.windowWidth();
+        const want = grid.span_mark_color;
+        const x0: i32 = @intFromFloat(@floor((at.x - 7) * scale));
+        const x1: i32 = @intFromFloat(@ceil((at.x + 7) * scale));
+        const y0: i32 = @intFromFloat(@floor((at.y - 7) * scale));
+        const y1: i32 = @intFromFloat(@ceil((at.y + 7) * scale));
+        var count: usize = 0;
+        var y = @max(y0, 0);
+        while (y <= y1 and y < tga.height) : (y += 1) {
+            var x = @max(x0, 0);
+            while (x <= x1 and x < tga.width) : (x += 1) {
+                const p = tga.pixel(@intCast(x), @intCast(y));
+                if (p[2] == (want >> 16 & 0xff) and p[1] == (want >> 8 & 0xff) and p[0] == (want & 0xff)) count += 1;
+            }
+        }
+        std.debug.print("resource-editor: auto: {s} has {d} mark pixels in the {s} cross ({s} {d})\n", .{ shot, count, mark_text, bound, limit });
+        if (is_min and count < limit) return self.fail("expect=shot_mark_cross:{s} was false: {d} pixels, at least {d} wanted", .{ arg, count, limit });
+        if (!is_min and count > limit) return self.fail("expect=shot_mark_cross:{s} was false: {d} pixels, at most {d} wanted", .{ arg, count, limit });
         return null;
     }
 
@@ -2803,6 +2927,7 @@ const Runner = struct {
         if (eql(u8, name, "shot_picture")) return self.shotPicture(arg);
         if (eql(u8, name, "shot_minimap")) return self.shotMinimap(arg);
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
+        if (eql(u8, name, "shot_mark_cross")) return self.shotMarkCross(arg);
         if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
         if (eql(u8, name, "gui_rect")) return self.guiRect(arg);
         if (eql(u8, name, "gui_same")) return self.guiSame(arg);

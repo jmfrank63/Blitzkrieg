@@ -58,6 +58,8 @@ pub const Settings = struct {
     /// order (panels_logic.PanelId). The core only keeps the number: 0,
     /// nothing hidden, is the default and what Reset layout restores.
     hidden_panels: u32 = 0,
+    /// The shared `ui_language` key (D061): empty is `system`, otherwise the value as written.
+    ui_language_storage: FixedPath = .{},
 
     // --- MapEditor sidecar fields. ---
     /// D-20 (M3): the Map menu's two terrain toggles, persisted like the MFC
@@ -510,4 +512,20 @@ test "a filter name longer than the filter-name limit in the file is skipped (CR
     try std.testing.expectEqual(@as(usize, 0), read.filter_active.slice().len);
     try std.testing.expectEqual(@as(usize, 0), read.filterSlot(2).len);
     try std.testing.expectEqualStrings(exact, read.filterSlot(3));
+}
+
+test "ui_language: the default writes nothing, a code and an unknown value round-trip as written" {
+    var settings: Settings = .{};
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try std.testing.expect(std.mem.indexOf(u8, writer.buffered(), "ui_language") == null);
+    try std.testing.expectEqualStrings("system", kit_settings.uiLanguage(&parse(writer.buffered())));
+    for ([_][]const u8{ "ru", "xx" }) |value| {
+        settings.ui_language_storage.set(value);
+        writer = .fixed(&buffer);
+        try format(&settings, &writer);
+        const again = parse(writer.buffered());
+        try std.testing.expectEqualStrings(value, kit_settings.uiLanguage(&again));
+    }
 }

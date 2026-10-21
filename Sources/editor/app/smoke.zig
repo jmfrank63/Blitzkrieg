@@ -1874,6 +1874,12 @@ pub const AutoRunner = struct {
             return self.fail("shot={s}: the path is too long", .{name});
         if (c.BkEditorCaptureFrame(self.real.session, path.ptr) != c.BK_EDITOR_OK)
             return self.fail("shot={s}: the frame was not captured: {s}", .{ name, std.mem.span(c.BkEditorLastMessage(self.real.session)) });
+        if (kit.l10n.rect_log) {
+            var width: c_int = 0;
+            var height: c_int = 0;
+            _ = sdl3.c.SDL_GetWindowSizeInPixels(self.state.window, &width, &height);
+            std.debug.print("l10n-auto: shot {s} {d}x{d}\n", .{ name, width, height });
+        }
         return true;
     }
 

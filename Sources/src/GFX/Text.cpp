@@ -6,6 +6,7 @@
 
 #include "../Formats/fmtFont.h"
 #include "GFXTextVisitors.h"
+#include "TextBreak.h"
 CGFXText::CGFXText()
 : bPreFormatted( false ), fWidth( 0 ), fScale( 1.0f ), bRedLine( true ), fRedLineSize( 0 )
 {
@@ -142,6 +143,21 @@ void CGFXText::PreFormat() const
 		}
 		else											// simply symbol
 		{
+			if ( pszLine > pszWordBegin && CanBreakTextBetween( pszLine[-1], c ) )
+			{
+				// A break opportunity without a space (CJK): close the word here, so a
+				// wrap can fall between the characters. No space is counted.
+				pLine->words.push_back( SPreFormattedText::SLine::SWord(pszWordBegin, pszLine, nNumWordSpaces) );
+				++pLine->nNumWords;
+				fLineWordWidth = fLineWidth;
+				if ( pLine->nNumWords == 1 )
+					pLine->fPreSpace = format.GetChar(*pszWordBegin).fA * fScale;
+				if ( pLine->IsFirstLine() || (pLine->nNumWords > 1) )
+					pLine->nNumSpaces += nNumWordSpaces;
+				nNumWordSpaces = 0;
+				pszWordBegin = pszLine;
+				wLastChar = 0;
+			}
       const SFontFormat::SCharDesc &character = format.GetChar( c );
       fLineWidth += format.GetKern( wLastChar, c ) * fScale;
 			fLineWidth += ( character.fA + character.fB + character.fC ) * fScale;

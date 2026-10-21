@@ -20,6 +20,8 @@
 const std = @import("std");
 const bk_table = @import("bk_table.zig");
 const xml = @import("bk_table_xml.zig");
+const bk_tool = @import("bk_tool.zig");
+const bk_l10n = @import("bk_l10n.zig");
 
 const fixture_files = [_]struct { path: []const u8, data: []const u8 }{
     .{ .path = "stats/tank.xml", .data = @embedFile("fixtures/small-tools/stats/tank.xml") },
@@ -58,12 +60,22 @@ fn expectFixtureUnchanged(io: std.Io, dir: std.Io.Dir) !void {
     }
 }
 
+/// The English tables, which the exact-text assertions below read: the messages are tested in the
+/// language the rest of the tests (and the convention test, with BK_LANG=en) expect.
+fn english() bk_l10n.Set {
+    var texts = bk_l10n.Set.init(std.testing.allocator, std.testing.io, &bk_tool.embedded, .{});
+    texts.setLanguage("en");
+    return texts;
+}
+
 /// Export into a fresh sheet; problems are printed so a failure explains itself.
 fn exportOk(dir: std.Io.Dir, options: bk_table.ExportOptions) ![]u8 {
     const gpa = std.testing.allocator;
+    var texts = english();
+    defer texts.deinit();
     var problems: std.Io.Writer.Allocating = .init(gpa);
     defer problems.deinit();
-    const result = bk_table.exportSheet(std.testing.io, gpa, dir, options, &problems.writer) catch |err| {
+    const result = bk_table.exportSheet(std.testing.io, gpa, dir, options, &texts, &problems.writer) catch |err| {
         std.debug.print("export failed: {s}\n", .{problems.written()});
         return err;
     };
@@ -82,9 +94,11 @@ const Import = struct {
 
 fn importSheet(dir: std.Io.Dir, sheet: []const u8, root: ?[]const u8) !Import {
     const gpa = std.testing.allocator;
+    var texts = english();
+    defer texts.deinit();
     var problems: std.Io.Writer.Allocating = .init(gpa);
     defer problems.deinit();
-    const result = try bk_table.importSheet(std.testing.io, gpa, dir, sheet, root, &problems.writer);
+    const result = try bk_table.importSheet(std.testing.io, gpa, dir, sheet, root, &texts, &problems.writer);
     return .{ .result = result, .problems = try problems.toOwnedSlice() };
 }
 
@@ -410,9 +424,11 @@ test "the root comes from the extension table or --root, on export and on import
 
     // A file without its root is an error on export, with where to look.
     try writeFile(io, tmp.dir, "noroot/x.eff", "<base>\n<RPG/>\n</base>");
+    var texts = english();
+    defer texts.deinit();
     var problems: std.Io.Writer.Allocating = .init(gpa);
     defer problems.deinit();
-    try std.testing.expectError(error.Failed, bk_table.exportSheet(io, gpa, tmp.dir, .{ .mask = "*", .folder = "noroot" }, &problems.writer));
+    try std.testing.expectError(error.Failed, bk_table.exportSheet(io, gpa, tmp.dir, .{ .mask = "*", .folder = "noroot" }, &texts, &problems.writer));
     const sep = std.fs.path.sep_str;
     try std.testing.expectEqualStrings("bk-table: noroot" ++ sep ++ "x.eff:1:1: no <effect> element under the document element (--root <name> picks another stat root)\n", problems.written());
 }
@@ -425,9 +441,11 @@ test "export fails whole, with line and column, on a file it cannot put in a she
     try writeFile(io, tmp.dir, "bad/a.xml", "<base><RPG><Note>a&#9;b</Note></RPG></base>");
     try writeFile(io, tmp.dir, "bad/b.xml", "<base>\n<RPG>\n<Note>x</Nope></RPG></base>");
     try writeFile(io, tmp.dir, "bad/c.xml", "<base><RPG HP=\"1\"/></base>");
+    var texts = english();
+    defer texts.deinit();
     var problems: std.Io.Writer.Allocating = .init(gpa);
     defer problems.deinit();
-    try std.testing.expectError(error.Failed, bk_table.exportSheet(io, gpa, tmp.dir, .{ .mask = "*.xml", .folder = "bad" }, &problems.writer));
+    try std.testing.expectError(error.Failed, bk_table.exportSheet(io, gpa, tmp.dir, .{ .mask = "*.xml", .folder = "bad" }, &texts, &problems.writer));
     const sep = std.fs.path.sep_str;
     try std.testing.expectEqualStrings(
         "bk-table: bad" ++ sep ++ "a.xml:1:18: the value of Note;#text holds a tab or line break, which a sheet cannot\n" ++
@@ -447,9 +465,11 @@ test "a sheet that cannot be read fails before any file is touched" {
         .{ "FileName\tKeyName;#text\nstats/tank.xml\tPanzer\nstats/truck.xml\tLKW \xE4\n", "bk-table: the sheet is not UTF-8 (line 3); save it as UTF-8 text\n" },
     };
     for (cases) |case| {
+        var texts = english();
+        defer texts.deinit();
         var problems: std.Io.Writer.Allocating = .init(std.testing.allocator);
         defer problems.deinit();
-        try std.testing.expectError(error.Failed, bk_table.importSheet(io, std.testing.allocator, tmp.dir, case[0], null, &problems.writer));
+        try std.testing.expectError(error.Failed, bk_table.importSheet(io, std.testing.allocator, tmp.dir, case[0], null, &texts, &problems.writer));
         try std.testing.expectEqualStrings(case[1], problems.written());
     }
     try expectFixtureUnchanged(io, tmp.dir);
@@ -501,6 +521,8 @@ test "flattening follows the legacy paths: item(NN) per parent, text, CDATA, com
 test "the strict reader names the exact line and column of what it refuses" {
     var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_state.deinit();
+    var texts = english();
+    defer texts.deinit();
     const cases = [_]struct { source: []const u8, line: usize, column: usize, message: []const u8 }{
         .{ .source = "<base><RPG></base>", .line = 1, .column = 14, .message = "expected </RPG>, found </base>" },
         .{ .source = "\xEF\xBB\xBF<base><RPG></base>", .line = 1, .column = 14, .message = "expected </RPG>, found </base>" },
@@ -535,7 +557,7 @@ test "the strict reader names the exact line and column of what it refuses" {
             return err;
         };
         const at = xml.locate(case.source, diag.offset);
-        std.testing.expectEqualStrings(case.message, diag.message()) catch |err| {
+        std.testing.expectEqualStrings(case.message, diag.render(arena_state.allocator(), &texts)) catch |err| {
             std.debug.print("for: {s}\n", .{case.source});
             return err;
         };
@@ -547,7 +569,7 @@ test "the strict reader names the exact line and column of what it refuses" {
 
     var diag: xml.Diagnostic = .{};
     try std.testing.expectError(error.RootNotFound, xml.flatten(arena_state.allocator(), "<base>\n<Other/>\n</base>", "RPG", &diag));
-    try std.testing.expectEqualStrings("no <RPG> element under the document element", diag.message());
+    try std.testing.expectEqualStrings("no <RPG> element under the document element", diag.render(arena_state.allocator(), &texts));
 }
 
 const Location = struct { line: usize, column: usize };

@@ -28,26 +28,17 @@
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
 const xml = @import("bk_table_xml.zig");
+const bk_l10n = @import("bk_l10n.zig");
 
-const usage =
+const usage: bk_tool.Usage = .{
+    .synopsis =
     \\usage: bk-table export <mask> <folder> <out.tsv> [--ignore <fields.txt> | --only <fields.txt>]
     \\                       [--no-recurse] [--root <name>]
     \\       bk-table import <sheet.tsv> [--root <name>]
     \\
-    \\export  flattens every file under <folder> whose name matches <mask> (* and ?,
-    \\        any case) into a tab-separated sheet: a FileName column, then one
-    \\        column per field path (attributes, element text, item(NN) lists).
-    \\        --only keeps, --ignore drops the paths starting with a line's first
-    \\        word in <fields.txt>. --no-recurse reads <folder> only, not below it.
-    \\import  writes the cells of a sheet that differ from the files back into
-    \\        them, changing only those values' bytes. An empty cell or _ leaves a
-    \\        value alone; a missing file or field is reported and skipped.
-    \\        Legacy .txt sheets are accepted.
-    \\
-    \\The stat root is <desc> for *.bld and *.obt, <effect> for *.eff and <RPG>
-    \\otherwise, under the document element; --root <name> overrides it.
-    \\
-;
+    ,
+    .body = &.{"table.usage.body"},
+};
 
 pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-table", usage, run);
@@ -105,8 +96,8 @@ fn run(ctx: *bk_tool.Context) !void {
             if (filter_path) |path| {
                 const host_path = try bk_tool.inputPath(arena, path);
                 const text = cwd.readFileAlloc(ctx.io, host_path, arena, .limited(16 * 1024 * 1024)) catch |err| switch (err) {
-                    error.FileNotFound => return ctx.fail("{s}: no such file", .{host_path}),
-                    else => return ctx.fail("{s}: {s}", .{ host_path, @errorName(err) }),
+                    error.FileNotFound => return ctx.failKey("table.err.no_file", .{host_path}),
+                    else => return ctx.failKey("tool.err.path_reason", .{ host_path, @errorName(err) }),
                 };
                 filter.fields = try Filter.parseFieldList(arena, text);
             }
@@ -117,16 +108,16 @@ fn run(ctx: *bk_tool.Context) !void {
                 .recurse = recurse,
                 .filter = filter,
                 .root = root,
-            }, ctx.err) catch |err| switch (err) {
+            }, ctx.texts, ctx.err) catch |err| switch (err) {
                 error.Failed => return error.Failed,
-                error.FileNotFound, error.NotDir => return ctx.fail("{s}: no such directory", .{folder}),
+                error.FileNotFound, error.NotDir => return ctx.failKey("table.err.no_dir", .{folder}),
                 else => return err,
             };
             defer ctx.gpa.free(result.sheet);
 
             if (std.fs.path.dirname(out_path)) |parent| try cwd.createDirPath(ctx.io, parent);
             cwd.writeFile(ctx.io, .{ .sub_path = out_path, .data = result.sheet }) catch |err|
-                return ctx.fail("{s}: {s}", .{ out_path, @errorName(err) });
+                return ctx.failKey("tool.err.path_reason", .{ out_path, @errorName(err) });
             try ctx.out.print("exported {d} files ({d} columns) into {s}\n", .{ result.files, result.columns, out_path });
         },
         .import => {
@@ -136,14 +127,14 @@ fn run(ctx: *bk_tool.Context) !void {
             const sheet_path = try bk_tool.inputPath(ctx.gpa, positional[0]);
             defer ctx.gpa.free(sheet_path);
             const sheet = cwd.readFileAlloc(ctx.io, sheet_path, ctx.gpa, .limited(256 * 1024 * 1024)) catch |err| switch (err) {
-                error.FileNotFound => return ctx.fail("{s}: no such file", .{sheet_path}),
-                else => return ctx.fail("{s}: {s}", .{ sheet_path, @errorName(err) }),
+                error.FileNotFound => return ctx.failKey("table.err.no_file", .{sheet_path}),
+                else => return ctx.failKey("tool.err.path_reason", .{ sheet_path, @errorName(err) }),
             };
             defer ctx.gpa.free(sheet);
 
-            const result = try importSheet(ctx.io, ctx.gpa, cwd, sheet, root, ctx.err);
+            const result = try importSheet(ctx.io, ctx.gpa, cwd, sheet, root, ctx.texts, ctx.err);
             if (result.problems > 0)
-                return ctx.fail("{d} problems reported above; changed {d} values in {d} files from {s}", .{ result.problems, result.cells_changed, result.files_changed, sheet_path });
+                return ctx.failKey("table.err.problems", .{ result.problems, result.cells_changed, result.files_changed, sheet_path });
             try ctx.out.print("changed {d} values in {d} files from {s}\n", .{ result.cells_changed, result.files_changed, sheet_path });
         },
     }
@@ -262,15 +253,35 @@ pub const ExportResult = struct {
     sheet: []u8,
 };
 
+/// Where the export and import say what they skipped or refused: `bk-table: <reason>` lines, the
+/// reason from the string table. The prefix stays English like every tool's.
+const Report = struct {
+    writer: *std.Io.Writer,
+    texts: *bk_l10n.Set,
+    arena: std.mem.Allocator,
+
+    fn line(report: Report, comptime key: []const u8, args: anytype) std.Io.Writer.Error!void {
+        try report.writer.print("bk-table: {s}\n", .{bk_tool.formatText(report.arena, report.texts, key, args)});
+    }
+
+    /// The reason a file was refused, with the `--root` hint when the root was the problem.
+    fn refusal(report: Report, diag: *const xml.Diagnostic, err: anyerror) []const u8 {
+        const reason = diag.render(report.arena, report.texts);
+        if (err != error.RootNotFound) return reason;
+        return std.fmt.allocPrint(report.arena, "{s} {s}", .{ reason, report.texts.get("table.hint.root") }) catch reason;
+    }
+};
+
 /// Build the sheet for every matching file under `options.folder` (relative
 /// to `base`). Every file is read before anything is returned: a file that is
 /// not well-formed, lacks its root or holds a value a sheet cannot (a tab or
 /// line break) is reported on `problems` and the export fails as a whole
 /// (`error.Failed`), so no half sheet is written.
-pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options: ExportOptions, problems: *std.Io.Writer) !ExportResult {
+pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options: ExportOptions, texts: *bk_l10n.Set, problems: *std.Io.Writer) !ExportResult {
     var arena_state: std.heap.ArenaAllocator = .init(gpa);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
+    const report: Report = .{ .writer = problems, .texts = texts, .arena = arena };
 
     const folder_host = try bk_tool.inputPath(arena, options.folder);
     const folder_sheet = try arena.dupe(u8, options.folder);
@@ -301,7 +312,7 @@ pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options
     std.mem.sort([]const u8, names.items, {}, lessThanBytes);
 
     if (names.items.len == 0) {
-        try problems.print("bk-table: no file in {s} matches {s}\n", .{ folder_host, options.mask });
+        try report.line("table.problem.no_match", .{ folder_host, options.mask });
         return error.Failed;
     }
 
@@ -313,7 +324,7 @@ pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options
         row.* = .{ .name = try std.mem.concat(arena, u8, &.{ folder_prefix, "/", name }), .values = .empty };
         const host_path = try bk_tool.inputPath(arena, row.name);
         if (std.mem.indexOfAny(u8, row.name, "\t\r\n") != null) {
-            try problems.print("bk-table: {s}: a file name with a tab or line break cannot go in a sheet\n", .{host_path});
+            try report.line("table.problem.name_tab", .{host_path});
             failed = true;
             continue;
         }
@@ -322,7 +333,7 @@ pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options
         const fields = xml.flatten(arena, source, rootFor(name, options.root), &diag) catch |err| switch (err) {
             error.Malformed, error.RootNotFound => {
                 const at = xml.locate(source, diag.offset);
-                try problems.print("bk-table: {s}:{d}:{d}: {s}{s}\n", .{ host_path, at.line, at.column, diag.message(), rootHint(err) });
+                try report.line("table.problem.xml", .{ host_path, at.line, at.column, report.refusal(&diag, err) });
                 failed = true;
                 continue;
             },
@@ -334,7 +345,7 @@ pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options
             if (entry.found_existing) continue;
             if (std.mem.indexOfAny(u8, field.value, "\t\r\n") != null) {
                 const at = xml.locate(source, field.start);
-                try problems.print("bk-table: {s}:{d}:{d}: the value of {s} holds a tab or line break, which a sheet cannot\n", .{ host_path, at.line, at.column, field.path });
+                try report.line("table.problem.value_tab", .{ host_path, at.line, at.column, field.path });
                 failed = true;
             }
             entry.value_ptr.* = field.value;
@@ -364,12 +375,6 @@ pub fn exportSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, options
         try out.writeByte('\n');
     }
     return .{ .files = rows.len, .columns = paths.len, .sheet = try sheet.toOwnedSlice() };
-}
-
-/// Shipped files do not always use the root their extension suggests (a
-/// building's exported 1.xml holds <desc>), so the refusal says how to name it.
-fn rootHint(err: anyerror) []const u8 {
-    return if (err == error.RootNotFound) " (--root <name> picks another stat root)" else "";
 }
 
 fn lessThanBytes(_: void, lhs: []const u8, rhs: []const u8) bool {
@@ -418,14 +423,15 @@ pub const ImportResult = struct {
 /// `base`). Row and cell problems are reported, counted and skipped; a sheet
 /// that cannot be read at all (no `FileName` header, a column named twice,
 /// not UTF-8) fails with `error.Failed` before any file is touched.
-pub fn importSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, sheet: []const u8, root: ?[]const u8, problems: *std.Io.Writer) !ImportResult {
+pub fn importSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, sheet: []const u8, root: ?[]const u8, texts: *bk_l10n.Set, problems: *std.Io.Writer) !ImportResult {
     var arena_state: std.heap.ArenaAllocator = .init(gpa);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
+    const report: Report = .{ .writer = problems, .texts = texts, .arena = arena };
 
     if (firstInvalidUtf8(sheet)) |offset| {
         const line = std.mem.count(u8, sheet[0..offset], "\n") + 1;
-        try problems.print("bk-table: the sheet is not UTF-8 (line {d}); save it as UTF-8 text\n", .{line});
+        try report.line("table.problem.not_utf8", .{line});
         return error.Failed;
     }
 
@@ -435,13 +441,13 @@ pub fn importSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, sheet: 
     var header_cells = std.mem.splitScalar(u8, header_line, '\t');
     while (header_cells.next()) |cell| try headers.append(arena, try readCell(arena, cell));
     if (!std.mem.eql(u8, headers.items[0], "FileName")) {
-        try problems.print("bk-table: the sheet does not start with a FileName column\n", .{});
+        try report.line("table.problem.no_filename", .{});
         return error.Failed;
     }
     for (headers.items[1..], 1..) |header, i| {
         for (headers.items[1..i]) |earlier| {
             if (std.mem.eql(u8, earlier, header)) {
-                try problems.print("bk-table: column {s} appears twice in the sheet\n", .{header});
+                try report.line("table.problem.column_twice", .{header});
                 return error.Failed;
             }
         }
@@ -460,14 +466,14 @@ pub fn importSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, sheet: 
         while (it.next()) |cell| try cells.append(arena, try readCell(arena, cell));
         const path = try bk_tool.inputPath(arena, cells.items[0]);
         if (cells.items.len > headers.items.len) {
-            try problems.print("bk-table: line {d} ({s}) has more cells than the header; row skipped\n", .{ line_number, path });
+            try report.line("table.problem.extra_cells", .{ line_number, path });
             result.problems += 1;
             continue;
         }
 
         const source = base.readFileAlloc(io, path, arena, .limited(64 * 1024 * 1024)) catch |err| switch (err) {
             error.FileNotFound => {
-                try problems.print("bk-table: {s}: no such file; row skipped\n", .{path});
+                try report.line("table.problem.file_missing", .{path});
                 result.problems += 1;
                 continue;
             },
@@ -477,7 +483,7 @@ pub fn importSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, sheet: 
         const fields = xml.flatten(arena, source, rootFor(path, root), &diag) catch |err| switch (err) {
             error.Malformed, error.RootNotFound => {
                 const at = xml.locate(source, diag.offset);
-                try problems.print("bk-table: {s}:{d}:{d}: {s}{s}; row skipped\n", .{ path, at.line, at.column, diag.message(), rootHint(err) });
+                try report.line("table.problem.xml_row_skipped", .{ path, at.line, at.column, report.refusal(&diag, err) });
                 result.problems += 1;
                 continue;
             },
@@ -490,19 +496,19 @@ pub fn importSheet(io: std.Io, gpa: std.mem.Allocator, base: std.Io.Dir, sheet: 
             const field = for (fields) |field| {
                 if (std.mem.eql(u8, field.path, column)) break field;
             } else {
-                try problems.print("bk-table: {s}: {s} is not in the file; cell skipped\n", .{ path, column });
+                try report.line("table.problem.field_missing", .{ path, column });
                 result.problems += 1;
                 continue;
             };
             if (std.mem.eql(u8, field.value, cell)) continue;
             const bytes = xml.encode(arena, field, cell) catch |err| {
                 const reason = switch (err) {
-                    error.CdataTerminator => "a CDATA section cannot hold ']]>'",
-                    error.CommentDashes => "a comment cannot hold '--' or end with '-'",
-                    error.ControlCharacter => "XML cannot hold a control character",
+                    error.CdataTerminator => texts.get("table.reason.cdata"),
+                    error.CommentDashes => texts.get("table.reason.comment"),
+                    error.ControlCharacter => texts.get("table.reason.control"),
                     error.OutOfMemory => return error.OutOfMemory,
                 };
-                try problems.print("bk-table: {s}: {s}: {s}; cell skipped\n", .{ path, column, reason });
+                try report.line("table.problem.cell_refused", .{ path, column, reason });
                 result.problems += 1;
                 continue;
             };

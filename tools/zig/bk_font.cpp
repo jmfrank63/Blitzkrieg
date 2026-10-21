@@ -19,41 +19,30 @@
 #include <string>
 #include <vector>
 
+#include "bk_l10n.h"
 #include "data_only_startup.h"
 #include "tool_host.h"
 #include "../../Sources/src/FontAtlas/FontAtlas.h"
+#include "../../Sources/src/FontAtlas/Shaper.h"
 #include "../../Sources/src/Image/Image.h"
 
 namespace fs = std::filesystem;
 
-static const char USAGE[] =
-	"usage: bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]\n"
-	"               [--no-aa] [--charset <name>] [--face-index <n>] [--out <dir>] [--force]\n"
-	"               [--modules <dir>]\n"
-	"\n"
-	"Renders characters 32..255 of the charset's code page into <dir>/1.tga and\n"
-	"describes them (metrics, texture rects, A/B/C spacing, kerning) in\n"
-	"<dir>/1.tfd, as FontGen did, plus <dir>/1_h.dds, the texture the game\n"
-	"reads: a font directory the game loads like Data/Fonts/small.\n"
-	"\n"
-	"--ttf        a .ttf/.otf/.ttc file, or a face name looked up in the system\n"
-	"             font folders (best effort; a file is the reliable way)\n"
-	"--height     cell height in pixels, ascent + descent (default 20)\n"
-	"--weight     400 regular (default); 600 or more picks the bold face of a\n"
-	"             name, or emboldens a face that is not bold\n"
-	"--italic     picks the italic face of a name, or slants one that is not\n"
-	"--no-aa      every pixel fully on or off\n"
-	"--charset    ansi or default (code page 1252, default), easteurope (1250),\n"
-	"             russian (1251), or the code page number\n"
-	"--face-index the face inside a .ttc collection (default 0)\n"
-	"--out        output directory, created if missing (default .)\n"
-	"--force      replace an existing font in <dir>\n"
-	"--modules    where the engine's StreamIO and Image libraries are (default:\n"
-	"             beside bk-font, then ../lib)\n";
+// The synopsis stays English; the paragraphs under it and the --lang line come from the tables.
+static std::string UsageText()
+{
+	return std::string( "usage: bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]\n"
+		"               [--no-aa] [--charset <name>] [--chars <file>] [--set <name>]\n"
+		"               [--clusters <table>] [--script <tag>] [--language <tag>]\n"
+		"               [--face-index <n>] [--out <dir>] [--force] [--modules <dir>]\n" )
+		+ "\n" + BK_T( "font.usage.intro" ) + "\n"
+		+ "\n" + BK_T( "font.usage.options" ) + "\n"
+		+ "\n" + BkFormat( "tool.usage.lang", { bk_l10n_valid_codes() } ) + "\n";
+}
 
 static int Usage()
 {
-	fputs( USAGE, stderr );
+	fputs( UsageText().c_str(), stderr );
 	return 2;
 }
 
@@ -82,6 +71,50 @@ static bool ParseCharset( const std::string &szName, int *pCodePage )
 	else if ( !ParseInt( szName.c_str(), pCodePage ) ) return false;
 	BYTE cCharSet = 0;
 	return FontAtlas::GetCharSet( *pCodePage, &cCharSet );
+}
+
+// The ranges behind --set. Each set carries ASCII 32..126 so digits and
+// punctuation come from the same face; a code point the face lacks is dropped
+// by FontAtlas, so the ranges can be generous.
+static bool AddSet( const std::string &szName, std::vector<WORD> *pCodes )
+{
+	for ( WORD c = 32; c < 127; ++c )
+		pCodes->push_back( c );
+	if ( szName == "latin1" )
+		for ( WORD c = 160; c < 256; ++c ) pCodes->push_back( c );
+	else if ( szName == "cyrillic" )
+	{
+		for ( WORD c = 0x0400; c <= 0x04FF; ++c ) pCodes->push_back( c );
+		const WORD punct[] = { 0x00A0, 0x00AB, 0x00BB, 0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x201E, 0x2026, 0x2116 };
+		pCodes->insert( pCodes->end(), punct, punct + sizeof( punct ) / sizeof( punct[0] ) );
+	}
+	else if ( szName == "devanagari" )
+	{
+		for ( WORD c = 0x0900; c <= 0x097F; ++c ) pCodes->push_back( c );
+		pCodes->push_back( 0x00A0 );
+		pCodes->push_back( 0x200C );
+		pCodes->push_back( 0x200D );
+		pCodes->push_back( 0x25CC );
+	}
+	else
+		return false;
+	return true;
+}
+
+// Every distinct BMP character of a UTF-8 file, plus ASCII 32..126; line
+// breaks, other controls and a byte order mark are not characters of the font.
+static void AddCharsOf( const std::vector<BYTE> &data, std::vector<WORD> *pCodes )
+{
+	for ( WORD c = 32; c < 127; ++c )
+		pCodes->push_back( c );
+	const std::u16string text = BkUtf8ToUtf16( std::string( data.begin(), data.end() ) );
+	for ( size_t i = 0; i < text.size(); ++i )
+	{
+		const unsigned c = text[i];
+		if ( c < 32 || ( c >= 0x7F && c < 0xA0 ) || c == 0xFEFF || ( c >= 0xD800 && c < 0xE000 ) )
+			continue;
+		pCodes->push_back( WORD( c ) );
+	}
 }
 
 static bool ReadFile( const fs::path &path, std::vector<BYTE> *pData )
@@ -174,7 +207,7 @@ static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd,
 	{
 		CPtr<IDataStream> pStream;
 		if ( !CreateOutput( tfd, &pStream ) )
-			return "cannot create " + fs::path( tfd ).make_preferred().string();
+			return BkFormat( "font.err.cannot_create", { fs::path( tfd ).make_preferred().string() } );
 		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::WRITE );
 		CSaverAccessor saver = pSaver;
 		// The reader (FontGpu::Load, CFont::Load) takes chunk 1 as the format.
@@ -184,7 +217,7 @@ static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd,
 	{
 		CPtr<IDataStream> pStream;
 		if ( pImage == 0 || !CreateOutput( tga, &pStream ) || !GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
-			return "cannot write " + fs::path( tga ).make_preferred().string();
+			return BkFormat( "cxx.err.cannot_write", { fs::path( tga ).make_preferred().string() } );
 	}
 	// The game's texture manager reads only DDS (TextureGpu probes 1_<quality>,
 	// then _h, _c, _l), so FontGen's 1.tga reached it through the resource
@@ -193,20 +226,24 @@ static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd,
 	CPtr<IDDSImage> pDDS = GetImageProcessor()->Compress( pImage, GFXPF_ARGB8888 );
 	CPtr<IDataStream> pStream;
 	if ( pDDS == 0 || !CreateOutput( dds, &pStream ) || !GetImageProcessor()->SaveImageAsDDS( pStream, pDDS ) )
-		return "cannot write " + fs::path( dds ).make_preferred().string();
+		return BkFormat( "cxx.err.cannot_write", { fs::path( dds ).make_preferred().string() } );
 	return std::string();
 }
 
 int main( int argc, char *argv[] )
 {
 	NToolHost::BinaryStdio();
+	const int nLanguage = NToolHost::StartLanguage( &argc, &argv, "bk-font", UsageText );
+	if ( nLanguage >= 0 )
+		return nLanguage;
 	for ( int i = 1; i < argc; ++i )
 		if ( strcmp( argv[i], "--help" ) == 0 || strcmp( argv[i], "-h" ) == 0 )
 		{
-			fputs( USAGE, stdout );
+			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
-	std::string szFont, szModules, szOut = ".";
+	std::string szFont, szModules, szOut = ".", szChars, szClusters;
+	std::vector<std::string> sets;
 	FontAtlas::SFontRequest request;
 	bool bForce = false;
 	bool bFaceIndex = false;
@@ -224,6 +261,11 @@ int main( int argc, char *argv[] )
 		else if ( szArg == "--height" ) { if ( !ParseInt( argv[++i], &request.nHeight ) ) return Usage(); }
 		else if ( szArg == "--weight" ) { if ( !ParseInt( argv[++i], &request.nWeight ) ) return Usage(); }
 		else if ( szArg == "--face-index" ) { if ( !ParseInt( argv[++i], &request.nFaceIndex ) || request.nFaceIndex < 0 ) return Usage(); bFaceIndex = true; }
+		else if ( szArg == "--chars" ) szChars = argv[++i];
+		else if ( szArg == "--set" ) sets.push_back( argv[++i] );
+		else if ( szArg == "--clusters" ) szClusters = argv[++i];
+		else if ( szArg == "--script" ) request.szScript = argv[++i];
+		else if ( szArg == "--language" ) request.szLanguage = argv[++i];
 		else if ( szArg == "--charset" ) { if ( !ParseCharset( argv[++i], &request.nCodePage ) ) return Usage(); }
 		else return Usage();
 	}
@@ -236,18 +278,43 @@ int main( int argc, char *argv[] )
 	if ( fs::is_regular_file( font, ec ) )
 	{
 		if ( !ReadFile( font, &data ) || data.empty() )
-			return Fail( "cannot read " + font.make_preferred().string() );
+			return Fail( BkFormat( "font.err.cannot_read", { font.make_preferred().string() } ) );
 	}
 	else if ( font.has_extension() || szFont.find_first_of( "/\\" ) != std::string::npos )
-		return Fail( "no font file " + font.make_preferred().string() );
+		return Fail( BkFormat( "font.err.no_file", { font.make_preferred().string() } ) );
 	else
 	{
 		int nFace = 0;
 		if ( !FindFaceFile( szFont, request.nWeight >= 600, request.bItalic, &font, &data, &nFace ) )
-			return Fail( "no font named \"" + szFont + "\" in the system font folders; pass the file with --ttf" );
+			return Fail( BkFormat( "font.err.no_name", { szFont } ) );
 		if ( !bFaceIndex )
 			request.nFaceIndex = nFace;
 		request.szFaceName = szFont;
+	}
+	for ( size_t i = 0; i < sets.size(); ++i )
+		if ( !AddSet( sets[i], &request.codePoints ) )
+			return Usage();
+	if ( !szChars.empty() )
+	{
+		std::vector<BYTE> text;
+		fs::path chars = NToolHost::InputPath( szChars );
+		if ( !ReadFile( chars, &text ) )
+			return Fail( BkFormat( "font.err.cannot_read", { chars.make_preferred().string() } ) );
+		AddCharsOf( text, &request.codePoints );
+	}
+	if ( !szClusters.empty() )
+	{
+		std::vector<BYTE> text;
+		fs::path table = NToolHost::InputPath( szClusters );
+		if ( !ReadFile( table, &text ) )
+			return Fail( BkFormat( "font.err.cannot_read", { table.make_preferred().string() } ) );
+		CBkClusterTable clusters;
+		std::string szTableError;
+		if ( !clusters.Load( std::string( text.begin(), text.end() ), &szTableError ) )
+			return Fail( BkFormat( "tool.err.path_reason", { table.make_preferred().string(), szTableError } ) );
+		request.clusters = clusters.Entries();
+		if ( request.codePoints.empty() )
+			AddSet( "latin1", &request.codePoints );
 	}
 	request.pFontData = &data[0];
 	request.nFontDataSize = int( data.size() );
@@ -255,28 +322,31 @@ int main( int argc, char *argv[] )
 	FontAtlas::SFontAtlas atlas;
 	std::string szError;
 	if ( !FontAtlas::Build( request, &atlas, &szError ) )
-		return Fail( font.make_preferred().string() + ": " + szError );
+		return Fail( BkFormat( "tool.err.path_reason", { font.make_preferred().string(), szError } ) );
 
 	const fs::path out = NToolHost::InputPath( szOut );
 	const fs::path tfd = out / "1.tfd";
 	const fs::path tga = out / "1.tga";
 	const fs::path dds = out / "1_h.dds";
 	if ( !bForce && ( fs::exists( tfd, ec ) || fs::exists( tga, ec ) || fs::exists( dds, ec ) ) )
-		return Fail( fs::path( out ).make_preferred().string() + " already holds a font; use --force to replace it" );
+		return Fail( BkFormat( "font.err.exists", { fs::path( out ).make_preferred().string() } ) );
 	fs::create_directories( out, ec );
 	if ( ec )
-		return Fail( "cannot create " + fs::path( out ).make_preferred().string() + ": " + ec.message() );
+		return Fail( BkFormat( "cxx.err.create", { fs::path( out ).make_preferred().string(), ec.message() } ) );
 
 	// The startup reports its own reason on stderr before this one.
 	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
 	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
-		return Fail( "the engine libraries did not load from " + szModuleRoot + " (see --modules)" );
+		return Fail( BkFormat( "cxx.err.libs", { szModuleRoot } ) );
 	const std::string szWriteError = WriteFont( atlas, tfd, tga, dds );
 	NDataOnly::Stop();
 	if ( !szWriteError.empty() )
 		return Fail( szWriteError );
-	printf( "wrote %s, 1.tga and 1_h.dds: %d characters, %d kerning pairs, %dx%d atlas\n",
+	std::string szClusterNote;
+	if ( !szClusters.empty() )
+		szClusterNote = NStr::Format( ", clusters %d of %d", atlas.nClusters, CBkClusterTable::LAST - CBkClusterTable::FIRST + 1 );
+	printf( "wrote %s, 1.tga and 1_h.dds: %d characters, %d kerning pairs%s, %dx%d atlas\n",
 		fs::path( tfd ).make_preferred().string().c_str(), int( atlas.format.chars.size() ), int( atlas.format.kerns.size() ),
-		atlas.image.nSizeX, atlas.image.nSizeY );
+		szClusterNote.c_str(), atlas.image.nSizeX, atlas.image.nSizeY );
 	return 0;
 }

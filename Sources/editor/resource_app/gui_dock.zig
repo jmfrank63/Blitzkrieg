@@ -10,8 +10,10 @@ const imgui = @import("editor_imgui");
 const core = @import("resource_core");
 const gl = @import("gui_logic.zig");
 const logic = @import("panels_logic.zig");
+const kit = @import("editor_kit");
 
 const ig = imgui.c;
+const l10n = kit.l10n;
 const ResBridge = core.bridge.ResBridge;
 const GuiWindow = core.bridge.GuiWindow;
 const geometry = core.gui_geometry;
@@ -107,14 +109,14 @@ pub const GuiDock = struct {
         return &self.overlay.?;
     }
 
-    fn say(self: *GuiDock, comptime fmt: []const u8, args: anytype) void {
-        const text = std.fmt.bufPrint(&self.note, fmt, args) catch self.note[0..];
+    fn say(self: *GuiDock, comptime key: []const u8, args: anytype) void {
+        const text = l10n.format(&self.note, key, args) catch self.note[0..];
         self.note_len = text.len;
     }
 
-    fn report(self: *GuiDock, b: ResBridge, what: []const u8, err: core.bridge.EditError) void {
+    fn report(self: *GuiDock, b: ResBridge, comptime what_key: []const u8, err: core.bridge.EditError) void {
         const why = b.lastMessage();
-        if (why.len != 0) self.say("{s}: {s}", .{ what, why }) else self.say("{s}: {s}", .{ what, @errorName(err) });
+        self.say("resource_app.msg.failed", .{ l10n.str(what_key), if (why.len != 0) why else @errorName(err) });
     }
 
     fn loadPalette(self: *GuiDock, b: ResBridge) void {
@@ -122,7 +124,7 @@ pub const GuiDock = struct {
         self.palette_loaded = true;
         self.palette.deinit(self.gpa);
         self.palette = gl.Palette.load(self.gpa, b, self.userFolder()) catch |err| {
-            self.report(b, "templates", err);
+            self.report(b, "resource_app.gui.op_templates", err);
             return;
         };
     }
@@ -136,7 +138,7 @@ pub const GuiDock = struct {
             return;
         }
         const windows = gui_tools.readWindows(self.gpa, b) catch |err| {
-            self.report(b, "windows", err);
+            self.report(b, "resource_app.gui.op_windows", err);
             return;
         };
         defer self.gpa.free(windows);
@@ -158,7 +160,7 @@ pub const GuiDock = struct {
         }
         defer ig.igEnd();
         self.shown = null;
-        if (!ig.igBegin("GUI canvas###gui_canvas", null, 0)) return;
+        if (!ig.igBegin(l10n.id("resource_app.gui.canvas_window"), null, 0)) return;
         const read_only = life.read_only;
 
         // The Align menu's actions as a toolbar; the context menu has them too.
@@ -193,25 +195,25 @@ pub const GuiDock = struct {
     }
 
     fn drawAlignButtons(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
-        const aligns = [_]struct { label: [:0]const u8, mode: geometry.Align }{
-            .{ .label = "Left", .mode = .left },
-            .{ .label = "Top", .mode = .top },
-            .{ .label = "Right", .mode = .right },
-            .{ .label = "Bottom", .mode = .bottom },
+        const aligns = [_]struct { label: [*:0]const u8, mode: geometry.Align }{
+            .{ .label = l10n.id("resource_app.gui.left"), .mode = .left },
+            .{ .label = l10n.id("resource_app.gui.top"), .mode = .top },
+            .{ .label = l10n.id("resource_app.gui.right"), .mode = .right },
+            .{ .label = l10n.id("resource_app.gui.bottom"), .mode = .bottom },
         };
-        ig.igTextUnformatted("Align:");
+        ig.igTextUnformatted(l10n.t("resource_app.gui.align_label"));
         for (aligns) |entry| {
             ig.igSameLine();
-            if (ig.igSmallButton(entry.label.ptr)) self.alignSelection(b, life, overlay, entry.mode);
+            if (ig.igSmallButton(entry.label)) self.alignSelection(b, life, overlay, entry.mode);
         }
-        const equals = [_]struct { label: [:0]const u8, mode: geometry.Equal }{
-            .{ .label = "Equal width", .mode = .width },
-            .{ .label = "Equal height", .mode = .height },
-            .{ .label = "Equal size", .mode = .size },
+        const equals = [_]struct { label: [*:0]const u8, mode: geometry.Equal }{
+            .{ .label = l10n.id("resource_app.gui.equal_width"), .mode = .width },
+            .{ .label = l10n.id("resource_app.gui.equal_height"), .mode = .height },
+            .{ .label = l10n.id("resource_app.gui.equal_size"), .mode = .size },
         };
         for (equals) |entry| {
             ig.igSameLine();
-            if (ig.igSmallButton(entry.label.ptr)) self.equalSelection(b, life, overlay, entry.mode);
+            if (ig.igSmallButton(entry.label)) self.equalSelection(b, life, overlay, entry.mode);
         }
     }
 
@@ -223,40 +225,40 @@ pub const GuiDock = struct {
         ig.igSeparator();
         const can_edit = !life.read_only;
         const selected = overlay.selection.ids.items.len;
-        if (ig.igMenuItemEx("Copy windows", "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "copy", err);
-        if (ig.igMenuItemEx("Cut windows", "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "cut", err);
-        if (ig.igMenuItemEx("Paste windows", "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "paste", err);
-        if (ig.igBeginMenuEx("Align", can_edit and selected >= 2)) {
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.copy_windows"), "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.cut_windows"), "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.paste_windows"), "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
+        if (ig.igBeginMenuEx(l10n.id("resource_app.gui.align"), can_edit and selected >= 2)) {
             self.drawAlignItems(b, life, overlay);
             ig.igEndMenu();
         }
     }
 
     fn drawAlignItems(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
-        if (ig.igMenuItemEx("Left", null, false, true)) self.alignSelection(b, life, overlay, .left);
-        if (ig.igMenuItemEx("Top", null, false, true)) self.alignSelection(b, life, overlay, .top);
-        if (ig.igMenuItemEx("Right", null, false, true)) self.alignSelection(b, life, overlay, .right);
-        if (ig.igMenuItemEx("Bottom", null, false, true)) self.alignSelection(b, life, overlay, .bottom);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.left"), null, false, true)) self.alignSelection(b, life, overlay, .left);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.top"), null, false, true)) self.alignSelection(b, life, overlay, .top);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.right"), null, false, true)) self.alignSelection(b, life, overlay, .right);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.bottom"), null, false, true)) self.alignSelection(b, life, overlay, .bottom);
         ig.igSeparator();
-        if (ig.igMenuItemEx("Equal width", null, false, true)) self.equalSelection(b, life, overlay, .width);
-        if (ig.igMenuItemEx("Equal height", null, false, true)) self.equalSelection(b, life, overlay, .height);
-        if (ig.igMenuItemEx("Equal size", null, false, true)) self.equalSelection(b, life, overlay, .size);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.equal_width"), null, false, true)) self.equalSelection(b, life, overlay, .width);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.equal_height"), null, false, true)) self.equalSelection(b, life, overlay, .height);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.equal_size"), null, false, true)) self.equalSelection(b, life, overlay, .size);
     }
 
     fn alignSelection(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, mode: geometry.Align) void {
-        overlay.alignSelection(b, &life.doc, &life.history, mode) catch |err| self.report(b, "align", err);
+        overlay.alignSelection(b, &life.doc, &life.history, mode) catch |err| self.report(b, "resource_app.gui.op_align", err);
     }
 
     fn equalSelection(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, mode: geometry.Equal) void {
-        overlay.equalize(b, &life.doc, &life.history, mode) catch |err| self.report(b, "equal size", err);
+        overlay.equalize(b, &life.doc, &life.history, mode) catch |err| self.report(b, "resource_app.gui.op_equal_size", err);
     }
 
     fn feedMouse(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
         const mouse = ig.igGetMousePos();
         const at: core.bridge.Point2 = .{ .x = mouse.x, .y = mouse.y };
-        if (ig.igIsItemActivated()) overlay.press(b, at, ig.igGetIO().*.KeyShift) catch |err| self.report(b, "select", err);
+        if (ig.igIsItemActivated()) overlay.press(b, at, ig.igGetIO().*.KeyShift) catch |err| self.report(b, "resource_app.gui.op_select", err);
         if (ig.igIsItemActive()) overlay.move(at);
-        if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "gesture", err);
+        if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "resource_app.gui.op_gesture", err);
         if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) overlay.cancel();
     }
 
@@ -269,7 +271,7 @@ pub const GuiDock = struct {
         const bytes = @as([*]const u8, @ptrCast(payload.*.Data))[0..size];
         const path = std.mem.sliceTo(bytes, 0);
         const mouse = ig.igGetMousePos();
-        overlay.drop(b, &life.doc, &life.history, path, .{ .x = mouse.x, .y = mouse.y }) catch |err| self.report(b, "place", err);
+        overlay.drop(b, &life.doc, &life.history, path, .{ .x = mouse.x, .y = mouse.y }) catch |err| self.report(b, "resource_app.gui.op_place", err);
     }
 
     fn handleKeys(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
@@ -278,16 +280,16 @@ pub const GuiDock = struct {
         const step: i32 = if (io.*.KeyShift) 10 else 1;
         const doc = &life.doc;
         const history = &life.history;
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_LeftArrow, true)) overlay.nudge(b, doc, history, -step, 0) catch |err| self.report(b, "nudge", err);
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_RightArrow, true)) overlay.nudge(b, doc, history, step, 0) catch |err| self.report(b, "nudge", err);
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_UpArrow, true)) overlay.nudge(b, doc, history, 0, -step) catch |err| self.report(b, "nudge", err);
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_DownArrow, true)) overlay.nudge(b, doc, history, 0, step) catch |err| self.report(b, "nudge", err);
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) overlay.deleteSelection(b, doc, history) catch |err| self.report(b, "delete", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_LeftArrow, true)) overlay.nudge(b, doc, history, -step, 0) catch |err| self.report(b, "resource_app.gui.op_nudge", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_RightArrow, true)) overlay.nudge(b, doc, history, step, 0) catch |err| self.report(b, "resource_app.gui.op_nudge", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_UpArrow, true)) overlay.nudge(b, doc, history, 0, -step) catch |err| self.report(b, "resource_app.gui.op_nudge", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_DownArrow, true)) overlay.nudge(b, doc, history, 0, step) catch |err| self.report(b, "resource_app.gui.op_nudge", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) overlay.deleteSelection(b, doc, history) catch |err| self.report(b, "resource_app.gui.op_delete", err);
         const command = io.*.KeyCtrl or io.*.KeySuper;
         if (!command) return;
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_C, false)) overlay.copySelection(b) catch |err| self.report(b, "copy", err);
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_X, false)) overlay.cutSelection(b, doc, history) catch |err| self.report(b, "cut", err);
-        if (ig.igIsKeyPressedEx(ig.ImGuiKey_V, false)) overlay.pasteClipboard(b, doc, history) catch |err| self.report(b, "paste", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_C, false)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_X, false)) overlay.cutSelection(b, doc, history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_V, false)) overlay.pasteClipboard(b, doc, history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
     }
 
     fn drawContextMenu(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
@@ -295,42 +297,42 @@ pub const GuiDock = struct {
         defer ig.igEndPopup();
         const can_edit = !life.read_only;
         const selected = overlay.selection.ids.items.len;
-        if (ig.igMenuItemEx("Copy", "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "copy", err);
-        if (ig.igMenuItemEx("Cut", "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "cut", err);
-        if (ig.igMenuItemEx("Paste", "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "paste", err);
-        if (ig.igMenuItemEx("Delete", "Delete", false, can_edit and selected != 0)) overlay.deleteSelection(b, &life.doc, &life.history) catch |err| self.report(b, "delete", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.copy"), "Ctrl+C", false, selected != 0)) overlay.copySelection(b) catch |err| self.report(b, "resource_app.gui.op_copy", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.cut"), "Ctrl+X", false, can_edit and selected != 0)) overlay.cutSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_cut", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.paste"), "Ctrl+V", false, can_edit and overlay.clip != null)) overlay.pasteClipboard(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_paste", err);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.delete"), "Delete", false, can_edit and selected != 0)) overlay.deleteSelection(b, &life.doc, &life.history) catch |err| self.report(b, "resource_app.gui.op_delete", err);
         ig.igSeparator();
-        if (ig.igBeginMenuEx("Align", can_edit and selected >= 2)) {
+        if (ig.igBeginMenuEx(l10n.id("resource_app.gui.align"), can_edit and selected >= 2)) {
             self.drawAlignItems(b, life, overlay);
             ig.igEndMenu();
         }
         ig.igSeparator();
-        if (ig.igMenuItemEx("Create new template", null, false, selected == 1 and self.user_folder_len != 0)) self.createTemplate(b, overlay);
+        if (ig.igMenuItemEx(l10n.id("resource_app.gui.create_template"), null, false, selected == 1 and self.user_folder_len != 0)) self.createTemplate(b, overlay);
     }
 
     /// OnCreatenewtemplate: the one selected control as a template file in the
     /// user's folder (never Data), named for its class and the next free number.
     fn createTemplate(self: *GuiDock, b: ResBridge, overlay: *gl.Overlay) void {
         const id = overlay.selection.primary() orelse return;
-        const windows = gui_tools.readWindows(self.gpa, b) catch |err| return self.report(b, "new template", err);
+        const windows = gui_tools.readWindows(self.gpa, b) catch |err| return self.report(b, "resource_app.gui.op_new_template", err);
         defer self.gpa.free(windows);
         const class_type = if (geometry.find(windows, id)) |w| w.class_type else return;
-        const stem = gl.templateFolder(class_type) orelse return self.say("new template: a {s} has no template folder", .{gl.className(class_type)});
-        const text = (overlay.templateText(b) catch |err| return self.report(b, "new template", err)) orelse return self.say("new template: the control cannot be written as a template", .{});
+        const stem = gl.templateFolder(class_type) orelse return self.say("resource_app.gui.tpl_no_folder", .{gl.className(class_type)});
+        const text = (overlay.templateText(b) catch |err| return self.report(b, "resource_app.gui.op_new_template", err)) orelse return self.say("resource_app.gui.tpl_not_writable", .{});
         defer self.gpa.free(text);
         const folder = self.userFolder();
         var taken: std.ArrayListUnmanaged([]const u8) = .empty;
         defer taken.deinit(self.gpa);
         for (self.palette.entries) |entry| taken.append(self.gpa, entry.file) catch return;
         var name_buffer: [64]u8 = undefined;
-        const name = gl.nextTemplateName(&name_buffer, stem, taken.items) orelse return self.say("new template: {s}00 to 99 are all taken", .{stem});
+        const name = gl.nextTemplateName(&name_buffer, stem, taken.items) orelse return self.say("resource_app.gui.tpl_taken", .{stem});
         var path_buffer: [logic.path_capacity + 64]u8 = undefined;
-        const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ folder, std.fs.path.sep, name }) catch return self.say("new template: the path is too long", .{});
+        const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ folder, std.fs.path.sep, name }) catch return self.say("resource_app.gui.tpl_path_long", .{});
         const cwd = std.Io.Dir.cwd();
-        cwd.createDirPath(self.io, folder) catch |err| return self.say("new template: {s}: {s}", .{ folder, @errorName(err) });
-        cwd.writeFile(self.io, .{ .sub_path = path, .data = text }) catch |err| return self.say("new template: {s}: {s}", .{ path, @errorName(err) });
+        cwd.createDirPath(self.io, folder) catch |err| return self.say("resource_app.gui.tpl_error", .{ folder, @errorName(err) });
+        cwd.writeFile(self.io, .{ .sub_path = path, .data = text }) catch |err| return self.say("resource_app.gui.tpl_error", .{ path, @errorName(err) });
         self.palette_loaded = false;
-        self.say("new template written: {s}", .{path});
+        self.say("resource_app.gui.tpl_written", .{path});
     }
 
     fn drawScreen(self: *GuiDock, b: ResBridge, overlay: *gl.Overlay, windows: []const GuiWindow) void {
@@ -374,13 +376,13 @@ pub const GuiDock = struct {
         defer ig.igEnd();
         self.entry_rects.clearRetainingCapacity();
         self.entry_rects.appendNTimes(self.gpa, .{ .x = 0, .y = 0, .w = 0, .h = 0 }, self.palette.entries.len) catch {};
-        if (!ig.igBegin("Templates###gui_palette", null, 0)) return;
+        if (!ig.igBegin(l10n.id("resource_app.gui.palette_window"), null, 0)) return;
         if (self.palette.entries.len == 0) {
-            ig.igTextDisabled("No templates found.");
+            ig.igTextDisabled(l10n.t("resource_app.gui.no_templates"));
             return;
         }
-        ig.igTextDisabled("Drag a template onto the canvas, or pick one and click it there.");
-        if (ig.igButton("Disarm")) overlay.arm(null) catch {};
+        ig.igTextDisabled(l10n.t("resource_app.gui.palette_hint"));
+        if (ig.igButton(l10n.id("resource_app.gui.disarm"))) overlay.arm(null) catch {};
         var folder: []const u8 = "";
         var open = false;
         for (self.palette.entries, 0..) |entry, index| {
@@ -425,27 +427,29 @@ pub const GuiDock = struct {
             ig.igSetNextWindowSize(.{ .x = 290, .y = 420 }, ig.ImGuiCond_FirstUseEver);
         }
         defer ig.igEnd();
-        if (!ig.igBegin("GUI properties###gui_inspector", null, 0)) return;
+        if (!ig.igBegin(l10n.id("resource_app.gui.inspector_window"), null, 0)) return;
         const id = overlay.selection.primary() orelse {
             self.editing = null;
-            ig.igTextDisabled("Select a control on the canvas.");
+            ig.igTextDisabled(l10n.t("resource_app.gui.select_control"));
             return;
         };
         const window = geometry.find(windows, id) orelse return;
-        ig.igText("%s, window %d", gl.className(window.class_type).ptr, id);
+        var title_buffer: [96]u8 = undefined;
+        const title = l10n.say(&title_buffer, "resource_app.gui.window_line", .{ gl.className(window.class_type), id });
+        ig.igText("%.*s", @as(c_int, @intCast(title.len)), title.ptr);
         ig.igBeginDisabled(life.read_only);
         defer ig.igEndDisabled();
 
         // Pos, Size and PositionFlag are one rect edit.
         var edit: core.bridge.GuiRect = .{ .id = id, .flag = window.flag, .x = window.x, .y = window.y, .w = window.w, .h = window.h };
         var changed = false;
-        changed = intField("Pos x", &edit.x) or changed;
-        changed = intField("Pos y", &edit.y) or changed;
-        changed = intField("Size w", &edit.w) or changed;
-        changed = intField("Size h", &edit.h) or changed;
-        changed = anchorField("Horizontal anchor", &edit.flag, 0xf, &horizontal_anchors) or changed;
-        changed = anchorField("Vertical anchor", &edit.flag, 0xf0, &vertical_anchors) or changed;
-        if (changed) overlay.setLocal(b, &life.doc, &life.history, edit) catch |err| self.report(b, "set rect", err);
+        changed = intField(l10n.id("resource_app.gui.pos_x"), &edit.x) or changed;
+        changed = intField(l10n.id("resource_app.gui.pos_y"), &edit.y) or changed;
+        changed = intField(l10n.id("resource_app.gui.size_w"), &edit.w) or changed;
+        changed = intField(l10n.id("resource_app.gui.size_h"), &edit.h) or changed;
+        changed = anchorField(l10n.id("resource_app.gui.horizontal_anchor"), &edit.flag, 0xf, &horizontalAnchors()) or changed;
+        changed = anchorField(l10n.id("resource_app.gui.vertical_anchor"), &edit.flag, 0xf0, &verticalAnchors()) or changed;
+        if (changed) overlay.setLocal(b, &life.doc, &life.history, edit) catch |err| self.report(b, "resource_app.gui.op_set_rect", err);
 
         ig.igSeparator();
         for (gl.inspector_attrs, 0..) |name, index| self.drawAttr(b, life, overlay, id, name, index);
@@ -467,32 +471,36 @@ pub const GuiDock = struct {
         if (self.editing == index) self.edit_buffer = shown;
         if (entered or (ig.igIsItemDeactivatedAfterEdit() and self.editing == index)) {
             const value = std.mem.sliceTo(&shown, 0);
-            overlay.setAttribute(b, &life.doc, &life.history, id, name, value) catch |err| self.report(b, "set attribute", err);
+            overlay.setAttribute(b, &life.doc, &life.history, id, name, value) catch |err| self.report(b, "resource_app.gui.op_set_attribute", err);
             self.editing = null;
         } else if (self.editing == index and !ig.igIsItemActive()) self.editing = null;
     }
 };
 
-fn intField(label: [:0]const u8, value: *i32) bool {
+fn intField(label: [*:0]const u8, value: *i32) bool {
     var v: c_int = value.*;
-    if (!ig.igInputIntEx(label.ptr, &v, 1, 10, ig.ImGuiInputTextFlags_EnterReturnsTrue)) return false;
+    if (!ig.igInputIntEx(label, &v, 1, 10, ig.ImGuiInputTextFlags_EnterReturnsTrue)) return false;
     value.* = v;
     return true;
 }
 
-const Anchor = struct { label: [:0]const u8, bits: i32 };
-const horizontal_anchors = [_]Anchor{ .{ .label = "Left", .bits = 0x1 }, .{ .label = "Middle", .bits = 0x2 }, .{ .label = "Right", .bits = 0x3 } };
-const vertical_anchors = [_]Anchor{ .{ .label = "Top", .bits = 0x10 }, .{ .label = "Middle", .bits = 0x20 }, .{ .label = "Bottom", .bits = 0x30 } };
+const Anchor = struct { label: [*:0]const u8, id: [*:0]const u8, bits: i32 };
+fn horizontalAnchors() [3]Anchor {
+    return .{ .{ .label = l10n.t("resource_app.gui.left"), .id = l10n.id("resource_app.gui.left"), .bits = 0x1 }, .{ .label = l10n.t("resource_app.gui.middle"), .id = l10n.id("resource_app.gui.middle"), .bits = 0x2 }, .{ .label = l10n.t("resource_app.gui.right"), .id = l10n.id("resource_app.gui.right"), .bits = 0x3 } };
+}
+fn verticalAnchors() [3]Anchor {
+    return .{ .{ .label = l10n.t("resource_app.gui.top"), .id = l10n.id("resource_app.gui.top"), .bits = 0x10 }, .{ .label = l10n.t("resource_app.gui.middle"), .id = l10n.id("resource_app.gui.middle"), .bits = 0x20 }, .{ .label = l10n.t("resource_app.gui.bottom"), .id = l10n.id("resource_app.gui.bottom"), .bits = 0x30 } };
+}
 
-fn anchorField(label: [:0]const u8, flag: *i32, mask: i32, anchors: []const Anchor) bool {
-    var current: [:0]const u8 = "none";
+fn anchorField(label: [*:0]const u8, flag: *i32, mask: i32, anchors: []const Anchor) bool {
+    var current: [*:0]const u8 = l10n.t("resource_app.gui.none");
     for (anchors) |a| {
         if ((flag.* & mask) == a.bits) current = a.label;
     }
     var changed = false;
-    if (ig.igBeginCombo(label.ptr, current.ptr, 0)) {
+    if (ig.igBeginCombo(label, current, 0)) {
         for (anchors) |a| {
-            if (ig.igSelectableEx(a.label.ptr, (flag.* & mask) == a.bits, 0, .{ .x = 0, .y = 0 })) {
+            if (ig.igSelectableEx(a.id, (flag.* & mask) == a.bits, 0, .{ .x = 0, .y = 0 })) {
                 flag.* = (flag.* & ~mask) | a.bits;
                 changed = true;
             }

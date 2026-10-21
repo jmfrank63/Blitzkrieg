@@ -3,6 +3,9 @@
 #include "FontAtlas.h"
 
 #include <cmath>
+#include <algorithm>
+
+#include "Shaper.h"
 
 // Static: Dear ImGui links its own copy of the same rasteriser, and an editor
 // that links both must not see two definitions of every stbtt_ function.
@@ -110,25 +113,101 @@ struct SGlyph
 	int nA, nB, nC;
 	int nSizeY, nTop;
 	std::vector<BYTE> coverage;					// nB * nSizeY
+	int nCluster;												// index into the request's clusters, -1 for a plain character
+	SGlyph() : cAnsi( 0 ), wUnicode( 0 ), nA( 0 ), nB( 0 ), nC( 0 ), nSizeY( 0 ), nTop( 0 ), nCluster( -1 ) {  }
 	int Cell() const { return nB + abs( nC ); }	// FontGen's nNextCharShift
 };
 
-void RenderGlyph( const stbtt_fontinfo &font, float fScale, int nAscent, const SFontRequest &request,
-	bool bEmbolden, bool bSlant, SGlyph *pGlyph )
+// A coverage bitmap before the style is applied: its left column is x0 pixels
+// right of the pen, its top row y0 pixels below the baseline.
+struct SRaster
 {
-	const int nGlyph = stbtt_FindGlyphIndex( &font, pGlyph->wUnicode );	// 0, the .notdef box, when missing
-	int nAdvance = 0, nLeftBearing = 0;
-	stbtt_GetGlyphHMetrics( &font, nGlyph, &nAdvance, &nLeftBearing );
-	int nPixelAdvance = Round( nAdvance * fScale );
-	int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-	stbtt_GetGlyphBitmapBox( &font, nGlyph, fScale, fScale, &x0, &y0, &x1, &y1 );
-	int nSizeX = x1 - x0;
-	int nSizeY = y1 - y0;
+	int x0, y0, nSizeX, nSizeY;
 	std::vector<BYTE> coverage;
+	SRaster() : x0( 0 ), y0( 0 ), nSizeX( 0 ), nSizeY( 0 ) {  }
+};
+
+void RasterGlyph( const stbtt_fontinfo &font, float fScale, int nGlyph, SRaster *pRaster )
+{
+	int x1 = 0, y1 = 0;
+	stbtt_GetGlyphBitmapBox( &font, nGlyph, fScale, fScale, &pRaster->x0, &pRaster->y0, &x1, &y1 );
+	pRaster->nSizeX = x1 - pRaster->x0;
+	pRaster->nSizeY = y1 - pRaster->y0;
+	if ( pRaster->nSizeX > 0 && pRaster->nSizeY > 0 )
+	{
+		pRaster->coverage.resize( pRaster->nSizeX * pRaster->nSizeY );
+		stbtt_MakeGlyphBitmap( &font, &pRaster->coverage[0], pRaster->nSizeX, pRaster->nSizeY, pRaster->nSizeX, fScale, fScale, nGlyph );
+	}
+}
+
+// The glyphs of a shaped cluster in one bitmap, each at HarfBuzz's position
+// scaled to pixels (the fraction of it kept by the subpixel raster, so the
+// parts of a conjunct and the headline of a Devanagari cluster meet where the
+// font put them). Returns the run's advance in pixels, unrounded.
+float RasterCluster( const stbtt_fontinfo &font, float fScale, const SBkShaped &shaped, SRaster *pRaster )
+{
+	struct SPart { int nGlyph, x0, y0, x1, y1; float fShiftX, fShiftY; };
+	std::vector<SPart> parts;
+	float fPen = 0;
+	int nMinX = 0, nMinY = 0, nMaxX = 0, nMaxY = 0;
+	for ( size_t i = 0; i < shaped.nGlyphs; ++i )
+	{
+		const SBkShapedGlyph &glyph = shaped.pGlyphs[i];
+		const float fX = fPen + glyph.nXOffset * fScale;
+		const float fY = -glyph.nYOffset * fScale;
+		fPen += glyph.nXAdvance * fScale;
+		const float fIntX = floorf( fX ), fIntY = floorf( fY );
+		SPart part;
+		part.nGlyph = int( glyph.nGlyphId );
+		part.fShiftX = fX - fIntX;
+		part.fShiftY = fY - fIntY;
+		stbtt_GetGlyphBitmapBoxSubpixel( &font, part.nGlyph, fScale, fScale, part.fShiftX, part.fShiftY, &part.x0, &part.y0, &part.x1, &part.y1 );
+		part.x0 += int( fIntX ); part.x1 += int( fIntX );
+		part.y0 += int( fIntY ); part.y1 += int( fIntY );
+		if ( part.x1 <= part.x0 || part.y1 <= part.y0 )
+			continue;
+		if ( parts.empty() || part.x0 < nMinX ) nMinX = part.x0;
+		if ( parts.empty() || part.y0 < nMinY ) nMinY = part.y0;
+		if ( parts.empty() || part.x1 > nMaxX ) nMaxX = part.x1;
+		if ( parts.empty() || part.y1 > nMaxY ) nMaxY = part.y1;
+		parts.push_back( part );
+	}
+	if ( !parts.empty() )
+	{
+		pRaster->x0 = nMinX;
+		pRaster->y0 = nMinY;
+		pRaster->nSizeX = nMaxX - nMinX;
+		pRaster->nSizeY = nMaxY - nMinY;
+		pRaster->coverage.assign( size_t( pRaster->nSizeX ) * pRaster->nSizeY, 0 );
+		std::vector<BYTE> one;
+		for ( size_t i = 0; i < parts.size(); ++i )
+		{
+			const SPart &part = parts[i];
+			const int nW = part.x1 - part.x0, nH = part.y1 - part.y0;
+			one.assign( size_t( nW ) * nH, 0 );
+			stbtt_MakeGlyphBitmapSubpixel( &font, &one[0], nW, nH, nW, fScale, fScale, part.fShiftX, part.fShiftY, part.nGlyph );
+			// Where two parts overlap the stronger coverage wins, so a
+			// headline drawn by two glyphs does not get a brighter seam.
+			for ( int y = 0; y < nH; ++y )
+				for ( int x = 0; x < nW; ++x )
+				{
+					BYTE &c = pRaster->coverage[size_t( part.y0 - nMinY + y ) * pRaster->nSizeX + part.x0 - nMinX + x];
+					c = (std::max)( c, one[size_t( y ) * nW + x] );
+				}
+		}
+	}
+	return fPen;
+}
+
+// Applies the style to the raster and turns it into the character's ABC
+// widths in pixels (nPixelAdvance before the simulated bold's extra pixel).
+void FinishGlyph( int nAscent, const SFontRequest &request, bool bEmbolden, bool bSlant, int nPixelAdvance,
+	SRaster *pRaster, SGlyph *pGlyph )
+{
+	int x0 = pRaster->x0, y0 = pRaster->y0, nSizeX = pRaster->nSizeX, nSizeY = pRaster->nSizeY;
+	std::vector<BYTE> &coverage = pRaster->coverage;
 	if ( nSizeX > 0 && nSizeY > 0 )
 	{
-		coverage.resize( nSizeX * nSizeY );
-		stbtt_MakeGlyphBitmap( &font, &coverage[0], nSizeX, nSizeY, nSizeX, fScale, fScale, nGlyph );
 		if ( !request.bAntialias )
 			for ( size_t i = 0; i < coverage.size(); ++i )
 				coverage[i] = coverage[i] >= 128 ? 255 : 0;
@@ -184,6 +263,17 @@ void RenderGlyph( const stbtt_fontinfo &font, float fScale, int nAscent, const S
 	pGlyph->nSizeY = nSizeY;
 	pGlyph->nTop = nAscent + y0;
 	pGlyph->coverage.swap( coverage );
+}
+
+void RenderGlyph( const stbtt_fontinfo &font, float fScale, int nAscent, const SFontRequest &request,
+	bool bEmbolden, bool bSlant, SGlyph *pGlyph )
+{
+	const int nGlyph = stbtt_FindGlyphIndex( &font, pGlyph->wUnicode );	// 0, the .notdef box, when missing
+	int nAdvance = 0, nLeftBearing = 0;
+	stbtt_GetGlyphHMetrics( &font, nGlyph, &nAdvance, &nLeftBearing );
+	SRaster raster;
+	RasterGlyph( font, fScale, nGlyph, &raster );
+	FinishGlyph( nAscent, request, bEmbolden, bSlant, Round( nAdvance * fScale ), &raster, pGlyph );
 }
 
 // FontGen's EstimateTextureSize: the smallest 2:1 or 1:1 power of two that
@@ -305,6 +395,17 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 		*pszError = NStr::Format( "code page %d is not supported (1250, 1251 and 1252 are)", request.nCodePage );
 		return false;
 	}
+	const bool bUnicode = !request.codePoints.empty();
+	if ( !bUnicode && !request.clusters.empty() )
+	{
+		*pszError = "cluster glyphs need a code point list (Unicode mode)";
+		return false;
+	}
+	if ( request.clusters.size() > size_t( CBkClusterTable::LAST - CBkClusterTable::FIRST + 1 ) )
+	{
+		*pszError = NStr::Format( "%d clusters do not fit the %d Private Use Area slots", int( request.clusters.size() ), CBkClusterTable::LAST - CBkClusterTable::FIRST + 1 );
+		return false;
+	}
 	if ( request.nHeight < 4 || request.nHeight > 256 )
 	{
 		*pszError = NStr::Format( "height %d is outside 4..256 pixels", request.nHeight );
@@ -340,32 +441,101 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	if ( nAscent < 0 ) nAscent = 0;
 	const int nEmPixels = Round( fScale / stbtt_ScaleForMappingEmToPixels( &font, 1.0f ) );
 
-	// FontGen's character list: 32..255 plus the default character, sorted.
 	std::vector<SGlyph> glyphs;
-	glyphs.reserve( LAST_CHAR - FIRST_CHAR + 2 );
+	int nSkipped = 0;
+	if ( bUnicode )
 	{
+		// The request's code points, sorted and distinct, without the ones
+		// the face cannot draw: the game draws wDefaultChar for those.
+		std::vector<WORD> codes( request.codePoints );
+		std::sort( codes.begin(), codes.end() );
+		codes.erase( std::unique( codes.begin(), codes.end() ), codes.end() );
+		glyphs.reserve( codes.size() + request.clusters.size() );
+		for ( size_t i = 0; i < codes.size(); ++i )
+		{
+			if ( stbtt_FindGlyphIndex( &font, codes[i] ) == 0 )
+			{
+				++nSkipped;
+				continue;
+			}
+			SGlyph glyph;
+			glyph.wUnicode = codes[i];
+			glyphs.push_back( glyph );
+		}
+		for ( size_t i = 0; i < request.clusters.size(); ++i )
+		{
+			SGlyph glyph;
+			glyph.wUnicode = WORD( CBkClusterTable::FIRST + i );
+			glyph.nCluster = int( i );
+			glyphs.push_back( glyph );
+		}
+	}
+	else
+	{
+		// FontGen's character list: 32..255 plus the default character, sorted.
+		glyphs.reserve( LAST_CHAR - FIRST_CHAR + 2 );
 		SGlyph glyph;
 		glyph.cAnsi = DEFAULT_CHAR;
 		glyph.wUnicode = ToUnicode( request.nCodePage, DEFAULT_CHAR );
 		glyphs.push_back( glyph );
+		for ( int c = FIRST_CHAR; c <= LAST_CHAR; ++c )
+		{
+			SGlyph glyph;
+			glyph.cAnsi = BYTE( c );
+			glyph.wUnicode = ToUnicode( request.nCodePage, BYTE( c ) );
+			glyphs.push_back( glyph );
+		}
 	}
-	for ( int c = FIRST_CHAR; c <= LAST_CHAR; ++c )
+	if ( glyphs.empty() )
 	{
-		SGlyph glyph;
-		glyph.cAnsi = BYTE( c );
-		glyph.wUnicode = ToUnicode( request.nCodePage, BYTE( c ) );
-		glyphs.push_back( glyph );
+		*pszError = "the font has none of the requested characters";
+		return false;
 	}
 	int nMaxCharWidth = 0;
 	int nAveCharWidth = 0;
 	for ( size_t i = 0; i < glyphs.size(); ++i )
 	{
-		RenderGlyph( font, fScale, nAscent, request, bEmbolden, bSlant, &glyphs[i] );
+		if ( glyphs[i].nCluster < 0 )
+			RenderGlyph( font, fScale, nAscent, request, bEmbolden, bSlant, &glyphs[i] );
+		else
+		{
+			std::u16string cluster = request.clusters[glyphs[i].nCluster];
+			// A cluster that ends in a halant is a half form in its text (the next consonant
+			// follows it); alone, its halant would draw as a visible mark. The zero-width joiner
+			// asks for the half form, the glyph the shaped text has.
+			if ( !cluster.empty() && cluster[cluster.size() - 1] == 0x094D )
+				cluster += char16_t( 0x200D );
+			char szShapeError[256] = "";
+			SBkShaped *pShaped = cluster.empty() ? 0 : BkShapeClusters( request.pFontData, request.nFontDataSize,
+				reinterpret_cast<const unsigned short*>( cluster.data() ), cluster.size(), request.szScript.c_str(),
+				request.szLanguage.c_str(), szShapeError, sizeof( szShapeError ) );
+			if ( pShaped == 0 )
+			{
+				*pszError = NStr::Format( "cluster %d (U+%04X) cannot be shaped: %s", glyphs[i].nCluster, int( glyphs[i].wUnicode ), szShapeError );
+				return false;
+			}
+			SRaster raster;
+			const float fAdvance = RasterCluster( font, fScale, *pShaped, &raster );
+			BkShapeFree( pShaped );
+			FinishGlyph( nAscent, request, bEmbolden, bSlant, Round( fAdvance ), &raster, &glyphs[i] );
+		}
 		const int nAdvance = glyphs[i].nA + glyphs[i].nB + glyphs[i].nC;
 		if ( nAdvance > nMaxCharWidth )
 			nMaxCharWidth = nAdvance;
 		if ( glyphs[i].wUnicode == 'x' )
 			nAveCharWidth = nAdvance;
+	}
+	if ( nAveCharWidth <= 0 && bUnicode )
+	{
+		// No 'x' (Devanagari, Han): the mean advance of the plain characters.
+		int nSum = 0, nCount = 0;
+		for ( size_t i = 0; i < glyphs.size(); ++i )
+			if ( glyphs[i].nCluster < 0 )
+			{
+				nSum += glyphs[i].nA + glyphs[i].nB + glyphs[i].nC;
+				++nCount;
+			}
+		nAveCharWidth = nCount > 0 ? nSum / nCount : 0;
 	}
 	if ( nAveCharWidth <= 0 )
 		nAveCharWidth = nMaxCharWidth > 0 ? nMaxCharWidth : 1;
@@ -389,7 +559,7 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 			nSizeY = nSizeX;
 		if ( nSizeX > MAX_TEXTURE_SIZE )
 		{
-			*pszError = NStr::Format( "%d pixel high characters do not fit a %dx%d atlas", request.nHeight, MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE );
+			*pszError = NStr::Format( "%d glyphs of %d pixels do not fit a %dx%d atlas", int( glyphs.size() ), request.nHeight, MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE );
 			return false;
 		}
 	}
@@ -405,7 +575,17 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	format.metrics.nAveCharWidth = nAveCharWidth;
 	format.metrics.nMaxCharWidth = nMaxCharWidth;
 	format.metrics.cCharSet = cCharSet;
-	format.metrics.wDefaultChar = ToUnicode( request.nCodePage, DEFAULT_CHAR );
+	if ( !bUnicode )
+		format.metrics.wDefaultChar = ToUnicode( request.nCodePage, DEFAULT_CHAR );
+	else
+	{
+		// '?' if the font has it, else the space, else the first character:
+		// never a code page byte, the request has none.
+		format.metrics.wDefaultChar = glyphs[0].wUnicode;
+		for ( size_t i = 0; i < glyphs.size(); ++i )
+			if ( glyphs[i].wUnicode == '?' ) { format.metrics.wDefaultChar = '?'; break; }
+			else if ( glyphs[i].wUnicode == ' ' ) format.metrics.wDefaultChar = ' ';
+	}
 	format.chars.clear();
 	format.kerns.clear();
 
@@ -447,17 +627,33 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 			}
 		}
 	}
-	format.metrics.fSpaceWidth = format.chars[ToUnicode( request.nCodePage, ' ' )].fWidth;
+	{
+		const SFontFormat::CCharacterMap::const_iterator space = format.chars.find( ToUnicode( request.nCodePage, ' ' ) );
+		format.metrics.fSpaceWidth = space != format.chars.end() ? space->second.fWidth : float( nAveCharWidth / 2 );
+	}
 
 	// GetKerningPairs' list, read from the face's kern or GPOS table and
 	// rounded to whole pixels as GDI rounds it; zero pairs are left out.
+	// A cluster glyph is a whole shaped run, which carries its own spacing, and
+	// the Han ranges are not kerned by their faces: leaving both out also keeps
+	// a few thousand characters from costing millions of GPOS lookups.
+	std::vector<WORD> kerned;
 	for ( size_t i = 0; i < glyphs.size(); ++i )
-		for ( size_t j = 0; j < glyphs.size(); ++j )
+	{
+		const WORD w = glyphs[i].wUnicode;
+		const bool bSkip = bUnicode && ( glyphs[i].nCluster >= 0 || ( w >= 0x2E80 && w < 0xA000 ) || ( w >= 0xAC00 && w < 0xD800 ) || w >= 0xF900 );
+		if ( !bSkip )
+			kerned.push_back( w );
+	}
+	for ( size_t i = 0; i < kerned.size(); ++i )
+		for ( size_t j = 0; j < kerned.size(); ++j )
 		{
-			const int nKern = Round( stbtt_GetCodepointKernAdvance( &font, glyphs[i].wUnicode, glyphs[j].wUnicode ) * fScale );
+			const int nKern = Round( stbtt_GetCodepointKernAdvance( &font, kerned[i], kerned[j] ) * fScale );
 			if ( nKern != 0 )
-				format.kerns[( DWORD( glyphs[i].wUnicode ) << 16 ) | glyphs[j].wUnicode] = float( nKern );
+				format.kerns[( DWORD( kerned[i] ) << 16 ) | kerned[j]] = float( nKern );
 		}
+	pAtlas->nSkipped = nSkipped;
+	pAtlas->nClusters = int( request.clusters.size() );
 	return true;
 }
 }
