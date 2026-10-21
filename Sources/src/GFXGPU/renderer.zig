@@ -365,7 +365,7 @@ pub const Renderer = struct {
 
     // Which vertex shader a draw needs. The two "nocolor" entry points exist for
     // vertex formats that carry no GFXFVF_DIFFUSE.
-    pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4, untextured_specular = 5, textured_specular = 6 };
+    pub const ShaderVariant = enum(u3) { untextured = 0, untextured_nocolor = 1, textured = 2, textured_nocolor = 3, textured_dual = 4, untextured_specular = 5, textured_specular = 6, textured_text = 7 };
 
     fn variantEffect(variant: ShaderVariant) []const u8 {
         return switch (variant) {
@@ -376,6 +376,7 @@ pub const Renderer = struct {
             .textured_dual => "textured_dual",
             .untextured_specular => "untextured_specular",
             .textured_specular => "textured_specular",
+            .textured_text => "text",
         };
     }
     fn variantVertexEntry(variant: ShaderVariant) [:0]const u8 {
@@ -387,6 +388,7 @@ pub const Renderer = struct {
             .textured_dual => "vs_textured_dual",
             .untextured_specular => "vs_untextured_specular",
             .textured_specular => "vs_textured_specular",
+            .textured_text => "vs_textured",
         };
     }
     // The nocolor variants reuse the base fragment entry point, so the blob
@@ -398,12 +400,13 @@ pub const Renderer = struct {
             .textured_dual => "ps_textured_dual",
             .untextured_specular => "ps_untextured_specular",
             .textured_specular => "ps_textured_specular",
+            .textured_text => "ps_text_r8",
         };
     }
     fn variantSamplerCount(variant: ShaderVariant) u32 {
         return switch (variant) {
             .untextured, .untextured_nocolor, .untextured_specular => 0,
-            .textured, .textured_nocolor, .textured_specular => 1,
+            .textured, .textured_nocolor, .textured_specular, .textured_text => 1,
             .textured_dual => 2,
         };
     }
@@ -1384,13 +1387,19 @@ pub const Renderer = struct {
         else
             null;
         const depth = self.depthStateForDraw();
+        // An R8 coverage atlas needs the text fragment shader, which the effect
+        // selects. It takes the diffuse-carrying single-stage layout only: glyph
+        // quads are always built that way.
+        const text = textured and !dual and specular == null and diffuse != null and
+            if (effects.find(self.shade_effect)) |spec| spec.shader_effect == .text else false;
         const key = pipelineCacheKey(fvf, textured, blend_mode, dual, self.topology, depth) |
-            (@as(u64, @intFromBool(specular != null)) << 47) | (@as(u64, @intFromBool(self.wireframe)) << 48);
+            (@as(u64, @intFromBool(specular != null)) << 47) | (@as(u64, @intFromBool(self.wireframe)) << 48) |
+            (@as(u64, @intFromBool(text)) << 49);
         if (self.pipelines.get(key)) |pipeline| return pipeline;
         const variant: ShaderVariant = if (dual)
             .textured_dual
         else if (textured)
-            (if (specular != null) .textured_specular else if (diffuse != null) .textured else .textured_nocolor)
+            (if (text) .textured_text else if (specular != null) .textured_specular else if (diffuse != null) .textured else .textured_nocolor)
         else
             (if (specular != null) .untextured_specular else if (diffuse != null) .untextured else .untextured_nocolor);
         const shaders = try self.ensureShaders(variant);

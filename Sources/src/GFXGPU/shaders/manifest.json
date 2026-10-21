@@ -337,6 +337,32 @@
     "uniform_buffer_count": 2
   },
   {
+    "effect": "text",
+    "name": "Text",
+    "stage": "fragment",
+    "source": "ui.hlsl",
+    "entry": "ps_text_r8",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "text",
+    "name": "Text",
+    "stage": "vertex",
+    "source": "textured.hlsl",
+    "entry": "vs_textured",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
     "effect": "textured",
     "name": "Textured",
     "stage": "fragment",

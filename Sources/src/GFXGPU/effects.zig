@@ -14,7 +14,7 @@ pub const Family = enum {
     special,
 };
 
-pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate, lightmap_modulate, lightmap_complement, lighting, stencil_write, stencil_test, shadow_sprite, shadow_mesh, water, water_single, water_alpha, special_video, special_transform, special_depth };
+pub const ShaderEffect = enum { textured, untextured, ui, text, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate, lightmap_modulate, lightmap_complement, lighting, stencil_write, stencil_test, shadow_sprite, shadow_mesh, water, water_single, water_alpha, special_video, special_transform, special_depth };
 pub const BlendMode = enum { replace, multiply, straight_alpha, additive };
 pub const FogMode = enum { none, linear };
 
@@ -115,7 +115,7 @@ pub fn linearFilterChangeFor(id: u32) ?bool {
         // there because VisitUIRects normalizes the legacy max UV (one
         // texel past the last texel's center) back onto that center, so
         // filtered taps never leave the mapped atlas cell.
-        1, 3, 14, 100, 111 => false,
+        1, 3, 14, 100, 111, 400 => false,
         2, 4, 5, 8, 9, 10, 12, 15, 16, 17, 19, 20, 21, 101, 102, 103, 104, 112, 200, 303, 305 => true,
         else => null,
     };
@@ -268,6 +268,11 @@ pub const specs = [_]EffectSpec{
     // report -- the horizontal/vertical grid marks). SceneDraw maps the
     // visitor's UI rects from 3 to 305 at the single TYPE_RECTS draw site.
     make(305, .ui, .ui, 1, state_alpha_test | state_alpha_blend),
+    // 400 draws bk_text glyphs from an R8 coverage atlas: straight alpha with
+    // no alpha test, because the coverage already is the edge, and a POINT
+    // filter, because glyph quads sit on whole pixels. Selecting it picks the
+    // ps_text_r8 fragment shader, see Renderer.ensurePipeline.
+    make(400, .ui, .text, 1, state_alpha_blend),
     // 100-104 are the terrain passes, and their blend modes come straight from
     // the D3D states CGraphicsEngine::SetShadingEffect sets. 102 is alpha
     // blended there despite the name, and 103/104 use SRCBLEND=DESTCOLOR with
@@ -373,7 +378,7 @@ pub fn stencilEqual(value: u8, reference: u8) bool {
 test "effect catalog is complete and unique" {
     for (specs, 0..) |spec, index| {
         switch (spec.shader_effect) {
-            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate, .lightmap_modulate, .lightmap_complement, .lighting, .stencil_write, .stencil_test, .shadow_sprite, .shadow_mesh, .water, .water_single, .water_alpha, .special_video, .special_transform, .special_depth => {},
+            .textured, .untextured, .ui, .text, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate, .lightmap_modulate, .lightmap_complement, .lighting, .stencil_write, .stencil_test, .shadow_sprite, .shadow_mesh, .water, .water_single, .water_alpha, .special_video, .special_transform, .special_depth => {},
         }
         try std.testing.expect(spec.uniform_groups != 0);
         try std.testing.expect(find(spec.id) != null);

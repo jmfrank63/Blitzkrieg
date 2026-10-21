@@ -104,7 +104,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     };
     const vertices = [_]Vertex{
         .{ .position = .{ 0.0, 0.75, 0.0 }, .color = .{ 255, 0, 0, 255 } },
-        .{ .position = .{ -0.75, -0.75, 0.0 }, .color = .{ 0, 255, 0, 255 } },
+        .{ .position = .{ -0.75, -0.75, 0.0 }, .color = .{ 0, 255, 0, 128 } },
         .{ .position = .{ 0.75, -0.75, 0.0 }, .color = .{ 0, 0, 255, 255 } },
     };
     var buffer: u64 = 0;
@@ -286,6 +286,61 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expect(std.mem.readInt(u32, screen_pixels[(48 * 64 + 48) * 4 ..][0..4], .little) != 0x10ff3020);
     std.debug.print("GfxGpu pixel-transform smoke: visible textured quad\n", .{});
 
+    // Effect 400 samples an R8 atlas as coverage: rgb stays the vertex colour and alpha becomes
+    // vertex alpha * coverage. A fully covered quad tinted green at half alpha over the clear
+    // colour must read back as the 50% blend; the texels outside the quad stay the clear colour.
+    // The default vertex format is XYZRHW | DIFFUSE | SPECULAR | TEX1, so the colour sits after a
+    // four-float position, unlike the three-float TexturedVertex the older cases read.
+    const TextVertex = extern struct { position: [4]f32, color: [4]u8, specular: [4]u8 = .{ 0, 0, 0, 0 }, uv: [2]f32 };
+    const text_vertices = [_]TextVertex{
+        .{ .position = .{ 8, 8, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 0, 0 } },
+        .{ .position = .{ 40, 8, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 1, 0 } },
+        .{ .position = .{ 40, 40, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 1, 1 } },
+        .{ .position = .{ 8, 8, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 0, 0 } },
+        .{ .position = .{ 40, 40, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 1, 1 } },
+        .{ .position = .{ 8, 40, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 0, 1 } },
+    };
+    var text_buffer: u64 = 0;
+    var text_buffer_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = text_vertices.len, .format = 0, .stride = 32, .usage = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_buffer(renderer, &text_buffer_info, &text_buffer));
+    defer _ = api.destroy_buffer(renderer, text_buffer);
+    var text_buffer_upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&text_vertices), .byte_length = @sizeOf(@TypeOf(text_vertices)), .byte_offset = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, text_buffer, &text_buffer_upload));
+    var coverage: u64 = 0;
+    var coverage_info = gpu.abi.TextureCreateInfo{ .struct_size = @sizeOf(gpu.abi.TextureCreateInfo), .width = 2, .height = 2, .mip_count = 1, .format = gpu.formats.gfx_pixel_format_r8, .usage = 1 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_texture(renderer, &coverage_info, &coverage));
+    defer _ = api.destroy_texture(renderer, coverage);
+    const full_coverage = [_]u8{ 255, 255, 255, 255 };
+    var coverage_upload = gpu.abi.TextureUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureUploadInfo), .data = @ptrCast(&full_coverage), .byte_length = full_coverage.len, .row_pitch = 2, .mip_level = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture(renderer, coverage, &coverage_upload));
+    var text_effect = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 8, .index = 0, .value = 400, .values = @splat(0) };
+    var plain_effect = text_effect;
+    plain_effect.value = 3;
+    try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &screen_viewport));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_transform(renderer, &pixel_world, &pixel_view_proj));
+    var text_clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &text_clear));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &text_effect));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, coverage));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(text_buffer), 2));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &plain_effect));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
+    var text_pixels: [64 * 64 * 4]u8 = undefined;
+    var text_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = text_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&text_pixels) };
+    try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &text_readback));
+    // Readback is BGRA. Half-alpha green over the clear colour leaves each colour channel about halfway to the tint.
+    const background_bgra = text_pixels[(60 * 64 + 60) * 4 ..][0..4];
+    const inside_bgra = text_pixels[(24 * 64 + 24) * 4 ..][0..4];
+    const tint_bgra = [4]u8{ 0, 255, 0, 255 };
+    for (0..3) |channel| {
+        const expected: i32 = @divTrunc(@as(i32, background_bgra[channel]) + @as(i32, tint_bgra[channel]), 2);
+        try std.testing.expect(@abs(@as(i32, inside_bgra[channel]) - expected) <= 3);
+    }
+    // A texel outside the quad is still the clear colour.
+    try std.testing.expectEqualSlices(u8, background_bgra, text_pixels[(4 * 64 + 4) * 4 ..][0..4]);
+    std.debug.print("GfxGpu text smoke: R8 coverage tints to {any} over {any}\n", .{ inside_bgra.*, background_bgra.* });
     const depth_vertices = [_]Vertex{
         .{ .position = .{ -0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },
         .{ .position = .{ 0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },

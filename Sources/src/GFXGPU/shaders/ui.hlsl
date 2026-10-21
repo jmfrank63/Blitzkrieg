@@ -28,6 +28,21 @@ float4 ps_ui(UiVertexOutput input) : SV_Target0 {
     return g_texture0.Sample(g_sampler0, input.uv) * input.color;
 }
 
+// An R8 atlas samples as (coverage, 0, 0, 1). Text wants the vertex colour as
+// is and the coverage as alpha, which straight-alpha blending then applies.
+// It pairs with vs_textured, not vs_ui: text is laid out in screen pixels
+// (GFXFVF_XYZRHW), which only transform_legacy_position handles, so the input
+// is vs_textured's output without vs_ui's alpha_threshold.
+struct TextVertexOutput {
+    float4 position : SV_Position;
+    float4 color : COLOR0;
+    float2 uv : TEXCOORD0;
+};
+
+float4 ps_text_r8(TextVertexOutput input) : SV_Target0 {
+    return float4(input.color.rgb, input.color.a * g_texture0.Sample(g_sampler0, input.uv).r);
+}
+
 float4 ps_ui_alpha_test(UiVertexOutput input) : SV_Target0 {
     float4 color = g_texture0.Sample(g_sampler0, input.uv) * input.color;
     clip(color.a - input.alpha_threshold);
