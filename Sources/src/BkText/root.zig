@@ -8,6 +8,8 @@ pub const shape = @import("shape.zig");
 pub const textbreak = @import("textbreak.zig");
 pub const measure = @import("measure.zig");
 pub const wrap = @import("wrap.zig");
+pub const raster = @import("raster.zig");
+pub const atlas = @import("atlas.zig");
 
 test {
     _ = faces;
@@ -17,5 +19,7 @@ test {
     _ = textbreak;
     _ = measure;
     _ = wrap;
+    _ = raster;
+    _ = atlas;
     _ = @import("spike_test.zig");
 }
