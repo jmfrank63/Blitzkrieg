@@ -4047,6 +4047,52 @@ pub fn build(b: *std.Build) void {
         }
     }
     text_engine_reads_step.dependOn(&text_engine_reads_tests.step);
+    // M004 S03: the frame-time tier. The Game runs each screen on the bitmap fonts and on bk_text with
+    // BK_PERF=1 and the medians of its `BK_PERF text:` line are compared (tools/zig/text_engine_perf.zig).
+    // It needs the plain-Unicode Hindi mod and the shaped `lang-hi` of the bitmap run; ja has no mod
+    // (language-mods fails its fit check), so the tier reports ja as not run unless the mod is installed.
+    // One shard per language (text-engine-perf-<code>) keeps each under the foreground limit.
+    const text_engine_perf_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/text_engine_perf.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_measure", .module = l10n_measure_module }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, text_engine_perf_module, toolchain);
+    }
+    const text_engine_perf_tests = b.addTest(.{ .root_module = text_engine_perf_module });
+    const text_engine_perf_hi_run = b.addRunArtifact(language_mods_tests);
+    text_engine_perf_hi_run.setCwd(b.path("."));
+    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
+    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_LANGS", "hi");
+    text_engine_perf_hi_run.has_side_effects = true;
+    text_engine_perf_hi_run.step.dependOn(install_game_step);
+    text_engine_perf_hi_run.step.dependOn(bk_font.install);
+    // Both runs write below the game's mods folder: the plain Hindi mod first, then the shaped one.
+    text_engine_perf_hi_run.step.dependOn(&language_mods_plain_run.step);
+    const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts and on BK_TEXT_ENGINE=ttf, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
+    var text_engine_perf_chain: ?*std.Build.Step = null;
+    for ([_][]const u8{ "en", "hi", "ja" }) |code| {
+        const shard_step = b.step(b.fmt("text-engine-perf-{s}", .{code}), b.fmt("text-engine-perf for {s} alone, report in zig-out/local-test/text-engine-perf/report-{s}.txt (M004 S03)", .{ code, code }));
+        shard_step.dependOn(&text_engine_perf_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(text_engine_perf_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_TEXT_PERF_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_TEXT_PERF_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&text_engine_perf_hi_run.step);
+            if (chained) {
+                if (text_engine_perf_chain) |before| run.step.dependOn(before);
+                text_engine_perf_chain = &run.step;
+                if (test_mode == .run) text_engine_perf_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    text_engine_perf_step.dependOn(&text_engine_perf_tests.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled

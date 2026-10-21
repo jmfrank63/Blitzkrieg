@@ -164,6 +164,32 @@ private:
 void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wrap_width,
     std::vector<std::pair<size_t, size_t> > &lines );
 
+// BK_PERF=1 text timing (M004 S03): steady-clock time and call counts of the measuring, wrapping
+// and drawing work, on the bitmap and the bk_text path alike, printed once a second beside the
+// BK_PERF frame line. Only the outermost scope on a thread adds its time (a draw that wraps and
+// measures is all draw), so the three buckets never overlap; nested scopes still count calls.
+// Without BK_PERF the scope is one static bool test.
+namespace NTextPerf
+{
+    enum Bucket { Measure, Draw, Wrap, BucketCount };
+    bool Enabled();
+    void Add( Bucket bucket, double seconds, bool outermost );
+    class Scope
+    {
+    public:
+        explicit Scope( Bucket bucket );
+        ~Scope();
+    private:
+        Bucket bucket_;
+        bool active_;
+        bool outermost_ = false;
+        long long start_ = 0;
+    };
+    // Returns "measure X ms draw Y ms wrap Z ms calls N" for the work since the last call and
+    // resets it; the milliseconds are totals over the interval.
+    std::string TakeInterval();
+}
+
 class IGFXTextGpuFontProvider
 {
 public:

@@ -4,6 +4,7 @@
 #include "MeshManagerGpu.h"
 #include "TextureGpu.h"
 #include "FontGpu.h"
+#include <chrono>
 #include "TextWrap.h"
 #include "BkTextBridge.h"
 #include "..//Main//TextSystem.h"
@@ -239,10 +240,52 @@ int STDCALL FontGpu::operator&( IStructureSaver &ss )
     return 0;
 }
 
-int STDCALL FontGpu::GetTextWidth( const char *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
+namespace NTextPerf
+{
+    namespace
+    {
+        // One thread draws; the counters are plain on purpose, BK_PERF is a measuring aid.
+        long long g_nanoseconds[BucketCount];
+        unsigned long long g_calls;
+        int g_depth;
+        long long Now()
+        {
+            return std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+        }
+    }
+    bool Enabled()
+    {
+        static const bool enabled = getenv( "BK_PERF" ) != 0;
+        return enabled;
+    }
+    Scope::Scope( Bucket bucket ) : bucket_( bucket ), active_( Enabled() )
+    {
+        if ( !active_ ) return;
+        ++g_calls;
+        outermost_ = g_depth++ == 0;
+        if ( outermost_ ) start_ = Now();
+    }
+    Scope::~Scope()
+    {
+        if ( !active_ ) return;
+        --g_depth;
+        if ( outermost_ ) g_nanoseconds[bucket_] += Now() - start_;
+    }
+    std::string TakeInterval()
+    {
+        char line[160];
+        std::snprintf( line, sizeof( line ), "measure %.2f ms draw %.2f ms wrap %.2f ms calls %llu",
+            g_nanoseconds[Measure] / 1e6, g_nanoseconds[Draw] / 1e6, g_nanoseconds[Wrap] / 1e6, g_calls );
+        for ( long long &nanoseconds : g_nanoseconds ) nanoseconds = 0;
+        g_calls = 0;
+        return line;
+    }
+}
+
+int STDCALL FontGpu::GetTextWidth( const char *text, int count ) const { NTextPerf::Scope perf( NTextPerf::Measure ); return static_cast<int>( TextWidth( text, count ) ); }
 // TextWidth is a template, so the UTF-16 string is measured as-is.
-int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
-float FontGpu::TextWidthFloat( const WORD *text, int count ) const { return TextWidth( text, count ); }
+int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { NTextPerf::Scope perf( NTextPerf::Measure ); return static_cast<int>( TextWidth( text, count ) ); }
+float FontGpu::TextWidthFloat( const WORD *text, int count ) const { NTextPerf::Scope perf( NTextPerf::Measure ); return TextWidth( text, count ); }
 
 void FontGpu::ReportMissingGlyph( WORD character ) const
 {
@@ -683,6 +726,7 @@ public:
     int STDCALL GetLineSpace() const override { return font_ ? static_cast<int>( font_->GetLineSpace() * scale_ ) : 12; }
     int STDCALL GetWidth( int count = -1 ) const override
     {
+        NTextPerf::Scope perf( NTextPerf::Measure );
         if ( !text_ || !text_->GetString() ) return 0;
         const WORD *value = text_->GetString();
         int length = 0;
@@ -706,6 +750,7 @@ private:
     // wrapped string and compare against it.
     void EnsureWrapped() const
     {
+        NTextPerf::Scope perf( NTextPerf::Wrap );
         const WORD *value = text_ ? text_->GetString() : 0;
         size_t length = 0;
         if ( value ) while ( value[length] ) ++length;

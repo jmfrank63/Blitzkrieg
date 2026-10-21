@@ -1187,6 +1187,14 @@ bool STDCALL GraphicsEngineGpu::Flip()
                     ( counts.temporary_index_in_use - previous.temporary_index_in_use ) * per_frame,
                     ( counts.temporary_transfer_free - previous.temporary_transfer_free ) * per_frame,
                     ( counts.temporary_transfer_in_use - previous.temporary_transfer_in_use ) * per_frame );
+            // Text work of the same interval, from either engine; the shape cache is bk_text's.
+            std::fprintf( stderr, "BK_PERF text: %s", NTextPerf::TakeInterval().c_str() );
+            BkTextStats text_stats = {};
+            if ( NBkTextBridge::Context() && bk_text_stats( NBkTextBridge::Context(), &text_stats ) == BK_TEXT_OK )
+                std::fprintf( stderr, " shape hits/misses %llu/%llu evictions %u",
+                    static_cast<unsigned long long>( text_stats.shape_cache_hits ),
+                    static_cast<unsigned long long>( text_stats.shape_cache_misses ), text_stats.atlas_eviction_count );
+            std::fprintf( stderr, " frames %d ms/frame %.3f\n", frames, 1000.0 * elapsed / frames );
             fflush( stderr );
             previous = counts;
             frames = 0; last = now;
@@ -1462,6 +1470,7 @@ bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD c
 }
 bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWORD color )
 {
+    NTextPerf::Scope perf( NTextPerf::Draw );
     if ( !text || !*text ) return true;
     std::wstring wide;
     while ( *text ) wide.push_back( static_cast<unsigned char>( *text++ ) );
@@ -1470,11 +1479,13 @@ bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWO
 }
 bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, DWORD color )
 {
+    NTextPerf::Scope perf( NTextPerf::Draw );
     if ( DrawFontLine( text, x, y, color ) ) return true;
     return DrawFallbackGlyphs( this, text, x, y, color );
 }
 bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD flags )
 {
+    NTextPerf::Scope perf( NTextPerf::Draw );
     if ( !text ) return false;
     text->SetWidth( rect.right - rect.left );
     IText *source = text->GetText();
