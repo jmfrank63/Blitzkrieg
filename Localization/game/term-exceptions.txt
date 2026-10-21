@@ -23,3 +23,16 @@ de units/humans/allies/sniper/name sniper # the box holds two lines: ZF-Gewehr i
 de units/humans/german/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
 de units/humans/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
 de units/humans/ussr/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+fr textes/help load game # running text: Sauvegarde rapide and Chargement rapide are the quick keys' wording
+fr textes/help save game # running text: Sauvegarde rapide and Chargement rapide are the quick keys' wording
+fr textes/playerranks/allies/lieutenant_general lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
+fr textes/playerranks/allies/lieutenant_general_full lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
+fr textes/playerranks/ussr/lieutenant_general lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
+fr textes/playerranks/ussr/lieutenant_general_full lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
+fr textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is an ingénieur du son, not a sapeur
+fr buildings/africa/summer/a_cisterns/01/name tank # a water tank, not a vehicle
+fr buildings/africa/summer/a_cisterns/02/name tank # a water tank, not a vehicle
+fr buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
+fr buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
+fr buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
+fr buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle

@@ -4,6 +4,8 @@ Scope: terms of the main menu, the mission briefing, unit types and ranks, so th
 
 Review state: machine seed, needs native review. The menu terms are what the `fr` overlay uses; nothing here has been checked by a native speaker.
 
+Typography (S02 T01): a no-break space (U+00A0) stands before `: ; ! ?` and inside guillemets (`« texte »`); the shipped game fonts have a glyph for it, for U+00AB/U+00BB, U+2019, U+2026 and U+2013, so none of them falls back. The apostrophe is the ASCII `'` everywhere. U+202F and U+2009 are not cp1252 and are never used. Hotkey tokens (`<Esc>`, `<Shift>`, `<Space>`, `<F5>`) stay as the game reads them. Terms used in the T01 overlay but not in a row (the glossary tests keep all nine glossaries at equal row counts): sergeant major = sergent-major, master sergeant = sergent-chef, warrant officer = adjudant, second lieutenant = sous-lieutenant, lieutenant colonel = lieutenant-colonel, lieutenant general = général de corps d'armée, medal = médaille, encyclopedia = encyclopédie, statistics = statistiques.
+
 ## Unit types
 
 | English term | Translation | Note |

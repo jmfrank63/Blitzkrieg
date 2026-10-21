@@ -177,3 +177,23 @@ test "read rejects a file that is not a font" {
     defer arena_state.deinit();
     try std.testing.expectError(error.ChunkMissing, Font.read(arena_state.allocator(), "\x01\x00"));
 }
+
+test "the shipped fonts carry the punctuation French typography uses" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    // The shipped 1.tfd files hold the Cyrillic set (225 characters), not the cp1252 accented
+    // letters: a Latin overlay's accents are drawn by the font the language mods build (the glyph
+    // rule of l10n-check asks for cp1252). What French needs besides letters is here: the
+    // no-break space before `: ; ! ?`, the guillemets, the typographic apostrophe, the ellipsis
+    // and the en dash. A missing glyph would fall back to the default character without a word.
+    const needed = [_]u16{ 0x00A0, 0x00AB, 0x00BB, 0x2019, 0x2026, 0x2013 };
+    for ([_][]const u8{ "small", "medium", "large" }) |size| {
+        const font = try load(arena_state.allocator(), size);
+        for (needed) |c| {
+            std.testing.expect(font.chars.contains(c)) catch |err| {
+                std.debug.print("{s} font has no glyph for U+{X:0>4}\n", .{ size, c });
+                return err;
+            };
+        }
+    }
+}
