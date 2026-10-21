@@ -89,8 +89,13 @@ void *AllocNoThrow(std::size_t size, std::size_t alignment, const void *caller, 
 // system new, and the inline delete in System.cpp then freed that block
 // through this file (bad header magic). Weak operators make every image that
 // carries this file take part; all copies forward to the one BkMemory anyway.
+// They are also kept when unused (`used`, which clang marks no_dead_strip on
+// Mach-O). The linker had kept only the forms the image itself called (new and
+// sized delete), while macOS 14's libc++, built without sized deallocation,
+// frees with the plain delete: on macbook-air-frank its string code then freed
+// a BkMemory block with the system free (malloc abort).
 #if defined(__APPLE__)
-#  define BK_REPLACEMENT __attribute__((weak))
+#  define BK_REPLACEMENT __attribute__((weak, used))
 #else
 #  define BK_REPLACEMENT
 #endif
