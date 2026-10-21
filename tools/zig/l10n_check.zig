@@ -1039,6 +1039,14 @@ fn optionalEql(a: ?[]const u8, b: ?[]const u8) bool {
 
 /// The face that lacks `code_point` for a table value, or null when it is covered (or no face
 /// could be read; the overlay glyph rule reports a missing font).
+/// `units` without a byte order mark and the white space around the text.
+fn trimUnits(units: []const u16) []const u16 {
+    var text = units;
+    while (text.len != 0 and (text[0] == 0xfeff or text[0] == ' ' or text[0] == '\r' or text[0] == '\n')) text = text[1..];
+    while (text.len != 0 and (text[text.len - 1] == ' ' or text[text.len - 1] == '\r' or text[text.len - 1] == '\n')) text = text[0 .. text.len - 1];
+    return text;
+}
+
 /// The face the editors draw a language with besides Noto Sans (Sources/editor/kit/fonts.zig merges
 /// them): Noto Sans alone for the Latin and Cyrillic languages, whatever face their game mods use.
 fn editorFace(code: []const u8) ?[]const u8 {
@@ -2176,21 +2184,27 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
                     .tooltip => is_tooltip = true,
                     .box, .area => is_boxed = true,
                 }
-                // The translation and the English original in the same font, the mod's: fit-base excuses a
-                // translation no worse than the original would be. (The original in the bitmap font was
-                // tried: an untranslated "Ping" then failed by the pixel Liberation Serif is wider.)
+                // The translation in its mod's font; the English original in the game's own bitmap font, as
+                // it shipped in 2003, so fit-base only excuses a text no worse than what shipped. (The
+                // original in the mod's font was tried: Noto Sans wraps it where 2003 did not, which made a
+                // Russian name a finding for the font's width, not the translation's.)
                 const font = own_fonts.get(room.font);
+                const shipped = fonts.get(room.font);
                 for (units) |unit| {
                     if (unit == 0xfeff or unit == ' ' or unit == '\r' or unit == '\n' or unit == '\t') continue;
                     if (font.chars.get(unit) == null) try missing.put(arena, unit, {});
                 }
                 const mine = try measureText(arena, &scratch, font, units, room.width);
-                const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, font, original, room.width) else null;
+                const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, shipped, original, room.width) else null;
                 const too_tall = fitNeeds(font, mine.lines) > room.height;
                 const too_wide = mine.word.width > room.width;
-                const english_tall = if (theirs) |t| fitNeeds(font, t.lines) > room.height else false;
+                const english_tall = if (theirs) |t| fitNeeds(shipped, t.lines) > room.height else false;
                 const english_wide = if (theirs) |t| t.word.width > room.width else false;
                 if (english_tall or english_wide) overflowed = true;
+                // A text left as the original ("Ping", "Rel") overflows where the original did, a pixel
+                // more or less with the face: nothing a translator can change.
+                const unchanged = if (english) |original| std.mem.eql(u16, trimUnits(units), trimUnits(original)) else false;
+                if (unchanged and (english_tall or english_wide)) continue;
                 if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
                     try report.addFmt("fit", language.code, key, "{d} lines x {d} - {d} > {d} in {s}", .{ mine.lines, font.lineSpace(), font.external_leading, @as(i64, @intFromFloat(room.height)), room.where });
                 }

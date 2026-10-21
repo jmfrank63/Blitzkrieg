@@ -1059,10 +1059,7 @@ test "fit_language_font: a text too wide for its box in its own language's font 
     try writeManifest(io, testing.allocator, root, "");
     try addOverlay(io, root, "ru", "textes/strings/alpha", "Hello Hello");
     // The same text in the shipped medium font is one line (81 px in 100 x 21), so only the language font fails it.
-    // The original is measured in the same font, where it overflows too (fit-base), but in one line, not two.
-    comptime var notes: []const u8 = "";
-    inline for (codes) |code| notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: 1 boxed, 0 tooltip, 1 scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ code, @intFromBool(comptime std.mem.eql(u8, code, "ru")) });
-    const want = comptime fitWant("l10n-check: fit: ru: textes/strings/alpha: 2 lines x 41 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, notes);
+    const want = comptime fitWant("l10n-check: fit: ru: textes/strings/alpha: 2 lines x 41 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(1, 0, 1, 0));
     try expectFitRun(io, "fit_language_font", &root, 1, want);
 }
 
