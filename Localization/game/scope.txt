@@ -34,3 +34,4 @@ prefix fr units/technics/allies
 prefix fr units/technics/common
 prefix fr units/technics/german
 prefix fr units/technics/ussr
+prefix fr scenarios/chapters
