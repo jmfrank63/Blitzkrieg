@@ -67,7 +67,9 @@ namespace NBkTextBridge
 		if ( !Requested() ) return false;
 		if ( g_pContext != 0 ) return true;
 		const char *pszBase = SDL_GetBasePath();
-		const std::string szDir = std::string( pszBase != 0 ? pszBase : "" ) + "Fonts";
+		// BK_TEXT_FONTS_DIR names the folder directly: a test runs from the build cache, not from an install.
+		const char *pszFontsDir = std::getenv( "BK_TEXT_FONTS_DIR" );
+		const std::string szDir = ( pszFontsDir != 0 && *pszFontsDir != 0 ) ? std::string( pszFontsDir ) : std::string( pszBase != 0 ? pszBase : "" ) + "Fonts";
 		const std::string szCode = LanguageCode( GetGlobalVar( "Text.Language", "Default" ) );
 		const BkTextResult eResult = bk_text_context_create( szDir.c_str(), szCode.c_str(), &g_pContext );
 		if ( eResult != BK_TEXT_OK || g_pContext == 0 )

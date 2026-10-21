@@ -2660,6 +2660,76 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_factory_test_step.dependOn(&b.addInstallArtifact(gfx_gpu_factory_test, .{}).step);
     if (test_mode == .run) gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
 
+    // M004 S03: every measuring call of the GPU font and text objects against the geometry the
+    // draw path emits, on bk_text. The harness is the GFXGPU module's own sources (the real
+    // FontGpu, TextGpu and GraphicsEngineGpu) over a fake GPU API that records the vertices,
+    // so the numbers compared are the ones the Game draws. BK_TEXT_FONTS_DIR points the bridge
+    // at the tracked vendor/fonts, as the run happens from the build cache.
+    const text_measure_draw_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    if (target.result.os.tag == .macos) {
+        addEngineCxxNewDelete(b, text_measure_draw_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, text_measure_draw_module, optimize);
+    }
+    text_measure_draw_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/text_measure_draw_test.cpp",
+            "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+            "Sources/src/GFXGPU/TextureGpu.cpp",
+            "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
+            "Sources/src/GFXGPU/MeshGpu.cpp",
+            "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+            "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+            "Sources/src/GFXGPU/BkTextBridge.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, text_measure_draw_module);
+    text_measure_draw_module.addIncludePath(b.path("Sources/src/GFX"));
+    text_measure_draw_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    text_measure_draw_module.addIncludePath(b.path("Sources/src/BkText"));
+    addMsvcIncludePaths(b, text_measure_draw_module, toolchain);
+    addLinuxCxxIncludePaths(b, text_measure_draw_module);
+    addMsvcLibraryPaths(b, text_measure_draw_module, toolchain);
+    addMacosSysrootPaths(b, text_measure_draw_module, target);
+    text_measure_draw_module.linkLibrary(misc);
+    text_measure_draw_module.linkLibrary(platform_runtime);
+    text_measure_draw_module.linkLibrary(formats);
+    text_measure_draw_module.linkLibrary(gfx_gpu_zig);
+    text_measure_draw_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
+    if (target.result.os.tag == .macos) {
+        text_measure_draw_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(text_measure_draw_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
+    if (target.result.os.tag == .windows) {
+        text_measure_draw_module.linkSystemLibrary("user32", .{});
+        text_measure_draw_module.linkSystemLibrary("gdi32", .{});
+        text_measure_draw_module.linkSystemLibrary("shell32", .{});
+    }
+    applyLoaderPath(target, text_measure_draw_module);
+    const text_measure_draw_test = b.addExecutable(.{
+        .name = "text-measure-draw-test",
+        .root_module = text_measure_draw_module,
+    });
+    text_measure_draw_test.subsystem = .console;
+    text_measure_draw_test.rdynamic = true;
+    if (target.result.os.tag == .windows) text_measure_draw_test.entry = .{ .symbol_name = "main" };
+    const text_measure_draw_run = b.addRunArtifact(text_measure_draw_test);
+    setLeakReportStrict(text_measure_draw_run);
+    text_measure_draw_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    text_measure_draw_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    addPathDir(text_measure_draw_run, rootPath(b, "zig-out/bin"));
+    text_measure_draw_run.setCwd(b.path("."));
+    text_measure_draw_run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    text_measure_draw_run.has_side_effects = true;
+    const text_measure_draw_step = b.step("test-text-measure-draw", "Check every IGFXFont/IGFXText measuring call on bk_text equals the geometry the draw path emits (M004 S03)");
+    text_measure_draw_step.dependOn(&text_measure_draw_test.step);
+    if (test_mode == .run) text_measure_draw_step.dependOn(&text_measure_draw_run.step);
+
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
 
