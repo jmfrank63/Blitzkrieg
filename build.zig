@@ -2394,6 +2394,7 @@ pub fn build(b: *std.Build) void {
     addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     const bk_font = addBkFont(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     addBkShaperTest(b, target, optimize, toolchain, test_mode);
+    addBkTextTests(b, target, optimize, toolchain, test_mode);
     // bk-font is in the shared convention test too. It runs the installed
     // executable, which finds the engine libraries beside it or in ../lib.
     bk_tools_options.addOption([]const u8, "bk_font", if (target.result.os.tag == .windows) "zig-out/bin/bk-font.exe" else "zig-out/bin/bk-font");
@@ -6051,6 +6052,52 @@ fn addBkShaperTest(
     run.addArg(rootPath(b, "vendor/fonts"));
     const step = b.step("test-bk-shaper", "Shape Devanagari, Latin and Cyrillic with HarfBuzz and check the PUA cluster table (M002 D058)");
     step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+/// The bk_text module (M004): the Zig text engine over HarfBuzz and a file-local
+/// stb_truetype. Later tools (S04) and the hbview test import it from here.
+fn bkTextModule(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Module {
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/BkText/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    module.addImport("hb_c", addTranslatedHeaders(b, target, optimize, toolchain, &.{ "hb.h", "hb-ot.h" }, &.{b.path("vendor/harfbuzz/src")}));
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    module.addCSourceFile(.{ .file = b.path("Sources/src/BkText/stbtt.c"), .flags = &.{"-fno-sanitize=undefined"} });
+    // HarfBuzz needs the C++ runtime (std::mutex); the engine's own new/delete
+    // keep it on the same allocator as the rest, as in addBkShaperTest.
+    linkEngineCxxRuntimeEngine(b, module, optimize);
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    return module;
+}
+
+/// test-bk-text: faces, UTF-16 and the HarfBuzz/stb_truetype spike on the
+/// vendored fonts; the fonts directory arrives as BK_TEXT_FONTS_DIR.
+fn addBkTextTests(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    test_mode: build_support.TestMode,
+) void {
+    const tests = b.addTest(.{ .root_module = bkTextModule(b, target, optimize, toolchain) });
+    const run = b.addRunArtifact(tests);
+    run.setCwd(b.path("."));
+    run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    const step = b.step("test-bk-text", "bk_text: faces, UTF-16 and the HarfBuzz/stb_truetype spike (M004)");
+    step.dependOn(&tests.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
 
