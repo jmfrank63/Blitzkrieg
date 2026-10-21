@@ -274,11 +274,12 @@ const Route = struct {
 /// once the screen is up. The hover waits past the chat lines the video page writes while it
 /// builds, which would otherwise draw over the caption, and the capture comes after the
 /// tooltip's one second dwell. The tooltip box (about 405x54 for the English text) hangs
-/// below the cursor, so its box is a strip wider than that.
+/// below the cursor, so its box is a strip wider than that (the Russian tooltip is about 585 wide,
+/// so the strip ends at 688, inside the tooltip's own border at x 691, and its text rows are 732 to 755; the faint fill below differs from the blank by 26).
 const options_dir = "textes/ui/optionssettings";
 const options_labels = [_]Label{
     .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 }, .dynamic = true },
-    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 98, .y1 = 716, .x2 = 640, .y2 = 762 }, .ink = .bright },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 98, .y1 = 730, .x2 = 688, .y2 = 756 }, .ink = .bright },
 };
 const options_route = Route{
     .tag = "options",

@@ -30,16 +30,4 @@ whole-database fr
 whole-database es
 whole-database pt-BR
 whole-database id
-prefix ru textes
-prefix ru buildings
-prefix ru medals
-prefix ru units/humans
-prefix ru units/technics/allies
-prefix ru units/technics/common
-prefix ru units/technics/german
-prefix ru units/technics/ussr
-prefix ru scenarios/chapters
-prefix ru scenarios/scenariomissions
-prefix ru scenarios/descriptions
-prefix ru scenarios/tutorials
-prefix ru scenarios/campaigns
+whole-database ru
