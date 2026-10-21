@@ -35,3 +35,4 @@ prefix id medals
 prefix id units/humans
 prefix id units/technics/allies
 prefix id units/technics/common
+prefix id units/technics/german
