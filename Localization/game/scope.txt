@@ -32,3 +32,5 @@ prefix pt-BR textes
 prefix pt-BR buildings
 prefix pt-BR medals
 prefix pt-BR units/humans
+prefix pt-BR units/technics/allies
+prefix pt-BR units/technics/common
