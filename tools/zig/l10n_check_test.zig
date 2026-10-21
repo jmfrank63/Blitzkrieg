@@ -1103,3 +1103,28 @@ test "fit_glyph_missing: a character the language's fonts lack is measured as a 
     }
     try expectFitRun(io, "fit_glyph_missing", &root, 0, comptime fitWant("", 0, notes));
 }
+
+// CJK wrapping in the fit rule (M003 S07): the fixtures stand a shipped font in for the ja fonts.
+test "fit_ja_wrap: a long kana and Han text wraps at a CJK opportunity and is no fit-word finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_ja_wrap", fit_box_line ++ "scroll scenarios/** # prose\r\n");
+    try setLangFonts(io, root, "ja", "medium");
+    try setBase(io, testing.allocator, root, alpha_base, "Alpha");
+    try writeManifest(io, testing.allocator, root, "");
+    // Thirty Han and kana without a space are far wider than the 100 px box in any font; with CJK break
+    // opportunities no single word exceeds the room, so only the line count (a fit finding, if any) can speak.
+    const text = "\u{6226}\u{8ECA}\u{306E}\u{4E00}\u{4E8C}\u{4E09}\u{56DB}\u{4E94}\u{516D}\u{4E03}\u{516B}\u{4E5D}\u{5341}\u{3042}\u{3044}\u{3046}\u{3048}\u{304A}";
+    const units = try std.unicode.utf8ToUtf16LeAlloc(testing.allocator, text);
+    defer testing.allocator.free(units);
+    var bytes: std.ArrayList(u8) = .empty;
+    defer bytes.deinit(testing.allocator);
+    try bytes.appendSlice(testing.allocator, &.{ 0xff, 0xfe });
+    try bytes.appendSlice(testing.allocator, std.mem.sliceAsBytes(units));
+    try write(io, root, "Localization/game/ja/game_data_base/textes/strings/alpha.txt", bytes.items);
+    try writeState(io, testing.allocator, root, "Localization/game/ja/game_data_base/textes/strings/alpha.xml", 2);
+    root.close(io);
+    const outcome = try runCheckerWith(io, testing.allocator, "fit_ja_wrap", &.{ "--lang-fonts", scratch ++ "/fit_ja_wrap/lang-fonts" });
+    defer testing.allocator.free(outcome.stderr);
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, "fit-word: ja:") == null);
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, "fit: ja: 1 boxed") != null);
+}

@@ -84,6 +84,8 @@ const scratch = "zig-out/local-test/l10n-game-reads-it";
 const width = 1024;
 const height = 768;
 const blank_mod = "l10n-blank";
+/// Where `zig build language-mods` writes the fonts it builds.
+const language_mods_scratch = "zig-out/local-test/language-mods";
 
 /// Whether BK_L10N_LANGS (a comma list of codes, default all) names `code`.
 fn selected(allocator: std.mem.Allocator, code: []const u8) !bool {
@@ -278,7 +280,26 @@ const Route = struct {
     screen: []const u8,
     labels: []const Label,
     body: ?Label = null,
+    /// The scroll text that shows `body`, for the kinsoku line check of a language that breaks
+    /// between characters.
+    scroll: ?ScrollBox = null,
 };
+
+/// A UI_SCROLL_TEXT's text area, from its layout: the element's position plus LeftSpace and
+/// TopSpace is where the text starts, the wrap breaks at its width less the scroll bar and both
+/// spaces, and the game clips at its lower edge less BottomSpace. The font is the medium one
+/// (FontSize 1 or the default) in both screens that use it.
+const ScrollBox = struct {
+    x: usize,
+    y: usize,
+    wrap_width: usize,
+    bottom: usize,
+};
+/// Data/UI/common/Mission.xml element 2000: at 536,412, 452 x 229, spaces 20, 20, 71 and 15, a
+/// scroll bar 45 wide.
+const briefing_box = ScrollBox{ .x = 556, .y = 483, .wrap_width = 367, .bottom = 626 };
+/// Data/UI/Encyclopedia.xml element 2000: at 38,130, 462 x 511, the same spaces and scroll bar.
+const encyclopedia_box = ScrollBox{ .x = 58, .y = 201, .wrap_width = 377, .bottom = 626 };
 
 /// The settings screen with the cursor parked on its restore-defaults button (the arrow at the
 /// bottom left of the 1024x768 canvas, ElementID 10003 of Data/UI/OptionsSettings.xml, whose
@@ -288,7 +309,8 @@ const Route = struct {
 /// once the screen is up. The hover waits past the chat lines the video page writes while it
 /// builds, which would otherwise draw over the caption, and the capture comes after the
 /// tooltip's one second dwell. The tooltip box (about 405x54 for the English text) hangs
-/// below the cursor, so its box is a strip wider than that.
+/// below the cursor, so its box is a strip wider than that (the Russian tooltip is about 585 wide,
+/// so the strip ends at 688, inside the tooltip's own border at x 691, and its text rows are 732 to 755; the faint fill below differs from the blank by 26).
 const options_dir = "textes/ui/optionssettings";
 const options_labels = [_]Label{
     .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 }, .dynamic = true },
@@ -324,6 +346,7 @@ const encyclopedia_route = Route{
     .screen = "BK_UI_TRACE: reposition \"ui\\encyclopedia\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
     .labels = &encyclopedia_labels,
     .body = .{ .key = "desc", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 195, .x2 = 440, .y2 = 630 }, .ink = .dark },
+    .scroll = encyclopedia_box,
 };
 const routes = [_]Route{ options_route, encyclopedia_route };
 
@@ -342,6 +365,9 @@ const Language = struct {
     /// there is no hb-view reference.
     face: ?[]const u8 = null,
     script: ?[]const u8 = null,
+    /// The language breaks lines between characters, so a wrapped text is checked against the
+    /// lines the game's wrap predicts (kinsoku): ja now, zh-Hans when its slice measures it.
+    kinsoku: bool = false,
 
     /// The value of the language option that selects it.
     fn option(self: Language) []const u8 {
@@ -353,7 +379,7 @@ const languages = [_]Language{
     .{ .code = "en", .mod = null },
     .{ .code = "ru", .mod = "lang-ru", .tag = "ru", .face = "vendor/fonts/NotoSans-Regular.ttf" },
     .{ .code = "zh-Hans", .mod = "lang-zh-hans", .tag = "zh-Hans", .face = "vendor/fonts/NotoSansSC-Regular.otf" },
-    .{ .code = "ja", .mod = "lang-ja", .tag = "ja", .face = "vendor/fonts/NotoSansJP-Regular.otf" },
+    .{ .code = "ja", .mod = "lang-ja", .tag = "ja", .face = "vendor/fonts/NotoSansJP-Regular.otf", .kinsoku = true },
     .{ .code = "hi", .mod = "lang-hi", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
     .{ .code = "es", .mod = "lang-es" },
     .{ .code = "fr", .mod = "lang-fr" },
@@ -676,7 +702,7 @@ fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, f
     if (language.face == null) return checkBitmap(allocator, language, frame, blank, english, &labels, report);
     const m = try checkLabels(io, allocator, language, folder, frame, blank, &labels, report);
     if (std.mem.eql(u8, language.code, "hi")) try checkHindi(io, allocator, language, m.hb_folder, m.texts, m.refs, m.inks, report);
-    if (std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja")) try checkHan(io, allocator, language, m.hb_folder, m.texts, m.inks, report);
+    if (std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja")) try checkHan(io, allocator, language, m.hb_folder, &labels, m.texts, m.inks, true, report);
 }
 
 /// The briefing's labels as hb-view draws them, and ink in the description's
@@ -685,11 +711,31 @@ fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, f
     if (language.face == null) {
         try checkBitmap(allocator, language, frame, blank, english, &briefing_labels, report);
     } else {
-        _ = try checkLabels(io, allocator, language, folder, frame, blank, &briefing_labels, report);
+        const m = try checkLabels(io, allocator, language, folder, frame, blank, &briefing_labels, report);
+        if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &briefing_labels, m.texts, m.inks, false, report);
     }
     const body = try inkImage(allocator, frame, blank, briefing_body);
     const box = measure.inkBox(body, ink_threshold);
     try report.check(box != null and box.?.width() >= min_body_width, "{s} briefing description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, if (box) |b| b.width() else 0, min_body_width });
+    if (language.kinsoku) {
+        // CUIConsts::CreateDescription's text of a scenario mission: the mission's name, its type,
+        // an empty line, the description's caption and the description.
+        var text: std.ArrayList(u8) = .empty;
+        const strings = "textes/strings";
+        const pieces = [_]struct { dir: []const u8, key: []const u8, join: []const u8 }{
+            .{ .dir = strings, .key = "missiontext", .join = " " },
+            .{ .dir = mission_dir, .key = "header", .join = "\n" },
+            .{ .dir = strings, .key = "missiontypetext", .join = " " },
+            .{ .dir = strings, .key = "scenariomission", .join = "\n\n" },
+            .{ .dir = strings, .key = "missiondescriptiontext", .join = "\n" },
+            .{ .dir = mission_dir, .key = "description", .join = "" },
+        };
+        for (pieces) |piece| {
+            try text.appendSlice(allocator, try overlayText(io, allocator, language.code, .{ .key = piece.key, .dir = piece.dir, .rect = briefing_body.rect }));
+            try text.appendSlice(allocator, piece.join);
+        }
+        try checkKinsoku(io, allocator, language, folder, frame, blank, "briefing", briefing_box, text.items, report);
+    }
 }
 
 /// Whether `code`'s scope holds every key the route's labels and body show.
@@ -735,8 +781,17 @@ fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, fold
     if (covered and language.face != null) {
         var static: std.ArrayList(Label) = .empty;
         for (route.labels) |label| if (!label.dynamic) try static.append(allocator, label);
-        if (static.items.len != 0) _ = try checkLabels(io, allocator, language, folder, frame, blank, static.items, report);
+        if (static.items.len != 0) {
+            const m = try checkLabels(io, allocator, language, folder, frame, blank, static.items, report);
+            if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, static.items, m.texts, m.inks, false, report);
+        }
     }
+    if (route.scroll) |scroll| if (language.kinsoku) {
+        if (covered) {
+            const text = try overlayText(io, allocator, language.code, route.body.?);
+            try checkKinsoku(io, allocator, language, folder, frame, blank, route.tag, scroll, text, report);
+        } else try report.line("      kinsoku: {s}: not measured, the scope does not cover the route's keys yet", .{route.tag});
+    };
 }
 
 /// The bitmap-font languages (and English): no hb-view reference exists for the
@@ -832,7 +887,16 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
     }
 }
 
-fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_folder: []const u8, texts: []const []u8, inks: []const Gray, report: *Report) !void {
+/// Whether the language's labels are told apart from the other Han faces' forms (zh-Hans and ja).
+fn isHanLanguage(language: Language) bool {
+    return std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja");
+}
+
+/// The Han characters of `set`'s labels against hb-view's Simplified and Japanese forms. `strict`
+/// (the main menu, whose labels hold enough Han characters) makes fewer than three characters that
+/// the faces draw differently a failure; a route's labels may hold none, which is a note and
+/// leaves the face verdicts unmeasured.
+fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_folder: []const u8, set: []const Label, texts: []const []u8, inks: []const Gray, strict: bool, report: *Report) !void {
     const sc_face = "vendor/fonts/NotoSansSC-Regular.otf";
     const jp_face = "vendor/fonts/NotoSansJP-Regular.otf";
     const own_is_sc = std.mem.eql(u8, language.code, "zh-Hans");
@@ -844,11 +908,12 @@ fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_fol
     var informative: usize = 0;
     var margin_sum: f64 = 0;
     var won: usize = 0;
-    for (labels, 0..) |label, index| {
+    for (set, 0..) |label, index| {
         if (!hasHan(texts[index])) continue;
+        const stem = try label.stem(allocator);
         const ink = inks[index];
-        const sc = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ label.key, "-sc" }), texts[index], .{ .font = sc_face, .language = "zh-Hans" });
-        const jp = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ label.key, "-jp" }), texts[index], .{ .font = jp_face, .language = "ja" });
+        const sc = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ stem, "-sc" }), texts[index], .{ .font = sc_face, .language = "zh-Hans" });
+        const jp = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ stem, "-jp" }), texts[index], .{ .font = jp_face, .language = "ja" });
         const sc_scaled = try onGrid(allocator, sc, ink);
         const jp_scaled = try onGrid(allocator, jp, ink);
         var view = std.unicode.Utf8View.initUnchecked(texts[index]);
@@ -873,10 +938,77 @@ fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_fol
             won += @intFromBool(margin > 0);
         }
     }
+    const where = if (strict) "" else " in the route's static labels";
+    if (!strict and informative < 3) {
+        try report.line("      han: {s}{s}: {d} Han characters are drawn differently by the two faces (fewer than 3, so the face is not judged here)", .{ language.code, where, informative });
+        return;
+    }
     try report.check(informative >= 3, "{s}: {d} Han characters are drawn differently by the two faces (at least 3)", .{ language.code, informative });
     const mean = margin_sum / @as(f64, @floatFromInt(@max(informative, 1)));
     try report.check(mean >= min_face_margin, "{s}: over those characters the {s} face wins by {d:.3} on average (at least {d:.2}), in {d} of {d}", .{ language.code, own_name, mean, min_face_margin, won, informative });
     try report.check(won * 3 >= informative * 2, "{s}: the {s} face is nearer in {d} of {d} of those characters (at least two in three)", .{ language.code, own_name, won, informative });
+}
+
+/// The least a line band's ink may correlate with the hb-view raster of the line the game's wrap
+/// predicts for it (the Japanese briefing's lines measure 0.96 and better). Medium text is
+/// smoothed like the small one (`small_blur`), since the Game's raster hints its strokes a pixel
+/// off a shaper's.
+const min_line_correlation: f64 = 0.80;
+/// Fewer empty rows than this between two runs of ink join them into one line.
+const line_min_gap: usize = 2;
+
+/// A wrapped text as the frame shows it, against the lines the game's wrap predicts (`text`, UTF-8,
+/// in the language-mods font that the language's overlay is measured with): no predicted line breaks
+/// the kinsoku rules, the frame's ink has one row band for every visible non-empty predicted line, and
+/// each band correlates with hb-view's raster of its line. Only the lines the box shows whole are
+/// measured: the game clips the next one at the box's lower edge.
+fn checkKinsoku(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, tag: []const u8, box: ScrollBox, text: []const u8, report: *Report) !void {
+    const cwd = std.Io.Dir.cwd();
+    var dir = cwd.openDir(io, language_mods_scratch, .{}) catch {
+        try report.check(false, "kinsoku: {s}: {s}: cannot open {s}: run zig build language-mods -Dlm-langs={s}", .{ language.code, tag, language_mods_scratch, language.code });
+        return;
+    };
+    defer dir.close(io);
+    var problem: check.FontProblem = .{ .path = "", .reason = "" };
+    const fonts = check.loadFitFontsIn(io, allocator, dir, try std.fmt.allocPrint(allocator, "{s}/fonts", .{language.code}), &problem) catch {
+        try report.check(false, "kinsoku: {s}: {s}: cannot read {s}/{s} ({s}): run zig build language-mods -Dlm-langs={s}", .{ language.code, tag, language_mods_scratch, problem.path, problem.reason, language.code });
+        return;
+    };
+    const font = fonts.get(.medium);
+    const units = try std.unicode.utf8ToUtf16LeAlloc(allocator, text);
+    var lines: std.ArrayList(check.wrap.Line) = .empty;
+    try check.wrap.wrapLines(allocator, font, units, 1.0, @floatFromInt(box.wrap_width), &lines);
+    const slices = try allocator.alloc([]const u16, lines.items.len);
+    for (lines.items, slices) |line, *out| out.* = units[line.begin..line.end];
+    const violation = measure.kinsokuViolation(slices, check.wrap.isNoStart, check.wrap.isNoEnd);
+    try report.check(violation == null, "kinsoku: {s}: {s}: no predicted line breaks the rules ({s})", .{ language.code, tag, if (violation) |v| try std.fmt.allocPrint(allocator, "line {d} {s}", .{ v.line, v.reason }) else "checked all lines" });
+
+    // The lines whole inside the box: the last needs only the font's height, the others a line space.
+    const room: i64 = @as(i64, @intCast(box.bottom - box.y));
+    const space: i64 = font.lineSpace();
+    const whole: usize = if (room < font.height) 0 else @intCast(@divTrunc(room - font.height, space) + 1);
+    const shown = @min(whole, slices.len);
+    const region_bottom = box.y + (shown -| 1) * @as(usize, @intCast(space)) + @as(usize, @intCast(font.height));
+    const hb_folder = try std.fs.path.join(allocator, &.{ folder, "reference" });
+    try cwd.createDirPath(io, hb_folder);
+    var references: std.ArrayList(Gray) = .empty;
+    for (slices[0..shown], 0..) |line, at| {
+        const trimmed = std.mem.trim(u16, line, &[_]u16{ ' ', '\r', '\n' });
+        if (trimmed.len == 0) continue;
+        const utf8 = try std.unicode.utf16LeToUtf8Alloc(allocator, trimmed);
+        const name = try std.fmt.allocPrint(allocator, "kinsoku-{s}-{d}", .{ tag, at });
+        try references.append(allocator, try measure.hbView(allocator, io, hb_folder, name, utf8, .{ .font = language.face.?, .language = language.tag, .script = language.script }));
+    }
+    const region_label = Label{ .key = tag, .rect = .{ .x1 = box.x, .y1 = box.y, .x2 = box.x + box.wrap_width, .y2 = region_bottom }, .ink = .dark };
+    const region = try inkImage(allocator, frame, blank, region_label);
+    const found = try measure.lineBands(allocator, region, references.items, ink_threshold, 64, line_min_gap, small_blur);
+    try report.line("kinsoku: {s}: predicted {d} lines, measured {d}, min corr {d:.3} ({d} lines in all, {d} whole in the box {d},{d} to {d},{d}, wrap {d} wide, line space {d})", .{ tag, found.predicted, found.measured, if (found.correlations.len == 0) 0 else found.minCorrelation(), slices.len, shown, region_label.rect.x1, region_label.rect.y1, region_label.rect.x2, region_label.rect.y2, box.wrap_width, space });
+    for (found.correlations, 0..) |one, at| try report.line("      kinsoku: {s}: band {d} correlates {d:.3} with its predicted line", .{ tag, at, one });
+    const fault = found.fault(min_line_correlation);
+    try report.check(fault == null, "kinsoku: {s}: {s}: {s} (minimum {d:.2})", .{ language.code, tag, if (fault) |f| switch (f) {
+        .count_differs => "the ink's line bands differ in number from the predicted lines: the game broke the text elsewhere",
+        .weak_line => "a line band does not match its predicted line",
+    } else "every line band matches its predicted line", min_line_correlation });
 }
 
 /// A reference raster cut to its ink and resampled onto the grid of a frame's label ink.

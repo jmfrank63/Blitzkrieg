@@ -73,6 +73,10 @@ int main()
 	Expect( L"あいうーあ", 3, L"あい|うーあ", "the prolonged sound mark never starts a line" );
 	Expect( L"あいうゃあ", 3, L"あい|うゃあ", "a small kana never starts a line" );
 	Expect( L"アイウィア", 3, L"アイ|ウィア", "a small katakana never starts a line" );
+	Expect( L"一二三四\u2025五", 4, L"一二三|四\u2025五", "a two-dot leader never starts a line" );
+	Expect( L"一二三四\u2026五", 4, L"一二三|四\u2026五", "an ellipsis never starts a line" );
+	Expect( L"一二三四\u30A0五", 4, L"一二三|四\u30A0五", "the katakana double hyphen never starts a line" );
+	Expect( L"一二三四\uFF5E五", 4, L"一二三|四\uFF5E五", "the fullwidth wave dash never starts a line" );
 	// The opening brackets never end a line.
 	Expect( L"一二三（四五", 4, L"一二三|（四五", "an opening parenthesis never ends a line" );
 	Expect( L"一二三「四五", 4, L"一二三|「四五", "an opening corner bracket never ends a line" );
