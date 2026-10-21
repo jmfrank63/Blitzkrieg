@@ -88,7 +88,11 @@ port has only this one. Found on 2026-10-21/22:
 
 ## Verification
 
-Every slice runs its tiers on Linux, then on win-home, mac-office and macbook-air-frank through
-`~/bk-verify/run-all.sh` before anything reaches CI (win-home has hb-view in
-`D:\tools\harfbuzz-14.6.0`, so its Game tiers run, not only compile). CI green on every platform
-at the end; existing Map Editor, Resource Editor, ELK and Game tiers stay green.
+Johannes, 2026-10-22: "We only run locally here on linux, and skip the ssh on the other 3 machines.
+Once Linux is fully running locally without bugs, we expand to the others and fix what is left
+there. Then we run the CI." So every slice verifies on Linux only, locally. When the engine runs the
+game on Linux without bugs (every tier green), one slice takes it to win-home, mac-office and
+macbook-air-frank through `~/bk-verify/run-all.sh` (win-home has hb-view in
+`D:\tools\harfbuzz-14.6.0`, so its Game tiers run, not only compile) and fixes what is left there;
+CI comes after that, green on every platform at the end. Existing Map Editor, Resource Editor, ELK and
+Game tiers stay green on Linux throughout.
