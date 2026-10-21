@@ -31,3 +31,4 @@ prefix de medals
 prefix de units/humans
 prefix de units/technics/allies
 prefix de units/technics/common
+prefix de units/technics/german
