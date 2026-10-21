@@ -3800,6 +3800,23 @@ pub fn build(b: *std.Build) void {
         l10n_check_tests_step.dependOn(&l10n_check_unit_run.step);
     }
 
+    // The fit rule's parts (M003 S01 T02): the 1.tfd reader reads the shipped fonts and the wrap port
+    // breaks the lines the way gfx_text_wrap_test.cpp expects. Both run from the repository root.
+    const l10n_font_step = b.step("test-l10n-font", "The 1.tfd reader and the game's text wrap ported to Zig, on the shipped fonts (M003 S01 T02)");
+    for ([_][]const u8{ "tools/zig/l10n_font.zig", "tools/zig/l10n_wrap.zig" }) |source| {
+        const font_tests = b.addTest(.{ .root_module = b.createModule(.{
+            .root_source_file = b.path(source),
+            .target = target,
+            .optimize = .debug,
+        }) });
+        l10n_font_step.dependOn(&font_tests.step);
+        if (test_mode == .run) {
+            const font_tests_run = b.addRunArtifact(font_tests);
+            font_tests_run.setCwd(b.path("."));
+            l10n_font_step.dependOn(&font_tests_run.step);
+        }
+    }
+
     // The overlay sheet helper (tools/zig/l10n_sheet.zig, M003 S01 T01): export the English originals under
     // key prefixes to a text sheet, import the translated sheet as UTF-16LE overlay texts.
     const l10n_sheet_module = b.createModule(.{

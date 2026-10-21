@@ -38,6 +38,15 @@
 //! `Localization/game/term-exceptions.txt` excuses one key and term (`term-exception` for a line without a
 //! reason, `term-exception-unused` for one that excuses nothing). A missing glossary is a finding.
 //!
+//! Rule `fit` (D097): a translated text must fit the room the game draws it in. `checkFit` measures every
+//! in-scope text of a language that draws with the game's bitmap fonts, with the metrics of
+//! `Data/Fonts/<size>/1.tfd` (tools/zig/l10n_font.zig) and the GPU wrap rules (tools/zig/l10n_wrap.zig),
+//! against the box `Localization/game/fit-map.txt` gives its key family: a `Data/UI` layout element, a
+//! rectangle, a tooltip or a scrolling text. Findings are `fit` (too many lines for the box), `fit-word`
+//! (a word wider than the box, which the game splits), `fit-unmapped` (no map line for a key), `fit-map` and
+//! `fit-font`. An English original that already overflows is `fit-base` information in the language's note.
+//! Without a fit map the scope is `not active`; a language with a face is `not measured`. See `checkFit`.
+//!
 //! Rule `placeholder`: the multiset of substituted or interpreted tokens must be the same in the
 //! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
 //! `{n}` and no `$name`; the tokens present are hotkey names in angle brackets (`<Shift>`, `<Ctrl-1>`,
@@ -79,6 +88,8 @@
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
 const cmap = @import("l10n_cmap.zig");
+const font_file = @import("l10n_font.zig");
+const wrap = @import("l10n_wrap.zig");
 
 pub const Finding = struct {
     rule: []const u8,
@@ -1655,6 +1666,503 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, scope: LanguageScop
     }
 }
 
+pub const fit_map_path = "Localization/game/fit-map.txt";
+
+pub const FitKind = enum { box, area, tooltip, scroll };
+pub const FitFont = enum { small, medium, large };
+
+/// One line of `fit-map.txt`. A `box` line names a layout element, an `area` line gives the
+/// rectangle itself, a `tooltip` line the hint, a `scroll` line a text that scrolls.
+pub const FitLine = struct {
+    kind: FitKind,
+    /// Lowercase, as the keys are compared.
+    glob: []const u8,
+    layout: []const u8 = "",
+    /// `<ElementID>` or `<ElementID>#<n>` for the n-th element of the file with that ID.
+    element: []const u8 = "",
+    width: f32 = 0,
+    height: f32 = 0,
+    font: FitFont = .medium,
+    line: usize,
+};
+
+fn parseElementRef(ref: []const u8) ?struct { id: i64, nth: usize } {
+    const hash = std.mem.indexOfScalar(u8, ref, '#');
+    const id = std.fmt.parseInt(i64, if (hash) |h| ref[0..h] else ref, 10) catch return null;
+    const nth = if (hash) |h| std.fmt.parseInt(usize, ref[h + 1 ..], 10) catch return null else 1;
+    if (nth == 0) return null;
+    return .{ .id = id, .nth = nth };
+}
+
+/// The lines of a `fit-map.txt`. A line is a directive and its words; ` # ` starts a comment, and
+/// is the reason a `scroll` line must give. Problems are returned, not reported, so the parser
+/// stays pure.
+pub fn parseFitMap(arena: std.mem.Allocator, text: []const u8, problems: *std.ArrayList(ScopeProblem)) ![]const FitLine {
+    var out: std.ArrayList(FitLine) = .empty;
+    var raw_lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (raw_lines.next()) |raw| {
+        number += 1;
+        var line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        var reason: []const u8 = "";
+        if (std.mem.indexOf(u8, line, " # ")) |at| {
+            reason = std.mem.trim(u8, line[at + 3 ..], " \t");
+            line = std.mem.trimEnd(u8, line[0..at], " \t");
+        } else if (std.mem.endsWith(u8, line, " #")) line = std.mem.trimEnd(u8, line[0 .. line.len - 2], " \t");
+        var words: [6][]const u8 = undefined;
+        var count: usize = 0;
+        var split = std.mem.tokenizeAny(u8, line, " \t");
+        while (split.next()) |word| {
+            if (count == words.len) {
+                count += 1;
+                break;
+            }
+            words[count] = word;
+            count += 1;
+        }
+        const glob = if (count > 1 and count <= words.len) try std.ascii.allocLowerString(arena, words[1]) else "";
+        if (std.mem.eql(u8, words[0], "box")) {
+            if (count != 4) {
+                try problems.append(arena, .{ .line = number, .detail = "box wants `box <glob> <Data/UI layout> <ElementID>`" });
+            } else if (parseElementRef(words[3]) == null) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "`{s}` is not an ElementID (a number, then optionally `#n`)", .{words[3]}) });
+            } else try out.append(arena, .{ .kind = .box, .glob = glob, .layout = try arena.dupe(u8, words[2]), .element = try arena.dupe(u8, words[3]), .line = number });
+        } else if (std.mem.eql(u8, words[0], "area")) {
+            const x = if (count == 4) std.mem.indexOfScalar(u8, words[2], 'x') else null;
+            const width = if (x) |at| std.fmt.parseInt(u32, words[2][0..at], 10) catch null else null;
+            const height = if (x) |at| std.fmt.parseInt(u32, words[2][at + 1 ..], 10) catch null else null;
+            const font = if (count == 4) std.meta.stringToEnum(FitFont, words[3]) else null;
+            if (width == null or height == null or font == null) {
+                try problems.append(arena, .{ .line = number, .detail = "area wants `area <glob> <W>x<H> <small|medium|large>`" });
+            } else try out.append(arena, .{ .kind = .area, .glob = glob, .width = @floatFromInt(width.?), .height = @floatFromInt(height.?), .font = font.?, .line = number });
+        } else if (std.mem.eql(u8, words[0], "tooltip")) {
+            if (count != 2) {
+                try problems.append(arena, .{ .line = number, .detail = "tooltip wants `tooltip <glob>`" });
+            } else try out.append(arena, .{ .kind = .tooltip, .glob = glob, .font = .large, .line = number });
+        } else if (std.mem.eql(u8, words[0], "scroll")) {
+            if (count != 2) {
+                try problems.append(arena, .{ .line = number, .detail = "scroll wants `scroll <glob> # <reason>`" });
+            } else if (reason.len == 0) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "scroll `{s}` gives no reason; write `scroll {s} # why this text scrolls`", .{ words[1], words[1] }) });
+            } else try out.append(arena, .{ .kind = .scroll, .glob = glob, .line = number });
+        } else try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown directive `{s}`", .{words[0]}) });
+    }
+    return out.items;
+}
+
+/// Whether the lowercase `text` matches the lowercase `pattern`: `*` runs over any characters but
+/// `/`, `**` over any, `[0-9]+` over one or more digits; every other character stands for itself.
+pub fn globMatch(pattern: []const u8, text: []const u8) bool {
+    if (pattern.len == 0) return text.len == 0;
+    if (std.mem.startsWith(u8, pattern, "**")) {
+        var at: usize = 0;
+        while (at <= text.len) : (at += 1) {
+            if (globMatch(pattern[2..], text[at..])) return true;
+        }
+        return false;
+    }
+    if (pattern[0] == '*') {
+        var at: usize = 0;
+        while (true) : (at += 1) {
+            if (globMatch(pattern[1..], text[at..])) return true;
+            if (at == text.len or text[at] == '/') return false;
+        }
+    }
+    if (std.mem.startsWith(u8, pattern, "[0-9]+")) {
+        var at: usize = 0;
+        while (at < text.len and std.ascii.isDigit(text[at])) {
+            at += 1;
+            if (globMatch(pattern[6..], text[at..])) return true;
+        }
+        return false;
+    }
+    if (text.len == 0 or pattern[0] != text[0]) return false;
+    return globMatch(pattern[1..], text[1..]);
+}
+
+/// The layout elements text is drawn in: UI elements (`item` or `Element` tags with a ClassTypeID)
+/// with their size, text inset, text alignment and font size.
+pub const LayoutElement = struct {
+    id: i64,
+    /// FontSize attribute; the engine's default is 1 (medium).
+    font: u8 = 1,
+    /// TextAlign attribute; the engine's default is 0x0011 (left, top).
+    text_align: u32 = 0x0011,
+    width: f32 = 0,
+    height: f32 = 0,
+    inset_x: f32 = 0,
+    inset_y: f32 = 0,
+    has_size: bool = false,
+
+    /// The room the text has (CSimpleWindow::VisitText): a left or right aligned text loses the
+    /// TextPos inset in x, a top or bottom aligned one in y; centred text keeps the whole size.
+    pub fn textWidth(self: LayoutElement) f32 {
+        const horizontal = self.text_align & 0xf;
+        return if (horizontal == 1 or horizontal == 3) self.width - self.inset_x else self.width;
+    }
+
+    pub fn textHeight(self: LayoutElement) f32 {
+        const vertical = self.text_align & 0xf0;
+        return if (vertical == 0x10 or vertical == 0x30) self.height - self.inset_y else self.height;
+    }
+};
+
+fn tagAttribute(tag: []const u8, name: []const u8) ?[]const u8 {
+    var at: usize = 0;
+    while (std.mem.indexOfPos(u8, tag, at, name)) |found| {
+        at = found + name.len;
+        const before_ok = found == 0 or tag[found - 1] == ' ' or tag[found - 1] == '\t' or tag[found - 1] == '\r' or tag[found - 1] == '\n';
+        if (!before_ok) continue;
+        var cursor = at;
+        while (cursor < tag.len and tag[cursor] == ' ') cursor += 1;
+        if (cursor >= tag.len or tag[cursor] != '=') continue;
+        cursor += 1;
+        while (cursor < tag.len and tag[cursor] == ' ') cursor += 1;
+        if (cursor >= tag.len or (tag[cursor] != '"' and tag[cursor] != '\'')) continue;
+        const quote = tag[cursor];
+        const end = std.mem.indexOfScalarPos(u8, tag, cursor + 1, quote) orelse return null;
+        return tag[cursor + 1 .. end];
+    }
+    return null;
+}
+
+fn attributeNumber(value: ?[]const u8) f32 {
+    const text = std.mem.trim(u8, value orelse return 0, " \t");
+    return std.fmt.parseFloat(f32, text) catch 0;
+}
+
+/// The elements of a layout in document order. A hand-written scan, not an XML parser: the layouts
+/// are well-formed, and only the tags `item`/`Element` (with ClassTypeID), `WindowSize` and
+/// `TextPos` directly inside one matter.
+pub fn parseLayout(arena: std.mem.Allocator, xml: []const u8) ![]const LayoutElement {
+    var elements: std.ArrayList(LayoutElement) = .empty;
+    const Open = struct { name: []const u8, element: ?usize };
+    var stack: std.ArrayList(Open) = .empty;
+    var at: usize = 0;
+    while (std.mem.indexOfScalarPos(u8, xml, at, '<')) |open| {
+        if (std.mem.startsWith(u8, xml[open..], "<!--")) {
+            at = if (std.mem.indexOfPos(u8, xml, open, "-->")) |end| end + 3 else xml.len;
+            continue;
+        }
+        if (std.mem.startsWith(u8, xml[open..], "<?") or std.mem.startsWith(u8, xml[open..], "<!")) {
+            at = if (std.mem.indexOfScalarPos(u8, xml, open, '>')) |end| end + 1 else xml.len;
+            continue;
+        }
+        // The end of the tag: the first `>` outside quotes.
+        var cursor = open + 1;
+        var quote: u8 = 0;
+        while (cursor < xml.len) : (cursor += 1) {
+            const c = xml[cursor];
+            if (quote != 0) {
+                if (c == quote) quote = 0;
+            } else if (c == '"' or c == '\'') {
+                quote = c;
+            } else if (c == '>') break;
+        }
+        if (cursor >= xml.len) break;
+        at = cursor + 1;
+        var tag = xml[open + 1 .. cursor];
+        if (tag.len != 0 and tag[0] == '/') {
+            if (stack.items.len != 0) _ = stack.pop();
+            continue;
+        }
+        const self_closing = tag.len != 0 and tag[tag.len - 1] == '/';
+        if (self_closing) tag = tag[0 .. tag.len - 1];
+        const name_end = std.mem.indexOfAny(u8, tag, " \t\r\n") orelse tag.len;
+        const name = tag[0..name_end];
+        const parent: ?usize = if (stack.items.len != 0) stack.items[stack.items.len - 1].element else null;
+        var element: ?usize = null;
+        if ((std.mem.eql(u8, name, "item") or std.mem.eql(u8, name, "Element")) and tagAttribute(tag, "ClassTypeID") != null) {
+            var one: LayoutElement = .{ .id = std.fmt.parseInt(i64, std.mem.trim(u8, tagAttribute(tag, "ElementID") orelse "0", " \t"), 10) catch 0 };
+            if (tagAttribute(tag, "FontSize")) |value| one.font = std.fmt.parseInt(u8, std.mem.trim(u8, value, " \t"), 10) catch 1;
+            if (tagAttribute(tag, "TextAlign")) |value| one.text_align = std.fmt.parseInt(u32, std.mem.trim(u8, value, " \t"), 0) catch 0x0011;
+            try elements.append(arena, one);
+            element = elements.items.len - 1;
+        } else if (parent) |owner| {
+            if (std.mem.eql(u8, name, "WindowSize")) {
+                elements.items[owner].width = attributeNumber(tagAttribute(tag, "x"));
+                elements.items[owner].height = attributeNumber(tagAttribute(tag, "y"));
+                elements.items[owner].has_size = true;
+            } else if (std.mem.eql(u8, name, "TextPos")) {
+                elements.items[owner].inset_x = attributeNumber(tagAttribute(tag, "x"));
+                elements.items[owner].inset_y = attributeNumber(tagAttribute(tag, "y"));
+            }
+        }
+        if (!self_closing) try stack.append(arena, .{ .name = name, .element = element });
+    }
+    return elements.items;
+}
+
+/// The three game fonts a text can be drawn in, `Data/Fonts/{small,medium,large}/1.tfd`.
+pub const FitFonts = struct {
+    fonts: [3]font_file.Font,
+
+    pub fn get(self: *const FitFonts, size: FitFont) *const font_file.Font {
+        return &self.fonts[@intFromEnum(size)];
+    }
+
+    /// SceneInternal.cpp SetToolTip: the hint wraps at TOOLTIP_MAX_WIDTH (300, written for the medium
+    /// font) grown by the ratio of the large line space to the medium one.
+    pub fn tooltipWidth(self: *const FitFonts) f32 {
+        const large = self.get(.large).lineSpace();
+        const medium = self.get(.medium).lineSpace();
+        if (medium <= 0 or large <= medium) return 300;
+        return @floatFromInt(@divTrunc(300 * large, medium));
+    }
+};
+
+pub const FontProblem = struct { path: []const u8, reason: []const u8 };
+
+pub fn loadFitFonts(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, problem: *FontProblem) !FitFonts {
+    var fonts: FitFonts = undefined;
+    for (std.meta.tags(FitFont)) |size| {
+        const rel = try std.fmt.allocPrint(arena, "Data/Fonts/{s}/1.tfd", .{@tagName(size)});
+        problem.path = rel;
+        const found = (try findIgnoreCase(io, arena, root, rel)) orelse {
+            problem.reason = "file is missing";
+            return error.FontUnreadable;
+        };
+        const bytes = (try readOptional(io, arena, root, found)) orelse {
+            problem.reason = "file is missing";
+            return error.FontUnreadable;
+        };
+        fonts.fonts[@intFromEnum(size)] = font_file.Font.read(arena, bytes) catch |err| {
+            problem.reason = @errorName(err);
+            return error.FontUnreadable;
+        };
+    }
+    return fonts;
+}
+
+/// A fit line with its room worked out: for a `box` line the layout element's text room, for an
+/// `area` line its rectangle, for a `tooltip` line the hint width and no height limit.
+pub const FitResolved = struct {
+    ok: bool = false,
+    kind: FitKind = .scroll,
+    width: f32 = 0,
+    height: f32 = std.math.inf(f32),
+    font: FitFont = .medium,
+    /// How a finding names the room: `<layout>#<ElementID>`, `area (fit-map line n)` or `tooltip`.
+    where: []const u8 = "",
+};
+
+/// Works out the room of every line. A `box` line whose layout or element cannot be found is a
+/// problem and stays `ok = false`; so does one whose element has no WindowSize.
+pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, lines: []const FitLine, fonts: *const FitFonts, problems: *std.ArrayList(ScopeProblem)) ![]FitResolved {
+    var layouts: std.StringHashMapUnmanaged(?[]const LayoutElement) = .empty;
+    const resolved = try arena.alloc(FitResolved, lines.len);
+    for (lines, resolved) |line, *one| {
+        one.* = .{ .kind = line.kind, .font = line.font };
+        switch (line.kind) {
+            .scroll => one.ok = true,
+            .tooltip => {
+                one.ok = true;
+                one.width = fonts.tooltipWidth();
+                one.where = "tooltip";
+            },
+            .area => {
+                one.ok = true;
+                one.width = line.width;
+                one.height = line.height;
+                one.where = try std.fmt.allocPrint(arena, "area {d}x{d} (fit-map line {d})", .{ @as(u32, @intFromFloat(line.width)), @as(u32, @intFromFloat(line.height)), line.line });
+            },
+            .box => {
+                const entry = try layouts.getOrPut(arena, line.layout);
+                if (!entry.found_existing) {
+                    entry.value_ptr.* = null;
+                    if (try findIgnoreCase(io, arena, root, line.layout)) |found| {
+                        if (try readOptional(io, arena, root, found)) |xml| entry.value_ptr.* = try parseLayout(arena, xml);
+                    }
+                }
+                const elements = entry.value_ptr.* orelse {
+                    try problems.append(arena, .{ .line = line.line, .detail = try std.fmt.allocPrint(arena, "layout {s} does not exist", .{line.layout}) });
+                    continue;
+                };
+                const ref = parseElementRef(line.element).?;
+                var seen: usize = 0;
+                const element: ?LayoutElement = for (elements) |candidate| {
+                    if (candidate.id != ref.id) continue;
+                    seen += 1;
+                    if (seen == ref.nth) break candidate;
+                } else null;
+                const found = element orelse {
+                    try problems.append(arena, .{ .line = line.line, .detail = try std.fmt.allocPrint(arena, "{s} holds no element {s}", .{ line.layout, line.element }) });
+                    continue;
+                };
+                if (!found.has_size or found.textWidth() <= 0 or found.textHeight() <= 0) {
+                    try problems.append(arena, .{ .line = line.line, .detail = try std.fmt.allocPrint(arena, "{s} element {s} has no room for text ({d} x {d})", .{ line.layout, line.element, found.textWidth(), found.textHeight() }) });
+                    continue;
+                }
+                one.ok = true;
+                one.width = found.textWidth();
+                one.height = found.textHeight();
+                one.font = switch (found.font) {
+                    0 => .small,
+                    2 => .large,
+                    else => .medium,
+                };
+                one.where = try std.fmt.allocPrint(arena, "{s}#{s}", .{ line.layout, line.element });
+            },
+        }
+    }
+    return resolved;
+}
+
+/// The lines of `fit-map.txt` that apply to `key` (lowercase): the first match, and every later
+/// line with the same glob. Empty when no line matches.
+pub fn fitMatches(arena: std.mem.Allocator, lines: []const FitLine, key: []const u8) ![]const usize {
+    var out: std.ArrayList(usize) = .empty;
+    var glob: ?[]const u8 = null;
+    for (lines, 0..) |line, at| {
+        if (glob) |g| {
+            if (std.mem.eql(u8, g, line.glob)) try out.append(arena, at);
+        } else if (globMatch(line.glob, key)) {
+            glob = line.glob;
+            try out.append(arena, at);
+        }
+    }
+    return out.items;
+}
+
+/// The UTF-16 units of a text after its byte order mark.
+fn textUnits(arena: std.mem.Allocator, bytes: []const u8) ![]u16 {
+    const start: usize = if (bytes.len >= 2 and bytes[0] == 0xff and bytes[1] == 0xfe) 2 else 0;
+    const units = try arena.alloc(u16, (bytes.len - start) / 2);
+    for (units, 0..) |*unit, at| unit.* = std.mem.readInt(u16, bytes[start + at * 2 ..][0..2], .little);
+    return units;
+}
+
+const Measure = struct { lines: usize, word: wrap.Word };
+
+/// The height `lines` lines of `font` take: each costs the line space, but the last only its glyph
+/// height, since the leading below a line is not drawn and the game clips at the box (a one line
+/// text fits a box as high as the font).
+fn fitNeeds(font: *const font_file.Font, lines: usize) f32 {
+    if (lines == 0) return 0;
+    return @floatFromInt(@as(i64, @intCast(lines - 1)) * font.lineSpace() + font.height);
+}
+
+/// The lines `units` wrap to in `width` and the widest word. Empty lines at the end draw nothing
+/// (a text ends with a line break), so they do not count.
+fn measureText(arena: std.mem.Allocator, scratch: *std.ArrayList(wrap.Line), font: *const font_file.Font, units: []const u16, width: f32) !Measure {
+    try wrap.wrapLines(arena, font, units, 1.0, width, scratch);
+    var count = scratch.items.len;
+    while (count > 0 and scratch.items[count - 1].begin == scratch.items[count - 1].end) count -= 1;
+    return .{ .lines = count, .word = wrap.widestWord(font, units, 1.0) };
+}
+
+fn wordText(arena: std.mem.Allocator, units: []const u16, word: wrap.Word) []const u8 {
+    return std.unicode.utf16LeToUtf8Alloc(arena, units[word.begin..word.end]) catch "?";
+}
+
+/// Rule `fit` (M003 D097): every translated text must fit the room the game draws it in, measured
+/// with the font's own `1.tfd` and the game's wrap (l10n_wrap.zig). `Localization/game/fit-map.txt`
+/// says which room each key family has; the first line a key matches decides, and every later line
+/// with the same glob applies too, so a text shown in two places is measured in both.
+///
+/// - `fit`: the wrapped lines times the font's line space are taller than the box (the game clips at
+///   the box, so the last lines vanish). The detail is `<n> lines x <line space> > <height> in <room>`.
+/// - `fit-word`: a word is wider than the box or the tooltip, so the game splits it where it overflows.
+/// - `fit-unmapped`: no line of the map matches a key in some language's scope (code `all`).
+/// - `fit-map` and `fit-font`: the map or a font it needs is malformed or missing.
+///
+/// An English original that already overflows its room (a 2003 flaw) is not held against a
+/// translation that needs no more lines and no wider a word than the original: those are counted as
+/// `fit-base` in the language's note, not reported. A text in a `scroll` family is counted, not measured.
+/// A language with a face (ru, zh-Hans, ja, hi) draws with a font language-mods builds, which has no `1.tfd`
+/// in the tree: its note says `not measured`. Without a fit map the scope is `not active`.
+pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
+    const arena = report.arena;
+    const map_text = (try readOptional(io, arena, root, fit_map_path)) orelse {
+        try report.inactive.append(arena, "fit");
+        return;
+    };
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena, map_text, &problems);
+    const scopes = (try loadScopes(io, arena, root, null)) orelse return;
+    var font_problem: FontProblem = .{ .path = "", .reason = "" };
+    const fonts = loadFitFonts(io, arena, root, &font_problem) catch |err| switch (err) {
+        error.FontUnreadable => {
+            try report.addFmt("fit-font", "all", font_problem.path, "cannot read the font the fit rule measures with ({s})", .{font_problem.reason});
+            return;
+        },
+        else => return err,
+    };
+    const resolved = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
+    for (problems.items) |problem| {
+        try report.addFmt("fit-map", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_map_path, problem.line }), "{s}", .{problem.detail});
+    }
+
+    var matches: std.StringHashMapUnmanaged([]const usize) = .empty;
+    for (scopes.all_keys) |key| {
+        const found = try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key));
+        if (found.len == 0) try report.add("fit-unmapped", "all", key, "no line of Localization/game/fit-map.txt matches this key; add an exact line or a family");
+        try matches.put(arena, key, found);
+    }
+
+    var scratch: std.ArrayList(wrap.Line) = .empty;
+    var english_cache: std.StringHashMapUnmanaged(?[]const u16) = .empty;
+    for (languages.languages, scopes.per_language) |language, scope| {
+        if (language.face != null) {
+            try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured (font built by language-mods)", .{language.code}));
+            continue;
+        }
+        var boxed: usize = 0;
+        var tooltips: usize = 0;
+        var scrolls: usize = 0;
+        var base_overflow: usize = 0;
+        for (scope.keys) |key| {
+            const found = matches.get(key) orelse continue;
+            if (found.len == 0) continue;
+            const path = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.txt", .{ language.code, key });
+            const bytes = (try readOptional(io, arena, root, path)) orelse continue;
+            if (textProblem(bytes) != .ok) continue;
+            const units = try textUnits(arena, bytes);
+            const english_entry = try english_cache.getOrPut(arena, key);
+            if (!english_entry.found_existing) {
+                english_entry.value_ptr.* = if (try readBase(io, arena, root, key)) |english| try textUnits(arena, english) else null;
+            }
+            const english = english_entry.value_ptr.*;
+            var is_boxed = false;
+            var is_tooltip = false;
+            var is_scroll = false;
+            var overflowed = false;
+            for (found) |at| {
+                const room = resolved[at];
+                if (!room.ok) continue;
+                switch (room.kind) {
+                    .scroll => {
+                        is_scroll = true;
+                        continue;
+                    },
+                    .tooltip => is_tooltip = true,
+                    .box, .area => is_boxed = true,
+                }
+                const font = fonts.get(room.font);
+                const mine = try measureText(arena, &scratch, font, units, room.width);
+                const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, font, original, room.width) else null;
+                const too_tall = fitNeeds(font, mine.lines) > room.height;
+                const too_wide = mine.word.width > room.width;
+                const english_tall = if (theirs) |t| fitNeeds(font, t.lines) > room.height else false;
+                const english_wide = if (theirs) |t| t.word.width > room.width else false;
+                if (english_tall or english_wide) overflowed = true;
+                if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
+                    try report.addFmt("fit", language.code, key, "{d} lines x {d} - {d} > {d} in {s}", .{ mine.lines, font.lineSpace(), font.external_leading, @as(i64, @intFromFloat(room.height)), room.where });
+                }
+                if (too_wide and !(english_wide and mine.word.width <= theirs.?.word.width)) {
+                    try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ wordText(arena, units, mine.word), @as(i64, @intFromFloat(@ceil(mine.word.width))), @as(i64, @intFromFloat(@floor(room.width))), room.where });
+                }
+            }
+            if (is_boxed) boxed += 1;
+            if (is_tooltip) tooltips += 1;
+            if (is_scroll) scrolls += 1;
+            if (overflowed) base_overflow += 1;
+        }
+        try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)", .{ language.code, boxed, tooltips, scrolls, base_overflow }));
+    }
+}
+
 fn usage() noreturn {
     std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
     std.process.exit(2);
@@ -1706,6 +2214,7 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
     try checkOverlays(io, &report, root);
+    try checkFit(io, &report, root);
     var fonts = if (fonts_path) |path| std.Io.Dir.cwd().openDir(io, path, .{}) else root.openDir(io, "vendor/fonts", .{});
     if (fonts) |*dir| {
         defer dir.close(io);
@@ -1727,6 +2236,130 @@ pub fn main(init: std.process.Init) !void {
 
 test {
     _ = cmap;
+    _ = font_file;
+    _ = wrap;
+}
+
+test "parseFitMap reads the four directives and names each malformed line" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const text = "# c\r\nbox Textes/Ui/** Data/UI/A.xml 20000#2\r\narea a/** 410x30 large # why\r\ntooltip t/**\r\n" ++
+        "scroll s/** # long prose\r\nscroll s2/**\r\nscroll # no glob\r\nbox x Data/UI/A.xml abc\r\narea y 10 medium\r\narea y 10x10 huge\r\nbogus z\r\nbox a b\r\n";
+    const lines = try parseFitMap(arena, text, &problems);
+    try testing.expectEqual(@as(usize, 4), lines.len);
+    try testing.expectEqual(FitKind.box, lines[0].kind);
+    try testing.expectEqualStrings("textes/ui/**", lines[0].glob);
+    try testing.expectEqualStrings("20000#2", lines[0].element);
+    try testing.expectEqual(@as(f32, 410), lines[1].width);
+    try testing.expectEqual(FitFont.large, lines[1].font);
+    try testing.expectEqual(FitKind.tooltip, lines[2].kind);
+    try testing.expectEqual(FitKind.scroll, lines[3].kind);
+    try testing.expectEqual(@as(usize, 7), problems.items.len);
+    try testing.expectEqual(@as(usize, 6), problems.items[0].line);
+    try testing.expect(std.mem.indexOf(u8, problems.items[0].detail, "gives no reason") != null);
+    try testing.expectEqual(@as(usize, 12), problems.items[6].line);
+}
+
+test "globMatch: * stops at a slash, ** does not, [0-9]+ is a digit run" {
+    const testing = std.testing;
+    try testing.expect(globMatch("textes/ui/**/tt*", "textes/ui/intermission/warehouse/tt_button_back"));
+    try testing.expect(!globMatch("textes/ui/**/tt*", "textes/ui/intermission/warehouse/button_back"));
+    try testing.expect(globMatch("units/**/name", "units/technics/allies/auto/m5/name"));
+    try testing.expect(!globMatch("units/*/name", "units/technics/allies/name"));
+    try testing.expect(globMatch("units/*/name", "units/humans/name"));
+    try testing.expect(globMatch("scenarios/**/[0-9]+h", "scenarios/scenariomissions/german/poland/12h"));
+    try testing.expect(!globMatch("scenarios/**/[0-9]+h", "scenarios/scenariomissions/german/poland/h"));
+    try testing.expect(!globMatch("scenarios/**/[0-9]+", "scenarios/scenariomissions/german/poland/1h"));
+    try testing.expect(globMatch("textes/strings/**", "textes/strings/ok"));
+    try testing.expect(globMatch("a**", "a"));
+    try testing.expect(!globMatch("a", "ab"));
+}
+
+test "parseLayout reads size, inset, alignment and font of each element in document order" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const xml = "<?xml version=\"1.0\"?><!-- <item ClassTypeID=\"1\"> --><base><WindowSize x=\"9\" y=\"9\"/><Children>" ++
+        "<item ClassTypeID=\"0x10001105\" ElementID=\"7\" TextAlign=\"0x0021\" FontSize=\"2\"><TextPos x=\"30\" y=\"4\"/><WindowSize x=\"850\" y=\"70\"/>" ++
+        "<States><item EventID=\"-1\"><WindowSize x=\"1\" y=\"1\"/></item></States>" ++
+        "<Children><Element ClassTypeID=\"0x10001103\" ElementID=\"-1\"><WindowSize x=\"132\" y=\"62\"></WindowSize></Element></Children></item></Children></base>";
+    const elements = try parseLayout(arena_state.allocator(), xml);
+    try testing.expectEqual(@as(usize, 2), elements.len);
+    try testing.expectEqual(@as(i64, 7), elements[0].id);
+    try testing.expectEqual(@as(u8, 2), elements[0].font);
+    try testing.expectEqual(@as(f32, 820), elements[0].textWidth());
+    try testing.expectEqual(@as(f32, 70), elements[0].textHeight());
+    try testing.expectEqual(@as(i64, -1), elements[1].id);
+    try testing.expectEqual(@as(u8, 1), elements[1].font);
+    try testing.expectEqual(@as(f32, 132), elements[1].textWidth());
+    try testing.expectEqual(@as(f32, 62), elements[1].textHeight());
+}
+
+test "fit_map_covers_database: every ELK key has a line and every line finds its room" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = testing.io;
+    var root = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
+    defer root.close(io);
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
+    var font_problem: FontProblem = .{ .path = "", .reason = "" };
+    const fonts = try loadFitFonts(io, arena, root, &font_problem);
+    const resolved = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
+    for (problems.items) |problem| std.debug.print("{s}:{d}: {s}\n", .{ fit_map_path, problem.line, problem.detail });
+    try testing.expectEqual(@as(usize, 0), problems.items.len);
+    for (resolved) |one| try testing.expect(one.ok);
+
+    const keys = try elkKeys(io, arena, root);
+    try testing.expect(keys.len > 2800);
+    var unmapped: usize = 0;
+    for (keys) |key| {
+        if ((try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key))).len != 0) continue;
+        std.debug.print("fit-unmapped: {s}\n", .{key});
+        unmapped += 1;
+    }
+    try testing.expectEqual(@as(usize, 0), unmapped);
+}
+
+test "the shipped English originals measured in their rooms" {
+    // Information for the maintainer: how many 2003 originals already overflow a room (fit-base),
+    // so a translation is judged against a fair box. It fails on nothing but a broken map.
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = testing.io;
+    var root = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
+    defer root.close(io);
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
+    var font_problem: FontProblem = .{ .path = "", .reason = "" };
+    const fonts = try loadFitFonts(io, arena, root, &font_problem);
+    const resolved = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
+    var scratch: std.ArrayList(wrap.Line) = .empty;
+    var tall: usize = 0;
+    var wide: usize = 0;
+    var measured: usize = 0;
+    for (try elkKeys(io, arena, root)) |key| {
+        const english = (try readBase(io, arena, root, key)) orelse continue;
+        const units = try textUnits(arena, english);
+        for (try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key))) |at| {
+            const room = resolved[at];
+            if (room.kind == .scroll) continue;
+            const font = fonts.get(room.font);
+            const mine = try measureText(arena, &scratch, font, units, room.width);
+            measured += 1;
+            if (fitNeeds(font, mine.lines) > room.height) tall += 1;
+            if (mine.word.width > room.width) wide += 1;
+        }
+    }
+    std.debug.print("fit-base: {d} measured, {d} too tall, {d} too wide\n", .{ measured, tall, wide });
+    try testing.expect(measured > 1000);
 }
 
 test "textProblem tells the byte order mark, length, surrogates and empty text apart" {

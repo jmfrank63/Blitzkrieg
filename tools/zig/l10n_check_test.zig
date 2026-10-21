@@ -14,6 +14,7 @@ const keys = [_][]const u8{ "textes/strings/alpha", "scenarios/demo/beta" };
 const checked_total = keys.len + codes.len * keys.len;
 
 /// The notes of the scopes no case enables: nothing is checked there and the log says so.
+const note_fit = "l10n-check: fit: not active\n";
 const note_tables = "l10n-check: tables: not active\n";
 const note_documents = "l10n-check: documents: not active\n";
 const note_literals = "l10n-check: literals: not active\n";
@@ -23,7 +24,8 @@ const seed_scope_notes = blk: {
     for (codes) |code| notes = notes ++ "l10n-check: scope: " ++ code ++ ": seed, 2 keys checked\n";
     break :blk notes;
 };
-const all_inactive = note_tables ++ note_documents ++ note_literals ++ seed_scope_notes;
+const inactive_but_fit = note_tables ++ note_documents ++ note_literals;
+const all_inactive = note_fit ++ inactive_but_fit ++ seed_scope_notes;
 
 const glossary_text = "# Glossary: fixture\r\n\r\n## Interface\r\n\r\n| English term | Translation | Note |\r\n|---|---|---|\r\n| zzterm | zzterm |  |\r\n";
 
@@ -450,13 +452,13 @@ fn expectRun(io: std.Io, case: []const u8, root: *std.Io.Dir, extra: []const []c
 
 /// One finding in a tree where only the tables are active (ten files checked).
 fn expectTableFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const u8) !void {
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_documents ++ note_literals ++ seed_scope_notes ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_fit ++ note_documents ++ note_literals ++ seed_scope_notes ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
     defer testing.allocator.free(want);
     try expectRun(io, case, root, &.{}, 1, want);
 }
 
 fn expectDocumentFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const u8) !void {
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_tables ++ note_literals ++ seed_scope_notes ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_fit ++ note_tables ++ note_literals ++ seed_scope_notes ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
     defer testing.allocator.free(want);
     try expectRun(io, case, root, &.{ "--doc-set", "docs/README" }, 1, want);
 }
@@ -467,7 +469,7 @@ test "tables_pass: the fixture table in nine languages passes" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "tables_pass");
     try addTables(io, testing.allocator, root);
-    const want = try std.fmt.allocPrint(testing.allocator, note_documents ++ note_literals ++ seed_scope_notes ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
+    const want = try std.fmt.allocPrint(testing.allocator, note_fit ++ note_documents ++ note_literals ++ seed_scope_notes ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
     defer testing.allocator.free(want);
     try expectRun(io, "tables_pass", &root, &.{}, 0, want);
 }
@@ -544,7 +546,7 @@ test "docs_pass: the fixture document set passes" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "docs_pass");
     try addDocuments(io, testing.allocator, root);
-    const want = try std.fmt.allocPrint(testing.allocator, note_tables ++ note_literals ++ seed_scope_notes ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
+    const want = try std.fmt.allocPrint(testing.allocator, note_fit ++ note_tables ++ note_literals ++ seed_scope_notes ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
     defer testing.allocator.free(want);
     try expectRun(io, "docs_pass", &root, &.{ "--doc-set", "docs/README" }, 0, want);
 }
@@ -632,7 +634,7 @@ test "literal_in_strict_dir: an English literal in each kind of UI call" {
         defer testing.allocator.free(text);
         try lines.appendSlice(testing.allocator, text);
     }
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ seed_scope_notes ++ "l10n-check: {d} findings, {d} checked\n", .{
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_fit ++ note_tables ++ note_documents ++ seed_scope_notes ++ "l10n-check: {d} findings, {d} checked\n", .{
         lines.items,
         literal_findings.len,
         checked_total + 1,
@@ -676,7 +678,7 @@ test "literal_id_label: an ig* label that is l10n.t fails, l10n.id and plain tex
         defer testing.allocator.free(text);
         try lines.appendSlice(testing.allocator, text);
     }
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ seed_scope_notes ++ "l10n-check: {d} findings, {d} checked\n", .{
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_fit ++ note_tables ++ note_documents ++ seed_scope_notes ++ "l10n-check: {d} findings, {d} checked\n", .{
         lines.items,
         id_findings.len,
         checked_total + 1,
@@ -738,7 +740,7 @@ test "scope_whole_database: german holds every original, the others stay on the 
     try appendScope(io, root, "whole-database de\r\n");
     // gamma is not in the seed list, so only German must translate it; the base counts as one more checked key.
     try addOverlay(io, root, "de", gamma_key, "Gamma uebersetzt");
-    const want = comptime note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 3 keys checked") ++ "l10n-check: 0 findings, 22 checked\n";
+    const want = comptime note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 3 keys checked") ++ "l10n-check: 0 findings, 22 checked\n";
     try expectRun(io, "scope_whole_database", &root, &.{}, 0, want);
 }
 
@@ -748,7 +750,7 @@ test "scope_whole_database_missing: german lacks an original that no other langu
     try addGamma(io, root, "");
     try appendScope(io, root, "whole-database de\r\n");
     const want = comptime "l10n-check: missing: de: misc/gamma: no translation\n" ++ "l10n-check: missing-xml: de: misc/gamma: no state file\n" ++
-        note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 3 keys checked") ++ "l10n-check: 2 findings, 22 checked\n";
+        note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 3 keys checked") ++ "l10n-check: 2 findings, 22 checked\n";
     try expectRun(io, "scope_whole_database_missing", &root, &.{}, 1, want);
 }
 
@@ -758,7 +760,7 @@ test "scope_whole_database_extra: a german text without an original names the wh
     try appendScope(io, root, "whole-database de\r\n");
     try addOverlay(io, root, "de", "misc/orphan", "Waise");
     const want = comptime "l10n-check: extra: de: misc/orphan: no .elk original in Data/ELK/game_data_base (whole-database scope)\n" ++
-        note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 1 findings, 20 checked\n";
+        note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 1 findings, 20 checked\n";
     try expectRun(io, "scope_whole_database_extra", &root, &.{}, 1, want);
 }
 
@@ -768,7 +770,7 @@ test "scope_prefix: a prefix line adds the originals under it for that language 
     try addGamma(io, root, "");
     try appendScope(io, root, "prefix es misc/\r\nprefix es nothing/under/this\r\n");
     try addOverlay(io, root, "es", gamma_key, "Gamma traducido");
-    const want = comptime note_tables ++ note_documents ++ note_literals ++ scopeNotes("es", "seed + prefixes misc/, nothing/under/this, 3 keys checked") ++ "l10n-check: 0 findings, 22 checked\n";
+    const want = comptime note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("es", "seed + prefixes misc/, nothing/under/this, 3 keys checked") ++ "l10n-check: 0 findings, 22 checked\n";
     try expectRun(io, "scope_prefix", &root, &.{}, 0, want);
 }
 
@@ -780,7 +782,7 @@ test "scope_prefix_extra: a text outside the seed list and the prefixes" {
     try addOverlay(io, root, "es", gamma_key, "Gamma traducido");
     try addOverlay(io, root, "es", "other/key", "Otro");
     const want = comptime "l10n-check: extra: es: other/key: not in the seed list or under a `prefix` line of this language in Localization/game/scope.txt\n" ++
-        note_tables ++ note_documents ++ note_literals ++ scopeNotes("es", "seed + prefixes misc/, 3 keys checked") ++ "l10n-check: 1 findings, 22 checked\n";
+        note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("es", "seed + prefixes misc/, 3 keys checked") ++ "l10n-check: 1 findings, 22 checked\n";
     try expectRun(io, "scope_prefix_extra", &root, &.{}, 1, want);
 }
 
@@ -792,7 +794,7 @@ test "scope_lines_invalid: unknown code, malformed prefix, and a prefix beside w
         "l10n-check: scope: all: Localization/game/scope.txt: line 5: prefix wants a language code and a key prefix\n" ++
         "l10n-check: scope: all: Localization/game/scope.txt: line 6: directive without arguments\n" ++
         "l10n-check: scope: de: Localization/game/scope.txt: line 8: prefix `misc/` is redundant, de is whole-database\n" ++
-        note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 4 findings, 20 checked\n";
+        note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 4 findings, 20 checked\n";
     try expectRun(io, "scope_lines_invalid", &root, &.{}, 1, want);
 }
 
@@ -900,4 +902,124 @@ test "glossary_missing: a language without its glossary" {
     try root.deleteFile(io, "Localization/glossary/fr.md");
     const want = comptime "l10n-check: glossary-term: fr: Localization/glossary/fr.md: glossary file is missing\n" ++ all_inactive ++ "l10n-check: 1 findings, 20 checked\n";
     try expectRun(io, "glossary_missing", &root, &.{}, 1, want);
+}
+
+// The fit rule (M003 D097): the fixture draws `textes/strings/alpha` in a 100 x 21 box of the medium font,
+// where "Hello Hello" (81 px) fits one line and "Hello Hello Hello" (124 px) takes two.
+const fit_layout = "<?xml version=\"1.0\"?>\r\n<base><Children>\r\n" ++
+    "<item ClassTypeID=\"0x10001105\" ElementID=\"100\"><WindowSize x=\"100\" y=\"21\"/></item>\r\n" ++
+    "</Children></base>\r\n";
+const fit_box_line = "box textes/strings/alpha Data/UI/Fit.xml 100\r\n";
+const fit_rest_line = "area scenarios/** 100x21 medium\r\n";
+const fit_alpha_where = "Data/UI/Fit.xml#100";
+
+/// The fit notes of nine languages when each Latin one measured `boxed` boxed, `tooltips` tooltip and
+/// `scrolls` scroll keys and `base` of them have an English original that overflows.
+fn fitNotes(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: usize, comptime base: usize) []const u8 {
+    comptime var notes: []const u8 = "";
+    inline for (codes) |code| {
+        if (comptime std.mem.eql(u8, code, "ru") or std.mem.eql(u8, code, "zh-Hans") or std.mem.eql(u8, code, "ja") or std.mem.eql(u8, code, "hi")) {
+            notes = notes ++ "l10n-check: fit: " ++ code ++ ": not measured (font built by language-mods)\n";
+        } else {
+            notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ code, boxed, tooltips, scrolls, base });
+        }
+    }
+    return notes;
+}
+
+/// A tree with the fit rule on: the three shipped fonts, one layout and the given map.
+fn buildFitTree(io: std.Io, case: []const u8, map: []const u8) !std.Io.Dir {
+    var root = try buildTree(io, testing.allocator, case);
+    errdefer root.close(io);
+    for ([_][]const u8{ "small", "medium", "large" }) |size| {
+        const path = try std.fmt.allocPrint(testing.allocator, "Data/Fonts/{s}/1.tfd", .{size});
+        defer testing.allocator.free(path);
+        const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, testing.allocator, .limited(1 << 20));
+        defer testing.allocator.free(bytes);
+        try write(io, root, path, bytes);
+    }
+    try write(io, root, "Data/UI/Fit.xml", fit_layout);
+    try write(io, root, "Localization/game/fit-map.txt", map);
+    return root;
+}
+
+/// The run's findings, then the notes of a fit-active tree.
+fn fitWant(comptime findings: []const u8, comptime count: usize, comptime notes: []const u8) []const u8 {
+    return findings ++ inactive_but_fit ++ seed_scope_notes ++ notes ++ std.fmt.comptimePrint("l10n-check: {d} findings, {d} checked\n", .{ count, checked_total });
+}
+
+test "fit_pass: texts that fit their boxes pass and the notes count the keys" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_pass", "# fixture\r\n" ++ fit_box_line ++ "scroll scenarios/** # prose\r\n");
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello");
+    try expectRun(io, "fit_pass", &root, &.{}, 0, comptime fitWant("", 0, fitNotes(1, 0, 1, 0)));
+}
+
+test "fit_overflow: a text with more lines than the box has room for" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_overflow", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello");
+    const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 2 lines x 21 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 0));
+    try expectRun(io, "fit_overflow", &root, &.{}, 1, want);
+}
+
+test "fit_word: a word wider than the box is split, which costs lines as well" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_word", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Supercalifragilisticexpialidocious");
+    const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 3 lines x 21 - 1 > 21 in " ++ fit_alpha_where ++ "\n" ++
+        "l10n-check: fit-word: de: textes/strings/alpha: \"Supercalifragilisticexpialidocious\" is 230 px wide, the room is 100 px in " ++ fit_alpha_where ++ "\n", 2, fitNotes(2, 0, 0, 0));
+    try expectRun(io, "fit_word", &root, &.{}, 1, want);
+}
+
+test "fit_tooltip_word: a tooltip has no height limit but a word wider than 585 px" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_tooltip_word", "tooltip textes/strings/alpha\r\n" ++ fit_rest_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello");
+    try addOverlay(io, root, "fr", "textes/strings/alpha", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    const want = comptime fitWant("l10n-check: fit-word: fr: textes/strings/alpha: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" is 720 px wide, the room is 585 px in tooltip\n", 1, fitNotes(1, 1, 0, 0));
+    try expectRun(io, "fit_tooltip_word", &root, &.{}, 1, want);
+}
+
+test "fit_unmapped: a key in scope that no line of the map matches" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_unmapped", fit_box_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hello");
+    const want = comptime fitWant("l10n-check: fit-unmapped: all: scenarios/demo/beta: no line of Localization/game/fit-map.txt matches this key; add an exact line or a family\n", 1, fitNotes(1, 0, 0, 0));
+    try expectRun(io, "fit_unmapped", &root, &.{}, 1, want);
+}
+
+test "fit_scroll_reason: a scroll line without a reason is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_scroll_reason", fit_box_line ++ "scroll scenarios/demo/beta\r\n" ++ fit_rest_line);
+    const want = comptime fitWant("l10n-check: fit-map: all: Localization/game/fit-map.txt:2: scroll `scenarios/demo/beta` gives no reason; write `scroll scenarios/demo/beta # why this text scrolls`\n", 1, fitNotes(2, 0, 0, 0));
+    try expectRun(io, "fit_scroll_reason", &root, &.{}, 1, want);
+}
+
+test "fit_base: an English original that already overflows is information, not a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_base", fit_box_line ++ fit_rest_line);
+    try setBase(io, testing.allocator, root, alpha_base, "Hello Hello Hello");
+    try writeManifest(io, testing.allocator, root, "");
+    // German needs the same two lines as the original: no worse than 2003. French needs three.
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hallo Hallo Hallo");
+    try addOverlay(io, root, "fr", "textes/strings/alpha", "Bonjour Bonjour Bonjour");
+    const want = comptime fitWant("l10n-check: fit: fr: textes/strings/alpha: 3 lines x 21 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 1));
+    try expectRun(io, "fit_base", &root, &.{}, 1, want);
+}
+
+test "fit_font_missing: the fonts the rule measures with are gone" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_font_missing", fit_box_line ++ fit_rest_line);
+    try root.deleteFile(io, "Data/Fonts/large/1.tfd");
+    const want = comptime "l10n-check: fit-font: all: Data/Fonts/large/1.tfd: cannot read the font the fit rule measures with (file is missing)\n" ++ inactive_but_fit ++ seed_scope_notes ++ "l10n-check: 1 findings, " ++ std.fmt.comptimePrint("{d}", .{checked_total}) ++ " checked\n";
+    try expectRun(io, "fit_font_missing", &root, &.{}, 1, want);
+}
+
+test "fit_map_layout: a box line whose element is not in its layout" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_map_layout", "box textes/strings/alpha Data/UI/Fit.xml 999\r\nbox textes/strings/alpha Data/UI/Nope.xml 1\r\n" ++ fit_rest_line);
+    const want = comptime fitWant("l10n-check: fit-map: all: Localization/game/fit-map.txt:1: Data/UI/Fit.xml holds no element 999\n" ++
+        "l10n-check: fit-map: all: Localization/game/fit-map.txt:2: layout Data/UI/Nope.xml does not exist\n", 2, fitNotes(1, 0, 0, 0));
+    try expectRun(io, "fit_map_layout", &root, &.{}, 1, want);
 }

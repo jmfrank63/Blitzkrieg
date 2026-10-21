@@ -1,0 +1,285 @@
+# Fit map of the l10n-check fit rule (M003 D097): which box, area or tooltip every ELK key is drawn in.
+# One line per key family, first match wins; the lines that share the first match's glob all apply, so a key
+# shown in two places is measured in both. `#` starts a comment; a glob is lowercase, `*` stops at `/`,
+# `**` runs across `/`, and `[0-9]+` is a run of digits.
+#   box <glob> <Data/UI layout> <ElementID>[#n]   the box of that element: WindowSize minus the TextPos inset the
+#                                                 TextAlign takes, FontSize 0/1/2 = small/medium/large, default
+#                                                 medium (UIBasic.cpp). `#n` is the n-th element with that ID.
+#   area <glob> <W>x<H> <font>                    text C++ code places in a rectangle no layout holds (an estimate
+#                                                 where the line says so)
+#   tooltip <glob>                                the hint drawn in the large font, wrapped at 300 x large/medium
+#                                                 line space, any height (SceneInternal.cpp SetToolTip)
+#   scroll <glob> # <reason>                      text in a UI_SCROLL_TEXT: it scrolls, so it is not measured
+# The first part holds one exact line per TextKey or ToolTip reference of Data/UI (layout order lost on
+# purpose: generated once, edited by hand after). The families below it cover every other key of
+# Data/ELK/game_data_base.
+box textes/help Data/UI/mission.xml 3000#2
+box textes/imtutorial/addunittomission Data/UI/AddUnitToMission.xml 31415
+box textes/imtutorial/campaign Data/UI/common/Campaign.xml 31415
+box textes/imtutorial/chapter Data/UI/common/Chapter.xml 31415
+box textes/imtutorial/encyclopedia Data/UI/Encyclopedia.xml 31415
+box textes/imtutorial/mission Data/UI/common/Mission.xml 31415
+box textes/imtutorial/stats Data/UI/Stats.xml 31415
+box textes/imtutorial/unitspool Data/UI/UnitsPool.xml 31415
+box textes/imtutorial/upgrades Data/UI/Upgrades.xml 31415
+box textes/nextchapterquestion Data/UI/Popup/NextChapter.xml 3000
+box textes/strings/addunitstomission Data/UI/AddUnitToMission.xml 20000
+box textes/strings/allies-campaign Data/UI/MainMenu.xml 10002#3
+box textes/strings/allies-campaign Data/UI/SelectCampaign.xml 10004
+box textes/strings/availupgrades Data/UI/Upgrades.xml 20002
+box textes/strings/back Data/UI/QuitMission.xml 10004
+box textes/strings/back Data/UI/QuitMission.xml 10004#2
+box textes/strings/back Data/UI/mission.xml 10011
+box textes/strings/back Data/UI/mission.xml 10011#2
+box textes/strings/back Data/UI/mission.xml 10019
+box textes/strings/back Data/UI/mission.xml 10020
+box textes/strings/endmission Data/UI/mission.xml 10005
+box textes/strings/endmission Data/UI/mission.xml 10005#2
+box textes/strings/exittowindows Data/UI/QuitMission.xml 10003
+box textes/strings/exittowindows Data/UI/QuitMission.xml 10003#2
+box textes/strings/exittowindows Data/UI/mission.xml 10010
+box textes/strings/exittowindows Data/UI/mission.xml 10010#2
+box textes/strings/exittowindows Data/UI/mission.xml 10010#3
+box textes/strings/exittowindows Data/UI/mission.xml 10010#4
+box textes/strings/german-campaign Data/UI/MainMenu.xml 10004#3
+box textes/strings/german-campaign Data/UI/SelectCampaign.xml 10002
+box textes/strings/help Data/UI/Popup/IMTutorial.xml 20000
+box textes/strings/help Data/UI/mission.xml 20001#2
+box textes/strings/imheader-button-default Data/UI/AddUnitToMission.xml 10003
+box textes/strings/imheader-button-left Data/UI/AddUnitToMission.xml 10001
+box textes/strings/imheader-button-player Data/UI/common/Campaign.xml 10004#2
+box textes/strings/imheader-chapter-desc Data/UI/common/Campaign.xml 20001
+box textes/strings/imheader-chapter-map Data/UI/common/Chapter.xml 20002
+box textes/strings/imheader-creategame-map Data/UI/MuptiplayerCreateGame.xml 20004
+box textes/strings/imheader-creategame-maplist Data/UI/MuptiplayerCreateGame.xml 20003
+box textes/strings/imheader-encyclopedia-desc Data/UI/Encyclopedia.xml 20001
+box textes/strings/imheader-encyclopedia-picture Data/UI/Encyclopedia.xml 20002
+box textes/strings/imheader-gameslist-desc Data/UI/MuptiplayerGamesList.xml 20001
+box textes/strings/imheader-gbutton-back Data/UI/MainMenu.xml 10001
+box textes/strings/imheader-gbutton-back Data/UI/MainMenu.xml 10001#2
+box textes/strings/imheader-gbutton-back Data/UI/MainMenu.xml 10001#3
+box textes/strings/imheader-gbutton-back Data/UI/MainMenu.xml 10001#5
+box textes/strings/imheader-gbutton-back Data/UI/MainMenu.xml 10001#6
+box textes/strings/imheader-gbutton-back Data/UI/SelectCampaign.xml 10001
+box textes/strings/imheader-gbutton-credits Data/UI/MainMenu.xml 10005#3
+box textes/strings/imheader-gbutton-custom Data/UI/MainMenu.xml 10004#2
+box textes/strings/imheader-gbutton-cutscenes Data/UI/MainMenu.xml 10004#4
+box textes/strings/imheader-gbutton-exitgame Data/UI/MainMenu.xml 10006
+box textes/strings/imheader-gbutton-exitgame Data/UI/MainMenu.xml 10006#2
+box textes/strings/imheader-gbutton-loadgame Data/UI/MainMenu.xml 10004
+box textes/strings/imheader-gbutton-loadgame Data/UI/MainMenu.xml 10004#7
+box textes/strings/imheader-gbutton-multiplayer Data/UI/MainMenu.xml 10003
+box textes/strings/imheader-gbutton-newgame Data/UI/MainMenu.xml 10002
+box textes/strings/imheader-gbutton-newgame Data/UI/MainMenu.xml 10002#7
+box textes/strings/imheader-gbutton-options Data/UI/MainMenu.xml 10005
+box textes/strings/imheader-gbutton-options Data/UI/MainMenu.xml 10005#4
+box textes/strings/imheader-gbutton-scenario Data/UI/MainMenu.xml 10002#2
+box textes/strings/imheader-gbutton-settings Data/UI/MainMenu.xml 10003#4
+box textes/strings/imheader-gbutton-tutorial Data/UI/MainMenu.xml 10003#2
+box textes/strings/imheader-hire-pool Data/UI/AddUnitToMission.xml 20002
+box textes/strings/imheader-hire-slots Data/UI/AddUnitToMission.xml 20001
+box textes/strings/imheader-listheader-multiplayer-gameslist-gamename Data/UI/MuptiplayerGamesList.xml 11
+box textes/strings/imheader-listheader-multiplayer-gameslist-mapname Data/UI/MuptiplayerGamesList.xml 14
+box textes/strings/imheader-listheader-multiplayer-gameslist-ping Data/UI/MuptiplayerGamesList.xml 17
+box textes/strings/imheader-listheader-multiplayer-gameslist-playerscount Data/UI/MuptiplayerGamesList.xml 16
+box textes/strings/imheader-listheader-multiplayer-startinggame-ping Data/UI/MuptiplayerStartingGame.xml 13
+box textes/strings/imheader-listheader-multiplayer-startinggame-playername Data/UI/MuptiplayerStartingGame.xml 11
+box textes/strings/imheader-listheader-multiplayer-startinggame-teamnumber Data/UI/MuptiplayerStartingGame.xml 12
+box textes/strings/imheader-mission-desc Data/UI/common/Chapter.xml 20001
+box textes/strings/imheader-mission-desc Data/UI/common/Mission.xml 20003
+box textes/strings/imheader-mission-map Data/UI/common/Mission.xml 20002
+box textes/strings/imheader-mission-objectives Data/UI/common/Mission.xml 20001
+box textes/strings/imheader-multiplayer-defaul-chatentry Data/UI/Lists/IMSaveMission.xml 2000
+box textes/strings/imheader-multiplayer-defaul-chatentry Data/UI/MuptiplayerChat.xml 2002
+box textes/strings/imheader-multiplayer-defaul-chatentry Data/UI/MuptiplayerStartingGame.xml 2002
+box textes/strings/imheader-selectcampaign-header Data/UI/SelectCampaign.xml 20000
+box textes/strings/imheader-startinggame-chat Data/UI/MuptiplayerStartingGame.xml 20005
+box textes/strings/imheader-startinggame-map Data/UI/MuptiplayerStartingGame.xml 20004
+box textes/strings/imheader-startinggame-players Data/UI/MuptiplayerStartingGame.xml 20003
+box textes/strings/imheader-stats-desc Data/UI/Stats.xml 20001
+box textes/strings/imheader-unitlist-header Data/UI/UnitsPool.xml 20000
+box textes/strings/imheader-unitlist-list Data/UI/UnitsPool.xml 20001
+box textes/strings/load Data/UI/Lists/IMLoadMission.xml 20000
+box textes/strings/mainmenu Data/UI/QuitMission.xml 10002
+box textes/strings/mainmenu Data/UI/QuitMission.xml 10002#2
+box textes/strings/mainmenu Data/UI/mission.xml 10009
+box textes/strings/mainmenu Data/UI/mission.xml 10009#2
+box textes/strings/mainmenu Data/UI/mission.xml 10009#3
+box textes/strings/mainmenu Data/UI/mission.xml 10009#4
+box textes/strings/missionobjectives Data/UI/mission.xml 10004
+box textes/strings/missionobjectives Data/UI/mission.xml 10004#2
+box textes/strings/next_chapter_title Data/UI/Popup/NextChapter.xml 20000
+box textes/strings/next_chapter_title Data/UI/Popup/NextChapterNoStay.xml 20000
+box textes/strings/no Data/UI/MainMenu.xml 3002
+box textes/strings/objectives Data/UI/mission.xml 20002#2
+box textes/strings/options Data/UI/mission.xml 10002
+box textes/strings/options Data/UI/mission.xml 10002#2
+box textes/strings/restartmission Data/UI/QuitMission.xml 10001
+box textes/strings/restartmission Data/UI/QuitMission.xml 10001#2
+box textes/strings/restartmission Data/UI/mission.xml 10008
+box textes/strings/restartmission Data/UI/mission.xml 10008#2
+box textes/strings/returntogame Data/UI/mission.xml 10006
+box textes/strings/returntogame Data/UI/mission.xml 10006#2
+box textes/strings/returntogame Data/UI/mission.xml 10022
+box textes/strings/russian-campaign Data/UI/MainMenu.xml 10003#3
+box textes/strings/russian-campaign Data/UI/SelectCampaign.xml 10003
+box textes/strings/save Data/UI/Lists/IMSaveMission.xml 20000
+box textes/strings/showsingleobjective Data/UI/mission.xml 6001#2
+box textes/strings/unitstoupgr Data/UI/Upgrades.xml 20001
+box textes/strings/upgradeunits Data/UI/Upgrades.xml 20000
+box textes/strings/yes Data/UI/MainMenu.xml 3001
+box textes/tooltips/ammo1bar Data/UI/mission.xml 11
+box textes/tooltips/ammo2bar Data/UI/mission.xml 12
+box textes/tooltips/healthbar Data/UI/mission.xml 10#2
+box textes/tooltips/moralebar Data/UI/mission.xml 13
+box textes/tooltips/timeout Data/UI/mission.xml 10023
+box textes/ui/back Data/UI/MainMenu.xml 10001#4
+box textes/ui/intermission/credits/credits Data/UI/MainMenu.xml 7777
+box textes/ui/intermission/loadmission/date Data/UI/Lists/IMLoadMission.xml 11
+box textes/ui/intermission/loadmission/date Data/UI/Lists/IMReplayList.xml 11
+box textes/ui/intermission/loadmission/date Data/UI/Lists/IMSaveMission.xml 11
+box textes/ui/intermission/loadmission/replayname Data/UI/Lists/IMReplayList.xml 10
+box textes/ui/intermission/loadmission/replaytitle Data/UI/Lists/IMReplayList.xml 20000
+box textes/ui/intermission/loadmission/savename Data/UI/Lists/IMLoadMission.xml 10
+box textes/ui/intermission/loadmission/savename Data/UI/Lists/IMSaveMission.xml 10
+box textes/ui/intermission/mainmenu/customgame/campaignname Data/UI/Lists/IMCustomCampaign.xml 10
+box textes/ui/intermission/mainmenu/customgame/chaptername Data/UI/Lists/IMCustomChapter.xml 10
+box textes/ui/intermission/mainmenu/customgame/customcampaigns Data/UI/MainMenu.xml 10003#6
+box textes/ui/intermission/mainmenu/customgame/customchapters Data/UI/MainMenu.xml 10004#6
+box textes/ui/intermission/mainmenu/customgame/custommissions Data/UI/MainMenu.xml 10002#5
+box textes/ui/intermission/mainmenu/customgame/missionname Data/UI/Lists/IMCustomMission.xml 10
+box textes/ui/intermission/mainmenu/customgame/numchapters Data/UI/Lists/IMCustomCampaign.xml 12
+box textes/ui/intermission/mainmenu/customgame/nummissions Data/UI/Lists/IMCustomChapter.xml 12
+box textes/ui/intermission/mainmenu/customgame/numplayers Data/UI/Lists/IMCustomMission.xml 12
+box textes/ui/intermission/mainmenu/customgame/side Data/UI/Lists/IMCustomCampaign.xml 11
+box textes/ui/intermission/mainmenu/customgame/side Data/UI/Lists/IMCustomChapter.xml 11
+box textes/ui/intermission/mainmenu/customgame/size Data/UI/Lists/IMCustomMission.xml 11
+box textes/ui/intermission/mainmenu/cutscene/cutscene Data/UI/Lists/IMCutsceneList.xml 20000
+box textes/ui/intermission/mainmenu/cutscene/cutscenename Data/UI/Lists/IMCutsceneList.xml 10
+box textes/ui/intermission/mainmenu/loadgame/loadgame Data/UI/MainMenu.xml 10002#6
+box textes/ui/intermission/mainmenu/loadgame/loadreplay Data/UI/MainMenu.xml 10003#7
+box textes/ui/intermission/mainmenu/multiplayer/button_gamespy Data/UI/MainMenu.xml 10004#5
+box textes/ui/intermission/mainmenu/multiplayer/button_internet Data/UI/MainMenu.xml 10002#4
+box textes/ui/intermission/mainmenu/multiplayer/button_lan Data/UI/MainMenu.xml 10003#5
+box textes/ui/intermission/mainmenu/newgame/button_player_profile Data/UI/MainMenu.xml 10005#2
+box textes/ui/intermission/mainmenu/newgame/button_player_profile Data/UI/PlayerProfile.xml 10#2
+box textes/ui/intermission/mainmenu/playerprofile/caption Data/UI/PlayerProfile.xml 20000
+box textes/ui/intermission/mainmenu/playerprofile/static_player_name Data/UI/PlayerProfile.xml 19999
+box textes/ui/intermission/mainmenu/totalencyclopedia/all Data/UI/TotalEncyclopedia.xml 1003
+box textes/ui/intermission/mainmenu/totalencyclopedia/allies Data/UI/TotalEncyclopedia.xml 1000
+box textes/ui/intermission/mainmenu/totalencyclopedia/caption Data/UI/TotalEncyclopedia.xml 20000
+box textes/ui/intermission/mainmenu/totalencyclopedia/german Data/UI/TotalEncyclopedia.xml 1001
+box textes/ui/intermission/mainmenu/totalencyclopedia/ussr Data/UI/TotalEncyclopedia.xml 1002
+box textes/ui/intermission/mainmenu/tutorial/tutorial Data/UI/Lists/IMTutorialList.xml 20000
+box textes/ui/intermission/mainmenu/tutorial/tutorialname Data/UI/Lists/IMTutorialList.xml 10
+box textes/ui/intermission/multiplayer/chat/caption Data/UI/MuptiplayerChat.xml 20000
+box textes/ui/intermission/multiplayer/chat/player_list Data/UI/MuptiplayerChat.xml 20000#2
+box textes/ui/intermission/multiplayer/chat/player_name Data/UI/MuptiplayerChat.xml 12
+box textes/ui/intermission/multiplayer/chat/player_relation Data/UI/MuptiplayerChat.xml 11
+box textes/ui/intermission/multiplayer/chat/player_state Data/UI/MuptiplayerChat.xml 10
+box textes/ui/intermission/multiplayer/chat/playerinfo_relation Data/UI/MuptiplayerChat.xml 3001
+box textes/ui/intermission/multiplayer/chat/relation_friend Data/UI/MuptiplayerChat.xml 3002
+box textes/ui/intermission/multiplayer/chat/relation_ignored Data/UI/MuptiplayerChat.xml 3002
+box textes/ui/intermission/multiplayer/chat/relation_normal Data/UI/MuptiplayerChat.xml 3002
+box textes/ui/intermission/multiplayer/creategame/caption Data/UI/MuptiplayerCreateGame.xml 20000
+box textes/ui/intermission/multiplayer/creategame/caption_settings Data/UI/MPMapSettings.xml 20000
+box textes/ui/intermission/multiplayer/creategame/caption_settings Data/UI/MPMapSettings_NoChanges.xml 20000
+box textes/ui/intermission/multiplayer/creategame/game_type Data/UI/MuptiplayerCreateGame.xml 20001
+box textes/ui/intermission/multiplayer/creategame/game_type Data/UI/MuptiplayerStartingGame.xml 20001
+box textes/ui/intermission/multiplayer/creategame/mapname Data/UI/MuptiplayerCreateGame.xml 10
+box textes/ui/intermission/multiplayer/creategame/mapsize Data/UI/MuptiplayerCreateGame.xml 13
+box textes/ui/intermission/multiplayer/creategame/maptype Data/UI/MuptiplayerCreateGame.xml 11
+box textes/ui/intermission/multiplayer/creategame/numplayers Data/UI/MuptiplayerCreateGame.xml 12
+box textes/ui/intermission/multiplayer/stagingroom/caption Data/UI/MuptiplayerStartingGame.xml 20000
+box textes/ui/intermission/playersinterface/caption_experience Data/UI/PlayerStats.xml 20005
+box textes/ui/intermission/playersinterface/caption_medals Data/UI/PlayerStats.xml 20004
+box textes/ui/intermission/playersinterface/caption_skills Data/UI/PlayerStats.xml 20003
+box textes/ui/intermission/popup/playerrank/caption Data/UI/Popup/PlayerRank.xml 20000
+box textes/ui/intermission/popup/savereplay/caption Data/UI/Popup/SaveReplay.xml 20000
+box textes/ui/intermission/warehouse/caption Data/UI/Warehouse.xml 20000
+box textes/ui/mission/mploading/caption Data/UI/mission.xml 20001#7
+box textes/ui/mission/multiplayerscoressmall/team_flags Data/UI/mission.xml 20002#3
+box textes/ui/mission/multiplayerscoressmall/team_flags Data/UI/mission.xml 20005#2
+box textes/ui/mission/multiplayerscoressmall/team_flags Data/UI/mission.xml 20009
+box textes/ui/mission/multiplayerscoressmall/team_frags Data/UI/mission.xml 20001#4
+box textes/ui/mission/multiplayerscoressmall/team_frags Data/UI/mission.xml 20007
+box textes/ui/mission/multiplayerscoressmall/team_frags Data/UI/mission.xml 20011#2
+box textes/ui/mission/multiplayerscoressmall/time Data/UI/mission.xml 20003#2
+box textes/ui/mission/multiplayerscoressmall/time Data/UI/mission.xml 20003#3
+box textes/ui/mission/multiplayerscoressmall/time_before_capture Data/UI/mission.xml 20001#5
+box textes/ui/mission/multiplayerscoressmall/time_before_capture Data/UI/mission.xml 20004
+box textes/ui/mission/playerlaggeddialog/caption Data/UI/mission.xml 20001#6
+box textes/ui/mission/timeoutdialog/button_cancel Data/UI/mission.xml 10024
+box textes/ui/mission/timeoutdialog/caption Data/UI/mission.xml 1999
+box textes/ui/optionssettings/caption_settings Data/UI/MissionOptionsSettings.xml 20000
+box textes/ui/optionssettings/caption_settings Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 20000
+box textes/ui/optionssettings/caption_settings Data/UI/OptionsSettings.xml 20000
+box textes/ui/settings/button_cancel Data/UI/MuptiplayerGamesList.xml 3007
+box textes/ui/settings/button_savesettings Data/UI/MuptiplayerGamesList.xml 3006
+
+# Families
+tooltip textes/tooltips/**
+tooltip textes/ui/**/tt*
+scroll textes/strings/missiontext # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/missiontypetext # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/scenariomission # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/templatemission # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/missiondifficulty # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/missionbonus # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/missionrequired # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/missiondescriptiontext # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/allbonuses # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/bonus # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/newunits # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/newunitssubheader # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/aboutmission # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/strings/singleobjective # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
+scroll textes/ui/difficulty/** # difficulty names CUIConsts::CreateDescription joins into the briefing text, a UI_SCROLL_TEXT
+scroll textes/strings/*-desc # description text of a screen, shown in a UI_SCROLL_TEXT
+box scenarios/chapters/**/header Data/UI/common/Chapter.xml 20000
+box scenarios/campaigns/**/header Data/UI/common/Campaign.xml 20000
+box scenarios/**/header Data/UI/common/Mission.xml 20000
+box scenarios/**/subheader Data/UI/common/Mission.xml 20001
+scroll scenarios/**/description # mission, chapter and campaign prose in the scrolled description (Mission.xml 2000, Campaign.xml 2000)
+scroll scenarios/**/[0-9]+ # objective texts the briefing description lists, in a UI_SCROLL_TEXT
+scroll scenarios/**/[0-9]+h # objective hints the briefing description lists, in a UI_SCROLL_TEXT
+box units/**/name Data/UI/Encyclopedia.xml 20000
+box units/**/name Data/UI/common/UnitInfoItem.xml 20
+scroll units/**/desc # encyclopedia page text, Encyclopedia.xml 2000 is a UI_SCROLL_TEXT
+box buildings/**/name Data/UI/Encyclopedia.xml 20000
+box medals/**/name Data/UI/Encyclopedia.xml 20000
+scroll medals/**/desc # encyclopedia and rank popup text, UI_SCROLL_TEXT
+box textes/personals/** Data/UI/common/UnitInfoItem.xml 21
+scroll textes/playerranks/**/*_full # the promotion message of the rank popup, PlayerRank.xml 20001 is a UI_SCROLL_TEXT
+box textes/playerranks/** Data/UI/Popup/PlayerRank.xml 20000
+box textes/options/** Data/UI/common/Options/settings_value_name.xml -1
+area textes/acks/** 900x82 large
+area textes/feedbacks/** 900x82 large
+area textes/progress/** 900x82 large
+area textes/strings/game_loaded 900x82 large
+area textes/strings/game_saved 900x82 large
+area textes/strings/objective_received 900x82 large
+area textes/strings/objective_completed 900x82 large
+area textes/strings/objective_failed 900x82 large
+area textes/strings/reinforcement_arrived 900x82 large
+area textes/strings/pause 900x82 large
+area textes/strings/win 900x82 large
+area textes/strings/lose 900x82 large
+area textes/strings/draw 900x82 large
+area textes/strings/winmp 900x82 large
+area textes/strings/wait_loading 900x82 large
+area textes/opponents/** 150x30 medium
+area textes/gametypes/** 150x30 medium
+area textes/rpgclasses/** 150x30 medium
+area textes/rpgtypes/** 150x30 medium
+area textes/playerskills/** 150x30 medium
+box textes/imtutorial/** Data/UI/Encyclopedia.xml 31415
+box textes/help Data/UI/Encyclopedia.xml 31415
+box textes/nextchapterquestion Data/UI/Popup/MessageBox.xml 20001
+box textes/ui/**/message* Data/UI/Popup/MessageBox.xml 20001
+box textes/ui/**/caption* Data/UI/Encyclopedia.xml 20000
+box textes/ui/** Data/UI/OptionsSettings.xml 10001
+box textes/strings/*button* Data/UI/OptionsSettings.xml 10001
+box textes/strings/*header* Data/UI/Encyclopedia.xml 20000
+box textes/strings/*caption* Data/UI/Encyclopedia.xml 20000
+box textes/strings/** Data/UI/common/whitelefttext.xml -1
