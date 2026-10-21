@@ -11,3 +11,16 @@ ru textes/strings/imheader-mission-objectives mission # the label declines the n
 ru textes/strings/missiondescriptiontext mission # the label declines the noun
 ja scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
 de scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says Aufgabe, the glossary row is the menu term Mission
+de textes/help load game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
+de textes/help save game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
+de textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is a Toningenieur, not a Pionier
+de buildings/africa/summer/a_cisterns/01/name tank # a water tank, not a vehicle
+de buildings/africa/summer/a_cisterns/02/name tank # a water tank, not a vehicle
+de buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
+de buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
+de buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
+de buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
+de units/humans/allies/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/humans/german/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/humans/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/humans/ussr/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle

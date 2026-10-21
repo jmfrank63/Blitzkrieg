@@ -59,6 +59,20 @@ test "export shows the current translation under a --- current line" {
     try testing.expectEqualStrings("=== menu/start\r\nStart\r\n--- current\r\nStarten\r\n", text);
 }
 
+test "export reads an original that ends in a stray half unit, as textes/gametypes/game_type_unknown does" {
+    const io = testing.io;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var root = try tree(io, arena, "export_odd");
+    defer root.close(io);
+    const whole = try sheet.encodeText(arena, "Singl");
+    try write(io, root, "Data/ELK/game_data_base/menu/odd.elk", try std.mem.concat(arena, u8, &.{ whole, "e" }));
+    const paths = try sheet.exportSheets(io, arena, root, "de", &.{"menu/odd"}, sheet.sheet_dir);
+    const text = try root.readFileAlloc(io, paths[0], arena, .limited(1 << 20));
+    try testing.expectEqualStrings("=== menu/odd\r\nSingl\r\n", text);
+}
+
 test "export errors: an unknown language and a prefix that matches nothing" {
     const io = testing.io;
     var arena_state = std.heap.ArenaAllocator.init(testing.allocator);

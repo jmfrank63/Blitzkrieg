@@ -25,3 +25,7 @@ textes/strings/missiondescriptiontext
 textes/strings/missiontext
 textes/strings/missiontypetext
 textes/strings/scenariomission
+prefix de textes
+prefix de buildings
+prefix de medals
+prefix de units/humans

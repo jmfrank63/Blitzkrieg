@@ -100,7 +100,9 @@ pub fn exportSheets(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, code
         if (!startsWithAny(key, prefixes)) continue;
         const english_path = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.elk", .{key});
         const english_bytes = (try check.readOptional(io, arena, root, english_path)) orelse return error.OriginalUnreadable;
-        const english = (try decodeText(arena, english_bytes)) orelse return error.OriginalUnreadable;
+        // The 2003 original of textes/gametypes/game_type_unknown ends in a stray half unit.
+        const whole_units = english_bytes[0 .. english_bytes.len & ~@as(usize, 1)];
+        const english = (try decodeText(arena, whole_units)) orelse return error.OriginalUnreadable;
 
         var block: std.ArrayList(u8) = .empty;
         try block.appendSlice(arena, try std.fmt.allocPrint(arena, "=== {s}\r\n", .{key}));
