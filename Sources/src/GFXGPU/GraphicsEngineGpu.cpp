@@ -4,6 +4,7 @@
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
 #include "FontGpu.h"
+#include "BkTextBridge.h"
 #include "GeometryBufferGpu.h"
 #include "MeshGpu.h"
 #include "..//GFX//GFXHelper.h"
@@ -303,6 +304,7 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     SetGlobalVar( "GFX.Caps.Texture.NonPow2", 1 );
     SetGlobalVar( "GFX.Caps.Texture.NonPow2Conditional", 1 );
     SetGlobalVar( "GFX.Caps.Texture.SquareOnly", 0 );
+    NBkTextBridge::Create();
     initialized_ = true;
     adapter_name_ = pszAdapterName ? pszAdapterName : "SDL GPU";
     return true;
@@ -312,6 +314,7 @@ bool STDCALL GraphicsEngineGpu::Done()
 {
     if ( current_font_ ) current_font_->Release();
     current_font_ = nullptr;
+    NBkTextBridge::Destroy();
     if ( renderer_ ) api_.destroy( renderer_ );
     renderer_ = nullptr;
     sdl_window_ = nullptr;

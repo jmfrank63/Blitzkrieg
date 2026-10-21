@@ -166,6 +166,7 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         }
         copyTools(io, repo, options.tools, options.tool_docs, destination) catch |err| return failStep("copyTools", err);
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
+        copyFonts(io, repo, destination) catch |err| return failStep("copyFonts", err);
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
         copyMetadata(io, repo, destination, options.layout.metadata_files) catch |err| return failStep("copy package metadata", err);
@@ -215,6 +216,7 @@ fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, options: Options) !v
     for (layout.runtime_files) |name| try requireStagedFile(io, destination, name);
     for (layout.metadata_files) |name| try requireStagedFile(io, destination, name);
     try requireStagedFile(io, destination, runtime_verify.third_party_notices_name);
+    try requireStagedFile(io, destination, fonts_dir ++ "/SHA256SUMS");
     if (options.map_editor) |map_editor_path| {
         try requireStagedFile(io, destination, std.fs.path.basename(map_editor_path));
     }
@@ -593,6 +595,30 @@ fn pruneStagedTree(io: std.Io, allocator: std.mem.Allocator, destination: std.Io
 
 fn copyMetadata(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir, metadata_files: []const []const u8) !void {
     for (metadata_files) |name| try copyFile(io, repo, name, destination, name);
+}
+
+/// The faces bk_text loads (BK_TEXT_ENGINE=ttf) and the checksum file it verifies them against. The
+/// file set is the one the editors' install_fonts step installs (.ttf, .otf, .txt) plus SHA256SUMS,
+/// so the two steps agree on every file they share. The directory is replaced, so a face a later
+/// revision drops does not linger.
+pub const fonts_dir = "Fonts";
+
+fn copyFonts(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir) !void {
+    try removeTreeIfPresent(io, destination, fonts_dir);
+    var source = try repo.openDir(io, "vendor/fonts", .{ .iterate = true });
+    defer source.close(io);
+    var it = source.iterate();
+    while (try it.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const wanted = std.mem.eql(u8, entry.name, "SHA256SUMS") or
+            std.ascii.endsWithIgnoreCase(entry.name, ".ttf") or
+            std.ascii.endsWithIgnoreCase(entry.name, ".otf") or
+            std.ascii.endsWithIgnoreCase(entry.name, ".txt");
+        if (!wanted) continue;
+        var target_buf: [std.fs.max_path_bytes]u8 = undefined;
+        const target = try std.fmt.bufPrint(&target_buf, fonts_dir ++ "/{s}", .{entry.name});
+        try copyFile(io, source, entry.name, destination, target);
+    }
 }
 
 fn copyShaderAssets(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {

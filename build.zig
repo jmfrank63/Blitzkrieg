@@ -486,6 +486,7 @@ const gfx_gpu_sources = &.{
     "Sources/src/GFXGPU/MeshManagerGpu.cpp",
     "Sources/src/GFXGPU/GlobalsLoader.cpp",
     "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+    "Sources/src/GFXGPU/BkTextBridge.cpp",
 };
 
 fn auditDefaultRendererInputs(files: []const []const u8) void {
@@ -1720,7 +1721,7 @@ pub fn build(b: *std.Build) void {
     const stage_runtime_files = stage_files: {
         const engine_files: []const []const u8 = switch (target.result.os.tag) {
             .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "BkMemory.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libBkMemory.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libBkMemory.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libBkText.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
             .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libBkMemory.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
             else => &[_][]const u8{stage_game_name},
         };
@@ -2490,6 +2491,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(bk_memory_artifact.?);
     b.installArtifact(game);
     b.installArtifact(gfx_gpu_zig);
+    b.installArtifact(addBkTextLib(b, target, optimize, toolchain));
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -2564,6 +2566,7 @@ pub fn build(b: *std.Build) void {
 
     const gfx_gpu_step = b.step("gfx-sdl-gpu", "Build the SDL GPU GFX adapter dynamic library");
     gfx_gpu_step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    gfx_gpu_step.dependOn(&b.addInstallArtifact(addBkTextLib(b, target, optimize, toolchain), .{}).step);
 
     const gfx_gpu_factory_test_module = b.createModule(.{
         .target = target,
@@ -2580,7 +2583,7 @@ pub fn build(b: *std.Build) void {
         linkEngineCxxRuntimeEngine(b, gfx_gpu_factory_test_module, optimize);
     }
     gfx_gpu_factory_test_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp", "Sources/src/GFXGPU/BkTextBridge.cpp" },
         // These are the real engine sources, so they need the portable CRT
         // shim that every other non-Windows build force-includes: bare
         // -std=c++17 leaves LARGE_INTEGER and QueryPerformanceCounter
@@ -2595,6 +2598,9 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
     addMacosSysrootPaths(b, gfx_gpu_factory_test_module, target);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
+    // GraphicsEngineGpu.cpp creates the bk_text context, so the harness takes the same library.
+    gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/BkText"));
+    gfx_gpu_factory_test_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
     // gfx_gpu_zig already brings the dynamic SDL3 in, the same copy the GFXGPU
     // module this harness dlopens was linked against. Linking the static SDL3
     // on top of it put two SDL runtimes into one process: the ObjC runtime
@@ -2631,6 +2637,7 @@ pub fn build(b: *std.Build) void {
     // with no leaked block; the report stays the count like the other tiers'.
     setLeakReportStrict(gfx_gpu_factory_test_run);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(addBkTextLib(b, target, optimize, toolchain), .{}).step);
     // The module's own dependencies: on Windows a DLL's imports resolve from
     // the executable's directory and PATH, not from the DLL's, so the runtime
     // DLLs the module needs are installed and the install directory put on the
@@ -2690,6 +2697,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(addBkTextLib(b, target, optimize, toolchain), .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -5772,6 +5780,8 @@ fn addGFXGPU(
     gfx_gpu_module.linkLibrary(platform_runtime);
     gfx_gpu_module.linkLibrary(formats);
     gfx_gpu_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_module.addIncludePath(b.path("Sources/src/BkText"));
+    gfx_gpu_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
     if (target.result.os.tag == .macos) {
         // gfx_gpu_zig already links SDL3, so linking it again here emits a
         // second LC_LOAD_DYLIB for @rpath/libSDL3.dylib. ELF tolerates the
@@ -6105,15 +6115,22 @@ fn addBkTextLib(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
 ) *std.Build.Step.Compile {
+    // One library per graph: the contract test and GFXGPU share it, and a second addLibrary named
+    // BkText would clash on the artifact name.
+    if (bk_text_lib) |lib| return lib;
     const module = bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/abi.zig");
     applyLoaderPath(target, module);
     linkBkMemoryAllocator(b, module, true);
-    return b.addLibrary(.{
+    const lib = b.addLibrary(.{
         .name = "BkText",
         .linkage = if (target.result.os.tag == .linux) .dynamic else .static,
         .root_module = module,
     });
+    bk_text_lib = lib;
+    return lib;
 }
+
+var bk_text_lib: ?*std.Build.Step.Compile = null;
 
 /// test-bk-text: faces, UTF-16 and the HarfBuzz/stb_truetype spike on the
 /// vendored fonts; the fonts directory arrives as BK_TEXT_FONTS_DIR.
