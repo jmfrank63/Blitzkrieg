@@ -36,3 +36,7 @@ prefix es units/technics/common
 prefix es units/technics/german
 prefix es units/technics/ussr
 prefix es scenarios/chapters
+prefix es scenarios/scenariomissions
+prefix es scenarios/descriptions
+prefix es scenarios/tutorials
+prefix es scenarios/campaigns

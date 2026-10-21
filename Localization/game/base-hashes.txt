@@ -3024,3 +3024,6 @@ same-as-base es textes/ui/intermission/multiplayer/ping
 same-as-base es textes/ui/intermission/no
 same-as-base es textes/ui/intermission/warehouse/button_encyclopedia
 same-as-base es textes/ui/optionssettings/button_audio
+same-as-base es scenarios/scenariomissions/allies/tobruk/header
+same-as-base es scenarios/scenariomissions/german/barbarossa/subheader
+same-as-base es scenarios/scenariomissions/ussr/kursk/header
