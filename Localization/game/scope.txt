@@ -30,3 +30,7 @@ whole-database fr
 whole-database es
 whole-database pt-BR
 whole-database id
+prefix ru textes
+prefix ru buildings
+prefix ru medals
+prefix ru units/humans

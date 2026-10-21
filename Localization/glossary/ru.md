@@ -40,13 +40,13 @@ Matching: the checker looks the Translation column up as a case-insensitive subs
 | new game | Новая игра |  |
 | campaign | Кампани | Кампании in the menu; stem survives кампания, кампании |
 | chapter | Глав | Глава; stem survives главы, главе |
-| mission | Миссия |  |
-| objectives | Цели миссии |  |
+| mission | Мисси | Миссия; stem survives миссии, миссию, миссией |
+| objectives | Цел | Цели миссии in the headings; stem survives цель, цели, целей, целях (never задача) |
 | briefing | Описание миссии |  |
 | start | Начать |  |
 | back | Назад | no-term-check: also an ordinary English word |
 | options | Опции |  |
-| settings | Настройки |  |
+| settings | Настройк | Настройки; stem survives настройками, настройка |
 | load game | Загрузить игру | interface verb Загрузить; Загруз. only on tight buttons |
 | save game | Сохранить игру | interface verb Сохранить |
 | exit game | Выход | interface noun for the exit button |
@@ -54,7 +54,7 @@ Matching: the checker looks the Translation column up as a case-insensitive subs
 | cutscenes | Ролики |  |
 | custom game | Своя игра |  |
 | multiplayer | Сетевая игра |  |
-| tutorial | Обучение |  |
+| tutorial | Обучени | Обучение; stem survives обучения |
 
 ## Decisions for the translation tasks
 
