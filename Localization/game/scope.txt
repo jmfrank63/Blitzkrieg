@@ -29,16 +29,4 @@ whole-database de
 whole-database fr
 whole-database es
 whole-database pt-BR
-prefix id textes
-prefix id buildings
-prefix id medals
-prefix id units/humans
-prefix id units/technics/allies
-prefix id units/technics/common
-prefix id units/technics/german
-prefix id units/technics/ussr
-prefix id scenarios/chapters
-prefix id scenarios/scenariomissions
-prefix id scenarios/descriptions
-prefix id scenarios/tutorials
-prefix id scenarios/campaigns
+whole-database id
