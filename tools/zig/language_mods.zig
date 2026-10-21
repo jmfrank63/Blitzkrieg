@@ -226,7 +226,12 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         const line = std.mem.trimEnd(u8, result.stdout, "\r\n");
         var words = std.mem.splitBackwardsScalar(u8, line, ' ');
         _ = words.next();
-        try atlas_report.print(allocator, " {s}={s}", .{ size.name, words.next().? });
+        const atlas = words.next().?;
+        if (atlasExceeds(atlas)) {
+            std.debug.print("language-mods: {s}: {s} atlas {s} exceeds {d}x{d}\n", .{ language.code, size.name, atlas, atlas_bound, atlas_bound });
+            return error.AtlasTooLarge;
+        }
+        try atlas_report.print(allocator, " {s}={s}", .{ size.name, atlas });
         for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
             const bytes = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, file }), allocator, .limited(64 << 20));
             try fonts.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ size.name, "/", file }), .bytes = bytes });
@@ -285,8 +290,28 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     if (language.face == null) {
         std.debug.print("language-mods: {s}: {d} texts, {d} characters, bitmap fonts, texts only ({d} inherited base texts outside cp1252), installed {s}\n", .{ language.code, texts, distinct, inherited, pak_path });
     } else {
-        std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s}, installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, pak_path });
+        std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s} (bound {d}x{d}), installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, atlas_bound, atlas_bound, pak_path });
     }
+}
+
+/// The largest atlas side the engine's textures take (D100): the bound every language's fonts are held to.
+const atlas_bound: u32 = 4096;
+
+/// Whether an atlas as bk-font names it ("WxH") is wider or taller than `atlas_bound`. A token that is
+/// not two numbers counts as exceeding, so a changed tool output cannot slip past the bound.
+fn atlasExceeds(atlas: []const u8) bool {
+    var sides = std.mem.splitScalar(u8, atlas, 'x');
+    const width = std.fmt.parseInt(u32, sides.next() orelse return true, 10) catch return true;
+    const height = std.fmt.parseInt(u32, sides.next() orelse return true, 10) catch return true;
+    return sides.next() != null or width > atlas_bound or height > atlas_bound;
+}
+
+test "an atlas over 4096 on either side is named" {
+    try testing.expect(!atlasExceeds("512x256"));
+    try testing.expect(!atlasExceeds("4096x4096"));
+    try testing.expect(atlasExceeds("4097x256"));
+    try testing.expect(atlasExceeds("256x8192"));
+    try testing.expect(atlasExceeds("atlas"));
 }
 
 test "a text with a character cp1252 lacks is named" {

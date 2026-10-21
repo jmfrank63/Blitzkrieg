@@ -26,11 +26,13 @@ fn isCjk(c: u16) bool {
 }
 
 /// Characters that must not start a line: closing brackets, stops, the prolonged sound mark,
-/// iteration marks and the small kana.
+/// iteration marks, the two-dot and three-dot leaders, the katakana double hyphen, the
+/// fullwidth wave dash and the small kana.
 fn isNoStart(c: u16) bool {
     switch (c) {
         0x3001, 0x3002, 0x3005, 0x3009, 0x300B, 0x300D, 0x300F, 0x3011, 0x3015 => return true,
         0x301C, 0x30FB, 0x30FC, 0x30FD, 0x30FE, 0x309B, 0x309C, 0x309D, 0x309E => return true,
+        0x2025, 0x2026, 0x30A0, 0xFF5E => return true,
         0xFF01, 0xFF09, 0xFF0C, 0xFF0E, 0xFF1A, 0xFF1B, 0xFF1F, 0xFF3D, 0xFF5D => return true,
         else => {},
     }
@@ -111,8 +113,9 @@ pub fn wrapLines(arena: std.mem.Allocator, font: anytype, text_in: []const u16, 
 /// A run between spaces and line breaks, with its width.
 pub const Word = struct { begin: usize = 0, end: usize = 0, width: f32 = 0 };
 
-/// The widest run of `text` between spaces and line breaks, which the game splits where it
-/// overflows when the run is wider than the box.
+/// The widest run of `text` between spaces, line breaks and break opportunities (CJK text has no
+/// spaces, and the game breaks it between characters), which the game splits where it overflows
+/// when the run is wider than the box.
 pub fn widestWord(font: anytype, text_in: []const u16, scale: f32) Word {
     const length = std.mem.indexOfScalar(u16, text_in, 0) orelse text_in.len;
     const text = text_in[0..length];
@@ -120,10 +123,12 @@ pub fn widestWord(font: anytype, text_in: []const u16, scale: f32) Word {
     var begin: usize = 0;
     var at: usize = 0;
     while (at <= text.len) : (at += 1) {
-        if (at != text.len and text[at] != ' ' and text[at] != '\n' and text[at] != '\r') continue;
+        const separator = at != text.len and (text[at] == ' ' or text[at] == '\n' or text[at] == '\r');
+        const opportunity = at != text.len and at > begin and canBreakTextBetween(text[at - 1], text[at]);
+        if (at != text.len and !separator and !opportunity) continue;
         const width = font.runWidth(text[begin..at]) * scale;
         if (width > widest.width) widest = .{ .begin = begin, .end = at, .width = width };
-        begin = at + 1;
+        begin = if (separator) at + 1 else at;
     }
     return widest;
 }
@@ -184,6 +189,10 @@ test "kinsoku: closing marks never start a line, opening marks never end one" {
     try expectWrap("一二三（四五", 4, "一二三|（四五");
     try expectWrap("一二三「四五", 4, "一二三|「四五");
     try expectWrap("一二三『四五", 4, "一二三|『四五");
+    try expectWrap("一二三四\u{2025}五", 4, "一二三|四\u{2025}五");
+    try expectWrap("一二三四\u{2026}五", 4, "一二三|四\u{2026}五");
+    try expectWrap("一二三四\u{30A0}五", 4, "一二三|四\u{30A0}五");
+    try expectWrap("一二三四\u{FF5E}五", 4, "一二三|四\u{FF5E}五");
 }
 
 test "mixed text breaks at the space and between Han" {
@@ -230,4 +239,13 @@ test "widestWord measures the longest run between spaces and line breaks" {
     try std.testing.expectEqual(@as(usize, 9), word.end);
     try std.testing.expectEqual(@as(f32, 120), widestWord(FixedFont{}, units, 2.0).width);
     try std.testing.expectEqual(@as(f32, 0), widestWord(FixedFont{}, &.{}, 1.0).width);
+}
+
+test "widestWord ends a run at a break opportunity, not inside kinsoku" {
+    const units = try std.unicode.utf8ToUtf16LeAlloc(std.testing.allocator, "一二三四。五");
+    defer std.testing.allocator.free(units);
+    // Every Han pair is an opportunity, so the runs are 一 二 三 四。 五: the full stop stays with 四.
+    const word = widestWord(FixedFont{}, units, 1.0);
+    try std.testing.expectEqual(@as(f32, 20), word.width);
+    try std.testing.expectEqual(@as(usize, 3), word.begin);
 }

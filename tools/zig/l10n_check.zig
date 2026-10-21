@@ -1946,8 +1946,8 @@ pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, fo
 }
 
 /// The languages with a face whose fit is measured with the font language-mods builds. S07 to S09 add
-/// zh-Hans, ja and hi here when their slices measure them.
-const measured_faces = [_][]const u8{"ru"};
+/// zh-Hans and hi here when their slices measure them.
+const measured_faces = [_][]const u8{ "ru", "ja" };
 
 fn languageMeasured(code: []const u8) bool {
     for (measured_faces) |one| if (std.mem.eql(u8, one, code)) return true;

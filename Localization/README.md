@@ -250,8 +250,15 @@ draws with the Noto Sans font that `zig build language-mods -Dlm-langs=ru` build
 clean checkout stays green. The fit-base allowance compares the Noto-measured translation with the English
 original measured in the bitmap font, as the 2003 game drew it. A character the built font lacks (the overlay
 grew after the font was built) is measured as a space and noted once per language, with the rebuild command;
-the glyph rule against the TTF guards coverage. `zh-Hans`, `ja` and `hi` stay `not measured (font built by
-language-mods)` until S07 to S09 add them to `measured_faces` in `tools/zig/l10n_check.zig`.
+the glyph rule against the TTF guards coverage. `ja` is measured the same way (S07) with the NotoSansJP fonts of `zig build language-mods -Dlm-langs=ja`, from
+`<root>/ja/fonts/{small,medium,large}/1.tfd`, and without them says `l10n-check: fit: ja: not measured (run zig build
+language-mods -Dlm-langs=ja)`. A Japanese text has no spaces, so `fit-word` measures the runs between break
+opportunities (the game's `CanBreakTextBetween`), not the whole sentence. `zh-Hans` and `hi` stay `not measured (font built by
+language-mods)` until S08 and S09 add them to `measured_faces` in `tools/zig/l10n_check.zig`.
+
+`language-mods` asserts that every atlas of every language is within 4096x4096 (`atlas tiny=WxH ... (bound 4096x4096)`)
+and fails with `language-mods: <code>: <size> atlas WxH exceeds 4096x4096` otherwise. The no-start set of the line breaker
+also holds U+2025, U+2026, U+30A0 and U+FF5E (TextBreak.h, l10n_wrap.zig and gfx_text_wrap_test.cpp in step).
 
 `l10n-check` does not depend on the `language-mods` step in `build.zig`, on purpose: that step takes about a
 minute and takes `-Dlm-langs`, so every check would pay for it.

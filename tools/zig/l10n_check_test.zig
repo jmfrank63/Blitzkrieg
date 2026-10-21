@@ -919,13 +919,20 @@ fn fitNotes(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: u
     return fitNotesRu(boxed, tooltips, scrolls, base, "l10n-check: fit: ru: not measured (run zig build language-mods -Dlm-langs=ru)\n");
 }
 
-/// `fitNotes` with the lines of ru given: ru is the one face language that is measured, when its fonts exist.
+/// `fitNotes` with the lines of ru given: ru and ja are the face languages that are measured, when their fonts exist.
 fn fitNotesRu(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: usize, comptime base: usize, comptime ru: []const u8) []const u8 {
+    return fitNotesRuJa(boxed, tooltips, scrolls, base, ru, "l10n-check: fit: ja: not measured (run zig build language-mods -Dlm-langs=ja)\n");
+}
+
+/// `fitNotesRu` with the lines of ja given as well.
+fn fitNotesRuJa(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: usize, comptime base: usize, comptime ru: []const u8, comptime ja: []const u8) []const u8 {
     comptime var notes: []const u8 = "";
     inline for (codes) |code| {
         if (comptime std.mem.eql(u8, code, "ru")) {
             notes = notes ++ ru;
-        } else if (comptime std.mem.eql(u8, code, "zh-Hans") or std.mem.eql(u8, code, "ja") or std.mem.eql(u8, code, "hi")) {
+        } else if (comptime std.mem.eql(u8, code, "ja")) {
+            notes = notes ++ ja;
+        } else if (comptime std.mem.eql(u8, code, "zh-Hans") or std.mem.eql(u8, code, "hi")) {
             notes = notes ++ "l10n-check: fit: " ++ code ++ ": not measured (font built by language-mods)\n";
         } else {
             notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ code, boxed, tooltips, scrolls, base });
@@ -1053,6 +1060,11 @@ fn langFontsArgs(comptime case: []const u8) []const []const u8 {
     return &.{ "--lang-fonts", scratch ++ "/" ++ case ++ "/" ++ lang_fonts_dir };
 }
 
+fn jaMeasured(comptime case: []const u8, comptime boxed: usize, comptime scrolls: usize, comptime base: usize) []const u8 {
+    return "l10n-check: fit: ja: measured with language-mods fonts (" ++ scratch ++ "/" ++ case ++ "/" ++ lang_fonts_dir ++ "/ja/fonts)\n" ++
+        std.fmt.comptimePrint("l10n-check: fit: ja: {d} boxed, 0 tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ boxed, scrolls, base });
+}
+
 fn ruMeasured(comptime case: []const u8, comptime boxed: usize, comptime scrolls: usize, comptime base: usize) []const u8 {
     return "l10n-check: fit: ru: measured with language-mods fonts (" ++ scratch ++ "/" ++ case ++ "/" ++ lang_fonts_dir ++ "/ru/fonts)\n" ++
         std.fmt.comptimePrint("l10n-check: fit: ru: {d} boxed, 0 tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ boxed, scrolls, base });
@@ -1110,4 +1122,47 @@ test "fit_ru_glyph_missing: a character the language font lacks is measured as a
     try writeState(io, testing.allocator, root, "Localization/game/ru/game_data_base/textes/strings/alpha.xml", 2);
     const note = "l10n-check: fit: ru: 3 characters are missing from the language-mods font and were measured as a space; rebuild it with zig build language-mods -Dlm-langs=ru\n";
     try expectRun(io, "fit_ru_glyph_missing", &root, langFontsArgs("fit_ru_glyph_missing"), 0, comptime fitWant("", 0, fitNotesRu(2, 0, 0, 0, ruMeasured("fit_ru_glyph_missing", 2, 0, 0) ++ note)));
+}
+
+// The ja fit (M003 S07): the same rule with the NotoSansJP fonts. The fixtures stand shipped fonts in for them.
+test "fit_ja_overflow: a Japanese text too wide for its box in the language font is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_ja_overflow", fit_box_line ++ "scroll scenarios/** # prose\r\n");
+    try writeLangFonts(io, root, "ja", "large");
+    try setBase(io, testing.allocator, root, alpha_base, "Alpha");
+    try writeManifest(io, testing.allocator, root, "");
+    try addOverlay(io, root, "ja", "textes/strings/alpha", "Hello Hello");
+    const want = comptime fitWant("l10n-check: fit: ja: textes/strings/alpha: 2 lines x 41 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotesRuJa(1, 0, 1, 0, "l10n-check: fit: ru: not measured (run zig build language-mods -Dlm-langs=ru)\n", jaMeasured("fit_ja_overflow", 1, 1, 0)));
+    try expectRun(io, "fit_ja_overflow", &root, langFontsArgs("fit_ja_overflow"), 1, want);
+}
+
+test "fit_ja_fonts_absent: no ja font is the not-measured note, not a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_ja_fonts_absent", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "ja", "textes/strings/alpha", "Hello Hello Hello");
+    try expectRun(io, "fit_ja_fonts_absent", &root, &.{ "--lang-fonts", scratch ++ "/fit_ja_fonts_absent/nowhere" }, 0, comptime fitWant("", 0, fitNotes(2, 0, 0, 0)));
+}
+
+test "fit_ja_wrap: a long kana and Han text wraps at a CJK opportunity and is no fit-word finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_ja_wrap", fit_box_line ++ "scroll scenarios/** # prose\r\n");
+    try writeLangFonts(io, root, "ja", "medium");
+    try setBase(io, testing.allocator, root, alpha_base, "Alpha");
+    try writeManifest(io, testing.allocator, root, "");
+    // Thirty Han and kana without a space are far wider than the 100 px box in any font; with CJK break
+    // opportunities no single word exceeds the room, so only the line count (a fit finding, if any) can speak.
+    const text = "\u{6226}\u{8ECA}\u{306E}\u{4E00}\u{4E8C}\u{4E09}\u{56DB}\u{4E94}\u{516D}\u{4E03}\u{516B}\u{4E5D}\u{5341}\u{3042}\u{3044}\u{3046}\u{3048}\u{304A}";
+    const units = try std.unicode.utf8ToUtf16LeAlloc(testing.allocator, text);
+    defer testing.allocator.free(units);
+    var bytes: std.ArrayList(u8) = .empty;
+    defer bytes.deinit(testing.allocator);
+    try bytes.appendSlice(testing.allocator, &.{ 0xff, 0xfe });
+    try bytes.appendSlice(testing.allocator, std.mem.sliceAsBytes(units));
+    try write(io, root, "Localization/game/ja/game_data_base/textes/strings/alpha.txt", bytes.items);
+    try writeState(io, testing.allocator, root, "Localization/game/ja/game_data_base/textes/strings/alpha.xml", 2);
+    root.close(io);
+    const outcome = try runCheckerWith(io, testing.allocator, "fit_ja_wrap", langFontsArgs("fit_ja_wrap"));
+    defer testing.allocator.free(outcome.stderr);
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, "fit-word: ja:") == null);
+    try testing.expect(std.mem.indexOf(u8, outcome.stderr, "fit: ja: measured with language-mods fonts") != null);
 }
