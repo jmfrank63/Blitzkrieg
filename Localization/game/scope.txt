@@ -35,3 +35,4 @@ prefix es units/technics/allies
 prefix es units/technics/common
 prefix es units/technics/german
 prefix es units/technics/ussr
+prefix es scenarios/chapters
