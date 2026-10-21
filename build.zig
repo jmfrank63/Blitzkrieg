@@ -6070,6 +6070,8 @@ fn bkTextModule(
         .link_libc = true,
     });
     module.addImport("hb_c", addTranslatedHeaders(b, target, optimize, toolchain, &.{ "hb.h", "hb-ot.h" }, &.{b.path("vendor/harfbuzz/src")}));
+    // The game's wrap port in tools/zig, the cross-check for wrap.zig's tests.
+    module.addImport("l10n_wrap", b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_wrap.zig") }));
     module.addIncludePath(b.path("vendor/harfbuzz/src"));
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addCSourceFile(.{ .file = b.path("Sources/src/BkText/stbtt.c"), .flags = &.{"-fno-sanitize=undefined"} });

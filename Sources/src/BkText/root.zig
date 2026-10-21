@@ -5,11 +5,17 @@ pub const faces = @import("faces.zig");
 pub const utf16 = @import("utf16.zig");
 pub const segment = @import("segment.zig");
 pub const shape = @import("shape.zig");
+pub const textbreak = @import("textbreak.zig");
+pub const measure = @import("measure.zig");
+pub const wrap = @import("wrap.zig");
 
 test {
     _ = faces;
     _ = utf16;
     _ = segment;
     _ = shape;
+    _ = textbreak;
+    _ = measure;
+    _ = wrap;
     _ = @import("spike_test.zig");
 }
