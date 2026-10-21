@@ -34,6 +34,12 @@ static int Run( int argc, char **argv )
 	if ( !NPlatform::ShowError( "Test title", "Test text" ) || capturedTitle != "Test title" || capturedText != "Test text" ) return 3;
 	if ( !NPlatform::OpenUrl( "https://example.invalid/test" ) || capturedUrl != "https://example.invalid/test" ) return 4;
 	if ( !NPlatform::OpenFile( "C:\\temp\\test.txt" ) || capturedUrl != "file:///C:/temp/test.txt" ) return 5;
+	// Unattended, with no handler, ShowError reports on stderr and returns at
+	// once: a modal box here would hang the test (and did hang the Game).
+	NPlatform::SetUiHandlers( nullptr, nullptr );
+	NPlatform::SetUnattended( true );
+	if ( NPlatform::ShowError( "Unattended title", "Unattended text" ) ) return 7;
+	NPlatform::SetUnattended( false );
 	int exitCode = -1;
 	const std::string childName =
 #if defined(_WIN32) || defined(_WIN64) || defined(WIN32)

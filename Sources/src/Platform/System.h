@@ -12,6 +12,10 @@ std::string ExecutablePath();
 std::string GetEnvironment( const char *name );
 bool SetEnvironment( const char *name, const char *value );
 bool ShowError( const char *title, const char *text );
+// An unattended run (a harness drives it, no one watches) reports ShowError
+// on stderr only: a modal box would wait for a click that never comes, and
+// under ssh or a service session it is not even visible.
+void SetUnattended( bool unattended );
 bool OpenUrl( const char *url );
 bool OpenFile( const char *path );
 void SetUiHandlers( UiHandler errorHandler, UiHandler openHandler );

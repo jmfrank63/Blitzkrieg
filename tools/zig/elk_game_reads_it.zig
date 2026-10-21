@@ -230,9 +230,13 @@ const Layout = struct {
     }
 };
 
+/// The main menu's layout when the run's first shot was taken: the last
+/// reposition before it, as the window may still settle after the first one
+/// (on macbook-air-frank's 1440x900 screen it shrank from 799 to 797 rows).
 fn menuLayout(log: []const u8) !Layout {
     const prefix = "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen ";
-    const start = (std.mem.indexOf(u8, log, prefix) orelse return error.GameLineMissing) + prefix.len;
+    const first_shot = std.mem.indexOf(u8, log, " action shot") orelse return error.GameLineMissing;
+    const start = (std.mem.lastIndexOf(u8, log[0..first_shot], prefix) orelse return error.GameLineMissing) + prefix.len;
     const line = log[start .. std.mem.indexOfScalarPos(u8, log, start, '\n') orelse log.len];
     // "<w>x<h> -> parent <pw>x<ph> at (<x>,<y>) scale <sx>,<sy> ..."
     var fields = std.mem.tokenizeAny(u8, line, " x(),\r");

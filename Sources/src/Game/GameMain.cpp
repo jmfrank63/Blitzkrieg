@@ -408,6 +408,11 @@ int RunGame( const BkGameLaunchInfo &launch )
 		NGame::ReportCommandLine( launch.options );
 		return command_line_exit;
 	}
+	// A Game a harness drives (BK_AUTO_UI, a startup smoke or a reference
+	// capture) fails with its reason in the log, never in a modal box: on
+	// win-home under ssh such a box was invisible and the Game waited in it
+	// for an hour.
+	NPlatform::SetUnattended( launch.options.startupSmoke || launch.options.referenceScene || getenv( "BK_AUTO_UI" ) != 0 );
 	CTimeMeter<> timeMeter;
 	#if defined(_WIN32) || defined(_WIN64)
 	SetErrorMode( SEM_FAILCRITICALERRORS );
