@@ -38,3 +38,4 @@ prefix ru units/technics/allies
 prefix ru units/technics/common
 prefix ru units/technics/german
 prefix ru units/technics/ussr
+prefix ru scenarios/chapters
