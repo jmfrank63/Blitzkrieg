@@ -665,7 +665,10 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
         }
         const floor = if (label.small) small_min_correlation else min_correlation;
         const margin = if (label.small) small_min_margin else min_margin;
-        const aspect_error = if (label.small) small_max_aspect_error else max_aspect_error;
+        // A tooltip's ink is its yellow over the blank background's metal, about 80 of 255, so the
+        // threshold takes in a pixel more of its edges above and below a 27-pixel line than the
+        // reference's: the proportion has the small font's tolerance. Correlation and margin do not.
+        const aspect_error = if (label.small or label.boxed) small_max_aspect_error else max_aspect_error;
         try report.check(own.correlation >= floor, "{s} {s} \"{s}\": correlation {d:.3} with hb-view (minimum {d:.2}), ink {d}x{d}", .{ language.code, label.key, texts[index], own.correlation, floor, ink.width, ink.height });
         try report.check(own.correlation - best_other >= margin, "{s} {s}: own reference beats the best other by {d:.3} (minimum {d:.2})", .{ language.code, label.key, own.correlation - best_other, margin });
         try report.check(@abs(own.aspect - 1) <= aspect_error, "{s} {s}: width to height is {d:.3} of the reference's (within {d:.2})", .{ language.code, label.key, own.aspect, aspect_error });
