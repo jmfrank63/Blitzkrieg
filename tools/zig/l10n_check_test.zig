@@ -1035,3 +1035,71 @@ test "fit_map_layout: a box line whose element is not in its layout" {
         "l10n-check: fit-map: all: Localization/game/fit-map.txt:2: layout Data/UI/Nope.xml does not exist\n", 2, fitNotes(1, 0, 0, 0));
     try expectFitRun(io, "fit_map_layout", &root, 1, want);
 }
+
+// The fonts of one language replaced (M003 S06): the fixture's generated fonts are the shipped ones, so
+// standing the large font in for every size of one language makes the 100 x 21 medium box too small for
+// a line of it in that language alone.
+fn setLangFonts(io: std.Io, root: std.Io.Dir, code: []const u8, from: []const u8) !void {
+    const source = try std.fmt.allocPrint(testing.allocator, "Data/Fonts/{s}/1.tfd", .{from});
+    defer testing.allocator.free(source);
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, source, testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(bytes);
+    for ([_][]const u8{ "small", "medium", "large" }) |size| {
+        const path = try std.fmt.allocPrint(testing.allocator, "lang-fonts/{s}/fonts/{s}/1.tfd", .{ code, size });
+        defer testing.allocator.free(path);
+        try write(io, root, path, bytes);
+    }
+}
+
+test "fit_language_font: a text too wide for its box in its own language's font is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_language_font", fit_box_line ++ "scroll scenarios/** # prose\r\n");
+    try setLangFonts(io, root, "ru", "large");
+    try setBase(io, testing.allocator, root, alpha_base, "Alpha");
+    try writeManifest(io, testing.allocator, root, "");
+    try addOverlay(io, root, "ru", "textes/strings/alpha", "Hello Hello");
+    // The same text in the shipped medium font is one line (81 px in 100 x 21), so only the language font fails it.
+    const want = comptime fitWant("l10n-check: fit: ru: textes/strings/alpha: 2 lines x 41 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(1, 0, 1, 0));
+    try expectFitRun(io, "fit_language_font", &root, 1, want);
+}
+
+test "fit_not_measured_here: without --lang-fonts every language is noted, none is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_not_measured_here", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "ru", "textes/strings/alpha", "Hello Hello Hello");
+    comptime var notes: []const u8 = "";
+    inline for (codes) |code| notes = notes ++ "l10n-check: fit: " ++ code ++ ": not measured here; language-mods measures it with the fonts it builds\n";
+    try expectRun(io, "fit_not_measured_here", &root, &.{}, 0, comptime fitWant("", 0, notes));
+}
+
+test "fit_language_font_missing: a language without its large font is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_language_font_missing", fit_box_line ++ fit_rest_line);
+    try root.deleteFile(io, "lang-fonts/ru/fonts/large/1.tfd");
+    comptime var notes: []const u8 = "";
+    inline for (codes) |code| {
+        if (comptime !std.mem.eql(u8, code, "ru")) notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: 2 boxed, 0 tooltip, 0 scroll keys measured, 0 with an English original that overflows (fit-base)\n", .{code});
+    }
+    const want = comptime "l10n-check: fit-font: ru: ru/fonts/large/1.tfd: cannot read the font the fit rule measures with (file is missing)\n" ++ inactive_but_fit ++ seed_scope_notes ++ notes ++ std.fmt.comptimePrint("l10n-check: 1 findings, {d} checked\n", .{checked_total});
+    try expectFitRun(io, "fit_language_font_missing", &root, 1, want);
+}
+
+test "fit_glyph_missing: a character the language's fonts lack is measured as a space and noted once" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_glyph_missing", fit_box_line ++ fit_rest_line);
+    // The shipped bitmap font has no Greek (it does hold Cyrillic), which stands for fonts built before the overlay grew.
+    const text = try std.unicode.utf8ToUtf16LeAlloc(testing.allocator, "\u{3b1}\u{3b2}\u{3b3}\u{3b1}");
+    defer testing.allocator.free(text);
+    var bytes: std.ArrayList(u8) = .empty;
+    defer bytes.deinit(testing.allocator);
+    try bytes.appendSlice(testing.allocator, &.{ 0xff, 0xfe });
+    try bytes.appendSlice(testing.allocator, std.mem.sliceAsBytes(text));
+    try write(io, root, "Localization/game/ru/game_data_base/textes/strings/alpha.txt", bytes.items);
+    try writeState(io, testing.allocator, root, "Localization/game/ru/game_data_base/textes/strings/alpha.xml", 2);
+    comptime var notes: []const u8 = "";
+    inline for (codes) |code| {
+        notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: 2 boxed, 0 tooltip, 0 scroll keys measured, 0 with an English original that overflows (fit-base)\n", .{code});
+        if (comptime std.mem.eql(u8, code, "ru")) notes = notes ++ "l10n-check: fit: ru: 3 characters are missing from the mod's fonts and were measured as a space; rebuild them with zig build language-mods -Dlm-langs=ru\n";
+    }
+    try expectFitRun(io, "fit_glyph_missing", &root, 0, comptime fitWant("", 0, notes));
+}

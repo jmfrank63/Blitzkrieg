@@ -4,11 +4,6 @@
 # original. A line here excuses one key and one term, for a use the glossary row does not cover
 # (a verb or a descriptive noun in running text, or a Russian case form). The reason after `#` is
 # required; a line that excuses nothing any more is the finding term-exception-unused.
-ru scenarios/scenariomissions/allies/norway/description mission # prose: the Russian text words it with another noun or case form
-ru textes/strings/imheader-mission-desc mission # the label declines the noun (Описание миссии)
-ru textes/strings/imheader-mission-map mission # the label declines the noun
-ru textes/strings/imheader-mission-objectives mission # the label declines the noun
-ru textes/strings/missiondescriptiontext mission # the label declines the noun
 ja scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
 de textes/help load game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
 de textes/help save game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
@@ -40,3 +35,32 @@ es textes/help load game # running text: the key is Carga rápida, the quick-loa
 es textes/help save game # running text: the key is Guardado rápido, the quick-save key, not the Guardar partida menu
 es textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJUGADOR (139 px), so the heading is the abbreviation MULTIJUG.
 pt-BR textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJOGADOR (139 px), so the heading is the abbreviation MULTIJOG.
+id textes/ui/intermission/credits/credits engineer # the credits line "Sound Engineer" is Teknisi Suara, an audio technician, not a military zeni (sapper).
+id buildings/africa/summer/a_cisterns/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+id buildings/africa/summer/a_cisterns/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+id buildings/ussr/summer/cistern/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+id buildings/ussr/summer/cistern/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
+ru textes/help load game # running text: the quick-load key is described as быстрая загрузка игры, not the Загрузить игру menu item
+ru textes/help save game # running text: the quick-save key is described as быстрое сохранение игры, not the Сохранить игру menu item
+ru textes/playerranks/allies/lieutenant_colonel lieutenant # подполковник is one word; it has no лейтенант inside
+ru textes/playerranks/allies/lieutenant_colonel_full lieutenant # подполковник is one word; it has no лейтенант inside
+ru textes/playerranks/ussr/lieutenant_colonel lieutenant # подполковник is one word; it has no лейтенант inside
+ru textes/playerranks/ussr/lieutenant_colonel_full lieutenant # подполковник is one word; it has no лейтенант inside
+ru buildings/africa/summer/a_cisterns/01/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
+ru buildings/africa/summer/a_cisterns/02/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
+ru buildings/common/summer/watertankbig/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
+ru buildings/common/summer/watertanklittle/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
+ru buildings/ussr/summer/cistern/01/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
+ru buildings/ussr/summer/cistern/02/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
+ru textes/tooltips/tt_ui_multiplayer_create_new_game new game # tooltip: the verb takes the accusative, создать новую игру
+ru textes/tooltips/tt_ui_selectcampaign_back new game # tooltip: the phrase is declined (новой игре)
+ru textes/ui/intermission/multiplayer/gameslist/tt_button_create new game # tooltip: the verb takes the accusative, создать новую игру
+ru textes/ui/intermission/credits/credits engineer # a sound engineer is a звукорежиссёр, not a сапёр
+ru units/humans/allies/ptrb/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
+ru units/humans/german/pzb39/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
+ru units/humans/ussr/ptrd/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
+ru units/humans/ussr/ptrs/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
+ru units/humans/ussr/ussr/ptrd/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
+ru units/humans/ussr/ussr/ptrs/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
+ru scenarios/scenariomissions/allies/norway/description mission # prose: the Russian text words it with another noun or case form
+ru scenarios/descriptions/defend_area00/description options # prose: "options" is the ordinary word for choices here, the Russian text says варианта

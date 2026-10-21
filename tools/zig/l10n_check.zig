@@ -2144,6 +2144,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
         // the fonts the Game has loaded. The map's problems were reported above.
         var own_problems: std.ArrayList(ScopeProblem) = .empty;
         const own_resolved = try resolveFitLines(io, arena, root, lines, &own_fonts, &own_problems);
+        var missing: std.AutoArrayHashMapUnmanaged(u16, void) = .empty;
         var boxed: usize = 0;
         var tooltips: usize = 0;
         var scrolls: usize = 0;
@@ -2175,12 +2176,19 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
                     .tooltip => is_tooltip = true,
                     .box, .area => is_boxed = true,
                 }
+                // The translation in its mod's font; the English original in the game's own bitmap font,
+                // so fit-base only excuses a text no worse than what shipped in 2003.
                 const font = own_fonts.get(room.font);
+                const shipped = fonts.get(room.font);
+                for (units) |unit| {
+                    if (unit == 0xfeff or unit == ' ' or unit == '\r' or unit == '\n' or unit == '\t') continue;
+                    if (font.chars.get(unit) == null) try missing.put(arena, unit, {});
+                }
                 const mine = try measureText(arena, &scratch, font, units, room.width);
-                const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, font, original, room.width) else null;
+                const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, shipped, original, room.width) else null;
                 const too_tall = fitNeeds(font, mine.lines) > room.height;
                 const too_wide = mine.word.width > room.width;
-                const english_tall = if (theirs) |t| fitNeeds(font, t.lines) > room.height else false;
+                const english_tall = if (theirs) |t| fitNeeds(shipped, t.lines) > room.height else false;
                 const english_wide = if (theirs) |t| t.word.width > room.width else false;
                 if (english_tall or english_wide) overflowed = true;
                 if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
@@ -2196,6 +2204,8 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
             if (overflowed) base_overflow += 1;
         }
         try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)", .{ language.code, boxed, tooltips, scrolls, base_overflow }));
+        // The glyph rule guards coverage against the face; a gap here means the fonts predate the overlay.
+        if (missing.count() != 0) try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} characters are missing from the mod's fonts and were measured as a space; rebuild them with zig build language-mods -Dlm-langs={s}", .{ language.code, missing.count(), language.code }));
     }
 }
 
