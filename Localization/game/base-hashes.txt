@@ -3067,3 +3067,11 @@ same-as-base pt-BR textes/ui/intermission/ok
 same-as-base pt-BR textes/ui/intermission/warehouse/button_encyclopedia
 same-as-base pt-BR textes/ui/settings/button_savesettings
 same-as-base pt-BR textes/ui/intermission/multiplayer/chat/player_relation
+same-as-base pt-BR scenarios/scenariomissions/allies/tobruk/header
+same-as-base pt-BR scenarios/scenariomissions/german/barbarossa/header
+same-as-base pt-BR scenarios/scenariomissions/german/barbarossa/subheader
+same-as-base pt-BR scenarios/scenariomissions/german/kharkov42/header
+same-as-base pt-BR scenarios/scenariomissions/german/kharkov42/subheader
+same-as-base pt-BR scenarios/scenariomissions/german/kharkov43/header
+same-as-base pt-BR scenarios/scenariomissions/german/kharkov43/subheader
+same-as-base pt-BR scenarios/scenariomissions/ussr/kursk/header
