@@ -1226,8 +1226,8 @@ pub fn build(b: *std.Build) void {
     setLeakReportStrict(platform_system_run);
     platform_system_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     platform_system_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    addPathDir(platform_system_run, rootPath(b, if (platform == .windows_x64) "zig-out/bin" else "zig-out/lib"));
-    if (platform != .windows_x64) platform_system_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    addPathDir(platform_system_run, rootPath(b, if (build_support.isWindows(platform)) "zig-out/bin" else "zig-out/lib"));
+    if (!build_support.isWindows(platform)) platform_system_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const platform_system_step = b.step("test-platform-system", "Run portable system facade tests");
     platform_system_step.dependOn(&platform_system_test.step);
     if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
