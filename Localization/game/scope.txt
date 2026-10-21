@@ -38,3 +38,7 @@ prefix id units/technics/common
 prefix id units/technics/german
 prefix id units/technics/ussr
 prefix id scenarios/chapters
+prefix id scenarios/scenariomissions
+prefix id scenarios/descriptions
+prefix id scenarios/tutorials
+prefix id scenarios/campaigns

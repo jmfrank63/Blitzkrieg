@@ -3123,3 +3123,17 @@ same-as-base id medals/allies/gmedal/name
 same-as-base id textes/ui/intermission/multiplayer/chat/player_relation
 same-as-base id scenarios/chapters/german/kharkov42/header
 same-as-base id scenarios/chapters/german/kharkov43/header
+same-as-base id scenarios/scenariomissions/allies/tobruk/header
+same-as-base id scenarios/scenariomissions/allies/tunis/header
+same-as-base id scenarios/scenariomissions/german/ardennes/header
+same-as-base id scenarios/scenariomissions/german/ardennes/subheader
+same-as-base id scenarios/scenariomissions/german/barbarossa/header
+same-as-base id scenarios/scenariomissions/german/barbarossa/subheader
+same-as-base id scenarios/scenariomissions/german/kharkov42/header
+same-as-base id scenarios/scenariomissions/german/kharkov42/subheader
+same-as-base id scenarios/scenariomissions/german/kharkov43/header
+same-as-base id scenarios/scenariomissions/german/kharkov43/subheader
+same-as-base id scenarios/scenariomissions/ussr/kursk/header
+same-as-base id scenarios/scenariomissions/ussr/leningrad/header
+same-as-base id scenarios/scenariomissions/ussr/rumania/header
+same-as-base id scenarios/scenariomissions/ussr/stalingrad/header
