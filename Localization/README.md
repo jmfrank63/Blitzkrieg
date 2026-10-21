@@ -228,8 +228,8 @@ finding, and an overlay text outside the language's scope is `extra` (the detail
 it). The run prints one `l10n-check: scope: <code>: <seed | seed + prefixes ... | whole-database>, <n> keys checked`
 note per language.
 
-Progress per language (M003 S01): `de` is `whole-database`, all 2,852 texts translated and passing every rule (completeness,
-placeholders, glyphs, glossary terms and fit). Every other language is seed-only (25 keys) until its own slice widens the scope.
+Progress per language (M003 S01, S02): `de` and `fr` are `whole-database`, all 2,852 texts translated and passing every rule (completeness,
+placeholders, glyphs, glossary terms and fit); both are machine translations not reviewed by a native speaker. Every other language is seed-only (25 keys) until its own slice widens the scope.
 
 `Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per `.elk` original (and per
 seed key without one), because an overlay `.xml` cannot record which English text it was made from; a language

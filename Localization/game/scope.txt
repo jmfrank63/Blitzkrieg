@@ -26,16 +26,4 @@ textes/strings/missiontext
 textes/strings/missiontypetext
 textes/strings/scenariomission
 whole-database de
-prefix fr textes
-prefix fr buildings
-prefix fr medals
-prefix fr units/humans
-prefix fr units/technics/allies
-prefix fr units/technics/common
-prefix fr units/technics/german
-prefix fr units/technics/ussr
-prefix fr scenarios/chapters
-prefix fr scenarios/scenariomissions
-prefix fr scenarios/descriptions
-prefix fr scenarios/tutorials
-prefix fr scenarios/campaigns
+whole-database fr
