@@ -33,3 +33,4 @@ prefix de units/technics/allies
 prefix de units/technics/common
 prefix de units/technics/german
 prefix de units/technics/ussr
+prefix de scenarios/chapters
