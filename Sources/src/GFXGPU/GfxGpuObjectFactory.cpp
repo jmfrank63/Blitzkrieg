@@ -80,6 +80,39 @@ static void LogFontMetrics( const std::string &name, const char *engine, const S
         format.metrics.nHeight, format.metrics.nAscent, format.metrics.nDescent, format.metrics.nExternalLeading, format.GetLineSpace() );
 }
 
+// The most the glyphs of a probe text rise above the baseline and sink below it. The probe holds
+// the tall letters of Latin plus those of the context's script; a glyph the atlas cannot take is
+// left out (the metrics then stay the face's own).
+static void MeasureInkEnvelope( BkTextFont *font, float &up, float &down )
+{
+    static const uint16_t latin[] = { 'H', 'g', 'j', 'p', 'q', 'y', '|', '[', ']', '(', ')', '{', '}', 0xc0, 0xc5, 0xc9, 0xd6, 0xdc, 0xc7, 0xdf, 0 };
+    // The Devanagari block, each code point after its own consonant, so a mark has a base to sit on.
+    static const std::vector<uint16_t> devanagari = []{ std::vector<uint16_t> block; for ( uint16_t c = 0x901; c != 0x980; ++c ) { block.push_back( 0x915 ); block.push_back( c ); } block.push_back( 0 ); return block; }();
+    static const uint16_t cjk[] = { 0x6f22, 0x5b57, 0x3042, 0x3068, 0x300c, 0x300d, 0xd840, 0xdc00, 0 };
+    const std::string &language = NBkTextBridge::Language();
+    const uint16_t *probes[2] = { latin, nullptr };
+    if ( language == "hi" ) probes[1] = devanagari.data();
+    else if ( language == "ja" || language == "zh" || language == "ko" ) probes[1] = cjk;
+    for ( int probe = 0; probe != 2; ++probe )
+    {
+        if ( probes[probe] == nullptr ) continue;
+        uint32_t length = 0;
+        while ( probes[probe][length] ) ++length;
+        std::vector<BkTextGlyph> glyphs( length * 2 + 8 );
+        uint32_t count = 0;
+        if ( bk_text_shape_utf16( font, probes[probe], length, glyphs.data(), uint32_t( glyphs.size() ), &count ) != BK_TEXT_OK ) continue;
+        for ( uint32_t i = 0; i != count; ++i )
+        {
+            BkTextAtlasGlyph atlas = {};
+            if ( bk_text_atlas_glyph( font, glyphs[i].glyph_key, &atlas ) != BK_TEXT_OK || atlas.rect.w == 0 || atlas.rect.h == 0 ) continue;
+            const float top = glyphs[i].y_offset + float( atlas.bearing_y );
+            const float bottom = float( atlas.rect.h ) - float( atlas.bearing_y ) - glyphs[i].y_offset;
+            if ( top > up ) up = top;
+            if ( bottom > down ) down = bottom;
+        }
+    }
+}
+
 bool FontGpu::OpenTtf()
 {
     BkTextContext *context = NBkTextBridge::Context();
@@ -102,11 +135,19 @@ bool FontGpu::OpenTtf()
     format_ = SFontFormat();
     format_.szFaceName = "bk_text";
     const int nLineSpace = int( metrics.line_space );
-    const int nBody = int( metrics.ascent + metrics.descent + 0.5f );
-    format_.metrics.nHeight = nBody < nLineSpace ? nBody : nLineSpace;
-    format_.metrics.nExternalLeading = nLineSpace - format_.metrics.nHeight;
-    format_.metrics.nAscent = int( metrics.ascent + 0.5f );
-    format_.metrics.nDescent = int( metrics.descent + 0.5f );
+    // GetHeight is exactly GetAscent + GetDescent (callers add the two); the line space never
+    // drops below it.
+    // The face's own ascent and descent, widened to the ink of tall glyphs of the language (marks,
+    // accents, brackets, CJK): ink above the top of the line is cut by the text rectangle, and ink
+    // below GetHeight overlaps the next line.
+    float ink_up = metrics.ascent, ink_down = metrics.descent;
+    MeasureInkEnvelope( font, ink_up, ink_down );
+    format_.metrics.nAscent = int( ink_up + 0.5f );
+    format_.metrics.nDescent = int( ink_down + 0.5f );
+    if ( float( format_.metrics.nAscent ) < ink_up ) ++format_.metrics.nAscent;
+    if ( float( format_.metrics.nDescent ) < ink_down ) ++format_.metrics.nDescent;
+    format_.metrics.nHeight = format_.metrics.nAscent + format_.metrics.nDescent;
+    format_.metrics.nExternalLeading = nLineSpace > format_.metrics.nHeight ? nLineSpace - format_.metrics.nHeight : 0;
     format_.metrics.nInternalLeading = 0;
     format_.metrics.nAveCharWidth = int( TtfPixelSize( eClass ) * 0.5f );
     format_.metrics.nMaxCharWidth = int( TtfPixelSize( eClass ) );
@@ -314,9 +355,17 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
         if ( atlas.rect.w != 0 && atlas.rect.h != 0 )
         {
             const float left = std::floor( pen + ( glyph.x_offset + float( atlas.bearing_x ) ) * scale + 0.5f );
-            const float top = std::floor( baseline - ( glyph.y_offset + float( atlas.bearing_y ) ) * scale + 0.5f );
+            float top = std::floor( baseline - ( glyph.y_offset + float( atlas.bearing_y ) ) * scale + 0.5f );
             const float quad_w = float( atlas.rect.w ) * scale;
             const float quad_h = float( atlas.rect.h ) * scale;
+            // Snapping to a whole pixel may move the ink half a pixel out of the line, which is
+            // GetHeight * scale tall: pull it back in, so ink never leaves what GetHeight reports.
+            const float line_height = float( format_.metrics.nHeight ) * scale;
+            if ( quad_h <= line_height )
+            {
+                if ( top < y ) top = y;
+                else if ( top + quad_h > y + line_height ) top = y + line_height - quad_h;
+            }
             // Cut against the text rectangle and carry the texture coordinates, as the bitmap path does.
             float top_fraction = 0.0f;
             float bottom_fraction = 1.0f;
@@ -578,11 +627,15 @@ void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wr
         while ( text[length] ) ++length;
         std::vector<BkTextLine> wrapped( length + 2 );
         uint32_t count = 0;
-        BkTextResult result = bk_text_wrap_utf16( font->TtfFont(), text, uint32_t( length ), wrap_width / scale, wrapped.data(), uint32_t( wrapped.size() ), &count );
+        // GetWidth reports int( width * scale ) while bk_text fits a run by its rounded-up width,
+        // so a text wrapped to its own GetWidth came out in two lines. Everything GetWidth calls
+        // fitting must fit: the limit is the next whole pixel, rounded up in unscaled units.
+        const float limit = wrap_width > 0.0f ? std::ceil( ( std::floor( wrap_width ) + 1.0f ) / scale ) : wrap_width / scale;
+        BkTextResult result = bk_text_wrap_utf16( font->TtfFont(), text, uint32_t( length ), limit, wrapped.data(), uint32_t( wrapped.size() ), &count );
         if ( result == BK_TEXT_BUFFER_TOO_SMALL )
         {
             wrapped.resize( count );
-            result = bk_text_wrap_utf16( font->TtfFont(), text, uint32_t( length ), wrap_width / scale, wrapped.data(), uint32_t( wrapped.size() ), &count );
+            result = bk_text_wrap_utf16( font->TtfFont(), text, uint32_t( length ), limit, wrapped.data(), uint32_t( wrapped.size() ), &count );
         }
         if ( result != BK_TEXT_OK ) count = 0;
         for ( uint32_t i = 0; i < count; ++i ) lines.push_back( std::make_pair( size_t( wrapped[i].start ), size_t( wrapped[i].end ) ) );

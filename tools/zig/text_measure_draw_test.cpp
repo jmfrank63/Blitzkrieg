@@ -368,7 +368,9 @@ void RunSample( Harness &h, Where where, const Sample &sample, float scale )
             h.DrawText( value, scale, word_width );
             IGFXTextGpuFontProvider *provider = dynamic_cast<IGFXTextGpuFontProvider *>( h.text );
             const std::vector<std::pair<size_t, size_t> > &lines = provider->WrappedLines();
-            Expect( where, "wrapped to the first word's GetWidth: line count", double( lines.size() ), 2 );
+            // The second word is not narrower than the first in general, so it may break again: at
+            // least two lines, the first ending at the word.
+            ExpectAtLeast( where, "wrapped to the first word's GetWidth: line count", double( lines.size() ), 2.0 );
             if ( !lines.empty() ) Expect( where, "wrapped to the first word's GetWidth: first line ends at the word", double( lines[0].second ), double( space ) );
         }
     }

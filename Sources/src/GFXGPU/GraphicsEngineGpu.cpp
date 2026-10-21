@@ -1500,7 +1500,8 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     if ( font && font->IsTtf() )
     {
         const std::vector<std::pair<size_t, size_t> > &lines = font_provider->WrappedLines();
-        const float line_step = static_cast<float>( font->GetLineSpace() ) * scale;
+        // The whole-pixel step TextGpu::GetLineSpace reports: lists reserve rows from it.
+        const float line_step = static_cast<float>( static_cast<int>( static_cast<float>( font->GetLineSpace() ) * scale ) );
         const float clip_top = static_cast<float>( rect.top );
         const float clip_bottom = static_cast<float>( rect.bottom );
         int status = FontGpu::kTtfRetry;
