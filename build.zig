@@ -4027,7 +4027,7 @@ pub fn build(b: *std.Build) void {
     text_engine_plain_run.setEnvironmentVariable("BK_LM_PLAIN", "1");
     text_engine_plain_run.has_side_effects = true;
     text_engine_plain_run.step.dependOn(&text_engine_mods_run.step);
-    const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game with BK_TEXT_ENGINE=ttf on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu and the first mission's briefing and measure them (hb-view for hi), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path (M004 S02)");
+    const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game with BK_TEXT_ENGINE=ttf on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu, the first mission's briefing, the options screen with a tooltip, a unit's encyclopedia page and the first mission running, and measure them (hb-view for hi on the menu and briefing), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path (M004 S02)");
     var text_engine_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "de", "hi" }) |code| {
         const shard_step = b.step(b.fmt("text-engine-game-reads-it-{s}", .{code}), b.fmt("text-engine-game-reads-it for {s} alone, report in zig-out/local-test/text-engine-game-reads-it/{s}/report.txt (M004 S02)", .{ code, code }));

@@ -19,11 +19,18 @@
 //!   reference): the normalised correlation clears a threshold, the label's own reference beats
 //!   every other label's by a margin and the proportions agree (D066, D094; a missing hb-view
 //!   fails, D069).
+//! - all three: the same capture of three more frames on the same blank background: the options screen
+//!   with the restore-defaults button's tooltip, the Churchill's encyclopedia page (title, two panel
+//!   headers and the description) and the first mission running (the objective popup's title and
+//!   text, and the chat line that announces the objective). Each label's box holds ink, wide enough,
+//!   with no solid missing-glyph box; the options and encyclopedia texts the language's overlay does
+//!   not translate are English, so there is no hb-view reference for them. Each measure is a line of
+//!   `report.txt` with the box, the ink count and the thresholds.
 //! - en only, once: a save written on the default (bitmap) path in the first Allied mission loads
 //!   under BK_TEXT_ENGINE=ttf: the load completes, and the frame after it holds the load's green
 //!   chat line as ink, which the frame before it does not.
 //!
-//! Frames (`menu.tga`, `briefing.tga`, `saved.tga`, `loaded.tga`) and `report.txt` are kept in
+//! Frames (`menu.tga`, `briefing.tga`, `options.tga`, `encyclopedia.tga`, `mission.tga`, `saved.tga`, `loaded.tga`) and `report.txt` are kept in
 //! `zig-out/local-test/text-engine-game-reads-it/<code>/`. The user's data is never touched:
 //! XDG_DATA_HOME and BK_USER_ROOT are the scratch folder. A profile keeps its saves under the
 //! Game's own folder, so the save proof uses a profile of its own and removes it. BK_TEXT_ENGINE_GAME
@@ -107,6 +114,9 @@ const Label = struct {
     dir: []const u8 = "textes/strings",
     /// Text of the small font: compared after smoothing both images.
     small: bool = false,
+    /// The text is a tooltip: a box framed in the tooltip yellow whose size follows the text, so only
+    /// the ink inside the frame counts (`inkImage`), `rect` being where it may hang.
+    boxed: bool = false,
 
     /// The path the Game traces when it opens the text, as the mod's pak names it.
     fn tracedPath(self: Label, allocator: std.mem.Allocator) ![]u8 {
@@ -165,6 +175,73 @@ const load_schedule = "50:shot,60:cmdc=" ++ load_command ++ "=" ++ save_name ++ 
 const chat_box = Rect{ .x1 = 0, .y1 = 78, .x2 = 500, .y2 = 126 };
 const min_chat_pixels: usize = 400;
 const max_control_pixels: usize = 100;
+
+/// One more screen: what the schedule does, the frame it must reach and the labels measured on it.
+const Route = struct {
+    tag: []const u8,
+    schedule: []const u8,
+    delay: u32,
+    /// The log lines that show the schedule's last action and the screen reaching the display.
+    action: []const u8,
+    screen: []const u8,
+    labels: []const Label,
+    /// A wrapped text, only checked for ink.
+    body: ?Label = null,
+};
+
+/// The settings screen with the cursor parked on its restore-defaults button (l10n_game_reads_it.zig
+/// has the reasoning): the hover comes after X64.ReferenceScene is lifted and the tooltip's dwell has
+/// passed. The tooltip hangs below the cursor, so its box is the strip where it may be; the caption
+/// holds the profile's name and is measured for ink only.
+const options_dir = "textes/ui/optionssettings";
+const options_labels = [_]Label{
+    .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 } },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 700, .x2 = 1020, .y2 = 768 }, .ink = .bright, .boxed = true },
+};
+const options_route = Route{
+    .tag = "options",
+    .schedule = "60:settings,100:msg=10003,110:var=X64.ReferenceScene=0,400:hover=100x710",
+    .delay = 540,
+    .action = "BK_AUTO_UI: frame 400 action hover=100x710",
+    .screen = "BK_UI_TRACE: reposition \"ui\\OptionsSettings\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &options_labels,
+};
+
+/// The Allied Churchill's encyclopedia page: MISSION_COMMAND_ENCYCLOPEDIA (269353109) with the
+/// configuration `<E_UNIT>;<RPG stats name>` the total encyclopedia sends when a unit is chosen. The
+/// title is the unit's `name`, the description its `desc` in the left panel.
+const unit_dir = "units/technics/allies/tanks/infantry_mkiv_churchill_gb";
+const encyclopedia_labels = [_]Label{
+    .{ .key = "name", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 900, .y2 = 95 } },
+    .{ .key = "imheader-encyclopedia-desc", .rect = .{ .x1 = 40, .y1 = 150, .x2 = 440, .y2 = 178 }, .ink = .bright, .small = true },
+    .{ .key = "imheader-encyclopedia-picture", .rect = .{ .x1 = 540, .y1 = 150, .x2 = 980, .y2 = 178 }, .ink = .bright, .small = true },
+};
+const encyclopedia_route = Route{
+    .tag = "encyclopedia",
+    .schedule = "60:cmdc=269353109=1;Infantry_MKIV_Churchill_GB",
+    .delay = 150,
+    .action = "BK_AUTO_UI: frame 60 action cmdc=269353109=1;Infantry_MKIV_Churchill_GB",
+    .screen = "BK_UI_TRACE: reposition \"ui\\encyclopedia\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &encyclopedia_labels,
+    .body = .{ .key = "desc", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 195, .x2 = 440, .y2 = 630 }, .ink = .dark },
+};
+const routes = [_]Route{ options_route, encyclopedia_route };
+
+/// The first mission some seconds in (the save proof's frame at 900): the objective's popup in the
+/// top right with its title bar and its text, and the chat line that announces the objective at the
+/// top left, over terrain. The scene is the same in every language, so the blank run's frame cancels
+/// all but the text.
+const mission_labels = [_]Label{
+    .{ .key = "popup title", .rect = .{ .x1 = 685, .y1 = 6, .x2 = 970, .y2 = 32 }, .ink = .bright },
+    .{ .key = "popup text", .rect = .{ .x1 = 650, .y1 = 42, .x2 = 960, .y2 = 90 }, .ink = .bright },
+    .{ .key = "objective chat line", .rect = .{ .x1 = 0, .y1 = 34, .x2 = 640, .y2 = 68 }, .ink = .bright },
+};
+const mission_schedule = briefing_schedule ++ ",420:ok,900:shot,960:exit";
+const mission_shot: u32 = 900;
+
+/// A route's label holds at least this much ink (pixels above `ink_threshold`): the small font's
+/// panel headers are the lightest of them.
+const min_route_ink_pixels: usize = 60;
 
 const Language = struct {
     code: []const u8,
@@ -265,6 +342,25 @@ test "the Game draws and measures its text through bk_text under BK_TEXT_ENGINE=
         const box = measure.inkBox(body, ink_threshold);
         try report.check(box != null and box.?.width() >= min_body_width, "{s} briefing description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, if (box) |b| b.width() else 0, min_body_width });
 
+        // The options screen with its tooltip, the unit's encyclopedia page and the mission in progress.
+        for (routes) |route| {
+            const background = try blank_run.route(allocator, route);
+            const frame = try run.route(allocator, route);
+            try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, try std.fmt.allocPrint(allocator, "{s}.tga", .{route.tag}) }), frame);
+            try report.line("-- {s} {s}", .{ language.code, route.tag });
+            try checkInk(allocator, language, frame, background, route.labels, &report);
+            if (route.body) |body_label| {
+                const body_ink = try inkImage(allocator, frame, background, body_label);
+                const body_box = measure.inkBox(body_ink, ink_threshold);
+                try report.check(body_box != null and body_box.?.width() >= min_body_width, "{s} {s} {s}: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, route.tag, body_label.key, if (body_box) |b| b.width() else 0, min_body_width });
+            }
+        }
+        const mission_background = try blank_run.mission(allocator);
+        const mission_frame = try run.mission(allocator);
+        try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "mission.tga" }), mission_frame);
+        try report.line("-- {s} mission in progress", .{language.code});
+        try checkInk(allocator, language, mission_frame, mission_background, &mission_labels, &report);
+
         if (language.mod == null) try saveProof(io, allocator, game, game_root, root, &report);
 
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, language.code, "report.txt" }), .data = report.lines.items });
@@ -342,8 +438,30 @@ fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const
         };
         pixels[y * rect.width() + x] = @intCast(std.math.clamp(added, 0, 255));
     };
+    if (label.boxed) {
+        // The frame: the bounding box of the tooltip yellow in the rectangle (frame and text are drawn
+        // in it); inside its border, the text.
+        var frame_box = Rect{ .x1 = rect.width(), .y1 = rect.height(), .x2 = 0, .y2 = 0 };
+        for (0..rect.height()) |y| for (0..rect.width()) |x| {
+            const rgb = frame[((rect.y1 + y) * width + rect.x1 + x) * 4 ..][0..3];
+            if (!isTooltipYellow(rgb)) continue;
+            frame_box = .{ .x1 = @min(frame_box.x1, x), .y1 = @min(frame_box.y1, y), .x2 = @max(frame_box.x2, x + 1), .y2 = @max(frame_box.y2, y + 1) };
+        };
+        for (0..rect.height()) |y| for (0..rect.width()) |x| {
+            const inside = x >= frame_box.x1 + tooltip_border and x + tooltip_border < frame_box.x2 and y >= frame_box.y1 + tooltip_border and y + tooltip_border < frame_box.y2;
+            if (!inside) pixels[y * rect.width() + x] = 0;
+        };
+    }
     return .{ .width = rect.width(), .height = rect.height(), .pixels = pixels };
 }
+
+/// The tooltip's frame and text colour, about (205, 205, 0); the gold of the buttons has less green
+/// and more blue.
+fn isTooltipYellow(rgb: []const u8) bool {
+    return rgb[0] > 180 and rgb[1] > 180 and rgb[2] < 40 and @abs(@as(i32, rgb[0]) - rgb[1]) < 24;
+}
+/// The tooltip frame's line width, with a pixel to spare.
+const tooltip_border: usize = 3;
 
 /// The overlay's text for `key` as UTF-8.
 fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
@@ -419,6 +537,22 @@ fn checkSet(io: std.Io, allocator: std.mem.Allocator, language: Language, folder
         try report.check(own.correlation >= floor, "{s} {s} \"{s}\": correlation {d:.3} with hb-view (minimum {d:.2}), ink {d}x{d}", .{ language.code, label.key, texts[index], own.correlation, floor, ink.width, ink.height });
         try report.check(own.correlation - best_other >= margin, "{s} {s}: own reference beats the best other by {d:.3} (minimum {d:.2})", .{ language.code, label.key, own.correlation - best_other, margin });
         try report.check(@abs(own.aspect - 1) <= aspect_error, "{s} {s}: width to height is {d:.3} of the reference's (within {d:.2})", .{ language.code, label.key, own.aspect, aspect_error });
+    }
+}
+
+/// Ink inside each label's box, wide enough, no solid missing-glyph box, and, per label, a report
+/// line with the box, the ink count and the thresholds. The routes' texts are English where the
+/// language's overlay does not cover them, so there is no per-language reference here.
+fn checkInk(allocator: std.mem.Allocator, language: Language, frame: []const u8, background: []const u8, set: []const Label, report: *Report) !void {
+    for (set) |label| {
+        const full = try inkImage(allocator, frame, background, label);
+        var lit: usize = 0;
+        for (full.pixels) |p| lit += @intFromBool(p > ink_threshold);
+        const box = measure.inkBox(full, if (label.small and label.ink == .bright) small_box_threshold else ink_threshold);
+        const box_width = if (box) |b| b.width() else 0;
+        const wanted = if (label.small) min_route_ink_pixels else min_ink_pixels;
+        try report.check(lit >= wanted and box_width >= min_ink_width, "{s} {s}: {d} ink pixels, ink {d} pixels wide in the box {d},{d} to {d},{d} (at least {d} and {d})", .{ language.code, label.key, lit, box_width, label.rect.x1, label.rect.y1, label.rect.x2, label.rect.y2, wanted, min_ink_width });
+        try report.check(!measure.hasSolidBox(full, ink_threshold, solid_w, solid_h, solid_fill), "{s} {s}: no missing-glyph box ({d}x{d} window, {d:.0}% lit) in the label", .{ language.code, label.key, solid_w, solid_h, solid_fill * 100 });
     }
 }
 
@@ -529,6 +663,29 @@ const Run = struct {
             }
         }
         return self.frame(allocator, "briefing");
+    }
+
+    /// A route's capture. The log must show the schedule's last action and the screen's reposition (a
+    /// failure names the BK_AUTO_UI step it reached).
+    fn route(self: Run, allocator: std.mem.Allocator, one: Route) ![]u8 {
+        const log = try self.scene(allocator, one.schedule, one.delay, one.tag);
+        for ([_][]const u8{ one.action, one.screen }) |line| expectLine(log, self.folder, line) catch |err| {
+            var lines = std.mem.splitScalar(u8, log, '\n');
+            while (lines.next()) |text| {
+                if (std.mem.indexOf(u8, text, "BK_AUTO_UI: frame") != null and std.mem.indexOf(u8, text, " action ") != null) std.debug.print("{s}: reached {s}\n", .{ self.name, text });
+            }
+            return err;
+        };
+        return self.frame(allocator, one.tag);
+    }
+
+    /// The first mission running: the briefing's `ok` starts it and the `shot` action at frame
+    /// `mission_shot` writes the frame. Windowed at 1024x768 like the save proof, which runs the same
+    /// schedule.
+    fn mission(self: Run, allocator: std.mem.Allocator) ![]u8 {
+        const log = try self.play(allocator, &.{ "-windowed", "-mode=1024x768", self.profile }, mission_schedule, null, "mission");
+        try expectLine(log, self.folder, "BK_AUTO_UI: frame 420 action ok");
+        return self.shot(allocator, mission_shot);
     }
 
     /// One run of the Game to its `-reference-scene` capture, `<tag>.rgba`.
