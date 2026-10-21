@@ -28,16 +28,4 @@ textes/strings/scenariomission
 whole-database de
 whole-database fr
 whole-database es
-prefix pt-BR textes
-prefix pt-BR buildings
-prefix pt-BR medals
-prefix pt-BR units/humans
-prefix pt-BR units/technics/allies
-prefix pt-BR units/technics/common
-prefix pt-BR units/technics/german
-prefix pt-BR units/technics/ussr
-prefix pt-BR scenarios/chapters
-prefix pt-BR scenarios/scenariomissions
-prefix pt-BR scenarios/descriptions
-prefix pt-BR scenarios/tutorials
-prefix pt-BR scenarios/campaigns
+whole-database pt-BR
