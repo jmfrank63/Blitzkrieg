@@ -28,7 +28,7 @@ fn isCjk(c: u16) bool {
 /// Characters that must not start a line: closing brackets, stops, the prolonged sound mark,
 /// iteration marks, the two-dot and three-dot leaders, the katakana double hyphen, the
 /// fullwidth wave dash and the small kana.
-fn isNoStart(c: u16) bool {
+pub fn isNoStart(c: u16) bool {
     switch (c) {
         0x3001, 0x3002, 0x3005, 0x3009, 0x300B, 0x300D, 0x300F, 0x3011, 0x3015 => return true,
         0x301C, 0x30FB, 0x30FC, 0x30FD, 0x30FE, 0x309B, 0x309C, 0x309D, 0x309E => return true,
@@ -43,7 +43,7 @@ fn isNoStart(c: u16) bool {
 }
 
 /// Characters that must not end a line: opening brackets.
-fn isNoEnd(c: u16) bool {
+pub fn isNoEnd(c: u16) bool {
     return switch (c) {
         0x3008, 0x300A, 0x300C, 0x300E, 0x3010, 0x3014, 0xFF08, 0xFF3B, 0xFF5B => true,
         else => false,

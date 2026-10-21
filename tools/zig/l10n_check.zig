@@ -88,8 +88,10 @@
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
 const cmap = @import("l10n_cmap.zig");
-const font_file = @import("l10n_font.zig");
-const wrap = @import("l10n_wrap.zig");
+/// The game font reader and wrap, public for the l10n-game-reads-it tier, which predicts the lines of a
+/// captured text with them.
+pub const font_file = @import("l10n_font.zig");
+pub const wrap = @import("l10n_wrap.zig");
 
 pub const Finding = struct {
     rule: []const u8,
