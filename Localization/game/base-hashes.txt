@@ -2972,3 +2972,4 @@ same-as-base fr buildings/europe/summer/e_statue/01/name
 same-as-base fr buildings/europe/summer/e_statue/02/name
 same-as-base fr buildings/europe/summer/e_statue/04/name
 same-as-base fr units/technics/allies/trains/train_allies/name
+same-as-base fr units/technics/german/trains/train_german/name
