@@ -2974,3 +2974,17 @@ same-as-base fr buildings/europe/summer/e_statue/04/name
 same-as-base fr units/technics/allies/trains/train_allies/name
 same-as-base fr units/technics/german/trains/train_german/name
 same-as-base fr units/technics/ussr/trains/train_ussr/name
+same-as-base fr scenarios/scenariomissions/allies/france/header
+same-as-base fr scenarios/scenariomissions/allies/tunis/header
+same-as-base fr scenarios/scenariomissions/german/ardennes/header
+same-as-base fr scenarios/scenariomissions/german/barbarossa/header
+same-as-base fr scenarios/scenariomissions/german/france/header
+same-as-base fr scenarios/scenariomissions/german/kharkov42/header
+same-as-base fr scenarios/scenariomissions/german/kharkov43/header
+same-as-base fr scenarios/scenariomissions/german/ardennes/subheader
+same-as-base fr scenarios/scenariomissions/german/barbarossa/subheader
+same-as-base fr scenarios/scenariomissions/german/kharkov42/subheader
+same-as-base fr scenarios/scenariomissions/german/kharkov43/subheader
+same-as-base fr scenarios/scenariomissions/ussr/leningrad/header
+same-as-base fr scenarios/scenariomissions/ussr/stalingrad/header
+same-as-base fr scenarios/scenariomissions/ussr/ukraine/header
