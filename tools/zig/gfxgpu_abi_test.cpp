@@ -17,6 +17,20 @@ int main()
     if ( api.set_overlay == nullptr || api.get_gpu_device == nullptr || api.set_frame_capture == nullptr ) return 40;
     if ( api.set_overlay( nullptr, nullptr, nullptr ) != GFXGPU_INVALID_HANDLE ) return 41;
 
+    // The region upload is the last entry appended; a caller that predates it keeps the shorter table.
+    if ( api.upload_texture_region == nullptr ) return 42;
+    if ( api.upload_texture_region( nullptr, 1, nullptr ) != GFXGPU_INVALID_HANDLE ) return 43;
+    if ( GFXGPU_PIXEL_FORMAT_R8 != 33u ) return 44;
+    {
+        const size_t nBeforeRegion = offsetof( GfxGpuApi, upload_texture_region );
+        if ( nBeforeRegion + sizeof( void * ) != sizeof( GfxGpuApi ) ) return 45;
+        GfxGpuApi older{};
+        std::memset( &older, 0xAA, sizeof( older ) );
+        older.struct_size = static_cast<uint32_t>( nBeforeRegion );
+        if ( gfxgpu_get_api( GFXGPU_ABI_VERSION, &older ) != GFXGPU_OK || older.struct_size != nBeforeRegion ) return 46;
+        if ( older.set_frame_capture == nullptr || older.upload_texture_region != reinterpret_cast<decltype( older.upload_texture_region )>( 0xAAAAAAAAAAAAAAAAull ) ) return 47;
+    }
+
     // A caller compiled before set_present_fit and set_present_mode were
     // appended asks for the shorter table. It has to be served - that is what
     // struct_size is for - and served without a single byte landing past the

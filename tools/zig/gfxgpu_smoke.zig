@@ -200,6 +200,56 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expect(textured_probe != 0x10ff3020);
     std.debug.print("GfxGpu textured smoke: visible textured quad\n", .{});
 
+    // R8 glyph-atlas texture: two disjoint regions uploaded separately, then read back.
+    var atlas: u64 = 0;
+    var atlas_info = gpu.abi.TextureCreateInfo{ .struct_size = @sizeOf(gpu.abi.TextureCreateInfo), .width = 8, .height = 8, .mip_count = 1, .format = gpu.formats.gfx_pixel_format_r8, .usage = 1 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_texture(renderer, &atlas_info, &atlas));
+    defer _ = api.destroy_texture(renderer, atlas);
+    const zeros: [64]u8 = @splat(0);
+    var atlas_clear = gpu.abi.TextureUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureUploadInfo), .data = @ptrCast(&zeros), .byte_length = zeros.len, .row_pitch = 8, .mip_level = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture(renderer, atlas, &atlas_clear));
+    const block_a = [_]u8{ 1, 2, 3, 4, 5, 6 }; // 3 x 2 at (1, 1), tightly packed
+    const block_b = [_]u8{ 0xA0, 0xA1, 0xFF, 0xB0, 0xB1, 0xFF, 0xC0, 0xC1, 0xFF }; // 2 x 3 at (5, 4), pitch 3, last row short of a pitch
+    var region_a = gpu.abi.TextureRegionUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureRegionUploadInfo), .data = @ptrCast(&block_a), .byte_length = block_a.len, .row_pitch = 3, .mip_level = 0, .x = 1, .y = 1, .w = 3, .h = 2 };
+    var region_b = gpu.abi.TextureRegionUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureRegionUploadInfo), .data = @ptrCast(&block_b), .byte_length = block_b.len - 1, .row_pitch = 3, .mip_level = 0, .x = 5, .y = 4, .w = 2, .h = 3 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture_region(renderer, atlas, &region_a));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture_region(renderer, atlas, &region_b));
+    var atlas_texels: [64]u8 = undefined;
+    const atlas_renderer: *gpu.Renderer = @ptrCast(@alignCast(renderer.?));
+    try atlas_renderer.readbackTexture(atlas, &atlas_texels);
+    var expected_texels: [64]u8 = @splat(0);
+    for (0..2) |row| for (0..3) |column| {
+        expected_texels[(1 + row) * 8 + 1 + column] = block_a[row * 3 + column];
+    };
+    for (0..3) |row| for (0..2) |column| {
+        expected_texels[(4 + row) * 8 + 5 + column] = block_b[row * 3 + column];
+    };
+    try std.testing.expectEqualSlices(u8, &expected_texels, &atlas_texels);
+    // A rectangle past the edge, an empty one, a short buffer and a mip level are errors that name themselves.
+    var bad = region_a;
+    bad.x = 6;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    var message: [160]u8 = undefined;
+    var message_size: u32 = 0;
+    try std.testing.expectEqual(gpu.error_codes.ok, api.get_last_error(renderer, &message, message.len, &message_size));
+    try std.testing.expect(std.mem.indexOf(u8, message[0..message_size], "x=6 y=1 w=3 h=2") != null);
+    bad = region_a;
+    bad.w = 0;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    bad = region_a;
+    bad.byte_length = 5;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    bad = region_a;
+    bad.mip_level = 1;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    bad = region_a;
+    bad.x = std.math.maxInt(u32);
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas + 1000, &region_a));
+    try atlas_renderer.readbackTexture(atlas, &atlas_texels);
+    try std.testing.expectEqualSlices(u8, &expected_texels, &atlas_texels);
+    std.debug.print("GfxGpu R8 smoke: two regions read back, bad rectangles rejected\n", .{});
+
     const screen_vertices = [_]TexturedVertex{
         .{ .position = .{ 8, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 0 } },
         .{ .position = .{ 56, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 1, 0 } },

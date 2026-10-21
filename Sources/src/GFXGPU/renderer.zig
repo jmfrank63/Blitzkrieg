@@ -9,6 +9,7 @@ const sdl = @import("sdl.zig");
 const manifest = @import("shader_manifest.zig");
 const effects = @import("effects.zig");
 const formats = @import("formats.zig");
+const textures = @import("textures.zig");
 const vertex_layout = @import("vertex_layout.zig");
 
 // The stdio calls shader loading needs, declared here because 0.17 has no @cImport.
@@ -186,6 +187,8 @@ pub const Renderer = struct {
     depth_mode: u32 = 0,
     depth_compare: u32 = 0,
     last_error: []const u8 = "",
+    // Backs last_error when the text names a rectangle, which no static string can.
+    last_error_buffer: [160]u8 = undefined,
 
     pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
 
@@ -409,7 +412,7 @@ pub const Renderer = struct {
     // path before a swapchain texture is acquired, and as the layout for draws
     // whose buffer carries no FVF.
     const default_fvf: u32 = 0x004 | 0x040 | 0x080 | 0x100;
-    pub const TextureResource = struct { gpu: *sdl.GpuTexture, width: u32, height: u32 };
+    pub const TextureResource = struct { gpu: *sdl.GpuTexture, width: u32, height: u32, format: formats.PixelFormat = .bgra8 };
 
     const MatrixUniforms = extern struct { matrix: [16]f32, padding: [4]f32 };
     // `screen` is g_screen: (pre_transformed, 1/width, 1/height, 0).
@@ -833,7 +836,17 @@ pub const Renderer = struct {
         return switch (format) {
             6 => sdl.c.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
             32 => sdl.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
+            formats.gfx_pixel_format_r8 => sdl.c.SDL_GPU_TEXTUREFORMAT_R8_UNORM,
             else => null,
+        };
+    }
+
+    /// The renderer's storage format of a public texture format value, which `textureFormat` has accepted.
+    fn storedFormat(format: u32) formats.PixelFormat {
+        return switch (format) {
+            formats.gfx_pixel_format_r8 => .r8,
+            32 => .rgba8,
+            else => .bgra8,
         };
     }
 
@@ -847,22 +860,44 @@ pub const Renderer = struct {
         self.noteSubmitOutsideFrame(@ptrCast(@alignCast(device.handle.?)));
         const id = self.next_resource_handle;
         self.next_resource_handle += 1;
-        try self.textures.put(self.allocator, id, .{ .gpu = gpu, .width = width, .height = height });
+        try self.textures.put(self.allocator, id, .{ .gpu = gpu, .width = width, .height = height, .format = storedFormat(format) });
         return id;
     }
 
     pub fn uploadTexture(self: *Renderer, id: u64, data: *const anyopaque, byte_length: u32, row_pitch: u32) !void {
         const texture = self.textures.get(id) orelse return error.InvalidTexture;
-        if (row_pitch < texture.width * 4 or byte_length < row_pitch * texture.height) return error.TextureUploadOutOfBounds;
+        const bytes_per_pixel = textures.bytesPerPixel(texture.format);
+        if (row_pitch < texture.width * bytes_per_pixel or byte_length < row_pitch * texture.height) return error.TextureUploadOutOfBounds;
+        return self.uploadTextureRegion(id, data, byte_length, row_pitch, 0, .{ .x = 0, .y = 0, .w = texture.width, .h = texture.height });
+    }
+
+    /// Uploads `region` of the texture's base level. The glyph atlas grows by a few rows or one glyph
+    /// at a time, and re-sending the whole atlas for each would stall the frame. A rejected region
+    /// names the rectangle and the texture size in last_error.
+    pub fn uploadTextureRegion(self: *Renderer, id: u64, data: *const anyopaque, byte_length: u32, row_pitch: u32, mip_level: u32, region: textures.Region) !void {
+        const texture = self.textures.get(id) orelse return error.InvalidTexture;
+        const bytes_per_pixel = textures.bytesPerPixel(texture.format);
+        textures.validateRegion(texture.width, texture.height, bytes_per_pixel, region, row_pitch, byte_length) catch {
+            self.last_error = std.fmt.bufPrint(&self.last_error_buffer, "texture region x={} y={} w={} h={} pitch={} bytes={} outside {}x{} texture", .{ region.x, region.y, region.w, region.h, row_pitch, byte_length, texture.width, texture.height }) catch "texture region outside texture";
+            return error.TextureUploadOutOfBounds;
+        };
+        // The textures have one level, so a mip upload would address a level that does not exist.
+        if (mip_level != 0) {
+            self.last_error = "texture upload: only mip level 0 exists";
+            return error.TextureUploadOutOfBounds;
+        }
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
-        const transfer = sdl.createUploadBuffer(gpu_device, row_pitch * texture.height) orelse return error.TransferBufferCreateFailed;
+        const row_bytes = region.w * bytes_per_pixel;
+        const staged = row_pitch * region.h;
+        const copied = row_pitch * (region.h - 1) + row_bytes;
+        const transfer = sdl.createUploadBuffer(gpu_device, staged) orelse return error.TransferBufferCreateFailed;
         defer sdl.releaseTransferBuffer(gpu_device, transfer);
         const mapped = sdl.mapTransferBuffer(gpu_device, transfer) orelse return error.TransferBufferMapFailed;
-        @memcpy(@as([*]u8, @ptrCast(mapped))[0 .. row_pitch * texture.height], @as([*]const u8, @ptrCast(data))[0 .. row_pitch * texture.height]);
+        @memcpy(@as([*]u8, @ptrCast(mapped))[0..copied], @as([*]const u8, @ptrCast(data))[0..copied]);
         sdl.unmapTransferBuffer(gpu_device, transfer);
         const command = sdl.acquireCommandBuffer(gpu_device) orelse return error.CommandBufferFailed;
-        if (!sdl.uploadTexture(command, transfer, texture.gpu, texture.width, texture.height, row_pitch)) {
+        if (!sdl.uploadTexture(command, transfer, texture.gpu, region.x, region.y, region.w, region.h, row_pitch / bytes_per_pixel)) {
             _ = sdl.cancelCommandBuffer(command);
             return error.CopyPassFailed;
         }
@@ -1566,8 +1601,14 @@ pub const Renderer = struct {
         sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, first_index, vertex_offset);
     }
 
-    fn downloadInto(self: *Renderer, texture: *sdl.GpuTexture, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
-        if (width == 0 or height == 0 or row_pitch < width * 4 or destination.len < @as(usize, row_pitch) * height) return error.ReadbackInvalid;
+    /// Reads a whole texture back, tightly packed (the smoke test checks uploaded texels with it).
+    pub fn readbackTexture(self: *Renderer, id: u64, destination: []u8) !void {
+        const texture = self.textures.get(id) orelse return error.InvalidTexture;
+        return self.downloadInto(texture.gpu, destination, texture.width, texture.height, texture.width * textures.bytesPerPixel(texture.format), textures.bytesPerPixel(texture.format));
+    }
+
+    fn downloadInto(self: *Renderer, texture: *sdl.GpuTexture, destination: []u8, width: u32, height: u32, row_pitch: u32, bytes_per_pixel: u32) !void {
+        if (width == 0 or height == 0 or row_pitch < width * bytes_per_pixel or destination.len < @as(usize, row_pitch) * height) return error.ReadbackInvalid;
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
         const transfer = sdl.createDownloadBuffer(gpu_device, row_pitch * height) orelse return error.TransferBufferCreateFailed;
@@ -1587,7 +1628,7 @@ pub const Renderer = struct {
 
     pub fn readback(self: *Renderer, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
         const texture = self.scene_texture orelse return error.ReadbackUnavailable;
-        return self.downloadInto(texture, destination, width, height, row_pitch);
+        return self.downloadInto(texture, destination, width, height, row_pitch, 4);
     }
 
     // The last captured frame as presented: scene plus overlay, at drawable
@@ -1596,7 +1637,7 @@ pub const Renderer = struct {
         if (!self.capture_ready) return error.ReadbackUnavailable;
         const texture = self.capture_texture orelse return error.ReadbackUnavailable;
         if (width != self.capture_width or height != self.capture_height) return error.ReadbackInvalid;
-        return self.downloadInto(texture, destination, width, height, row_pitch);
+        return self.downloadInto(texture, destination, width, height, row_pitch, 4);
     }
 };
 

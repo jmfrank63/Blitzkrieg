@@ -191,10 +191,11 @@ pub fn releaseTexture(device: *GpuDevice, texture: *GpuTexture) void {
     c.SDL_ReleaseGPUTexture(device, texture);
 }
 
-pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, texture: *GpuTexture, width: u32, height: u32, row_pitch: u32) bool {
+// pixels_per_row is in texels, not bytes: the caller divides its row pitch by the texel size.
+pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, texture: *GpuTexture, x: u32, y: u32, width: u32, height: u32, pixels_per_row: u32) bool {
     const copy_pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse return false;
-    const source = c.SDL_GPUTextureTransferInfo{ .transfer_buffer = transfer, .offset = 0, .pixels_per_row = row_pitch / 4, .rows_per_layer = height };
-    const destination = c.SDL_GPUTextureRegion{ .texture = texture, .w = width, .h = height, .d = 1 };
+    const source = c.SDL_GPUTextureTransferInfo{ .transfer_buffer = transfer, .offset = 0, .pixels_per_row = pixels_per_row, .rows_per_layer = height };
+    const destination = c.SDL_GPUTextureRegion{ .texture = texture, .x = x, .y = y, .w = width, .h = height, .d = 1 };
     c.SDL_UploadToGPUTexture(copy_pass, &source, &destination, false);
     c.SDL_EndGPUCopyPass(copy_pass);
     return true;
