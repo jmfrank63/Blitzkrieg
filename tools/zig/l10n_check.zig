@@ -1918,9 +1918,16 @@ pub const FitFonts = struct {
 pub const FontProblem = struct { path: []const u8, reason: []const u8 };
 
 pub fn loadFitFonts(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, problem: *FontProblem) !FitFonts {
+    return loadFitFontsIn(io, arena, root, "Data/Fonts", problem);
+}
+
+/// The three fonts below `folder` of `root`: `<folder>/{small,medium,large}/1.tfd`. The shipped ones
+/// sit in `Data/Fonts`; language-mods writes a language's Noto fonts to `<code>/fonts` (its `fonts`
+/// folder, tools/zig/language_mods.zig), which is the `folder` of a language that has a face.
+pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, folder: []const u8, problem: *FontProblem) !FitFonts {
     var fonts: FitFonts = undefined;
     for (std.meta.tags(FitFont)) |size| {
-        const rel = try std.fmt.allocPrint(arena, "Data/Fonts/{s}/1.tfd", .{@tagName(size)});
+        const rel = try std.fmt.allocPrint(arena, "{s}/{s}/1.tfd", .{ folder, @tagName(size) });
         problem.path = rel;
         const found = (try findIgnoreCase(io, arena, root, rel)) orelse {
             problem.reason = "file is missing";
@@ -1936,6 +1943,15 @@ pub fn loadFitFonts(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, prob
         };
     }
     return fonts;
+}
+
+/// The languages with a face whose fit is measured with the font language-mods builds. S07 to S09 add
+/// zh-Hans, ja and hi here when their slices measure them.
+const measured_faces = [_][]const u8{"ru"};
+
+fn languageMeasured(code: []const u8) bool {
+    for (measured_faces) |one| if (std.mem.eql(u8, one, code)) return true;
+    return false;
 }
 
 /// A fit line with its room worked out: for a `box` line the layout element's text room, for an
@@ -2074,8 +2090,16 @@ fn wordText(arena: std.mem.Allocator, units: []const u16, word: wrap.Word) []con
 /// translation that needs no more lines and no wider a word than the original: those are counted as
 /// `fit-base` in the language's note, not reported. A text in a `scroll` family is counted, not measured.
 /// A language with a face (ru, zh-Hans, ja, hi) draws with a font language-mods builds, which has no `1.tfd`
-/// in the tree: its note says `not measured`. Without a fit map the scope is `not active`.
-pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
+/// in the tree. Only the languages in `measured_faces` are measured, with `<code>/fonts/<size>/1.tfd`
+/// below `lang_fonts` (`zig build language-mods -Dlm-langs=<code>` writes them to
+/// zig-out/local-test/language-mods); without those fonts the note says how to build them and the
+/// language is not a finding, so a clean checkout stays green. The others say `not measured`.
+/// The English original of a measured language is still measured with `Data/Fonts` (the original
+/// game's bitmap font), so `fit-base` compares the Noto-measured translation to the bitmap-measured
+/// English: the allowance only ever excuses a text no wider than what shipped in 2003.
+/// l10n-check does not depend on the language-mods step in build.zig on purpose: that step takes about
+/// a minute and takes `-Dlm-langs`, so every check would pay for it. Without a fit map the scope is `not active`.
+pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, lang_fonts: ?std.Io.Dir, lang_fonts_label: []const u8) !void {
     const arena = report.arena;
     const map_text = (try readOptional(io, arena, root, fit_map_path)) orelse {
         try report.inactive.append(arena, "fit");
@@ -2107,10 +2131,25 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     var scratch: std.ArrayList(wrap.Line) = .empty;
     var english_cache: std.StringHashMapUnmanaged(?[]const u16) = .empty;
     for (languages.languages, scopes.per_language) |language, scope| {
+        var language_fonts: ?FitFonts = null;
         if (language.face != null) {
-            try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured (font built by language-mods)", .{language.code}));
-            continue;
+            if (!languageMeasured(language.code)) {
+                try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured (font built by language-mods)", .{language.code}));
+                continue;
+            }
+            const folder = try std.fmt.allocPrint(arena, "{s}/fonts", .{language.code});
+            var language_problem: FontProblem = .{ .path = "", .reason = "" };
+            if (lang_fonts) |dir| language_fonts = loadFitFontsIn(io, arena, dir, folder, &language_problem) catch |err| switch (err) {
+                error.FontUnreadable => null,
+                else => return err,
+            };
+            if (language_fonts == null) {
+                try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured (run zig build language-mods -Dlm-langs={s})", .{ language.code, language.code }));
+                continue;
+            }
+            try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: measured with language-mods fonts ({s}/{s})", .{ language.code, lang_fonts_label, folder }));
         }
+        var missing: std.AutoArrayHashMapUnmanaged(u16, void) = .empty;
         var boxed: usize = 0;
         var tooltips: usize = 0;
         var scrolls: usize = 0;
@@ -2143,15 +2182,21 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
                     .box, .area => is_boxed = true,
                 }
                 const font = fonts.get(room.font);
-                const mine = try measureText(arena, &scratch, font, units, room.width);
+                // The translation is drawn with the language's font, the English original with the shipped one.
+                const own = if (language_fonts) |*set| set.get(room.font) else font;
+                if (language_fonts != null) for (units) |unit| {
+                    if (unit == 0xfeff or unit == ' ' or unit == '\r' or unit == '\n' or unit == '\t') continue;
+                    if (own.chars.get(unit) == null) try missing.put(arena, unit, {});
+                };
+                const mine = try measureText(arena, &scratch, own, units, room.width);
                 const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, font, original, room.width) else null;
-                const too_tall = fitNeeds(font, mine.lines) > room.height;
+                const too_tall = fitNeeds(own, mine.lines) > room.height;
                 const too_wide = mine.word.width > room.width;
                 const english_tall = if (theirs) |t| fitNeeds(font, t.lines) > room.height else false;
                 const english_wide = if (theirs) |t| t.word.width > room.width else false;
                 if (english_tall or english_wide) overflowed = true;
                 if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
-                    try report.addFmt("fit", language.code, key, "{d} lines x {d} - {d} > {d} in {s}", .{ mine.lines, font.lineSpace(), font.external_leading, @as(i64, @intFromFloat(room.height)), room.where });
+                    try report.addFmt("fit", language.code, key, "{d} lines x {d} - {d} > {d} in {s}", .{ mine.lines, own.lineSpace(), own.external_leading, @as(i64, @intFromFloat(room.height)), room.where });
                 }
                 if (too_wide and !(english_wide and mine.word.width <= theirs.?.word.width)) {
                     try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ wordText(arena, units, mine.word), @as(i64, @intFromFloat(@ceil(mine.word.width))), @as(i64, @intFromFloat(@floor(room.width))), room.where });
@@ -2163,13 +2208,18 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
             if (overflowed) base_overflow += 1;
         }
         try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)", .{ language.code, boxed, tooltips, scrolls, base_overflow }));
+        // The glyph rule guards coverage against the TTF; a gap here means the font predates the overlay.
+        if (missing.count() != 0) try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} characters are missing from the language-mods font and were measured as a space; rebuild it with zig build language-mods -Dlm-langs={s}", .{ language.code, missing.count(), language.code }));
     }
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--lang-fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
+
+/// Where `zig build language-mods` writes the fonts it builds, below the repository root.
+const language_mods_scratch = "zig-out/local-test/language-mods";
 
 pub fn main(init: std.process.Init) !void {
     var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -2182,6 +2232,7 @@ pub fn main(init: std.process.Init) !void {
     _ = iterator.skip();
     var root_path: []const u8 = ".";
     var fonts_path: ?[]const u8 = null;
+    var lang_fonts_path: ?[]const u8 = null;
     var update_base = false;
     var doc_sets: std.ArrayList([]const u8) = .empty;
     var default_docs: []const []const u8 = &document_sets;
@@ -2191,6 +2242,8 @@ pub fn main(init: std.process.Init) !void {
             root_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--fonts")) {
             fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--lang-fonts")) {
+            lang_fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--doc-set")) {
             try doc_sets.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--no-default-docs")) {
@@ -2217,7 +2270,14 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
     try checkOverlays(io, &report, root);
-    try checkFit(io, &report, root);
+    // The language-mods fonts: --lang-fonts, else BK_L10N_FONT_ROOT, else the build's scratch folder in the tree.
+    const lang_fonts_label = lang_fonts_path orelse init.environ_map.get("BK_L10N_FONT_ROOT") orelse language_mods_scratch;
+    const lang_fonts: ?std.Io.Dir = if (lang_fonts_path != null or init.environ_map.get("BK_L10N_FONT_ROOT") != null)
+        std.Io.Dir.cwd().openDir(io, lang_fonts_label, .{}) catch null
+    else
+        root.openDir(io, language_mods_scratch, .{}) catch null;
+    defer if (lang_fonts) |dir| dir.close(io);
+    try checkFit(io, &report, root, lang_fonts, lang_fonts_label);
     var fonts = if (fonts_path) |path| std.Io.Dir.cwd().openDir(io, path, .{}) else root.openDir(io, "vendor/fonts", .{});
     if (fonts) |*dir| {
         defer dir.close(io);

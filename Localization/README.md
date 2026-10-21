@@ -238,6 +238,24 @@ language, then run `zig build l10n-check-update-base` to rewrite the file. A `sa
 in the same file says that language's translation may equal the English byte for byte (a proper name); without
 it `untranslated` fires.
 
+### Rule fit for a language with a face
+
+The fit rule (`fit`, `fit-word`, `fit-unmapped`) measures a translation with the font the game draws it in.
+`de`, `fr`, `es`, `pt-BR` and `id` use the shipped bitmap font, `Data/Fonts/{small,medium,large}/1.tfd`. `ru`
+draws with the Noto Sans font that `zig build language-mods -Dlm-langs=ru` builds, whose advances differ, so
+`l10n-check` reads `<root>/ru/fonts/{small,medium,large}/1.tfd` from `zig-out/local-test/language-mods` (or
+`--lang-fonts <dir>`, or the environment variable `BK_L10N_FONT_ROOT`). Run it with the fonts and the notes say
+`l10n-check: fit: ru: measured with language-mods fonts (<folder>)`; without them the note says
+`l10n-check: fit: ru: not measured (run zig build language-mods -Dlm-langs=ru)` and nothing is a finding, so a
+clean checkout stays green. The fit-base allowance compares the Noto-measured translation with the English
+original measured in the bitmap font, as the 2003 game drew it. A character the built font lacks (the overlay
+grew after the font was built) is measured as a space and noted once per language, with the rebuild command;
+the glyph rule against the TTF guards coverage. `zh-Hans`, `ja` and `hi` stay `not measured (font built by
+language-mods)` until S07 to S09 add them to `measured_faces` in `tools/zig/l10n_check.zig`.
+
+`l10n-check` does not depend on the `language-mods` step in `build.zig`, on purpose: that step takes about a
+minute and takes `-Dlm-langs`, so every check would pay for it.
+
 ### Rule glossary-term
 
 For each in-scope key, every English term of `Localization/glossary/<code>.md` (the `English term |
