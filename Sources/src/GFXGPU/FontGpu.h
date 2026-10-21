@@ -19,6 +19,7 @@
 #include "..//GFX//GFXHelper.h"
 
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 class FontGpu final : public IGFXFont
@@ -121,10 +122,15 @@ public:
 private:
     ~FontGpu();
     template <typename T> float TextWidth( const T *text, int count ) const;
+    // BK_GLYPH_TRACE: names a character this font has no glyph for, once per font load. The font
+    // draws its default character instead, an empty box, and says nothing; a frame measure of solid
+    // boxes misses that, so the l10n tiers read this line.
+    void ReportMissingGlyph( WORD character ) const;
     int ref_count_ = 0;
     std::string name_;
     SFontFormat format_{};
     IGFXTexture *texture_ = nullptr;
+    mutable std::unordered_set<WORD> missing_reported_;
     int shared_resource_last_usage_ = 0;
 };
 

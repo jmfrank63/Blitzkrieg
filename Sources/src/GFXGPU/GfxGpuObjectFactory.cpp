@@ -46,6 +46,7 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     if ( !structure ) return false;
     CSaverAccessor saver = structure;
     saver.Add( 1, &format_ );
+    missing_reported_.clear();
     if ( bPreLoad ) return true;
 
     ITextureManager *textures = GetSingleton<ITextureManager>( globals );
@@ -89,6 +90,13 @@ int STDCALL FontGpu::GetTextWidth( const char *text, int count ) const { return 
 int STDCALL FontGpu::GetTextWidth( const WORD *text, int count ) const { return static_cast<int>( TextWidth( text, count ) ); }
 float FontGpu::TextWidthFloat( const WORD *text, int count ) const { return TextWidth( text, count ); }
 
+void FontGpu::ReportMissingGlyph( WORD character ) const
+{
+    static const bool trace = getenv( "BK_GLYPH_TRACE" ) != 0;
+    if ( !trace || !missing_reported_.insert( character ).second ) return;
+    std::fprintf( stderr, "BK_GLYPH_TRACE: no glyph U+%04X in font \"%s\"\n", static_cast<unsigned>( character ), name_.c_str() );
+}
+
 bool FontGpu::AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
     std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
     float clip_top, float clip_bottom ) const
@@ -115,11 +123,16 @@ bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float
     // vertex colour, so no per-glyph swizzle here.
     WORD previous = 0;
     const float glyph_height = format_.metrics.nHeight * scale;
+    // GetChar hands back the default character's description for a missing one: compared by address,
+    // so finding a missing glyph costs no lookup of its own.
+    const SFontFormat::CCharacterMap::const_iterator fallback = format_.chars.find( format_.metrics.wDefaultChar );
+    const SFontFormat::SCharDesc *const fallback_desc = fallback != format_.chars.end() ? &fallback->second : nullptr;
     const wchar_t *const text_end = text + length;
     for ( const wchar_t *cursor = text; cursor != text_end && *cursor && *cursor != L'\n' && *cursor != L'\r'; ++cursor )
     {
         const WORD current = static_cast<WORD>( *cursor );
         const SFontFormat::SCharDesc &character = format_.GetChar( current );
+        if ( &character == fallback_desc && current != format_.metrics.wDefaultChar ) ReportMissingGlyph( current );
         x += (character.fA + format_.GetKern( previous, current )) * scale;
         const float glyph_width = character.fWidth * scale + 0.5f;
         // Cut the quad against the text rectangle and carry the texture
