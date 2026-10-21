@@ -39,3 +39,7 @@ prefix ru units/technics/common
 prefix ru units/technics/german
 prefix ru units/technics/ussr
 prefix ru scenarios/chapters
+prefix ru scenarios/scenariomissions
+prefix ru scenarios/descriptions
+prefix ru scenarios/tutorials
+prefix ru scenarios/campaigns

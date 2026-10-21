@@ -63,3 +63,4 @@ ru units/humans/ussr/ptrs/name tank # fit: ПТР is the standard abbreviation o
 ru units/humans/ussr/ussr/ptrd/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
 ru units/humans/ussr/ussr/ptrs/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
 ru scenarios/scenariomissions/allies/norway/description mission # prose: the Russian text words it with another noun or case form
+ru scenarios/descriptions/defend_area00/description options # prose: "options" is the ordinary word for choices here, the Russian text says варианта
