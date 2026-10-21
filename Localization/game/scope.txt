@@ -28,3 +28,7 @@ textes/strings/scenariomission
 whole-database de
 whole-database fr
 whole-database es
+prefix pt-BR textes
+prefix pt-BR buildings
+prefix pt-BR medals
+prefix pt-BR units/humans
