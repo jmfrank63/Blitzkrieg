@@ -3849,6 +3849,13 @@ pub fn build(b: *std.Build) void {
     l10n_sheet_tests_step.dependOn(&l10n_sheet_tests.step);
     if (test_mode == .run) l10n_sheet_tests_step.dependOn(&l10n_sheet_tests_run.step);
 
+    // The scope parser of l10n-check, for the routes of l10n-game-reads-it below.
+    const l10n_check_scope_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_check.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+
     // M002 R056/D066 on the real Game: the language mods' main menus measured against
     // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
     // desktop, a GPU and hb-view, and fails without them; the mods are built first.
@@ -3860,6 +3867,9 @@ pub fn build(b: *std.Build) void {
             .{ .name = "elk", .module = elk_core_module },
             .{ .name = "zip", .module = elk_zip_module },
             .{ .name = "l10n_measure", .module = l10n_measure_module },
+            // The scope parser of the completeness gate, so a route is measured against English
+            // only for a language whose scope holds its keys.
+            .{ .name = "l10n_check", .module = l10n_check_scope_module },
         },
     });
     if (target.result.abi == .msvc) {
@@ -3870,11 +3880,11 @@ pub fn build(b: *std.Build) void {
     // limit: the menu, the briefing, a live switch and a restart. The aggregate runs its
     // own copy of every shard in a chain, so two Games never start at once; a shard run
     // alone does not pull the others in.
-    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu and the first mission's briefing and measure them (hb-view for ru, zh-Hans, ja and hi; ink, difference from English and missing glyphs for es, fr, de, pt-BR and id), then a live switch and a restart (M002 R056, D066)");
+    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu, the first mission's briefing, the options screen with a hovered tooltip and a unit's encyclopedia page and measure them (hb-view for ru, zh-Hans, ja and hi; ink, difference from English and missing glyphs for es, fr, de, pt-BR and id; the two newer routes only against English or hb-view where the language's scope covers their keys), then a live switch and a restart (M002 R056, D066, M003 S01)");
     const l10n_shards = [_][]const u8{ "en", "ru", "zh-hans", "ja", "hi", "es", "fr", "de", "pt-br", "id" };
     var l10n_chain: ?*std.Build.Step = null;
     for (l10n_shards) |code| {
-        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, live switch and restart on the real Game, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056)", .{code});
+        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, options with tooltip, unit encyclopedia, live switch and restart on the real Game, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056)", .{code});
         const shard_step = b.step(b.fmt("l10n-game-reads-it-{s}", .{code}), shard_about);
         shard_step.dependOn(&l10n_game_reads_tests.step);
         for ([_]bool{ false, true }) |chained| {

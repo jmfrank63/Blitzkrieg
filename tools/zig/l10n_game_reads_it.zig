@@ -34,6 +34,16 @@
 //! comma list of codes, default all) picks the languages, so a run can be
 //! sharded.
 //!
+//! Two routes widen the pair (M003 S01 T03): an options screen with a hovered tooltip (the
+//! settings screen, the cursor parked on its restore-defaults button until the tooltip's
+//! dwell has passed) and a unit's encyclopedia page (the Allied Churchill: title, the two
+//! panel headers and the description). Each is captured against a blank background of its
+//! own and measured for every language: ink inside each label's box and no missing-glyph
+//! box. Only a language whose scope (`Localization/game/scope.txt`, read through
+//! l10n-check's own parser) covers the route's keys is measured further, since a seed-scope
+//! language still shows English there: a bitmap-font language must differ from English, and
+//! a face language's static labels are compared with hb-view like the menu's.
+//!
 //! Last, per language the Game starts on another language (ru, or English for
 //! ru) and switches to this one while it runs (the font cache clear of
 //! ApplyLanguage, T03): the buttons must show the cold start's frame. Then the
@@ -43,7 +53,8 @@
 //!
 //! Frames, references and `report.txt` are kept in
 //! `zig-out/local-test/l10n-game-reads-it/<code>/` (a shard is a code, so each
-//! has a folder of its own): `menu.tga`, `briefing.tga`, `switch.tga`, `restart.tga`.
+//! has a folder of its own): `menu.tga`, `briefing.tga`, `switch.tga`, `restart.tga`, and the two
+//! routes' `options.png` and `encyclopedia.png`.
 //! The user's data is never touched: XDG_DATA_HOME and BK_USER_ROOT are the
 //! scratch folder and the Game runs from it. BK_L10N_GAME names the installed Game executable;
 //! `zig build l10n-game-reads-it` sets it and builds the mods first.
@@ -51,6 +62,7 @@ const std = @import("std");
 const elk = @import("elk");
 const zip = @import("zip");
 const measure = @import("l10n_measure");
+const check = @import("l10n_check");
 const database = elk.database;
 const packages = elk.packages;
 const testing = std.testing;
@@ -174,6 +186,14 @@ const Label = struct {
     /// images (`measure.blur`), since the Game's raster hints its strokes a pixel off a
     /// shaper's.
     small: bool = false,
+    /// The text is not the overlay's alone (the options caption holds the profile's name), so
+    /// no hb-view reference of the overlay's string matches it.
+    dynamic: bool = false,
+
+    /// The key as `Localization/game/scope.txt` spells it.
+    fn scopeKey(self: Label, allocator: std.mem.Allocator) ![]u8 {
+        return std.fmt.allocPrint(allocator, "{s}/{s}", .{ self.dir, self.key });
+    }
 
     /// The path the Game traces when it opens the text, as the mod's pak names it.
     fn tracedPath(self: Label, allocator: std.mem.Allocator) ![]u8 {
@@ -231,6 +251,71 @@ const briefing_extra_keys = [_][]const u8{ "missiontext", "missiontypetext", "sc
 const briefing_schedule = "60:campaign=2=scenarios\\campaigns\\allies\\allies,120:chapter=scenarios\\chapters\\allies\\norway\\1," ++
     "240:var=Mission.Last.FinishStatus=-1,300:mission=scenarios\\scenariomissions\\allies\\norway\\1";
 const briefing_delay: u32 = 420;
+
+/// A screen the Game is driven to under a BK_AUTO_UI schedule and captured in: its labels, and
+/// optionally a wrapped body that is only checked for ink.
+const Route = struct {
+    tag: []const u8,
+    schedule: []const u8,
+    delay: u32,
+    /// The schedule's last action as the Game echoes it, and the screen's reposition trace
+    /// line: both must be in the log, or the schedule stopped short of the screen.
+    action: []const u8,
+    screen: []const u8,
+    labels: []const Label,
+    body: ?Label = null,
+};
+
+/// The settings screen with the cursor parked on its restore-defaults button (the arrow at the
+/// bottom left of the 1024x768 canvas, ElementID 10003 of Data/UI/OptionsSettings.xml, whose
+/// ToolTip is tt_button_default). Options > Settings is `msg=10003` on the options menu. A
+/// reference-scene capture skips the screen's StepLocal (InterfaceScreenBase.cpp), which is
+/// where the cursor's position reaches the tooltip, so the schedule lifts X64.ReferenceScene
+/// once the screen is up. The hover waits past the chat lines the video page writes while it
+/// builds, which would otherwise draw over the caption, and the capture comes after the
+/// tooltip's one second dwell. The tooltip box (about 405x54 for the English text) hangs
+/// below the cursor, so its box is a strip wider than that.
+const options_dir = "textes/ui/optionssettings";
+const options_labels = [_]Label{
+    .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 }, .dynamic = true },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 98, .y1 = 716, .x2 = 640, .y2 = 762 }, .ink = .bright },
+};
+const options_route = Route{
+    .tag = "options",
+    .schedule = "60:settings,100:msg=10003,110:var=X64.ReferenceScene=0,400:hover=100x710",
+    .delay = 540,
+    .action = "BK_AUTO_UI: frame 400 action hover=100x710",
+    .screen = "BK_UI_TRACE: reposition \"ui\\OptionsSettings\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &options_labels,
+};
+
+/// The Allied Churchill's encyclopedia page: MISSION_COMMAND_ENCYCLOPEDIA (iMission.h,
+/// MISSION_BASE_VALUE 0x100e0000 + 149 = 269353109) with the configuration `<E_UNIT>;<RPG
+/// stats name>` that the total encyclopedia sends when a unit is chosen, which `cmdc=` carries
+/// from the main menu. The title (ElementID 20000, FontSize 2) is the unit's `name`, the
+/// description (ElementID 2000) its `desc`, wrapped in the left panel beside the scroll bar
+/// (x under 445); the headers of the two panels are the strings of Data/UI/Encyclopedia.xml.
+/// The picture is the same in every language, so the blank background cancels it.
+const unit_dir = "units/technics/allies/tanks/infantry_mkiv_churchill_gb";
+const encyclopedia_labels = [_]Label{
+    .{ .key = "name", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 900, .y2 = 95 } },
+    .{ .key = "imheader-encyclopedia-desc", .rect = .{ .x1 = 40, .y1 = 150, .x2 = 440, .y2 = 178 }, .ink = .bright, .small = true },
+    .{ .key = "imheader-encyclopedia-picture", .rect = .{ .x1 = 540, .y1 = 150, .x2 = 980, .y2 = 178 }, .ink = .bright, .small = true },
+};
+const encyclopedia_route = Route{
+    .tag = "encyclopedia",
+    .schedule = "60:cmdc=269353109=1;Infantry_MKIV_Churchill_GB",
+    .delay = 150,
+    .action = "BK_AUTO_UI: frame 60 action cmdc=269353109=1;Infantry_MKIV_Churchill_GB",
+    .screen = "BK_UI_TRACE: reposition \"ui\\encyclopedia\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &encyclopedia_labels,
+    .body = .{ .key = "desc", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 195, .x2 = 440, .y2 = 630 }, .ink = .dark },
+};
+const routes = [_]Route{ options_route, encyclopedia_route };
+
+/// A route's label holds at least this much ink (pixels above `ink_threshold`): the small
+/// font's panel headers are the lightest of them.
+const min_route_ink_pixels: usize = 60;
 
 const Language = struct {
     code: []const u8,
@@ -311,6 +396,15 @@ test "the Game draws the ten languages' main menus and briefings (R056)" {
     const blank_briefing = try blank_run.briefing(allocator, false);
     try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", "briefing.tga" }), blank_briefing);
 
+    var blank_routes: [routes.len][]u8 = undefined;
+    for (routes, 0..) |route, at| {
+        blank_routes[at] = try blank_run.route(allocator, route, false);
+        try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", try std.fmt.allocPrint(allocator, "{s}.png", .{route.tag}) }), blank_routes[at]);
+    }
+    // The keys each language translates: a route is measured against English only where the
+    // language's scope holds all of its keys.
+    const scopes = (try check.loadScopes(io, allocator, cwd, null)) orelse return error.ScopeMissing;
+
     var failures: usize = 0;
     for (languages) |language| {
         if (!try selected(allocator, language.code)) continue;
@@ -327,6 +421,7 @@ test "the Game draws the ten languages' main menus and briefings (R056)" {
         // profile of its own.
         var english_menu: ?[]u8 = null;
         var english_briefing: ?[]u8 = null;
+        var english_run: ?Run = null;
         if (language.mod == null) {
             english_menu = menu;
             english_briefing = shot;
@@ -335,12 +430,24 @@ test "the Game draws the ten languages' main menus and briefings (R056)" {
             const english = try Run.init(io, allocator, game, game_root, root, english_name, null, false);
             english_menu = try english.capture(allocator, null, null);
             english_briefing = try english.briefing(allocator, false);
+            english_run = english;
         }
 
         try report.line("== {s} ({s}) main menu", .{ language.code, language.mod orelse "base game" });
         try checkLanguage(io, allocator, language, run.folder, menu, blank, english_menu, &report);
         try report.line("-- {s} briefing", .{language.code});
         try checkBriefing(io, allocator, language, run.folder, shot, blank_briefing, english_briefing, &report);
+
+        // The options screen with its tooltip and the unit's encyclopedia page.
+        for (routes, 0..) |route, at| {
+            const covered = language.mod != null and scopeCovers(scopes, language.code, route);
+            const route_frame = try run.route(allocator, route, covered);
+            try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, try std.fmt.allocPrint(allocator, "{s}.png", .{route.tag}) }), route_frame);
+            var english_frame: ?[]u8 = null;
+            if (covered and language.face == null) english_frame = try english_run.?.route(allocator, route, false);
+            try report.line("-- {s} {s} ({s}; {s})", .{ language.code, route.tag, try std.fmt.allocPrint(allocator, "{s}/{s}/{s}.png", .{ scratch, language.code, route.tag }), if (language.mod == null) "base game" else if (covered) "scope covers its keys: compared with English or hb-view" else "scope does not cover its keys yet: ink and glyphs only" });
+            try checkRoute(io, allocator, language, run.folder, route_frame, blank_routes[at], english_frame, covered, route, &report);
+        }
 
         // A live switch: the Game starts on the other language and chooses this one while
         // it runs (the font cache clear of ApplyLanguage). Its buttons are the cold
@@ -543,6 +650,53 @@ fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, f
     const body = try inkImage(allocator, frame, blank, briefing_body);
     const box = measure.inkBox(body, ink_threshold);
     try report.check(box != null and box.?.width() >= min_body_width, "{s} briefing description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, if (box) |b| b.width() else 0, min_body_width });
+}
+
+/// Whether `code`'s scope holds every key the route's labels and body show.
+fn scopeCovers(scopes: check.Scopes, code: []const u8, route: Route) bool {
+    for (scopes.per_language) |scope| {
+        if (!std.mem.eql(u8, scope.code, code)) continue;
+        var buffer: [256]u8 = undefined;
+        const body: []const Label = if (route.body) |*one| one[0..1] else &.{};
+        for ([_][]const Label{ route.labels, body }) |set| for (set) |label| {
+            const key = std.fmt.bufPrint(&buffer, "{s}/{s}", .{ label.dir, label.key }) catch return false;
+            if (!scope.contains(key)) return false;
+        };
+        return true;
+    }
+    return false;
+}
+
+/// A route's labels (and body): ink inside each box and no missing-glyph box for every
+/// language. Where the language's scope covers the route's keys the texts are the language's
+/// own: a bitmap-font language draws all but one label differently from English, a face
+/// language's static labels match hb-view.
+fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, english: ?[]const u8, covered: bool, route: Route, report: *Report) !void {
+    const body: []const Label = if (route.body) |*one| one[0..1] else &.{};
+    var different: usize = 0;
+    var total: usize = 0;
+    for ([_][]const Label{ route.labels, body }, 0..) |set, which| for (set) |label| {
+        const full = try inkImage(allocator, frame, blank, label);
+        var lit: usize = 0;
+        for (full.pixels) |p| lit += @intFromBool(p > ink_threshold);
+        const box = measure.inkBox(full, ink_threshold);
+        const box_width = if (box) |b| b.width() else 0;
+        const wide = if (which == 1) min_body_width else min_bitmap_width;
+        try report.check(lit >= min_route_ink_pixels and box_width >= wide, "{s} {s} {s}: {d} ink pixels, ink {d} pixels wide in the box {d},{d} to {d},{d} (at least {d} and {d})", .{ language.code, route.tag, label.key, lit, box_width, label.rect.x1, label.rect.y1, label.rect.x2, label.rect.y2, min_route_ink_pixels, wide });
+        try report.check(!measure.hasSolidBox(full, ink_threshold, solid_w, solid_h, solid_fill), "{s} {s} {s}: no missing-glyph box ({d}x{d} window, {d:.0}% lit) in the label", .{ language.code, route.tag, label.key, solid_w, solid_h, solid_fill * 100 });
+        if (covered and english != null) {
+            const changed = measure.changedPixels(frame, english.?, width, label.rect, frame_tolerance);
+            different += @intFromBool(changed >= min_text_change);
+            total += 1;
+            try report.line("      {s} {s} {s}: {d} pixels differ from English", .{ language.code, route.tag, label.key, changed });
+        }
+    };
+    if (covered and english != null) try report.check(different + 1 >= total, "{s} {s}: {d} of {d} labels are drawn differently from English (all but one, at least {d} pixels each)", .{ language.code, route.tag, different, total, min_text_change });
+    if (covered and language.face != null) {
+        var static: std.ArrayList(Label) = .empty;
+        for (route.labels) |label| if (!label.dynamic) try static.append(allocator, label);
+        if (static.items.len != 0) _ = try checkLabels(io, allocator, language, folder, frame, blank, static.items, report);
+    }
 }
 
 /// The bitmap-font languages (and English): no hb-view reference exists for the
@@ -793,6 +947,33 @@ const Run = struct {
         return self.frame(allocator, "briefing");
     }
 
+    /// A route's capture. The log must show the schedule's last action and the screen's
+    /// reposition (a failure names the BK_AUTO_UI step it reached), and, for a language whose
+    /// scope covers the route (`keys` set), the Game opening every text of it from the mod.
+    fn route(self: Run, allocator: std.mem.Allocator, one: Route, keys: bool) ![]u8 {
+        const log = try self.scene(allocator, one.schedule, one.delay, one.tag);
+        for ([_][]const u8{ one.action, one.screen }) |line| expectLine(log, self.folder, line) catch |err| {
+            self.reached(log);
+            return err;
+        };
+        if (keys) {
+            const body: []const Label = if (one.body) |*body_label| body_label[0..1] else &.{};
+            for ([_][]const Label{ one.labels, body }) |set| for (set) |label| {
+                const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"{s}\" from LANGUAGE", .{try label.tracedPath(allocator)});
+                try expectLine(log, self.folder, line);
+            };
+        }
+        return self.frame(allocator, one.tag);
+    }
+
+    /// The schedule steps the Game ran, for a route that stopped short.
+    fn reached(self: Run, log: []const u8) void {
+        var lines = std.mem.splitScalar(u8, log, '\n');
+        while (lines.next()) |line| {
+            if (std.mem.indexOf(u8, line, "BK_AUTO_UI: frame") != null and std.mem.indexOf(u8, line, " action ") != null) std.debug.print("{s}: reached {s}\n", .{ self.name, line });
+        }
+    }
+
     /// One run of the Game to its `-reference-scene` capture, `<tag>.rgba`.
     fn scene(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
         const path = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ self.folder, tag });
@@ -843,6 +1024,51 @@ fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const 
     defer testing.allocator.free(written.path);
     const mod_xml = "<?xml version=\"1.0\"?>\r\n<base><MODName>l10n blank</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n";
     try database.writeFileAtomic(io, testing.allocator, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(written.path).?, "mod.xml" }), mod_xml);
+}
+
+/// A PNG of an RGBA frame (alpha dropped: reference captures carry none), written with stored
+/// deflate blocks, since the checks read the frames and a person only needs to open them.
+fn writePng(io: std.Io, allocator: std.mem.Allocator, path: []const u8, rgba: []const u8) !void {
+    const row = 1 + width * 3;
+    const raw = try allocator.alloc(u8, row * height);
+    for (0..height) |y| {
+        raw[y * row] = 0;
+        for (0..width) |x| @memcpy(raw[y * row + 1 + x * 3 ..][0..3], rgba[(y * width + x) * 4 ..][0..3]);
+    }
+    var zlib: std.ArrayList(u8) = .empty;
+    try zlib.appendSlice(allocator, &.{ 0x78, 0x01 });
+    var at: usize = 0;
+    while (at < raw.len) {
+        const len = @min(raw.len - at, 65535);
+        const last: u8 = @intFromBool(at + len == raw.len);
+        try zlib.append(allocator, last);
+        try zlib.appendSlice(allocator, &std.mem.toBytes(std.mem.nativeToLittle(u16, @intCast(len))));
+        try zlib.appendSlice(allocator, &std.mem.toBytes(std.mem.nativeToLittle(u16, ~@as(u16, @intCast(len)))));
+        try zlib.appendSlice(allocator, raw[at..][0..len]);
+        at += len;
+    }
+    try zlib.appendSlice(allocator, &std.mem.toBytes(std.mem.nativeToBig(u32, std.hash.Adler32.hash(raw))));
+    var out: std.ArrayList(u8) = .empty;
+    try out.appendSlice(allocator, "\x89PNG\r\n\x1a\n");
+    var header: [13]u8 = undefined;
+    std.mem.writeInt(u32, header[0..4], width, .big);
+    std.mem.writeInt(u32, header[4..8], height, .big);
+    header[8..13].* = .{ 8, 2, 0, 0, 0 };
+    try pngChunk(allocator, &out, "IHDR", &header);
+    try pngChunk(allocator, &out, "IDAT", zlib.items);
+    try pngChunk(allocator, &out, "IEND", "");
+    try std.Io.Dir.cwd().createDirPath(io, std.fs.path.dirname(path).?);
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = out.items });
+}
+
+fn pngChunk(allocator: std.mem.Allocator, out: *std.ArrayList(u8), kind: *const [4]u8, data: []const u8) !void {
+    try out.appendSlice(allocator, &std.mem.toBytes(std.mem.nativeToBig(u32, @intCast(data.len))));
+    try out.appendSlice(allocator, kind);
+    try out.appendSlice(allocator, data);
+    var crc = std.hash.Crc32.init();
+    crc.update(kind);
+    crc.update(data);
+    try out.appendSlice(allocator, &std.mem.toBytes(std.mem.nativeToBig(u32, crc.final())));
 }
 
 /// An uncompressed 32-bit top-down TGA of an RGBA frame, the frames the tier

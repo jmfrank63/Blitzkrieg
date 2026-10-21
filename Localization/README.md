@@ -82,6 +82,23 @@ with the same fonts blanked is the ink of the labels. Thresholds are named const
 `tools/zig/l10n_game_reads_it.zig`, each with how it was measured. Frames, the references and `report.txt` are
 written under `zig-out/local-test/l10n-game-reads-it/<code>/`.
 
+Besides the menu and the briefing the tier captures two more routes (M003 S01), each against a blank background
+of its own and written as `options.png` and `encyclopedia.png` next to the report:
+
+- `options`: the settings screen with the cursor parked on its restore-defaults button until the tooltip
+  (`tt_button_default`) is up; the caption and the tooltip's box are measured. A reference-scene capture skips
+  the screen's step, where the cursor reaches the tooltip, so the schedule lifts `X64.ReferenceScene` with
+  `var=` once the screen is up.
+- `encyclopedia`: the Allied Churchill's unit page, opened from the main menu with `cmdc=` and the encyclopedia
+  command's configuration (`1;Infantry_MKIV_Churchill_GB`); the title, the two panel headers and the wrapped
+  description are measured.
+
+Every language is measured for ink in each label's box and for no missing-glyph box. A language is measured
+further only where its scope in `Localization/game/scope.txt` (read with l10n-check's own parser) holds the
+route's keys, because a seed-scope language still shows English there: a bitmap-font language must draw all but
+one label differently from English, and a face language's static labels are compared with hb-view like the
+menu's. A route's report section names its PNG and says which of the two applied.
+
 Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
 cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.
 
