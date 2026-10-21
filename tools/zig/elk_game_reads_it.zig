@@ -16,6 +16,7 @@
 //! removed from the installation afterwards. BK_ELK_GAME names the installed
 //! Game executable; `zig build elk-game-reads-it` sets it.
 const std = @import("std");
+const timed_run = @import("timed_run.zig");
 const elk = @import("elk");
 const database = elk.database;
 const packages = elk.packages;
@@ -280,7 +281,7 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_UI_TRACE", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_AUTO_UI", schedule);
-    const result = try std.process.run(allocator, io, .{
+    const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-windowed", "-profile=ELKLanguage" },
         .cwd = .{ .path = user },
         .environ_map = &environ,
@@ -335,7 +336,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
-    const result = try std.process.run(allocator, io, .{
+    const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=ELKTest" },
         .cwd = .{ .path = user },
         .environ_map = &environ,

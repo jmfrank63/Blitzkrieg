@@ -13,6 +13,7 @@ const measure = @import("l10n_measure");
 
 pub const Rect = measure.Rect;
 pub const Gray = measure.Gray;
+pub const timed_run = measure.timed_run;
 
 pub const lang_folder = "Sources/editor/kit/lang";
 pub const log_prefix = "l10n-auto: ";

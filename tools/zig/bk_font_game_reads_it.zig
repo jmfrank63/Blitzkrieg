@@ -29,6 +29,7 @@
 //! BK_FONT_GAME names the installed Game executable and BK_FONT_TOOL the
 //! staged bk-font; `zig build bk-font-game-reads-it` sets both.
 const std = @import("std");
+const timed_run = @import("timed_run.zig");
 const testing = std.testing;
 
 /// The value of an environment variable the build step sets, or null.
@@ -363,7 +364,7 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
     // bk-font's messages are English whatever the machine's language is.
     try environ.put("BK_LANG", "en");
     try environ.put("BK_OS_LOCALES", "");
-    const result = try std.process.run(allocator, io, .{
+    const result = try timed_run.run(allocator, io, .{
         .argv = &.{ tool, "--ttf", fixture, "--height", std.fmt.comptimePrint("{d}", .{font_height}), "--out", out, "--force" },
         .environ_map = &environ,
         .timeout = .{ .duration = .{ .raw = .fromSeconds(60), .clock = .awake } },
@@ -389,7 +390,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
-    const result = try std.process.run(allocator, io, .{
+    const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=BkFontTest" },
         .cwd = .{ .path = user },
         .environ_map = &environ,

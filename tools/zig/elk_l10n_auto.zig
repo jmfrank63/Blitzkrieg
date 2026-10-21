@@ -95,7 +95,7 @@ fn runElk(allocator: std.mem.Allocator, setup: Setup, name: []const u8, code: []
     try environ.put("XDG_DATA_HOME", try std.fs.path.join(allocator, &.{ folder, "xdg" }));
     try environ.put("BK_ELK_SETTINGS", config);
     if (table_dir) |dir| try environ.put("BK_L10N_DIR", dir);
-    const result = try std.process.run(allocator, setup.io, .{
+    const result = try common.timed_run.run(allocator, setup.io, .{
         .argv = &.{ setup.exe, "--l10n-auto", try std.fs.path.join(allocator, &.{ setup.database, "elk.xml" }), folder },
         .cwd = .{ .path = folder },
         .environ_map = &environ,

@@ -110,7 +110,7 @@ fn runEditor(allocator: std.mem.Allocator, setup: Setup, name: []const u8, code:
     try environ.put("BK_RESOURCE_EDITOR_SETTINGS", config);
     try environ.put("BK_EDITOR_AUTO", schedule);
     if (table_dir) |dir| try environ.put("BK_L10N_DIR", dir);
-    const result = try std.process.run(allocator, setup.io, .{
+    const result = try common.timed_run.run(allocator, setup.io, .{
         .argv = &.{ setup.exe, "--l10n-auto", setup.fixtures, folder },
         // The installation the editor runs in: Data, the engine and Fonts/ are beside the exe.
         .cwd = .{ .path = std.fs.path.dirname(setup.exe).? },

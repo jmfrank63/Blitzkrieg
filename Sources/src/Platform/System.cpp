@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -96,6 +97,10 @@ bool SetEnvironment( const char *name, const char *value )
 bool ShowError( const char *title, const char *text )
 {
 	if ( gErrorHandler != nullptr ) return gErrorHandler( title, text );
+	fprintf( stderr, "%s: %s\n", title != nullptr ? title : "Error", text != nullptr ? text : "" );
+	// A BK_AUTO_UI run has no one to close a modal box: under ssh or a service
+	// session the box is not even visible, and the Game waited in it forever.
+	if ( getenv( "BK_AUTO_UI" ) != nullptr ) return false;
 	return SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, title != nullptr ? title : "Error", text != nullptr ? text : "", nullptr );
 }
 

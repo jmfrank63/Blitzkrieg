@@ -737,7 +737,7 @@ const Run = struct {
         var argv: std.ArrayList([]const u8) = .empty;
         try argv.append(allocator, self.game);
         try argv.appendSlice(allocator, args);
-        const result = try std.process.run(allocator, self.io, .{
+        const result = try measure.timed_run.run(allocator, self.io, .{
             .argv = argv.items,
             .cwd = .{ .path = self.user },
             .environ_map = &environ,

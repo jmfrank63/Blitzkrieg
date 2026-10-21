@@ -19,6 +19,7 @@
 //! overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left out. BK_LM_OVERLAYS
 //! names another overlay root (default `Localization/game`), so a test can take a language away from a copy.
 const std = @import("std");
+const timed_run = @import("timed_run.zig");
 const elk = @import("elk");
 const zip = @import("zip");
 const database = elk.database;
@@ -211,7 +212,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         var argv: std.ArrayListUnmanaged([]const u8) = .empty;
         try argv.appendSlice(allocator, &.{ font_tool, "--ttf", face_path, "--height", size.height, "--chars", chars_path, "--out", out, "--force", "--modules", modules });
         if (language.shaped) try argv.appendSlice(allocator, &.{ "--clusters", clusters_path, "--script", "Deva", "--language", "hi" });
-        const result = try std.process.run(allocator, io, .{
+        const result = try timed_run.run(allocator, io, .{
             .argv = argv.items,
             .cwd = .{ .path = cwd_path },
             .environ_map = &environ,

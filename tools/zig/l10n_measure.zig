@@ -8,6 +8,8 @@
 //!
 //! D069: a missing hb-view is a failure, never a skip (`HbViewMissing`).
 const std = @import("std");
+/// The timed child run every l10n tier uses; see tools/zig/timed_run.zig.
+pub const timed_run = @import("timed_run.zig");
 const testing = std.testing;
 
 pub const Rect = struct {
@@ -534,7 +536,7 @@ pub fn hbView(allocator: std.mem.Allocator, io: std.Io, scratch: []const u8, nam
     if (options.script) |script| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--script={s}", .{script}));
     if (options.features) |features| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--features={s}", .{features}));
     try argv.appendSlice(scoped, &.{ "--", text });
-    const result = std.process.run(allocator, io, .{
+    const result = timed_run.run(allocator, io, .{
         .argv = argv.items,
         .timeout = .{ .duration = .{ .raw = .fromSeconds(60), .clock = .awake } },
     }) catch |err| switch (err) {
@@ -578,6 +580,10 @@ fn brighter(x: usize, y: usize) u8 {
 }
 fn noise(x: usize, y: usize) u8 {
     return @intCast((x * 131 + y * 71 + x * y * 17) % 251);
+}
+
+test {
+    _ = timed_run;
 }
 
 test "correlation is 1 for the same pattern at any brightness, -1 inverted and near 0 for another" {
