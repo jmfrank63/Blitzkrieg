@@ -326,6 +326,57 @@ pub fn words(allocator: std.mem.Allocator, image: Gray, threshold: u8, min_gap: 
     return list.toOwnedSlice(allocator);
 }
 
+/// `image` cut into exactly `n` words at its `n - 1` widest gaps between inked
+/// columns, for a text whose word count is known. A space is wider than any gap
+/// inside a word, but how wide a gap inside a word is depends on the font's and
+/// the rasteriser's version (HarfBuzz 14.6's hb-view opens one inside मित्रों that
+/// Ubuntu's does not), so a fixed minimum gap does not count words reliably.
+/// Null when the image has fewer than `n - 1` gaps.
+pub fn wordsN(allocator: std.mem.Allocator, image: Gray, threshold: u8, n: usize) !?[]Rect {
+    const Gap = struct { start: usize, end: usize };
+    var gaps: std.ArrayList(Gap) = .empty;
+    var first: ?usize = null;
+    var last: usize = 0;
+    var gap_start: ?usize = null;
+    for (0..image.width) |x| {
+        var inked = false;
+        for (0..image.height) |y| {
+            if (image.at(x, y) > threshold) {
+                inked = true;
+                break;
+            }
+        }
+        if (inked) {
+            if (first == null) first = x;
+            if (gap_start) |g| try gaps.append(allocator, .{ .start = g, .end = x });
+            gap_start = null;
+            last = x + 1;
+        } else if (first != null and gap_start == null) gap_start = x;
+    }
+    const begin = first orelse return null;
+    if (n == 0 or gaps.items.len + 1 < n) return null;
+    // The n - 1 widest gaps, then back in column order.
+    std.mem.sort(Gap, gaps.items, {}, struct {
+        fn wider(_: void, a: Gap, b: Gap) bool {
+            return a.end - a.start > b.end - b.start;
+        }
+    }.wider);
+    const cuts = gaps.items[0 .. n - 1];
+    std.mem.sort(Gap, cuts, {}, struct {
+        fn before(_: void, a: Gap, b: Gap) bool {
+            return a.start < b.start;
+        }
+    }.before);
+    const out = try allocator.alloc(Rect, n);
+    var x1 = begin;
+    for (cuts, 0..) |cut, i| {
+        out[i] = .{ .x1 = x1, .y1 = 0, .x2 = cut.start, .y2 = image.height };
+        x1 = cut.end;
+    }
+    out[n - 1] = .{ .x1 = x1, .y1 = 0, .x2 = last, .y2 = image.height };
+    return out;
+}
+
 /// The headline (shirorekha) of a Devanagari word: the row with the most ink
 /// in the word's box, and along it the longest run of columns whose ink is at
 /// most `threshold` - the gap D058 forbids between joined letters.

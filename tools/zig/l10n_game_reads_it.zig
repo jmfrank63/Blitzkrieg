@@ -589,17 +589,19 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
             const apart = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ label.key, "-halant" }), texts[index], .{ .font = language.face.?, .language = language.tag, .script = language.script, .features = measure.halant_spelling });
             const joined_cut = try measure.crop(allocator, refs[index], measure.inkBox(refs[index], 64).?);
             const apart_cut = try measure.crop(allocator, apart, measure.inkBox(apart, 64).?);
-            const joined_words = try measure.words(allocator, joined_cut, 64, 3);
-            const apart_words = try measure.words(allocator, apart_cut, 64, 3);
             const text_words = std.mem.count(u8, texts[index], " ") + 1;
-            if (split.len != text_words or joined_words.len != text_words or apart_words.len != text_words) {
-                try report.check(false, "hi {s}: conjuncts: {d} words in the text, {d} in the frame, {d} in the reference and {d} in the halant spelling", .{ label.key, text_words, split.len, joined_words.len, apart_words.len });
+            // Cut at the text's own word count (measure.wordsN), not at a fixed gap.
+            const frame_words = try measure.wordsN(allocator, ink, ink_threshold, text_words);
+            const joined_words = try measure.wordsN(allocator, joined_cut, 64, text_words);
+            const apart_words = try measure.wordsN(allocator, apart_cut, 64, text_words);
+            if (frame_words == null or joined_words == null or apart_words == null) {
+                try report.check(false, "hi {s}: conjuncts: {d} words in the text, but the frame, the reference or the halant spelling has fewer gaps", .{ label.key, text_words });
             } else {
                 var at: usize = 0;
                 var words_in = std.mem.splitScalar(u8, texts[index], ' ');
                 while (words_in.next()) |text_word| : (at += 1) {
                     if (!hasCodepoint(text_word, 0x094d)) continue;
-                    const c = try measure.conjunctMatch(allocator, ink, split[at], joined_cut, joined_words[at], apart_cut, apart_words[at], 2 * 255);
+                    const c = try measure.conjunctMatch(allocator, ink, frame_words.?[at], joined_cut, joined_words.?[at], apart_cut, apart_words.?[at], 2 * 255);
                     try report.check(c.shaped - c.spelled >= measure.conjunct_margin, "hi {s} word {d}: conjunct columns correlate {d:.3} with the shaped reference, {d:.3} with the halant spelling (margin at least {d:.2})", .{ label.key, at, c.shaped, c.spelled, measure.conjunct_margin });
                 }
             }
@@ -610,12 +612,15 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
             const ref_box = measure.inkBox(refs[index], 64).?;
             const ref_cut = try measure.crop(allocator, refs[index], ref_box);
             const scaled = try measure.resample(allocator, ref_cut, ink.width, ink.height);
-            const ref_words = try measure.words(allocator, scaled, 64, 3);
             const text_words = std.mem.count(u8, texts[index], " ") + 1;
-            if (split.len != text_words or ref_words.len != text_words) {
-                try report.check(false, "hi {s}: {d} words in the text, {d} in the frame and {d} in the reference", .{ label.key, text_words, split.len, ref_words.len });
+            const frame_words_or = try measure.wordsN(allocator, ink, ink_threshold, text_words);
+            const ref_words_or = try measure.wordsN(allocator, scaled, 64, text_words);
+            if (frame_words_or == null or ref_words_or == null) {
+                try report.check(false, "hi {s}: {d} words in the text, but the frame or the reference has fewer gaps", .{ label.key, text_words });
                 continue;
             }
+            const frame_words = frame_words_or.?;
+            const ref_words = ref_words_or.?;
             var at: usize = 0;
             var words_in = std.mem.splitScalar(u8, texts[index], ' ');
             const n = while (words_in.next()) |text_word| : (at += 1) {
@@ -623,7 +628,7 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
             } else unreachable;
             // The word's first third (the matra and its consonant) is more like
             // the reference's first third than like its middle or its last.
-            const mine = measure.window(split[n], 0, 0.3);
+            const mine = measure.window(frame_words[n], 0, 0.3);
             const own = try measure.correlationIn(allocator, ink, scaled, mine, measure.window(ref_words[n], 0, 0.3));
             const middle = try measure.correlationIn(allocator, ink, scaled, mine, measure.window(ref_words[n], 0.35, 0.65));
             const end = try measure.correlationIn(allocator, ink, scaled, mine, measure.window(ref_words[n], 0.7, 1));
