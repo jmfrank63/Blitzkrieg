@@ -6063,8 +6063,19 @@ fn bkTextModule(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
 ) *std.Build.Module {
+    return bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/root.zig");
+}
+
+/// bkTextModule with another root file: the library's is abi.zig, which imports root.zig.
+fn bkTextModuleAt(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    root_source: []const u8,
+) *std.Build.Module {
     const module = b.createModule(.{
-        .root_source_file = b.path("Sources/src/BkText/root.zig"),
+        .root_source_file = b.path(root_source),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
@@ -6085,6 +6096,25 @@ fn bkTextModule(
     return module;
 }
 
+/// The BkText library behind bk_text.h: dynamic on Linux, static elsewhere, like GfxGpuZig. The
+/// module already links BkMemory through linkEngineCxxRuntimeEngine, so only the allocator import
+/// is added.
+fn addBkTextLib(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const module = bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/abi.zig");
+    applyLoaderPath(target, module);
+    linkBkMemoryAllocator(b, module, true);
+    return b.addLibrary(.{
+        .name = "BkText",
+        .linkage = if (target.result.os.tag == .linux) .dynamic else .static,
+        .root_module = module,
+    });
+}
+
 /// test-bk-text: faces, UTF-16 and the HarfBuzz/stb_truetype spike on the
 /// vendored fonts; the fonts directory arrives as BK_TEXT_FONTS_DIR.
 fn addBkTextTests(
@@ -6098,9 +6128,33 @@ fn addBkTextTests(
     const run = b.addRunArtifact(tests);
     run.setCwd(b.path("."));
     run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
-    const step = b.step("test-bk-text", "bk_text: faces, UTF-16 and the HarfBuzz/stb_truetype spike (M004)");
+    const step = b.step("test-bk-text", "bk_text: the Zig core tests and the C++ contract test of bk_text.h (M004)");
     step.dependOn(&tests.step);
     if (test_mode == .run) step.dependOn(&run.step);
+
+    // The C ABI from C++: the library, linked like any engine module, run with the leak report on.
+    const abi_module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, abi_module, optimize);
+    abi_module.addIncludePath(b.path("Sources/src/BkText"));
+    abi_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/bk_text_abi_test.cpp"},
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    addMsvcIncludePaths(b, abi_module, toolchain);
+    addMsvcLibraryPaths(b, abi_module, toolchain);
+    addLinuxCxxIncludePaths(b, abi_module);
+    applyLoaderPath(target, abi_module);
+    abi_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
+    const abi_exe = b.addExecutable(.{ .name = "bk-text-abi-test", .root_module = abi_module });
+    abi_exe.subsystem = .console;
+    if (target.result.os.tag == .linux) abi_exe.rdynamic = true;
+    if (target.result.os.tag == .windows) abi_exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const abi_run = b.addRunArtifact(abi_exe);
+    setLeakReportStrict(abi_run);
+    abi_run.setCwd(b.path("."));
+    abi_run.addArg(rootPath(b, "vendor/fonts"));
+    step.dependOn(&abi_exe.step);
+    if (test_mode == .run) step.dependOn(&abi_run.step);
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
