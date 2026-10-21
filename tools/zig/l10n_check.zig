@@ -39,13 +39,14 @@
 //! reason, `term-exception-unused` for one that excuses nothing). A missing glossary is a finding.
 //!
 //! Rule `fit` (D097): a translated text must fit the room the game draws it in. `checkFit` measures every
-//! in-scope text of a language that draws with the game's bitmap fonts, with the metrics of
-//! `Data/Fonts/<size>/1.tfd` (tools/zig/l10n_font.zig) and the GPU wrap rules (tools/zig/l10n_wrap.zig),
-//! against the box `Localization/game/fit-map.txt` gives its key family: a `Data/UI` layout element, a
+//! in-scope text of a language with the metrics of the `<size>/1.tfd` fonts its mod ships
+//! (tools/zig/l10n_font.zig) and the GPU wrap rules (tools/zig/l10n_wrap.zig), against the box `Localization/game/fit-map.txt` gives its key family: a `Data/UI` layout element, a
 //! rectangle, a tooltip or a scrolling text. Findings are `fit` (too many lines for the box), `fit-word`
 //! (a word wider than the box, which the game splits), `fit-unmapped` (no map line for a key), `fit-map` and
 //! `fit-font`. An English original that already overflows is `fit-base` information in the language's note.
-//! Without a fit map the scope is `not active`; a language with a face is `not measured`. See `checkFit`.
+//! Each language is measured with the fonts its mod ships, which only language-mods generates: it runs
+//! this rule per language and fails on a finding, and l10n-check alone (no build artefacts) reports the
+//! languages `not measured here`. Without a fit map the scope is `not active`. See `checkFit`.
 //!
 //! Rule `placeholder`: the multiset of substituted or interpreted tokens must be the same in the
 //! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
@@ -56,11 +57,12 @@
 //! `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
 //! and a literal `\n`; square-bracket keys are left to the translator, who may write the local key.
 //!
-//! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. A language with a
-//! face (ru, zh-Hans, ja, hi) needs each code point in its face or in NotoSans-Regular (the Hindi
-//! texts hold ASCII and punctuation the Devanagari face lacks), read from the fonts' `cmap`
-//! (tools/zig/l10n_cmap.zig); the five Latin languages draw with the game's cp1252 bitmap fonts, so
-//! each code point must be in cp1252. CR, LF and TAB are ignored. The tracked Unicode overlay is
+//! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. Each language's
+//! mod ships fonts bk-font generates from its face (Liberation Serif for the Latin languages, Noto for
+//! the others) with NotoSans-Regular as the fallback for what the face lacks (the Devanagari face holds
+//! no Latin letters), so each code point must be in one of the two, read from the fonts' `cmap`
+//! (tools/zig/l10n_cmap.zig). The game's own bitmap fonts are no measure: they
+//! hold ASCII and the Cyrillic set, none of the accented Latin letters. CR, LF and TAB are ignored. The tracked Unicode overlay is
 //! checked, never a generated pak (the Hindi private-use forms live only there, D058). The fonts are
 //! read from `--fonts <dir>`, default `<root>/vendor/fonts`.
 //!
@@ -71,8 +73,7 @@
 //! ID suffix differs from en, or a `###` suffix is not the key itself), `table-format` (a line
 //! without `=`, a duplicate key, an LF-only line, invalid UTF-8); `glyph` covers each value. The
 //! editors draw every table with Noto Sans plus the language's own face, so a code point must be
-//! in the language face or in NotoSans-Regular, for the Latin languages too (not cp1252 as the
-//! game's bitmap fonts need). `table_dirs` lists the real tree's directories; with none holding an
+//! in the language face or in NotoSans-Regular. `table_dirs` lists the real tree's directories; with none holding an
 //! `en.lang` the scope is `not active`.
 //!
 //! Rule `doc-*`: a document set is an English `<stem>.md` and nine `<stem>_<Language>.md`.
@@ -955,30 +956,24 @@ pub fn codePoints(arena: std.mem.Allocator, bytes: []const u8) ![]const u21 {
     return found.items;
 }
 
-/// Rule glyph: every code point of every in-scope overlay text is covered by the language's font
-/// (or NotoSans-Regular), or by cp1252 for a language without a face. One finding per code point.
+/// Rule glyph: every code point of every in-scope overlay text is covered by the language's face or by
+/// NotoSans-Regular, the two faces bk-font generates its mod's fonts from (language-mods passes Noto
+/// Sans as `--fallback-ttf`). One finding per code point.
 pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.Dir) !void {
     const arena = report.arena;
     const scopes = (try loadScopes(io, arena, root, null)) orelse return;
     const latin = Face.load(io, arena, fonts, "NotoSans-Regular.ttf");
     if (latin.table == null) try report.add("glyph", "all", latin.name, "font is missing or has no usable cmap");
     for (languages.languages, scopes.per_language) |language, scope| {
-        var own: ?Face = null;
-        if (language.face) |name| {
-            own = Face.load(io, arena, fonts, name);
-            if (own.?.table == null) try report.add("glyph", language.code, name, "font is missing or has no usable cmap");
-        }
+        const own = Face.load(io, arena, fonts, language.face);
+        if (own.table == null) try report.add("glyph", language.code, language.face, "font is missing or has no usable cmap");
         for (scope.keys) |key| {
             const path = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.txt", .{ language.code, key });
             const bytes = (try readOptional(io, arena, root, path)) orelse continue;
             if (textProblem(bytes) != .ok) continue;
             for (try codePoints(arena, bytes)) |code_point| {
-                if (own) |face| {
-                    if (face.table == null or face.covers(code_point) or latin.covers(code_point)) continue;
-                    try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in {s}", .{ code_point, face.name });
-                } else if (code_point > 0xFFFF or !languages.inCp1252(@intCast(code_point))) {
-                    try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in cp1252", .{code_point});
-                }
+                if (own.table == null or own.covers(code_point) or latin.covers(code_point)) continue;
+                try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in {s}", .{ code_point, own.name });
             }
         }
     }
@@ -1044,6 +1039,15 @@ fn optionalEql(a: ?[]const u8, b: ?[]const u8) bool {
 
 /// The face that lacks `code_point` for a table value, or null when it is covered (or no face
 /// could be read; the overlay glyph rule reports a missing font).
+/// The face the editors draw a language with besides Noto Sans (Sources/editor/kit/fonts.zig merges
+/// them): Noto Sans alone for the Latin and Cyrillic languages, whatever face their game mods use.
+fn editorFace(code: []const u8) ?[]const u8 {
+    if (std.mem.eql(u8, code, "zh-Hans")) return "NotoSansSC-Regular.otf";
+    if (std.mem.eql(u8, code, "ja")) return "NotoSansJP-Regular.otf";
+    if (std.mem.eql(u8, code, "hi")) return "NotoSansDevanagari-Regular.ttf";
+    return null;
+}
+
 fn missingFace(own: ?Face, latin: Face, code_point: u21) ?[]const u8 {
     if (latin.table == null) return null;
     if (own) |face| {
@@ -1116,7 +1120,7 @@ fn checkTableDir(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.D
             try report.add("table-missing", language.code, path, "no table file although en.lang exists");
             continue;
         };
-        const own: ?Face = if (language.face) |name| (if (fonts) |f| Face.load(io, arena, f, name) else null) else null;
+        const own: ?Face = if (fonts) |f| (if (editorFace(language.code)) |name| Face.load(io, arena, f, name) else null) else null;
         const table = try parseTable(arena, bytes);
         try reportTableProblems(report, language.code, path, table);
         var have_index: std.StringHashMapUnmanaged(usize) = .empty;
@@ -1918,9 +1922,15 @@ pub const FitFonts = struct {
 pub const FontProblem = struct { path: []const u8, reason: []const u8 };
 
 pub fn loadFitFonts(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, problem: *FontProblem) !FitFonts {
+    return loadFitFontsIn(io, arena, root, "Data/Fonts", problem);
+}
+
+/// The three fonts below `folder` of `root`, `<folder>/{small,medium,large}/1.tfd`: the game's own
+/// under `Data/Fonts`, a language's under the folder language-mods generates them in.
+pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, folder: []const u8, problem: *FontProblem) !FitFonts {
     var fonts: FitFonts = undefined;
     for (std.meta.tags(FitFont)) |size| {
-        const rel = try std.fmt.allocPrint(arena, "Data/Fonts/{s}/1.tfd", .{@tagName(size)});
+        const rel = try std.fmt.allocPrint(arena, "{s}/{s}/1.tfd", .{ folder, @tagName(size) });
         problem.path = rel;
         const found = (try findIgnoreCase(io, arena, root, rel)) orelse {
             problem.reason = "file is missing";
@@ -2075,7 +2085,16 @@ fn wordText(arena: std.mem.Allocator, units: []const u16, word: wrap.Word) []con
 /// `fit-base` in the language's note, not reported. A text in a `scroll` family is counted, not measured.
 /// A language with a face (ru, zh-Hans, ja, hi) draws with a font language-mods builds, which has no `1.tfd`
 /// in the tree: its note says `not measured`. Without a fit map the scope is `not active`.
-pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
+/// The fonts the fit rule measures a language with: the ones its mod ships, which language-mods
+/// generates (`<dir>/<code>/fonts/{small,medium,large}/1.tfd`, its scratch folder). A language without them is reported as not
+/// measured; language-mods runs this rule for each language it builds and fails on a finding.
+pub const LanguageFonts = struct {
+    dir: std.Io.Dir,
+    /// Only this language is measured.
+    only: ?[]const u8 = null,
+};
+
+pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?LanguageFonts) !void {
     const arena = report.arena;
     const map_text = (try readOptional(io, arena, root, fit_map_path)) orelse {
         try report.inactive.append(arena, "fit");
@@ -2092,7 +2111,8 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
         },
         else => return err,
     };
-    const resolved = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
+    // The map's own problems, once, with the game's fonts; each language resolves its rooms again.
+    _ = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
     for (problems.items) |problem| {
         try report.addFmt("fit-map", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_map_path, problem.line }), "{s}", .{problem.detail});
     }
@@ -2107,10 +2127,23 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     var scratch: std.ArrayList(wrap.Line) = .empty;
     var english_cache: std.StringHashMapUnmanaged(?[]const u16) = .empty;
     for (languages.languages, scopes.per_language) |language, scope| {
-        if (language.face != null) {
-            try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured (font built by language-mods)", .{language.code}));
+        const generated = language_fonts orelse {
+            try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured here; language-mods measures it with the fonts it builds", .{language.code}));
             continue;
-        }
+        };
+        if (generated.only) |code| if (!std.mem.eql(u8, code, language.code)) continue;
+        var own_problem: FontProblem = .{ .path = "", .reason = "" };
+        const own_fonts = loadFitFontsIn(io, arena, generated.dir, try std.fmt.allocPrint(arena, "{s}/fonts", .{language.code}), &own_problem) catch |err| switch (err) {
+            error.FontUnreadable => {
+                try report.addFmt("fit-font", language.code, own_problem.path, "cannot read the font the fit rule measures with ({s})", .{own_problem.reason});
+                continue;
+            },
+            else => return err,
+        };
+        // The rooms again with this language's fonts: the tooltip's width follows the line spaces of
+        // the fonts the Game has loaded. The map's problems were reported above.
+        var own_problems: std.ArrayList(ScopeProblem) = .empty;
+        const own_resolved = try resolveFitLines(io, arena, root, lines, &own_fonts, &own_problems);
         var boxed: usize = 0;
         var tooltips: usize = 0;
         var scrolls: usize = 0;
@@ -2132,7 +2165,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
             var is_scroll = false;
             var overflowed = false;
             for (found) |at| {
-                const room = resolved[at];
+                const room = own_resolved[at];
                 if (!room.ok) continue;
                 switch (room.kind) {
                     .scroll => {
@@ -2142,7 +2175,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
                     .tooltip => is_tooltip = true,
                     .box, .area => is_boxed = true,
                 }
-                const font = fonts.get(room.font);
+                const font = own_fonts.get(room.font);
                 const mine = try measureText(arena, &scratch, font, units, room.width);
                 const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, font, original, room.width) else null;
                 const too_tall = fitNeeds(font, mine.lines) > room.height;
@@ -2167,7 +2200,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir) !void {
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--lang-fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
 
@@ -2182,6 +2215,7 @@ pub fn main(init: std.process.Init) !void {
     _ = iterator.skip();
     var root_path: []const u8 = ".";
     var fonts_path: ?[]const u8 = null;
+    var lang_fonts_path: ?[]const u8 = null;
     var update_base = false;
     var doc_sets: std.ArrayList([]const u8) = .empty;
     var default_docs: []const []const u8 = &document_sets;
@@ -2191,6 +2225,8 @@ pub fn main(init: std.process.Init) !void {
             root_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--fonts")) {
             fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
+        } else if (std.mem.eql(u8, arg, "--lang-fonts")) {
+            lang_fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--doc-set")) {
             try doc_sets.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--no-default-docs")) {
@@ -2217,7 +2253,15 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
     try checkOverlays(io, &report, root);
-    try checkFit(io, &report, root);
+    // --lang-fonts: the fonts language-mods generated (`<dir>/<code>/fonts/<size>/1.tfd`), so the
+    // fit rule can measure outside that build too.
+    var lang_fonts: ?std.Io.Dir = null;
+    if (lang_fonts_path) |path| lang_fonts = std.Io.Dir.cwd().openDir(io, path, .{}) catch |err| {
+        std.debug.print("l10n-check: fit-font: all: {s}: cannot open ({s})\n", .{ path, @errorName(err) });
+        std.process.exit(1);
+    };
+    defer if (lang_fonts) |*dir| dir.close(io);
+    try checkFit(io, &report, root, if (lang_fonts) |dir| .{ .dir = dir } else null);
     var fonts = if (fonts_path) |path| std.Io.Dir.cwd().openDir(io, path, .{}) else root.openDir(io, "vendor/fonts", .{});
     if (fonts) |*dir| {
         defer dir.close(io);

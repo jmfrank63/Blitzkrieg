@@ -633,6 +633,10 @@ pub const font_licence_file = "Fonts/OFL.txt";
 
 /// Collect, in install order, every relative path the ten-language install
 /// lacks. The caller owns the returned paths; an empty list is a complete install.
+/// The faces the editors merge (Sources/editor/kit/fonts.zig Face), read from `<exe dir>/Fonts/`. The
+/// game's language mods carry their atlases inside their paks and need no face installed.
+const editor_faces = [_][]const u8{ "NotoSans-Regular.ttf", "NotoSansSC-Regular.otf", "NotoSansJP-Regular.otf", "NotoSansDevanagari-Regular.ttf" };
+
 pub fn collectMissingL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, missing: *std.ArrayListUnmanaged([]const u8)) !void {
     for (l10n_languages.languages) |language| {
         for (language_mod_files) |file| {
@@ -642,8 +646,7 @@ pub fn collectMissingL10nInstall(io: std.Io, allocator: std.mem.Allocator, root:
         }
     }
     try appendIfMissing(io, allocator, root, try allocator.dupe(u8, font_licence_file), missing);
-    for (l10n_languages.languages) |language| {
-        const face = language.face orelse continue;
+    for (editor_faces) |face| {
         const path = try std.fmt.allocPrint(allocator, "Fonts/{s}", .{face});
         try appendIfMissing(io, allocator, root, path, missing);
     }
@@ -685,8 +688,7 @@ fn writeL10nInstallFixture(io: std.Io, root: std.Io.Dir) !void {
     try root.createDirPath(io, "Fonts");
     try root.createDirPath(io, "Tools");
     try root.writeFile(io, .{ .sub_path = font_licence_file, .data = "x" });
-    for (l10n_languages.languages) |language| {
-        const face = language.face orelse continue;
+    for (editor_faces) |face| {
         var buf: [96]u8 = undefined;
         try root.writeFile(io, .{ .sub_path = try std.fmt.bufPrint(&buf, "Fonts/{s}", .{face}), .data = "x" });
     }

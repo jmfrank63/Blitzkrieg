@@ -368,13 +368,15 @@ test "uncovered_glyph_cjk: a Han character in the Russian overlay" {
     try expectFinding(io, "uncovered_glyph_cjk", &root, "l10n-check: glyph: ru: textes/strings/alpha: U+76F4 not in NotoSans-Regular.ttf");
 }
 
-test "uncovered_glyph_latin: a Cyrillic letter in the German overlay" {
+test "uncovered_glyph_latin: a Devanagari letter in the German overlay" {
+    // German's fonts are generated from Liberation Serif, which holds the accents and Cyrillic but
+    // no Devanagari: the umlaut and the ZHE pass, the KA is named.
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "uncovered_glyph_latin");
-    const bytes = try utf16Units(testing.allocator, &.{ 'G', 0x00FC, 0x0416 });
+    const bytes = try utf16Units(testing.allocator, &.{ 'G', 0x00FC, 0x0416, 0x0915 });
     defer testing.allocator.free(bytes);
     try write(io, root, de_alpha ++ ".txt", bytes);
-    try expectFinding(io, "uncovered_glyph_latin", &root, "l10n-check: glyph: de: textes/strings/alpha: U+0416 not in cp1252");
+    try expectFinding(io, "uncovered_glyph_latin", &root, "l10n-check: glyph: de: textes/strings/alpha: U+0915 not in LiberationSerif-Regular.ttf");
 }
 
 test "covered_hindi_with_ascii: Devanagari with ASCII and a Western digit passes" {
@@ -913,21 +915,19 @@ const fit_box_line = "box textes/strings/alpha Data/UI/Fit.xml 100\r\n";
 const fit_rest_line = "area scenarios/** 100x21 medium\r\n";
 const fit_alpha_where = "Data/UI/Fit.xml#100";
 
-/// The fit notes of nine languages when each Latin one measured `boxed` boxed, `tooltips` tooltip and
+/// The fit notes of nine languages when each measured `boxed` boxed, `tooltips` tooltip and
 /// `scrolls` scroll keys and `base` of them have an English original that overflows.
 fn fitNotes(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: usize, comptime base: usize) []const u8 {
     comptime var notes: []const u8 = "";
     inline for (codes) |code| {
-        if (comptime std.mem.eql(u8, code, "ru") or std.mem.eql(u8, code, "zh-Hans") or std.mem.eql(u8, code, "ja") or std.mem.eql(u8, code, "hi")) {
-            notes = notes ++ "l10n-check: fit: " ++ code ++ ": not measured (font built by language-mods)\n";
-        } else {
-            notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ code, boxed, tooltips, scrolls, base });
-        }
+        notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ code, boxed, tooltips, scrolls, base });
     }
     return notes;
 }
 
-/// A tree with the fit rule on: the three shipped fonts, one layout and the given map.
+/// A tree with the fit rule on: the three shipped fonts, one layout and the given map. Every language's
+/// generated fonts (`lang-fonts/<code>/fonts`, as language-mods lays them out) are the shipped ones, so
+/// the numbers below are the shipped fonts' metrics.
 fn buildFitTree(io: std.Io, case: []const u8, map: []const u8) !std.Io.Dir {
     var root = try buildTree(io, testing.allocator, case);
     errdefer root.close(io);
@@ -937,10 +937,22 @@ fn buildFitTree(io: std.Io, case: []const u8, map: []const u8) !std.Io.Dir {
         const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, testing.allocator, .limited(1 << 20));
         defer testing.allocator.free(bytes);
         try write(io, root, path, bytes);
+        for (codes) |code| {
+            const generated = try std.fmt.allocPrint(testing.allocator, "lang-fonts/{s}/fonts/{s}/1.tfd", .{ code, size });
+            defer testing.allocator.free(generated);
+            try write(io, root, generated, bytes);
+        }
     }
     try write(io, root, "Data/UI/Fit.xml", fit_layout);
     try write(io, root, "Localization/game/fit-map.txt", map);
     return root;
+}
+
+/// expectRun with the tree's generated fonts named, as the fit tests need.
+fn expectFitRun(io: std.Io, case: []const u8, root: *std.Io.Dir, code: u8, want: []const u8) !void {
+    const lang_fonts = try std.fmt.allocPrint(testing.allocator, "{s}/{s}/lang-fonts", .{ scratch, case });
+    defer testing.allocator.free(lang_fonts);
+    try expectRun(io, case, root, &.{ "--lang-fonts", lang_fonts }, code, want);
 }
 
 /// The run's findings, then the notes of a fit-active tree.
@@ -952,7 +964,7 @@ test "fit_pass: texts that fit their boxes pass and the notes count the keys" {
     const io = testing.io;
     var root = try buildFitTree(io, "fit_pass", "# fixture\r\n" ++ fit_box_line ++ "scroll scenarios/** # prose\r\n");
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello");
-    try expectRun(io, "fit_pass", &root, &.{}, 0, comptime fitWant("", 0, fitNotes(1, 0, 1, 0)));
+    try expectFitRun(io, "fit_pass", &root, 0, comptime fitWant("", 0, fitNotes(1, 0, 1, 0)));
 }
 
 test "fit_overflow: a text with more lines than the box has room for" {
@@ -960,7 +972,7 @@ test "fit_overflow: a text with more lines than the box has room for" {
     var root = try buildFitTree(io, "fit_overflow", fit_box_line ++ fit_rest_line);
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello");
     const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 2 lines x 21 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 0));
-    try expectRun(io, "fit_overflow", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_overflow", &root, 1, want);
 }
 
 test "fit_word: a word wider than the box is split, which costs lines as well" {
@@ -969,7 +981,7 @@ test "fit_word: a word wider than the box is split, which costs lines as well" {
     try addOverlay(io, root, "de", "textes/strings/alpha", "Supercalifragilisticexpialidocious");
     const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 3 lines x 21 - 1 > 21 in " ++ fit_alpha_where ++ "\n" ++
         "l10n-check: fit-word: de: textes/strings/alpha: \"Supercalifragilisticexpialidocious\" is 230 px wide, the room is 100 px in " ++ fit_alpha_where ++ "\n", 2, fitNotes(2, 0, 0, 0));
-    try expectRun(io, "fit_word", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_word", &root, 1, want);
 }
 
 test "fit_tooltip_word: a tooltip has no height limit but a word wider than 585 px" {
@@ -978,7 +990,7 @@ test "fit_tooltip_word: a tooltip has no height limit but a word wider than 585 
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello");
     try addOverlay(io, root, "fr", "textes/strings/alpha", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     const want = comptime fitWant("l10n-check: fit-word: fr: textes/strings/alpha: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" is 720 px wide, the room is 585 px in tooltip\n", 1, fitNotes(1, 1, 0, 0));
-    try expectRun(io, "fit_tooltip_word", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_tooltip_word", &root, 1, want);
 }
 
 test "fit_unmapped: a key in scope that no line of the map matches" {
@@ -986,14 +998,14 @@ test "fit_unmapped: a key in scope that no line of the map matches" {
     var root = try buildFitTree(io, "fit_unmapped", fit_box_line);
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello");
     const want = comptime fitWant("l10n-check: fit-unmapped: all: scenarios/demo/beta: no line of Localization/game/fit-map.txt matches this key; add an exact line or a family\n", 1, fitNotes(1, 0, 0, 0));
-    try expectRun(io, "fit_unmapped", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_unmapped", &root, 1, want);
 }
 
 test "fit_scroll_reason: a scroll line without a reason is a finding" {
     const io = testing.io;
     var root = try buildFitTree(io, "fit_scroll_reason", fit_box_line ++ "scroll scenarios/demo/beta\r\n" ++ fit_rest_line);
     const want = comptime fitWant("l10n-check: fit-map: all: Localization/game/fit-map.txt:2: scroll `scenarios/demo/beta` gives no reason; write `scroll scenarios/demo/beta # why this text scrolls`\n", 1, fitNotes(2, 0, 0, 0));
-    try expectRun(io, "fit_scroll_reason", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_scroll_reason", &root, 1, want);
 }
 
 test "fit_base: an English original that already overflows is information, not a finding" {
@@ -1005,7 +1017,7 @@ test "fit_base: an English original that already overflows is information, not a
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hallo Hallo Hallo");
     try addOverlay(io, root, "fr", "textes/strings/alpha", "Bonjour Bonjour Bonjour");
     const want = comptime fitWant("l10n-check: fit: fr: textes/strings/alpha: 3 lines x 21 - 1 > 21 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 1));
-    try expectRun(io, "fit_base", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_base", &root, 1, want);
 }
 
 test "fit_font_missing: the fonts the rule measures with are gone" {
@@ -1021,5 +1033,5 @@ test "fit_map_layout: a box line whose element is not in its layout" {
     var root = try buildFitTree(io, "fit_map_layout", "box textes/strings/alpha Data/UI/Fit.xml 999\r\nbox textes/strings/alpha Data/UI/Nope.xml 1\r\n" ++ fit_rest_line);
     const want = comptime fitWant("l10n-check: fit-map: all: Localization/game/fit-map.txt:1: Data/UI/Fit.xml holds no element 999\n" ++
         "l10n-check: fit-map: all: Localization/game/fit-map.txt:2: layout Data/UI/Nope.xml does not exist\n", 2, fitNotes(1, 0, 0, 0));
-    try expectRun(io, "fit_map_layout", &root, &.{}, 1, want);
+    try expectFitRun(io, "fit_map_layout", &root, 1, want);
 }

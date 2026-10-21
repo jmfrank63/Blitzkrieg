@@ -1,10 +1,13 @@
 //! The language mods of M002 (D060, D068): `lang-ru`, `lang-zh-hans`,
-//! `lang-ja` and `lang-hi` with fonts, and the texts-only `lang-es`,
-//! `lang-fr`, `lang-de`, `lang-pt-br` and `lang-id` of the installed game,
-//! built by ELK's own pak export from the tracked `Data/ELK` and the overlays
-//! of `Localization/`. The Latin languages draw with the game's cp1252 bitmap
-//! fonts (D059): their mods hold texts only, and every character of every text
-//! must map to cp1252 or the build fails naming the key and the code point.
+//! `lang-ja`, `lang-hi`, `lang-es`, `lang-fr`, `lang-de`, `lang-pt-br` and
+//! `lang-id` of the installed game, built by ELK's own pak export from the
+//! tracked `Data/ELK` and the overlays of `Localization/`, each with fonts of
+//! its own. The game's bitmap fonts hold ASCII and the Cyrillic set but no
+//! accented Latin letter, so a Latin language drawn with them showed an empty
+//! box for every accent (D059 had assumed cp1252 fonts); a mod's fonts hold every
+//! character the base fonts hold besides its texts' own, so whatever else the
+//! Game draws while it is mounted (version, profile names, the port's options)
+//! keeps its glyphs.
 //! Per language: the database is copied to a scratch folder and the overlay
 //! laid over it; a first export (for Hindi through the shaper, which rewrites
 //! every text into Private Use Area characters) tells which characters the
@@ -36,9 +39,10 @@ extern fn LmShaperSerialize(shaper: *const LmShaper, out: [*]u8, capacity: usize
 const scratch = "zig-out/local-test/language-mods";
 
 const l10n_languages = @import("l10n_languages.zig");
+const l10n_font = @import("l10n_font.zig");
+const check = @import("l10n_check.zig");
 const Language = l10n_languages.Language;
 const languages = l10n_languages.languages;
-const cp1252Violation = l10n_languages.cp1252Violation;
 
 /// The game's four font folders and their cell heights (Data/Fonts/*/1.tfd).
 const Size = struct { name: []const u8, height: []const u8 };
@@ -136,17 +140,22 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     var db = try database.Database.open(testing.allocator, io, elk_xml);
     defer db.deinit();
 
-    const face_path = if (language.face) |name| try std.fs.path.join(allocator, &.{ "vendor/fonts", name }) else "";
-    const face = if (language.face != null) try cwd.readFileAlloc(io, face_path, allocator, .limited(64 << 20)) else "";
+    const face_path = try std.fs.path.join(allocator, &.{ "vendor/fonts", language.face });
+    const face = try cwd.readFileAlloc(io, face_path, allocator, .limited(64 << 20));
     var shaping = Shaper{};
     defer if (shaping.handle) |handle| LmShaperDestroy(handle);
     if (language.shaped) shaping.handle = LmShaperCreate(face.ptr, face.len, "Deva", "hi");
     const shape: ?packages.Shaping = if (language.shaped) .{ .context = &shaping, .rewrite = Shaper.rewrite } else null;
 
-    // First export: which characters the texts use.
+    // First export: which characters the texts use, on top of every character the base fonts hold.
     var chars = @as([65536]bool, @splat(false));
+    for (sizes) |size| {
+        const tfd = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ "Data/Fonts", size.name, "1.tfd" }), allocator, .limited(1 << 20));
+        const base = try l10n_font.Font.read(allocator, tfd);
+        var known = base.chars.keyIterator();
+        while (known.next()) |unit| chars[unit.*] = true;
+    }
     var texts: usize = 0;
-    var inherited: usize = 0;
     {
         stage = "export";
         const probe_root = try std.fs.path.join(allocator, &.{ root, "probe" });
@@ -157,17 +166,6 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         for (package.entries) |entry| {
             if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
             texts += 1;
-            if (language.face == null) {
-                if (cp1252Violation(entry.bytes)) |unit| {
-                    // The English base still holds Russian tutorial and medal texts and a few
-                    // Cyrillic look-alike letters; only a key this overlay supplies is its to fix.
-                    const overlay_key = try std.fs.path.join(allocator, &.{ overlay_root, language.code, "game_data_base", entry.name });
-                    if (cwd.access(io, overlay_key, .{})) {
-                        std.debug.print("language-mods: {s}: {s}: U+{X:0>4} is not in cp1252\n", .{ language.code, entry.name, unit });
-                        return error.NotInCp1252;
-                    } else |_| inherited += 1;
-                }
-            }
             var at: usize = 2;
             while (at + 1 < entry.bytes.len) : (at += 2) chars[std.mem.readInt(u16, entry.bytes[at..][0..2], .little)] = true;
         }
@@ -206,11 +204,13 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
 
     var fonts: std.ArrayListUnmanaged(packages.Entry) = .empty;
     var atlas_report: std.ArrayListUnmanaged(u8) = .empty;
-    for (if (language.face != null) sizes[0..] else sizes[0..0]) |size| {
+    for (sizes) |size| {
         stage = "bk-font";
         const out = try std.fs.path.join(allocator, &.{ abs_root, "fonts", size.name });
         var argv: std.ArrayListUnmanaged([]const u8) = .empty;
-        try argv.appendSlice(allocator, &.{ font_tool, "--ttf", face_path, "--height", size.height, "--chars", chars_path, "--out", out, "--force", "--modules", modules });
+        // Noto Sans draws what the face lacks: the Devanagari face has no Latin letter, and every
+        // mod's fonts hold the base fonts' characters.
+        try argv.appendSlice(allocator, &.{ font_tool, "--ttf", face_path, "--fallback-ttf", "vendor/fonts/NotoSans-Regular.ttf", "--height", size.height, "--chars", chars_path, "--out", out, "--force", "--modules", modules });
         if (language.shaped) try argv.appendSlice(allocator, &.{ "--clusters", clusters_path, "--script", "Deva", "--language", "hi" });
         const result = try timed_run.run(allocator, io, .{
             .argv = argv.items,
@@ -230,6 +230,24 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
             const bytes = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, file }), allocator, .limited(64 << 20));
             try fonts.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ size.name, "/", file }), .bytes = bytes });
+        }
+    }
+
+    // fit: every text in the room the Game draws it in, measured with these fonts (D097). Only here
+    // do they exist, so l10n-check leaves the rule to this build.
+    {
+        stage = "fit";
+        var report = check.Report{ .arena = allocator };
+        var repository = try cwd.openDir(io, ".", .{ .iterate = true });
+        defer repository.close(io);
+        var generated = try cwd.openDir(io, scratch, .{});
+        defer generated.close(io);
+        try check.checkFit(io, &report, repository, .{ .dir = generated, .only = language.code });
+        for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
+        for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+        if (report.findings.items.len != 0) {
+            std.debug.print("language-mods: {s}: {d} fit findings with the mod's own fonts\n", .{ language.code, report.findings.items.len });
+            return error.TextDoesNotFit;
         }
     }
 
@@ -255,7 +273,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     const pak_bytes = try cwd.readFileAlloc(io, pak_path, allocator, .limited(256 << 20));
     var archive = try zip.Archive.parse(testing.allocator, pak_bytes);
     defer archive.deinit();
-    for (if (language.face != null) sizes[0..] else sizes[0..0]) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
+    for (sizes) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
         const name = try std.mem.concat(allocator, u8, &.{ "fonts/", size.name, "/", file });
         var found = false;
         for (archive.entries) |*entry| {
@@ -282,21 +300,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     } else {
         try testing.expectEqualSlices(u8, overlay_text, packed_text);
     }
-    if (language.face == null) {
-        std.debug.print("language-mods: {s}: {d} texts, {d} characters, bitmap fonts, texts only ({d} inherited base texts outside cp1252), installed {s}\n", .{ language.code, texts, distinct, inherited, pak_path });
-    } else {
-        std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s}, installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, pak_path });
-    }
-}
-
-test "a text with a character cp1252 lacks is named" {
-    const good = [_]u8{ 0xff, 0xfe, 'A', 0, 0xe9, 0, 0xac, 0x20, 0x26, 0x20 };
-    try testing.expectEqual(@as(?u16, null), cp1252Violation(&good));
-    // U+1EBD (e with tilde) is the known trap of the Latin overlays.
-    const bad = [_]u8{ 0xff, 0xfe, 'a', 0, 0xbd, 0x1e };
-    try testing.expectEqual(@as(?u16, 0x1EBD), cp1252Violation(&bad));
-    // 0x81 is one of the five holes of cp1252.
-    try testing.expectEqual(@as(?u16, 0x81), cp1252Violation(&[_]u8{ 0xff, 0xfe, 0x81, 0 }));
+    std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s}, installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, pak_path });
 }
 
 test "BK_LM_LANGS selects languages by code" {

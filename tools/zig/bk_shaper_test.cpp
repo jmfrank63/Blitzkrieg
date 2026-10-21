@@ -106,7 +106,7 @@ static void CheckChecksums( const std::string &szDir )
 		CHECK( bOk );
 		++nChecked;
 	}
-	CHECK( nChecked == 5 );
+	CHECK( nChecked == 7 );
 	printf( "bk-shaper-test: SHA256SUMS lists %d files, all match\n", nChecked );
 }
 
