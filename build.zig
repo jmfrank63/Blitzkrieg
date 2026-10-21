@@ -6155,6 +6155,26 @@ fn addBkTextTests(
     abi_run.addArg(rootPath(b, "vendor/fonts"));
     step.dependOn(&abi_exe.step);
     if (test_mode == .run) step.dependOn(&abi_run.step);
+
+    // The lines of five scripts against hb-view and hb-shape (D069); part of test-bk-text so the
+    // slice gate covers it, and a step of its own for the fast loop.
+    const hbview_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_text_hbview_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    hbview_module.addImport("bk_text", bkTextModule(b, target, optimize, toolchain));
+    hbview_module.addImport("l10n_measure", b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_measure.zig") }));
+    const hbview_tests = b.addTest(.{ .root_module = hbview_module });
+    const hbview_run = b.addRunArtifact(hbview_tests);
+    hbview_run.setCwd(b.path("."));
+    hbview_run.has_side_effects = true;
+    hbview_run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    const hbview_step = b.step("test-bk-text-hbview", "bk_text lines against hb-view and hb-shape: ink boxes, advances and correlation (M004 D069)");
+    hbview_step.dependOn(&hbview_tests.step);
+    if (test_mode == .run) hbview_step.dependOn(&hbview_run.step);
+    step.dependOn(hbview_step);
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
