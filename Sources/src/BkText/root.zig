@@ -3,9 +3,13 @@
 pub const c = @import("c.zig");
 pub const faces = @import("faces.zig");
 pub const utf16 = @import("utf16.zig");
+pub const segment = @import("segment.zig");
+pub const shape = @import("shape.zig");
 
 test {
     _ = faces;
     _ = utf16;
+    _ = segment;
+    _ = shape;
     _ = @import("spike_test.zig");
 }

@@ -76,3 +76,10 @@ test "a lone low surrogate is U+FFFD of one unit" {
     try std.testing.expectEqual(@as(u21, 0x20BB7), pair.cp);
     try std.testing.expect(it.next() == null);
 }
+
+/// A comptime UTF-8 literal as a UTF-16 array, for tests and fixed strings.
+pub fn literal(comptime s: []const u8) [std.unicode.calcUtf16LeLen(s) catch unreachable]u16 {
+    var out: [std.unicode.calcUtf16LeLen(s) catch unreachable]u16 = undefined;
+    _ = std.unicode.utf8ToUtf16Le(&out, s) catch unreachable;
+    return out;
+}
