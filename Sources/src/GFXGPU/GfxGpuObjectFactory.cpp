@@ -5,19 +5,33 @@
 #include "TextureGpu.h"
 #include "FontGpu.h"
 #include "TextWrap.h"
+#include "BkTextBridge.h"
 #include "..//Main//TextSystem.h"
 
 #include "..//GFX//GFXObjectFactory.h"
 
 #include <map>
+#include <cctype>
+#include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <type_traits>
 
 FontGpu::FontGpu() = default;
 
 FontGpu::~FontGpu()
 {
+    CloseTtf();
     if ( texture_ ) texture_->Release();
+}
+
+void FontGpu::CloseTtf()
+{
+    // The context may be gone (graphics shut down, or recreated for another language) while a
+    // font is still referenced; its BkTextFont died with it.
+    if ( bk_font_ != nullptr && bk_serial_ == NBkTextBridge::Serial() && NBkTextBridge::Context() != nullptr )
+        bk_text_font_close( bk_font_ );
+    bk_font_ = nullptr;
 }
 
 void STDCALL FontGpu::SwapData( ISharedResource *resource )
@@ -25,12 +39,91 @@ void STDCALL FontGpu::SwapData( ISharedResource *resource )
     FontGpu *other = dynamic_cast<FontGpu *>( resource );
     if ( !other ) return;
     std::swap( format_, other->format_ );
+    std::swap( bk_font_, other->bk_font_ );
+    std::swap( bk_serial_, other->bk_serial_ );
+}
+
+namespace
+{
+    // The pixel size of each size class under ttf: the shipped bitmap fonts' heights, so layouts
+    // built for them keep their proportions (exact line spacing is S03's job).
+    float TtfPixelSize( BkTextSizeClass eClass )
+    {
+        switch ( eClass )
+        {
+            case BK_TEXT_SIZE_TINY: return 10.0f;
+            case BK_TEXT_SIZE_SMALL: return 16.0f;
+            case BK_TEXT_SIZE_LARGE: return 40.0f;
+            default: return 20.0f;
+        }
+    }
+
+    // "fonts\\tiny", "fonts/small": the class the name ends in; anything else is medium.
+    BkTextSizeClass TtfSizeClass( const std::string &szName )
+    {
+        std::string sz = szName;
+        for ( size_t i = 0; i < sz.size(); ++i ) sz[i] = char( std::tolower( (unsigned char)sz[i] ) );
+        if ( sz.find( "tiny" ) != std::string::npos ) return BK_TEXT_SIZE_TINY;
+        if ( sz.find( "small" ) != std::string::npos ) return BK_TEXT_SIZE_SMALL;
+        if ( sz.find( "large" ) != std::string::npos ) return BK_TEXT_SIZE_LARGE;
+        return BK_TEXT_SIZE_MEDIUM;
+    }
+}
+
+// BK_DEBUG_LOG: one line per font load with the numbers a layout depends on, so the bitmap and
+// the ttf font of a name can be compared from two runs' logs.
+static void LogFontMetrics( const std::string &name, const char *engine, const SFontFormat &format )
+{
+    static const bool log = []{ const char *psz = getenv( "BK_DEBUG_LOG" ); return psz != 0 && *psz != 0 && *psz != '0'; }();
+    if ( !log ) return;
+    std::fprintf( stderr, "font %s %s: height %d ascent %d descent %d external %d line_space %d\n", engine, name.c_str(),
+        format.metrics.nHeight, format.metrics.nAscent, format.metrics.nDescent, format.metrics.nExternalLeading, format.GetLineSpace() );
+}
+
+bool FontGpu::OpenTtf()
+{
+    BkTextContext *context = NBkTextBridge::Context();
+    if ( context == nullptr ) return false;
+    CloseTtf();
+    const BkTextSizeClass eClass = TtfSizeClass( name_ );
+    BkTextFont *font = nullptr;
+    if ( bk_text_font_open( context, eClass, TtfPixelSize( eClass ), &font ) != BK_TEXT_OK || font == nullptr ) return false;
+    const uint16_t probe = 'H';
+    BkTextMetrics metrics = {};
+    if ( bk_text_measure_utf16( font, &probe, 1, &metrics ) != BK_TEXT_OK )
+    {
+        bk_text_font_close( font );
+        return false;
+    }
+    bk_font_ = font;
+    bk_serial_ = NBkTextBridge::Serial();
+    // A synthetic bitmap-font description: nHeight + nExternalLeading is the line space, no
+    // characters and no kerning (the bitmap path's tables are not read under ttf).
+    format_ = SFontFormat();
+    format_.szFaceName = "bk_text";
+    const int nLineSpace = int( metrics.line_space );
+    const int nBody = int( metrics.ascent + metrics.descent + 0.5f );
+    format_.metrics.nHeight = nBody < nLineSpace ? nBody : nLineSpace;
+    format_.metrics.nExternalLeading = nLineSpace - format_.metrics.nHeight;
+    format_.metrics.nAscent = int( metrics.ascent + 0.5f );
+    format_.metrics.nDescent = int( metrics.descent + 0.5f );
+    format_.metrics.nInternalLeading = 0;
+    format_.metrics.nAveCharWidth = int( TtfPixelSize( eClass ) * 0.5f );
+    format_.metrics.nMaxCharWidth = int( TtfPixelSize( eClass ) );
+    format_.metrics.fSpaceWidth = TtfPixelSize( eClass ) * 0.25f;
+    format_.metrics.cCharSet = 0;
+    format_.metrics.wDefaultChar = 0;
+    missing_reported_.clear();
+    LogFontMetrics( name_, "ttf", format_ );
+    return true;
 }
 
 bool STDCALL FontGpu::Load( bool bPreLoad )
 {
     ISingleton *globals = GetSingletonGlobal();
     if ( !globals || name_.empty() ) return false;
+    // BK_TEXT_ENGINE=ttf: the font is a bk_text font, there is no 1.tfd and no atlas texture.
+    if ( NBkTextBridge::Context() != nullptr ) return OpenTtf();
     IDataStorage *storage = GetSingleton<IDataStorage>( globals );
     if ( !storage ) return false;
 
@@ -47,6 +140,7 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     CSaverAccessor saver = structure;
     saver.Add( 1, &format_ );
     missing_reported_.clear();
+    LogFontMetrics( name_, "bitmap", format_ );
     if ( bPreLoad ) return true;
 
     ITextureManager *textures = GetSingleton<ITextureManager>( globals );
@@ -63,10 +157,26 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     return true;
 }
 
+float FontGpu::TtfAdvance( const uint16_t *text, size_t length ) const
+{
+    if ( bk_font_ == nullptr || text == nullptr || length == 0 ) return 0;
+    BkTextMetrics metrics = {};
+    if ( bk_text_measure_utf16( bk_font_, text, uint32_t( length ), &metrics ) != BK_TEXT_OK ) return 0;
+    return metrics.advance;
+}
+
 template <typename T>
 float FontGpu::TextWidth( const T *text, int count ) const
 {
     if ( !text || count <= 0 ) return 0;
+    if ( bk_font_ != nullptr )
+    {
+        // The same contract as the bitmap sum: a line ends at \n or \r, narrow text is Latin-1.
+        std::vector<uint16_t> units;
+        for ( int i = 0; i < count && text[i] && text[i] != static_cast<T>('\n') && text[i] != static_cast<T>('\r'); ++i )
+            units.push_back( static_cast<uint16_t>( static_cast<typename std::make_unsigned<T>::type>( text[i] ) ) );
+        return TtfAdvance( units.data(), units.size() );
+    }
     float width = 0;
     T previous = 0;
     for ( int i = 0; i < count && text[i] && text[i] != static_cast<T>('\n') && text[i] != static_cast<T>('\r'); ++i )
@@ -167,6 +277,73 @@ bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float
         previous = current;
     }
     return true;
+}
+
+int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float y, float scale, DWORD color,
+    std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices, unsigned generation,
+    float clip_top, float clip_bottom ) const
+{
+    BkTextContext *context = NBkTextBridge::Context();
+    if ( bk_font_ == nullptr || context == nullptr || text == nullptr ) return kTtfOk;
+    size_t used = 0;
+    while ( used < length && text[used] && text[used] != '\n' && text[used] != '\r' ) ++used;
+    if ( used == 0 ) return kTtfOk;
+    uint32_t page_w = 0, page_h = 0, page_generation = 0;
+    if ( bk_text_atlas_info( context, &page_w, &page_h, &page_generation ) != BK_TEXT_OK || page_w == 0 || page_h == 0 ) return kTtfOk;
+    std::vector<BkTextGlyph> glyphs( used + 8 );
+    uint32_t count = 0;
+    BkTextResult shaped = bk_text_shape_utf16( bk_font_, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
+    if ( shaped == BK_TEXT_BUFFER_TOO_SMALL )
+    {
+        glyphs.resize( count );
+        shaped = bk_text_shape_utf16( bk_font_, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
+    }
+    if ( shaped != BK_TEXT_OK ) return kTtfOk;
+    const float baseline = y + float( format_.metrics.nAscent ) * scale;
+    float pen = x;
+    for ( uint32_t i = 0; i < count; ++i )
+    {
+        const BkTextGlyph &glyph = glyphs[i];
+        BkTextAtlasGlyph atlas = {};
+        const BkTextResult found = bk_text_atlas_glyph( bk_font_, glyph.glyph_key, &atlas );
+        if ( found == BK_TEXT_ATLAS_FULL ) return kTtfAtlasFull;
+        if ( found != BK_TEXT_OK ) { pen += glyph.x_advance * scale; continue; }
+        // The page was cleared to make room for this glyph: the rects of the quads built so far
+        // point at other glyphs now.
+        if ( atlas.generation != generation ) return kTtfRetry;
+        if ( atlas.rect.w != 0 && atlas.rect.h != 0 )
+        {
+            const float left = std::floor( pen + ( glyph.x_offset + float( atlas.bearing_x ) ) * scale + 0.5f );
+            const float top = std::floor( baseline - ( glyph.y_offset + float( atlas.bearing_y ) ) * scale + 0.5f );
+            const float quad_w = float( atlas.rect.w ) * scale;
+            const float quad_h = float( atlas.rect.h ) * scale;
+            // Cut against the text rectangle and carry the texture coordinates, as the bitmap path does.
+            float top_fraction = 0.0f;
+            float bottom_fraction = 1.0f;
+            if ( top < clip_top ) top_fraction = ( clip_top - top ) / quad_h;
+            if ( top + quad_h > clip_bottom ) bottom_fraction = ( clip_bottom - top ) / quad_h;
+            if ( bottom_fraction > top_fraction )
+            {
+                const float u1 = float( atlas.rect.x ) / float( page_w );
+                const float u2 = float( atlas.rect.x + atlas.rect.w ) / float( page_w );
+                const float v_top = float( atlas.rect.y ) / float( page_h );
+                const float v_span = float( atlas.rect.h ) / float( page_h );
+                const float v1 = v_top + top_fraction * v_span;
+                const float v2 = v_top + bottom_fraction * v_span;
+                const float y1 = top + top_fraction * quad_h;
+                const float y2 = top + bottom_fraction * quad_h;
+                const WORD base = static_cast<WORD>( vertices.size() );
+                vertices.emplace_back(); vertices.back().Setup( left, y2, 0, 1, color, 0xff000000, u1, v2 );
+                vertices.emplace_back(); vertices.back().Setup( left, y1, 0, 1, color, 0xff000000, u1, v1 );
+                vertices.emplace_back(); vertices.back().Setup( left + quad_w, y2, 0, 1, color, 0xff000000, u2, v2 );
+                vertices.emplace_back(); vertices.back().Setup( left + quad_w, y1, 0, 1, color, 0xff000000, u2, v1 );
+                indices.push_back( base + 2 ); indices.push_back( base + 1 ); indices.push_back( base + 0 );
+                indices.push_back( base + 1 ); indices.push_back( base + 2 ); indices.push_back( base + 3 );
+            }
+        }
+        pen += glyph.x_advance * scale;
+    }
+    return kTtfOk;
 }
 
 class TextureManagerGpu final : public ITextureManager
@@ -344,6 +521,14 @@ public:
     }
     void STDCALL Reload() override
     {
+        // A language switch changes which faces lead the fallback chain: the context is made
+        // again, and every font closes its old handle first.
+        if ( NBkTextBridge::LanguageChanged() )
+        {
+            for ( std::map<std::string, CObj<IGFXFont> >::iterator it = fonts_.begin(); it != fonts_.end(); ++it )
+                if ( FontGpu *gpu_font = dynamic_cast<FontGpu *>( it->second.GetPtr() ) ) gpu_font->CloseTtf();
+            NBkTextBridge::Recreate();
+        }
         for ( std::map<std::string, CObj<IGFXFont> >::iterator it = fonts_.begin(); it != fonts_.end(); ++it )
             if ( it->second != 0 )
                 it->second->Load( false );
@@ -383,6 +568,24 @@ void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wr
     if ( font == 0 )
     {
         WrapTextLinesWith<FontGpuWrapMetrics>( 0, text, scale, wrap_width, lines );
+        return;
+    }
+    if ( font->IsTtf() )
+    {
+        lines.clear();
+        if ( !text ) return;
+        size_t length = 0;
+        while ( text[length] ) ++length;
+        std::vector<BkTextLine> wrapped( length + 2 );
+        uint32_t count = 0;
+        BkTextResult result = bk_text_wrap_utf16( font->TtfFont(), text, uint32_t( length ), wrap_width / scale, wrapped.data(), uint32_t( wrapped.size() ), &count );
+        if ( result == BK_TEXT_BUFFER_TOO_SMALL )
+        {
+            wrapped.resize( count );
+            result = bk_text_wrap_utf16( font->TtfFont(), text, uint32_t( length ), wrap_width / scale, wrapped.data(), uint32_t( wrapped.size() ), &count );
+        }
+        if ( result != BK_TEXT_OK ) count = 0;
+        for ( uint32_t i = 0; i < count; ++i ) lines.push_back( std::make_pair( size_t( wrapped[i].start ), size_t( wrapped[i].end ) ) );
         return;
     }
     const FontGpuWrapMetrics metrics = { font, &font->GetFormat() };

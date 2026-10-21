@@ -1,17 +1,23 @@
 #include "StdAfx.h"
 
 #include "BkTextBridge.h"
+#include "TextureGpu.h"
 
 #include <SDL3/SDL.h>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 namespace NBkTextBridge
 {
 	static BkTextContext *g_pContext = 0;
 	static std::string g_szLanguage;
+	static unsigned g_nSerial = 0;
+	static TextureGpu *g_pAtlas = 0;
+	static uint32_t g_nAtlasW = 0, g_nAtlasH = 0, g_nLoggedGeneration = 0xffffffffu, g_nFullGeneration = 0xffffffffu;
+	static uint64_t g_nFrame = 0;
 
 	static bool LogEnabled()
 	{
@@ -72,14 +78,130 @@ namespace NBkTextBridge
 			return false;
 		}
 		g_szLanguage = szCode;
+		++g_nSerial;
 		if ( LogEnabled() )
 			std::fprintf( stderr, "bk_text: engine ttf, lang %s, fonts %s, %d faces\n", szCode.c_str(), szDir.c_str(), CountFaces( szDir ) );
 		return true;
 	}
 
+	static void ReleaseAtlas()
+	{
+		if ( g_pAtlas != 0 ) g_pAtlas->Release();
+		g_pAtlas = 0;
+		g_nAtlasW = g_nAtlasH = 0;
+	}
+
 	void Destroy()
 	{
+		ReleaseAtlas();
 		if ( g_pContext != 0 ) bk_text_context_destroy( g_pContext );
 		g_pContext = 0;
+		g_nLoggedGeneration = g_nFullGeneration = 0xffffffffu;
+	}
+
+	unsigned Serial() { return g_nSerial; }
+
+	bool LanguageChanged()
+	{
+		return g_pContext != 0 && LanguageCode( GetGlobalVar( "Text.Language", "Default" ) ) != g_szLanguage;
+	}
+
+	bool Recreate()
+	{
+		Destroy();
+		return Create();
+	}
+
+	void BeginFrame()
+	{
+		if ( g_pContext != 0 ) (void)bk_text_atlas_begin_frame( g_pContext, ++g_nFrame );
+	}
+
+	unsigned AtlasGeneration()
+	{
+		uint32_t w = 0, h = 0, nGeneration = 0;
+		if ( g_pContext != 0 ) (void)bk_text_atlas_info( g_pContext, &w, &h, &nGeneration );
+		return nGeneration;
+	}
+
+	void ReportAtlasFull()
+	{
+		const unsigned nGeneration = AtlasGeneration();
+		if ( nGeneration == g_nFullGeneration ) return;
+		g_nFullGeneration = nGeneration;
+		if ( LogEnabled() )
+			std::fprintf( stderr, "bk_text: BK_TEXT_ATLAS_FULL, the glyphs of one frame do not fit the %ux%u page (generation %u); the line is not drawn\n", g_nAtlasW, g_nAtlasH, nGeneration );
+	}
+
+	IGFXTexture *Atlas( GraphicsEngineGpu *pEngine )
+	{
+		if ( g_pContext == 0 || pEngine == 0 ) return 0;
+		uint32_t w = 0, h = 0, nGeneration = 0;
+		if ( bk_text_atlas_info( g_pContext, &w, &h, &nGeneration ) != BK_TEXT_OK || w == 0 || h == 0 ) return 0;
+		if ( g_pAtlas != 0 && ( g_nAtlasW != w || g_nAtlasH != h ) ) ReleaseAtlas();
+		if ( g_pAtlas == 0 )
+		{
+			TextureGpu *pTexture = new TextureGpu( pEngine, int( w ), int( h ), 1, GFXPF_BK_R8, GFXD_STATIC );
+			pTexture->AddRef();
+			if ( !pTexture->IsValid() )
+			{
+				pTexture->Release();
+				return 0;
+			}
+			g_pAtlas = pTexture;
+			g_nAtlasW = w;
+			g_nAtlasH = h;
+			// A fresh page holds nothing: send everything the atlas has produced so far.
+			const uint8_t *pPixels = 0;
+			uint32_t nPitch = 0;
+			if ( bk_text_atlas_pixels( g_pContext, &pPixels, &nPitch ) == BK_TEXT_OK && pPixels != 0 )
+				(void)g_pAtlas->UploadRegion( 0, 0, int( w ), int( h ), pPixels, int( nPitch ) );
+			BkTextRect rects[64];
+			uint32_t nCount = 0;
+			(void)bk_text_atlas_take_dirty( g_pContext, rects, 64, &nCount );
+		}
+		return g_pAtlas;
+	}
+
+	bool FlushAtlas( GraphicsEngineGpu *pEngine )
+	{
+		if ( Atlas( pEngine ) == 0 ) return false;
+		BkTextRect fixed[64];
+		BkTextRect *rects = fixed;
+		std::vector<BkTextRect> more;
+		uint32_t nCount = 0;
+		BkTextResult eResult = bk_text_atlas_take_dirty( g_pContext, fixed, 64, &nCount );
+		// The atlas keeps its rects when the buffer is too small and says how many it holds.
+		if ( eResult == BK_TEXT_BUFFER_TOO_SMALL )
+		{
+			more.resize( nCount );
+			rects = more.data();
+			eResult = bk_text_atlas_take_dirty( g_pContext, rects, nCount, &nCount );
+		}
+		if ( eResult != BK_TEXT_OK ) return false;
+		if ( nCount == 0 ) return true;
+		uint32_t x0 = g_nAtlasW, y0 = g_nAtlasH, x1 = 0, y1 = 0;
+		for ( uint32_t i = 0; i < nCount; ++i )
+		{
+			if ( rects[i].w == 0 || rects[i].h == 0 ) continue;
+			x0 = rects[i].x < x0 ? rects[i].x : x0;
+			y0 = rects[i].y < y0 ? rects[i].y : y0;
+			x1 = rects[i].x + rects[i].w > x1 ? rects[i].x + rects[i].w : x1;
+			y1 = rects[i].y + rects[i].h > y1 ? rects[i].y + rects[i].h : y1;
+		}
+		if ( x1 <= x0 || y1 <= y0 ) return true;
+		if ( x1 > g_nAtlasW ) x1 = g_nAtlasW;
+		if ( y1 > g_nAtlasH ) y1 = g_nAtlasH;
+		const uint8_t *pPixels = 0;
+		uint32_t nPitch = 0;
+		if ( bk_text_atlas_pixels( g_pContext, &pPixels, &nPitch ) != BK_TEXT_OK || pPixels == 0 ) return false;
+		const unsigned nGeneration = AtlasGeneration();
+		if ( LogEnabled() && nGeneration != g_nLoggedGeneration )
+		{
+			if ( g_nLoggedGeneration != 0xffffffffu )
+				std::fprintf( stderr, "bk_text: atlas generation %u -> %u, whole page %ux%u re-sent\n", g_nLoggedGeneration, nGeneration, g_nAtlasW, g_nAtlasH );
+			g_nLoggedGeneration = nGeneration;
+		}
+		return g_pAtlas->UploadRegion( int( x0 ), int( y0 ), int( x1 - x0 ), int( y1 - y0 ), pPixels + size_t( y0 ) * nPitch + x0, int( nPitch ) );
 	}
 }

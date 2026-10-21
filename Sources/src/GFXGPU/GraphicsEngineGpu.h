@@ -101,6 +101,9 @@ public:
 
     bool CreateTextureHandle( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, GfxGpuHandle *out_handle );
     bool UploadTexture( GfxGpuHandle handle, int mip, const void *data, size_t bytes, int row_pitch );
+    // One rectangle of level 0; data points at the rectangle's first texel and row_pitch spans the
+    // source rows (the bk_text atlas page is uploaded this way, a changed part at a time).
+    bool UploadTextureRegion( GfxGpuHandle handle, const void *data, size_t bytes, int row_pitch, int x, int y, int w, int h );
     bool DestroyTextureHandle( GfxGpuHandle handle );
     bool CreateRenderTargetHandle( int width, int height, EGFXPixelFormat format, GfxGpuHandle *out_handle );
     bool BindRenderTargetHandle( GfxGpuHandle handle );
@@ -120,9 +123,13 @@ private:
     // CGraphicsEngine::DrawString does. False means there is no usable font, so
     // the caller can fall back rather than draw nothing.
     bool DrawFontLine( const wchar_t *text, int x, int y, DWORD color );
+    // Draws bk_text quads (text_vertices_, text_indices_) from the glyph atlas: sends the atlas
+    // changes, selects the text effect (400) and restores the effect that was set.
+    bool DrawTtfBatch();
 
     GfxGpuApi api_{};
     IGFXFont *current_font_ = nullptr;
+    std::vector<uint16_t> text_utf16_;
     GfxGpuRenderer *renderer_ = nullptr;
     void *sdl_window_ = nullptr;
     // Cross-display move of a macOS fullscreen space: the space is left in

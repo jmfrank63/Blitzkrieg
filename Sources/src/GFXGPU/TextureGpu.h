@@ -6,6 +6,10 @@
 #include <string>
 #include <vector>
 
+// The bk_text glyph atlas page: one byte of coverage per texel. Outside the game's own GFXPF_
+// range, the same public value GfxGpu calls GFXGPU_PIXEL_FORMAT_R8.
+static const EGFXPixelFormat GFXPF_BK_R8 = static_cast<EGFXPixelFormat>( 33 );
+
 class TextureGpu final : public IGFXTexture
 {
 public:
@@ -35,6 +39,10 @@ public:
     EGFXPixelFormat STDCALL GetFormat() const override { return format_; }
 
     GfxGpuHandle Handle() const { return handle_; }
+    // Writes the w x h rectangle at (x, y) of level 0 from tightly addressed source rows (pitch
+    // bytes apart, the first byte being the rectangle's first texel). For atlas pages, which are
+    // never locked: a lock would hand back and re-send the whole page for one new glyph.
+    bool UploadRegion( int x, int y, int w, int h, const unsigned char *pixels, int pitch );
 
 private:
     GraphicsEngineGpu *owner_;
