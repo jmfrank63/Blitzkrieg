@@ -30,3 +30,5 @@ prefix fr textes
 prefix fr buildings
 prefix fr medals
 prefix fr units/humans
+prefix fr units/technics/allies
+prefix fr units/technics/common
