@@ -35,3 +35,4 @@ prefix pt-BR units/humans
 prefix pt-BR units/technics/allies
 prefix pt-BR units/technics/common
 prefix pt-BR units/technics/german
+prefix pt-BR units/technics/ussr
