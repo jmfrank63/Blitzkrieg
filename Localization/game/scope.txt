@@ -36,3 +36,4 @@ prefix id units/humans
 prefix id units/technics/allies
 prefix id units/technics/common
 prefix id units/technics/german
+prefix id units/technics/ussr
