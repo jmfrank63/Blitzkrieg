@@ -31,3 +31,5 @@ prefix es textes
 prefix es buildings
 prefix es medals
 prefix es units/humans
+prefix es units/technics/allies
+prefix es units/technics/common
