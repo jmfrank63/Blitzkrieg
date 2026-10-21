@@ -2,11 +2,14 @@
 //! `lang-ja`, `lang-hi`, `lang-es`, `lang-fr`, `lang-de`, `lang-pt-br` and
 //! `lang-id` of the installed game, built by ELK's own pak export from the
 //! tracked `Data/ELK` and the overlays of `Localization/`, each with fonts of
-//! its own. The game's bitmap fonts hold ASCII and the Cyrillic set but no
-//! accented Latin letter, so a Latin language drawn with them showed an empty
-//! box for every accent (D059 had assumed cp1252 fonts); a mod's fonts hold every
-//! character the base fonts hold besides its texts' own, so whatever else the
-//! Game draws while it is mounted (version, profile names, the port's options)
+//! its own. The game's bitmap fonts (Times New Roman, charset 204) hold ASCII and
+//! the Cyrillic set but no accented Latin letter, so a Latin language drawn with
+//! them showed an empty box for every accent (D059 had assumed cp1252 fonts). A
+//! Latin mod's fonts are the game's with the missing letters added (bk-font
+//! --base keeps every shipped glyph, its pixels and its widths), so the game
+//! keeps its look; the others are generated from their face and hold every
+//! character the base fonts hold besides their texts' own, so whatever else the
+//! Game draws while one is mounted (version, profile names, the port's options)
 //! keeps its glyphs.
 //! Per language: the database is copied to a scratch folder and the overlay
 //! laid over it; a first export (for Hindi through the shaper, which rewrites
@@ -147,14 +150,15 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     if (language.shaped) shaping.handle = LmShaperCreate(face.ptr, face.len, "Deva", "hi");
     const shape: ?packages.Shaping = if (language.shaped) .{ .context = &shaping, .rewrite = Shaper.rewrite } else null;
 
-    // First export: which characters the texts use, on top of every character the base fonts hold.
+    // First export: which characters the texts use, and for a font generated from the face alone
+    // every character the base fonts hold.
     var chars = @as([65536]bool, @splat(false));
-    for (sizes) |size| {
+    if (!language.keeps_game_fonts) for (sizes) |size| {
         const tfd = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ "Data/Fonts", size.name, "1.tfd" }), allocator, .limited(1 << 20));
         const base = try l10n_font.Font.read(allocator, tfd);
         var known = base.chars.keyIterator();
         while (known.next()) |unit| chars[unit.*] = true;
-    }
+    };
     var texts: usize = 0;
     {
         stage = "export";
@@ -208,9 +212,11 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         stage = "bk-font";
         const out = try std.fs.path.join(allocator, &.{ abs_root, "fonts", size.name });
         var argv: std.ArrayListUnmanaged([]const u8) = .empty;
-        // Noto Sans draws what the face lacks: the Devanagari face has no Latin letter, and every
-        // mod's fonts hold the base fonts' characters.
+        // For a language that keeps the game's fonts, the game's font of this size as it is plus the
+        // characters it lacks from the face; otherwise the face's own font. Noto Sans draws what the
+        // face lacks (the Devanagari face has no Latin letter).
         try argv.appendSlice(allocator, &.{ font_tool, "--ttf", face_path, "--fallback-ttf", "vendor/fonts/NotoSans-Regular.ttf", "--height", size.height, "--chars", chars_path, "--out", out, "--force", "--modules", modules });
+        if (language.keeps_game_fonts) try argv.appendSlice(allocator, &.{ "--base", try std.fs.path.join(allocator, &.{ "Data/Fonts", size.name }) });
         if (language.shaped) try argv.appendSlice(allocator, &.{ "--clusters", clusters_path, "--script", "Deva", "--language", "hi" });
         const result = try timed_run.run(allocator, io, .{
             .argv = argv.items,

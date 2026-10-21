@@ -683,4 +683,82 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	pAtlas->nClusters = int( request.clusters.size() );
 	return true;
 }
+
+bool AddToBase( const SFontFormat &base, int nBaseSizeX, int nBaseSizeY, const std::vector<DWORD> &basePixels,
+	const SFontAtlas &added, SFontAtlas *pAtlas, std::string *pszError )
+{
+	if ( added.format.metrics.nHeight != base.metrics.nHeight )
+	{
+		*pszError = NStr::Format( "the added characters are %d pixels high, the base font %d", added.format.metrics.nHeight, base.metrics.nHeight );
+		return false;
+	}
+	if ( basePixels.size() != size_t( nBaseSizeX ) * nBaseSizeY )
+	{
+		*pszError = "the base atlas does not have its size's pixels";
+		return false;
+	}
+	const int nAddedX = added.image.nSizeX, nAddedY = added.image.nSizeY;
+	int nSizeX = nBaseSizeX > nAddedX ? nBaseSizeX : nAddedX;
+	int nSizeY = 1;
+	while ( nSizeY < nBaseSizeY + nAddedY )
+		nSizeY <<= 1;
+	if ( nSizeX > MAX_TEXTURE_SIZE || nSizeY > MAX_TEXTURE_SIZE )
+	{
+		*pszError = NStr::Format( "the base font and %d added characters do not fit a %dx%d atlas", int( added.format.chars.size() ), MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE );
+		return false;
+	}
+	SFontFormat &format = pAtlas->format;
+	format = base;
+	SFontImage &image = pAtlas->image;
+	image.nSizeX = nSizeX;
+	image.nSizeY = nSizeY;
+	image.pixels.assign( size_t( nSizeX ) * nSizeY, 0 );
+	for ( int y = 0; y < nBaseSizeY; ++y )
+		std::copy( basePixels.begin() + size_t( y ) * nBaseSizeX, basePixels.begin() + size_t( y + 1 ) * nBaseSizeX, image.pixels.begin() + size_t( y ) * nSizeX );
+	// The added atlas below the base one, its rows moved by the difference of
+	// the ascents, so every added glyph stands on the base font's baseline.
+	const int nShift = base.metrics.nAscent - added.format.metrics.nAscent;
+	for ( int y = 0; y < nAddedY; ++y )
+	{
+		const int nTo = nBaseSizeY + y + nShift;
+		if ( nTo < nBaseSizeY || nTo >= nSizeY )
+			continue;
+		std::copy( added.image.pixels.begin() + size_t( y ) * nAddedX, added.image.pixels.begin() + size_t( y + 1 ) * nAddedX, image.pixels.begin() + size_t( nTo ) * nSizeX );
+	}
+	// The texture rects again for the larger atlas: the same pixels, FontGen's
+	// half-texel offset kept.
+	for ( SFontFormat::CCharacterMap::iterator it = format.chars.begin(); it != format.chars.end(); ++it )
+	{
+		SFontFormat::SCharDesc &desc = it->second;
+		const float fLeft = Round( desc.x1 * nBaseSizeX - 0.5f ), fTop = Round( desc.y1 * nBaseSizeY - 0.5f );
+		const float fRight = Round( desc.x2 * nBaseSizeX - 0.5f ), fBottom = Round( desc.y2 * nBaseSizeY - 0.5f );
+		desc.x1 = ( fLeft + 0.5f ) / nSizeX;
+		desc.y1 = ( fTop + 0.5f ) / nSizeY;
+		desc.x2 = ( fRight + 0.5f ) / nSizeX;
+		desc.y2 = ( fBottom + 0.5f ) / nSizeY;
+	}
+	for ( SFontFormat::CCharacterMap::const_iterator it = added.format.chars.begin(); it != added.format.chars.end(); ++it )
+	{
+		if ( format.chars.find( it->first ) != format.chars.end() )
+			continue;
+		SFontFormat::SCharDesc desc = it->second;
+		const float fLeft = Round( desc.x1 * nAddedX - 0.5f ), fTop = Round( desc.y1 * nAddedY - 0.5f ) + nBaseSizeY;
+		const float fRight = Round( desc.x2 * nAddedX - 0.5f ), fBottom = Round( desc.y2 * nAddedY - 0.5f ) + nBaseSizeY;
+		desc.x1 = ( fLeft + 0.5f ) / nSizeX;
+		desc.y1 = ( fTop + 0.5f ) / nSizeY;
+		desc.x2 = ( fRight + 0.5f ) / nSizeX;
+		desc.y2 = ( fBottom + 0.5f ) / nSizeY;
+		format.chars[it->first] = desc;
+		const int nWidth = int( desc.fA + desc.fB + desc.fC );
+		if ( nWidth > format.metrics.nMaxCharWidth )
+			format.metrics.nMaxCharWidth = nWidth;
+	}
+	for ( SFontFormat::CKernMap::const_iterator it = added.format.kerns.begin(); it != added.format.kerns.end(); ++it )
+		if ( format.kerns.find( it->first ) == format.kerns.end() )
+			format.kerns[it->first] = it->second;
+	pAtlas->nSkipped = added.nSkipped;
+	pAtlas->nFallback = added.nFallback;
+	pAtlas->nClusters = added.nClusters;
+	return true;
+}
 }

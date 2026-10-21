@@ -1,8 +1,10 @@
 //! M002 R056/D066 on the real Game: the ten languages (English and the nine
 //! language mods `language-mods` built) draw a translated main menu and the
-//! first mission's briefing. Every mod ships fonts generated from its face (Noto,
-//! Liberation Serif for the Latin languages) and draws what an independent text stack draws; English, on the game's bitmap
-//! fonts, is measured for ink and for missing-glyph boxes. Every run of the Game
+//! first mission's briefing. The four mods with generated fonts (ru, zh-Hans, ja,
+//! hi) draw what an independent text stack draws; English and the five Latin mods
+//! draw with the game's bitmap fonts (theirs with the missing letters added) and
+//! are measured for ink, for a frame that differs from English and for
+//! missing-glyph boxes. Every run of the Game
 //! sets BK_GLYPH_TRACE and fails on a character its font has no glyph for: the
 //! default character a font draws instead is a hollow box, which the solid-box
 //! measure does not see, and the bitmap fonts' hollow boxes stood for every
@@ -335,16 +337,11 @@ const Language = struct {
     mod: ?[]const u8,
     /// BCP 47 tag for hb-view.
     tag: []const u8 = "",
-    /// The Noto face of the mod's generated fonts; null for English, the one
-    /// language that keeps the game's bitmap fonts, so there is no hb-view
-    /// reference.
+    /// The Noto face of the mod's generated fonts; null for English and the five Latin
+    /// languages, whose fonts are the game's bitmaps (with the missing letters added), so
+    /// there is no hb-view reference.
     face: ?[]const u8 = null,
     script: ?[]const u8 = null,
-    /// The radius both images are smoothed with before a label is compared with hb-view. Liberation
-    /// Serif's hairlines are a pixel wide at the game's sizes, and the Game's raster (stb_truetype,
-    /// through bk-font) and hb-view's put them on neighbouring pixels; Noto's strokes are wide
-    /// enough to need none.
-    blur: usize = 0,
 
     /// The value of the language option that selects it.
     fn option(self: Language) []const u8 {
@@ -358,11 +355,11 @@ const languages = [_]Language{
     .{ .code = "zh-Hans", .mod = "lang-zh-hans", .tag = "zh-Hans", .face = "vendor/fonts/NotoSansSC-Regular.otf" },
     .{ .code = "ja", .mod = "lang-ja", .tag = "ja", .face = "vendor/fonts/NotoSansJP-Regular.otf" },
     .{ .code = "hi", .mod = "lang-hi", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
-    .{ .code = "es", .mod = "lang-es", .tag = "es", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
-    .{ .code = "fr", .mod = "lang-fr", .tag = "fr", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
-    .{ .code = "de", .mod = "lang-de", .tag = "de", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
-    .{ .code = "pt-BR", .mod = "lang-pt-br", .tag = "pt-BR", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
-    .{ .code = "id", .mod = "lang-id", .tag = "id", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
+    .{ .code = "es", .mod = "lang-es" },
+    .{ .code = "fr", .mod = "lang-fr" },
+    .{ .code = "de", .mod = "lang-de" },
+    .{ .code = "pt-BR", .mod = "lang-pt-br" },
+    .{ .code = "id", .mod = "lang-id" },
 };
 const ru = languages[1];
 
@@ -629,10 +626,8 @@ const Measured = struct {
     inks: []const Gray,
 };
 
-fn matchLabel(allocator: std.mem.Allocator, language: Language, label: Label, ink: Gray, reference: Gray) !measure.Match {
-    if (label.small) return measure.matchReferenceBlurred(allocator, ink, reference, 64, @max(small_blur, language.blur));
-    if (language.blur != 0) return measure.matchReferenceBlurred(allocator, ink, reference, 64, language.blur);
-    return measure.matchReference(allocator, ink, reference, 64);
+fn matchLabel(allocator: std.mem.Allocator, label: Label, ink: Gray, reference: Gray) !measure.Match {
+    return if (label.small) measure.matchReferenceBlurred(allocator, ink, reference, 64, small_blur) else measure.matchReference(allocator, ink, reference, 64);
 }
 
 
@@ -657,11 +652,11 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
     for (set, 0..) |label, index| {
         const ink = inks[index];
         if (ink.width == full_width(label)) continue; // no ink: reported above
-        const own = try matchLabel(allocator, language, label, ink, refs[index]);
+        const own = try matchLabel(allocator, label, ink, refs[index]);
         var best_other: f64 = -1;
         for (set, 0..) |_, other| {
             if (other == index) continue;
-            best_other = @max(best_other, (try matchLabel(allocator, language, label, ink, refs[other])).correlation);
+            best_other = @max(best_other, (try matchLabel(allocator, label, ink, refs[other])).correlation);
         }
         const floor = if (label.small) small_min_correlation else min_correlation;
         const margin = if (label.small) small_min_margin else min_margin;

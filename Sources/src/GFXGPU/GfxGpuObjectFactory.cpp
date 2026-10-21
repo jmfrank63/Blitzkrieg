@@ -51,7 +51,10 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
 
     ITextureManager *textures = GetSingleton<ITextureManager>( globals );
     if ( !textures ) return false;
-    IGFXTexture *loaded = textures->GetTexture( (storage_name + "\\1").c_str() );
+    // The lossless level by name, whatever the texture quality: the manager's probe takes the
+    // quality's suffix first anywhere in the storage, so a language mod's font (which ships 1_h.dds
+    // only) was drawn from the base game's 1_c or 1_l atlas, laid out for other characters.
+    IGFXTexture *loaded = textures->GetTexture( (storage_name + "\\1_h.dds").c_str() );
     if ( !loaded ) return false;
     loaded->AddRef();
     // A font read again (FontManagerGpu::Reload) gives its old atlas back.

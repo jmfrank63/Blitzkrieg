@@ -84,6 +84,14 @@ int FindFace( const BYTE *pFontData, int nFontDataSize, const std::string &szNam
 // font cannot be read, the request is out of range or the atlas would be
 // larger than 4096x4096 (the message names the size and the glyph count).
 bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszError );
+// A font that keeps every character of base (its format and its atlas of
+// nBaseSizeX x nBaseSizeY pixels) as it is, at the same atlas pixels with the
+// same widths, metrics, default character and kerning, and adds the characters
+// of added (built at base's height for the characters base lacks) below them,
+// moved to base's baseline. A character both have stays base's. False with the
+// reason when the heights differ or the atlas would be larger than 4096x4096.
+bool AddToBase( const SFontFormat &base, int nBaseSizeX, int nBaseSizeY, const std::vector<DWORD> &basePixels,
+	const SFontAtlas &added, SFontAtlas *pAtlas, std::string *pszError );
 }
 
 #endif // __FONT_ATLAS_H__

@@ -836,6 +836,75 @@ static void TestFallback( const std::vector<BYTE> &devanagari, const std::vector
 	Check( !FontAtlas::Build( request, &merged, &szError ) && szError.find( "fallback" ) != std::string::npos, "a fallback that is not a font is refused: " + szError );
 }
 
+// --base: the shipped medium font plus e acute from Liberation Serif. Every shipped character keeps its
+// widths and its cell's pixels, the metrics, default character and kerning stay, and the e acute is added
+// with ink, standing on the shipped baseline.
+static void TestAddToBase( const std::vector<BYTE> &face )
+{
+	SFontFormat base;
+	int nBaseX = 0, nBaseY = 0;
+	std::vector<DWORD> basePixels;
+	{
+		CPtr<IDataStorage> pStorage = OpenStorage( "Data/Fonts/medium/", STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+		CPtr<IDataStream> pFormat = pStorage != 0 ? pStorage->OpenStream( "1.tfd", STREAM_ACCESS_READ ) : 0;
+		if ( !Check( pFormat != 0, "the shipped medium 1.tfd opens" ) )
+			return;
+		{
+			CPtr<IStructureSaver> pSaver = CreateStructureSaver( pFormat, IStructureSaver::READ );
+			CSaverAccessor saver = pSaver;
+			saver.Add( 1, &base );
+		}
+		CPtr<IDataStream> pStream = pStorage->OpenStream( "1_h.dds", STREAM_ACCESS_READ );
+		CPtr<IDDSImage> pDDS = pStream != 0 ? GetImageProcessor()->LoadDDSImage( pStream ) : 0;
+		CPtr<IImage> pImage = pDDS != 0 ? GetImageProcessor()->Decompress( pDDS ) : 0;
+		if ( !Check( pImage != 0, "the shipped medium 1_h.dds loads" ) )
+			return;
+		nBaseX = pImage->GetSizeX();
+		nBaseY = pImage->GetSizeY();
+		const DWORD *pLFB = reinterpret_cast<const DWORD*>( pImage->GetLFB() );
+		basePixels.assign( pLFB, pLFB + size_t( nBaseX ) * nBaseY );
+	}
+	Check( base.chars.count( 0x00E9 ) == 0, "the shipped medium font has no e acute" );
+	FontAtlas::SFontRequest request;
+	request.pFontData = &face[0];
+	request.nFontDataSize = int( face.size() );
+	request.nHeight = base.metrics.nHeight;
+	request.codePoints.push_back( 0x00E9 );
+	FontAtlas::SFontAtlas added, merged;
+	std::string szError;
+	if ( !Check( FontAtlas::Build( request, &added, &szError ), "e acute builds: " + szError ) )
+		return;
+	if ( !Check( FontAtlas::AddToBase( base, nBaseX, nBaseY, basePixels, added, &merged, &szError ), "AddToBase merges: " + szError ) )
+		return;
+	Check( merged.format.chars.size() == base.chars.size() + 1, "the merged font holds the shipped characters and e acute" );
+	Check( merged.format.metrics.nHeight == base.metrics.nHeight && merged.format.metrics.nAscent == base.metrics.nAscent &&
+		merged.format.metrics.wDefaultChar == base.metrics.wDefaultChar && merged.format.metrics.fSpaceWidth == base.metrics.fSpaceWidth &&
+		merged.format.kerns.size() >= base.kerns.size(), "the shipped metrics, default character and kerning stay" );
+	int nChanged = 0;
+	for ( SFontFormat::CCharacterMap::const_iterator it = base.chars.begin(); it != base.chars.end(); ++it )
+	{
+		const SFontFormat::SCharDesc &was = it->second, &now = merged.format.chars[it->first];
+		const SCell a = CellOf( it->first, was, nBaseX, nBaseY ), b = CellOf( it->first, now, merged.image.nSizeX, merged.image.nSizeY );
+		bool bSame = was.fA == now.fA && was.fB == now.fB && was.fC == now.fC && was.fWidth == now.fWidth &&
+			int( a.fRight - a.fLeft + 0.5f ) == int( b.fRight - b.fLeft + 0.5f ) && int( a.fBottom - a.fTop + 0.5f ) == int( b.fBottom - b.fTop + 0.5f );
+		for ( int y = int( a.fTop + 0.5f ); bSame && y < int( a.fBottom + 0.5f ); ++y )
+			for ( int x = int( a.fLeft + 0.5f ); x < int( a.fRight + 0.5f ); ++x )
+			{
+				const int bx = x - int( a.fLeft + 0.5f ) + int( b.fLeft + 0.5f ), by = y - int( a.fTop + 0.5f ) + int( b.fTop + 0.5f );
+				if ( basePixels[size_t( y ) * nBaseX + x] != merged.image.pixels[size_t( by ) * merged.image.nSizeX + bx] ) { bSame = false; break; }
+			}
+		nChanged += bSame ? 0 : 1;
+	}
+	Check( nChanged == 0, "every shipped character keeps its widths and its cell's pixels (" + std::to_string( nChanged ) + " changed)" );
+	Check( CellHasInk( merged.format, 0x00E9, merged.image.nSizeX, merged.image.nSizeY, merged.image.pixels ), "the added e acute has ink" );
+	const SFontFormat::SCharDesc &acute = merged.format.chars[0x00E9];
+	Check( acute.y1 * merged.image.nSizeY - 0.5f >= nBaseY - 0.01f, "the added e acute sits below the shipped atlas" );
+	SFontFormat other = base;
+	other.metrics.nHeight += 1;
+	Check( !FontAtlas::AddToBase( other, nBaseX, nBaseY, basePixels, added, &merged, &szError ) && szError.find( "high" ) != std::string::npos,
+		"characters of another height are refused: " + szError );
+}
+
 int main( int argc, char **argv )
 {
 	if ( argc < 4 )
@@ -863,6 +932,7 @@ int main( int argc, char **argv )
 		TestHindiSizes( VendorFont( "NotoSansDevanagari-Regular.ttf" ) );
 		TestTooLarge( VendorFont( "NotoSans-Regular.ttf" ) );
 		TestFallback( VendorFont( "NotoSansDevanagari-Regular.ttf" ), VendorFont( "NotoSans-Regular.ttf" ) );
+		TestAddToBase( VendorFont( "LiberationSerif-Regular.ttf" ) );
 	}
 	else
 		Check( false, "BK_FONT_TEST_UNICODE names the folder of the language-mod fonts" );
