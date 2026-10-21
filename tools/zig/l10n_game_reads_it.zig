@@ -990,8 +990,12 @@ const Run = struct {
     }
 };
 
+/// A traced text path is the spelling of the UI XML or the C++ caller ("Textes\\UI\\OptionsSettings\\..."
+/// against the lowercase key), and Data paths resolve case-insensitively, so those lines match
+/// without regard to case.
 fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
     if (std.mem.indexOf(u8, log, line) != null) return;
+    if (std.mem.startsWith(u8, line, "BK_MOD_TRACE: open ") and std.ascii.findIgnoreCase(log, line) != null) return;
     std.debug.print("the Game did not print \"{s}\"; its logs are in {s}\n", .{ line, folder });
     return error.GameLineMissing;
 }

@@ -25,16 +25,4 @@ textes/strings/missiondescriptiontext
 textes/strings/missiontext
 textes/strings/missiontypetext
 textes/strings/scenariomission
-prefix de textes
-prefix de buildings
-prefix de medals
-prefix de units/humans
-prefix de units/technics/allies
-prefix de units/technics/common
-prefix de units/technics/german
-prefix de units/technics/ussr
-prefix de scenarios/chapters
-prefix de scenarios/scenariomissions
-prefix de scenarios/descriptions
-prefix de scenarios/tutorials
-prefix de scenarios/campaigns
+whole-database de
