@@ -197,3 +197,23 @@ test "the shipped fonts carry the punctuation French typography uses" {
         }
     }
 }
+
+test "the shipped fonts carry the punctuation Spanish typography uses" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    // Like the accented letters, the inverted marks (U+00BF, U+00A1) and n with tilde (U+00F1, U+00D1)
+    // are not in the Cyrillic 1.tfd files: all four are cp1252 and are drawn by the font the language
+    // mods build, and l10n-game-reads-it-es measures that no glyph is missing. What the shipped fonts
+    // do carry is what Spanish prose uses besides letters: the guillemets for quotations, the
+    // typographic apostrophe, the ellipsis and the dashes.
+    const needed = [_]u16{ 0x00AB, 0x00BB, 0x2019, 0x2026, 0x2013, 0x2014 };
+    for ([_][]const u8{ "small", "medium", "large" }) |size| {
+        const font = try load(arena_state.allocator(), size);
+        for (needed) |c| {
+            std.testing.expect(font.chars.contains(c)) catch |err| {
+                std.debug.print("{s} font has no glyph for U+{X:0>4}\n", .{ size, c });
+                return err;
+            };
+        }
+    }
+}

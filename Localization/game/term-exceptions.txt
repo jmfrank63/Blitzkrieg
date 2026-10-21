@@ -36,3 +36,6 @@ fr buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
 fr buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
 fr buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
 fr buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
+es textes/help load game # running text: the key is Carga rápida, the quick-load key, not the Cargar partida menu
+es textes/help save game # running text: the key is Guardado rápido, the quick-save key, not the Guardar partida menu
+es textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJUGADOR (139 px), so the heading is the abbreviation MULTIJUG.

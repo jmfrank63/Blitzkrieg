@@ -27,3 +27,7 @@ textes/strings/missiontypetext
 textes/strings/scenariomission
 whole-database de
 whole-database fr
+prefix es textes
+prefix es buildings
+prefix es medals
+prefix es units/humans
