@@ -17,6 +17,7 @@
 //! Game executable; `zig build elk-game-reads-it` sets it.
 const std = @import("std");
 const timed_run = @import("timed_run.zig");
+const measure = @import("l10n_measure.zig");
 const elk = @import("elk");
 const database = elk.database;
 const packages = elk.packages;
@@ -283,6 +284,7 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
+    try environ.put("BK_GLYPH_TRACE", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_AUTO_UI", schedule);
     const result = try timed_run.run(allocator, io, .{
@@ -298,6 +300,7 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
+    try measure.expectNoMissingGlyph(log, log_path);
     return log;
 }
 
@@ -340,6 +343,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
+    try environ.put("BK_GLYPH_TRACE", "1");
     const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=ELKTest" },
         .cwd = .{ .path = user },
@@ -353,6 +357,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
+    try measure.expectNoMissingGlyph(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
     if (!opensFromMod(log, label_key ++ ".txt")) {

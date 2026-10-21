@@ -1,10 +1,12 @@
 //! M002 R056/D066 on the real Game: the ten languages (English and the nine
 //! language mods `language-mods` built) draw a translated main menu and the
-//! first mission's briefing. The four mods with generated fonts (ru, zh-Hans, ja,
-//! hi) draw what an independent text stack draws; the five on the game's bitmap
-//! fonts (es, fr, de, pt-BR, id) are measured for ink, for a frame that differs
-//! from English and for missing-glyph boxes, and no hb-view equivalence is
-//! claimed for them (the bitmap fonts are not Noto).
+//! first mission's briefing. Every mod ships fonts generated from its face (Noto,
+//! Liberation Serif for the Latin languages) and draws what an independent text stack draws; English, on the game's bitmap
+//! fonts, is measured for ink and for missing-glyph boxes. Every run of the Game
+//! sets BK_GLYPH_TRACE and fails on a character its font has no glyph for: the
+//! default character a font draws instead is a hollow box, which the solid-box
+//! measure does not see, and the bitmap fonts' hollow boxes stood for every
+//! accent of the Latin languages until their mods got fonts of their own.
 //!
 //! Per language the Game runs on a scratch profile whose language option is
 //! the mod (the option's own `set=`, which the profile keeps), then to its
@@ -110,6 +112,11 @@ const small_blur: usize = 2;
 const small_min_correlation: f64 = 0.30;
 const small_min_margin: f64 = -0.03;
 const small_max_aspect_error: f64 = 0.20;
+/// The small font's light-on-dark box is found from fainter ink: an accent over a capital
+/// ("MISIÓN") is a single pale row at that size, which `ink_threshold` drops while hb-view's raster
+/// keeps it, so the box lost the accent's height and the proportion with it. The dark headers on
+/// light metal keep `ink_threshold`: their embossing leaves a faint halo this would take in.
+const small_box_threshold: u8 = 8;
 /// The frame box's width to height against the reference's: within this
 /// fraction of 1.
 const max_aspect_error: f64 = 0.12;
@@ -155,7 +162,8 @@ const min_bitmap_width: usize = 20;
 /// translation can equal the English word, as French "Options" does).
 const min_text_change: usize = 60;
 const frame_tolerance: u8 = 16;
-/// A missing glyph is a solid box: 8 by 12 pixels, 95% lit. The bitmap fonts' own
+/// A missing glyph of a generated font is a solid box: 8 by 12 pixels, 95% lit (the bitmap
+/// fonts draw a hollow one, which BK_GLYPH_TRACE names instead). The bitmap fonts' own
 /// letters fill such a window to 83% at most (measured on the English frames).
 const solid_w: usize = 8;
 const solid_h: usize = 12;
@@ -189,6 +197,10 @@ const Label = struct {
     /// The text is not the overlay's alone (the options caption holds the profile's name), so
     /// no hb-view reference of the overlay's string matches it.
     dynamic: bool = false,
+    /// The text is a tooltip: a box framed in the tooltip yellow whose size follows the text, so
+    /// the blank background's box (English, other fonts) is not the same size. Only the ink
+    /// inside the language's own frame counts (`inkImage`), `rect` being where it may hang.
+    boxed: bool = false,
 
     /// The key as `Localization/game/scope.txt` spells it.
     fn scopeKey(self: Label, allocator: std.mem.Allocator) ![]u8 {
@@ -233,7 +245,7 @@ const labels = [_]Label{
 const mission_dir = "scenarios/scenariomissions/allies/norway";
 const briefing_labels = [_]Label{
     .{ .key = "header", .dir = mission_dir, .rect = .{ .x1 = 50, .y1 = 40, .x2 = 500, .y2 = 95 } },
-    .{ .key = "imheader-mission-objectives", .rect = .{ .x1 = 55, .y1 = 152, .x2 = 440, .y2 = 178 }, .ink = .dark },
+    .{ .key = "imheader-mission-objectives", .rect = .{ .x1 = 55, .y1 = 152, .x2 = 440, .y2 = 178 }, .ink = .dark, .small = true },
     .{ .key = "imheader-mission-map", .rect = .{ .x1 = 555, .y1 = 152, .x2 = 980, .y2 = 178 }, .ink = .bright, .small = true },
     .{ .key = "imheader-mission-desc", .rect = .{ .x1 = 555, .y1 = 433, .x2 = 940, .y2 = 458 }, .ink = .bright, .small = true },
     .{ .key = "0h", .dir = mission_dir, .rect = .{ .x1 = 72, .y1 = 200, .x2 = 440, .y2 = 228 }, .ink = .dark },
@@ -278,7 +290,7 @@ const Route = struct {
 const options_dir = "textes/ui/optionssettings";
 const options_labels = [_]Label{
     .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 }, .dynamic = true },
-    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 98, .y1 = 716, .x2 = 640, .y2 = 762 }, .ink = .bright },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 700, .x2 = 1020, .y2 = 768 }, .ink = .bright, .boxed = true },
 };
 const options_route = Route{
     .tag = "options",
@@ -323,11 +335,16 @@ const Language = struct {
     mod: ?[]const u8,
     /// BCP 47 tag for hb-view.
     tag: []const u8 = "",
-    /// The Noto face of the mod's generated fonts; null where the language keeps
-    /// the game's bitmap fonts (the five texts-only mods and English), so there
-    /// is no hb-view reference.
+    /// The Noto face of the mod's generated fonts; null for English, the one
+    /// language that keeps the game's bitmap fonts, so there is no hb-view
+    /// reference.
     face: ?[]const u8 = null,
     script: ?[]const u8 = null,
+    /// The radius both images are smoothed with before a label is compared with hb-view. Liberation
+    /// Serif's hairlines are a pixel wide at the game's sizes, and the Game's raster (stb_truetype,
+    /// through bk-font) and hb-view's put them on neighbouring pixels; Noto's strokes are wide
+    /// enough to need none.
+    blur: usize = 0,
 
     /// The value of the language option that selects it.
     fn option(self: Language) []const u8 {
@@ -341,11 +358,11 @@ const languages = [_]Language{
     .{ .code = "zh-Hans", .mod = "lang-zh-hans", .tag = "zh-Hans", .face = "vendor/fonts/NotoSansSC-Regular.otf" },
     .{ .code = "ja", .mod = "lang-ja", .tag = "ja", .face = "vendor/fonts/NotoSansJP-Regular.otf" },
     .{ .code = "hi", .mod = "lang-hi", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
-    .{ .code = "es", .mod = "lang-es" },
-    .{ .code = "fr", .mod = "lang-fr" },
-    .{ .code = "de", .mod = "lang-de" },
-    .{ .code = "pt-BR", .mod = "lang-pt-br" },
-    .{ .code = "id", .mod = "lang-id" },
+    .{ .code = "es", .mod = "lang-es", .tag = "es", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
+    .{ .code = "fr", .mod = "lang-fr", .tag = "fr", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
+    .{ .code = "de", .mod = "lang-de", .tag = "de", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
+    .{ .code = "pt-BR", .mod = "lang-pt-br", .tag = "pt-BR", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
+    .{ .code = "id", .mod = "lang-id", .tag = "id", .face = "vendor/fonts/LiberationSerif-Regular.ttf", .blur = 1 },
 };
 const ru = languages[1];
 
@@ -547,8 +564,30 @@ fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const
         };
         pixels[y * rect.width() + x] = @intCast(std.math.clamp(added, 0, 255));
     };
+    if (label.boxed) {
+        // The frame: the bounding box of the tooltip yellow in the rectangle (frame and text are
+        // drawn in it); inside its border, the text.
+        var frame_box = Rect{ .x1 = rect.width(), .y1 = rect.height(), .x2 = 0, .y2 = 0 };
+        for (0..rect.height()) |y| for (0..rect.width()) |x| {
+            const rgb = frame[((rect.y1 + y) * width + rect.x1 + x) * 4 ..][0..3];
+            if (!isTooltipYellow(rgb)) continue;
+            frame_box = .{ .x1 = @min(frame_box.x1, x), .y1 = @min(frame_box.y1, y), .x2 = @max(frame_box.x2, x + 1), .y2 = @max(frame_box.y2, y + 1) };
+        };
+        for (0..rect.height()) |y| for (0..rect.width()) |x| {
+            const inside = x >= frame_box.x1 + tooltip_border and x + tooltip_border < frame_box.x2 and y >= frame_box.y1 + tooltip_border and y + tooltip_border < frame_box.y2;
+            if (!inside) pixels[y * rect.width() + x] = 0;
+        };
+    }
     return .{ .width = rect.width(), .height = rect.height(), .pixels = pixels };
 }
+
+/// The tooltip's frame and text colour, about (205, 205, 0); the gold of the buttons and arrows
+/// has less green and more blue.
+fn isTooltipYellow(rgb: []const u8) bool {
+    return rgb[0] > 180 and rgb[1] > 180 and rgb[2] < 40 and @abs(@as(i32, rgb[0]) - rgb[1]) < 24;
+}
+/// The tooltip frame's line width, with a pixel to spare.
+const tooltip_border: usize = 3;
 
 fn luma(rgb: []const u8) i32 {
     return @intCast((@as(u32, rgb[0]) * 299 + @as(u32, rgb[1]) * 587 + @as(u32, rgb[2]) * 114) / 1000);
@@ -590,9 +629,12 @@ const Measured = struct {
     inks: []const Gray,
 };
 
-fn matchLabel(allocator: std.mem.Allocator, label: Label, ink: Gray, reference: Gray) !measure.Match {
-    return if (label.small) measure.matchReferenceBlurred(allocator, ink, reference, 64, small_blur) else measure.matchReference(allocator, ink, reference, 64);
+fn matchLabel(allocator: std.mem.Allocator, language: Language, label: Label, ink: Gray, reference: Gray) !measure.Match {
+    if (label.small) return measure.matchReferenceBlurred(allocator, ink, reference, 64, @max(small_blur, language.blur));
+    if (language.blur != 0) return measure.matchReferenceBlurred(allocator, ink, reference, 64, language.blur);
+    return measure.matchReference(allocator, ink, reference, 64);
 }
+
 
 fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, set: []const Label, report: *Report) !Measured {
     const hb_folder = try std.fs.path.join(allocator, &.{ folder, "reference" });
@@ -604,7 +646,7 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
         texts[index] = try overlayText(io, allocator, language.code, label);
         refs[index] = try measure.hbView(allocator, io, hb_folder, try label.stem(allocator), texts[index], .{ .font = language.face.?, .language = language.tag, .script = language.script });
         const full = try inkImage(allocator, frame, blank, label);
-        const box = measure.inkBox(full, ink_threshold) orelse {
+        const box = measure.inkBox(full, if (label.small and label.ink == .bright) small_box_threshold else ink_threshold) orelse {
             try report.check(false, "{s} {s}: no ink in the label's box (the Game drew nothing there)", .{ language.code, label.key });
             inks[index] = full;
             continue;
@@ -615,11 +657,11 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
     for (set, 0..) |label, index| {
         const ink = inks[index];
         if (ink.width == full_width(label)) continue; // no ink: reported above
-        const own = try matchLabel(allocator, label, ink, refs[index]);
+        const own = try matchLabel(allocator, language, label, ink, refs[index]);
         var best_other: f64 = -1;
         for (set, 0..) |_, other| {
             if (other == index) continue;
-            best_other = @max(best_other, (try matchLabel(allocator, label, ink, refs[other])).correlation);
+            best_other = @max(best_other, (try matchLabel(allocator, language, label, ink, refs[other])).correlation);
         }
         const floor = if (label.small) small_min_correlation else min_correlation;
         const margin = if (label.small) small_min_margin else min_margin;
@@ -886,6 +928,7 @@ const Run = struct {
         try environ.put("BK_MOD_TRACE", "1");
         try environ.put("BK_UI_TRACE", "1");
         try environ.put("BK_NO_HELP", "1");
+        try environ.put("BK_GLYPH_TRACE", "1");
         if (schedule) |text| try environ.put("BK_AUTO_UI", text);
         if (delay) |frames| try environ.put("BK_REFERENCE_DELAY", try std.fmt.allocPrint(allocator, "{d}", .{frames}));
         var argv: std.ArrayList([]const u8) = .empty;
@@ -904,6 +947,7 @@ const Run = struct {
             std.debug.print("Game ({s} {s}) ended {any}; its output is in {s}\n", .{ self.name, tag, result.term, log_path });
             return error.GameFailed;
         }
+        try measure.expectNoMissingGlyph(log, log_path);
         return log;
     }
 

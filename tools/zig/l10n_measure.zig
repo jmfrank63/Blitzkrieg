@@ -167,6 +167,28 @@ pub fn changedPixels(a: []const u8, b: []const u8, stride: usize, rect: Rect, to
     return changed;
 }
 
+/// The Game's BK_GLYPH_TRACE lines (FontGpu::ReportMissingGlyph): a character some drawn text
+/// asked for that its font has no glyph for. The font draws its default character instead, a hollow
+/// box that hasSolidBox does not see, so a run of the Game under BK_GLYPH_TRACE=1 must print none.
+pub fn expectNoMissingGlyph(log: []const u8, log_path: []const u8) !void {
+    const prefix = "BK_GLYPH_TRACE: no glyph ";
+    var missing: usize = 0;
+    var lines = std.mem.tokenizeAny(u8, log, "\r\n");
+    while (lines.next()) |line| {
+        if (std.mem.indexOf(u8, line, prefix) == null) continue;
+        missing += 1;
+        if (missing <= 20) std.debug.print("{s}\n", .{line});
+    }
+    if (missing == 0) return;
+    std.debug.print("{d} characters have no glyph in their font; the Game's output is in {s}\n", .{ missing, log_path });
+    return error.MissingGlyph;
+}
+
+test "a BK_GLYPH_TRACE line fails the run, other lines do not" {
+    try expectNoMissingGlyph("BK_UI_TRACE: reposition\r\nBK_MOD_TRACE: open \"x\" from MOD\n", "log");
+    try std.testing.expectError(error.MissingGlyph, expectNoMissingGlyph("a\r\nBK_GLYPH_TRACE: no glyph U+00E8 in font \"fonts\\medium\"\r\n", "log"));
+}
+
 /// Whether the image holds a `w` by `h` window in which at least `min_fill`
 /// (0..1) of the pixels are above `threshold`: the solid box a bitmap font
 /// draws for a code point it has no glyph for. Letter strokes at the sizes of
