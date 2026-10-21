@@ -24,6 +24,9 @@
 //! codes) limits a shard to some of the languages; the default is all of them. A language whose
 //! overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left out. BK_LM_OVERLAYS
 //! names another overlay root (default `Localization/game`), so a test can take a language away from a copy.
+//! `zig build language-mods-plain` (BK_LM_PLAIN=1, and then only this) additionally writes `lang-hi-ttf`: the Hindi
+//! texts as plain Unicode, no shaper and no fonts, for the BK_TEXT_ENGINE=ttf Game, whose bk_text shapes them itself
+//! (the PUA clusters of `lang-hi` would be missing glyphs there). The default run leaves it alone and is unchanged.
 const std = @import("std");
 const timed_run = @import("timed_run.zig");
 const elk = @import("elk");
@@ -92,6 +95,7 @@ test "the language mods are built from the overlays through ELK's export" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+    if (try plainOnly(allocator)) return error.SkipZigTest;
     const game = try required(allocator, "BK_LM_GAME");
     const font_tool = try required(allocator, "BK_LM_FONT_TOOL");
     const modules = try required(allocator, "BK_LM_MODULES");
@@ -111,6 +115,65 @@ test "the language mods are built from the overlays through ELK's export" {
     }
     // Nothing above writes the database it was built from.
     try testing.expectEqual(elk_before, try treeHash("Data/ELK"));
+}
+
+fn plainOnly(allocator: std.mem.Allocator) !bool {
+    const value = (try envValue(allocator, "BK_LM_PLAIN")) orelse return false;
+    return std.mem.eql(u8, value, "1");
+}
+
+/// The mod folder of the plain-Unicode Hindi texts.
+const plain_mod = "lang-hi-ttf";
+
+test "the plain Unicode hi mod for the ttf engine holds no Private Use Area character" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    if (!try plainOnly(allocator)) return error.SkipZigTest;
+    const game = try required(allocator, "BK_LM_GAME");
+    const game_root = std.fs.path.dirname(game).?;
+    const cwd = std.Io.Dir.cwd();
+    const elk_before = try treeHash("Data/ELK");
+
+    const root = try std.fs.path.join(allocator, &.{ scratch, "hi-ttf" });
+    cwd.deleteTree(io, root) catch {};
+    const db_folder = try std.fs.path.join(allocator, &.{ root, "db" });
+    const elk_xml = try std.fs.path.join(allocator, &.{ db_folder, "elk.xml" });
+    try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
+    try cwd.writeFile(io, .{ .sub_path = elk_xml, .data = try cwd.readFileAlloc(io, "Data/ELK/elk.xml", allocator, .limited(1 << 20)) });
+    try database.copyTree(io, "Localization/game/hi/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
+    var db = try database.Database.open(testing.allocator, io, elk_xml);
+    defer db.deinit();
+
+    const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", plain_mod });
+    cwd.deleteTree(io, mod_folder) catch {};
+    const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = plain_mod }, .{});
+    defer testing.allocator.free(written.path);
+    const mod_xml = try std.fmt.allocPrint(allocator, "<?xml version=\"1.0\"?>\r\n<base><MODName>हिन्दी (ttf)</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n", .{});
+    try database.writeFileAtomic(io, testing.allocator, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(written.path).?, "mod.xml" }), mod_xml);
+
+    var package = try packages.readArchive(testing.allocator, io, written.path);
+    defer package.deinit();
+    var texts: usize = 0;
+    var devanagari = false;
+    for (package.entries) |entry| {
+        if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
+        texts += 1;
+        var at: usize = 2;
+        while (at + 1 < entry.bytes.len) : (at += 2) {
+            const unit = std.mem.readInt(u16, entry.bytes[at..][0..2], .little);
+            if (unit >= 0xE000 and unit <= 0xF8FF) {
+                std.debug.print("language-mods-plain: {s} holds U+{X:0>4}\n", .{ entry.name, unit });
+                return error.PrivateUseCharacter;
+            }
+            devanagari = devanagari or (unit >= 0x0900 and unit <= 0x097f);
+        }
+    }
+    try testing.expect(texts > 0);
+    try testing.expect(devanagari);
+    try testing.expectEqual(elk_before, try treeHash("Data/ELK"));
+    std.debug.print("language-mods-plain: {d} texts, no Private Use Area character, installed {s}\n", .{ texts, written.path });
 }
 
 fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root: []const u8, font_tool: []const u8, modules: []const u8, cwd_path: []const u8, allow_missing: bool) !void {

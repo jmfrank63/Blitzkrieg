@@ -3710,6 +3710,17 @@ pub fn build(b: *std.Build) void {
     language_mods_run.step.dependOn(bk_font.install);
     const language_mods_step = b.step("language-mods", "Build the nine language mods (ru, zh-Hans, ja, hi with their Noto fonts, Hindi shaped into Private Use Area clusters; es, fr, de, pt-BR, id texts only on the bitmap fonts) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
     language_mods_step.dependOn(&language_mods_tests.step);
+    // The plain-Unicode Hindi mod for the ttf text engine (M004): the same test binary, told by BK_LM_PLAIN
+    // to write only `lang-hi-ttf` (unshaped texts, no fonts) and to check it holds no Private Use Area character.
+    const language_mods_plain_run = b.addRunArtifact(language_mods_tests);
+    language_mods_plain_run.setCwd(b.path("."));
+    language_mods_plain_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    language_mods_plain_run.setEnvironmentVariable("BK_LM_PLAIN", "1");
+    language_mods_plain_run.has_side_effects = true;
+    language_mods_plain_run.step.dependOn(install_game_step);
+    const language_mods_plain_step = b.step("language-mods-plain", "Write lang-hi-ttf into the game's mods folder: the Hindi texts as plain Unicode, no shaping, no fonts, for BK_TEXT_ENGINE=ttf (M004)");
+    language_mods_plain_step.dependOn(&language_mods_tests.step);
+    if (test_mode == .run) language_mods_plain_step.dependOn(&language_mods_plain_run.step);
     if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
     // The install form of the same run (D087): `language-mods` only runs under test_mode == .run and
     // install-game does not depend on it, so a fresh install gets its mods/lang-<code>/ from this step,
