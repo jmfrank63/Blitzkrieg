@@ -808,6 +808,34 @@ static void TestTooLarge( const std::vector<BYTE> &font )
 		Check( atlas.nSkipped == 1 && atlas.format.chars.size() == 1, "NotoSans has no Han glyph: skipped, not boxed" );
 }
 
+// --fallback-ttf: the Devanagari face has no Latin letter, so 'A' comes from Noto Sans, drawn with ink
+// and counted; without the fallback it is skipped. KA stays the Devanagari face's own.
+static void TestFallback( const std::vector<BYTE> &devanagari, const std::vector<BYTE> &latin )
+{
+	FontAtlas::SFontRequest request;
+	request.pFontData = &devanagari[0];
+	request.nFontDataSize = int( devanagari.size() );
+	request.nHeight = 20;
+	request.codePoints.push_back( 'A' );
+	request.codePoints.push_back( 0x0915 );
+	FontAtlas::SFontAtlas alone;
+	std::string szError;
+	if ( Check( FontAtlas::Build( request, &alone, &szError ), "the Devanagari face alone builds: " + szError ) )
+		Check( alone.nSkipped == 1 && alone.format.chars.count( 'A' ) == 0, "without a fallback the Devanagari face skips 'A'" );
+	request.pFallbackData = &latin[0];
+	request.nFallbackDataSize = int( latin.size() );
+	FontAtlas::SFontAtlas merged;
+	if ( !Check( FontAtlas::Build( request, &merged, &szError ), "the Devanagari face with the Noto Sans fallback builds: " + szError ) )
+		return;
+	Check( merged.nSkipped == 0 && merged.nFallback == 1, "the fallback draws 'A' and only 'A'" );
+	Check( CellHasInk( merged.format, 'A', merged.image.nSizeX, merged.image.nSizeY, merged.image.pixels ), "the fallback's 'A' has ink" );
+	Check( CellHasInk( merged.format, 0x0915, merged.image.nSizeX, merged.image.nSizeY, merged.image.pixels ), "KA has ink" );
+	const std::vector<BYTE> broken( 64, 0 );
+	request.pFallbackData = &broken[0];
+	request.nFallbackDataSize = int( broken.size() );
+	Check( !FontAtlas::Build( request, &merged, &szError ) && szError.find( "fallback" ) != std::string::npos, "a fallback that is not a font is refused: " + szError );
+}
+
 int main( int argc, char **argv )
 {
 	if ( argc < 4 )
@@ -834,6 +862,7 @@ int main( int argc, char **argv )
 		TestHindi( root / "hindi", VendorFont( "NotoSansDevanagari-Regular.ttf" ), 24 );
 		TestHindiSizes( VendorFont( "NotoSansDevanagari-Regular.ttf" ) );
 		TestTooLarge( VendorFont( "NotoSans-Regular.ttf" ) );
+		TestFallback( VendorFont( "NotoSansDevanagari-Regular.ttf" ), VendorFont( "NotoSans-Regular.ttf" ) );
 	}
 	else
 		Check( false, "BK_FONT_TEST_UNICODE names the folder of the language-mod fonts" );

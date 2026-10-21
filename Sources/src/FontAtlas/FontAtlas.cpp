@@ -114,7 +114,8 @@ struct SGlyph
 	int nSizeY, nTop;
 	std::vector<BYTE> coverage;					// nB * nSizeY
 	int nCluster;												// index into the request's clusters, -1 for a plain character
-	SGlyph() : cAnsi( 0 ), wUnicode( 0 ), nA( 0 ), nB( 0 ), nC( 0 ), nSizeY( 0 ), nTop( 0 ), nCluster( -1 ) {  }
+	bool bFallback;												// drawn from the request's fallback face
+	SGlyph() : cAnsi( 0 ), wUnicode( 0 ), nA( 0 ), nB( 0 ), nC( 0 ), nSizeY( 0 ), nTop( 0 ), nCluster( -1 ), bFallback( false ) {  }
 	int Cell() const { return nB + abs( nC ); }	// FontGen's nNextCharShift
 };
 
@@ -441,25 +442,48 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	if ( nAscent < 0 ) nAscent = 0;
 	const int nEmPixels = Round( fScale / stbtt_ScaleForMappingEmToPixels( &font, 1.0f ) );
 
+	stbtt_fontinfo fallback;
+	bool bHasFallback = false;
+	float fFallbackScale = 0;
+	if ( request.pFallbackData != 0 )
+	{
+		stbtt_uint8 *pFallback = const_cast<stbtt_uint8*>( request.pFallbackData );
+		const int nFallbackOffset = request.nFallbackDataSize >= 12 ? stbtt_GetFontOffsetForIndex( pFallback, 0 ) : -1;
+		if ( nFallbackOffset < 0 || nFallbackOffset >= request.nFallbackDataSize || !stbtt_InitFont( &fallback, pFallback, nFallbackOffset ) )
+		{
+			*pszError = "the fallback is not a TrueType or OpenType font";
+			return false;
+		}
+		bHasFallback = true;
+		fFallbackScale = stbtt_ScaleForPixelHeight( &fallback, float( request.nHeight ) );
+	}
+
 	std::vector<SGlyph> glyphs;
 	int nSkipped = 0;
+	int nFallback = 0;
 	if ( bUnicode )
 	{
 		// The request's code points, sorted and distinct, without the ones
-		// the face cannot draw: the game draws wDefaultChar for those.
+		// neither the face nor the fallback can draw: the game draws
+		// wDefaultChar for those.
 		std::vector<WORD> codes( request.codePoints );
 		std::sort( codes.begin(), codes.end() );
 		codes.erase( std::unique( codes.begin(), codes.end() ), codes.end() );
 		glyphs.reserve( codes.size() + request.clusters.size() );
 		for ( size_t i = 0; i < codes.size(); ++i )
 		{
-			if ( stbtt_FindGlyphIndex( &font, codes[i] ) == 0 )
-			{
-				++nSkipped;
-				continue;
-			}
 			SGlyph glyph;
 			glyph.wUnicode = codes[i];
+			if ( stbtt_FindGlyphIndex( &font, codes[i] ) == 0 )
+			{
+				if ( !bHasFallback || stbtt_FindGlyphIndex( &fallback, codes[i] ) == 0 )
+				{
+					++nSkipped;
+					continue;
+				}
+				glyph.bFallback = true;
+				++nFallback;
+			}
 			glyphs.push_back( glyph );
 		}
 		for ( size_t i = 0; i < request.clusters.size(); ++i )
@@ -495,7 +519,9 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 	int nAveCharWidth = 0;
 	for ( size_t i = 0; i < glyphs.size(); ++i )
 	{
-		if ( glyphs[i].nCluster < 0 )
+		if ( glyphs[i].nCluster < 0 && glyphs[i].bFallback )
+			RenderGlyph( fallback, fFallbackScale, nAscent, request, bEmbolden, bSlant, &glyphs[i] );
+		else if ( glyphs[i].nCluster < 0 )
 			RenderGlyph( font, fScale, nAscent, request, bEmbolden, bSlant, &glyphs[i] );
 		else
 		{
@@ -653,6 +679,7 @@ bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszErr
 				format.kerns[( DWORD( kerned[i] ) << 16 ) | kerned[j]] = float( nKern );
 		}
 	pAtlas->nSkipped = nSkipped;
+	pAtlas->nFallback = nFallback;
 	pAtlas->nClusters = int( request.clusters.size() );
 	return true;
 }

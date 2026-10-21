@@ -34,6 +34,7 @@ static std::string UsageText()
 	return std::string( "usage: bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]\n"
 		"               [--no-aa] [--charset <name>] [--chars <file>] [--set <name>]\n"
 		"               [--clusters <table>] [--script <tag>] [--language <tag>]\n"
+		"               [--fallback-ttf <file>]\n"
 		"               [--face-index <n>] [--out <dir>] [--force] [--modules <dir>]\n" )
 		+ "\n" + BK_T( "font.usage.intro" ) + "\n"
 		+ "\n" + BK_T( "font.usage.options" ) + "\n"
@@ -242,7 +243,7 @@ int main( int argc, char *argv[] )
 			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
-	std::string szFont, szModules, szOut = ".", szChars, szClusters;
+	std::string szFont, szModules, szOut = ".", szChars, szClusters, szFallback;
 	std::vector<std::string> sets;
 	FontAtlas::SFontRequest request;
 	bool bForce = false;
@@ -256,6 +257,7 @@ int main( int argc, char *argv[] )
 		else if ( szArg == "--force" ) bForce = true;
 		else if ( !bHasValue ) return Usage();
 		else if ( szArg == "--ttf" ) szFont = argv[++i];
+		else if ( szArg == "--fallback-ttf" ) szFallback = argv[++i];
 		else if ( szArg == "--out" ) szOut = argv[++i];
 		else if ( szArg == "--modules" ) szModules = argv[++i];
 		else if ( szArg == "--height" ) { if ( !ParseInt( argv[++i], &request.nHeight ) ) return Usage(); }
@@ -318,6 +320,15 @@ int main( int argc, char *argv[] )
 	}
 	request.pFontData = &data[0];
 	request.nFontDataSize = int( data.size() );
+	std::vector<BYTE> fallback;
+	if ( !szFallback.empty() )
+	{
+		fs::path fallback_path = NToolHost::InputPath( szFallback );
+		if ( !ReadFile( fallback_path, &fallback ) || fallback.empty() )
+			return Fail( BkFormat( "font.err.cannot_read", { fallback_path.make_preferred().string() } ) );
+		request.pFallbackData = &fallback[0];
+		request.nFallbackDataSize = int( fallback.size() );
+	}
 
 	FontAtlas::SFontAtlas atlas;
 	std::string szError;
@@ -345,6 +356,8 @@ int main( int argc, char *argv[] )
 	std::string szClusterNote;
 	if ( !szClusters.empty() )
 		szClusterNote = NStr::Format( ", clusters %d of %d", atlas.nClusters, CBkClusterTable::LAST - CBkClusterTable::FIRST + 1 );
+	if ( !szFallback.empty() )
+		szClusterNote += NStr::Format( ", %d from the fallback", atlas.nFallback );
 	printf( "wrote %s, 1.tga and 1_h.dds: %d characters, %d kerning pairs%s, %dx%d atlas\n",
 		fs::path( tfd ).make_preferred().string().c_str(), int( atlas.format.chars.size() ), int( atlas.format.kerns.size() ),
 		szClusterNote.c_str(), atlas.image.nSizeX, atlas.image.nSizeY );
