@@ -31,3 +31,7 @@ whole-database es
 whole-database pt-BR
 whole-database id
 whole-database ru
+prefix ja textes
+prefix ja buildings
+prefix ja medals
+prefix ja units/humans
