@@ -36,3 +36,4 @@ prefix ru medals
 prefix ru units/humans
 prefix ru units/technics/allies
 prefix ru units/technics/common
+prefix ru units/technics/german
