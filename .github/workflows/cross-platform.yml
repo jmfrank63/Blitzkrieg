@@ -314,7 +314,7 @@ jobs:
 
       - name: Compile the tiers
         shell: bash
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
+        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
 
       - name: Compile the tiers with --release=fast
         shell: bash
@@ -554,6 +554,10 @@ jobs:
       - name: Run diagnostics facade tests
         if: matrix.part == 'platform'
         run: zig build test-platform-debug -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run system facade tests
+        if: matrix.part == 'platform'
+        run: zig build test-platform-system -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
 
@@ -2017,7 +2021,7 @@ jobs:
 
       - name: Compile the tiers
         shell: pwsh
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-l10n-auto test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-random-missions test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB" --summary new
+        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-l10n-auto test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-random-missions test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB" --summary new
 
       - name: Compile the tiers with --release=fast
         shell: pwsh
@@ -2292,6 +2296,10 @@ jobs:
       - name: Run diagnostics facade tests
         if: matrix.part == 'platform'
         run: zig build test-platform-debug -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Run system facade tests
+        if: matrix.part == 'platform'
+        run: zig build test-platform-system -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
 
@@ -3861,7 +3869,7 @@ jobs:
 
       - name: Compile the tiers
         shell: bash
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-events test-platform-files test-platform-foundation test-platform-modules test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" -Dtarget=aarch64-macos --summary new
+        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-platform-debug test-platform-events test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" -Dtarget=aarch64-macos --summary new
 
       - name: Compile the tiers with --release=fast
         shell: bash
@@ -4122,6 +4130,10 @@ jobs:
       - name: Run diagnostics facade tests
         if: matrix.part == 'random'
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Run system facade tests
+        if: matrix.part == 'random'
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=aarch64-macos -Dtest-mode=run
 
 
 
@@ -5519,6 +5531,9 @@ jobs:
       - name: Run diagnostics facade tests
         run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
+      - name: Run system facade tests
+        run: zig build test-platform-system -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
 
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
@@ -5775,6 +5790,9 @@ jobs:
 
       - name: Run diagnostics facade tests
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run system facade tests
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=x86_64-macos -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -6049,6 +6067,9 @@ jobs:
 
       - name: Run diagnostics facade tests
         run: zig build test-platform-debug -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      - name: Run system facade tests
+        run: zig build test-platform-system -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests

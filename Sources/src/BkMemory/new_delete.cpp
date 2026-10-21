@@ -82,36 +82,49 @@ void *AllocNoThrow(std::size_t size, std::size_t alignment, const void *caller, 
 
 } // namespace
 
+// On Apple platforms dyld replaces the system libc++'s operators with an
+// image's own only if that image defines weak symbols (MH_WEAK_DEFINES). The
+// Game has other weak symbols and so got the replacement, but the small
+// platform-system-test did not: libc++.dylib's string code allocated with the
+// system new, and the inline delete in System.cpp then freed that block
+// through this file (bad header magic). Weak operators make every image that
+// carries this file take part; all copies forward to the one BkMemory anyway.
+#if defined(__APPLE__)
+#  define BK_REPLACEMENT __attribute__((weak))
+#else
+#  define BK_REPLACEMENT
+#endif
+
 // ---- new -------------------------------------------------------------
 
-void *operator new(std::size_t size) { return AllocOrThrow(size, 0, BK_CALLER); }
-void *operator new[](std::size_t size) { return AllocOrThrow(size, 0, BK_CALLER); }
-void *operator new(std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0, BK_CALLER); }
-void *operator new[](std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0, BK_CALLER); }
+BK_REPLACEMENT void *operator new(std::size_t size) { return AllocOrThrow(size, 0, BK_CALLER); }
+BK_REPLACEMENT void *operator new[](std::size_t size) { return AllocOrThrow(size, 0, BK_CALLER); }
+BK_REPLACEMENT void *operator new(std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0, BK_CALLER); }
+BK_REPLACEMENT void *operator new[](std::size_t size, const std::nothrow_t &) noexcept { return AllocNoThrow(size, 0, BK_CALLER); }
 
-void *operator new(std::size_t size, std::align_val_t alignment)
+BK_REPLACEMENT void *operator new(std::size_t size, std::align_val_t alignment)
 {
 	return AllocOrThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
-void *operator new[](std::size_t size, std::align_val_t alignment)
+BK_REPLACEMENT void *operator new[](std::size_t size, std::align_val_t alignment)
 {
 	return AllocOrThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
-void *operator new(std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
+BK_REPLACEMENT void *operator new(std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
 {
 	return AllocNoThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
-void *operator new[](std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
+BK_REPLACEMENT void *operator new[](std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
 {
 	return AllocNoThrow(size, static_cast<std::size_t>(alignment), BK_CALLER);
 }
 
 // ---- delete ----------------------------------------------------------
 
-void operator delete(void *p) noexcept { bk_mem_free(p); }
-void operator delete[](void *p) noexcept { bk_mem_free(p); }
-void operator delete(void *p, const std::nothrow_t &) noexcept { bk_mem_free(p); }
-void operator delete[](void *p, const std::nothrow_t &) noexcept { bk_mem_free(p); }
+BK_REPLACEMENT void operator delete(void *p) noexcept { bk_mem_free(p); }
+BK_REPLACEMENT void operator delete[](void *p) noexcept { bk_mem_free(p); }
+BK_REPLACEMENT void operator delete(void *p, const std::nothrow_t &) noexcept { bk_mem_free(p); }
+BK_REPLACEMENT void operator delete[](void *p, const std::nothrow_t &) noexcept { bk_mem_free(p); }
 
 // The size a sized delete passes is only cross-checked against the block's
 // header, and on Apple platforms it is not the platform's promise to keep:
@@ -125,24 +138,24 @@ void operator delete[](void *p, const std::nothrow_t &) noexcept { bk_mem_free(p
 #  define BK_DELETE_SIZE(size) (size)
 #endif
 
-void operator delete(void *p, std::size_t size) noexcept { bk_mem_free_sized(p, BK_DELETE_SIZE(size), 0); }
-void operator delete[](void *p, std::size_t size) noexcept { bk_mem_free_sized(p, BK_DELETE_SIZE(size), 0); }
+BK_REPLACEMENT void operator delete(void *p, std::size_t size) noexcept { bk_mem_free_sized(p, BK_DELETE_SIZE(size), 0); }
+BK_REPLACEMENT void operator delete[](void *p, std::size_t size) noexcept { bk_mem_free_sized(p, BK_DELETE_SIZE(size), 0); }
 
-void operator delete(void *p, std::align_val_t alignment) noexcept
+BK_REPLACEMENT void operator delete(void *p, std::align_val_t alignment) noexcept
 {
 	bk_mem_free_sized(p, 0, static_cast<std::size_t>(alignment));
 }
-void operator delete[](void *p, std::align_val_t alignment) noexcept
+BK_REPLACEMENT void operator delete[](void *p, std::align_val_t alignment) noexcept
 {
 	bk_mem_free_sized(p, 0, static_cast<std::size_t>(alignment));
 }
-void operator delete(void *p, std::size_t size, std::align_val_t alignment) noexcept
+BK_REPLACEMENT void operator delete(void *p, std::size_t size, std::align_val_t alignment) noexcept
 {
 	bk_mem_free_sized(p, BK_DELETE_SIZE(size), static_cast<std::size_t>(alignment));
 }
-void operator delete[](void *p, std::size_t size, std::align_val_t alignment) noexcept
+BK_REPLACEMENT void operator delete[](void *p, std::size_t size, std::align_val_t alignment) noexcept
 {
 	bk_mem_free_sized(p, BK_DELETE_SIZE(size), static_cast<std::size_t>(alignment));
 }
-void operator delete(void *p, std::align_val_t, const std::nothrow_t &) noexcept { bk_mem_free(p); }
-void operator delete[](void *p, std::align_val_t, const std::nothrow_t &) noexcept { bk_mem_free(p); }
+BK_REPLACEMENT void operator delete(void *p, std::align_val_t, const std::nothrow_t &) noexcept { bk_mem_free(p); }
+BK_REPLACEMENT void operator delete[](void *p, std::align_val_t, const std::nothrow_t &) noexcept { bk_mem_free(p); }
