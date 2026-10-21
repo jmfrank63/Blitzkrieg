@@ -34,3 +34,7 @@ prefix de units/technics/common
 prefix de units/technics/german
 prefix de units/technics/ussr
 prefix de scenarios/chapters
+prefix de scenarios/scenariomissions
+prefix de scenarios/descriptions
+prefix de scenarios/tutorials
+prefix de scenarios/campaigns

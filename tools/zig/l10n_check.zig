@@ -689,7 +689,10 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
                     .no_bom => try report.add("encoding", language.code, key, "text lacks the UTF-16LE byte order mark"),
                     .odd_length => try report.addFmt("encoding", language.code, key, "text has an odd byte count ({d})", .{bytes.len}),
                     .unpaired_surrogate => |unit| try report.addFmt("encoding", language.code, key, "unpaired surrogate at unit {d}", .{unit}),
-                    .empty => try report.add("empty", language.code, key, "text holds no characters"),
+                    // Two tutorial steps (tutorial4/22 and /25) have an empty 2003 original; an empty translation is the faithful one.
+                    .empty => if (base_bytes == null or textProblem(base_bytes.?) != .empty) {
+                        try report.add("empty", language.code, key, "text holds no characters");
+                    },
                 }
             } else {
                 try report.add("missing", language.code, key, "no translation");

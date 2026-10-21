@@ -10,7 +10,6 @@ ru textes/strings/imheader-mission-map mission # the label declines the noun
 ru textes/strings/imheader-mission-objectives mission # the label declines the noun
 ru textes/strings/missiondescriptiontext mission # the label declines the noun
 ja scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
-de scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says Aufgabe, the glossary row is the menu term Mission
 de textes/help load game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
 de textes/help save game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
 de textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is a Toningenieur, not a Pionier

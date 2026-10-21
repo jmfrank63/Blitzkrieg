@@ -2911,3 +2911,11 @@ same-as-base de textes/ui/intermission/upgrades/button_warehouse
 same-as-base de textes/ui/intermission/warehouse/button_encyclopedia
 same-as-base de textes/ui/intermission/warehouse/caption
 same-as-base de textes/ui/settings/button_savesettings
+same-as-base de scenarios/scenariomissions/allies/tobruk/header
+same-as-base de scenarios/scenariomissions/allies/tunis/header
+same-as-base de scenarios/scenariomissions/german/barbarossa/header
+same-as-base de scenarios/scenariomissions/german/barbarossa/subheader
+same-as-base de scenarios/scenariomissions/ussr/kursk/header
+same-as-base de scenarios/scenariomissions/ussr/leningrad/header
+same-as-base de scenarios/scenariomissions/ussr/stalingrad/header
+same-as-base de scenarios/scenariomissions/ussr/ukraine/header
