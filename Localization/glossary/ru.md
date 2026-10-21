@@ -21,14 +21,14 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 
 | English term | Translation | Note |
 |---|---|---|
-| private | рядовой |  |
+| private | рядовой | no-term-check: also an ordinary English word |
 | corporal | ефрейтор |  |
 | sergeant | сержант |  |
 | lieutenant | лейтенант |  |
 | captain | капитан |  |
-| major | майор |  |
+| major | майор | no-term-check: also an ordinary English word |
 | colonel | полковник |  |
-| general | генерал |  |
+| general | генерал | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 | objectives | Цели миссии |  |
 | briefing | Описание миссии |  |
 | start | Начать |  |
-| back | Назад |  |
+| back | Назад | no-term-check: also an ordinary English word |
 | options | Опции |  |
 | settings | Настройки |  |
 | load game | Загрузить игру |  |

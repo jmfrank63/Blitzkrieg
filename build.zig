@@ -3800,6 +3800,38 @@ pub fn build(b: *std.Build) void {
         l10n_check_tests_step.dependOn(&l10n_check_unit_run.step);
     }
 
+    // The overlay sheet helper (tools/zig/l10n_sheet.zig, M003 S01 T01): export the English originals under
+    // key prefixes to a text sheet, import the translated sheet as UTF-16LE overlay texts.
+    const l10n_sheet_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_sheet.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const l10n_sheet_exe = b.addExecutable(.{ .name = "l10n-sheet", .root_module = l10n_sheet_module });
+    for ([_][]const u8{ "export", "import" }) |command| {
+        const run = b.addRunArtifact(l10n_sheet_exe);
+        run.addArg(command);
+        run.addPassthruArgs();
+        run.setCwd(b.path("."));
+        run.has_side_effects = true;
+        const step = b.step(b.fmt("l10n-sheet-{s}", .{command}), if (std.mem.eql(u8, command, "export"))
+            "Write the English originals under key prefixes to zig-out/local-test/l10n-sheet/<code>-<n>.txt: zig build l10n-sheet-export -- <code> <prefix>... (M003 S01)"
+        else
+            "Write a translated sheet as the overlay texts of a language: zig build l10n-sheet-import -- <code> <sheet> (M003 S01)");
+        step.dependOn(&run.step);
+    }
+    const l10n_sheet_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_sheet_test.zig"),
+        .target = target,
+        .optimize = .debug,
+    }) });
+    const l10n_sheet_tests_run = b.addRunArtifact(l10n_sheet_tests);
+    l10n_sheet_tests_run.setCwd(b.path("."));
+    l10n_sheet_tests_run.has_side_effects = true;
+    const l10n_sheet_tests_step = b.step("test-l10n-sheet", "The overlay sheet export and import: round trip, line breaks, refusals (M003 S01)");
+    l10n_sheet_tests_step.dependOn(&l10n_sheet_tests.step);
+    if (test_mode == .run) l10n_sheet_tests_step.dependOn(&l10n_sheet_tests_run.step);
+
     // M002 R056/D066 on the real Game: the language mods' main menus measured against
     // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
     // desktop, a GPU and hb-view, and fails without them; the mods are built first.

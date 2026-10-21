@@ -21,14 +21,14 @@ Review state: machine seed, needs native review. The menu terms are what the `de
 
 | English term | Translation | Note |
 |---|---|---|
-| private | Gefreiter |  |
+| private | Gefreiter | no-term-check: also an ordinary English word |
 | corporal | Obergefreiter |  |
 | sergeant | Feldwebel |  |
 | lieutenant | Leutnant |  |
 | captain | Hauptmann |  |
-| major | Major |  |
+| major | Major | no-term-check: also an ordinary English word |
 | colonel | Oberst |  |
-| general | General |  |
+| general | General | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: machine seed, needs native review. The menu terms are what the `de
 | objectives | Missionsziele |  |
 | briefing | Einsatzbesprechung |  |
 | start | Starten |  |
-| back | Zurück |  |
+| back | Zurück | no-term-check: also an ordinary English word |
 | options | Optionen |  |
 | settings | Einstellungen |  |
 | load game | Spiel laden |  |

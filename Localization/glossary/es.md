@@ -21,14 +21,14 @@ Review state: machine seed, needs native review. The menu terms are what the `es
 
 | English term | Translation | Note |
 |---|---|---|
-| private | soldado raso |  |
+| private | soldado raso | no-term-check: also an ordinary English word |
 | corporal | cabo |  |
 | sergeant | sargento |  |
 | lieutenant | teniente |  |
 | captain | capitán |  |
-| major | mayor |  |
+| major | mayor | no-term-check: also an ordinary English word |
 | colonel | coronel |  |
-| general | general |  |
+| general | general | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: machine seed, needs native review. The menu terms are what the `es
 | objectives | Objetivos |  |
 | briefing | Informe de la misión |  |
 | start | Comenzar |  |
-| back | Atrás |  |
+| back | Atrás | no-term-check: also an ordinary English word |
 | options | Opciones |  |
 | settings | Ajustes |  |
 | load game | Cargar partida |  |

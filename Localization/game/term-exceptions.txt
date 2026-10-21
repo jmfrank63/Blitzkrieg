@@ -1,0 +1,13 @@
+# Glossary-term exceptions of the l10n-check gate (M003 D098), one per line:
+#   <code> <key> <english term> # <reason>
+# The glossary term is required in a translation wherever its English term is a whole word of the
+# original. A line here excuses one key and one term, for a use the glossary row does not cover
+# (a verb or a descriptive noun in running text, or a Russian case form). The reason after `#` is
+# required; a line that excuses nothing any more is the finding term-exception-unused.
+ru scenarios/scenariomissions/allies/norway/description mission # prose: the Russian text words it with another noun or case form
+ru textes/strings/imheader-mission-desc mission # the label declines the noun (Описание миссии)
+ru textes/strings/imheader-mission-map mission # the label declines the noun
+ru textes/strings/imheader-mission-objectives mission # the label declines the noun
+ru textes/strings/missiondescriptiontext mission # the label declines the noun
+ja scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+de scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says Aufgabe, the glossary row is the menu term Mission

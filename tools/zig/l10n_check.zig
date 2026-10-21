@@ -9,21 +9,34 @@
 //! The rules are `pub` and take a `Report`, so tests can run them on in-memory data and later
 //! rules plug in beside `checkOverlays` without touching the format.
 //!
-//! Scope: `Localization/game/scope.txt` lists the ELK keys (relative to `game_data_base`, no
-//! extension) every language overlay must hold. An overlay text is `<key>.txt` (UTF-16LE with a
-//! byte order mark) beside its state file `<key>.xml` (`<base State="n" .../>`, 0 not translated,
-//! 1 outdated, 2 translated, 3 approved, as Sources/editor/elk/core/state.zig names them).
+//! Scope (M003 D096): `Localization/game/scope.txt` lists the seed ELK keys (relative to
+//! `game_data_base`, no extension) every language overlay must hold, and two directives widen one
+//! language: `whole-database <code>` (every `.elk` original, found case-insensitively) and
+//! `prefix <code> <key prefix>` (the seed keys plus every `.elk` key under the prefix). A language
+//! with neither is seed-only; both for one language is a `scope` finding, as are an unknown code and a
+//! malformed line. `extra` names the scope rule an overlay text breaks. The run prints one
+//! `l10n-check: scope: <code>: <scope>, <n> keys checked` note per language. An overlay text is
+//! `<key>.txt` (UTF-16LE with a byte order mark) beside its state file `<key>.xml`
+//! (`<base State="n" .../>`, 0 not translated, 1 outdated, 2 translated, 3 approved, as
+//! Sources/editor/elk/core/state.zig names them).
 //!
 //! The English source of a key is its `Data/ELK/game_data_base/<key>.elk` (the original; the
 //! `.txt` beside it is a translation working copy, used only when no `.elk` exists). An overlay
 //! .xml cannot record which English text a translation was made from, so D075 keeps a tracked
 //! manifest, `Localization/game/base-hashes.txt`: `<key> <sha256 hex of the English bytes>` per
-//! scope key, plus `same-as-base <code> <key>` lines naming translations that may equal the
+//! `.elk` original (and seed key), plus `same-as-base <code> <key>` lines naming translations that may equal the
 //! English byte for byte (a proper name). Rule `stale` fires when the English bytes no longer
-//! match their hash, `base-hash-missing` when a scope key has no line, `untranslated` when an
+//! match their hash, `base-hash-missing` when a key in any language's scope has no line, `untranslated` when an
 //! overlay text equals the English bytes without a `same-as-base` line. `--update-base` rewrites
 //! the manifest (`zig build l10n-check-update-base`) after a person reviewed the translations.
 //! Some Data/ELK originals are Russian; every comparison is against the base of that key.
+//!
+//! Rule `glossary-term` (D098): for each in-scope key, every term of `Localization/glossary/<code>.md`
+//! (its `English term | Translation | Note` rows) that is a whole word of the English original,
+//! ignoring case and line breaks, must be a case-insensitive substring of the overlay text. A row
+//! whose Note holds `no-term-check` is skipped; a line `<code> <key> <english term> # <reason>` of
+//! `Localization/game/term-exceptions.txt` excuses one key and term (`term-exception` for a line without a
+//! reason, `term-exception-unused` for one that excuses nothing). A missing glossary is a finding.
 //!
 //! Rule `placeholder`: the multiset of substituted or interpreted tokens must be the same in the
 //! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
@@ -78,6 +91,8 @@ pub const Report = struct {
     arena: std.mem.Allocator,
     findings: std.ArrayList(Finding) = .empty,
     inactive: std.ArrayList([]const u8) = .empty,
+    /// One printed line per language: its scope and how many keys were checked.
+    scope_notes: std.ArrayList([]const u8) = .empty,
     checked: usize = 0,
 
     pub fn add(self: *Report, rule: []const u8, code: []const u8, where: []const u8, detail: []const u8) !void {
@@ -145,19 +160,206 @@ pub fn parseState(xml: []const u8) ?u8 {
     return std.fmt.parseInt(u8, xml[start..end], 10) catch null;
 }
 
-/// The scope keys of a `scope.txt`: one per line, `#` lines and blank lines skipped.
-pub fn parseScope(arena: std.mem.Allocator, text: []const u8) ![]const []const u8 {
-    var keys: std.ArrayList([]const u8) = .empty;
+pub const scope_path = "Localization/game/scope.txt";
+pub const exceptions_path = "Localization/game/term-exceptions.txt";
+
+pub const ScopeProblem = struct { line: usize, detail: []const u8 };
+pub const WholeLine = struct { code: []const u8, line: usize };
+pub const PrefixLine = struct { code: []const u8, prefix: []const u8, line: usize };
+
+/// The lines of a `scope.txt`: seed keys (every other line), `whole-database <code>` and
+/// `prefix <code> <key prefix>`. A key may hold a space, so only the two words followed by a space
+/// start a directive. Problems are returned, not reported, so the parser stays pure.
+pub const ScopeFile = struct {
+    seed: []const []const u8,
+    whole: []const WholeLine,
+    prefixes: []const PrefixLine,
+    problems: []const ScopeProblem,
+};
+
+fn knownCode(code: []const u8) bool {
+    for (languages.languages) |language| {
+        if (std.mem.eql(u8, language.code, code)) return true;
+    }
+    return false;
+}
+
+pub fn parseScopeFile(arena: std.mem.Allocator, text: []const u8) !ScopeFile {
+    var seed: std.ArrayList([]const u8) = .empty;
+    var whole: std.ArrayList(WholeLine) = .empty;
+    var prefixes: std.ArrayList(PrefixLine) = .empty;
+    var problems: std.ArrayList(ScopeProblem) = .empty;
     var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
     while (lines.next()) |raw| {
-        const key = std.mem.trim(u8, raw, " \t\r");
-        if (key.len == 0 or key[0] == '#') continue;
+        number += 1;
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        if (std.mem.eql(u8, line, "whole-database") or std.mem.eql(u8, line, "prefix")) {
+            try problems.append(arena, .{ .line = number, .detail = "directive without arguments" });
+        } else if (std.mem.startsWith(u8, line, "whole-database ")) {
+            const code = std.mem.trim(u8, line["whole-database ".len..], " \t");
+            if (code.len == 0 or std.mem.indexOfScalar(u8, code, ' ') != null) {
+                try problems.append(arena, .{ .line = number, .detail = "whole-database wants exactly one language code" });
+            } else if (!knownCode(code)) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{code}) });
+            } else try whole.append(arena, .{ .code = code, .line = number });
+        } else if (std.mem.startsWith(u8, line, "prefix ")) {
+            const rest = std.mem.trimStart(u8, line["prefix ".len..], " \t");
+            const space = std.mem.indexOfScalar(u8, rest, ' ');
+            const prefix = if (space) |s| std.mem.trimStart(u8, rest[s + 1 ..], " \t") else "";
+            if (space == null or prefix.len == 0) {
+                try problems.append(arena, .{ .line = number, .detail = "prefix wants a language code and a key prefix" });
+            } else if (!knownCode(rest[0..space.?])) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{rest[0..space.?]}) });
+            } else try prefixes.append(arena, .{ .code = rest[0..space.?], .prefix = prefix, .line = number });
+        } else try seed.append(arena, line);
+    }
+    return .{ .seed = seed.items, .whole = whole.items, .prefixes = prefixes.items, .problems = problems.items };
+}
+
+/// The seed keys of a `scope.txt`: one per line, `#` lines, blank lines and directives skipped.
+pub fn parseScope(arena: std.mem.Allocator, text: []const u8) ![]const []const u8 {
+    return (try parseScopeFile(arena, text)).seed;
+}
+
+pub const ScopeKind = enum { seed, prefixes, whole };
+
+/// The keys one language must translate, in file order (seed first), with a set for membership.
+pub const LanguageScope = struct {
+    code: []const u8,
+    kind: ScopeKind,
+    keys: []const []const u8,
+    set: std.StringHashMapUnmanaged(void),
+    prefixes: []const []const u8,
+
+    pub fn contains(self: LanguageScope, key: []const u8) bool {
+        return self.set.contains(key);
+    }
+
+    /// The scope as the run prints it: `seed`, `seed + prefixes a, b` or `whole-database`.
+    pub fn describe(self: LanguageScope, arena: std.mem.Allocator) ![]const u8 {
+        return switch (self.kind) {
+            .seed => "seed",
+            .whole => "whole-database",
+            .prefixes => try std.fmt.allocPrint(arena, "seed + prefixes {s}", .{try std.mem.join(arena, ", ", self.prefixes)}),
+        };
+    }
+
+    /// The rule a key outside the scope breaks, for the `extra` finding.
+    pub fn rule(self: LanguageScope) []const u8 {
+        return switch (self.kind) {
+            .seed => "not in the seed list of Localization/game/scope.txt (no prefix or whole-database line for this language)",
+            .prefixes => "not in the seed list or under a `prefix` line of this language in Localization/game/scope.txt",
+            .whole => "no .elk original in Data/ELK/game_data_base (whole-database scope)",
+        };
+    }
+};
+
+pub const Scopes = struct {
+    /// One per entry of `languages.languages`, in that order.
+    per_language: []const LanguageScope,
+    /// Every key any language has in scope, sorted: the keys whose English base is hashed.
+    all_keys: []const []const u8,
+};
+
+/// Every `.elk` original below Data/ELK/game_data_base as a key (relative, no extension, forward
+/// slashes, the spelling on disk), sorted. Empty when the directory does not exist.
+pub fn elkKeys(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir) ![]const []const u8 {
+    const base = (try findIgnoreCase(io, arena, root, "Data/ELK/game_data_base")) orelse return &.{};
+    var dir = try root.openDir(io, base, .{ .iterate = true });
+    defer dir.close(io);
+    var keys: std.ArrayList([]const u8) = .empty;
+    var walker = try dir.walk(arena);
+    defer walker.deinit();
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file or entry.path.len <= 4) continue;
+        if (!std.ascii.eqlIgnoreCase(entry.path[entry.path.len - 4 ..], ".elk")) continue;
+        const key = try arena.dupe(u8, entry.path[0 .. entry.path.len - 4]);
+        for (key) |*c| {
+            if (c.* == '\\') c.* = '/';
+        }
         try keys.append(arena, key);
     }
+    std.mem.sort([]const u8, keys.items, {}, lessString);
     return keys.items;
 }
 
-fn readOptional(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, path: []const u8) !?[]u8 {
+/// Whether `key` is new to `seen`, which holds keys ASCII-lowercased: a Data tree may spell a
+/// directory with another case than a seed key, and both name one text.
+fn firstSight(arena: std.mem.Allocator, seen: *std.StringHashMapUnmanaged(void), key: []const u8) !bool {
+    const lower = try std.ascii.allocLowerString(arena, key);
+    return (try seen.fetchPut(arena, lower, {})) == null;
+}
+
+/// The scope of each language. `report` null reads the file without reporting its problems (a rule
+/// that only needs the key sets; `checkOverlays` reports them once).
+pub fn loadScopes(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, report: ?*Report) !?Scopes {
+    const text = (try readOptional(io, arena, root, scope_path)) orelse {
+        if (report) |r| try r.add("scope", "all", scope_path, "file is missing");
+        return null;
+    };
+    const file = try parseScopeFile(arena, text);
+    if (report) |r| {
+        for (file.problems) |problem| {
+            try r.addFmt("scope", "all", scope_path, "line {d}: {s}", .{ problem.line, problem.detail });
+        }
+        if (file.seed.len == 0) try r.add("scope", "all", scope_path, "lists no key");
+    }
+    const needs_elk = file.whole.len != 0 or file.prefixes.len != 0;
+    const elk: []const []const u8 = if (needs_elk) try elkKeys(io, arena, root) else &.{};
+
+    var per_language: std.ArrayList(LanguageScope) = .empty;
+    var all: std.StringHashMapUnmanaged(void) = .empty;
+    var all_keys: std.ArrayList([]const u8) = .empty;
+    for (languages.languages) |language| {
+        var kind: ScopeKind = .seed;
+        var set: std.StringHashMapUnmanaged(void) = .empty;
+        var seen: std.StringHashMapUnmanaged(void) = .empty;
+        var keys: std.ArrayList([]const u8) = .empty;
+        var prefixes: std.ArrayList([]const u8) = .empty;
+        for (file.seed) |key| {
+            if (try firstSight(arena, &seen, key)) {
+                try set.put(arena, key, {});
+                try keys.append(arena, key);
+            }
+        }
+        for (file.whole) |one| {
+            if (std.mem.eql(u8, one.code, language.code)) kind = .whole;
+        }
+        for (file.prefixes) |one| {
+            if (!std.mem.eql(u8, one.code, language.code)) continue;
+            if (kind == .whole) {
+                if (report) |r| try r.addFmt("scope", language.code, scope_path, "line {d}: prefix `{s}` is redundant, {s} is whole-database", .{ one.line, one.prefix, language.code });
+                continue;
+            }
+            kind = .prefixes;
+            try prefixes.append(arena, one.prefix);
+        }
+        if (kind == .whole) {
+            for (elk) |key| {
+                if (!try firstSight(arena, &seen, key)) continue;
+                try set.put(arena, key, {});
+                try keys.append(arena, key);
+            }
+        } else for (prefixes.items) |prefix| {
+            for (elk) |key| {
+                if (!std.ascii.startsWithIgnoreCase(key, prefix)) continue;
+                if (!try firstSight(arena, &seen, key)) continue;
+                try set.put(arena, key, {});
+                try keys.append(arena, key);
+            }
+        }
+        for (keys.items) |key| {
+            if (try firstSight(arena, &all, key)) try all_keys.append(arena, key);
+        }
+        try per_language.append(arena, .{ .code = language.code, .kind = kind, .keys = keys.items, .set = set, .prefixes = prefixes.items });
+    }
+    std.mem.sort([]const u8, all_keys.items, {}, lessString);
+    return .{ .per_language = per_language.items, .all_keys = all_keys.items };
+}
+
+pub fn readOptional(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, path: []const u8) !?[]u8 {
     return root.readFileAlloc(io, path, arena, .limited(16 << 20)) catch |err| switch (err) {
         error.FileNotFound, error.NotDir => null,
         else => err,
@@ -223,8 +425,12 @@ pub const Manifest = struct {
     keys: []const []const u8,
     hashes: []const []const u8,
     same_as_base: []const SameAsBase,
+    /// Key to its position in `keys`, built by `parseManifest`; the database has about 2,850 keys.
+    index: std.StringHashMapUnmanaged(usize) = .empty,
+    same_index: std.StringHashMapUnmanaged(void) = .empty,
 
     pub fn hashOf(self: Manifest, key: []const u8) ?[]const u8 {
+        if (self.index.count() != 0) return if (self.index.get(key)) |at| self.hashes[at] else null;
         for (self.keys, self.hashes) |one, hash| {
             if (std.mem.eql(u8, one, key)) return hash;
         }
@@ -232,6 +438,11 @@ pub const Manifest = struct {
     }
 
     pub fn allowsSame(self: Manifest, code: []const u8, key: []const u8) bool {
+        if (self.same_index.count() != 0) {
+            var buffer: [512]u8 = undefined;
+            const joined = std.fmt.bufPrint(&buffer, "{s} {s}", .{ code, key }) catch return false;
+            return self.same_index.contains(joined);
+        }
         for (self.same_as_base) |one| {
             if (std.mem.eql(u8, one.code, code) and std.mem.eql(u8, one.key, key)) return true;
         }
@@ -241,27 +452,35 @@ pub const Manifest = struct {
 
 /// The lines of a `base-hashes.txt`: `<key> <hash>` and `same-as-base <code> <key>`; `#` lines and
 /// blank lines are skipped, and a line of any other shape is ignored so the scope check names it.
+/// A key may hold a space (one original is `hawker_hurricane_ mk1_gb`), so the hash is the text
+/// after the last space and the key everything before it.
 pub fn parseManifest(arena: std.mem.Allocator, text: []const u8) !Manifest {
     var keys: std.ArrayList([]const u8) = .empty;
     var hashes: std.ArrayList([]const u8) = .empty;
     var same: std.ArrayList(SameAsBase) = .empty;
+    var index: std.StringHashMapUnmanaged(usize) = .empty;
+    var same_index: std.StringHashMapUnmanaged(void) = .empty;
     var lines = std.mem.splitScalar(u8, text, '\n');
     while (lines.next()) |raw| {
         const line = std.mem.trim(u8, raw, " \t\r");
         if (line.len == 0 or line[0] == '#') continue;
-        var fields = std.mem.tokenizeScalar(u8, line, ' ');
-        const first = fields.next() orelse continue;
-        if (std.mem.eql(u8, first, "same-as-base")) {
-            const code = fields.next() orelse continue;
-            const key = fields.next() orelse continue;
-            try same.append(arena, .{ .code = code, .key = key });
+        if (std.mem.startsWith(u8, line, "same-as-base ")) {
+            const rest = std.mem.trimStart(u8, line["same-as-base ".len..], " ");
+            const space = std.mem.indexOfScalar(u8, rest, ' ') orelse continue;
+            const key = std.mem.trimStart(u8, rest[space + 1 ..], " ");
+            if (key.len == 0) continue;
+            try same.append(arena, .{ .code = rest[0..space], .key = key });
+            try same_index.put(arena, try std.fmt.allocPrint(arena, "{s} {s}", .{ rest[0..space], key }), {});
         } else {
-            const hash = fields.next() orelse continue;
-            try keys.append(arena, first);
-            try hashes.append(arena, hash);
+            const space = std.mem.lastIndexOfScalar(u8, line, ' ') orelse continue;
+            const key = std.mem.trimEnd(u8, line[0..space], " ");
+            if (key.len == 0) continue;
+            try index.put(arena, key, keys.items.len);
+            try keys.append(arena, key);
+            try hashes.append(arena, line[space + 1 ..]);
         }
     }
-    return .{ .keys = keys.items, .hashes = hashes.items, .same_as_base = same.items };
+    return .{ .keys = keys.items, .hashes = hashes.items, .same_as_base = same.items, .index = index, .same_index = same_index };
 }
 
 pub fn hashHex(bytes: []const u8) [64]u8 {
@@ -411,25 +630,22 @@ fn joinTokens(arena: std.mem.Allocator, tokens: []const []const u8) ![]const u8 
 }
 
 /// Overlay completeness and state (rules missing, missing-xml, state, stale, encoding, empty,
-/// extra, base-missing): every language of the table holds every scope key as a text with a
-/// Translated or Approved state, and holds nothing else; every scope key exists in the base.
+/// extra, base-missing, glossary-term): every language of the table holds every key of its scope
+/// as a text with a Translated or Approved state, and holds nothing else; every key in any scope
+/// exists in the base. A run prints one `scope` note per language.
 pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     const arena = report.arena;
-    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse {
-        try report.add("scope", "all", "Localization/game/scope.txt", "file is missing");
-        return;
-    };
-    const keys = try parseScope(arena, scope_text);
-    if (keys.len == 0) try report.add("scope", "all", "Localization/game/scope.txt", "lists no key");
+    const scopes = (try loadScopes(io, arena, root, report)) orelse return;
 
     const manifest: ?Manifest = if (try readOptional(io, arena, root, manifest_path)) |text| try parseManifest(arena, text) else null;
     if (manifest == null) try report.add("base-hash-missing", "all", manifest_path, "file is missing; run zig build l10n-check-update-base");
 
-    const bases = try arena.alloc(?[]u8, keys.len);
-    for (keys, bases) |key, *base_bytes| {
+    var bases: std.StringHashMapUnmanaged(?[]u8) = .empty;
+    for (scopes.all_keys) |key| {
         report.checked += 1;
-        base_bytes.* = try readBase(io, arena, root, key);
-        const bytes = base_bytes.* orelse {
+        const base_bytes = try readBase(io, arena, root, key);
+        try bases.put(arena, key, base_bytes);
+        const bytes = base_bytes orelse {
             try report.add("base-missing", "all", key, "no original text in Data/ELK/game_data_base");
             continue;
         };
@@ -444,15 +660,21 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
         }
     }
 
-    for (languages.languages) |language| {
-        const base = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base", .{language.code});
-        for (keys, bases) |key, base_bytes| {
+    var exceptions = try loadTermExceptions(io, report, root);
+    for (languages.languages, scopes.per_language) |language, scope| {
+        const terms = try loadGlossary(io, report, root, language.code);
+        const dir = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base", .{language.code});
+        for (scope.keys) |key| {
             report.checked += 1;
-            const txt_path = try std.fmt.allocPrint(arena, "{s}/{s}.txt", .{ base, key });
-            const xml_path = try std.fmt.allocPrint(arena, "{s}/{s}.xml", .{ base, key });
+            const base_bytes = bases.get(key) orelse null;
+            const txt_path = try std.fmt.allocPrint(arena, "{s}/{s}.txt", .{ dir, key });
+            const xml_path = try std.fmt.allocPrint(arena, "{s}/{s}.xml", .{ dir, key });
             if (try readOptional(io, arena, root, txt_path)) |bytes| {
                 switch (textProblem(bytes)) {
-                    .ok => if (base_bytes) |english| try checkAgainstBase(report, manifest, language.code, key, english, bytes),
+                    .ok => if (base_bytes) |english| {
+                        try checkAgainstBase(report, manifest, language.code, key, english, bytes);
+                        try checkTerms(report, &exceptions, terms, language.code, key, english, bytes);
+                    },
                     .no_bom => try report.add("encoding", language.code, key, "text lacks the UTF-16LE byte order mark"),
                     .odd_length => try report.addFmt("encoding", language.code, key, "text has an odd byte count ({d})", .{bytes.len}),
                     .unpaired_surrogate => |unit| try report.addFmt("encoding", language.code, key, "unpaired surrogate at unit {d}", .{unit}),
@@ -475,7 +697,203 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
                 try report.add("missing-xml", language.code, key, "no state file");
             }
         }
-        try checkExtra(io, report, root, language.code, base, keys);
+        try checkExtra(io, report, root, scope, dir);
+        try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: scope: {s}: {s}, {d} keys checked", .{ language.code, try scope.describe(arena), scope.keys.len }));
+    }
+    for (exceptions.items, exceptions.used) |one, used| {
+        if (used) continue;
+        try report.addFmt("term-exception-unused", one.code, try std.fmt.allocPrint(arena, "{s}:{d}", .{ exceptions_path, one.line }), "`{s}` matches no missing glossary term; remove the line", .{one.rest});
+    }
+}
+
+/// One glossary row: the English term, its translation and whether the check skips it.
+pub const Term = struct { english: []const u8, translation: []const u8, skip: bool };
+
+fn cells(arena: std.mem.Allocator, line: []const u8) !?[]const []const u8 {
+    const trimmed = std.mem.trim(u8, line, " \t\r");
+    if (trimmed.len < 2 or trimmed[0] != '|') return null;
+    var out: std.ArrayList([]const u8) = .empty;
+    var parts = std.mem.splitScalar(u8, std.mem.trimEnd(u8, trimmed[1..], "|"), '|');
+    while (parts.next()) |part| try out.append(arena, std.mem.trim(u8, part, " \t"));
+    return out.items;
+}
+
+/// The rows of every table in a glossary (`English term | Translation | Note`). A row whose Note
+/// holds `no-term-check` is marked to skip (a word that is also ordinary English).
+pub fn parseGlossary(arena: std.mem.Allocator, text: []const u8) ![]const Term {
+    var terms: std.ArrayList(Term) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    while (lines.next()) |line| {
+        const row = (try cells(arena, line)) orelse continue;
+        if (row.len < 2 or row[0].len == 0 or row[1].len == 0) continue;
+        if (std.mem.eql(u8, row[0], "English term") or std.mem.startsWith(u8, row[0], "---")) continue;
+        const note = if (row.len > 2) row[2] else "";
+        try terms.append(arena, .{ .english = row[0], .translation = row[1], .skip = std.mem.indexOf(u8, note, "no-term-check") != null });
+    }
+    return terms.items;
+}
+
+fn loadGlossary(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8) ![]const Term {
+    const arena = report.arena;
+    const path = try std.fmt.allocPrint(arena, "Localization/glossary/{s}.md", .{code});
+    const text = (try readOptional(io, arena, root, path)) orelse {
+        try report.add("glossary-term", code, path, "glossary file is missing");
+        return &.{};
+    };
+    return parseGlossary(arena, text);
+}
+
+pub const TermException = struct { code: []const u8, rest: []const u8, line: usize };
+
+/// The exceptions of `term-exceptions.txt` and whether each one excused a missing term.
+pub const TermExceptions = struct {
+    items: []const TermException = &.{},
+    used: []bool = &.{},
+
+    fn excuses(self: *TermExceptions, code: []const u8, key: []const u8, term: []const u8, scratch: *std.ArrayList(u8), arena: std.mem.Allocator) !bool {
+        scratch.clearRetainingCapacity();
+        try scratch.appendSlice(arena, key);
+        try scratch.append(arena, ' ');
+        try scratch.appendSlice(arena, term);
+        for (self.items, 0..) |one, i| {
+            if (std.mem.eql(u8, one.code, code) and std.ascii.eqlIgnoreCase(one.rest, scratch.items)) {
+                self.used[i] = true;
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+/// The lines `<code> <key> <english term> # <reason>`. A key may hold a space, so the entry is kept
+/// as `<key> <english term>` and compared whole. A line without a reason, or of another shape, is
+/// a `term-exception` finding.
+pub fn parseTermExceptions(arena: std.mem.Allocator, text: []const u8, problems: *std.ArrayList(ScopeProblem)) ![]const TermException {
+    var items: std.ArrayList(TermException) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (lines.next()) |raw| {
+        number += 1;
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        const hash = std.mem.indexOfScalar(u8, line, '#');
+        if (hash == null or std.mem.trim(u8, line[hash.? + 1 ..], " \t").len == 0) {
+            try problems.append(arena, .{ .line = number, .detail = "an exception needs a reason after `#`" });
+            continue;
+        }
+        const entry = std.mem.trim(u8, line[0..hash.?], " \t");
+        const space = std.mem.indexOfScalar(u8, entry, ' ');
+        const rest = if (space) |s| std.mem.trimStart(u8, entry[s + 1 ..], " ") else "";
+        if (space == null or std.mem.indexOfScalar(u8, rest, ' ') == null) {
+            try problems.append(arena, .{ .line = number, .detail = "want `<code> <key> <english term> # <reason>`" });
+        } else if (!knownCode(entry[0..space.?])) {
+            try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{entry[0..space.?]}) });
+        } else try items.append(arena, .{ .code = entry[0..space.?], .rest = rest, .line = number });
+    }
+    return items.items;
+}
+
+fn loadTermExceptions(io: std.Io, report: *Report, root: std.Io.Dir) !TermExceptions {
+    const arena = report.arena;
+    const text = (try readOptional(io, arena, root, exceptions_path)) orelse return .{};
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const items = try parseTermExceptions(arena, text, &problems);
+    for (problems.items) |problem| {
+        try report.addFmt("term-exception", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ exceptions_path, problem.line }), "{s}", .{problem.detail});
+    }
+    const used = try arena.alloc(bool, items.len);
+    @memset(used, false);
+    return .{ .items = items, .used = used };
+}
+
+/// Simple case folding for the scripts the nine languages use: ASCII, Latin-1, Latin Extended-A,
+/// Greek and Cyrillic. Other code points fold to themselves.
+fn foldCase(c: u21) u21 {
+    if (c < 0x80) return std.ascii.toLower(@intCast(c));
+    if (c >= 0xC0 and c <= 0xDE and c != 0xD7) return c + 0x20;
+    if (c >= 0x100 and c <= 0x137) return c | 1;
+    if (c >= 0x139 and c <= 0x148) return if (c % 2 == 1) c + 1 else c;
+    if (c >= 0x14A and c <= 0x177) return c | 1;
+    if (c == 0x178) return 0xFF;
+    if (c >= 0x179 and c <= 0x17E) return if (c % 2 == 1) c + 1 else c;
+    if (c >= 0x391 and c <= 0x3A9) return c + 0x20;
+    if (c >= 0x410 and c <= 0x42F) return c + 0x20;
+    if (c >= 0x400 and c <= 0x40F) return c + 0x50;
+    return c;
+}
+
+fn isSpaceUnit(c: u21) bool {
+    return c == ' ' or c == '\t' or c == '\r' or c == '\n' or c == 0xA0 or c == 0xFEFF;
+}
+
+/// A word unit for the whole-word rule: an ASCII letter or digit, or a letter beyond Latin-1.
+fn isWordUnit(c: u21) bool {
+    return (c < 0x80 and std.ascii.isAlphanumeric(@intCast(c))) or c >= 0xC0;
+}
+
+/// Case-folded code points of a UTF-16LE text after its byte order mark (surrogates combined, white
+/// space runs one space), so a term finds a phrase that wraps over a line break.
+fn foldedUnits(arena: std.mem.Allocator, bytes: []const u8) ![]u21 {
+    var out: std.ArrayList(u21) = .empty;
+    var at: usize = 2;
+    while (at + 1 < bytes.len) : (at += 2) {
+        var unit: u21 = std.mem.readInt(u16, bytes[at..][0..2], .little);
+        if (unit >= 0xD800 and unit <= 0xDBFF and at + 3 < bytes.len) {
+            const low = std.mem.readInt(u16, bytes[at + 2 ..][0..2], .little);
+            if (low >= 0xDC00 and low <= 0xDFFF) {
+                unit = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
+                at += 2;
+            }
+        }
+        try appendFolded(arena, &out, unit);
+    }
+    return out.items;
+}
+
+fn appendFolded(arena: std.mem.Allocator, out: *std.ArrayList(u21), unit: u21) !void {
+    if (isSpaceUnit(unit)) {
+        if (out.items.len != 0 and out.items[out.items.len - 1] == ' ') return;
+        try out.append(arena, ' ');
+    } else try out.append(arena, foldCase(unit));
+}
+
+fn foldedUtf8(arena: std.mem.Allocator, text: []const u8) ![]u21 {
+    var out: std.ArrayList(u21) = .empty;
+    var view = std.unicode.Utf8View.init(text) catch return out.items;
+    var it = view.iterator();
+    while (it.nextCodepoint()) |c| try appendFolded(arena, &out, c);
+    return out.items;
+}
+
+fn findUnits(hay: []const u21, needle: []const u21, whole_word: bool) bool {
+    if (needle.len == 0 or needle.len > hay.len) return false;
+    var at: usize = 0;
+    while (at + needle.len <= hay.len) : (at += 1) {
+        if (!std.mem.eql(u21, hay[at..][0..needle.len], needle)) continue;
+        if (!whole_word) return true;
+        const before = at == 0 or !isWordUnit(hay[at - 1]);
+        const after = at + needle.len == hay.len or !isWordUnit(hay[at + needle.len]);
+        if (before and after) return true;
+    }
+    return false;
+}
+
+/// Rule glossary-term (D098): each glossary term (not marked no-term-check) that occurs as a whole
+/// word in the English original must occur, case-insensitively, in the translation. A line of
+/// `term-exceptions.txt` excuses one key and term.
+fn checkTerms(report: *Report, exceptions: *TermExceptions, terms: []const Term, code: []const u8, key: []const u8, english: []const u8, translation: []const u8) !void {
+    if (terms.len == 0) return;
+    const arena = report.arena;
+    const english_units = try foldedUnits(arena, english);
+    var translated: ?[]u21 = null;
+    var scratch: std.ArrayList(u8) = .empty;
+    for (terms) |term| {
+        if (term.skip) continue;
+        if (!findUnits(english_units, try foldedUtf8(arena, term.english), true)) continue;
+        if (translated == null) translated = try foldedUnits(arena, translation);
+        if (findUnits(translated.?, try foldedUtf8(arena, term.translation), false)) continue;
+        if (try exceptions.excuses(code, key, term.english, &scratch, arena)) continue;
+        try report.addFmt("glossary-term", code, key, "English \"{s}\" needs \"{s}\" in the translation (Localization/glossary/{s}.md); use it, or add `{s} {s} {s} # reason` to {s}", .{ term.english, term.translation, code, code, key, term.english, exceptions_path });
     }
 }
 
@@ -527,17 +945,16 @@ pub fn codePoints(arena: std.mem.Allocator, bytes: []const u8) ![]const u21 {
 /// (or NotoSans-Regular), or by cp1252 for a language without a face. One finding per code point.
 pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.Dir) !void {
     const arena = report.arena;
-    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse return;
-    const keys = try parseScope(arena, scope_text);
+    const scopes = (try loadScopes(io, arena, root, null)) orelse return;
     const latin = Face.load(io, arena, fonts, "NotoSans-Regular.ttf");
     if (latin.table == null) try report.add("glyph", "all", latin.name, "font is missing or has no usable cmap");
-    for (languages.languages) |language| {
+    for (languages.languages, scopes.per_language) |language, scope| {
         var own: ?Face = null;
         if (language.face) |name| {
             own = Face.load(io, arena, fonts, name);
             if (own.?.table == null) try report.add("glyph", language.code, name, "font is missing or has no usable cmap");
         }
-        for (keys) |key| {
+        for (scope.keys) |key| {
             const path = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.txt", .{ language.code, key });
             const bytes = (try readOptional(io, arena, root, path)) orelse continue;
             if (textProblem(bytes) != .ok) continue;
@@ -1171,21 +1588,28 @@ fn checkAgainstBase(report: *Report, manifest: ?Manifest, code: []const u8, key:
     }
 }
 
-/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every scope key, keeping
-/// the `same-as-base` lines. A scope key without an original is a finding and no file is written.
+/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every `.elk` original
+/// (the whole database, not only the scope keys, so a language can widen its scope without a new
+/// hash run) and every seed key, keeping the `same-as-base` lines. A seed key without an original
+/// is a finding and no file is written.
 pub fn updateBase(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     const arena = report.arena;
-    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse {
-        try report.add("scope", "all", "Localization/game/scope.txt", "file is missing");
+    const scope_text = (try readOptional(io, arena, root, scope_path)) orelse {
+        try report.add("scope", "all", scope_path, "file is missing");
         return;
     };
-    const keys = try arena.dupe([]const u8, try parseScope(arena, scope_text));
-    std.mem.sort([]const u8, keys, {}, lessString);
+    const seed = (try parseScopeFile(arena, scope_text)).seed;
+    var seen: std.StringHashMapUnmanaged(void) = .empty;
+    var keys: std.ArrayList([]const u8) = .empty;
+    for ([_][]const []const u8{ seed, try elkKeys(io, arena, root) }) |list| for (list) |key| {
+        if (try firstSight(arena, &seen, key)) try keys.append(arena, key);
+    };
+    std.mem.sort([]const u8, keys.items, {}, lessString);
     const old: Manifest = if (try readOptional(io, arena, root, manifest_path)) |text| try parseManifest(arena, text) else .{ .keys = &.{}, .hashes = &.{}, .same_as_base = &.{} };
 
     var out: std.ArrayList(u8) = .empty;
     try out.appendSlice(arena, manifest_header);
-    for (keys) |key| {
+    for (keys.items) |key| {
         report.checked += 1;
         const bytes = (try readBase(io, arena, root, key)) orelse {
             try report.add("base-missing", "all", key, "no original text in Data/ELK/game_data_base");
@@ -1207,7 +1631,7 @@ fn lessSame(_: void, a: SameAsBase, b: SameAsBase) bool {
 }
 
 const manifest_header =
-    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per scope key.\r\n" ++
+    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per .elk original and seed key.\r\n" ++
     "# The hash is of the English bytes in Data/ELK/game_data_base (the .elk original, else the .txt).\r\n" ++
     "# l10n-check reports `stale` when the English text no longer matches its hash: review the\r\n" ++
     "# translations of that key in every language, then rewrite this file with\r\n" ++
@@ -1215,7 +1639,7 @@ const manifest_header =
     "# A `same-as-base <code> <key>` line lets that translation equal the English (a proper name);\r\n" ++
     "# the update keeps those lines.\r\n";
 
-fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, base: []const u8, keys: []const []const u8) !void {
+fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, scope: LanguageScope, base: []const u8) !void {
     const arena = report.arena;
     var dir = root.openDir(io, base, .{ .iterate = true }) catch return;
     defer dir.close(io);
@@ -1227,14 +1651,7 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, b
         for (key) |*c| {
             if (c.* == '\\') c.* = '/';
         }
-        var in_scope = false;
-        for (keys) |one| {
-            if (std.mem.eql(u8, one, key)) {
-                in_scope = true;
-                break;
-            }
-        }
-        if (!in_scope) try report.add("extra", code, key, "not listed in Localization/game/scope.txt");
+        if (!scope.contains(key)) try report.add("extra", scope.code, key, scope.rule());
     }
 }
 
@@ -1303,6 +1720,7 @@ pub fn main(init: std.process.Init) !void {
 
     for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
     for (report.inactive.items) |scope| std.debug.print("l10n-check: {s}: not active\n", .{scope});
+    for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
     std.debug.print("l10n-check: {d} findings, {d} checked\n", .{ report.findings.items.len, report.checked });
     if (report.findings.items.len != 0) std.process.exit(1);
 }

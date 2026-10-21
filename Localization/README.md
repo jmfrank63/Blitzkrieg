@@ -183,6 +183,7 @@ Rules:
   byte order mark) beside its `.xml` state file, and the state is not "not translated".
 - `stale`, `base-hash-missing`, `untranslated`: the English source of a key must still match its hash in
   `Localization/game/base-hashes.txt`, and a translation must not equal the English bytes.
+- `glossary-term`, `term-exception`, `term-exception-unused`: see Rule glossary-term below.
 - `placeholder`: the complete C printf codes (`%[n$][flags][width][.precision][length]conversion`, so `%ld` and
   `%ls`, `%1$s` and `%2$s` differ and `%%` is a literal), `{n}`, `$name`, `<tag>` tokens and literal `\n` of the English text and
   the translation are the same multiset.
@@ -195,12 +196,55 @@ Rules:
 - `literal`: in the strict source directories a UI call takes `l10n.t`, `l10n.id` or `l10n.format`, not an
   English string literal. An ID-bearing call (`igButton`, `igMenuItemEx`, `igBegin`, ...) whose label is `l10n.t(` fails too: use `l10n.id`.
 
-`Localization/game/scope.txt` lists the ELK keys (relative to `Data/ELK/game_data_base`, no extension) every
-overlay must hold. `Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per
-scope key, because an overlay `.xml` cannot record which English text it was made from. When `stale` fires,
-review the translations of that key in every language, then run `zig build l10n-check-update-base` to
-rewrite the file. A `same-as-base <code> <key>` line in the same file says that language's translation may
-equal the English byte for byte (a proper name); without it `untranslated` fires.
+### Scope per language
+
+`Localization/game/scope.txt` says which ELK keys (relative to `Data/ELK/game_data_base`, no extension, forward
+slashes) each language overlay must hold. Every line that is not a comment or one of the two directives is a
+seed key; all nine languages hold the seed keys. A language widens its scope with:
+
+- `whole-database <code>`: every `.elk` original of the database (found case-insensitively, about 2,850 texts).
+- `prefix <code> <key prefix>`: the seed keys plus every `.elk` key that starts with the prefix; several lines
+  are allowed. `whole-database` makes a language's prefix lines redundant (finding `scope`).
+
+A language with neither line is seed-only. An unknown language code or a malformed line is a `scope`
+finding, and an overlay text outside the language's scope is `extra` (the detail names the rule that excludes
+it). The run prints one `l10n-check: scope: <code>: <seed | seed + prefixes ... | whole-database>, <n> keys checked`
+note per language.
+
+`Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per `.elk` original (and per
+seed key without one), because an overlay `.xml` cannot record which English text it was made from; a language
+can widen its scope without a new hash run. When `stale` fires, review the translations of that key in every
+language, then run `zig build l10n-check-update-base` to rewrite the file. A `same-as-base <code> <key>` line
+in the same file says that language's translation may equal the English byte for byte (a proper name); without
+it `untranslated` fires.
+
+### Rule glossary-term
+
+For each in-scope key, every English term of `Localization/glossary/<code>.md` (the `English term |
+Translation | Note` tables) that occurs as a whole word in the English original, ignoring case, must occur in
+the overlay text as a case-insensitive substring of its translation (D098). A multi-word term matches over a
+line break. Two ways out where a term does not fit:
+
+- A glossary row whose Note holds `no-term-check` is skipped (a word that is also ordinary English: `back`,
+  `general`, `major`, `private`).
+- `Localization/game/term-exceptions.txt` holds `<code> <key> <english term> # <reason>` lines that excuse one
+  key and one term; the reason is required (`term-exception` otherwise) and a line that excuses nothing any
+  more is the finding `term-exception-unused`.
+
+### Translating a prefix: the overlay sheet
+
+`tools/zig/l10n_sheet.zig` writes the overlay files, so nobody types UTF-16LE by hand:
+
+1. `zig build l10n-sheet-export -- <code> <key prefix>...` writes `zig-out/local-test/l10n-sheet/<code>-<n>.txt`
+   (UTF-8, CRLF, cut at about 40,000 bytes). Each text is a `=== <key>` line followed by the English original
+   with its line breaks; an existing translation follows under a `--- current` line.
+2. Replace the English text of every block by the translation (keep the `=== <key>` lines; a trailing line
+   break belongs to the text, so keep it where the English has one).
+3. `zig build l10n-sheet-import -- <code> <sheet>` writes `Localization/game/<code>/game_data_base/<key>.txt`
+   (UTF-16LE with a byte order mark, CRLF inside) and `<key>.xml` (State 2). It refuses the whole sheet, and
+   writes nothing, for a key without an `.elk` original or an empty block.
+4. Add `prefix <code> <prefix>` to `scope.txt` (or `whole-database <code>` when the language is complete) and run
+   `zig build l10n-check`. Tests: `zig build test-l10n-sheet`.
 
 Not active yet (each prints the note until its scope is filled): `table-*` until a directory with an
 `en.lang` is listed in `table_dirs`, `doc-*` until S08 adds the

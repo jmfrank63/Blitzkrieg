@@ -21,14 +21,14 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 
 | English term | Translation | Note |
 |---|---|---|
-| private | 二等兵 |  |
+| private | 二等兵 | no-term-check: also an ordinary English word |
 | corporal | 伍長 |  |
 | sergeant | 軍曹 |  |
 | lieutenant | 中尉 |  |
 | captain | 大尉 |  |
-| major | 少佐 |  |
+| major | 少佐 | no-term-check: also an ordinary English word |
 | colonel | 大佐 |  |
-| general | 将軍 |  |
+| general | 将軍 | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 | objectives | ミッション目標 |  |
 | briefing | ブリーフィング |  |
 | start | 開始 |  |
-| back | 戻る |  |
+| back | 戻る | no-term-check: also an ordinary English word |
 | options | 最適化オプション |  |
 | settings | 設定 |  |
 | load game | ゲームをロード |  |

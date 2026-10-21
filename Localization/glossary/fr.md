@@ -21,14 +21,14 @@ Review state: machine seed, needs native review. The menu terms are what the `fr
 
 | English term | Translation | Note |
 |---|---|---|
-| private | soldat de 2e classe |  |
+| private | soldat de 2e classe | no-term-check: also an ordinary English word |
 | corporal | caporal |  |
 | sergeant | sergent |  |
 | lieutenant | lieutenant |  |
 | captain | capitaine |  |
-| major | commandant |  |
+| major | commandant | no-term-check: also an ordinary English word |
 | colonel | colonel |  |
-| general | général |  |
+| general | général | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: machine seed, needs native review. The menu terms are what the `fr
 | objectives | Objectifs |  |
 | briefing | Briefing |  |
 | start | Commencer |  |
-| back | Retour |  |
+| back | Retour | no-term-check: also an ordinary English word |
 | options | Options |  |
 | settings | Paramètres |  |
 | load game | Charger une partie |  |

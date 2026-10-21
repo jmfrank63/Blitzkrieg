@@ -17,7 +17,15 @@ const checked_total = keys.len + codes.len * keys.len;
 const note_tables = "l10n-check: tables: not active\n";
 const note_documents = "l10n-check: documents: not active\n";
 const note_literals = "l10n-check: literals: not active\n";
-const all_inactive = note_tables ++ note_documents ++ note_literals;
+/// One scope note per language, in the order of the language table; every fixture language is on the seed scope.
+const seed_scope_notes = blk: {
+    var notes: []const u8 = "";
+    for (codes) |code| notes = notes ++ "l10n-check: scope: " ++ code ++ ": seed, 2 keys checked\n";
+    break :blk notes;
+};
+const all_inactive = note_tables ++ note_documents ++ note_literals ++ seed_scope_notes;
+
+const glossary_text = "# Glossary: fixture\r\n\r\n## Interface\r\n\r\n| English term | Translation | Note |\r\n|---|---|---|\r\n| zzterm | zzterm |  |\r\n";
 
 const state_xml = "<?xml version=\"1.0\"?>\r\n<base State=\"{d}\" Changed=\"1\"/>\r\n";
 
@@ -50,6 +58,12 @@ fn buildTree(io: std.Io, allocator: std.mem.Allocator, case: []const u8) !std.Io
     errdefer root.close(io);
 
     try write(io, root, "Localization/game/scope.txt", "# fixture scope\r\ntextes/strings/alpha\r\nscenarios/demo/beta\r\n");
+    // A glossary with one term no fixture text holds, so the glossary-term rule has a table to read.
+    for (codes) |code| {
+        const glossary = try std.fmt.allocPrint(allocator, "Localization/glossary/{s}.md", .{code});
+        defer allocator.free(glossary);
+        try write(io, root, glossary, glossary_text);
+    }
     const text = try utf16le(allocator, "Hello");
     defer allocator.free(text);
     for (codes) |code| for (keys) |key| {
@@ -197,7 +211,7 @@ test "extra_key: an overlay text outside the scope" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "extra_key");
     try write(io, root, "Localization/game/de/game_data_base/textes/strings/zzz.txt", "\xff\xfeA\x00");
-    try expectFinding(io, "extra_key", &root, "l10n-check: extra: de: textes/strings/zzz: not listed in Localization/game/scope.txt");
+    try expectFinding(io, "extra_key", &root, "l10n-check: extra: de: textes/strings/zzz: not in the seed list of Localization/game/scope.txt (no prefix or whole-database line for this language)");
 }
 
 test "base_missing: a scope key the English base does not hold" {
@@ -223,8 +237,8 @@ test "base_hash_missing: a scope key without a manifest line" {
     const outcome = try runChecker(io, testing.allocator, "base_hash_missing");
     defer testing.allocator.free(outcome.stderr);
     const expected = try std.fmt.allocPrint(testing.allocator, "{s}\n{s}\n" ++ all_inactive ++ "l10n-check: 2 findings, {d} checked\n", .{
-        "l10n-check: base-hash-missing: all: textes/strings/alpha: no line in Localization/game/base-hashes.txt; run zig build l10n-check-update-base",
         "l10n-check: stale: all: scenarios/demo/beta: the English source changed since it was hashed in Localization/game/base-hashes.txt; review the translations, then run zig build l10n-check-update-base",
+        "l10n-check: base-hash-missing: all: textes/strings/alpha: no line in Localization/game/base-hashes.txt; run zig build l10n-check-update-base",
         checked_total,
     });
     defer testing.allocator.free(expected);
@@ -436,13 +450,13 @@ fn expectRun(io: std.Io, case: []const u8, root: *std.Io.Dir, extra: []const []c
 
 /// One finding in a tree where only the tables are active (ten files checked).
 fn expectTableFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const u8) !void {
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_documents ++ note_literals ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_documents ++ note_literals ++ seed_scope_notes ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
     defer testing.allocator.free(want);
     try expectRun(io, case, root, &.{}, 1, want);
 }
 
 fn expectDocumentFinding(io: std.Io, case: []const u8, root: *std.Io.Dir, line: []const u8) !void {
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_tables ++ note_literals ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}\n" ++ note_tables ++ note_literals ++ seed_scope_notes ++ "l10n-check: 1 findings, {d} checked\n", .{ line, checked_total + 10 });
     defer testing.allocator.free(want);
     try expectRun(io, case, root, &.{ "--doc-set", "docs/README" }, 1, want);
 }
@@ -453,7 +467,7 @@ test "tables_pass: the fixture table in nine languages passes" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "tables_pass");
     try addTables(io, testing.allocator, root);
-    const want = try std.fmt.allocPrint(testing.allocator, note_documents ++ note_literals ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
+    const want = try std.fmt.allocPrint(testing.allocator, note_documents ++ note_literals ++ seed_scope_notes ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
     defer testing.allocator.free(want);
     try expectRun(io, "tables_pass", &root, &.{}, 0, want);
 }
@@ -530,7 +544,7 @@ test "docs_pass: the fixture document set passes" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "docs_pass");
     try addDocuments(io, testing.allocator, root);
-    const want = try std.fmt.allocPrint(testing.allocator, note_tables ++ note_literals ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
+    const want = try std.fmt.allocPrint(testing.allocator, note_tables ++ note_literals ++ seed_scope_notes ++ "l10n-check: 0 findings, {d} checked\n", .{checked_total + 10});
     defer testing.allocator.free(want);
     try expectRun(io, "docs_pass", &root, &.{ "--doc-set", "docs/README" }, 0, want);
 }
@@ -618,7 +632,7 @@ test "literal_in_strict_dir: an English literal in each kind of UI call" {
         defer testing.allocator.free(text);
         try lines.appendSlice(testing.allocator, text);
     }
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ "l10n-check: {d} findings, {d} checked\n", .{
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ seed_scope_notes ++ "l10n-check: {d} findings, {d} checked\n", .{
         lines.items,
         literal_findings.len,
         checked_total + 1,
@@ -662,11 +676,228 @@ test "literal_id_label: an ig* label that is l10n.t fails, l10n.id and plain tex
         defer testing.allocator.free(text);
         try lines.appendSlice(testing.allocator, text);
     }
-    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ "l10n-check: {d} findings, {d} checked\n", .{
+    const want = try std.fmt.allocPrint(testing.allocator, "{s}" ++ note_tables ++ note_documents ++ seed_scope_notes ++ "l10n-check: {d} findings, {d} checked\n", .{
         lines.items,
         id_findings.len,
         checked_total + 1,
     });
     defer testing.allocator.free(want);
     try expectRun(io, "literal_id_label", &root, &.{ "--strict-dir", "literal_ids" }, 1, want);
+}
+
+// ---- Per-language scope, the whole-database manifest and the glossary-term rule (M003 S01 T01) ----
+
+const gamma_key = "misc/gamma";
+const gamma_base = "Data/ELK/game_data_base/misc/gamma.elk";
+
+/// A third original outside the seed scope, hashed in the manifest after `extra` lines.
+fn addGamma(io: std.Io, root: std.Io.Dir, extra: []const u8) !void {
+    try setBase(io, testing.allocator, root, gamma_base, "Gamma original");
+    const bytes = try root.readFileAlloc(io, gamma_base, testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(bytes);
+    var digest: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(bytes, &digest, .{});
+    const hex = std.fmt.bytesToHex(digest, .lower);
+    const lines = try std.fmt.allocPrint(testing.allocator, "{s} {s}\r\n{s}", .{ gamma_key, hex, extra });
+    defer testing.allocator.free(lines);
+    try writeManifest(io, testing.allocator, root, lines);
+}
+
+fn addOverlay(io: std.Io, root: std.Io.Dir, code: []const u8, key: []const u8, text: []const u8) !void {
+    const base = try std.fmt.allocPrint(testing.allocator, "Localization/game/{s}/game_data_base/{s}", .{ code, key });
+    defer testing.allocator.free(base);
+    const txt = try std.fmt.allocPrint(testing.allocator, "{s}.txt", .{base});
+    defer testing.allocator.free(txt);
+    const xml = try std.fmt.allocPrint(testing.allocator, "{s}.xml", .{base});
+    defer testing.allocator.free(xml);
+    try setBase(io, testing.allocator, root, txt, text);
+    try writeState(io, testing.allocator, root, xml, 2);
+}
+
+/// The scope notes of the nine languages when `special` has its own and the rest are seed-only.
+fn scopeNotes(comptime special: []const u8, comptime note: []const u8) []const u8 {
+    comptime var notes: []const u8 = "";
+    inline for (codes) |code| {
+        notes = notes ++ "l10n-check: scope: " ++ code ++ ": " ++ (if (std.mem.eql(u8, code, special)) note else "seed, 2 keys checked") ++ "\n";
+    }
+    return notes;
+}
+
+fn appendScope(io: std.Io, root: std.Io.Dir, lines: []const u8) !void {
+    const old = try root.readFileAlloc(io, "Localization/game/scope.txt", testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(old);
+    const joined = try std.fmt.allocPrint(testing.allocator, "{s}{s}", .{ old, lines });
+    defer testing.allocator.free(joined);
+    try write(io, root, "Localization/game/scope.txt", joined);
+}
+
+test "scope_whole_database: german holds every original, the others stay on the seed list" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "scope_whole_database");
+    try addGamma(io, root, "");
+    try appendScope(io, root, "whole-database de\r\n");
+    // gamma is not in the seed list, so only German must translate it; the base counts as one more checked key.
+    try addOverlay(io, root, "de", gamma_key, "Gamma uebersetzt");
+    const want = comptime note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 3 keys checked") ++ "l10n-check: 0 findings, 22 checked\n";
+    try expectRun(io, "scope_whole_database", &root, &.{}, 0, want);
+}
+
+test "scope_whole_database_missing: german lacks an original that no other language needs" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "scope_whole_database_missing");
+    try addGamma(io, root, "");
+    try appendScope(io, root, "whole-database de\r\n");
+    const want = comptime "l10n-check: missing: de: misc/gamma: no translation\n" ++ "l10n-check: missing-xml: de: misc/gamma: no state file\n" ++
+        note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 3 keys checked") ++ "l10n-check: 2 findings, 22 checked\n";
+    try expectRun(io, "scope_whole_database_missing", &root, &.{}, 1, want);
+}
+
+test "scope_whole_database_extra: a german text without an original names the whole-database rule" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "scope_whole_database_extra");
+    try appendScope(io, root, "whole-database de\r\n");
+    try addOverlay(io, root, "de", "misc/orphan", "Waise");
+    const want = comptime "l10n-check: extra: de: misc/orphan: no .elk original in Data/ELK/game_data_base (whole-database scope)\n" ++
+        note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 1 findings, 20 checked\n";
+    try expectRun(io, "scope_whole_database_extra", &root, &.{}, 1, want);
+}
+
+test "scope_prefix: a prefix line adds the originals under it for that language only" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "scope_prefix");
+    try addGamma(io, root, "");
+    try appendScope(io, root, "prefix es misc/\r\nprefix es nothing/under/this\r\n");
+    try addOverlay(io, root, "es", gamma_key, "Gamma traducido");
+    const want = comptime note_tables ++ note_documents ++ note_literals ++ scopeNotes("es", "seed + prefixes misc/, nothing/under/this, 3 keys checked") ++ "l10n-check: 0 findings, 22 checked\n";
+    try expectRun(io, "scope_prefix", &root, &.{}, 0, want);
+}
+
+test "scope_prefix_extra: a text outside the seed list and the prefixes" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "scope_prefix_extra");
+    try addGamma(io, root, "");
+    try appendScope(io, root, "prefix es misc/\r\n");
+    try addOverlay(io, root, "es", gamma_key, "Gamma traducido");
+    try addOverlay(io, root, "es", "other/key", "Otro");
+    const want = comptime "l10n-check: extra: es: other/key: not in the seed list or under a `prefix` line of this language in Localization/game/scope.txt\n" ++
+        note_tables ++ note_documents ++ note_literals ++ scopeNotes("es", "seed + prefixes misc/, 3 keys checked") ++ "l10n-check: 1 findings, 22 checked\n";
+    try expectRun(io, "scope_prefix_extra", &root, &.{}, 1, want);
+}
+
+test "scope_lines_invalid: unknown code, malformed prefix, and a prefix beside whole-database" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "scope_lines_invalid");
+    try appendScope(io, root, "whole-database xx\r\nprefix de\r\nwhole-database\r\nwhole-database de\r\nprefix de misc/\r\n");
+    const want = comptime "l10n-check: scope: all: Localization/game/scope.txt: line 4: unknown language code `xx`\n" ++
+        "l10n-check: scope: all: Localization/game/scope.txt: line 5: prefix wants a language code and a key prefix\n" ++
+        "l10n-check: scope: all: Localization/game/scope.txt: line 6: directive without arguments\n" ++
+        "l10n-check: scope: de: Localization/game/scope.txt: line 8: prefix `misc/` is redundant, de is whole-database\n" ++
+        note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 4 findings, 20 checked\n";
+    try expectRun(io, "scope_lines_invalid", &root, &.{}, 1, want);
+}
+
+test "base_hashes_all_originals: update-base hashes every original, scope or not" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "base_hashes_all");
+    try addGamma(io, root, "same-as-base de textes/strings/alpha\r\n");
+    // A manifest that lacks gamma and a stale line for a key that vanished.
+    try write(io, root, "Localization/game/base-hashes.txt", "old/key 00\r\nsame-as-base de textes/strings/alpha\r\n");
+    root.close(io);
+    const outcome = try runCheckerWith(io, testing.allocator, "base_hashes_all", &.{"--update-base"});
+    defer testing.allocator.free(outcome.stderr);
+    try testing.expectEqual(@as(u8, 0), outcome.code);
+    try testing.expectEqualStrings("l10n-check: wrote Localization/game/base-hashes.txt for 3 keys\n", outcome.stderr);
+    var after = try std.Io.Dir.cwd().openDir(io, scratch ++ "/base_hashes_all", .{});
+    defer after.close(io);
+    const manifest = try after.readFileAlloc(io, "Localization/game/base-hashes.txt", testing.allocator, .limited(1 << 20));
+    defer testing.allocator.free(manifest);
+    try testing.expect(std.mem.indexOf(u8, manifest, "\r\nmisc/gamma ") != null);
+    try testing.expect(std.mem.indexOf(u8, manifest, "\r\nscenarios/demo/beta ") != null);
+    try testing.expect(std.mem.indexOf(u8, manifest, "\r\ntextes/strings/alpha ") != null);
+    try testing.expect(std.mem.indexOf(u8, manifest, "old/key") == null);
+    try testing.expect(std.mem.endsWith(u8, manifest, "\r\nsame-as-base de textes/strings/alpha\r\n"));
+}
+
+/// A glossary for `code` with the given table rows (whole lines).
+fn setGlossary(io: std.Io, root: std.Io.Dir, code: []const u8, rows: []const u8) !void {
+    const path = try std.fmt.allocPrint(testing.allocator, "Localization/glossary/{s}.md", .{code});
+    defer testing.allocator.free(path);
+    const text = try std.fmt.allocPrint(testing.allocator, "# Glossary: fixture\r\n\r\n## Interface\r\n\r\n| English term | Translation | Note |\r\n|---|---|---|\r\n{s}", .{rows});
+    defer testing.allocator.free(text);
+    try write(io, root, path, text);
+}
+
+const de_term_finding = "l10n-check: glossary-term: de: textes/strings/alpha: English \"alpha\" needs \"Alfa\" in the translation (Localization/glossary/de.md); use it, or add `de textes/strings/alpha alpha # reason` to Localization/game/term-exceptions.txt\n";
+
+test "glossary_term_missing: an English term whose translation is absent" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "glossary_term_missing");
+    try setGlossary(io, root, "de", "| alpha | Alfa |  |\r\n| gamma | Gamma |  |\r\n");
+    // gamma occurs in neither English text, so only alpha is required: the German text says Hello.
+    const want = comptime de_term_finding ++ all_inactive ++ "l10n-check: 1 findings, 20 checked\n";
+    try expectRun(io, "glossary_term_missing", &root, &.{}, 1, want);
+}
+
+test "glossary_term_present: any case, inside a longer word of the translation, passes" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "glossary_term_present");
+    try setGlossary(io, root, "de", "| Alpha | Alfa |  |\r\n");
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Das ALFABET");
+    try expectRun(io, "glossary_term_present", &root, &.{}, 0, all_inactive ++ "l10n-check: 0 findings, 20 checked\n");
+}
+
+test "glossary_term_whole_word: alpha in alphabet and a multi-word term over a line break" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "glossary_term_whole_word");
+    // The German texts say Hello, so any match of the English text would be a finding.
+    try setBase(io, testing.allocator, root, alpha_base, "The alphabet");
+    try setBase(io, testing.allocator, root, beta_base, "Anti-tank\r\n  gun here");
+    try writeManifest(io, testing.allocator, root, "");
+    try setGlossary(io, root, "de", "| alpha | Alfa |  |\r\n| anti-tank gun | Pak |  |\r\n");
+    const want = comptime "l10n-check: glossary-term: de: scenarios/demo/beta: English \"anti-tank gun\" needs \"Pak\" in the translation (Localization/glossary/de.md); use it, or add `de scenarios/demo/beta anti-tank gun # reason` to Localization/game/term-exceptions.txt\n" ++
+        all_inactive ++ "l10n-check: 1 findings, 20 checked\n";
+    try expectRun(io, "glossary_term_whole_word", &root, &.{}, 1, want);
+}
+
+test "glossary_term_no_check: a row marked no-term-check is skipped" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "glossary_term_no_check");
+    try setGlossary(io, root, "de", "| alpha | Alfa | ordinary English, no-term-check |\r\n");
+    try expectRun(io, "glossary_term_no_check", &root, &.{}, 0, all_inactive ++ "l10n-check: 0 findings, 20 checked\n");
+}
+
+test "glossary_term_exception: an exception with a reason excuses the term" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "glossary_term_exception");
+    try setGlossary(io, root, "de", "| alpha | Alfa |  |\r\n");
+    try write(io, root, "Localization/game/term-exceptions.txt", "# fixture\r\nde textes/strings/alpha alpha # the name stays Latin here\r\n");
+    try expectRun(io, "glossary_term_exception", &root, &.{}, 0, all_inactive ++ "l10n-check: 0 findings, 20 checked\n");
+}
+
+test "term_exception_unused: an exception for a term the translation now holds" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "term_exception_unused");
+    try setGlossary(io, root, "de", "| alpha | Alfa |  |\r\n");
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Alfa");
+    try write(io, root, "Localization/game/term-exceptions.txt", "de textes/strings/alpha alpha # was needed once\r\n");
+    const want = comptime "l10n-check: term-exception-unused: de: Localization/game/term-exceptions.txt:1: `textes/strings/alpha alpha` matches no missing glossary term; remove the line\n" ++
+        all_inactive ++ "l10n-check: 1 findings, 20 checked\n";
+    try expectRun(io, "term_exception_unused", &root, &.{}, 1, want);
+}
+
+test "term_exception_format: a line without a reason" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "term_exception_format");
+    try write(io, root, "Localization/game/term-exceptions.txt", "de textes/strings/alpha alpha\r\n");
+    const want = comptime "l10n-check: term-exception: all: Localization/game/term-exceptions.txt:1: an exception needs a reason after `#`\n" ++
+        all_inactive ++ "l10n-check: 1 findings, 20 checked\n";
+    try expectRun(io, "term_exception_format", &root, &.{}, 1, want);
+}
+
+test "glossary_missing: a language without its glossary" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "glossary_missing");
+    try root.deleteFile(io, "Localization/glossary/fr.md");
+    const want = comptime "l10n-check: glossary-term: fr: Localization/glossary/fr.md: glossary file is missing\n" ++ all_inactive ++ "l10n-check: 1 findings, 20 checked\n";
+    try expectRun(io, "glossary_missing", &root, &.{}, 1, want);
 }

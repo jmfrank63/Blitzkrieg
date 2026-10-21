@@ -21,14 +21,14 @@ Review state: machine seed, needs native review. The menu terms are what the `id
 
 | English term | Translation | Note |
 |---|---|---|
-| private | prajurit |  |
+| private | prajurit | no-term-check: also an ordinary English word |
 | corporal | kopral |  |
 | sergeant | sersan |  |
 | lieutenant | letnan |  |
 | captain | kapten |  |
-| major | mayor |  |
+| major | mayor | no-term-check: also an ordinary English word |
 | colonel | kolonel |  |
-| general | jenderal |  |
+| general | jenderal | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: machine seed, needs native review. The menu terms are what the `id
 | objectives | Tujuan |  |
 | briefing | Pengarahan |  |
 | start | Mulai |  |
-| back | Kembali |  |
+| back | Kembali | no-term-check: also an ordinary English word |
 | options | Opsi |  |
 | settings | Pengaturan |  |
 | load game | Muat permainan |  |
