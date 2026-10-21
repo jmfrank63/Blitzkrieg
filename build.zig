@@ -3922,6 +3922,61 @@ pub fn build(b: *std.Build) void {
         }
     }
     l10n_game_reads_step.dependOn(&l10n_game_reads_tests.step);
+    // M004 S02 on the real Game: BK_TEXT_ENGINE=ttf draws the menu and a briefing in en, de and hi
+    // through bk_text, measured like the l10n tier (tools/zig/text_engine_game_reads_it.zig), and a
+    // save written on the bitmap path loads under ttf. The test compiles on every target; it runs where
+    // the Game does. It needs lang-ru (the blank background's fonts), lang-de and the plain-Unicode Hindi
+    // mod, so it builds those alone, one run after the other (all write below the game's mods folder),
+    // and does not wait for the other languages' mods.
+    const text_engine_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/text_engine_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = elk_core_module },
+            .{ .name = "zip", .module = elk_zip_module },
+            .{ .name = "l10n_measure", .module = l10n_measure_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, text_engine_reads_module, toolchain);
+    }
+    const text_engine_reads_tests = b.addTest(.{ .root_module = text_engine_reads_module });
+    const text_engine_mods_run = b.addRunArtifact(language_mods_tests);
+    text_engine_mods_run.setCwd(b.path("."));
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_LANGS", "ru,de");
+    text_engine_mods_run.has_side_effects = true;
+    text_engine_mods_run.step.dependOn(install_game_step);
+    text_engine_mods_run.step.dependOn(bk_font.install);
+    const text_engine_plain_run = b.addRunArtifact(language_mods_tests);
+    text_engine_plain_run.setCwd(b.path("."));
+    text_engine_plain_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    text_engine_plain_run.setEnvironmentVariable("BK_LM_PLAIN", "1");
+    text_engine_plain_run.has_side_effects = true;
+    text_engine_plain_run.step.dependOn(&text_engine_mods_run.step);
+    const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game with BK_TEXT_ENGINE=ttf on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu and the first mission's briefing and measure them (hb-view for hi), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path (M004 S02)");
+    var text_engine_chain: ?*std.Build.Step = null;
+    for ([_][]const u8{ "en", "de", "hi" }) |code| {
+        const shard_step = b.step(b.fmt("text-engine-game-reads-it-{s}", .{code}), b.fmt("text-engine-game-reads-it for {s} alone, report in zig-out/local-test/text-engine-game-reads-it/{s}/report.txt (M004 S02)", .{ code, code }));
+        shard_step.dependOn(&text_engine_reads_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(text_engine_reads_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&text_engine_plain_run.step);
+            if (chained) {
+                if (text_engine_chain) |before| run.step.dependOn(before);
+                text_engine_chain = &run.step;
+                if (test_mode == .run) text_engine_reads_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    text_engine_reads_step.dependOn(&text_engine_reads_tests.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
