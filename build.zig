@@ -6368,7 +6368,7 @@ fn bkTextModule(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
 ) *std.Build.Module {
-    return bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/root.zig");
+    return bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/root.zig", true);
 }
 
 /// bkTextModule with another root file: the library's is abi.zig, which imports root.zig.
@@ -6378,6 +6378,7 @@ fn bkTextModuleAt(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     root_source: []const u8,
+    link_memory: bool,
 ) *std.Build.Module {
     const module = b.createModule(.{
         .root_source_file = b.path(root_source),
@@ -6393,7 +6394,11 @@ fn bkTextModuleAt(
     module.addCSourceFile(.{ .file = b.path("Sources/src/BkText/stbtt.c"), .flags = &.{"-fno-sanitize=undefined"} });
     // HarfBuzz needs the C++ runtime (std::mutex); the engine's own new/delete
     // keep it on the same allocator as the rest, as in addBkShaperTest.
-    linkEngineCxxRuntimeEngine(b, module, optimize);
+    if (link_memory) {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+    } else {
+        addEngineCxxNewDelete(b, module, optimize, cppflagsForTarget(target, optimize));
+    }
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
@@ -6402,8 +6407,7 @@ fn bkTextModuleAt(
 }
 
 /// The BkText library behind bk_text.h: dynamic on Linux, static elsewhere, like GfxGpuZig. The
-/// module already links BkMemory through linkEngineCxxRuntimeEngine, so only the allocator import
-/// is added.
+/// module links BkMemory itself only on Linux (see below); the allocator import is always added.
 fn addBkTextLib(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -6413,7 +6417,10 @@ fn addBkTextLib(
     // One library per graph: the contract test and GFXGPU share it, and a second addLibrary named
     // BkText would clash on the artifact name.
     if (bk_text_lib) |lib| return lib;
-    const module = bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/abi.zig");
+    // A static library (macOS, Windows) must not link BkMemory itself: every consumer already gets it
+    // through GfxGpuZig or its own runtime link, and a second link is a second LC_LOAD_DYLIB in the
+    // consumer, which dyld on macOS 26 rejects ("duplicate linked dylib", as for SDL3 in addGFXGPU).
+    const module = bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/abi.zig", target.result.os.tag == .linux);
     applyLoaderPath(target, module);
     linkBkMemoryAllocator(b, module, true);
     const lib = b.addLibrary(.{
