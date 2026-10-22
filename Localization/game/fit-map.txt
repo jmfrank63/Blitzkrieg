@@ -7,7 +7,7 @@
 #                                                 medium (UIBasic.cpp). `#n` is the n-th element with that ID.
 #   area <glob> <W>x<H> <font>                    text C++ code places in a rectangle no layout holds (an estimate
 #                                                 where the line says so)
-#   tooltip <glob>                                the hint drawn in the large font, wrapped at 300 x large/medium
+#   tooltip <glob>                                the hint drawn in the medium font, wrapped at 300
 #                                                 line space, any height (SceneInternal.cpp SetToolTip)
 #   scroll <glob> # <reason>                      text in a UI_SCROLL_TEXT: it scrolls, so it is not measured
 # The first part holds one exact line per TextKey or ToolTip reference of Data/UI (layout order lost on

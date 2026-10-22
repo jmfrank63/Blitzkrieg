@@ -991,8 +991,8 @@ fn checkTooltip(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
     const slot = if (std.mem.eql(u8, language.code, "en")) check.Fit.english else for (check.language_table.languages, 0..) |entry, at| {
         if (std.mem.eql(u8, entry.code, language.code)) break at;
     } else return error.UnknownLanguage;
-    const hint_width = check.tooltipWidth(try fit.lineSpace(slot, .medium), try fit.lineSpace(slot, .large));
-    const shaper = try fit.shaper(slot, .large);
+    const hint_width = check.tooltip_width;
+    const shaper = try fit.shaper(slot, .medium);
     const text = try overlayText(io, allocator, language.code, label);
     const units = try std.unicode.utf8ToUtf16LeAlloc(allocator, text);
     var lines: std.ArrayList(bk_text.wrap.Line) = .empty;

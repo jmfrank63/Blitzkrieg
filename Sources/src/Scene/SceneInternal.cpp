@@ -999,32 +999,24 @@ void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect
 	else
 	{
 		// The hint is drawn straight onto the screen rather than through a UI
-		// element, so no layout scale ever reaches it: the font it asks for and
-		// every pixel number below are the ones written for 640x480, and on a
-		// modern screen that leaves a line of thin sixteen pixel type over the
-		// battlefield. Draw it in the large font - the one the message lines
-		// already use - and carry the wrap width and the gaps up by the same
-		// ratio, or the text would only grow inside a box built for the small
-		// one. Falls back to the font it always used if there is no large one.
-		IGFXFont *pWrittenForFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
-		IGFXFont *pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\large" );
-		if ( pFont == 0 )
-			pFont = pWrittenForFont;
-		int nGrowNum = 1, nGrowDen = 1;
-		if ( pFont != 0 && pWrittenForFont != 0 && pWrittenForFont->GetLineSpace() > 0 &&
-		     pFont->GetLineSpace() > pWrittenForFont->GetLineSpace() )
-		{
-			nGrowNum = pFont->GetLineSpace();
-			nGrowDen = pWrittenForFont->GetLineSpace();
-		}
-		const int nMaxWidth = TOOLTIP_MAX_WIDTH * nGrowNum / nGrowDen;
-		const int nGap = TOOLTIP_GAP * nGrowNum / nGrowDen;
-		tooltip.nPadding = TOOLTIP_PADDING * nGrowNum / nGrowDen;
-		// A hairline thinner than the letters it encloses loses the box its
-		// edge, so the frame gains a line for every step the font grew.
-		tooltip.nFrameWidth = nGrowNum / nGrowDen;
-		tooltip.pText->SetFont( pFont );
+		// element, so no layout scale reaches it by itself: it takes the one the
+		// screens use, min( width / 1024, height / 768 ) of the drawing area, and
+		// the medium font the labels are written in. So a hint is as large as the
+		// text it explains at every window size, and grows with the window like
+		// it (bk_text rasterises it at that size, sharp). The 2003 wrap width,
+		// gaps and padding were written for that font at 1024x768 and scale the
+		// same way.
+		IGFXFont *pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
 		const CTRect<float> rcScreenRect = pGFX->GetScreenRect();
+		const float fScale = Max( 0.5f, Min( rcScreenRect.Width() / 1024.0f, rcScreenRect.Height() / 768.0f ) );
+		const int nMaxWidth = int( TOOLTIP_MAX_WIDTH * fScale + 0.5f );
+		const int nGap = int( TOOLTIP_GAP * fScale + 0.5f );
+		tooltip.nPadding = int( TOOLTIP_PADDING * fScale + 0.5f );
+		// A hairline thinner than the letters it encloses loses the box its
+		// edge, so the frame gains a line for every whole step of the scale.
+		tooltip.nFrameWidth = Max( 1, int( fScale + 0.5f ) );
+		tooltip.pText->SetFont( pFont );
+		tooltip.pText->SetScale( fScale );
 		tooltip.bHasText = true;
 		tooltip.pText->SetText( pText );
 		tooltip.pText->SetColor( dwColor != 0 ? dwColor : 0xffcdcd00 );

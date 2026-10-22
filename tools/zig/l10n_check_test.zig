@@ -1050,12 +1050,12 @@ test "fit_word: a word wider than the box is split, which costs lines as well" {
     try expectFitRun(io, "fit_word", &root, 1, want);
 }
 
-test "fit_tooltip_word: a tooltip has no height limit but a word wider than 600 px" {
+test "fit_tooltip_word: a tooltip has no height limit but a word wider than 300 px" {
     const io = testing.io;
     var root = try buildFitTree(io, "fit_tooltip_word", "tooltip textes/strings/alpha\r\n" ++ fit_rest_line);
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello");
     try addOverlay(io, root, "fr", "textes/strings/alpha", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    const want = comptime fitWant("l10n-check: fit-word: fr: textes/strings/alpha: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" is 1201 px wide, the room is 600 px in tooltip\n", 1, fitNotes(1, 1, 0, 0));
+    const want = comptime fitWant("l10n-check: fit-word: fr: textes/strings/alpha: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" is 601 px wide, the room is 300 px in tooltip\n", 1, fitNotes(1, 1, 0, 0));
     try expectFitRun(io, "fit_tooltip_word", &root, 1, want);
 }
 

@@ -30,8 +30,12 @@ void FontGpu::CloseTtf()
 {
     // The context may be gone (graphics shut down, or recreated for another language) while a
     // font is still referenced; its BkTextFont died with it.
-    if ( bk_font_ != nullptr && bk_serial_ == NBkTextBridge::Serial() && NBkTextBridge::Context() != nullptr )
+    const bool bLive = bk_serial_ == NBkTextBridge::Serial() && NBkTextBridge::Context() != nullptr;
+    if ( bk_font_ != nullptr && bLive )
         bk_text_font_close( bk_font_ );
+    for ( const auto &scaled : scaled_fonts_ )
+        if ( bLive ) bk_text_font_close( scaled.second );
+    scaled_fonts_.clear();
     bk_font_ = nullptr;
 }
 
@@ -42,6 +46,7 @@ void STDCALL FontGpu::SwapData( ISharedResource *resource )
     std::swap( format_, other->format_ );
     std::swap( bk_font_, other->bk_font_ );
     std::swap( bk_serial_, other->bk_serial_ );
+    std::swap( scaled_fonts_, other->scaled_fonts_ );
 }
 
 namespace
@@ -330,6 +335,25 @@ bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float
     return true;
 }
 
+BkTextFont *FontGpu::TtfFontAt( float scale, float *factor ) const
+{
+    *factor = scale;
+    if ( bk_font_ == nullptr || std::fabs( scale - 1.0f ) < 0.01f ) return bk_font_;
+    BkTextContext *context = NBkTextBridge::Context();
+    if ( context == nullptr ) return bk_font_;
+    const BkTextSizeClass eClass = TtfSizeClass( name_ );
+    const float fPixelSize = TtfPixelSize( eClass ) * scale;
+    const int nKey = int( fPixelSize * 4.0f + 0.5f );
+    for ( const auto &scaled : scaled_fonts_ )
+        if ( scaled.first == nKey ) { *factor = 1.0f; return scaled.second; }
+    if ( scaled_fonts_.size() >= kScaledFontLimit ) return bk_font_;
+    BkTextFont *font = nullptr;
+    if ( bk_text_font_open( context, eClass, float( nKey ) / 4.0f, &font ) != BK_TEXT_OK || font == nullptr ) return bk_font_;
+    scaled_fonts_.push_back( std::make_pair( nKey, font ) );
+    *factor = 1.0f;
+    return font;
+}
+
 int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float y, float scale, DWORD color,
     std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices, unsigned generation,
     float clip_top, float clip_bottom ) const
@@ -349,14 +373,18 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
         atlas_rects_frame_ = NBkTextBridge::Frame();
         atlas_rects_generation_ = page_generation;
     }
+    // At a scale the glyphs come from a font of the scaled size (factor 1); the line's own metrics,
+    // its baseline and height, stay the base font's times the scale, as GetLineSpace reports them.
+    float factor = scale;
+    BkTextFont *draw_font = TtfFontAt( scale, &factor );
     static thread_local std::vector<BkTextGlyph> glyphs;
     if ( glyphs.size() < used + 8 ) glyphs.resize( used + 8 );
     uint32_t count = 0;
-    BkTextResult shaped = bk_text_shape_utf16( bk_font_, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
+    BkTextResult shaped = bk_text_shape_utf16( draw_font, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
     if ( shaped == BK_TEXT_BUFFER_TOO_SMALL )
     {
         glyphs.resize( count );
-        shaped = bk_text_shape_utf16( bk_font_, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
+        shaped = bk_text_shape_utf16( draw_font, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
     }
     if ( shaped != BK_TEXT_OK ) return kTtfOk;
     const float baseline = y + float( format_.metrics.nAscent ) * scale;
@@ -374,25 +402,25 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
     {
         const BkTextGlyph &glyph = glyphs[i];
         AtlasRect &slot = atlas_rects_[( glyph.glyph_key ^ ( glyph.glyph_key >> 10 ) ) % kAtlasRectSlots];
-        if ( slot.epoch != atlas_rects_epoch_ || slot.key != glyph.glyph_key )
+        if ( slot.epoch != atlas_rects_epoch_ || slot.key != glyph.glyph_key || slot.font != draw_font )
         {
             BkTextAtlasGlyph atlas;
-            const BkTextResult found = bk_text_atlas_glyph( bk_font_, glyph.glyph_key, &atlas );
+            const BkTextResult found = bk_text_atlas_glyph( draw_font, glyph.glyph_key, &atlas );
             if ( found == BK_TEXT_ATLAS_FULL ) return finish( kTtfAtlasFull );
-            if ( found != BK_TEXT_OK ) { pen += glyph.x_advance * scale; continue; }
+            if ( found != BK_TEXT_OK ) { pen += glyph.x_advance * factor; continue; }
             // The page was cleared to make room for this glyph: the rects of the quads built so far
             // point at other glyphs now.
             if ( atlas.generation != generation ) return finish( kTtfRetry );
-            const AtlasRect rect = { glyph.glyph_key, atlas_rects_epoch_, atlas.rect.x, atlas.rect.y, atlas.rect.w, atlas.rect.h, atlas.bearing_x, atlas.bearing_y };
+            const AtlasRect rect = { draw_font, glyph.glyph_key, atlas_rects_epoch_, atlas.rect.x, atlas.rect.y, atlas.rect.w, atlas.rect.h, atlas.bearing_x, atlas.bearing_y };
             slot = rect;
         }
         const AtlasRect &atlas = slot;
         if ( atlas.w != 0 && atlas.h != 0 )
         {
-            const float left = std::floor( pen + ( glyph.x_offset + float( atlas.bearing_x ) ) * scale + 0.5f );
-            float top = std::floor( baseline - ( glyph.y_offset + float( atlas.bearing_y ) ) * scale + 0.5f );
-            const float quad_w = float( atlas.w ) * scale;
-            const float quad_h = float( atlas.h ) * scale;
+            const float left = std::floor( pen + ( glyph.x_offset + float( atlas.bearing_x ) ) * factor + 0.5f );
+            float top = std::floor( baseline - ( glyph.y_offset + float( atlas.bearing_y ) ) * factor + 0.5f );
+            const float quad_w = float( atlas.w ) * factor;
+            const float quad_h = float( atlas.h ) * factor;
             // Snapping to a whole pixel may move the ink half a pixel out of the line, which is
             // GetHeight * scale tall: pull it back in, so ink never leaves what GetHeight reports.
             const float line_height = float( format_.metrics.nHeight ) * scale;
@@ -428,7 +456,7 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
                 ++quads;
             }
         }
-        pen += glyph.x_advance * scale;
+        pen += glyph.x_advance * factor;
     }
     return finish( kTtfOk );
 }

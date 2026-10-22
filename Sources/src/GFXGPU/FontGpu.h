@@ -153,11 +153,19 @@ private:
     IGFXTexture *texture_ = nullptr;
     BkTextFont *bk_font_ = nullptr;
     unsigned bk_serial_ = 0;
+    // Text drawn at a scale (a layout scaled to the window, the tooltip) is shaped and rasterised by a
+    // bk_text font opened at the scaled pixel size and placed 1:1, so it stays sharp instead of being
+    // the base size stretched. One font per quarter pixel of size, at most kScaledFontLimit of them; a
+    // size beyond the limit (an animated scale) stretches the base glyphs as before.
+    static const size_t kScaledFontLimit = 8;
+    mutable std::vector<std::pair<int, BkTextFont *>> scaled_fonts_;
+    // The font that draws at `scale` (the base font at 1) and the factor its glyph metrics still need.
+    BkTextFont *TtfFontAt( float scale, float *factor ) const;
     // Atlas rects handed out in the current frame, by glyph key. Looking a glyph up marks it used for
     // the frame, so one lookup per glyph per frame is enough; dropped on a new frame or generation.
     // Same fields as BkTextAtlasGlyph, which this header keeps opaque; the page generation is the cache's own.
     // Direct-mapped by glyph key: a collision only costs a lookup. A slot is live when its epoch is the current one.
-    struct AtlasRect { uint32_t key, epoch, x, y, w, h; int32_t bearing_x, bearing_y; };
+    struct AtlasRect { const BkTextFont *font; uint32_t key, epoch, x, y, w, h; int32_t bearing_x, bearing_y; };
     static const unsigned kAtlasRectSlots = 1024;
     mutable std::vector<AtlasRect> atlas_rects_;
     mutable uint32_t atlas_rects_epoch_ = 1;

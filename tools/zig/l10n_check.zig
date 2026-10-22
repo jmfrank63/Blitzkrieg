@@ -1768,7 +1768,7 @@ pub fn parseFitMap(arena: std.mem.Allocator, text: []const u8, problems: *std.Ar
         } else if (std.mem.eql(u8, words[0], "tooltip")) {
             if (count != 2) {
                 try problems.append(arena, .{ .line = number, .detail = "tooltip wants `tooltip <glob>`" });
-            } else try out.append(arena, .{ .kind = .tooltip, .glob = glob, .font = .large, .line = number });
+            } else try out.append(arena, .{ .kind = .tooltip, .glob = glob, .font = .medium, .line = number });
         } else if (std.mem.eql(u8, words[0], "scroll")) {
             if (count != 2) {
                 try problems.append(arena, .{ .line = number, .detail = "scroll wants `scroll <glob> # <reason>`" });
@@ -1933,14 +1933,6 @@ pub const FitFonts = struct {
         return &self.fonts[@intFromEnum(size)];
     }
 
-    /// SceneInternal.cpp SetToolTip: the hint wraps at TOOLTIP_MAX_WIDTH (300, written for the medium
-    /// font) grown by the ratio of the large line space to the medium one.
-    pub fn tooltipWidth(self: *const FitFonts) f32 {
-        const large = self.get(.large).lineSpace();
-        const medium = self.get(.medium).lineSpace();
-        if (medium <= 0 or large <= medium) return 300;
-        return @floatFromInt(@divTrunc(300 * large, medium));
-    }
 };
 
 pub const FontProblem = struct { path: []const u8, reason: []const u8 };
@@ -1967,14 +1959,10 @@ pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, fo
     return fonts;
 }
 
-/// SceneInternal.cpp SetToolTip: the hint wraps at TOOLTIP_MAX_WIDTH (300, written for the medium
-/// font) grown by the ratio of the large line space to the medium one, in integer division.
-pub fn tooltipWidth(medium_space: f32, large_space: f32) f32 {
-    const medium: i64 = @intFromFloat(medium_space);
-    const large: i64 = @intFromFloat(large_space);
-    if (medium <= 0 or large <= medium) return 300;
-    return @floatFromInt(@divTrunc(300 * large, medium));
-}
+/// SceneInternal.cpp SetToolTip: the hint is drawn in the medium font, the labels' own, and wraps at
+/// TOOLTIP_MAX_WIDTH (300); both scale with the window like the screens, so at 1024x768 the room is
+/// 300 pixels (2026-10-22: it used to be the large font, twice the labels' size, at 300 x large/medium).
+pub const tooltip_width: f32 = 300;
 
 /// A fit line with its room worked out: for a `box` line the layout element's text room, for an
 /// `area` line its rectangle, for a `tooltip` line the hint width and no height limit.
@@ -1990,7 +1978,7 @@ pub const FitResolved = struct {
 
 /// Works out the room of every line. A `box` line whose layout or element cannot be found is a
 /// problem and stays `ok = false`; so does one whose element has no WindowSize.
-pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, lines: []const FitLine, medium_space: f32, large_space: f32, problems: *std.ArrayList(ScopeProblem)) ![]FitResolved {
+pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, lines: []const FitLine, problems: *std.ArrayList(ScopeProblem)) ![]FitResolved {
     var layouts: std.StringHashMapUnmanaged(?[]const LayoutElement) = .empty;
     const resolved = try arena.alloc(FitResolved, lines.len);
     for (lines, resolved) |line, *one| {
@@ -1999,7 +1987,7 @@ pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, l
             .scroll => one.ok = true,
             .tooltip => {
                 one.ok = true;
-                one.width = tooltipWidth(medium_space, large_space);
+                one.width = tooltip_width;
                 one.where = "tooltip";
             },
             .area => {
@@ -2246,7 +2234,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
     };
     defer fit.deinit();
     // The map's own problems, once, with English line spaces; each language resolves its rooms again.
-    _ = try resolveFitLines(io, arena, root, lines, try fit.lineSpace(Fit.english, .medium), try fit.lineSpace(Fit.english, .large), &problems);
+    _ = try resolveFitLines(io, arena, root, lines, &problems);
     for (problems.items) |problem| {
         try report.addFmt("fit-map", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_map_path, problem.line }), "{s}", .{problem.detail});
     }
@@ -2269,10 +2257,9 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
     var english_cache: std.StringHashMapUnmanaged(?[]const u16) = .empty;
     for (languages.languages, scopes.per_language, 0..) |language, scope, slot| {
         if (only) |code| if (!std.mem.eql(u8, code, language.code)) continue;
-        // The rooms again with this language's line spaces: the tooltip's width follows the ones the
-        // Game has loaded. The map's problems were reported above.
+        // The rooms per language; the map's problems were reported above.
         var own_problems: std.ArrayList(ScopeProblem) = .empty;
-        const resolved = try resolveFitLines(io, arena, root, lines, try fit.lineSpace(slot, .medium), try fit.lineSpace(slot, .large), &own_problems);
+        const resolved = try resolveFitLines(io, arena, root, lines, &own_problems);
         var boxed: usize = 0;
         var tooltips: usize = 0;
         var scrolls: usize = 0;
@@ -2533,7 +2520,7 @@ test "fit_map_covers_database: every ELK key has a line and every line finds its
     defer root.close(io);
     var problems: std.ArrayList(ScopeProblem) = .empty;
     const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
-    const resolved = try resolveFitLines(io, arena, root, lines, 23, 46, &problems);
+    const resolved = try resolveFitLines(io, arena, root, lines, &problems);
     for (problems.items) |problem| std.debug.print("{s}:{d}: {s}\n", .{ fit_map_path, problem.line, problem.detail });
     try testing.expectEqual(@as(usize, 0), problems.items.len);
     for (resolved) |one| try testing.expect(one.ok);
@@ -2563,7 +2550,7 @@ test "fit: the shipped English originals measured in their rooms" {
     const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
     var fit = try Fit.init(testing.allocator, io, "vendor/fonts");
     defer fit.deinit();
-    const resolved = try resolveFitLines(io, arena, root, lines, try fit.lineSpace(Fit.english, .medium), try fit.lineSpace(Fit.english, .large), &problems);
+    const resolved = try resolveFitLines(io, arena, root, lines, &problems);
     var tall: usize = 0;
     var wide: usize = 0;
     var measured: usize = 0;
@@ -2584,11 +2571,14 @@ test "fit: the shipped English originals measured in their rooms" {
     try testing.expect(measured > 1000);
 }
 
-test "fit: the tooltip width follows the ratio of the large line space to the medium one" {
-    try std.testing.expectEqual(@as(f32, 600), tooltipWidth(23, 46));
-    try std.testing.expectEqual(@as(f32, 300), tooltipWidth(23, 23));
-    try std.testing.expectEqual(@as(f32, 300), tooltipWidth(0, 40));
-    try std.testing.expectEqual(@as(f32, 391), tooltipWidth(23, 30));
+test "fit: a tooltip line is measured in the medium font at the 300 pixel hint width" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena_state.allocator(), "tooltip textes/ui/**/tt*\n", &problems);
+    try std.testing.expectEqual(@as(usize, 1), lines.len);
+    try std.testing.expectEqual(FitFont.medium, lines[0].font);
+    try std.testing.expectEqual(@as(f32, 300), tooltip_width);
 }
 
 test "textProblem tells the byte order mark, length, surrogates and empty text apart" {
