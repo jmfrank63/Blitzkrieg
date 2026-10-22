@@ -3,9 +3,10 @@
 # The D097 fit rule measures every language with the bk_text module at the Game's size table. A text listed
 # here overflows its room today and is not reported (it is counted as `known` in the language's fit note), so
 # the gate stays meaningful for every other key while the texts are fixed:
-#   S06   a Latin or Cyrillic translation that S06 rewords or whose box the layout work widens;
 #   M003  a CJK or other translation that M003 (the translation milestone) still has to finish.
-# S06 empties the S06 lines. A line whose text fits again is the finding fit-known-unused: delete it.
+#   S06   no longer used: S06 reworded the Latin and Cyrillic overflows, so only M003 lines remain. The tag is still
+#         accepted by l10n-check.
+# M003 empties the M003 lines. A line whose text fits again is the finding fit-known-unused: delete it.
 ja textes/options/gfx.densitycoeff.name # M003
 ja textes/options/gfx.texture.quality.name # M003
 ja textes/options/multiplayer.playerlimit.name # M003

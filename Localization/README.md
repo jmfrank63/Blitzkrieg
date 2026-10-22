@@ -252,9 +252,9 @@ font work, and stops with `TextDoesNotFit` on a finding.
 
 `Localization/game/fit-known.txt` (D108) is the baseline of today's overflows: one line `<code> <key> # S06|M003`. A listed
 text is counted as `N known` in its language's note and not reported, so the gate stays meaningful for every other key
-while S06 rewords the Latin and Cyrillic texts (`# S06`) and M003 finishes the CJK ones (`# M003`). A listed line whose text
+while M003 finishes the CJK ones (`# M003`); S06 reworded the Latin and Cyrillic texts, so no `# S06` line is left. A listed line whose text
 fits again is the finding `fit-known-unused`; a malformed line is `fit-known`. S04 recorded 102 ru, 46 de, 62 fr, 57 es,
-45 pt-BR, 52 id (all `S06`) and 25 ja (`M003`) keys.
+45 pt-BR, 52 id (all `S06`, now reworded) and 25 ja (`M003`) keys; only the ja ones remain.
 
 `language-mods` asserts that every atlas of every language is within 4096x4096 (`atlas tiny=WxH ... (bound 4096x4096)`)
 and fails with `language-mods: <code>: <size> atlas WxH exceeds 4096x4096` otherwise. The no-start set of the line breaker
