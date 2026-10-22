@@ -3,19 +3,10 @@
 # The D097 fit rule measures every language with the bk_text module at the Game's size table. A text listed
 # here overflows its room today and is not reported (it is counted as `known` in the language's fit note), so
 # the gate stays meaningful for every other key while the texts are fixed:
-#   S06   a Latin or Cyrillic translation that S06 rewords or whose box the layout work widens;
 #   M003  a CJK or other translation that M003 (the translation milestone) still has to finish.
-# S06 empties the S06 lines. A line whose text fits again is the finding fit-known-unused: delete it.
-de textes/strings/solcy # S06
-de units/humans/allies/officer/name # S06
-de units/technics/german/aviation/hs_129b/name # S06
-es textes/ui/intermission/mainmenu/playerprofile/static_player_name # S06
-fr scenarios/chapters/german/france/header # S06
-fr scenarios/tutorials/tutorial6/header # S06
-fr units/technics/allies/aviation/b25jmitchell_usa/name # S06
-id units/humans/allies/sniper/name # S06
-id units/technics/allies/spg/m10_wolverine_usa/name # S06
-id units/technics/allies/spg/m36_slugger_usa/name # S06
+#   S06   no longer used: S06 reworded the Latin and Cyrillic overflows, so only M003 lines remain. The tag is still
+#         accepted by l10n-check.
+# M003 empties the M003 lines. A line whose text fits again is the finding fit-known-unused: delete it.
 ja textes/strings/imheader-listheader-multiplayer-gameslist-playerscount # M003
 ja textes/ui/intermission/mainmenu/newgame/button_player_profile # M003
 ja textes/ui/intermission/multiplayer/creategame/numplayers # M003
@@ -23,34 +14,3 @@ ja textes/ui/settings/button_cancel # M003
 ja units/humans/allies/officer/name # M003
 ja units/humans/allies/us_sniper/name # M003
 ja units/humans/german/panzer/name # M003
-pt-BR medals/allies/eam_company/name # S06
-ru scenarios/tutorials/tutorial1/header # S06
-ru scenarios/tutorials/tutorial2/header # S06
-ru textes/personals/german/spg/name13 # S06
-ru textes/ui/intermission/multiplayer/chat/player_state # S06
-ru textes/ui/multiplayermessages/outofsync # S06
-ru units/humans/allies/officer/name # S06
-ru units/humans/allies/us_sniper/name # S06
-ru units/humans/german/officer/name # S06
-ru units/technics/allies/artillery/155mm_m1a1_usa/name # S06
-ru units/technics/allies/artillery/3inch_mortar_gb/name # S06
-ru units/technics/allies/artillery/4_5_inch_gun_gb/name # S06
-ru units/technics/allies/artillery/90mm_m2_usa/name # S06
-ru units/technics/allies/auto/m3a1_scout_car_medicine_usa/name # S06
-ru units/technics/allies/auto/willys_mb_gb/name # S06
-ru units/technics/allies/auto/willys_mb_usa/name # S06
-ru units/technics/allies/aviation/hawker_hurricane_ mk1_gb/name # S06
-ru units/technics/allies/aviation/spitfire_gb/name # S06
-ru units/technics/allies/aviation/vickers_wellington_gb/name # S06
-ru units/technics/allies/tanks/cruiser_mkvi_crusader_gb/name # S06
-ru units/technics/allies/tanks/cruiser_mkviii_cromwell_gb/name # S06
-ru units/technics/allies/tanks/vickers_6tonns_finland/name # S06
-ru units/technics/german/auto/opel_blitz_medicine/name # S06
-ru units/technics/german/aviation/junkers_ju87d_1/name # S06
-ru units/technics/german/tanks/pz_iii_ausf_j/name # S06
-ru units/technics/german/tanks/pz_iv_ausf_d/name # S06
-ru units/technics/german/tanks/pz_vi_tiger_ausf_a_h/name # S06
-ru units/technics/ussr/artillery/45_mm_m_37/name # S06
-ru units/technics/ussr/auto/willys_mb_lend_lease/name # S06
-ru units/technics/ussr/auto/zis_42_cargo/name # S06
-ru units/technics/ussr/auto/zis_5v_engineering/name # S06
