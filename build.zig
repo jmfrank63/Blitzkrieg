@@ -3877,6 +3877,8 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/l10n_check_test.zig"),
         .target = target,
         .optimize = .debug,
+        // The fit fixtures derive their box sizes from the same bk_text measures the rule uses.
+        .imports = &.{.{ .name = "bk_text", .module = l10n_bk_text_module }},
     });
     const l10n_check_tests = b.addTest(.{ .root_module = l10n_check_test_module });
     const l10n_check_tests_run = b.addRunArtifact(l10n_check_tests);

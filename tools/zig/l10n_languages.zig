@@ -36,3 +36,9 @@ pub const languages = [_]Language{
     .{ .code = "pt-BR", .mod = "lang-pt-br", .name = "Português (Brasil)", .face = "LiberationSerif-Regular.ttf", .keeps_game_fonts = true },
     .{ .code = "id", .mod = "lang-id", .name = "Bahasa Indonesia", .face = "LiberationSerif-Regular.ttf", .keeps_game_fonts = true },
 };
+
+/// The language code bk_text shapes and chains faces by: the primary subtag of the overlay code
+/// (`zh-Hans` is `zh`, `pt-BR` is `pt`). The codes of the table are lowercase there already.
+pub fn bkTextCode(code: []const u8) []const u8 {
+    return code[0 .. std.mem.indexOfScalar(u8, code, '-') orelse code.len];
+}

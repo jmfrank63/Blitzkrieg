@@ -314,9 +314,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         var report = check.Report{ .arena = allocator };
         var repository = try cwd.openDir(io, ".", .{ .iterate = true });
         defer repository.close(io);
-        var generated = try cwd.openDir(io, scratch, .{});
-        defer generated.close(io);
-        try check.checkFit(io, &report, repository, .{ .dir = generated, .only = language.code });
+        try check.checkFit(io, &report, repository, "vendor/fonts", language.code);
         for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
         for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
         if (report.findings.items.len != 0) {

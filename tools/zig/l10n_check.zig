@@ -39,14 +39,14 @@
 //! reason, `term-exception-unused` for one that excuses nothing). A missing glossary is a finding.
 //!
 //! Rule `fit` (D097): a translated text must fit the room the game draws it in. `checkFit` measures every
-//! in-scope text of a language with the metrics of the `<size>/1.tfd` fonts its mod ships
-//! (tools/zig/l10n_font.zig) and the GPU wrap rules (tools/zig/l10n_wrap.zig), against the box `Localization/game/fit-map.txt` gives its key family: a `Data/UI` layout element, a
-//! rectangle, a tooltip or a scrolling text. Findings are `fit` (too many lines for the box), `fit-word`
-//! (a word wider than the box, which the game splits), `fit-unmapped` (no map line for a key), `fit-map` and
-//! `fit-font`. An English original that already overflows is `fit-base` information in the language's note.
-//! Each language is measured with the fonts its mod ships, which only language-mods generates: it runs
-//! this rule per language and fails on a finding, and l10n-check alone (no build artefacts) reports the
-//! languages `not measured here`. Without a fit map the scope is `not active`. See `checkFit`.
+//! in-scope text of a language with the bk_text module, the Game's own text engine: HarfBuzz-shaped
+//! Liberation Serif or Noto from `--fonts <dir>` (default `<root>/vendor/fonts`) at the Game's size
+//! table (`bk_text.sizes`) and bk_text's wrap, against the box `Localization/game/fit-map.txt` gives its key
+//! family: a `Data/UI` layout element, a rectangle, a tooltip or a scrolling text. Findings are `fit` (too
+//! many lines for the box), `fit-word` (a word wider than the box, which the game splits), `fit-unmapped`
+//! (no map line for a key), `fit-map` and `fit-font`. An English original that already overflows is
+//! `fit-base` information in the language's note. All nine languages are measured on every run, with no
+//! generated font. Without a fit map the scope is `not active`. See `checkFit`.
 //!
 //! Rule `placeholder`: the multiset of substituted or interpreted tokens must be the same in the
 //! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
@@ -1913,7 +1913,9 @@ pub fn parseLayout(arena: std.mem.Allocator, xml: []const u8) ![]const LayoutEle
     return elements.items;
 }
 
-/// The three game fonts a text can be drawn in, `Data/Fonts/{small,medium,large}/1.tfd`.
+/// The three bitmap fonts of a mod, `<folder>/{small,medium,large}/1.tfd`. The fit rule no longer measures
+/// with them (M004 S04: it measures with bk_text); the l10n-game-reads-it tier still predicts captured
+/// lines with them until S05 retires the bitmap fonts.
 pub const FitFonts = struct {
     fonts: [3]font_file.Font,
 
@@ -1933,12 +1935,7 @@ pub const FitFonts = struct {
 
 pub const FontProblem = struct { path: []const u8, reason: []const u8 };
 
-pub fn loadFitFonts(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, problem: *FontProblem) !FitFonts {
-    return loadFitFontsIn(io, arena, root, "Data/Fonts", problem);
-}
-
-/// The three fonts below `folder` of `root`, `<folder>/{small,medium,large}/1.tfd`: the game's own
-/// under `Data/Fonts`, a language's under the folder language-mods generates them in.
+/// The three fonts below `folder` of `root`.
 pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, folder: []const u8, problem: *FontProblem) !FitFonts {
     var fonts: FitFonts = undefined;
     for (std.meta.tags(FitFont)) |size| {
@@ -1960,6 +1957,15 @@ pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, fo
     return fonts;
 }
 
+/// SceneInternal.cpp SetToolTip: the hint wraps at TOOLTIP_MAX_WIDTH (300, written for the medium
+/// font) grown by the ratio of the large line space to the medium one, in integer division.
+pub fn tooltipWidth(medium_space: f32, large_space: f32) f32 {
+    const medium: i64 = @intFromFloat(medium_space);
+    const large: i64 = @intFromFloat(large_space);
+    if (medium <= 0 or large <= medium) return 300;
+    return @floatFromInt(@divTrunc(300 * large, medium));
+}
+
 /// A fit line with its room worked out: for a `box` line the layout element's text room, for an
 /// `area` line its rectangle, for a `tooltip` line the hint width and no height limit.
 pub const FitResolved = struct {
@@ -1974,7 +1980,7 @@ pub const FitResolved = struct {
 
 /// Works out the room of every line. A `box` line whose layout or element cannot be found is a
 /// problem and stays `ok = false`; so does one whose element has no WindowSize.
-pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, lines: []const FitLine, fonts: *const FitFonts, problems: *std.ArrayList(ScopeProblem)) ![]FitResolved {
+pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, lines: []const FitLine, medium_space: f32, large_space: f32, problems: *std.ArrayList(ScopeProblem)) ![]FitResolved {
     var layouts: std.StringHashMapUnmanaged(?[]const LayoutElement) = .empty;
     const resolved = try arena.alloc(FitResolved, lines.len);
     for (lines, resolved) |line, *one| {
@@ -1983,7 +1989,7 @@ pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, l
             .scroll => one.ok = true,
             .tooltip => {
                 one.ok = true;
-                one.width = fonts.tooltipWidth();
+                one.width = tooltipWidth(medium_space, large_space);
                 one.where = "tooltip";
             },
             .area => {
@@ -2058,55 +2064,128 @@ fn textUnits(arena: std.mem.Allocator, bytes: []const u8) ![]u16 {
     return units;
 }
 
-const Measure = struct { lines: usize, word: wrap.Word };
+/// The shapers of the fit rule: one bk_text face set, and a Shaper per language and size class made when
+/// first asked for, at the Game's own pixel size (`bk_text.sizes`). The last slot is English, which
+/// measures the 2003 originals. A language's shapers report a glyph no face has into `missing`.
+pub const Fit = struct {
+    allocator: std.mem.Allocator,
+    set: *bk_text.faces.FaceSet,
+    shapers: [languages.languages.len + 1][3]?*bk_text.shape.Shaper = @splat(@splat(null)),
+    missing: [languages.languages.len]std.AutoArrayHashMapUnmanaged(u21, void) = @splat(.empty),
+    sinks: [languages.languages.len]MissingGlyphs = undefined,
+    lines: std.ArrayList(bk_text.wrap.Line) = .empty,
 
-/// The height `lines` lines of `font` take: each costs the line space, but the last only its glyph
-/// height, since the leading below a line is not drawn and the game clips at the box (a one line
-/// text fits a box as high as the font).
-fn fitNeeds(font: *const font_file.Font, lines: usize) f32 {
+    pub const english = languages.languages.len;
+
+    pub fn init(allocator: std.mem.Allocator, io: std.Io, fonts_dir: []const u8) !Fit {
+        const set = try allocator.create(bk_text.faces.FaceSet);
+        errdefer allocator.destroy(set);
+        set.* = try bk_text.faces.FaceSet.load(allocator, io, fonts_dir);
+        return .{ .allocator = allocator, .set = set };
+    }
+
+    pub fn deinit(self: *Fit) void {
+        for (&self.shapers) |*row| for (row) |cell| if (cell) |one| {
+            one.deinit();
+            self.allocator.destroy(one);
+        };
+        for (&self.missing) |*one| one.deinit(self.allocator);
+        self.lines.deinit(self.allocator);
+        self.set.deinit();
+        self.allocator.destroy(self.set);
+    }
+
+    fn noteMissing(context: ?*anyopaque, cp: u21, _: u32, _: []const u8) void {
+        const found: *MissingGlyphs = @ptrCast(@alignCast(context.?));
+        found.set.put(found.allocator, cp, {}) catch {};
+    }
+
+    const MissingGlyphs = struct {
+        allocator: std.mem.Allocator,
+        set: *std.AutoArrayHashMapUnmanaged(u21, void),
+    };
+
+    /// The shaper of language slot `slot` (an index of `languages.languages`, or `english`) at `size`.
+    pub fn shaper(self: *Fit, slot: usize, size: FitFont) !*bk_text.shape.Shaper {
+        const cell = &self.shapers[slot][@intFromEnum(size)];
+        if (cell.*) |one| return one;
+        const code = if (slot == english) "en" else languages.bkTextCode(languages.languages[slot].code);
+        const class: bk_text.sizes.SizeClass = switch (size) {
+            .small => .small,
+            .medium => .medium,
+            .large => .large,
+        };
+        const one = try self.allocator.create(bk_text.shape.Shaper);
+        errdefer self.allocator.destroy(one);
+        one.* = try bk_text.shape.Shaper.init(self.allocator, self.set, code, bk_text.sizes.pixelSize(class, 1.0));
+        if (slot != english) {
+            // The Fit stays where it is declared, so the shaper may keep a pointer into it.
+            self.sinks[slot] = .{ .allocator = self.allocator, .set = &self.missing[slot] };
+            one.sink = .{ .context = &self.sinks[slot], .report = noteMissing };
+        }
+        cell.* = one;
+        return one;
+    }
+
+    /// The distance between baselines of `size` in `slot`'s language, in whole pixels.
+    pub fn lineSpace(self: *Fit, slot: usize, size: FitFont) !f32 {
+        return bk_text.measure.lineSpace(try self.shaper(slot, size));
+    }
+};
+
+const Measure = struct { lines: usize, word: f32 };
+
+/// The height `lines` lines of `shaper` take: each costs the line space, but the last only its glyph
+/// height (the primary face's ascent plus descent), since the leading below a line is not drawn and
+/// the game clips at the box (a one line text fits a box as high as the font).
+fn fitNeeds(shaper: *const bk_text.shape.Shaper, lines: usize) f32 {
     if (lines == 0) return 0;
-    return @floatFromInt(@as(i64, @intCast(lines - 1)) * font.lineSpace() + font.height);
+    const metrics = bk_text.measure.faceMetrics(shaper, shaper.chain[0]);
+    return @as(f32, @floatFromInt(lines - 1)) * bk_text.measure.lineSpace(shaper) + @ceil(metrics.ascent + metrics.descent);
 }
 
 /// The lines `units` wrap to in `width` and the widest word. Empty lines at the end draw nothing
 /// (a text ends with a line break), so they do not count.
-fn measureText(arena: std.mem.Allocator, scratch: *std.ArrayList(wrap.Line), font: *const font_file.Font, units: []const u16, width: f32) !Measure {
-    try wrap.wrapLines(arena, font, units, 1.0, width, scratch);
-    var count = scratch.items.len;
-    while (count > 0 and scratch.items[count - 1].begin == scratch.items[count - 1].end) count -= 1;
-    return .{ .lines = count, .word = wrap.widestWord(font, units, 1.0) };
+fn measureText(fit: *Fit, shaper: *bk_text.shape.Shaper, units: []const u16, width: f32) !Measure {
+    try bk_text.wrap.wrapText(fit.allocator, shaper, units, width, &fit.lines);
+    var count = fit.lines.items.len;
+    while (count > 0 and fit.lines.items[count - 1].start == fit.lines.items[count - 1].end) count -= 1;
+    return .{ .lines = count, .word = try bk_text.wrap.widestUnit(fit.allocator, shaper, units) };
 }
 
-fn wordText(arena: std.mem.Allocator, units: []const u16, word: wrap.Word) []const u8 {
-    return std.unicode.utf16LeToUtf8Alloc(arena, units[word.begin..word.end]) catch "?";
+/// The space-separated word of `units` that is widest, for a finding to name.
+fn wordText(arena: std.mem.Allocator, fit: *Fit, shaper: *bk_text.shape.Shaper, units: []const u16) ![]const u8 {
+    var best: []const u16 = &.{};
+    var widest: f32 = -1;
+    var words = std.mem.tokenizeAny(u16, units, &.{ ' ', '\r', '\n' });
+    while (words.next()) |word| {
+        const width = try bk_text.wrap.widestUnit(fit.allocator, shaper, word);
+        if (width > widest) {
+            widest = width;
+            best = word;
+        }
+    }
+    return std.unicode.utf16LeToUtf8Alloc(arena, best) catch "?";
 }
 
-/// Rule `fit` (M003 D097): every translated text must fit the room the game draws it in, measured
-/// with the font's own `1.tfd` and the game's wrap (l10n_wrap.zig). `Localization/game/fit-map.txt`
-/// says which room each key family has; the first line a key matches decides, and every later line
-/// with the same glob applies too, so a text shown in two places is measured in both.
+/// Rule `fit` (M003 D097, on bk_text since M004 S04): every translated text must fit the room the game
+/// draws it in, measured with the Game's own text engine (HarfBuzz-shaped faces from `fonts_dir` at the
+/// Game's size table) and its wrap. `Localization/game/fit-map.txt` says which room each key family has;
+/// the first line a key matches decides, and every later line with the same glob applies too, so a text
+/// shown in two places is measured in both.
 ///
-/// - `fit`: the wrapped lines times the font's line space are taller than the box (the game clips at
+/// - `fit`: the wrapped lines times the line space are taller than the box (the game clips at
 ///   the box, so the last lines vanish). The detail is `<n> lines x <line space> > <height> in <room>`.
 /// - `fit-word`: a word is wider than the box or the tooltip, so the game splits it where it overflows.
 /// - `fit-unmapped`: no line of the map matches a key in some language's scope (code `all`).
-/// - `fit-map` and `fit-font`: the map or a font it needs is malformed or missing.
+/// - `fit-map` and `fit-font`: the map or the faces it needs are malformed or missing.
 ///
 /// An English original that already overflows its room (a 2003 flaw) is not held against a
 /// translation that needs no more lines and no wider a word than the original: those are counted as
 /// `fit-base` in the language's note, not reported. A text in a `scroll` family is counted, not measured.
-/// A language with a face (ru, zh-Hans, ja, hi) draws with a font language-mods builds, which has no `1.tfd`
-/// in the tree: its note says `not measured`. Without a fit map the scope is `not active`.
-/// The fonts the fit rule measures a language with: the ones its mod ships, which language-mods
-/// generates (`<dir>/<code>/fonts/{small,medium,large}/1.tfd`, its scratch folder). A language without them is reported as not
-/// measured; language-mods runs this rule for each language it builds and fails on a finding.
-pub const LanguageFonts = struct {
-    dir: std.Io.Dir,
-    /// Only this language is measured.
-    only: ?[]const u8 = null,
-};
-
-pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?LanguageFonts) !void {
+/// Every language is measured, with no generated font; `only` limits the run to one language code, which
+/// language-mods uses for the language it builds. Without a fit map the scope is `not active`.
+pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []const u8, only: ?[]const u8) !void {
     const arena = report.arena;
     const map_text = (try readOptional(io, arena, root, fit_map_path)) orelse {
         try report.inactive.append(arena, "fit");
@@ -2115,16 +2194,13 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
     var problems: std.ArrayList(ScopeProblem) = .empty;
     const lines = try parseFitMap(arena, map_text, &problems);
     const scopes = (try loadScopes(io, arena, root, null)) orelse return;
-    var font_problem: FontProblem = .{ .path = "", .reason = "" };
-    const fonts = loadFitFonts(io, arena, root, &font_problem) catch |err| switch (err) {
-        error.FontUnreadable => {
-            try report.addFmt("fit-font", "all", font_problem.path, "cannot read the font the fit rule measures with ({s})", .{font_problem.reason});
-            return;
-        },
-        else => return err,
+    var fit = Fit.init(std.heap.smp_allocator, io, fonts_dir) catch |err| {
+        try report.addFmt("fit-font", "all", fonts_dir, "cannot read the font the fit rule measures with ({s})", .{@errorName(err)});
+        return;
     };
-    // The map's own problems, once, with the game's fonts; each language resolves its rooms again.
-    _ = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
+    defer fit.deinit();
+    // The map's own problems, once, with English line spaces; each language resolves its rooms again.
+    _ = try resolveFitLines(io, arena, root, lines, try fit.lineSpace(Fit.english, .medium), try fit.lineSpace(Fit.english, .large), &problems);
     for (problems.items) |problem| {
         try report.addFmt("fit-map", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_map_path, problem.line }), "{s}", .{problem.detail});
     }
@@ -2136,27 +2212,13 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
         try matches.put(arena, key, found);
     }
 
-    var scratch: std.ArrayList(wrap.Line) = .empty;
     var english_cache: std.StringHashMapUnmanaged(?[]const u16) = .empty;
-    for (languages.languages, scopes.per_language) |language, scope| {
-        const generated = language_fonts orelse {
-            try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: not measured here; language-mods measures it with the fonts it builds", .{language.code}));
-            continue;
-        };
-        if (generated.only) |code| if (!std.mem.eql(u8, code, language.code)) continue;
-        var own_problem: FontProblem = .{ .path = "", .reason = "" };
-        const own_fonts = loadFitFontsIn(io, arena, generated.dir, try std.fmt.allocPrint(arena, "{s}/fonts", .{language.code}), &own_problem) catch |err| switch (err) {
-            error.FontUnreadable => {
-                try report.addFmt("fit-font", language.code, own_problem.path, "cannot read the font the fit rule measures with ({s})", .{own_problem.reason});
-                continue;
-            },
-            else => return err,
-        };
-        // The rooms again with this language's fonts: the tooltip's width follows the line spaces of
-        // the fonts the Game has loaded. The map's problems were reported above.
+    for (languages.languages, scopes.per_language, 0..) |language, scope, slot| {
+        if (only) |code| if (!std.mem.eql(u8, code, language.code)) continue;
+        // The rooms again with this language's line spaces: the tooltip's width follows the ones the
+        // Game has loaded. The map's problems were reported above.
         var own_problems: std.ArrayList(ScopeProblem) = .empty;
-        const own_resolved = try resolveFitLines(io, arena, root, lines, &own_fonts, &own_problems);
-        var missing: std.AutoArrayHashMapUnmanaged(u16, void) = .empty;
+        const resolved = try resolveFitLines(io, arena, root, lines, try fit.lineSpace(slot, .medium), try fit.lineSpace(slot, .large), &own_problems);
         var boxed: usize = 0;
         var tooltips: usize = 0;
         var scrolls: usize = 0;
@@ -2178,7 +2240,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
             var is_scroll = false;
             var overflowed = false;
             for (found) |at| {
-                const room = own_resolved[at];
+                const room = resolved[at];
                 if (!room.ok) continue;
                 switch (room.kind) {
                     .scroll => {
@@ -2188,32 +2250,26 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
                     .tooltip => is_tooltip = true,
                     .box, .area => is_boxed = true,
                 }
-                // The translation in its mod's font; the English original in the game's own bitmap font, as
-                // it shipped in 2003, so fit-base only excuses a text no worse than what shipped. (The
-                // original in the mod's font was tried: Noto Sans wraps it where 2003 did not, which made a
-                // Russian name a finding for the font's width, not the translation's.)
-                const font = own_fonts.get(room.font);
-                const shipped = fonts.get(room.font);
-                for (units) |unit| {
-                    if (unit == 0xfeff or unit == ' ' or unit == '\r' or unit == '\n' or unit == '\t') continue;
-                    if (font.chars.get(unit) == null) try missing.put(arena, unit, {});
-                }
-                const mine = try measureText(arena, &scratch, font, units, room.width);
-                const theirs: ?Measure = if (english) |original| try measureText(arena, &scratch, shipped, original, room.width) else null;
-                const too_tall = fitNeeds(font, mine.lines) > room.height;
-                const too_wide = mine.word.width > room.width;
+                // The translation in its language's chain; the English original in the English one at the
+                // same size, so fit-base only excuses a text no worse than what shipped in 2003.
+                const shaper = try fit.shaper(slot, room.font);
+                const shipped = try fit.shaper(Fit.english, room.font);
+                const mine = try measureText(&fit, shaper, units, room.width);
+                const theirs: ?Measure = if (english) |original| try measureText(&fit, shipped, original, room.width) else null;
+                const too_tall = fitNeeds(shaper, mine.lines) > room.height;
+                const too_wide = mine.word > room.width;
                 const english_tall = if (theirs) |t| fitNeeds(shipped, t.lines) > room.height else false;
-                const english_wide = if (theirs) |t| t.word.width > room.width else false;
+                const english_wide = if (theirs) |t| t.word > room.width else false;
                 if (english_tall or english_wide) overflowed = true;
                 // A text left as the original ("Ping", "Rel") overflows where the original did, a pixel
                 // more or less with the face: nothing a translator can change.
                 const unchanged = if (english) |original| std.mem.eql(u16, trimUnits(units), trimUnits(original)) else false;
                 if (unchanged and (english_tall or english_wide)) continue;
                 if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
-                    try report.addFmt("fit", language.code, key, "{d} lines x {d} - {d} > {d} in {s}", .{ mine.lines, font.lineSpace(), font.external_leading, @as(i64, @intFromFloat(room.height)), room.where });
+                    try report.addFmt("fit", language.code, key, "{d} lines x {d} > {d} in {s}", .{ mine.lines, @as(i64, @intFromFloat(bk_text.measure.lineSpace(shaper))), @as(i64, @intFromFloat(room.height)), room.where });
                 }
-                if (too_wide and !(english_wide and mine.word.width <= theirs.?.word.width)) {
-                    try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ wordText(arena, units, mine.word), @as(i64, @intFromFloat(@ceil(mine.word.width))), @as(i64, @intFromFloat(@floor(room.width))), room.where });
+                if (too_wide and !(english_wide and mine.word <= theirs.?.word)) {
+                    try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ try wordText(arena, &fit, shaper, units), @as(i64, @intFromFloat(mine.word)), @as(i64, @intFromFloat(@floor(room.width))), room.where });
                 }
             }
             if (is_boxed) boxed += 1;
@@ -2222,13 +2278,14 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, language_fonts: ?
             if (overflowed) base_overflow += 1;
         }
         try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)", .{ language.code, boxed, tooltips, scrolls, base_overflow }));
-        // The glyph rule guards coverage against the face; a gap here means the fonts predate the overlay.
-        if (missing.count() != 0) try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} characters are missing from the mod's fonts and were measured as a space; rebuild them with zig build language-mods -Dlm-langs={s}", .{ language.code, missing.count(), language.code }));
+        // The glyph rule guards coverage against the faces; a gap here means a face lacks a character the text holds.
+        const missing = fit.missing[slot].count();
+        if (missing != 0) try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} characters have no glyph in the faces and were measured with the missing glyph", .{ language.code, missing }));
     }
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--lang-fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
     std.process.exit(2);
 }
 
@@ -2243,7 +2300,6 @@ pub fn main(init: std.process.Init) !void {
     _ = iterator.skip();
     var root_path: []const u8 = ".";
     var fonts_path: ?[]const u8 = null;
-    var lang_fonts_path: ?[]const u8 = null;
     var update_base = false;
     var doc_sets: std.ArrayList([]const u8) = .empty;
     var default_docs: []const []const u8 = &document_sets;
@@ -2253,8 +2309,6 @@ pub fn main(init: std.process.Init) !void {
             root_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--fonts")) {
             fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
-        } else if (std.mem.eql(u8, arg, "--lang-fonts")) {
-            lang_fonts_path = try arena.dupe(u8, iterator.next() orelse usage());
         } else if (std.mem.eql(u8, arg, "--doc-set")) {
             try doc_sets.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--no-default-docs")) {
@@ -2281,15 +2335,7 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
     try checkOverlays(io, &report, root);
-    // --lang-fonts: the fonts language-mods generated (`<dir>/<code>/fonts/<size>/1.tfd`), so the
-    // fit rule can measure outside that build too.
-    var lang_fonts: ?std.Io.Dir = null;
-    if (lang_fonts_path) |path| lang_fonts = std.Io.Dir.cwd().openDir(io, path, .{}) catch |err| {
-        std.debug.print("l10n-check: fit-font: all: {s}: cannot open ({s})\n", .{ path, @errorName(err) });
-        std.process.exit(1);
-    };
-    defer if (lang_fonts) |*dir| dir.close(io);
-    try checkFit(io, &report, root, if (lang_fonts) |dir| .{ .dir = dir } else null);
+    try checkFit(io, &report, root, fonts_path orelse try std.fs.path.join(arena, &.{ root_path, "vendor/fonts" }), null);
     var fonts = if (fonts_path) |path| std.Io.Dir.cwd().openDir(io, path, .{}) else root.openDir(io, "vendor/fonts", .{});
     if (fonts) |*dir| {
         defer dir.close(io);
@@ -2396,9 +2442,7 @@ test "fit_map_covers_database: every ELK key has a line and every line finds its
     defer root.close(io);
     var problems: std.ArrayList(ScopeProblem) = .empty;
     const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
-    var font_problem: FontProblem = .{ .path = "", .reason = "" };
-    const fonts = try loadFitFonts(io, arena, root, &font_problem);
-    const resolved = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
+    const resolved = try resolveFitLines(io, arena, root, lines, 23, 46, &problems);
     for (problems.items) |problem| std.debug.print("{s}:{d}: {s}\n", .{ fit_map_path, problem.line, problem.detail });
     try testing.expectEqual(@as(usize, 0), problems.items.len);
     for (resolved) |one| try testing.expect(one.ok);
@@ -2414,7 +2458,7 @@ test "fit_map_covers_database: every ELK key has a line and every line finds its
     try testing.expectEqual(@as(usize, 0), unmapped);
 }
 
-test "the shipped English originals measured in their rooms" {
+test "fit: the shipped English originals measured in their rooms" {
     // Information for the maintainer: how many 2003 originals already overflow a room (fit-base),
     // so a translation is judged against a fair box. It fails on nothing but a broken map.
     const testing = std.testing;
@@ -2426,10 +2470,9 @@ test "the shipped English originals measured in their rooms" {
     defer root.close(io);
     var problems: std.ArrayList(ScopeProblem) = .empty;
     const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
-    var font_problem: FontProblem = .{ .path = "", .reason = "" };
-    const fonts = try loadFitFonts(io, arena, root, &font_problem);
-    const resolved = try resolveFitLines(io, arena, root, lines, &fonts, &problems);
-    var scratch: std.ArrayList(wrap.Line) = .empty;
+    var fit = try Fit.init(testing.allocator, io, "vendor/fonts");
+    defer fit.deinit();
+    const resolved = try resolveFitLines(io, arena, root, lines, try fit.lineSpace(Fit.english, .medium), try fit.lineSpace(Fit.english, .large), &problems);
     var tall: usize = 0;
     var wide: usize = 0;
     var measured: usize = 0;
@@ -2439,15 +2482,22 @@ test "the shipped English originals measured in their rooms" {
         for (try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key))) |at| {
             const room = resolved[at];
             if (room.kind == .scroll) continue;
-            const font = fonts.get(room.font);
-            const mine = try measureText(arena, &scratch, font, units, room.width);
+            const shaper = try fit.shaper(Fit.english, room.font);
+            const mine = try measureText(&fit, shaper, units, room.width);
             measured += 1;
-            if (fitNeeds(font, mine.lines) > room.height) tall += 1;
-            if (mine.word.width > room.width) wide += 1;
+            if (fitNeeds(shaper, mine.lines) > room.height) tall += 1;
+            if (mine.word > room.width) wide += 1;
         }
     }
     std.debug.print("fit-base: {d} measured, {d} too tall, {d} too wide\n", .{ measured, tall, wide });
     try testing.expect(measured > 1000);
+}
+
+test "fit: the tooltip width follows the ratio of the large line space to the medium one" {
+    try std.testing.expectEqual(@as(f32, 600), tooltipWidth(23, 46));
+    try std.testing.expectEqual(@as(f32, 300), tooltipWidth(23, 23));
+    try std.testing.expectEqual(@as(f32, 300), tooltipWidth(0, 40));
+    try std.testing.expectEqual(@as(f32, 391), tooltipWidth(23, 30));
 }
 
 test "textProblem tells the byte order mark, length, surrogates and empty text apart" {
