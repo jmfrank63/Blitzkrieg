@@ -147,7 +147,7 @@ fn verify(sums: []const u8, name: []const u8, bytes: []const u8) bool {
 
 /// The fonts directory the tests read; build.zig passes an absolute path.
 pub fn testFontsDir() []const u8 {
-    return std.mem.span(std.c.getenv("BK_TEXT_FONTS_DIR") orelse @panic("BK_TEXT_FONTS_DIR is not set"));
+    return std.mem.span(c.getenv("BK_TEXT_FONTS_DIR") orelse @panic("BK_TEXT_FONTS_DIR is not set"));
 }
 
 test "chain order per language" {

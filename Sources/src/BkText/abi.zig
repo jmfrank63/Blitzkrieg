@@ -149,7 +149,7 @@ fn reportMissing(context: ?*anyopaque, cp: u21, index: u32, _: []const u8) void 
     const line: [:0]const u8 = buf[0..text_line.len :0];
     if (ctx.callback) |callback| {
         callback(ctx.callback_user, cp, index, line.ptr);
-    } else if (std.c.getenv("BK_GLYPH_TRACE") != null) {
+    } else if (text.c.getenv("BK_GLYPH_TRACE") != null) {
         std.debug.print("{s}\n", .{line});
     }
 }

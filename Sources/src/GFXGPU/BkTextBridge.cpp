@@ -6,7 +6,6 @@
 
 #include <SDL3/SDL.h>
 #include <cctype>
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -15,7 +14,9 @@
 namespace NBkTextBridge
 {
 	static BkTextContext *g_pContext = 0;
-	static std::string g_szLanguage;
+	// A plain buffer: a global std::string registers its destructor through atexit, and on MSVC that pulls the
+	// static C runtime in next to the debug DLL one (duplicate _cexit, _wctype) in the Zig-linked executables.
+	static char g_szLanguage[64] = "";
 	static unsigned g_nSerial = 0;
 	static TextureGpu *g_pAtlas = 0;
 	static uint32_t g_nAtlasW = 0, g_nAtlasH = 0, g_nLoggedGeneration = 0xffffffffu, g_nFullGeneration = 0xffffffffu;
@@ -35,7 +36,7 @@ namespace NBkTextBridge
 	}
 
 	BkTextContext *Context() { return g_pContext; }
-	const std::string &Language() { return g_szLanguage; }
+	std::string Language() { return std::string( g_szLanguage ); }
 
 	std::string LanguageCode( const char *pszGameLanguage )
 	{
@@ -44,7 +45,10 @@ namespace NBkTextBridge
 		for ( size_t i = 0; i < sz.size(); ++i ) sz[i] = char( std::tolower( (unsigned char)sz[i] ) );
 		if ( sz.compare( 0, 5, "lang-" ) == 0 ) sz.erase( 0, 5 );
 		// The primary subtag only: de-at -> de, zh-hans -> zh.
-		const size_t nDash = sz.find_first_of( "-_" );
+		// A loop, not find_first_of: on MSVC that is a separately compiled vectorized routine, whose static
+		// runtime pieces clash with the debug DLL runtime in the Zig-linked test executables (duplicate _cexit).
+		size_t nDash = std::string::npos;
+		for ( size_t i = 0; i < sz.size() && nDash == std::string::npos; ++i ) if ( sz[i] == '-' || sz[i] == '_' ) nDash = i;
 		if ( nDash != std::string::npos ) sz.erase( nDash );
 		if ( sz.empty() || sz == "default" ) return "en";
 		return sz;
@@ -89,7 +93,7 @@ namespace NBkTextBridge
 				std::fprintf( stderr, "bk_text: engine bitmap (fallback: context create failed with %d, fonts %s, lang %s)\n", int( eResult ), szDir.c_str(), szCode.c_str() );
 			return false;
 		}
-		g_szLanguage = szCode;
+		std::snprintf( g_szLanguage, sizeof( g_szLanguage ), "%s", szCode.c_str() );
 		++g_nSerial;
 		if ( LogEnabled() )
 			std::fprintf( stderr, "bk_text: engine ttf (%s), lang %s, fonts %s, %d faces\n", std::getenv( "BK_TEXT_ENGINE" ) != 0 ? "BK_TEXT_ENGINE=ttf" : "default", szCode.c_str(), szDir.c_str(), CountFaces( szDir ) );
@@ -231,7 +235,8 @@ namespace NTextPerf
         int g_depth;
         long long Now()
         {
-            return std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+            // SDL's clock: steady_clock pulls the STL's separately compiled time routines in on MSVC.
+            return static_cast<long long>( SDL_GetTicksNS() );
         }
     }
     bool Enabled()
