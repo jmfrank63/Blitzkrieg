@@ -4032,6 +4032,13 @@ pub fn build(b: *std.Build) void {
         addMsvcLibraryPaths(b, l10n_game_reads_module, toolchain);
     }
     const l10n_game_reads_tests = b.addTest(.{ .root_module = l10n_game_reads_module });
+    // The briefing table of that file against Data/Scenarios (no Game needed): the filter keeps the
+    // Game-driven test out of this step.
+    const l10n_briefing_table_tests = b.addTest(.{ .root_module = l10n_game_reads_module, .filters = &.{"briefing table"} });
+    const l10n_briefing_table_run = b.addRunArtifact(l10n_briefing_table_tests);
+    l10n_briefing_table_run.setCwd(b.path("."));
+    const l10n_briefing_table_step = b.step("test-l10n-game-reads-it-table", "Check the briefing table of l10n-game-reads-it (each campaign's first chapter and its first mission) against Data/Scenarios (M004 S07)");
+    if (test_mode == .run) l10n_briefing_table_step.dependOn(&l10n_briefing_table_run.step);
     // One shard per language (BK_L10N_LANGS), each well under the 10 minute foreground
     // limit: the menu, the briefing, a live switch and a restart. The aggregate runs its
     // own copy of every shard in a chain, so two Games never start at once; a shard run

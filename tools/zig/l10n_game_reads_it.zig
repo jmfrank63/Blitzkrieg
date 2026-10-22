@@ -23,11 +23,12 @@
 //!   nearer the language's own face;
 //! - ja: the lines of a wrapped text are the lines bk_text's wrap predicts and break no kinsoku rule.
 //!
-//! The first campaign mission's briefing (Allies, Operation Jupiter: Battle for Norway, a historical
-//! mission, so its text keys are fixed and no random map enters the frame) is captured the same way,
-//! against its own blank background, for the languages that have `briefing` set: the title, the three
-//! panel headers and the first objective are compared with hb-view like the menu's labels, and the
-//! description body must hold ink. BK_L10N_LANGS (a comma list of codes, default all) picks the
+//! The first mission of each campaign's first chapter (`briefings`: Allies/Norway 1, German/Poland 1,
+//! USSR/Finland 1, historical missions, so their text keys are fixed and no random map enters the frame)
+//! is captured the same way, each against its own blank background: the title, the three panel headers
+//! and the first visible objective are compared with hb-view like the menu's labels where the language's
+//! scope covers the mission's keys (D109; otherwise ink only), and the description body must hold ink.
+//! The report names the campaign, the mission and which of the two applies. BK_L10N_LANGS (a comma list of codes, default all) picks the
 //! languages, so a run can be sharded. A language whose mod is not built (lang-ja while M003 is work in
 //! progress) reports `not run: lang-ja absent (M003 WIP)` and the list of native names tolerates exactly
 //! that absence.
@@ -46,7 +47,7 @@
 //! profile, without any mod argument, must show the cold start's frame again (header included).
 //!
 //! Frames, references and `report.txt` are kept in `zig-out/local-test/l10n-game-reads-it/<code>/` (a
-//! shard is a code, so each has a folder of its own): `menu.tga`, `briefing.tga`, `switch.tga`,
+//! shard is a code, so each has a folder of its own): `menu.tga`, `briefing.tga` (and `briefing-german.tga`, `briefing-ussr.tga`), `switch.tga`,
 //! `restart.tga`, and the two routes' `options.png` and `encyclopedia.png`; the report names the hb-view
 //! correlation of every line. The user's data is never touched: XDG_DATA_HOME and BK_USER_ROOT are the
 //! scratch folder and the Game runs from it. BK_L10N_GAME names the installed Game executable;
@@ -159,34 +160,76 @@ const labels = [_]Label{
     .{ .key = "imheader-gbutton-exitgame", .rect = .{ .x1 = 650, .y1 = 527, .x2 = 970, .y2 = 577 } },
 };
 
-/// The briefing of the first Allied mission as the Game draws it at 1024x768
-/// (boxes measured on a captured English frame): the title in the top bar, the
-/// headers of the three panels, and the first objective, whose "+" icon lies
-/// left of x 72. The title is gold; the panel texts are grey on metal of
-/// different lightness, so each label takes the ink mode that its panel's
-/// text shows in (the objectives header and the objective are dark on light
-/// metal, the other two panel headers light on dark). The description panel's
-/// body wraps, so it is only checked for ink (`briefing_body`).
-const mission_dir = "scenarios/scenariomissions/allies/norway";
-const briefing_labels = [_]Label{
-    .{ .key = "header", .dir = mission_dir, .rect = .{ .x1 = 50, .y1 = 40, .x2 = 500, .y2 = 95 } },
-    .{ .key = "imheader-mission-objectives", .rect = .{ .x1 = 55, .y1 = 152, .x2 = 440, .y2 = 178 }, .ink = .dark, .small = true },
-    .{ .key = "imheader-mission-map", .rect = .{ .x1 = 555, .y1 = 152, .x2 = 980, .y2 = 178 }, .ink = .bright, .small = true },
-    .{ .key = "imheader-mission-desc", .rect = .{ .x1 = 555, .y1 = 433, .x2 = 940, .y2 = 458 }, .ink = .bright, .small = true },
-    .{ .key = "0h", .dir = mission_dir, .rect = .{ .x1 = 72, .y1 = 200, .x2 = 440, .y2 = 228 }, .ink = .dark },
+/// The briefing of a campaign's first mission as the Game draws it at 1024x768 (boxes measured on a
+/// captured English frame of the Allied one; the three campaigns share the ui\common\mission screen,
+/// so only the text keys' folder differs): the title in the top bar, the headers of the three panels,
+/// and the first objective, whose "+" icon lies left of x 72. The title is gold; the panel texts are
+/// grey on metal of different lightness, so each label takes the ink mode that its panel's text shows
+/// in (the objectives header and the objective are dark on light metal, the other two panel headers
+/// light on dark). The description panel's body wraps, so it is only checked for ink (`body`).
+const Briefing = struct {
+    /// The campaign's name in the report, and the suffix of its frames (`briefing-<tag>`).
+    tag: []const u8,
+    /// The file stem of its frames and logs: the Allied one keeps `briefing`, which the report readers know.
+    file: []const u8,
+    /// UIState.cpp's campaign index (IMC_GERMAN_CAMPAIGN 0, USSR 1, Allies 2).
+    index: u8,
+    campaign: []const u8,
+    chapter: []const u8,
+    mission: []const u8,
+    /// Where the mission's texts live below game_data_base.
+    dir: []const u8,
+    /// The first objective the briefing lists: the key of its text (a hidden objective, like the USSR
+    /// mission's `0h`, is not drawn).
+    objective: []const u8,
+    /// The schedule's last action as the Game echoes it: it must be in the log, or the schedule
+    /// stopped short of the mission.
+    action: []const u8,
+    labels: [5]Label,
+    body: Label,
+
+    /// BK_AUTO_UI: the campaign, its first chapter, then the chapter's first mission. The chapter
+    /// screen resets the finish status, so it is cleared before the mission is named; the briefing
+    /// is up by frame 360.
+    fn schedule(self: Briefing, allocator: std.mem.Allocator) ![]u8 {
+        return std.fmt.allocPrint(allocator, "60:campaign={d}={s},120:chapter={s},240:var=Mission.Last.FinishStatus=-1,300:mission={s}", .{ self.index, self.campaign, self.chapter, self.mission });
+    }
 };
-/// The description panel's text lines: "Mission: ...", "Type: ..." and the
-/// start of the description.
-const briefing_body = Label{ .key = "description", .dir = mission_dir, .rect = .{ .x1 = 555, .y1 = 485, .x2 = 935, .y2 = 625 }, .ink = .dark };
+
+fn briefingOf(comptime tag: []const u8, comptime file: []const u8, comptime index: u8, comptime campaign: []const u8, comptime chapter: []const u8, comptime mission: []const u8, comptime dir: []const u8, comptime objective: []const u8) Briefing {
+    return .{
+        .tag = tag,
+        .file = file,
+        .index = index,
+        .campaign = campaign,
+        .chapter = chapter,
+        .mission = mission,
+        .dir = dir,
+        .objective = objective,
+        .action = "BK_AUTO_UI: frame 300 action mission=" ++ mission,
+        .labels = .{
+            .{ .key = "header", .dir = dir, .rect = .{ .x1 = 50, .y1 = 40, .x2 = 500, .y2 = 95 } },
+            .{ .key = "imheader-mission-objectives", .rect = .{ .x1 = 55, .y1 = 152, .x2 = 440, .y2 = 178 }, .ink = .dark, .small = true },
+            .{ .key = "imheader-mission-map", .rect = .{ .x1 = 555, .y1 = 152, .x2 = 980, .y2 = 178 }, .ink = .bright, .small = true },
+            .{ .key = "imheader-mission-desc", .rect = .{ .x1 = 555, .y1 = 433, .x2 = 940, .y2 = 458 }, .ink = .bright, .small = true },
+            .{ .key = objective, .dir = dir, .rect = .{ .x1 = 72, .y1 = 200, .x2 = 440, .y2 = 228 }, .ink = .dark },
+        },
+        // The description panel's text lines: "Mission: ...", "Type: ..." and the start of the description.
+        .body = .{ .key = "description", .dir = dir, .rect = .{ .x1 = 555, .y1 = 485, .x2 = 935, .y2 = 625 }, .ink = .dark },
+    };
+}
+
+/// The first mission of each campaign's first chapter (a historical mission, so its text keys are
+/// fixed and no random map enters the frame). `campaign_table_test` holds the table to Data/.
+const briefings = [_]Briefing{
+    briefingOf("allies", "briefing", 2, "scenarios\\campaigns\\allies\\allies", "scenarios\\chapters\\allies\\norway\\1", "scenarios\\scenariomissions\\allies\\norway\\1", "scenarios/scenariomissions/allies/norway", "0h"),
+    briefingOf("german", "briefing-german", 0, "scenarios\\campaigns\\german\\german", "scenarios\\chapters\\german\\poland\\1", "scenarios\\scenariomissions\\german\\poland\\1", "scenarios/scenariomissions/german/poland", "0h"),
+    briefingOf("ussr", "briefing-ussr", 1, "scenarios\\campaigns\\ussr\\ussr", "scenarios\\chapters\\ussr\\finland\\1", "scenarios\\scenariomissions\\ussr\\finland\\1", "scenarios/scenariomissions/ussr/finland", "1h"),
+};
 /// The text keys the briefing opens besides the labels' own (the "Mission:",
 /// "Type:" and "Historical" lines of the description panel and its caption),
 /// as BK_MOD_TRACE shows them.
 const briefing_extra_keys = [_][]const u8{ "missiontext", "missiontypetext", "scenariomission", "missiondescriptiontext" };
-/// BK_AUTO_UI: the Allies campaign (index 2), its first chapter, then the
-/// chapter's first mission. The chapter screen resets the finish status, so it
-/// is cleared before the mission is named; the briefing is up by frame 360.
-const briefing_schedule = "60:campaign=2=scenarios\\campaigns\\allies\\allies,120:chapter=scenarios\\chapters\\allies\\norway\\1," ++
-    "240:var=Mission.Last.FinishStatus=-1,300:mission=scenarios\\scenariomissions\\allies\\norway\\1";
 const briefing_delay: u32 = 420;
 
 /// A screen the Game is driven to under a BK_AUTO_UI schedule and captured in: its labels, and
@@ -353,8 +396,11 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
     const blank_run = try Run.init(io, allocator, game, game_root, root, "blank", blank_mod, true);
     const blank = try blank_run.capture(allocator, null, null);
     try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", "menu.tga" }), blank);
-    const blank_briefing = try blank_run.briefing(allocator, false);
-    try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", "briefing.tga" }), blank_briefing);
+    var blank_briefings: [briefings.len][]u8 = undefined;
+    for (&briefings, 0..) |*one, at| {
+        blank_briefings[at] = try blank_run.briefing(allocator, one, false);
+        try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", try std.fmt.allocPrint(allocator, "{s}.tga", .{one.file}) }), blank_briefings[at]);
+    }
 
     var blank_routes: [routes.len][]u8 = undefined;
     for (routes, 0..) |route, at| {
@@ -390,13 +436,20 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
         const run = try Run.init(io, allocator, game, game_root, root, language.code, language.mod, false);
         const menu = try run.capture(allocator, null, null);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "menu.tga" }), menu);
-        const shot = try run.briefing(allocator, language.mod != null);
-        try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "briefing.tga" }), shot);
 
         try report.line("== {s} ({s}) main menu", .{ language.code, language.mod orelse "base game" });
         try checkLanguage(io, allocator, language, run.folder, menu, blank, &report);
-        try report.line("-- {s} briefing", .{language.code});
-        try checkBriefing(io, allocator, language, run.folder, shot, blank_briefing, &report);
+
+        // The first mission's briefing of each campaign. Compared with hb-view where the language's
+        // scope holds the mission's keys (the base game and a whole-database language always do),
+        // otherwise measured for ink only: the Game shows English there (D109).
+        for (&briefings, 0..) |*one, at| {
+            const covered = language.mod == null or scopeCovers(scopes, language.code, briefingRoute(one));
+            const shot = try run.briefing(allocator, one, language.mod != null and covered);
+            try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, try std.fmt.allocPrint(allocator, "{s}.tga", .{one.file}) }), shot);
+            try report.line("-- {s} {s} ({s} campaign, mission {s}; {s})", .{ language.code, one.file, one.tag, one.mission, if (covered) "scope covers its keys: compared with hb-view" else "scope does not cover its keys yet: ink only, no glyph trace" });
+            try checkBriefing(io, allocator, language, run.folder, shot, blank_briefings[at], one, covered, &report);
+        }
 
         // The options screen with its tooltip and the unit's encyclopedia page.
         for (routes, 0..) |route, at| {
@@ -440,6 +493,43 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
         if (report.failures != 0) std.debug.print("l10n-game-reads-it: {s}: {d} measures failed; the report is {s}/{s}/report.txt\n", .{ language.code, report.failures, scratch, language.code });
     }
     if (failures != 0) return error.MeasureFailed;
+}
+
+/// The text between `<tag>` and the next `<` after its first occurrence in an XML document.
+fn firstElement(xml: []const u8, comptime tag: []const u8) ?[]const u8 {
+    const open = "<" ++ tag ++ ">";
+    const start = (std.mem.indexOf(u8, xml, open) orelse return null) + open.len;
+    return xml[start..][0 .. std.mem.indexOfScalar(u8, xml[start..], '<') orelse return null];
+}
+
+test "the briefing table names each campaign's first chapter and that chapter's first mission" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const cwd = std.Io.Dir.cwd();
+    for (briefings) |one| {
+        // Data/Scenarios/<Campaigns|Chapters>/... is mixed case on disk; the table is lower case.
+        const campaign_path = try std.fmt.allocPrint(allocator, "Data/{s}.xml", .{one.campaign});
+        const chapter_path = try std.fmt.allocPrint(allocator, "Data/{s}.xml", .{one.chapter});
+        std.mem.replaceScalar(u8, campaign_path, '\\', '/');
+        std.mem.replaceScalar(u8, chapter_path, '\\', '/');
+        for ([_]struct { path: []const u8, element: []const u8, expected: []const u8 }{
+            .{ .path = campaign_path, .element = "Chapter", .expected = one.chapter },
+            .{ .path = chapter_path, .element = "Mission", .expected = one.mission },
+        }) |case| {
+            const found = (try check.findIgnoreCase(io, allocator, cwd, case.path)) orelse {
+                std.debug.print("{s}: {s} is not below Data/\n", .{ one.tag, case.path });
+                return error.FileNotFound;
+            };
+            const xml = try cwd.readFileAlloc(io, found, allocator, .limited(4 << 20));
+            const actual = (if (std.mem.eql(u8, case.element, "Chapter")) firstElement(xml, "Chapter") else firstElement(xml, "Mission")) orelse return error.ElementMissing;
+            if (!std.ascii.eqlIgnoreCase(actual, case.expected)) {
+                std.debug.print("{s}: the first {s} of {s} is {s}, the table says {s}\n", .{ one.tag, case.element, found, actual, case.expected });
+                return error.TableDrifted;
+            }
+        }
+    }
 }
 
 /// The names Options > Language shows besides Default: each mod's MODName.
@@ -511,7 +601,14 @@ fn hasCodepoint(text: []const u8, wanted: u21) bool {
 fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
     if (!std.mem.eql(u8, code, "en")) return te.overlayText(io, allocator, code, label);
     const key = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ label.dir, label.key });
-    const bytes = (try check.readBase(io, allocator, std.Io.Dir.cwd(), key)) orelse return error.FileNotFound;
+    // The English the Game draws is Data/AmericanELK's (the USSR mission's first objective reads "two
+    // concrete pillboxes" there and "all" in Data/ELK), so that is the reference where it has the key.
+    const cwd = std.Io.Dir.cwd();
+    const american = try std.fmt.allocPrint(allocator, "Data/AmericanELK/game_data_base/{s}.txt", .{key});
+    const bytes = if (try check.findIgnoreCase(io, allocator, cwd, american)) |found|
+        try cwd.readFileAlloc(io, found, allocator, .limited(1 << 20))
+    else
+        (try check.readBase(io, allocator, cwd, key)) orelse return error.FileNotFound;
     if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return error.NotUtf16;
     const units = try allocator.alloc(u16, (bytes.len - 2) / 2);
     for (units, 0..) |*unit, at| unit.* = std.mem.readInt(u16, bytes[2 + at * 2 ..][0..2], .little);
@@ -578,14 +675,20 @@ fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, f
     if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &labels, m.texts, m.inks, true, report);
 }
 
-/// The briefing's labels as hb-view draws them, and ink in the description's
-/// body.
-fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, report: *Report) !void {
-    const m = try checkLabels(io, allocator, language, folder, frame, blank, &briefing_labels, report);
-    if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &briefing_labels, m.texts, m.inks, false, report);
-    const body = try inkImage(allocator, frame, blank, briefing_body);
+/// The briefing as a route, for the scope and ink checks that routes share.
+fn briefingRoute(one: *const Briefing) Route {
+    return .{ .tag = one.file, .schedule = "", .delay = briefing_delay, .action = one.action, .screen = "", .labels = &one.labels, .body = one.body };
+}
+
+/// The briefing's labels as hb-view draws them, and ink in the description's body; where the scope
+/// does not cover the mission's keys the labels and the body are only measured for ink.
+fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, one: *const Briefing, covered: bool, report: *Report) !void {
+    if (!covered) return checkRoute(io, allocator, language, folder, frame, blank, false, briefingRoute(one), report);
+    const m = try checkLabels(io, allocator, language, folder, frame, blank, &one.labels, report);
+    if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &one.labels, m.texts, m.inks, false, report);
+    const body = try inkImage(allocator, frame, blank, one.body);
     const box = measure.inkBox(body, ink_threshold);
-    try report.check(box != null and box.?.width() >= min_body_width, "{s} briefing description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, if (box) |b| b.width() else 0, min_body_width });
+    try report.check(box != null and box.?.width() >= min_body_width, "{s} {s} description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, one.file, if (box) |b| b.width() else 0, min_body_width });
     if (language.kinsoku) {
         // CUIConsts::CreateDescription's text of a scenario mission: the mission's name, its type,
         // an empty line, the description's caption and the description.
@@ -593,17 +696,17 @@ fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, f
         const strings = "textes/strings";
         const pieces = [_]struct { dir: []const u8, key: []const u8, join: []const u8 }{
             .{ .dir = strings, .key = "missiontext", .join = " " },
-            .{ .dir = mission_dir, .key = "header", .join = "\n" },
+            .{ .dir = one.dir, .key = "header", .join = "\n" },
             .{ .dir = strings, .key = "missiontypetext", .join = " " },
             .{ .dir = strings, .key = "scenariomission", .join = "\n\n" },
             .{ .dir = strings, .key = "missiondescriptiontext", .join = "\n" },
-            .{ .dir = mission_dir, .key = "description", .join = "" },
+            .{ .dir = one.dir, .key = "description", .join = "" },
         };
         for (pieces) |piece| {
-            try text.appendSlice(allocator, try overlayText(io, allocator, language.code, .{ .key = piece.key, .dir = piece.dir, .rect = briefing_body.rect }));
+            try text.appendSlice(allocator, try overlayText(io, allocator, language.code, .{ .key = piece.key, .dir = piece.dir, .rect = one.body.rect }));
             try text.appendSlice(allocator, piece.join);
         }
-        try checkKinsoku(io, allocator, language, folder, frame, blank, "briefing", briefing_box, text.items, report);
+        try checkKinsoku(io, allocator, language, folder, frame, blank, one.file, briefing_box, text.items, report);
     }
 }
 
@@ -1012,29 +1115,32 @@ const Run = struct {
         return self.frame(allocator, "capture");
     }
 
-    /// The first mission's briefing capture. The log must show the schedule's
-    /// mission action reaching the screen, and, for a language that is not the
-    /// blank one (`keys` set), the Game opening every text key of the briefing
-    /// from the mod.
-    fn briefing(self: Run, allocator: std.mem.Allocator, keys: bool) ![]u8 {
-        const log = try self.scene(allocator, briefing_schedule, briefing_delay, "briefing");
-        try expectLine(log, self.folder, "BK_AUTO_UI: frame 300 action mission=scenarios\\scenariomissions\\allies\\norway\\1");
-        try expectLine(log, self.folder, "BK_UI_TRACE: reposition \"ui\\common\\mission\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
+    /// A campaign's first mission briefing capture. The log must show the schedule's
+    /// mission action reaching the screen, and, for a language whose scope covers the
+    /// mission (`keys` set), the Game opening every text key of the briefing from the mod.
+    /// A mission the Game cannot open fails with BriefingNotOpened, naming the campaign.
+    fn briefing(self: Run, allocator: std.mem.Allocator, one: *const Briefing, keys: bool) ![]u8 {
+        const log = try self.scene(allocator, try one.schedule(allocator), briefing_delay, one.file);
         if (std.mem.indexOf(u8, log, "has no random mission entry") != null) {
-            std.debug.print("the Game could not open the briefing's mission; its logs are in {s}\n", .{self.folder});
+            std.debug.print("the Game could not open the {s} campaign's briefing (mission {s}); its logs are in {s}\n", .{ one.tag, one.mission, self.folder });
             return error.BriefingNotOpened;
         }
+        for ([_][]const u8{ one.action, "BK_UI_TRACE: reposition \"ui\\common\\mission\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000" }) |line| expectLine(log, self.folder, line) catch |err| {
+            std.debug.print("the Game did not reach the {s} campaign's briefing (mission {s}); its logs are in {s}\n", .{ one.tag, one.mission, self.folder });
+            self.reached(log);
+            return err;
+        };
         if (keys) {
-            for (briefing_labels ++ [_]Label{briefing_body}) |label| {
+            for ([_][]const Label{ &one.labels, (&one.body)[0..1] }) |set| for (set) |label| {
                 const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"{s}\" from LANGUAGE", .{try label.tracedPath(allocator)});
                 try expectLine(log, self.folder, line);
-            }
+            };
             for (briefing_extra_keys) |key| {
                 const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"textes\\strings\\{s}.txt\" from LANGUAGE", .{key});
                 try expectLine(log, self.folder, line);
             }
         }
-        return self.frame(allocator, "briefing");
+        return self.frame(allocator, one.file);
     }
 
     /// A route's capture. The log must show the schedule's last action and the screen's
