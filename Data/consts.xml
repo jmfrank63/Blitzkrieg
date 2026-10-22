@@ -443,9 +443,10 @@ fTimeToGo - = абсолютная величина((направление са
 				     ("Current"). This is the colour those hints always had, which
 				     until now lived only in CScene::SetToolTip. -->
 				<Current A="255" R="205" G="205" B="0"/>
-				<!-- The plate the hint is written on, and its frame. A frame of zero
-				     follows the text, which is what the original game drew. -->
-				<Ground A="255" R="42" G="24" B="23"/>
+				<!-- The plate the hint is written on, three quarters opaque so the screen
+				     behind shows through, and its frame. A frame of zero follows the text,
+				     which is what the original game drew. -->
+				<Ground A="192" R="42" G="24" B="23"/>
 				<Frame A="0" R="0" G="0" B="0"/>
 			</ToolTip>
 			<ObjMap>
