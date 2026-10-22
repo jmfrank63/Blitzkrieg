@@ -301,6 +301,7 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         return error.GameFailed;
     }
     try measure.expectNoMissingGlyph(log, log_path);
+    try measure.expectNoLeak(log, log_path);
     return log;
 }
 
@@ -358,6 +359,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         return error.GameFailed;
     }
     try measure.expectNoMissingGlyph(log, log_path);
+    try measure.expectNoLeak(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
     if (!opensFromMod(log, label_key ++ ".txt")) {

@@ -2417,10 +2417,10 @@ pub fn build(b: *std.Build) void {
     // a changed bk-font runs the test again instead of reusing a cached pass.
     bk_tools_tests_run.addFileInput(bk_font.tool.getEmittedBin());
     setUserRootsForTest(bk_tools_tests_run, "bk-tools-user");
-    // That test judges stdout, stderr and exit codes. A debug bk-font carries
-    // BkMemory's exit-time leak check, which in its default mode turns the
-    // engine's process-lifetime statics into exit 3 and in count mode adds a
-    // stderr line; test-bk-font runs the tool with the count, this test without.
+    // That test judges stdout, stderr and exit codes byte for byte, and any report
+    // mode adds BkMemory's summary line to stderr, so it runs without one. bk-font
+    // leaks nothing (count 0 on a help run and on a conversion, 2026-10-22); the
+    // Game tiers that run it, test-bk-font among them, fail on a leak count above 0.
     bk_tools_tests_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);

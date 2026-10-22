@@ -30,6 +30,7 @@
 //! staged bk-font; `zig build bk-font-game-reads-it` sets both.
 const std = @import("std");
 const timed_run = @import("timed_run.zig");
+const measure = @import("l10n_measure.zig");
 const testing = std.testing;
 
 /// The value of an environment variable the build step sets, or null.
@@ -413,6 +414,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
+    try measure.expectNoLeak(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
     for ([_][]const u8{ "fonts/medium/1.tfd", "fonts/medium/1_h.dds" }) |file| {

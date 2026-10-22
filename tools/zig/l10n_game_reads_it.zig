@@ -1097,6 +1097,7 @@ const Run = struct {
             return error.GameFailed;
         }
         try measure.expectNoMissingGlyph(log, log_path);
+        try measure.expectNoLeak(log, log_path);
         // Any BK_GLYPH_TRACE line, whatever its wording, is a character the font could not draw.
         if (std.mem.indexOf(u8, log, "BK_GLYPH_TRACE") != null) {
             std.debug.print("a BK_GLYPH_TRACE line is in the Game's output {s}\n", .{log_path});

@@ -189,6 +189,33 @@ test "a BK_GLYPH_TRACE line fails the run, other lines do not" {
     try std.testing.expectError(error.MissingGlyph, expectNoMissingGlyph("a\r\nBK_GLYPH_TRACE: no glyph U+00E8 in font \"fonts\\medium\"\r\n", "log"));
 }
 
+/// BkMemory's exit report under BK_MEM_REPORT=count: "bk_mem: N leaked block(s)" counts the blocks of
+/// our own code still live at exit (foreign libraries' blocks are reported on their own lines and never
+/// counted). The Game tiers run with count, which leaves the exit code alone, so the tier reads the line:
+/// a Game that leaks fails it (2026-10-22: the chapter's Lua state, 397 blocks per campaign run, went
+/// unnoticed while every tier stayed green). A log without the line (a backend without leak records)
+/// passes.
+pub fn expectNoLeak(log: []const u8, log_path: []const u8) !void {
+    const marker = "bk_mem: ";
+    const suffix = " leaked block(s)";
+    var lines = std.mem.tokenizeAny(u8, log, "\r\n");
+    while (lines.next()) |line| {
+        const at = std.mem.indexOf(u8, line, marker) orelse continue;
+        const rest = line[at + marker.len ..];
+        if (!std.mem.endsWith(u8, rest, suffix)) continue;
+        const leaked = std.fmt.parseInt(usize, rest[0 .. rest.len - suffix.len], 10) catch continue;
+        if (leaked == 0) continue;
+        std.debug.print("the Game leaked {d} block(s) of ours at exit; its output is in {s}\n", .{ leaked, log_path });
+        return error.Leaked;
+    }
+}
+
+test "a leak count above zero fails the run, zero and foreign blocks do not" {
+    try expectNoLeak("warning(BkMemory): bk_mem: 0 leaked block(s)\nwarning(BkMemory): bk_mem: 2669 foreign block(s) from libLLVM.so.21.1\n", "log");
+    try expectNoLeak("no report at all\n", "log");
+    try std.testing.expectError(error.Leaked, expectNoLeak("warning(BkMemory): bk_mem: 397 leaked block(s)\r\nwarning(BkMemory): bk_mem: of those, 394 from the C ABI\r\n", "log"));
+}
+
 /// Whether the image holds a `w` by `h` window in which at least `min_fill`
 /// (0..1) of the pixels are above `threshold`: the solid box a bitmap font
 /// draws for a code point it has no glyph for. Letter strokes at the sizes of

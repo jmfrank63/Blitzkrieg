@@ -213,6 +213,7 @@ const Run = struct {
             std.debug.print("Game ({s} {s}) ended {any}; its output is in {s}\n", .{ self.folder, tag, result.term, log_path });
             return error.GameFailed;
         }
+        try measure.expectNoLeak(log, log_path);
         // A bridge that fell back to the bitmap fonts logs `engine bitmap` and would pass for ttf.
         if (self.ttf) try expectLine(log, self.folder, "bk_text: engine ttf");
         return log;
