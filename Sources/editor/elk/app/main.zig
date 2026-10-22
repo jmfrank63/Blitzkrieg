@@ -352,8 +352,8 @@ const spell_reopen_schedule =
 /// the `.csv` change nothing; the legacy `desc.xls` reads all its rows,
 /// every one without a translation.
 const sheet_key = "buildings/africa/summer/a_cisterns/01/name";
-/// The tracked texts with no translation (3,040 less 1,540).
-const untranslated = "1500";
+/// The tracked texts with no translation (3,040 less 1,555).
+const untranslated = "1485";
 const sheet_schedule =
     "2:expect=open,2:do=sheet_export,2:do=answer:texts,4:expect=notice_has:" ++ export_texts ++ ",4:expect=notice_has:texts.xlsx," ++
     "5:do=sheet_export,5:do=answer:texts.csv,7:expect=notice_has:texts.csv," ++
@@ -390,7 +390,7 @@ const hindi_shot_name = "hindi";
 /// Find Next that misses reads all 3,040 texts and one again (3041 units):
 /// held before its fifth and released, it reports the miss; held and
 /// cancelled, it reports the Cancel. The whole import then changes the
-/// other 1852 texts.
+/// other 2040 texts.
 const progress_sheet = "d14.csv";
 const progress_schedule =
     "2:expect=open,2:expect=busy:0,2:do=hold:1000,2:do=sheet_import,2:do=answer:" ++ progress_sheet ++ ",3:do=wait_held," ++
@@ -399,7 +399,7 @@ const progress_schedule =
     "9:do=find_dialog,11:do=hold:5,11:do=find_next:no-such-text-anywhere,12:do=wait_held,13:expect=working:5/3041,13:do=release," ++
     "15:expect=found:none,16:do=hold:5,16:do=find_next:no-such-text-anywhere,17:do=wait_held,18:do=job_cancel," ++
     "20:expect=notice_has:Find,21:do=find_close," ++
-    "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/1852/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
+    "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/2040/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
 
 /// The package imports' pass (D-05, D-14) on a new database: the game
 /// folder `game` holds a copy of Data/Textes and Data/resource.description,
