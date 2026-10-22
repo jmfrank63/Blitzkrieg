@@ -119,6 +119,10 @@ BK_TEXT_API void bk_text_context_destroy(BkTextContext *ctx);
 BK_TEXT_API BkTextResult bk_text_context_set_missing_glyph_callback(
 	BkTextContext *ctx, void (*fn)(void *user, uint32_t codepoint, uint32_t utf16_index, const char *trace_line), void *user);
 
+/* The Game's em pixel size for a size class (10, 16, 20, 40) times ui_scale; an unknown class is
+ * medium. Tools measure at these sizes so they match what the Game draws. */
+BK_TEXT_API float bk_text_size_class_pixel_size(uint32_t size_class, float ui_scale);
+
 /* A font is a size class and a pixel size of the context's face chain. */
 BK_TEXT_API BkTextResult bk_text_font_open(BkTextContext *ctx, uint32_t size_class, float pixel_size, BkTextFont **out);
 BK_TEXT_API void bk_text_font_close(BkTextFont *font);

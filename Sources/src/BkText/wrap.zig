@@ -93,6 +93,36 @@ pub fn wrapText(
     try wrapAdvances(allocator, text, advances, cluster_len, width, lines);
 }
 
+/// The widest run of `text` between break opportunities, in whole pixels: what the narrowest box
+/// must hold for no word (Latin) or character (Han, kana, with attached kinsoku punctuation) to be
+/// cut. Opportunities are the ones wrapAdvances uses: spaces, textbreak.canBreakTextBetween and
+/// explicit newlines; a cluster is never split.
+pub fn widestUnit(allocator: std.mem.Allocator, shaper: *shape.Shaper, text: []const u16) !f32 {
+    if (text.len == 0) return 0.0;
+    const run = try shaper.shape(text);
+    defer run.deinit(allocator);
+    const advances = try allocator.alloc(f32, text.len);
+    defer allocator.free(advances);
+    measure.unitAdvances(run, advances);
+    var widest: f32 = 0.0;
+    var unit: f32 = 0.0;
+    for (text, advances, 0..) |current, advance, index| {
+        if (current == ' ' or current == '\n' or current == '\r') {
+            widest = @max(widest, measure.pixelWidth(unit));
+            unit = 0.0;
+            continue;
+        }
+        // Units inside a cluster hold 0 and never start a unit: textbreak only sees clusters
+        // whose first unit carries the advance.
+        if (index > 0 and advance > 0.0 and text[index - 1] != ' ' and textbreak.canBreakTextBetween(text[index - 1], current)) {
+            widest = @max(widest, measure.pixelWidth(unit));
+            unit = 0.0;
+        }
+        unit += advance;
+    }
+    return @max(widest, measure.pixelWidth(unit));
+}
+
 // ---- tests ----
 
 const faces = @import("faces.zig");
@@ -304,4 +334,37 @@ test "CRLF in shaped text forces a line and is not drawn" {
     try std.testing.expectEqual(Line{ .start = 0, .end = 3 }, lines.items[0]);
     try std.testing.expectEqual(Line{ .start = 5, .end = 8 }, lines.items[1]);
     try std.testing.expectEqual(Line{ .start = 9, .end = 14 }, lines.items[2]);
+}
+
+test "widestUnit: a Latin word, a Japanese character, empty" {
+    var set = try loadSet();
+    defer set.deinit();
+    const gpa = std.testing.allocator;
+    var latin = try shape.Shaper.init(gpa, &set, "en", 20);
+    defer latin.deinit();
+    const text = utf16.literal("Hello Supercalifragilistic");
+    const word = utf16.literal("Supercalifragilistic");
+    const run = try latin.shape(&word);
+    defer run.deinit(gpa);
+    const expected = measure.measureRun(&latin, run).width;
+    try std.testing.expectEqual(expected, try widestUnit(gpa, &latin, &text));
+    try std.testing.expectEqual(@as(f32, 0), try widestUnit(gpa, &latin, &.{}));
+    const lines = utf16.literal("Hello\r\nSupercalifragilistic\nab");
+    try std.testing.expectEqual(expected, try widestUnit(gpa, &latin, &lines));
+
+    var ja = try shape.Shaper.init(gpa, &set, "ja", 20);
+    defer ja.deinit();
+    // Per-character units; the stop attaches to the character before it (no line start on 。).
+    const jtext = utf16.literal("戦車は野原を走る。");
+    const jrun_text = utf16.literal("る。");
+    const jrun = try ja.shape(&jrun_text);
+    defer jrun.deinit(gpa);
+    const attached = measure.measureRun(&ja, jrun).width;
+    const one = utf16.literal("戦");
+    const orun = try ja.shape(&one);
+    defer orun.deinit(gpa);
+    const single = measure.measureRun(&ja, orun).width;
+    const got = try widestUnit(gpa, &ja, &jtext);
+    try std.testing.expectEqual(@max(single, attached), got);
+    try std.testing.expect(got < 4 * single);
 }

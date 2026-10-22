@@ -47,16 +47,11 @@ void STDCALL FontGpu::SwapData( ISharedResource *resource )
 namespace
 {
     // The pixel size of each size class under ttf: the shipped bitmap fonts' heights, so layouts
-    // built for them keep their proportions (exact line spacing is S03's job).
+    // built for them keep their proportions (exact line spacing is S03's job). The table lives in
+    // bk_text so l10n-check and language-mods measure at the same sizes.
     float TtfPixelSize( BkTextSizeClass eClass )
     {
-        switch ( eClass )
-        {
-            case BK_TEXT_SIZE_TINY: return 10.0f;
-            case BK_TEXT_SIZE_SMALL: return 16.0f;
-            case BK_TEXT_SIZE_LARGE: return 40.0f;
-            default: return 20.0f;
-        }
+        return bk_text_size_class_pixel_size( uint32_t( eClass ), 1.0f );
     }
 
     // "fonts\\tiny", "fonts/small": the class the name ends in; anything else is medium.

@@ -9,6 +9,7 @@ const text = @import("root.zig");
 const faces = text.faces;
 const shape = text.shape;
 const atlas_mod = text.atlas;
+const sizes = text.sizes;
 
 const Result = enum(c_int) {
     ok = 0,
@@ -151,6 +152,12 @@ fn reportMissing(context: ?*anyopaque, cp: u21, index: u32, _: []const u8) void 
     } else if (std.c.getenv("BK_GLYPH_TRACE") != null) {
         std.debug.print("{s}\n", .{line});
     }
+}
+
+/// The Game's pixel size for a size class; an unknown class is medium, as the Game treats it.
+export fn bk_text_size_class_pixel_size(size_class: u32, ui_scale: f32) callconv(.c) f32 {
+    const class: sizes.SizeClass = if (size_class < size_class_count) @enumFromInt(size_class) else .medium;
+    return sizes.pixelSize(class, ui_scale);
 }
 
 export fn bk_text_font_open(ctx: ?*Context, size_class: u32, pixel_size: f32, out: ?*?*Font) callconv(.c) c_int {

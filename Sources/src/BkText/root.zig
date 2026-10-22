@@ -10,6 +10,7 @@ pub const measure = @import("measure.zig");
 pub const wrap = @import("wrap.zig");
 pub const raster = @import("raster.zig");
 pub const atlas = @import("atlas.zig");
+pub const sizes = @import("sizes.zig");
 
 test {
     _ = faces;
@@ -21,5 +22,6 @@ test {
     _ = wrap;
     _ = raster;
     _ = atlas;
+    _ = sizes;
     _ = @import("spike_test.zig");
 }
