@@ -1270,6 +1270,27 @@ pub fn build(b: *std.Build) void {
     const legacy_variant_step = b.step("test-legacy-variant", "Run portable legacy variant ownership and conversion tests");
     legacy_variant_step.dependOn(&legacy_variant_test.step);
     if (test_mode == .run) legacy_variant_step.dependOn(&legacy_variant_run.step);
+    // The UTF-8 <-> UTF-16 conversion of Platform/LegacyText.h, header only.
+    const legacy_text_module = b.createModule(.{ .target = target, .optimize = .debug });
+    legacy_text_module.link_libc = !build_support.usesMsvc(platform);
+    legacy_text_module.link_libcpp = !build_support.usesMsvc(platform);
+    legacy_text_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, legacy_text_module, toolchain);
+        addMsvcLibraryPaths(b, legacy_text_module, toolchain);
+        linkMsvcRuntime(legacy_text_module, .debug);
+    }
+    legacy_text_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/legacy_text_test.cpp"},
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{},
+    });
+    const legacy_text_test = b.addExecutable(.{ .name = "legacy-text-test", .root_module = legacy_text_module });
+    legacy_text_test.subsystem = .console;
+    if (platform == .windows_x64) legacy_text_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const legacy_text_run = b.addRunArtifact(legacy_text_test);
+    const legacy_text_step = b.step("test-legacy-text", "Run the UTF-8 <-> UTF-16 conversion tests every 8-bit to wide string of the engine goes through");
+    legacy_text_step.dependOn(&legacy_text_test.step);
+    if (test_mode == .run) legacy_text_step.dependOn(&legacy_text_run.step);
     // Project-XML round trip (spec D-07): Sources/src/ResourceModel/xml.cpp over the 21 ResourceEditor
     // fixtures plus an unknown-node preservation check and the MFC editor's own saved projects. No engine modules are loaded, so no rdynamic;
     // the $ORIGIN rpath keeps the AGENTS.md Linux pattern.

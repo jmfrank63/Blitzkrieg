@@ -60,7 +60,6 @@ namespace NStr
 	inline float ToFloat( const std::string &szString ) { return ToFloat( szString.c_str() ); }
 	double ToDouble( const char *pszString );
 	inline double ToDouble( const std::string &szString ) { return ToDouble( szString.c_str() ); }
-	void SetCodePage( int nCodePage );
 	void ToAscii( std::string *pRes, const std::wstring &szSrc );
 	inline std::string ToAscii( const std::wstring &szSrc )
 	{

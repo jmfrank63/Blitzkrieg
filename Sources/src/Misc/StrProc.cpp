@@ -2,6 +2,7 @@
 
 #include "StrProc.h"
 #include "../Platform/Debug.h"
+#include "../Platform/LegacyText.h"
 
 #include <unordered_map>
 #include <stack>
@@ -15,57 +16,16 @@ namespace
 	typedef std::basic_string<unsigned short, std::char_traits<unsigned short>, std::allocator<unsigned short> > TUnsignedShortString;
 
 	template <class TWideString>
-	void ToAsciiImpl( std::string *pRes, const TWideString &szSrc, int nCodePage )
-	{
-		std::wstring szWide;
-		szWide.reserve( szSrc.length() );
-		for ( typename TWideString::const_iterator it = szSrc.begin(); it != szSrc.end(); ++it )
-			szWide += static_cast<wchar_t>( *it );
-
-		const int N_STACK_BUFF_SIZE = 1024;
-		char static_buff[N_STACK_BUFF_SIZE];
-		int nBufLeng = szWide.length() * 2 + 10;
-		char *pszBuf;
-		if ( nBufLeng < N_STACK_BUFF_SIZE )
-			pszBuf = static_buff;
-		else
-			pszBuf = new char[ nBufLeng ];
-		int nRes = WideCharToMultiByte( nCodePage, 0, szWide.c_str(), szWide.length(), pszBuf, nBufLeng, 0, 0 );
-		pszBuf[nRes] = 0;
-		*pRes = pszBuf;
-		if ( nBufLeng >= N_STACK_BUFF_SIZE )
-			delete[] pszBuf;
-	}
+	void ToAsciiImpl( std::string *pRes, const TWideString &szSrc ) { NPlatform::Utf8FromUtf16( pRes, szSrc ); }
 
 	template <class TChar>
-	void ToUnicodeImpl( std::basic_string<TChar, std::char_traits<TChar>, std::allocator<TChar> > *pRes, const std::string &szSrc, int nCodePage )
-	{
-		const int N_STACK_BUFF_SIZE = 1024;
-		WCHAR static_buff[N_STACK_BUFF_SIZE];
-		int nBufLeng = szSrc.length() + 3;
-		WCHAR *pszBuf;
-		if ( nBufLeng < N_STACK_BUFF_SIZE )
-			pszBuf = static_buff;
-		else
-			pszBuf = new WCHAR[ nBufLeng ];
-		int nRes = MultiByteToWideChar( nCodePage, 0, szSrc.c_str(), szSrc.length(), pszBuf, nBufLeng );
-		pszBuf[nRes] = 0;
-
-		pRes->clear();
-		pRes->reserve( nRes );
-		for ( int i = 0; i < nRes; ++i )
-			pRes->push_back( static_cast<TChar>( pszBuf[i] ) );
-
-		if ( nBufLeng >= N_STACK_BUFF_SIZE )
-			delete[] pszBuf;
-	}
+	void ToUnicodeImpl( std::basic_string<TChar, std::char_traits<TChar>, std::allocator<TChar> > *pRes, const std::string &szSrc ) { NPlatform::Utf16FromUtf8( pRes, szSrc ); }
 }
 namespace NStr
 {
 	static std::unordered_map<char, char> brackets;   // map with open bracket <=> close bracket respection
 	static char cBracketTypes[8] = "({[\" ";     // all available brackets (open)
 	static const int NUM_BRACKET_TYPES = 4;      // number of available brackets
-	static int nCodePage = GetACP();
 	void InitStringProcessor();
 };
 void NStr::InitStringProcessor()
@@ -367,31 +327,27 @@ unsigned long NStr::ToULong( const char *pszString )
 	sscanf( pszString, "%ul", &ulNumber );
 	return ulNumber;
 }
-void NStr::SetCodePage( int _nCodePage )
-{
-	nCodePage = _nCodePage;
-}
 void NStr::ToAscii( std::string *pRes, const std::wstring &szSrc )
 {
-	ToAsciiImpl( pRes, szSrc, nCodePage );
+	ToAsciiImpl( pRes, szSrc );
 }
 
 #ifdef _NATIVE_WCHAR_T_DEFINED
 void NStr::ToAscii( std::string *pRes, const TUnsignedShortString &szSrc )
 {
-	ToAsciiImpl( pRes, szSrc, nCodePage );
+	ToAsciiImpl( pRes, szSrc );
 }
 #endif
 
 void NStr::ToUnicode( std::wstring *pRes, const std::string &szSrc )
 {
-	ToUnicodeImpl( pRes, szSrc, nCodePage );
+	ToUnicodeImpl( pRes, szSrc );
 }
 
 #ifdef _NATIVE_WCHAR_T_DEFINED
 void NStr::ToUnicode( TUnsignedShortString *pRes, const std::string &szSrc )
 {
-	ToUnicodeImpl( pRes, szSrc, nCodePage );
+	ToUnicodeImpl( pRes, szSrc );
 }
 #endif
 inline int MSVCMustDie_tolower( int a ) { return tolower(a); } 

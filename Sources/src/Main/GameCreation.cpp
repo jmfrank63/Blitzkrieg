@@ -436,7 +436,6 @@ void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOut
 	players[0].bReady = true;
 	players[0].fPing = 0;
 	players[0].eState = SPlayerInfo::EPS_VALID;
-	NStr::SetCodePage( GetACP() );
 	
 	players[0].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Noname" ) ) ) );
 	if ( players[0].szName == L"Noname" )
@@ -1080,7 +1079,6 @@ void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt
 
 	players[nLogicID].fPing = 0.0f;
 	players[nLogicID].eState = SPlayerInfo::EPS_CONNECTED;
-	NStr::SetCodePage( GetACP() );
 
 	players[nLogicID].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", NPlatform::WordStringData( NPlatform::WordStringFromWide( L"Noname" ) ) ) );
 	if ( players[nLogicID].szName == L"Noname" )

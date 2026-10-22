@@ -121,7 +121,6 @@ CInterfaceCutsceneList::~CInterfaceCutsceneList()
 }
 bool CInterfaceCutsceneList::Init()
 {
-	NStr::SetCodePage( GetACP() );
 	CInterfaceScreenBase::Init();
 	SetBindSection( "loadmission" );
 	commandMsgs.Init( pInput, commonCommands );
