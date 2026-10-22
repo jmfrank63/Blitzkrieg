@@ -14,7 +14,8 @@
 //! Per language: the database is copied to a scratch folder and the overlay
 //! laid over it; a first export (for Hindi through the shaper, which rewrites
 //! every text into Private Use Area characters) tells which characters the
-//! texts use (`chars.txt`, and the cluster table for Hindi); bk-font renders
+//! texts use (`chars.txt`, and the cluster table for Hindi); the fit rule (D097) measures the texts with
+//! bk_text before any font work, so a text that does not fit fails the language early; bk-font renders
 //! the language's Noto face at the game's four font sizes from them; and the
 //! final export carries texts and fonts into `mods/lang-<code>/data/texts.pak`
 //! with a `mod.xml`. Data/ELK is hashed before and after: nothing writes it.
@@ -238,6 +239,23 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         }
     }
 
+    // fit: every text in the room the Game draws it in, measured with the Game's own text engine
+    // (bk_text, the shipped faces at the Game's size table; D097), before the slow font work: a text
+    // that does not fit is found here, and the generated fonts play no part in the measure.
+    {
+        stage = "fit";
+        var report = check.Report{ .arena = allocator };
+        var repository = try cwd.openDir(io, ".", .{ .iterate = true });
+        defer repository.close(io);
+        try check.checkFit(io, &report, repository, "vendor/fonts", language.code);
+        for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
+        for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+        if (report.findings.items.len != 0) {
+            std.debug.print("language-mods: {s}: {d} fit findings\n", .{ language.code, report.findings.items.len });
+            return error.TextDoesNotFit;
+        }
+    }
+
     // bk-font: the character list (the Private Use Area is the cluster table's)
     // and one font per size.
     var distinct: usize = 0;
@@ -304,22 +322,6 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
             const bytes = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, file }), allocator, .limited(64 << 20));
             try fonts.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ size.name, "/", file }), .bytes = bytes });
-        }
-    }
-
-    // fit: every text in the room the Game draws it in, measured with these fonts (D097). Only here
-    // do they exist, so l10n-check leaves the rule to this build.
-    {
-        stage = "fit";
-        var report = check.Report{ .arena = allocator };
-        var repository = try cwd.openDir(io, ".", .{ .iterate = true });
-        defer repository.close(io);
-        try check.checkFit(io, &report, repository, "vendor/fonts", language.code);
-        for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
-        for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
-        if (report.findings.items.len != 0) {
-            std.debug.print("language-mods: {s}: {d} fit findings with the mod's own fonts\n", .{ language.code, report.findings.items.len });
-            return error.TextDoesNotFit;
         }
     }
 
