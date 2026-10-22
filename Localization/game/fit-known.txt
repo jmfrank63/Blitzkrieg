@@ -6,17 +6,6 @@
 #   S06   a Latin or Cyrillic translation that S06 rewords or whose box the layout work widens;
 #   M003  a CJK or other translation that M003 (the translation milestone) still has to finish.
 # S06 empties the S06 lines. A line whose text fits again is the finding fit-known-unused: delete it.
-de textes/strings/solcy # S06
-de units/humans/allies/officer/name # S06
-de units/technics/german/aviation/hs_129b/name # S06
-es textes/ui/intermission/mainmenu/playerprofile/static_player_name # S06
-fr scenarios/chapters/german/france/header # S06
-fr scenarios/tutorials/tutorial6/header # S06
-fr textes/options/multiplayer.killscorelimit.name # S06
-fr units/technics/allies/aviation/b25jmitchell_usa/name # S06
-id units/humans/allies/sniper/name # S06
-id units/technics/allies/spg/m10_wolverine_usa/name # S06
-id units/technics/allies/spg/m36_slugger_usa/name # S06
 ja textes/options/gfx.densitycoeff.name # M003
 ja textes/options/gfx.texture.quality.name # M003
 ja textes/options/multiplayer.playerlimit.name # M003
@@ -28,11 +17,3 @@ ja textes/ui/settings/button_cancel # M003
 ja units/humans/allies/officer/name # M003
 ja units/humans/allies/us_sniper/name # M003
 ja units/humans/german/panzer/name # M003
-pt-BR medals/allies/eam_company/name # S06
-pt-BR textes/options/sound.movievolume.name # S06
-ru scenarios/tutorials/tutorial1/header # S06
-ru scenarios/tutorials/tutorial2/header # S06
-ru textes/options/sound.musicvolume.name # S06
-ru textes/personals/german/spg/name13 # S06
-ru textes/ui/intermission/multiplayer/chat/player_state # S06
-ru textes/ui/multiplayermessages/outofsync # S06
