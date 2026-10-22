@@ -1281,6 +1281,14 @@ pub export fn bk_storage_exists(handle: ?*anyopaque, name: [*:0]const u8) callco
     return archiveEntry(storage, std.mem.span(name)) != null or overlayExists(storage, std.mem.span(name));
 }
 
+// True when a storage added to this one (a mod, a language) provides the name; the base's own files
+// and archives do not count. FontGpu asks it per size: a mod that ships fonts/<size>/1.tfd keeps its
+// bitmap font for that size, the base game's 1.tfd does not turn bk_text off.
+pub export fn bk_storage_exists_in_layer(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) bool {
+    const storage = fromHandle(Storage, handle) orelse return false;
+    return overlayExists(storage, std.mem.span(name));
+}
+
 pub export fn bk_storage_open(handle: ?*anyopaque, name: [*:0]const u8, access: c_ulong) callconv(.c) ?*anyopaque {
     const storage = fromHandle(Storage, handle) orelse return null;
     const stream_name = std.mem.span(name);
@@ -2662,8 +2670,12 @@ test "storage overlay exposes child archive entries" {
     const entry_name: [:0]const u8 = "movies\\intro.txt";
     try std.testing.expect(archiveEntry(child, entry_name) != null);
     try std.testing.expect(!bk_storage_exists(base_handle, entry_name.ptr));
+    try std.testing.expect(!bk_storage_exists_in_layer(base_handle, entry_name.ptr));
     try std.testing.expect(bk_storage_add(base_handle, child_handle, "elk"));
     try std.testing.expect(bk_storage_exists(base_handle, entry_name.ptr));
+    // The layer answers for what it holds; the base's own files are not a layer's.
+    try std.testing.expect(bk_storage_exists_in_layer(base_handle, entry_name.ptr));
+    try std.testing.expect(!bk_storage_exists_in_layer(child_handle, entry_name.ptr));
     const stream_handle = bk_storage_open(base_handle, entry_name.ptr, 1) orelse return error.TestUnexpectedResult;
     bk_stream_destroy(stream_handle);
     // An entry only an overlay's archive holds still has to report its date and

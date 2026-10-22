@@ -156,7 +156,9 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
             per_window[buttons.len + i] += 1;
             inside = true;
         };
-        if (!inside) outside += 1;
+        // A difference of two levels of 255 or less is the linear filter's rounding next to a window
+        // (bk_text's control run puts six such pixels beside the mod-name label), not text.
+        if (!inside and maxChannelDelta(control[at..][0..3], drawn[at..][0..3]) > 2) outside += 1;
     };
     std.debug.print("D-14: control and generated font differ in {d} pixels, {d} outside the eight medium-font windows; per window {any}\n", .{ changed, outside, per_window });
     try testing.expectEqual(@as(usize, 0), outside);
@@ -375,6 +377,12 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
     }
 }
 
+fn maxChannelDelta(a: []const u8, b: []const u8) u8 {
+    var most: u8 = 0;
+    for (a, b) |x, y| most = @max(most, if (x > y) x - y else y - x);
+    return most;
+}
+
 /// Runs the Game on the mod to its main-menu capture `<root>/<name>.rgba` and
 /// returns the frame (RGBA, alpha zero). It must exit 0, report the capture,
 /// lay the main menu out at scale 1 and open the medium font from the mod
@@ -390,6 +398,9 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
+    // The Game's text engine is bk_text (M004 S05): the control draws every size on it, and the
+    // mod's own medium font must still draw with its bitmap while the other sizes stay on bk_text.
+    try environ.put("BK_TEXT_ENGINE", "ttf");
     const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=BkFontTest" },
         .cwd = .{ .path = user },
@@ -409,6 +420,25 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) {s} {s} from the mod; its output is in {s}\n", .{ name, if (from_mod) "did not open" else "opened", file, log_path });
         return error.FontSource;
     }
+    // LogFontMetrics names the path each size took: the mod's medium is a bitmap font (reason "mod
+    // font"), every other size that loaded is a bk_text font; without the mod's font medium is bk_text too.
+    for ([_][]const u8{ "tiny", "small", "medium", "large" }) |size| {
+        const bitmap = from_mod and std.mem.eql(u8, size, "medium");
+        const line_bitmap = try std.fmt.allocPrint(allocator, "font bitmap fonts\\{s}:", .{size});
+        const line_ttf = try std.fmt.allocPrint(allocator, "font ttf fonts\\{s}:", .{size});
+        // The Game opens every font before the mod is added and again when it is (the font manager
+        // reloads), so the last line of a size is the path it draws with.
+        const last_bitmap = std.mem.lastIndexOf(u8, log, line_bitmap);
+        const last_ttf = std.mem.lastIndexOf(u8, log, line_ttf);
+        const is_bitmap = last_bitmap != null and (last_ttf == null or last_bitmap.? > last_ttf.?);
+        const is_ttf = last_ttf != null and !is_bitmap;
+        const loaded = is_bitmap or is_ttf;
+        if (std.mem.eql(u8, size, "medium") and !loaded or loaded and (is_bitmap != bitmap or is_ttf == bitmap)) {
+            std.debug.print("Game ({s}) drew fonts\\{s} on {s} (bitmap {any}, bk_text {any}), expected {s}; its output is in {s}\n", .{ name, size, if (is_bitmap) "bitmap" else "bk_text", is_bitmap, is_ttf, if (bitmap) "bitmap" else "bk_text", log_path });
+            return error.FontEngine;
+        }
+    }
+    if (from_mod) try expectLine(log, log_path, "reason mod font");
     return std.Io.Dir.cwd().readFileAlloc(io, capture, allocator, .limited(16 << 20));
 }
 

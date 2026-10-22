@@ -101,6 +101,9 @@ interface IDataStorage : public IRefCount
 	virtual const char* STDCALL GetName() const = 0;
 	virtual bool STDCALL AddStorage( IDataStorage *pStorage, const char *pszName ) = 0;
 	virtual bool STDCALL RemoveStorage( const char *pszName ) = 0;
+	// True when a layer added above the base storage (a mod, a language) provides the stream. Appended
+	// last so the layout the C ABI callers know is unchanged; a storage without layers has none.
+	virtual bool STDCALL IsStreamInModLayer( const char *pszName ) { return false; }
 };
 inline std::string GetStreamName( IDataStream *pStream )
 {

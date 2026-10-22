@@ -22,6 +22,7 @@ extern "C" bool bk_storage_add(void *storage, void *child, const char *name);
 extern "C" void *bk_storage_remove(void *storage, const char *name);
 extern "C" const char *bk_storage_name(void *storage);
 extern "C" bool bk_storage_exists(void *storage, const char *name);
+extern "C" bool bk_storage_exists_in_layer(void *storage, const char *name);
 extern "C" void *bk_storage_open(void *storage, const char *name, unsigned long access);
 extern "C" void *bk_storage_create_stream(void *storage, const char *name, unsigned long access);
 extern "C" bool bk_storage_stats(void *storage, const char *name, void *stats);
@@ -282,6 +283,7 @@ struct IDataStorage : public IRefCount {
     virtual const char *BK_STDCALL GetName() const = 0;
     virtual bool BK_STDCALL AddStorage(IDataStorage *, const char *) = 0;
     virtual bool BK_STDCALL RemoveStorage(const char *) = 0;
+    virtual bool BK_STDCALL IsStreamInModLayer(const char *) { return false; }
 };
 
 struct IStorageEnumerator : public IRefCount {
@@ -1460,6 +1462,7 @@ public:
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return storage_ != 0; }
     bool BK_STDCALL IsStreamExist(const char *name) override { return bk_storage_exists(storage_, name); }
+    bool BK_STDCALL IsStreamInModLayer(const char *name) override { return name && bk_storage_exists_in_layer(storage_, name); }
     void *BK_STDCALL CreateStream(const char *name, unsigned long access) override { void *stream = bk_storage_create_stream(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     void *BK_STDCALL OpenStream(const char *name, unsigned long access) override { void *stream = bk_storage_open(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     bool BK_STDCALL GetStreamStats(const char *name, void *stats) override {

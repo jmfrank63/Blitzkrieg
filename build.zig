@@ -2730,6 +2730,74 @@ pub fn build(b: *std.Build) void {
     text_measure_draw_step.dependOn(&text_measure_draw_test.step);
     if (test_mode == .run) text_measure_draw_step.dependOn(&text_measure_draw_run.step);
 
+    // M004 S05: a mod that ships fonts/<size>/1.tfd keeps its bitmap font for that size while the
+    // other sizes draw on bk_text. The harness is the real FontGpu over a fake storage with a base
+    // layer and a mod layer; the check is the decision FontGpu::Load makes per size.
+    const mod_font_fallback_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    if (target.result.os.tag == .macos) {
+        addEngineCxxNewDelete(b, mod_font_fallback_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, mod_font_fallback_module, optimize);
+    }
+    mod_font_fallback_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/mod_font_fallback_test.cpp",
+            "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+            "Sources/src/GFXGPU/TextureGpu.cpp",
+            "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
+            "Sources/src/GFXGPU/MeshGpu.cpp",
+            "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+            "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+            "Sources/src/GFXGPU/BkTextBridge.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, mod_font_fallback_module);
+    mod_font_fallback_module.addIncludePath(b.path("Sources/src/GFX"));
+    mod_font_fallback_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    mod_font_fallback_module.addIncludePath(b.path("Sources/src/BkText"));
+    addMsvcIncludePaths(b, mod_font_fallback_module, toolchain);
+    addLinuxCxxIncludePaths(b, mod_font_fallback_module);
+    addMsvcLibraryPaths(b, mod_font_fallback_module, toolchain);
+    addMacosSysrootPaths(b, mod_font_fallback_module, target);
+    mod_font_fallback_module.linkLibrary(misc);
+    mod_font_fallback_module.linkLibrary(platform_runtime);
+    mod_font_fallback_module.linkLibrary(formats);
+    mod_font_fallback_module.linkLibrary(gfx_gpu_zig);
+    mod_font_fallback_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
+    if (target.result.os.tag == .macos) {
+        mod_font_fallback_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(mod_font_fallback_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
+    if (target.result.os.tag == .windows) {
+        mod_font_fallback_module.linkSystemLibrary("user32", .{});
+        mod_font_fallback_module.linkSystemLibrary("gdi32", .{});
+        mod_font_fallback_module.linkSystemLibrary("shell32", .{});
+    }
+    applyLoaderPath(target, mod_font_fallback_module);
+    const mod_font_fallback_test = b.addExecutable(.{
+        .name = "mod-font-fallback-test",
+        .root_module = mod_font_fallback_module,
+    });
+    mod_font_fallback_test.subsystem = .console;
+    mod_font_fallback_test.rdynamic = true;
+    if (target.result.os.tag == .windows) mod_font_fallback_test.entry = .{ .symbol_name = "main" };
+    const mod_font_fallback_run = b.addRunArtifact(mod_font_fallback_test);
+    setLeakReportStrict(mod_font_fallback_run);
+    mod_font_fallback_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    mod_font_fallback_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    addPathDir(mod_font_fallback_run, rootPath(b, "zig-out/bin"));
+    mod_font_fallback_run.setCwd(b.path("."));
+    mod_font_fallback_run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    mod_font_fallback_run.has_side_effects = true;
+    const mod_font_fallback_step = b.step("test-mod-font-fallback", "Check a size a mod ships a 1.tfd for keeps its bitmap font while the other sizes use bk_text (M004 S05)");
+    mod_font_fallback_step.dependOn(&mod_font_fallback_test.step);
+    if (test_mode == .run) mod_font_fallback_step.dependOn(&mod_font_fallback_run.step);
+
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
 

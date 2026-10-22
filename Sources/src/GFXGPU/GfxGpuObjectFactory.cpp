@@ -68,12 +68,13 @@ namespace
 
 // BK_DEBUG_LOG: one line per font load with the numbers a layout depends on, so the bitmap and
 // the ttf font of a name can be compared from two runs' logs.
-static void LogFontMetrics( const std::string &name, const char *engine, const SFontFormat &format )
+static void LogFontMetrics( const std::string &name, const char *engine, const SFontFormat &format, const char *reason = nullptr )
 {
     static const bool log = []{ const char *psz = getenv( "BK_DEBUG_LOG" ); return psz != 0 && *psz != 0 && *psz != '0'; }();
     if ( !log ) return;
-    std::fprintf( stderr, "font %s %s: height %d ascent %d descent %d external %d line_space %d\n", engine, name.c_str(),
-        format.metrics.nHeight, format.metrics.nAscent, format.metrics.nDescent, format.metrics.nExternalLeading, format.GetLineSpace() );
+    std::fprintf( stderr, "font %s %s: height %d ascent %d descent %d external %d line_space %d%s%s\n", engine, name.c_str(),
+        format.metrics.nHeight, format.metrics.nAscent, format.metrics.nDescent, format.metrics.nExternalLeading, format.GetLineSpace(),
+        reason ? " reason " : "", reason ? reason : "" );
 }
 
 // The most the glyphs of a probe text rise above the baseline and sink below it. The probe holds
@@ -159,17 +160,23 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
 {
     ISingleton *globals = GetSingletonGlobal();
     if ( !globals || name_.empty() ) return false;
-    // BK_TEXT_ENGINE=ttf: the font is a bk_text font, there is no 1.tfd and no atlas texture.
-    if ( NBkTextBridge::Context() != nullptr ) return OpenTtf();
     IDataStorage *storage = GetSingleton<IDataStorage>( globals );
-    if ( !storage ) return false;
-
+    const char *reason = nullptr;
     std::string storage_name = name_;
     if ( storage_name.rfind( "fonts", 0 ) == 0 ) storage_name.replace( 0, 5, "Fonts" );
     else if ( storage_name.rfind( "ui", 0 ) == 0 ) storage_name.replace( 0, 2, "UI" );
     else if ( storage_name.rfind( "effects", 0 ) == 0 ) storage_name.replace( 0, 7, "Effects" );
     else if ( storage_name.rfind( "cursor", 0 ) == 0 ) storage_name.replace( 0, 6, "Cursor" );
     const std::string metrics_name = storage_name + "\\1.tfd";
+    // On bk_text the font is a bk_text font, there is no 1.tfd and no atlas texture, unless a mod
+    // ships this size's own 1.tfd: the base game's does not count, a mod's keeps its bitmap font for
+    // that size while the other sizes stay on bk_text.
+    if ( NBkTextBridge::Context() != nullptr )
+    {
+        if ( !storage || !storage->IsStreamInModLayer( metrics_name.c_str() ) ) return OpenTtf();
+        reason = "mod font";
+    }
+    if ( !storage ) return false;
     CPtr<IDataStream> stream = storage->OpenStream( metrics_name.c_str(), STREAM_ACCESS_READ );
     if ( !stream ) return false;
     CPtr<IStructureSaver> structure = CreateStructureSaver( stream, IStructureSaver::READ );
@@ -177,7 +184,7 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     CSaverAccessor saver = structure;
     saver.Add( 1, &format_ );
     missing_reported_.clear();
-    LogFontMetrics( name_, "bitmap", format_ );
+    LogFontMetrics( name_, "bitmap", format_, reason );
     if ( bPreLoad ) return true;
 
     ITextureManager *textures = GetSingleton<ITextureManager>( globals );
