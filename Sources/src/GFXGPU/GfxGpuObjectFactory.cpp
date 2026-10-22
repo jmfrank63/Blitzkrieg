@@ -85,7 +85,8 @@ static void MeasureInkEnvelope( BkTextFont *font, float &up, float &down )
     static const uint16_t latin[] = { 'H', 'g', 'j', 'p', 'q', 'y', '|', '[', ']', '(', ')', '{', '}', 0xc0, 0xc5, 0xc9, 0xd6, 0xdc, 0xc7, 0xdf, 0 };
     // The Devanagari block, each code point after its own consonant, so a mark has a base to sit on.
     static const std::vector<uint16_t> devanagari = []{ std::vector<uint16_t> block; for ( uint16_t c = 0x901; c != 0x980; ++c ) { block.push_back( 0x915 ); block.push_back( c ); } block.push_back( 0 ); return block; }();
-    static const uint16_t cjk[] = { 0x6f22, 0x5b57, 0x3042, 0x3068, 0x300c, 0x300d, 0xd840, 0xdc00, 0 };
+    // U+20000 is not in the probe: no bundled face has it, so it would only put a BK_GLYPH_TRACE line in every CJK run.
+    static const uint16_t cjk[] = { 0x6f22, 0x5b57, 0x3042, 0x3068, 0x300c, 0x300d, 0 };
     const std::string &language = NBkTextBridge::Language();
     const uint16_t *probes[2] = { latin, nullptr };
     if ( language == "hi" ) probes[1] = devanagari.data();

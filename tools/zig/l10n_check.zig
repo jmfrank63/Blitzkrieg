@@ -91,6 +91,9 @@ const languages = @import("l10n_languages.zig");
 const cmap = @import("l10n_cmap.zig");
 /// The Game's own text engine, which the fit rule measures with (M004 S04, D097): shaping and the size table.
 const bk_text = @import("bk_text");
+/// The tiers that predict the Game's wrap (l10n-game-reads-it) use the same text module and language table.
+pub const text_module = bk_text;
+pub const language_table = @import("l10n_languages.zig");
 /// The game font reader and wrap, public for the l10n-game-reads-it tier, which predicts the lines of a
 /// captured text with them.
 pub const font_file = @import("l10n_font.zig");
