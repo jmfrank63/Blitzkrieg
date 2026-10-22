@@ -25,3 +25,18 @@ Temporary artifacts are intentionally written below the system temporary directo
 ## Required follow-up
 
 The M02 comparison gate is complete. Temporary comparison artifacts are `C:\temp\bk-m02-fontw05\diff-percentile64.bmp` and `C:\temp\bk-m02-fontw05\report-percentile64.txt`.
+
+## Re-capture with bk_text (M004 S05)
+
+The reference scene is the main menu, so the one stored frame contains text: every label, button and the version string are drawn by the font engine. The sdl_gpu Game now draws them with bk_text by default (M004 S05), so the stored sdl_gpu hash above and the comparison numbers are stale for text pixels. The legacy renderer has no bk_text and stays on bitmap fonts, which makes the cross-backend glyph-edge difference larger than the recorded `p99.9_rgb=40/255` until the thresholds are re-measured.
+
+`capture_gfx_reference.ps1` takes `-TextEngine bitmap|ttf` (default: the Game's own default, bk_text) and records it as `text_engine` in the metadata. Capture on win-home from the repository root, with a built Game for each renderer:
+
+```
+pwsh tools/zig/capture_gfx_reference.ps1 -Renderer legacy  -GamePath <legacy game exe>  -OutputRoot C:\temp\bk-gfx-new -Driver <driver>
+pwsh tools/zig/capture_gfx_reference.ps1 -Renderer sdl_gpu -GamePath <sdl_gpu game exe> -OutputRoot C:\temp\bk-gfx-new -Driver <driver>
+pwsh tools/zig/capture_gfx_reference.ps1 -Renderer sdl_gpu -GamePath <sdl_gpu game exe> -OutputRoot C:\temp\bk-gfx-old -Driver <driver> -TextEngine bitmap
+zig build compare-gfx-reference -- --legacy <legacy rgba8> --candidate <sdl_gpu rgba8> --width 1280 --height 720 --diff <diff.bmp> --report <report.txt>
+```
+
+The last line is the `tools/zig/compare_gfx_reference.zig` usage; run it once for the bk_text frame and once for the `-TextEngine bitmap` frame to see how much of the difference is text. Status: not verified on Linux (the capture script is PowerShell for Windows); this is a win-home task for S07. The maintainer decides whether the percentile gate needs a new text-aware threshold.

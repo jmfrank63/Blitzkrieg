@@ -114,19 +114,22 @@ pub const Label = struct {
     dir: []const u8 = "textes/strings",
     /// Text of the small font: compared after smoothing both images.
     small: bool = false,
+    /// The text is not the overlay's alone (the options caption holds the profile's name), so no hb-view
+    /// reference of the overlay's string matches it.
+    dynamic: bool = false,
     /// The text is a tooltip: a box framed in the tooltip yellow whose size follows the text, so only
     /// the ink inside the frame counts (`inkImage`), `rect` being where it may hang.
     boxed: bool = false,
 
     /// The path the Game traces when it opens the text, as the mod's pak names it.
-    fn tracedPath(self: Label, allocator: std.mem.Allocator) ![]u8 {
+    pub fn tracedPath(self: Label, allocator: std.mem.Allocator) ![]u8 {
         const path = try std.fmt.allocPrint(allocator, "{s}/{s}.txt", .{ self.dir, self.key });
         std.mem.replaceScalar(u8, path, '/', '\\');
         return path;
     }
 
     /// A file name for the label's hb-view raster.
-    fn stem(self: Label, allocator: std.mem.Allocator) ![]u8 {
+    pub fn stem(self: Label, allocator: std.mem.Allocator) ![]u8 {
         const name = try std.fmt.allocPrint(allocator, "{s}-{s}", .{ self.dir, self.key });
         std.mem.replaceScalar(u8, name, '/', '-');
         return name;
@@ -483,7 +486,7 @@ fn isTooltipYellow(rgb: []const u8) bool {
 const tooltip_border: usize = 3;
 
 /// The overlay's text for `key` as UTF-8.
-fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
+pub fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
     const path = try std.fmt.allocPrint(allocator, "Localization/game/{s}/game_data_base/{s}/{s}.txt", .{ code, label.dir, label.key });
     const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(1 << 16));
     if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return error.NotUtf16;

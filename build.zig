@@ -4012,7 +4012,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
     });
 
-    // M002 R056/D066 on the real Game: the language mods' main menus measured against
+    // M002 R056/D066 on the real Game, on bk_text: the ten languages' menus, briefings and routes measured against
     // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
     // desktop, a GPU and hb-view, and fails without them; the mods are built first.
     const l10n_game_reads_module = b.createModule(.{
@@ -4036,11 +4036,11 @@ pub fn build(b: *std.Build) void {
     // limit: the menu, the briefing, a live switch and a restart. The aggregate runs its
     // own copy of every shard in a chain, so two Games never start at once; a shard run
     // alone does not pull the others in.
-    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu, the first mission's briefing, the options screen with a hovered tooltip and a unit's encyclopedia page and measure them (hb-view for ru, zh-Hans, ja and hi; ink, difference from English and missing glyphs for es, fr, de, pt-BR and id; the two newer routes only against English or hb-view where the language's scope covers their keys), then a live switch and a restart (M002 R056, D066, M003 S01)");
+    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on bk_text (the default engine) on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu, the first mission's briefing, the options screen with a hovered tooltip and a unit's encyclopedia page and measure them against hb-view of the language's face (Liberation Serif for the Latin languages, Noto for ru, zh-Hans, ja and hi; the two newer routes only where the language's scope covers their keys), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, then a live switch and a restart (M002 R056, D066, M003 S01, M004 S05)");
     const l10n_shards = [_][]const u8{ "en", "ru", "zh-hans", "ja", "hi", "es", "fr", "de", "pt-br", "id" };
     var l10n_chain: ?*std.Build.Step = null;
     for (l10n_shards) |code| {
-        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, options with tooltip, unit encyclopedia, live switch and restart on the real Game, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056)", .{code});
+        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, options with tooltip, unit encyclopedia, live switch and restart on the real Game on bk_text, measured against hb-view, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056, M004 S05)", .{code});
         const shard_step = b.step(b.fmt("l10n-game-reads-it-{s}", .{code}), shard_about);
         shard_step.dependOn(&l10n_game_reads_tests.step);
         for ([_]bool{ false, true }) |chained| {
@@ -4078,6 +4078,8 @@ pub fn build(b: *std.Build) void {
         addMsvcLibraryPaths(b, text_engine_reads_module, toolchain);
     }
     const text_engine_reads_tests = b.addTest(.{ .root_module = text_engine_reads_module });
+    // The l10n tier takes the helpers it shares with this one from it.
+    l10n_game_reads_module.addImport("text_engine_reads", text_engine_reads_module);
     const text_engine_mods_run = b.addRunArtifact(language_mods_tests);
     text_engine_mods_run.setCwd(b.path("."));
     text_engine_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));

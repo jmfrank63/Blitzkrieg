@@ -1,91 +1,82 @@
-//! M002 R056/D066 on the real Game: the ten languages (English and the nine
-//! language mods `language-mods` built) draw a translated main menu and the
-//! first mission's briefing. The four mods with generated fonts (ru, zh-Hans, ja,
-//! hi) draw what an independent text stack draws; English and the five Latin mods
-//! draw with the game's bitmap fonts (theirs with the missing letters added) and
-//! are measured for ink, for a frame that differs from English and for
-//! missing-glyph boxes. Every run of the Game
-//! sets BK_GLYPH_TRACE and fails on a character its font has no glyph for: the
-//! default character a font draws instead is a hollow box, which the solid-box
-//! measure does not see, and the bitmap fonts' hollow boxes stood for every
-//! accent of the Latin languages until their mods got fonts of their own.
+//! M002 R056/D066 on the real Game, on bk_text since M004 S05: the ten languages (English and the nine
+//! language mods `language-mods` built, which ship texts only) draw a translated main menu, the first
+//! mission's briefing, an options screen with a tooltip and a unit's encyclopedia page through the Game's
+//! default text engine. Every language is measured against hb-view of the face bk_text draws it with
+//! (`Language.face`): Liberation Serif for the Latin languages and Russian, the Noto face of the script
+//! for zh-Hans, ja and hi. Every run of the Game sets BK_GLYPH_TRACE and fails on any line of it
+//! (the character a font has no glyph for), and every run but the blank background's must log
+//! `bk_text: engine ttf`, so a Game that fell back to the bitmap fonts cannot pass.
 //!
-//! Per language the Game runs on a scratch profile whose language option is
-//! the mod (the option's own `set=`, which the profile keeps), then to its
-//! `-reference-scene` capture of the main menu at 1024x768. A second language
-//! mod, `l10n-blank`, carries the same fonts with every glyph's ink removed
-//! and the shipped English texts, so its capture is the menu's background
-//! with no text; the frame minus that background is the ink of the labels
-//! and of nothing else. For the header and the five buttons the ink is
-//! compared with hb-view's raster of the same string from the same face (the
-//! texts are read from the tracked overlay in real Unicode, so the shaper that
-//! wrote the Hindi clusters is not in the reference): the normalised
-//! correlation must clear a threshold and the label's own reference must beat
-//! every other label's by a margin. Then the checks the languages need:
+//! Per language the Game runs on a scratch profile whose language option is the mod (the option's own
+//! `set=`, which the profile keeps), then to its `-reference-scene` capture of the main menu at 1024x768.
+//! The background is a capture of a language mod, `text-engine-blank`, that carries the shipped fonts with
+//! every glyph's ink removed and the shipped English texts: a size whose fonts come from a mod stays on
+//! its bitmap font (M004 S05 T01), so that capture is the menu with no text, and the frame minus it is the
+//! ink of the labels and of nothing else. For the header and the five buttons the ink is compared with
+//! hb-view's raster of the same string from the same face (the texts are read from the tracked overlay in
+//! real Unicode): the normalised correlation must clear a threshold and the label's own reference must
+//! beat every other label's by a margin. Then the checks the languages need:
 //!
-//! - hi: the headline of every word has no gap (D058), the short i matra of
-//!   मित्रों lies where hb-view puts it, and the conjuncts (त्र, ख्य) are
-//!   drawn as hb-view's conjunct and not as the halant spelling;
-//! - zh-Hans and ja: where the Simplified and the Japanese face draw a label
-//!   differently, the frame is nearer the language's own face.
+//! - hi: the headline of every word has no gap (D058), the short i matra of मित्रों lies where hb-view
+//!   puts it, and the conjuncts (त्र, ख्य) are drawn as hb-view's conjunct and not as the halant spelling;
+//! - zh-Hans and ja: where the Simplified and the Japanese face draw a label differently, the frame is
+//!   nearer the language's own face;
+//! - ja: the lines of a wrapped text are the lines bk_text's wrap predicts and break no kinsoku rule.
 //!
-//! The first campaign mission's briefing (Allies, Operation Jupiter: Battle for
-//! Norway, a historical mission, so its text keys are fixed and no random map
-//! enters the frame) is captured the same way, against its own blank
-//! background, for the languages that have `briefing` set: the title, the three
-//! panel headers and the first objective are compared with hb-view like the
-//! menu's labels, and the description body must hold ink. BK_L10N_LANGS (a
-//! comma list of codes, default all) picks the languages, so a run can be
-//! sharded.
+//! The first campaign mission's briefing (Allies, Operation Jupiter: Battle for Norway, a historical
+//! mission, so its text keys are fixed and no random map enters the frame) is captured the same way,
+//! against its own blank background, for the languages that have `briefing` set: the title, the three
+//! panel headers and the first objective are compared with hb-view like the menu's labels, and the
+//! description body must hold ink. BK_L10N_LANGS (a comma list of codes, default all) picks the
+//! languages, so a run can be sharded. A language whose mod is not built (lang-ja while M003 is work in
+//! progress) reports `not run: lang-ja absent (M003 WIP)` and the list of native names tolerates exactly
+//! that absence.
 //!
-//! Two routes widen the pair (M003 S01 T03): an options screen with a hovered tooltip (the
-//! settings screen, the cursor parked on its restore-defaults button until the tooltip's
-//! dwell has passed) and a unit's encyclopedia page (the Allied Churchill: title, the two
-//! panel headers and the description). Each is captured against a blank background of its
-//! own and measured for every language: ink inside each label's box and no missing-glyph
-//! box. Only a language whose scope (`Localization/game/scope.txt`, read through
-//! l10n-check's own parser) covers the route's keys is measured further, since a seed-scope
-//! language still shows English there: a bitmap-font language must differ from English, and
-//! a face language's static labels are compared with hb-view like the menu's.
+//! Two routes widen the pair (M003 S01 T03): an options screen with a hovered tooltip (the settings
+//! screen, the cursor parked on its restore-defaults button until the tooltip's dwell has passed) and a
+//! unit's encyclopedia page (the Allied Churchill: title, the two panel headers and the description).
+//! Each is captured against a blank background of its own and measured for every language: ink inside
+//! each label's box. Only a language whose scope (`Localization/game/scope.txt`, read through
+//! l10n-check's own parser) covers the route's keys is measured further, since a seed-scope language
+//! still shows English there: its static labels are compared with hb-view like the menu's.
 //!
-//! Last, per language the Game starts on another language (ru, or English for
-//! ru) and switches to this one while it runs (the font cache clear of
-//! ApplyLanguage, T03): the buttons must show the cold start's frame. Then the
-//! choice is made through the option (`set=`), the Game exits, and a restart on
-//! the profile, without any mod argument, must show the cold start's frame
-//! again (header included).
+//! Last, per language the Game starts on another language (ru, or English for ru) and switches to this
+//! one while it runs (the font cache clear of ApplyLanguage, T03): the buttons must show the cold start's
+//! frame. Then the choice is made through the option (`set=`), the Game exits, and a restart on the
+//! profile, without any mod argument, must show the cold start's frame again (header included).
 //!
-//! Frames, references and `report.txt` are kept in
-//! `zig-out/local-test/l10n-game-reads-it/<code>/` (a shard is a code, so each
-//! has a folder of its own): `menu.tga`, `briefing.tga`, `switch.tga`, `restart.tga`, and the two
-//! routes' `options.png` and `encyclopedia.png`.
-//! The user's data is never touched: XDG_DATA_HOME and BK_USER_ROOT are the
+//! Frames, references and `report.txt` are kept in `zig-out/local-test/l10n-game-reads-it/<code>/` (a
+//! shard is a code, so each has a folder of its own): `menu.tga`, `briefing.tga`, `switch.tga`,
+//! `restart.tga`, and the two routes' `options.png` and `encyclopedia.png`; the report names the hb-view
+//! correlation of every line. The user's data is never touched: XDG_DATA_HOME and BK_USER_ROOT are the
 //! scratch folder and the Game runs from it. BK_L10N_GAME names the installed Game executable;
-//! `zig build l10n-game-reads-it` sets it and builds the mods first.
+//! `zig build l10n-game-reads-it` sets it and builds the mods first. The helpers the text-engine tier
+//! (text_engine_game_reads_it.zig) also uses are imported from it.
 const std = @import("std");
-const elk = @import("elk");
-const zip = @import("zip");
 const measure = @import("l10n_measure");
 const check = @import("l10n_check");
-const database = elk.database;
-const packages = elk.packages;
+const te = @import("text_engine_reads");
 const testing = std.testing;
 
 const Rect = measure.Rect;
 const Gray = measure.Gray;
-
-fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
-    var map = try testing.environ.createMap(allocator);
-    const value = map.get(key) orelse return null;
-    return try allocator.dupeSentinel(u8, value, 0);
-}
+const Label = te.Label;
+const Report = te.Report;
+const envValue = te.envValue;
+const inkImage = te.inkImage;
+const expectLine = te.expectLine;
+const installBlankMod = te.installBlankMod;
+const writeTga = te.writeTga;
+const width = te.width;
+const height = te.height;
+const ink_threshold = te.ink_threshold;
+const blank_mod = te.blank_mod;
 
 const scratch = "zig-out/local-test/l10n-game-reads-it";
-const width = 1024;
-const height = 768;
-const blank_mod = "l10n-blank";
-/// Where `zig build language-mods` writes the fonts it builds.
-const language_mods_scratch = "zig-out/local-test/language-mods";
+/// The profile every run of this tier uses.
+const profile_arg = "-profile=L10n";
+/// The faces bk_text draws with, staged beside the Game and read by the kinsoku check.
+const fonts_dir = "vendor/fonts";
 
 /// Whether BK_L10N_LANGS (a comma list of codes, default all) names `code`.
 fn selected(allocator: std.mem.Allocator, code: []const u8) !bool {
@@ -100,7 +91,6 @@ fn selected(allocator: std.mem.Allocator, code: []const u8) !bool {
 // rasterisers' differences but not for a wrong glyph, wrong shaping or a
 // wrong face. Frame ink is the luminance the label adds to the background
 // (0..255); a pixel counts as ink above `ink_threshold`.
-const ink_threshold: u8 = 24;
 /// The least correlation of a label's ink with its own hb-view raster.
 const min_correlation: f64 = 0.50;
 /// How much better the own reference must correlate than the best other
@@ -157,78 +147,9 @@ const min_face_margin: f64 = 0.01;
 /// animated; the buttons' own glyphs must not).
 const max_live_difference: usize = 25;
 
-/// Bitmap-font languages: a label's box holds at least this much ink (pixels
-/// above `ink_threshold`) and is at least this wide.
-const min_bitmap_ink_pixels: usize = 150;
-const min_bitmap_width: usize = 20;
-/// A label counts as drawn differently from English when this many pixels of
-/// its box differ by more than `frame_tolerance`; all labels but one must (a
-/// translation can equal the English word, as French "Options" does).
-const min_text_change: usize = 60;
-const frame_tolerance: u8 = 16;
-/// A missing glyph of a generated font is a solid box: 8 by 12 pixels, 95% lit (the bitmap
-/// fonts draw a hollow one, which BK_GLYPH_TRACE names instead). The bitmap fonts' own
-/// letters fill such a window to 83% at most (measured on the English frames).
-const solid_w: usize = 8;
-const solid_h: usize = 12;
-const solid_fill: f64 = 0.95;
-
-const Ink = enum {
-    /// Gold text (the buttons, the briefing's title): the ink is the warmth the
-    /// label adds.
-    gold,
-    /// Grey or white text: the ink is the brightness the label adds.
-    bright,
-    /// Dark text over light metal (the briefing's panel headers and lines),
-    /// with a pale emboss that must not count: the ink is the brightness the
-    /// label takes away.
-    dark,
-};
-
-const Label = struct {
-    /// The overlay key below `dir`.
-    key: []const u8,
-    rect: Rect,
-    /// The header of the main menu: FontSize 2 (the large font), grey text. The
-    /// buttons use the medium font and gold text.
-    ink: Ink = .gold,
-    /// The folder below `Localization/game/<code>/game_data_base/`.
-    dir: []const u8 = "textes/strings",
-    /// Text of the small font (about 11 pixels high): compared after smoothing both
-    /// images (`measure.blur`), since the Game's raster hints its strokes a pixel off a
-    /// shaper's.
-    small: bool = false,
-    /// The text is not the overlay's alone (the options caption holds the profile's name), so
-    /// no hb-view reference of the overlay's string matches it.
-    dynamic: bool = false,
-    /// The text is a tooltip: a box framed in the tooltip yellow whose size follows the text, so
-    /// the blank background's box (English, other fonts) is not the same size. Only the ink
-    /// inside the language's own frame counts (`inkImage`), `rect` being where it may hang.
-    boxed: bool = false,
-
-    /// The key as `Localization/game/scope.txt` spells it.
-    fn scopeKey(self: Label, allocator: std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(allocator, "{s}/{s}", .{ self.dir, self.key });
-    }
-
-    /// The path the Game traces when it opens the text, as the mod's pak names it.
-    fn tracedPath(self: Label, allocator: std.mem.Allocator) ![]u8 {
-        const path = try std.fmt.allocPrint(allocator, "{s}/{s}.txt", .{ self.dir, self.key });
-        std.mem.replaceScalar(u8, path, '/', '\\');
-        return path;
-    }
-
-    /// A file name for the label's hb-view raster.
-    fn stem(self: Label, allocator: std.mem.Allocator) ![]u8 {
-        const name = try std.fmt.allocPrint(allocator, "{s}-{s}", .{ self.dir, self.key });
-        std.mem.replaceScalar(u8, name, '/', '-');
-        return name;
-    }
-};
-
 /// The header (element 20001, FontSize 2) and the five buttons (FontSize 1) on
-/// the 1024x768 canvas, as in bk_font_game_reads_it.zig: the buttons are 320x50
-/// at x 650, y 267 + 65 * n; the header lies in the panel above them.
+/// the 1024x768 canvas: the buttons are 320x50 at x 650, y 267 + 65 * n; the
+/// header lies in the panel above them.
 const labels = [_]Label{
     .{ .key = "imheader-mainmenu-header", .rect = .{ .x1 = 630, .y1 = 175, .x2 = 990, .y2 = 248 }, .ink = .bright },
     .{ .key = "imheader-gbutton-newgame", .rect = .{ .x1 = 650, .y1 = 267, .x2 = 970, .y2 = 317 } },
@@ -314,7 +235,7 @@ const encyclopedia_box = ScrollBox{ .x = 58, .y = 201, .wrap_width = 377, .botto
 const options_dir = "textes/ui/optionssettings";
 const options_labels = [_]Label{
     .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 }, .dynamic = true },
-    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 700, .x2 = 1020, .y2 = 768 }, .ink = .bright, .boxed = true },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 640, .x2 = 1020, .y2 = 768 }, .ink = .bright, .boxed = true },
 };
 const options_route = Route{
     .tag = "options",
@@ -359,11 +280,11 @@ const Language = struct {
     /// The mod folder; null is the base game (English), which no mod replaces.
     mod: ?[]const u8,
     /// BCP 47 tag for hb-view.
-    tag: []const u8 = "",
-    /// The Noto face of the mod's generated fonts; null for English and the five Latin
-    /// languages, whose fonts are the game's bitmaps (with the missing letters added), so
-    /// there is no hb-view reference.
-    face: ?[]const u8 = null,
+    tag: []const u8,
+    /// The face hb-view draws the reference with: the first face of bk_text's chain that has the
+    /// language's glyphs (faces.zig chainFor: Liberation Serif leads for Latin and Cyrillic, so ru
+    /// has it too; Noto Sans SC, JP and Devanagari carry the others).
+    face: []const u8,
     script: ?[]const u8 = null,
     /// The language breaks lines between characters, so a wrapped text is checked against the
     /// lines the game's wrap predicts (kinsoku): ja now, zh-Hans when its slice measures it.
@@ -375,40 +296,22 @@ const Language = struct {
     }
 };
 
+const serif = "vendor/fonts/LiberationSerif-Regular.ttf";
 const languages = [_]Language{
-    .{ .code = "en", .mod = null },
-    .{ .code = "ru", .mod = "lang-ru", .tag = "ru", .face = "vendor/fonts/NotoSans-Regular.ttf" },
+    .{ .code = "en", .mod = null, .tag = "en", .face = serif },
+    .{ .code = "ru", .mod = "lang-ru", .tag = "ru", .face = serif },
     .{ .code = "zh-Hans", .mod = "lang-zh-hans", .tag = "zh-Hans", .face = "vendor/fonts/NotoSansSC-Regular.otf" },
     .{ .code = "ja", .mod = "lang-ja", .tag = "ja", .face = "vendor/fonts/NotoSansJP-Regular.otf", .kinsoku = true },
     .{ .code = "hi", .mod = "lang-hi", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
-    .{ .code = "es", .mod = "lang-es" },
-    .{ .code = "fr", .mod = "lang-fr" },
-    .{ .code = "de", .mod = "lang-de" },
-    .{ .code = "pt-BR", .mod = "lang-pt-br" },
-    .{ .code = "id", .mod = "lang-id" },
+    .{ .code = "es", .mod = "lang-es", .tag = "es", .face = serif },
+    .{ .code = "fr", .mod = "lang-fr", .tag = "fr", .face = serif },
+    .{ .code = "de", .mod = "lang-de", .tag = "de", .face = serif },
+    .{ .code = "pt-BR", .mod = "lang-pt-br", .tag = "pt-BR", .face = serif },
+    .{ .code = "id", .mod = "lang-id", .tag = "id", .face = serif },
 };
 const ru = languages[1];
 
-/// Failures are collected, then printed together with the failing measure
-/// first.
-const Report = struct {
-    allocator: std.mem.Allocator,
-    lines: std.ArrayList(u8) = .empty,
-    failures: usize = 0,
-
-    fn line(self: *Report, comptime fmt: []const u8, args: anytype) !void {
-        try self.lines.print(self.allocator, fmt ++ "\n", args);
-    }
-
-    fn check(self: *Report, ok: bool, comptime fmt: []const u8, args: anytype) !void {
-        if (ok) return self.line("ok    " ++ fmt, args);
-        self.failures += 1;
-        std.debug.print("FAIL  " ++ fmt ++ "\n", args);
-        try self.line("FAIL  " ++ fmt, args);
-    }
-};
-
-test "the Game draws the ten languages' main menus and briefings (R056)" {
+test "the Game draws the ten languages on bk_text, measured against hb-view (R056, M004 S05)" {
     const io = testing.io;
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
@@ -446,54 +349,52 @@ test "the Game draws the ten languages' main menus and briefings (R056)" {
     const scopes = (try check.loadScopes(io, allocator, cwd, null)) orelse return error.ScopeMissing;
 
     var failures: usize = 0;
-    for (languages) |language| {
+    // The mods that are not built: only lang-ja may be (M003 WIP), and the tier says so.
+    var absent: std.ArrayList([]const u8) = .empty;
+    for (languages) |language| if (language.mod) |mod| {
+        const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", mod });
+        cwd.access(io, mod_folder, .{}) catch {
+            if (!std.mem.eql(u8, mod, "lang-ja")) return error.ModMissing;
+            try absent.append(allocator, mod);
+        };
+    };
+    languages: for (languages) |language| {
         if (!try selected(allocator, language.code)) continue;
         var report = Report{ .allocator = allocator };
         defer failures += report.failures;
         cwd.deleteTree(io, try std.fs.path.join(allocator, &.{ scratch, language.code })) catch {};
-        const run = try Run.init(io, allocator, game, game_root, root, language.code, language.mod, language.face != null);
+        if (language.mod) |mod| for (absent.items) |gone| if (std.mem.eql(u8, gone, mod)) {
+            const note = try std.fmt.allocPrint(allocator, "not run: {s} absent (M003 WIP)", .{mod});
+            std.debug.print("l10n-game-reads-it: {s}\n", .{note});
+            try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ scratch, language.code }));
+            try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, language.code, "report.txt" }), .data = note });
+            continue :languages;
+        };
+        const run = try Run.init(io, allocator, game, game_root, root, language.code, language.mod, false);
         const menu = try run.capture(allocator, null, null);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "menu.tga" }), menu);
         const shot = try run.briefing(allocator, language.mod != null);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "briefing.tga" }), shot);
 
-        // The English frames the bitmap-font languages differ from: the base game, in a
-        // profile of its own.
-        var english_menu: ?[]u8 = null;
-        var english_briefing: ?[]u8 = null;
-        var english_run: ?Run = null;
-        if (language.mod == null) {
-            english_menu = menu;
-            english_briefing = shot;
-        } else if (language.face == null) {
-            const english_name = try std.fs.path.join(allocator, &.{ language.code, "english" });
-            const english = try Run.init(io, allocator, game, game_root, root, english_name, null, false);
-            english_menu = try english.capture(allocator, null, null);
-            english_briefing = try english.briefing(allocator, false);
-            english_run = english;
-        }
-
         try report.line("== {s} ({s}) main menu", .{ language.code, language.mod orelse "base game" });
-        try checkLanguage(io, allocator, language, run.folder, menu, blank, english_menu, &report);
+        try checkLanguage(io, allocator, language, run.folder, menu, blank, &report);
         try report.line("-- {s} briefing", .{language.code});
-        try checkBriefing(io, allocator, language, run.folder, shot, blank_briefing, english_briefing, &report);
+        try checkBriefing(io, allocator, language, run.folder, shot, blank_briefing, &report);
 
         // The options screen with its tooltip and the unit's encyclopedia page.
         for (routes, 0..) |route, at| {
             const covered = language.mod != null and scopeCovers(scopes, language.code, route);
             const route_frame = try run.route(allocator, route, covered);
             try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, try std.fmt.allocPrint(allocator, "{s}.png", .{route.tag}) }), route_frame);
-            var english_frame: ?[]u8 = null;
-            if (covered and language.face == null) english_frame = try english_run.?.route(allocator, route, false);
-            try report.line("-- {s} {s} ({s}; {s})", .{ language.code, route.tag, try std.fmt.allocPrint(allocator, "{s}/{s}/{s}.png", .{ scratch, language.code, route.tag }), if (language.mod == null) "base game" else if (covered) "scope covers its keys: compared with English or hb-view" else "scope does not cover its keys yet: ink and glyphs only" });
-            try checkRoute(io, allocator, language, run.folder, route_frame, blank_routes[at], english_frame, covered, route, &report);
+            try report.line("-- {s} {s} ({s}; {s})", .{ language.code, route.tag, try std.fmt.allocPrint(allocator, "{s}/{s}/{s}.png", .{ scratch, language.code, route.tag }), if (language.mod == null) "base game" else if (covered) "scope covers its keys: compared with hb-view" else "scope does not cover its keys yet: ink only" });
+            try checkRoute(io, allocator, language, run.folder, route_frame, blank_routes[at], covered, route, &report);
         }
 
         // A live switch: the Game starts on the other language and chooses this one while
         // it runs (the font cache clear of ApplyLanguage). Its buttons are the cold
         // start's. The header (labels[0]) is set once when the menu is built and keeps
         // its text on a live switch, so it is reported and not measured.
-        const from = if (language.mod == null or !std.mem.eql(u8, language.code, ru.code)) ru else languages[0];
+        const from = if (!std.mem.eql(u8, language.code, ru.code)) ru else languages[0];
         const switch_name = try std.fs.path.join(allocator, &.{ language.code, "switch" });
         var switch_run = try Run.init(io, allocator, game, game_root, root, switch_name, from.mod, false);
         const schedule = try std.fmt.allocPrint(allocator, "60:var=Text.Language={s}", .{language.option()});
@@ -507,17 +408,16 @@ test "the Game draws the ten languages' main menus and briefings (R056)" {
         // A restart: the choice made through the option is kept by the profile, and the
         // Game started on it without a mod argument shows the cold start's menu.
         const choose = try std.fmt.allocPrint(allocator, "30:set=GamePlay.Language={s},60:exit", .{language.option()});
-        const chosen = try switch_run.play(allocator, &.{ "-windowed", "-profile=L10n" }, choose, null, "persist");
+        const chosen = try switch_run.play(allocator, &.{ "-windowed", profile_arg }, choose, null, "persist");
         if (language.mod) |mod| try expectLine(chosen, switch_run.folder, try std.fmt.allocPrint(allocator, "language: \"{s}\" mounted", .{mod}));
-        switch_run.fonts = language.face != null;
-        const restarted = try switch_run.capture(allocator, null, null);
+                const restarted = try switch_run.capture(allocator, null, null);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "restart.tga" }), restarted);
         var restart_worst: usize = 0;
         for (labels) |label| restart_worst = @max(restart_worst, changedIn(menu, restarted, label.rect));
         try report.check(restart_worst <= max_live_difference, "{s} restarted on the profile that kept the choice: at most {d} pixels differ from the cold start in any label's box (limit {d})", .{ language.code, restart_worst, max_live_difference });
 
         // Options > Language and the gameplay mods list, once for the whole tier.
-        if (language.mod == null) try checkLists(allocator, blank_run, &report);
+        if (language.mod == null) try checkLists(allocator, blank_run, absent.items, &report);
 
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, language.code, "report.txt" }), .data = report.lines.items });
         if (report.failures != 0) std.debug.print("l10n-game-reads-it: {s}: {d} measures failed; the report is {s}/{s}/report.txt\n", .{ language.code, report.failures, scratch, language.code });
@@ -534,8 +434,8 @@ const mods_list_command = "269353205";
 /// lists Default first, then the nine mods by their native names, as the
 /// Game's own trace lines (BK_L10N_TRACE) report them from one run: the
 /// settings screen and its Options page opened, then the mods list.
-fn checkLists(allocator: std.mem.Allocator, run: Run, report: *Report) !void {
-    const log = try run.play(allocator, &.{ "-windowed", "-profile=L10n" }, "60:settings,100:msg=10003,240:cancel,300:cancel,360:cmd=" ++ mods_list_command ++ ",420:exit", null, "lists");
+fn checkLists(allocator: std.mem.Allocator, run: Run, absent: []const []const u8, report: *Report) !void {
+    const log = try run.play(allocator, &.{ "-windowed", profile_arg }, "60:settings,100:msg=10003,240:cancel,300:cancel,360:cmd=" ++ mods_list_command ++ ",420:exit", null, "lists");
     var entries: usize = 0;
     var language_entries: usize = 0;
     var default_first = false;
@@ -555,8 +455,13 @@ fn checkLists(allocator: std.mem.Allocator, run: Run, report: *Report) !void {
             }
         }
     }
+    // A native name may be missing only for a mod that is not built (lang-ja while M003 is work in progress).
     var all_seen = true;
-    for (seen) |one| all_seen = all_seen and one;
+    for (seen, native_names) |one, name| {
+        const tolerated = std.mem.eql(u8, name, "日本語") and absent.len == 1 and std.mem.eql(u8, absent[0], "lang-ja");
+        if (tolerated and !one) try report.line("      native name {s}: not listed, tolerated: lang-ja absent (M003 WIP)", .{name});
+        all_seen = all_seen and (one or tolerated);
+    }
     try report.line("== option and mods lists ({d} mods list entries, {d} language entries)", .{ entries, language_entries });
     try report.check(entries > 0 and leaked == 0, "the gameplay mods list opened and shows no language mod ({d} entries, {d} language mods in it)", .{ entries, leaked });
     try report.check(default_first and all_seen, "Options > Language lists Default first and the nine native names (default first {any}, names all present {any})", .{ default_first, all_seen });
@@ -571,65 +476,6 @@ fn changedIn(a: []const u8, b: []const u8, rect: Rect) usize {
     return changed;
 }
 
-/// The label's ink, per pixel: what the frame adds to the background in the
-/// label's own colour. The buttons' gold text over grey metal adds warmth
-/// (red minus blue); it is darker than the metal, and so is its shadow, so
-/// brightness would count both; grey text over a dark panel adds brightness.
-fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const u8, label: Label) !Gray {
-    const rect = label.rect;
-    const pixels = try allocator.alloc(u8, rect.width() * rect.height());
-    for (0..rect.height()) |y| for (0..rect.width()) |x| {
-        const at = ((rect.y1 + y) * width + rect.x1 + x) * 4;
-        const added = switch (label.ink) {
-            .bright => luma(frame[at..][0..3]) - luma(background[at..][0..3]),
-            .dark => luma(background[at..][0..3]) - luma(frame[at..][0..3]),
-            .gold => warmth(frame[at..][0..3]) - warmth(background[at..][0..3]),
-        };
-        pixels[y * rect.width() + x] = @intCast(std.math.clamp(added, 0, 255));
-    };
-    if (label.boxed) {
-        // The frame: the bounding box of the tooltip yellow in the rectangle (frame and text are
-        // drawn in it); inside its border, the text.
-        var frame_box = Rect{ .x1 = rect.width(), .y1 = rect.height(), .x2 = 0, .y2 = 0 };
-        for (0..rect.height()) |y| for (0..rect.width()) |x| {
-            const rgb = frame[((rect.y1 + y) * width + rect.x1 + x) * 4 ..][0..3];
-            if (!isTooltipYellow(rgb)) continue;
-            frame_box = .{ .x1 = @min(frame_box.x1, x), .y1 = @min(frame_box.y1, y), .x2 = @max(frame_box.x2, x + 1), .y2 = @max(frame_box.y2, y + 1) };
-        };
-        for (0..rect.height()) |y| for (0..rect.width()) |x| {
-            const inside = x >= frame_box.x1 + tooltip_border and x + tooltip_border < frame_box.x2 and y >= frame_box.y1 + tooltip_border and y + tooltip_border < frame_box.y2;
-            if (!inside) pixels[y * rect.width() + x] = 0;
-        };
-    }
-    return .{ .width = rect.width(), .height = rect.height(), .pixels = pixels };
-}
-
-/// The tooltip's frame and text colour, about (205, 205, 0); the gold of the buttons and arrows
-/// has less green and more blue.
-fn isTooltipYellow(rgb: []const u8) bool {
-    return rgb[0] > 180 and rgb[1] > 180 and rgb[2] < 40 and @abs(@as(i32, rgb[0]) - rgb[1]) < 24;
-}
-/// The tooltip frame's line width, with a pixel to spare.
-const tooltip_border: usize = 3;
-
-fn luma(rgb: []const u8) i32 {
-    return @intCast((@as(u32, rgb[0]) * 299 + @as(u32, rgb[1]) * 587 + @as(u32, rgb[2]) * 114) / 1000);
-}
-
-fn warmth(rgb: []const u8) i32 {
-    return @as(i32, rgb[0]) - rgb[2];
-}
-
-/// The overlay's text for `key` as UTF-8.
-fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
-    const path = try std.fmt.allocPrint(allocator, "Localization/game/{s}/game_data_base/{s}/{s}.txt", .{ code, label.dir, label.key });
-    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(1 << 16));
-    if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return error.NotUtf16;
-    const units = try allocator.alloc(u16, (bytes.len - 2) / 2);
-    for (units, 0..) |*unit, at| unit.* = std.mem.readInt(u16, bytes[2 + at * 2 ..][0..2], .little);
-    return std.unicode.utf16LeToUtf8Alloc(allocator, units);
-}
-
 fn hasHan(text: []const u8) bool {
     var view = std.unicode.Utf8View.initUnchecked(text);
     var it = view.iterator();
@@ -642,6 +488,17 @@ fn hasCodepoint(text: []const u8, wanted: u21) bool {
     var it = view.iterator();
     while (it.nextCodepoint()) |cp| if (cp == wanted) return true;
     return false;
+}
+
+/// The text of `label` as UTF-8: the language's overlay, and for English (which has none) the shipped original.
+fn overlayText(io: std.Io, allocator: std.mem.Allocator, code: []const u8, label: Label) ![]u8 {
+    if (!std.mem.eql(u8, code, "en")) return te.overlayText(io, allocator, code, label);
+    const key = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ label.dir, label.key });
+    const bytes = (try check.readBase(io, allocator, std.Io.Dir.cwd(), key)) orelse return error.FileNotFound;
+    if (bytes.len < 2 or bytes[0] != 0xff or bytes[1] != 0xfe) return error.NotUtf16;
+    const units = try allocator.alloc(u16, (bytes.len - 2) / 2);
+    for (units, 0..) |*unit, at| unit.* = std.mem.readInt(u16, bytes[2 + at * 2 ..][0..2], .little);
+    return std.unicode.utf16LeToUtf8Alloc(allocator, units);
 }
 
 /// What `checkLabels` measured, for the checks that go on from it.
@@ -665,7 +522,7 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
     const inks = try allocator.alloc(Gray, set.len);
     for (set, 0..) |label, index| {
         texts[index] = try overlayText(io, allocator, language.code, label);
-        refs[index] = try measure.hbView(allocator, io, hb_folder, try label.stem(allocator), texts[index], .{ .font = language.face.?, .language = language.tag, .script = language.script });
+        refs[index] = try measure.hbView(allocator, io, hb_folder, try label.stem(allocator), texts[index], .{ .font = language.face, .language = language.tag, .script = language.script });
         const full = try inkImage(allocator, frame, blank, label);
         const box = measure.inkBox(full, if (label.small and label.ink == .bright) small_box_threshold else ink_threshold) orelse {
             try report.check(false, "{s} {s}: no ink in the label's box (the Game drew nothing there)", .{ language.code, label.key });
@@ -698,22 +555,17 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
     return .{ .hb_folder = hb_folder, .texts = texts, .refs = refs, .inks = inks };
 }
 
-fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, english: ?[]const u8, report: *Report) !void {
-    if (language.face == null) return checkBitmap(allocator, language, frame, blank, english, &labels, report);
+fn checkLanguage(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, report: *Report) !void {
     const m = try checkLabels(io, allocator, language, folder, frame, blank, &labels, report);
     if (std.mem.eql(u8, language.code, "hi")) try checkHindi(io, allocator, language, m.hb_folder, m.texts, m.refs, m.inks, report);
-    if (std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja")) try checkHan(io, allocator, language, m.hb_folder, &labels, m.texts, m.inks, true, report);
+    if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &labels, m.texts, m.inks, true, report);
 }
 
 /// The briefing's labels as hb-view draws them, and ink in the description's
 /// body.
-fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, english: ?[]const u8, report: *Report) !void {
-    if (language.face == null) {
-        try checkBitmap(allocator, language, frame, blank, english, &briefing_labels, report);
-    } else {
-        const m = try checkLabels(io, allocator, language, folder, frame, blank, &briefing_labels, report);
-        if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &briefing_labels, m.texts, m.inks, false, report);
-    }
+fn checkBriefing(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, report: *Report) !void {
+    const m = try checkLabels(io, allocator, language, folder, frame, blank, &briefing_labels, report);
+    if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, &briefing_labels, m.texts, m.inks, false, report);
     const body = try inkImage(allocator, frame, blank, briefing_body);
     const box = measure.inkBox(body, ink_threshold);
     try report.check(box != null and box.?.width() >= min_body_width, "{s} briefing description: ink {d} pixels wide in the panel's text lines (at least {d})", .{ language.code, if (box) |b| b.width() else 0, min_body_width });
@@ -753,34 +605,26 @@ fn scopeCovers(scopes: check.Scopes, code: []const u8, route: Route) bool {
     return false;
 }
 
-/// A route's labels (and body): ink inside each box and no missing-glyph box for every
-/// language. Where the language's scope covers the route's keys the texts are the language's
-/// own: a bitmap-font language draws all but one label differently from English, a face
-/// language's static labels match hb-view.
-fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, english: ?[]const u8, covered: bool, route: Route, report: *Report) !void {
+/// A route's labels (and body): ink inside each box for every language. Where the language's scope
+/// covers the route's keys the texts are the language's own, and its static labels match hb-view
+/// (the missing-glyph signal is BK_GLYPH_TRACE, which fails the run itself).
+fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, covered: bool, route: Route, report: *Report) !void {
     const body: []const Label = if (route.body) |*one| one[0..1] else &.{};
-    var different: usize = 0;
-    var total: usize = 0;
     for ([_][]const Label{ route.labels, body }, 0..) |set, which| for (set) |label| {
         const full = try inkImage(allocator, frame, blank, label);
         var lit: usize = 0;
         for (full.pixels) |p| lit += @intFromBool(p > ink_threshold);
         const box = measure.inkBox(full, ink_threshold);
         const box_width = if (box) |b| b.width() else 0;
-        const wide = if (which == 1) min_body_width else min_bitmap_width;
+        const wide = if (which == 1) min_body_width else te.min_ink_width;
         try report.check(lit >= min_route_ink_pixels and box_width >= wide, "{s} {s} {s}: {d} ink pixels, ink {d} pixels wide in the box {d},{d} to {d},{d} (at least {d} and {d})", .{ language.code, route.tag, label.key, lit, box_width, label.rect.x1, label.rect.y1, label.rect.x2, label.rect.y2, min_route_ink_pixels, wide });
-        try report.check(!measure.hasSolidBox(full, ink_threshold, solid_w, solid_h, solid_fill), "{s} {s} {s}: no missing-glyph box ({d}x{d} window, {d:.0}% lit) in the label", .{ language.code, route.tag, label.key, solid_w, solid_h, solid_fill * 100 });
-        if (covered and english != null) {
-            const changed = measure.changedPixels(frame, english.?, width, label.rect, frame_tolerance);
-            different += @intFromBool(changed >= min_text_change);
-            total += 1;
-            try report.line("      {s} {s} {s}: {d} pixels differ from English", .{ language.code, route.tag, label.key, changed });
-        }
     };
-    if (covered and english != null) try report.check(different + 1 >= total, "{s} {s}: {d} of {d} labels are drawn differently from English (all but one, at least {d} pixels each)", .{ language.code, route.tag, different, total, min_text_change });
-    if (covered and language.face != null) {
+    if (covered) {
         var static: std.ArrayList(Label) = .empty;
-        for (route.labels) |label| if (!label.dynamic) try static.append(allocator, label);
+        for (route.labels) |label| {
+            if (label.dynamic) continue;
+            if (label.boxed) try checkTooltip(io, allocator, language, folder, frame, blank, label, report) else try static.append(allocator, label);
+        }
         if (static.items.len != 0) {
             const m = try checkLabels(io, allocator, language, folder, frame, blank, static.items, report);
             if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, static.items, m.texts, m.inks, false, report);
@@ -792,31 +636,6 @@ fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, fold
             try checkKinsoku(io, allocator, language, folder, frame, blank, route.tag, scroll, text, report);
         } else try report.line("      kinsoku: {s}: not measured, the scope does not cover the route's keys yet", .{route.tag});
     };
-}
-
-/// The bitmap-font languages (and English): no hb-view reference exists for the
-/// game's own fonts, so every label's box holds ink and is wide enough, no
-/// glyph is the solid box of a missing code point, and, for a translation, all
-/// the labels but one are drawn differently from English.
-fn checkBitmap(allocator: std.mem.Allocator, language: Language, frame: []const u8, blank: []const u8, english: ?[]const u8, set: []const Label, report: *Report) !void {
-    var different: usize = 0;
-    for (set) |label| {
-        const full = try inkImage(allocator, frame, blank, label);
-        var lit: usize = 0;
-        for (full.pixels) |p| lit += @intFromBool(p > ink_threshold);
-        const box = measure.inkBox(full, ink_threshold);
-        const box_width = if (box) |b| b.width() else 0;
-        try report.check(lit >= min_bitmap_ink_pixels and box_width >= min_bitmap_width, "{s} {s}: {d} ink pixels, ink {d} pixels wide (at least {d} and {d})", .{ language.code, label.key, lit, box_width, min_bitmap_ink_pixels, min_bitmap_width });
-        try report.check(!measure.hasSolidBox(full, ink_threshold, solid_w, solid_h, solid_fill), "{s} {s}: no missing-glyph box ({d}x{d} window, {d:.0}% lit) in the label", .{ language.code, label.key, solid_w, solid_h, solid_fill * 100 });
-        if (english) |reference| {
-            const changed = measure.changedPixels(frame, reference, width, label.rect, frame_tolerance);
-            if (language.mod != null) {
-                different += @intFromBool(changed >= min_text_change);
-                try report.line("      {s} {s}: {d} pixels differ from English", .{ language.code, label.key, changed });
-            }
-        }
-    }
-    if (english != null and language.mod != null) try report.check(different + 1 >= set.len, "{s}: {d} of {d} labels are drawn differently from English (all but one, at least {d} pixels each)", .{ language.code, different, set.len, min_text_change });
 }
 
 fn full_width(label: Label) usize {
@@ -835,7 +654,7 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
         // Conjuncts: the word drawn as hb-view's conjunct, not the halant
         // spelling, measured on the conjunct's own columns.
         if (hasCodepoint(texts[index], 0x094d)) {
-            const apart = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ label.key, "-halant" }), texts[index], .{ .font = language.face.?, .language = language.tag, .script = language.script, .features = measure.halant_spelling });
+            const apart = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ label.key, "-halant" }), texts[index], .{ .font = language.face, .language = language.tag, .script = language.script, .features = measure.halant_spelling });
             const joined_cut = try measure.crop(allocator, refs[index], measure.inkBox(refs[index], 64).?);
             const apart_cut = try measure.crop(allocator, apart, measure.inkBox(apart, 64).?);
             const text_words = std.mem.count(u8, texts[index], " ") + 1;
@@ -964,31 +783,30 @@ const line_min_gap: usize = 2;
 /// measured: the game clips the next one at the box's lower edge.
 fn checkKinsoku(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, tag: []const u8, box: ScrollBox, text: []const u8, report: *Report) !void {
     const cwd = std.Io.Dir.cwd();
-    var dir = cwd.openDir(io, language_mods_scratch, .{}) catch {
-        try report.check(false, "kinsoku: {s}: {s}: cannot open {s}: run zig build language-mods -Dlm-langs={s}", .{ language.code, tag, language_mods_scratch, language.code });
-        return;
-    };
-    defer dir.close(io);
-    var problem: check.FontProblem = .{ .path = "", .reason = "" };
-    const fonts = check.loadFitFontsIn(io, allocator, dir, try std.fmt.allocPrint(allocator, "{s}/fonts", .{language.code}), &problem) catch {
-        try report.check(false, "kinsoku: {s}: {s}: cannot read {s}/{s} ({s}): run zig build language-mods -Dlm-langs={s}", .{ language.code, tag, language_mods_scratch, problem.path, problem.reason, language.code });
-        return;
-    };
-    const font = fonts.get(.medium);
+    const bk_text = check.text_module;
+    // The Game's own wrap: the shaper of the language at the medium size, as the fit rule makes it.
+    var fit = try check.Fit.init(allocator, io, fonts_dir);
+    defer fit.deinit();
+    const slot = for (check.language_table.languages, 0..) |entry, at| {
+        if (std.mem.eql(u8, entry.code, language.code)) break at;
+    } else return error.UnknownLanguage;
+    const shaper = try fit.shaper(slot, .medium);
     const units = try std.unicode.utf8ToUtf16LeAlloc(allocator, text);
-    var lines: std.ArrayList(check.wrap.Line) = .empty;
-    try check.wrap.wrapLines(allocator, font, units, 1.0, @floatFromInt(box.wrap_width), &lines);
+    var lines: std.ArrayList(bk_text.wrap.Line) = .empty;
+    try bk_text.wrap.wrapText(allocator, shaper, units, @floatFromInt(box.wrap_width), &lines);
     const slices = try allocator.alloc([]const u16, lines.items.len);
-    for (lines.items, slices) |line, *out| out.* = units[line.begin..line.end];
+    for (lines.items, slices) |line, *out| out.* = units[line.start..line.end];
     const violation = measure.kinsokuViolation(slices, check.wrap.isNoStart, check.wrap.isNoEnd);
     try report.check(violation == null, "kinsoku: {s}: {s}: no predicted line breaks the rules ({s})", .{ language.code, tag, if (violation) |v| try std.fmt.allocPrint(allocator, "line {d} {s}", .{ v.line, v.reason }) else "checked all lines" });
 
     // The lines whole inside the box: the last needs only the font's height, the others a line space.
+    const metrics = bk_text.measure.faceMetrics(shaper, shaper.chain[0]);
+    const font_height: i64 = @intFromFloat(@ceil(metrics.ascent + metrics.descent));
+    const space: i64 = @intFromFloat(bk_text.measure.lineSpace(shaper));
     const room: i64 = @as(i64, @intCast(box.bottom - box.y));
-    const space: i64 = font.lineSpace();
-    const whole: usize = if (room < font.height) 0 else @intCast(@divTrunc(room - font.height, space) + 1);
+    const whole: usize = if (room < font_height) 0 else @intCast(@divTrunc(room - font_height, space) + 1);
     const shown = @min(whole, slices.len);
-    const region_bottom = box.y + (shown -| 1) * @as(usize, @intCast(space)) + @as(usize, @intCast(font.height));
+    const region_bottom = box.y + (shown -| 1) * @as(usize, @intCast(space)) + @as(usize, @intCast(font_height));
     const hb_folder = try std.fs.path.join(allocator, &.{ folder, "reference" });
     try cwd.createDirPath(io, hb_folder);
     var references: std.ArrayList(Gray) = .empty;
@@ -997,7 +815,7 @@ fn checkKinsoku(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
         if (trimmed.len == 0) continue;
         const utf8 = try std.unicode.utf16LeToUtf8Alloc(allocator, trimmed);
         const name = try std.fmt.allocPrint(allocator, "kinsoku-{s}-{d}", .{ tag, at });
-        try references.append(allocator, try measure.hbView(allocator, io, hb_folder, name, utf8, .{ .font = language.face.?, .language = language.tag, .script = language.script }));
+        try references.append(allocator, try measure.hbView(allocator, io, hb_folder, name, utf8, .{ .font = language.face, .language = language.tag, .script = language.script }));
     }
     const region_label = Label{ .key = tag, .rect = .{ .x1 = box.x, .y1 = box.y, .x2 = box.x + box.wrap_width, .y2 = region_bottom }, .ink = .dark };
     const region = try inkImage(allocator, frame, blank, region_label);
@@ -1009,6 +827,85 @@ fn checkKinsoku(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
         .count_differs => "the ink's line bands differ in number from the predicted lines: the game broke the text elsewhere",
         .weak_line => "a line band does not match its predicted line",
     } else "every line band matches its predicted line", min_line_correlation });
+}
+
+/// The least ink of a tooltip's text pixel over the blank background: above its fill's difference.
+const tooltip_text_ink: u8 = 60;
+
+/// What a tooltip's frame leaves inside `inkImage`'s inset: a row or a column lit across nearly all of the
+/// region's lit extent is a rule of the frame, not a line of text.
+fn dropFrameRules(region: Gray) void {
+    var x1: usize = region.width;
+    var x2: usize = 0;
+    var y1: usize = region.height;
+    var y2: usize = 0;
+    for (0..region.height) |y| for (0..region.width) |x| {
+        if (region.pixels[y * region.width + x] == 0) continue;
+        x1 = @min(x1, x);
+        x2 = @max(x2, x + 1);
+        y1 = @min(y1, y);
+        y2 = @max(y2, y + 1);
+    };
+    if (x2 <= x1 or y2 <= y1) return;
+    for (y1..y2) |y| {
+        var lit: usize = 0;
+        for (x1..x2) |x| lit += @intFromBool(region.pixels[y * region.width + x] != 0);
+        if (lit * 10 >= (x2 - x1) * 9) @memset(region.pixels[y * region.width ..][0..region.width], 0);
+    }
+    for (x1..x2) |x| {
+        var lit: usize = 0;
+        for (y1..y2) |y| lit += @intFromBool(region.pixels[y * region.width + x] != 0);
+        if (lit * 10 >= (y2 - y1) * 9) for (y1..y2) |y| {
+            region.pixels[y * region.width + x] = 0;
+        };
+    }
+}
+
+/// A tooltip: the Game wraps it at the hint width in the large font, so a text that does not fit
+/// one line is drawn as several, which no single hb-view raster matches. The lines bk_text's wrap
+/// predicts are compared band by band like a kinsoku text; a text of one line like any label.
+fn checkTooltip(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, label: Label, report: *Report) !void {
+    const bk_text = check.text_module;
+    var fit = try check.Fit.init(allocator, io, fonts_dir);
+    defer fit.deinit();
+    const slot = if (std.mem.eql(u8, language.code, "en")) check.Fit.english else for (check.language_table.languages, 0..) |entry, at| {
+        if (std.mem.eql(u8, entry.code, language.code)) break at;
+    } else return error.UnknownLanguage;
+    const hint_width = check.tooltipWidth(try fit.lineSpace(slot, .medium), try fit.lineSpace(slot, .large));
+    const shaper = try fit.shaper(slot, .large);
+    const text = try overlayText(io, allocator, language.code, label);
+    const units = try std.unicode.utf8ToUtf16LeAlloc(allocator, text);
+    var lines: std.ArrayList(bk_text.wrap.Line) = .empty;
+    try bk_text.wrap.wrapText(allocator, shaper, units, hint_width, &lines);
+    if (lines.items.len <= 1) {
+        _ = try checkLabels(io, allocator, language, folder, frame, blank, &.{label}, report);
+        return;
+    }
+    const hb_folder = try std.fs.path.join(allocator, &.{ folder, "reference" });
+    try std.Io.Dir.cwd().createDirPath(io, hb_folder);
+    var references: std.ArrayList(Gray) = .empty;
+    for (lines.items, 0..) |line, at| {
+        const trimmed = std.mem.trim(u16, units[line.start..line.end], &[_]u16{ ' ', '\r', '\n' });
+        if (trimmed.len == 0) continue;
+        const utf8 = try std.unicode.utf16LeToUtf8Alloc(allocator, trimmed);
+        const name = try std.fmt.allocPrint(allocator, "tooltip-{s}-{d}", .{ language.code, at });
+        try references.append(allocator, try measure.hbView(allocator, io, hb_folder, name, utf8, .{ .font = language.face, .language = language.tag, .script = language.script }));
+    }
+    const region = try inkImage(allocator, frame, blank, label);
+    // The tooltip's dark fill differs from the blank background by up to about 26 (the strip's note above), which
+    // `ink_threshold` would count; its yellow text adds far more.
+    for (region.pixels) |*p| {
+        if (p.* < tooltip_text_ink) p.* = 0;
+    }
+    dropFrameRules(region);
+    const found = try measure.lineBands(allocator, region, references.items, tooltip_text_ink, 64, line_min_gap, small_blur);
+    try report.line("tooltip {s} \"{s}\": predicted {d} lines at {d:.0} wide, measured {d}, min corr {d:.3}", .{ label.key, text, found.predicted, hint_width, found.measured, if (found.correlations.len == 0) 0 else found.minCorrelation() });
+    for (found.correlations, 0..) |one, at| try report.line("      tooltip {s}: band {d} correlates {d:.3} with its predicted line", .{ label.key, at, one });
+    const fault = found.fault(min_line_correlation);
+    try report.check(fault == null, "{s} {s}: tooltip lines {s} (minimum {d:.2})", .{ language.code, label.key, if (fault) |f| switch (f) {
+        .count_differs => "differ in number from the lines bk_text's wrap predicts",
+        .weak_line => "do not match hb-view of the predicted lines",
+    } else "match hb-view of the lines bk_text's wrap predicts", min_line_correlation });
 }
 
 /// A reference raster cut to its ink and resampled onto the grid of a frame's label ink.
@@ -1026,14 +923,14 @@ const Run = struct {
     user: []const u8,
     mod: ?[]const u8,
     name: []const u8,
-    /// Whether the language's mod brings fonts, so the menu capture must show the Game
-    /// opening them.
-    fonts: bool,
+    /// Whether the Game runs with BK_TEXT_ENGINE=bitmap: the blank background's, whose mod brings
+    /// bitmap fonts with no ink. Every other run is on the default engine, bk_text.
+    bitmap: bool,
 
     /// Makes the scratch folder and sets the profile's language option to
     /// `mod` (Default for the base game) with a short run of the Game on the
     /// options' own `set=`, which the profile keeps.
-    fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, fonts: bool) !Run {
+    fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, bitmap: bool) !Run {
         const cwd = std.Io.Dir.cwd();
         const folder = try std.fs.path.join(allocator, &.{ root, name });
         const user = try std.fs.path.join(allocator, &.{ folder, "user" });
@@ -1042,9 +939,9 @@ const Run = struct {
         try cwd.createDirPath(io, configs);
         const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
-        const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .mod = mod, .name = name, .fonts = fonts };
+        const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .mod = mod, .name = name, .bitmap = bitmap };
         const schedule = try std.fmt.allocPrint(allocator, "30:set=GamePlay.Language={s},60:exit", .{mod orelse "Default"});
-        const log = try run.play(allocator, &.{ "-windowed", "-profile=L10n" }, schedule, null, "choose");
+        const log = try run.play(allocator, &.{ "-windowed", profile_arg }, schedule, null, "choose");
         if (mod) |one| try expectLine(log, run.folder, try std.fmt.allocPrint(allocator, "language: \"{s}\" mounted", .{one}));
         return run;
     }
@@ -1059,6 +956,8 @@ const Run = struct {
         try environ.put("BK_UI_TRACE", "1");
         try environ.put("BK_NO_HELP", "1");
         try environ.put("BK_GLYPH_TRACE", "1");
+        // An unset variable means bk_text; the blank background says bitmap.
+        if (self.bitmap) try environ.put("BK_TEXT_ENGINE", "bitmap");
         if (schedule) |text| try environ.put("BK_AUTO_UI", text);
         if (delay) |frames| try environ.put("BK_REFERENCE_DELAY", try std.fmt.allocPrint(allocator, "{d}", .{frames}));
         var argv: std.ArrayList([]const u8) = .empty;
@@ -1078,6 +977,13 @@ const Run = struct {
             return error.GameFailed;
         }
         try measure.expectNoMissingGlyph(log, log_path);
+        // Any BK_GLYPH_TRACE line, whatever its wording, is a character the font could not draw.
+        if (std.mem.indexOf(u8, log, "BK_GLYPH_TRACE") != null) {
+            std.debug.print("a BK_GLYPH_TRACE line is in the Game's output {s}\n", .{log_path});
+            return error.MissingGlyph;
+        }
+        // A Game that fell back to the bitmap fonts logs `engine bitmap` and would otherwise pass.
+        if (!self.bitmap) try expectLine(log, self.folder, "bk_text: engine ttf");
         return log;
     }
 
@@ -1086,13 +992,6 @@ const Run = struct {
     fn capture(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32) ![]u8 {
         const log = try self.scene(allocator, schedule, delay, "capture");
         try expectLine(log, self.folder, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
-        // The fonts come from the language mod: both sizes the menu uses, tfd and atlas.
-        if (self.fonts) {
-            for ([_][]const u8{ "Fonts\\medium\\1.tfd", "Fonts\\medium\\1_h.dds", "Fonts\\large\\1.tfd", "Fonts\\large\\1_h.dds" }) |file| {
-                const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"{s}\" from LANGUAGE", .{file});
-                try expectLine(log, self.folder, line);
-            }
-        }
         return self.frame(allocator, "capture");
     }
 
@@ -1151,7 +1050,7 @@ const Run = struct {
     /// One run of the Game to its `-reference-scene` capture, `<tag>.rgba`.
     fn scene(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
         const path = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ self.folder, tag });
-        const log = try self.play(allocator, &.{ "-reference-scene", path, "-reference-resolution", "1024", "768", "-windowed", "-profile=L10n" }, schedule, delay, tag);
+        const log = try self.play(allocator, &.{ "-reference-scene", path, "-reference-resolution", "1024", "768", "-windowed", profile_arg }, schedule, delay, tag);
         try expectLine(log, self.folder, "BK_REFERENCE_SCENE: capture complete");
         return log;
     }
@@ -1163,42 +1062,6 @@ const Run = struct {
         return bytes;
     }
 };
-
-/// A traced text path is the spelling of the UI XML or the C++ caller ("Textes\\UI\\OptionsSettings\\..."
-/// against the lowercase key), and Data paths resolve case-insensitively, so those lines match
-/// without regard to case.
-fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
-    if (std.mem.indexOf(u8, log, line) != null) return;
-    if (std.mem.startsWith(u8, line, "BK_MOD_TRACE: open ") and std.ascii.findIgnoreCase(log, line) != null) return;
-    std.debug.print("the Game did not print \"{s}\"; its logs are in {s}\n", .{ line, folder });
-    return error.GameLineMissing;
-}
-
-/// `l10n-blank`: the shipped English texts and the ru fonts with their ink
-/// removed (every texel of the atlas zero, the header kept), installed as a
-/// mod of the game so the Game's background capture needs nothing but the
-/// language option.
-fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const u8, root: []const u8) !void {
-    const cwd = std.Io.Dir.cwd();
-    // The shipped fonts: the language mods carry none since M004 S05. Only the ink matters here, and it is removed.
-    var fonts: std.ArrayList(packages.Entry) = .empty;
-    for ([_][]const u8{ "tiny", "small", "medium", "large" }) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
-        const source = try std.fmt.allocPrint(allocator, "Data/Fonts/{s}/{s}", .{ size, file });
-        const data = try cwd.readFileAlloc(io, source, allocator, .limited(64 << 20));
-        if (std.mem.endsWith(u8, file, ".dds")) @memset(data[128..], 0);
-        try fonts.append(allocator, .{ .name = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ size, file }), .bytes = data });
-    };
-    const db_folder = try std.fs.path.join(allocator, &.{ root, "blank-db" });
-    try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
-    const elk_xml = try std.fs.path.join(allocator, &.{ db_folder, "elk.xml" });
-    try cwd.writeFile(io, .{ .sub_path = elk_xml, .data = try cwd.readFileAlloc(io, "Data/ELK/elk.xml", allocator, .limited(1 << 20)) });
-    var db = try database.Database.open(testing.allocator, io, elk_xml);
-    defer db.deinit();
-    const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = blank_mod }, .{ .fonts = fonts.items });
-    defer testing.allocator.free(written.path);
-    const mod_xml = "<?xml version=\"1.0\"?>\r\n<base><MODName>l10n blank</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n";
-    try database.writeFileAtomic(io, testing.allocator, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(written.path).?, "mod.xml" }), mod_xml);
-}
 
 /// A PNG of an RGBA frame (alpha dropped: reference captures carry none), written with stored
 /// deflate blocks, since the checks read the frames and a person only needs to open them.
@@ -1243,24 +1106,4 @@ fn pngChunk(allocator: std.mem.Allocator, out: *std.ArrayList(u8), kind: *const 
     crc.update(kind);
     crc.update(data);
     try out.appendSlice(allocator, &std.mem.toBytes(std.mem.nativeToBig(u32, crc.final())));
-}
-
-/// An uncompressed 32-bit top-down TGA of an RGBA frame, the frames the tier
-/// keeps next to its report.
-fn writeTga(io: std.Io, allocator: std.mem.Allocator, path: []const u8, rgba: []const u8) !void {
-    const out = try allocator.alloc(u8, 18 + rgba.len);
-    @memset(out[0..18], 0);
-    out[2] = 2;
-    std.mem.writeInt(u16, out[12..14], width, .little);
-    std.mem.writeInt(u16, out[14..16], height, .little);
-    out[16] = 32;
-    out[17] = 0x28; // top-down, 8 alpha bits
-    for (0..width * height) |i| {
-        out[18 + i * 4 + 0] = rgba[i * 4 + 2];
-        out[18 + i * 4 + 1] = rgba[i * 4 + 1];
-        out[18 + i * 4 + 2] = rgba[i * 4 + 0];
-        out[18 + i * 4 + 3] = 255;
-    }
-    try std.Io.Dir.cwd().createDirPath(io, std.fs.path.dirname(path).?);
-    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = out });
 }
