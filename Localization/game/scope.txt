@@ -35,3 +35,13 @@ prefix ja textes
 prefix ja buildings
 prefix ja medals
 prefix ja units/humans
+prefix hi textes/options
+prefix hi textes/ui/optionssettings
+prefix hi textes/ui/cloud
+prefix hi textes/ui/intermission/mainmenu/playerprofile
+prefix hi textes/strings/profile
+prefix zh-Hans textes/options
+prefix zh-Hans textes/ui/optionssettings
+prefix zh-Hans textes/ui/cloud
+prefix zh-Hans textes/ui/intermission/mainmenu/playerprofile
+prefix zh-Hans textes/strings/profile

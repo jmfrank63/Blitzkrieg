@@ -33,8 +33,6 @@ fr buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
 fr buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
 es textes/help load game # running text: the key is Carga rápida, the quick-load key, not the Cargar partida menu
 es textes/help save game # running text: the key is Guardado rápido, the quick-save key, not the Guardar partida menu
-es textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJUGADOR (139 px), so the heading is the abbreviation MULTIJUG.
-pt-BR textes/options/multiplayer.name multiplayer # the 135 px heading box cannot hold MULTIJOGADOR (139 px), so the heading is the abbreviation MULTIJOG.
 id textes/ui/intermission/credits/credits engineer # the credits line "Sound Engineer" is Teknisi Suara, an audio technician, not a military zeni (sapper).
 id buildings/africa/summer/a_cisterns/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
 id buildings/africa/summer/a_cisterns/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
@@ -64,3 +62,8 @@ ru units/humans/ussr/ussr/ptrd/name tank # fit: ПТР is the standard abbreviat
 ru units/humans/ussr/ussr/ptrs/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
 ru scenarios/scenariomissions/allies/norway/description mission # prose: the Russian text words it with another noun or case form
 ru scenarios/descriptions/defend_area00/description options # prose: "options" is the ordinary word for choices here, the Russian text says варианта
+ru textes/options/cloud.config.backup.name settings # genitive plural: настроек does not keep the stem Настройк
+ru textes/options/cloud.config.backup.tooltip settings # genitive plural: настроек does not keep the stem Настройк
+ru textes/ui/cloudbackups/empty settings # genitive plural: настроек does not keep the stem Настройк
+ru textes/options/multiplayer.playername.tooltip multiplayer # genitive: сетевой игры, the glossary term declined
+ru textes/options/multiplayer.tooltip multiplayer # genitive: настройки сетевой игры, the glossary term declined

@@ -13,6 +13,245 @@
 # The first part holds one exact line per TextKey or ToolTip reference of Data/UI (layout order lost on
 # purpose: generated once, edited by hand after). The families below it cover every other key of
 # Data/ELK/game_data_base.
+# The port's cloud, profile and settings-caption texts (2026-10-22): each key in the element its screen's Lua or C++ sets it into.
+# textes/ui/cloudbackups: Data/UI/CloudBackups.xml (ModStyles/achtungpanzer2/CloudBackups.xml has narrower status/list boxes), code Sources/src/GameTT/InterfaceCloudBackups.cpp
+# caption: CloudBackups.xml 20000 (500x30, medium).
+box textes/ui/cloudbackups/caption Data/UI/CloudBackups.xml 20000
+box textes/ui/cloudbackups/caption Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 20000
+# list column headers: element 10/11/12 (150x30, TextPos 20,4) inside list 2100, CloudBackups.xml lines 152/176/200.
+box textes/ui/cloudbackups/header_host Data/UI/CloudBackups.xml 10
+box textes/ui/cloudbackups/header_host Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10
+box textes/ui/cloudbackups/header_when Data/UI/CloudBackups.xml 11
+box textes/ui/cloudbackups/header_when Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 11
+box textes/ui/cloudbackups/header_size Data/UI/CloudBackups.xml 12
+box textes/ui/cloudbackups/header_size Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 12
+# buttons: SetWindowText on E_BUTTON_PRIMARY 10030 / E_BUTTON_SECONDARY 10031 (320x49) in RefreshControls (InterfaceCloudBackups.cpp:244,253). Primary: button_restore, button_restore_merge, button_restore_full_go; secondary: button_cancel_pending, button_undo_applied, button_undo_busy, button_restore_full, button_back.
+box textes/ui/cloudbackups/button_restore Data/UI/CloudBackups.xml 10030
+box textes/ui/cloudbackups/button_restore Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10030
+box textes/ui/cloudbackups/button_restore_merge Data/UI/CloudBackups.xml 10030
+box textes/ui/cloudbackups/button_restore_merge Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10030
+box textes/ui/cloudbackups/button_restore_full_go Data/UI/CloudBackups.xml 10030
+box textes/ui/cloudbackups/button_restore_full_go Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10030
+box textes/ui/cloudbackups/button_cancel_pending Data/UI/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_cancel_pending Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_undo_applied Data/UI/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_undo_applied Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_undo_busy Data/UI/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_undo_busy Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_restore_full Data/UI/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_restore_full Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_back Data/UI/CloudBackups.xml 10031
+box textes/ui/cloudbackups/button_back Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 10031
+# status line E_STATIC_STATUS 3102 via SetStatus (InterfaceCloudBackups.cpp:100): empty, loading, restoring, staged, unavailable, undone_applied, undone_pending (plus a suffix the code appends for unavailable).
+box textes/ui/cloudbackups/empty Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/empty Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudbackups/loading Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/loading Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudbackups/restoring Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/restoring Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudbackups/staged Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/staged Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudbackups/unavailable Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/unavailable Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudbackups/undone_applied Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/undone_applied Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudbackups/undone_pending Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudbackups/undone_pending Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+# explanation text E_STATIC_EXPLAIN 3103 (680x76, top-left aligned so it wraps) via SetExplain (InterfaceCloudBackups.cpp:174).
+box textes/ui/cloudbackups/explain_browse Data/UI/CloudBackups.xml 3103
+box textes/ui/cloudbackups/explain_browse Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3103
+box textes/ui/cloudbackups/explain_full Data/UI/CloudBackups.xml 3103
+box textes/ui/cloudbackups/explain_full Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3103
+box textes/ui/cloudbackups/explain_merge Data/UI/CloudBackups.xml 3103
+box textes/ui/cloudbackups/explain_merge Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3103
+# open_button: the Backups... button on the Cloud tab, OptionsSettings.xml 10014 (118x46; ModStyles variant 125x36).
+box textes/ui/cloudbackups/open_button Data/UI/OptionsSettings.xml 10014
+box textes/ui/cloudbackups/open_button Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 10014
+# textes/ui/cloudcredentials: Data/UI/CloudCredentials.xml (ModStyles variant exists), code Sources/src/GameTT/InterfaceCloudCredentials.cpp
+# caption: CloudCredentials.xml 20000 (500x30).
+box textes/ui/cloudcredentials/caption Data/UI/CloudCredentials.xml 20000
+box textes/ui/cloudcredentials/caption Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 20000
+# field labels: label slots 3001..3007 (E_LABEL_BASE, 265x30; ModStyles 247x30), text set at InterfaceCloudCredentials.cpp:521 with " *" appended. All slots have the same size, so 3001 stands for them. label_remote_root and label_rclone are used by the code (lines 398, 409); the others (access_key, bucket, endpoint, password, region, secret, url, user, vendor) are no longer read by C++ (the labels come from the rclone catalogue now), mapped to the same slot where they were drawn.
+box textes/ui/cloudcredentials/label_access_key Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_access_key Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_bucket Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_bucket Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_endpoint Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_endpoint Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_password Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_password Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_region Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_region Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_remote_root Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_remote_root Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_secret Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_secret Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_url Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_url Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_user Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_user Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_vendor Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_vendor Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_rclone Data/UI/CloudCredentials.xml 3001
+box textes/ui/cloudcredentials/label_rclone Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3001
+# label_service and provider_s3/provider_webdav: the service chooser button E_BUTTON_BACKEND 10020 (220x40), "Service: <id>" at line 566 (provider_* are orphaned: not read by any code, mapped to the chooser they were made for).
+box textes/ui/cloudcredentials/label_service Data/UI/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/label_service Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/provider_s3 Data/UI/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/provider_s3 Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/provider_webdav Data/UI/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/provider_webdav Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/catalogue_retry Data/UI/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/catalogue_retry Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10020
+# fetching_catalogue is drawn twice: on the chooser 10020 (line 253) and the status line 3102 (line 251).
+box textes/ui/cloudcredentials/fetching_catalogue Data/UI/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/fetching_catalogue Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10020
+box textes/ui/cloudcredentials/fetching_catalogue Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/fetching_catalogue Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+# button_cycle: example-cycle buttons 4001..4007 (34x30), the TextKey in the layout. button_scroll_up/down: 4100/4101 (40x49). button_test 10021, button_clear_secret 10022, advanced_* 10023 (all 220x40; advanced_* gets " (n)" appended, line 559).
+box textes/ui/cloudcredentials/button_cycle Data/UI/CloudCredentials.xml 4001
+box textes/ui/cloudcredentials/button_cycle Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 4001
+box textes/ui/cloudcredentials/button_scroll_up Data/UI/CloudCredentials.xml 4100
+box textes/ui/cloudcredentials/button_scroll_up Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 4100
+box textes/ui/cloudcredentials/button_scroll_down Data/UI/CloudCredentials.xml 4101
+box textes/ui/cloudcredentials/button_scroll_down Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 4101
+box textes/ui/cloudcredentials/button_test Data/UI/CloudCredentials.xml 10021
+box textes/ui/cloudcredentials/button_test Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10021
+box textes/ui/cloudcredentials/button_clear_secret Data/UI/CloudCredentials.xml 10022
+box textes/ui/cloudcredentials/button_clear_secret Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10022
+box textes/ui/cloudcredentials/advanced_hidden Data/UI/CloudCredentials.xml 10023
+box textes/ui/cloudcredentials/advanced_hidden Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10023
+box textes/ui/cloudcredentials/advanced_shown Data/UI/CloudCredentials.xml 10023
+box textes/ui/cloudcredentials/advanced_shown Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 10023
+# rclone discovery line E_STATIC_DISCOVERY 3101 (648x44, top-left aligned so it wraps), RefreshDiscoveryLine line 574-600.
+box textes/ui/cloudcredentials/discovery_found Data/UI/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_found Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_not_executable Data/UI/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_not_executable Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_not_found Data/UI/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_not_found Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_too_old Data/UI/CloudCredentials.xml 3101
+box textes/ui/cloudcredentials/discovery_too_old Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3101
+# status line E_STATIC_STATUS 3102 (648x24, one line) via SetStatus (InterfaceCloudCredentials.cpp:172).
+box textes/ui/cloudcredentials/catalogue_missing Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/catalogue_missing Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/creds_unreadable Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/creds_unreadable Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/flow_running Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/flow_running Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/required_missing Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/required_missing Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/save_failed Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/save_failed Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/saved Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/saved Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/secret_cleared Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/secret_cleared Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/test_ok Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/test_ok Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/testing Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudcredentials/testing Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+# open_button: the credentials button on the Cloud tab, OptionsSettings.xml 10013 (118x46; ModStyles 125x36).
+box textes/ui/cloudcredentials/open_button Data/UI/OptionsSettings.xml 10013
+box textes/ui/cloudcredentials/open_button Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 10013
+# textes/ui/cloudshutdown: Data/UI/CloudShutdown.xml, ids E_STATIC_CAPTION 3101 (1024x40, large), 3102 wait, 3103 warning (1024x28), E_BUTTON_SKIP 3104 (320x49); Sources/src/GameTT/InterfaceCloudShutdown.cpp:15-18; the texts are the layout TextKeys.
+box textes/ui/cloudshutdown/caption Data/UI/CloudShutdown.xml 3101
+box textes/ui/cloudshutdown/wait Data/UI/CloudShutdown.xml 3102
+box textes/ui/cloudshutdown/warning Data/UI/CloudShutdown.xml 3103
+box textes/ui/cloudshutdown/skip Data/UI/CloudShutdown.xml 3104
+# textes/ui/cloudsync: the main menu sync indicator, Data/UI/MainMenu.xml 21001 (640x50), picked by key in MainMenu.cpp:373 RefreshCloudIndicator; retry is the Retry button 21002 (120x22), MainMenu.cpp:355.
+# The failure outcomes are also drawn as a status line after a failed connection test (CloudCredentials.xml 3102, InterfaceCloudCredentials.cpp:1134) and a failed listing/restore (CloudBackups.xml 3102, InterfaceCloudBackups.cpp:377,413), so those keys carry three lines.
+box textes/ui/cloudsync/unconfigured Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/syncing Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/pairing Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/paired Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/synced Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/needs_resync Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/needs_resync Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/needs_resync Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/needs_resync Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/needs_resync Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/too_many_deletes Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/too_many_deletes Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/too_many_deletes Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/too_many_deletes Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/too_many_deletes Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/name_too_long Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/name_too_long Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/name_too_long Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/name_too_long Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/name_too_long Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/out_of_sync Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/out_of_sync Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/out_of_sync Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/out_of_sync Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/out_of_sync Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/auth_failed Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/auth_failed Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/auth_failed Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/auth_failed Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/auth_failed Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/remote_unreachable Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/remote_unreachable Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/remote_unreachable Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/remote_unreachable Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/remote_unreachable Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/remote_missing Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/remote_missing Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/remote_missing Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/remote_missing Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/remote_missing Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/remote_unwritable Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/remote_unwritable Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/remote_unwritable Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/remote_unwritable Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/remote_unwritable Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/daemon_gone Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/daemon_gone Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/daemon_gone Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/daemon_gone Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/daemon_gone Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/timed_out Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/timed_out Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/timed_out Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/timed_out Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/timed_out Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/locked Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/locked Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/locked Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/locked Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/locked Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/failed Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/failed Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/failed Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/failed Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/failed Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/offline Data/UI/MainMenu.xml 21001
+box textes/ui/cloudsync/offline Data/UI/CloudCredentials.xml 3102
+box textes/ui/cloudsync/offline Data/UI/ModStyles/achtungpanzer2/CloudCredentials.xml 3102
+box textes/ui/cloudsync/offline Data/UI/CloudBackups.xml 3102
+box textes/ui/cloudsync/offline Data/UI/ModStyles/achtungpanzer2/CloudBackups.xml 3102
+box textes/ui/cloudsync/retry Data/UI/MainMenu.xml 21002
+# sync_now_button: the Sync now button on the Cloud tab, OptionsSettings.xml 10015 (118x46; ModStyles 125x36).
+box textes/ui/cloudsync/sync_now_button Data/UI/OptionsSettings.xml 10015
+box textes/ui/cloudsync/sync_now_button Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 10015
+# playerprofile buttons in Data/UI/PlayerProfile.xml: new 10010, rename 10011, delete 10012 (264x44), the layout TextKeys.
+box textes/ui/intermission/mainmenu/playerprofile/new Data/UI/PlayerProfile.xml 10010
+box textes/ui/intermission/mainmenu/playerprofile/rename Data/UI/PlayerProfile.xml 10011
+box textes/ui/intermission/mainmenu/playerprofile/delete Data/UI/PlayerProfile.xml 10012
+# delete is also the caption of the confirm message box and confirm_delete its text: InterfaceStartDialog.cpp:206 sends "caption;text" to MISSION_COMMAND_MESSAGE_BOX; MessageBox.xml 20000 is the caption (410x34), 20001 the text (410x137).
+box textes/ui/intermission/mainmenu/playerprofile/delete Data/UI/Popup/MessageBox.xml 20000
+box textes/ui/intermission/mainmenu/playerprofile/confirm_delete Data/UI/Popup/MessageBox.xml 20001
+# err_exists/err_fs: written with IConsoleBuffer CONSOLE_STREAM_CHAT (InterfaceStartDialog.cpp:339 ReportProfileError); CUIScreen::Update (UIScreen.cpp:571) turns it into an acknowledgment drawn like the other acks, so the same 900x82 large area as textes/acks.
+area textes/ui/intermission/mainmenu/playerprofile/err_exists 900x82 large
+area textes/ui/intermission/mainmenu/playerprofile/err_fs 900x82 large
+# optionssettings/caption_settings_of: prefix of the settings caption E_STATIC_CAPTION (OptionsSettings.xml 20000, InterfaceOptionsSettings.cpp:461, the profile name is appended; same element as caption_settings).
+box textes/ui/optionssettings/caption_settings_of Data/UI/MissionOptionsSettings.xml 20000
+box textes/ui/optionssettings/caption_settings_of Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 20000
+box textes/ui/optionssettings/caption_settings_of Data/UI/OptionsSettings.xml 20000
+# strings/profile: the "Profile:" label on the main menu, MainMenu.xml 21000 (500x50), MainMenu.cpp:225 (the profile name is appended).
+box textes/strings/profile Data/UI/MainMenu.xml 21000
+
 box textes/help Data/UI/mission.xml 3000#2
 box textes/imtutorial/addunittomission Data/UI/AddUnitToMission.xml 31415
 box textes/imtutorial/campaign Data/UI/common/Campaign.xml 31415
@@ -252,6 +491,14 @@ scroll medals/**/desc # encyclopedia and rank popup text, UI_SCROLL_TEXT
 box textes/personals/** Data/UI/common/UnitInfoItem.xml 21
 scroll textes/playerranks/**/*_full # the promotion message of the rank popup, PlayerRank.xml 20001 is a UI_SCROLL_TEXT
 box textes/playerranks/** Data/UI/Popup/PlayerRank.xml 20000
+tooltip textes/options/*.tooltip
+tooltip textes/options/*/*.tooltip
+# A value (On, Off, Easy, High) is drawn right-aligned in the 130 px settings_entry.xml control at the row's right end.
+area textes/options/*/*.name 125x30 medium
+# A label is drawn on one line from settings_value_name.xml's TextPos (x 547 on the 1024x768 settings screen) and is
+# not clipped to that 150 px box: its room ends where the value control starts (x 810), less a gap; measured on the
+# bk_text capture of the settings screen (Destination Markers, 145 px of ink, overruns the box and fits the room).
+area textes/options/*.name 255x30 medium
 box textes/options/** Data/UI/common/Options/settings_value_name.xml -1
 area textes/acks/** 900x82 large
 area textes/feedbacks/** 900x82 large
