@@ -14,7 +14,9 @@ param(
     [string]$FixedTime = "0",
     [string]$DataDirectory = "Data",
     [string]$SceneFixtureVersion = "reference-scene-v1",
-    [string]$Driver = "unknown"
+    [string]$Driver = "unknown",
+    [ValidateSet("", "bitmap", "ttf")]
+    [string]$TextEngine = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +41,10 @@ if ([string]::IsNullOrWhiteSpace($CaptureCommand)) {
     $captureWorkingDirectory = Split-Path -Parent $resolvedGame
     $CaptureCommand = "& `"$resolvedGame`" -reference-scene `"{output}`" -windowed -fps60"
 }
+
+# The sdl_gpu Game draws with bk_text by default; -TextEngine bitmap re-captures the old bitmap-font frame.
+# The legacy renderer has no bk_text and always draws bitmap fonts.
+if ($TextEngine -ne "") { $env:BK_TEXT_ENGINE = $TextEngine } else { Remove-Item Env:BK_TEXT_ENGINE -ErrorAction SilentlyContinue }
 
 $hashes = [Collections.Generic.List[string]]::new()
 for ($run = 1; $run -le $Runs; $run++) {
@@ -84,6 +90,7 @@ for ($run = 1; $run -le $Runs; $run++) {
         camera = $Camera
         random_seed = $Seed
         data_directory = $resolvedData
+        text_engine = $(if ($TextEngine -eq "") { "default" } else { $TextEngine })
         run = $run
         sha256 = $hash
     }
