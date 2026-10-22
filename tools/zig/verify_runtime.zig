@@ -663,6 +663,73 @@ fn appendIfMissing(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, p
     allocator.free(path);
 }
 
+/// A language mod is texts only (M002 D060): bk_text draws plain Unicode from the engine's own faces, so a
+/// mod carries no fonts and no Private Use Area code points (the retired bitmap-font hack mapped glyphs
+/// there). Collect, as `<what>: <why>` lines, every mod file other than data/mod.xml and data/texts.pak,
+/// and every texts.pak entry that is not a UTF-16 `.txt` free of U+E000..U+F8FF. A mod that is absent is
+/// left to `collectMissingL10nInstall`.
+pub fn collectNotTextsOnly(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, found: *std.ArrayListUnmanaged([]const u8)) !void {
+    for (l10n_languages.languages) |language| {
+        var path_buf: [128]u8 = undefined;
+        const mod_path = try std.fmt.bufPrint(&path_buf, "mods/{s}", .{language.mod});
+        var mod_dir = root.openDir(io, mod_path, .{ .iterate = true }) catch continue;
+        defer mod_dir.close(io);
+        var top = mod_dir.iterate();
+        while (try top.next(io)) |entry| {
+            if (entry.kind == .directory and std.mem.eql(u8, entry.name, "data")) continue;
+            try appendFinding(allocator, found, "{s}/{s}: a language mod holds only data/", .{ mod_path, entry.name });
+        }
+        var data_dir = mod_dir.openDir(io, "data", .{ .iterate = true }) catch continue;
+        defer data_dir.close(io);
+        var inner = data_dir.iterate();
+        while (try inner.next(io)) |entry| {
+            if (entry.kind == .file and (std.mem.eql(u8, entry.name, "mod.xml") or std.mem.eql(u8, entry.name, "texts.pak"))) continue;
+            try appendFinding(allocator, found, "{s}/data/{s}: a language mod holds only mod.xml and texts.pak (no fonts)", .{ mod_path, entry.name });
+        }
+        var pak_buf: [160]u8 = undefined;
+        const pak_path = try std.fmt.bufPrint(&pak_buf, "{s}/data/texts.pak", .{mod_path});
+        try scanPakForNonText(io, allocator, root, pak_path, found);
+    }
+}
+
+fn appendFinding(allocator: std.mem.Allocator, found: *std.ArrayListUnmanaged([]const u8), comptime fmt: []const u8, args: anytype) !void {
+    const line = try std.fmt.allocPrint(allocator, fmt, args);
+    errdefer allocator.free(line);
+    try found.append(allocator, line);
+}
+
+fn scanPakForNonText(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir, pak_path: []const u8, found: *std.ArrayListUnmanaged([]const u8)) !void {
+    var file = root.openFile(io, pak_path, .{}) catch return;
+    defer file.close(io);
+    var read_buffer: [16 * 1024]u8 = undefined;
+    var reader = file.reader(io, &read_buffer);
+    var iterator = std.zip.Iterator.init(&reader) catch {
+        try appendFinding(allocator, found, "{s}: not a readable zip", .{pak_path});
+        return;
+    };
+    var name_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    while (try iterator.next()) |entry| {
+        const name = try entry.getFilename(&reader, &name_buffer, .{ .allow_backslashes = true });
+        if (name.len != 0 and name[name.len - 1] == '/') continue;
+        if (!std.mem.endsWith(u8, name, ".txt")) {
+            try appendFinding(allocator, found, "{s}: entry {s} is not a text", .{ pak_path, name });
+            continue;
+        }
+        var text: std.Io.Writer.Allocating = .init(allocator);
+        defer text.deinit();
+        try entry.extractTo(&reader, &text.writer);
+        const bytes = text.written();
+        var i: usize = if (bytes.len >= 2 and bytes[0] == 0xFF and bytes[1] == 0xFE) 2 else 0;
+        while (i + 1 < bytes.len) : (i += 2) {
+            const unit = std.mem.readInt(u16, bytes[i..][0..2], .little);
+            if (unit >= 0xE000 and unit <= 0xF8FF) {
+                try appendFinding(allocator, found, "{s}: entry {s} holds Private Use Area code point U+{X:0>4}", .{ pak_path, name, unit });
+                break;
+            }
+        }
+    }
+}
+
 /// Print one `verify-runtime: missing <path>` line per absent item and fail when
 /// there is any, so a failing install names everything to fix in one run.
 pub fn verifyL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.Dir) !void {
@@ -673,7 +740,14 @@ pub fn verifyL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.
     }
     try collectMissingL10nInstall(io, allocator, root, &missing);
     for (missing.items) |path| std.debug.print("verify-runtime: missing {s}\n", .{path});
-    if (missing.items.len != 0) return error.MissingL10nInstall;
+    var not_texts: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (not_texts.items) |line| allocator.free(line);
+        not_texts.deinit(allocator);
+    }
+    try collectNotTextsOnly(io, allocator, root, &not_texts);
+    for (not_texts.items) |line| std.debug.print("verify-runtime: not texts only {s}\n", .{line});
+    if (missing.items.len != 0 or not_texts.items.len != 0) return error.MissingL10nInstall;
 }
 
 fn writeL10nInstallFixture(io: std.Io, root: std.Io.Dir) !void {
@@ -684,6 +758,7 @@ fn writeL10nInstallFixture(io: std.Io, root: std.Io.Dir) !void {
             const path = try std.fmt.bufPrint(&buf, "mods/{s}/{s}", .{ language.mod, file });
             try root.writeFile(io, .{ .sub_path = path, .data = "x" });
         }
+        try writeTextsPak(io, root, language.mod, &.{ 0xFEFF, 'a' });
     }
     try root.createDirPath(io, "Fonts");
     try root.createDirPath(io, "Tools");
@@ -693,6 +768,75 @@ fn writeL10nInstallFixture(io: std.Io, root: std.Io.Dir) !void {
         try root.writeFile(io, .{ .sub_path = try std.fmt.bufPrint(&buf, "Fonts/{s}", .{face}), .data = "x" });
     }
     for (required_tool_docs) |doc| try root.writeFile(io, .{ .sub_path = doc, .data = "x" });
+}
+
+/// A one-entry stored zip, as the pak writer makes them, holding `units` as UTF-16LE with a BOM.
+fn writeTextsPak(io: std.Io, root: std.Io.Dir, mod: []const u8, units: []const u16) !void {
+    var data: [64]u8 = undefined;
+    var n: usize = 0;
+    for (units) |unit| {
+        std.mem.writeInt(u16, data[n..][0..2], unit, .little);
+        n += 2;
+    }
+    const name = "a.txt";
+    const crc = std.hash.Crc32.hash(data[0..n]);
+    var zip: [512]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&zip);
+    // local file header
+    try w.writeAll("PK\x03\x04");
+    try w.writeInt(u16, 10, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u32, 0x00210000, .little);
+    try w.writeInt(u32, crc, .little);
+    try w.writeInt(u32, @intCast(n), .little);
+    try w.writeInt(u32, @intCast(n), .little);
+    try w.writeInt(u16, name.len, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeAll(name);
+    try w.writeAll(data[0..n]);
+    const central_offset = w.end;
+    try w.writeAll("PK\x01\x02");
+    try w.writeInt(u16, 20, .little);
+    try w.writeInt(u16, 10, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u32, 0x00210000, .little);
+    try w.writeInt(u32, crc, .little);
+    try w.writeInt(u32, @intCast(n), .little);
+    try w.writeInt(u32, @intCast(n), .little);
+    try w.writeInt(u16, name.len, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u32, 0, .little);
+    try w.writeInt(u32, 0, .little);
+    try w.writeAll(name);
+    const central_size = w.end - central_offset;
+    try w.writeAll("PK\x05\x06");
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 0, .little);
+    try w.writeInt(u16, 1, .little);
+    try w.writeInt(u16, 1, .little);
+    try w.writeInt(u32, @intCast(central_size), .little);
+    try w.writeInt(u32, @intCast(central_offset), .little);
+    try w.writeInt(u16, 0, .little);
+    var buf: [96]u8 = undefined;
+    const path = try std.fmt.bufPrint(&buf, "mods/{s}/data/texts.pak", .{mod});
+    try root.writeFile(io, .{ .sub_path = path, .data = zip[0..w.end] });
+}
+
+fn expectNotTextsOnly(io: std.Io, root: std.Io.Dir, expected: []const []const u8) !void {
+    const allocator = std.testing.allocator;
+    var found: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer {
+        for (found.items) |line| allocator.free(line);
+        found.deinit(allocator);
+    }
+    try collectNotTextsOnly(io, allocator, root, &found);
+    try std.testing.expectEqual(expected.len, found.items.len);
+    for (expected, found.items) |want, got| try std.testing.expectEqualStrings(want, got);
 }
 
 fn expectMissing(io: std.Io, root: std.Io.Dir, expected: []const []const u8) !void {
@@ -762,4 +906,35 @@ test "l10n install check names a missing tools guide translation" {
     try writeL10nInstallFixture(io, tmp.dir);
     try tmp.dir.deleteFile(io, "Tools/README_Hindi.md");
     try expectMissing(io, tmp.dir, &.{"Tools/README_Hindi.md"});
+}
+
+test "texts-only check accepts plain Unicode texts" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try expectNotTextsOnly(io, tmp.dir, &.{});
+}
+
+test "texts-only check names a Private Use Area code point in a pak entry" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try writeTextsPak(io, tmp.dir, "lang-fr", &.{ 0xFEFF, 'a', 0xE123 });
+    try expectNotTextsOnly(io, tmp.dir, &.{"mods/lang-fr/data/texts.pak: entry a.txt holds Private Use Area code point U+E123"});
+    try std.testing.expectError(error.MissingL10nInstall, verifyL10nInstall(io, std.testing.allocator, tmp.dir));
+}
+
+test "texts-only check names a fonts directory and a face inside a mod" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+    try writeL10nInstallFixture(io, tmp.dir);
+    try tmp.dir.createDirPath(io, "mods/lang-ja/fonts");
+    try tmp.dir.writeFile(io, .{ .sub_path = "mods/lang-ja/data/NotoSansJP-Regular.otf", .data = "x" });
+    try expectNotTextsOnly(io, tmp.dir, &.{
+        "mods/lang-ja/fonts: a language mod holds only data/",
+        "mods/lang-ja/data/NotoSansJP-Regular.otf: a language mod holds only mod.xml and texts.pak (no fonts)",
+    });
 }
