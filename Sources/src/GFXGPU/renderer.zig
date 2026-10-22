@@ -892,15 +892,22 @@ pub const Renderer = struct {
         const device = &(self.device orelse return error.NoDevice);
         const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
         const row_bytes = region.w * bytes_per_pixel;
-        const staged = row_pitch * region.h;
-        const copied = row_pitch * (region.h - 1) + row_bytes;
+        // The rows are staged tightly packed, whatever the source pitch: a region narrower than its
+        // source (a glyph box inside the atlas page) read with the page's pixels_per_row came out
+        // scrambled on Metal, which sizes the rows by the region's width.
+        const staged = row_bytes * region.h;
         const transfer = sdl.createUploadBuffer(gpu_device, staged) orelse return error.TransferBufferCreateFailed;
         defer sdl.releaseTransferBuffer(gpu_device, transfer);
         const mapped = sdl.mapTransferBuffer(gpu_device, transfer) orelse return error.TransferBufferMapFailed;
-        @memcpy(@as([*]u8, @ptrCast(mapped))[0..copied], @as([*]const u8, @ptrCast(data))[0..copied]);
+        const source: [*]const u8 = @ptrCast(data);
+        const staging: [*]u8 = @ptrCast(mapped);
+        var row: usize = 0;
+        while (row < region.h) : (row += 1) {
+            @memcpy(staging[row * row_bytes ..][0..row_bytes], source[row * row_pitch ..][0..row_bytes]);
+        }
         sdl.unmapTransferBuffer(gpu_device, transfer);
         const command = sdl.acquireCommandBuffer(gpu_device) orelse return error.CommandBufferFailed;
-        if (!sdl.uploadTexture(command, transfer, texture.gpu, region.x, region.y, region.w, region.h, row_pitch / bytes_per_pixel)) {
+        if (!sdl.uploadTexture(command, transfer, texture.gpu, region.x, region.y, region.w, region.h, region.w)) {
             _ = sdl.cancelCommandBuffer(command);
             return error.CopyPassFailed;
         }
