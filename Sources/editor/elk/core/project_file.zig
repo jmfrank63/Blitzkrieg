@@ -258,8 +258,8 @@ test "Data/ELK/elk.xml reads into its element and both statistics" {
     try testing.expect(element.description.fonts);
     // The stored absolute Windows path reads as the bare element name.
     try testing.expectEqualStrings("game", element.name);
-    try testing.expectEqualStrings("game_1.upd, [15:06:2026, 18.15.26]", element.version);
-    try testing.expectEqual(@as(i32, 1), element.last_update_number);
+    try testing.expectEqualStrings("game_23.upd, [22:10:2026, 12.00.00]", element.version);
+    try testing.expectEqual(@as(i32, 23), element.last_update_number);
 
     try testing.expect(project.statistic.valid and project.previous_statistic.valid);
     try testing.expectEqual(@as(usize, 1), project.statistic.original.len);

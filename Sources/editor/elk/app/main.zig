@@ -38,7 +38,7 @@
 //! the counts the first run's Exit kept as the snapshot. A sixth copy proves the pak
 //! export against a scratch game folder, never a real one: File > Export to
 //! language mod by name and by a folder answered for Browse..., each pak
-//! read back by the core with all 2,852 texts; Install to game warning
+//! read back by the core with all 3,040 texts; Install to game warning
 //! about the scratch game's loose Data/Textes, Enter taking the mod route,
 //! then Install anyway writing Data/Texts.pak; Run Game's command line, and
 //! on Linux and macOS a stand-in Game script recording the arguments it got;
@@ -52,14 +52,14 @@
 //! accepting the added word but not the ignored one; the same copy's
 //! description view (C1) shows a text's own `.dsc`, Find's hit in it and a
 //! folder's `_folder.dsc`. An eighth copy proves
-//! the spreadsheet exchange (D-10): Export to spreadsheet writing all 2,852
+//! the spreadsheet exchange (D-10): Export to spreadsheet writing all 3,040
 //! texts to `.xlsx` (the default for a name without extension) and `.csv`
 //! and refusing `.xls`; Import from spreadsheet setting an edited
 //! translation back from the earlier export, importing it again and the
 //! `.csv` changing nothing, and the legacy `desc.xls` reading all its rows.
-//! A ninth copy, with `game_1.upd` beside it and the same bytes as
-//! `game_2.upd`, proves the short layout: it opens in the translator layout
-//! with its one toolbar and the five fixed filters, game_2 applied (the
+//! A ninth copy, with `game_23.upd` beside it and the same bytes as
+//! `game_24.upd`, proves the short layout: it opens in the translator layout
+//! with its one toolbar and the five fixed filters, game_24 applied (the
 //! copy's elk.xml then records it), Help opens by F1 with the whole
 //! embedded text drawn; a second run on the same elk.cfg starts at All
 //! again, applies nothing and opens Help from the menu. The export pass
@@ -104,7 +104,7 @@ const c = sdl3.c;
 const smoke_key = "medals/1/name";
 const smoke_final = "ELK-SMOKEXYZ";
 const smoke_schedule =
-    "2:expect=open,2:expect=texts:2852,2:expect=glyphs,3:expect=rows,3:expect=title:elk.xml," ++
+    "2:expect=open,2:expect=texts:3040,2:expect=glyphs,3:expect=rows,3:expect=title:elk.xml," ++
     "4:do=select_key:" ++ smoke_key ++ ",6:expect=original_has:Medal,6:expect=dirty:0," ++
     "6:do=focus:translation,9:text=ELK-SMOKE,12:expect=translation:ELK-SMOKE,12:expect=dirty:1," ++
     "12:expect=disk:" ++ smoke_key ++ "=," ++
@@ -126,7 +126,7 @@ const smoke_schedule =
 /// that must reach the disk.
 const open_final = "ELK-OPEN";
 const open_schedule =
-    "2:expect=closed,3:do=open,4:do=answer:elk.xml,6:expect=open,6:expect=texts:2852,6:expect=title:elk.xml," ++
+    "2:expect=closed,3:do=open,4:do=answer:elk.xml,6:expect=open,6:expect=texts:3040,6:expect=title:elk.xml," ++
     "7:do=select_key:" ++ smoke_key ++ ",9:do=select:0,10:do=save,11:expect=identical," ++
     "12:do=select_key:" ++ smoke_key ++ ",13:do=focus:translation,16:text=" ++ open_final ++ ",18:expect=dirty:1," ++
     "19:do=save,20:expect=disk:" ++ smoke_key ++ "=" ++ open_final ++ ",20:expect=dirty:0,21:exit";
@@ -241,9 +241,9 @@ const tunis = "scenarios/chapters/allies/tunis/description";
 const tobruk = "scenarios/chapters/allies/tobruk/description";
 const find_schedule =
     "2:expect=open,2:do=statistics,4:expect=statistics:1," ++
-    "4:expect=statistic:original/total=2852/42146/223983/279715,4:expect=statistic:original/0=2852/42146/223983/279715," ++
-    "4:expect=statistic:original/not_translated=885/19166/100693/122903,4:expect=statistic:translation/translated=4/55/263/316," ++
-    "4:expect=statistic:translation/0.approved=593/183/1059/1180," ++
+    "4:expect=statistic:original/total=3040/43081/228827/285367,4:expect=statistic:original/0=3040/43081/228827/285367," ++
+    "4:expect=statistic:original/not_translated=1089/20137/105716/128754,4:expect=statistic:translation/translated=4/55/263/316," ++
+    "4:expect=statistic:translation/0.approved=589/183/1059/1180," ++
     "4:expect=last_close:original/total=2968/53860/277016/344482,4:expect=last_close:translation/0.approved=1017/7080/35259/42123," ++
     "4:expect=last_close:original/1=none,4:expect=tree:1,4:expect=status_bar:1,5:do=statistics_close,7:expect=statistics:0," ++
     // From nothing selected: the three hits in the tree's order, then round.
@@ -265,7 +265,7 @@ const find_schedule =
 /// the status line stay off; "at last close" is what the first run counted.
 const find_reopen_schedule =
     "2:expect=open,2:expect=tree:0,2:expect=status_bar:0,2:do=statistics," ++
-    "4:expect=last_close:original/total=2852/42146/223983/279715,4:expect=last_close:translation/0.approved=593/183/1059/1180," ++
+    "4:expect=last_close:original/total=3040/43081/228827/285367,4:expect=last_close:translation/0.approved=589/183/1059/1180," ++
     "4:do=statistics_close,5:do=view_tree,7:expect=tree:1,7:expect=status_bar:0," ++
     "8:expect=find_text:Rommel,2:expect=find_option:down=0,2:expect=find_option:match_case=0," ++
     "8:expect=find_option:whole_word=0,9:key=f+ctrl,11:expect=find_dialog:1,11:do=find_option:down=1," ++
@@ -276,7 +276,7 @@ const find_reopen_schedule =
 const export_mod = "ELKSmoke";
 const folder_mod = "ELKFolder";
 const loose_text = "Data/Textes/strings/imheader-gbutton-exitgame.txt";
-const export_texts = "2852";
+const export_texts = "3040";
 const export_schedule =
     "2:expect=open,2:expect=can_export:1,2:expect=can_run_game:1,2:expect=pak:game=none," ++
     // Run Game before any export asks for the mod first.
@@ -352,8 +352,8 @@ const spell_reopen_schedule =
 /// the `.csv` change nothing; the legacy `desc.xls` reads all its rows,
 /// every one without a translation.
 const sheet_key = "buildings/africa/summer/a_cisterns/01/name";
-/// The tracked texts with no translation (2,852 less 1,540).
-const untranslated = "1312";
+/// The tracked texts with no translation (3,040 less 1,540).
+const untranslated = "1500";
 const sheet_schedule =
     "2:expect=open,2:do=sheet_export,2:do=answer:texts,4:expect=notice_has:" ++ export_texts ++ ",4:expect=notice_has:texts.xlsx," ++
     "5:do=sheet_export,5:do=answer:texts.csv,7:expect=notice_has:texts.csv," ++
@@ -368,11 +368,11 @@ const sheet_schedule =
     "34:exit";
 
 /// The short layout pass. The copy's folder stands in for ELK's own; it
-/// holds game_1.upd, which Data/ELK records, and the same bytes as
-/// game_2.upd, the newest. The filter chosen is not kept, and Collapse Item
+/// holds game_23.upd, which Data/ELK records, and the same bytes as
+/// game_24.upd, the newest. The filter chosen is not kept, and Collapse Item
 /// is on whatever elk.cfg says.
 const short_schedule =
-    "2:expect=open,2:expect=layout:short,2:expect=title:elk.xml,2:expect=texts:2852,2:expect=notice_has:1/2," ++
+    "2:expect=open,2:expect=layout:short,2:expect=title:elk.xml,2:expect=texts:3040,2:expect=notice_has:1/2," ++
     "3:expect=toolbar:short,3:expect=filter_count:5,3:expect=filter_at:4=Approved,3:expect=filter:All,3:expect=collapse_item:1," ++
     "3:do=filter:Translated,4:expect=filter:Translated,4:do=select_key:" ++ tree_name ++ ",5:key=n+ctrl,7:expect=selected:" ++ walk[0] ++ "," ++
     "8:expect=help:0,8:key=f1,10:expect=help:1,10:expect=help_has:--short,10:expect=help_has:Language,11:do=help_close,13:expect=help:0,14:exit";
@@ -386,8 +386,8 @@ const hindi_shot_name = "hindi";
 
 /// The worker pass (D-14). `d14.csv` gives every text of the copy a new
 /// translation starting with `auto.whole_marker`; its import is held before
-/// row 1000, the modal seen twice at 1000 of 2852 rows, and cancelled. A
-/// Find Next that misses reads all 2,852 texts and one again (2853 units):
+/// row 1000, the modal seen twice at 1000 of 3040 rows, and cancelled. A
+/// Find Next that misses reads all 3,040 texts and one again (3041 units):
 /// held before its fifth and released, it reports the miss; held and
 /// cancelled, it reports the Cancel. The whole import then changes the
 /// other 1852 texts.
@@ -396,7 +396,7 @@ const progress_schedule =
     "2:expect=open,2:expect=busy:0,2:do=hold:1000,2:do=sheet_import,2:do=answer:" ++ progress_sheet ++ ",3:do=wait_held," ++
     "4:expect=busy:1,4:expect=working:1000/" ++ export_texts ++ ",6:expect=working:1000/" ++ export_texts ++ ",6:do=job_cancel," ++
     "8:expect=busy:0,8:expect=notice_has:cancelled,8:expect=whole:1000," ++
-    "9:do=find_dialog,11:do=hold:5,11:do=find_next:no-such-text-anywhere,12:do=wait_held,13:expect=working:5/2853,13:do=release," ++
+    "9:do=find_dialog,11:do=hold:5,11:do=find_next:no-such-text-anywhere,12:do=wait_held,13:expect=working:5/3041,13:do=release," ++
     "15:expect=found:none,16:do=hold:5,16:do=find_next:no-such-text-anywhere,17:do=wait_held,18:do=job_cancel," ++
     "20:expect=notice_has:Find,21:do=find_close," ++
     "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/1852/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
@@ -990,7 +990,7 @@ fn writeProgressSheet(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, 
 
 /// The smoke's short layout pass on a ninth copy, `<scratch>-short`, with
 /// its own `<scratch>-short.cfg`: after the first run the copy's elk.xml
-/// records game_2.upd, read back by the core.
+/// records game_24.upd, read back by the core.
 fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
     var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const folder = std.fmt.bufPrint(&folder_buffer, "{s}-short", .{scratch}) catch return .{ .code = 1 };
@@ -1007,12 +1007,12 @@ fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
         defer from.close(io);
         var to = cwd.openDir(io, folder, .{}) catch return .{ .code = 1 };
         defer to.close(io);
-        const bytes = from.readFileAlloc(io, "game_1.upd", gpa, .limited(16 << 20)) catch |err| {
-            std.debug.print("elk: smoke FAIL: could not read {s}{c}game_1.upd: {s}\n", .{ source, std.fs.path.sep, @errorName(err) });
+        const bytes = from.readFileAlloc(io, "game_23.upd", gpa, .limited(16 << 20)) catch |err| {
+            std.debug.print("elk: smoke FAIL: could not read {s}{c}game_23.upd: {s}\n", .{ source, std.fs.path.sep, @errorName(err) });
             return .{ .code = 1 };
         };
         defer gpa.free(bytes);
-        for ([_][]const u8{ "game_1.upd", "game_2.upd" }) |name| to.writeFile(io, .{ .sub_path = name, .data = bytes }) catch |err| {
+        for ([_][]const u8{ "game_23.upd", "game_24.upd" }) |name| to.writeFile(io, .{ .sub_path = name, .data = bytes }) catch |err| {
             std.debug.print("elk: smoke FAIL: could not write {s} into {s}: {s}\n", .{ name, folder, @errorName(err) });
             return .{ .code = 1 };
         };
@@ -1029,8 +1029,8 @@ fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
         };
         defer database.deinit();
         const element = database.project.elements[0];
-        if (element.last_update_number != 2 or !std.mem.startsWith(u8, element.version, "game_2.upd, [")) {
-            std.debug.print("elk: smoke FAIL: after the short start elk.xml records update {d}, \"{s}\", wanted game_2.upd\n", .{ element.last_update_number, element.version });
+        if (element.last_update_number != 24 or !std.mem.startsWith(u8, element.version, "game_24.upd, [")) {
+            std.debug.print("elk: smoke FAIL: after the short start elk.xml records update {d}, \"{s}\", wanted game_24.upd\n", .{ element.last_update_number, element.version });
             return .{ .code = 1 };
         }
     }
