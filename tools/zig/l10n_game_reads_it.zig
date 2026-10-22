@@ -34,7 +34,7 @@
 //!
 //! Two routes widen the pair (M003 S01 T03): an options screen with a hovered tooltip (the settings
 //! screen, the cursor parked on its restore-defaults button until the tooltip's dwell has passed) and a
-//! unit's encyclopedia page (the Allied Churchill: title, the two panel headers and the description).
+//! unit's encyclopedia page (the Allied Churchill: title, the two panel headers and the description; a second page for the reworded Cromwell).
 //! Each is captured against a blank background of its own and measured for every language: ink inside
 //! each label's box. Only a language whose scope (`Localization/game/scope.txt`, read through
 //! l10n-check's own parser) covers the route's keys is measured further, since a seed-scope language
@@ -269,7 +269,24 @@ const encyclopedia_route = Route{
     .body = .{ .key = "desc", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 195, .x2 = 440, .y2 = 630 }, .ink = .dark },
     .scroll = encyclopedia_box,
 };
-const routes = [_]Route{ options_route, encyclopedia_route };
+/// The Allied Cromwell's encyclopedia page, the same route as the Churchill's for a unit whose ru name
+/// M004 S06 reworded to fit the one-line unit-info box. The title box here (55..900 x 40..95, large
+/// font) is wider than the 190x36 unit-info box, so this capture proves only that the reworded name
+/// is drawn on bk_text against hb-view, inside its own label box and without a glyph trace. The
+/// unit-info fit itself is proved by l10n-check's bk_text fit rule.
+const cromwell_dir = "units/technics/allies/tanks/cruiser_mkviii_cromwell_gb";
+const cromwell_labels = [_]Label{
+    .{ .key = "name", .dir = cromwell_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 900, .y2 = 95 } },
+};
+const encyclopedia_cromwell_route = Route{
+    .tag = "encyclopedia-cromwell",
+    .schedule = "60:cmdc=269353109=1;Cruiser_MKVIII_Cromwell_GB",
+    .delay = 150,
+    .action = "BK_AUTO_UI: frame 60 action cmdc=269353109=1;Cruiser_MKVIII_Cromwell_GB",
+    .screen = "BK_UI_TRACE: reposition \"ui\\encyclopedia\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &cromwell_labels,
+};
+const routes = [_]Route{ options_route, encyclopedia_route, encyclopedia_cromwell_route };
 
 /// A route's label holds at least this much ink (pixels above `ink_threshold`): the small
 /// font's panel headers are the lightest of them.
