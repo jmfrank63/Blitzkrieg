@@ -6,8 +6,8 @@
 //! drawing text, the same counters on both engines (GraphicsEngineGpu.cpp, GfxGpuObjectFactory.cpp).
 //!
 //! Screens: the options screen with a tooltip, the Churchill's encyclopedia page, the first mission's
-//! briefing and the first mission running. Languages: en, hi (bitmap: the shaped `lang-hi` mod with
-//! its Private Use Area clusters; ttf: `lang-hi-ttf`, plain Unicode) and ja (`lang-ja` on both). A
+//! briefing and the first mission running. Languages: en, hi (`lang-hi`, plain Unicode, on both;
+//! the bitmap run draws it with the Game's own fonts) and ja (`lang-ja` on both). A
 //! language whose mod is not in the game's mods folder is `not run` in the report, never measured:
 //! `language-mods` fails on ja (TextDoesNotFit), so there is no ja mod to run.
 //!
@@ -105,7 +105,7 @@ const Language = struct {
 
 const languages = [_]Language{
     .{ .code = "en", .bitmap_mod = null, .ttf_mod = null },
-    .{ .code = "hi", .bitmap_mod = "lang-hi", .ttf_mod = "lang-hi-ttf" },
+    .{ .code = "hi", .bitmap_mod = "lang-hi", .ttf_mod = "lang-hi" },
     .{ .code = "ja", .bitmap_mod = "lang-ja", .ttf_mod = "lang-ja" },
 };
 

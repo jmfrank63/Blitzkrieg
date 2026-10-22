@@ -381,6 +381,15 @@ test "uncovered_glyph_latin: a Devanagari letter in the German overlay" {
     try expectFinding(io, "uncovered_glyph_latin", &root, "l10n-check: glyph: de: textes/strings/alpha: U+0915 not in LiberationSerif-Regular.ttf");
 }
 
+test "pua_text: a Private Use Area code point in the Hindi overlay is a pua finding" {
+    const io = testing.io;
+    var root = try buildTree(io, testing.allocator, "pua_text");
+    const bytes = try utf16Units(testing.allocator, &.{ 'G', 0xE012 });
+    defer testing.allocator.free(bytes);
+    try write(io, root, de_alpha ++ ".txt", bytes);
+    try expectFinding(io, "pua_text", &root, "l10n-check: pua: de: textes/strings/alpha: U+E012 is a Private Use Area code point; texts are plain Unicode");
+}
+
 test "covered_hindi_with_ascii: Devanagari with ASCII and a Western digit passes" {
     const io = testing.io;
     var root = try buildTree(io, testing.allocator, "covered_hindi_with_ascii");

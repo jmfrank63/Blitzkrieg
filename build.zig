@@ -3810,10 +3810,9 @@ pub fn build(b: *std.Build) void {
     const elk_game_reads_step = b.step("elk-game-reads-it", "Export the tracked Data/ELK to mods/ELKTest, capture the real Game's main menu before and after a marker translation of one label and prove from the frames that it shows the marker there (E-06); then switch the Game's Language option to the mod and back on its settings screen and across a restart, measured the same way (E-11)");
     elk_game_reads_step.dependOn(&elk_game_reads_tests.step);
     if (test_mode == .run) elk_game_reads_step.dependOn(&elk_game_reads_run.step);
-    // The language mods (M002 D060): lang-ru, lang-zh-hans, lang-ja and lang-hi
-    // of the install, built by ELK's pak export from Localization/ and the
-    // tracked Data/ELK, with bk-font's Noto fonts and, for Hindi, the HarfBuzz
-    // shaper rewriting the exported texts (tools/zig/language_mods.zig).
+    // The language mods (M002 D060; texts only since M004 S05): the nine lang-* mods of the install,
+    // built by ELK's pak export from Localization/ and the tracked Data/ELK, plain Unicode and no fonts
+    // (tools/zig/language_mods.zig).
     const language_mods_bk_text = bkTextModule(b, target, optimize, toolchain);
     const language_mods_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/language_mods.zig"),
@@ -3821,22 +3820,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module }, .{ .name = "bk_text", .module = language_mods_bk_text }, .{ .name = "l10n_wrap", .module = language_mods_bk_text.import_table.get("l10n_wrap").? } },
     });
-    // bk_text already links the engine's C++ runtime into this module graph; a second copy duplicates new/delete.
-    language_mods_module.addIncludePath(b.path("vendor/harfbuzz/src"));
-    language_mods_module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/language_mods_shape.cpp" },
-        .flags = cppflagsForTarget(target, optimize),
-    });
-    addMsvcIncludePaths(b, language_mods_module, toolchain);
-    addMsvcLibraryPaths(b, language_mods_module, toolchain);
-    addLinuxCxxIncludePaths(b, language_mods_module);
-    language_mods_module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    // bk_text links the engine's C++ runtime and HarfBuzz into this module graph.
     const language_mods_tests = b.addTest(.{ .root_module = language_mods_module });
     const language_mods_run = b.addRunArtifact(language_mods_tests);
     language_mods_run.setCwd(b.path("."));
     language_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    language_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
-    language_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
     // The run step does not pass the caller's environment on, so the subset options are build options
     // that export the variables the test reads: -Dlm-langs limits the codes, -Dlm-overlays reads the
     // overlays from another root, and -Dlm-allow-missing is the one switch that lets a missing overlay
@@ -3846,20 +3834,8 @@ pub fn build(b: *std.Build) void {
     if (b.option(bool, "lm-allow-missing", "language-mods: skip a language whose overlay is missing instead of failing (BK_LM_ALLOW_MISSING=1)") orelse false) language_mods_run.setEnvironmentVariable("BK_LM_ALLOW_MISSING", "1");
     language_mods_run.has_side_effects = true;
     language_mods_run.step.dependOn(install_game_step);
-    language_mods_run.step.dependOn(bk_font.install);
-    const language_mods_step = b.step("language-mods", "Build the nine language mods (ru, zh-Hans, ja, hi with their Noto fonts, Hindi shaped into Private Use Area clusters; es, fr, de, pt-BR, id texts only on the bitmap fonts) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
+    const language_mods_step = b.step("language-mods", "Build the nine language mods (texts only: plain Unicode, no fonts, no Private Use Area; bk_text draws them) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
     language_mods_step.dependOn(&language_mods_tests.step);
-    // The plain-Unicode Hindi mod for the ttf text engine (M004): the same test binary, told by BK_LM_PLAIN
-    // to write only `lang-hi-ttf` (unshaped texts, no fonts) and to check it holds no Private Use Area character.
-    const language_mods_plain_run = b.addRunArtifact(language_mods_tests);
-    language_mods_plain_run.setCwd(b.path("."));
-    language_mods_plain_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    language_mods_plain_run.setEnvironmentVariable("BK_LM_PLAIN", "1");
-    language_mods_plain_run.has_side_effects = true;
-    language_mods_plain_run.step.dependOn(install_game_step);
-    const language_mods_plain_step = b.step("language-mods-plain", "Write lang-hi-ttf into the game's mods folder: the Hindi texts as plain Unicode, no shaping, no fonts, for BK_TEXT_ENGINE=ttf (M004)");
-    language_mods_plain_step.dependOn(&language_mods_tests.step);
-    if (test_mode == .run) language_mods_plain_step.dependOn(&language_mods_plain_run.step);
     if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
     // The install form of the same run (D087): `language-mods` only runs under test_mode == .run and
     // install-game does not depend on it, so a fresh install gets its mods/lang-<code>/ from this step,
@@ -4105,18 +4081,9 @@ pub fn build(b: *std.Build) void {
     const text_engine_mods_run = b.addRunArtifact(language_mods_tests);
     text_engine_mods_run.setCwd(b.path("."));
     text_engine_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    text_engine_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
-    text_engine_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
-    text_engine_mods_run.setEnvironmentVariable("BK_LM_LANGS", "ru,de");
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_LANGS", "ru,de,hi");
     text_engine_mods_run.has_side_effects = true;
     text_engine_mods_run.step.dependOn(install_game_step);
-    text_engine_mods_run.step.dependOn(bk_font.install);
-    const text_engine_plain_run = b.addRunArtifact(language_mods_tests);
-    text_engine_plain_run.setCwd(b.path("."));
-    text_engine_plain_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    text_engine_plain_run.setEnvironmentVariable("BK_LM_PLAIN", "1");
-    text_engine_plain_run.has_side_effects = true;
-    text_engine_plain_run.step.dependOn(&text_engine_mods_run.step);
     const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game on bk_text (the default since M004 S05; BK_TEXT_ENGINE=bitmap is the escape hatch) on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu, the first mission's briefing, the options screen with a tooltip, a unit's encyclopedia page and the first mission running, and measure them (hb-view for hi on the menu and briefing), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path, and the reverse (M004 S02, S05)");
     var text_engine_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "de", "hi" }) |code| {
@@ -4128,7 +4095,7 @@ pub fn build(b: *std.Build) void {
             run.setEnvironmentVariable("BK_TEXT_ENGINE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
             run.setEnvironmentVariable("BK_TEXT_ENGINE_LANGS", code);
             run.has_side_effects = true;
-            run.step.dependOn(&text_engine_plain_run.step);
+            run.step.dependOn(&text_engine_mods_run.step);
             if (chained) {
                 if (text_engine_chain) |before| run.step.dependOn(before);
                 text_engine_chain = &run.step;
@@ -4140,7 +4107,7 @@ pub fn build(b: *std.Build) void {
     // M004 S05: old and new side by side for the maintainer's approval (tools/zig/text_engine_sidebyside.zig).
     // The Game runs four screens on BK_TEXT_ENGINE=bitmap and on BK_TEXT_ENGINE=ttf in en, de, ru and hi and
     // keeps PNG pairs, a composite per screen and a measured report.txt. It needs lang-de, lang-ru and the
-    // plain Hindi mod (text_engine_plain_run) and the shaped lang-hi of the old side, built one after the other.
+    // language mods (text_engine_mods_run); the bitmap side draws their texts with the Game's own fonts.
     const text_engine_sbs_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/text_engine_sidebyside.zig"),
         .target = target,
@@ -4156,14 +4123,6 @@ pub fn build(b: *std.Build) void {
         addMsvcLibraryPaths(b, text_engine_sbs_module, toolchain);
     }
     const text_engine_sbs_tests = b.addTest(.{ .root_module = text_engine_sbs_module });
-    const text_engine_sbs_hi_run = b.addRunArtifact(language_mods_tests);
-    text_engine_sbs_hi_run.setCwd(b.path("."));
-    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
-    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
-    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_LANGS", "hi");
-    text_engine_sbs_hi_run.has_side_effects = true;
-    text_engine_sbs_hi_run.step.dependOn(&text_engine_plain_run.step);
     const text_engine_sbs_step = b.step("text-engine-sidebyside", "Start the real Game on the main menu, the first briefing, the options screen with a tooltip and the Churchill's encyclopedia page on BK_TEXT_ENGINE=bitmap and on BK_TEXT_ENGINE=ttf in en, de, ru and hi (text-engine-sidebyside-<code> is one shard): PNG pairs, a side-by-side composite per screen and a measured report.txt in zig-out/local-test/text-engine-sidebyside/<code>/, for the maintainer's approval (M004 S05)");
     var text_engine_sbs_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "de", "ru", "hi" }) |code| {
@@ -4175,8 +4134,7 @@ pub fn build(b: *std.Build) void {
             run.setEnvironmentVariable("BK_TEXT_ENGINE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
             run.setEnvironmentVariable("BK_TEXT_ENGINE_LANGS", code);
             run.has_side_effects = true;
-            run.step.dependOn(&text_engine_plain_run.step);
-            if (std.mem.eql(u8, code, "hi")) run.step.dependOn(&text_engine_sbs_hi_run.step);
+            run.step.dependOn(&text_engine_mods_run.step);
             if (chained) {
                 if (text_engine_sbs_chain) |before| run.step.dependOn(before);
                 text_engine_sbs_chain = &run.step;
@@ -4187,7 +4145,7 @@ pub fn build(b: *std.Build) void {
     text_engine_sbs_step.dependOn(&text_engine_sbs_tests.step);
     // M004 S03: the frame-time tier. The Game runs each screen on the bitmap fonts and on bk_text with
     // BK_PERF=1 and the medians of its `BK_PERF text:` line are compared (tools/zig/text_engine_perf.zig).
-    // It needs the plain-Unicode Hindi mod and the shaped `lang-hi` of the bitmap run; ja has no mod
+    // It needs the language mods (texts only); ja has no mod
     // (language-mods fails its fit check), so the tier reports ja as not run unless the mod is installed.
     // One shard per language (text-engine-perf-<code>) keeps each under the foreground limit.
     const text_engine_perf_module = b.createModule(.{
@@ -4203,14 +4161,9 @@ pub fn build(b: *std.Build) void {
     const text_engine_perf_hi_run = b.addRunArtifact(language_mods_tests);
     text_engine_perf_hi_run.setCwd(b.path("."));
     text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
-    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
     text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_LANGS", "hi");
     text_engine_perf_hi_run.has_side_effects = true;
     text_engine_perf_hi_run.step.dependOn(install_game_step);
-    text_engine_perf_hi_run.step.dependOn(bk_font.install);
-    // Both runs write below the game's mods folder: the plain Hindi mod first, then the shaped one.
-    text_engine_perf_hi_run.step.dependOn(&language_mods_plain_run.step);
     const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts (BK_TEXT_ENGINE=bitmap, set explicitly: bk_text is the default) and on bk_text, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms, 1.6 ms in a debug build (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
     var text_engine_perf_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "hi", "ja" }) |code| {

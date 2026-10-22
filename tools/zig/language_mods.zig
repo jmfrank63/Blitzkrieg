@@ -1,67 +1,37 @@
-//! The language mods of M002 (D060, D068): `lang-ru`, `lang-zh-hans`,
-//! `lang-ja`, `lang-hi`, `lang-es`, `lang-fr`, `lang-de`, `lang-pt-br` and
-//! `lang-id` of the installed game, built by ELK's own pak export from the
-//! tracked `Data/ELK` and the overlays of `Localization/`, each with fonts of
-//! its own. The game's bitmap fonts (Times New Roman, charset 204) hold ASCII and
-//! the Cyrillic set but no accented Latin letter, so a Latin language drawn with
-//! them showed an empty box for every accent (D059 had assumed cp1252 fonts). A
-//! Latin mod's fonts are the game's with the missing letters added (bk-font
-//! --base keeps every shipped glyph, its pixels and its widths), so the game
-//! keeps its look; the others are generated from their face and hold every
-//! character the base fonts hold besides their texts' own, so whatever else the
-//! Game draws while one is mounted (version, profile names, the port's options)
-//! keeps its glyphs.
-//! Per language: the database is copied to a scratch folder and the overlay
-//! laid over it; a first export (for Hindi through the shaper, which rewrites
-//! every text into Private Use Area characters) tells which characters the
-//! texts use (`chars.txt`, and the cluster table for Hindi); the fit rule (D097) measures the texts with
-//! bk_text before any font work, so a text that does not fit fails the language early; bk-font renders
-//! the language's Noto face at the game's four font sizes from them; and the
-//! final export carries texts and fonts into `mods/lang-<code>/data/texts.pak`
-//! with a `mod.xml`. Data/ELK is hashed before and after: nothing writes it.
-//! BK_LM_GAME names the installed Game executable, BK_LM_FONT_TOOL the
-//! installed bk-font and BK_LM_MODULES the folder of the engine libraries it
-//! loads; `zig build language-mods` sets them. BK_LM_LANGS (`-Dlm-langs`, comma separated
-//! codes) limits a shard to some of the languages; the default is all of them. A language whose
-//! overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left out. BK_LM_OVERLAYS
-//! names another overlay root (default `Localization/game`), so a test can take a language away from a copy.
-//! `zig build language-mods-plain` (BK_LM_PLAIN=1, and then only this) additionally writes `lang-hi-ttf`: the Hindi
-//! texts as plain Unicode, no shaper and no fonts, for the BK_TEXT_ENGINE=ttf Game, whose bk_text shapes them itself
-//! (the PUA clusters of `lang-hi` would be missing glyphs there). The default run leaves it alone and is unchanged.
+//! The language mods (M002 D060, D068; texts only since M004 S05): `lang-ru`, `lang-zh-hans`,
+//! `lang-ja`, `lang-hi`, `lang-es`, `lang-fr`, `lang-de`, `lang-pt-br` and `lang-id` of the installed
+//! game, built by ELK's own pak export from the tracked `Data/ELK` and the overlays of `Localization/`.
+//! A mod ships texts and a `mod.xml`, nothing else: the Game draws with bk_text, which shapes the plain
+//! Unicode itself and chains the shipped faces, so there is no bk-font stage, no atlas, no Private Use
+//! Area table and no Hindi shaper. (A mod that does ship `fonts/<size>/1.tfd` still draws that size with
+//! its bitmap font; no language mod does.)
+//! Per language: the database is copied to a scratch folder and the overlay laid over it; the fit rule
+//! (D097) measures every text with bk_text in the room the Game draws it in, and a text that does not fit
+//! fails the language, except what `Localization/game/fit-known.txt` lists (D108; the same reader as
+//! l10n-check, so the two gates agree and `fit-known-unused` is reported here too); the export then
+//! carries the texts into `mods/lang-<code>/data/texts.pak` with a `mod.xml`, and the pak is read back
+//! with the engine's own reader: the overlay's text unchanged, no Private Use Area code point in any
+//! text, no font in the archive. Data/ELK is hashed before and after: nothing writes it.
+//! BK_LM_GAME names the installed Game executable; `zig build language-mods` sets it. BK_LM_LANGS
+//! (`-Dlm-langs`, comma separated codes) limits a shard to some of the languages; the default is all of
+//! them. A language whose overlay is missing fails the run; BK_LM_ALLOW_MISSING=1 alone lets it be left
+//! out. BK_LM_OVERLAYS names another overlay root (default `Localization/game`), so a test can take a
+//! language away from a copy.
 const std = @import("std");
-const timed_run = @import("timed_run.zig");
 const elk = @import("elk");
 const zip = @import("zip");
 const database = elk.database;
 const packages = elk.packages;
 const testing = std.testing;
 
-const LmShaper = opaque {};
-extern fn LmShaperCreate(font: [*]const u8, size: usize, script: [*:0]const u8, language: [*:0]const u8) *LmShaper;
-extern fn LmShaperDestroy(shaper: *LmShaper) void;
-extern fn LmShaperEncode(shaper: *LmShaper, text: [*]const u16, len: usize, out: [*]u16, err: [*]u8, err_size: usize) c_long;
-extern fn LmShaperClusters(shaper: *const LmShaper) usize;
-extern fn LmShaperSerialize(shaper: *const LmShaper, out: [*]u8, capacity: usize) usize;
-
 const scratch = "zig-out/local-test/language-mods";
 
 const l10n_languages = @import("l10n_languages.zig");
-const l10n_font = @import("l10n_font.zig");
 const check = @import("l10n_check.zig");
 const Language = l10n_languages.Language;
 const languages = l10n_languages.languages;
 
-/// The game's four font folders and their cell heights (Data/Fonts/*/1.tfd).
-const Size = struct { name: []const u8, height: []const u8 };
-const sizes = [_]Size{
-    .{ .name = "tiny", .height = "10" },
-    .{ .name = "small", .height = "16" },
-    .{ .name = "medium", .height = "20" },
-    .{ .name = "large", .height = "40" },
-};
-
-/// The first overlay key that must come out of the pak as the overlay says
-/// (and, for Hindi, shaped).
+/// The overlay key that must come out of the pak as the overlay says.
 const probe_key = "textes/strings/imheader-gbutton-cutscenes";
 
 fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
@@ -96,12 +66,8 @@ test "the language mods are built from the overlays through ELK's export" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    if (try plainOnly(allocator)) return error.SkipZigTest;
     const game = try required(allocator, "BK_LM_GAME");
-    const font_tool = try required(allocator, "BK_LM_FONT_TOOL");
-    const modules = try required(allocator, "BK_LM_MODULES");
     const game_root = std.fs.path.dirname(game).?;
-    const cwd_path = try std.process.currentPathAlloc(io, allocator);
 
     const filter = try envValue(allocator, "BK_LM_LANGS");
     if (try envValue(allocator, "BK_LM_OVERLAYS")) |root| overlay_root = root;
@@ -109,7 +75,7 @@ test "the language mods are built from the overlays through ELK's export" {
     const elk_before = try treeHash("Data/ELK");
     for (languages) |language| {
         if (!selected(filter, language.code)) continue;
-        build(io, allocator, language, game_root, font_tool, modules, cwd_path, allow_missing) catch |err| {
+        build(io, allocator, language, game_root, allow_missing) catch |err| {
             std.debug.print("language-mods: {s}: {s} failed: {s} (scratch: {s}/{s})\n", .{ language.code, stage, @errorName(err), scratch, language.code });
             return err;
         };
@@ -118,66 +84,7 @@ test "the language mods are built from the overlays through ELK's export" {
     try testing.expectEqual(elk_before, try treeHash("Data/ELK"));
 }
 
-fn plainOnly(allocator: std.mem.Allocator) !bool {
-    const value = (try envValue(allocator, "BK_LM_PLAIN")) orelse return false;
-    return std.mem.eql(u8, value, "1");
-}
-
-/// The mod folder of the plain-Unicode Hindi texts.
-const plain_mod = "lang-hi-ttf";
-
-test "the plain Unicode hi mod for the ttf engine holds no Private Use Area character" {
-    const io = testing.io;
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-    if (!try plainOnly(allocator)) return error.SkipZigTest;
-    const game = try required(allocator, "BK_LM_GAME");
-    const game_root = std.fs.path.dirname(game).?;
-    const cwd = std.Io.Dir.cwd();
-    const elk_before = try treeHash("Data/ELK");
-
-    const root = try std.fs.path.join(allocator, &.{ scratch, "hi-ttf" });
-    cwd.deleteTree(io, root) catch {};
-    const db_folder = try std.fs.path.join(allocator, &.{ root, "db" });
-    const elk_xml = try std.fs.path.join(allocator, &.{ db_folder, "elk.xml" });
-    try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
-    try cwd.writeFile(io, .{ .sub_path = elk_xml, .data = try cwd.readFileAlloc(io, "Data/ELK/elk.xml", allocator, .limited(1 << 20)) });
-    try database.copyTree(io, "Localization/game/hi/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
-    var db = try database.Database.open(testing.allocator, io, elk_xml);
-    defer db.deinit();
-
-    const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", plain_mod });
-    cwd.deleteTree(io, mod_folder) catch {};
-    const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = plain_mod }, .{});
-    defer testing.allocator.free(written.path);
-    const mod_xml = try std.fmt.allocPrint(allocator, "<?xml version=\"1.0\"?>\r\n<base><MODName>हिन्दी (ttf)</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n", .{});
-    try database.writeFileAtomic(io, testing.allocator, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(written.path).?, "mod.xml" }), mod_xml);
-
-    var package = try packages.readArchive(testing.allocator, io, written.path);
-    defer package.deinit();
-    var texts: usize = 0;
-    var devanagari = false;
-    for (package.entries) |entry| {
-        if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
-        texts += 1;
-        var at: usize = 2;
-        while (at + 1 < entry.bytes.len) : (at += 2) {
-            const unit = std.mem.readInt(u16, entry.bytes[at..][0..2], .little);
-            if (unit >= 0xE000 and unit <= 0xF8FF) {
-                std.debug.print("language-mods-plain: {s} holds U+{X:0>4}\n", .{ entry.name, unit });
-                return error.PrivateUseCharacter;
-            }
-            devanagari = devanagari or (unit >= 0x0900 and unit <= 0x097f);
-        }
-    }
-    try testing.expect(texts > 0);
-    try testing.expect(devanagari);
-    try testing.expectEqual(elk_before, try treeHash("Data/ELK"));
-    std.debug.print("language-mods-plain: {d} texts, no Private Use Area character, installed {s}\n", .{ texts, written.path });
-}
-
-fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root: []const u8, font_tool: []const u8, modules: []const u8, cwd_path: []const u8, allow_missing: bool) !void {
+fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root: []const u8, allow_missing: bool) !void {
     const cwd = std.Io.Dir.cwd();
     // A missing overlay is an error: a sparse checkout without Localization/ must stop here, not
     // leave the mod out for a later step to miss. Only BK_LM_ALLOW_MISSING=1 leaves one out.
@@ -192,7 +99,6 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     };
     const root = try std.fs.path.join(allocator, &.{ scratch, language.code });
     cwd.deleteTree(io, root) catch {};
-    const abs_root = try std.fs.path.join(allocator, &.{ cwd_path, root });
 
     // assemble: Data/ELK copied, the overlay over it.
     const db_folder = try std.fs.path.join(allocator, &.{ root, "db" });
@@ -207,41 +113,9 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     var db = try database.Database.open(testing.allocator, io, elk_xml);
     defer db.deinit();
 
-    const face_path = try std.fs.path.join(allocator, &.{ "vendor/fonts", language.face });
-    const face = try cwd.readFileAlloc(io, face_path, allocator, .limited(64 << 20));
-    var shaping = Shaper{};
-    defer if (shaping.handle) |handle| LmShaperDestroy(handle);
-    if (language.shaped) shaping.handle = LmShaperCreate(face.ptr, face.len, "Deva", "hi");
-    const shape: ?packages.Shaping = if (language.shaped) .{ .context = &shaping, .rewrite = Shaper.rewrite } else null;
-
-    // First export: which characters the texts use, and for a font generated from the face alone
-    // every character the base fonts hold.
-    var chars = @as([65536]bool, @splat(false));
-    if (!language.keeps_game_fonts) for (sizes) |size| {
-        const tfd = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ "Data/Fonts", size.name, "1.tfd" }), allocator, .limited(1 << 20));
-        const base = try l10n_font.Font.read(allocator, tfd);
-        var known = base.chars.keyIterator();
-        while (known.next()) |unit| chars[unit.*] = true;
-    };
-    var texts: usize = 0;
-    {
-        stage = "export";
-        const probe_root = try std.fs.path.join(allocator, &.{ root, "probe" });
-        const written = try packages.exportTo(testing.allocator, io, &db, 0, probe_root, .{ .mod = language.mod }, .{ .shape = shape });
-        defer testing.allocator.free(written.path);
-        var package = try packages.readArchive(testing.allocator, io, written.path);
-        defer package.deinit();
-        for (package.entries) |entry| {
-            if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
-            texts += 1;
-            var at: usize = 2;
-            while (at + 1 < entry.bytes.len) : (at += 2) chars[std.mem.readInt(u16, entry.bytes[at..][0..2], .little)] = true;
-        }
-    }
-
     // fit: every text in the room the Game draws it in, measured with the Game's own text engine
-    // (bk_text, the shipped faces at the Game's size table; D097), before the slow font work: a text
-    // that does not fit is found here, and the generated fonts play no part in the measure.
+    // (bk_text, the shipped faces at the Game's size table; D097). checkFit leaves out what
+    // fit-known.txt lists, as l10n-check does, and reports a listed text that fits as fit-known-unused.
     {
         stage = "fit";
         var report = check.Report{ .arena = allocator };
@@ -256,83 +130,13 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         }
     }
 
-    // bk-font: the character list (the Private Use Area is the cluster table's)
-    // and one font per size.
-    var distinct: usize = 0;
-    var list: std.ArrayListUnmanaged(u8) = .empty;
-    for (chars, 0..) |used, unit| {
-        if (!used or unit < 32 or (unit >= 0xD800 and unit <= 0xF8FF)) continue;
-        var buffer: [4]u8 = undefined;
-        const len = try std.unicode.utf8Encode(@intCast(unit), &buffer);
-        try list.appendSlice(allocator, buffer[0..len]);
-        distinct += 1;
-    }
-    const chars_path = try std.fs.path.join(allocator, &.{ root, "chars.txt" });
-    try cwd.writeFile(io, .{ .sub_path = chars_path, .data = list.items });
-    var clusters: usize = 0;
-    const clusters_path = try std.fs.path.join(allocator, &.{ root, "clusters.txt" });
-    if (language.shaped) {
-        clusters = LmShaperClusters(shaping.handle.?);
-        var none: [1]u8 = undefined;
-        const size = LmShaperSerialize(shaping.handle.?, &none, 0);
-        const table = try allocator.alloc(u8, size);
-        _ = LmShaperSerialize(shaping.handle.?, table.ptr, size);
-        try cwd.writeFile(io, .{ .sub_path = clusters_path, .data = table });
-    }
-    var environ = try testing.environ.createMap(allocator);
-    const user = try std.fs.path.join(allocator, &.{ abs_root, "user" });
-    try cwd.createDirPath(io, user);
-    try environ.put("XDG_DATA_HOME", user);
-    try environ.put("BK_USER_ROOT", user);
-    // bk-font's messages are English whatever the machine's language is.
-    try environ.put("BK_LANG", "en");
-
-    var fonts: std.ArrayListUnmanaged(packages.Entry) = .empty;
-    var atlas_report: std.ArrayListUnmanaged(u8) = .empty;
-    for (sizes) |size| {
-        stage = "bk-font";
-        const out = try std.fs.path.join(allocator, &.{ abs_root, "fonts", size.name });
-        var argv: std.ArrayListUnmanaged([]const u8) = .empty;
-        // For a language that keeps the game's fonts, the game's font of this size as it is plus the
-        // characters it lacks from the face; otherwise the face's own font. Noto Sans draws what the
-        // face lacks (the Devanagari face has no Latin letter).
-        try argv.appendSlice(allocator, &.{ font_tool, "--ttf", face_path, "--fallback-ttf", "vendor/fonts/NotoSans-Regular.ttf", "--height", size.height, "--chars", chars_path, "--out", out, "--force", "--modules", modules });
-        if (language.keeps_game_fonts) try argv.appendSlice(allocator, &.{ "--base", try std.fs.path.join(allocator, &.{ "Data/Fonts", size.name }) });
-        if (language.shaped) try argv.appendSlice(allocator, &.{ "--clusters", clusters_path, "--script", "Deva", "--language", "hi" });
-        const result = try timed_run.run(allocator, io, .{
-            .argv = argv.items,
-            .cwd = .{ .path = cwd_path },
-            .environ_map = &environ,
-            .timeout = .{ .duration = .{ .raw = .fromSeconds(180), .clock = .awake } },
-        });
-        if (!result.term.success()) {
-            std.debug.print("language-mods: {s}: bk-font ({s}) ended {any}: {s}{s}\n", .{ language.code, size.name, result.term, result.stdout, result.stderr });
-            return error.FontToolFailed;
-        }
-        // "... , 512x256 atlas": the size is the last word but one.
-        const line = std.mem.trimEnd(u8, result.stdout, "\r\n");
-        var words = std.mem.splitBackwardsScalar(u8, line, ' ');
-        _ = words.next();
-        const atlas = words.next().?;
-        if (atlasExceeds(atlas)) {
-            std.debug.print("language-mods: {s}: {s} atlas {s} exceeds {d}x{d}\n", .{ language.code, size.name, atlas, atlas_bound, atlas_bound });
-            return error.AtlasTooLarge;
-        }
-        try atlas_report.print(allocator, " {s}={s}", .{ size.name, atlas });
-        for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
-            const bytes = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, file }), allocator, .limited(64 << 20));
-            try fonts.append(allocator, .{ .name = try std.mem.concat(allocator, u8, &.{ size.name, "/", file }), .bytes = bytes });
-        }
-    }
-
-    // export and install: the same texts again (the table is complete, so the
-    // shaper answers as before) with the fonts, into the mod of the install.
+    // export and install: the texts into the mod of the install.
     const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", language.mod });
     cwd.deleteTree(io, mod_folder) catch {};
     var pak_path: []u8 = undefined;
     {
         stage = "install";
-        const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = language.mod }, .{ .shape = shape, .fonts = fonts.items });
+        const written = try packages.exportTo(testing.allocator, io, &db, 0, game_root, .{ .mod = language.mod }, .{});
         defer testing.allocator.free(written.path);
         pak_path = try allocator.dupe(u8, written.path);
         const mod_xml = try std.fmt.allocPrint(allocator, "<?xml version=\"1.0\"?>\r\n<base><MODName>{s}</MODName><MODVersion>1.0</MODVersion><MODType>language</MODType><MODDesc></MODDesc></base>\r\n", .{language.name});
@@ -340,61 +144,38 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     }
 
     // The pak read back with the engine's own reader.
+    stage = "readback";
     var package = try packages.readArchive(testing.allocator, io, pak_path);
     defer package.deinit();
-    // The reader of importable texts skips the fonts, so the archive itself
-    // is opened for them.
+    var texts: usize = 0;
+    for (package.entries) |entry| {
+        if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
+        texts += 1;
+        var at: usize = 2;
+        while (at + 1 < entry.bytes.len) : (at += 2) {
+            const unit = std.mem.readInt(u16, entry.bytes[at..][0..2], .little);
+            if (unit >= 0xE000 and unit <= 0xF8FF) {
+                std.debug.print("language-mods: {s}: {s} holds U+{X:0>4}, a Private Use Area code point\n", .{ language.code, entry.name, unit });
+                return error.PrivateUseCharacter;
+            }
+        }
+    }
+    // The reader of importable texts skips the fonts, so the archive itself is opened for them.
     const pak_bytes = try cwd.readFileAlloc(io, pak_path, allocator, .limited(256 << 20));
     var archive = try zip.Archive.parse(testing.allocator, pak_bytes);
     defer archive.deinit();
-    for (sizes) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
-        const name = try std.mem.concat(allocator, u8, &.{ "fonts/", size.name, "/", file });
-        var found = false;
-        for (archive.entries) |*entry| {
-            if (std.mem.eql(u8, entry.name, name)) found = (try archive.extract(allocator, entry)).len > 0;
+    for (archive.entries) |*entry| {
+        if (std.mem.startsWith(u8, entry.name, "fonts/")) {
+            std.debug.print("language-mods: {s}: {s} is in {s}; language mods ship texts only\n", .{ language.code, entry.name, pak_path });
+            return error.FontInMod;
         }
-        if (!found) {
-            std.debug.print("language-mods: {s}: {s} is missing from {s}\n", .{ language.code, name, pak_path });
-            return error.FontMissing;
-        }
-    };
+    }
     const overlay_text = try cwd.readFileAlloc(io, try std.mem.concat(allocator, u8, &.{ overlay_root, "/", language.code, "/game_data_base/", probe_key, ".txt" }), allocator, .limited(1 << 20));
     const packed_text = for (package.entries) |entry| {
         if (std.mem.eql(u8, entry.name, probe_key ++ ".txt")) break entry.bytes;
     } else return error.OverlayTextMissing;
-    if (language.shaped) {
-        try testing.expect(!std.mem.eql(u8, overlay_text, packed_text));
-        var pua = false;
-        var at: usize = 2;
-        while (at + 1 < packed_text.len) : (at += 2) {
-            const unit = std.mem.readInt(u16, packed_text[at..][0..2], .little);
-            pua = pua or (unit >= 0xE000 and unit <= 0xF8FF);
-        }
-        try testing.expect(pua);
-    } else {
-        try testing.expectEqualSlices(u8, overlay_text, packed_text);
-    }
-    std.debug.print("language-mods: {s}: {d} texts, {d} characters, {d} clusters, atlas{s} (bound {d}x{d}), installed {s}\n", .{ language.code, texts, distinct, clusters, atlas_report.items, atlas_bound, atlas_bound, pak_path });
-}
-
-/// The largest atlas side the engine's textures take (D100): the bound every language's fonts are held to.
-const atlas_bound: u32 = 4096;
-
-/// Whether an atlas as bk-font names it ("WxH") is wider or taller than `atlas_bound`. A token that is
-/// not two numbers counts as exceeding, so a changed tool output cannot slip past the bound.
-fn atlasExceeds(atlas: []const u8) bool {
-    var sides = std.mem.splitScalar(u8, atlas, 'x');
-    const width = std.fmt.parseInt(u32, sides.next() orelse return true, 10) catch return true;
-    const height = std.fmt.parseInt(u32, sides.next() orelse return true, 10) catch return true;
-    return sides.next() != null or width > atlas_bound or height > atlas_bound;
-}
-
-test "an atlas over 4096 on either side is named" {
-    try testing.expect(!atlasExceeds("512x256"));
-    try testing.expect(!atlasExceeds("4096x4096"));
-    try testing.expect(atlasExceeds("4097x256"));
-    try testing.expect(atlasExceeds("256x8192"));
-    try testing.expect(atlasExceeds("atlas"));
+    try testing.expectEqualSlices(u8, overlay_text, packed_text);
+    std.debug.print("language-mods: {s}: {d} texts, plain Unicode, no fonts, installed {s}\n", .{ language.code, texts, pak_path });
 }
 
 test "BK_LM_LANGS selects languages by code" {
@@ -403,40 +184,6 @@ test "BK_LM_LANGS selects languages by code" {
     try testing.expect(!selected("de, fr", "ru"));
     try testing.expect(selected("pt-br", "pt-BR"));
 }
-
-/// The export's rewrite for a shaped language: a text with Devanagari in it
-/// goes through the shaper, any other is passed on as it is.
-const Shaper = struct {
-    handle: ?*LmShaper = null,
-
-    fn rewrite(context: ?*anyopaque, gpa: std.mem.Allocator, bytes: []const u8) anyerror![]u8 {
-        const self: *Shaper = @ptrCast(@alignCast(context.?));
-        var devanagari = false;
-        var at: usize = 2;
-        while (at + 1 < bytes.len) : (at += 2) {
-            const unit = std.mem.readInt(u16, bytes[at..][0..2], .little);
-            devanagari = devanagari or (unit >= 0x0900 and unit <= 0x097f);
-        }
-        if (!devanagari) return gpa.dupe(u8, bytes);
-        const count = (bytes.len - 2) / 2;
-        const text = try gpa.alloc(u16, count);
-        defer gpa.free(text);
-        for (text, 0..) |*unit, index| unit.* = std.mem.readInt(u16, bytes[2 + index * 2 ..][0..2], .little);
-        const encoded = try gpa.alloc(u16, count);
-        defer gpa.free(encoded);
-        var message: [256]u8 = undefined;
-        const length = LmShaperEncode(self.handle.?, text.ptr, count, encoded.ptr, &message, message.len);
-        if (length < 0) {
-            std.debug.print("language-mods: shaping failed: {s}\n", .{std.mem.sliceTo(&message, 0)});
-            return error.ShapingFailed;
-        }
-        const out = try gpa.alloc(u8, 2 + @as(usize, @intCast(length)) * 2);
-        out[0] = 0xff;
-        out[1] = 0xfe;
-        for (encoded[0..@intCast(length)], 0..) |unit, index| std.mem.writeInt(u16, out[2 + index * 2 ..][0..2], unit, .little);
-        return out;
-    }
-};
 
 /// A hash of every file below `path` that does not depend on the walk order.
 fn treeHash(path: []const u8) !u64 {

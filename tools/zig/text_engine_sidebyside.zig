@@ -6,9 +6,10 @@
 //! thresholds are text_engine_game_reads_it.zig's, imported, not copied.
 //!
 //! Per language (en, de, ru, hi; one shard each, BK_TEXT_ENGINE_LANGS names the codes) the bitmap run
-//! uses the language's mod as the language tier builds it (`lang-de`, `lang-ru`, `lang-hi`: texts and
-//! bitmap fonts) and the ttf run a texts-only mod of the same overlay (`lang-<code>-sbs`, built here
-//! and removed after; `lang-hi-ttf` for Hindi): under bk_text a mod that ships fonts keeps drawing with
+//! uses the language's mod as the language tier builds it (`lang-de`, `lang-ru`, `lang-hi`: texts only
+//! since M004 S05, so the old side shows the Game's own fonts where they lack a glyph; the approved
+//! captures of T02 were taken with the fonted mods) and the ttf run a texts-only mod of the same overlay (`lang-<code>-sbs`, built here
+//! and removed after; `lang-hi` itself for Hindi, which is texts-only already): under bk_text a mod that ships fonts keeps drawing with
 //! them, so the new look needs the texts alone. A language whose bitmap mod is not installed is noted
 //! in the report and its bitmap side left out; the ttf side is still captured.
 //!
@@ -54,7 +55,7 @@ const languages = [_]Language{
     .{ .code = "en", .bitmap_mod = null },
     .{ .code = "de", .bitmap_mod = "lang-de" },
     .{ .code = "ru", .bitmap_mod = "lang-ru" },
-    .{ .code = "hi", .bitmap_mod = "lang-hi", .ttf_mod = "lang-hi-ttf" },
+    .{ .code = "hi", .bitmap_mod = "lang-hi", .ttf_mod = "lang-hi" },
 };
 
 const Screen = struct {

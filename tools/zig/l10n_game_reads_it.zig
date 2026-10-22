@@ -1180,15 +1180,11 @@ fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
 /// language option.
 fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const u8, root: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
-    const source = try std.fs.path.join(allocator, &.{ game_root, "mods", "lang-ru", "data", "texts.pak" });
-    const bytes = try cwd.readFileAlloc(io, source, allocator, .limited(256 << 20));
-    var archive = try zip.Archive.parse(testing.allocator, bytes);
-    defer archive.deinit();
+    // The shipped fonts: the language mods carry none since M004 S05. Only the ink matters here, and it is removed.
     var fonts: std.ArrayList(packages.Entry) = .empty;
     for ([_][]const u8{ "tiny", "small", "medium", "large" }) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
-        const inside = try std.fmt.allocPrint(allocator, "fonts/{s}/{s}", .{ size, file });
-        const entry = archive.find(inside) orelse return error.FontMissing;
-        const data = try archive.extract(allocator, entry);
+        const source = try std.fmt.allocPrint(allocator, "Data/Fonts/{s}/{s}", .{ size, file });
+        const data = try cwd.readFileAlloc(io, source, allocator, .limited(64 << 20));
         if (std.mem.endsWith(u8, file, ".dds")) @memset(data[128..], 0);
         try fonts.append(allocator, .{ .name = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ size, file }), .bytes = data });
     };

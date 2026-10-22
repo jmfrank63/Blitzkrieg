@@ -63,7 +63,7 @@
 //! no Latin letters), so each code point must be in one of the two, read from the fonts' `cmap`
 //! (tools/zig/l10n_cmap.zig). The game's own bitmap fonts are no measure: they
 //! hold ASCII and the Cyrillic set, none of the accented Latin letters. CR, LF and TAB are ignored. The tracked Unicode overlay is
-//! checked, never a generated pak (the Hindi private-use forms live only there, D058). The fonts are
+//! checked, never a generated pak. Rule `pua` (D066): no text holds a Private Use Area code point. The fonts are
 //! read from `--fonts <dir>`, default `<root>/vendor/fonts`.
 //!
 //! Rule `table-*` (D061): a string table directory holds `en.lang` and one `<code>.lang` of the nine
@@ -961,8 +961,8 @@ pub fn codePoints(arena: std.mem.Allocator, bytes: []const u8) ![]const u21 {
 }
 
 /// Rule glyph: every code point of every in-scope overlay text is covered by the language's face or by
-/// NotoSans-Regular, the two faces bk-font generates its mod's fonts from (language-mods passes Noto
-/// Sans as `--fallback-ttf`). One finding per code point.
+/// NotoSans-Regular, the faces bk_text chains for it. One finding per code point. Rule pua: no code point
+/// of the Private Use Area U+E000..U+F8FF anywhere in a text (D066).
 pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.Dir) !void {
     const arena = report.arena;
     const scopes = (try loadScopes(io, arena, root, null)) orelse return;
@@ -976,6 +976,12 @@ pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.
             const bytes = (try readOptional(io, arena, root, path)) orelse continue;
             if (textProblem(bytes) != .ok) continue;
             for (try codePoints(arena, bytes)) |code_point| {
+                // Texts are plain Unicode since bk_text shapes them itself (D066): the Private Use Area
+                // held the old Hindi cluster table, which no mod ships any more.
+                if (code_point >= 0xE000 and code_point <= 0xF8FF) {
+                    try report.addFmt("pua", language.code, key, "U+{X:0>4} is a Private Use Area code point; texts are plain Unicode", .{code_point});
+                    continue;
+                }
                 if (own.table == null or own.covers(code_point) or latin.covers(code_point)) continue;
                 try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in {s}", .{ code_point, own.name });
             }

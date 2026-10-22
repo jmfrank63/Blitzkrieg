@@ -3,7 +3,7 @@
 //! Game, an R8 glyph atlas in the SDL GPU backend), and the shapes it draws are measured by code.
 //!
 //! Per language (en, de, hi; one shard each, BK_TEXT_ENGINE_LANGS names the codes) the Game runs on
-//! a scratch profile whose language option is the language's mod (hi: `lang-hi-ttf`, the Hindi texts
+//! a scratch profile whose language option is the language's mod (hi: `lang-hi`, the Hindi texts
 //! as plain Unicode, no shaper and no fonts), then to its `-reference-scene` capture of the main
 //! menu and of the first Allied mission's briefing at 1024x768. The background of both is a capture
 //! of the bitmap path on a blank mod (the shipped English texts on fonts with every glyph's ink
@@ -263,7 +263,7 @@ pub const Language = struct {
 const languages = [_]Language{
     .{ .code = "en", .mod = null },
     .{ .code = "de", .mod = "lang-de" },
-    .{ .code = "hi", .mod = "lang-hi-ttf", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
+    .{ .code = "hi", .mod = "lang-hi", .tag = "hi", .face = "vendor/fonts/NotoSansDevanagari-Regular.ttf", .script = "Deva" },
 };
 
 /// Failures are collected, then printed together with the failing measure first.
@@ -742,20 +742,16 @@ pub fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
     return error.GameLineMissing;
 }
 
-/// `text-engine-blank`: the shipped English texts and the ru fonts with their ink removed (every
+/// `text-engine-blank`: the shipped English texts and the shipped fonts with their ink removed (every
 /// texel of the atlas zero, the header kept), installed as a mod of the game so the bitmap path's
 /// background capture needs nothing but the language option.
 pub fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const u8, root: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
-    const source = try std.fs.path.join(allocator, &.{ game_root, "mods", "lang-ru", "data", "texts.pak" });
-    const bytes = try cwd.readFileAlloc(io, source, allocator, .limited(256 << 20));
-    var archive = try zip.Archive.parse(testing.allocator, bytes);
-    defer archive.deinit();
+    // The shipped fonts: the language mods carry none since M004 S05. Only the ink matters here, and it is removed.
     var fonts: std.ArrayList(packages.Entry) = .empty;
     for ([_][]const u8{ "tiny", "small", "medium", "large" }) |size| for ([_][]const u8{ "1.tfd", "1_h.dds" }) |file| {
-        const inside = try std.fmt.allocPrint(allocator, "fonts/{s}/{s}", .{ size, file });
-        const entry = archive.find(inside) orelse return error.FontMissing;
-        const data = try archive.extract(allocator, entry);
+        const source = try std.fmt.allocPrint(allocator, "Data/Fonts/{s}/{s}", .{ size, file });
+        const data = try cwd.readFileAlloc(io, source, allocator, .limited(64 << 20));
         if (std.mem.endsWith(u8, file, ".dds")) @memset(data[128..], 0);
         try fonts.append(allocator, .{ .name = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ size, file }), .bytes = data });
     };
