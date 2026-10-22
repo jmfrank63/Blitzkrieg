@@ -32,6 +32,9 @@ namespace NBkTextBridge
 	// BkTextFont must be closed before.
 	bool Recreate();
 	// Called when a frame begins: tells the atlas which glyphs the new frame may evict.
+	// The atlas frame bk_text last began: its glyph rects stay valid for the rest of the frame
+	// unless the atlas generation changes.
+	uint64_t Frame();
 	void BeginFrame();
 	// The R8 page texture, created on first use at the context's page size (and again when that
 	// changes). Null if the context or the texture is missing.

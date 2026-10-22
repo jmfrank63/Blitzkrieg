@@ -214,9 +214,15 @@ float FontGpu::TextWidth( const T *text, int count ) const
     if ( bk_font_ != nullptr )
     {
         // The same contract as the bitmap sum: a line ends at \n or \r, narrow text is Latin-1.
-        std::vector<uint16_t> units;
-        for ( int i = 0; i < count && text[i] && text[i] != static_cast<T>('\n') && text[i] != static_cast<T>('\r'); ++i )
-            units.push_back( static_cast<uint16_t>( static_cast<typename std::make_unsigned<T>::type>( text[i] ) ) );
+        int used = 0;
+        while ( used < count && text[used] && text[used] != static_cast<T>('\n') && text[used] != static_cast<T>('\r') ) ++used;
+        // UTF-16 text is measured in place; only narrow text is widened, into a reused buffer.
+        if ( sizeof( T ) == sizeof( uint16_t ) )
+            return TtfAdvance( reinterpret_cast<const uint16_t *>( text ), used );
+        static thread_local std::vector<uint16_t> units;
+        units.resize( used );
+        for ( int i = 0; i < used; ++i )
+            units[i] = static_cast<uint16_t>( static_cast<typename std::make_unsigned<T>::type>( text[i] ) );
         return TtfAdvance( units.data(), units.size() );
     }
     float width = 0;
@@ -238,48 +244,6 @@ int STDCALL FontGpu::operator&( IStructureSaver &ss )
     CSaverAccessor saver = &ss;
     saver.Add( 1, &shared_resource_last_usage_ );
     return 0;
-}
-
-namespace NTextPerf
-{
-    namespace
-    {
-        // One thread draws; the counters are plain on purpose, BK_PERF is a measuring aid.
-        long long g_nanoseconds[BucketCount];
-        unsigned long long g_calls;
-        int g_depth;
-        long long Now()
-        {
-            return std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now().time_since_epoch() ).count();
-        }
-    }
-    bool Enabled()
-    {
-        static const bool enabled = getenv( "BK_PERF" ) != 0;
-        return enabled;
-    }
-    Scope::Scope( Bucket bucket ) : bucket_( bucket ), active_( Enabled() )
-    {
-        if ( !active_ ) return;
-        ++g_calls;
-        outermost_ = g_depth++ == 0;
-        if ( outermost_ ) start_ = Now();
-    }
-    Scope::~Scope()
-    {
-        if ( !active_ ) return;
-        --g_depth;
-        if ( outermost_ ) g_nanoseconds[bucket_] += Now() - start_;
-    }
-    std::string TakeInterval()
-    {
-        char line[160];
-        std::snprintf( line, sizeof( line ), "measure %.2f ms draw %.2f ms wrap %.2f ms calls %llu",
-            g_nanoseconds[Measure] / 1e6, g_nanoseconds[Draw] / 1e6, g_nanoseconds[Wrap] / 1e6, g_calls );
-        for ( long long &nanoseconds : g_nanoseconds ) nanoseconds = 0;
-        g_calls = 0;
-        return line;
-    }
 }
 
 int STDCALL FontGpu::GetTextWidth( const char *text, int count ) const { NTextPerf::Scope perf( NTextPerf::Measure ); return static_cast<int>( TextWidth( text, count ) ); }
@@ -374,7 +338,16 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
     if ( used == 0 ) return kTtfOk;
     uint32_t page_w = 0, page_h = 0, page_generation = 0;
     if ( bk_text_atlas_info( context, &page_w, &page_h, &page_generation ) != BK_TEXT_OK || page_w == 0 || page_h == 0 ) return kTtfOk;
-    std::vector<BkTextGlyph> glyphs( used + 8 );
+    // Reused between calls: lines are drawn every frame.
+    if ( atlas_rects_frame_ != NBkTextBridge::Frame() || atlas_rects_generation_ != page_generation )
+    {
+        if ( atlas_rects_.empty() ) atlas_rects_.assign( kAtlasRectSlots, AtlasRect() );
+        ++atlas_rects_epoch_;
+        atlas_rects_frame_ = NBkTextBridge::Frame();
+        atlas_rects_generation_ = page_generation;
+    }
+    static thread_local std::vector<BkTextGlyph> glyphs;
+    if ( glyphs.size() < used + 8 ) glyphs.resize( used + 8 );
     uint32_t count = 0;
     BkTextResult shaped = bk_text_shape_utf16( bk_font_, text, uint32_t( used ), glyphs.data(), uint32_t( glyphs.size() ), &count );
     if ( shaped == BK_TEXT_BUFFER_TOO_SMALL )
@@ -389,7 +362,24 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
     {
         const BkTextGlyph &glyph = glyphs[i];
         BkTextAtlasGlyph atlas = {};
-        const BkTextResult found = bk_text_atlas_glyph( bk_font_, glyph.glyph_key, &atlas );
+        BkTextResult found = BK_TEXT_OK;
+        AtlasRect &slot = atlas_rects_[( glyph.glyph_key ^ ( glyph.glyph_key >> 10 ) ) % kAtlasRectSlots];
+        if ( slot.epoch == atlas_rects_epoch_ && slot.key == glyph.glyph_key )
+        {
+            const AtlasRect &rect = slot;
+            atlas.rect.x = rect.x; atlas.rect.y = rect.y; atlas.rect.w = rect.w; atlas.rect.h = rect.h;
+            atlas.bearing_x = rect.bearing_x; atlas.bearing_y = rect.bearing_y;
+            atlas.generation = generation;
+        }
+        else
+        {
+            found = bk_text_atlas_glyph( bk_font_, glyph.glyph_key, &atlas );
+            if ( found == BK_TEXT_OK && atlas.generation == generation )
+            {
+                const AtlasRect rect = { glyph.glyph_key, atlas_rects_epoch_, atlas.rect.x, atlas.rect.y, atlas.rect.w, atlas.rect.h, atlas.bearing_x, atlas.bearing_y };
+                slot = rect;
+            }
+        }
         if ( found == BK_TEXT_ATLAS_FULL ) return kTtfAtlasFull;
         if ( found != BK_TEXT_OK ) { pen += glyph.x_advance * scale; continue; }
         // The page was cleared to make room for this glyph: the rects of the quads built so far
@@ -668,7 +658,8 @@ void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wr
         if ( !text ) return;
         size_t length = 0;
         while ( text[length] ) ++length;
-        std::vector<BkTextLine> wrapped( length + 2 );
+        static thread_local std::vector<BkTextLine> wrapped;
+        if ( wrapped.size() < length + 2 ) wrapped.resize( length + 2 );
         uint32_t count = 0;
         // GetWidth reports int( width * scale ) while bk_text fits a run by its rounded-up width,
         // so a text wrapped to its own GetWidth came out in two lines. Everything GetWidth calls

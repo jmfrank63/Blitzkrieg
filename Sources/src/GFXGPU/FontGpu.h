@@ -153,6 +153,16 @@ private:
     IGFXTexture *texture_ = nullptr;
     BkTextFont *bk_font_ = nullptr;
     unsigned bk_serial_ = 0;
+    // Atlas rects handed out in the current frame, by glyph key. Looking a glyph up marks it used for
+    // the frame, so one lookup per glyph per frame is enough; dropped on a new frame or generation.
+    // Same fields as BkTextAtlasGlyph, which this header keeps opaque; the page generation is the cache's own.
+    // Direct-mapped by glyph key: a collision only costs a lookup. A slot is live when its epoch is the current one.
+    struct AtlasRect { uint32_t key, epoch, x, y, w, h; int32_t bearing_x, bearing_y; };
+    static const unsigned kAtlasRectSlots = 1024;
+    mutable std::vector<AtlasRect> atlas_rects_;
+    mutable uint32_t atlas_rects_epoch_ = 1;
+    mutable uint64_t atlas_rects_frame_ = ~uint64_t( 0 );
+    mutable uint32_t atlas_rects_generation_ = 0;
     mutable std::unordered_set<WORD> missing_reported_;
     int shared_resource_last_usage_ = 0;
 };

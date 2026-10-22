@@ -1494,11 +1494,12 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     // two UTF-16 units per character on a 32-bit wchar_t, drawing every second
     // character. Keep the raw pointer for measuring and widen a copy to draw.
     const WORD *raw_value = source->GetString();
-    text_wide_.clear();
-    if ( raw_value ) for ( const WORD *unit = raw_value; *unit; ++unit ) text_wide_.push_back( static_cast<wchar_t>( *unit ) );
-    const wchar_t *value = text_wide_.c_str();
     IGFXTextGpuFontProvider *font_provider = dynamic_cast<IGFXTextGpuFontProvider *>( text );
     FontGpu *font = font_provider ? dynamic_cast<FontGpu *>( font_provider->Font() ) : nullptr;
+    // The ttf path shapes the UTF-16 string as it is; only the other paths read the widened copy.
+    text_wide_.clear();
+    if ( raw_value && !( font && font->IsTtf() ) ) for ( const WORD *unit = raw_value; *unit; ++unit ) text_wide_.push_back( static_cast<wchar_t>( *unit ) );
+    const wchar_t *value = text_wide_.c_str();
     const int width = text->GetWidth();
     const float scale = font_provider ? font_provider->Scale() : 1.0f;
     const float wrap_width = static_cast<float>( rect.right - rect.left );
@@ -1530,10 +1531,14 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
                 if ( pen_y >= clip_bottom ) break;
                 if ( end > begin && pen_y + line_step > clip_top )
                 {
-                    const float line_width = font->TextWidthFloat( raw_value + begin, static_cast<int>( end - begin ) ) * scale;
                     float line_x = static_cast<float>( rect.left );
-                    if ( (flags & FNT_FORMAT_CENTER) != 0 ) line_x += std::floor( ( wrap_width - line_width ) * 0.5f );
-                    else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) line_x = static_cast<float>( rect.right ) - line_width;
+                    // Only an aligned line needs its width.
+                    if ( (flags & (FNT_FORMAT_CENTER | FNT_FORMAT_RIGHT)) != 0 )
+                    {
+                        const float line_width = font->TextWidthFloat( raw_value + begin, static_cast<int>( end - begin ) ) * scale;
+                        if ( (flags & FNT_FORMAT_CENTER) != 0 ) line_x += std::floor( ( wrap_width - line_width ) * 0.5f );
+                        else line_x = static_cast<float>( rect.right ) - line_width;
+                    }
                     // GetString() is UTF-16 already: shaped as it is.
                     status = font->AppendTtfLine( raw_value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(),
                         text_vertices_, text_indices_, generation, clip_top, clip_bottom );

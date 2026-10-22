@@ -1,10 +1,12 @@
 #include "StdAfx.h"
 
 #include "BkTextBridge.h"
+#include "FontGpu.h"
 #include "TextureGpu.h"
 
 #include <SDL3/SDL.h>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -114,6 +116,8 @@ namespace NBkTextBridge
 		return Create();
 	}
 
+	uint64_t Frame() { return g_nFrame; }
+
 	void BeginFrame()
 	{
 		if ( g_pContext != 0 ) (void)bk_text_atlas_begin_frame( g_pContext, ++g_nFrame );
@@ -206,4 +210,47 @@ namespace NBkTextBridge
 		}
 		return g_pAtlas->UploadRegion( int( x0 ), int( y0 ), int( x1 - x0 ), int( y1 - y0 ), pPixels + size_t( y0 ) * nPitch + x0, int( nPitch ) );
 	}
+}
+
+// Lives here, not beside FontGpu, so every binary that links the engine draws can link it.
+namespace NTextPerf
+{
+    namespace
+    {
+        // One thread draws; the counters are plain on purpose, BK_PERF is a measuring aid.
+        long long g_nanoseconds[BucketCount];
+        unsigned long long g_calls;
+        int g_depth;
+        long long Now()
+        {
+            return std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+        }
+    }
+    bool Enabled()
+    {
+        static const bool enabled = getenv( "BK_PERF" ) != 0;
+        return enabled;
+    }
+    Scope::Scope( Bucket bucket ) : bucket_( bucket ), active_( Enabled() )
+    {
+        if ( !active_ ) return;
+        ++g_calls;
+        outermost_ = g_depth++ == 0;
+        if ( outermost_ ) start_ = Now();
+    }
+    Scope::~Scope()
+    {
+        if ( !active_ ) return;
+        --g_depth;
+        if ( outermost_ ) g_nanoseconds[bucket_] += Now() - start_;
+    }
+    std::string TakeInterval()
+    {
+        char line[160];
+        std::snprintf( line, sizeof( line ), "measure %.2f ms draw %.2f ms wrap %.2f ms calls %llu",
+            g_nanoseconds[Measure] / 1e6, g_nanoseconds[Draw] / 1e6, g_nanoseconds[Wrap] / 1e6, g_calls );
+        for ( long long &nanoseconds : g_nanoseconds ) nanoseconds = 0;
+        g_calls = 0;
+        return line;
+    }
 }
