@@ -22,7 +22,7 @@ namespace NBkTextBridge
 	void Destroy();
 	BkTextContext *Context();
 	// The code the context was created for ("en", "de", "hi", ...).
-	const std::string &Language();
+	std::string Language();
 	// Counts contexts created; a font closes its BkTextFont only while its serial is current, so a
 	// font outliving Destroy() never touches a dead context.
 	unsigned Serial();

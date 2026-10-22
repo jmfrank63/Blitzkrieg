@@ -23,6 +23,16 @@
 #include <string>
 
 namespace {
+
+// The CRT spells setenv differently on Windows.
+void SetEnvironment( const char *name, const char *value )
+{
+#ifdef _WIN32
+    _putenv_s( name, value );
+#else
+    setenv( name, value, 1 );
+#endif
+}
 std::string Lower( const char *text )
 {
     std::string out = text;
@@ -107,7 +117,7 @@ void RunCase( const char *label, const char *mod_size )
 
 int main()
 {
-    setenv( "BK_TEXT_ENGINE", "ttf", 1 );
+    SetEnvironment( "BK_TEXT_ENGINE", "ttf" );
     if ( !NBkTextBridge::Create() || NBkTextBridge::Context() == nullptr )
     {
         std::fprintf( stderr, "the bk_text context was not created (BK_TEXT_FONTS_DIR=%s)\n", std::getenv( "BK_TEXT_FONTS_DIR" ) );

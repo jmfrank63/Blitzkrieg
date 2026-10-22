@@ -60,6 +60,16 @@ extern "C" const SModuleDescriptor * STDCALL GetModuleDescriptor();
 
 namespace {
 
+// The CRT spells setenv differently on Windows.
+void SetEnvironment( const char *name, const char *value )
+{
+#ifdef _WIN32
+    _putenv_s( name, value );
+#else
+    setenv( name, value, 1 );
+#endif
+}
+
 // ---- the fake GPU API: records the vertices of every indexed temporary draw --------------------
 struct Quad { float left, top, right, bottom; };
 std::vector<SGFXLVertex> g_vertices;
@@ -403,7 +413,7 @@ void RunFixed( Harness &h, Where where, const std::u16string &tall, float scale 
     where.string_id = "vmetrics";
     const std::vector<Quad> quads = h.DrawText( tall, scale, 4000, FNT_FORMAT_LEFT, 50 );
     float min_top = 1e30f, max_bottom = -1e30f;
-    for ( size_t i = 0; i != quads.size(); ++i ) { min_top = std::min( min_top, quads[i].top ); max_bottom = std::max( max_bottom, quads[i].bottom ); }
+    for ( size_t i = 0; i != quads.size(); ++i ) { min_top = (std::min)( min_top, quads[i].top ); max_bottom = (std::max)( max_bottom, quads[i].bottom ); }
     Expect( where, "GetHeight == GetAscent + GetDescent", h.font->GetHeight(), h.font->GetAscent() + h.font->GetDescent() );
     ExpectAtLeast( where, "GetLineSpace >= GetHeight*scale", h.text->GetLineSpace(), int( h.font->GetHeight() * scale ) );
     ExpectAtLeast( where, "ink top >= top of the line", min_top, float( Harness::kY ) );
@@ -481,7 +491,7 @@ int Run()
         if ( g != 0 )
         {
             // Another language leads another fallback chain: every font closes before the context is made again.
-            setenv( "BK_TEXT_LANG", groups[g].code, 1 );
+            SetEnvironment( "BK_TEXT_LANG", groups[g].code );
             if ( !NBkTextBridge::Recreate() ) { std::fprintf( stderr, "bk_text context for %s was not created\n", groups[g].code ); return 8; }
         }
         for ( int size = 0; size != 4; ++size )
@@ -519,8 +529,8 @@ int Run()
 
 int main()
 {
-    setenv( "BK_TEXT_ENGINE", "ttf", 1 );
-    setenv( "BK_TEXT_LANG", "en", 1 );
+    SetEnvironment( "BK_TEXT_ENGINE", "ttf" );
+    SetEnvironment( "BK_TEXT_LANG", "en" );
     const int status = Run();
     if ( g_window != nullptr ) SDL_DestroyWindow( g_window );
     g_window = nullptr;

@@ -2669,6 +2669,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    addAtexitStub(b, text_measure_draw_module, target, optimize, toolchain);
     if (target.result.os.tag == .macos) {
         addEngineCxxNewDelete(b, text_measure_draw_module, optimize, cppflagsForTarget(target, optimize));
     } else {
@@ -2737,6 +2738,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    addAtexitStub(b, mod_font_fallback_module, target, optimize, toolchain);
     if (target.result.os.tag == .macos) {
         addEngineCxxNewDelete(b, mod_font_fallback_module, optimize, cppflagsForTarget(target, optimize));
     } else {
@@ -6371,7 +6373,9 @@ fn bkTextModuleAt(
         .root_source_file = b.path(root_source),
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
+        // On MSVC the CRT is the engine's (the C++ runtime link below): Zig's own libc as well puts two
+        // of them into the consumer (duplicate _cexit, _wctype, ...).
+        .link_libc = target.result.abi != .msvc,
     });
     module.addImport("hb_c", addTranslatedHeaders(b, target, optimize, toolchain, &.{ "hb.h", "hb-ot.h" }, &.{b.path("vendor/harfbuzz/src")}));
     // The game's wrap port in tools/zig, the cross-check for wrap.zig's tests.
@@ -6439,7 +6443,7 @@ fn addBkTextTests(
     if (test_mode == .run) step.dependOn(&run.step);
 
     // The C ABI from C++: the library, linked like any engine module, run with the leak report on.
-    const abi_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const abi_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = if (target.result.abi == .msvc) false else null });
     linkEngineCxxRuntimeEngine(b, abi_module, optimize);
     abi_module.addIncludePath(b.path("Sources/src/BkText"));
     abi_module.addCSourceFiles(.{
@@ -6468,7 +6472,7 @@ fn addBkTextTests(
         .root_source_file = b.path("tools/zig/bk_text_hbview_test.zig"),
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
+        .link_libc = target.result.abi != .msvc,
     });
     hbview_module.addImport("bk_text", bkTextModule(b, target, optimize, toolchain));
     hbview_module.addImport("l10n_measure", b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_measure.zig") }));
@@ -6503,6 +6507,18 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
         .debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .safe, .fast, .small => cppflags_release,
     };
+}
+
+/// atexit for a Windows test executable that is entered at main: no C runtime start-up or exit sequence
+/// runs in it, so a registered handler is never called, and the engine libraries' global destructors
+/// otherwise take atexit out of the static C runtime, whose members clash with the debug DLL runtime
+/// (duplicate _cexit, _wctype, ...). An object, added before the libraries, so it is read first.
+fn addAtexitStub(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes) void {
+    if (target.result.abi != .msvc) return;
+    const stub_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = false });
+    stub_module.addCSourceFile(.{ .file = b.path("tools/zig/atexit_stub.cpp"), .flags = cppflagsForOptimize(optimize) });
+    addMsvcIncludePaths(b, stub_module, toolchain);
+    module.addObject(b.addObject(.{ .name = "atexit-stub", .root_module = stub_module }));
 }
 
 fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) []const []const u8 {

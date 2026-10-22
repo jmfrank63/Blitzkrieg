@@ -3,6 +3,10 @@
 //! non-static wrappers around the file-local stb_truetype in stbtt.c.
 pub const hb = @import("hb_c");
 
+/// std.c.getenv is an `extern "c"` and so makes the module depend on Zig's libc; on MSVC the library
+/// takes the engine's CRT only (build.zig, bkTextModuleAt), and this plain extern resolves against it.
+pub extern fn getenv(name: [*:0]const u8) ?[*:0]u8;
+
 pub extern fn bk_stbtt_info_size() usize;
 pub extern fn bk_stbtt_init_font(info: *anyopaque, data: [*]const u8, offset: c_int) c_int;
 pub extern fn bk_stbtt_find_glyph_index(info: *const anyopaque, codepoint: c_int) c_int;
