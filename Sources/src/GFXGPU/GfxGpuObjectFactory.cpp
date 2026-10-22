@@ -358,39 +358,38 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
     if ( shaped != BK_TEXT_OK ) return kTtfOk;
     const float baseline = y + float( format_.metrics.nAscent ) * scale;
     float pen = x;
+    // Quads are written into room made once for the whole line: appending vertex by vertex costs
+    // more than the quad's arithmetic, and lists draw hundreds of lines a frame.
+    const size_t first_vertex = vertices.size();
+    const size_t first_index = indices.size();
+    vertices.resize( first_vertex + size_t( count ) * 4 );
+    indices.resize( first_index + size_t( count ) * 6 );
+    size_t quads = 0;
+    // Every exit shrinks the buffers to the quads written.
+    auto finish = [&]( int status ) { vertices.resize( first_vertex + quads * 4 ); indices.resize( first_index + quads * 6 ); return status; };
     for ( uint32_t i = 0; i < count; ++i )
     {
         const BkTextGlyph &glyph = glyphs[i];
-        BkTextAtlasGlyph atlas = {};
-        BkTextResult found = BK_TEXT_OK;
         AtlasRect &slot = atlas_rects_[( glyph.glyph_key ^ ( glyph.glyph_key >> 10 ) ) % kAtlasRectSlots];
-        if ( slot.epoch == atlas_rects_epoch_ && slot.key == glyph.glyph_key )
+        if ( slot.epoch != atlas_rects_epoch_ || slot.key != glyph.glyph_key )
         {
-            const AtlasRect &rect = slot;
-            atlas.rect.x = rect.x; atlas.rect.y = rect.y; atlas.rect.w = rect.w; atlas.rect.h = rect.h;
-            atlas.bearing_x = rect.bearing_x; atlas.bearing_y = rect.bearing_y;
-            atlas.generation = generation;
+            BkTextAtlasGlyph atlas;
+            const BkTextResult found = bk_text_atlas_glyph( bk_font_, glyph.glyph_key, &atlas );
+            if ( found == BK_TEXT_ATLAS_FULL ) return finish( kTtfAtlasFull );
+            if ( found != BK_TEXT_OK ) { pen += glyph.x_advance * scale; continue; }
+            // The page was cleared to make room for this glyph: the rects of the quads built so far
+            // point at other glyphs now.
+            if ( atlas.generation != generation ) return finish( kTtfRetry );
+            const AtlasRect rect = { glyph.glyph_key, atlas_rects_epoch_, atlas.rect.x, atlas.rect.y, atlas.rect.w, atlas.rect.h, atlas.bearing_x, atlas.bearing_y };
+            slot = rect;
         }
-        else
-        {
-            found = bk_text_atlas_glyph( bk_font_, glyph.glyph_key, &atlas );
-            if ( found == BK_TEXT_OK && atlas.generation == generation )
-            {
-                const AtlasRect rect = { glyph.glyph_key, atlas_rects_epoch_, atlas.rect.x, atlas.rect.y, atlas.rect.w, atlas.rect.h, atlas.bearing_x, atlas.bearing_y };
-                slot = rect;
-            }
-        }
-        if ( found == BK_TEXT_ATLAS_FULL ) return kTtfAtlasFull;
-        if ( found != BK_TEXT_OK ) { pen += glyph.x_advance * scale; continue; }
-        // The page was cleared to make room for this glyph: the rects of the quads built so far
-        // point at other glyphs now.
-        if ( atlas.generation != generation ) return kTtfRetry;
-        if ( atlas.rect.w != 0 && atlas.rect.h != 0 )
+        const AtlasRect &atlas = slot;
+        if ( atlas.w != 0 && atlas.h != 0 )
         {
             const float left = std::floor( pen + ( glyph.x_offset + float( atlas.bearing_x ) ) * scale + 0.5f );
             float top = std::floor( baseline - ( glyph.y_offset + float( atlas.bearing_y ) ) * scale + 0.5f );
-            const float quad_w = float( atlas.rect.w ) * scale;
-            const float quad_h = float( atlas.rect.h ) * scale;
+            const float quad_w = float( atlas.w ) * scale;
+            const float quad_h = float( atlas.h ) * scale;
             // Snapping to a whole pixel may move the ink half a pixel out of the line, which is
             // GetHeight * scale tall: pull it back in, so ink never leaves what GetHeight reports.
             const float line_height = float( format_.metrics.nHeight ) * scale;
@@ -406,26 +405,29 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
             if ( top + quad_h > clip_bottom ) bottom_fraction = ( clip_bottom - top ) / quad_h;
             if ( bottom_fraction > top_fraction )
             {
-                const float u1 = float( atlas.rect.x ) / float( page_w );
-                const float u2 = float( atlas.rect.x + atlas.rect.w ) / float( page_w );
-                const float v_top = float( atlas.rect.y ) / float( page_h );
-                const float v_span = float( atlas.rect.h ) / float( page_h );
+                const float u1 = float( atlas.x ) / float( page_w );
+                const float u2 = float( atlas.x + atlas.w ) / float( page_w );
+                const float v_top = float( atlas.y ) / float( page_h );
+                const float v_span = float( atlas.h ) / float( page_h );
                 const float v1 = v_top + top_fraction * v_span;
                 const float v2 = v_top + bottom_fraction * v_span;
                 const float y1 = top + top_fraction * quad_h;
                 const float y2 = top + bottom_fraction * quad_h;
-                const WORD base = static_cast<WORD>( vertices.size() );
-                vertices.emplace_back(); vertices.back().Setup( left, y2, 0, 1, color, 0xff000000, u1, v2 );
-                vertices.emplace_back(); vertices.back().Setup( left, y1, 0, 1, color, 0xff000000, u1, v1 );
-                vertices.emplace_back(); vertices.back().Setup( left + quad_w, y2, 0, 1, color, 0xff000000, u2, v2 );
-                vertices.emplace_back(); vertices.back().Setup( left + quad_w, y1, 0, 1, color, 0xff000000, u2, v1 );
-                indices.push_back( base + 2 ); indices.push_back( base + 1 ); indices.push_back( base + 0 );
-                indices.push_back( base + 1 ); indices.push_back( base + 2 ); indices.push_back( base + 3 );
+                const WORD base = static_cast<WORD>( first_vertex + quads * 4 );
+                SGFXLVertex *quad = vertices.data() + first_vertex + quads * 4;
+                quad[0].Setup( left, y2, 0, 1, color, 0xff000000, u1, v2 );
+                quad[1].Setup( left, y1, 0, 1, color, 0xff000000, u1, v1 );
+                quad[2].Setup( left + quad_w, y2, 0, 1, color, 0xff000000, u2, v2 );
+                quad[3].Setup( left + quad_w, y1, 0, 1, color, 0xff000000, u2, v1 );
+                WORD *triangles = indices.data() + first_index + quads * 6;
+                triangles[0] = base + 2; triangles[1] = base + 1; triangles[2] = base + 0;
+                triangles[3] = base + 1; triangles[4] = base + 2; triangles[5] = base + 3;
+                ++quads;
             }
         }
         pen += glyph.x_advance * scale;
     }
-    return kTtfOk;
+    return finish( kTtfOk );
 }
 
 class TextureManagerGpu final : public ITextureManager

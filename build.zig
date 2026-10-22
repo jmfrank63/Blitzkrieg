@@ -4073,7 +4073,7 @@ pub fn build(b: *std.Build) void {
     text_engine_perf_hi_run.step.dependOn(bk_font.install);
     // Both runs write below the game's mods folder: the plain Hindi mod first, then the shaped one.
     text_engine_perf_hi_run.step.dependOn(&language_mods_plain_run.step);
-    const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts and on BK_TEXT_ENGINE=ttf, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
+    const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts and on BK_TEXT_ENGINE=ttf, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms, 1.6 ms in a debug build (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
     var text_engine_perf_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "hi", "ja" }) |code| {
         const shard_step = b.step(b.fmt("text-engine-perf-{s}", .{code}), b.fmt("text-engine-perf for {s} alone, report in zig-out/local-test/text-engine-perf/report-{s}.txt (M004 S03)", .{ code, code }));
