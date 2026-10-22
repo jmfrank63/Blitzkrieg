@@ -48,17 +48,17 @@ const testing = std.testing;
 const Rect = measure.Rect;
 const Gray = measure.Gray;
 
-fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
+pub fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
     var map = try testing.environ.createMap(allocator);
     const value = map.get(key) orelse return null;
     return try allocator.dupeSentinel(u8, value, 0);
 }
 
 const scratch = "zig-out/local-test/text-engine-game-reads-it";
-const width = 1024;
-const height = 768;
-const blank_mod = "text-engine-blank";
-const profile_arg = "-profile=TextEngine";
+pub const width = 1024;
+pub const height = 768;
+pub const blank_mod = "text-engine-blank";
+pub const profile_arg = "-profile=TextEngine";
 const save_profile = "TextEngineSave";
 const save_name = "ttfcompat.sav";
 
@@ -73,7 +73,7 @@ fn selected(allocator: std.mem.Allocator, code: []const u8) !bool {
 // Thresholds, the l10n tier's (tools/zig/l10n_game_reads_it.zig) where the measure is the same one.
 // Frame ink is the luminance the label adds to the background (0..255); a pixel counts as ink above
 // `ink_threshold`.
-const ink_threshold: u8 = 24;
+pub const ink_threshold: u8 = 24;
 const min_correlation: f64 = 0.50;
 const min_margin: f64 = 0.10;
 const small_blur: usize = 2;
@@ -85,18 +85,18 @@ const max_aspect_error: f64 = 0.12;
 /// The briefing's description lines: at least this wide in ink.
 const min_body_width: usize = 100;
 /// A label's box holds at least this much ink and is at least this wide.
-const min_ink_pixels: usize = 60;
-const min_ink_width: usize = 20;
+pub const min_ink_pixels: usize = 60;
+pub const min_ink_width: usize = 20;
 /// A label counts as drawn differently from English when this many pixels of its box differ by more
 /// than `frame_tolerance`; all labels but one must (a translation can equal the English word).
 const min_text_change: usize = 60;
 const frame_tolerance: u8 = 16;
 /// A missing glyph is a solid box: 8 by 12 pixels, 95% lit.
-const solid_w: usize = 8;
-const solid_h: usize = 12;
-const solid_fill: f64 = 0.95;
+pub const solid_w: usize = 8;
+pub const solid_h: usize = 12;
+pub const solid_fill: f64 = 0.95;
 
-const Ink = enum {
+pub const Ink = enum {
     /// Gold text (the buttons, the briefing's title): the ink is the warmth the label adds.
     gold,
     /// Grey or white text: the ink is the brightness the label adds.
@@ -105,7 +105,7 @@ const Ink = enum {
     dark,
 };
 
-const Label = struct {
+pub const Label = struct {
     /// The overlay key below `dir`.
     key: []const u8,
     rect: Rect,
@@ -134,7 +134,7 @@ const Label = struct {
 };
 
 /// The header and the five buttons of the main menu on the 1024x768 canvas.
-const labels = [_]Label{
+pub const labels = [_]Label{
     .{ .key = "imheader-mainmenu-header", .rect = .{ .x1 = 630, .y1 = 175, .x2 = 990, .y2 = 248 }, .ink = .bright },
     .{ .key = "imheader-gbutton-newgame", .rect = .{ .x1 = 650, .y1 = 267, .x2 = 970, .y2 = 317 } },
     .{ .key = "imheader-gbutton-multiplayer", .rect = .{ .x1 = 650, .y1 = 332, .x2 = 970, .y2 = 382 } },
@@ -146,7 +146,7 @@ const labels = [_]Label{
 /// The briefing of the first Allied mission (Operation Jupiter: Battle for Norway, a historical
 /// mission, so its text keys are fixed): the title, the three panel headers and the first objective.
 const mission_dir = "scenarios/scenariomissions/allies/norway";
-const briefing_labels = [_]Label{
+pub const briefing_labels = [_]Label{
     .{ .key = "header", .dir = mission_dir, .rect = .{ .x1 = 50, .y1 = 40, .x2 = 500, .y2 = 95 } },
     .{ .key = "imheader-mission-objectives", .rect = .{ .x1 = 55, .y1 = 152, .x2 = 440, .y2 = 178 }, .ink = .dark, .small = true },
     .{ .key = "imheader-mission-map", .rect = .{ .x1 = 555, .y1 = 152, .x2 = 980, .y2 = 178 }, .ink = .bright, .small = true },
@@ -154,8 +154,8 @@ const briefing_labels = [_]Label{
     .{ .key = "0h", .dir = mission_dir, .rect = .{ .x1 = 72, .y1 = 200, .x2 = 440, .y2 = 228 }, .ink = .dark },
 };
 /// The description panel's wrapped text: only checked for ink.
-const briefing_body = Label{ .key = "description", .dir = mission_dir, .rect = .{ .x1 = 555, .y1 = 485, .x2 = 935, .y2 = 625 }, .ink = .dark };
-const briefing_extra_keys = [_][]const u8{ "missiontext", "missiontypetext", "scenariomission", "missiondescriptiontext" };
+pub const briefing_body = Label{ .key = "description", .dir = mission_dir, .rect = .{ .x1 = 555, .y1 = 485, .x2 = 935, .y2 = 625 }, .ink = .dark };
+pub const briefing_extra_keys = [_][]const u8{ "missiontext", "missiontypetext", "scenariomission", "missiondescriptiontext" };
 /// BK_AUTO_UI: the Allies campaign (index 2), its first chapter, then the chapter's first mission.
 const briefing_schedule = "60:campaign=2=scenarios\\campaigns\\allies\\allies,120:chapter=scenarios\\chapters\\allies\\norway\\1," ++
     "240:var=Mission.Last.FinishStatus=-1,300:mission=scenarios\\scenariomissions\\allies\\norway\\1";
@@ -177,7 +177,7 @@ const min_chat_pixels: usize = 400;
 const max_control_pixels: usize = 100;
 
 /// One more screen: what the schedule does, the frame it must reach and the labels measured on it.
-const Route = struct {
+pub const Route = struct {
     tag: []const u8,
     schedule: []const u8,
     delay: u32,
@@ -225,7 +225,7 @@ const encyclopedia_route = Route{
     .labels = &encyclopedia_labels,
     .body = .{ .key = "desc", .dir = unit_dir, .rect = .{ .x1 = 55, .y1 = 195, .x2 = 440, .y2 = 630 }, .ink = .dark },
 };
-const routes = [_]Route{ options_route, encyclopedia_route };
+pub const routes = [_]Route{ options_route, encyclopedia_route };
 
 /// The first mission some seconds in (the save proof's frame at 900): the objective's popup in the
 /// top right with its title bar and its text, and the chat line that announces the objective at the
@@ -241,9 +241,9 @@ const mission_shot: u32 = 900;
 
 /// A route's label holds at least this much ink (pixels above `ink_threshold`): the small font's
 /// panel headers are the lightest of them.
-const min_route_ink_pixels: usize = 60;
+pub const min_route_ink_pixels: usize = 60;
 
-const Language = struct {
+pub const Language = struct {
     code: []const u8,
     /// The mod folder; null is the base game (English), which no mod replaces.
     mod: ?[]const u8,
@@ -267,16 +267,16 @@ const languages = [_]Language{
 };
 
 /// Failures are collected, then printed together with the failing measure first.
-const Report = struct {
+pub const Report = struct {
     allocator: std.mem.Allocator,
     lines: std.ArrayList(u8) = .empty,
     failures: usize = 0,
 
-    fn line(self: *Report, comptime fmt: []const u8, args: anytype) !void {
+    pub fn line(self: *Report, comptime fmt: []const u8, args: anytype) !void {
         try self.lines.print(self.allocator, fmt ++ "\n", args);
     }
 
-    fn check(self: *Report, ok: bool, comptime fmt: []const u8, args: anytype) !void {
+    pub fn check(self: *Report, ok: bool, comptime fmt: []const u8, args: anytype) !void {
         if (ok) return self.line("ok    " ++ fmt, args);
         self.failures += 1;
         std.debug.print("FAIL  " ++ fmt ++ "\n", args);
@@ -426,7 +426,7 @@ fn warmth(rgb: []const u8) i32 {
 }
 
 /// The label's ink, per pixel: what the frame adds to the background in the label's own colour.
-fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const u8, label: Label) !Gray {
+pub fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const u8, label: Label) !Gray {
     const rect = label.rect;
     const pixels = try allocator.alloc(u8, rect.width() * rect.height());
     for (0..rect.height()) |y| for (0..rect.width()) |x| {
@@ -558,7 +558,7 @@ fn checkInk(allocator: std.mem.Allocator, language: Language, frame: []const u8,
 
 /// One scratch profile of the Game: `<root>/<name>/user` is XDG_DATA_HOME, BK_USER_ROOT and the
 /// working directory.
-const Run = struct {
+pub const Run = struct {
     io: std.Io,
     game: []const u8,
     folder: []const u8,
@@ -570,10 +570,12 @@ const Run = struct {
     ttf: bool,
     /// Whether the mod brings bitmap fonts, so the menu capture must show the Game opening them.
     fonts: bool,
+    /// Whether the Game runs with BK_TEXT_ENGINE=bitmap, the explicit escape hatch (the side-by-side tier's old frames).
+    bitmap: bool = false,
 
     /// Makes the scratch folder and sets the profile's language option to `mod` (Default for the
     /// base game) with a short run of the Game on the options' own `set=`, which the profile keeps.
-    fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, ttf: bool, fonts: bool) !Run {
+    pub fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, ttf: bool, fonts: bool) !Run {
         const cwd = std.Io.Dir.cwd();
         const folder = try std.fs.path.join(allocator, &.{ root, name });
         const user = try std.fs.path.join(allocator, &.{ folder, "user" });
@@ -589,7 +591,7 @@ const Run = struct {
         return run;
     }
 
-    fn play(self: Run, allocator: std.mem.Allocator, args: []const []const u8, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
+    pub fn play(self: Run, allocator: std.mem.Allocator, args: []const []const u8, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
         var environ = try testing.environ.createMap(allocator);
         try environ.put("XDG_DATA_HOME", self.user);
         try environ.put("BK_USER_ROOT", self.user);
@@ -600,6 +602,7 @@ const Run = struct {
         try environ.put("BK_NO_HELP", "1");
         try environ.put("BK_GLYPH_TRACE", "1");
         if (self.ttf) try environ.put("BK_TEXT_ENGINE", "ttf");
+        if (self.bitmap and !self.ttf) try environ.put("BK_TEXT_ENGINE", "bitmap");
         if (schedule) |text| try environ.put("BK_AUTO_UI", text);
         if (delay) |frames| try environ.put("BK_REFERENCE_DELAY", try std.fmt.allocPrint(allocator, "{d}", .{frames}));
         var argv: std.ArrayList([]const u8) = .empty;
@@ -629,7 +632,7 @@ const Run = struct {
     }
 
     /// The main-menu capture (RGBA, alpha zero).
-    fn capture(self: Run, allocator: std.mem.Allocator) ![]u8 {
+    pub fn capture(self: Run, allocator: std.mem.Allocator) ![]u8 {
         const log = try self.scene(allocator, null, null, "capture");
         try expectLine(log, self.folder, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
         if (self.fonts) {
@@ -644,7 +647,7 @@ const Run = struct {
     /// The first mission's briefing capture. The log must show the schedule's mission action reaching
     /// the screen, and, for a language mod (`keys` set), the Game opening every text key of the
     /// briefing from the mod.
-    fn briefing(self: Run, allocator: std.mem.Allocator, keys: bool) ![]u8 {
+    pub fn briefing(self: Run, allocator: std.mem.Allocator, keys: bool) ![]u8 {
         const log = try self.scene(allocator, briefing_schedule, briefing_delay, "briefing");
         try expectLine(log, self.folder, "BK_AUTO_UI: frame 300 action mission=scenarios\\scenariomissions\\allies\\norway\\1");
         try expectLine(log, self.folder, "BK_UI_TRACE: reposition \"ui\\common\\mission\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
@@ -667,7 +670,7 @@ const Run = struct {
 
     /// A route's capture. The log must show the schedule's last action and the screen's reposition (a
     /// failure names the BK_AUTO_UI step it reached).
-    fn route(self: Run, allocator: std.mem.Allocator, one: Route) ![]u8 {
+    pub fn route(self: Run, allocator: std.mem.Allocator, one: Route) ![]u8 {
         const log = try self.scene(allocator, one.schedule, one.delay, one.tag);
         for ([_][]const u8{ one.action, one.screen }) |line| expectLine(log, self.folder, line) catch |err| {
             var lines = std.mem.splitScalar(u8, log, '\n');
@@ -682,21 +685,21 @@ const Run = struct {
     /// The first mission running: the briefing's `ok` starts it and the `shot` action at frame
     /// `mission_shot` writes the frame. Windowed at 1024x768 like the save proof, which runs the same
     /// schedule.
-    fn mission(self: Run, allocator: std.mem.Allocator) ![]u8 {
+    pub fn mission(self: Run, allocator: std.mem.Allocator) ![]u8 {
         const log = try self.play(allocator, &.{ "-windowed", "-mode=1024x768", self.profile }, mission_schedule, null, "mission");
         try expectLine(log, self.folder, "BK_AUTO_UI: frame 420 action ok");
         return self.shot(allocator, mission_shot);
     }
 
     /// One run of the Game to its `-reference-scene` capture, `<tag>.rgba`.
-    fn scene(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
+    pub fn scene(self: Run, allocator: std.mem.Allocator, schedule: ?[]const u8, delay: ?u32, tag: []const u8) ![]u8 {
         const path = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ self.folder, tag });
         const log = try self.play(allocator, &.{ "-reference-scene", path, "-reference-resolution", "1024", "768", "-windowed", profile_arg }, schedule, delay, tag);
         try expectLine(log, self.folder, "BK_REFERENCE_SCENE: capture complete");
         return log;
     }
 
-    fn frame(self: Run, allocator: std.mem.Allocator, tag: []const u8) ![]u8 {
+    pub fn frame(self: Run, allocator: std.mem.Allocator, tag: []const u8) ![]u8 {
         const path = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ self.folder, tag });
         const bytes = try std.Io.Dir.cwd().readFileAlloc(self.io, path, allocator, .limited(16 << 20));
         try testing.expectEqual(@as(usize, width * height * 4), bytes.len);
@@ -704,7 +707,7 @@ const Run = struct {
     }
 
     /// The frame a BK_AUTO_UI `shot` action wrote at schedule frame `at`.
-    fn shot(self: Run, allocator: std.mem.Allocator, at: u32) ![]u8 {
+    pub fn shot(self: Run, allocator: std.mem.Allocator, at: u32) ![]u8 {
         const path = try std.fmt.allocPrint(allocator, "{s}/autoshot_{d}_{d}x{d}.rgba", .{ self.user, at, width, height });
         const bytes = try std.Io.Dir.cwd().readFileAlloc(self.io, path, allocator, .limited(16 << 20));
         try testing.expectEqual(@as(usize, width * height * 4), bytes.len);
@@ -712,7 +715,7 @@ const Run = struct {
     }
 };
 
-fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
+pub fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
     if (std.mem.indexOf(u8, log, line) != null) return;
     if (std.mem.startsWith(u8, line, "BK_MOD_TRACE: open ") and std.ascii.findIgnoreCase(log, line) != null) return;
     std.debug.print("the Game did not print \"{s}\"; its logs are in {s}\n", .{ line, folder });
@@ -722,7 +725,7 @@ fn expectLine(log: []const u8, folder: []const u8, line: []const u8) !void {
 /// `text-engine-blank`: the shipped English texts and the ru fonts with their ink removed (every
 /// texel of the atlas zero, the header kept), installed as a mod of the game so the bitmap path's
 /// background capture needs nothing but the language option.
-fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const u8, root: []const u8) !void {
+pub fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const u8, root: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
     const source = try std.fs.path.join(allocator, &.{ game_root, "mods", "lang-ru", "data", "texts.pak" });
     const bytes = try cwd.readFileAlloc(io, source, allocator, .limited(256 << 20));
@@ -749,7 +752,7 @@ fn installBlankMod(io: std.Io, allocator: std.mem.Allocator, game_root: []const 
 }
 
 /// An uncompressed 32-bit top-down TGA of an RGBA frame, the frames the tier keeps next to its report.
-fn writeTga(io: std.Io, allocator: std.mem.Allocator, path: []const u8, rgba: []const u8) !void {
+pub fn writeTga(io: std.Io, allocator: std.mem.Allocator, path: []const u8, rgba: []const u8) !void {
     const out = try allocator.alloc(u8, 18 + rgba.len);
     @memset(out[0..18], 0);
     out[2] = 2;

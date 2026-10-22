@@ -4137,6 +4137,54 @@ pub fn build(b: *std.Build) void {
         }
     }
     text_engine_reads_step.dependOn(&text_engine_reads_tests.step);
+    // M004 S05: old and new side by side for the maintainer's approval (tools/zig/text_engine_sidebyside.zig).
+    // The Game runs four screens on BK_TEXT_ENGINE=bitmap and on BK_TEXT_ENGINE=ttf in en, de, ru and hi and
+    // keeps PNG pairs, a composite per screen and a measured report.txt. It needs lang-de, lang-ru and the
+    // plain Hindi mod (text_engine_plain_run) and the shaped lang-hi of the old side, built one after the other.
+    const text_engine_sbs_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/text_engine_sidebyside.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = elk_core_module },
+            .{ .name = "zip", .module = elk_zip_module },
+            .{ .name = "l10n_measure", .module = l10n_measure_module },
+            .{ .name = "text_engine_reads", .module = text_engine_reads_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, text_engine_sbs_module, toolchain);
+    }
+    const text_engine_sbs_tests = b.addTest(.{ .root_module = text_engine_sbs_module });
+    const text_engine_sbs_hi_run = b.addRunArtifact(language_mods_tests);
+    text_engine_sbs_hi_run.setCwd(b.path("."));
+    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
+    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    text_engine_sbs_hi_run.setEnvironmentVariable("BK_LM_LANGS", "hi");
+    text_engine_sbs_hi_run.has_side_effects = true;
+    text_engine_sbs_hi_run.step.dependOn(&text_engine_plain_run.step);
+    const text_engine_sbs_step = b.step("text-engine-sidebyside", "Start the real Game on the main menu, the first briefing, the options screen with a tooltip and the Churchill's encyclopedia page on BK_TEXT_ENGINE=bitmap and on BK_TEXT_ENGINE=ttf in en, de, ru and hi (text-engine-sidebyside-<code> is one shard): PNG pairs, a side-by-side composite per screen and a measured report.txt in zig-out/local-test/text-engine-sidebyside/<code>/, for the maintainer's approval (M004 S05)");
+    var text_engine_sbs_chain: ?*std.Build.Step = null;
+    for ([_][]const u8{ "en", "de", "ru", "hi" }) |code| {
+        const shard_step = b.step(b.fmt("text-engine-sidebyside-{s}", .{code}), b.fmt("text-engine-sidebyside for {s} alone, report in zig-out/local-test/text-engine-sidebyside/{s}/report.txt (M004 S05)", .{ code, code }));
+        shard_step.dependOn(&text_engine_sbs_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(text_engine_sbs_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&text_engine_plain_run.step);
+            if (std.mem.eql(u8, code, "hi")) run.step.dependOn(&text_engine_sbs_hi_run.step);
+            if (chained) {
+                if (text_engine_sbs_chain) |before| run.step.dependOn(before);
+                text_engine_sbs_chain = &run.step;
+                if (test_mode == .run) text_engine_sbs_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    text_engine_sbs_step.dependOn(&text_engine_sbs_tests.step);
     // M004 S03: the frame-time tier. The Game runs each screen on the bitmap fonts and on bk_text with
     // BK_PERF=1 and the medians of its `BK_PERF text:` line are compared (tools/zig/text_engine_perf.zig).
     // It needs the plain-Unicode Hindi mod and the shaped `lang-hi` of the bitmap run; ja has no mod
