@@ -364,6 +364,17 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 						droplist.push_back( val );
 					}
 				}
+				else if ( pOpt->szActionFill == "GetPresentMode" )
+				{
+					// GraphicsEngineGpu.cpp ResolvePresentMode reads these; kept in step with the Zig options bridge.
+					static const char *pszModes[] = { "VSync", "Mailbox", "Immediate" };
+					for ( int i = 0; i < 3; ++i )
+					{
+						SOptionDropListValue val;
+						val.szProgName = pszModes[i];
+						droplist.push_back( val );
+					}
+				}
 				else if ( pOpt->szActionFill == "GetVideoModes" ) 
 				{
 					const SGFXDisplayMode *pMode = GetSingleton<IGFX>()->GetDisplayModes();

@@ -1339,6 +1339,7 @@ public:
         else if (fill && std::string(fill) == "GetDifficulty") { values[0] = "Easy"; values[1] = "Normal"; values[2] = "Hard"; values[3] = "Ironman"; count = 4; }
         else if (fill && std::string(fill) == "GetGameSpeed") { values[0] = "VerySlow"; values[1] = "Slow"; values[2] = "Normal"; values[3] = "Fast"; values[4] = "VeryFast"; count = 5; }
         else if (fill && std::string(fill) == "GetTextureQuality") { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; count = 3; }
+        else if (fill && std::string(fill) == "GetPresentMode") { values[0] = "VSync"; values[1] = "Mailbox"; values[2] = "Immediate"; count = 3; }
         else if (fill && std::string(fill) == "GetCloudProvider") {
             values[0] = "Off"; count = 1;
             unsigned short cur_type = VT_EMPTY; const char *cur = bk_options_value(options_, name.c_str(), &cur_type);

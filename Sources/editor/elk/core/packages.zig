@@ -808,7 +808,7 @@ test "import rules: changed, new, unchanged and missing texts, partial then comp
 }
 
 test "importing game_23.upd into a copy of Data/ELK, which it built, changes no database file" {
-    // Data/ELK's 3,040 originals are game_23.upd's, byte for byte, and its
+    // Data/ELK's 3,068 originals are game_23.upd's, byte for byte, and its
     // Version names it: a full open after re-importing it finds every file
     // as tracked - originals, translations, states (the four corrupted ones
     // too), descriptions and the 3,777 orphan state files under data/.
@@ -826,7 +826,7 @@ test "importing game_23.upd into a copy of Data/ELK, which it built, changes no 
 
     var package = try readArchive(testing.allocator, io, "Data/ELK/game_23.upd");
     defer package.deinit();
-    try testing.expectEqual(@as(usize, 3_041), package.entries.len);
+    try testing.expectEqual(@as(usize, 3_069), package.entries.len);
     const report = try importPackage(testing.allocator, io, elk_path, &package, "Data/ELK/game_23.upd", null);
     try testing.expectEqual(@as(usize, 0), report.originals + report.states + report.descriptions + report.deleted);
 
@@ -840,7 +840,7 @@ test "importing game_23.upd into a copy of Data/ELK, which it built, changes no 
     // Version renewed from the package's time.
     var opened = try database.Database.open(testing.allocator, io, elk_path);
     defer opened.deinit();
-    try testing.expectEqual(@as(usize, 3_040), opened.bases[0].keys.len);
+    try testing.expectEqual(@as(usize, 3_068), opened.bases[0].keys.len);
     var expected = try project_file.parse(testing.allocator, tracked_xml);
     defer expected.deinit();
     try testing.expect(std.mem.startsWith(u8, opened.project.elements[0].version, "game_23.upd, ["));
@@ -883,7 +883,7 @@ test "applying the updates beside a database imports only the newest, and only o
     defer opened.deinit();
     try testing.expectEqual(@as(i32, 24), opened.project.elements[0].last_update_number);
     try testing.expect(std.mem.startsWith(u8, opened.project.elements[0].version, "game_24.upd, ["));
-    try testing.expectEqual(@as(usize, 3_040), opened.bases[0].keys.len);
+    try testing.expectEqual(@as(usize, 3_068), opened.bases[0].keys.len);
 
     try testing.expectEqual(Applied{ .found = 3, .imported = 0 }, try applyUpdates(testing.allocator, io, elk_path));
 }
@@ -910,12 +910,12 @@ test "a new database from the game's language folder: lower-case keys, imported 
     for (package.entries) |entry| {
         if (kindOf(entry.name).? == .original) originals += 1;
     }
-    try testing.expectEqual(@as(usize, 1_710), originals);
+    try testing.expectEqual(@as(usize, 1_738), originals);
 
     const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk", "elk.xml" });
     defer testing.allocator.free(elk_path);
     const report = try importPackage(testing.allocator, io, elk_path, &package, "game.upd", null);
-    try testing.expectEqual(Report{ .originals = 1_710, .states = 1_710, .descriptions = 1, .project = true }, report);
+    try testing.expectEqual(Report{ .originals = 1_738, .states = 1_738, .descriptions = 1, .project = true }, report);
 
     var opened = try database.Database.open(testing.allocator, io, elk_path);
     defer opened.deinit();
@@ -925,7 +925,7 @@ test "a new database from the game's language folder: lower-case keys, imported 
     try testing.expectEqual(@as(i32, -1), element.last_update_number);
     try testing.expectEqualStrings("Game Resources", element.description.name);
     try testing.expect(element.description.fonts);
-    try testing.expectEqual(@as(usize, 1_710), opened.bases[0].keys.len);
+    try testing.expectEqual(@as(usize, 1_738), opened.bases[0].keys.len);
     const base = opened.bases[0].path.?;
     for (opened.bases[0].keys) |key| {
         for (key) |byte| try testing.expect(!std.ascii.isUpper(byte));
@@ -1261,7 +1261,7 @@ test "the tracked Data/ELK exports to a pak the engine and unzip read, the same 
     const first = try exportElement(testing.allocator, &tracked, 0, .{});
     defer testing.allocator.free(first);
     const entries = try readBack(allocator, first);
-    try testing.expectEqual(@as(usize, 3_040), entries.len);
+    try testing.expectEqual(@as(usize, 3_068), entries.len);
     // Sorted by entry name, which is not quite the key order: '-' sorts
     // before the '.' of ".txt".
     var by_name: std.StringHashMapUnmanaged([]const u8) = .empty;
@@ -1298,7 +1298,7 @@ test "the tracked Data/ELK exports to a pak the engine and unzip read, the same 
     // 2,212 of the 2,746 texts both carry are byte-identical; the other 534
     // were since re-imported (the original changed, or the state dropped to
     // Not translated so the original now goes out instead of the
-    // translation); 193 texts (movies/, ...) left the game since and 294
+    // translation); 193 texts (movies/, ...) left the game since and 322
     // (medals/, the port's settings and cloud texts, ...) joined it. No .txt there has a name the export spells
     // differently: both are lower case.
     const shipped = try std.Io.Dir.cwd().readFileAlloc(io, "Data/ELK/texts.pak", allocator, .limited(16 << 20));
@@ -1315,7 +1315,7 @@ test "the tracked Data/ELK exports to a pak the engine and unzip read, the same 
     try testing.expectEqual(@as(usize, 2_939), reference.entries.len);
     try testing.expectEqual(@as(usize, 2_212), equal);
     try testing.expectEqual(@as(usize, 534), different);
-    try testing.expectEqual(@as(usize, 294), entries.len - equal - different);
+    try testing.expectEqual(@as(usize, 322), entries.len - equal - different);
 
     // Two exports of the same database are byte-identical.
     const second = try exportElement(testing.allocator, &tracked, 0, .{});

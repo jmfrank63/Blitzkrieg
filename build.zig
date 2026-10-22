@@ -843,6 +843,19 @@ pub fn build(b: *std.Build) void {
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
 
+    // Every setting in Data/Configs/defconf.cfg has its label, tooltip and value texts, in Data/Textes and Data/ELK.
+    const option_texts_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/option_texts_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    const option_texts_tests = b.addTest(.{ .root_module = option_texts_module });
+    const option_texts_run = b.addRunArtifact(option_texts_tests);
+    option_texts_run.setCwd(b.path("."));
+    option_texts_run.has_side_effects = true;
+    const option_texts_step = b.step("test-option-texts", "Every setting in Data/Configs/defconf.cfg has its label, tooltip and value texts in Data/Textes and as ELK originals");
+    if (test_mode == .run) option_texts_step.dependOn(&option_texts_run.step);
+
     // The CI workflow runs the l10n tiers (M002 S09 T03): a text check of cross-platform.yml.
     const ci_l10n_wiring_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/ci_l10n_wiring_test.zig"),

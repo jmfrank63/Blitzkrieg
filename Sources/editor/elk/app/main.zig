@@ -38,7 +38,7 @@
 //! the counts the first run's Exit kept as the snapshot. A sixth copy proves the pak
 //! export against a scratch game folder, never a real one: File > Export to
 //! language mod by name and by a folder answered for Browse..., each pak
-//! read back by the core with all 3,040 texts; Install to game warning
+//! read back by the core with all 3,068 texts; Install to game warning
 //! about the scratch game's loose Data/Textes, Enter taking the mod route,
 //! then Install anyway writing Data/Texts.pak; Run Game's command line, and
 //! on Linux and macOS a stand-in Game script recording the arguments it got;
@@ -52,7 +52,7 @@
 //! accepting the added word but not the ignored one; the same copy's
 //! description view (C1) shows a text's own `.dsc`, Find's hit in it and a
 //! folder's `_folder.dsc`. An eighth copy proves
-//! the spreadsheet exchange (D-10): Export to spreadsheet writing all 3,040
+//! the spreadsheet exchange (D-10): Export to spreadsheet writing all 3,068
 //! texts to `.xlsx` (the default for a name without extension) and `.csv`
 //! and refusing `.xls`; Import from spreadsheet setting an edited
 //! translation back from the earlier export, importing it again and the
@@ -72,7 +72,7 @@
 //! elk.xml unsaved, no temporary file); a Find Next that misses, held and
 //! released, then held and cancelled; and the whole import after. An
 //! eleventh folder, a new database with no element, takes File > Import
-//! from Game... from a copy of Data/Textes (1710 texts, the element `game`
+//! from Game... from a copy of Data/Textes (1738 texts, the element `game`
 //! added) and Import from PAK/UPD... of usa01.pak: held at its 50th file and
 //! cancelled, the 50 files in and elk.xml unchanged; then whole (the other
 //! 63), and again, which changes nothing.
@@ -104,7 +104,7 @@ const c = sdl3.c;
 const smoke_key = "medals/1/name";
 const smoke_final = "ELK-SMOKEXYZ";
 const smoke_schedule =
-    "2:expect=open,2:expect=texts:3040,2:expect=glyphs,3:expect=rows,3:expect=title:elk.xml," ++
+    "2:expect=open,2:expect=texts:3068,2:expect=glyphs,3:expect=rows,3:expect=title:elk.xml," ++
     "4:do=select_key:" ++ smoke_key ++ ",6:expect=original_has:Medal,6:expect=dirty:0," ++
     "6:do=focus:translation,9:text=ELK-SMOKE,12:expect=translation:ELK-SMOKE,12:expect=dirty:1," ++
     "12:expect=disk:" ++ smoke_key ++ "=," ++
@@ -126,7 +126,7 @@ const smoke_schedule =
 /// that must reach the disk.
 const open_final = "ELK-OPEN";
 const open_schedule =
-    "2:expect=closed,3:do=open,4:do=answer:elk.xml,6:expect=open,6:expect=texts:3040,6:expect=title:elk.xml," ++
+    "2:expect=closed,3:do=open,4:do=answer:elk.xml,6:expect=open,6:expect=texts:3068,6:expect=title:elk.xml," ++
     "7:do=select_key:" ++ smoke_key ++ ",9:do=select:0,10:do=save,11:expect=identical," ++
     "12:do=select_key:" ++ smoke_key ++ ",13:do=focus:translation,16:text=" ++ open_final ++ ",18:expect=dirty:1," ++
     "19:do=save,20:expect=disk:" ++ smoke_key ++ "=" ++ open_final ++ ",20:expect=dirty:0,21:exit";
@@ -241,8 +241,8 @@ const tunis = "scenarios/chapters/allies/tunis/description";
 const tobruk = "scenarios/chapters/allies/tobruk/description";
 const find_schedule =
     "2:expect=open,2:do=statistics,4:expect=statistics:1," ++
-    "4:expect=statistic:original/total=3040/43081/228827/285367,4:expect=statistic:original/0=3040/43081/228827/285367," ++
-    "4:expect=statistic:original/not_translated=1089/20137/105716/128754,4:expect=statistic:translation/translated=4/55/263/316," ++
+    "4:expect=statistic:original/total=3068/43209/229368/286009,4:expect=statistic:original/0=3068/43209/229368/286009," ++
+    "4:expect=statistic:original/not_translated=1117/20265/106257/129396,4:expect=statistic:translation/translated=4/55/263/316," ++
     "4:expect=statistic:translation/0.approved=589/183/1059/1180," ++
     "4:expect=last_close:original/total=2968/53860/277016/344482,4:expect=last_close:translation/0.approved=1017/7080/35259/42123," ++
     "4:expect=last_close:original/1=none,4:expect=tree:1,4:expect=status_bar:1,5:do=statistics_close,7:expect=statistics:0," ++
@@ -265,7 +265,7 @@ const find_schedule =
 /// the status line stay off; "at last close" is what the first run counted.
 const find_reopen_schedule =
     "2:expect=open,2:expect=tree:0,2:expect=status_bar:0,2:do=statistics," ++
-    "4:expect=last_close:original/total=3040/43081/228827/285367,4:expect=last_close:translation/0.approved=589/183/1059/1180," ++
+    "4:expect=last_close:original/total=3068/43209/229368/286009,4:expect=last_close:translation/0.approved=589/183/1059/1180," ++
     "4:do=statistics_close,5:do=view_tree,7:expect=tree:1,7:expect=status_bar:0," ++
     "8:expect=find_text:Rommel,2:expect=find_option:down=0,2:expect=find_option:match_case=0," ++
     "8:expect=find_option:whole_word=0,9:key=f+ctrl,11:expect=find_dialog:1,11:do=find_option:down=1," ++
@@ -276,7 +276,7 @@ const find_reopen_schedule =
 const export_mod = "ELKSmoke";
 const folder_mod = "ELKFolder";
 const loose_text = "Data/Textes/strings/imheader-gbutton-exitgame.txt";
-const export_texts = "3040";
+const export_texts = "3068";
 const export_schedule =
     "2:expect=open,2:expect=can_export:1,2:expect=can_run_game:1,2:expect=pak:game=none," ++
     // Run Game before any export asks for the mod first.
@@ -352,8 +352,8 @@ const spell_reopen_schedule =
 /// the `.csv` change nothing; the legacy `desc.xls` reads all its rows,
 /// every one without a translation.
 const sheet_key = "buildings/africa/summer/a_cisterns/01/name";
-/// The tracked texts with no translation (3,040 less 1,555).
-const untranslated = "1485";
+/// The tracked texts with no translation (3,068 less 1,555).
+const untranslated = "1513";
 const sheet_schedule =
     "2:expect=open,2:do=sheet_export,2:do=answer:texts,4:expect=notice_has:" ++ export_texts ++ ",4:expect=notice_has:texts.xlsx," ++
     "5:do=sheet_export,5:do=answer:texts.csv,7:expect=notice_has:texts.csv," ++
@@ -372,7 +372,7 @@ const sheet_schedule =
 /// game_24.upd, the newest. The filter chosen is not kept, and Collapse Item
 /// is on whatever elk.cfg says.
 const short_schedule =
-    "2:expect=open,2:expect=layout:short,2:expect=title:elk.xml,2:expect=texts:3040,2:expect=notice_has:1/2," ++
+    "2:expect=open,2:expect=layout:short,2:expect=title:elk.xml,2:expect=texts:3068,2:expect=notice_has:1/2," ++
     "3:expect=toolbar:short,3:expect=filter_count:5,3:expect=filter_at:4=Approved,3:expect=filter:All,3:expect=collapse_item:1," ++
     "3:do=filter:Translated,4:expect=filter:Translated,4:do=select_key:" ++ tree_name ++ ",5:key=n+ctrl,7:expect=selected:" ++ walk[0] ++ "," ++
     "8:expect=help:0,8:key=f1,10:expect=help:1,10:expect=help_has:--short,10:expect=help_has:Language,11:do=help_close,13:expect=help:0,14:exit";
@@ -386,30 +386,30 @@ const hindi_shot_name = "hindi";
 
 /// The worker pass (D-14). `d14.csv` gives every text of the copy a new
 /// translation starting with `auto.whole_marker`; its import is held before
-/// row 1000, the modal seen twice at 1000 of 3040 rows, and cancelled. A
-/// Find Next that misses reads all 3,040 texts and one again (3041 units):
+/// row 1000, the modal seen twice at 1000 of 3068 rows, and cancelled. A
+/// Find Next that misses reads all 3,068 texts and one again (3069 units):
 /// held before its fifth and released, it reports the miss; held and
 /// cancelled, it reports the Cancel. The whole import then changes the
-/// other 2040 texts.
+/// other 2068 texts.
 const progress_sheet = "d14.csv";
 const progress_schedule =
     "2:expect=open,2:expect=busy:0,2:do=hold:1000,2:do=sheet_import,2:do=answer:" ++ progress_sheet ++ ",3:do=wait_held," ++
     "4:expect=busy:1,4:expect=working:1000/" ++ export_texts ++ ",6:expect=working:1000/" ++ export_texts ++ ",6:do=job_cancel," ++
     "8:expect=busy:0,8:expect=notice_has:cancelled,8:expect=whole:1000," ++
-    "9:do=find_dialog,11:do=hold:5,11:do=find_next:no-such-text-anywhere,12:do=wait_held,13:expect=working:5/3041,13:do=release," ++
+    "9:do=find_dialog,11:do=hold:5,11:do=find_next:no-such-text-anywhere,12:do=wait_held,13:expect=working:5/3069,13:do=release," ++
     "15:expect=found:none,16:do=hold:5,16:do=find_next:no-such-text-anywhere,17:do=wait_held,18:do=job_cancel," ++
     "20:expect=notice_has:Find,21:do=find_close," ++
-    "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/2040/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
+    "22:do=sheet_import,22:do=answer:" ++ progress_sheet ++ ",24:expect=imported:" ++ export_texts ++ "/2068/0/0/0,24:expect=whole:" ++ export_texts ++ ",25:exit";
 
 /// The package imports' pass (D-05, D-14) on a new database: the game
 /// folder `game` holds a copy of Data/Textes and Data/resource.description,
 /// `usa01.pak` is Data/AmericanELK's.
 const package_schedule =
     "2:expect=open,2:expect=texts:0,2:expect=can_import:1,2:do=import_game,2:expect=can_import:0,2:do=answer:game," ++
-    "4:expect=busy:0,4:expect=updated:1710/1710/1/0/1,4:expect=texts:1710,4:expect=notice_has:1710," ++
+    "4:expect=busy:0,4:expect=updated:1738/1738/1/0/1,4:expect=texts:1738,4:expect=notice_has:1738," ++
     // Held before its 50th file and cancelled: those 50 in, elk.xml as it was.
     "5:do=hold:50,5:do=import_pak,5:do=answer:" ++ package_pak ++ ",6:do=wait_held,7:expect=working:50/113,7:do=job_cancel," ++
-    "9:expect=busy:0,9:expect=notice_has:cancelled,9:expect=package_whole:1760,9:expect=texts:1710," ++
+    "9:expect=busy:0,9:expect=notice_has:cancelled,9:expect=package_whole:1788,9:expect=texts:1738," ++
     "10:do=import_pak,10:do=answer:" ++ package_pak ++ ",12:expect=updated:63/63/0/0/1,12:expect=texts:1823," ++
     // Again: nothing changes.
     "13:do=import_pak,13:do=answer:" ++ package_pak ++ ",15:expect=updated:0/0/0/0/0,15:expect=notice_has:nothing,15:expect=texts:1823," ++

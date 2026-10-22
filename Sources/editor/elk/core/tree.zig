@@ -332,7 +332,7 @@ test "the tracked database's tree holds every text under its folders" {
     defer database.deinit();
     var tree = try Tree.build(testing.allocator, &database);
     defer tree.deinit();
-    try testing.expectEqual(@as(usize, 3040), tree.texts.len);
+    try testing.expectEqual(@as(usize, 3068), tree.texts.len);
     try testing.expectEqualStrings("Game Resources, VERSION: ", tree.nodes[0].name[0.."Game Resources, VERSION: ".len]);
     const medals = tree.findFolder(0, "medals/1").?;
     const name = tree.child(medals, "name", true).?;
