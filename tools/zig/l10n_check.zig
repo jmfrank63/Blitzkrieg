@@ -2118,7 +2118,8 @@ pub const Fit = struct {
         };
         const one = try self.allocator.create(bk_text.shape.Shaper);
         errdefer self.allocator.destroy(one);
-        one.* = try bk_text.shape.Shaper.init(self.allocator, self.set, code, bk_text.sizes.pixelSize(class, 1.0));
+        // The Game opens its fonts at the cell height of the class (bk_text_font_open): the same em.
+        one.* = try bk_text.shape.Shaper.init(self.allocator, self.set, code, bk_text.sizes.emForCell(self.set, bk_text.sizes.pixelSize(class, 1.0)));
         if (slot != english) {
             // The Fit stays where it is declared, so the shaper may keep a pointer into it.
             self.sinks[slot] = .{ .allocator = self.allocator, .set = &self.missing[slot] };

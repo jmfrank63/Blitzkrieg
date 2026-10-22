@@ -170,7 +170,8 @@ export fn bk_text_font_open(ctx: ?*Context, size_class: u32, pixel_size: f32, ou
     const font = c.allocator.create(Font) catch return code(.out_of_memory);
     font.ctx = c;
     font.size_class = size_class;
-    font.shaper = shape.Shaper.init(c.allocator, &c.set, c.lang_buf[0..c.lang_len], pixel_size) catch |err| {
+    // pixel_size is the cell height of the 2003 fonts; the shaper works in em pixels.
+    font.shaper = shape.Shaper.init(c.allocator, &c.set, c.lang_buf[0..c.lang_len], sizes.emForCell(&c.set, pixel_size)) catch |err| {
         c.allocator.destroy(font);
         return fail(err);
     };

@@ -7,6 +7,7 @@
 const std = @import("std");
 const testing = std.testing;
 const bk_text = @import("bk_text");
+const font_file = @import("l10n_font.zig");
 
 const scratch = "zig-out/local-test/l10n-check";
 const codes = [_][]const u8{ "ru", "zh-Hans", "ja", "hi", "es", "fr", "de", "pt-BR", "id" };
@@ -908,8 +909,8 @@ test "glossary_missing: a language without its glossary" {
 }
 
 // The fit rule (M003 D097, on bk_text since M004 S04): the fixture draws `textes/strings/alpha` in a
-// 100 x 24 box of the medium size, where "Hello Hello" (94 px) fits one line and "Hello Hello Hello"
-// (144 px) takes two. The numbers are measured with bk_text; `fit_box` below checks them. The faces
+// 100 x 24 box of the medium size, where "Hello Hello" (85 px) fits one line and "Hello Hello Hello"
+// (130 px) takes two. The numbers are measured with bk_text; `fit_box` below checks them. The faces
 // are the repository's own vendor/fonts, which the checker is pointed at with --fonts.
 const fit_box_width = 100;
 const fit_box_height = 24;
@@ -961,7 +962,7 @@ fn fitWant(comptime findings: []const u8, comptime count: usize, comptime notes:
 
 /// The width bk_text gives `text` in one line of the medium size, English.
 fn mediumWidth(set: *const bk_text.faces.FaceSet, text: []const u8) !f32 {
-    var shaper = try bk_text.shape.Shaper.init(testing.allocator, set, "en", bk_text.sizes.pixelSize(.medium, 1));
+    var shaper = try bk_text.shape.Shaper.init(testing.allocator, set, "en", bk_text.sizes.emForCell(set, bk_text.sizes.pixelSize(.medium, 1)));
     defer shaper.deinit();
     const units = try std.unicode.utf8ToUtf16LeAlloc(testing.allocator, text);
     defer testing.allocator.free(units);
@@ -970,17 +971,50 @@ fn mediumWidth(set: *const bk_text.faces.FaceSet, text: []const u8) !f32 {
     return bk_text.measure.measureRun(&shaper, run).width;
 }
 
+test "the Game's sizes draw as large as the shipped bitmap fonts" {
+    // A size class is the cell height of the 2003 font (FontGen's GDI height), not an em size: a fixed
+    // sentence in Liberation Serif at emForCell(cell) is about as wide as in the shipped Times New
+    // Roman bitmap of that class, and its line space is the bitmap's within 2 px. Measured 2026-10-22:
+    // small 1.017, medium 0.997, large 1.034, tiny 1.105. The rest is GDI's hinting, which rounded the
+    // bitmaps' advances to whole pixels, mostly down, and most at 10 px; the UI's FontSize 0..2 are
+    // small, medium and large (UI/UIBasic.cpp), so tiny is reported and not held to the 4 %. Taken as
+    // an em size, as before this test, every class was about 11 % wider still.
+    var set = try bk_text.faces.FaceSet.load(testing.allocator, testing.io, "vendor/fonts");
+    defer set.deinit();
+    const sentence = "The quick brown fox jumps over the lazy dog, 1944.";
+    const units = try std.unicode.utf8ToUtf16LeAlloc(testing.allocator, sentence);
+    defer testing.allocator.free(units);
+    var ok = true;
+    inline for (.{ .{ "tiny", bk_text.sizes.SizeClass.tiny }, .{ "small", bk_text.sizes.SizeClass.small }, .{ "medium", bk_text.sizes.SizeClass.medium }, .{ "large", bk_text.sizes.SizeClass.large } }) |one| {
+        var arena = std.heap.ArenaAllocator.init(testing.allocator);
+        defer arena.deinit();
+        const bytes = try std.Io.Dir.cwd().readFileAlloc(testing.io, "Data/Fonts/" ++ one[0] ++ "/1.tfd", arena.allocator(), .limited(1 << 20));
+        const bitmap = try font_file.Font.read(arena.allocator(), bytes);
+        const cell = bk_text.sizes.pixelSize(one[1], 1);
+        var shaper = try bk_text.shape.Shaper.init(testing.allocator, &set, "en", bk_text.sizes.emForCell(&set, cell));
+        defer shaper.deinit();
+        const run = try shaper.shape(units);
+        defer run.deinit(testing.allocator);
+        const drawn = bk_text.measure.measureRun(&shaper, run).width;
+        const shipped = bitmap.runWidth(units);
+        std.debug.print("{s}: cell {d}, bk_text {d:.1} px, shipped bitmap {d:.1} px ({d:.3}), line space {d} against {d}\n", .{ one[0], cell, drawn, shipped, drawn / shipped, bk_text.measure.lineSpace(&shaper), bitmap.lineSpace() });
+        if (one[1] != .tiny) ok = ok and @abs(drawn / shipped - 1) <= 0.04;
+        ok = ok and @abs(bk_text.measure.lineSpace(&shaper) - @as(f32, @floatFromInt(bitmap.lineSpace()))) <= 2;
+    }
+    try testing.expect(ok);
+}
+
 test "fit_box: the fixture box is a one line room for 'Hello Hello' and not for three Hellos, as bk_text measures" {
     var set = try bk_text.faces.FaceSet.load(testing.allocator, testing.io, "vendor/fonts");
     defer set.deinit();
-    try testing.expectEqual(@as(f32, 94), try mediumWidth(&set, "Hello Hello"));
-    try testing.expectEqual(@as(f32, 144), try mediumWidth(&set, "Hello Hello Hello"));
-    try testing.expect(94 <= fit_box_width and fit_box_width < 144);
-    var shaper = try bk_text.shape.Shaper.init(testing.allocator, &set, "en", bk_text.sizes.pixelSize(.medium, 1));
+    try testing.expectEqual(@as(f32, 85), try mediumWidth(&set, "Hello Hello"));
+    try testing.expectEqual(@as(f32, 130), try mediumWidth(&set, "Hello Hello Hello"));
+    try testing.expect(85 <= fit_box_width and fit_box_width < 130);
+    var shaper = try bk_text.shape.Shaper.init(testing.allocator, &set, "en", bk_text.sizes.emForCell(&set, bk_text.sizes.pixelSize(.medium, 1)));
     defer shaper.deinit();
-    // One line takes the glyph height, a second adds a line space: 23, then 46.
-    try testing.expectEqual(@as(f32, 23), bk_text.measure.lineSpace(&shaper));
-    try testing.expect(23 <= fit_box_height and fit_box_height < 46);
+    // One line takes the glyph height, a second adds a line space: 21, then 42.
+    try testing.expectEqual(@as(f32, 21), bk_text.measure.lineSpace(&shaper));
+    try testing.expect(21 <= fit_box_height and fit_box_height < 42);
 }
 
 test "fit_pass: texts that fit their boxes pass and the notes count the keys" {
@@ -994,7 +1028,7 @@ test "fit_overflow: a text with more lines than the box has room for" {
     const io = testing.io;
     var root = try buildFitTree(io, "fit_overflow", fit_box_line ++ fit_rest_line);
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello");
-    const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 2 lines x 23 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 0));
+    const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 2 lines x 21 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 0));
     try expectFitRun(io, "fit_overflow", &root, 1, want);
 }
 
@@ -1002,8 +1036,8 @@ test "fit_word: a word wider than the box is split, which costs lines as well" {
     const io = testing.io;
     var root = try buildFitTree(io, "fit_word", fit_box_line ++ fit_rest_line);
     try addOverlay(io, root, "de", "textes/strings/alpha", "Supercalifragilisticexpialidocious");
-    const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 3 lines x 23 > 24 in " ++ fit_alpha_where ++ "\n" ++
-        "l10n-check: fit-word: de: textes/strings/alpha: \"Supercalifragilisticexpialidocious\" is 269 px wide, the room is 100 px in " ++ fit_alpha_where ++ "\n", 2, fitNotes(2, 0, 0, 0));
+    const want = comptime fitWant("l10n-check: fit: de: textes/strings/alpha: 3 lines x 21 > 24 in " ++ fit_alpha_where ++ "\n" ++
+        "l10n-check: fit-word: de: textes/strings/alpha: \"Supercalifragilisticexpialidocious\" is 243 px wide, the room is 100 px in " ++ fit_alpha_where ++ "\n", 2, fitNotes(2, 0, 0, 0));
     try expectFitRun(io, "fit_word", &root, 1, want);
 }
 
@@ -1012,7 +1046,7 @@ test "fit_tooltip_word: a tooltip has no height limit but a word wider than 600 
     var root = try buildFitTree(io, "fit_tooltip_word", "tooltip textes/strings/alpha\r\n" ++ fit_rest_line);
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello Hello");
     try addOverlay(io, root, "fr", "textes/strings/alpha", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    const want = comptime fitWant("l10n-check: fit-word: fr: textes/strings/alpha: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" is 1329 px wide, the room is 600 px in tooltip\n", 1, fitNotes(1, 1, 0, 0));
+    const want = comptime fitWant("l10n-check: fit-word: fr: textes/strings/alpha: \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" is 1201 px wide, the room is 600 px in tooltip\n", 1, fitNotes(1, 1, 0, 0));
     try expectFitRun(io, "fit_tooltip_word", &root, 1, want);
 }
 
@@ -1039,7 +1073,7 @@ test "fit_base: an English original that already overflows is information, not a
     // German needs the same two lines as the original: no worse than 2003. French needs three.
     try addOverlay(io, root, "de", "textes/strings/alpha", "Hallo Hallo Hallo");
     try addOverlay(io, root, "fr", "textes/strings/alpha", "Bonjour Bonjour Bonjour");
-    const want = comptime fitWant("l10n-check: fit: fr: textes/strings/alpha: 3 lines x 23 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 1));
+    const want = comptime fitWant("l10n-check: fit: fr: textes/strings/alpha: 3 lines x 21 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 1));
     try expectFitRun(io, "fit_base", &root, 1, want);
 }
 
@@ -1105,7 +1139,7 @@ test "fit_language_chain: a Russian text is measured in the Russian chain, not a
     try bytes.appendSlice(testing.allocator, std.mem.sliceAsBytes(text));
     try write(io, root, "Localization/game/ru/game_data_base/textes/strings/alpha.txt", bytes.items);
     try writeState(io, testing.allocator, root, "Localization/game/ru/game_data_base/textes/strings/alpha.xml", 2);
-    const want = comptime fitWant("l10n-check: fit: ru: textes/strings/alpha: 3 lines x 23 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(1, 0, 1, 0));
+    const want = comptime fitWant("l10n-check: fit: ru: textes/strings/alpha: 3 lines x 21 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(1, 0, 1, 0));
     try expectFitRun(io, "fit_language_chain", &root, 1, want);
 }
 
