@@ -923,9 +923,15 @@ const fit_alpha_where = "Data/UI/Fit.xml#100";
 /// The fit notes of nine languages when each measured `boxed` boxed, `tooltips` tooltip and
 /// `scrolls` scroll keys and `base` of them have an English original that overflows.
 fn fitNotes(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: usize, comptime base: usize) []const u8 {
+    return fitNotesKnown(boxed, tooltips, scrolls, base, "", 0);
+}
+
+/// fitNotes when `known` keys of the language `known_code` are excused by fit-known.txt.
+fn fitNotesKnown(comptime boxed: usize, comptime tooltips: usize, comptime scrolls: usize, comptime base: usize, comptime known_code: []const u8, comptime known: usize) []const u8 {
     comptime var notes: []const u8 = "";
     inline for (codes) |code| {
-        notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)\n", .{ code, boxed, tooltips, scrolls, base });
+        const mine = if (std.mem.eql(u8, code, known_code)) known else 0;
+        notes = notes ++ std.fmt.comptimePrint("l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base), {d} known\n", .{ code, boxed, tooltips, scrolls, base, mine });
     }
     return notes;
 }
@@ -1035,6 +1041,32 @@ test "fit_base: an English original that already overflows is information, not a
     try addOverlay(io, root, "fr", "textes/strings/alpha", "Bonjour Bonjour Bonjour");
     const want = comptime fitWant("l10n-check: fit: fr: textes/strings/alpha: 3 lines x 23 > 24 in " ++ fit_alpha_where ++ "\n", 1, fitNotes(2, 0, 0, 1));
     try expectFitRun(io, "fit_base", &root, 1, want);
+}
+
+test "fit_known: a listed overflow is counted as known, not reported" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_known", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Supercalifragilisticexpialidocious");
+    try write(io, root, "Localization/game/fit-known.txt", "# fixture\r\nde textes/strings/alpha # S06\r\n");
+    try expectFitRun(io, "fit_known", &root, 0, comptime fitWant("", 0, fitNotesKnown(2, 0, 0, 0, "de", 1)));
+}
+
+test "fit_known_unused: a listed text that fits is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_known_unused", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello");
+    try write(io, root, "Localization/game/fit-known.txt", "de textes/strings/alpha # M003\r\n");
+    const want = comptime fitWant("l10n-check: fit-known-unused: de: textes/strings/alpha: Localization/game/fit-known.txt:1 lists a text that fits its room now; delete the line\n", 1, fitNotes(2, 0, 0, 0));
+    try expectFitRun(io, "fit_known_unused", &root, 1, want);
+}
+
+test "fit_known_malformed: a line without S06 or M003 is a finding" {
+    const io = testing.io;
+    var root = try buildFitTree(io, "fit_known_malformed", fit_box_line ++ fit_rest_line);
+    try addOverlay(io, root, "de", "textes/strings/alpha", "Hello Hello");
+    try write(io, root, "Localization/game/fit-known.txt", "de textes/strings/alpha\r\n");
+    const want = comptime fitWant("l10n-check: fit-known: all: Localization/game/fit-known.txt:1: want `<code> <key> # S06` or `# M003`: the comment names who fixes the text\n", 1, fitNotes(2, 0, 0, 0));
+    try expectFitRun(io, "fit_known_malformed", &root, 1, want);
 }
 
 test "fit_font_missing: the faces the rule measures with are gone" {

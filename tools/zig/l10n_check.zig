@@ -1686,6 +1686,7 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, scope: LanguageScop
 }
 
 pub const fit_map_path = "Localization/game/fit-map.txt";
+pub const fit_known_path = "Localization/game/fit-known.txt";
 
 pub const FitKind = enum { box, area, tooltip, scroll };
 pub const FitFont = enum { small, medium, large };
@@ -2168,6 +2169,39 @@ fn wordText(arena: std.mem.Allocator, fit: *Fit, shaper: *bk_text.shape.Shaper, 
     return std.unicode.utf16LeToUtf8Alloc(arena, best) catch "?";
 }
 
+/// One line of `fit-known.txt`: a text of `code` that overflows its room today and is excused until
+/// the owner named in the comment (`S06` rewords it, `M003` translates it) deals with it.
+pub const FitKnown = struct { code: []const u8, key: []const u8, line: usize };
+
+/// The lines `<code> <key> # S06|M003` (M004 D108). The key may hold a space, so it is the rest of the
+/// entry after the code. A line of another shape, an unknown code or an owner other than S06 and M003
+/// is a `fit-known` finding.
+pub fn parseFitKnown(arena: std.mem.Allocator, text: []const u8, problems: *std.ArrayList(ScopeProblem)) ![]const FitKnown {
+    var items: std.ArrayList(FitKnown) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (lines.next()) |raw| {
+        number += 1;
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        const hash = std.mem.indexOfScalar(u8, line, '#');
+        const owner = if (hash) |h| std.mem.trim(u8, line[h + 1 ..], " \t") else "";
+        if (!std.mem.eql(u8, owner, "S06") and !std.mem.eql(u8, owner, "M003")) {
+            try problems.append(arena, .{ .line = number, .detail = "want `<code> <key> # S06` or `# M003`: the comment names who fixes the text" });
+            continue;
+        }
+        const entry = std.mem.trim(u8, line[0..hash.?], " \t");
+        const space = std.mem.indexOfScalar(u8, entry, ' ');
+        const key = if (space) |s| std.mem.trimStart(u8, entry[s + 1 ..], " ") else "";
+        if (space == null or key.len == 0) {
+            try problems.append(arena, .{ .line = number, .detail = "want `<code> <key> # S06` or `# M003`" });
+        } else if (!knownCode(entry[0..space.?])) {
+            try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{entry[0..space.?]}) });
+        } else try items.append(arena, .{ .code = entry[0..space.?], .key = key, .line = number });
+    }
+    return items.items;
+}
+
 /// Rule `fit` (M003 D097, on bk_text since M004 S04): every translated text must fit the room the game
 /// draws it in, measured with the Game's own text engine (HarfBuzz-shaped faces from `fonts_dir` at the
 /// Game's size table) and its wrap. `Localization/game/fit-map.txt` says which room each key family has;
@@ -2183,6 +2217,8 @@ fn wordText(arena: std.mem.Allocator, fit: *Fit, shaper: *bk_text.shape.Shaper, 
 /// An English original that already overflows its room (a 2003 flaw) is not held against a
 /// translation that needs no more lines and no wider a word than the original: those are counted as
 /// `fit-base` in the language's note, not reported. A text in a `scroll` family is counted, not measured.
+/// A text listed in `Localization/game/fit-known.txt` (D108) is counted as `known` in its language's note and
+/// not reported; a listed line that no longer overflows is `fit-known-unused`, a malformed one `fit-known`.
 /// Every language is measured, with no generated font; `only` limits the run to one language code, which
 /// language-mods uses for the language it builds. Without a fit map the scope is `not active`.
 pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []const u8, only: ?[]const u8) !void {
@@ -2205,6 +2241,14 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
         try report.addFmt("fit-map", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_map_path, problem.line }), "{s}", .{problem.detail});
     }
 
+    var known_problems: std.ArrayList(ScopeProblem) = .empty;
+    const known: []const FitKnown = if (try readOptional(io, arena, root, fit_known_path)) |text| try parseFitKnown(arena, text, &known_problems) else &.{};
+    for (known_problems.items) |problem| {
+        try report.addFmt("fit-known", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_known_path, problem.line }), "{s}", .{problem.detail});
+    }
+    const known_used = try arena.alloc(bool, known.len);
+    @memset(known_used, false);
+
     var matches: std.StringHashMapUnmanaged([]const usize) = .empty;
     for (scopes.all_keys) |key| {
         const found = try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key));
@@ -2223,6 +2267,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
         var tooltips: usize = 0;
         var scrolls: usize = 0;
         var base_overflow: usize = 0;
+        var known_keys: usize = 0;
         for (scope.keys) |key| {
             const found = matches.get(key) orelse continue;
             if (found.len == 0) continue;
@@ -2239,6 +2284,10 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
             var is_tooltip = false;
             var is_scroll = false;
             var overflowed = false;
+            var key_known = false;
+            const known_at = for (known, 0..) |one, i| {
+                if (std.mem.eql(u8, one.code, language.code) and std.mem.eql(u8, one.key, key)) break i;
+            } else null;
             for (found) |at| {
                 const room = resolved[at];
                 if (!room.ok) continue;
@@ -2266,21 +2315,33 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
                 const unchanged = if (english) |original| std.mem.eql(u16, trimUnits(units), trimUnits(original)) else false;
                 if (unchanged and (english_tall or english_wide)) continue;
                 if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
-                    try report.addFmt("fit", language.code, key, "{d} lines x {d} > {d} in {s}", .{ mine.lines, @as(i64, @intFromFloat(bk_text.measure.lineSpace(shaper))), @as(i64, @intFromFloat(room.height)), room.where });
+                    if (known_at) |i| {
+                        known_used[i] = true;
+                        key_known = true;
+                    } else try report.addFmt("fit", language.code, key, "{d} lines x {d} > {d} in {s}", .{ mine.lines, @as(i64, @intFromFloat(bk_text.measure.lineSpace(shaper))), @as(i64, @intFromFloat(room.height)), room.where });
                 }
                 if (too_wide and !(english_wide and mine.word <= theirs.?.word)) {
-                    try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ try wordText(arena, &fit, shaper, units), @as(i64, @intFromFloat(mine.word)), @as(i64, @intFromFloat(@floor(room.width))), room.where });
+                    if (known_at) |i| {
+                        known_used[i] = true;
+                        key_known = true;
+                    } else try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ try wordText(arena, &fit, shaper, units), @as(i64, @intFromFloat(mine.word)), @as(i64, @intFromFloat(@floor(room.width))), room.where });
                 }
             }
             if (is_boxed) boxed += 1;
             if (is_tooltip) tooltips += 1;
             if (is_scroll) scrolls += 1;
             if (overflowed) base_overflow += 1;
+            if (key_known) known_keys += 1;
         }
-        try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base)", .{ language.code, boxed, tooltips, scrolls, base_overflow }));
+        try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base), {d} known", .{ language.code, boxed, tooltips, scrolls, base_overflow, known_keys }));
         // The glyph rule guards coverage against the faces; a gap here means a face lacks a character the text holds.
         const missing = fit.missing[slot].count();
         if (missing != 0) try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} characters have no glyph in the faces and were measured with the missing glyph", .{ language.code, missing }));
+        for (known, known_used) |one, used| {
+            if (!used and std.mem.eql(u8, one.code, language.code)) {
+                try report.addFmt("fit-known-unused", language.code, one.key, "{s}:{d} lists a text that fits its room now; delete the line", .{ fit_known_path, one.line });
+            }
+        }
     }
 }
 
@@ -2430,6 +2491,26 @@ test "parseLayout reads size, inset, alignment and font of each element in docum
     try testing.expectEqual(@as(u8, 1), elements[1].font);
     try testing.expectEqual(@as(f32, 132), elements[1].textWidth());
     try testing.expectEqual(@as(f32, 62), elements[1].textHeight());
+}
+
+test "fit_real_tree: the repository has no fit finding and every language prints a fit note" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const io = testing.io;
+    var root = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
+    defer root.close(io);
+    var report: Report = .{ .arena = arena_state.allocator() };
+    try checkFit(io, &report, root, "vendor/fonts", null);
+    for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+    for (report.findings.items) |finding| {
+        try testing.expect(!std.mem.startsWith(u8, finding.rule, "fit"));
+    }
+    var notes: usize = 0;
+    for (report.scope_notes.items) |note| {
+        if (std.mem.indexOf(u8, note, "keys measured") != null) notes += 1;
+    }
+    try testing.expectEqual(@as(usize, 9), notes);
 }
 
 test "fit_map_covers_database: every ELK key has a line and every line finds its room" {

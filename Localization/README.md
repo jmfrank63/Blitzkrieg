@@ -238,23 +238,23 @@ language, then run `zig build l10n-check-update-base` to rewrite the file. A `sa
 in the same file says that language's translation may equal the English byte for byte (a proper name); without
 it `untranslated` fires.
 
-### Rule fit for a language with a face
+### Rule fit
 
-The fit rule (`fit`, `fit-word`, `fit-unmapped`) measures a translation with the font the game draws it in.
-`de`, `fr`, `es`, `pt-BR` and `id` use the shipped bitmap font, `Data/Fonts/{small,medium,large}/1.tfd`. `ru`
-draws with the Noto Sans font that `zig build language-mods -Dlm-langs=ru` builds, whose advances differ, so
-`l10n-check` reads `<root>/ru/fonts/{small,medium,large}/1.tfd` from `zig-out/local-test/language-mods` (or
-`--lang-fonts <dir>`, or the environment variable `BK_L10N_FONT_ROOT`). Run it with the fonts and the notes say
-`l10n-check: fit: ru: measured with language-mods fonts (<folder>)`; without them the note says
-`l10n-check: fit: ru: not measured (run zig build language-mods -Dlm-langs=ru)` and nothing is a finding, so a
-clean checkout stays green. The fit-base allowance compares the Noto-measured translation with the English
-original measured in the bitmap font, as the 2003 game drew it. A character the built font lacks (the overlay
-grew after the font was built) is measured as a space and noted once per language, with the rebuild command;
-the glyph rule against the TTF guards coverage. `ja` is measured the same way (S07) with the NotoSansJP fonts of `zig build language-mods -Dlm-langs=ja`, from
-`<root>/ja/fonts/{small,medium,large}/1.tfd`, and without them says `l10n-check: fit: ja: not measured (run zig build
-language-mods -Dlm-langs=ja)`. A Japanese text has no spaces, so `fit-word` measures the runs between break
-opportunities (the game's `CanBreakTextBetween`), not the whole sentence. `zh-Hans` and `hi` stay `not measured (font built by
-language-mods)` until S08 and S09 add them to `measured_faces` in `tools/zig/l10n_check.zig`.
+The fit rule (`fit`, `fit-word`, `fit-unmapped`, `fit-known`, `fit-known-unused`) measures a translation the way the Game
+draws it: the `bk_text` Zig module shapes it with HarfBuzz in the vendored faces (`vendor/fonts`, Liberation Serif and the
+Noto faces) at the Game's own size table (`bk_text.sizes`) and breaks the lines with `bk_text`'s wrap. No `1.tfd` and no
+generated atlas is read, so all nine languages are measured in plain `zig build l10n-check` and in the cheap CI job;
+every language prints a `l10n-check: fit: <code>: ...` note. A character no face holds is measured with the missing glyph
+and noted per language. The fit-base allowance compares the translation with the English original measured the same way.
+A Japanese text has no spaces, so `fit-word` measures the runs between break opportunities (the game's
+`CanBreakTextBetween`), not the whole sentence. `language-mods` runs the same stage for the language it builds, before any
+font work, and stops with `TextDoesNotFit` on a finding.
+
+`Localization/game/fit-known.txt` (D108) is the baseline of today's overflows: one line `<code> <key> # S06|M003`. A listed
+text is counted as `N known` in its language's note and not reported, so the gate stays meaningful for every other key
+while S06 rewords the Latin and Cyrillic texts (`# S06`) and M003 finishes the CJK ones (`# M003`). A listed line whose text
+fits again is the finding `fit-known-unused`; a malformed line is `fit-known`. S04 recorded 102 ru, 46 de, 62 fr, 57 es,
+45 pt-BR, 52 id (all `S06`) and 25 ja (`M003`) keys.
 
 `language-mods` asserts that every atlas of every language is within 4096x4096 (`atlas tiny=WxH ... (bound 4096x4096)`)
 and fails with `language-mods: <code>: <size> atlas WxH exceeds 4096x4096` otherwise. The no-start set of the line breaker
