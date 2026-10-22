@@ -147,14 +147,18 @@ jobs:
             !/*/
             # build.zig reads the engine's .vcxproj files while it evaluates its graph, so
             # Sources is needed even though no engine step runs. Measured 2026-10-20 in a
-            # sparse worktree: this list passes the three steps below. The S08 document sets also
+            # sparse worktree: this list builds the steps below. The S08 document sets also
             # read Data/Editor/TestProjects/**/README*.md (22 doc-missing findings without it).
+            # Since M004 S04 the job links bk_text (libc, the C++ runtime, HarfBuzz) for the fit rule:
+            # it reads Data/UI (the layouts) and Data/Fonts (test-l10n-font), measured 2026-10-22.
             /Sources/
             !/Sources/src/data/
             /tools/
             /vendor/
             /Localization/
             /Data/ELK/
+            /Data/Fonts/
+            /Data/UI/
             /Data/Editor/TestProjects/
           sparse-checkout-cone-mode: false
 
@@ -172,7 +176,7 @@ jobs:
           zig version
 
       - name: Localisation gate
-        run: zig build l10n-check test-l10n-check test-l10n-font test-l10n-glossary -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary new
+        run: zig build l10n-check test-l10n-check test-l10n-fit test-l10n-font test-l10n-glossary -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary new
 
   linux-build:
     needs: [changes]

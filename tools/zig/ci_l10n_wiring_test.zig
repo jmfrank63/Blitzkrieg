@@ -240,6 +240,20 @@ test "the l10n-check job checks out the S08 document sets" {
     }
 }
 
+test "the l10n-check job runs the fit tests and checks out what bk_text and the fit rule read" {
+    // M004 S04: the fit rule measures with bk_text on the layouts in Data/UI and the vendored fonts.
+    const workflow = try readWorkflow(testing.allocator);
+    defer testing.allocator.free(workflow);
+    const text = jobText(workflow, "l10n-check") orelse return error.JobMissing;
+    for ([_][]const u8{ "l10n-check", "test-l10n-check", "test-l10n-fit", "test-l10n-font" }) |step| try expectRow(workflow, "l10n-check", step);
+    for ([_][]const u8{ "/Data/UI/", "/Data/Fonts/" }) |path| {
+        if (!hasSparseLine(text, &.{path})) {
+            std.debug.print("ci-l10n-wiring: l10n-check lacks {s} in its sparse checkout\n", .{path});
+            return error.SparseInputMissing;
+        }
+    }
+}
+
 test "the sparse-input check notices a dropped line" {
     const job = "          sparse-checkout: |\r\n            /*\r\n            /vendor/\r\n";
     try testing.expect(hasSparseLine(job, &.{"/vendor/"}));

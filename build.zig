@@ -3746,13 +3746,14 @@ pub fn build(b: *std.Build) void {
     // of the install, built by ELK's pak export from Localization/ and the
     // tracked Data/ELK, with bk-font's Noto fonts and, for Hindi, the HarfBuzz
     // shaper rewriting the exported texts (tools/zig/language_mods.zig).
+    const language_mods_bk_text = bkTextModule(b, target, optimize, toolchain);
     const language_mods_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/language_mods.zig"),
         .target = target,
         .optimize = optimize,
-        .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module } },
+        .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module }, .{ .name = "bk_text", .module = language_mods_bk_text }, .{ .name = "l10n_wrap", .module = language_mods_bk_text.import_table.get("l10n_wrap").? } },
     });
-    linkEngineCxxRuntimeEngine(b, language_mods_module, optimize);
+    // bk_text already links the engine's C++ runtime into this module graph; a second copy duplicates new/delete.
     language_mods_module.addIncludePath(b.path("vendor/harfbuzz/src"));
     language_mods_module.addCSourceFiles(.{
         .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/language_mods_shape.cpp" },
@@ -3839,14 +3840,17 @@ pub fn build(b: *std.Build) void {
     const l10n_glossary_step = b.step("test-l10n-glossary", "The nine glossaries in Localization/glossary have the same sections, table header and CRLF lines (M002 S02 T03)");
     l10n_glossary_step.dependOn(&l10n_glossary_tests.step);
     if (test_mode == .run) l10n_glossary_step.dependOn(&l10n_glossary_run.step);
-    // The completeness gate (tools/zig/l10n_check.zig, M002 S03): plain Zig, no engine modules, no libc.
+    // The completeness gate (tools/zig/l10n_check.zig, M002 S03): no engine modules, but since M004 S04 it links libc,
+    // the C++ runtime and HarfBuzz through bk_text, which measures the D097 fit rule at the Game's own sizes.
     // `l10n-check` reads the tracked tree from the repository root and fails the build on a finding.
+    const l10n_bk_text_module = bkTextModule(b, target, .debug, toolchain);
     const l10n_check_exe = b.addExecutable(.{
         .name = "l10n-check",
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/zig/l10n_check.zig"),
             .target = target,
             .optimize = .debug,
+            .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
         }),
     });
     const l10n_check_run = b.addRunArtifact(l10n_check_exe);
@@ -3867,6 +3871,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/l10n_check.zig"),
         .target = target,
         .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
     }) });
     const l10n_check_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/l10n_check_test.zig"),
@@ -3888,6 +3893,18 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) {
         l10n_check_tests_step.dependOn(&l10n_check_tests_run.step);
         l10n_check_tests_step.dependOn(&l10n_check_unit_run.step);
+    }
+    // The fit rule on bk_text (M004 S04): the l10n-check unit tests whose names start with "fit", from the repository root.
+    const l10n_fit_unit = b.addTest(.{
+        .root_module = l10n_check_unit.root_module,
+        .filters = &.{"fit"},
+    });
+    const l10n_fit_step = b.step("test-l10n-fit", "The D097 fit rule measured with the bk_text module at the Game's size table: the l10n-check unit tests named fit* (M004 S04)");
+    l10n_fit_step.dependOn(&l10n_fit_unit.step);
+    if (test_mode == .run) {
+        const l10n_fit_run = b.addRunArtifact(l10n_fit_unit);
+        l10n_fit_run.setCwd(b.path("."));
+        l10n_fit_step.dependOn(&l10n_fit_run.step);
     }
 
     // The fit rule's parts (M003 S01 T02): the 1.tfd reader reads the shipped fonts and the wrap port
@@ -3913,6 +3930,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/l10n_sheet.zig"),
         .target = target,
         .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
     });
     const l10n_sheet_exe = b.addExecutable(.{ .name = "l10n-sheet", .root_module = l10n_sheet_module });
     for ([_][]const u8{ "export", "import" }) |command| {
@@ -3931,6 +3949,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/l10n_sheet_test.zig"),
         .target = target,
         .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
     }) });
     const l10n_sheet_tests_run = b.addRunArtifact(l10n_sheet_tests);
     l10n_sheet_tests_run.setCwd(b.path("."));
@@ -3944,6 +3963,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/l10n_check.zig"),
         .target = target,
         .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
     });
 
     // M002 R056/D066 on the real Game: the language mods' main menus measured against

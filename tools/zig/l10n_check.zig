@@ -89,10 +89,12 @@
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
 const cmap = @import("l10n_cmap.zig");
+/// The Game's own text engine, which the fit rule measures with (M004 S04, D097): shaping and the size table.
+const bk_text = @import("bk_text");
 /// The game font reader and wrap, public for the l10n-game-reads-it tier, which predicts the lines of a
 /// captured text with them.
 pub const font_file = @import("l10n_font.zig");
-pub const wrap = @import("l10n_wrap.zig");
+pub const wrap = @import("l10n_wrap");
 
 pub const Finding = struct {
     rule: []const u8,
@@ -2311,6 +2313,19 @@ test {
     _ = cmap;
     _ = font_file;
     _ = wrap;
+}
+
+test "fit: bk_text shapes a line with the vendored faces at the medium size" {
+    var set = try bk_text.faces.FaceSet.load(std.testing.allocator, std.testing.io, "vendor/fonts");
+    defer set.deinit();
+    var shaper = try bk_text.shape.Shaper.init(std.testing.allocator, &set, "en", bk_text.sizes.pixelSize(.medium, 1));
+    defer shaper.deinit();
+    const run = try shaper.shape(std.unicode.utf8ToUtf16LeStringLiteral("Start"));
+    defer run.deinit(std.testing.allocator);
+    try std.testing.expect(run.glyphs.len == 5);
+    var width: f32 = 0;
+    for (run.glyphs) |glyph| width += glyph.x_advance;
+    try std.testing.expect(width > 0);
 }
 
 test "parseFitMap reads the four directives and names each malformed line" {
