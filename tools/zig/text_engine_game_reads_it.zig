@@ -369,7 +369,7 @@ test "the Game draws and measures its text through bk_text under BK_TEXT_ENGINE=
     if (failures != 0) return error.MeasureFailed;
 }
 
-/// A save written on the default engine in the first Allied mission loads under the ttf engine: the
+/// A save written on the bitmap escape hatch in the first Allied mission loads under the ttf engine: the
 /// load runs to its end, and the frame after it has the load's chat line as ink where the frame
 /// before it (the main menu) has none.
 fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, report: *Report) !void {
@@ -377,13 +377,13 @@ fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_ro
     const profile_folder = try std.fs.path.join(allocator, &.{ game_root, "profiles", save_profile });
     cwd.deleteTree(io, profile_folder) catch {};
     defer cwd.deleteTree(io, profile_folder) catch {};
-    try report.line("-- save written on the bitmap path, loaded under ttf ({s}/saves/{s})", .{ profile_folder, save_name });
+    try report.line("-- save written on the bitmap path, loaded under ttf, and the reverse ({s}/saves/{s})", .{ profile_folder, save_name });
 
     var writer = try Run.init(io, allocator, game, game_root, root, "en/save", null, false, false);
     writer.profile = "-profile=" ++ save_profile;
     cwd.deleteTree(io, profile_folder) catch {};
     const written = try writer.play(allocator, &.{ "-windowed", "-mode=1024x768", writer.profile }, save_schedule, null, "write");
-    try report.check(std.mem.indexOf(u8, written, "bk_text: engine ttf") == null, "the save is written on the default engine (the log has no 'engine ttf' line)", .{});
+    try report.check(std.mem.indexOf(u8, written, "bk_text: engine ttf") == null, "the save is written on the bitmap escape hatch (the log has no 'engine ttf' line)", .{});
     const save_path = try std.fs.path.join(allocator, &.{ profile_folder, "saves", save_name });
     const bytes = cwd.readFileAlloc(io, save_path, allocator, .limited(512 << 20)) catch |err| {
         try report.check(false, "the save {s} was written ({s})", .{ save_path, @errorName(err) });
@@ -405,6 +405,25 @@ fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_ro
     const loaded = chatPixels(after);
     try report.check(control <= max_control_pixels, "the frame before the load has {d} chat-green pixels in {d},{d} to {d},{d} (at most {d})", .{ control, chat_box.x1, chat_box.y1, chat_box.x2, chat_box.y2, max_control_pixels });
     try report.check(loaded >= min_chat_pixels, "the frame after the load has text ink: {d} chat-green pixels where the load's message is drawn (at least {d})", .{ loaded, min_chat_pixels });
+
+    // The other direction: the same profile's save is overwritten on ttf and loads on the bitmap fonts.
+    cwd.deleteTree(io, profile_folder) catch {};
+    var ttf_writer = writer;
+    ttf_writer.ttf = true;
+    ttf_writer.name = "en/save-ttf";
+    const ttf_written = try ttf_writer.play(allocator, &.{ "-windowed", "-mode=1024x768", ttf_writer.profile }, save_schedule, null, "write");
+    try report.check(std.mem.indexOf(u8, ttf_written, "bk_text: engine ttf") != null, "the second save is written on bk_text (the log has the 'engine ttf' line)", .{});
+    const ttf_bytes = cwd.readFileAlloc(io, save_path, allocator, .limited(512 << 20)) catch |err| {
+        try report.check(false, "the save {s} was written on ttf ({s})", .{ save_path, @errorName(err) });
+        return;
+    };
+    try report.check(ttf_bytes.len > 1024, "the ttf save {s} was written: {d} bytes (more than 1024)", .{ save_path, ttf_bytes.len });
+    var bitmap_reader = writer;
+    bitmap_reader.name = "en/load-bitmap";
+    const bitmap_read = try bitmap_reader.play(allocator, &.{ "-windowed", "-mode=1024x768", bitmap_reader.profile }, load_schedule, null, "load");
+    try report.check(std.mem.indexOf(u8, bitmap_read, "LOADTRACE: CICLoad::Exec end") != null, "the bitmap Game loaded the ttf save: the load ran to 'CICLoad::Exec end'", .{});
+    try report.check(std.mem.indexOf(u8, bitmap_read, "to load - skipping") == null and std.mem.indexOf(u8, bitmap_read, "version mismatch") == null and std.mem.indexOf(u8, bitmap_read, "CICLoad::Exec open failed") == null, "the bitmap load found the file and its version", .{});
+    try report.check(chatPixels(try bitmap_reader.shot(allocator, 200)) >= min_chat_pixels, "the bitmap frame after the load has the load's chat line as ink", .{});
 }
 
 /// The pixels of the chat line's colour (pure green, 0xff00ff00) in `chat_box`.
@@ -570,7 +589,8 @@ pub const Run = struct {
     ttf: bool,
     /// Whether the mod brings bitmap fonts, so the menu capture must show the Game opening them.
     fonts: bool,
-    /// Whether the Game runs with BK_TEXT_ENGINE=bitmap, the explicit escape hatch (the side-by-side tier's old frames).
+    /// Whether the Game runs with BK_TEXT_ENGINE=bitmap, the explicit escape hatch (the side-by-side tier's old frames);
+    /// every run that is not `ttf` is one.
     bitmap: bool = false,
 
     /// Makes the scratch folder and sets the profile's language option to `mod` (Default for the
@@ -601,8 +621,8 @@ pub const Run = struct {
         try environ.put("BK_UI_TRACE", "1");
         try environ.put("BK_NO_HELP", "1");
         try environ.put("BK_GLYPH_TRACE", "1");
-        if (self.ttf) try environ.put("BK_TEXT_ENGINE", "ttf");
-        if (self.bitmap and !self.ttf) try environ.put("BK_TEXT_ENGINE", "bitmap");
+        // An unset variable means ttf now, so a bitmap run says so.
+        try environ.put("BK_TEXT_ENGINE", if (self.ttf) "ttf" else "bitmap");
         if (schedule) |text| try environ.put("BK_AUTO_UI", text);
         if (delay) |frames| try environ.put("BK_REFERENCE_DELAY", try std.fmt.allocPrint(allocator, "{d}", .{frames}));
         var argv: std.ArrayList([]const u8) = .empty;

@@ -196,7 +196,7 @@ const Run = struct {
         try environ.put("BK_UI_TRACE", "1");
         try environ.put("BK_NO_HELP", "1");
         try environ.put("BK_AUTO_UI", schedule);
-        if (self.ttf) try environ.put("BK_TEXT_ENGINE", "ttf");
+        try environ.put("BK_TEXT_ENGINE", if (self.ttf) "ttf" else "bitmap");
         var argv: std.ArrayList([]const u8) = .empty;
         try argv.append(allocator, self.game);
         try argv.appendSlice(allocator, args);

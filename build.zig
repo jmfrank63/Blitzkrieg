@@ -4117,7 +4117,7 @@ pub fn build(b: *std.Build) void {
     text_engine_plain_run.setEnvironmentVariable("BK_LM_PLAIN", "1");
     text_engine_plain_run.has_side_effects = true;
     text_engine_plain_run.step.dependOn(&text_engine_mods_run.step);
-    const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game with BK_TEXT_ENGINE=ttf on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu, the first mission's briefing, the options screen with a tooltip, a unit's encyclopedia page and the first mission running, and measure them (hb-view for hi on the menu and briefing), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path (M004 S02)");
+    const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game on bk_text (the default since M004 S05; BK_TEXT_ENGINE=bitmap is the escape hatch) on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu, the first mission's briefing, the options screen with a tooltip, a unit's encyclopedia page and the first mission running, and measure them (hb-view for hi on the menu and briefing), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path, and the reverse (M004 S02, S05)");
     var text_engine_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "de", "hi" }) |code| {
         const shard_step = b.step(b.fmt("text-engine-game-reads-it-{s}", .{code}), b.fmt("text-engine-game-reads-it for {s} alone, report in zig-out/local-test/text-engine-game-reads-it/{s}/report.txt (M004 S02)", .{ code, code }));
@@ -4211,7 +4211,7 @@ pub fn build(b: *std.Build) void {
     text_engine_perf_hi_run.step.dependOn(bk_font.install);
     // Both runs write below the game's mods folder: the plain Hindi mod first, then the shaped one.
     text_engine_perf_hi_run.step.dependOn(&language_mods_plain_run.step);
-    const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts and on BK_TEXT_ENGINE=ttf, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms, 1.6 ms in a debug build (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
+    const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts (BK_TEXT_ENGINE=bitmap, set explicitly: bk_text is the default) and on bk_text, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms, 1.6 ms in a debug build (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
     var text_engine_perf_chain: ?*std.Build.Step = null;
     for ([_][]const u8{ "en", "hi", "ja" }) |code| {
         const shard_step = b.step(b.fmt("text-engine-perf-{s}", .{code}), b.fmt("text-engine-perf for {s} alone, report in zig-out/local-test/text-engine-perf/report-{s}.txt (M004 S03)", .{ code, code }));

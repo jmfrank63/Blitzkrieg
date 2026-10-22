@@ -29,7 +29,8 @@ namespace NBkTextBridge
 
 	bool Requested()
 	{
-		static const bool bRequested = []{ const char *psz = std::getenv( "BK_TEXT_ENGINE" ); return psz != 0 && std::strcmp( psz, "ttf" ) == 0; }();
+		// bk_text is the default (M004 S05); BK_TEXT_ENGINE=bitmap is the explicit escape hatch for tests.
+		static const bool bRequested = []{ const char *psz = std::getenv( "BK_TEXT_ENGINE" ); return psz == 0 || std::strcmp( psz, "bitmap" ) != 0; }();
 		return bRequested;
 	}
 
@@ -66,7 +67,14 @@ namespace NBkTextBridge
 
 	bool Create()
 	{
-		if ( !Requested() ) return false;
+		if ( !Requested() )
+		{
+			static bool bLogged = false;
+			if ( !bLogged && LogEnabled() )
+				std::fprintf( stderr, "bk_text: engine bitmap (BK_TEXT_ENGINE=bitmap)\n" );
+			bLogged = true;
+			return false;
+		}
 		if ( g_pContext != 0 ) return true;
 		const char *pszBase = SDL_GetBasePath();
 		// BK_TEXT_FONTS_DIR names the folder directly: a test runs from the build cache, not from an install.
@@ -84,7 +92,7 @@ namespace NBkTextBridge
 		g_szLanguage = szCode;
 		++g_nSerial;
 		if ( LogEnabled() )
-			std::fprintf( stderr, "bk_text: engine ttf, lang %s, fonts %s, %d faces\n", szCode.c_str(), szDir.c_str(), CountFaces( szDir ) );
+			std::fprintf( stderr, "bk_text: engine ttf (%s), lang %s, fonts %s, %d faces\n", std::getenv( "BK_TEXT_ENGINE" ) != 0 ? "BK_TEXT_ENGINE=ttf" : "default", szCode.c_str(), szDir.c_str(), CountFaces( szDir ) );
 		return true;
 	}
 
