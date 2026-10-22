@@ -413,6 +413,7 @@ public:
         else if (fill && std::strcmp(fill, "GetVideoModes") == 0) FillVideoModes(&drops_);
         else if (fill && std::strcmp(fill, "GetMonitors") == 0) FillMonitors(&drops_);
         else if (fill && std::strcmp(fill, "GetTextureQuality") == 0) { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; values[3] = "Ultra"; count = 4; }
+        else if (fill && std::strcmp(fill, "GetPresentMode") == 0) { values[0] = "VSync"; values[1] = "Mailbox"; values[2] = "Immediate"; count = 3; }
         else if (fill && std::strcmp(fill, "GetCloudProvider") == 0) {
             // The settings screen supplies the real list (Off plus the
             // catalogue's destinations) through COptionsListWrapper's

@@ -3,7 +3,7 @@
 //! key and no tooltip in every language). OptionEntryWrapper.cpp draws an option's label from
 //! `Textes\Options\<KeyName>.name`, its tooltip from `<KeyName>.tooltip`, and each value of a click
 //! switch from `<KeyName>\<value>.name` and `.tooltip` (UIConsts.cpp ConstructOptionKey). The values
-//! are the ones the Zig options bridge serves (`GetDropValues` in Sources/src/StreamIOZig/legacy_bridge.cpp),
+//! are the ones the options bridge serves (`GetDropValues` in Sources/src/StreamIOZig/options_bridge.cpp),
 //! read from that file so the test follows the bridge. Generated values (resolutions, displays, mods,
 //! rclone remotes) are shown as they are and have no texts.
 //!
@@ -13,10 +13,18 @@ const std = @import("std");
 const testing = std.testing;
 
 const config_path = "Data/Configs/defconf.cfg";
-const bridge_path = "Sources/src/StreamIOZig/legacy_bridge.cpp";
+const bridge_path = "Sources/src/StreamIOZig/options_bridge.cpp";
 
 /// The fills whose values the game generates at run time (IsGeneratedSelectionText and the language picker).
 const generated_fills = [_][]const u8{ "GetVideoModes", "GetMonitors", "GetLanguages", "GetCloudProvider" };
+
+/// The words among generated values: ChangeSelection shows a value's text when one exists, so these are
+/// translated while the resolutions, displays and rclone remotes beside them are shown as they are.
+const Fixed = struct { fill: []const u8, value: []const u8 };
+const fixed_values = [_]Fixed{
+    .{ .fill = "GetVideoModes", .value = "Auto" },
+    .{ .fill = "GetCloudProvider", .value = "Off" },
+};
 
 /// OPTION_FLAG_DEVELOPER_ONLY (StreamIO/OptionSystem.h): never on the player's settings screen.
 const developer_only: u32 = 1 << 1;
@@ -51,7 +59,7 @@ fn readOptions(allocator: std.mem.Allocator, config: []const u8) ![]Option {
 /// The values the bridge serves for `fill`: the quoted strings assigned to `values[n]` on its line.
 fn bridgeValues(allocator: std.mem.Allocator, bridge: []const u8, fill: []const u8) !?[]const []const u8 {
     var buffer: [128]u8 = undefined;
-    const needle = try std.fmt.bufPrint(&buffer, "== \"{s}\")", .{fill});
+    const needle = try std.fmt.bufPrint(&buffer, "\"{s}\")", .{fill});
     const at = std.mem.indexOf(u8, bridge, needle) orelse return null;
     const line_end = std.mem.indexOfScalarPos(u8, bridge, at, '\n') orelse bridge.len;
     var line = bridge[at..line_end];
@@ -126,7 +134,14 @@ test "every setting has its label, tooltip and value texts in the game and in EL
         const generated = for (generated_fills) |fill| {
             if (std.mem.eql(u8, fill, option.fill)) break true;
         } else false;
-        if (generated) continue;
+        if (generated) {
+            for (fixed_values) |fixed| {
+                if (!std.mem.eql(u8, fixed.fill, option.fill)) continue;
+                try expectText(io, allocator, &missing, try std.fmt.allocPrint(allocator, "{s}/{s}.name", .{ option.key, fixed.value }));
+                try expectText(io, allocator, &missing, try std.fmt.allocPrint(allocator, "{s}/{s}.tooltip", .{ option.key, fixed.value }));
+            }
+            continue;
+        }
         const values = (try bridgeValues(allocator, bridge, option.fill)) orelse {
             try missing.append(allocator, try std.fmt.allocPrint(allocator, "{s}: the bridge serves no values for {s}", .{ option.key, option.fill }));
             continue;
@@ -143,7 +158,7 @@ test "every setting has its label, tooltip and value texts in the game and in EL
 
 test "the bridge's value lines are read as the game serves them" {
     const allocator = testing.allocator;
-    const line = "        else if (fill && std::string(fill) == \"GetPresentMode\") { values[0] = \"VSync\"; values[1] = \"Mailbox\"; count = 2; }\n";
+    const line = "        else if (fill && std::strcmp(fill, \"GetPresentMode\") == 0) { values[0] = \"VSync\"; values[1] = \"Mailbox\"; count = 2; }\n";
     const values = (try bridgeValues(allocator, line, "GetPresentMode")).?;
     defer allocator.free(values);
     try testing.expectEqual(@as(usize, 2), values.len);

@@ -983,6 +983,8 @@ textes/options/cloud.config.backup/on.tooltip d7feb00be7f4c4faa548a312a82d341020
 textes/options/cloud.name c1c2db0be7cb07da2d68322ddad9cfad14b992975e18cfe9a6b0d87c7e4f9bd2
 textes/options/cloud.provider.name 37edce2935120fd7a3374113a699b5141dcd445bebad6d6b3f5cbc702b7be1fb
 textes/options/cloud.provider.tooltip b6ff5bf1ed4cfc6416f69b41bdb2a9ebfd9d7dcd75786b46d9bfac917f75c0db
+textes/options/cloud.provider/off.name 21ba8252c31f0841d151c8323b9afd6e7ff63c7430b6b35439889734d4db2a13
+textes/options/cloud.provider/off.tooltip 56ea051fccd8a171f00f33a74ddc42f8750d687f98d8e22c46036263d3cbade6
 textes/options/cloud.sync.onexit.name 3be83dd8c2c641ef741baf7df79959de485ba8e17fc859664bf4ce927115396f
 textes/options/cloud.sync.onexit.tooltip a1d957d706c464a8aca3c8f36b037eaa9f2833d60c2c72514540906fde7408e4
 textes/options/cloud.sync.onexit/off.name 21ba8252c31f0841d151c8323b9afd6e7ff63c7430b6b35439889734d4db2a13
@@ -1054,6 +1056,8 @@ textes/options/gfx.minfps.name 59de222aacceeeed4a459e11c89ad86ceeefc227dc0ecaec3
 textes/options/gfx.minfps.tooltip 54572577f24a362893c8acebdfc5324046d6882f265cb6fe47d88280e1e0797e
 textes/options/gfx.mode.name e5b93d0ba0159e72b01416022ed90c76b4004baef0a74ab0f48ed6d2194feed6
 textes/options/gfx.mode.tooltip ce75eeb1fcec8624dc56bb4aec1abf94331d5649060ed07136ce69c123632891
+textes/options/gfx.mode/auto.name fcfd2555c3df6588dfbaacfb77d2619f84d1058754a7d1de2997a099a442031f
+textes/options/gfx.mode/auto.tooltip bc9bd94a648d7c73f9dafa98be9c657a36ce94c58e61fe381dabc79cea16b06b
 textes/options/gfx.monitor.name df57c7e61692ea77c111dc7456c6c8e1a92da28869baaef19667210310adc8df
 textes/options/gfx.monitor.tooltip 5337b7805f048b3225d8c647ae9a1e4dc60ad9f3e833f0c28b28232a8332a0c3
 textes/options/gfx.multiplemarkers.name 3c9f14b996ba6a82e440e566d266d7845353609bcbe6e18ee2c22435e0dcb661
@@ -3095,6 +3099,7 @@ same-as-base de textes/options/cloud.name
 same-as-base de textes/options/gameplay.difficulty/normal.name
 same-as-base de textes/options/gfx.gamma.gamma.name
 same-as-base de textes/options/gfx.hwcursor/on.name
+same-as-base de textes/options/gfx.mode/auto.name
 same-as-base de textes/options/gfx.name
 same-as-base de textes/options/gfx.texture.quality/ultra.name
 same-as-base de textes/options/multiplayer.gamespeed/normal.name
@@ -3154,6 +3159,7 @@ same-as-base es textes/options/cloud.name
 same-as-base es textes/options/gameplay.difficulty/normal.name
 same-as-base es textes/options/gfx.gamma.gamma.name
 same-as-base es textes/options/gfx.hwcursor.name
+same-as-base es textes/options/gfx.mode/auto.name
 same-as-base es textes/options/gfx.texture.quality/ultra.name
 same-as-base es textes/options/multiplayer.gamespeed/normal.name
 same-as-base es textes/playerranks/allies/general
@@ -3216,6 +3222,7 @@ same-as-base fr textes/options/cloud.name
 same-as-base fr textes/options/gameplay.difficulty/ironman.name
 same-as-base fr textes/options/gameplay.difficulty/normal.name
 same-as-base fr textes/options/gfx.gamma.gamma.name
+same-as-base fr textes/options/gfx.mode/auto.name
 same-as-base fr textes/options/gfx.texture.quality/ultra.name
 same-as-base fr textes/options/multiplayer.gamespeed/normal.name
 same-as-base fr textes/playerranks/allies/colonel
@@ -3363,6 +3370,7 @@ same-as-base pt-BR textes/opponents/african_gb
 same-as-base pt-BR textes/opponents/gb
 same-as-base pt-BR textes/options/gameplay.difficulty/normal.name
 same-as-base pt-BR textes/options/gfx.hwcursor.name
+same-as-base pt-BR textes/options/gfx.mode/auto.name
 same-as-base pt-BR textes/options/gfx.texture.quality/ultra.name
 same-as-base pt-BR textes/options/multiplayer.gamespeed/normal.name
 same-as-base pt-BR textes/playerranks/allies/general
