@@ -26,7 +26,7 @@ public:
 	virtual bool STDCALL Init();
 	virtual bool STDCALL AddTextFile( const char *pszFileName );
 	virtual IText* STDCALL GetString( const char *pszKey );
-	virtual IText* STDCALL GetDialog( const char *pszKey ) { return shareDialog.Get( pszKey ); }
+	virtual IText* STDCALL GetDialog( const char *pszKey );
 	virtual void STDCALL Reload();
 	virtual const char* STDCALL GetTextName( IText *pText )
 	{

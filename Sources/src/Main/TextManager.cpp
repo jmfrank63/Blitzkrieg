@@ -2,6 +2,7 @@
 #include "../Platform/LegacyText.h"
 #include "TextManager.h"
 #include "TextObject.h"
+#include <set>
 bool CTextManager::Init()
 {
 	shareString.Init();
@@ -100,22 +101,46 @@ void CTextManager::Clear( const ISharedManager::EClearMode eMode, const int nUsa
 	else
 		shareDialog.ClearUnreferencedResources(); 
 }
+// BK_TEXT_TRACE: a text the game asks for and does not find, or finds empty, is a blank label or a
+// missing tooltip on screen. Each such key is printed once to stderr as "BK_TEXT_TRACE: missing <key>"
+// or "BK_TEXT_TRACE: empty <key>", so a scripted tour through the screens lists them per language.
+static void TraceText( const char *pszKey, IText *pText )
+{
+	static const bool bTrace = getenv( "BK_TEXT_TRACE" ) != 0;
+	if ( !bTrace )
+		return;
+	const bool bEmpty = pText != 0 && ( pText->GetString() == 0 || pText->GetString()[0] == 0 );
+	if ( pText != 0 && !bEmpty )
+		return;
+	static std::set<std::string> reported;
+	std::string szKey = pszKey;
+	NStr::ToLower( szKey );
+	if ( reported.insert( szKey ).second )
+		fprintf( stderr, "BK_TEXT_TRACE: %s %s\n", bEmpty ? "empty" : "missing", szKey.c_str() );
+}
+IText* CTextManager::GetDialog( const char *pszKey )
+{
+	IText *pText = shareDialog.Get( pszKey );
+	TraceText( pszKey, pText );
+	return pText;
+}
 IText* CTextManager::GetString( const char *pszKey ) 
 { 
 	if ( shareString.HasData(pszKey) ) 
 		return shareString.Get( pszKey );
 	else
 	{
-		if ( IText *pText = GetDialog(NStr::Format("textes\\strings\\%s", pszKey)) )
+		// The prefixes are tried without the trace: only the key the whole lookup misses is reported.
+		if ( IText *pText = shareDialog.Get(NStr::Format("textes\\strings\\%s", pszKey)) )
 			return pText;
-		else if ( IText *pText = GetDialog(NStr::Format("textes\\tooltips\\%s", pszKey)) )
+		else if ( IText *pText = shareDialog.Get(NStr::Format("textes\\tooltips\\%s", pszKey)) )
 			return pText;
-		else if ( IText *pText = GetDialog(NStr::Format("textes\\acks\\%s", pszKey)) )
+		else if ( IText *pText = shareDialog.Get(NStr::Format("textes\\acks\\%s", pszKey)) )
 			return pText;
-		else if ( IText *pText = GetDialog(pszKey) )
+		else if ( IText *pText = shareDialog.Get(pszKey) )
 			return pText;
-		else
-			return 0;
+		TraceText( pszKey, 0 );
+		return 0;
 	}
 }
 int CTextManager::operator&( IStructureSaver &ss )
