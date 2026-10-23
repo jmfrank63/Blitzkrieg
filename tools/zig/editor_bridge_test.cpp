@@ -7,8 +7,14 @@
 // with exit 1. A tier that cannot tell a skip from a failure is worse than no
 // tier: the map file tier once swept zero maps and reported success.
 #include "StdAfx.h"
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if defined(_WIN32) || defined(_WIN64)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include <SDL3/SDL.h>
 #include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 #include <chrono>
@@ -11812,6 +11818,14 @@ static bool ShardRange( const SBridgeTest *pTests, int nTests, int nShard, int *
 
 int main( int argc, char **argv )
 {
+	// Everything this test reports goes to stderr: the build shows a failing run's stderr and keeps
+	// a passing one's to itself, while a captured stdout would be lost with the failure.
+	std::fflush( stdout );
+#if defined(_WIN32) || defined(_WIN64)
+	_dup2( _fileno( stderr ), _fileno( stdout ) );
+#else
+	dup2( fileno( stderr ), fileno( stdout ) );
+#endif
 	// A failed assert in a Windows debug build prints to stderr and then calls
 	// abort(), which the debug CRT reports as a "Debug Error!" message box. On a
 	// CI runner nobody clicks it: run 35683754678 sat behind one for three and a

@@ -8779,6 +8779,8 @@ fn addEditorBridgeTest(
     install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
+    // The engine logs its modules and maps on stderr; a pass keeps them, a failure shows them.
+    captureStdErrForFailure(run);
     setLeakReportStrict(run);
     // Run from the installation, and tell it so: cwd is what the engine's
     // relative data names resolve against.
@@ -8806,6 +8808,7 @@ fn addEditorBridgeTest(
     // Local only, like test-map-files-m2-sweep: not in the default test step
     // or CI.
     const run_m2_sweep = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m2_sweep);
     setLeakReportStrict(run_m2_sweep);
     run_m2_sweep.setCwd(b.path(stage_root));
     run_m2_sweep.addArg(".");
@@ -8821,6 +8824,7 @@ fn addEditorBridgeTest(
     // 05-05: the players, the unit creation and Check Map's fixes through the engine,
     // alone (the full tier above runs them too, among everything else).
     const run_m3_players = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_players);
     setLeakReportStrict(run_m3_players);
     run_m3_players.setCwd(b.path(stage_root));
     run_m3_players.addArg(".");
@@ -8835,6 +8839,7 @@ fn addEditorBridgeTest(
     // 05-07: the Minimap panel's reads and Create Minimap Images through the engine,
     // alone (the full tier above runs them too, among everything else).
     const run_m3_minimap = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_minimap);
     setLeakReportStrict(run_m3_minimap);
     run_m3_minimap.setCwd(b.path(stage_root));
     run_m3_minimap.addArg(".");
@@ -8850,6 +8855,7 @@ fn addEditorBridgeTest(
     // tier above runs it too, among everything else): the refusals, the seed, the
     // output folders, the mod stamp and the generated map's open.
     const run_m3_rmg = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_rmg);
     setLeakReportStrict(run_m3_rmg);
     run_m3_rmg.setCwd(b.path(stage_root));
     run_m3_rmg.addArg(".");
@@ -8865,6 +8871,7 @@ fn addEditorBridgeTest(
     // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
     // layer entries through the engine, alone (the full tier above runs them too).
     const run_m3_layers = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_layers);
     setLeakReportStrict(run_m3_layers);
     run_m3_layers.setCwd(b.path(stage_root));
     run_m3_layers.addArg(".");
@@ -8888,6 +8895,7 @@ fn addEditorBridgeTest(
     var previous_craft: ?*std.Build.Step = null;
     for (craft_kinds) |entry| {
         const run_craft = b.addRunArtifact(exe);
+        captureStdErrForFailure(run_craft);
         setLeakReportStrict(run_craft);
         run_craft.setCwd(b.path(stage_root));
         run_craft.addArg(".");
