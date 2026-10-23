@@ -2345,7 +2345,9 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) {
         const clean = b.addRunArtifact(bk_zig_host_test);
         clean.setEnvironmentVariable("BK_MEM_REPORT", "1");
-        clean.expectExitCode(0);
+        // A nonzero exit fails the run without a check; the foreign-block line of a clean report stays
+        // out of a pass and is shown with a failure.
+        captureStdErrForFailure(clean);
         const planted = b.addRunArtifact(bk_zig_host_test);
         planted.setEnvironmentVariable("BK_MEM_REPORT", "1");
         planted.setEnvironmentVariable("BK_ZIG_PLANT_LEAK", "1");
@@ -2376,7 +2378,7 @@ pub fn build(b: *std.Build) void {
             const churn = b.addRunArtifact(bk_zig_host_test);
             churn.setEnvironmentVariable("BK_MEM_REPORT", "1");
             churn.setEnvironmentVariable("BK_ZIG_EXIT_CHURN", "1");
-            churn.expectExitCode(0);
+            captureStdErrForFailure(churn);
             churn.has_side_effects = true;
             churn.step.dependOn(previous);
             previous = &churn.step;
@@ -9035,6 +9037,7 @@ fn addResourceBridge(
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path(stage_root));
     // The bridge's diagnostics (the preview-clock stall detector, the preview
     // timer trace) are BK_DEBUG_LOG-gated in a release build; a tier built
@@ -13067,6 +13070,7 @@ fn addEngineHostedTool(
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     // Run from the installation, and tell it so: cwd is what the engine's
     // relative data names resolve against.
     run.setCwd(b.path(stage_root));
@@ -13481,6 +13485,7 @@ fn addResourceModelComparatorTest(
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
     run.addArg(rootPath(b, "zig-out/local-test"));
