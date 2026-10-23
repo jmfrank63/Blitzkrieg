@@ -708,8 +708,10 @@ fn discardToolStdOut(run: *std.Build.Step.Run) void {
 }
 
 /// A test whose run writes to stderr even when it passes: code under test that reports on
-/// stderr on purpose (a diagnostic with no host attached, an unattended error box), or the Zig
-/// test runner's per-test lines in terminal mode. The stream is captured, so a pass prints
+/// stderr on purpose (a diagnostic with no host attached, an unattended error box), the Zig
+/// test runner's per-test lines in terminal mode, an editor's scripted run (its frame and action
+/// trail, the PASS line, the engine's DebugTrace in a debug build) or BkMemory's per-library
+/// foreign-block lines of a clean report. The stream is captured, so a pass prints
 /// nothing, and a failing exit code still shows all of it with the step's error. A check of
 /// the text (expectStdErrMatch) would not: Zig then reports a wrong exit code without the
 /// stderr, which loses a leak report or a failed check's line. Marked as having side effects
@@ -9218,6 +9220,7 @@ fn addMapEditor(
     // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path("zig-out"));
     run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
@@ -9233,6 +9236,7 @@ fn addMapEditor(
     // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
     setLeakReportStrict(absolute_run);
+    captureStdErrForFailure(absolute_run);
     absolute_run.setCwd(b.path("zig-out"));
     absolute_run.addArgs(&.{ "--check", rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), rootPath(b, "zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
@@ -9243,6 +9247,7 @@ fn addMapEditor(
     // game and the host check's own acceptance criterion greps this line.
     const mod_run = b.addRunArtifact(exe);
     setLeakReportStrict(mod_run);
+    captureStdErrForFailure(mod_run);
     mod_run.setCwd(b.path(stage_root));
     mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
     mod_run.step.dependOn(&install_exe.step);
@@ -9282,6 +9287,7 @@ fn addMapEditor(
     // Save As and reopen.
     const smoke_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_run);
+    captureStdErrForFailure(smoke_run);
     smoke_run.setCwd(b.path(stage_root));
     smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-smoke.bzm") });
     // What it reads - the staged Data and engine - is not a file input of the
@@ -9311,6 +9317,7 @@ fn addMapEditor(
     // own BK_AUTO_UI: a shot (for a person to look at, unmeasured) then exit.
     const auto_run = b.addRunArtifact(exe);
     setLeakReportStrict(auto_run);
+    captureStdErrForFailure(auto_run);
     auto_run.setCwd(b.path(stage_root));
     auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
@@ -9755,6 +9762,7 @@ fn addMapEditor(
     };
     const auto_m2_run = b.addRunArtifact(exe);
     setLeakReportStrict(auto_m2_run);
+    captureStdErrForFailure(auto_m2_run);
     auto_m2_run.setCwd(b.path(stage_root));
     auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
@@ -10648,6 +10656,7 @@ fn addMapEditor(
     };
     const auto_m3_run = b.addRunArtifact(exe);
     setLeakReportStrict(auto_m3_run);
+    captureStdErrForFailure(auto_m3_run);
     auto_m3_run.setCwd(b.path(stage_root));
     auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
@@ -10676,6 +10685,7 @@ fn addMapEditor(
     // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_it_run);
+    captureStdErrForFailure(game_reads_it_run);
     game_reads_it_run.setCwd(b.path(stage_root));
     game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it.log") });
     // What it reads (the staged Data and Game) and the second process it
@@ -10694,6 +10704,7 @@ fn addMapEditor(
     // two games never start at once.
     const game_reads_it_m2_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_it_m2_run);
+    captureStdErrForFailure(game_reads_it_m2_run);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
     game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
@@ -10714,6 +10725,7 @@ fn addMapEditor(
     // test's `--craft` first. After its siblings, so two games never start at once.
     const game_reads_it_m3_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_it_m3_run);
+    captureStdErrForFailure(game_reads_it_m3_run);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
     game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", rootPath(b, "zig-out/local-test/m3-short-railroad.bzm"), rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3.log") });
     // The authored leg writes its template, graph, container and field set under the
@@ -11013,6 +11025,7 @@ fn addElk(
     // host checks; it needs a GPU device, so it is not part of `test`.
     const smoke_run = b.addSystemCommand(&.{rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename }))});
     setLeakReportStrict(smoke_run);
+    captureStdErrForFailure(smoke_run);
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke", rootPath(b, "Data/ELK"), rootPath(b, "zig-out/local-test/elk/app-smoke") });
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
@@ -11161,6 +11174,7 @@ fn addResourceEditor(
     // the working directory.
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path("zig-out"));
     // The tracked picture the docks half shows in the thumbnail list.
     run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
@@ -11198,6 +11212,7 @@ fn addResourceEditor(
     // and the missing gamma.cfg, the shipped Data folder is refused.
     const batch_run = b.addRunArtifact(exe);
     setLeakReportStrict(batch_run);
+    captureStdErrForFailure(batch_run);
     batch_run.setCwd(b.path("zig-out"));
     batch_run.addArgs(&.{ "--batch-check", rootPath(b, "tools/zig/fixtures/resource_editor"), rootPath(b, "zig-out/local-test/resource_editor/batch") });
     batch_run.has_side_effects = true;
@@ -11210,6 +11225,7 @@ fn addResourceEditor(
     // edited, saved, undone, saved and compared byte for byte (scenario.zig).
     const smoke_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_run);
+    captureStdErrForFailure(smoke_run);
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke-edit", rootPath(b, "tools/zig/fixtures/resource_editor/unt/project.unt"), rootPath(b, "zig-out/local-test/resource_editor/smoke") });
     smoke_run.has_side_effects = true;
@@ -11219,6 +11235,7 @@ fn addResourceEditor(
     // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
     const smoke_kind_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_kind_run);
+    captureStdErrForFailure(smoke_kind_run);
     smoke_kind_run.setCwd(b.path("zig-out"));
     smoke_kind_run.addArgs(&.{ "--smoke", "unt", rootPath(b, "zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
     smoke_kind_run.has_side_effects = true;
@@ -11260,6 +11277,7 @@ fn addResourceEditor(
     const game_reads_dir = rootPath(b, "zig-out/local-test/resource-editor-game-reads-it");
     const game_reads_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_run);
+    captureStdErrForFailure(game_reads_run);
     game_reads_run.setCwd(b.path(stage_root));
     game_reads_run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), game_reads_dir });
     game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
@@ -11333,6 +11351,7 @@ fn addResourceAutoRun(
     const auto_dir = rootPath(b, "zig-out/local-test/resource_editor/auto-" ++ auto.name);
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path(stage_root));
     run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
