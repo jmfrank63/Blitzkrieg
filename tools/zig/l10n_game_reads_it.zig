@@ -278,7 +278,7 @@ const encyclopedia_box = ScrollBox{ .x = 58, .y = 201, .wrap_width = 377, .botto
 const options_dir = "textes/ui/optionssettings";
 const options_labels = [_]Label{
     .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 }, .dynamic = true },
-    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 640, .x2 = 1020, .y2 = 768 }, .ink = .bright, .boxed = true },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 640, .x2 = 1020, .y2 = 768 }, .ink = .yellow, .boxed = true },
 };
 const options_route = Route{
     .tag = "options",
@@ -981,9 +981,12 @@ fn dropFrameRules(region: Gray) void {
     }
 }
 
-/// A tooltip: the Game wraps it at the hint width in the large font, so a text that does not fit
+/// A tooltip: the Game wraps it at the hint width in the medium font, so a text that does not fit
 /// one line is drawn as several, which no single hb-view raster matches. The lines bk_text's wrap
-/// predicts are compared band by band like a kinsoku text; a text of one line like any label.
+/// predicts are compared band by band like a kinsoku text, a text of one line as a single band: the
+/// plate is semi-transparent (consts.xml ToolTip Ground A=192), so the screen behind it shows
+/// through and only pixels as bright as the text count as its ink, which the label check does not
+/// do (2026-10-23: the diamond plate behind a one-line Japanese tooltip dropped it to 0.391).
 fn checkTooltip(io: std.Io, allocator: std.mem.Allocator, language: Language, folder: []const u8, frame: []const u8, blank: []const u8, label: Label, report: *Report) !void {
     const bk_text = check.text_module;
     var fit = try check.Fit.init(allocator, io, fonts_dir);
@@ -997,10 +1000,6 @@ fn checkTooltip(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
     const units = try std.unicode.utf8ToUtf16LeAlloc(allocator, text);
     var lines: std.ArrayList(bk_text.wrap.Line) = .empty;
     try bk_text.wrap.wrapText(allocator, shaper, units, hint_width, &lines);
-    if (lines.items.len <= 1) {
-        _ = try checkLabels(io, allocator, language, folder, frame, blank, &.{label}, report);
-        return;
-    }
     const hb_folder = try std.fs.path.join(allocator, &.{ folder, "reference" });
     try std.Io.Dir.cwd().createDirPath(io, hb_folder);
     var references: std.ArrayList(Gray) = .empty;
@@ -1021,11 +1020,14 @@ fn checkTooltip(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
     const found = try measure.lineBands(allocator, region, references.items, tooltip_text_ink, 64, line_min_gap, small_blur);
     try report.line("tooltip {s} \"{s}\": predicted {d} lines at {d:.0} wide, measured {d}, min corr {d:.3}", .{ label.key, text, found.predicted, hint_width, found.measured, if (found.correlations.len == 0) 0 else found.minCorrelation() });
     for (found.correlations, 0..) |one, at| try report.line("      tooltip {s}: band {d} correlates {d:.3} with its predicted line", .{ label.key, at, one });
-    const fault = found.fault(min_line_correlation);
+    // One line is a label's text at a label's size, held to the label minimum; the stricter line
+    // minimum is for the bands of a wrapped tooltip.
+    const minimum = if (references.items.len == 1) min_correlation else min_line_correlation;
+    const fault = found.fault(minimum);
     try report.check(fault == null, "{s} {s}: tooltip lines {s} (minimum {d:.2})", .{ language.code, label.key, if (fault) |f| switch (f) {
         .count_differs => "differ in number from the lines bk_text's wrap predicts",
         .weak_line => "do not match hb-view of the predicted lines",
-    } else "match hb-view of the lines bk_text's wrap predicts", min_line_correlation });
+    } else "match hb-view of the lines bk_text's wrap predicts", minimum });
 }
 
 /// A reference raster cut to its ink and resampled onto the grid of a frame's label ink.

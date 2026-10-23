@@ -103,6 +103,12 @@ pub const Ink = enum {
     bright,
     /// Dark text over light metal: the ink is the brightness the label takes away.
     dark,
+    /// The tooltip's yellow text on its semi-transparent plate: the ink is the yellowness (the lesser
+    /// of red and green over blue) the text adds. Brightness cannot tell it, because the blank run's
+    /// plate is sized by the inkless bitmap font and ends elsewhere, so the screen behind shows
+    /// through one plate where the other covers it (2026-10-23: a Japanese tooltip's last character
+    /// lost its ink that way); the plate and the brown screen are hardly yellow, the text is.
+    yellow,
 };
 
 pub const Label = struct {
@@ -199,7 +205,7 @@ pub const Route = struct {
 const options_dir = "textes/ui/optionssettings";
 const options_labels = [_]Label{
     .{ .key = "caption_settings", .dir = options_dir, .rect = .{ .x1 = 55, .y1 = 40, .x2 = 500, .y2 = 95 } },
-    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 700, .x2 = 1020, .y2 = 768 }, .ink = .bright, .boxed = true },
+    .{ .key = "tt_button_default", .dir = options_dir, .rect = .{ .x1 = 90, .y1 = 700, .x2 = 1020, .y2 = 768 }, .ink = .yellow, .boxed = true },
 };
 const options_route = Route{
     .tag = "options",
@@ -447,6 +453,10 @@ fn warmth(rgb: []const u8) i32 {
     return @as(i32, rgb[0]) - rgb[2];
 }
 
+fn yellowness(rgb: []const u8) i32 {
+    return @as(i32, @min(rgb[0], rgb[1])) - rgb[2];
+}
+
 /// The label's ink, per pixel: what the frame adds to the background in the label's own colour.
 pub fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []const u8, label: Label) !Gray {
     const rect = label.rect;
@@ -457,6 +467,7 @@ pub fn inkImage(allocator: std.mem.Allocator, frame: []const u8, background: []c
             .bright => luma(frame[at..][0..3]) - luma(background[at..][0..3]),
             .dark => luma(background[at..][0..3]) - luma(frame[at..][0..3]),
             .gold => warmth(frame[at..][0..3]) - warmth(background[at..][0..3]),
+            .yellow => yellowness(frame[at..][0..3]) - yellowness(background[at..][0..3]),
         };
         pixels[y * rect.width() + x] = @intCast(std.math.clamp(added, 0, 255));
     };
