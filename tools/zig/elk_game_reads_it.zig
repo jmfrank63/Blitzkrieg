@@ -109,7 +109,7 @@ test "the Game shows a main-menu label the ELK exported to a mod (E-06)" {
         changed += 1;
         box = .{ .x1 = @min(box.x1, x), .y1 = @min(box.y1, y), .x2 = @max(box.x2, x + 1), .y2 = @max(box.y2, y + 1) };
     };
-    std.debug.print("E-06: {d} pixels differ, in ({d},{d})-({d},{d}); the Exit Game button is ({d},{d})-({d},{d})\n", .{ changed, box.x1, box.y1, box.x2, box.y2, label_rect.x1, label_rect.y1, label_rect.x2, label_rect.y2 });
+    errdefer std.debug.print("E-06: {d} pixels differ, in ({d},{d})-({d},{d}); the Exit Game button is ({d},{d})-({d},{d})\n", .{ changed, box.x1, box.y1, box.x2, box.y2, label_rect.x1, label_rect.y1, label_rect.x2, label_rect.y2 });
     try testing.expect(changed >= 100);
     try testing.expect(label_rect.contains(box));
 }
@@ -195,7 +195,7 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     const before = try shot(io, allocator, user, 80, layout);
     const after = try shot(io, allocator, user, 81, layout);
     const marked = changedIn(original, chosen, layout.width, button);
-    std.debug.print("language: the Exit Game button ({d},{d})-({d},{d}) on a {d}x{d} window; {d} of its pixels change with the mod chosen, {d} differ from the original with Default chosen again, {d} from the chosen frame after a restart, {d} between the frames drawn just before and just after a switch on the open menu, {d} from the original in the frame just after\n", .{
+    errdefer std.debug.print("language: the Exit Game button ({d},{d})-({d},{d}) on a {d}x{d} window; {d} of its pixels change with the mod chosen, {d} differ from the original with Default chosen again, {d} from the chosen frame after a restart, {d} between the frames drawn just before and just after a switch on the open menu, {d} from the original in the frame just after\n", .{
         button.x1, button.y1, button.x2, button.y2, layout.width, layout.height, marked, changedIn(original, back, layout.width, button), changedIn(chosen, restarted, layout.width, button), changedIn(before, after, layout.width, button), changedIn(original, after, layout.width, button),
     });
     try testing.expect(marked >= 100);

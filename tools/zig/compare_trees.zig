@@ -70,7 +70,6 @@ pub fn compare(init: std.process.Init, allocator: std.mem.Allocator, left_path: 
         std.crypto.hash.sha2.Sha256.hash(right_bytes, &right_hash, .{});
         if (!std.mem.eql(u8, &left_hash, &right_hash) or !std.mem.eql(u8, left_bytes, right_bytes)) return error.TreeMismatch;
     }
-    std.debug.print("shader outputs are deterministic: {d} files\n", .{left.len});
 }
 
 pub fn main(init: std.process.Init) !void {

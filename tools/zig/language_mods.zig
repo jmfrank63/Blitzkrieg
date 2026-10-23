@@ -122,9 +122,9 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         var repository = try cwd.openDir(io, ".", .{ .iterate = true });
         defer repository.close(io);
         try check.checkFit(io, &report, repository, "vendor/fonts", language.code);
-        for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
-        for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
         if (report.findings.items.len != 0) {
+            for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+            for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
             std.debug.print("language-mods: {s}: {d} fit findings\n", .{ language.code, report.findings.items.len });
             return error.TextDoesNotFit;
         }
@@ -147,10 +147,8 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
     stage = "readback";
     var package = try packages.readArchive(testing.allocator, io, pak_path);
     defer package.deinit();
-    var texts: usize = 0;
     for (package.entries) |entry| {
         if (!std.mem.endsWith(u8, entry.name, ".txt")) continue;
-        texts += 1;
         var at: usize = 2;
         while (at + 1 < entry.bytes.len) : (at += 2) {
             const unit = std.mem.readInt(u16, entry.bytes[at..][0..2], .little);
@@ -175,7 +173,6 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         if (std.mem.eql(u8, entry.name, probe_key ++ ".txt")) break entry.bytes;
     } else return error.OverlayTextMissing;
     try testing.expectEqualSlices(u8, overlay_text, packed_text);
-    std.debug.print("language-mods: {s}: {d} texts, plain Unicode, no fonts, installed {s}\n", .{ language.code, texts, pak_path });
 }
 
 test "BK_LM_LANGS selects languages by code" {

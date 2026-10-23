@@ -39,5 +39,4 @@ pub fn main(init: std.process.Init) !void {
         try std.Io.Dir.cwd().access(init.io, path, .{});
     }
     try runSmoke(init, allocator, install_dir);
-    std.debug.print("native Zig x64 runtime verification passed\n", .{});
 }

@@ -64,7 +64,6 @@ pub fn main(init: std.process.Init) !void {
         root.* = std.Io.Dir.cwd().openDir(io, path, .{}) catch |err| {
             // No cache was restored (a new key starts empty): nothing to restat.
             if (i == 0 and err == error.FileNotFound) {
-                std.debug.print("cache_restat: no cache at {s}, nothing to do\n", .{path});
                 return;
             }
             std.debug.print("cache_restat: cannot open {s}: {t}\n", .{ path, err });
@@ -82,7 +81,6 @@ pub fn main(init: std.process.Init) !void {
     const verbose = if (init.environ_map.get("BK_RESTAT_VERBOSE")) |v| std.mem.eql(u8, v, "1") else false;
     var manifests_dir = local.openDir(io, "h", .{ .iterate = true }) catch |err| switch (err) {
         error.FileNotFound => {
-            std.debug.print("cache_restat: the cache has no manifests, nothing to do\n", .{});
             return;
         },
         else => |e| return e,
@@ -167,7 +165,6 @@ pub fn main(init: std.process.Init) !void {
             n_rewritten += 1;
         }
     }
-    std.debug.print("cache_restat: {d} manifests ({d} rewritten, {d} left alone), {d} entries, {d} restated, {d} with other contents\n", .{ n_manifests, n_rewritten, n_skipped, n_entries, n_updated, n_changed });
 }
 
 /// The string value of `field` in `zig env`'s ZON output, unescaped

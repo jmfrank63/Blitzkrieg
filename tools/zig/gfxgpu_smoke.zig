@@ -76,9 +76,7 @@ fn checkFixtures() !void {
 }
 
 fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
-    std.debug.print("GfxGpu reference: creating SDL window\n", .{});
     const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, 0) orelse return error.SdlWindowFailed;
-    std.debug.print("GfxGpu reference: SDL window created\n", .{});
     defer sdl3.c.SDL_DestroyWindow(window);
     if (!sdl3.c.SDL_ShowWindow(window)) return error.SdlWindowShowFailed;
     sdl3.c.SDL_PumpEvents();
@@ -88,9 +86,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     var renderer: ?*gpu.abi.RendererHandle = null;
     const shader_directory = "zig-out/shaders";
     var create_info = gpu.abi.CreateInfo{ .struct_size = @sizeOf(gpu.abi.CreateInfo), .flags = 1, .sdl_window = @ptrCast(window), .width = 64, .height = 64, .shader_directory_utf8 = shader_directory, .preferred_driver_utf8 = preferred_driver.ptr };
-    std.debug.print("GfxGpu reference: creating window-backed renderer\n", .{});
     const create_result = api.create(&create_info, &renderer);
-    std.debug.print("GfxGpu reference: renderer create returned {}\n", .{create_result});
     if (create_result != gpu.error_codes.ok) {
         std.debug.print("GfxGpu reference create failed: result={} SDL={s}\n", .{ create_result, std.mem.span(sdl3.c.SDL_GetError()) });
         return error.ReferenceCreateFailed;
@@ -162,7 +158,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     }
     try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);
     try std.testing.expectEqualSlices(u8, &hashes[1], &hashes[2]);
-    std.debug.print("GfxGpu reference smoke: 3 identical frame hashes\n", .{});
 
     const TexturedVertex = extern struct { position: [3]f32, color: [4]u8, specular: [4]u8 = .{ 0, 0, 0, 0 }, uv: [2]f32, padding: u32 = 0 };
     const textured_vertices = [_]TexturedVertex{
@@ -198,7 +193,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &textured_readback));
     const textured_probe = std.mem.readInt(u32, textured_pixels[(16 * 64 + 16) * 4 ..][0..4], .little);
     try std.testing.expect(textured_probe != 0x10ff3020);
-    std.debug.print("GfxGpu textured smoke: visible textured quad\n", .{});
 
     // R8 glyph-atlas texture: two disjoint regions uploaded separately, then read back.
     var atlas: u64 = 0;
@@ -248,7 +242,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas + 1000, &region_a));
     try atlas_renderer.readbackTexture(atlas, &atlas_texels);
     try std.testing.expectEqualSlices(u8, &expected_texels, &atlas_texels);
-    std.debug.print("GfxGpu R8 smoke: two regions read back, bad rectangles rejected\n", .{});
 
     const screen_vertices = [_]TexturedVertex{
         .{ .position = .{ 8, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 0 } },
@@ -284,7 +277,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expect(screen_changed > 0);
     try std.testing.expect(std.mem.readInt(u32, screen_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
     try std.testing.expect(std.mem.readInt(u32, screen_pixels[(48 * 64 + 48) * 4 ..][0..4], .little) != 0x10ff3020);
-    std.debug.print("GfxGpu pixel-transform smoke: visible textured quad\n", .{});
 
     // Effect 400 samples an R8 atlas as coverage: rgb stays the vertex colour and alpha becomes
     // vertex alpha * coverage. A fully covered quad tinted green at half alpha over the clear
@@ -340,7 +332,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     }
     // A texel outside the quad is still the clear colour.
     try std.testing.expectEqualSlices(u8, background_bgra, text_pixels[(4 * 64 + 4) * 4 ..][0..4]);
-    std.debug.print("GfxGpu text smoke: R8 coverage tints to {any} over {any}\n", .{ inside_bgra.*, background_bgra.* });
     const depth_vertices = [_]Vertex{
         .{ .position = .{ -0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },
         .{ .position = .{ 0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },
@@ -362,7 +353,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     var depth_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = depth_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&depth_pixels) };
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &depth_readback));
     try std.testing.expect(std.mem.readInt(u32, depth_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
-    std.debug.print("GfxGpu depth smoke: overlapping triangles resolved\n", .{});
 
     // Draw once with D3DRS_SPECULARENABLE on. The specular variants are selected
     // by vertex format and this state, and their shader slots are indexed by the
@@ -388,7 +378,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &specular_off));
     try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
     try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
-    std.debug.print("GfxGpu specular smoke: specular variants build and draw\n", .{});
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -415,7 +404,6 @@ pub fn main(init: std.process.Init) !void {
     if (!std.mem.eql(u8, selected_driver, driver_arg)) return error.DriverSelectionMismatch;
     const selected_format = try gpu.device.formatForDriver(selected_driver);
     const selected_format_flag = gpu.device.formatFlag(selected_format);
-    std.debug.print("GfxGpu native matrix: driver={s} format={s}\n", .{ selected_driver, @tagName(selected_format) });
 
     const manifest_bytes = try readFile(init, "zig-out/shaders/gfxgpu-shaders.manifest");
     defer init.gpa.free(manifest_bytes);
@@ -449,5 +437,4 @@ pub fn main(init: std.process.Init) !void {
         sdl3.c.SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
         pipeline_count += 1;
     }
-    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs, {} probe geometries, and {} pipelines\n", .{ loader.count(), effect_probes.len, pipeline_count });
 }

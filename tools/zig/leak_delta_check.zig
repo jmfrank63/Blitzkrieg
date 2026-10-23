@@ -91,18 +91,19 @@ pub fn main(init: std.process.Init) !void {
 
     const clean = try runOnce(init, argv.items, 0);
     const planted = try runOnce(init, argv.items, plant);
-    std.debug.print("leak-delta-check: clean {d} leaked block(s) (exit {d}), planted {d} (exit {d})\n", .{ clean.leaks, clean.exit_code, planted.leaks, planted.exit_code });
+    const measured = "leak-delta-check: clean {d} leaked block(s) (exit {d}), planted {d} (exit {d})\n";
     if (clean.exit_code != 0 or planted.exit_code != clean.exit_code) {
+        std.debug.print(measured, .{ clean.leaks, clean.exit_code, planted.leaks, planted.exit_code });
         std.debug.print("leak-delta-check: FAIL, the runs must both exit 0\n", .{});
         std.process.exit(1);
     }
     const low = clean.leaks + plant -| slack;
     const high = clean.leaks + plant + slack;
     if (planted.leaks < low or planted.leaks > high) {
+        std.debug.print(measured, .{ clean.leaks, clean.exit_code, planted.leaks, planted.exit_code });
         std.debug.print("leak-delta-check: FAIL, planted must be in [{d}, {d}] (clean + {d} +/- {d})\n", .{ low, high, plant, slack });
         std.process.exit(1);
     }
-    std.debug.print("leak-delta-check: ok, planted {d} is clean + {d} +/- {d}\n", .{ planted.leaks, plant, slack });
 }
 
 test "parseLeakCount reads the last count line" {

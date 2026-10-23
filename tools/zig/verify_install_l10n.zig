@@ -17,5 +17,4 @@ pub fn main(init: std.process.Init) !void {
         error.MissingL10nInstall => std.process.exit(1),
         else => return err,
     };
-    std.debug.print("verify-install-l10n: {s} holds the ten languages\n", .{install_dir});
 }

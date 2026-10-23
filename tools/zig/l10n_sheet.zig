@@ -238,7 +238,7 @@ pub fn main(init: std.process.Init) !void {
             std.debug.print("l10n-sheet: export: {s}: {s}\n", .{ code, @errorName(err) });
             std.process.exit(1);
         };
-        for (paths) |path| std.debug.print("l10n-sheet: wrote {s}\n", .{path});
+        for (paths) |path| printOut(io, "l10n-sheet: wrote {s}\n", .{path});
     } else if (std.mem.eql(u8, command, "import") and args.items.len == 3) {
         const sheet = root.readFileAlloc(io, args.items[2], arena, .limited(64 << 20)) catch |err| {
             std.debug.print("l10n-sheet: import: {s}: cannot read ({s})\n", .{ args.items[2], @errorName(err) });
@@ -249,7 +249,7 @@ pub fn main(init: std.process.Init) !void {
             std.process.exit(1);
         };
         switch (result) {
-            .written => |count| std.debug.print("l10n-sheet: wrote {d} texts for {s}\n", .{ count, code }),
+            .written => |count| printOut(io, "l10n-sheet: wrote {d} texts for {s}\n", .{ count, code }),
             .refused => |list| {
                 for (list) |one| std.debug.print("l10n-sheet: import: {s}: {s}: {s}\n", .{ code, one.key, one.detail });
                 std.debug.print("l10n-sheet: nothing written\n", .{});
@@ -257,4 +257,12 @@ pub fn main(init: std.process.Init) !void {
             },
         }
     } else usage();
+}
+
+/// A result line on stdout: stderr is for what went wrong.
+fn printOut(io: std.Io, comptime format: []const u8, args: anytype) void {
+    var buffer: [1024]u8 = undefined;
+    var stdout = std.Io.File.stdout().writer(io, &buffer);
+    stdout.interface.print(format, args) catch return;
+    stdout.interface.flush() catch {};
 }

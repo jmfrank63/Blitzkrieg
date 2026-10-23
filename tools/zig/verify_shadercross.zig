@@ -24,5 +24,4 @@ pub fn main(init: std.process.Init) !void {
             std.mem.indexOf(u8, output.stderr, option) == null)
             return error.MissingShadercrossOption;
     }
-    std.debug.print("shadercross help verified: {s}\n", .{exe});
 }

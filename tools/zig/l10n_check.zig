@@ -2343,7 +2343,7 @@ pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []cons
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base] [--summary]\n", .{});
     std.process.exit(2);
 }
 
@@ -2359,6 +2359,7 @@ pub fn main(init: std.process.Init) !void {
     var root_path: []const u8 = ".";
     var fonts_path: ?[]const u8 = null;
     var update_base = false;
+    var summary = false;
     var doc_sets: std.ArrayList([]const u8) = .empty;
     var default_docs: []const []const u8 = &document_sets;
     var strict: std.ArrayList([]const u8) = .empty;
@@ -2375,6 +2376,8 @@ pub fn main(init: std.process.Init) !void {
             try strict.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--update-base")) {
             update_base = true;
+        } else if (std.mem.eql(u8, arg, "--summary")) {
+            summary = true;
         } else usage();
     }
 
@@ -2389,7 +2392,7 @@ pub fn main(init: std.process.Init) !void {
         try updateBase(io, &report, root);
         for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
         if (report.findings.items.len != 0) std.process.exit(1);
-        std.debug.print("l10n-check: wrote {s} for {d} keys\n", .{ manifest_path, report.checked });
+        try printOut(io, "l10n-check: wrote {s} for {d} keys\n", .{ manifest_path, report.checked });
         return;
     }
     try checkOverlays(io, &report, root);
@@ -2406,11 +2409,28 @@ pub fn main(init: std.process.Init) !void {
     try checkDocuments(io, &report, root, default_docs, doc_sets.items);
     try checkLiterals(io, &report, root, strict.items);
 
-    for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
-    for (report.inactive.items) |scope| std.debug.print("l10n-check: {s}: not active\n", .{scope});
-    for (report.scope_notes.items) |note| std.debug.print("{s}\n", .{note});
-    std.debug.print("l10n-check: {d} findings, {d} checked\n", .{ report.findings.items.len, report.checked });
-    if (report.findings.items.len != 0) std.process.exit(1);
+    // A clean tree prints nothing; --summary asks for the notes and counts on stdout (the seeded-fault
+    // tests read them to see that every check ran). A finding prints them all on stderr and fails.
+    const failed = report.findings.items.len != 0;
+    if (!failed and !summary) return;
+    var text: std.Io.Writer.Allocating = .init(arena);
+    for (report.findings.items) |finding| try text.writer.print("{s}\n", .{try report.line(finding)});
+    for (report.inactive.items) |scope| try text.writer.print("l10n-check: {s}: not active\n", .{scope});
+    for (report.scope_notes.items) |note| try text.writer.print("{s}\n", .{note});
+    try text.writer.print("l10n-check: {d} findings, {d} checked\n", .{ report.findings.items.len, report.checked });
+    if (failed) {
+        std.debug.print("{s}", .{text.written()});
+        std.process.exit(1);
+    }
+    try printOut(io, "{s}", .{text.written()});
+}
+
+/// A result line on stdout: stderr is for what went wrong.
+fn printOut(io: std.Io, comptime format: []const u8, args: anytype) !void {
+    var buffer: [4096]u8 = undefined;
+    var stdout = std.Io.File.stdout().writer(io, &buffer);
+    try stdout.interface.print(format, args);
+    try stdout.interface.flush();
 }
 
 test {
@@ -2534,41 +2554,6 @@ test "fit_map_covers_database: every ELK key has a line and every line finds its
         unmapped += 1;
     }
     try testing.expectEqual(@as(usize, 0), unmapped);
-}
-
-test "fit: the shipped English originals measured in their rooms" {
-    // Information for the maintainer: how many 2003 originals already overflow a room (fit-base),
-    // so a translation is judged against a fair box. It fails on nothing but a broken map.
-    const testing = std.testing;
-    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena_state.deinit();
-    const arena = arena_state.allocator();
-    const io = testing.io;
-    var root = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
-    defer root.close(io);
-    var problems: std.ArrayList(ScopeProblem) = .empty;
-    const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
-    var fit = try Fit.init(testing.allocator, io, "vendor/fonts");
-    defer fit.deinit();
-    const resolved = try resolveFitLines(io, arena, root, lines, &problems);
-    var tall: usize = 0;
-    var wide: usize = 0;
-    var measured: usize = 0;
-    for (try elkKeys(io, arena, root)) |key| {
-        const english = (try readBase(io, arena, root, key)) orelse continue;
-        const units = try textUnits(arena, english);
-        for (try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key))) |at| {
-            const room = resolved[at];
-            if (room.kind == .scroll) continue;
-            const shaper = try fit.shaper(Fit.english, room.font);
-            const mine = try measureText(&fit, shaper, units, room.width);
-            measured += 1;
-            if (fitNeeds(shaper, mine.lines) > room.height) tall += 1;
-            if (mine.word > room.width) wide += 1;
-        }
-    }
-    std.debug.print("fit-base: {d} measured, {d} too tall, {d} too wide\n", .{ measured, tall, wide });
-    try testing.expect(measured > 1000);
 }
 
 test "fit: a tooltip line is measured in the medium font at the 300 pixel hint width" {

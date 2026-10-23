@@ -155,9 +155,10 @@ pub fn main(init: std.process.Init) !void {
     const pass = isMagenta(inside) and isGreen(outside);
     const driver_name = sdl3.c.SDL_GetGPUDeviceDriver(@ptrCast(device));
     const driver: []const u8 = if (driver_name != null) std.mem.span(driver_name) else "unknown";
-    std.debug.print("overlay-spike: {s} driver={s} format={} size={}x{} hidden={} inside=({},{},{}) outside=({},{},{})\n", .{
-        if (pass) "PASS" else "FAIL", driver, format, width, height, hidden,
+    if (pass) return;
+    std.debug.print("overlay-spike: FAIL driver={s} format={} size={}x{} hidden={} inside=({},{},{}) outside=({},{},{})\n", .{
+        driver, format, width, height, hidden,
         inside.r, inside.g, inside.b, outside.r, outside.g, outside.b,
     });
-    if (!pass) std.process.exit(1);
+    std.process.exit(1);
 }

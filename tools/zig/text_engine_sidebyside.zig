@@ -149,8 +149,7 @@ test "old and new side by side: the Game on bitmap and on bk_text, measured and 
             }
         }
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ out, "report.txt" }), .data = report.lines.items });
-        std.debug.print("text-engine-sidebyside: {s}: report {s}/{s}/report.txt, awaiting maintainer approval\n", .{ language.code, scratch, language.code });
-        if (report.failures != 0) std.debug.print("text-engine-sidebyside: {s}: {d} measures failed\n", .{ language.code, report.failures });
+        if (report.failures != 0) std.debug.print("text-engine-sidebyside: {s}: {d} measures failed; the report is {s}/{s}/report.txt\n", .{ language.code, report.failures, scratch, language.code });
     }
     if (failures != 0) return error.MeasureFailed;
 }

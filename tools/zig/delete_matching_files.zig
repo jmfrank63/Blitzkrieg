@@ -28,7 +28,6 @@ pub fn deleteMatching(init: std.process.Init, dir_path: []const u8, prefix: []co
         };
         deleted += 1;
     }
-    std.debug.print("delete-matching-files: removed {d} file(s) matching {s}*{s} in {s}\n", .{ deleted, prefix, suffix, dir_path });
 }
 
 pub fn main(init: std.process.Init) !void {

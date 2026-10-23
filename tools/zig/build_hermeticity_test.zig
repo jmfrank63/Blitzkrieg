@@ -49,7 +49,6 @@ pub fn main(init: std.process.Init) !void {
         defer init.gpa.free(text);
         try auditText(path, text);
     }
-    std.debug.print("build hermeticity audit passed: {d} files\n", .{shader_build_closure.len});
 }
 
 test "rejects forbidden process executable" {

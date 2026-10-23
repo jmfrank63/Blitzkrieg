@@ -171,22 +171,34 @@ pub fn changedPixels(a: []const u8, b: []const u8, stride: usize, rect: Rect, to
 /// asked for that its font has no glyph for. The font draws its default character instead, a hollow
 /// box that hasSolidBox does not see, so a run of the Game under BK_GLYPH_TRACE=1 must print none.
 pub fn expectNoMissingGlyph(log: []const u8, log_path: []const u8) !void {
-    const prefix = "BK_GLYPH_TRACE: no glyph ";
-    var missing: usize = 0;
+    const missing = missingGlyphs(log);
+    if (missing == 0) return;
+    var shown: usize = 0;
     var lines = std.mem.tokenizeAny(u8, log, "\r\n");
     while (lines.next()) |line| {
-        if (std.mem.indexOf(u8, line, prefix) == null) continue;
-        missing += 1;
-        if (missing <= 20) std.debug.print("{s}\n", .{line});
+        if (std.mem.indexOf(u8, line, glyph_trace) == null) continue;
+        shown += 1;
+        if (shown <= 20) std.debug.print("{s}\n", .{line});
     }
-    if (missing == 0) return;
     std.debug.print("{d} characters have no glyph in their font; the Game's output is in {s}\n", .{ missing, log_path });
     return error.MissingGlyph;
 }
 
+const glyph_trace = "BK_GLYPH_TRACE: no glyph ";
+
+/// How many BK_GLYPH_TRACE lines `log` holds.
+fn missingGlyphs(log: []const u8) usize {
+    var missing: usize = 0;
+    var lines = std.mem.tokenizeAny(u8, log, "\r\n");
+    while (lines.next()) |line| {
+        if (std.mem.indexOf(u8, line, glyph_trace) != null) missing += 1;
+    }
+    return missing;
+}
+
 test "a BK_GLYPH_TRACE line fails the run, other lines do not" {
     try expectNoMissingGlyph("BK_UI_TRACE: reposition\r\nBK_MOD_TRACE: open \"x\" from MOD\n", "log");
-    try std.testing.expectError(error.MissingGlyph, expectNoMissingGlyph("a\r\nBK_GLYPH_TRACE: no glyph U+00E8 in font \"fonts\\medium\"\r\n", "log"));
+    try std.testing.expectEqual(@as(usize, 1), missingGlyphs("a\r\nBK_GLYPH_TRACE: no glyph U+00E8 in font \"fonts\\medium\"\r\n"));
 }
 
 /// BkMemory's exit report under BK_MEM_REPORT=count: "bk_mem: N leaked block(s)" counts the blocks of
@@ -196,6 +208,14 @@ test "a BK_GLYPH_TRACE line fails the run, other lines do not" {
 /// unnoticed while every tier stayed green). A log without the line (a backend without leak records)
 /// passes.
 pub fn expectNoLeak(log: []const u8, log_path: []const u8) !void {
+    const leaked = leakedBlocks(log);
+    if (leaked == 0) return;
+    std.debug.print("the Game leaked {d} block(s) of ours at exit; its output is in {s}\n", .{ leaked, log_path });
+    return error.Leaked;
+}
+
+/// The first nonzero "bk_mem: N leaked block(s)" count in `log`, or 0.
+fn leakedBlocks(log: []const u8) usize {
     const marker = "bk_mem: ";
     const suffix = " leaked block(s)";
     var lines = std.mem.tokenizeAny(u8, log, "\r\n");
@@ -204,16 +224,15 @@ pub fn expectNoLeak(log: []const u8, log_path: []const u8) !void {
         const rest = line[at + marker.len ..];
         if (!std.mem.endsWith(u8, rest, suffix)) continue;
         const leaked = std.fmt.parseInt(usize, rest[0 .. rest.len - suffix.len], 10) catch continue;
-        if (leaked == 0) continue;
-        std.debug.print("the Game leaked {d} block(s) of ours at exit; its output is in {s}\n", .{ leaked, log_path });
-        return error.Leaked;
+        if (leaked != 0) return leaked;
     }
+    return 0;
 }
 
 test "a leak count above zero fails the run, zero and foreign blocks do not" {
     try expectNoLeak("warning(BkMemory): bk_mem: 0 leaked block(s)\nwarning(BkMemory): bk_mem: 2669 foreign block(s) from libLLVM.so.21.1\n", "log");
     try expectNoLeak("no report at all\n", "log");
-    try std.testing.expectError(error.Leaked, expectNoLeak("warning(BkMemory): bk_mem: 397 leaked block(s)\r\nwarning(BkMemory): bk_mem: of those, 394 from the C ABI\r\n", "log"));
+    try std.testing.expectEqual(@as(usize, 397), leakedBlocks("warning(BkMemory): bk_mem: 397 leaked block(s)\r\nwarning(BkMemory): bk_mem: of those, 394 from the C ABI\r\n"));
 }
 
 /// Whether the image holds a `w` by `h` window in which at least `min_fill`
@@ -893,7 +912,7 @@ test "hb-view draws the Simplified and Japanese forms of 直骨角化 differentl
     const sc_box = try crop(allocator, sc, inkBox(sc, 64).?);
     const same = try matchReference(allocator, sc_box, sc, 64);
     const other = try matchReference(allocator, sc_box, jp, 64);
-    std.debug.print("Han 直骨角化: SC against itself {d:.4}, against JP {d:.4}\n", .{ same.correlation, other.correlation });
+    errdefer std.debug.print("Han 直骨角化: SC against itself {d:.4}, against JP {d:.4}\n", .{ same.correlation, other.correlation });
     try testing.expect(same.correlation > 0.999);
     try testing.expect(other.correlation < same.correlation - 0.02);
 }
@@ -908,8 +927,10 @@ test "the halant spelling of त्र is wider than the conjunct and the matra 
     const apart = try hbView(allocator, testing.io, scratch_dir, "hi-tra-halant", "मित्रों", .{ .font = face, .language = "hi", .script = "Deva", .features = halant_spelling });
     const joined_box = inkBox(joined, 64).?;
     const apart_box = inkBox(apart, 64).?;
-    std.debug.print("मित्रों: conjunct {d} px wide, halant spelling {d}\n", .{ joined_box.width(), apart_box.width() });
-    try testing.expect(apart_box.width() > joined_box.width());
+    {
+        errdefer std.debug.print("मित्रों: conjunct {d} px wide, halant spelling {d}\n", .{ joined_box.width(), apart_box.width() });
+        try testing.expect(apart_box.width() > joined_box.width());
+    }
     // कि: the matra's bar is in the first third of the cluster, so that third of
     // the raster is like itself and not like the last third.
     const ki = try hbView(allocator, testing.io, scratch_dir, "hi-ki", "कि", .{ .font = face, .language = "hi", .script = "Deva" });
@@ -919,7 +940,7 @@ test "the halant spelling of त्र is wider than the conjunct and the matra 
     const last = window(whole, 0.7, 1);
     const same = try correlationIn(allocator, cut, cut, first, first);
     const swapped = try correlationIn(allocator, cut, cut, first, last);
-    std.debug.print("कि: first third against itself {d:.2}, against the last third {d:.2}\n", .{ same, swapped });
+    errdefer std.debug.print("कि: first third against itself {d:.2}, against the last third {d:.2}\n", .{ same, swapped });
     try testing.expect(same > 0.999 and swapped < 0.8);
 }
 
@@ -952,7 +973,7 @@ test "the conjunct columns of मुख्य tell the captured shaped label fro
         const whole = try matchReference(allocator, ink, joined, 64);
         const whole_apart = try matchReference(allocator, ink, apart, 64);
         const c = try conjunctMatch(allocator, ink, mine[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
-        std.debug.print("{s}: whole label {d:.3} against {d:.3}; conjunct columns {d:.3} against {d:.3}\n", .{ name, whole.correlation, whole_apart.correlation, c.shaped, c.spelled });
+        errdefer std.debug.print("{s}: whole label {d:.3} against {d:.3}; conjunct columns {d:.3} against {d:.3}\n", .{ name, whole.correlation, whole_apart.correlation, c.shaped, c.spelled });
         try testing.expect(c.shaped - c.spelled >= conjunct_margin);
     }
 
@@ -961,12 +982,14 @@ test "the conjunct columns of मुख्य tell the captured shaped label fro
     // frame wins.
     const drawn_apart = try resample(allocator, apart_cut, 102, 34);
     const lost = try conjunctMatch(allocator, drawn_apart, (try words(allocator, drawn_apart, 64, 3))[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
-    std.debug.print("halant spelling as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ lost.shaped, lost.spelled });
-    try testing.expect(lost.shaped - lost.spelled < conjunct_margin);
-    try testing.expect(lost.spelled > lost.shaped);
+    {
+        errdefer std.debug.print("halant spelling as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ lost.shaped, lost.spelled });
+        try testing.expect(lost.shaped - lost.spelled < conjunct_margin);
+        try testing.expect(lost.spelled > lost.shaped);
+    }
     const drawn_joined = try resample(allocator, joined_cut, 102, 34);
     const won = try conjunctMatch(allocator, drawn_joined, (try words(allocator, drawn_joined, 64, 3))[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
-    std.debug.print("shaped reference as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ won.shaped, won.spelled });
+    errdefer std.debug.print("shaped reference as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ won.shaped, won.spelled });
     try testing.expect(won.shaped - won.spelled >= conjunct_margin);
 }
 

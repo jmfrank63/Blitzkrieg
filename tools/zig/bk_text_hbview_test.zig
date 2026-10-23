@@ -230,10 +230,10 @@ fn compare(allocator: std.mem.Allocator, set: *const faces.FaceSet, line: Line) 
     const height_difference = @max(mine_box.height(), reference_box.height()) - @min(mine_box.height(), reference_box.height());
     const ok = width_difference <= max_box_difference and height_difference <= max_box_difference and
         @abs(result.mine_advance - result.shape_advance) <= max_advance_difference and correlation >= min_correlation;
-    std.debug.print("{s} \"{s}\": ink {d}x{d} against hb-view {d}x{d}, advance {d:.2} against hb-shape {d:.2}, correlation {d:.3}\n", .{
-        line.key, line.text, mine_box.width(), mine_box.height(), reference_box.width(), reference_box.height(), result.mine_advance, result.shape_advance, correlation,
-    });
     if (!ok) {
+        std.debug.print("{s} \"{s}\": ink {d}x{d} against hb-view {d}x{d}, advance {d:.2} against hb-shape {d:.2}, correlation {d:.3}\n", .{
+            line.key, line.text, mine_box.width(), mine_box.height(), reference_box.width(), reference_box.height(), result.mine_advance, result.shape_advance, correlation,
+        });
         const mine_path = try std.fmt.allocPrint(allocator, "{s}/{s}-bk-text.png", .{ scratch_dir, line.key });
         const diff_path = try std.fmt.allocPrint(allocator, "{s}/{s}-diff.png", .{ scratch_dir, line.key });
         try writeGrayPng(allocator, mine_path, mine.image);
@@ -278,7 +278,7 @@ test "the Japanese and Simplified renders of 骨 differ in bk_text as in hb-view
     const jp_box = try measure.crop(allocator, jp.image, measure.inkBox(jp.image, ink_threshold).?);
     const jp_same = (try measure.matchReference(allocator, jp_box, jp_ref, ink_threshold)).correlation;
     const jp_other = (try measure.matchReference(allocator, jp_box, sc_ref, ink_threshold)).correlation;
-    std.debug.print("骨: bk_text SC against hb-view SC {d:.3}, against JP {d:.3}; bk_text JP against hb-view JP {d:.3}, against SC {d:.3}\n", .{ same, other, jp_same, jp_other });
+    errdefer std.debug.print("骨: bk_text SC against hb-view SC {d:.3}, against JP {d:.3}; bk_text JP against hb-view JP {d:.3}, against SC {d:.3}\n", .{ same, other, jp_same, jp_other });
     // hb-view's own forms differ (l10n_measure's test); bk_text's must follow the same split.
     try testing.expect(same > other and jp_same > jp_other);
     try testing.expect(same - other > 0.02 and jp_same - jp_other > 0.02);
