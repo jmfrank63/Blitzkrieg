@@ -1792,7 +1792,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 			static const char *pszCaptureDelay = getenv( "BK_REFERENCE_DELAY" );
 			static const int nCaptureDelay = pszCaptureDelay != 0 ? atoi( pszCaptureDelay ) : 5;
 			const bool bCaptureGate = pszCaptureDelay != 0 || GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0;
-			if ( cmdp.bReferenceScene && bCaptureGate && ++nReferenceCaptureDelay >= nCaptureDelay )
+			// Only a frame that drew counts towards the capture: a window the desktop
+			// gives no swapchain image (one covered by another Game's window, as two
+			// Game tiers in one build had) skips its frames, and five skipped frames
+			// read back a scene never drawn - an all black capture.
+			const bool bFrameDrawn = GetSingleton<IGFX>() != 0 && GetSingleton<IGFX>()->GetNumPassedVertices() > 0;
+			if ( cmdp.bReferenceScene && bCaptureGate && bFrameDrawn && ++nReferenceCaptureDelay >= nCaptureDelay )
 			{
 				IGFX *pGFX = GetSingleton<IGFX>();
 				// Printed in the form BK_REFERENCE_CAMERA takes, so a capture can be
