@@ -410,9 +410,9 @@ const package_schedule =
     // Held before its 50th file and cancelled: those 50 in, elk.xml as it was.
     "5:do=hold:50,5:do=import_pak,5:do=answer:" ++ package_pak ++ ",6:do=wait_held,7:expect=working:50/113,7:do=job_cancel," ++
     "9:expect=busy:0,9:expect=notice_has:cancelled,9:expect=package_whole:1792,9:expect=texts:1742," ++
-    "10:do=import_pak,10:do=answer:" ++ package_pak ++ ",12:expect=updated:63/63/0/0/1,12:expect=texts:1823," ++
+    "10:do=import_pak,10:do=answer:" ++ package_pak ++ ",12:expect=updated:63/63/0/0/1,12:expect=texts:1855," ++
     // Again: nothing changes.
-    "13:do=import_pak,13:do=answer:" ++ package_pak ++ ",15:expect=updated:0/0/0/0/0,15:expect=notice_has:nothing,15:expect=texts:1823," ++
+    "13:do=import_pak,13:do=answer:" ++ package_pak ++ ",15:expect=updated:0/0/0/0/0,15:expect=notice_has:nothing,15:expect=texts:1855," ++
     "16:do=close,18:expect=can_import:0,19:exit";
 const package_pak = "usa01.pak";
 
