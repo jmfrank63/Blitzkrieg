@@ -1,4 +1,5 @@
 #include "../../Sources/src/Game/GameFrame.h"
+#include <SDL3/SDL.h>
 
 #include <cstdio>
 
@@ -25,6 +26,10 @@ int main()
 	frame.HideSplash();
 	frame.ShowSplash( "no-such-splash.bmp", 32, 32 );
 	frame.HideSplash();
-	std::puts( "game frame contract compiled: SDL-owned lifecycle, normalized event queue, focus/quit state" );
+	// HideSplash closes the video subsystem it opened, but SDL keeps its global
+	// state (hints, properties, the video driver's caches) until SDL_Quit, which
+	// only Initialize's Shutdown calls. The game always initializes after the
+	// splash; this test never does, so it quits SDL the way that Shutdown would.
+	SDL_Quit();
 	return 0;
 }

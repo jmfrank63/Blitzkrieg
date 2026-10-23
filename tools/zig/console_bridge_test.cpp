@@ -86,6 +86,17 @@ int main(int argc, char **argv) {
     assert(console->Read(channel, &color) == 0);
 
     console->Release();
-    std::puts("console bridge round trip passed");
+
+    // The bridge's Paths asked SDL for the base path, which SDL keeps until
+    // SDL_Quit: the game quits SDL at shutdown, so this host does too, on the SDL
+    // the bridge loaded (found through the bridge, which links it).
+    typedef void (*QuitFn)();
+#if defined(_WIN32) || defined(_WIN64)
+    HMODULE sdl = GetModuleHandleA("SDL3.dll");
+    QuitFn quit = sdl ? reinterpret_cast<QuitFn>(GetProcAddress(sdl, "SDL_Quit")) : 0;
+#else
+    QuitFn quit = reinterpret_cast<QuitFn>(dlsym(library, "SDL_Quit"));
+#endif
+    if (quit) quit();
     return 0;
 }

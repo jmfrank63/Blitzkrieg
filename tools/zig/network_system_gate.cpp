@@ -1,6 +1,7 @@
 #include "Socket.h"
 #include "System.h"
 #include "bk_memory_sdl.h"
+#include <SDL3/SDL.h>
 
 #include <cstdio>
 #include <cstring>
@@ -49,6 +50,7 @@ int main(int argc, char **argv)
 #endif
 	if (!Check(RunProcess({ child, "--child" }, std::string(), &exitCode) && exitCode == 23, "child exit code")) return 1;
 	Close(accepted); Close(client); Close(udp); Close(listener); Close(listener); SocketRuntimeDone(); SocketRuntimeDone();
-	std::puts("network/system gate passed: fixture=c70d495e tcp=4 child=23");
+	// ExecutablePath asked SDL_GetBasePath, which caches its answer for the process and only SDL_Quit frees it.
+	SDL_Quit();
 	return 0;
 }

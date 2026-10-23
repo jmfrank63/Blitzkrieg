@@ -2439,7 +2439,7 @@ pub fn build(b: *std.Build) void {
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
     const input = addInput(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
-    addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic);
+    addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const formats = addFormats(b, target, optimize, toolchain);
     const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats }, platform_runtime, sdl_dynamic);
     const anim = addAnim(b, target, optimize, toolchain, misc, platform_runtime, formats, sdl_dynamic);
@@ -2582,12 +2582,16 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, net_module_test_module, toolchain);
     net_module_test_module.linkLibrary(misc);
     net_module_test_module.linkLibrary(platform_runtime);
+    // SDL_Quit at the end, on the same SDL the module loaded, as in the SFX module test.
+    net_module_test_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    linkSdlImport(net_module_test_module, target, sdl_dynamic);
     const net_module_test = b.addExecutable(.{ .name = "net-module-test", .root_module = net_module_test_module });
     if (target.result.os.tag == .windows) {
         net_module_test.subsystem = .console;
         net_module_test.entry = .{ .symbol_name = "mainCRTStartup" };
     }
     const net_module_test_run = b.addRunArtifact(net_module_test);
+    setLeakReportStrict(net_module_test_run);
     net_module_test_run.setCwd(b.path("."));
     net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else "zig-out/lib/libNet.so");
     addPathDir(net_module_test_run, rootPath(b, "zig-out/bin"));
@@ -5548,11 +5552,15 @@ fn addInputModuleTest(
     input: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
     linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Input"));
+    // SDL_Quit at the end, on the same SDL the module loaded, as in the SFX module test.
+    module.addIncludePath(sdl_include);
+    linkSdlImport(module, target, sdl_dynamic);
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_module_test.cpp" }, .flags = if (target.result.os.tag == .windows) cppflagsForOptimize(optimize) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
