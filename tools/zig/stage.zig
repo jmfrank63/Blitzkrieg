@@ -1,6 +1,30 @@
 const std = @import("std");
 const runtime_verify = @import("verify_runtime.zig");
 
+/// Where a failing check says what is wrong: stderr, or the writer a test set to read the message (a
+/// test that makes the check fail on purpose passes in silence and asserts the message instead).
+pub var diagnostics: ?*std.Io.Writer = null;
+
+fn report(comptime format: []const u8, args: anytype) void {
+    if (diagnostics) |writer| {
+        writer.print(format, args) catch {};
+        return;
+    }
+    std.debug.print(format, args);
+}
+
+/// Sends the diagnostics to `messages` until releaseDiagnostics, so a test that fails a step on
+/// purpose reads its message instead of printing it.
+pub fn captureDiagnostics(messages: *std.Io.Writer.Allocating) void {
+    messages.* = .init(std.testing.allocator);
+    diagnostics = &messages.writer;
+}
+
+pub fn releaseDiagnostics(messages: *std.Io.Writer.Allocating) void {
+    diagnostics = null;
+    messages.deinit();
+}
+
 pub const DataMode = enum { copy, link };
 
 pub const RuntimeLayout = struct {
@@ -253,7 +277,7 @@ fn copyTools(io: std.Io, repo: std.Io.Dir, tool_paths: []const []const u8, doc_p
         var name_buf: [std.fs.max_path_bytes]u8 = undefined;
         const source_dir = if (std.fs.path.isAbsolute(doc_path)) std.Io.Dir.cwd() else repo;
         copyFile(io, source_dir, doc_path, destination, try toolStagedPath(&name_buf, doc_path)) catch |err| {
-            std.debug.print("stage: tool doc '{s}' could not be staged: {s}\n", .{ doc_path, @errorName(err) });
+            report("stage: tool doc '{s}' could not be staged: {s}\n", .{ doc_path, @errorName(err) });
             return error.MissingToolDoc;
         };
     }
@@ -261,7 +285,7 @@ fn copyTools(io: std.Io, repo: std.Io.Dir, tool_paths: []const []const u8, doc_p
         var name_buf: [std.fs.max_path_bytes]u8 = undefined;
         const source_dir = if (std.fs.path.isAbsolute(tool_path)) std.Io.Dir.cwd() else repo;
         copyFile(io, source_dir, tool_path, destination, try toolStagedPath(&name_buf, tool_path)) catch |err| {
-            std.debug.print("stage: tool '{s}' could not be staged: {s}\n", .{ tool_path, @errorName(err) });
+            report("stage: tool '{s}' could not be staged: {s}\n", .{ tool_path, @errorName(err) });
             return error.MissingTool;
         };
         if (std.ascii.endsWithIgnoreCase(tool_path, ".exe")) try copyToolImports(io, destination, try toolStagedPath(&name_buf, tool_path));
@@ -344,7 +368,7 @@ pub const season_data_dir = "SeasonData";
 fn syncSeasonData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, source_path: []const u8, destination: std.Io.Dir) !void {
     const source_root = if (std.fs.path.isAbsolute(source_path)) std.Io.Dir.cwd() else repo;
     var source = source_root.openDir(io, source_path, .{ .iterate = true }) catch |err| {
-        std.debug.print("stage: season data '{s}' could not be opened: {s}\n", .{ source_path, @errorName(err) });
+        report("stage: season data '{s}' could not be opened: {s}\n", .{ source_path, @errorName(err) });
         return err;
     };
     defer source.close(io);
@@ -363,7 +387,7 @@ fn copyMapEditor(io: std.Io, repo: std.Io.Dir, source_path: []const u8, destinat
     const base_name = std.fs.path.basename(source_path);
     const source_dir = if (std.fs.path.isAbsolute(source_path)) std.Io.Dir.cwd() else repo;
     copyFile(io, source_dir, source_path, destination, base_name) catch |err| {
-        std.debug.print("stage: map editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
+        report("stage: map editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
         return error.MissingMapEditor;
     };
 }
@@ -375,20 +399,20 @@ fn copyResourceEditor(io: std.Io, repo: std.Io.Dir, source_path: []const u8, des
     const base_name = std.fs.path.basename(source_path);
     const source_dir = if (std.fs.path.isAbsolute(source_path)) std.Io.Dir.cwd() else repo;
     copyFile(io, source_dir, source_path, destination, base_name) catch |err| {
-        std.debug.print("stage: resource editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
+        report("stage: resource editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
         return error.MissingResourceEditor;
     };
 }
 
 fn requireStagedFile(io: std.Io, destination: std.Io.Dir, name: []const u8) !void {
     destination.access(io, name, .{}) catch |err| {
-        std.debug.print("stage: staged layout is missing '{s}': {s}\n", .{ name, @errorName(err) });
+        report("stage: staged layout is missing '{s}': {s}\n", .{ name, @errorName(err) });
         return error.MissingStagedFile;
     };
 }
 
 fn failStep(step: []const u8, err: anyerror) anyerror {
-    std.debug.print("stage: step '{s}' failed: {s}\n", .{ step, @errorName(err) });
+    report("stage: step '{s}' failed: {s}\n", .{ step, @errorName(err) });
     return err;
 }
 
@@ -417,7 +441,7 @@ fn rejectStaleImages(io: std.Io, destination: std.Io.Dir) !void {
     var iterator = destination.iterate();
     while (try iterator.next(io)) |entry| {
         if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".stale")) {
-            std.debug.print("stage: stale runtime image '{s}' remains; close the game and remove it before rebuilding\n", .{entry.name});
+            report("stage: stale runtime image '{s}' remains; close the game and remove it before rebuilding\n", .{entry.name});
             return error.StaleRuntimeImage;
         }
     }
@@ -435,11 +459,11 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, des
                 const aside = std.fmt.bufPrint(&aside_buf, "{s}.stale", .{name}) catch return err;
                 destination.deleteFile(io, aside) catch {};
                 destination.rename(name, destination, aside, io) catch |rename_err| {
-                    std.debug.print("stage: could not replace locked '{s}': {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
+                    report("stage: could not replace locked '{s}': {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
                     return error.RuntimeReplacementDenied;
                 };
                 copyRuntimeFile(io, binaries, libraries, name, destination) catch |copy_err| {
-                    std.debug.print("stage: fresh copy of '{s}' failed after move-aside: {s}\n", .{ name, @errorName(copy_err) });
+                    report("stage: fresh copy of '{s}' failed after move-aside: {s}\n", .{ name, @errorName(copy_err) });
                     return copy_err;
                 };
             },
@@ -476,7 +500,7 @@ fn copyRuntimeFile(io: std.Io, binaries: std.Io.Dir, libraries: ?std.Io.Dir, nam
 }
 
 fn missingRuntimeFile(source: []const u8) anyerror {
-    std.debug.print("stage: runtime file '{s}' is in neither zig-out/bin nor zig-out/lib; build game-all first\n", .{source});
+    report("stage: runtime file '{s}' is in neither zig-out/bin nor zig-out/lib; build game-all first\n", .{source});
     return error.MissingRuntimeFile;
 }
 
@@ -538,7 +562,7 @@ fn syncTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
         };
         if (current) continue;
         copyFile(io, entry.dir, entry.basename, destination, entry.path) catch |err| {
-            std.debug.print("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
+            report("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
             return err;
         };
     }
@@ -588,7 +612,7 @@ fn pruneStagedTree(io: std.Io, allocator: std.mem.Allocator, destination: std.Io
     }
 
     for (stale.items) |path| destination.deleteFile(io, path) catch |err| {
-        std.debug.print("stage: stale data file '{s}' could not be removed: {s}\n", .{ path, @errorName(err) });
+        report("stage: stale data file '{s}' could not be removed: {s}\n", .{ path, @errorName(err) });
         return err;
     };
 }
@@ -640,7 +664,7 @@ fn linkData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destinat
     defer allocator.free(link_path);
     std.Io.Dir.symLinkAbsolute(io, data_path, link_path, .{ .is_directory = true }) catch |err| switch (classifyDataLinkError(err)) {
         error.DataLinkPermissionDenied => {
-            std.debug.print("stage: --link-data needs filesystem symlink permission; rerun with --copy-data (the default)\n", .{});
+            report("stage: --link-data needs filesystem symlink permission; rerun with --copy-data (the default)\n", .{});
             return error.DataLinkPermissionDenied;
         },
         else => return err,
@@ -654,7 +678,7 @@ fn copyTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
     while (try walker.next(io)) |entry| {
         if (entry.kind != .file or isForbiddenStagedPath(entry.path)) continue;
         copyFile(io, entry.dir, entry.basename, destination, entry.path) catch |err| {
-            std.debug.print("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
+            report("stage: data file '{s}' failed: {s}\n", .{ entry.path, @errorName(err) });
             return err;
         };
     }

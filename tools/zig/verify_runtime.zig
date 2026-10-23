@@ -1,5 +1,17 @@
 const std = @import("std");
 
+/// Where a failing check says what is wrong: stderr, or the writer a test set to read the message (a
+/// test that makes the check fail on purpose passes in silence and asserts the message instead).
+pub var diagnostics: ?*std.Io.Writer = null;
+
+fn report(comptime format: []const u8, args: anytype) void {
+    if (diagnostics) |writer| {
+        writer.print(format, args) catch {};
+        return;
+    }
+    std.debug.print(format, args);
+}
+
 pub const RuntimeTarget = enum { windows, linux, macos };
 
 const windows_runtime_names = [_][]const u8{
@@ -158,7 +170,7 @@ pub fn verifyStagedLayout(names: []const []const u8, target: RuntimeTarget) Veri
     }
     for (required_tool_docs) |required| {
         if (!containsPath(names, required)) {
-            std.debug.print("verify-runtime: missing tools guide file: {s}\n", .{required});
+            report("verify-runtime: missing tools guide file: {s}\n", .{required});
             return error.MissingToolDoc;
         }
     }
@@ -384,6 +396,18 @@ fn asciiLower(byte: u8) u8 {
     return if (byte >= 'A' and byte <= 'Z') byte + ('a' - 'A') else byte;
 }
 
+/// Sends the diagnostics to `messages` until releaseDiagnostics, so a test that fails a check on
+/// purpose reads its message instead of printing it.
+pub fn captureDiagnostics(messages: *std.Io.Writer.Allocating) void {
+    messages.* = .init(std.testing.allocator);
+    diagnostics = &messages.writer;
+}
+
+pub fn releaseDiagnostics(messages: *std.Io.Writer.Allocating) void {
+    diagnostics = null;
+    messages.deinit();
+}
+
 test "runtime verifier uses target-correct names" {
     try std.testing.expectEqualStrings("PlatformRuntime.dll", runtimeName(.windows));
     try std.testing.expectEqualStrings("libPlatformRuntime.so", runtimeName(.linux));
@@ -456,7 +480,14 @@ test "staged layout requires canonical metadata and essential data roots" {
     } ++ staged_docs;
     try std.testing.expect(isValidStagedLayout(&complete, .linux));
 
-    try std.testing.expect(!isValidStagedLayout(complete[0 .. complete.len - 1], .linux));
+    {
+        // The last entry is the Spanish tools guide.
+        var messages: std.Io.Writer.Allocating = undefined;
+        captureDiagnostics(&messages);
+        defer releaseDiagnostics(&messages);
+        try std.testing.expect(!isValidStagedLayout(complete[0 .. complete.len - 1], .linux));
+        try std.testing.expectEqualStrings("verify-runtime: missing tools guide file: Tools/README_Spanish.md\n", messages.written());
+    }
 
     const missing_data = [_][]const u8{
         "Game",               "libPlatformRuntime.so",             "libStreamIO.so",         "libStreamIOOptionsAbi.so", "libAnim.so",
@@ -486,7 +517,11 @@ test "staged layout requires the tools guide in every language" {
             kept[count] = name;
             count += 1;
         }
+        var messages: std.Io.Writer.Allocating = undefined;
+        captureDiagnostics(&messages);
+        defer releaseDiagnostics(&messages);
         try std.testing.expectError(error.MissingToolDoc, verifyStagedLayout(&kept, .linux));
+        try std.testing.expect(std.mem.indexOf(u8, messages.written(), dropped) != null);
     }
     // A missing root translation is a metadata fault, not a guide fault.
     var no_german: [complete.len - 1][]const u8 = undefined;
@@ -739,14 +774,14 @@ pub fn verifyL10nInstall(io: std.Io, allocator: std.mem.Allocator, root: std.Io.
         missing.deinit(allocator);
     }
     try collectMissingL10nInstall(io, allocator, root, &missing);
-    for (missing.items) |path| std.debug.print("verify-runtime: missing {s}\n", .{path});
+    for (missing.items) |path| report("verify-runtime: missing {s}\n", .{path});
     var not_texts: std.ArrayListUnmanaged([]const u8) = .empty;
     defer {
         for (not_texts.items) |line| allocator.free(line);
         not_texts.deinit(allocator);
     }
     try collectNotTextsOnly(io, allocator, root, &not_texts);
-    for (not_texts.items) |line| std.debug.print("verify-runtime: not texts only {s}\n", .{line});
+    for (not_texts.items) |line| report("verify-runtime: not texts only {s}\n", .{line});
     if (missing.items.len != 0 or not_texts.items.len != 0) return error.MissingL10nInstall;
 }
 
@@ -871,7 +906,11 @@ test "l10n install check names a language mod without its texts.pak" {
     try writeL10nInstallFixture(io, tmp.dir);
     try tmp.dir.deleteFile(io, "mods/lang-pt-br/data/texts.pak");
     try expectMissing(io, tmp.dir, &.{"mods/lang-pt-br/data/texts.pak"});
+    var messages: std.Io.Writer.Allocating = undefined;
+    captureDiagnostics(&messages);
+    defer releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingL10nInstall, verifyL10nInstall(io, std.testing.allocator, tmp.dir));
+    try std.testing.expectEqualStrings("verify-runtime: missing mods/lang-pt-br/data/texts.pak\n", messages.written());
 }
 
 test "l10n install check names a missing mod.xml and a whole missing mod" {
@@ -923,7 +962,11 @@ test "texts-only check names a Private Use Area code point in a pak entry" {
     try writeL10nInstallFixture(io, tmp.dir);
     try writeTextsPak(io, tmp.dir, "lang-fr", &.{ 0xFEFF, 'a', 0xE123 });
     try expectNotTextsOnly(io, tmp.dir, &.{"mods/lang-fr/data/texts.pak: entry a.txt holds Private Use Area code point U+E123"});
+    var messages: std.Io.Writer.Allocating = undefined;
+    captureDiagnostics(&messages);
+    defer releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingL10nInstall, verifyL10nInstall(io, std.testing.allocator, tmp.dir));
+    try std.testing.expectEqualStrings("verify-runtime: not texts only mods/lang-fr/data/texts.pak: entry a.txt holds Private Use Area code point U+E123\n", messages.written());
 }
 
 test "texts-only check names a fonts directory and a face inside a mod" {

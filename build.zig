@@ -3132,6 +3132,8 @@ pub fn build(b: *std.Build) void {
         .file = b.path("tools/zig/scene_screen_scale_test.cpp"),
         .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
     });
+    // Its own Globals.h (every option at its default) comes before the engine's headers.
+    scene_scale_module.addIncludePath(b.path("tools/zig/scene_scale_test"));
     scene_scale_module.addIncludePath(b.path("Sources/src"));
     addMsvcIncludePaths(b, scene_scale_module, toolchain);
     addMsvcLibraryPaths(b, scene_scale_module, toolchain);
