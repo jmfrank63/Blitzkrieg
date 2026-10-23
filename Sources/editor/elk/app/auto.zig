@@ -225,8 +225,8 @@ pub const Runner = struct {
     dialog_folder: []const u8 = "",
     /// Where `shot=` writes its `<name>.tga`; "" is the working directory.
     shot_folder: []const u8 = "",
-    /// Allocator for the capture's pixel buffer.
-    gpa: std.mem.Allocator = std.heap.page_allocator,
+    /// Allocator for the capture's pixel buffer: the process's one heap, passed by the app.
+    gpa: std.mem.Allocator,
     io: ?std.Io = null,
     /// Text events borrow their bytes until ImGui copies them in.
     text_storage: [schedule.max_arg_len + 1]u8 = undefined,

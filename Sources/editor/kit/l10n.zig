@@ -14,9 +14,18 @@
 //!
 //! Hindi text goes through `fonts.encodeHindi` so each shaped cluster is one Private Use Area
 //! character; load the fonts before the first Hindi lookup, since a table is encoded when it is
-//! first needed. Pointers `t` and `id` return stay valid for the life of the process (a language's
-//! table is kept once built, until `setOverrideDir` replaces the tables).
+//! first needed. Pointers `t` and `id` return stay valid until `deinit` (a language's table is kept
+//! once built, until `setOverrideDir` replaces the tables or `deinit` frees them).
+//!
+//! The embedded English table is built at compile time and takes no memory. Every other table, and
+//! English from `BK_L10N_DIR`, lives on the process's one heap (D071, D083), so whoever selects one
+//! owns it: an app calls `deinit` before it exits, or BkMemory's exit report counts the tables as
+//! leaked, and a test that switches the language calls it before it returns. In a test build those
+//! tables come from `std.testing.allocator`, so a test that forgets fails by name instead of adding
+//! blocks to a count at the binary's exit that no test is blamed for.
 const std = @import("std");
+const builtin = @import("builtin");
+const bk_memory = @import("bk_memory_allocator");
 const languages = @import("l10n_languages");
 const fonts = @import("fonts.zig");
 const imgui = @import("editor_imgui");
@@ -216,29 +225,103 @@ const Loaded = struct {
     announced: [en_keys.len]bool = @splat(false),
 };
 
+fn terminated(comptime text: []const u8) [:0]const u8 {
+    return (text ++ "\x00")[0..text.len :0];
+}
+
+/// A value of `en.lang` with its escapes resolved, at compile time.
+fn unescapeComptime(comptime raw: []const u8) [:0]const u8 {
+    if (std.mem.indexOfScalar(u8, raw, '\\') == null) return terminated(raw);
+    var out: []const u8 = "";
+    var at: usize = 0;
+    while (at < raw.len) : (at += 1) {
+        if (raw[at] != '\\') {
+            out = out ++ raw[at .. at + 1];
+            continue;
+        }
+        at += 1;
+        if (at == raw.len) @compileError("l10n: lang/en.lang ends a value with a backslash");
+        out = out ++ switch (raw[at]) {
+            'n' => "\n",
+            't' => "\t",
+            '\\' => "\\",
+            else => @compileError("l10n: lang/en.lang has a bad escape"),
+        };
+    }
+    return terminated(out);
+}
+
+/// The embedded English table, what `build(0)` makes of it, as static data: nearly every lookup in
+/// the editors' tests is English, and none of them should have to free a table.
+var builtin_english: Loaded = blk: {
+    @setEvalBranchQuota(10_000_000);
+    var loaded: Loaded = .{ .arena = .init(std.mem.Allocator.failing) };
+    var n: usize = 0;
+    var lines = std.mem.splitScalar(u8, embedded[0], '\n');
+    while (lines.next()) |text| {
+        switch (classify(text)) {
+            .skip, .bad => {},
+            .entry => |e| {
+                const value = unescapeComptime(e.raw);
+                loaded.raw[n] = value;
+                loaded.shown[n] = value;
+                loaded.shown_id[n] = terminated(value ++ "###" ++ e.key);
+                n += 1;
+            },
+        }
+    }
+    break :blk loaded;
+};
+
 var tables: [codes.len]?*Loaded = @splat(null);
 var current: usize = 0;
 var override_dir: ?[]const u8 = null;
 var override_io: ?std.Io = null;
 
-const page = std.heap.page_allocator;
+/// A function, not a constant: `std.testing.allocator` is a fresh instance in every test.
+fn heap() std.mem.Allocator {
+    return if (builtin.is_test) std.testing.allocator else bk_memory.allocator;
+}
+
+fn dropTables() void {
+    for (&tables) |*slot| {
+        if (slot.*) |loaded| {
+            if (loaded != &builtin_english) {
+                loaded.arena.deinit();
+                heap().destroy(loaded);
+            }
+            slot.* = null;
+        }
+    }
+}
 
 /// Loads tables from `<dir>/<code>.lang` when that file exists, else from the embedded ones. The
 /// directory is copied. Drops every table built so far. Apps pass the `BK_L10N_DIR` value.
 pub fn setOverrideDir(io: std.Io, dir: ?[]const u8) void {
-    for (&tables) |*slot| {
-        if (slot.*) |loaded| {
-            loaded.arena.deinit();
-            page.destroy(loaded);
-            slot.* = null;
-        }
-    }
-    if (override_dir) |old| page.free(old);
+    dropTables();
+    if (override_dir) |old| heap().free(old);
     override_dir = null;
     override_io = io;
     if (dir) |d| {
-        if (d.len != 0) override_dir = page.dupe(u8, d) catch null;
+        if (d.len != 0) override_dir = heap().dupe(u8, d) catch null;
     }
+}
+
+/// Frees every table and the override directory and selects English again: the state before the
+/// first lookup. Every pointer `t`, `id` and `str` returned is dangling afterwards, so an app calls
+/// it last, after its window and ImGui context are gone. Calling it with nothing built is harmless.
+pub fn deinit() void {
+    dropTables();
+    if (override_dir) |old| heap().free(old);
+    override_dir = null;
+    override_io = null;
+    current = 0;
+}
+
+/// A table problem on stderr, where a user running the editor from a terminal sees it. The tests
+/// provoke every one of them on purpose and check the outcome instead, so a test build stays quiet.
+fn warn(comptime fmt: []const u8, args: anytype) void {
+    if (!builtin.is_test) std.debug.print(fmt, args);
 }
 
 fn langIndex(code: []const u8) ?usize {
@@ -256,12 +339,18 @@ fn tableBytes(arena: std.mem.Allocator, index: usize) []const u8 {
 }
 
 fn build(index: usize) *Loaded {
-    const loaded = page.create(Loaded) catch @panic("l10n: out of memory");
-    loaded.* = .{ .arena = std.heap.ArenaAllocator.init(page) };
+    const loaded = heap().create(Loaded) catch @panic("l10n: out of memory");
+    loaded.* = .{ .arena = std.heap.ArenaAllocator.init(heap()) };
     const arena = loaded.arena.allocator();
+    const bytes = tableBytes(arena, index);
+    if (index == 0 and bytes.ptr == embedded[0].ptr) {
+        loaded.arena.deinit();
+        heap().destroy(loaded);
+        return &builtin_english;
+    }
     var diag: Diagnostic = .{};
-    const entries = parse(arena, tableBytes(arena, index), &diag) catch |err| blk: {
-        std.debug.print("l10n: {s}.lang line {d}: {s}\n", .{ codes[index], diag.line, @errorName(err) });
+    const entries = parse(arena, bytes, &diag) catch |err| blk: {
+        warn("l10n: {s}.lang line {d}: {s}\n", .{ codes[index], diag.line, @errorName(err) });
         break :blk if (index == 0) &[_]Entry{} else parse(arena, embedded[index], null) catch &[_]Entry{};
     };
     for (entries) |entry| {
@@ -306,14 +395,14 @@ fn firstMissing(loaded: *Loaded, index: usize, key_index: usize) bool {
 
 fn noteMissing(index: usize, comptime key: []const u8) void {
     const loaded = table(index);
-    if (firstMissing(loaded, index, keyIndex(key))) std.debug.print("l10n: missing {s} {s}\n", .{ codes[index], key });
+    if (firstMissing(loaded, index, keyIndex(key))) warn("l10n: missing {s} {s}\n", .{ codes[index], key });
 }
 
 /// Switches the language; `code` is one of `codes`. Anything else logs
 /// `l10n: unknown ui_language <code>, using en` and selects English.
 pub fn setLanguage(code: []const u8) void {
     current = langIndex(code) orelse blk: {
-        std.debug.print("l10n: unknown ui_language {s}, using en\n", .{code});
+        warn("l10n: unknown ui_language {s}, using en\n", .{code});
         break :blk 0;
     };
     _ = table(current);
@@ -448,16 +537,11 @@ fn fromLocales(os_locales: []const []const u8) []const u8 {
 /// `resolveLanguage` plus the log line for an unknown value and `setLanguage`.
 pub fn applySetting(setting: []const u8, os_locales: []const []const u8) void {
     const resolved = resolveLanguage(setting, os_locales);
-    if (resolved.unknown_setting) std.debug.print("l10n: unknown ui_language {s}, using {s}\n", .{ setting, resolved.code });
+    if (resolved.unknown_setting) warn("l10n: unknown ui_language {s}, using {s}\n", .{ setting, resolved.code });
     setLanguage(resolved.code);
 }
 
 // --------------------------------------------------------------------- tests
-
-fn resetForTest() void {
-    setOverrideDir(std.testing.io, null);
-    current = 0;
-}
 
 test "parse reads CRLF, comments, blank lines and escapes" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -500,6 +584,21 @@ test "every embedded table parses, has exactly the English keys and no ID suffix
     }
 }
 
+test "the compile-time English table is the parsed en.lang, and selecting English allocates nothing" {
+    defer deinit();
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const entries = try parse(arena_state.allocator(), embedded[0], null);
+    for (entries, 0..) |entry, i| {
+        try std.testing.expectEqualStrings(entry.value, builtin_english.raw[i].?);
+        try std.testing.expectEqualStrings(entry.value, builtin_english.shown[i]);
+        const with_id = try std.fmt.allocPrint(arena_state.allocator(), "{s}###{s}", .{ entry.value, entry.key });
+        try std.testing.expectEqualStrings(with_id, builtin_english.shown_id[i]);
+    }
+    setLanguage("en");
+    try std.testing.expect(table(0) == &builtin_english);
+}
+
 test "the language list is en plus the nine and every code has a native name" {
     try std.testing.expectEqual(@as(usize, 10), codes.len);
     try std.testing.expectEqualStrings("English", nativeName("en"));
@@ -508,8 +607,8 @@ test "the language list is en plus the nine and every code has a native name" {
 }
 
 test "t and id follow the language and id appends the key" {
-    defer resetForTest();
-    resetForTest();
+    defer deinit();
+    deinit();
     setLanguage("en");
     try std.testing.expectEqualStrings("Language", std.mem.span(t("kit.language.label")));
     try std.testing.expectEqualStrings("Language###kit.language.label", std.mem.span(id("kit.language.label")));
@@ -523,8 +622,8 @@ test "t and id follow the language and id appends the key" {
 }
 
 test "id gives equal translations different ImGui IDs, and the same ID in every language" {
-    defer resetForTest();
-    resetForTest();
+    defer deinit();
+    deinit();
     // Two buttons that read the same in a language share the text; ImGui hashes the part after ### when there is one.
     const first = "resource_app.unsaved.cancel";
     const second = "resource_app.common.cancel";
@@ -540,16 +639,16 @@ test "id gives equal translations different ImGui IDs, and the same ID in every 
 }
 
 test "an unknown code selects English" {
-    defer resetForTest();
-    resetForTest();
+    defer deinit();
+    deinit();
     setLanguage("de");
     setLanguage("xx");
     try std.testing.expectEqualStrings("en", language());
 }
 
 test "a missing key falls back to English and is reported once" {
-    defer resetForTest();
-    resetForTest();
+    defer deinit();
+    deinit();
     const loaded = table(langIndex("fr").?);
     const k = comptime keyIndex("kit.language.system");
     loaded.raw[k] = null;
@@ -562,8 +661,8 @@ test "a missing key falls back to English and is reported once" {
 }
 
 test "format fills numbered slots with strings and integers" {
-    defer resetForTest();
-    resetForTest();
+    defer deinit();
+    deinit();
     const loaded = table(0);
     const k = comptime keyIndex("kit.language.label");
     const saved = loaded.raw[k];
@@ -580,8 +679,8 @@ test "format fills numbered slots with strings and integers" {
 }
 
 test "BK_L10N_DIR replaces a table and a key it lacks falls back to English" {
-    defer resetForTest();
-    resetForTest();
+    defer deinit();
+    deinit();
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "de.lang", .data = "kit.language.label=Zunge\r\n" });

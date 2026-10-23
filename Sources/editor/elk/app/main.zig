@@ -436,6 +436,9 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
 
 fn run(minimal: std.process.Init.Minimal) !u8 {
     const gpa = bk_memory.allocator;
+    // The first defer, so the last to run: the string tables outlive every window and panel that
+    // drew them, and are freed before the exit report counts what is left.
+    defer l10n.deinit();
     var threaded: std.Io.Threaded = .init(gpa, .{ .environ = minimal.environ });
     defer threaded.deinit();
     const io = threaded.io();

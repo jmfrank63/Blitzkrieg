@@ -3771,6 +3771,8 @@ pub fn build(b: *std.Build) void {
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     // kit/fonts.zig and kit/l10n.zig reach the HarfBuzz font loader in imgui_backend.cpp, which needs the C++ runtime.
     if (!build_support.usesMsvc(platform)) linkCxxRuntime(editor_kit_module, target);
+    // kit/l10n.zig keeps its tables on the process's one heap, so the exit report sees them.
+    linkBkMemoryAllocator(b, editor_kit_module, false);
     // The test tiers build for the requested target. Only an MSVC target needs
     // the Visual Studio library paths (Zig's own libc supplies the runtime, and
     // naming vcruntimed too fails to link); MinGW has everything built in.
@@ -10905,6 +10907,8 @@ fn editorAppKit(
     });
     // bridge.h, for kit/host.zig's translation.
     kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // kit/l10n.zig's tables, on the process's one heap; every app on this kit links BkMemory itself.
+    linkBkMemoryAllocator(b, kit_module, true);
     addMsvcIncludePaths(b, kit_module, toolchain);
     addMsvcLibraryPaths(b, kit_module, toolchain);
     return .{ .sdl = sdl_module, .kit = kit_module };

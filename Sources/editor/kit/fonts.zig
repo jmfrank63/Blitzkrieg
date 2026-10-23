@@ -16,6 +16,7 @@
 //! Area character, and the loader draws that character as the whole shaped
 //! cluster. Half forms take the advance of the cluster shaped alone.
 const std = @import("std");
+const builtin = @import("builtin");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
 
@@ -85,7 +86,8 @@ pub fn verifyDir(io: std.Io, root: std.Io.Dir, dir: []const u8) Error!void {
     for (std.enums.values(Face)) |face| {
         const path = try facePath(&buffer, dir, face);
         _ = root.statFile(io, path, .{}) catch {
-            std.debug.print("fonts: missing font file {s}\n", .{path});
+            // The test of this error provokes it on purpose; the error itself is what it checks.
+            if (!builtin.is_test) std.debug.print("fonts: missing font file {s}\n", .{path});
             return error.FontMissing;
         };
     }
