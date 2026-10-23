@@ -131,6 +131,5 @@ int main()
 	if (!check(state.applied.size() > before_focus_loss && state.applied[before_focus_loss].control == 0x1e,
 	           "same-frame event ordering")) return 1;
 
-	std::puts("input keyboard and mouse state fixture passed");
 	return 0;
 }

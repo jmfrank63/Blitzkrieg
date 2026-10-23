@@ -38,7 +38,5 @@ int main()
 	// Nothing is drawn by a transparent shadow anyway.
 	Check( !UIShouldDrawTextShadow( 0x00000000, 0xffffffff ), "transparent shadow drops" );
 
-	if ( nFailures == 0 )
-		std::printf( "ui-text-shadow: PASS\n" );
 	return nFailures == 0 ? 0 : 1;
 }

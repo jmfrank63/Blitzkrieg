@@ -50,6 +50,5 @@ int main() {
     if (!Check(api->socket_open_tcp(&client) == BK_PLATFORM_ERROR_NOT_INITIALIZED, "open after done rejected")) return 22;
 
     api->runtime_destroy();
-    std::puts("platform socket ABI passed: opaque generational handles");
     return 0;
 }

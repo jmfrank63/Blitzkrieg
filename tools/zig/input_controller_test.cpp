@@ -145,6 +145,5 @@ int main()
 	input.Consume(Added(11, "TwinPad"));
 	if (!Check(input.host_to_runtime[11] == 5, "reconnect receives a fresh runtime generation")) return 1;
 
-	std::puts("input controller mapping fixture passed");
 	return 0;
 }

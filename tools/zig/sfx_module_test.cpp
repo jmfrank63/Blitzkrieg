@@ -47,7 +47,11 @@ static bool CheckVoiceRamps(NPlatform::DynamicLibrary& module)
 		}
 		const float fMid = mix[(nFrames / 2 - 1) * 2];
 		const float fEnd = mix[(nFrames - 1) * 2];
-		std::printf("sfx voice %s: peak %.4f (mix level %.4f), largest step %.5f, at 100 ms %.4f, at the end %.4f\n", names[nScenario], fPeak, fLevel, fStep, fMid, fEnd);
+		// The measurement is the context of a failure; a voice that passes says nothing.
+		const bool bRamps = fStep < fMaxStep && fPeak <= fLevel * 1.02f && std::fabs(fMid - fLevel) < fLevel * 0.02f &&
+			std::fabs(fEnd - (nScenario == 1 ? fLevel : 0.0f)) < 0.001f;
+		if (!bRamps)
+			std::printf("sfx voice %s: peak %.4f (mix level %.4f), largest step %.5f, at 100 ms %.4f, at the end %.4f\n", names[nScenario], fPeak, fLevel, fStep, fMid, fEnd);
 		if (!Check(fStep < fMaxStep, "a voice changes level by ramps, never by a jump (click)"))
 			return false;
 		if (!Check(fPeak <= fLevel * 1.02f, "a voice never plays louder than its mix volume"))
@@ -150,7 +154,5 @@ int main(int argc, char** argv)
 	}
 	sfx->Release();
 	ReleaseEngine(argv[1]);
-
-	std::printf("sfx module lifecycle passed: Sound v0100 types=6 no-device restart%s\n", bRealDevice ? " real-device" : "");
 	return 0;
 }

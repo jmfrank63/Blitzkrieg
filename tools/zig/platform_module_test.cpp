@@ -57,6 +57,5 @@ int main() {
         }
     }
     if (module_type_count != 2 || module_types[0] != 3 || module_types[1] != 7) return 1;
-    puts("platform module contract tests passed");
     return 0;
 }

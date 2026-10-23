@@ -330,6 +330,5 @@ int main()
 		std::fprintf( stderr, "wheel scroll: %d check(s) failed\n", failures );
 		return 1;
 	}
-	std::puts( "wheel scroll: PASS" );
 	return 0;
 }

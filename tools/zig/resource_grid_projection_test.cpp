@@ -154,6 +154,6 @@ int main()
 	FillBresenham( 0, 0, 5, 1, bres );
 	CHECK( bres.size() == 7 && bres.front() == std::make_pair( 0, 0 ) && bres.back() == std::make_pair( 5, 1 ) );
 
-	std::fprintf( stderr, g_fail ? "resource-grid-projection FAILED (%d)\n" : "resource-grid-projection OK\n", g_fail );
+	if ( g_fail ) std::fprintf( stderr, "resource-grid-projection FAILED (%d)\n", g_fail );
 	return g_fail ? 1 : 0;
 }

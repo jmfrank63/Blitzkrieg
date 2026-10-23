@@ -592,9 +592,7 @@ int main( int argc, char **argv )
 				++nTemplatesOk;
 		}
 		const bool bAll = nContainersOk == int( containers.size() ) && nGraphsOk == int( graphs.size() ) && nFieldSetsOk == int( fieldSets.size() ) && nTemplatesOk == int( templates.size() );
-		if ( bAll )
-			printf( "composer-roundtrip: %d templates, %d graphs, %d containers, %d field sets ok\n", nTemplatesOk, nGraphsOk, nContainersOk, nFieldSetsOk );
-		else
+		if ( !bAll )
 			printf( "composer-roundtrip: only %d of %d templates, %d of %d graphs, %d of %d containers and %d of %d field sets round-tripped\n", nTemplatesOk, int( templates.size() ), nGraphsOk, int( graphs.size() ), nContainersOk, int( containers.size() ), nFieldSetsOk, int( fieldSets.size() ) );
 		if ( g_nFailures == 0 )
 			std::filesystem::remove_all( root, error );
@@ -605,7 +603,5 @@ int main( int argc, char **argv )
 	BkEditorStop( pSession );
 	SDL_DestroyWindow( pWindow );
 	SDL_Quit();
-	if ( g_nFailures == 0 )
-		printf( "composer-roundtrip: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
 }

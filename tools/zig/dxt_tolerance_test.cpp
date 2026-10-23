@@ -151,6 +151,14 @@ int main( int argc, char **argv )
 	const bool bCheck = argc >= 4 && std::string( argv[3] ) == "--check";
 
 	std::vector<SMeasured> measured;
+	// The per-file and gate numbers: printed at once when measuring, and by --check only when the
+	// committed file differs, so a passing check prints nothing.
+	std::string szReport;
+	auto report = [&]( const std::string &szLine )
+	{
+		if ( bCheck ) szReport += szLine;
+		else std::fputs( szLine.c_str(), stderr );
+	};
 	// Pooled histograms per format: ndxt colour, ndxt alpha, legacy colour, legacy alpha.
 	std::vector<std::vector<std::vector<long long>>> pooled( 3, std::vector<std::vector<long long>>( 4, std::vector<long long>( 256, 0 ) ) );
 	for ( const SFile &file : kFiles )
@@ -183,9 +191,9 @@ int main( int argc, char **argv )
 		AddHistogram( pooled[nFormat][3], legacy.alpha );
 		measured.push_back( { &file, image.mips[0].nWidth, image.mips[0].nHeight, static_cast<int>( image.mips.size() ), nAlphaPixels,
 		                      ndxt.Stats(), legacy.Stats() } );
-		std::fprintf( stderr, "%s %s %dx%d mips=%zu alpha_pixels=%lld ndxt_reencode %s legacy_vs_ndxt %s\n", file.pszFormat, file.pszPath,
-		              image.mips[0].nWidth, image.mips[0].nHeight, image.mips.size(), nAlphaPixels, Stats( measured.back().ndxt ).c_str(),
-		              Stats( measured.back().legacy ).c_str() );
+		report( std::string( file.pszFormat ) + " " + file.pszPath + " " + std::to_string( image.mips[0].nWidth ) + "x" + std::to_string( image.mips[0].nHeight )
+		        + " mips=" + std::to_string( image.mips.size() ) + " alpha_pixels=" + std::to_string( nAlphaPixels ) + " ndxt_reencode "
+		        + Stats( measured.back().ndxt ) + " legacy_vs_ndxt " + Stats( measured.back().legacy ) + "\n" );
 	}
 
 	// CRLF, as .gitattributes materialises tracked text; LF would make --check fail on a fresh checkout.
@@ -220,7 +228,7 @@ int main( int argc, char **argv )
 				Widen( gate, m.legacy );
 			}
 		json << "    \"" << kFormats[f] << "\": " << Stats( gate ) << ( f + 1 < 3 ? "," : "" ) << eol;
-		std::fprintf( stderr, "gate %s %s\n", kFormats[f], Stats( gate ).c_str() );
+		report( std::string( "gate " ) + kFormats[f] + " " + Stats( gate ) + "\n" );
 	}
 	json << "  }" << eol;
 	json << "}" << eol;
@@ -246,12 +254,12 @@ int main( int argc, char **argv )
 			size_t nAt = 0;
 			while ( nAt < committed.size() && nAt < body.size() && committed[nAt] == body[nAt] )
 				++nAt;
+			std::fputs( szReport.c_str(), stderr );
 			const size_t nLine = body.rfind( '\n', nAt ) == std::string::npos ? 0 : body.rfind( '\n', nAt ) + 1;
 			std::fprintf( stderr, "FAIL %s differs from the measurement at byte %zu; run zig build measure-dxt-tolerance and review.\n  measured: %s\n",
 			              jsonPath.string().c_str(), nAt, body.substr( nLine, body.find( '\n', nAt ) - nLine ).c_str() );
 			return 1;
 		}
-		std::fprintf( stderr, "PASS %s matches the measurement of %zu shipped textures\n", jsonPath.string().c_str(), measured.size() );
 		return 0;
 	}
 	fs::create_directories( jsonPath.parent_path(), error );

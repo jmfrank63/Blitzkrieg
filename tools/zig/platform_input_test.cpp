@@ -16,6 +16,5 @@ int main()
 	if (!Check(utf16[2] == 0xd83d && utf16[3] == 0xdca5, "Unicode supplementary text")) return 1;
 	if (!Check(NInput::SDLScancodeToLegacy(4) == 0x1e, "SDL A scancode")) return 1;
 	if (!Check(NInput::SDLScancodeToLegacy(41) == 0x01, "SDL escape scancode")) return 1;
-	std::puts("platform input event contract passed");
 	return 0;
 }

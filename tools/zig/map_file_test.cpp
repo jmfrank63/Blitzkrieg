@@ -3,6 +3,7 @@
 #include "StdAfx.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdarg>
 #include <cstddef>
 #include <functional>
 #include <limits>
@@ -21,10 +22,32 @@
 
 static int g_nFailures = 0;
 
+// What the tier measured on the way (a count, the map a case used) is context
+// for a failure, not news on a pass: it waits here and prints just before the
+// next FAIL line, or at the end of a failing run.
+static std::string g_szNotes;
+
+static void Note( const char *pszFormat, ... )
+{
+	char szLine[4096];
+	va_list args;
+	va_start( args, pszFormat );
+	vsnprintf( szLine, sizeof( szLine ), pszFormat, args );
+	va_end( args );
+	g_szNotes += szLine;
+}
+
+static void FlushNotes()
+{
+	fputs( g_szNotes.c_str(), stdout );
+	g_szNotes.clear();
+}
+
 static bool Check( bool bCondition, const char *pszWhat )
 {
 	if ( !bCondition )
 	{
+		FlushNotes();
 		printf( "FAIL: %s\n", pszWhat );
 		++g_nFailures;
 	}
@@ -556,7 +579,7 @@ static void TestPreprocessingChangesUnpaintedTiles()
 		}
 	}
 	if ( Check( nFoundX >= 0, "a paint exists that the preprocessing pass widens" ) )
-		printf( "map-file: preprocessing changed %d unpainted tiles around %d,%d\n",
+		Note( "map-file: preprocessing changed %d unpainted tiles around %d,%d\n",
 		        nChangedOutside, nFoundX, nFoundY );
 }
 
@@ -596,7 +619,7 @@ static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
 	}
 	if ( nReadLeft != nSize || nReadRight != nSize )
 	{
-		printf( "  (identical? sizes L=%d R=%d, read L=%d R=%d)\n", nSize, pR->GetSize(), nReadLeft, nReadRight );
+		Note( "  (identical? sizes L=%d R=%d, read L=%d R=%d)\n", nSize, pR->GetSize(), nReadLeft, nReadRight );
 		return false;
 	}
 	if ( nSize == 0 || memcmp( &(left[0]), &(right[0]), nSize ) == 0 )
@@ -604,7 +627,7 @@ static bool FilesAreIdentical( const char *pszLeft, const char *pszRight )
 	for ( int i = 0; i < nSize; ++i )
 		if ( left[i] != right[i] )
 		{
-			printf( "  (identical? size %d, first difference at %d: %02x vs %02x)\n",
+			Note( "  (identical? size %d, first difference at %d: %02x vs %02x)\n",
 			             nSize, i, (unsigned char)left[i], (unsigned char)right[i] );
 			break;
 		}
@@ -623,7 +646,7 @@ static void TestCameraAnchorRecords()
 		return;
 	NMapRecords::SCameraAnchors before;
 	NMapRecords::GetCameraAnchors( original, &before );
-	printf( "map-file: coldwinter has %d camera anchor slots, neutral %s\n",
+	Note( "map-file: coldwinter has %d camera anchor slots, neutral %s\n",
 	        int( before.players.size() ), before.vNeutral == VNULL3 ? "unset" : "set" );
 	const CVec3 vAnchor( 100.0f, 120.0f, 4.0f );
 
@@ -690,7 +713,6 @@ static void TestCameraAnchorRecords()
 		remove( "zig-out/local-test/anchors-edited.bzm" );
 		remove( "zig-out/local-test/anchors-undone.bzm" );
 	}
-	printf( "map-file: M2 camera anchor records ok\n" );
 }
 
 // ---------------------------------------------------------------------------
@@ -806,7 +828,6 @@ static void TestAltitudeRegion()
 	std::string szWhere;
 	Check( NMapFile::AreEquivalent( before, original, &szWhere ),
 	       szWhere.empty() ? "and the refusals changed nothing" : ( "a refusal changed " + szWhere ).c_str() );
-	printf( "map-file: M3 altitude region ok\n" );
 }
 
 // Fill Entire Map's tile write, at the overlay level (05-02, D-22). The
@@ -937,7 +958,6 @@ static void TestM3FillRegion()
 			remove( "zig-out/local-test/m3-fill-unedited.bzm" );
 		}
 	}
-	printf( "map-file: M3 fill ok\n" );
 }
 
 // Walks a directory through a storage of its own, opened on the folder and
@@ -1143,7 +1163,7 @@ static SM2Maps FindM2Maps()
 		if ( found.szBridges.empty() && !map.bridges.empty() ) found.szBridges = paths[i];
 		if ( found.szEntrenchments.empty() && !map.entrenchments.empty() ) found.szEntrenchments = paths[i];
 	}
-	printf( "map-file: M2 data found in %d maps: script file %s, areas %s, groups %s, start commands %s, reserve %s, AI sides %s, roads %s, rivers %s, bridges %s, entrenchments %s\n",
+	Note( "map-file: M2 data found in %d maps: script file %s, areas %s, groups %s, start commands %s, reserve %s, AI sides %s, roads %s, rivers %s, bridges %s, entrenchments %s\n",
 	        nRead, found.szScriptFile.c_str(), found.szScriptAreas.c_str(), found.szGroups.c_str(), found.szStartCommands.c_str(),
 	        found.szReserve.c_str(), found.szAISides.c_str(), found.szRoads.c_str(), found.szRivers.c_str(), found.szBridges.c_str(),
 	        found.szEntrenchments.c_str() );
@@ -1521,7 +1541,7 @@ static void TestM2RecordOps()
 			for ( size_t i = 0; i < map.terrain.roads3.size(); ++i ) bAbove = bAbove && nNext > map.terrain.roads3[i].nID;
 			for ( size_t i = 0; i < map.terrain.rivers.size(); ++i ) bAbove = bAbove && nNext > map.terrain.rivers[i].nID;
 			Check( bAbove, "NextVsoID on arnheim is above every road and river nID" );
-			printf( "map-file: arnheim has %d roads and %d rivers, NextVsoID %d\n", int( map.terrain.roads3.size() ), int( map.terrain.rivers.size() ), nNext );
+			Note( "map-file: arnheim has %d roads and %d rivers, NextVsoID %d\n", int( map.terrain.roads3.size() ), int( map.terrain.rivers.size() ), nNext );
 		}
 	}
 
@@ -1622,7 +1642,6 @@ static void TestM2RecordOps()
 
 	RemoveM2Files();
 	Check( g_nM2Cases >= 30, "at least 30 M2 cases were checked" );
-	printf( "map-file: M2 record ops ok (%d cases)\n", g_nM2Cases );
 }
 
 // ---------------------------------------------------------------------------
@@ -1800,9 +1819,8 @@ static void TestM2ScriptAreaConversion()
 		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, 0 ); } );
 	}
 	else
-		printf( "map-file: no shipped map of the first 60 holds a script area; the byte-exact case ran on coldwinter only\n" );
+		Note( "map-file: no shipped map of the first 60 holds a script area; the byte-exact case ran on coldwinter only\n" );
 	RemoveM2Files();
-	printf( "map-file: M2 script areas ok\n" );
 }
 
 static void TestM2FindReferences()
@@ -1858,7 +1876,6 @@ static void TestM2FindReferences()
 	Check( refs.empty(), "F is not found by a group holding a number equal to its link ID" );
 	NMapOverlay::FindReferences( map, 0, &refs );
 	Check( refs.empty(), "link ID 0 finds nothing, though records list it" );
-	printf( "map-file: M2 find references ok\n" );
 }
 
 typedef std::function<void( const SLoadMapInfo&, const NMapOverlay::SDeletedObject& )> TCascadeVerify;
@@ -2059,7 +2076,6 @@ static void TestM2CascadeKinds()
 		                          NMapRecords::InsertStartCommand( p, -1, MakeStartCommand( nU, nV, 0 ) );
 	                   } );
 	RemoveM2Files();
-	printf( "map-file: M2 cascade kinds ok\n" );
 }
 
 // Read a map, write it untouched, read it back: equivalent. Then write it a
@@ -2226,12 +2242,11 @@ static void TestM2VsoBuilder()
 		if ( bShared )
 		{
 			++nShared;
-			printf( "map-file: %s repeats a road or river nID\n", paths[i].c_str() );
+			Note( "map-file: %s repeats a road or river nID\n", paths[i].c_str() );
 		}
 	}
-	printf( "map-file: %d of %d maps repeat a road or river nID within a list\n", nShared, nRead );
+	Note( "map-file: %d of %d maps repeat a road or river nID within a list\n", nShared, nRead );
 	RemoveM2Files();
-	printf( "map-file: M2 vso builder ok\n" );
 }
 
 // Broken window 6: a map saves its road and river points as raw bytes
@@ -2324,7 +2339,6 @@ static void TestVsoPointBytes()
 	}
 	Check( bWritten && FilesAreIdentical( M2_EDITED, M2_UNDONE ), "the two maps the two builds are saved into are the same file" );
 	RemoveM2Files();
-	printf( "map-file: vso point bytes ok\n" );
 }
 
 // Broken window 9, the class of window 8 (TestVsoPointBytes): a map saves each
@@ -2398,7 +2412,6 @@ static void TestLinkInfoBytes()
 	}
 	Check( bWritten && FilesAreIdentical( M2_EDITED, M2_UNDONE ), "the two maps the two builds are saved into are the same file" );
 	RemoveM2Files();
-	printf( "map-file: link info bytes ok\n" );
 }
 
 // The inputs of the shipped W_WoodenBig_Heavy_01 and _02
@@ -2592,7 +2605,6 @@ static void TestM2BridgePlan()
 		}
 	}
 	RemoveM2Files();
-	printf( "map-file: M2 bridge plan ok\n" );
 }
 
 // ---------------------------------------------------------------------------
@@ -2792,7 +2804,6 @@ static void TestM2FencePlan()
 		}
 	}
 	RemoveM2Files();
-	printf( "map-file: M2 fence plan ok\n" );
 }
 
 // ---------------------------------------------------------------------------
@@ -2968,7 +2979,6 @@ static void TestM2TrenchOverlay()
 		       "an L running past the map's extent is refused" );
 	}
 	RemoveM2Files();
-	printf( "map-file: M2 trench overlay ok\n" );
 }
 
 // The MFC editor cannot be run here for golden outputs, so the builder's
@@ -3009,7 +3019,7 @@ static void TestM2TrenchProperties()
 	const NMapGeometry::STrenchPlanInput input = ShippedTrenchInput();
 	STrenchLcg random( 20260930u );
 	const int nPolylines = 500;
-	int nPlanned = 0, nShort = 0, nPieces = 0, nArcs = 0, nSections = 0, nBad = 0;
+	int nPlanned = 0, nShort = 0, nPieces = 0, nArcs = 0, nSections = 0;
 	for ( int nLine = 0; nLine < nPolylines; ++nLine )
 	{
 		std::vector<CVec2> clicks;
@@ -3028,9 +3038,8 @@ static void TestM2TrenchProperties()
 			// of the first).
 			std::vector< CTPoint<int> > path;
 			NMapGeometry::TrenchPath( input, clicks, &path, 0 );
-			if ( !Check( szWhy.find( "shorter than one piece" ) != std::string::npos && path.size() < 2,
-			             NStr::Format( "polyline %d is refused only for being shorter than a piece (%s)", nLine, szWhy.c_str() ) ) )
-				++nBad;
+			Check( szWhy.find( "shorter than one piece" ) != std::string::npos && path.size() < 2,
+			       NStr::Format( "polyline %d is refused only for being shorter than a piece (%s)", nLine, szWhy.c_str() ) );
 			++nShort;
 			continue;
 		}
@@ -3105,13 +3114,10 @@ static void TestM2TrenchProperties()
 		// The same clicks plan the same trench.
 		NMapGeometry::STrenchPlan again;
 		bOk = bOk && NMapGeometry::PlanEntrenchment( input, clicks, &again, 0 ) && SamePlan( plan, again );
-		if ( !Check( bOk, NStr::Format( "polyline %d (%d clicks, %d pieces, %d sections) keeps every builder property", nLine, nClicks, n, int( plan.sections.size() ) ) ) )
-			++nBad;
+		Check( bOk, NStr::Format( "polyline %d (%d clicks, %d pieces, %d sections) keeps every builder property", nLine, nClicks, n, int( plan.sections.size() ) ) );
 	}
-	printf( "map-file: trench properties: %d planned, %d shorter than a piece, %d pieces, %d arcs, %d sections\n", nPlanned, nShort, nPieces, nArcs, nSections );
+	Note( "map-file: trench properties: %d planned, %d shorter than a piece, %d pieces, %d arcs, %d sections\n", nPlanned, nShort, nPieces, nArcs, nSections );
 	Check( nPlanned >= nPolylines * 9 / 10 && nArcs > 100 && nSections > nPlanned, "the random polylines exercise turns and sections, not only straight runs" );
-	if ( nBad == 0 )
-		printf( "map-file: M2 trench properties ok (%d polylines)\n", nPolylines );
 }
 
 // D-19's store formulas (04-12): the MFC editor's AI general arithmetic as literal
@@ -3221,7 +3227,6 @@ static void TestM2ParcelFormulas()
 	// The radius is the distance (300 x 400 -> 500), the direction the arrow's.
 	Check( NMapGeometry::RadiusFromArrow( vCentre, CVec2( 600.0f, 550.0f ) ) == 500.0f, "the round trip's radius is the arrow's distance, 500" );
 	Check( NMapGeometry::DirectionFromArrow( vCentre, CVec2( 600.0f, 550.0f ) ) == 58823, "and its direction the arrow's, 58823" );
-	printf( "map-file: M2 parcel formulas ok\n" );
 }
 
 static void TestRoundTrip( const std::string &szPath )
@@ -3282,7 +3287,7 @@ static void SweepMaps( bool bAll )
 	else
 		for ( size_t i = 0; i < sizeof( g_pszScenarioSample ) / sizeof( g_pszScenarioSample[0] ); ++i )
 			paths.push_back( g_pszScenarioSample[i] );
-	printf( "map-file: sweeping %d maps\n", int( paths.size() ) );
+	Note( "map-file: sweeping %d maps\n", int( paths.size() ) );
 	// A tier that silently swept nothing would be worse than no tier: CI checks
 	// out sparsely, and Data is exactly the kind of thing that gets left out.
 	if ( !Check( paths.size() >= 50, "the sweep found the shipped maps (is Data checked out?)" ) )
@@ -3290,7 +3295,7 @@ static void SweepMaps( bool bAll )
 	const int nFailuresBefore = g_nFailures;
 	for ( size_t i = 0; i < paths.size(); ++i )
 		TestRoundTrip( paths[i] );
-	printf( "map-file: %d of %d maps round-tripped\n",
+	Note( "map-file: %d of %d maps round-tripped\n",
 	             int( paths.size() ) - ( g_nFailures - nFailuresBefore ), int( paths.size() ) );
 }
 
@@ -3483,10 +3488,9 @@ static void SweepM2Edits()
 {
 	std::vector<std::string> paths;
 	CollectMaps( "Data\\Maps", true, &paths );
-	printf( "map-file: M2 sweep over %d maps\n", int( paths.size() ) );
+	Note( "map-file: M2 sweep over %d maps\n", int( paths.size() ) );
 	if ( !Check( paths.size() >= 50, "the M2 sweep found the shipped maps (is Data checked out?)" ) )
 		return;
-	const int nFailuresBefore = g_nFailures;
 	int nEdits = 0;
 	std::map<std::string, int> kinds;
 	for ( size_t i = 0; i < paths.size(); ++i )
@@ -3536,7 +3540,7 @@ static void SweepM2Edits()
 	std::string szKinds;
 	for ( std::map<std::string, int>::const_iterator it = kinds.begin(); it != kinds.end(); ++it )
 		szKinds += ( szKinds.empty() ? "" : ", " ) + it->first + " " + NStr::Format( "%d", it->second );
-	printf( "map-file: M2 sweep edits by kind: %s; the builder refused %d lines, moved as stored instead\n", szKinds.c_str(), g_nSweepBuilderRefusals );
+	Note( "map-file: M2 sweep edits by kind: %s; the builder refused %d lines, moved as stored instead\n", szKinds.c_str(), g_nSweepBuilderRefusals );
 	// WR-C05: every kind was really exercised - a regression that stopped one
 	// from applying would otherwise still end "all restored byte-exact". The
 	// minimums are about half of what the 59 shipped maps give (04-13).
@@ -3556,8 +3560,7 @@ static void SweepM2Edits()
 	remove( "zig-out/local-test/m2-sweep-undone.bzm" );
 	remove( "zig-out/local-test/m2-sweep-baseline.xml" );
 	remove( "zig-out/local-test/m2-sweep-undone.xml" );
-	if ( g_nFailures == nFailuresBefore )
-		printf( "map-file: M2 sweep %d maps, %d edits, all restored byte-exact\n", int( paths.size() ), nEdits );
+	Note( "map-file: M2 sweep %d maps, %d edits\n", int( paths.size() ), nEdits );
 }
 
 // The 2026-10-03 ruling on map script paths (WINDOWS.md 5): a map stores its script
@@ -3624,7 +3627,7 @@ static void TestScriptPathForms()
 			++nAbsolute;
 			nWindowsDrive += szScript.size() > 2 && szScript[1] == ':' ? 1 : 0;
 			Check( ToStored( szScript ) == LastComponent( szScript ) && !ToStored( szScript ).empty(), "a shipped absolute path is stored as its script's name" );
-			printf( "map-file: script path forms: %s holds the absolute path \"%s\" (stored: \"%s\")\n", paths[i].c_str(), szScript.c_str(), ToStored( szScript ).c_str() );
+			Note( "map-file: script path forms: %s holds the absolute path \"%s\" (stored: \"%s\")\n", paths[i].c_str(), szScript.c_str(), ToStored( szScript ).c_str() );
 		}
 		else if ( szScript.find( '\\' ) != std::string::npos )
 			++nBackslash;
@@ -3634,14 +3637,13 @@ static void TestScriptPathForms()
 			++nBare;
 		Check( ToStored( szScript ) == szScript || IsAbsolute( szScript ), "a shipped map's script value is stored as it is unless it is absolute" );
 	}
-	printf( "map-file: script path forms of %d shipped maps: %d none, %d bare, %d with '/', %d with '\\', %d absolute\n", int( paths.size() ), nNone, nBare, nSlash, nBackslash, nAbsolute );
+	Note( "map-file: script path forms of %d shipped maps: %d none, %d bare, %d with '/', %d with '\\', %d absolute\n", int( paths.size() ), nNone, nBare, nSlash, nBackslash, nAbsolute );
 	Check( nAbsolute == 2 && nWindowsDrive == 2, "exactly the two intro maps hold an absolute script path, both a Windows drive path (shipped data changed?)" );
-	printf( "map-file: script path forms ok\n" );
 }
 
 static int Run( int argc, char **argv )
 {
-	printf( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
+	Note( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
 	TestReadsASmallMap();
 	TestReadsXmlAndPicksTheNewer();
 	TestWritesWhatItRead();
@@ -3660,8 +3662,6 @@ static int Run( int argc, char **argv )
 	if ( bM2Sweep )
 	{
 		SweepM2Edits();
-		if ( g_nFailures == 0 )
-			printf( "map-file: PASS\n" );
 		return g_nFailures == 0 ? 0 : 1;
 	}
 	TestObjectOverlay();
@@ -3696,8 +3696,6 @@ static int Run( int argc, char **argv )
 	TestM2TrenchProperties();
 	TestM2ParcelFormulas();
 	SweepMaps( bAll );
-	if ( g_nFailures == 0 )
-		printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
 }
 
@@ -3706,6 +3704,7 @@ int main( int argc, char **argv )
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
 		return 1;
 	const int nResult = Run( argc, argv );
+	if ( nResult != 0 ) FlushNotes();
 	// The storage and StreamIO's core services go before the exit's leak
 	// report, as every bk-* tool does; they were 11 blocks of every run.
 	NDataOnly::Stop();
@@ -3787,7 +3786,6 @@ static void TestM3FieldRegion()
 		remove( szUndone.c_str() );
 		remove( szOriginalFile.c_str() );
 	}
-	printf( "map-file: M3 field region ok\n" );
 }
 
 // The properties' record fields (M3, D-26/D-27) at the map-file tier: each
@@ -3920,7 +3918,6 @@ static void TestM3ObjectFields()
 	remove( pszUndonePath );
 	remove( pszUneditedPath );
 	remove( pszProbedPath );
-	printf( "map-file: M3 object fields ok\n" );
 }
 
 // Players and the Unit Creation Info (M3, D-30): add and delete a player in the
@@ -4132,5 +4129,4 @@ static void TestM3Players()
 	remove( pszEditedPath );
 	remove( pszUndonePath );
 	remove( pszExpectedPath );
-	printf( "map-file: M3 players ok\n" );
 }

@@ -105,7 +105,5 @@ int main()
 			break;
 		}
 
-	if ( nFailures == 0 )
-		std::printf( "gfx-text-wrap: PASS\n" );
 	return nFailures == 0 ? 0 : 1;
 }

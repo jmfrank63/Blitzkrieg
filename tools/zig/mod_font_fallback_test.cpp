@@ -129,6 +129,7 @@ int main()
     RunCase( "mod medium", "medium" );
     RunCase( "mod tiny", "tiny" );
     NBkTextBridge::Destroy();
-    std::printf( "mod-font-fallback: %d checks, %d failures\n", g_checks, g_failures );
+    if ( g_failures != 0 )
+        std::printf( "mod-font-fallback: %d checks, %d failures\n", g_checks, g_failures );
     return g_failures == 0 ? 0 : 1;
 }

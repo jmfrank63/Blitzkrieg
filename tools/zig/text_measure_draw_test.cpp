@@ -535,7 +535,8 @@ int main()
     if ( g_window != nullptr ) SDL_DestroyWindow( g_window );
     g_window = nullptr;
     SDL_Quit();
-    std::printf( "text-measure-draw: %d checks, %d failed\n", g_checks, g_failures );
+    if ( g_failures != 0 )
+        std::printf( "text-measure-draw: %d checks, %d failed\n", g_checks, g_failures );
     for ( std::map<std::string, int>::const_iterator it = g_failed_by_check.begin(); it != g_failed_by_check.end(); ++it )
         std::printf( "  %5d  %s\n", it->second, it->first.c_str() );
     std::fflush( stdout );

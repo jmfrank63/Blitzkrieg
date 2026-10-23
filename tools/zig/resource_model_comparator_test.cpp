@@ -60,15 +60,18 @@ void RunUiScreenTests( const fs::path &data, const fs::path &scratchRoot, bool (
 static int g_nFailures = 0;
 static std::string g_szLog;
 
-static void Log( const std::string &szLine )
+// Every line goes to comparator.log; only a line about a failure is also printed,
+// so a passing run prints nothing.
+static void Log( const std::string &szLine, bool bPrint = false )
 {
-	std::printf( "%s\n", szLine.c_str() );
+	if ( bPrint )
+		std::printf( "%s\n", szLine.c_str() );
 	g_szLog += szLine + "\n";
 }
 
 static bool Check( bool bCondition, const std::string &szWhat )
 {
-	Log( std::string( bCondition ? "PASS " : "FAIL " ) + szWhat );
+	Log( std::string( bCondition ? "PASS " : "FAIL " ) + szWhat, !bCondition );
 	if ( !bCondition )
 		++g_nFailures;
 	return bCondition;
@@ -278,9 +281,9 @@ static void ShippedSelfCompare( const fs::path &data, const fs::path &scratch, s
 			++failed[shipped.kind];
 			if ( nShown++ < 40 )
 			{
-				Log( std::string( "  " ) + CompareStatusName( result.status ) + " " + shipped.file.generic_string() + " fields=" + std::to_string( result.nFieldsCompared ) );
+				Log( std::string( "  " ) + CompareStatusName( result.status ) + " " + shipped.file.generic_string() + " fields=" + std::to_string( result.nFieldsCompared ), true );
 				for ( size_t i = 0; i < result.messages.size() && i < 6; ++i )
-					Log( "    " + result.messages[i] );
+					Log( "    " + result.messages[i], true );
 			}
 		}
 		else if ( pSamples->find( shipped.kind ) == pSamples->end() )
@@ -368,10 +371,13 @@ static void PlantedChanges( const fs::path &scratch, const std::map<EExportKind,
 		const std::string::size_type nAt = xml.find( "<KeyName>" );
 		xml.insert( nAt, "<SomethingTheEngineDoesNotRead>1</SomethingTheEngineDoesNotRead>" );
 		Check( nAt != std::string::npos && WriteBytes( planted, xml ), "plant: extra RPG/SomethingTheEngineDoesNotRead" );
+		// Planted on purpose: the messages are checked below, not printed.
+		SetUnknownFieldStderr( false );
 		const SCompareResult port = CompareStats( EExportKind::WEAPON, planted.string(), weapon->second.string() );
 		Check( port.status == ECompareStatus::UNKNOWN_FIELD && HasMessage( port, "UNKNOWN FIELD port RPG/SomethingTheEngineDoesNotRead" ),
 		       std::string( "extra unknown field in the port export fails: " ) + CompareStatusName( port.status ) + Messages( port ) );
 		const SCompareResult golden = CompareStats( EExportKind::WEAPON, weapon->second.string(), planted.string() );
+		SetUnknownFieldStderr( true );
 		Check( golden.status == ECompareStatus::UNKNOWN_FIELD && HasMessage( golden, "UNKNOWN FIELD golden RPG/SomethingTheEngineDoesNotRead" ),
 		       std::string( "extra unknown field in the golden fails: " ) + CompareStatusName( golden.status ) + Messages( golden ) );
 	}
@@ -399,7 +405,9 @@ static void PlantedChanges( const fs::path &scratch, const std::map<EExportKind,
 	// complaint and reads none of it, so every weapon field is unknown; the
 	// effect reader's <effect> base is not there at all.
 	{
+		SetUnknownFieldStderr( false );
 		const SCompareResult medal = CompareStats( EExportKind::MEDAL, weapon->second.string(), weapon->second.string() );
+		SetUnknownFieldStderr( true );
 		Check( medal.status == ECompareStatus::UNKNOWN_FIELD && HasMessage( medal, "UNKNOWN FIELD port RPG/" ),
 		       std::string( "a weapon read as a medal fails with unknown fields: " ) + CompareStatusName( medal.status ) + Messages( medal ) );
 		const SCompareResult effect = CompareStats( EExportKind::EFFECT, weapon->second.string(), weapon->second.string() );
@@ -1699,7 +1707,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 		}
 		if ( !bAny )
 		{
-			Log( "GOLDEN " + szExt + " FAIL: no golden and no recorded reason (run tools/zig/win-home/export-goldens.ps1 on win-home)" );
+			Log( "GOLDEN " + szExt + " FAIL: no golden and no recorded reason (run tools/zig/win-home/export-goldens.ps1 on win-home)", true );
 			++nFail;
 			++g_nFailures;
 			continue;
@@ -1729,7 +1737,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 		const SExportRun run = RunExporter( szExt, project, scratch / szExt / "data", kindContext );
 		if ( !run.bExported )
 		{
-			Log( "GOLDEN " + szExt + " FAIL: the port's export failed: " + run.outcome.szError );
+			Log( "GOLDEN " + szExt + " FAIL: the port's export failed: " + run.outcome.szError, true );
 			++nFail;
 			++g_nFailures;
 			continue;
@@ -1786,7 +1794,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 			szDetails += szDetail + "\n";
 		WriteBytes( scratch / szExt / "differences.txt", szDetails );
 		for ( const std::string &szFailure : result.failures )
-			Log( "GOLDEN " + szExt + " FAIL " + szFailure );
+			Log( "GOLDEN " + szExt + " FAIL " + szFailure, true );
 		++nFail;
 		++g_nFailures;
 	}
@@ -1838,7 +1846,7 @@ int main( int argc, char **argv )
 	Goldens( fixtures, data, scratch );
 	RunUiScreenTests( data, scratch, Check );
 
-	Log( g_nFailures == 0 ? "VERDICT=PASS" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );
+	Log( g_nFailures == 0 ? "VERDICT=PASS" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) + "; every check is in " + ( fs::path( argv[2] ) / "resource_model" / "comparator.log" ).string(), g_nFailures != 0 );
 	std::ofstream log( fs::path( argv[2] ) / "resource_model" / "comparator.log", std::ios::binary | std::ios::trunc );
 	log << g_szLog;
 	// Nothing the readers registered may be left at the exit's leak report;

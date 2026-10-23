@@ -17,6 +17,7 @@
 #include "StdAfx.h"
 
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -39,10 +40,32 @@ namespace fs = std::filesystem;
 
 static int g_nFailures = 0;
 
+// What the test measured on the way is context for a failure, not news on a
+// pass: it waits here and prints just before the next FAIL line, or at the
+// end of a failing run.
+static std::string g_szNotes;
+
+static void Note( const char *pszFormat, ... )
+{
+	char szLine[4096];
+	va_list args;
+	va_start( args, pszFormat );
+	vsnprintf( szLine, sizeof( szLine ), pszFormat, args );
+	va_end( args );
+	g_szNotes += szLine;
+}
+
+static void FlushNotes()
+{
+	fputs( g_szNotes.c_str(), stdout );
+	g_szNotes.clear();
+}
+
 static bool Check( bool bCondition, const std::string &szWhat )
 {
 	if ( !bCondition )
 	{
+		FlushNotes();
 		printf( "FAIL: %s\n", szWhat.c_str() );
 		++g_nFailures;
 	}
@@ -221,7 +244,7 @@ static void CheckKerning( const std::string &szWhat, const FontAtlas::SFontAtlas
 	Check( nWrong == 0 && int( atlas.format.kerns.size() ) == nSource,
 		szWhat + ": kerning matches the face (" + std::to_string( nSource ) + " pairs in the face, " +
 		std::to_string( atlas.format.kerns.size() ) + " in the atlas, " + std::to_string( nWrong ) + " differ)" );
-	printf( "bk-font-test: %s: %d kerning pairs\n", szWhat.c_str(), nSource );
+	Note( "bk-font-test: %s: %d kerning pairs\n", szWhat.c_str(), nSource );
 }
 
 static bool BuildFont( const std::vector<BYTE> &font, int nHeight, int nCodePage, FontAtlas::SFontAtlas *pAtlas,
@@ -329,7 +352,7 @@ static void TestEngineReadsWhatBkFontWrote( const std::vector<BYTE> &font, const
 				std::vector<DWORD>( pLFB, pLFB + size_t( nSizeX ) * nSizeY ) == expected.image.pixels, "1_h.dds holds the built atlas" );
 		}
 	}
-	printf( "bk-font-test: bk-font output: face \"%s\", %d characters, %dx%d, height %d, ascent %d, space %g\n",
+	Note( "bk-font-test: bk-font output: face \"%s\", %d characters, %dx%d, height %d, ascent %d, space %g\n",
 		format.szFaceName.c_str(), int( format.chars.size() ), nSizeX, nSizeY, format.metrics.nHeight, format.metrics.nAscent, format.metrics.fSpaceWidth );
 }
 
@@ -438,7 +461,7 @@ static void TestShippedFontsPassTheChecker()
 		if ( !ReadFontDirectory( dir, &format, 0, 0, 0 ) )
 			continue;
 		const int nCodePage = format.metrics.cCharSet == 204 ? 1251 : format.metrics.cCharSet == 238 ? 1250 : 1252;
-		printf( "bk-font-test: shipped %s: face \"%s\", %d characters, %dx%d, height %d, charset %d, default U+%04X, %d kerning pairs\n",
+		Note( "bk-font-test: shipped %s: face \"%s\", %d characters, %dx%d, height %d, charset %d, default U+%04X, %d kerning pairs\n",
 			sizes[i], format.szFaceName.c_str(), int( format.chars.size() ), nSizeX, nSizeY, format.metrics.nHeight,
 			int( format.metrics.cCharSet ), format.metrics.wDefaultChar, int( format.kerns.size() ) );
 		CheckStructure( std::string( "shipped " ) + sizes[i], format, nSizeX, nSizeY, 0, nCodePage );
@@ -490,7 +513,7 @@ static void TestCyrillic( const fs::path &dir )
 		nBlank += !CellHasInk( format, c, nSizeX, nSizeY, pixels );
 	Check( nBlank == 0, "cyrillic: every U+0410..U+044F reads back with ink (" + std::to_string( nBlank ) + " blank)" );
 	Check( format.metrics.wDefaultChar == '?', "cyrillic: the default character is '?'" );
-	printf( "bk-font-test: cyrillic: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
+	Note( "bk-font-test: cyrillic: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
 }
 
 // --chars of 30 Han characters from NotoSansSC.
@@ -517,7 +540,7 @@ static void TestHan( const fs::path &dir )
 	CheckStructure( "han", format, nSizeX, nSizeY, &pixels, 1252, &codes );
 	Check( nBlank == 0, "han: every character reads back with ink (" + std::to_string( nBlank ) + " blank)" );
 	Check( nSizeX <= 4096 && nSizeY <= 4096, "han: the atlas fits" );
-	printf( "bk-font-test: han: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
+	Note( "bk-font-test: han: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
 }
 
 // The cluster glyph drawn again straight from stb at the shaper's glyph ids
@@ -711,7 +734,7 @@ static void TestHindi( const fs::path &dir, const std::vector<BYTE> &font, int n
 			}
 			putchar( '\n' );
 		}
-	printf( "bk-font-test: hindi: %d px word, headline row %d with %d inked columns, widest gap %d px\n", nWordWidth, nRow, nInked, nGap );
+	Note( "bk-font-test: hindi: %d px word, headline row %d with %d inked columns, widest gap %d px\n", nWordWidth, nRow, nInked, nGap );
 	Check( nInked >= nWordWidth * 3 / 4, "hindi: the word has a headline (" + std::to_string( nInked ) + " inked columns of " + std::to_string( nWordWidth ) + ")" );
 	Check( nGap <= 1, "hindi: the headline of cells at their advances has no gap wider than 1 px (" + std::to_string( nGap ) + ") - D058 fallback trigger" );
 
@@ -779,7 +802,7 @@ static void TestHindiSizes( const std::vector<BYTE> &font )
 		}
 		int nRow = 0, nInked = 0;
 		const int nGap = HeadlineGap( word, nWidth, heights[h], &nRow, &nInked );
-		printf( "bk-font-test: hindi %dpx: %d px word, headline row %d, widest gap %d px\n", heights[h], nPen, nRow, nGap );
+		Note( "bk-font-test: hindi %dpx: %d px word, headline row %d, widest gap %d px\n", heights[h], nPen, nRow, nGap );
 		Check( nGap <= 1, "hindi " + std::to_string( heights[h] ) + "px: the headline has no gap wider than 1 px (" + std::to_string( nGap ) + ") - D058 fallback trigger" );
 	}
 }
@@ -946,6 +969,10 @@ int main( int argc, char **argv )
 		CheckKerning( argv[i], atlas, extra, 16, 1252 );
 	}
 	NDataOnly::Stop();
-	printf( g_nFailures == 0 ? "bk-font-test: PASS\n" : "bk-font-test: FAIL (%d)\n", g_nFailures );
+	if ( g_nFailures != 0 )
+	{
+		FlushNotes();
+		printf( "bk-font-test: FAIL (%d)\n", g_nFailures );
+	}
 	return g_nFailures == 0 ? 0 : 1;
 }

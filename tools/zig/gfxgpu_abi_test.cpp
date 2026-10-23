@@ -78,6 +78,5 @@ int main()
     // has no CRT startup (entry is main), so the detach report would run after
     // the main thread's TLS is gone and the allocator's per-thread state with it.
     if ( bk_mem_report() != 0 ) return 14;
-    std::printf( "GfxGpu ABI v%u, table %u bytes, live resources 0\n", api.abi_version, api.struct_size );
     return 0;
 }

@@ -62,6 +62,5 @@ int main()
 		worker.StopThread();
 		worker.StopThread();
 	}
-	std::printf( "sync stress: 100 start/stop cycles, 10000 wake/wait cycles, %d steps\n", steps.load() );
 	return 0;
 }

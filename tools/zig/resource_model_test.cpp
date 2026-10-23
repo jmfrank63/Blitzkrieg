@@ -232,9 +232,11 @@ struct Results
 	int pass = 0, xfailed = 0, fail = 0, xpass = 0;
 	std::ofstream log;
 
-	void Line( const std::string &line )
+	// Every line goes to the log; only a line that fails the run is also printed, so a
+	// passing run prints nothing.
+	void Line( const std::string &line, bool bPrint = false )
 	{
-		std::printf( "%s\n", line.c_str() );
+		if ( bPrint ) std::printf( "%s\n", line.c_str() );
 		log << line << "\n";
 	}
 
@@ -243,9 +245,9 @@ struct Results
 		seen.insert( id );
 		const bool expected = xfail.count( id ) != 0;
 		if ( ok && !expected ) { ++pass; Line( "PASS  " + id ); }
-		else if ( ok && expected ) { ++xpass; Line( "XPASS " + id + " - passes now; remove it from " + kXFail ); }
+		else if ( ok && expected ) { ++xpass; Line( "XPASS " + id + " - passes now; remove it from " + kXFail, true ); }
 		else if ( !ok && expected ) { ++xfailed; Line( "XFAIL " + id + " - " + detail ); }
-		else { ++fail; Line( "FAIL  " + id + " - " + detail ); }
+		else { ++fail; Line( "FAIL  " + id + " - " + detail, true ); }
 	}
 };
 
@@ -930,12 +932,13 @@ int main()
 		if ( !r.seen.count( id ) )
 		{
 			++stale;
-			r.Line( "FAIL  xfail-list - '" + id + "' names no check; remove it from " + kXFail );
+			r.Line( "FAIL  xfail-list - '" + id + "' names no check; remove it from " + kXFail, true );
 		}
 
 	char summary[256];
 	std::snprintf( summary, sizeof( summary ), "resource-model-fidelity: %d PASS, %d XFAIL (known gaps), %d FAIL, %d XPASS, %d stale xfail ids; log %s",
 		r.pass, r.xfailed, r.fail, r.xpass, stale, kLog );
-	r.Line( summary );
-	return ( r.fail == 0 && r.xpass == 0 && stale == 0 ) ? 0 : 1;
+	const bool bPassed = r.fail == 0 && r.xpass == 0 && stale == 0;
+	r.Line( summary, !bPassed );
+	return bPassed ? 0 : 1;
 }

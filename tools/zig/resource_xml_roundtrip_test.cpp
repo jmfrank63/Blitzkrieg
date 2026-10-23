@@ -188,7 +188,6 @@ static bool EdgeCases()
 	check( "new document in MFC layout", NResourceXml::Serialise( fresh ) == "<?xml version=\"1.0\"?>\r\n<P><default_name></default_name><values/></P>\r\n" );
 	// A tab-indented file (a port-authored fixture) keeps its layout.
 	check( "indented detected", NResourceXml::Parse( "<r>\r\n\t<a></a>\r\n\t<b/>\r\n</r>\r\n", d, err ) && d.layout == NResourceXml::Document::Indented && NResourceXml::Serialise( d ) == "<r>\r\n\t<a></a>\r\n\t<b/>\r\n</r>\r\n" );
-	if ( ok ) std::fprintf( stderr, "PASS parser edge cases\n" );
 	return ok;
 }
 
@@ -203,8 +202,7 @@ int main( int argc, char **argv )
 		fs::path src = DataFile( fixtures, e + "/project." + e );
 		if ( !ReadFile( src, xml ) ) { std::fprintf( stderr, "FAIL %s: cannot read %s\n", ext, src.string().c_str() ); ++failures; continue; }
 		fs::path base = outDir / e;
-		if ( RoundTrip( e, xml, base, nullptr, &xml ) ) std::fprintf( stderr, "PASS %s\n", ext );
-		else ++failures;
+		if ( !RoundTrip( e, xml, base, nullptr, &xml ) ) ++failures;
 
 		// Plant an unknown node just before the root's closing tag and check it survives.
 		NResourceXml::Document doc;
@@ -223,8 +221,7 @@ int main( int argc, char **argv )
 				&& blob->children.size() == 1 && blob->children[0].text == "body";
 			if ( !ok ) std::fprintf( stderr, "FAIL %s unknown-node: FutureBlob lost or altered\n", ext );
 		}
-		if ( ok ) std::fprintf( stderr, "PASS %s unknown-node preservation\n", ext );
-		else ++failures;
+		if ( !ok ) ++failures;
 	}
 	if ( argc >= 4 )
 	{
@@ -242,12 +239,11 @@ int main( int argc, char **argv )
 		for ( const fs::path &p : projects )
 		{
 			++nProjects;
-			if ( MfcProjectSurvives( p, outDir / ( "mfc-" + p.filename().string() ) ) ) std::fprintf( stderr, "PASS mfc %s\n", p.filename().string().c_str() );
-			else ++failures;
+			if ( !MfcProjectSurvives( p, outDir / ( "mfc-" + p.filename().string() ) ) ) ++failures;
 		}
 		if ( nProjects == 0 ) { std::fprintf( stderr, "FAIL no MFC projects under %s\n", argv[3] ); ++failures; }
 	}
 	if ( !EdgeCases() ) ++failures;
-	std::fprintf( stderr, failures ? "FAILED: %d check(s)\n" : "ALL PASS\n", failures );
+	if ( failures ) std::fprintf( stderr, "FAILED: %d check(s)\n", failures );
 	return failures ? 1 : 0;
 }

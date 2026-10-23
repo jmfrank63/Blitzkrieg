@@ -84,6 +84,5 @@ int main()
 	// A window with no size yet has nothing to clamp against.
 	CHECK( !NMouseCapture::ClampIntoWindow( 50.0f, 50.0f, 0, 0, &fUnusedX, &fUnusedY ) );
 
-	std::puts( "mouse capture policy passed: confine while focused, only focus loss and ctrl+escape yield, pointer pulled back in on every side and corner" );
 	return 0;
 }

@@ -12,6 +12,5 @@ int main()
 {
 	if ( static_cast<int>(NPlatform::SocketError::wouldBlock) == static_cast<int>(NPlatform::SocketError::none) ) return 1;
 	if ( static_cast<int>(NPlatform::SocketError::addressInUse) == static_cast<int>(NPlatform::SocketError::unknown) ) return 1;
-	std::puts( "portable socket types passed" );
 	return 0;
 }

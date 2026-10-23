@@ -28,6 +28,7 @@
 #include "StdAfx.h"
 
 #include <algorithm>
+#include <cstdarg>
 #include <cstring>
 #include <cstdio>
 #include <fstream>
@@ -48,10 +49,32 @@ namespace fs = std::filesystem;
 
 static int g_nFailures = 0;
 
+// What the test measured on the way is context for a failure, not news on a
+// pass: it waits here and prints just before the next FAIL line, or at the
+// end of a failing run.
+static std::string g_szNotes;
+
+static void Note( const char *pszFormat, ... )
+{
+	char szLine[4096];
+	va_list args;
+	va_start( args, pszFormat );
+	vsnprintf( szLine, sizeof( szLine ), pszFormat, args );
+	va_end( args );
+	g_szNotes += szLine;
+}
+
+static void FlushNotes()
+{
+	fputs( g_szNotes.c_str(), stdout );
+	g_szNotes.clear();
+}
+
 static bool Check( bool bCondition, const std::string &szWhat )
 {
 	if ( !bCondition )
 	{
+		FlushNotes();
 		printf( "FAIL: %s\n", szWhat.c_str() );
 		++g_nFailures;
 	}
@@ -142,7 +165,7 @@ static void TestMapCycles( const fs::path &maps, const fs::path &work, size_t nA
 		if ( g_nFailures == nFailures )
 			++nPassed;
 	}
-	printf( "bk-map-test: %d of %d shipped maps of %s come back from .xml equivalent%s\n", nPassed, int( files.size() ),
+	Note( "bk-map-test: %d of %d shipped maps of %s come back from .xml equivalent%s\n", nPassed, int( files.size() ),
 	        maps.string().c_str(), bBytes ? ", and both cycles are byte-identical" : "" );
 }
 
@@ -166,7 +189,6 @@ static void TestShippedXml( const fs::path &data, const fs::path &work )
 		if ( WriteMap( direct, shipped ) )
 			SameBytes( direct, work / "shipped-xml" / "back" / "river3d.xml", "river3d .xml -> .bzm -> .xml" );
 	}
-	printf( "bk-map-test: the shipped .xml maps convert to .bzm and back\n" );
 }
 
 static CPtr<IDDSImage> LoadDds( const fs::path &path )
@@ -201,7 +223,7 @@ static void TestMinimap( const fs::path &work )
 			colours.insert( dwColour & 0x00FFFFFF );
 			nBlank += ( dwColour & 0x00FFFFFF ) == 0;
 		}
-		printf( "bk-map-test: minimap _h: %d distinct colours, %d black pixels of %d\n", int( colours.size() ), nBlank, 128 * 128 );
+		Note( "bk-map-test: minimap _h: %d distinct colours, %d black pixels of %d\n", int( colours.size() ), nBlank, 128 * 128 );
 		Check( colours.size() >= 64, "the minimap holds a picture, not a fill" );
 		Check( nBlank == 0, "no minimap pixel is left black" );
 	}
@@ -260,7 +282,6 @@ static void TestMod( const fs::path &work )
 			Check( Near( anim.nodes[0][1].vRot.w, 1.0f ), "a node without keys stays at rest" );
 		}
 	}
-	printf( "bk-map-test: tank.mod reads back as the fixture says\n" );
 }
 
 int main( int argc, char *argv[] )
@@ -287,9 +308,9 @@ int main( int argc, char *argv[] )
 	NDataOnly::Stop();
 	if ( g_nFailures != 0 )
 	{
+		FlushNotes();
 		printf( "bk-map-test: %d failures\n", g_nFailures );
 		return 1;
 	}
-	printf( "bk-map-test: ok\n" );
 	return 0;
 }

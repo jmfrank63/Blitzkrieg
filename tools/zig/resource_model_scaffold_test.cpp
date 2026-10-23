@@ -11,7 +11,7 @@
 //      root before serialising produces output that still contains the planted
 //      bytes - a direct check that unknown subtrees survive a round-trip.
 //
-// Writes one line per extension to stderr:
+// Writes one line to stderr for each extension that fails (each one with BK_DEBUG_LOG=1):
 //   SCAFFOLD <ext> bytes=<n> rt_equal=<0|1> rt_idempotent=<0|1>
 //     unknown_preserved=<0|1> childs=<n> props=<n> kf_frames=<n>
 // (`childs`/`props`/`kf_frames` are what the task-plan "Observability Impact"
@@ -151,7 +151,9 @@ bool RunExt( const std::string &ext, const std::string &path )
 	if ( project.root ) CountChildsAndProps( *project.root, childs, props );
 	const int kf_frames = project.root ? CountKeyframeFrames( *project.root ) : 0;
 
-	std::fprintf( stderr,
+	const bool ok = rt_equal && rt_idempotent && unknown_preserved;
+	if ( !ok || DebugLog() )
+		std::fprintf( stderr,
 		"SCAFFOLD %s bytes=%zu rt_equal=%d rt_idempotent=%d unknown_preserved=%d childs=%d props=%d kf_frames=%d\n",
 		ext.c_str(), in.size(), rt_equal ? 1 : 0, rt_idempotent ? 1 : 0,
 		unknown_preserved ? 1 : 0, childs, props, kf_frames );
@@ -176,7 +178,7 @@ bool RunExt( const std::string &ext, const std::string &path )
 		}
 	}
 
-	return rt_equal && rt_idempotent && unknown_preserved;
+	return ok;
 }
 
 }

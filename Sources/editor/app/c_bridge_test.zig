@@ -127,7 +127,7 @@ fn expectLoneSoldierRefused(real: *RealBridge, editor: *Editor, catalogue: []con
     try std.testing.expectEqual(@as(c_int, 0), entry.placeable);
     const objects_before = editor.document.objects.items.len;
     try std.testing.expectError(error.Refused, editor.addObject(soldier, x, y, 0, 0));
-    std.debug.print("map-editor-engine: {s} refused: {s}\n", .{ soldier, editor.status() });
+    errdefer std.debug.print("map-editor-engine: {s} refused: {s}\n", .{ soldier, editor.status() });
     try std.testing.expect(std.mem.indexOf(u8, editor.status(), squad) != null);
     try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
     try expectEngineMatches(real);
@@ -149,7 +149,7 @@ test "a failed start keeps the bridge's reason for the start-up dialog" {
         host.stop();
         return error.StartedWithoutAnEngine;
     } else |err| {
-        std.debug.print("map-editor-engine: an empty installation: {t}: {s}\n", .{ err, host_mod.failureReason() });
+        errdefer std.debug.print("map-editor-engine: an empty installation: {t}: {s}\n", .{ err, host_mod.failureReason() });
         if (err == error.SdlInitFailed or err == error.WindowFailed) return error.SkipZigTest;
         try std.testing.expectEqual(error.EngineFailed, err);
         try std.testing.expect(std.mem.indexOf(u8, host_mod.failureReason(), "no engine modules loaded from") != null);
@@ -191,14 +191,13 @@ test "the core drives the real bridge: every command, undone and redone" {
     // A known object nothing refers to, placed in the engine: the first one
     // whose move the bridge accepts (a bridge span or an object the database
     // does not know is refused).
-    const first = pick: for (editor.document.objects.items, 0..) |candidate, index| {
+    const first = pick: for (editor.document.objects.items) |candidate| {
         if (!candidate.known) continue;
         const moved: core.editor.Pose = .{ .x = candidate.x + 64, .y = candidate.y, .dir = candidate.dir, .player = candidate.player };
         editor.place(candidate.link_id, moved, 0) catch |err| switch (err) {
             error.Refused => continue,
             else => return err,
         };
-        std.debug.print("map-editor-engine: moving object {d}, link {d} ({s})\n", .{ index, candidate.link_id, candidate.nameSlice() });
         break :pick candidate;
     } else return error.NoObjectMoves;
     try expectEngineMatches(&real);
@@ -222,7 +221,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         now.* = try engineTile(&real, cell[0], cell[1]);
         try std.testing.expect(now.* != was);
     }
-    std.debug.print("map-editor-engine: painted tile {d} over {d},{d}; the engine shows {d},{d}\n", .{ tile, before[0], before[1], painted[0], painted[1] });
     _ = try editor.undo();
     try expectEngineMatches(&real);
     for (cells, before) |cell, was| try std.testing.expectEqual(was, try engineTile(&real, cell[0], cell[1]));
@@ -300,7 +298,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expectError(error.Refused, editor.setCameraAnchor(0, -5000, -5000));
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
-    std.debug.print("map-editor-engine: M2 camera anchors round trip ok\n", .{});
 
     // M2 (04-09): an object's script ID end to end. The first object that
     // takes one (link ID 0 and shared link IDs are refused) is set, the
@@ -333,7 +330,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
-    std.debug.print("map-editor-engine: M2 script id round trip ok\n", .{});
 
     // M3 (D-25): the selection's group move end to end. Two movable objects
     // selected as a set move by one batch call, the engine agrees, undo and
@@ -369,7 +365,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     _ = try editor.redo();
     try expectEngineMatches(&real);
     try std.testing.expectEqual(before_a + 128, editor.document.find(first.link_id).?.x);
-    std.debug.print("map-editor-engine: M3 multi-select group move ok (links {d} and {d})\n", .{ first.link_id, second.link_id });
     editor.clearSelection();
 
     // M3 (05-05, D-30): players and the unit creation end to end through the
@@ -449,7 +444,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expectEqual(depth_at_players, editor.history.undo_stack.items.len);
         try expectEngineMatches(&real);
         try expectDocumentIsBridge(&real, &editor);
-        std.debug.print("map-editor-engine: M3 players and unit creation round trip ok\n", .{});
     }
 
     // M2 (04-09): reinforcement groups through the generic record path on the
@@ -496,7 +490,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     _ = c.BkEditorGroupIDs(real.session, null, 0, &groups_after);
     try std.testing.expectEqual(groups_before, groups_after);
     try expectEngineMatches(&real);
-    std.debug.print("map-editor-engine: M2 groups round trip ok\n", .{});
 
     // M2 (04-02): a delete of a real unit of coldwinter, through the cascade
     // the bridge now runs (nothing in coldwinter names it, so the cascade is
@@ -526,7 +519,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
-    std.debug.print("map-editor-engine: M2 delete round trip ok\n", .{});
 
     // M2 (04-11): a start command end to end on the real engine. The first unit the
     // bridge accepts (a building or a tree is refused, changing nothing) gets one of
@@ -573,7 +565,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
-    std.debug.print("map-editor-engine: M2 start command round trip ok\n", .{});
 
     // M2 (04-12): an AI general parcel end to end on the real engine. A defence parcel goes
     // on side 1 (coldwinter has two sides) and another on a side two above the side count,
@@ -643,7 +634,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expect(!editor.dirty());
         try expectEngineMatches(&real);
         try expectDocumentIsBridge(&real, &editor);
-        std.debug.print("map-editor-engine: M2 ai general round trip ok\n", .{});
     }
 
     // M2 (04-05): a road drawn through the core Editor on the real engine -
@@ -682,7 +672,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
     try expectVsoMatches(&real);
-    std.debug.print("map-editor-engine: M2 road round trip ok\n", .{});
 
     // M2 (04-06): a W_WoodenBig_Heavy_01 bridge drawn through the core Editor
     // on the real engine - the bridge plans its spans, adds them and the
@@ -726,7 +715,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectDocumentIsBridge(&real, &editor);
     try std.testing.expectError(error.Refused, editor.drawBridge("W_WoodenBig_Heavy_01", middle_x, middle_y - 250, middle_x, middle_y + 250));
     try std.testing.expect(!editor.dirty());
-    std.debug.print("map-editor-engine: M2 bridge round trip ok ({d} spans)\n", .{spans});
 
     // M2 (04-08): an L-shaped entrenchment drawn through the core Editor on
     // the real engine - the bridge runs the MFC builder, adds the pieces and
@@ -768,7 +756,6 @@ test "the core drives the real bridge: every command, undone and redone" {
     try std.testing.expect(!editor.dirty());
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
-    std.debug.print("map-editor-engine: M2 entrenchment round trip ok ({d} pieces, {d} sections)\n", .{ pieces, drawn_trenches[trench].section_count });
 
     // M3 (05-01, D-19): altitudes end to end on the real engine. A ramp goes
     // in through the core Editor's setAltitudes - the bridge sets the
@@ -813,7 +800,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expect(!editor.dirty());
         try expectEngineMatches(&real);
         try expectDocumentIsBridge(&real, &editor);
-        std.debug.print("map-editor-engine: M3 altitudes round trip ok\n", .{});
     }
 
     // M3 (05-07, D-14/D-15/D-16): the minimap on the real engine. The reads
@@ -881,7 +867,7 @@ test "the core drives the real bridge: every command, undone and redone" {
             // (to the projection's own rounding - the engine's anchor comes back a couple
             // of world units off what was set), whatever the anchor and the centre were.
             const centre_after = try editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0);
-            std.debug.print("map-editor-engine: minimap click {d},{d}: world {d:.2},{d:.2}; camera set {d:.2},{d:.2}, the middle of the screen is now {d:.2},{d:.2}\n", .{ click[0], click[1], world[0], world[1], target[0], target[1], centre_after.world_x, centre_after.world_y });
+            errdefer std.debug.print("map-editor-engine: minimap click {d},{d}: world {d:.2},{d:.2}; camera set {d:.2},{d:.2}, the middle of the screen is now {d:.2},{d:.2}\n", .{ click[0], click[1], world[0], world[1], target[0], target[1], centre_after.world_x, centre_after.world_y });
             try std.testing.expectApproxEqAbs(world[0], centre_after.world_x, 3.0);
             try std.testing.expectApproxEqAbs(world[1], centre_after.world_y, 3.0);
             try std.testing.expect(view_after.anchor_x != previous[0] or view_after.anchor_y != previous[1]);
@@ -904,11 +890,10 @@ test "the core drives the real bridge: every command, undone and redone" {
             for (0..vertex_h) |y| for (0..vertex_w) |x| {
                 if (!logic.isValidHeight(sheet, vertex_w, vertex_h, x, y)) refused += 1;
             };
-            std.debug.print("map-editor-engine: M3 height rule: {d} of {d} vertices of the shipped map refused\n", .{ refused, sheet.len });
+            errdefer std.debug.print("map-editor-engine: M3 height rule: {d} of {d} vertices of the shipped map refused\n", .{ refused, sheet.len });
             try std.testing.expectEqual(shipped_map_refused_vertices, refused);
         }
         try std.testing.expect(!editor.dirty());
-        std.debug.print("map-editor-engine: M3 minimap reads and click round trip ok\n", .{});
     }
 
     // M3 (05-08, D-01/D-13): the Create Random Map and Export lists reads cross the
@@ -954,7 +939,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
         try std.testing.expect(std.mem.indexOf(u8, editor.status(), "template") != null);
         try std.testing.expect(!editor.dirty());
-        std.debug.print("map-editor-engine: M3 random map reads round trip ok\n", .{});
     }
 
     // M3 (05-09, D-06/D-07): the composers' records cross the ABI. A shipped
@@ -986,13 +970,13 @@ test "the core drives the real bridge: every command, undone and redone" {
             candidate.deinit(std.testing.allocator);
         }
         const read = container orelse return error.NoContainerWithPatches;
-        std.debug.print("map-editor-engine: composer container {s}: {d} patches, size {d}x{d}, {d} script IDs\n", .{ container_name, read.patchCount(), read.size_x, read.size_y, read.script_ids.items.len });
+        errdefer std.debug.print("map-editor-engine: composer container {s}: {d} patches, size {d}x{d}, {d} script IDs\n", .{ container_name, read.patchCount(), read.size_x, read.size_y, read.script_ids.items.len });
         try std.testing.expect(read.size_x > 0 and read.size_y > 0);
         for (read.indices) |direction_list| for (direction_list.items) |patch_index| try std.testing.expect(patch_index >= 0 and patch_index < read.patchCount());
         // A shipped container is consistent: Check! through the real storages is clean.
         var report = try core.rmg.checkContainer(std.testing.allocator, &read, editor.rmgSource());
         defer report.deinit(std.testing.allocator);
-        for (report.findings.items) |finding| std.debug.print("map-editor-engine: composer container finding: {s}\n", .{finding.text});
+        errdefer for (report.findings.items) |finding| std.debug.print("map-editor-engine: composer container finding: {s}\n", .{finding.text});
         try std.testing.expectEqual(@as(usize, 0), report.errorCount());
         // Shipped is read-only.
         try std.testing.expectError(error.Refused, editor.writeContainer(container_name, &read));
@@ -1010,14 +994,13 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expect(graph.nodes.items.len > 0 and graph.size_x > 0);
         var graph_report = try core.rmg.checkGraph(std.testing.allocator, &graph, editor.rmgSource());
         defer graph_report.deinit(std.testing.allocator);
-        for (graph_report.findings.items) |finding| std.debug.print("map-editor-engine: composer graph finding: {s}\n", .{finding.text});
+        errdefer for (graph_report.findings.items) |finding| std.debug.print("map-editor-engine: composer graph finding: {s}\n", .{finding.text});
         try std.testing.expectError(error.Refused, editor.writeGraph(graph_names[0].nameSlice(), &graph));
         try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
         var buffer: [1024]u8 = undefined;
         const root = try editor.rmgRoot(&buffer);
         try std.testing.expect(std.mem.endsWith(u8, root, "rmg"));
         try std.testing.expect(!editor.dirty());
-        std.debug.print("map-editor-engine: M3 rmg composer reads round trip ok\n", .{});
     }
 
     // M3 (05-10, D-06/D-07/D-12): the Fields Composer's records on the real
@@ -1057,9 +1040,9 @@ test "the core drives the real bridge: every command, undone and redone" {
             _ = try composers.checkField(&editor);
             const report = &composers.field_report.?;
             errors += report.errorCount();
-            for (report.findings.items) |finding| std.debug.print("map-editor-engine: field set {s}: {s}\n", .{ listed_name.nameSlice(), finding.text });
+            if (report.errorCount() != 0) for (report.findings.items) |finding| std.debug.print("map-editor-engine: field set {s}: {s}\n", .{ listed_name.nameSlice(), finding.text });
         }
-        std.debug.print("map-editor-engine: {d} shipped field sets read ({d} shells), Check! found {d} errors\n", .{ got, shells, errors });
+        errdefer std.debug.print("map-editor-engine: {d} shipped field sets read ({d} shells), Check! found {d} errors\n", .{ got, shells, errors });
         try std.testing.expect(shells > got);
         try std.testing.expectEqual(@as(usize, 0), errors);
         // The terrain types of the four seasons come through the ABI, and the profile probe agrees.
@@ -1086,7 +1069,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expectError(error.Refused, editor.writeFieldSet(names[0].nameSlice(), &composers.fdoc.current));
         try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
         try std.testing.expect(!editor.dirty());
-        std.debug.print("map-editor-engine: M3 rmg field sets round trip ok\n", .{});
     }
 
     // M3 (05-10, D-06/D-07/D-12): the Templates Composer's records on the real
@@ -1142,7 +1124,7 @@ test "the core drives the real bridge: every command, undone and redone" {
                 }
             }
         }
-        std.debug.print("map-editor-engine: {d} shipped templates read ({d} graphs), the template's own Check! found {d} errors ({d} findings of its graphs' and field sets' rules)\n", .{ got, graphs, errors, nested_findings });
+        errdefer std.debug.print("map-editor-engine: {d} shipped templates read ({d} graphs), the template's own Check! found {d} errors ({d} findings of its graphs' and field sets' rules)\n", .{ got, graphs, errors, nested_findings });
         try std.testing.expect(graphs > got);
         try std.testing.expectEqual(@as(usize, 0), errors);
         // A crafted one: a graph and a field set that are not in the data.
@@ -1166,7 +1148,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         try std.testing.expectError(error.Refused, editor.writeTemplate(names[0].nameSlice(), &composers.tdoc.current));
         try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
         try std.testing.expect(!editor.dirty());
-        std.debug.print("map-editor-engine: M3 rmg templates round trip ok\n", .{});
     }
 
     // M3 (05-06, D-32): the Layers menu on the real engine, through the core
@@ -1236,8 +1217,6 @@ test "the core drives the real bridge: every command, undone and redone" {
         editor.layers = .{};
         try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
         try std.testing.expect(!editor.dirty());
-        std.debug.print("map-editor-engine: M3 layers re-applied after open and new ok\n", .{});
     }
 
-    std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }
