@@ -30,7 +30,7 @@
 //! staged bk-font; `zig build bk-font-game-reads-it` sets both.
 const std = @import("std");
 const timed_run = @import("timed_run.zig");
-const measure = @import("l10n_measure.zig");
+const l10n_measure = @import("l10n_measure.zig");
 const testing = std.testing;
 
 /// The value of an environment variable the build step sets, or null.
@@ -161,15 +161,17 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
         // (bk_text's control run puts six such pixels beside the mod-name label), not text.
         if (!inside and maxChannelDelta(control[at..][0..3], drawn[at..][0..3]) > 2) outside += 1;
     };
-    std.debug.print("D-14: control and generated font differ in {d} pixels, {d} outside the eight medium-font windows; per window {any}\n", .{ changed, outside, per_window });
-    try testing.expectEqual(@as(usize, 0), outside);
-    for (per_window) |count| try testing.expect(count >= 50);
+    {
+        errdefer std.debug.print("D-14: control and generated font differ in {d} pixels, {d} outside the eight medium-font windows; per window {any}\n", .{ changed, outside, per_window });
+        try testing.expectEqual(@as(usize, 0), outside);
+        for (per_window) |count| try testing.expect(count >= 50);
+    }
 
     // Font against blank, per button: the generated font's ink against the
     // reference.
     for (buttons) |button| {
         const result = try measure(allocator, font, button, drawn, blank);
-        std.debug.print("D-14: \"{s}\": {d} glyphs, all with ink: {any}, quads overlap: {any}; {d} ink pixels, reference {d}, drawn {d} ({d:.1}%), outside the reference {d}, origin ({d},{d})\n", .{
+        errdefer std.debug.print("D-14: \"{s}\": {d} glyphs, all with ink: {any}, quads overlap: {any}; {d} ink pixels, reference {d}, drawn {d} ({d:.1}%), outside the reference {d}, origin ({d},{d})\n", .{
             button.text,    result.glyphs,    result.glyphs_with_ink == result.glyphs, result.overlap,
             result.ink,     result.reference, result.hit,                              100.0 * @as(f64, @floatFromInt(result.hit)) / @as(f64, @floatFromInt(result.reference)),
             result.foreign, result.origin.x,  result.origin.y,
@@ -414,7 +416,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
-    try measure.expectNoLeak(log, log_path);
+    try l10n_measure.expectNoLeak(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
     for ([_][]const u8{ "fonts/medium/1.tfd", "fonts/medium/1_h.dds" }) |file| {
