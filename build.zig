@@ -7787,7 +7787,6 @@ fn addNetLowestTest(
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{
         .files = &.{
-            "Sources/src/Platform/SocketWin32.cpp",
             "Sources/src/Platform/SocketPosix.cpp",
             "Sources/src/Platform/Debug.cpp",
             "Sources/src/Net/NetLowest.cpp",
@@ -7807,13 +7806,11 @@ fn addNetLowestTest(
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-    // Off Windows, Debug.cpp speaks through the platform client, which lives in the shared
-    // runtime. On Windows that DLL also exports the socket functions this test compiles itself, a
-    // duplicate for lld-link, and Debug.cpp needs no client: the test builds as it always did.
-    if (target.result.os.tag != .windows) {
-        module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformClient.cpp"), .flags = &.{"-std=c++17"} });
-        module.linkLibrary(platform_runtime);
-    }
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime. On Windows
+    // that DLL also exports the sockets, so SocketWin32.cpp (empty elsewhere) is not compiled here:
+    // lld-link rejects a second copy.
+    module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformClient.cpp"), .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "netlowest-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -7841,10 +7838,8 @@ fn addNetworkWorkersTest(
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{
         .files = &.{
-            "Sources/src/Platform/Clock.cpp",
             "Sources/src/Platform/Debug.cpp",
             "Sources/src/Platform/Sync.cpp",
-            "Sources/src/Platform/SocketWin32.cpp",
             "Sources/src/Platform/SocketPosix.cpp",
             "Sources/src/Misc/Thread.cpp",
             "Sources/src/Net/NetLowest.cpp",
@@ -7864,13 +7859,12 @@ fn addNetworkWorkersTest(
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-    // Off Windows, Debug.cpp speaks through the platform client, which lives in the shared
-    // runtime. On Windows that DLL also exports the socket functions this test compiles itself, a
-    // duplicate for lld-link, and Debug.cpp needs no client: the test builds as it always did.
-    if (target.result.os.tag != .windows) {
-        module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformClient.cpp"), .flags = &.{"-std=c++17"} });
-        module.linkLibrary(platform_runtime);
-    }
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime. On Windows
+    // that DLL also exports the sockets and the clock, so SocketWin32.cpp (empty elsewhere) and,
+    // there, Clock.cpp are not compiled here: lld-link rejects a second copy.
+    if (target.result.os.tag != .windows) module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/Clock.cpp"), .flags = &.{"-std=c++17"} });
+    module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformClient.cpp"), .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "network-workers-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
