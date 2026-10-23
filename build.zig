@@ -697,6 +697,28 @@ fn setLeakReportStrict(run: *std.Build.Step.Run) void {
     run.setEnvironmentVariable("BK_MEM_REPORT", "1");
 }
 
+/// A tool a test runs reports what it wrote on stdout, for a human at a terminal. The test
+/// judges the files instead, so the report is kept out of a passing run (a test that passes
+/// prints nothing); stderr, where the tool says why it failed, still reaches the terminal. A
+/// captured stdout would make the run cacheable, so it is marked as having side effects: the
+/// tool reads Data and the fixtures by plain path, which the cache does not see.
+fn discardToolStdOut(run: *std.Build.Step.Run) void {
+    _ = run.captureStdOut(.{});
+    run.has_side_effects = true;
+}
+
+/// A test whose run writes to stderr even when it passes: code under test that reports on
+/// stderr on purpose (a diagnostic with no host attached, an unattended error box), or the Zig
+/// test runner's per-test lines in terminal mode. The stream is captured, so a pass prints
+/// nothing, and a failing exit code still shows all of it with the step's error. A check of
+/// the text (expectStdErrMatch) would not: Zig then reports a wrong exit code without the
+/// stderr, which loses a leak report or a failed check's line. Marked as having side effects
+/// because a captured stream would make the run cacheable.
+fn captureStdErrForFailure(run: *std.Build.Step.Run) void {
+    _ = run.captureStdErr(.{});
+    run.has_side_effects = true;
+}
+
 /// Appends `dir` to the run step's PATH like the removed Run.addPathDir did.
 fn addPathDir(run: *std.Build.Step.Run, dir: []const u8) void {
     const b = run.step.owner;
@@ -1061,6 +1083,7 @@ pub fn build(b: *std.Build) void {
     const client_run = b.addRunArtifact(client_test);
     client_run.addArtifactArg(consumer_a);
     client_run.addArtifactArg(consumer_b);
+    captureStdErrForFailure(client_run);
     const client_step = b.step("test-platform-client", "Run checked C++ platform client tests");
     client_step.dependOn(&platform_runtime.step);
     client_step.dependOn(&consumer_a.step);
@@ -1164,6 +1187,7 @@ pub fn build(b: *std.Build) void {
     platform_debug_test.subsystem = .console;
     if (platform == .windows_x64) platform_debug_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_debug_run = b.addRunArtifact(platform_debug_test);
+    captureStdErrForFailure(platform_debug_run);
     const platform_debug_step = b.step("test-platform-debug", "Run portable diagnostic and debugger facade tests");
     platform_debug_step.dependOn(&platform_debug_test.step);
     platform_debug_step.dependOn(&platform_runtime.step);
@@ -1238,6 +1262,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) platform_system_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_system_run = b.addRunArtifact(platform_system_test);
     setLeakReportStrict(platform_system_run);
+    captureStdErrForFailure(platform_system_run);
     platform_system_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     platform_system_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     addPathDir(platform_system_run, rootPath(b, if (build_support.isWindows(platform)) "zig-out/bin" else "zig-out/lib"));
@@ -8178,6 +8203,7 @@ fn addBkFont(
     generate.addArgs(&.{ "--ttf", fixture, "--height", "13", "--charset", "ansi", "--out", output, "--force", "--modules", module_root });
     generate.step.dependOn(install);
     addPathDir(generate, rootPath(b, "zig-out/bin"));
+    discardToolStdOut(generate);
     const check = b.addRunArtifact(test_exe);
     setLeakReportStrict(check);
     setUserRootsForTest(check, "bk-font-user");
@@ -8203,6 +8229,7 @@ fn addBkFont(
         for (run_def.args) |arg| unicode_generate.addArg(if (std.mem.startsWith(u8, arg, "tools/")) rootPath(b, arg) else arg);
         unicode_generate.step.dependOn(install);
         addPathDir(unicode_generate, rootPath(b, "zig-out/bin"));
+        discardToolStdOut(unicode_generate);
         check.step.dependOn(&unicode_generate.step);
     }
     addPathDir(check, rootPath(b, "zig-out/bin"));
@@ -8362,6 +8389,7 @@ fn addBkMap(
             run.expectStdErrEqual(spec.stderr orelse "");
         } else {
             setLeakReportStrict(run);
+            discardToolStdOut(run);
         }
         // The tool reads Data and the fixtures by plain path; a changed map
         // or fixture is a changed run.
@@ -8523,6 +8551,7 @@ fn addBkSprite(
             run.expectStdErrEqual(stderr);
         } else {
             setLeakReportStrict(run);
+            discardToolStdOut(run);
         }
         // The tool reads the fixtures by plain path; a changed fixture is a
         // changed run.
@@ -10676,6 +10705,8 @@ fn addMapEditor(
     // mode a passing run returns from main, through c_bridge_test.zig's
     // crtMain into the CRT's exit; a failing one still exits 1.
     engine_test_run.stdio = .infer_from_args;
+    // Terminal mode prints a line per test; a pass keeps them, and the engine's commentary, to itself.
+    captureStdErrForFailure(engine_test_run);
     setLeakReportStrict(engine_test_run);
     engine_test_run.setCwd(b.path(stage_root));
     // What it reads - the staged Data and engine - is not a file input of the
