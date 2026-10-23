@@ -383,23 +383,24 @@ fn ownLive() usize {
     return total;
 }
 
-/// One line per foreign library with live blocks and, when `leaks` of our
-/// own are left, where they came from: the module whose operator new made
-/// them, or the C ABI (Zig code and the C libraries) for the rest. That
+/// When `leaks` of our own are left: where they came from, the module whose
+/// operator new made them or the C ABI (Zig code and the C libraries) for the
+/// rest, and one line per foreign library with live blocks beside them. That
 /// names the module to look in without the per-block stacks, which on Linux
-/// cost the editors more than the run itself.
+/// cost the editors more than the run itself. A clean exit says nothing: the
+/// blocks a system library (Mesa, CoreML) keeps until exit are not ours to
+/// free, and a line about them on every passing run was noise.
 fn logModules(leaks: usize) void {
     const log = std.log.scoped(.BkMemory);
     const n = @atomicLoad(usize, &module_count, .acquire);
-    if (leaks != 0) {
-        for (modules[1..n]) |*m| {
-            const live = @atomicLoad(usize, &m.live, .monotonic);
-            if (!m.own or live == 0) continue;
-            log.warn("bk_mem: of those, {d} from {s}'s operator new", .{ live, m.name[0..m.name_len] });
-        }
-        const c_abi = @atomicLoad(usize, &modules[0].live, .monotonic);
-        if (c_abi != 0) log.warn("bk_mem: of those, {d} from the C ABI", .{c_abi});
+    if (leaks == 0) return;
+    for (modules[1..n]) |*m| {
+        const live = @atomicLoad(usize, &m.live, .monotonic);
+        if (!m.own or live == 0) continue;
+        log.warn("bk_mem: of those, {d} from {s}'s operator new", .{ live, m.name[0..m.name_len] });
     }
+    const c_abi = @atomicLoad(usize, &modules[0].live, .monotonic);
+    if (c_abi != 0) log.warn("bk_mem: of those, {d} from the C ABI", .{c_abi});
     for (modules[1..n]) |*m| {
         const live = @atomicLoad(usize, &m.live, .monotonic);
         if (m.own or live == 0) continue;

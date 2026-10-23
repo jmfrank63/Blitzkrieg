@@ -8012,8 +8012,8 @@ fn addGameBootstrapSmoke(
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
-    // SDL's GTK backend warns about the locale and BkMemory counts Mesa's foreign blocks on
-    // stderr; neither is a failure of the smoke, whose checks are its exit code.
+    // SDL's GTK backend warns about the locale on stderr, which is no failure of the smoke,
+    // whose checks are its exit code.
     captureStdErrForFailure(run);
     run.setCwd(b.path("."));
     run.step.dependOn(&platform_runtime.step);
