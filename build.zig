@@ -2597,9 +2597,10 @@ pub fn build(b: *std.Build) void {
     const net_module_test_run = b.addRunArtifact(net_module_test);
     setLeakReportStrict(net_module_test_run);
     net_module_test_run.setCwd(b.path("."));
-    net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else "zig-out/lib/libNet.so");
+    net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libNet.dylib" else "zig-out/lib/libNet.so");
     addPathDir(net_module_test_run, rootPath(b, "zig-out/bin"));
-    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .linux) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .macos) net_module_test_run.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     net_module_test_run.step.dependOn(&b.addInstallArtifact(net, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -5607,9 +5608,10 @@ fn addInputModuleTest(
     setLeakReportStrict(run);
     run.setCwd(b.path("zig-out/bin"));
     addPathDir(run, rootPath(b, "zig-out/bin"));
-    // The test executable itself needs libBkMemory.so before it loads Input; the Linux loader
-    // finds it only through LD_LIBRARY_PATH, as for the net-module test.
+    // The test executable itself needs libBkMemory before it loads Input; the Linux and macOS
+    // loaders find it only through their library path, as for the net-module and SFX tests.
     if (target.result.os.tag == .linux) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     run.addArg(if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin/Input.dll") else if (target.result.os.tag == .macos) rootPath(b, "zig-out/lib/libInput.dylib") else rootPath(b, "zig-out/lib/libInput.so"));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
