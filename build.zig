@@ -3537,6 +3537,27 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_oauth_step = b.step("test-cloudsync-oauth", "Run Zig CloudSync config state machine tests");
     test_cloudsync_oauth_step.dependOn(&cloudsync_oauth_unit_tests.step);
     if (test_mode == .run) test_cloudsync_oauth_step.dependOn(&run_cloudsync_oauth_unit_tests.step);
+    // The live cases start their own `rclone serve webdav` and `rclone rcd` on scratch folders,
+    // so all they need is an rclone binary: BK_TEST_RCLONE, else the first one on PATH, and they
+    // return early when there is none (CI). On Linux PATH often holds the distribution's rclone
+    // (1.68 on the maintainer's machine), older than the 1.75 the game ships and finds beside
+    // itself first; its bisync and error texts differ from what the cases pin, and three engine
+    // cases, the backend cycle and the worker's auth_failed case failed against it. Linux runs
+    // them against the bundled binary instead.
+    if (target.result.os.tag == .linux) {
+        const live_rclone_runs = [_]*std.Build.Step.Run{
+            run_cloudsync_daemon_unit_tests,
+            run_cloudsync_engine_unit_tests,
+            run_cloudsync_backend_unit_tests,
+            run_cloudsync_backup_unit_tests,
+            run_cloudsync_worker_unit_tests,
+            run_cloudsync_oauth_unit_tests,
+        };
+        for (live_rclone_runs) |run| {
+            run.setEnvironmentVariable("BK_TEST_RCLONE", rootPath(b, b.fmt("zig-out/bin/{s}", .{rclone_bundle.installed_name})));
+            run.step.dependOn(&install_rclone.step);
+        }
+    }
     // The C ABI is proven from both sides in one step: the zig tests below
     // cover the discovery cache and its threading contract, and the C++ smoke
     // consumer links the real shared library and calls every export, which is
