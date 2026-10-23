@@ -86,6 +86,21 @@ fn glyphKey(face: faces.Face, glyph_id: u32) u32 {
 }
 
 export fn bk_text_context_create(fonts_dir: ?[*:0]const u8, lang_code: ?[*:0]const u8, out: ?*?*Context) callconv(.c) c_int {
+    return createContext(fonts_dir, lang_code, out, null);
+}
+
+export fn bk_text_context_create_reporting(fonts_dir: ?[*:0]const u8, lang_code: ?[*:0]const u8, out: ?*?*Context, message: ?[*]u8, capacity: u32) callconv(.c) c_int {
+    const buffer = (message orelse return code(.invalid_argument))[0..capacity];
+    if (buffer.len == 0) return code(.invalid_argument);
+    // One byte stays free for the NUL; a longer reason is cut there.
+    var writer: std.Io.Writer = .fixed(buffer[0 .. buffer.len - 1]);
+    const result = createContext(fonts_dir, lang_code, out, &writer);
+    buffer[writer.end] = 0;
+    return result;
+}
+
+/// Both creates: `diagnostics` takes the reason a face did not load, stderr when null.
+fn createContext(fonts_dir: ?[*:0]const u8, lang_code: ?[*:0]const u8, out: ?*?*Context, diagnostics: ?*std.Io.Writer) c_int {
     const out_ptr = out orelse return code(.invalid_argument);
     out_ptr.* = null;
     const dir = std.mem.span(fonts_dir orelse return code(.invalid_argument));
@@ -101,7 +116,7 @@ export fn bk_text_context_create(fonts_dir: ?[*:0]const u8, lang_code: ?[*:0]con
     ctx.threaded = std.Io.Threaded.init(allocator, .{});
     ctx.lang_len = lang.len;
     @memcpy(ctx.lang_buf[0..lang.len], lang);
-    ctx.set = faces.FaceSet.load(allocator, ctx.threaded.io(), dir) catch |err| {
+    ctx.set = faces.FaceSet.loadReporting(allocator, ctx.threaded.io(), dir, diagnostics) catch |err| {
         ctx.threaded.deinit();
         allocator.destroy(ctx);
         return fail(err);

@@ -54,7 +54,19 @@ static void TestBadArguments( const char *szFonts )
 	CHECK( bk_text_context_create( nullptr, "en", &ctx ) == BK_TEXT_INVALID_ARGUMENT );
 	CHECK( bk_text_context_create( szFonts, nullptr, &ctx ) == BK_TEXT_INVALID_ARGUMENT );
 	CHECK( ctx == nullptr );
-	CHECK( bk_text_context_create( "no/such/fonts/folder", "en", &ctx ) == BK_TEXT_NOT_FOUND );
+	// The reporting create names the missing file in the message, where the plain one prints it.
+	char szMessage[256] = "x";
+	CHECK( bk_text_context_create_reporting( "no/such/fonts/folder", "en", &ctx, szMessage, sizeof( szMessage ) ) == BK_TEXT_NOT_FOUND );
+	CHECK( ctx == nullptr );
+	CHECK( strstr( szMessage, "SHA256SUMS: missing" ) != nullptr );
+	char szShort[8] = "x";
+	CHECK( bk_text_context_create_reporting( "no/such/fonts/folder", "en", &ctx, szShort, sizeof( szShort ) ) == BK_TEXT_NOT_FOUND );
+	CHECK( strcmp( szShort, "bk_text" ) == 0 );
+	CHECK( bk_text_context_create_reporting( szFonts, "en", &ctx, szMessage, sizeof( szMessage ) ) == BK_TEXT_OK );
+	CHECK( szMessage[0] == 0 );
+	bk_text_context_destroy( ctx );
+	ctx = nullptr;
+	CHECK( bk_text_context_create_reporting( szFonts, "en", &ctx, nullptr, 0 ) == BK_TEXT_INVALID_ARGUMENT );
 	CHECK( ctx == nullptr );
 	bk_text_context_destroy( nullptr );
 	bk_text_font_close( nullptr );
@@ -250,6 +262,5 @@ int main( int argc, char **argv )
 	TestWrap( szFonts );
 	TestMissingGlyph( szFonts );
 	if ( g_nFailures ) fprintf( stderr, "bk-text-abi-test: %d check(s) failed\n", g_nFailures );
-	else printf( "bk-text-abi-test: ok\n" );
 	return g_nFailures ? 1 : 0;
 }

@@ -109,6 +109,11 @@ typedef struct BkTextStats {
  * language code such as "en", "ru", "ja", "zh", "hi"; the code picks the fallback order of the
  * faces and the shaping language. */
 BK_TEXT_API BkTextResult bk_text_context_create(const char *fonts_dir_utf8, const char *lang_code, BkTextContext **out);
+/* bk_text_context_create, with the reason a face could not be loaded written to message instead of
+ * stderr: at most capacity bytes with the NUL, no trailing newline, empty when the faces load. For a
+ * host that shows the reason itself, or a test that fails a load on purpose and checks it. */
+BK_TEXT_API BkTextResult bk_text_context_create_reporting(
+	const char *fonts_dir_utf8, const char *lang_code, BkTextContext **out, char *message, uint32_t capacity);
 /* Destroys the context, its atlas and caches. Close its fonts first; null is accepted. */
 BK_TEXT_API void bk_text_context_destroy(BkTextContext *ctx);
 

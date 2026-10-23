@@ -55,15 +55,23 @@ pub const FaceSet = struct {
     loaded: usize = 0,
 
     /// Reads and verifies every face in `dir`. A failure names the file and
-    /// whether it was missing, unreadable, or a SHA256 mismatch.
+    /// whether it was missing, unreadable, or a SHA256 mismatch, on stderr.
     pub fn load(allocator: std.mem.Allocator, io: std.Io, dir: []const u8) Error!FaceSet {
+        return loadReporting(allocator, io, dir, null);
+    }
+
+    /// load, with the failure's line (no trailing newline) written to
+    /// `diagnostics` instead of stderr when it is set: a caller that turns the
+    /// line into its own message, or a test that fails a load on purpose and
+    /// asserts what it says.
+    pub fn loadReporting(allocator: std.mem.Allocator, io: std.Io, dir: []const u8, diagnostics: ?*std.Io.Writer) Error!FaceSet {
         var set: FaceSet = .{ .allocator = allocator, .faces = undefined };
         errdefer set.deinit();
 
         const sums_path = try std.fs.path.join(allocator, &.{ dir, "SHA256SUMS" });
         defer allocator.free(sums_path);
         const sums = std.Io.Dir.cwd().readFileAlloc(io, sums_path, allocator, .limited(1 << 16)) catch |err| {
-            std.debug.print("bk_text: {s}: {s}\n", .{ sums_path, if (err == error.FileNotFound) "missing" else "cannot be read" });
+            report(diagnostics, "bk_text: {s}: {s}", .{ sums_path, if (err == error.FileNotFound) "missing" else "cannot be read" });
             return if (err == error.FileNotFound) error.FontMissing else error.FontRead;
         };
         defer allocator.free(sums);
@@ -73,19 +81,19 @@ pub const FaceSet = struct {
             defer allocator.free(path);
             const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(64 << 20)) catch |err| {
                 if (err == error.FileNotFound) {
-                    std.debug.print("bk_text: font file {s} is missing\n", .{path});
+                    report(diagnostics, "bk_text: font file {s} is missing", .{path});
                     return error.FontMissing;
                 }
-                std.debug.print("bk_text: font file {s} cannot be read: {s}\n", .{ path, @errorName(err) });
+                report(diagnostics, "bk_text: font file {s} cannot be read: {s}", .{ path, @errorName(err) });
                 return error.FontRead;
             };
             errdefer allocator.free(bytes);
             if (!verify(sums, face.fileName(), bytes)) {
-                std.debug.print("bk_text: font file {s} fails its SHA256SUMS check\n", .{path});
+                report(diagnostics, "bk_text: font file {s} fails its SHA256SUMS check", .{path});
                 return error.FontMismatch;
             }
             const slot = &set.faces[set.loaded];
-            slot.* = try open(allocator, bytes, path);
+            slot.* = try open(allocator, bytes, path, diagnostics);
             set.loaded += 1;
         }
         return set;
@@ -113,7 +121,16 @@ pub const FaceSet = struct {
     }
 };
 
-fn open(allocator: std.mem.Allocator, bytes: []u8, path: []const u8) Error!Loaded {
+/// One line of a failed load: to `diagnostics` when the caller gave one, else stderr.
+fn report(diagnostics: ?*std.Io.Writer, comptime format: []const u8, args: anytype) void {
+    if (diagnostics) |writer| {
+        writer.print(format, args) catch {};
+        return;
+    }
+    std.debug.print(format ++ "\n", args);
+}
+
+fn open(allocator: std.mem.Allocator, bytes: []u8, path: []const u8, diagnostics: ?*std.Io.Writer) Error!Loaded {
     // The blob is read-only and does not own the bytes: FaceSet frees them.
     const blob = c.hb.hb_blob_create(bytes.ptr, @intCast(bytes.len), c.hb.HB_MEMORY_MODE_READONLY, null, null) orelse return error.OutOfMemory;
     errdefer c.hb.hb_blob_destroy(blob);
@@ -124,7 +141,7 @@ fn open(allocator: std.mem.Allocator, bytes: []u8, path: []const u8) Error!Loade
     const stb = try allocator.alignedAlloc(u8, .@"16", c.bk_stbtt_info_size());
     errdefer allocator.free(stb);
     if (c.bk_stbtt_init_font(stb.ptr, bytes.ptr, 0) == 0) {
-        std.debug.print("bk_text: font file {s} is not a usable TrueType or CFF font\n", .{path});
+        report(diagnostics, "bk_text: font file {s} is not a usable TrueType or CFF font", .{path});
         return error.FontInvalid;
     }
     return .{ .bytes = bytes, .blob = blob, .hb_face = hb_face, .hb_font = hb_font, .stb = stb };
@@ -191,9 +208,15 @@ test "a flipped byte is a SHA256 mismatch" {
     const sums = try cwd.readFileAlloc(io, sums_from, gpa, .limited(1 << 16));
     defer gpa.free(sums);
     try cwd.writeFile(io, .{ .sub_path = dst ++ "/SHA256SUMS", .data = sums });
-    try std.testing.expectError(error.FontMismatch, FaceSet.load(gpa, io, dst));
+    var messages: std.Io.Writer.Allocating = .init(gpa);
+    defer messages.deinit();
+    try std.testing.expectError(error.FontMismatch, FaceSet.loadReporting(gpa, io, dst, &messages.writer));
+    try std.testing.expect(std.mem.endsWith(u8, messages.written(), "NotoSans-Regular.ttf fails its SHA256SUMS check"));
 }
 
 test "a missing directory names the missing file" {
-    try std.testing.expectError(error.FontMissing, FaceSet.load(std.testing.allocator, std.testing.io, "zig-out/local-test/bk-text/none"));
+    var messages: std.Io.Writer.Allocating = .init(std.testing.allocator);
+    defer messages.deinit();
+    try std.testing.expectError(error.FontMissing, FaceSet.loadReporting(std.testing.allocator, std.testing.io, "zig-out/local-test/bk-text/none", &messages.writer));
+    try std.testing.expect(std.mem.endsWith(u8, messages.written(), "SHA256SUMS: missing"));
 }
