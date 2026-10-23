@@ -1275,6 +1275,8 @@ pub fn build(b: *std.Build) void {
     legacy_variant_module.link_libc = !build_support.usesMsvc(platform);
     legacy_variant_module.link_libcpp = build_support.needsBundledLibcpp(platform);
     legacy_variant_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, legacy_variant_module);
+    linkCxxRuntime(legacy_variant_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, legacy_variant_module, toolchain);
         addMsvcLibraryPaths(b, legacy_variant_module, toolchain);
@@ -1541,8 +1543,8 @@ pub fn build(b: *std.Build) void {
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
     addPlatformNetworkTest(b, target, test_mode, toolchain);
     addPlatformSocketAbiTest(b, target, test_mode, toolchain, platform_runtime);
-    addNetLowestTest(b, target, test_mode, toolchain);
-    addNetworkWorkersTest(b, target, test_mode, toolchain);
+    addNetLowestTest(b, target, test_mode, toolchain, platform_runtime);
+    addNetworkWorkersTest(b, target, test_mode, toolchain, platform_runtime);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
@@ -1620,7 +1622,7 @@ pub fn build(b: *std.Build) void {
     const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
     const editor_overlay_spike_build_step = b.step("editor-overlay-spike-build", "Build the Map Editor ImGui overlay spike");
     editor_overlay_spike_build_step.dependOn(&editor_overlay_spike_install.step);
-    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic_dep.path("include"), test_mode);
+    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
@@ -2228,7 +2230,8 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, platform_storage_gate_module, toolchain);
     const platform_storage_gate = b.addExecutable(.{ .name = "platform-storage-gate", .root_module = platform_storage_gate_module });
     platform_storage_gate.subsystem = .console;
-    platform_storage_gate.entry = .{ .symbol_name = "mainCRTStartup" };
+    // mainCRTStartup is the Windows CRT's; elsewhere it does not exist and lld left the start address unset.
+    if (build_support.isWindows(platform)) platform_storage_gate.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_storage_gate_run = b.addRunArtifact(platform_storage_gate);
     platform_storage_gate_run.setCwd(b.path("."));
     const platform_storage_gate_step = b.step("test-platform-storage", "Run config/save/package storage gate");
@@ -3112,7 +3115,9 @@ pub fn build(b: *std.Build) void {
     linkEngineCxxRuntimeEngine(b, console_bridge_test_module, optimize);
     if (platform != .windows_x64) {
         console_bridge_test_module.link_libc = true;
-        console_bridge_test_module.link_libcpp = true;
+        // Linux compiles against the native libstdc++ headers (addProjectIncludePaths) and links
+        // its soname; Zig's libc++ beside them is two standard libraries in one translation unit.
+        if (build_support.isLinux(platform)) linkCxxRuntime(console_bridge_test_module, target) else console_bridge_test_module.link_libcpp = true;
     }
     console_bridge_test_module.addCSourceFile(.{
         .file = b.path("tools/zig/console_bridge_test.cpp"),
@@ -3554,6 +3559,12 @@ pub fn build(b: *std.Build) void {
         // win. The consumer proves the ABI, not the STL.
         .flags = &.{"-std=c++17"},
     });
+    // <cstdio> and <cstring> are C++ headers all the same; Linux takes them from the native
+    // libstdc++ the engine uses, with the soname and libc beside it.
+    if (target.result.os.tag == .linux) {
+        addLinuxCxxIncludePaths(b, cloudsync_abi_consumer_module);
+        linkCxxRuntime(cloudsync_abi_consumer_module, target);
+    }
     addMsvcIncludePaths(b, cloudsync_abi_consumer_module, toolchain);
     addMsvcLibraryPaths(b, cloudsync_abi_consumer_module, toolchain);
     cloudsync_abi_consumer_module.linkLibrary(cloudsync);
@@ -3614,6 +3625,8 @@ pub fn build(b: *std.Build) void {
     // The build's PATH entry for BkMemory.dll is relative to the build root and the cwd above is
     // elsewhere, so the loader would not find it: give the run the installed copy by absolute path.
     addPathDir(run_facade_present, rootPath(b, "zig-out/bin"));
+    // The Linux loader finds the installed libBkMemory.so only through LD_LIBRARY_PATH from there.
+    if (target.result.os.tag == .linux) run_facade_present.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     run_facade_present.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const test_cloudsync_facade_step = b.step("test-cloudsync-facade", "Run the CloudSync C++ facade tests");
     test_cloudsync_facade_step.dependOn(&cloudsync_facade_test.step);
@@ -5546,7 +5559,7 @@ fn addInputModuleTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -5559,6 +5572,10 @@ fn addInputModuleTest(
     setLeakReportStrict(run);
     run.setCwd(b.path("zig-out/bin"));
     addPathDir(run, rootPath(b, "zig-out/bin"));
+    // The test executable itself needs libBkMemory.so before it loads Input; the Linux loader
+    // finds it only through LD_LIBRARY_PATH, as for the net-module test.
+    if (target.result.os.tag == .linux) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     run.addArg(if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin/Input.dll") else if (target.result.os.tag == .macos) rootPath(b, "zig-out/lib/libInput.dylib") else rootPath(b, "zig-out/lib/libInput.so"));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
     step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -6612,6 +6629,15 @@ fn linuxMultiarchDir(arch: std.Target.Cpu.Arch) []const u8 {
     };
 }
 
+/// linkCxxRuntime for a standalone C++ test executable on Linux. libstdc++ is
+/// built on glibc, and a test module that asked for nothing but C++ left
+/// printf, pthread_mutex_lock and getauxval undefined, so it links libc too.
+/// The engine modules keep their own libc setup and call linkCxxRuntime.
+fn linkLinuxTestCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
+    module.link_libc = true;
+    linkCxxRuntime(module, target);
+}
+
 fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
     switch (target.result.os.tag) {
         // Zig treats the abstract name `stdc++` as its libc++ switch. The
@@ -6930,7 +6956,7 @@ fn addGameFrameTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => {
             module.linkSystemLibrary("c++", .{});
             // SDLApplication reaches AppKit through the Objective-C runtime
@@ -7046,7 +7072,7 @@ fn addGameLoopTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => {
             module.linkSystemLibrary("c++", .{});
             // SDLApplication reaches AppKit through the Objective-C runtime
@@ -7106,7 +7132,7 @@ fn addSdlApplicationTest(
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
     } else if (target.result.os.tag == .linux) {
-        module.linkSystemLibrary("stdc++", .{});
+        linkLinuxTestCxxRuntime(module, target);
     } else if (target.result.os.tag == .macos) {
         module.linkSystemLibrary("c++", .{});
         // SDLApplication reaches AppKit through the Objective-C runtime
@@ -7272,7 +7298,7 @@ fn addInputHeaderAuditTest(
             addMsvcLibraryPaths(b, module, toolchain);
             linkMsvcRuntime(module, .debug);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7433,7 +7459,7 @@ fn addPlatformControllerTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7534,7 +7560,7 @@ fn addAudioWorkerTest(
             addMsvcLibraryPaths(b, module, toolchain);
             linkMsvcRuntime(module, .debug);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7568,7 +7594,7 @@ fn addAudioStreamTest(
             addMsvcLibraryPaths(b, module, toolchain);
             linkMsvcRuntime(module, .debug);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7713,6 +7739,7 @@ fn addNetLowestTest(
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
@@ -7723,6 +7750,7 @@ fn addNetLowestTest(
             "Sources/src/Platform/SocketWin32.cpp",
             "Sources/src/Platform/SocketPosix.cpp",
             "Sources/src/Platform/Debug.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Net/NetLowest.cpp",
             "Sources/src/Net/Streams.cpp",
             "tools/zig/netlowest_test.cpp",
@@ -7736,16 +7764,21 @@ fn addNetLowestTest(
             linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime.
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "netlowest-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-netlowest", "Run NetLowest loopback UDP fixture");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -7756,6 +7789,7 @@ fn addNetworkWorkersTest(
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
@@ -7765,6 +7799,7 @@ fn addNetworkWorkersTest(
         .files = &.{
             "Sources/src/Platform/Clock.cpp",
             "Sources/src/Platform/Debug.cpp",
+            "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/Sync.cpp",
             "Sources/src/Platform/SocketWin32.cpp",
             "Sources/src/Platform/SocketPosix.cpp",
@@ -7782,16 +7817,21 @@ fn addNetworkWorkersTest(
             linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime.
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "network-workers-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-network-workers", "Run network worker cancellation and restart cycles");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -7857,7 +7897,7 @@ fn addNetworkSystemGateTest(
             addMsvcLibraryPaths(b, module, toolchain);
             module.linkSystemLibrary("ws2_32", .{});
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7887,6 +7927,7 @@ fn addGameBootstrapSmoke(
     toolchain: ToolchainIncludes,
     gfx_gpu_zig: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
     test_mode: build_support.TestMode,
 ) void {
@@ -7902,6 +7943,8 @@ fn addGameBootstrapSmoke(
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    // new_delete.cpp is added by hand above, so the native libstdc++ headers are too.
+    if (target.result.os.tag == .linux) addLinuxCxxIncludePaths(b, module);
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "Sources/src/Platform/System.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
     module.linkLibrary(platform_runtime);
@@ -7910,7 +7953,12 @@ fn addGameBootstrapSmoke(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => {
+            linkLinuxTestCxxRuntime(module, target);
+            // GfxGpuZig is a shared library on Linux and does not re-export SDL to the
+            // C++ sources here, so they link the one dynamic SDL3 the game ships.
+            linkSdlImport(module, target, sdl_dynamic);
+        },
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -13002,7 +13050,7 @@ fn addSdlEventTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => {
             // The CI runner links against the SDK (-Dsystem_framework_path and friends), which
             // has to be on the search path for objc and c++ to resolve.

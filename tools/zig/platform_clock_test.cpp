@@ -1,9 +1,10 @@
 #include "Platform/Clock.h"
 #include <cstdint>
-using int64 = std::int64_t;
+// HPTimer.cpp defines int64 as the project headers do (long long); std::int64_t is long on
+// LP64 Linux, which would mangle the HPTimer calls into symbols nobody defines.
+using int64 = long long;
 #include "Misc/HPTimer.h"
 
-#include <cstdio>
 
 int main()
 {
@@ -41,6 +42,5 @@ int main()
 	if ( NPlatform::AtomicCompareExchangeU32( &atomic, 20, 99 ) != 42 || atomic != 42 )
 		return 9;
 
-	std::printf( "clock monotonic: %.3f ms, hptimer: %.3f ms\n", sleepSeconds * 1000.0, timerElapsed * 1000.0 );
 	return 0;
 }
