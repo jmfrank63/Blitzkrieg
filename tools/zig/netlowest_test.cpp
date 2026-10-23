@@ -80,6 +80,5 @@ int main()
 	receiver.Finish();
 	sender.Finish();
 
-	std::puts("netlowest loopback UDP passed");
 	return 0;
 }

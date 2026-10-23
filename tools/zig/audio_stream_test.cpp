@@ -128,6 +128,5 @@ int main()
 {
 	if (!testPcmReadSeekLoop() || !testCallbackDrain())
 		return 1;
-	std::printf("audio streams passed: PCM read seek loop EOF callback drain cycles=100\n");
 	return 0;
 }

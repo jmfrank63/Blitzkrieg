@@ -6979,6 +6979,8 @@ fn addGameFrameTest(
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     setLeakReportStrict(test_run);
+    // The splash's renderer brings up Mesa, whose blocks BkMemory lists as foreign on stderr.
+    captureStdErrForFailure(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -7976,6 +7978,9 @@ fn addGameBootstrapSmoke(
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    // SDL's GTK backend warns about the locale and BkMemory counts Mesa's foreign blocks on
+    // stderr; neither is a failure of the smoke, whose checks are its exit code.
+    captureStdErrForFailure(run);
     run.setCwd(b.path("."));
     run.step.dependOn(&platform_runtime.step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
@@ -13075,6 +13080,8 @@ fn addSdlEventTest(
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     setLeakReportStrict(test_run);
+    // A text event over the buffer is truncated on purpose and reported once through DebugWrite.
+    captureStdErrForFailure(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&platform_runtime.step);
     test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
