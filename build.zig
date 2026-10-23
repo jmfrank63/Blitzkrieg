@@ -4368,8 +4368,9 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
-    // single_instance.zig's job state allocates through the shared allocator.
-    linkBkMemoryAllocator(b, panels_logic_module, false);
+    // single_instance.zig's job state allocates through the shared allocator; the kit it
+    // imports links BkMemory already, and a second copy aborts dyld on macOS.
+    linkBkMemoryAllocator(b, panels_logic_module, true);
     const panels_logic_tests = b.addTest(.{ .root_module = panels_logic_module });
     const panels_logic_tests_run = b.addRunArtifact(panels_logic_tests);
     const panels_logic_step = b.step("test-map-editor-panels", "Run the panels' pure file-action, palette and properties tests");
@@ -7807,8 +7808,10 @@ fn addNetLowestTest(
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-    // Debug.cpp speaks through the platform client, which lives in the shared runtime.
-    module.linkLibrary(platform_runtime);
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime. On Windows
+    // that DLL also exports the socket functions this test compiles itself, a duplicate for
+    // lld-link, and the test links without it there as it always did.
+    if (target.result.os.tag != .windows) module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "netlowest-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -7860,8 +7863,10 @@ fn addNetworkWorkersTest(
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
-    // Debug.cpp speaks through the platform client, which lives in the shared runtime.
-    module.linkLibrary(platform_runtime);
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime. On Windows
+    // that DLL also exports the socket functions this test compiles itself, a duplicate for
+    // lld-link, and the test links without it there as it always did.
+    if (target.result.os.tag != .windows) module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "network-workers-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
