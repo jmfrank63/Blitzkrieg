@@ -79,9 +79,11 @@ BK_TEST_RCLONE=/path/to/rclone zig build test-cloudsync-daemon \
     -Dtarget=aarch64-macos -Dtest-mode=run
 ```
 
-Use v1.75.0 or newer; `daemon.zig` gates at 1.66 because the plan depends on
+Use v1.75.0 or newer; `daemon.zig` gates at 1.74. The plan depends on
 `resyncMode`, on `backupDir1`/`backupDir2` as rc parameters, and on the
-non-suffixed bisync listing filenames.
+non-suffixed bisync listing filenames, all there since 1.66, but measured on
+2026-10-23 the pairing of 1.68 to 1.73 kept the older side, so 1.74 is the
+oldest release the live suites pass with.
 
 **Target matrix as it stands.** Run-verified: `aarch64-macos` (through
 P01-M01) and `x86_64-windows-msvc` (everything, through P01-M04).

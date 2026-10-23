@@ -175,7 +175,7 @@ test "explicit_path_wins_over_path_entry" {
 
     // The override is deliberately the *older* of the two, so the assertion on
     // the probed version cannot pass by accident if the PATH copy were used.
-    const explicit = try fixture.stub("elsewhere", daemon.exe_name, "rclone v1.66.0");
+    const explicit = try fixture.stub("elsewhere", daemon.exe_name, "rclone v1.74.0");
     defer gpa.free(explicit);
     const shadowed = try fixture.stub("path-bin", daemon.exe_name, "rclone v1.75.0");
     defer gpa.free(shadowed);
@@ -202,7 +202,7 @@ test "explicit_path_wins_over_path_entry" {
     try std.testing.expect(availability == .ready);
     try std.testing.expectEqualStrings(explicit, availability.ready.path);
     try std.testing.expectEqual(
-        daemon.Version{ .major = 1, .minor = 66, .patch = 0 },
+        daemon.Version{ .major = 1, .minor = 74, .patch = 0 },
         availability.ready.version,
     );
 }
@@ -350,8 +350,8 @@ test "a version below the minimum is rejected as too_old" {
     var fixture = try Fixture.init(gpa);
     defer fixture.deinit();
 
-    // 1.65 predates resyncMode, which every resync in this plan depends on.
-    const binary = try fixture.stub("bin", daemon.exe_name, "rclone v1.65.2");
+    // 1.73 keeps the older side when it pairs (daemon.MIN_RCLONE), which every pairing here depends on.
+    const binary = try fixture.stub("bin", daemon.exe_name, "rclone v1.73.2");
     defer gpa.free(binary);
     const bin_dir = try fixture.join(&.{"bin"});
     defer gpa.free(bin_dir);
@@ -368,7 +368,7 @@ test "a version below the minimum is rejected as too_old" {
     try std.testing.expectEqual(daemon.Reason.too_old, availability.unavailable.reason);
     // The UI has to name the version it rejected, not just complain.
     try std.testing.expectEqual(
-        daemon.Version{ .major = 1, .minor = 65, .patch = 2 },
+        daemon.Version{ .major = 1, .minor = 73, .patch = 2 },
         availability.unavailable.version.?,
     );
     try std.testing.expectEqualStrings(binary, availability.unavailable.path.?);
@@ -410,7 +410,7 @@ test "a new enough binary resolves to ready with its path and version" {
     var fixture = try Fixture.init(gpa);
     defer fixture.deinit();
 
-    const binary = try fixture.stub("bin", daemon.exe_name, "rclone v1.66.0");
+    const binary = try fixture.stub("bin", daemon.exe_name, "rclone v1.74.0");
     defer gpa.free(binary);
     const bin_dir = try fixture.join(&.{"bin"});
     defer gpa.free(bin_dir);
@@ -511,10 +511,10 @@ test "a bundled binary below the minimum is rejected as too_old, not skipped" {
     var fixture = try Fixture.init(gpa);
     defer fixture.deinit();
 
-    // 1.65 predates resyncMode. A staged copy that old has to be reported the
+    // 1.73 keeps the older side when it pairs. A staged copy that old has to be reported the
     // moment the settings screen asks, naming the version it rejected —
     // discovering it at the first sync is a corrupted pairing, not a message.
-    const bundled = try fixture.stub("game", daemon.exe_name, "rclone v1.65.2");
+    const bundled = try fixture.stub("game", daemon.exe_name, "rclone v1.73.2");
     defer gpa.free(bundled);
     const game_dir = try fixture.join(&.{"game"});
     defer gpa.free(game_dir);
@@ -537,7 +537,7 @@ test "a bundled binary below the minimum is rejected as too_old, not skipped" {
     try std.testing.expectEqual(daemon.Reason.too_old, availability.unavailable.reason);
     try std.testing.expectEqualStrings(bundled, availability.unavailable.path.?);
     try std.testing.expectEqual(
-        daemon.Version{ .major = 1, .minor = 65, .patch = 2 },
+        daemon.Version{ .major = 1, .minor = 73, .patch = 2 },
         availability.unavailable.version.?,
     );
 }
@@ -551,7 +551,7 @@ test "an explicit override still wins over the bundled binary" {
 
     // The override is the older of the two again, so the assertion on the
     // resolved version cannot pass by accident if the bundled copy were used.
-    const explicit = try fixture.stub("player", daemon.exe_name, "rclone v1.66.0");
+    const explicit = try fixture.stub("player", daemon.exe_name, "rclone v1.74.0");
     defer gpa.free(explicit);
     const bundled = try fixture.stub("game", daemon.exe_name, "rclone v1.75.0");
     defer gpa.free(bundled);
@@ -575,7 +575,7 @@ test "an explicit override still wins over the bundled binary" {
     try std.testing.expect(availability == .ready);
     try std.testing.expectEqualStrings(explicit, availability.ready.path);
     try std.testing.expectEqual(
-        daemon.Version{ .major = 1, .minor = 66, .patch = 0 },
+        daemon.Version{ .major = 1, .minor = 74, .patch = 0 },
         availability.ready.version,
     );
 }

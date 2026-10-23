@@ -2321,7 +2321,7 @@ textes/ui/cloudcredentials/creds_unreadable 63912188098588267bd686bfcbebc157ef9e
 textes/ui/cloudcredentials/discovery_found 2e2eb7c3e55e54576254e1bebd26ff54e06397d321f05e4f070a88c2dec6b6fe
 textes/ui/cloudcredentials/discovery_not_executable 45bf55f213d22df77bcef1605d199eebed84b4c3564d4b953af25a2af356c574
 textes/ui/cloudcredentials/discovery_not_found 668ea562f439bddda56b107d7482d02ad2101a5f1b108f348ee7e0eb9a597d9b
-textes/ui/cloudcredentials/discovery_too_old 98ea1f943a5750c557d5caabfe5a81ccc31f6e52d62cd0dca54e4f54cdb9e3ac
+textes/ui/cloudcredentials/discovery_too_old 28f2b1a86c759a79fce1ce3247dbbebd53180404a2121bd998659afbfe2880bd
 textes/ui/cloudcredentials/fetching_catalogue c5154b6137f3cbfd60bbe0276d5f5895e016e05855fdf1005231ba83535b8e68
 textes/ui/cloudcredentials/flow_running c8a57369689ca1fc9ea988827b2a2378a97e29e8d43259695380bad1025ec684
 textes/ui/cloudcredentials/label_access_key bf06925cc51b6c51727ef34dd2fd40dc665f4c4accf2a72052d3dc2853f7cca9
@@ -3354,10 +3354,16 @@ same-as-base id textes/ui/intermission/warehouse/button_encyclopedia
 same-as-base id textes/ui/intermission/warehouse/caption
 same-as-base id textes/ui/optionssettings/button_audio
 same-as-base id textes/ui/settings/button_savesettings
+same-as-base ja textes/strings/imheader-listheader-multiplayer-gameslist-ping
+same-as-base ja textes/strings/imheader-listheader-multiplayer-startinggame-ping
+same-as-base ja textes/strings/ok
 same-as-base ja textes/ui/cloudcredentials/button_cycle
 same-as-base ja textes/ui/cloudcredentials/button_scroll_down
 same-as-base ja textes/ui/cloudcredentials/button_scroll_up
 same-as-base ja textes/ui/cloudcredentials/discovery_found
+same-as-base ja textes/ui/intermission/multiplayer/connectiontypes/lan
+same-as-base ja textes/ui/intermission/multiplayer/ping
+same-as-base ja textes/ui/settings/button_savesettings
 same-as-base pt-BR scenarios/scenariomissions/allies/tobruk/header
 same-as-base pt-BR scenarios/scenariomissions/german/barbarossa/header
 same-as-base pt-BR scenarios/scenariomissions/german/barbarossa/subheader
@@ -3527,9 +3533,3 @@ same-as-base zh-Hans textes/ui/cloudcredentials/button_cycle
 same-as-base zh-Hans textes/ui/cloudcredentials/button_scroll_down
 same-as-base zh-Hans textes/ui/cloudcredentials/button_scroll_up
 same-as-base zh-Hans textes/ui/cloudcredentials/discovery_found
-same-as-base ja textes/strings/imheader-listheader-multiplayer-gameslist-ping
-same-as-base ja textes/strings/imheader-listheader-multiplayer-startinggame-ping
-same-as-base ja textes/strings/ok
-same-as-base ja textes/ui/intermission/multiplayer/connectiontypes/lan
-same-as-base ja textes/ui/intermission/multiplayer/ping
-same-as-base ja textes/ui/settings/button_savesettings
