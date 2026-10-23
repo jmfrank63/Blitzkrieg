@@ -3527,3 +3527,9 @@ same-as-base zh-Hans textes/ui/cloudcredentials/button_cycle
 same-as-base zh-Hans textes/ui/cloudcredentials/button_scroll_down
 same-as-base zh-Hans textes/ui/cloudcredentials/button_scroll_up
 same-as-base zh-Hans textes/ui/cloudcredentials/discovery_found
+same-as-base ja textes/strings/imheader-listheader-multiplayer-gameslist-ping
+same-as-base ja textes/strings/imheader-listheader-multiplayer-startinggame-ping
+same-as-base ja textes/strings/ok
+same-as-base ja textes/ui/intermission/multiplayer/connectiontypes/lan
+same-as-base ja textes/ui/intermission/multiplayer/ping
+same-as-base ja textes/ui/settings/button_savesettings

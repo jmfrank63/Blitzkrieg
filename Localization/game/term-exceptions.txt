@@ -67,3 +67,57 @@ ru textes/options/cloud.config.backup.tooltip settings # genitive plural: нас
 ru textes/ui/cloudbackups/empty settings # genitive plural: настроек does not keep the stem Настройк
 ru textes/options/multiplayer.playername.tooltip multiplayer # genitive: сетевой игры, the glossary term declined
 ru textes/options/multiplayer.tooltip multiplayer # genitive: настройки сетевой игры, the glossary term declined
+ja textes/help load game # running text: クイックロード is the quick key, as in the other languages
+ja textes/help save game # running text: クイックセーブ is the quick key, as in the other languages
+ja textes/imtutorial/chapter objectives # prose: each side's aims (目標) in the chapter's history, not the mission objectives list
+ja textes/personals/allies/artillery/name42 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name43 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name44 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name45 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name46 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name47 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name48 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name49 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name50 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/allies/artillery/name51 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name2 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name3 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name4 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name5 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name6 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name7 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name8 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name9 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name10 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/personals/ussr/tank/name11 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉 (glossary note), not 中尉
+ja textes/playerranks/allies/lieutenant_colonel lieutenant # a lieutenant colonel is 中佐 (glossary note), not 中尉
+ja textes/playerranks/allies/lieutenant_colonel colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
+ja textes/playerranks/allies/lieutenant_colonel_full lieutenant # a lieutenant colonel is 中佐 (glossary note), not 中尉
+ja textes/playerranks/allies/lieutenant_colonel_full colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
+ja textes/playerranks/allies/lieutenant_general lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
+ja textes/playerranks/allies/lieutenant_general_full lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
+ja textes/playerranks/ussr/lieutenant_colonel lieutenant # a lieutenant colonel is 中佐 (glossary note), not 中尉
+ja textes/playerranks/ussr/lieutenant_colonel colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
+ja textes/playerranks/ussr/lieutenant_colonel_full lieutenant # a lieutenant colonel is 中佐 (glossary note), not 中尉
+ja textes/playerranks/ussr/lieutenant_colonel_full colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
+ja textes/playerranks/ussr/lieutenant_general lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
+ja textes/playerranks/ussr/lieutenant_general_full lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
+ja textes/playerranks/ussr/colonel_general colonel # a colonel general is 上級大将, not 大佐
+ja textes/playerranks/ussr/colonel_general_full colonel # a colonel general is 上級大将, not 大佐
+ja textes/strings/_artilleryaagun artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
+ja textes/strings/_artilleryheavymg artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
+ja textes/strings/_artilleryhowitzer artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
+ja textes/strings/_artillerymortar artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
+ja textes/strings/_artilleryrocket artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
+ja textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is not a 工兵
+ja buildings/africa/summer/a_cisterns/01/name tank # a water tank, not a vehicle
+ja buildings/africa/summer/a_cisterns/02/name tank # a water tank, not a vehicle
+ja buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
+ja buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
+ja buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
+ja buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
+ja medals/allies/eam_company/name campaign # a medal name: a campaign medal is a 従軍章
+ja units/humans/allies/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
+ja units/humans/german/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
+ja units/humans/ussr/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
+ja units/humans/ussr/ussr/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
