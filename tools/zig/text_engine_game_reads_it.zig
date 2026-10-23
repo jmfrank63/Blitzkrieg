@@ -174,10 +174,14 @@ const briefing_delay: u32 = 420;
 /// sent through `cmdc=<id>=<configuration>`.
 const save_command = "268501012";
 const load_command = "268501013";
-/// The briefing's schedule carried on: `ok` starts the mission and the save follows once it runs.
-const save_schedule = briefing_schedule ++ ",420:ok,900:cmdc=" ++ save_command ++ "=" ++ save_name ++ ";0,960:shot,1000:exit";
+/// The briefing's schedule carried on: `ok` starts the mission and the save follows once it runs,
+/// 10.5 s of game time in, after the objective's chat line (shown by 4.8 s, for 5 s) has gone: a save
+/// keeps the chat lines on screen, and the load's own line must come second, in `chat_box`.
+const save_schedule = briefing_schedule ++ ",420:ok,g10500:cmdc=" ++ save_command ++ "=" ++ save_name ++ ";0,g500:shot,g500:exit";
 /// The load: a shot of the main menu as the control, the load from it, a shot of the loaded mission.
-const load_schedule = "50:shot,60:cmdc=" ++ load_command ++ "=" ++ save_name ++ ",200:shot,260:exit";
+/// The loaded game starts paused, so its shot waits on the timer's absolute time (t<ms>), the clock
+/// the load's chat line expires on: 1.5 s after the load command, or the first frame after a longer load.
+const load_schedule = "50:shot,60:cmdc=" ++ load_command ++ "=" ++ save_name ++ ",t1500:shot,t500:exit";
 /// Where the load's chat line ("Game loaded: <name>", pure green) is drawn on the loaded frame, and
 /// what counts as its colour; the pixels of a mission's terrain and unit bars that are this green
 /// stay under `max_control_pixels`.
@@ -236,7 +240,7 @@ const encyclopedia_route = Route{
 };
 pub const routes = [_]Route{ options_route, encyclopedia_route };
 
-/// The first mission some seconds in (the save proof's frame at 900): the objective's popup in the
+/// The first mission some seconds in (5.5 s of game time): the objective's popup in the
 /// top right with its title bar and its text, and the chat line that announces the objective at the
 /// top left, over terrain. The scene is the same in every language, so the blank run's frame cancels
 /// all but the text.
@@ -245,8 +249,12 @@ const mission_labels = [_]Label{
     .{ .key = "popup text", .rect = .{ .x1 = 650, .y1 = 42, .x2 = 960, .y2 = 90 }, .ink = .bright },
     .{ .key = "objective chat line", .rect = .{ .x1 = 0, .y1 = 34, .x2 = 640, .y2 = 68 }, .ink = .bright },
 };
-const mission_schedule = briefing_schedule ++ ",420:ok,900:shot,960:exit";
-const mission_shot: u32 = 900;
+/// The shot is 5.5 s of game time into the mission, not a frame: the objective's chat line comes
+/// between 2.7 and 4.8 s and stays for UI.TextAnimTime (5 s), and a frame number is a different time
+/// on every build and display (frame 900 was 3.7 s on a release Game on a 120 Hz Mac, 13.6 s on a
+/// debug one, after the line had gone).
+const mission_schedule = briefing_schedule ++ ",420:ok,g5500:shot,g500:exit";
+const mission_shot = "g5500";
 
 /// A route's label holds at least this much ink (pixels above `ink_threshold`): the small font's
 /// panel headers are the lightest of them.
@@ -399,7 +407,7 @@ fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_ro
         return;
     };
     try report.check(bytes.len > 1024, "the save {s} was written: {d} bytes (more than 1024)", .{ save_path, bytes.len });
-    try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "en", "saved.tga" }), try writer.shot(allocator, 960));
+    try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "en", "saved.tga" }), try writer.shot(allocator, "g500"));
 
     var reader = writer;
     reader.ttf = true;
@@ -407,8 +415,8 @@ fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_ro
     const read = try reader.play(allocator, &.{ "-windowed", "-mode=1024x768", reader.profile }, load_schedule, null, "load");
     try report.check(std.mem.indexOf(u8, read, "LOADTRACE: CICLoad::Exec end") != null, "the ttf Game loaded the save: the load ran to 'CICLoad::Exec end'", .{});
     try report.check(std.mem.indexOf(u8, read, "to load - skipping") == null and std.mem.indexOf(u8, read, "version mismatch") == null and std.mem.indexOf(u8, read, "CICLoad::Exec open failed") == null, "the load found the file and its version", .{});
-    const before = try reader.shot(allocator, 50);
-    const after = try reader.shot(allocator, 200);
+    const before = try reader.shot(allocator, "50");
+    const after = try reader.shot(allocator, "t1500");
     try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "en", "loaded.tga" }), after);
     const control = chatPixels(before);
     const loaded = chatPixels(after);
@@ -432,7 +440,7 @@ fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_ro
     const bitmap_read = try bitmap_reader.play(allocator, &.{ "-windowed", "-mode=1024x768", bitmap_reader.profile }, load_schedule, null, "load");
     try report.check(std.mem.indexOf(u8, bitmap_read, "LOADTRACE: CICLoad::Exec end") != null, "the bitmap Game loaded the ttf save: the load ran to 'CICLoad::Exec end'", .{});
     try report.check(std.mem.indexOf(u8, bitmap_read, "to load - skipping") == null and std.mem.indexOf(u8, bitmap_read, "version mismatch") == null and std.mem.indexOf(u8, bitmap_read, "CICLoad::Exec open failed") == null, "the bitmap load found the file and its version", .{});
-    try report.check(chatPixels(try bitmap_reader.shot(allocator, 200)) >= min_chat_pixels, "the bitmap frame after the load has the load's chat line as ink", .{});
+    try report.check(chatPixels(try bitmap_reader.shot(allocator, "t1500")) >= min_chat_pixels, "the bitmap frame after the load has the load's chat line as ink", .{});
 }
 
 /// The pixels of the chat line's colour (pure green, 0xff00ff00) in `chat_box`.
@@ -717,7 +725,7 @@ pub const Run = struct {
         return self.frame(allocator, one.tag);
     }
 
-    /// The first mission running: the briefing's `ok` starts it and the `shot` action at frame
+    /// The first mission running: the briefing's `ok` starts it and the `shot` action keyed
     /// `mission_shot` writes the frame. Windowed at 1024x768 like the save proof, which runs the same
     /// schedule.
     pub fn mission(self: Run, allocator: std.mem.Allocator) ![]u8 {
@@ -741,9 +749,10 @@ pub const Run = struct {
         return bytes;
     }
 
-    /// The frame a BK_AUTO_UI `shot` action wrote at schedule frame `at`.
-    pub fn shot(self: Run, allocator: std.mem.Allocator, at: u32) ![]u8 {
-        const path = try std.fmt.allocPrint(allocator, "{s}/autoshot_{d}_{d}x{d}.rgba", .{ self.user, at, width, height });
+    /// The frame a BK_AUTO_UI `shot` action wrote at the schedule entry keyed `key` (a frame, or
+    /// g<ms> for game time).
+    pub fn shot(self: Run, allocator: std.mem.Allocator, key: []const u8) ![]u8 {
+        const path = try std.fmt.allocPrint(allocator, "{s}/autoshot_{s}_{d}x{d}.rgba", .{ self.user, key, width, height });
         const bytes = try std.Io.Dir.cwd().readFileAlloc(self.io, path, allocator, .limited(16 << 20));
         try testing.expectEqual(@as(usize, width * height * 4), bytes.len);
         return bytes;

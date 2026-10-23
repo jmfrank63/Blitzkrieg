@@ -34,6 +34,7 @@
 #include "../StreamIO/RandomGen.h"
 #include <fstream>
 #include <filesystem>
+#include <set>
 #include "../StreamIO/OptionSystem.h"
 
 #include "../AILogic/AILogic.h"
@@ -1273,6 +1274,20 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// units=<x>x<y>x<r> (counts each player's units within radius r of
 			// (x,y), in the AI's own coordinates - a harness's way to see a
 			// placed unit in the running mission without driving the UI).
+			// An entry keyed g<ms> instead of a frame fires once, ms of game time
+			// after the entry before it has run, counted from the start of a new
+			// game when one starts in between (game time going back is a mission
+			// start, a jump ahead of more than two seconds a load restoring its
+			// saved time): a mission's scene evolves with game time, and how many
+			// frames a second covers depends on the build and the display (the
+			// objective's chat line, shown for UI.TextAnimTime, had gone at frame 900
+			// of a debug Game on a 120 Hz Mac and was still there on a release one).
+			// An entry keyed t<ms> fires ms of the timer's absolute time after the
+			// entry before it, counted from the end of a blocking load when one ends
+			// in between (a jump of more than half a second): the clock the chat lines
+			// expire on (UI.TextAnimTime), and what a loaded game, which starts
+			// paused, still counts.
+			// A shot is named after its key, autoshot_<key>_<w>x<h>.rgba.
 			// It also reports frame timing every 120 frames, which is how the menu
 			// frame rate is measured headless.
 			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
@@ -1342,15 +1357,57 @@ int RunGame( const BkGameLaunchInfo &launch )
 					nAutoUIRelease2 = 0;
 				}
 				const std::string szSchedule = pszAutoUI;
+				// The g<ms> and t<ms> entries: which have run (by offset), and the times
+				// their count starts from - the last entry's run, or for game time the
+				// last new game.
+				static std::set<size_t> autoUIGameTimeFired;
+				static unsigned nAutoUIGameBase = 0;
+				static unsigned nAutoUIGameLast = 0;
+				static unsigned nAutoUIAbsBase = 0;
+				static unsigned nAutoUIAbsLast = 0;
+				const unsigned nAutoUIGameTime = GetSingleton<IGameTimer>() ? unsigned( GetSingleton<IGameTimer>()->GetGameTime() ) : 0;
+				const unsigned nAutoUIAbsTime = GetSingleton<IGameTimer>() ? unsigned( GetSingleton<IGameTimer>()->GetAbsTime() ) : 0;
+				if ( nAutoUIGameTime < nAutoUIGameLast || nAutoUIGameTime > nAutoUIGameLast + 2000 )
+					nAutoUIGameBase = nAutoUIGameTime;
+				nAutoUIGameLast = nAutoUIGameTime;
+				if ( nAutoUIAbsTime > nAutoUIAbsLast + 500 )
+					nAutoUIAbsBase = nAutoUIAbsTime;
+				nAutoUIAbsLast = nAutoUIAbsTime;
+				bool bAutoUIEarlierPending = false;
 				for ( size_t nPos = 0; nPos < szSchedule.size(); )
 				{
+					const size_t nEntryPos = nPos;
 					size_t nEnd = szSchedule.find( ',', nPos );
 					if ( nEnd == std::string::npos ) nEnd = szSchedule.size();
 					const std::string szEntry = szSchedule.substr( nPos, nEnd - nPos );
 					nPos = nEnd + 1;
 					const size_t nColon = szEntry.find( ':' );
-					if ( nColon == std::string::npos || atoi( szEntry.substr( 0, nColon ).c_str() ) != nAutoUIFrame )
+					if ( nColon == std::string::npos )
 						continue;
+					const std::string szKey = szEntry.substr( 0, nColon );
+					if ( !szKey.empty() && ( szKey[0] == 'g' || szKey[0] == 't' ) )
+					{
+						if ( autoUIGameTimeFired.count( nEntryPos ) != 0 )
+							continue;
+						const unsigned nWait = unsigned( atoi( szKey.c_str() + 1 ) );
+						const bool bDue = szKey[0] == 'g' ? nAutoUIGameTime >= nAutoUIGameBase + nWait : nAutoUIAbsTime >= nAutoUIAbsBase + nWait;
+						if ( bAutoUIEarlierPending || !bDue )
+						{
+							bAutoUIEarlierPending = true;
+							continue;
+						}
+						autoUIGameTimeFired.insert( nEntryPos );
+					}
+					else
+					{
+						const int nEntryFrame = atoi( szKey.c_str() );
+						if ( nEntryFrame > nAutoUIFrame )
+							bAutoUIEarlierPending = true;
+						if ( nEntryFrame != nAutoUIFrame )
+							continue;
+					}
+					nAutoUIGameBase = nAutoUIGameTime;
+					nAutoUIAbsBase = nAutoUIAbsTime;
 					const std::string szAction = szEntry.substr( nColon + 1 );
 					fprintf( stderr, "BK_AUTO_UI: frame %d action %s\n", nAutoUIFrame, szAction.c_str() );
 					if ( szAction == "settings" ) pInput->AddMessage( SGameMessage( 10005 ) );		// IMC_SETTINGS
@@ -1601,7 +1658,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 						pGFXShot->Flip();
 						if ( pGFXShot->TakeScreenShot( shotImage ) )
 						{
-							FILE *pShotFile = fopen( NStr::Format( "autoshot_%d_%dx%d.rgba", nAutoUIFrame, shotImage->GetSizeX(), shotImage->GetSizeY() ), "wb" );
+							FILE *pShotFile = fopen( NStr::Format( "autoshot_%s_%dx%d.rgba", szKey.c_str(), shotImage->GetSizeX(), shotImage->GetSizeY() ), "wb" );
 							if ( pShotFile )
 							{
 								const SColor *pPixels = shotImage->GetLFB();
