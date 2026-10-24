@@ -1046,7 +1046,9 @@ test "a remote root too long for the session name is refused before bisync runs"
     });
     const settled = pollUntilSettled(w, tio, 10_000);
     try std.testing.expectEqual(worker.State.failed, settled.state);
-    try std.testing.expectEqualStrings("SessionNameTooLong", settled.errorText());
+    // The outcome leads, as for a classified run: the menu picks its
+    // name_too_long text from the first word.
+    try std.testing.expectEqualStrings("name_too_long: SessionNameTooLong", settled.errorText());
 
     try std.testing.expectEqualStrings("POST /config/create HTTP/1.1", server.requestLine(0));
     try std.testing.expectEqualStrings("POST /config/create HTTP/1.1", server.requestLine(1));
