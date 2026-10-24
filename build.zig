@@ -4421,6 +4421,13 @@ pub fn build(b: *std.Build) void {
         if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
     }
 
+    // install-all: every install step this host has, in one command. Looked up by name because the
+    // editor installs only exist where the editors build.
+    const install_all_step = b.step("install-all", "Install the Game, the nine language mods, MapEditor, ResourceEditor and ELK into the game installation");
+    for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
+        if (b.top_level_steps.get(name)) |install| install_all_step.dependOn(&install.step);
+    }
+
     b.default_step = game_all_step;
     macosRuntimeFixes(b);
 }
