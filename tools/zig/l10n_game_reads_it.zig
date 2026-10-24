@@ -41,6 +41,15 @@
 //! l10n-check's own parser) covers the route's keys is measured further, since a seed-scope language
 //! still shows English there: its static labels are compared with hb-view like the menu's.
 //!
+//! Three more screens hold texts the ELK database lacks, which the language mods carried only from
+//! 2026-10-24 on (language-mods adds an original for them): the main menu's Options page (Load Mod),
+//! the gameplay mods screen (its caption and Detach All MODs) and, in the first Allied mission, the
+//! escape menu (Save Game, Load Game, Help Screen) and its End Mission page (Finish Mission). The two
+//! menu screens are routes; the mission is one windowed run whose `shot`s wait on game and timer time.
+//! Where the scope covers them, each static label must also match its own string better than the
+//! English one (`checkEnglish`), so a screen left in English fails. They are written as
+//! `mainmenu-options.png`, `mods.png`, `escape.png` and `escape-end.png`.
+//!
 //! Last, per language the Game starts on another language (ru, or English for ru) and switches to this
 //! one while it runs (the font cache clear of ApplyLanguage, T03): the buttons must show the cold start's
 //! frame. Then the choice is made through the option (`set=`), the Game exits, and a restart on the
@@ -247,6 +256,10 @@ const Route = struct {
     /// The scroll text that shows `body`, for the kinsoku line check of a language that breaks
     /// between characters.
     scroll: ?ScrollBox = null,
+    /// Where the language's scope covers the route, each static label must also match its own
+    /// string better than the English one (`checkEnglish`): the screens whose texts stayed English
+    /// in the language mods until 2026-10-24.
+    english: bool = false,
 };
 
 /// A UI_SCROLL_TEXT's text area, from its layout: the element's position plus LeftSpace and
@@ -329,7 +342,88 @@ const encyclopedia_cromwell_route = Route{
     .screen = "BK_UI_TRACE: reposition \"ui\\encyclopedia\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
     .labels = &cromwell_labels,
 };
-const routes = [_]Route{ options_route, encyclopedia_route, encyclopedia_cromwell_route };
+/// The main menu's Options page: its Options button (850,487 on the 1024x768 canvas) turns the menu's
+/// five buttons, 320x50 at x 650, y 267 + 65 * n as on the first page, into settings, cutscenes,
+/// credits, Load Mod and back. Load Mod (imheader-gbutton-mods) is one of the texts the ELK database
+/// lacks, which the language mods carried only from 2026-10-24 on. The cursor is parked on the
+/// background afterwards, so no button is highlighted.
+const menu_options_labels = [_]Label{
+    .{ .key = "imheader-gbutton-settings", .rect = .{ .x1 = 650, .y1 = 267, .x2 = 970, .y2 = 317 } },
+    .{ .key = "imheader-gbutton-cutscenes", .rect = .{ .x1 = 650, .y1 = 332, .x2 = 970, .y2 = 382 } },
+    .{ .key = "imheader-gbutton-credits", .rect = .{ .x1 = 650, .y1 = 397, .x2 = 970, .y2 = 447 } },
+    .{ .key = "imheader-gbutton-mods", .rect = .{ .x1 = 650, .y1 = 462, .x2 = 970, .y2 = 512 } },
+    .{ .key = "imheader-gbutton-back", .rect = .{ .x1 = 650, .y1 = 527, .x2 = 970, .y2 = 577 } },
+};
+const menu_options_route = Route{
+    .tag = "mainmenu-options",
+    .schedule = "60:click=850x487,70:hover=300x720",
+    .delay = 150,
+    .action = "BK_AUTO_UI: frame 70 action hover=300x720",
+    .screen = "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &menu_options_labels,
+    .english = true,
+};
+/// The gameplay mods screen (MISSION_COMMAND_MODS_LIST, Lists/IMModList.xml; Load Mod opens it): the
+/// caption in its top bar (mods/caption, white) and the list's first row, which
+/// CInterfaceIMModsList::FillListItem names remove_all_mods (dark on the light list; the language
+/// mods are left out of the list). Both are texts the ELK database lacks. The column header
+/// (mods/mod_name) holds the caption's text and is not measured, so no two labels share a string.
+const mods_dir = "textes/ui/intermission/mainmenu/mods";
+const mods_labels = [_]Label{
+    .{ .key = "caption", .dir = mods_dir, .rect = .{ .x1 = 300, .y1 = 105, .x2 = 690, .y2 = 150 }, .ink = .bright },
+    .{ .key = "remove_all_mods", .dir = mods_dir, .rect = .{ .x1 = 310, .y1 = 206, .x2 = 690, .y2 = 242 }, .ink = .dark },
+};
+const mods_route = Route{
+    .tag = "mods",
+    .schedule = "60:cmd=" ++ mods_list_command,
+    .delay = 200,
+    .action = "BK_AUTO_UI: frame 60 action cmd=" ++ mods_list_command,
+    .screen = "BK_UI_TRACE: reposition \"ui\\Lists\\IMModList\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000",
+    .labels = &mods_labels,
+    .english = true,
+};
+const routes = [_]Route{ options_route, encyclopedia_route, encyclopedia_cromwell_route, menu_options_route, mods_route };
+
+/// The escape menu of the first Allied mission, which the language mods showed partly in English until
+/// 2026-10-24 (Save Game, Load Game, Help Screen: texts the ELK database lacks). The briefing's
+/// schedule carried on: `ok` starts the mission, ESC opens the menu 3 s of game time in (the menu
+/// pauses the game, so the shots wait on the timer), then a click on End Mission opens its page.
+/// A shot, not a reference capture: game time decides when the mission is up. The buttons are 320x34
+/// at x 352 in mission.xml's single-player escape dialog, 40 px apart; the root page's first starts
+/// at y 248, the End Mission page's at y 288. The page's first button (button_escape_mission_finish)
+/// is disabled while the mission runs, so its text is grey; exittowindows names the system the Game
+/// runs on, not the overlay's "Windows", so it is measured for ink only.
+const escape_dir = "textes/ui/mission/escapemenu";
+fn escapeButton(comptime key: []const u8, comptime dir: []const u8, comptime top: usize, comptime ink: te.Ink, comptime dynamic: bool) Label {
+    return .{ .key = key, .dir = dir, .rect = .{ .x1 = 356, .y1 = top + 2, .x2 = 662, .y2 = top + 28 }, .ink = ink, .dynamic = dynamic };
+}
+const strings_dir = "textes/strings";
+const escape_labels = [_]Label{
+    escapeButton("button_save_game", escape_dir, 248, .gold, false),
+    escapeButton("button_load_game", escape_dir, 288, .gold, false),
+    escapeButton("options", strings_dir, 328, .gold, false),
+    escapeButton("button_help", escape_dir, 368, .gold, false),
+    escapeButton("missionobjectives", strings_dir, 408, .gold, false),
+    escapeButton("endmission", strings_dir, 448, .gold, false),
+    escapeButton("returntogame", strings_dir, 488, .gold, false),
+};
+const escape_end_labels = [_]Label{
+    escapeButton("button_escape_mission_finish", strings_dir, 288, .bright, false),
+    escapeButton("restartmission", strings_dir, 328, .gold, false),
+    escapeButton("mainmenu", strings_dir, 368, .gold, false),
+    escapeButton("exittowindows", strings_dir, 408, .gold, true),
+    escapeButton("back", strings_dir, 448, .gold, false),
+};
+const MissionShot = struct {
+    /// The schedule entry whose `shot` writes the frame (`autoshot_<key>_1024x768.rgba`).
+    key: []const u8,
+    route: Route,
+};
+const mission_shots = [_]MissionShot{
+    .{ .key = "t1500", .route = .{ .tag = "escape", .schedule = "", .delay = 0, .action = " action key=ESC", .screen = "", .labels = &escape_labels, .english = true } },
+    .{ .key = "t1600", .route = .{ .tag = "escape-end", .schedule = "", .delay = 0, .action = " action click=510x463", .screen = "", .labels = &escape_end_labels, .english = true } },
+};
+const mission_tail = ",420:ok,g3000:key=ESC,t1500:shot,t200:click=510x463,t1600:shot,t300:exit";
 
 /// A route's label holds at least this much ink (pixels above `ink_threshold`): the small
 /// font's panel headers are the lightest of them.
@@ -407,6 +501,8 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
         blank_routes[at] = try blank_run.route(allocator, route, false);
         try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", try std.fmt.allocPrint(allocator, "{s}.png", .{route.tag}) }), blank_routes[at]);
     }
+    const blank_mission = try blank_run.mission(allocator, false);
+    for (mission_shots, blank_mission) |one, frame| try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", try std.fmt.allocPrint(allocator, "{s}.png", .{one.route.tag}) }), frame);
     // The keys each language translates: a route is measured against English only where the
     // language's scope holds all of its keys.
     const scopes = (try check.loadScopes(io, allocator, cwd, null)) orelse return error.ScopeMissing;
@@ -458,6 +554,18 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
             try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, try std.fmt.allocPrint(allocator, "{s}.png", .{route.tag}) }), route_frame);
             try report.line("-- {s} {s} ({s}; {s})", .{ language.code, route.tag, try std.fmt.allocPrint(allocator, "{s}/{s}/{s}.png", .{ scratch, language.code, route.tag }), if (language.mod == null) "base game" else if (covered) "scope covers its keys: compared with hb-view" else "scope does not cover its keys yet: ink only" });
             try checkRoute(io, allocator, language, run.folder, route_frame, blank_routes[at], covered, route, &report);
+        }
+
+        // The escape menu in the first Allied mission and its End Mission page.
+        {
+            var all_covered = language.mod != null;
+            for (mission_shots) |one| all_covered = all_covered and scopeCovers(scopes, language.code, one.route);
+            const frames = try run.mission(allocator, all_covered);
+            for (mission_shots, frames, blank_mission) |one, frame, background| {
+                try writePng(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, try std.fmt.allocPrint(allocator, "{s}.png", .{one.route.tag}) }), frame);
+                try report.line("-- {s} {s} ({s}/{s}/{s}.png; {s})", .{ language.code, one.route.tag, scratch, language.code, one.route.tag, if (language.mod == null) "base game" else if (all_covered) "scope covers its keys: compared with hb-view" else "scope does not cover its keys yet: ink only" });
+                try checkRoute(io, allocator, language, run.folder, frame, background, all_covered, one.route, &report);
+            }
         }
 
         // A live switch: the Game starts on the other language and chooses this one while
@@ -748,6 +856,7 @@ fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, fold
         if (static.items.len != 0) {
             const m = try checkLabels(io, allocator, language, folder, frame, blank, static.items, report);
             if (isHanLanguage(language)) try checkHan(io, allocator, language, m.hb_folder, static.items, m.texts, m.inks, false, report);
+            if (route.english) try checkEnglish(io, allocator, language, m, static.items, report);
         }
     }
     if (route.scroll) |scroll| if (language.kinsoku) {
@@ -756,6 +865,28 @@ fn checkRoute(io: std.Io, allocator: std.mem.Allocator, language: Language, fold
             try checkKinsoku(io, allocator, language, folder, frame, blank, route.tag, scroll, text, report);
         } else try report.line("      kinsoku: {s}: not measured, the scope does not cover the route's keys yet", .{route.tag});
     };
+}
+
+/// A label must match its own string better than the English the base game draws there: by
+/// `min_margin` in correlation, or the English raster's proportion is off by more than the label's
+/// aspect tolerance. A translation equal to the English (MODs in de) is reported, not measured.
+fn checkEnglish(io: std.Io, allocator: std.mem.Allocator, language: Language, m: Measured, set: []const Label, report: *Report) !void {
+    for (set, 0..) |label, index| {
+        const ink = m.inks[index];
+        if (ink.width == full_width(label)) continue; // no ink: reported by checkLabels
+        const english = try overlayText(io, allocator, "en", label);
+        if (std.mem.eql(u8, std.mem.trim(u8, english, " \r\n"), std.mem.trim(u8, m.texts[index], " \r\n"))) {
+            try report.line("      {s} {s}: the translation is the English \"{s}\" (same-as-base), not compared with it", .{ language.code, label.key, english });
+            continue;
+        }
+        const stem = try std.fmt.allocPrint(allocator, "en-{s}", .{try label.stem(allocator)});
+        const reference = try measure.hbView(allocator, io, m.hb_folder, stem, english, .{ .font = serif, .language = "en" });
+        const own = try matchLabel(allocator, label, ink, m.refs[index]);
+        const theirs = try matchLabel(allocator, label, ink, reference);
+        const aspect_error = if (label.small or label.boxed) small_max_aspect_error else max_aspect_error;
+        const apart = own.correlation - theirs.correlation >= min_margin or @abs(theirs.aspect - 1) > aspect_error;
+        try report.check(apart, "{s} {s}: drawn as \"{s}\", not the English \"{s}\" (correlation {d:.3} against {d:.3} for the English, its proportion {d:.3})", .{ language.code, label.key, m.texts[index], english, own.correlation, theirs.correlation, theirs.aspect });
+    }
 }
 
 fn full_width(label: Label) usize {
@@ -1163,6 +1294,34 @@ const Run = struct {
             };
         }
         return self.frame(allocator, one.tag);
+    }
+
+    /// The first Allied mission's escape menu and its End Mission page (`mission_shots`), one run of
+    /// the Game windowed at 1024x768. The log must show each shot's action and both shots written,
+    /// and, for a language whose scope covers the labels (`keys` set), the Game opening every text of
+    /// them from the mod.
+    fn mission(self: Run, allocator: std.mem.Allocator, keys: bool) ![mission_shots.len][]u8 {
+        const schedule = try std.mem.concat(allocator, u8, &.{ try briefings[0].schedule(allocator), mission_tail });
+        const log = try self.play(allocator, &.{ "-windowed", "-mode=1024x768", profile_arg }, schedule, null, "mission");
+        for ([_][]const u8{ "BK_AUTO_UI: frame 420 action ok", mission_shots[0].route.action, mission_shots[1].route.action }) |line| expectLine(log, self.folder, line) catch |err| {
+            self.reached(log);
+            return err;
+        };
+        if (std.mem.count(u8, log, "BK_AUTO_UI: shot written") != mission_shots.len) {
+            std.debug.print("{s}: the mission run did not write its {d} shots; its log is in {s}\n", .{ self.name, mission_shots.len, self.folder });
+            return error.ShotMissing;
+        }
+        var frames: [mission_shots.len][]u8 = undefined;
+        for (mission_shots, 0..) |one, at| {
+            if (keys) for (one.route.labels) |label| {
+                const line = try std.fmt.allocPrint(allocator, "BK_MOD_TRACE: open \"{s}\" from LANGUAGE", .{try label.tracedPath(allocator)});
+                try expectLine(log, self.folder, line);
+            };
+            const path = try std.fmt.allocPrint(allocator, "{s}/autoshot_{s}_{d}x{d}.rgba", .{ self.user, one.key, width, height });
+            frames[at] = try std.Io.Dir.cwd().readFileAlloc(self.io, path, allocator, .limited(16 << 20));
+            try testing.expectEqual(@as(usize, width * height * 4), frames[at].len);
+        }
+        return frames;
     }
 
     /// The schedule steps the Game ran, for a route that stopped short.

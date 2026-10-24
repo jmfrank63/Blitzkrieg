@@ -93,6 +93,15 @@ of its own and written as `options.png` and `encyclopedia.png` next to the repor
   command's configuration (`1;Infantry_MKIV_Churchill_GB`); the title, the two panel headers and the wrapped
   description are measured.
 
+Three more screens hold texts the ELK database lacks (2026-10-24), which reach a mod only because `language-mods` adds
+an original for every overlay text without one before ELK's export: the main menu's Options page (`mainmenu-options.png`,
+Load Mod), the gameplay mods screen (`mods.png`, its caption and Detach All MODs) and the first Allied mission's escape
+menu with its End Mission page (`escape.png`, `escape-end.png`: Save Game, Load Game, Help Screen, Finish Mission). Each of
+their labels must also match the language's string better than the English one, so a screen left in English fails.
+
+Without a desktop session the tier runs under `xvfb-run -a -s "-screen 0 1280x1024x24"`, with `--cache-poison=poisoned`
+so the build does not reuse a configuration cached without `DISPLAY`.
+
 Every language is measured for ink in each label's box and for no missing-glyph box. A language is measured
 further only where its scope in `Localization/game/scope.txt` (read with l10n-check's own parser) holds the
 route's keys, because a seed-scope language still shows English there: a bitmap-font language must draw all but
