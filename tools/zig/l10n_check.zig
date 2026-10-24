@@ -102,6 +102,8 @@ pub const language_table = @import("l10n_languages.zig");
 /// The game font reader and wrap, public for the l10n-game-reads-it tier, which predicts the lines of a
 /// captured text with them.
 pub const font_file = @import("l10n_font.zig");
+/// The cmap reader of the glyph rule, for a tier that needs to know which face has a character.
+pub const cmap_table = cmap;
 pub const wrap = @import("l10n_wrap");
 
 pub const Finding = struct {
@@ -1908,6 +1910,11 @@ pub const LayoutElement = struct {
     inset_x: f32 = 0,
     inset_y: f32 = 0,
     has_size: bool = false,
+    /// The element that holds this one, or null at the top.
+    parent: ?usize = null,
+    /// For a list (UI_LIST): the column widths of its ColumnProps and its HeaderSize, if it has one.
+    columns: std.ArrayList(f32) = .empty,
+    header_size: ?f32 = null,
 
     /// The room the text has (CSimpleWindow::VisitText): a left or right aligned text loses the
     /// TextPos inset in x, a top or bottom aligned one in y; centred text keeps the whole size.
@@ -1946,9 +1953,16 @@ fn attributeNumber(value: ?[]const u8) f32 {
     return std.fmt.parseFloat(f32, text) catch 0;
 }
 
+/// UI_LIST (UI.h: UI_BASE_VALUE + 0x1100 + 10).
+const ui_list_class: u32 = 0x1000110A;
+
 /// The elements of a layout in document order. A hand-written scan, not an XML parser: the layouts
 /// are well-formed, and only the tags `item`/`Element` (with ClassTypeID), `WindowSize` and
-/// `TextPos` directly inside one matter.
+/// `TextPos` directly inside one matter, and a list's `ColumnProps`. A list's column headers are its
+/// children 10, 11, ... (UIList.cpp GetChildByID(i + 10)); its Reposition gives header i the width
+/// of column i and the list's HeaderSize as height whatever their own WindowSize says, so that is
+/// their size here too (2026-10-25: the profile list's header, 150 wide in PlayerProfile.xml, is
+/// 126 wide in the Game, and "Perfil del jugador" wrapped where the map said it fit).
 pub fn parseLayout(arena: std.mem.Allocator, xml: []const u8) ![]const LayoutElement {
     var elements: std.ArrayList(LayoutElement) = .empty;
     const Open = struct { name: []const u8, element: ?usize };
@@ -1986,9 +2000,20 @@ pub fn parseLayout(arena: std.mem.Allocator, xml: []const u8) ![]const LayoutEle
         const name_end = std.mem.indexOfAny(u8, tag, " \t\r\n") orelse tag.len;
         const name = tag[0..name_end];
         const parent: ?usize = if (stack.items.len != 0) stack.items[stack.items.len - 1].element else null;
+        // The element the tag is in, through Children and States.
+        var enclosing: ?usize = null;
+        var depth = stack.items.len;
+        while (depth > 0) : (depth -= 1) if (stack.items[depth - 1].element) |found| {
+            enclosing = found;
+            break;
+        };
         var element: ?usize = null;
-        if ((std.mem.eql(u8, name, "item") or std.mem.eql(u8, name, "Element")) and tagAttribute(tag, "ClassTypeID") != null) {
-            var one: LayoutElement = .{ .id = std.fmt.parseInt(i64, std.mem.trim(u8, tagAttribute(tag, "ElementID") orelse "0", " \t"), 10) catch 0 };
+        if (std.mem.eql(u8, name, "item") and tagAttribute(tag, "ClassTypeID") == null and stack.items.len >= 1 and std.mem.eql(u8, stack.items[stack.items.len - 1].name, "ColumnProps")) {
+            if (enclosing) |list| if (tagAttribute(tag, "Width")) |value| try elements.items[list].columns.append(arena, attributeNumber(value));
+        } else if ((std.mem.eql(u8, name, "item") or std.mem.eql(u8, name, "Element")) and tagAttribute(tag, "ClassTypeID") != null) {
+            var one: LayoutElement = .{ .id = std.fmt.parseInt(i64, std.mem.trim(u8, tagAttribute(tag, "ElementID") orelse "0", " \t"), 10) catch 0, .parent = enclosing };
+            if (tagAttribute(tag, "HeaderSize")) |value| one.header_size = attributeNumber(value);
+            if ((std.fmt.parseInt(u32, std.mem.trim(u8, tagAttribute(tag, "ClassTypeID").?, " \t"), 0) catch 0) != ui_list_class) one.header_size = null;
             if (tagAttribute(tag, "FontSize")) |value| one.font = std.fmt.parseInt(u8, std.mem.trim(u8, value, " \t"), 10) catch 1;
             if (tagAttribute(tag, "TextAlign")) |value| one.text_align = std.fmt.parseInt(u32, std.mem.trim(u8, value, " \t"), 0) catch 0x0011;
             try elements.append(arena, one);
@@ -2004,6 +2029,13 @@ pub fn parseLayout(arena: std.mem.Allocator, xml: []const u8) ![]const LayoutEle
             }
         }
         if (!self_closing) try stack.append(arena, .{ .name = name, .element = element });
+    }
+    for (elements.items) |*one| {
+        const owner = &elements.items[one.parent orelse continue];
+        if (owner.columns.items.len == 0) continue;
+        if (one.id < 10 or one.id >= 10 + @as(i64, @intCast(owner.columns.items.len))) continue;
+        one.width = owner.columns.items[@intCast(one.id - 10)];
+        if (owner.header_size) |size| one.height = size;
     }
     return elements.items;
 }
@@ -2593,6 +2625,21 @@ test "parseLayout reads size, inset, alignment and font of each element in docum
     try testing.expectEqual(@as(u8, 1), elements[1].font);
     try testing.expectEqual(@as(f32, 132), elements[1].textWidth());
     try testing.expectEqual(@as(f32, 62), elements[1].textHeight());
+}
+
+test "parseLayout gives a list's column headers the width of their column and the list's header size" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const xml = "<base><Children><item ClassTypeID=\"0x1000110A\" ElementID=\"1000\" HeaderSize=\"41\"><ColumnProps><item Width=\"126\"><FileName>x</FileName></item>" ++
+        "<item Width=\"60\"/></ColumnProps><Children><item ClassTypeID=\"0x10001105\" ElementID=\"10\" TextAlign=\"0x0021\"><TextPos x=\"20\" y=\"4\"/><WindowSize x=\"150\" y=\"30\"/></item>" ++
+        "<item ClassTypeID=\"0x10001105\" ElementID=\"12\"><WindowSize x=\"150\" y=\"30\"/></item></Children><WindowSize x=\"204\" y=\"443\"/></item></Children></base>";
+    const elements = try parseLayout(arena_state.allocator(), xml);
+    try testing.expectEqual(@as(usize, 3), elements.len);
+    try testing.expectEqual(@as(f32, 106), elements[1].textWidth());
+    try testing.expectEqual(@as(f32, 41), elements[1].height);
+    // Element 12 is no header: the list has two columns, headers 10 and 11.
+    try testing.expectEqual(@as(f32, 150), elements[2].textWidth());
 }
 
 test "fit_real_tree: the repository has no fit finding and every language prints a fit note" {
