@@ -318,7 +318,7 @@ jobs:
 
       - name: Compile the tiers
         shell: bash
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-font test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
+        run: zig build bk-font-game-reads-it mod-compat-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-font test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
 
       - name: Compile the tiers with --release=fast
         shell: bash
@@ -1824,6 +1824,13 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build bk-font-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
+      - name: The game plays a mod made for the original game
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build mod-compat-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
       - name: Season textures

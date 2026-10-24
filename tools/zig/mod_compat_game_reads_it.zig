@@ -1,0 +1,157 @@
+//! A mod made for the original game, in a folder with a Cyrillic name, on the
+//! real Game. The mod is written at test time into `mods/Тестмод` of the
+//! installed game from tracked data: its `mod.xml` names it in Russian, it
+//! carries one label's text (the main menu's Exit Game, in Russian) and the
+//! shipped `Data/UI/MainMenu.xml` with the original game's key for the
+//! menu's two smoke videos, BinkFile. The port renamed that key to VideoFile
+//! when Bink went (ac58c0d26), and the Achtung Panzer 2 mod's main menu,
+//! which still says BinkFile, played no video: the button asked for
+//! ".ogv".
+//!
+//! The Game runs twice to its own `-reference-scene` capture of the main
+//! menu at 1024x768: without a mod (the control) and with it. With the mod
+//! it must decode both smoke videos (its own `Open video first frame
+//! decoded` lines), open the label's text from the mod (BK_MOD_TRACE) and
+//! draw the label: the Exit Game button differs from the control's. The
+//! frame and the log of each run are kept in
+//! zig-out/local-test/mod-compat/game-reads-it.
+//!
+//! The user's data is never touched: the Game runs from a scratch folder
+//! with XDG_DATA_HOME and BK_USER_ROOT there, in a dedicated profile. The mod
+//! is removed from the installation afterwards. BK_MOD_COMPAT_GAME names the
+//! installed Game executable; `zig build mod-compat-game-reads-it` sets it.
+const std = @import("std");
+const timed_run = @import("timed_run.zig");
+const l10n_measure = @import("l10n_measure.zig");
+const testing = std.testing;
+
+const scratch = "zig-out/local-test/mod-compat/game-reads-it";
+/// CICChangeMOD lower-cases the mod's name before it opens the folder, but
+/// only its ASCII letters: the capital Т stays, and the folder is found.
+const mod_name = "Тестмод";
+const label_text = "Выйти из мода";
+const width = 1024;
+const height = 768;
+/// The Exit Game button on the 1024x768 canvas (bk_font_game_reads_it.zig
+/// places the main menu's buttons), exclusive right and bottom.
+const exit_button = struct { x1: usize = 650, y1: usize = 527, x2: usize = 970, y2: usize = 577 }{};
+
+/// The value of an environment variable the build step sets, or null.
+fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
+    var map = try testing.environ.createMap(allocator);
+    const value = map.get(key) orelse return null;
+    return try allocator.dupeSentinel(u8, value, 0);
+}
+
+test "a mod with a Cyrillic folder and the original game's BinkFile key plays and draws (AP2 compatibility)" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try envValue(allocator, "BK_MOD_COMPAT_GAME")) orelse {
+        std.debug.print("BK_MOD_COMPAT_GAME is not set: run zig build mod-compat-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const game_root = std.fs.path.dirname(game).?;
+    const cwd = std.Io.Dir.cwd();
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), scratch });
+    cwd.deleteTree(io, scratch) catch {};
+    const user = try std.fs.path.join(allocator, &.{ root, "user" });
+    try cwd.createDirPath(io, user);
+
+    const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", mod_name });
+    cwd.deleteTree(io, mod_folder) catch {};
+    defer cwd.deleteTree(io, mod_folder) catch {};
+    try writeMod(io, allocator, mod_folder);
+
+    const control = try runGame(io, allocator, game, user, root, "control", null);
+    const modded = try runGame(io, allocator, game, user, root, "mod", mod_name);
+    for ([_][]const u8{ control, modded }) |frame| try testing.expectEqual(@as(usize, width * height * 4), frame.len);
+
+    var changed: usize = 0;
+    for (exit_button.y1..exit_button.y2) |y| for (exit_button.x1..exit_button.x2) |x| {
+        const at = (y * width + x) * 4;
+        if (!std.mem.eql(u8, control[at..][0..3], modded[at..][0..3])) changed += 1;
+    };
+    errdefer std.debug.print("the Exit Game button differs from the control in {d} pixels\n", .{changed});
+    try testing.expect(changed >= 200);
+}
+
+/// The mod: mod.xml, the label's text (UTF-16 LE with a BOM, as the game
+/// reads texts) and the shipped main menu with BinkFile for VideoFile.
+fn writeMod(io: std.Io, allocator: std.mem.Allocator, mod_folder: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    const data = try std.fs.path.join(allocator, &.{ mod_folder, "data" });
+    const strings = try std.fs.path.join(allocator, &.{ data, "textes", "strings" });
+    const ui = try std.fs.path.join(allocator, &.{ data, "ui" });
+    try cwd.createDirPath(io, strings);
+    try cwd.createDirPath(io, ui);
+    try cwd.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "mod.xml" }),
+        .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Тестовый мод</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n",
+    });
+
+    var text: std.ArrayList(u8) = .empty;
+    try text.appendSlice(allocator, &.{ 0xff, 0xfe });
+    var units = (try std.unicode.Utf8View.init(label_text)).iterator();
+    while (units.nextCodepoint()) |c| {
+        var unit: [2]u8 = undefined;
+        std.mem.writeInt(u16, &unit, @intCast(c), .little);
+        try text.appendSlice(allocator, &unit);
+    }
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ strings, "imheader-gbutton-exitgame.txt" }), .data = text.items });
+
+    const menu = try cwd.readFileAlloc(io, "Data/UI/MainMenu.xml", allocator, .limited(4 << 20));
+    try testing.expectEqual(@as(usize, 4), std.mem.count(u8, menu, "VideoFile>"));
+    const original = try std.mem.replaceOwned(u8, allocator, menu, "VideoFile>", "BinkFile>");
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ ui, "MainMenu.xml" }), .data = original });
+}
+
+/// Runs the Game on `mod` (none for the control) to its main-menu capture and
+/// returns the frame (RGBA, alpha zero). It must exit 0 and report the
+/// capture; with the mod it must decode both smoke videos and open the
+/// label's text from the mod. Its output is kept beside the capture as
+/// `<name>.log`.
+fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8) ![]u8 {
+    const capture = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ root, name });
+    const log_path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name });
+    var environ = try testing.environ.createMap(allocator);
+    try environ.put("XDG_DATA_HOME", user);
+    try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_MEM_REPORT", "count");
+    try environ.put("BK_DEBUG_LOG", "1");
+    try environ.put("BK_MOD_TRACE", "1");
+    try environ.put("BK_GLYPH_TRACE", "1");
+    const mod_argument = try std.fmt.allocPrint(allocator, "-mod={s}", .{mod orelse ""});
+    var argv: std.ArrayList([]const u8) = .empty;
+    try argv.appendSlice(allocator, &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-profile=ModCompat" });
+    if (mod != null) try argv.append(allocator, mod_argument);
+    const result = try timed_run.run(allocator, io, .{
+        .argv = argv.items,
+        .cwd = .{ .path = user },
+        .environ_map = &environ,
+        .timeout = .{ .duration = .{ .raw = .fromSeconds(180), .clock = .awake } },
+    });
+    const log = try std.mem.concat(allocator, u8, &.{ result.stdout, result.stderr });
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = log_path, .data = log });
+    if (!result.term.success()) {
+        std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
+        return error.GameFailed;
+    }
+    try l10n_measure.expectNoLeak(log, log_path);
+    try l10n_measure.expectNoMissingGlyph(log, log_path);
+    try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
+    if (mod != null) {
+        try expectLine(log, log_path, "Open video first frame decoded: \"movies\\interface\\smoke1.ogv\"");
+        try expectLine(log, log_path, "Open video first frame decoded: \"movies\\interface\\smoke2.ogv\"");
+        try expectLine(log, log_path, "BK_MOD_TRACE: open \"textes\\strings\\imheader-gbutton-exitgame.txt\" from MOD");
+    }
+    return std.Io.Dir.cwd().readFileAlloc(io, capture, allocator, .limited(16 << 20));
+}
+
+fn expectLine(log: []const u8, log_path: []const u8, line: []const u8) !void {
+    if (std.mem.indexOf(u8, log, line) != null) return;
+    std.debug.print("the Game did not print \"{s}\"; its output is in {s}\n", .{ line, log_path });
+    return error.GameLineMissing;
+}

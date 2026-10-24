@@ -20,7 +20,14 @@ int CUIVideoButton::operator&( IDataTree &ss )
 	saver.Add( "VideoFile", &szVideoFile );
 
 	if ( saver.IsReading() )
+	{
+		// The original game's layouts, and every mod made for it (Achtung
+		// Panzer 2's main menu), name the video BinkFile: read under the new
+		// key only, their videos had an empty name and never played.
+		if ( szVideoFile.empty() )
+			saver.Add( "BinkFile", &szVideoFile );
 		InitVideoPlayer();
+	}
 
 	return 0;
 }

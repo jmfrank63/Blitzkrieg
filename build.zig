@@ -2996,6 +2996,27 @@ pub fn build(b: *std.Build) void {
     bk_font_game_reads_step.dependOn(&bk_font_game_reads_tests.step);
     if (test_mode == .run) bk_font_game_reads_step.dependOn(&bk_font_game_reads_run.step);
 
+    // A mod made for the original game, in a Cyrillic-named folder: the main menu's
+    // BinkFile videos play and the mod's Russian label is drawn on the real Game
+    // (tools/zig/mod_compat_game_reads_it.zig). Desktop and GPU, so not part of `test`.
+    const mod_compat_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mod_compat_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, mod_compat_game_reads_module, toolchain);
+    }
+    const mod_compat_game_reads_tests = b.addTest(.{ .root_module = mod_compat_game_reads_module });
+    const mod_compat_game_reads_run = b.addRunArtifact(mod_compat_game_reads_tests);
+    mod_compat_game_reads_run.setCwd(b.path("."));
+    mod_compat_game_reads_run.setEnvironmentVariable("BK_MOD_COMPAT_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    mod_compat_game_reads_run.has_side_effects = true;
+    mod_compat_game_reads_run.step.dependOn(install_game_step);
+    const mod_compat_game_reads_step = b.step("mod-compat-game-reads-it", "Write a mod made for the original game into a Cyrillic-named folder of the install (Russian MODName and label, the main menu with the original BinkFile key) and prove on the real Game that its smoke videos play and its label is drawn");
+    mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_tests.step);
+    if (test_mode == .run) mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_run.step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
