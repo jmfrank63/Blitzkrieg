@@ -52,6 +52,14 @@ const label_rect = Rect{ .x1 = 650, .y1 = 527, .x2 = 970, .y2 = 577 };
 const tab_key = "textes/options/gameplay.name";
 const tab_marker = "ELK TAB MARKER";
 const gameplay_tab = Rect{ .x1 = 45, .y1 = 223, .x2 = 478, .y2 = 289 };
+/// Labels the main menu copies out of the text manager rather than draws from
+/// its layout: the panel's header (element 20001, the panel above the buttons)
+/// and the profile line (element 21000, LEFT|BOTTOM at (10,88) sized 500x50,
+/// so y from 768 - 88 - 50 = 630 to 680).
+const copied_labels = [_]struct { key: []const u8, marker: []const u8, rect: Rect }{
+    .{ .key = "textes/strings/imheader-mainmenu-header", .marker = "ELK HEADER MARKER", .rect = .{ .x1 = 630, .y1 = 175, .x2 = 990, .y2 = 248 } },
+    .{ .key = "textes/strings/profile", .marker = "ELK PROFILE MARKER:", .rect = .{ .x1 = 10, .y1 = 630, .x2 = 510, .y2 = 680 } },
+};
 
 const Rect = struct {
     x1: usize,
@@ -166,6 +174,12 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     defer cwd.deleteTree(io, mod_folder) catch {};
     try testing.expect(try db.writeTranslation(0, label_key, marker));
     try testing.expect(try db.writeTranslation(0, tab_key, tab_marker));
+    // The profile line's text is Not translated in the database, and the export
+    // carries the original of such a text: each marker is approved as well.
+    for (copied_labels) |label| {
+        try testing.expect(try db.writeTranslation(0, label.key, label.marker));
+        _ = try db.setState(0, label.key, .approved);
+    }
     try exportMod(io, allocator, &db, game_root, marker);
 
     // Opens the settings screen from the main panel at `frame`, picks the
@@ -225,6 +239,17 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     // the previous language until the next switch.
     try testing.expect(changedIn(tab_before, tab_switched, settings_layout.width, tab) >= 100);
     try testing.expectEqual(@as(usize, 0), changedIn(tab_cold, tab_switched, settings_layout.width, tab));
+    // The main menu's own copies: on the switch at frame 80 they leave the
+    // mod's marker and show what the Default menu run 1 came back to (900)
+    // shows; the first frame of run 1 has no profile line yet.
+    // The header's panel lets the animated sky through by a level or two, so
+    // these boxes count the pixels that differ by more than that.
+    for (copied_labels) |label| {
+        const box = layout.scaled(label.rect);
+        errdefer std.debug.print("language: {s} at ({d},{d})-({d},{d}): {d} pixels change on the switch, {d} differ from the Default menu after it\n", .{ label.key, box.x1, box.y1, box.x2, box.y2, changedBeyond(before, after, layout.width, box, backdrop_tolerance), changedBeyond(back, after, layout.width, box, backdrop_tolerance) });
+        try testing.expect(changedBeyond(before, after, layout.width, box, backdrop_tolerance) >= 100);
+        try testing.expectEqual(@as(usize, 0), changedBeyond(back, after, layout.width, box, backdrop_tolerance));
+    }
 }
 
 /// How the main menu sits in the window, from BK_UI_TRACE's line for it.
@@ -292,6 +317,25 @@ fn shot(io: std.Io, allocator: std.mem.Allocator, user: []const u8, frame: u32, 
     const bytes = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(allocator, &.{ user, name }), allocator, .limited(64 << 20));
     try testing.expectEqual(layout.width * layout.height * 4, bytes.len);
     return bytes;
+}
+
+/// The largest channel difference the menu's animated backdrop makes through
+/// a panel (3 was measured behind the header); glyphs differ by far more.
+const backdrop_tolerance: u8 = 16;
+
+/// The pixels of `rect` whose channels differ by more than `tolerance`.
+fn changedBeyond(a: []const u8, b: []const u8, row: usize, rect: Rect, tolerance: u8) usize {
+    var changed: usize = 0;
+    for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
+        const at = (y * row + x) * 4;
+        for (0..3) |channel| {
+            if (@abs(@as(i16, a[at + channel]) - @as(i16, b[at + channel])) > tolerance) {
+                changed += 1;
+                break;
+            }
+        }
+    };
+    return changed;
 }
 
 fn changedIn(a: []const u8, b: []const u8, row: usize, rect: Rect) usize {

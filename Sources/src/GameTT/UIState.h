@@ -19,6 +19,9 @@ public:
 	virtual bool ProcessMessage( const SGameMessage &msg ) = 0;
 	virtual void Show();
 	virtual void Hide();
+	// The menu's header (element 20001) is a copy of the title text; the
+	// language option reloads the texts in place, and this sets it again.
+	void SetTitleText();
 };
 enum ECommands
 {

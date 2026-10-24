@@ -23,6 +23,12 @@ class CInterfaceMainMenu : public CInterfaceInterMission
 	bool bCloudSkipRequested;
 	bool bCloudRetryRequested;
 	void RefreshCloudIndicator();
+	// The labels this menu copies out of the text manager (the version, the
+	// profile line, the header, the cloud indicator and its Retry) and the
+	// Text.LanguageLoaded they were set in: a language switched while the
+	// menu is open sets them again, as the layout's own labels reload in place.
+	std::string szShownLanguage;
+	void SetCopiedTexts();
 
 	CUIMainMenuState mainMenuState;
 	CUINewGameState newGameState;

@@ -19,12 +19,17 @@ void IUIState::Show()
 	
 	IUIElement *pMenu = GetMainInterface()->GetUIScreen()->GetChildByID( nMenuID );
 	pMenu->ShowWindow( UI_SW_SHOW );
-	
+
+	SetTitleText();
+	GetMainInterface()->RefreshCursor();
+}
+void IUIState::SetTitleText()
+{
 	CPtr<IText> pHeaderText = GetSingleton<ITextManager>()->GetString( szTitleKey.c_str() );
 	NI_ASSERT_T( pHeaderText != 0, NStr::Format( "There is no text with key %s", szTitleKey.c_str() ) );
 	IUIElement *pHeader = GetMainInterface()->GetUIScreen()->GetChildByID( 20001 );
-	pHeader->SetWindowText( 0, pHeaderText->GetString() );
-	GetMainInterface()->RefreshCursor();
+	if ( pHeaderText != 0 && pHeader != 0 )
+		pHeader->SetWindowText( 0, pHeaderText->GetString() );
 }
 void IUIState::Hide()
 {
