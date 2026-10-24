@@ -14,8 +14,11 @@ bool CInterfaceIMModsList::Init()
 {
 	fileMasks.clear();
 	fileMasks.push_back( "*.pak" );
-	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
-	szTopDir += "Mods\\";
+	// The folder as it is spelled on disk: "Mods\\" listed nothing on Linux,
+	// where the installs' folder is "mods".
+	szTopDir = ModsFolder();
+	if ( szTopDir.empty() )
+		szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + "mods\\";
 	szCurrentDir = szTopDir;
 	szInterfaceName = "ui\\Lists\\IMModList";
 	nSortType = E_SORT_BY_TIME;

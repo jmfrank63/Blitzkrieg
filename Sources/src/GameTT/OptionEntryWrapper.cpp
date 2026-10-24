@@ -33,8 +33,7 @@ static bool IsGeneratedSelectionText( const char *pszOptionName )
 		     (NStr::CompareAsciiNoCase( pszOptionName, "Cloud.Provider" ) == 0) ||		// rclone ids, shown as they are
 		     (NStr::CompareAsciiNoCase( pszOptionName, "GamePlay.Language" ) == 0);	// mod names
 }
-// mods\ under the game's folder, in whatever case it is spelled on disk.
-static std::string ModsFolder()
+std::string ModsFolder()
 {
 	const std::string szBase = GetSingleton<IMainLoop>()->GetBaseDir();
 	for ( NFile::CFileIterator it( ( szBase + "*" ).c_str() ); !it.IsEnd(); ++it )

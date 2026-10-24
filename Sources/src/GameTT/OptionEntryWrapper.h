@@ -116,4 +116,8 @@ std::string LanguageDisplayName( const std::string &szFolder );
 // Whether the mod's data\mod.xml marks it <MODType>language</MODType>: such a
 // mod belongs to Options > Language and stays out of the gameplay mods list.
 bool IsLanguageOnlyMod( const std::string &szFolder );
+// mods\ under the game's folder, in whatever case it is spelled on disk (the
+// installs make it "mods"; a case-sensitive file system has no "Mods"), with
+// a trailing backslash; empty when there is none.
+std::string ModsFolder();
 #endif // __OPTIONENTRYWRAPPER_H__

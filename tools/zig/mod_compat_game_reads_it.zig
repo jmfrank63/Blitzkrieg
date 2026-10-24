@@ -12,9 +12,11 @@
 //! menu at 1024x768: without a mod (the control) and with it. With the mod
 //! it must decode both smoke videos (its own `Open video first frame
 //! decoded` lines), open the label's text from the mod (BK_MOD_TRACE) and
-//! draw the label: the Exit Game button differs from the control's. The
-//! frame and the log of each run are kept in
-//! zig-out/local-test/mod-compat/game-reads-it.
+//! draw the label: the Exit Game button differs from the control's. A third
+//! run opens Options > Load Mod: the list must hold the mod. It used to look
+//! in "Mods", which a case-sensitive file system does not have (the installs
+//! make "mods"), and listed no mod at all on Linux. The frames and the log of
+//! each run are kept in zig-out/local-test/mod-compat/game-reads-it.
 //!
 //! The user's data is never touched: the Game runs from a scratch folder
 //! with XDG_DATA_HOME and BK_USER_ROOT there, in a dedicated profile. The mod
@@ -74,8 +76,53 @@ test "a mod with a Cyrillic folder and the original game's BinkFile key plays an
         const at = (y * width + x) * 4;
         if (!std.mem.eql(u8, control[at..][0..3], modded[at..][0..3])) changed += 1;
     };
-    errdefer std.debug.print("the Exit Game button differs from the control in {d} pixels\n", .{changed});
-    try testing.expect(changed >= 200);
+    {
+        errdefer std.debug.print("the Exit Game button differs from the control in {d} pixels\n", .{changed});
+        try testing.expect(changed >= 200);
+    }
+
+    // The mods list (main menu IMC_SETTINGS 10005, then the options page's IMC_MODS 10007) names
+    // each entry it lists in a BK_L10N_TRACE line.
+    const list = try runAuto(io, allocator, game, user, root, "mods-list", "60:msg=10005,120:msg=10007,180:exit");
+    const entry = try std.fmt.allocPrint(allocator, "\"{s}\"", .{mod_name});
+    var listed = false;
+    var lines = std.mem.splitScalar(u8, list, '\n');
+    while (lines.next()) |line| {
+        if (std.mem.indexOf(u8, line, "BK_L10N_TRACE: mods list entry ") != null and std.mem.endsWith(u8, std.mem.trimEnd(u8, line, "\r"), entry)) listed = true;
+    }
+    if (!listed) {
+        std.debug.print("the mods list did not hold {s}; the Game's output is in {s}/mods-list.log\n", .{ mod_name, root });
+        return error.ModNotListed;
+    }
+}
+
+/// Runs the Game in the scratch profile under a BK_AUTO_UI schedule; it must exit 0. Returns its
+/// output, kept as `<name>.log`.
+fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []const u8, root: []const u8, name: []const u8, schedule: []const u8) ![]u8 {
+    const log_path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name });
+    var environ = try testing.environ.createMap(allocator);
+    try environ.put("XDG_DATA_HOME", user);
+    try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_MEM_REPORT", "count");
+    try environ.put("BK_DEBUG_LOG", "1");
+    try environ.put("BK_GLYPH_TRACE", "1");
+    try environ.put("BK_NO_HELP", "1");
+    try environ.put("BK_AUTO_UI", schedule);
+    const result = try timed_run.run(allocator, io, .{
+        .argv = &.{ game, "-windowed", "-profile=ModCompat" },
+        .cwd = .{ .path = user },
+        .environ_map = &environ,
+        .timeout = .{ .duration = .{ .raw = .fromSeconds(180), .clock = .awake } },
+    });
+    const log = try std.mem.concat(allocator, u8, &.{ result.stdout, result.stderr });
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = log_path, .data = log });
+    if (!result.term.success()) {
+        std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
+        return error.GameFailed;
+    }
+    try l10n_measure.expectNoLeak(log, log_path);
+    try l10n_measure.expectNoMissingGlyph(log, log_path);
+    return log;
 }
 
 /// The mod: mod.xml, the label's text (UTF-16 LE with a BOM, as the game
