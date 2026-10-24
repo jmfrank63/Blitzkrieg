@@ -5,7 +5,8 @@
 //! Unicode itself and chains the shipped faces, so there is no bk-font stage, no atlas, no Private Use
 //! Area table and no Hindi shaper. (A mod that does ship `fonts/<size>/1.tfd` still draws that size with
 //! its bitmap font; no language mod does.)
-//! Per language: the database is copied to a scratch folder and the overlay laid over it; the fit rule
+//! Per language: the database is copied to a scratch folder and the overlay laid over it, with an original
+//! added for every overlay text the database lacks (`addOriginals`, so ELK's export carries it); the fit rule
 //! (D097) measures every text with bk_text in the room the Game draws it in, and a text that does not fit
 //! fails the language, except what `Localization/game/fit-known.txt` lists (D108; the same reader as
 //! l10n-check, so the two gates agree and `fit-known-unused` is reported here too); the export then
@@ -31,8 +32,10 @@ const check = @import("l10n_check.zig");
 const Language = l10n_languages.Language;
 const languages = l10n_languages.languages;
 
-/// The overlay key that must come out of the pak as the overlay says.
-const probe_key = "textes/strings/imheader-gbutton-cutscenes";
+/// The overlay keys that must come out of the pak as the overlay says: a text of the ELK database,
+/// and one the Game reads from its own text tree that the database lacks (the escape menu's save
+/// button), which only reaches the pak through the original the assembly adds for it.
+const probe_keys = [_][]const u8{ "textes/strings/imheader-gbutton-cutscenes", "textes/ui/mission/escapemenu/button_save_game" };
 
 fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
     var map = try testing.environ.createMap(allocator);
@@ -109,6 +112,7 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
         try cwd.writeFile(io, .{ .sub_path = elk_xml, .data = try cwd.readFileAlloc(io, "Data/ELK/elk.xml", allocator, .limited(1 << 20)) });
         const overlay = try std.fs.path.join(allocator, &.{ overlay_root, language.code, "game_data_base" });
         try database.copyTree(io, overlay, try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
+        try addOriginals(io, allocator, overlay, try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
     }
     var db = try database.Database.open(testing.allocator, io, elk_xml);
     defer db.deinit();
@@ -168,11 +172,45 @@ fn build(io: std.Io, allocator: std.mem.Allocator, language: Language, game_root
             return error.FontInMod;
         }
     }
-    const overlay_text = try cwd.readFileAlloc(io, try std.mem.concat(allocator, u8, &.{ overlay_root, "/", language.code, "/game_data_base/", probe_key, ".txt" }), allocator, .limited(1 << 20));
-    const packed_text = for (package.entries) |entry| {
-        if (std.mem.eql(u8, entry.name, probe_key ++ ".txt")) break entry.bytes;
-    } else return error.OverlayTextMissing;
-    try testing.expectEqualSlices(u8, overlay_text, packed_text);
+    for (probe_keys) |probe_key| {
+        const overlay_text = try cwd.readFileAlloc(io, try std.mem.concat(allocator, u8, &.{ overlay_root, "/", language.code, "/game_data_base/", probe_key, ".txt" }), allocator, .limited(1 << 20));
+        const packed_text = for (package.entries) |entry| {
+            if (std.mem.eql(u8, entry.name, try std.mem.concat(allocator, u8, &.{ probe_key, ".txt" }))) break entry.bytes;
+        } else {
+            std.debug.print("language-mods: {s}: {s}.txt is not in {s}\n", .{ language.code, probe_key, pak_path });
+            return error.OverlayTextMissing;
+        };
+        try testing.expectEqualSlices(u8, overlay_text, packed_text);
+    }
+}
+
+/// ELK's database is the `.elk` originals below `game_data_base` (database.listKeys), and its export
+/// writes those keys only. About 470 texts the Game reads have no `.elk` in Data/ELK (l10n-check's
+/// `databaseKeys`: a `.txt` of the database without one, or a text of the Game's own Data text trees,
+/// such as the escape menu's buttons and the mod screen), so their translations stayed out of the
+/// pak and the Game showed the English. For every overlay text without an original in the assembled
+/// copy this writes one, the English the checker measures against (`check.readBase`), so the export
+/// carries the translation. An overlay text that is no text of the game is an error.
+fn addOriginals(io: std.Io, allocator: std.mem.Allocator, overlay: []const u8, base: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    var repository = try cwd.openDir(io, ".", .{ .iterate = true });
+    defer repository.close(io);
+    var dir = try cwd.openDir(io, overlay, .{ .iterate = true });
+    defer dir.close(io);
+    var walker = try dir.walk(allocator);
+    defer walker.deinit();
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file or !std.mem.endsWith(u8, entry.path, ".txt")) continue;
+        const key = try allocator.dupe(u8, entry.path[0 .. entry.path.len - 4]);
+        std.mem.replaceScalar(u8, key, '\\', '/');
+        const original = try std.fmt.allocPrint(allocator, "{s}/{s}.elk", .{ base, key });
+        if (cwd.access(io, original, .{})) |_| continue else |_| {}
+        const english = (try check.readBase(io, allocator, repository, key)) orelse {
+            std.debug.print("language-mods: {s}.txt of {s} is no text of the game (no original in Data/ELK or the Data text trees)\n", .{ key, overlay });
+            return error.OverlayTextNotInGame;
+        };
+        try cwd.writeFile(io, .{ .sub_path = original, .data = english });
+    }
 }
 
 test "BK_LM_LANGS selects languages by code" {
