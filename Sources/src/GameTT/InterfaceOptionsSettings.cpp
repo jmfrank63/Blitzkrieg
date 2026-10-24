@@ -83,12 +83,14 @@ bool CInterfaceOptionsSettings::Init()
 bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 {
 	const bool bResult = CInterfaceInterMission::StepLocal( bAppActive );
-	// The language row switched the texts: the Game reloaded them in place
-	// before this step, so the layout's own labels already show the new
-	// language; the ones this screen copied out are set again here, in the
-	// same frame.
+	// The language row switched the texts: the Game reloads them in place at
+	// the start of the frame after the click, so the layout's own labels show
+	// the new language from then on; the ones this screen copied out are set
+	// again here once the reload is done. Text.Language, the choice, changes
+	// in this very step when the click lands here, before the reload: keyed
+	// on it, the copies were set from the old texts and stayed one choice behind.
 	{
-		const std::string szLanguage = GetGlobalVar( "Text.Language", "Default" );
+		const std::string szLanguage = GetGlobalVar( "Text.LanguageLoaded", "Default" );
 		if ( szLanguage != szShownLanguage && pUIScreen != 0 )
 		{
 			szShownLanguage = szLanguage;
@@ -376,7 +378,7 @@ void CInterfaceOptionsSettings::Create()
 	}
 	
 	languageOverride["GamePlay.Language"] = ScanLanguages();
-	szShownLanguage = GetGlobalVar( "Text.Language", "Default" );
+	szShownLanguage = GetGlobalVar( "Text.LanguageLoaded", "Default" );
 
 	nMaxDivision = 0;
 	nCloudDivision = -1;

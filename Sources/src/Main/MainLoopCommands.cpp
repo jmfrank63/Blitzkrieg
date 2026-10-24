@@ -400,6 +400,12 @@ void ApplyLanguage( const char *pszLanguage )
 	// cached font is read again in place, so the open screens draw the language's glyphs too.
 	GetSingleton<ITextureManager>()->Clear( ISharedManager::CLEAR_ALL );
 	GetSingleton<IFontManager>()->Reload();
+	// Text.Language is the choice, published by the option row the moment it
+	// is clicked; this is the language whose texts are now loaded. A screen that
+	// copied texts out refreshes them on this one: refreshing on the choice ran
+	// before the reload whenever the click was handled in the screen's own step,
+	// and set the old language's texts again (the tabs lagged one choice behind).
+	SetGlobalVar( "Text.LanguageLoaded", szLanguage.c_str() );
 	NStr::DebugTrace( "language: \"%s\" %s, texts reloaded, fonts reloaded\n", szLanguage.c_str(), bMounted ? "mounted" : "has no texts.pak, the shipped texts stay" );
 }
 const char *GetLanguage() { return szLanguage.c_str(); }

@@ -46,6 +46,12 @@ const height = 768;
 /// 610 + 200 - 160 = 650 to 970 and y from 267 + 260 = 527 to 577. Exclusive
 /// right and bottom.
 const label_rect = Rect{ .x1 = 650, .y1 = 527, .x2 = 970, .y2 = 577 };
+/// The settings screen's Gameplay tab: the division's name, which the screen
+/// sets on its tab button (element 10008 in Data/UI/OptionsSettings.xml, at
+/// (45,223) sized 433x66 on the 1024x768 canvas).
+const tab_key = "textes/options/gameplay.name";
+const tab_marker = "ELK TAB MARKER";
+const gameplay_tab = Rect{ .x1 = 45, .y1 = 223, .x2 = 478, .y2 = 289 };
 
 const Rect = struct {
     x1: usize,
@@ -159,6 +165,7 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", mod_name });
     defer cwd.deleteTree(io, mod_folder) catch {};
     try testing.expect(try db.writeTranslation(0, label_key, marker));
+    try testing.expect(try db.writeTranslation(0, tab_key, tab_marker));
     try exportMod(io, allocator, &db, game_root, marker);
 
     // Opens the settings screen from the main panel at `frame`, picks the
@@ -172,13 +179,23 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     }.at;
     // Run 1: the shipped label (60), the mod chosen in the options (480),
     // Default chosen again (900), the mod chosen once more and the Game left.
-    const first = try std.mem.join(allocator, ",", &.{ "60:shot", try switch_to(allocator, 70, "RIGHT"), "480:shot", try switch_to(allocator, 490, "LEFT"), "900:shot", try switch_to(allocator, 910, "RIGHT"), "1320:exit" });
+    // The settings screen itself is shot on the Gameplay tab just before the
+    // first switch (265) and just after it (300), still open.
+    const first = try std.mem.join(allocator, ",", &.{ "60:shot", try switch_to(allocator, 70, "RIGHT"), "265:shot", "300:shot", "480:shot", try switch_to(allocator, 490, "LEFT"), "900:shot", try switch_to(allocator, 910, "RIGHT"), "1320:exit" });
     const log1 = try runAuto(io, allocator, game, user, first, "language-1");
     const layout = try menuLayout(log1);
     const button = layout.scaled(exit_button);
     const original = try shot(io, allocator, user, 60, layout);
     const chosen = try shot(io, allocator, user, 480, layout);
     const back = try shot(io, allocator, user, 900, layout);
+    const settings_layout = try screenLayout(log1, "ui\\OptionsSettings");
+    const tab = settings_layout.scaled(gameplay_tab);
+    const tab_before = try shot(io, allocator, user, 265, settings_layout);
+    const tab_switched = try shot(io, allocator, user, 300, settings_layout);
+    // Run 3, the same profile, which kept the mod: the settings screen opened
+    // on the language it started in, the reference the live switch must match.
+    _ = try runAuto(io, allocator, game, user, "60:settings,90:msg=10003,190:msg=10008,265:shot,280:exit", "language-3");
+    const tab_cold = try shot(io, allocator, user, 265, settings_layout);
     // Run 2, the same profile: the menu comes up in the mod's language; then
     // Default is set on the open main menu at frame 80, the way the row
     // commits it, and the frames on either side of the switch are kept.
@@ -203,6 +220,11 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     try testing.expectEqual(@as(usize, 0), changedIn(chosen, restarted, layout.width, button));
     try testing.expectEqual(@as(usize, 0), changedIn(chosen, before, layout.width, button));
     try testing.expectEqual(@as(usize, 0), changedIn(original, after, layout.width, button));
+    // The tab buttons are texts the settings screen copies out of the text
+    // manager. Refreshed on the choice instead of on the reload, they showed
+    // the previous language until the next switch.
+    try testing.expect(changedIn(tab_before, tab_switched, settings_layout.width, tab) >= 100);
+    try testing.expectEqual(@as(usize, 0), changedIn(tab_cold, tab_switched, settings_layout.width, tab));
 }
 
 /// How the main menu sits in the window, from BK_UI_TRACE's line for it.
@@ -235,8 +257,15 @@ const Layout = struct {
 /// reposition before it, as the window may still settle after the first one
 /// (on macbook-air-frank's 1440x900 screen it shrank from 799 to 797 rows).
 fn menuLayout(log: []const u8) !Layout {
-    const prefix = "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen ";
-    const first_shot = std.mem.indexOf(u8, log, " action shot") orelse return error.GameLineMissing;
+    return screenLayout(log, "ui\\mainmenu");
+}
+
+/// The layout of `screen` when it was first shot: the last reposition of it
+/// before the first shot taken after it was laid out.
+fn screenLayout(log: []const u8, comptime screen: []const u8) !Layout {
+    const prefix = "BK_UI_TRACE: reposition \"" ++ screen ++ "\" screen ";
+    const laid_out = std.mem.indexOf(u8, log, prefix) orelse return error.GameLineMissing;
+    const first_shot = (std.mem.indexOfPos(u8, log, laid_out, " action shot") orelse return error.GameLineMissing);
     const start = (std.mem.lastIndexOf(u8, log[0..first_shot], prefix) orelse return error.GameLineMissing) + prefix.len;
     const line = log[start .. std.mem.indexOfScalarPos(u8, log, start, '\n') orelse log.len];
     // "<w>x<h> -> parent <pw>x<ph> at (<x>,<y>) scale <sx>,<sy> ..."
