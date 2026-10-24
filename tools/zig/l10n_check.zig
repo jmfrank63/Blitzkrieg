@@ -54,8 +54,10 @@
 //! `<F5>`), square-bracket keys (`[Q]`, `[DISABLED]`) and `#n` counters. The 25 in-scope originals
 //! hold none of them, only CRLF line breaks. The rule therefore counts complete printf codes (`%s`, `%5.2f`,
 //! `%ld`, `%1$s`, `%-*.*lld`: position, flags, width, precision and length all belong to the token;
-//! `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
-//! and a literal `\n`; square-bracket keys are left to the translator, who may write the local key.
+//! `%%` is a literal), `{n}`, `$name`, a literal `\n`, and the number of `<key>` names (no white
+//! space inside, at most 24 characters): every angle-bracket token of the English is a hotkey name
+//! the translator writes as the local keyboard label (`<Leertaste>`, `<Пробел>`), so its spelling is
+//! free and only the count must match. Square-bracket keys are left to the translator as well.
 //!
 //! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. Each language's
 //! mod ships fonts bk-font generates from its face (Liberation Serif for the Latin languages, Noto for
@@ -604,7 +606,7 @@ pub fn placeholderTokens(arena: std.mem.Allocator, bytes: []const u8) ![]const [
 }
 
 /// The tokens of an ASCII view of a text (see `placeholderTokens`), sorted. A string table value
-/// counts only printf codes and `{n}` (`all_kinds` false): `$`, `<tag>` and a literal `\n` are
+/// counts only printf codes and `{n}` (`all_kinds` false): `$`, `<key>` names and a literal `\n` are
 /// ordinary characters there.
 fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]const []const u8 {
     var tokens: std.ArrayList([]const u8) = .empty;
@@ -641,11 +643,14 @@ fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]c
                 }
             },
             '<' => {
+                // A key name the player reads: the translator writes the local keyboard label
+                // (`<Leertaste>`, `<Пробел>`), so only the number of names must match.
                 var i = at + 1;
-                while (i < ascii.len and i - at <= 24 and ascii[i] != '>' and ascii[i] != '<' and ascii[i] > ' ' and ascii[i] != 0x80) i += 1;
+                while (i < ascii.len and i - at <= 24 and ascii[i] != '>' and ascii[i] != '<' and ascii[i] > ' ') i += 1;
                 if (i > at + 1 and i < ascii.len and ascii[i] == '>') {
-                    end = i + 1;
-                    is_token = true;
+                    try tokens.append(arena, "<key>");
+                    at = i + 1;
+                    continue;
                 }
             },
             '\\' => {
@@ -2669,9 +2674,33 @@ test "placeholderTokens finds printf codes, numbered slots, tags and a literal b
     try bytes.appendSlice(arena, "\xff\xfe");
     for (text[2..]) |c| try bytes.appendSlice(arena, &.{ c, 0 });
     const tokens = try placeholderTokens(arena, bytes.items);
-    const want = [_][]const u8{ "$name", "%5.2f", "%s", "<Ctrl-1>", "<br>", "\\n", "{0}" };
+    const want = [_][]const u8{ "$name", "%5.2f", "%s", "<key>", "<key>", "\\n", "{0}" };
     try testing.expectEqual(want.len, tokens.len);
     for (want, tokens) |w, t| try testing.expectEqualStrings(w, t);
+}
+
+test "placeholderTokens counts a key name in the local keyboard label as the English one" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const utf16 = struct {
+        fn of(a: std.mem.Allocator, text: []const u8) ![]u8 {
+            var out: std.ArrayList(u8) = .empty;
+            try out.appendSlice(a, "\xff\xfe");
+            var view = try std.unicode.Utf8View.init(text);
+            var it = view.iterator();
+            while (it.nextCodepoint()) |cp| try out.appendSlice(a, &std.mem.toBytes(std.mem.nativeToLittle(u16, @intCast(cp))));
+            return out.items;
+        }
+    };
+    const english = try placeholderTokens(arena, try utf16.of(arena, "<Space> - pause, <Shift> adds"));
+    const german = try placeholderTokens(arena, try utf16.of(arena, "<Leertaste> - Pause, <Umschalt> fügt hinzu"));
+    const russian = try placeholderTokens(arena, try utf16.of(arena, "<Пробел> - пауза, <Shift> добавляет"));
+    const dropped = try placeholderTokens(arena, try utf16.of(arena, "Leertaste - Pause, <Umschalt> fügt hinzu"));
+    try testing.expect(tokensEqual(english, german));
+    try testing.expect(tokensEqual(english, russian));
+    try testing.expect(!tokensEqual(english, dropped));
 }
 
 test "placeholderTokens keeps the whole printf code: position, flags, width, precision, length" {
