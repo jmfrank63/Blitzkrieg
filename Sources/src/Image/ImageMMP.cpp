@@ -31,7 +31,11 @@ CImageDDS* LoadImageDDS( IDataStream *pStream )
 	for ( int i = 0; i < nNumMipLevels; ++i )
 	{
 		std::vector<BYTE> &level = pImage->GetMipLevel( i );
-		const int nCheck = pStream->Read( &(level[0]), level.size() );
+		// A non-square image's last levels are 0 bytes here (one side halves to
+		// zero): there is nothing to read, and &level[0] of an empty vector traps.
+		if ( level.empty() )
+			continue;
+		const int nCheck = pStream->Read( level.data(), level.size() );
 		NI_ASSERT_T( nCheck == level.size(), NStr::Format("Can't read all data for mip level %d (read %d bytes instead of %d)", i, nCheck, level.size()) );
 	}
 	return pImage;
@@ -65,7 +69,9 @@ bool SaveImageAsDDS( IDataStream *pStream, const IDDSImage *pImg )
 	for ( int i = 0; i < int(header.dwMipMapCount); ++i )
 	{
 		const std::vector<BYTE> &level = pImage->GetMipLevel( i );
-		const int nCheck = pStream->Write( &(level[0]), level.size() );
+		if ( level.empty() )
+			continue;
+		const int nCheck = pStream->Write( level.data(), level.size() );
 		NI_ASSERT_T( nCheck == level.size(), NStr::Format("Can't write mip level %d", i) );
 		if ( nCheck != level.size() ) 
 			return false;
