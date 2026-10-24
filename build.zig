@@ -3013,7 +3013,7 @@ pub fn build(b: *std.Build) void {
     mod_compat_game_reads_run.setEnvironmentVariable("BK_MOD_COMPAT_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
     mod_compat_game_reads_run.has_side_effects = true;
     mod_compat_game_reads_run.step.dependOn(install_game_step);
-    const mod_compat_game_reads_step = b.step("mod-compat-game-reads-it", "Write a mod made for the original game into a Cyrillic-named folder of the install (Russian MODName and label, the main menu with the original BinkFile key) and prove on the real Game that its smoke videos play and its label is drawn");
+    const mod_compat_game_reads_step = b.step("mod-compat-game-reads-it", "Write a mod made for the original game into a Cyrillic-named folder of the install (Russian MODName and label, the main menu with the original BinkFile key) and prove on the real Game that its smoke videos play, its label is drawn and Options > Load Mod lists it");
     mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_tests.step);
     if (test_mode == .run) mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_run.step);
 
