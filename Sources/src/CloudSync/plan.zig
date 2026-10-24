@@ -893,6 +893,11 @@ fn baseDir(gpa: Allocator, injected: ?[]const u8, comptime name: [:0]const u8) R
         return gpa.dupe(u8, value);
     }
 
+    // A unit test that did not inject a root would link into the player's real
+    // home (a stray `~/.cache/blitzkrieg/p1` survived a run that way), so in a
+    // test build the environment is not consulted at all.
+    if (builtin.is_test) return error.RootUnknown;
+
     const value = environValue(gpa, name) orelse return error.RootUnknown;
     if (value.len == 0) {
         gpa.free(value);

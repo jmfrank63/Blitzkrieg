@@ -150,6 +150,12 @@ test "the link root is the platform cache directory" {
     try std.testing.expectEqualStrings(expected, root);
 }
 
+test "a test build never falls back to the real home for the link root" {
+    // Nothing injected: outside a test this reads $HOME. Here it must refuse, so a
+    // test that forgot its scratch root cannot put a link into the player's home.
+    try std.testing.expectError(error.RootUnknown, plan.linkRootPath(std.testing.allocator, .{}));
+}
+
 test "a missing base directory is a typed failure, not a relative path" {
     const gpa = std.testing.allocator;
 
