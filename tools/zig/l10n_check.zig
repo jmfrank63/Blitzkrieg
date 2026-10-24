@@ -22,9 +22,10 @@
 //! (`<base State="n" .../>`, 0 not translated, 1 outdated, 2 translated, 3 approved, as
 //! Sources/editor/elk/core/state.zig names them).
 //!
-//! The English source of a key is its `Data/ELK/game_data_base/<key>.elk` (the original; the
-//! `.txt` beside it is a translation working copy, used only when no `.elk` exists), else the
-//! `.txt` the Game reads from its own text tree (`readBase`). An overlay
+//! The English source of a key is the `.txt` the Game reads from its own text tree (Data/Textes,
+//! Data/Scenarios, ...: `game_text_trees`), else its `Data/ELK/game_data_base/<key>.elk` original, else
+//! the `.txt` beside it (a translation working copy), as `readBase` reads it: the ELK database holds an
+//! early release's English for about 1,600 keys, and the player sees the Game's. An overlay
 //! .xml cannot record which English text a translation was made from, so D075 keeps a tracked
 //! manifest, `Localization/game/base-hashes.txt`: `<key> <sha256 hex of the English bytes>` per
 //! database key (and seed key), plus `same-as-base <code> <key>` lines naming translations that may equal the
@@ -505,16 +506,19 @@ pub fn existsIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, 
     return (try findIgnoreCase(io, arena, root, rel)) != null;
 }
 
-/// The English bytes of `key`: its `.elk` original, else its `.txt` in the database, else the
-/// `.txt` the Game reads from its own text tree (`game_text_trees`); null when none exists.
+/// The English bytes of `key`: the `.txt` the Game reads from its own text tree (`game_text_trees`),
+/// else its `.elk` original, else its `.txt` in the database; null when none exists. The Game's text
+/// comes first because it is what the player sees: for about 1,600 keys the ELK database holds an
+/// early release's English (other officer surnames, renumbered tutorial objectives, unit texts without
+/// their specification block), and a translation made from that one tells the player something else.
 pub fn readBase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, key: []const u8) !?[]u8 {
-    for ([_][]const u8{ "elk", "txt" }) |ext| {
-        const rel = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.{s}", .{ key, ext });
-        if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
-    }
     for (game_text_trees) |tree| {
         if (key.len <= tree.key.len or key[tree.key.len] != '/' or !std.ascii.startsWithIgnoreCase(key, tree.key)) continue;
         const rel = try std.fmt.allocPrint(arena, "{s}{s}.txt", .{ tree.data, key[tree.key.len..] });
+        if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
+    }
+    for ([_][]const u8{ "elk", "txt" }) |ext| {
+        const rel = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.{s}", .{ key, ext });
         if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
     }
     return null;
@@ -1758,7 +1762,7 @@ fn lessSame(_: void, a: SameAsBase, b: SameAsBase) bool {
 
 const manifest_header =
     "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per text the Game reads and seed key.\r\n" ++
-    "# The hash is of the English bytes: the .elk original in Data/ELK/game_data_base, else its .txt, else the Game's Data text.\r\n" ++
+    "# The hash is of the English bytes: the Game's Data text, else the .elk original in Data/ELK/game_data_base, else its .txt.\r\n" ++
     "# l10n-check reports `stale` when the English text no longer matches its hash: review the\r\n" ++
     "# translations of that key in every language, then rewrite this file with\r\n" ++
     "#   zig build l10n-check-update-base\r\n" ++

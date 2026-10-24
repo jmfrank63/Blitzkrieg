@@ -241,12 +241,15 @@ finding, and an overlay text outside the language's scope is `extra` (the detail
 it). The run prints one `l10n-check: scope: <code>: <seed | seed + prefixes ... | whole-database>, <n> keys checked`
 note per language.
 
-Progress per language (M003 S01 to S06, 2026-10-24): all nine languages are `whole-database`, all 3,538 texts translated
+Progress per language (M003 S01 to S06, 2026-10-25): all nine languages are `whole-database`, all 3,538 texts translated
 and passing every rule (completeness, placeholders, glyphs, glossary terms and fit); all are machine translations not
-reviewed by a native speaker. The English source of a key is its ELK original where one exists. The ELK database comes
-from an early release: for about 640 keys (tutorial and mission objectives, unit descriptions, the personal names of
-unit commanders) the text the English Game shows from `Data/` differs substantially from that original, so those
-translations follow the ELK wording, not the shipped English text.
+reviewed by a native speaker. The English source of a key (`readBase` in `tools/zig/l10n_check.zig`) is the text the
+Game shows from its own text trees (`Data/Textes`, `Data/Scenarios`, `Data/Units`, ...), else its ELK original, else
+the database `.txt`. The ELK database comes from an early release: for about 1,600 keys (tutorial and mission
+objectives, unit names and descriptions with their specification block, the personal names of unit commanders) its
+original differs from what the English Game shows, so the translations follow the shipped English text. Where that
+English is longer than its room (the unit names of the selection panel, the statistics rows), the translations use
+short forms that fit, measured by the fit rule below.
 
 `Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per text of the database (and per
 seed key without one), because an overlay `.xml` cannot record which English text it was made from; a language
