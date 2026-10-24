@@ -891,6 +891,12 @@ fn checkEnglish(io: std.Io, allocator: std.mem.Allocator, language: Language, m:
             try report.line("      {s} {s}: the translation is the English \"{s}\" (same-as-base), not compared with it", .{ language.code, label.key, english });
             continue;
         }
+        // Crédits and Credits differ by an accent: no raster tells them apart reliably.
+        const distance = try editDistance(allocator, std.mem.trim(u8, english, " \r\n"), std.mem.trim(u8, m.texts[index], " \r\n"));
+        if (distance <= 2) {
+            try report.line("      {s} {s}: the translation \"{s}\" is {d} characters from the English \"{s}\", not compared with it", .{ language.code, label.key, m.texts[index], distance, english });
+            continue;
+        }
         const stem = try std.fmt.allocPrint(allocator, "en-{s}", .{try label.stem(allocator)});
         const reference = try measure.hbView(allocator, io, m.hb_folder, stem, english, .{ .font = serif, .language = "en" });
         const own = try matchLabel(allocator, label, ink, m.refs[index]);
@@ -899,6 +905,36 @@ fn checkEnglish(io: std.Io, allocator: std.mem.Allocator, language: Language, m:
         const apart = own.correlation - theirs.correlation >= min_margin or @abs(theirs.aspect - 1) > aspect_error;
         try report.check(apart, "{s} {s}: drawn as \"{s}\", not the English \"{s}\" (correlation {d:.3} against {d:.3} for the English, its proportion {d:.3})", .{ language.code, label.key, m.texts[index], english, own.correlation, theirs.correlation, theirs.aspect });
     }
+}
+
+/// The Levenshtein distance of two UTF-8 strings in code points.
+fn editDistance(allocator: std.mem.Allocator, a: []const u8, b: []const u8) !usize {
+    var left: std.ArrayList(u21) = .empty;
+    var right: std.ArrayList(u21) = .empty;
+    for ([_][]const u8{ a, b }, [_]*std.ArrayList(u21){ &left, &right }) |text, list| {
+        var view = try std.unicode.Utf8View.init(text);
+        var it = view.iterator();
+        while (it.nextCodepoint()) |cp| try list.append(allocator, cp);
+    }
+    const row = try allocator.alloc(usize, right.items.len + 1);
+    for (row, 0..) |*cell, at| cell.* = at;
+    for (left.items, 1..) |x, i| {
+        var diagonal = row[0];
+        row[0] = i;
+        for (right.items, 1..) |y, j| {
+            const above = row[j];
+            row[j] = @min(@min(row[j] + 1, row[j - 1] + 1), diagonal + @intFromBool(x != y));
+            diagonal = above;
+        }
+    }
+    return row[right.items.len];
+}
+
+test "editDistance counts code points" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    try testing.expectEqual(@as(usize, 1), try editDistance(arena.allocator(), "Credits", "Crédits"));
+    try testing.expectEqual(@as(usize, 11), try editDistance(arena.allocator(), "Spiel speichern", "Save Game"));
 }
 
 fn full_width(label: Label) usize {
