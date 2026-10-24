@@ -123,10 +123,12 @@ public:
     enum { kTtfOk = 0, kTtfRetry = 1, kTtfAtlasFull = 2 };
     int AppendTtfLine( const uint16_t *text, size_t length, float x, float y, float scale, DWORD color,
         std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices, unsigned generation,
-        float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
+        float clip_top = -1e30f, float clip_bottom = 1e30f, float clip_left = -1e30f, float clip_right = 1e30f ) const;
     // clip_top/clip_bottom bound the glyph quads the way CTextClipVisitor does
     // in the D3D path: a line that only partly fits its rectangle is cut, not
-    // spilled over whatever sits below the text box.
+    // spilled over whatever sits below the text box. clip_left/clip_right do
+    // the same sideways, for a single line (FNT_FORMAT_SINGLE_LINE) wider than
+    // its box.
     bool AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
         std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
         float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
@@ -136,7 +138,7 @@ public:
     // frame.
     bool AppendGeometry( const wchar_t *text, size_t length, float x, float y, float scale, DWORD color,
         std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
-        float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
+        float clip_top = -1e30f, float clip_bottom = 1e30f, float clip_left = -1e30f, float clip_right = 1e30f ) const;
 
 private:
     ~FontGpu();

@@ -17,6 +17,8 @@
 //  6. GetHeight == GetAscent + GetDescent; the baseline is GetAscent below the top; the ink of tall
 //     glyphs lies between the top of the line and GetHeight below it.
 // A text wrapped to the width GetWidth gave for its first word breaks right after that word.
+// FNT_FORMAT_SINGLE_LINE (SingleLine="1" in a layout) draws a text too wide for its box on one line,
+// clipped to the box, aligned and trimmed as CGFXText::FillGeometryData does (RunSingleLine).
 //
 // Each mismatch prints one line: group/size/scale/string id, the check, measured and drawn numbers.
 #include "StdAfx.h"
@@ -422,6 +424,78 @@ void RunFixed( Harness &h, Where where, const std::u16string &tall, float scale 
         Expect( where, "H bottom == top + GetAscent*scale (within 0.5)", quads[0].bottom, float( Harness::kY ) + float( h.font->GetAscent() ) * scale, 0.5 );
 }
 
+// FNT_FORMAT_SINGLE_LINE (a layout's SingleLine="1"), as CGFXText::FillGeometryData draws it: one
+// line however wide the text, clipped to the rectangle. A left line starts where the unbounded line
+// does and is cut at rect.right; a right line ends at rect.right and is cut at rect.left; centred
+// text draws nothing. The line is CGFXText::PreFormatLine's: no spaces before the first word or
+// after the last, and a line break only ends a word.
+void RunSingleLine( Harness &h, Where where, float scale )
+{
+    where.scale = scale;
+    where.string_id = "single-line";
+    const std::u16string value = u"The quick brown fox jumps over the lazy dog";
+    const std::vector<Quad> wide = h.DrawText( value, scale, 4000 );
+    const int width = h.text->GetWidth( int( value.find( u" fox" ) ) );
+    const float right_edge = float( Harness::kX + width );
+    const int line_space = h.text->GetLineSpace();
+
+    // Without the flag the same text in the same box wraps: the box is too narrow for it.
+    const std::vector<Quad> wrapped = h.DrawText( value, scale, width );
+    ExpectAtLeast( where, "the text wraps in the box without the flag: lines", h.text->GetNumLines(), 2 );
+    float lowest = -1e30f;
+    for ( size_t i = 0; i != wrapped.size(); ++i ) lowest = (std::max)( lowest, wrapped[i].top );
+    ExpectAtLeast( where, "the text wraps in the box without the flag: drawn below the first line", lowest, float( Harness::kY + line_space ) );
+
+    // Left: the unbounded line's quads left of rect.right, the last one cut there.
+    const std::vector<Quad> left = h.DrawText( value, scale, width, FNT_FORMAT_LEFT | FNT_FORMAT_SINGLE_LINE );
+    std::vector<Quad> want;
+    for ( size_t i = 0; i != wide.size(); ++i )
+        if ( wide[i].left < right_edge ) want.push_back( Quad{ wide[i].left, wide[i].top, (std::min)( wide[i].right, right_edge ), wide[i].bottom } );
+    ExpectAtLeast( where, "single line left: drawn quads", double( left.size() ), 1.0 );
+    if ( Expect( where, "single line left: quad count == unbounded quads left of rect.right", double( left.size() ), double( want.size() ) ) )
+        for ( size_t i = 0; i != left.size(); ++i )
+        {
+            if ( !Expect( where, "single line left: quad left == unbounded quad left", left[i].left, want[i].left ) ) break;
+            if ( !Expect( where, "single line left: quad top == unbounded quad top (one line)", left[i].top, want[i].top ) ) break;
+            if ( !Expect( where, "single line left: quad right == unbounded quad right cut at rect.right", left[i].right, want[i].right ) ) break;
+        }
+    // Right: the unbounded line moved to end at rect.right (TextWidthFloat, as DrawText aligns), its
+    // quads left of rect.left cut there. A quad is placed at floor(x + 0.5): within 1 of the move.
+    const std::vector<Quad> right = h.DrawText( value, scale, width, FNT_FORMAT_RIGHT | FNT_FORMAT_SINGLE_LINE );
+    const std::vector<WORD> units( value.begin(), value.end() );
+    const float shift = right_edge - h.gpu->TextWidthFloat( units.data(), int( units.size() ) ) * scale - float( Harness::kX );
+    want.clear();
+    for ( size_t i = 0; i != wide.size(); ++i )
+        if ( wide[i].right + shift > float( Harness::kX ) + 1.0f )
+            want.push_back( Quad{ (std::max)( wide[i].left + shift, float( Harness::kX ) ), wide[i].top, wide[i].right + shift, wide[i].bottom } );
+    ExpectAtLeast( where, "single line right: drawn quads", double( right.size() ), 1.0 );
+    if ( Expect( where, "single line right: quad count == unbounded quads right of rect.left", double( right.size() ), double( want.size() ) ) )
+        for ( size_t i = 0; i != right.size(); ++i )
+        {
+            if ( !Expect( where, "single line right: quad left == moved quad left, cut at rect.left (within 1)", right[i].left, want[i].left, 1.0 ) ) break;
+            if ( !Expect( where, "single line right: quad top == unbounded quad top (one line)", right[i].top, want[i].top ) ) break;
+            if ( !Expect( where, "single line right: quad right == moved quad right (within 1)", right[i].right, want[i].right, 1.0 ) ) break;
+            if ( !ExpectAtLeast( where, "single line right: ink within rect.left", right[i].left, float( Harness::kX ) ) ) break;
+        }
+
+    // Centred and justified text: FillGeometryData refuses both in single-line mode.
+    Expect( where, "single line centre draws nothing", double( h.DrawText( value, scale, width, FNT_FORMAT_CENTER | FNT_FORMAT_SINGLE_LINE ).size() ), 0.0 );
+    Expect( where, "single line justify draws nothing", double( h.DrawText( value, scale, width, FNT_FORMAT_JUSTIFY | FNT_FORMAT_SINGLE_LINE ).size() ), 0.0 );
+
+    // PreFormatLine's line: leading and trailing spaces dropped, a line break joins the words.
+    struct LineCase { const char *id; std::u16string text, same_as; };
+    const LineCase cases[] = { { "single-line-spaces", u"  Hello world  ", u"Hello world" }, { "single-line-break", u"Hello\nworld", u"Helloworld" }, { "single-line-crlf", u"Hello \r\nworld", u"Hello world" } };
+    for ( size_t c = 0; c != sizeof cases / sizeof cases[0]; ++c )
+    {
+        where.string_id = cases[c].id;
+        const std::vector<Quad> drawn = h.DrawText( cases[c].text, scale, 4000, FNT_FORMAT_LEFT | FNT_FORMAT_SINGLE_LINE );
+        const std::vector<Quad> same = h.DrawText( cases[c].same_as, scale, 4000 );
+        if ( Expect( where, "single line: quad count == the line's", double( drawn.size() ), double( same.size() ) ) )
+            for ( size_t i = 0; i != drawn.size(); ++i )
+                if ( !Expect( where, "single line: quad left == the line's", drawn[i].left, same[i].left ) || !Expect( where, "single line: quad top == the line's", drawn[i].top, same[i].top ) ) break;
+    }
+}
+
 struct Group { const char *code; std::u16string tall; std::vector<Sample> samples; };
 
 std::vector<Group> Groups()
@@ -514,6 +588,7 @@ int Run()
             {
                 for ( size_t i = 0; i != groups[g].samples.size(); ++i ) RunSample( h, where, groups[g].samples[i], scales[s] );
                 RunFixed( h, where, groups[g].tall, scales[s] );
+                if ( g == 0 ) RunSingleLine( h, where, scales[s] );
             }
             h.text->Release();
             engine.SetFont( nullptr );

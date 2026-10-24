@@ -1496,6 +1496,29 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     const WORD *raw_value = source->GetString();
     IGFXTextGpuFontProvider *font_provider = dynamic_cast<IGFXTextGpuFontProvider *>( text );
     FontGpu *font = font_provider ? dynamic_cast<FontGpu *>( font_provider->Font() ) : nullptr;
+    // FNT_FORMAT_SINGLE_LINE, a layout's SingleLine="1": CGFXText::FillGeometryData draws the text
+    // as one line however wide it is, never wrapped, and clips it to the rectangle on every side.
+    // The line is PreFormatLine's: the words and the spaces between them, without the spaces before
+    // the first word and after the last; a line break only ends a word. Left text starts at
+    // rect.left, right text ends at rect.right and a wider one is cut at rect.left; centred and
+    // justified text draws nothing, as FillGeometryData refuses both in single-line mode.
+    const bool single_line = font && (flags & FNT_FORMAT_SINGLE_LINE) != 0;
+    if ( single_line )
+    {
+        if ( (flags & (FNT_FORMAT_LEFT | FNT_FORMAT_RIGHT)) == 0 ) return true;
+        single_line_text_.clear();
+        size_t words_end = 0;
+        for ( const WORD *unit = raw_value; unit && *unit; ++unit )
+        {
+            if ( *unit == L'\n' || *unit == L'\r' || ( *unit == L' ' && single_line_text_.empty() ) ) continue;
+            single_line_text_.push_back( *unit );
+            if ( *unit != L' ' ) words_end = single_line_text_.size();
+        }
+        single_line_text_.resize( words_end );
+        single_line_text_.push_back( 0 );
+        single_line_range_.assign( 1, std::make_pair( size_t( 0 ), words_end ) );
+        raw_value = single_line_text_.data();
+    }
     // The ttf path shapes the UTF-16 string as it is; only the other paths read the widened copy.
     text_wide_.clear();
     if ( raw_value && !( font && font->IsTtf() ) ) for ( const WORD *unit = raw_value; *unit; ++unit ) text_wide_.push_back( static_cast<wchar_t>( *unit ) );
@@ -1503,6 +1526,8 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     const int width = text->GetWidth();
     const float scale = font_provider ? font_provider->Scale() : 1.0f;
     const float wrap_width = static_cast<float>( rect.right - rect.left );
+    const float clip_left = single_line ? static_cast<float>( rect.left ) : -1e30f;
+    const float clip_right = single_line ? static_cast<float>( rect.right ) : 1e30f;
     float x = static_cast<float>( rect.left );
     if ( !font )
     {
@@ -1511,7 +1536,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     }
     if ( font && font->IsTtf() )
     {
-        const std::vector<std::pair<size_t, size_t> > &lines = font_provider->WrappedLines();
+        const std::vector<std::pair<size_t, size_t> > &lines = single_line ? single_line_range_ : font_provider->WrappedLines();
         // The whole-pixel step TextGpu::GetLineSpace reports: lists reserve rows from it.
         const float line_step = static_cast<float>( static_cast<int>( static_cast<float>( font->GetLineSpace() ) * scale ) );
         const float clip_top = static_cast<float>( rect.top );
@@ -1541,7 +1566,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
                     }
                     // GetString() is UTF-16 already: shaped as it is.
                     status = font->AppendTtfLine( raw_value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(),
-                        text_vertices_, text_indices_, generation, clip_top, clip_bottom );
+                        text_vertices_, text_indices_, generation, clip_top, clip_bottom, clip_left, clip_right );
                 }
                 pen_y += line_step;
             }
@@ -1558,7 +1583,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
         // SetWidth above has just given it this rectangle's width, so this is
         // the same break WrapTextLines( font, raw_value, scale, wrap_width )
         // would produce - without breaking the paragraph again every frame.
-        const std::vector<std::pair<size_t, size_t> > &lines = font_provider->WrappedLines();
+        const std::vector<std::pair<size_t, size_t> > &lines = single_line ? single_line_range_ : font_provider->WrappedLines();
 
         std::vector<SGFXLVertex> &vertices = text_vertices_;
         std::vector<WORD> &indices = text_indices_;
@@ -1584,7 +1609,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
                 else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) line_x = static_cast<float>( rect.right ) - line_width;
                 // The widened string is one wchar_t per UTF-16 unit, so the
                 // wrap's offsets index it directly and the line needs no copy.
-                font->AppendGeometry( value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom );
+                font->AppendGeometry( value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom, clip_left, clip_right );
                 if ( line_index == 0 ) x = line_x;
             }
             pen_y += line_step;

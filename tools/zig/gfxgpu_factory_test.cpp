@@ -211,8 +211,8 @@ int FontGpu::GetTextWidth( const WORD *, int ) const { return 0; }
 float FontGpu::TextWidthFloat( const WORD *, int ) const { return 0.0f; }
 bool FontGpu::AppendGeometry( const wchar_t *, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float ) const { return true; }
 void FontGpu::CloseTtf() {}
-int FontGpu::AppendTtfLine( const uint16_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, unsigned, float, float ) const { return kTtfOk; }
-bool FontGpu::AppendGeometry( const wchar_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float ) const { return true; }
+int FontGpu::AppendTtfLine( const uint16_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, unsigned, float, float, float, float ) const { return kTtfOk; }
+bool FontGpu::AppendGeometry( const wchar_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float, float, float ) const { return true; }
 
 
 namespace NPlatform

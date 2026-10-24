@@ -278,7 +278,7 @@ bool FontGpu::AppendGeometry( const wchar_t *text, float x, float y, float scale
 
 bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float y, float scale, DWORD color,
     std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
-    float clip_top, float clip_bottom ) const
+    float clip_top, float clip_bottom, float clip_left, float clip_right ) const
 {
     if ( !text || length == 0 || !*text || !texture_ ) return true;
     // Four vertices and six indices per glyph, asked for up front: growing the
@@ -315,17 +315,28 @@ bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float
             if ( y < clip_top ) top_fraction = ( clip_top - y ) / glyph_height;
             if ( y + glyph_height > clip_bottom ) bottom_fraction = ( clip_bottom - y ) / glyph_height;
         }
-        if ( bottom_fraction > top_fraction )
+        float left_fraction = 0.0f;
+        float right_fraction = 1.0f;
+        if ( glyph_width > 0.0f )
+        {
+            if ( x < clip_left ) left_fraction = ( clip_left - x ) / glyph_width;
+            if ( x + glyph_width > clip_right ) right_fraction = ( clip_right - x ) / glyph_width;
+        }
+        if ( bottom_fraction > top_fraction && right_fraction > left_fraction )
         {
             const float top = y + top_fraction * glyph_height;
             const float bottom = y + bottom_fraction * glyph_height;
             const float v1 = character.y1 + top_fraction * ( character.y2 - character.y1 );
             const float v2 = character.y1 + bottom_fraction * ( character.y2 - character.y1 );
+            const float left = x + left_fraction * glyph_width;
+            const float right = x + right_fraction * glyph_width;
+            const float u1 = character.x1 + left_fraction * ( character.x2 - character.x1 );
+            const float u2 = character.x1 + right_fraction * ( character.x2 - character.x1 );
             const WORD base = static_cast<WORD>( vertices.size() );
-            vertices.emplace_back(); vertices.back().Setup( x, bottom, 0, 1, color, 0xff000000, character.x1, v2 );
-            vertices.emplace_back(); vertices.back().Setup( x, top, 0, 1, color, 0xff000000, character.x1, v1 );
-            vertices.emplace_back(); vertices.back().Setup( x + glyph_width, bottom, 0, 1, color, 0xff000000, character.x2, v2 );
-            vertices.emplace_back(); vertices.back().Setup( x + glyph_width, top, 0, 1, color, 0xff000000, character.x2, v1 );
+            vertices.emplace_back(); vertices.back().Setup( left, bottom, 0, 1, color, 0xff000000, u1, v2 );
+            vertices.emplace_back(); vertices.back().Setup( left, top, 0, 1, color, 0xff000000, u1, v1 );
+            vertices.emplace_back(); vertices.back().Setup( right, bottom, 0, 1, color, 0xff000000, u2, v2 );
+            vertices.emplace_back(); vertices.back().Setup( right, top, 0, 1, color, 0xff000000, u2, v1 );
             indices.push_back( base + 2 ); indices.push_back( base + 1 ); indices.push_back( base + 0 );
             indices.push_back( base + 1 ); indices.push_back( base + 2 ); indices.push_back( base + 3 );
         }
@@ -356,7 +367,7 @@ BkTextFont *FontGpu::TtfFontAt( float scale, float *factor ) const
 
 int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float y, float scale, DWORD color,
     std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices, unsigned generation,
-    float clip_top, float clip_bottom ) const
+    float clip_top, float clip_bottom, float clip_left, float clip_right ) const
 {
     BkTextContext *context = NBkTextBridge::Context();
     if ( bk_font_ == nullptr || context == nullptr || text == nullptr ) return kTtfOk;
@@ -434,10 +445,18 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
             float bottom_fraction = 1.0f;
             if ( top < clip_top ) top_fraction = ( clip_top - top ) / quad_h;
             if ( top + quad_h > clip_bottom ) bottom_fraction = ( clip_bottom - top ) / quad_h;
-            if ( bottom_fraction > top_fraction )
+            float left_fraction = 0.0f;
+            float right_fraction = 1.0f;
+            if ( left < clip_left ) left_fraction = ( clip_left - left ) / quad_w;
+            if ( left + quad_w > clip_right ) right_fraction = ( clip_right - left ) / quad_w;
+            if ( bottom_fraction > top_fraction && right_fraction > left_fraction )
             {
-                const float u1 = float( atlas.x ) / float( page_w );
-                const float u2 = float( atlas.x + atlas.w ) / float( page_w );
+                const float u_left = float( atlas.x ) / float( page_w );
+                const float u_span = float( atlas.w ) / float( page_w );
+                const float u1 = u_left + left_fraction * u_span;
+                const float u2 = u_left + right_fraction * u_span;
+                const float x1 = left + left_fraction * quad_w;
+                const float x2 = left + right_fraction * quad_w;
                 const float v_top = float( atlas.y ) / float( page_h );
                 const float v_span = float( atlas.h ) / float( page_h );
                 const float v1 = v_top + top_fraction * v_span;
@@ -446,10 +465,10 @@ int FontGpu::AppendTtfLine( const uint16_t *text, size_t length, float x, float 
                 const float y2 = top + bottom_fraction * quad_h;
                 const WORD base = static_cast<WORD>( first_vertex + quads * 4 );
                 SGFXLVertex *quad = vertices.data() + first_vertex + quads * 4;
-                quad[0].Setup( left, y2, 0, 1, color, 0xff000000, u1, v2 );
-                quad[1].Setup( left, y1, 0, 1, color, 0xff000000, u1, v1 );
-                quad[2].Setup( left + quad_w, y2, 0, 1, color, 0xff000000, u2, v2 );
-                quad[3].Setup( left + quad_w, y1, 0, 1, color, 0xff000000, u2, v1 );
+                quad[0].Setup( x1, y2, 0, 1, color, 0xff000000, u1, v2 );
+                quad[1].Setup( x1, y1, 0, 1, color, 0xff000000, u1, v1 );
+                quad[2].Setup( x2, y2, 0, 1, color, 0xff000000, u2, v2 );
+                quad[3].Setup( x2, y1, 0, 1, color, 0xff000000, u2, v1 );
                 WORD *triangles = indices.data() + first_index + quads * 6;
                 triangles[0] = base + 2; triangles[1] = base + 1; triangles[2] = base + 0;
                 triangles[3] = base + 1; triangles[4] = base + 2; triangles[5] = base + 3;

@@ -193,6 +193,10 @@ private:
     // The UTF-16 text widened to wchar_t, likewise reused rather than built
     // anew for every DrawText.
     std::wstring text_wide_;
+    // DrawText's one line of a FNT_FORMAT_SINGLE_LINE text (UTF-16, zero-ended) and its range,
+    // standing in for the text and its wrap.
+    std::vector<WORD> single_line_text_;
+    std::vector<std::pair<size_t, size_t> > single_line_range_;
     int temporary_vertex_stride_ = 0;
     int temporary_vertex_count_ = 0;
     int temporary_index_stride_ = 0;
