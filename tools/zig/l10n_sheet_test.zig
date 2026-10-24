@@ -161,7 +161,7 @@ test "import refuses a key without an original and an empty block, and writes no
     const refused = result.refused;
     try testing.expectEqual(@as(usize, 3), refused.len);
     try testing.expectEqualStrings("units/ghost/name", refused[0].key);
-    try testing.expectEqualStrings("no .elk original in Data/ELK/game_data_base", refused[0].detail);
+    try testing.expectEqualStrings("not a text of the game (no original in Data/ELK/game_data_base or the Data text trees)", refused[0].detail);
     try testing.expectEqualStrings("menu/start", refused[1].key);
     try testing.expectEqualStrings("the block is empty", refused[1].detail);
     try testing.expectEqualStrings("the key is in the sheet twice", refused[2].detail);

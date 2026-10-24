@@ -487,6 +487,21 @@ box units/**/name Data/UI/common/UnitInfoItem.xml 20
 scroll units/**/desc # encyclopedia page text, Encyclopedia.xml 2000 is a UI_SCROLL_TEXT
 box buildings/**/name Data/UI/Encyclopedia.xml 20000
 box medals/**/name Data/UI/Encyclopedia.xml 20000
+# Texts the Game reads that the ELK database lacks (2026-10-24): each in the element its code sets it into.
+# Object names: the selection info panel names a selected object as it names a unit (UnitInfoItem.xml 20).
+box objects/**/name Data/UI/common/UnitInfoItem.xml 20
+# Video titles: CutsceneList.cpp sets them into column 0 of list 1000 of Lists/IMCutsceneList.xml, 402 px wide less
+# the row inset, one medium line.
+area movies/** 390x41 medium
+# Multiplayer objectives: WorldClient.cpp writes the caption into the chat console as objective_received is, and the
+# objective into the scrolled objectives text.
+area textes/multiplayerobjectives/*/caption 900x82 large
+scroll textes/multiplayerobjectives/*/objective # the objectives list of the mission screen, a UI_SCROLL_TEXT
+# iMissionInternal.cpp writes gamespeedlowered (plus " -1") into the chat console.
+area textes/gamespeedlowered 900x82 large
+# The default player name, shown in the 150 px name field of the profile screen.
+area textes/playername 150x30 medium
+box textes/nextchapterquestion_nostay Data/UI/Popup/NextChapterNoStay.xml 3000
 scroll medals/**/desc # encyclopedia and rank popup text, UI_SCROLL_TEXT
 box textes/personals/** Data/UI/common/UnitInfoItem.xml 21
 scroll textes/playerranks/**/*_full # the promotion message of the rank popup, PlayerRank.xml 20001 is a UI_SCROLL_TEXT

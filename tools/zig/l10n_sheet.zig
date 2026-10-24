@@ -78,7 +78,7 @@ fn overlayPath(arena: std.mem.Allocator, code: []const u8, key: []const u8, ext:
 /// directory below `root`) and returns their paths. A prefix that matches nothing is an error.
 pub fn exportSheets(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, code: []const u8, prefixes: []const []const u8, out: []const u8) ![]const []const u8 {
     if (!knownCode(code)) return error.UnknownLanguage;
-    const all = try check.elkKeys(io, arena, root);
+    const all = try check.databaseKeys(io, arena, root);
     for (prefixes) |prefix| {
         var found = false;
         for (all) |key| found = found or std.ascii.startsWithIgnoreCase(key, prefix);
@@ -179,13 +179,13 @@ pub fn importSheet(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, code:
     const blocks = try parseSheet(arena, sheet);
     if (blocks.len == 0) return error.SheetHasNoBlock;
     var known: std.StringHashMapUnmanaged(void) = .empty;
-    for (try check.elkKeys(io, arena, root)) |key| try known.put(arena, key, {});
+    for (try check.databaseKeys(io, arena, root)) |key| try known.put(arena, key, {});
 
     var refusals: std.ArrayList(Refusal) = .empty;
     var seen: std.StringHashMapUnmanaged(void) = .empty;
     for (blocks) |block| {
         if (!known.contains(block.key)) {
-            try refusals.append(arena, .{ .key = block.key, .detail = "no .elk original in Data/ELK/game_data_base" });
+            try refusals.append(arena, .{ .key = block.key, .detail = "not a text of the game (no original in Data/ELK/game_data_base or the Data text trees)" });
         } else if (std.mem.trim(u8, block.text, " \t\r\n").len == 0) {
             try refusals.append(arena, .{ .key = block.key, .detail = "the block is empty" });
         } else if ((try seen.fetchPut(arena, block.key, {})) != null) {

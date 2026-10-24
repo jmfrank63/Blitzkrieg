@@ -270,7 +270,7 @@ pub const LanguageScope = struct {
         return switch (self.kind) {
             .seed => "not in the seed list of Localization/game/scope.txt (no prefix or whole-database line for this language)",
             .prefixes => "not in the seed list or under a `prefix` line of this language in Localization/game/scope.txt",
-            .whole => "no .elk original in Data/ELK/game_data_base (whole-database scope)",
+            .whole => "not a text of the game: no original in Data/ELK/game_data_base or the Data text trees (whole-database scope)",
         };
     }
 };
@@ -282,26 +282,97 @@ pub const Scopes = struct {
     all_keys: []const []const u8,
 };
 
-/// Every `.elk` original below Data/ELK/game_data_base as a key (relative, no extension, forward
-/// slashes, the spelling on disk), sorted. Empty when the directory does not exist.
-pub fn elkKeys(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir) ![]const []const u8 {
-    const base = (try findIgnoreCase(io, arena, root, "Data/ELK/game_data_base")) orelse return &.{};
-    var dir = try root.openDir(io, base, .{ .iterate = true });
-    defer dir.close(io);
+/// The Data trees whose `.txt` files are texts the Game reads, each with the key prefix it has in
+/// `game_data_base`. Data/Maps is left out: its texts are the names of the multiplayer maps.
+pub const game_text_trees = [_]struct { data: []const u8, key: []const u8 }{
+    .{ .data = "Data/Textes", .key = "textes" },
+    .{ .data = "Data/Scenarios", .key = "scenarios" },
+    .{ .data = "Data/Units", .key = "units" },
+    .{ .data = "Data/Buildings", .key = "buildings" },
+    .{ .data = "Data/Medals", .key = "medals" },
+    .{ .data = "Data/Objects", .key = "objects" },
+    .{ .data = "Data/movies", .key = "movies" },
+};
+
+/// Every text of the game as a key (relative to `game_data_base`, no extension, forward slashes),
+/// sorted: each `.elk` original below Data/ELK/game_data_base (the spelling on disk), each `.txt`
+/// there without an `.elk` beside it, and each `.txt` of the Game's own text trees
+/// (`game_text_trees`) the database does not hold, lowercased. The ELK database was made from an
+/// early release: about 190 of its texts have no `.elk` original and about 280 texts the Game
+/// reads (the escape menu's save and load captions, the mod screen, most tutorial and intro
+/// mission texts) are not in it at all, so a scope of `.elk` originals alone left them in English.
+/// A text whose English is blank is not a key: there is nothing to translate. Empty when neither
+/// directory exists.
+pub fn databaseKeys(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir) ![]const []const u8 {
     var keys: std.ArrayList([]const u8) = .empty;
-    var walker = try dir.walk(arena);
-    defer walker.deinit();
-    while (try walker.next(io)) |entry| {
-        if (entry.kind != .file or entry.path.len <= 4) continue;
-        if (!std.ascii.eqlIgnoreCase(entry.path[entry.path.len - 4 ..], ".elk")) continue;
-        const key = try arena.dupe(u8, entry.path[0 .. entry.path.len - 4]);
-        for (key) |*c| {
-            if (c.* == '\\') c.* = '/';
+    var seen: std.StringHashMapUnmanaged(void) = .empty;
+    if (try findIgnoreCase(io, arena, root, "Data/ELK/game_data_base")) |base| {
+        var dir = try root.openDir(io, base, .{ .iterate = true });
+        defer dir.close(io);
+        var originals: std.StringHashMapUnmanaged(void) = .empty;
+        var texts: std.ArrayList([]const u8) = .empty;
+        var walker = try dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next(io)) |entry| {
+            if (entry.kind != .file or entry.path.len <= 4) continue;
+            const ext = entry.path[entry.path.len - 4 ..];
+            const is_elk = std.ascii.eqlIgnoreCase(ext, ".elk");
+            if (!is_elk and !std.ascii.eqlIgnoreCase(ext, ".txt")) continue;
+            const key = try arena.dupe(u8, entry.path[0 .. entry.path.len - 4]);
+            for (key) |*c| {
+                if (c.* == '\\') c.* = '/';
+            }
+            if (is_elk) {
+                try originals.put(arena, try std.ascii.allocLowerString(arena, key), {});
+                if (try firstSight(arena, &seen, key)) try keys.append(arena, key);
+            } else {
+                try texts.append(arena, key);
+            }
         }
-        try keys.append(arena, key);
+        for (texts.items) |key| {
+            if (originals.contains(try std.ascii.allocLowerString(arena, key))) continue;
+            if (!try firstSight(arena, &seen, key)) continue;
+            const bytes = (try readOptional(io, arena, dir, try std.fmt.allocPrint(arena, "{s}.txt", .{key}))) orelse continue;
+            if (isBlankText(bytes)) continue;
+            try keys.append(arena, key);
+        }
+    }
+    for (game_text_trees) |tree| {
+        const found = (try findIgnoreCase(io, arena, root, tree.data)) orelse continue;
+        var dir = try root.openDir(io, found, .{ .iterate = true });
+        defer dir.close(io);
+        var walker = try dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next(io)) |entry| {
+            if (entry.kind != .file or entry.path.len <= 4) continue;
+            if (!std.ascii.eqlIgnoreCase(entry.path[entry.path.len - 4 ..], ".txt")) continue;
+            const key = try std.ascii.allocLowerString(arena, try std.fmt.allocPrint(arena, "{s}/{s}", .{ tree.key, entry.path[0 .. entry.path.len - 4] }));
+            for (key) |*c| {
+                if (c.* == '\\') c.* = '/';
+            }
+            if (!try firstSight(arena, &seen, key)) continue;
+            const bytes = (try readOptional(io, arena, dir, entry.path)) orelse continue;
+            if (isBlankText(bytes)) continue;
+            try keys.append(arena, key);
+        }
     }
     std.mem.sort([]const u8, keys.items, {}, lessString);
     return keys.items;
+}
+
+/// Whether a text file holds nothing but white space: UTF-16LE (with or without a byte order
+/// mark) or a single-byte code page.
+fn isBlankText(bytes: []const u8) bool {
+    const utf16 = (bytes.len >= 2 and bytes[0] == 0xff and bytes[1] == 0xfe) or (bytes.len >= 2 and bytes.len % 2 == 0 and bytes[1] == 0);
+    if (utf16) {
+        var at: usize = if (bytes[0] == 0xff and bytes[1] == 0xfe) 2 else 0;
+        while (at + 1 < bytes.len) : (at += 2) {
+            const unit = std.mem.readInt(u16, bytes[at..][0..2], .little);
+            if (unit != ' ' and unit != '\t' and unit != '\r' and unit != '\n' and unit != 0xFEFF) return false;
+        }
+        return true;
+    }
+    return std.mem.trim(u8, bytes, " \t\r\n").len == 0;
 }
 
 /// Whether `key` is new to `seen`, which holds keys ASCII-lowercased: a Data tree may spell a
@@ -326,7 +397,7 @@ pub fn loadScopes(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, report
         if (file.seed.len == 0) try r.add("scope", "all", scope_path, "lists no key");
     }
     const needs_elk = file.whole.len != 0 or file.prefixes.len != 0;
-    const elk: []const []const u8 = if (needs_elk) try elkKeys(io, arena, root) else &.{};
+    const elk: []const []const u8 = if (needs_elk) try databaseKeys(io, arena, root) else &.{};
 
     var per_language: std.ArrayList(LanguageScope) = .empty;
     var all: std.StringHashMapUnmanaged(void) = .empty;
@@ -427,10 +498,16 @@ pub fn existsIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, 
     return (try findIgnoreCase(io, arena, root, rel)) != null;
 }
 
-/// The English bytes of `key`: its `.elk` original, else its `.txt`; null when neither exists.
+/// The English bytes of `key`: its `.elk` original, else its `.txt` in the database, else the
+/// `.txt` the Game reads from its own text tree (`game_text_trees`); null when none exists.
 pub fn readBase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, key: []const u8) !?[]u8 {
     for ([_][]const u8{ "elk", "txt" }) |ext| {
         const rel = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.{s}", .{ key, ext });
+        if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
+    }
+    for (game_text_trees) |tree| {
+        if (key.len <= tree.key.len or key[tree.key.len] != '/' or !std.ascii.startsWithIgnoreCase(key, tree.key)) continue;
+        const rel = try std.fmt.allocPrint(arena, "{s}{s}.txt", .{ tree.data, key[tree.key.len..] });
         if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
     }
     return null;
@@ -1640,7 +1717,7 @@ pub fn updateBase(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     const seed = (try parseScopeFile(arena, scope_text)).seed;
     var seen: std.StringHashMapUnmanaged(void) = .empty;
     var keys: std.ArrayList([]const u8) = .empty;
-    for ([_][]const []const u8{ seed, try elkKeys(io, arena, root) }) |list| for (list) |key| {
+    for ([_][]const []const u8{ seed, try databaseKeys(io, arena, root) }) |list| for (list) |key| {
         if (try firstSight(arena, &seen, key)) try keys.append(arena, key);
     };
     std.mem.sort([]const u8, keys.items, {}, lessString);
@@ -2545,7 +2622,7 @@ test "fit_map_covers_database: every ELK key has a line and every line finds its
     try testing.expectEqual(@as(usize, 0), problems.items.len);
     for (resolved) |one| try testing.expect(one.ok);
 
-    const keys = try elkKeys(io, arena, root);
+    const keys = try databaseKeys(io, arena, root);
     try testing.expect(keys.len > 2800);
     var unmapped: usize = 0;
     for (keys) |key| {

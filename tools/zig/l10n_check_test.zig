@@ -779,7 +779,7 @@ test "scope_whole_database_extra: a german text without an original names the wh
     var root = try buildTree(io, testing.allocator, "scope_whole_database_extra");
     try appendScope(io, root, "whole-database de\r\n");
     try addOverlay(io, root, "de", "misc/orphan", "Waise");
-    const want = comptime "l10n-check: extra: de: misc/orphan: no .elk original in Data/ELK/game_data_base (whole-database scope)\n" ++
+    const want = comptime "l10n-check: extra: de: misc/orphan: not a text of the game: no original in Data/ELK/game_data_base or the Data text trees (whole-database scope)\n" ++
         note_fit ++ note_tables ++ note_documents ++ note_literals ++ scopeNotes("de", "whole-database, 2 keys checked") ++ "l10n-check: 1 findings, 20 checked\n";
     try expectRun(io, "scope_whole_database_extra", &root, &.{}, 1, want);
 }
