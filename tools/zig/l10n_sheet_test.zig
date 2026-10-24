@@ -73,6 +73,19 @@ test "export reads an original that ends in a stray half unit, as textes/gametyp
     try testing.expectEqualStrings("=== menu/odd\r\nSingl\r\n", text);
 }
 
+test "export reads a text the database lacks from the Game's own text tree, as the checker does" {
+    const io = testing.io;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var root = try tree(io, arena, "export_text_tree");
+    defer root.close(io);
+    try write(io, root, "Data/Textes/Strings/Save_Game.txt", try sheet.encodeText(arena, "Save Game"));
+    const paths = try sheet.exportSheets(io, arena, root, "de", &.{"textes/strings/"}, sheet.sheet_dir);
+    const text = try root.readFileAlloc(io, paths[0], arena, .limited(1 << 20));
+    try testing.expectEqualStrings("=== textes/strings/save_game\r\nSave Game\r\n", text);
+}
+
 test "export errors: an unknown language and a prefix that matches nothing" {
     const io = testing.io;
     var arena_state = std.heap.ArenaAllocator.init(testing.allocator);

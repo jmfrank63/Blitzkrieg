@@ -1,5 +1,5 @@
 //! The overlay sheet helper of the translation tasks (M003 S01 T01, D096): a translation task
-//! exports the English originals under some key prefixes into a UTF-8 text sheet, a person or an
+//! exports the English texts under some key prefixes into a UTF-8 text sheet, a person or an
 //! agent writes the translations into the sheet, and the import writes the overlay files the
 //! checker (tools/zig/l10n_check.zig) expects, so nobody types UTF-16LE by hand.
 //!
@@ -7,7 +7,7 @@
 //!   zig build l10n-sheet-import -- <code> <sheet>
 //!
 //! A sheet is UTF-8 with CRLF line breaks. Each text is a block: a header line `=== <key>`, then
-//! the English text exactly as the original holds it (CR LF line breaks kept), then one CR LF that
+//! the English text exactly as its source holds it (CR LF line breaks kept), then one CR LF that
 //! only separates it from the next header. The existing overlay text, when there is one, follows
 //! under a `--- current` line; the import ignores it. The translator replaces the English text
 //! above that line and keeps or drops the rest. A trailing line break belongs to the text (1,053
@@ -15,8 +15,9 @@
 //!
 //! The import writes `Localization/game/<code>/game_data_base/<key>.txt` (UTF-16LE with a byte
 //! order mark, CR LF inside the text, a bare LF becomes CR LF) and `<key>.xml` (State 2). It
-//! refuses, and writes nothing, when a key has no `.elk` original or a block holds nothing but
-//! white space. Adding the `prefix <code> <prefix>` line to Localization/game/scope.txt is left to
+//! refuses, and writes nothing, when a key is not a text of the game (l10n-check's `databaseKeys`: an
+//! `.elk` original or `.txt` of Data/ELK, or a text of the Game's Data text trees) or a block holds
+//! nothing but white space. Adding the `prefix <code> <prefix>` line to Localization/game/scope.txt is left to
 //! the task, so a half-translated prefix never reaches the gate.
 const std = @import("std");
 const check = @import("l10n_check.zig");
@@ -74,8 +75,9 @@ fn overlayPath(arena: std.mem.Allocator, code: []const u8, key: []const u8, ext:
     return std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.{s}", .{ code, key, ext });
 }
 
-/// Writes the sheets of every original whose key starts with one of `prefixes` into `out` (a
-/// directory below `root`) and returns their paths. A prefix that matches nothing is an error.
+/// Writes the sheets of every database key (`check.databaseKeys`) that starts with one of `prefixes`
+/// into `out` (a directory below `root`) and returns their paths, each text's English read as the
+/// checker reads it (`check.readBase`). A prefix that matches nothing is an error.
 pub fn exportSheets(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, code: []const u8, prefixes: []const []const u8, out: []const u8) ![]const []const u8 {
     if (!knownCode(code)) return error.UnknownLanguage;
     const all = try check.databaseKeys(io, arena, root);
@@ -98,8 +100,7 @@ pub fn exportSheets(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, code
     var sheet: std.ArrayList(u8) = .empty;
     for (all) |key| {
         if (!startsWithAny(key, prefixes)) continue;
-        const english_path = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.elk", .{key});
-        const english_bytes = (try check.readOptional(io, arena, root, english_path)) orelse return error.OriginalUnreadable;
+        const english_bytes = (try check.readBase(io, arena, root, key)) orelse return error.OriginalUnreadable;
         // The 2003 original of textes/gametypes/game_type_unknown ends in a stray half unit.
         const whole_units = english_bytes[0 .. english_bytes.len & ~@as(usize, 1)];
         const english = (try decodeText(arena, whole_units)) orelse return error.OriginalUnreadable;

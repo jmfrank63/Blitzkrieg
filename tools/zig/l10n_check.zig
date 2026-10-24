@@ -11,8 +11,10 @@
 //!
 //! Scope (M003 D096): `Localization/game/scope.txt` lists the seed ELK keys (relative to
 //! `game_data_base`, no extension) every language overlay must hold, and two directives widen one
-//! language: `whole-database <code>` (every `.elk` original, found case-insensitively) and
-//! `prefix <code> <key prefix>` (the seed keys plus every `.elk` key under the prefix). A language
+//! language: `whole-database <code>` (every text the Game reads, `databaseKeys`: the `.elk` originals
+//! of Data/ELK found case-insensitively, its `.txt` texts without one, and the texts of the Data text
+//! trees the database lacks) and `prefix <code> <key prefix>` (the seed keys plus every such key under
+//! the prefix). A language
 //! with neither is seed-only; both for one language is a `scope` finding, as are an unknown code and a
 //! malformed line. `extra` names the scope rule an overlay text breaks. The run prints one
 //! `l10n-check: scope: <code>: <scope>, <n> keys checked` note per language. An overlay text is
@@ -21,10 +23,11 @@
 //! Sources/editor/elk/core/state.zig names them).
 //!
 //! The English source of a key is its `Data/ELK/game_data_base/<key>.elk` (the original; the
-//! `.txt` beside it is a translation working copy, used only when no `.elk` exists). An overlay
+//! `.txt` beside it is a translation working copy, used only when no `.elk` exists), else the
+//! `.txt` the Game reads from its own text tree (`readBase`). An overlay
 //! .xml cannot record which English text a translation was made from, so D075 keeps a tracked
 //! manifest, `Localization/game/base-hashes.txt`: `<key> <sha256 hex of the English bytes>` per
-//! `.elk` original (and seed key), plus `same-as-base <code> <key>` lines naming translations that may equal the
+//! database key (and seed key), plus `same-as-base <code> <key>` lines naming translations that may equal the
 //! English byte for byte (a proper name). Rule `stale` fires when the English bytes no longer
 //! match their hash, `base-hash-missing` when a key in any language's scope has no line, `untranslated` when an
 //! overlay text equals the English bytes without a `same-as-base` line. `--update-base` rewrites
@@ -523,7 +526,7 @@ pub const Manifest = struct {
     keys: []const []const u8,
     hashes: []const []const u8,
     same_as_base: []const SameAsBase,
-    /// Key to its position in `keys`, built by `parseManifest`; the database has about 2,850 keys.
+    /// Key to its position in `keys`, built by `parseManifest`; the database has about 3,540 keys.
     index: std.StringHashMapUnmanaged(usize) = .empty,
     same_index: std.StringHashMapUnmanaged(void) = .empty,
 
@@ -1709,8 +1712,8 @@ fn checkAgainstBase(report: *Report, manifest: ?Manifest, code: []const u8, key:
     }
 }
 
-/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every `.elk` original
-/// (the whole database, not only the scope keys, so a language can widen its scope without a new
+/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every database key
+/// (`databaseKeys`: the whole database, not only the scope keys, so a language can widen its scope without a new
 /// hash run) and every seed key, keeping the `same-as-base` lines. A seed key without an original
 /// is a finding and no file is written.
 pub fn updateBase(io: std.Io, report: *Report, root: std.Io.Dir) !void {
@@ -1752,8 +1755,8 @@ fn lessSame(_: void, a: SameAsBase, b: SameAsBase) bool {
 }
 
 const manifest_header =
-    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per .elk original and seed key.\r\n" ++
-    "# The hash is of the English bytes in Data/ELK/game_data_base (the .elk original, else the .txt).\r\n" ++
+    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per text the Game reads and seed key.\r\n" ++
+    "# The hash is of the English bytes: the .elk original in Data/ELK/game_data_base, else its .txt, else the Game's Data text.\r\n" ++
     "# l10n-check reports `stale` when the English text no longer matches its hash: review the\r\n" ++
     "# translations of that key in every language, then rewrite this file with\r\n" ++
     "#   zig build l10n-check-update-base\r\n" ++

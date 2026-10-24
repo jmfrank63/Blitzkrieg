@@ -4094,7 +4094,7 @@ pub fn build(b: *std.Build) void {
         run.setCwd(b.path("."));
         run.has_side_effects = true;
         const step = b.step(b.fmt("l10n-sheet-{s}", .{command}), if (std.mem.eql(u8, command, "export"))
-            "Write the English originals under key prefixes to zig-out/local-test/l10n-sheet/<code>-<n>.txt: zig build l10n-sheet-export -- <code> <prefix>... (M003 S01)"
+            "Write the English texts the Game reads under key prefixes to zig-out/local-test/l10n-sheet/<code>-<n>.txt: zig build l10n-sheet-export -- <code> <prefix>... (M003 S01)"
         else
             "Write a translated sheet as the overlay texts of a language: zig build l10n-sheet-import -- <code> <sheet> (M003 S01)");
         step.dependOn(&run.step);
