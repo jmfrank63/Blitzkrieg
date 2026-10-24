@@ -116,7 +116,7 @@ static void MeasureInkEnvelope( BkTextFont *font, float &up, float &down )
     }
 }
 
-bool FontGpu::OpenTtf()
+bool FontGpu::OpenTtf( const char *reason )
 {
     BkTextContext *context = NBkTextBridge::Context();
     if ( context == nullptr ) return false;
@@ -158,7 +158,33 @@ bool FontGpu::OpenTtf()
     format_.metrics.cCharSet = 0;
     format_.metrics.wDefaultChar = 0;
     missing_reported_.clear();
-    LogFontMetrics( name_, "ttf", format_ );
+    LogFontMetrics( name_, "ttf", format_, reason );
+    return true;
+}
+
+bool BitmapFontCoversLanguage( const SFontFormat &format, const std::string &language )
+{
+    // The letters each language's texts use beyond ASCII: Russian is the whole alphabet, the scripts
+    // without a Latin or Cyrillic alphabet a few common characters (no bitmap font of the era has any).
+    static const std::vector<uint16_t> russian = []{ std::vector<uint16_t> letters = { 0x401, 0x451 }; for ( uint16_t c = 0x410; c != 0x450; ++c ) letters.push_back( c ); return letters; }();
+    static const std::vector<uint16_t> devanagari = []{ std::vector<uint16_t> letters; for ( uint16_t c = 0x905; c != 0x93a; ++c ) letters.push_back( c ); return letters; }();
+    static const struct { const char *code; std::vector<uint16_t> letters; } table[] = {
+        { "de", { 0xc4, 0xd6, 0xdc, 0xe4, 0xf6, 0xfc, 0xdf } },
+        { "fr", { 0xe0, 0xe2, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xee, 0xef, 0xf4, 0xf9, 0xfb } },
+        { "es", { 0xe1, 0xe9, 0xed, 0xf1, 0xf3, 0xfa, 0xfc, 0xbf, 0xa1 } },
+        { "pt", { 0xe1, 0xe2, 0xe3, 0xe7, 0xe9, 0xea, 0xed, 0xf3, 0xf4, 0xf5, 0xfa } },
+        { "ru", russian },
+        { "hi", devanagari },
+        { "ja", { 0x3042, 0x3068, 0x65e5, 0x672c } },
+        { "zh", { 0x7684, 0x4e2d, 0x6587, 0x5b57 } },
+    };
+    for ( const auto &entry : table )
+    {
+        if ( language != entry.code ) continue;
+        for ( const uint16_t letter : entry.letters )
+            if ( format.chars.find( letter ) == format.chars.end() ) return false;
+        return true;
+    }
     return true;
 }
 
@@ -189,6 +215,11 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     if ( !structure ) return false;
     CSaverAccessor saver = structure;
     saver.Add( 1, &format_ );
+    // A mod's font was drawn for the mod's own language. With a language mod chosen over the mod
+    // (Russian over a mod made in English) its texts hold letters this font lacks, every one an
+    // empty box: the size draws on bk_text instead, which has the language's faces.
+    if ( reason != nullptr && !BitmapFontCoversLanguage( format_, NBkTextBridge::Language() ) && OpenTtf( "mod font lacks the language's letters" ) )
+        return true;
     missing_reported_.clear();
     LogFontMetrics( name_, "bitmap", format_, reason );
     if ( bPreLoad ) return true;

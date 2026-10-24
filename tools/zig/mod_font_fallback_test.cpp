@@ -9,6 +9,11 @@
 // right after that ask and the font is not a ttf font.
 //
 // Each mismatch prints one line: case, size, expected and measured engine.
+//
+// A mod's font is kept only while it has the letters of the language chosen over the mod: the
+// Achtung Panzer 2 mod's fonts have no Cyrillic, and with lang-ru chosen its main menu was a row of
+// empty boxes. BitmapFontCoversLanguage is the decision Load makes on the 1.tfd it read; it is
+// checked on fonts built here, one with ASCII only and one that also has the language's letters.
 #include "StdAfx.h"
 #include "GFX.H"
 #include "../../Sources/src/GFXGPU/FontGpu.h"
@@ -21,6 +26,7 @@
 #include <cstring>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -106,6 +112,46 @@ void CheckSize( const char *label, const char *size, bool mod_ships )
     font->Release();
 }
 
+// A bitmap font with the printable ASCII characters and the given extra ones.
+SFontFormat FontWith( const std::vector<uint16_t> &extra )
+{
+    SFontFormat format;
+    SFontFormat::SCharDesc desc = {};
+    for ( uint16_t c = 0x20; c != 0x7f; ++c ) format.chars[c] = desc;
+    for ( const uint16_t c : extra ) format.chars[c] = desc;
+    format.metrics.wDefaultChar = '?';
+    return format;
+}
+
+void CheckCovers( const char *label, const SFontFormat &format, const char *language, bool expected )
+{
+    ++g_checks;
+    const bool covers = BitmapFontCoversLanguage( format, language );
+    if ( covers == expected ) return;
+    ++g_failures;
+    std::fprintf( stderr, "%s, language %s: expected %s, measured %s\n", label, language, expected ? "covered" : "not covered", covers ? "covered" : "not covered" );
+}
+
+void RunCoverage()
+{
+    const SFontFormat ascii = FontWith( {} );
+    CheckCovers( "ASCII font", ascii, "en", true );
+    CheckCovers( "ASCII font", ascii, "id", true );
+    CheckCovers( "ASCII font", ascii, "ru", false );
+    CheckCovers( "ASCII font", ascii, "de", false );
+    CheckCovers( "ASCII font", ascii, "hi", false );
+    CheckCovers( "ASCII font", ascii, "zh", false );
+    std::vector<uint16_t> cyrillic = { 0x401, 0x451 };
+    for ( uint16_t c = 0x410; c != 0x450; ++c ) cyrillic.push_back( c );
+    const SFontFormat russian = FontWith( cyrillic );
+    CheckCovers( "Cyrillic font", russian, "ru", true );
+    CheckCovers( "Cyrillic font", russian, "en", true );
+    // One letter short of the alphabet still draws a box.
+    cyrillic.pop_back();
+    CheckCovers( "Cyrillic font without one letter", FontWith( cyrillic ), "ru", false );
+    CheckCovers( "German font", FontWith( { 0xc4, 0xd6, 0xdc, 0xe4, 0xf6, 0xfc, 0xdf } ), "de", true );
+}
+
 void RunCase( const char *label, const char *mod_size )
 {
     g_storage.mod.clear();
@@ -128,6 +174,7 @@ int main()
     RunCase( "base only", nullptr );
     RunCase( "mod medium", "medium" );
     RunCase( "mod tiny", "tiny" );
+    RunCoverage();
     NBkTextBridge::Destroy();
     if ( g_failures != 0 )
         std::printf( "mod-font-fallback: %d checks, %d failures\n", g_checks, g_failures );

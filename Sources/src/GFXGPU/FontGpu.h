@@ -143,7 +143,7 @@ public:
 private:
     ~FontGpu();
     template <typename T> float TextWidth( const T *text, int count ) const;
-    bool OpenTtf();
+    bool OpenTtf( const char *reason = nullptr );
     float TtfAdvance( const uint16_t *text, size_t length ) const;
     // BK_GLYPH_TRACE: names a character this font has no glyph for, once per font load. The font
     // draws its default character instead, an empty box, and says nothing; a frame measure of solid
@@ -176,6 +176,12 @@ private:
     mutable std::unordered_set<WORD> missing_reported_;
     int shared_resource_last_usage_ = 0;
 };
+
+// Whether a bitmap font has a glyph for every letter of a language (bk_text's code: "ru", "de", ...)
+// beyond ASCII. A mod's own bitmap font was drawn for the mod's language; with a language mod chosen
+// over it, a letter it lacks is drawn as the font's default character, an empty box. English and a
+// code without a table need nothing beyond ASCII.
+bool BitmapFontCoversLanguage( const SFontFormat &format, const std::string &language );
 
 // Shared greedy line breaking, so the row height reported by
 // TextGpu::GetNumLines and the lines actually emitted by
