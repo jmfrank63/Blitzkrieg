@@ -7,16 +7,6 @@
 ja scenarios/scenariomissions/allies/norway/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
 de textes/help load game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
 de textes/help save game # running text: Schnellspeichern and Schnellladen are the compound verbs of the quick keys
-de textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is a Toningenieur, not a Pionier
-de buildings/africa/summer/a_cisterns/01/name tank # a water tank, not a vehicle
-de buildings/africa/summer/a_cisterns/02/name tank # a water tank, not a vehicle
-de buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
-de buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
-de buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
-de buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
-de units/humans/allies/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
-de units/humans/german/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
-de units/humans/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
 de units/humans/ussr/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
 fr textes/help load game # running text: Sauvegarde rapide and Chargement rapide are the quick keys' wording
 fr textes/help save game # running text: Sauvegarde rapide and Chargement rapide are the quick keys' wording
@@ -24,36 +14,15 @@ fr textes/playerranks/allies/lieutenant_general lieutenant # the French rank for
 fr textes/playerranks/allies/lieutenant_general_full lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
 fr textes/playerranks/ussr/lieutenant_general lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
 fr textes/playerranks/ussr/lieutenant_general_full lieutenant # the French rank for a lieutenant general is général de corps d'armée, which has no lieutenant
-fr textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is an ingénieur du son, not a sapeur
-fr buildings/africa/summer/a_cisterns/01/name tank # a water tank, not a vehicle
-fr buildings/africa/summer/a_cisterns/02/name tank # a water tank, not a vehicle
-fr buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
-fr buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
-fr buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
-fr buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
 es textes/help load game # running text: the key is Carga rápida, the quick-load key, not the Cargar partida menu
 es textes/help save game # running text: the key is Guardado rápido, the quick-save key, not the Guardar partida menu
-id textes/ui/intermission/credits/credits engineer # the credits line "Sound Engineer" is Teknisi Suara, an audio technician, not a military zeni (sapper).
-id buildings/africa/summer/a_cisterns/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
-id buildings/africa/summer/a_cisterns/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
-id buildings/ussr/summer/cistern/01/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
-id buildings/ussr/summer/cistern/02/name tank # a water cistern is a tangki air (storage tank); "tank" alone would read as the armored vehicle.
 ru textes/help load game # running text: the quick-load key is described as быстрая загрузка игры, not the Загрузить игру menu item
 ru textes/help save game # running text: the quick-save key is described as быстрое сохранение игры, not the Сохранить игру menu item
 ru textes/playerranks/allies/lieutenant_colonel lieutenant # подполковник is one word; it has no лейтенант inside
 ru textes/playerranks/allies/lieutenant_colonel_full lieutenant # подполковник is one word; it has no лейтенант inside
-ru textes/playerranks/ussr/lieutenant_colonel lieutenant # подполковник is one word; it has no лейтенант inside
-ru textes/playerranks/ussr/lieutenant_colonel_full lieutenant # подполковник is one word; it has no лейтенант inside
-ru buildings/africa/summer/a_cisterns/01/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
-ru buildings/africa/summer/a_cisterns/02/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
-ru buildings/common/summer/watertankbig/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
-ru buildings/common/summer/watertanklittle/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
-ru buildings/ussr/summer/cistern/01/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
-ru buildings/ussr/summer/cistern/02/name tank # a cistern or water tank is not a tank vehicle; the Russian word is цистерна or бак
 ru textes/tooltips/tt_ui_multiplayer_create_new_game new game # tooltip: the verb takes the accusative, создать новую игру
 ru textes/tooltips/tt_ui_selectcampaign_back new game # tooltip: the phrase is declined (новой игре)
 ru textes/ui/intermission/multiplayer/gameslist/tt_button_create new game # tooltip: the verb takes the accusative, создать новую игру
-ru textes/ui/intermission/credits/credits engineer # a sound engineer is a звукорежиссёр, not a сапёр
 ru units/humans/allies/ptrb/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
 ru units/humans/german/pzb39/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
 ru units/humans/ussr/ptrd/name tank # fit: ПТР is the standard abbreviation of противотанковое ружьё, the full words do not fit the unit card
@@ -69,7 +38,6 @@ ru textes/options/multiplayer.playername.tooltip multiplayer # genitive: сет�
 ru textes/options/multiplayer.tooltip multiplayer # genitive: настройки сетевой игры, the glossary term declined
 ja textes/help load game # running text: クイックロード is the quick key, as in the other languages
 ja textes/help save game # running text: クイックセーブ is the quick key, as in the other languages
-ja textes/imtutorial/chapter objectives # prose: each side's aims (目標) in the chapter's history, not the mission objectives list
 ja textes/personals/allies/artillery/name42 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
 ja textes/personals/allies/artillery/name43 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
 ja textes/personals/allies/artillery/name44 lieutenant # a second lieutenant is 少尉 (glossary note), not 中尉
@@ -96,10 +64,6 @@ ja textes/playerranks/allies/lieutenant_colonel_full lieutenant # a lieutenant c
 ja textes/playerranks/allies/lieutenant_colonel_full colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
 ja textes/playerranks/allies/lieutenant_general lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
 ja textes/playerranks/allies/lieutenant_general_full lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
-ja textes/playerranks/ussr/lieutenant_colonel lieutenant # a lieutenant colonel is 中佐 (glossary note), not 中尉
-ja textes/playerranks/ussr/lieutenant_colonel colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
-ja textes/playerranks/ussr/lieutenant_colonel_full lieutenant # a lieutenant colonel is 中佐 (glossary note), not 中尉
-ja textes/playerranks/ussr/lieutenant_colonel_full colonel # a lieutenant colonel is 中佐 (glossary note), not 大佐
 ja textes/playerranks/ussr/lieutenant_general lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
 ja textes/playerranks/ussr/lieutenant_general_full lieutenant # a lieutenant general is 中将 (glossary note), not 中尉
 ja textes/playerranks/ussr/colonel_general colonel # a colonel general is 上級大将, not 大佐
@@ -109,13 +73,6 @@ ja textes/strings/_artilleryheavymg artillery # a category name: the weapon (高
 ja textes/strings/_artilleryhowitzer artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
 ja textes/strings/_artillerymortar artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
 ja textes/strings/_artilleryrocket artillery # a category name: the weapon (高射砲, 重機関銃, 榴弾砲, 迫撃砲, ロケット砲) names its kind of artillery
-ja textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is not a 工兵
-ja buildings/africa/summer/a_cisterns/01/name tank # a water tank, not a vehicle
-ja buildings/africa/summer/a_cisterns/02/name tank # a water tank, not a vehicle
-ja buildings/common/summer/watertankbig/name tank # a water tank, not a vehicle
-ja buildings/common/summer/watertanklittle/name tank # a water tank, not a vehicle
-ja buildings/ussr/summer/cistern/01/name tank # a water tank, not a vehicle
-ja buildings/ussr/summer/cistern/02/name tank # a water tank, not a vehicle
 ja medals/allies/eam_company/name campaign # a medal name: a campaign medal is a 従軍章
 ja units/humans/allies/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
 ja units/humans/german/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
@@ -125,11 +82,9 @@ ru scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language ha
 ru scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
 ru scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
 ru textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
-ru scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (стартовая позиция)
 ru scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (стартовая позиция)
 ru scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (стартовая позиция)
 ru scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (стартовая позиция)
-ru scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (контрбатарейная борьба), the military term
 ru scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (контрбатарейная борьба), the military term
 ru textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (начинайте печатать)
 ru textes/imtutorial/addressbook multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
@@ -148,17 +103,10 @@ ru textes/imtutorial/multiplayersettings settings # a declined form: настр�
 ru textes/imtutorial/imoptionssettings options # prose: in-game options are параметры игры, the ordinary word; Опции is the menu button
 ru textes/multiplayerobjectives/flagcontrol/caption mission # a game type caption: the Russian name is the type itself, Захват флагов
 ru textes/multiplayerobjectives/sabotage/caption mission # a game type caption: the Russian name is the type itself, Штурм
-zh-Hans buildings/africa/summer/a_cisterns/01/name tank # a water tank (水箱, 储水罐), not a vehicle
-zh-Hans buildings/africa/summer/a_cisterns/02/name tank # a water tank (水箱, 储水罐), not a vehicle
-zh-Hans buildings/common/summer/watertankbig/name tank # a water tank (水箱, 储水罐), not a vehicle
-zh-Hans buildings/common/summer/watertanklittle/name tank # a water tank (水箱, 储水罐), not a vehicle
-zh-Hans buildings/ussr/summer/cistern/01/name tank # a water tank (水箱, 储水罐), not a vehicle
-zh-Hans buildings/ussr/summer/cistern/02/name tank # a water tank (水箱, 储水罐), not a vehicle
 zh-Hans scenarios/chapters/allies/tunis/description tank # a formation name: the German 5th Panzer Army is 第5装甲集团军
 zh-Hans scenarios/chapters/allies/france/description campaign # prose: a historical military campaign (战局, 作战), not the game's campaign
 zh-Hans scenarios/chapters/german/ardennes/description objectives # prose: aims or places to take (目标), not the mission objectives list
 zh-Hans scenarios/descriptions/sa_12_15/description objectives # prose: aims or places to take (目标), not the mission objectives list
-zh-Hans textes/imtutorial/chapter objectives # prose: aims or places to take (目标), not the mission objectives list
 zh-Hans scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
 zh-Hans scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
 zh-Hans scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
@@ -170,7 +118,6 @@ zh-Hans units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraf
 zh-Hans units/technics/allies/spg/crusader_aa_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
 zh-Hans units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
 zh-Hans units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
-zh-Hans scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (出发地点)
 zh-Hans scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (出发地点)
 zh-Hans scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (出发地点)
 zh-Hans scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (出发地点)
@@ -184,10 +131,8 @@ zh-Hans units/humans/allies/sniper/name sniper # the unit is a scout (侦察兵)
 zh-Hans units/humans/german/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
 zh-Hans units/humans/ussr/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
 zh-Hans units/humans/ussr/ussr/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
-zh-Hans textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is a 音响工程师, not a 工兵
 zh-Hans textes/help load game # running text: 快速读档 is the quick-load key, not the load game menu
 zh-Hans textes/help save game # running text: 快速存档 is the quick-save key, not the save game menu
-zh-Hans units/technics/ussr/artillery/57_mm_zis_2/desc mission # a diplomatic mission: 代表团, a delegation
 zh-Hans textes/personals/allies/artillery/name12 sergeant # a master sergeant is 上士, not 中士
 zh-Hans textes/personals/allies/artillery/name13 sergeant # a master sergeant is 上士, not 中士
 zh-Hans textes/personals/allies/artillery/name14 sergeant # a master sergeant is 上士, not 中士
@@ -448,10 +393,6 @@ zh-Hans textes/playerranks/ussr/captain captain # a Soviet captain (kapitan) is 
 zh-Hans textes/playerranks/ussr/captain_full captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
 zh-Hans textes/playerranks/ussr/colonel_general colonel # a colonel general is 上将, not 上校
 zh-Hans textes/playerranks/ussr/colonel_general_full colonel # a colonel general is 上将, not 上校
-zh-Hans textes/playerranks/ussr/lieutenant_colonel lieutenant # a lieutenant colonel is 中校, not 中尉 or 上校
-zh-Hans textes/playerranks/ussr/lieutenant_colonel colonel # a lieutenant colonel is 中校, not 中尉 or 上校
-zh-Hans textes/playerranks/ussr/lieutenant_colonel_full lieutenant # a lieutenant colonel is 中校, not 中尉 or 上校
-zh-Hans textes/playerranks/ussr/lieutenant_colonel_full colonel # a lieutenant colonel is 中校, not 中尉 or 上校
 zh-Hans textes/playerranks/ussr/lieutenant_general lieutenant # a lieutenant general is 中将, not 中尉
 zh-Hans textes/playerranks/ussr/lieutenant_general_full lieutenant # a lieutenant general is 中将, not 中尉
 zh-Hans scenarios/chapters/ussr/finland/description artillery # an artillery bombardment is 炮击
@@ -464,7 +405,6 @@ zh-Hans scenarios/descriptions/sa_10_12_13_15_16/0 artillery # the artillery arm
 zh-Hans scenarios/descriptions/sa_10_12_13_15_16/3 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/descriptions/sa_10_12_13_15_16/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/descriptions/sa_10_12_13_15_16/description artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/descriptions/sa_11_12_15_16/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/descriptions/sa_11_12_15_16/2 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/descriptions/sa_11_12_15_16/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/descriptions/sa_11_12_15_16/description artillery # the artillery arm or its units: 炮兵, not the guns 火炮
@@ -478,36 +418,27 @@ zh-Hans scenarios/scenariomissions/allies/france/2 artillery # the artillery arm
 zh-Hans scenarios/scenariomissions/allies/france/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/allies/intro/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/allies/intro/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/allies/intro/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/allies/intro/5h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/allies/intro/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/allies/tobruk/3 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/allies/tobruk/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/german/africa/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/german/africa/4h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/german/ardennes/2 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/german/ardennes/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/german/ardennes/description artillery # heavy artillery is 重炮
 zh-Hans scenarios/scenariomissions/german/barbarossa/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/german/intro/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/german/intro/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/german/intro/5h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/german/intro/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/finland/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/ussr/intro/1h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/intro/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/intro/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/intro/4h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/intro/5h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/intro/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans scenarios/scenariomissions/ussr/leningrad/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/leningrad/5h artillery # heavy artillery is 重炮
 zh-Hans scenarios/scenariomissions/ussr/leningrad/description artillery # heavy artillery is 重炮
-zh-Hans scenarios/scenariomissions/ussr/rumania/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/scenariomissions/ussr/rumania/0h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/tutorials/tutorial3/15 artillery # rocket artillery is 火箭炮
 zh-Hans scenarios/tutorials/tutorial3/15h artillery # rocket artillery is 火箭炮
-zh-Hans scenarios/tutorials/tutorial3/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans textes/strings/_artilleryaagun artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
 zh-Hans textes/strings/_artillerygun artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
 zh-Hans textes/strings/_artilleryheavymg artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
@@ -516,11 +447,7 @@ zh-Hans textes/strings/_artillerymortar artillery # a category name: the weapon 
 zh-Hans textes/strings/_artilleryrocket artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
 zh-Hans units/technics/allies/auto/m3_halftruck_gb/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans units/technics/allies/auto/m3_halftruck_medicine_gb/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans units/technics/allies/auto/m3_halftruck_medicine_usa/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans units/technics/allies/auto/m3_halftruck_usa/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans units/technics/allies/auto/willys_mb_gb/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans units/technics/allies/auto/willys_mb_usa/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
-zh-Hans units/technics/ussr/auto/willys_mb_lend_lease/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
 zh-Hans scenarios/descriptions/defend_area00/description options # prose: "options" is the ordinary word for choices here, 选择
 ja scenarios/chapters/ussr/finland/description artillery # an artillery bombardment is 砲撃
 ja scenarios/custom/missions/kursk/6 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
@@ -535,7 +462,6 @@ ja scenarios/descriptions/sa_10_12_13_15_16/0 artillery # the artillery arm or i
 ja scenarios/descriptions/sa_10_12_13_15_16/3 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/descriptions/sa_10_12_13_15_16/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/descriptions/sa_10_12_13_15_16/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
-ja scenarios/descriptions/sa_11_12_15_16/1 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/descriptions/sa_11_12_15_16/2 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/descriptions/sa_11_12_15_16/2h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/descriptions/sa_11_12_15_16/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
@@ -559,7 +485,6 @@ ja scenarios/scenariomissions/german/ardennes/description artillery # heavy arti
 ja scenarios/scenariomissions/german/intro/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/scenariomissions/german/intro/5h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/scenariomissions/german/intro/9h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
-ja scenarios/scenariomissions/ussr/intro/1h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/scenariomissions/ussr/intro/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/scenariomissions/ussr/intro/4h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja scenarios/scenariomissions/ussr/intro/5h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
@@ -584,11 +509,8 @@ ja units/technics/allies/spg/m7_priest_usa/desc artillery # a kind of artillery 
 ja units/technics/allies/spg/semovente_75_46_italian/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
 ja units/technics/allies/spg/sexton_ii_gb/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
 ja units/technics/german/spg/jagdpanther_sdkfz173/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
-ja units/technics/german/spg/jagdpanzer_38t_hetzer/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
 ja units/technics/german/spg/jagdpanzer_elefant_ferdinand_sdkfz184/desc artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
 ja units/technics/german/spg/semovente_75_46_italian/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
-ja units/technics/german/spg/wirbelwind/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
-ja units/technics/ussr/artillery/122_mm_a_19/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja units/technics/ussr/artillery/122_mm_m_30/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja units/technics/ussr/artillery/152_mm_d1/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
 ja units/technics/ussr/auto/komintern/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
@@ -627,7 +549,6 @@ ja scenarios/scenariomissions/ussr/moscow/description mission # prose: the brief
 ja scenarios/scenariomissions/ussr/rumania/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
 ja scenarios/scenariomissions/ussr/stalingrad/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
 ja scenarios/scenariomissions/ussr/ukraine/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
-ja units/technics/ussr/artillery/57_mm_zis_2/desc mission # a diplomatic mission: 軍事使節団
 ja scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
 ja scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
 ja scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
@@ -668,19 +589,10 @@ hi units/technics/allies/auto/m3_halftruck_medicine_usa/desc artillery # an arti
 hi units/technics/allies/auto/m3_halftruck_usa/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
 hi units/technics/allies/auto/willys_mb_gb/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
 hi units/technics/allies/auto/willys_mb_usa/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
-hi units/technics/german/spg/wirbelwind/desc artillery # anti-aircraft artillery is विमान-रोधी तोपें
-hi buildings/africa/summer/a_cisterns/01/name tank # a water tank (टंकी), not a vehicle
-hi buildings/africa/summer/a_cisterns/02/name tank # a water tank (टंकी), not a vehicle
-hi buildings/common/summer/watertankbig/name tank # a water tank (टंकी), not a vehicle
-hi buildings/common/summer/watertanklittle/name tank # a water tank (टंकी), not a vehicle
-hi buildings/ussr/summer/cistern/01/name tank # a water tank (टंकी), not a vehicle
-hi buildings/ussr/summer/cistern/02/name tank # a water tank (टंकी), not a vehicle
 hi scenarios/chapters/german/ardennes/description objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
 hi scenarios/descriptions/sa_12_15/description objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
 hi textes/imtutorial/chapter objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
-hi scenarios/tutorials/tutorial1/2 objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
 hi scenarios/chapters/ussr/moscow/description start # prose: the start of an offensive, not the Start button
-hi scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (शुरुआती स्थान)
 hi scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (शुरुआती स्थान)
 hi scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (शुरुआती स्थान)
 hi scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (शुरुआती स्थान)
@@ -689,8 +601,6 @@ hi units/technics/allies/tanks/infantry_mkii_matilda_gb/name infantry # the Brit
 hi units/technics/allies/tanks/infantry_mkiii_valentine_gb/name infantry # the British tank class Infantry tank, transliterated as इन्फ़ैंट्री टैंक
 hi units/technics/allies/tanks/infantry_mkiv_churchill_gb/name infantry # the British tank class Infantry tank, transliterated as इन्फ़ैंट्री टैंक
 hi textes/imtutorial/addunittomission tutorial # an in-game help text (सहायता), not the main menu's tutorial
-hi textes/imtutorial/encyclopedia tutorial # an in-game help text (सहायता), not the main menu's tutorial
-hi textes/imtutorial/mission tutorial # an in-game help text (सहायता), not the main menu's tutorial
 hi textes/help load game # running text: the quick-load key is त्वरित लोड, not the load game menu
 hi textes/help save game # running text: the quick-save key is त्वरित सेव, not the save game menu
 hi textes/tooltips/tt_ui_selectcampaign_back new game # the oblique case of the glossary term: नए खेल
@@ -698,11 +608,9 @@ es scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language ha
 es scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
 es scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
 es textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
-es scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (posición inicial)
 es scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (posición inicial)
 es scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (posición inicial)
 es scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (posición inicial)
-es scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (contrabatería), the military term
 es scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (contrabatería), the military term
 es units/technics/german/spg/semovente_75_46_italian/desc artillery # self-propelled artillery is cañón autopropulsado, the usual Spanish term
 es textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (comience, the imperative)
@@ -710,22 +618,18 @@ fr scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language ha
 fr scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
 fr scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
 fr textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
-fr scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (point de départ)
 fr scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (point de départ)
 fr scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (point de départ)
 fr scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (point de départ)
-fr scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (contre-batterie), the military term
 fr scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (contre-batterie), the military term
 fr textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (commencez, the imperative)
 de scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
 de scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
 de scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
 de textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
-de scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (Startpunkt)
 de scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (Startpunkt)
 de scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (Startpunkt)
 de scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (Startpunkt)
-de scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (Gegenbatteriefeuer), the military term
 de scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (Gegenbatteriefeuer), the military term
 de textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button
 de units/technics/german/spg/semovente_75_46_italian/desc artillery # self-propelled artillery is Selbstfahrlafette and Sturmgeschütz in German
@@ -733,15 +637,319 @@ pt-BR scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language
 pt-BR scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
 pt-BR scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
 pt-BR textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
-pt-BR scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (local de partida)
 pt-BR scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (local de partida)
 pt-BR scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (local de partida)
 pt-BR scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (local de partida)
-pt-BR scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (contrabateria), the military term
 pt-BR scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (contrabateria), the military term
 pt-BR units/technics/german/spg/semovente_75_46_italian/desc artillery # self-propelled artillery is canhão autopropulsado, the usual Portuguese term
 pt-BR textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (comece a digitar)
-id scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (lokasi awal)
 id scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (lokasi awal)
 id scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (lokasi awal)
 id scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (lokasi awal)
+# The English the Game ships (Data/Textes, Data/Scenarios, Data/Units, ...) became the base on 2026-10-25; its unit
+# descriptions and mission texts name aircraft, artillery and start locations where the ELK originals did not.
+ru medals/allies/eam_company/desc campaign # prose: a historical military campaign, not the game's campaign
+ru scenarios/custom/missions/dessau/2 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+ru scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+ru scenarios/scenariomissions/german/kharkov42/2 start # running text: the verb "start" here is not the Start button
+ru scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/ussr/kursk/3 artillery # AT artillery is the anti-tank guns (противотанковые орудия) and counter-artillery fire is контрбатарейный огонь, not the word for artillery
+ru scenarios/tutorials/tutorial5/0 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru textes/help multiplayer # a declined form: в сетевой игре, the glossary term in another case
+ru textes/tooltips/ttsetmarker multiplayer # a declined form: в сетевой игре, the glossary term in another case
+ru textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+ru textes/ui/intermission/multiplayer/creategame/caption_settings multiplayer # genitive: настройки сетевой игры, the glossary term declined
+ru textes/ui/intermission/multiplayer/creategame/tt_button_settings multiplayer # genitive: настройки сетевой игры, the glossary term declined
+ru units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru units/technics/allies/auto/m3_halftruck_medicine_usa/desc truck # the half-track is called a vehicle here (машина); it is not a truck
+ru units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru units/technics/allies/auto/m3_halftruck_usa/desc truck # the half-track is called a vehicle here (машина); it is not a truck
+ru units/technics/allies/auto/willys_mb_usa/desc artillery # pieces of artillery are counted as guns, орудия
+ru units/technics/allies/aviation/b24jliberator_usa/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/allies/aviation/p38_lighting_usa/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/allies/aviation/p51_d_mustang_usa/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/allies/aviation/vickers_wellington_gb/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru units/technics/german/artillery/8_8_cm_flak18/desc aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft; prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/german/aviation/fw_190/desc engineer # an aeronautics engineer designs aircraft; he is not a military engineer (sapper)
+ru units/technics/german/aviation/me_262_schwable/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/ussr/artillery/100_mm_bs_3/name anti-tank gun # fit: ПТ-пушка is the standard short form of противотанковая пушка, the full words do not fit the unit card
+ru units/technics/ussr/artillery/100_mm_bs_3/name tank # fit: ПТ-пушка is the standard short form of противотанковая пушка, the full words do not fit the unit card
+ru units/technics/ussr/aviation/po_2/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ru units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+zh-Hans medals/allies/eam_company/desc campaign # prose: a historical military campaign, not the game's campaign
+zh-Hans scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/custom/missions/dessau/4 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/descriptions/sa_11_12_15_16/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (出发地点)
+zh-Hans scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (出发地点)
+zh-Hans scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+zh-Hans scenarios/scenariomissions/allies/normandy/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/tobruk/1 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/german/intro/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+zh-Hans scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/ussr/germany/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (出发地点)
+zh-Hans scenarios/scenariomissions/ussr/kursk/3 artillery # counter-battery fire is its own military term, not the word for artillery; the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial3/9 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial3/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial4/10 artillery # artillery fire is 炮火, the fire itself, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial5/0 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/tutorials/tutorial5/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial5/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial5/6 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans textes/imtutorial/campaign objectives # prose: each side's aims (目标) in the chapter's history, not the mission objectives list
+zh-Hans textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+zh-Hans units/humans/allies/us_sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
+zh-Hans units/technics/allies/tanks/cruiser_mkvi_crusader_gb/desc mission # a diplomatic mission (a delegation), not the game's mission
+zh-Hans units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/german/artillery/coastbattery_todt/name artillery # a kind of artillery named by its compound with 炮: 海岸炮
+zh-Hans units/technics/german/aviation/fw_190/desc engineer # an aeronautics engineer designs aircraft; he is not a military engineer (sapper)
+zh-Hans units/technics/ussr/tanks/bt_7/desc aircraft # an aircraft engine is 航空发动机, not the word for an aircraft
+ja medals/allies/eam_company/desc campaign # prose: a historical military campaign, not the game's campaign
+ja scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/custom/missions/dessau/4 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/descriptions/sa_11_12_15_16/0 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+ja scenarios/scenariomissions/allies/italy/2 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/normandy/1 artillery # Todt Artillery is a coastal battery, 砲台, a compound with 砲 (glossary note)
+ja scenarios/scenariomissions/allies/tobruk/1 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/scenariomissions/german/africa/4 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+ja scenarios/scenariomissions/german/kharkov42/2 start # running text: the verb "start" here is not the Start button
+ja scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/scenariomissions/ussr/kursk/3 artillery # counter-battery fire is its own military term, not the word for artillery; the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/kursk/6 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/tutorials/tutorial3/0 artillery # a kind of artillery named by its compound with 砲 (glossary note): 軽砲, 対戦車砲
+ja scenarios/tutorials/tutorial3/9 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/tutorials/tutorial3/9h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/tutorials/tutorial4/10 artillery # artillery fire is 砲撃, a bombardment, not the guns 火砲
+ja scenarios/tutorials/tutorial5/0 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/tutorials/tutorial5/4 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/tutorials/tutorial5/5 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/tutorials/tutorial5/6 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja textes/imtutorial/campaign objectives # prose: each side's aims (目標) in the chapter's history, not the mission objectives list
+ja textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+ja units/humans/allies/us_sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
+ja units/technics/allies/aviation/b24jliberator_usa/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/allies/aviation/p38_lighting_usa/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/allies/aviation/p51_d_mustang_usa/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/allies/tanks/7tp_polish/desc campaign # prose: a historical military campaign, not the game's campaign
+ja units/technics/allies/tanks/cruiser_mkvi_crusader_gb/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 対戦車砲
+ja units/technics/allies/tanks/cruiser_mkvi_crusader_gb/desc mission # a diplomatic mission (a delegation), not the game's mission
+ja units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/tanks/infantry_mkii_matilda_gb/desc campaign # prose: a historical military campaign, not the game's campaign
+ja units/technics/german/artillery/7_62_cm_pak36/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 対装甲砲, 師団砲
+ja units/technics/german/artillery/coastbattery_todt/name artillery # a kind of artillery named by its compound with 砲 (glossary note): 沿岸砲
+ja units/technics/german/aviation/fw_190/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/german/aviation/fw_190/desc engineer # an aeronautics engineer designs aircraft; he is not a military engineer (sapper)
+ja units/technics/german/aviation/fw_190/desc tank # Kurt Tank is the designer's surname, not a tank
+ja units/technics/german/aviation/junkers_ju87d_1/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft; prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/german/aviation/me_262_schwable/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/ussr/aviation/il_2/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft; prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/ussr/aviation/po_2/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+ja units/technics/ussr/tanks/t_34_76/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 対戦車砲
+hi scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi scenarios/scenariomissions/german/kharkov42/2 start # running text: the verb "start" here is not the Start button
+hi scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi textes/imtutorial/campaign objectives # prose: each side's aims (उद्देश्य) in the chapter's history, not the mission objectives list
+hi textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+hi textes/ui/intermission/multiplayer/stagingroom/immessage-client start # running text: the verb "start" here is not the Start button
+hi units/technics/ussr/auto/komintern/desc truck # the Comintern is a tracked gun tractor, a towing vehicle (खींचने वाला वाहन), not a truck
+hi units/technics/ussr/auto/willys_mb_lend_lease/desc artillery # pieces of artillery are counted as guns, तोपें
+es scenarios/custom/missions/dessau/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+es scenarios/scenariomissions/allies/tobruk/1 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+es scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/tutorials/tutorial5/0 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+es textes/ui/intermission/multiplayer/stagingroom/immessage-client start # running text: the verb "start" here is not the Start button
+es units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es units/technics/allies/auto/m3_halftruck_medicine_usa/desc truck # the half-track is called a vehicle here (vehículo); it is not a truck
+es units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es units/technics/allies/auto/m3_halftruck_usa/desc truck # the half-track is called a vehicle here (vehículo); it is not a truck
+es units/technics/allies/aviation/p38_lighting_usa/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/allies/aviation/p51_d_mustang_usa/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es units/technics/german/artillery/7_62_cm_pak36/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/german/artillery/8_8_cm_flak18/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/german/aviation/fw_190/desc tank # Kurt Tank is the designer's surname, not a tank
+es units/technics/german/aviation/junkers_ju87d_1/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/german/aviation/me_262_schwable/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/german/aviation/messer_bf_109_e/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/german/aviation/messer_bf_109_f/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/german/aviation/messer_bf_109_g/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/ussr/aviation/po_2/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+es units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+fr scenarios/custom/missions/dessau/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+fr scenarios/scenariomissions/allies/tobruk/1 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+fr scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/tutorials/tutorial5/0 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/tutorials/tutorial5/2 aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+fr units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr units/technics/allies/auto/m3_halftruck_medicine_usa/desc truck # the half-track is called a vehicle here (véhicule); it is not a truck
+fr units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr units/technics/allies/auto/m3_halftruck_usa/desc truck # the half-track is called a vehicle here (véhicule); it is not a truck
+fr units/technics/allies/aviation/b24jliberator_usa/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/allies/aviation/vickers_wellington_gb/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/allies/spg/m15_gmc_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft; prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/allies/spg/m16_gmc_usa/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr units/technics/german/artillery/7_62_cm_pak36/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft; prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/german/artillery/8_8_cm_flak18/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft; prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/german/aviation/fw_190/desc engineer # an aeronautics engineer designs aircraft; he is not a military engineer (sapper)
+fr units/technics/german/aviation/fw_190/desc tank # Kurt Tank is the designer's surname, not a tank
+fr units/technics/german/aviation/junkers_ju87d_1/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft; prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/german/aviation/me_262_schwable/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/german/aviation/messer_bf_109_e/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/german/aviation/messer_bf_109_f/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/german/aviation/messer_bf_109_g/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/ussr/aviation/il_2/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft; prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/ussr/aviation/po_2/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+fr units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr units/technics/ussr/tanks/bt_7/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+de medals/allies/eam_company/desc campaign # prose: a historical military campaign, not the game's campaign
+de scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+de scenarios/scenariomissions/allies/tobruk/1 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+de scenarios/scenariomissions/german/kharkov42/2 start # running text: the verb "start" here is not the Start button
+de scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/tutorials/tutorial3/1 artillery # pieces of artillery are counted as guns, Geschütze
+de scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de textes/imtutorial/campaign objectives # prose: each side's aims (Ziele) in the chapter's history, not the mission objectives list
+de textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+de textes/ui/intermission/multiplayer/stagingroom/immessage-client start # running text: the verb "start" here is not the Start button
+de units/technics/allies/artillery/105mm_m2a1_usa/desc artillery # a self-propelled gun is its own compound, not the word for artillery
+de units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de units/technics/allies/auto/m3_halftruck_medicine_usa/desc truck # the half-track is called a vehicle here (Fahrzeug); it is not a truck
+de units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de units/technics/allies/auto/m3_halftruck_usa/desc truck # the half-track is called a vehicle here (Fahrzeug); it is not a truck
+de units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de units/technics/allies/tanks/7tp_polish/desc campaign # prose: a historical military campaign, not the game's campaign
+de units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de units/technics/allies/tanks/infantry_mkii_matilda_gb/desc campaign # prose: a historical military campaign, not the game's campaign
+de units/technics/german/artillery/7_5_cm_pak40/desc artillery # a self-propelled gun is its own compound, not the word for artillery
+de units/technics/german/aviation/fw_190/desc engineer # an aeronautics engineer designs aircraft; he is not a military engineer (sapper)
+de units/technics/german/aviation/fw_190/desc tank # Kurt Tank is the designer's surname, not a tank
+de units/technics/german/spg/jagdpanzer_elefant_ferdinand_sdkfz184/desc artillery # a self-propelled gun is its own compound, not the word for artillery
+de units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de units/technics/ussr/spg/su_152/desc artillery # a self-propelled gun is its own compound, not the word for artillery
+pt-BR scenarios/custom/missions/dessau/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/custom/missions/dessau/3 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/custom/missions/vitebsk/6h aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/allies/france/0 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/scenariomissions/allies/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+pt-BR scenarios/scenariomissions/allies/tobruk/1 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/allies/tobruk/1h aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/german/france/5 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/german/intro/4h artillery # counter-battery fire is its own military term, not the word for artillery
+pt-BR scenarios/scenariomissions/german/kharkov42/2 start # running text: the verb "start" here is not the Start button
+pt-BR scenarios/scenariomissions/german/typhoon/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/ussr/germany/2 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/tutorials/tutorial5/0 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/tutorials/tutorial5/0h aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/tutorials/tutorial5/2 aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+pt-BR textes/ui/intermission/multiplayer/stagingroom/immessage-client start # running text: the verb "start" here is not the Start button
+pt-BR units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR units/technics/allies/aviation/b24jliberator_usa/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/allies/aviation/p38_lighting_usa/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/allies/aviation/p51_d_mustang_usa/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/allies/aviation/vickers_wellington_gb/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/allies/tanks/infantry_mkii_matilda_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR units/technics/german/artillery/7_62_cm_pak36/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/german/artillery/8_8_cm_flak18/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/german/aviation/fw_190/desc tank # Kurt Tank is the designer's surname, not a tank
+pt-BR units/technics/german/aviation/junkers_ju87d_1/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/german/aviation/me_262_schwable/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/german/aviation/messer_bf_109_e/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/german/aviation/messer_bf_109_f/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/german/aviation/messer_bf_109_g/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/ussr/artillery/100_mm_bs_3/name anti-tank gun # fit: AT is the short form of canhão antitanque, the full words do not fit the unit card
+pt-BR units/technics/ussr/artillery/100_mm_bs_3/name tank # fit: AT is the short form of antitanque, the full words do not fit the unit card
+pt-BR units/technics/ussr/aviation/il_2/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft; prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/ussr/aviation/po_2/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+pt-BR units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR units/technics/ussr/tanks/bt_7/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+id scenarios/scenariomissions/allies/intro/11 start # a start location on the map, not the Start button (lokasi awal)
+id scenarios/scenariomissions/allies/intro/3 start # a start location on the map, not the Start button (lokasi awal)
+id scenarios/scenariomissions/ussr/intro/3 start # a start location on the map, not the Start button (lokasi awal)
+id textes/ui/intermission/credits/credits mission # a credit title: the game designers who built the missions, not the menu term
+id units/technics/german/aviation/fw_190/desc engineer # an aeronautics engineer designs aircraft; he is not a military engineer (sapper)
+ru units/technics/allies/aviation/hawker_hurricane_ mk1_gb/desc aircraft # prose: an aircraft in running text is самолёт, the glossary term is the air arm (aviation)
+ja units/technics/allies/aviation/hawker_hurricane_ mk1_gb/desc aircraft # prose: the text names the aircraft by its kind (戦闘機, 爆撃機) or 飛行機, not the glossary term 航空機
+es units/technics/allies/aviation/hawker_hurricane_ mk1_gb/desc aircraft # prose: an aircraft in running text is avión, the glossary term is the air arm (aviation)
+fr units/technics/allies/aviation/hawker_hurricane_ mk1_gb/desc aircraft # prose: an aircraft in running text is avion, the glossary term is the air arm (aviation)
+pt-BR units/technics/allies/aviation/hawker_hurricane_ mk1_gb/desc aircraft # prose: an aircraft in running text is avião, the glossary term is the air arm (aviation)
+ru textes/imtutorial/stats multiplayer # genitive: результатов сетевой игры, the glossary term declined
+de units/humans/allies/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/humans/allies/us_sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/humans/german/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/humans/ussr/sniper/name sniper # the box holds two lines: ZF-Gewehr is the short German word for a sniper rifle
+de units/technics/ussr/artillery/100_mm_bs_3/name tank # fit: Pak is the standard abbreviation of Panzerabwehrkanone, a word wider than the unit card
+de units/technics/ussr/artillery/100_mm_bs_3/name anti-tank gun # fit: Pak is the standard abbreviation of Panzerabwehrkanone, a word wider than the unit card

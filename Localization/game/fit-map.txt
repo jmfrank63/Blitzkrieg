@@ -336,6 +336,14 @@ box textes/strings/imheader-startinggame-chat Data/UI/MuptiplayerStartingGame.xm
 box textes/strings/imheader-startinggame-map Data/UI/MuptiplayerStartingGame.xml 20004
 box textes/strings/imheader-startinggame-players Data/UI/MuptiplayerStartingGame.xml 20003
 box textes/strings/imheader-stats-desc Data/UI/Stats.xml 20001
+# The common statistics rows (Stats.cpp CCommonStats::GetStatTitleKey, FillCommonStatsList): each label is the text of
+# a row's first cell, a ui\common\StatsPlayerName root (200x21, TextPos 10) that the list sizes to its 201-wide column
+# (Stats.xml 1007 and 1008), not an encyclopedia header. objfailed and upgraded are no row today; they keep the same room.
+box textes/strings/imheader-stats-timeelapsed Data/UI/common/StatsPlayerName.xml -1
+box textes/strings/imheader-stats-objcompleted Data/UI/common/StatsPlayerName.xml -1
+box textes/strings/imheader-stats-objfailed Data/UI/common/StatsPlayerName.xml -1
+box textes/strings/imheader-stats-gameloaded Data/UI/common/StatsPlayerName.xml -1
+box textes/strings/imheader-stats-upgraded Data/UI/common/StatsPlayerName.xml -1
 box textes/strings/imheader-unitlist-header Data/UI/UnitsPool.xml 20000
 box textes/strings/imheader-unitlist-list Data/UI/UnitsPool.xml 20001
 box textes/strings/load Data/UI/Lists/IMLoadMission.xml 20000
