@@ -1000,7 +1000,9 @@ fn chainView(allocator: std.mem.Allocator, io: std.Io, folder: []const u8, name:
             runs.items[runs.items.len - 1].end = at + slice.len;
         } else try runs.append(allocator, .{ .face = face, .start = at, .end = at + slice.len });
     }
-    if (runs.items.len <= 1) return measure.hbView(allocator, io, folder, name, whole, options);
+    if (runs.items.len == 0) return measure.hbView(allocator, io, folder, name, whole, options);
+    // One run: drawn whole in its face (MOD, all Latin, is Liberation Serif in a Japanese mod too).
+    if (runs.items.len == 1) return measure.hbView(allocator, io, folder, name, whole, .{ .font = runs.items[0].face, .language = language.tag, .script = if (std.mem.eql(u8, runs.items[0].face, language.face)) language.script else null });
     // At the references' 96 px em, every face of the chain fits 110 px above the baseline and 40 below.
     var parts: std.ArrayList(Gray) = .empty;
     var total: usize = 0;
@@ -1082,8 +1084,8 @@ fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_fol
         }
     }
     const where = if (strict) "" else " in the route's static labels";
-    if (!strict and informative < 3) {
-        try report.line("      han: {s}{s}: {d} Han characters are drawn differently by the two faces (fewer than 3, so the face is not judged here)", .{ language.code, where, informative });
+    if (!strict and informative - ties < 3) {
+        try report.line("      han: {s}{s}: {d} Han characters are drawn differently by the two faces and {d} of them are ties (fewer than 3 that are not, so the face is not judged here)", .{ language.code, where, informative, ties });
         return;
     }
     try report.check(informative >= 3, "{s}: {d} Han characters are drawn differently by the two faces (at least 3)", .{ language.code, informative });
