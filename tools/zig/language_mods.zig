@@ -32,10 +32,11 @@ const check = @import("l10n_check.zig");
 const Language = l10n_languages.Language;
 const languages = l10n_languages.languages;
 
-/// The overlay keys that must come out of the pak as the overlay says: a text of the ELK database,
-/// and one the Game reads from its own text tree that the database lacks (the escape menu's save
-/// button), which only reaches the pak through the original the assembly adds for it.
-const probe_keys = [_][]const u8{ "textes/strings/imheader-gbutton-cutscenes", "textes/ui/mission/escapemenu/button_save_game" };
+/// The overlay keys that must come out of the pak as the overlay says: a text of the ELK database;
+/// a `.txt` of the database without an `.elk` (a cutscene title); and two the Game reads from its own
+/// text trees that the database lacks (the escape menu's save button, the Options page's Load Mod),
+/// which only reach the pak through the original the assembly adds for them.
+const probe_keys = [_][]const u8{ "textes/strings/imheader-gbutton-cutscenes", "movies/allies_in", "textes/ui/mission/escapemenu/button_save_game", "textes/strings/imheader-gbutton-mods" };
 
 fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[:0]const u8 {
     var map = try testing.environ.createMap(allocator);
