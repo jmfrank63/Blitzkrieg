@@ -51,6 +51,25 @@ delete, and the UI for them.
   dots, non-empty after sanitizing (else `Player`). The typed player name
   is sanitized into this; `GamePlay.PlayerName` keeps whatever was typed
   for display and multiplayer.
+- **Unicode names (2026-10-25, supersedes the ASCII rule above)** — the
+  ASCII rule turned a Cyrillic name into an empty one, and the `Player`
+  fallback then silently switched a Russian player into `Player`'s saves.
+  A profile name is now the UTF-8 spelling of what was typed
+  (`NProfile::NameFromTyped`, `Sources/src/StreamIO/ProfileNames.h`), shown
+  by decoding the directory name (`NProfile::DisplayName`). Valid: valid
+  UTF-8, at most 120 bytes, no C0/C1 control, DEL, U+FFFD or `/\:*?"<>|`, no
+  leading/trailing space, no trailing dot, not a Windows device name (`CON`,
+  `PRN`, `AUX`, `NUL`, `COM1`-`9`, `LPT1`-`9`, with or without extension).
+  The dialog refuses anything else (OK disabled, New/Rename report
+  `err_fs`) and never falls back to another profile. Typed names are only
+  trimmed of spaces; a name differing from an existing profile only in case
+  (ASCII, Latin-1/Extended-A, Greek, Cyrillic, fullwidth) is that profile.
+  The command line and `active.cfg` still go through `Sanitize`, which drops
+  what is forbidden and falls back to `Player`, so every existing ASCII
+  profile keeps its directory. On Windows the Game's manifest sets the
+  process code page to UTF-8 and the profile, NFile and path helpers convert
+  to UTF-16 (`Sources/src/Platform/Utf8Path.h`). Covered by
+  `zig build test-unicode-paths`.
 - **Active profile** — `Profile.Name` global, persisted in
   `profiles/active.cfg`.
 - **Profile list** — the filesystem is the registry: every directory

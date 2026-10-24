@@ -561,7 +561,7 @@ jobs:
 
       - name: Run system facade tests
         if: matrix.part == 'platform'
-        run: zig build test-platform-system -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+        run: zig build test-platform-system test-unicode-paths -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
 
@@ -2310,7 +2310,7 @@ jobs:
 
       - name: Run system facade tests
         if: matrix.part == 'platform'
-        run: zig build test-platform-system -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+        run: zig build test-platform-system test-unicode-paths -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
 
@@ -4144,7 +4144,7 @@ jobs:
 
       - name: Run system facade tests
         if: matrix.part == 'random'
-        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=aarch64-macos -Dtest-mode=run
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system test-unicode-paths -Dtarget=aarch64-macos -Dtest-mode=run
 
 
 
@@ -5543,7 +5543,7 @@ jobs:
         run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
       - name: Run system facade tests
-        run: zig build test-platform-system -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+        run: zig build test-platform-system test-unicode-paths -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -5803,7 +5803,7 @@ jobs:
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Run system facade tests
-        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=x86_64-macos -Dtest-mode=run
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system test-unicode-paths -Dtarget=x86_64-macos -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -6080,7 +6080,7 @@ jobs:
         run: zig build test-platform-debug -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
       - name: Run system facade tests
-        run: zig build test-platform-system -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+        run: zig build test-platform-system test-unicode-paths -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests

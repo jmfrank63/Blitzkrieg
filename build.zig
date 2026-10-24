@@ -3724,6 +3724,32 @@ pub fn build(b: *std.Build) void {
     file_utils_step.dependOn(&file_utils_test.step);
     if (test_mode == .run) file_utils_step.dependOn(&file_utils_run.step);
 
+    // Cyrillic and CJK profile, folder and file names through NFile, the UTF-8
+    // path helpers and the profile directories. Meant for Windows above all,
+    // where the narrow file calls read UTF-8 in the ANSI code page.
+    const unicode_paths_module = b.createModule(.{ .target = target, .optimize = .debug });
+    unicode_paths_module.addIncludePath(b.path("Sources/src"));
+    unicode_paths_module.addIncludePath(b.path("Sources/src/Misc"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, unicode_paths_module, toolchain);
+        addMsvcLibraryPaths(b, unicode_paths_module, toolchain);
+        linkMsvcRuntime(unicode_paths_module, .debug);
+    } else {
+        unicode_paths_module.link_libc = true;
+        unicode_paths_module.link_libcpp = true;
+    }
+    unicode_paths_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/unicode_paths_test.cpp", "Sources/src/Misc/FileUtils.cpp", "Sources/src/Platform/Paths.cpp" },
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" }) else &.{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" },
+    });
+    const unicode_paths_test = b.addExecutable(.{ .name = "unicode-paths-test", .root_module = unicode_paths_module });
+    unicode_paths_test.subsystem = .console;
+    if (platform == .windows_x64) unicode_paths_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const unicode_paths_run = b.addRunArtifact(unicode_paths_test);
+    const unicode_paths_step = b.step("test-unicode-paths", "Run Cyrillic and CJK file, folder and profile name tests");
+    unicode_paths_step.dependOn(&unicode_paths_test.step);
+    if (test_mode == .run) unicode_paths_step.dependOn(&unicode_paths_run.step);
+
     const paths_module = b.createModule(.{ .target = target, .optimize = .debug });
     paths_module.addIncludePath(b.path("Sources/src"));
     paths_module.addCSourceFiles(.{
@@ -5332,6 +5358,9 @@ fn addGame(
     const game = b.addExecutable(.{
         .name = "Game",
         .root_module = game_module,
+        // UTF-8 as the process's ANSI code page, so the narrow file calls
+        // take the engine's UTF-8 paths; ignored off Windows.
+        .win32_manifest = b.path("Sources/src/Game/Game.manifest"),
     });
     if (target.result.os.tag == .linux or target.result.os.tag == .macos) {
         // Legacy modules resolve RTTI owned by Main from the executable when

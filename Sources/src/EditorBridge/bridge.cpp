@@ -4456,7 +4456,7 @@ BkEditorStatus BkEditorTestMapPath( BkEditorSession *pSession, const char *pszPr
 		std::string szMod = pszModFolder != 0 ? pszModFolder : std::string();
 		NStr::ToLower( szMod );
 		const std::string szModKey = NGeneratedData::ModKey( szMod );
-		std::string szDir = ( std::filesystem::path( NProfile::GeneratedDirectory( pszProfile ) ) / szModKey / "maps" ).string();
+		std::string szDir = NPlatform::Utf8FromPath( NPlatform::PathFromUtf8( NProfile::GeneratedDirectory( pszProfile ) ) / szModKey / "maps" );
 		for ( char &c : szDir )
 			if ( c == '/' ) c = '\\';
 		const std::string szFull = szDir + "\\" + szFileName;

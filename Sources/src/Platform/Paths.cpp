@@ -8,6 +8,7 @@
 #include <unistd.h>
 #endif
 #include <filesystem>
+#include "Utf8Path.h"
 
 namespace {
 // Constructed on first use, not at namespace scope: the first caller is a
@@ -32,14 +33,17 @@ std::string ensureSeparator(std::string value) {
     return value;
 }
 std::string join(const std::string &root, const char *name) { return ensureSeparator(root) + name; }
+// The roots are UTF-8 (SDL hands them over so); a Windows user called Ivan in
+// Cyrillic has a profile directory no ANSI code page spells, so the
+// directories are made through PathFromUtf8.
 void createWritableRoots() {
     std::error_code error;
-    std::filesystem::create_directories(UserValue(), error);
-    std::filesystem::create_directories(join(UserValue(), "saves"), error);
-    std::filesystem::create_directories(join(UserValue(), "logs"), error);
-    std::filesystem::create_directories(join(UserValue(), "cache"), error);
+    std::filesystem::create_directories(NPlatform::PathFromUtf8(UserValue()), error);
+    std::filesystem::create_directories(NPlatform::PathFromUtf8(join(UserValue(), "saves")), error);
+    std::filesystem::create_directories(NPlatform::PathFromUtf8(join(UserValue(), "logs")), error);
+    std::filesystem::create_directories(NPlatform::PathFromUtf8(join(UserValue(), "cache")), error);
     // In the game directory, beside the saves the game writes there.
-    std::filesystem::create_directories(join(BaseValue(), "screenshots"), error);
+    std::filesystem::create_directories(NPlatform::PathFromUtf8(join(BaseValue(), "screenshots")), error);
 }
 #if !defined(_WIN32)
 // The running executable's directory, never the working directory: a game or
@@ -92,9 +96,12 @@ bool Initialize() {
     // BK_USER_ROOT points the user root somewhere else, the Windows counterpart of
     // XDG_DATA_HOME in preferenceRoot: a scripted run (the editor's BK_EDITOR_AUTO scenarios in the
     // build) writes its maps, logs and records there and not into %APPDATA%.
-    const char *userRoot = std::getenv("BK_USER_ROOT");
+    // Read wide: getenv would hand the value over in the ANSI code page.
+    const wchar_t *userRoot = _wgetenv(L"BK_USER_ROOT");
     if (userRoot && *userRoot) {
-        UserValue() = ensureSeparator(userRoot);
+        std::string utf8UserRoot;
+        NPlatform::Utf8FromUtf16(&utf8UserRoot, std::wstring(userRoot));
+        UserValue() = ensureSeparator(utf8UserRoot);
     } else if (char *preference = SDL_GetPrefPath("Nival", "Blitzkrieg")) {
         UserValue() = ensureSeparator(preference);
         SDL_free(preference);

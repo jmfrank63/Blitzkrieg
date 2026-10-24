@@ -502,7 +502,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// forced false), so the player's own remembered profile and saves
 		// are never touched by a test launch.
 		std::string szProfile = cmdp.szProfileName;
-		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( NProfile::Dir() + "/active.cfg" );
+		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ) );
 		if ( cmdp.bEditorTest )
 		{
 			if ( szProfile.empty() )
@@ -510,18 +510,18 @@ int RunGame( const BkGameLaunchInfo &launch )
 		}
 		else if ( szProfile.empty() && !bFirstProfileRun )
 		{
-			std::ifstream file( NProfile::Dir() + "/active.cfg" );
+			std::ifstream file( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ) );
 			if ( file )
 				std::getline( file, szProfile );
 		}
 		szProfile = NProfile::Sanitize( szProfile );
 		SetGlobalVar( "Profile.Name", szProfile.c_str() );
 		std::error_code pathError;
-		std::filesystem::create_directories( NProfile::Dir() + "/" + szProfile + "/saves", pathError );
-		std::filesystem::create_directories( NProfile::Dir() + "/" + szProfile + "/screenshots", pathError );
+		std::filesystem::create_directories( NProfile::Directory( szProfile ) / "saves", pathError );
+		std::filesystem::create_directories( NProfile::Directory( szProfile ) / "screenshots", pathError );
 		if ( !cmdp.bEditorTest )
 		{
-			std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
+			std::ofstream active( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ), std::ios::trunc );
 			if ( active )
 				active << szProfile;
 		}
@@ -537,7 +537,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			for ( int i = 0; i < 2; ++i )
 			{
 				const std::filesystem::path from( legacy[i][0] );
-				const std::filesystem::path to( NProfile::Dir() + "/" + szProfile + "/" + legacy[i][1] );
+				const std::filesystem::path to( NProfile::Directory( szProfile ) / legacy[i][1] );
 				if ( !std::filesystem::is_directory( from, pathError ) )
 					continue;
 				for ( const auto &entry : std::filesystem::directory_iterator( from, pathError ) )

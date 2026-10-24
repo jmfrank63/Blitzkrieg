@@ -26,9 +26,11 @@ const Io = std.Io;
 /// The file this module snapshots, relative to the game root.
 pub const config_file_name = "config.cfg";
 
-/// The host name reduced by the same rules as `NProfile::Sanitize`
-/// (`ProfilePaths.h`): printable ASCII only, the Windows-forbidden
-/// characters dropped, leading spaces and trailing spaces-and-dots trimmed.
+/// The host name reduced to printable ASCII, the Windows-forbidden
+/// characters dropped, leading spaces and trailing spaces-and-dots trimmed -
+/// the rules `NProfile::Sanitize` had before profile names became UTF-8
+/// (`ProfileNames.h`). A host name stays ASCII: the system may hand it over
+/// in a legacy code page, whose bytes are no UTF-8.
 /// The empty fallback is "host" rather than Sanitize's "Player", because an
 /// anonymous machine is not a person.
 pub fn sanitizeHost(gpa: Allocator, name: []const u8) Allocator.Error![]u8 {

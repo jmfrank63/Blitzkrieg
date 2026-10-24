@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "FileUtils.h"
+#include "../Platform/Utf8Path.h"
 
 #include <algorithm>
 #include <chrono>
@@ -23,6 +24,12 @@ std::string nativePath(std::string value) {
     for (char &c : value) if (c == '\\') c = fs::path::preferred_separator;
     return value;
 }
+// Paths arrive and leave as UTF-8; hostPath and utf8 cross to the host's own
+// form, which on Windows is UTF-16 (see Platform/Utf8Path.h): a narrow path
+// there was read in the ANSI code page, so a Cyrillic mod, profile or save
+// name was not found, and path::string() threw for one the code page lacks.
+fs::path hostPath(const std::string &value) { return NPlatform::PathFromUtf8(nativePath(value)); }
+std::string utf8(const fs::path &path) { return NPlatform::Utf8FromPath(path); }
 std::string legacyPath(std::string value) {
 #if defined(_WIN32) || defined(_WIN64)
     for (char &c : value) if (c == '/') c = '\\';
@@ -69,7 +76,7 @@ DWORD attributes(const fs::directory_entry &entry) {
     std::error_code error;
     if (entry.is_directory(error)) result |= NFile::CFile::directory;
     else result |= NFile::CFile::normal;
-    const std::string name = entry.path().filename().string();
+    const std::string name = utf8(entry.path().filename());
     if (!name.empty() && name[0] == '.') result |= NFile::CFile::hidden;
     const auto perms = entry.status(error).permissions();
     if ((perms & fs::perms::owner_write) == fs::perms::none) result |= NFile::CFile::readOnly;
@@ -92,8 +99,8 @@ bool CFile::Open(const char *name, DWORD flags) {
     const bool no_truncate = (flags & modeNoTruncate) != 0;
     const char *open_mode = mode == modeRead ? "rb" : mode == modeWrite ? (create && !no_truncate ? "wb" : "rb+") : (create && !no_truncate ? "wb+" : "rb+");
     const std::string full = GetFullName(name);
-    hFile = std::fopen(nativePath(full).c_str(), open_mode);
-    if (!hFile && create && no_truncate) hFile = std::fopen(nativePath(full).c_str(), mode == modeRead ? "rb" : "ab+");
+    hFile = NPlatform::OpenFileUtf8(nativePath(full).c_str(), open_mode);
+    if (!hFile && create && no_truncate) hFile = NPlatform::OpenFileUtf8(nativePath(full).c_str(), mode == modeRead ? "rb" : "ab+");
     if (!hFile) return false;
     szFilePath = full;
     return true;
@@ -125,7 +132,7 @@ int CFile::GetLength() const { if (!IsOpen()) return -1; const long current = st
 bool CFile::GetStatus(SStatus *status) const {
     if (!IsOpen() || !status) return false;
     std::error_code error;
-    const fs::path path(nativePath(szFilePath));
+    const fs::path path(hostPath(szFilePath));
     const auto size = fs::file_size(path, error);
     if (error || size > static_cast<std::uintmax_t>((std::numeric_limits<int>::max)())) return false;
     const fs::directory_entry entry(path, error);
@@ -134,13 +141,13 @@ bool CFile::GetStatus(SStatus *status) const {
     status->nSize = static_cast<int>(size); status->dwAttributes = attributes(entry); status->szPathName = szFilePath;
     return true;
 }
-DWORD CFile::GetAttributes(const char *name) { std::error_code error; fs::directory_entry entry(nativePath(name ? name : ""), error); return error ? 0 : attributes(entry); }
-bool CFile::SetAttributes(const char *name, DWORD value) { std::error_code error; fs::path path(nativePath(name ? name : "")); auto perms = fs::status(path, error).permissions(); if (error) return false; if (value & readOnly) perms &= ~fs::perms::owner_write; else perms |= fs::perms::owner_write; fs::permissions(path, perms, fs::perm_options::replace, error); return !error; }
-bool CFile::Rename(const char *old_name, const char *new_name) { std::error_code error; fs::rename(nativePath(old_name), nativePath(new_name), error); return !error; }
-bool CFile::Remove(const char *name) { std::error_code error; return fs::remove(nativePath(name), error) && !error; }
+DWORD CFile::GetAttributes(const char *name) { std::error_code error; fs::directory_entry entry(hostPath(name ? name : ""), error); return error ? 0 : attributes(entry); }
+bool CFile::SetAttributes(const char *name, DWORD value) { std::error_code error; fs::path path(hostPath(name ? name : "")); auto perms = fs::status(path, error).permissions(); if (error) return false; if (value & readOnly) perms &= ~fs::perms::owner_write; else perms |= fs::perms::owner_write; fs::permissions(path, perms, fs::perm_options::replace, error); return !error; }
+bool CFile::Rename(const char *old_name, const char *new_name) { std::error_code error; fs::rename(hostPath(old_name ? old_name : ""), hostPath(new_name ? new_name : ""), error); return !error; }
+bool CFile::Remove(const char *name) { std::error_code error; return fs::remove(hostPath(name ? name : ""), error) && !error; }
 bool CFile::SetFileTime(const FILETIME *, const FILETIME *, const FILETIME *) { return false; }
 const std::string &CFile::GetFilePath() const { return szFilePath; }
-const std::string CFile::GetFileName() const { return fs::path(nativePath(szFilePath)).filename().string(); }
+const std::string CFile::GetFileName() const { return utf8(hostPath(szFilePath).filename()); }
 const std::string CFile::GetFileTitle() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? n : n.substr(0, p); }
 const std::string CFile::GetFileExt() const { const std::string n = GetFileName(); const std::size_t p = n.rfind('.'); return p == std::string::npos ? "" : n.substr(p + 1); }
 bool CFile::SetFileTime(const char *name, const FILETIME *a, const FILETIME *b, const FILETIME *c) { CFile file(name, modeWrite); return file.IsOpen() && file.SetFileTime(a, b, c); }
@@ -149,9 +156,10 @@ const CFileIterator &CFileIterator::FindFirstFile(const char *mask) {
     Close(); entries.clear(); index = 0;
     szPath = splitDirectory(mask ? mask : "", szMask);
     std::error_code error;
-    for (fs::directory_iterator it(nativePath(szPath), error); !error && it != fs::directory_iterator(); it.increment(error)) {
-        if (wildcard(szMask, it->path().filename().string())) {
-            Entry entry{it->path().filename().string(), legacyPath(fs::absolute(it->path(), error).lexically_normal().string()), attributes(*it), fileTime(it->path()), fileTime(it->path()), fileTime(it->path()), 0};
+    for (fs::directory_iterator it(hostPath(szPath), error); !error && it != fs::directory_iterator(); it.increment(error)) {
+        const std::string name = utf8(it->path().filename());
+        if (wildcard(szMask, name)) {
+            Entry entry{name, legacyPath(utf8(fs::absolute(it->path(), error).lexically_normal())), attributes(*it), fileTime(it->path()), fileTime(it->path()), fileTime(it->path()), 0};
             std::error_code size_error; const auto size = it->is_regular_file(size_error) ? fs::file_size(it->path(), size_error) : 0;
             entry.size = size_error || size > static_cast<std::uintmax_t>((std::numeric_limits<int>::max)()) ? 0 : static_cast<int>(size);
             entries.push_back(std::move(entry));
@@ -168,12 +176,12 @@ const std::string CFileIterator::GetFileExt() const { const std::string n = GetF
 // Files only: EnumerateFiles also hands over directories, which std::filesystem
 // would remove when empty where DeleteFile never touched them.
 void DeleteFiles(const char *start, const char *mask, bool recursive) { EnumerateFiles(start, mask, [](const CFileIterator &it) { if (!it.IsDirectory()) CFile::Remove(it.GetFilePath().c_str()); }, recursive); }
-void DeleteDirectory(const char *path) { std::error_code error; fs::remove_all(nativePath(path), error); }
-void CreatePath(const char *path) { std::error_code error; fs::create_directories(nativePath(path ? path : ""), error); }
+void DeleteDirectory(const char *path) { std::error_code error; fs::remove_all(hostPath(path ? path : ""), error); }
+void CreatePath(const char *path) { std::error_code error; fs::create_directories(hostPath(path ? path : ""), error); }
 class CDirFileEnum { std::list<std::string> *names; bool dirs, files; public: CDirFileEnum(std::list<std::string> *n, bool d, bool f) : names(n), dirs(d), files(f) {} void operator()(const CFileIterator &it) { if (it.IsDirectory() ? dirs : files) names->push_back(it.GetFilePath()); } };
 void GetDirNames(const char *path, std::list<std::string> *names, bool recursive) { EnumerateFiles(path, "*", CDirFileEnum(names, true, false), recursive); }
 void GetFileNames(const char *path, const char *mask, std::list<std::string> *names, bool recursive) { EnumerateFiles(path, mask, CDirFileEnum(names, false, true), recursive); }
-bool IsFileExist(const char *name) { std::error_code error; return fs::is_regular_file(nativePath(name ? name : ""), error) && !error; }
-std::string GetFullName(const std::string &path) { std::error_code error; return legacyPath(fs::absolute(nativePath(path), error).lexically_normal().string()); }
-double GetFreeDiskSpace(const char *path) { std::error_code error; const auto info = fs::space(nativePath(path ? path : "."), error); return error ? 0.0 : static_cast<double>(info.available); }
+bool IsFileExist(const char *name) { std::error_code error; return fs::is_regular_file(hostPath(name ? name : ""), error) && !error; }
+std::string GetFullName(const std::string &path) { std::error_code error; return legacyPath(utf8(fs::absolute(hostPath(path), error).lexically_normal())); }
+double GetFreeDiskSpace(const char *path) { std::error_code error; const auto info = fs::space(hostPath(path ? path : "."), error); return error ? 0.0 : static_cast<double>(info.available); }
 }

@@ -12,6 +12,7 @@
 #include "../Main/ScenarioTracker.h"
 #include "../Main/CloudSyncFacade.h"
 #include "CloudJson.h"
+#include "../StreamIO/ProfileNames.h"
 #include <algorithm>
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {
@@ -449,14 +450,12 @@ void CInterfaceOptionsSettings::SetCaptionTexts()
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	// "Settings of <profile>" caption and the gold profile label in the lower
 	// left (id convention E_STATIC_PROFILE, mirroring the main menu's version
-	// label in the lower right). The profile name is printable ASCII by
-	// contract (NProfile::Sanitize), so widening per character is exact.
+	// label in the lower right). The profile name is the directory's UTF-8
+	// name, shown as the player typed it (NProfile::DisplayName).
 	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 	if ( !szProfile.empty() )
 	{
-		std::wstring szWideProfile;
-		for ( int i = 0; i < szProfile.size(); ++i )
-			szWideProfile += wchar_t( (unsigned char)szProfile[i] );
+		const std::wstring szWideProfile = NProfile::DisplayName( szProfile );
 
 		if ( IUIElement *pCaption = pUIScreen->GetChildByID( E_STATIC_CAPTION ) )
 		{

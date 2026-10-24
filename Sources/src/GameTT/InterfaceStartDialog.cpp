@@ -31,15 +31,9 @@ enum
 	E_BUTTON_RENAME												= 10011,
 	E_BUTTON_DELETE												= 10012,
 };
-// Profile names are printable ASCII (NProfile::Sanitize guarantees it), so
-// per-character widening is exact.
-static std::wstring WideFromProfileName( const std::string &szName )
-{
-	std::wstring szWide;
-	for ( std::string::size_type i = 0; i < szName.size(); ++i )
-		szWide += wchar_t( (unsigned char)szName[i] );
-	return szWide;
-}
+// A name the player typed that is no valid profile name is refused here,
+// never mapped to some other profile; see NProfile::NameFromTyped.
+static const char PROFILE_ERROR_INVALID[] = "not a valid profile name";
 bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 {
 	if ( pOptions && pOptions->ProcessMessage( msg ) ) return true;
@@ -64,8 +58,10 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 	case 7779:
 	case UI_NOTIFY_EDIT_BOX_TEXT_CHANGED:
 		{
+			// OK stays disabled while the text is no valid profile name:
+			// empty, a character no folder may hold, a reserved name.
 			const std::wstring szName = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
-			pButtonOK->EnableWindow( !szName.empty() );
+			pButtonOK->EnableWindow( !NProfile::NameFromTyped( szName ).empty() );
 		}
 
 		return true;
@@ -75,15 +71,27 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 		{
 			if ( pButtonOK->IsWindowEnabled() )
 			{
-				bFinished = true;
 				const std::wstring szWindowText = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
-				if ( !szWindowText.empty() )
+				std::string szTarget = NProfile::NameFromTyped( szWindowText );
+				if ( szTarget.empty() )
 				{
-					// The player name IS the profile: a new name switches to
-					// (or creates) profiles\<name>\ with its own saves,
-					// screenshots and settings.
-					SwitchToProfile( NProfile::Sanitize( std::string( (const char*)bstr_t( szWindowText.c_str() ) ) ), szWindowText );
+					// The screen stays open: switching to a fallback profile
+					// here is what used to hand a Cyrillic name the "Player"
+					// profile and its saves.
+					pButtonOK->EnableWindow( false );
+					ReportProfileError( "Textes\\UI\\Intermission\\MainMenu\\PlayerProfile\\err_fs", PROFILE_ERROR_INVALID );
+					return true;
 				}
+				bFinished = true;
+				// A name that differs from an existing profile only in case
+				// is that profile, spelled as its directory is.
+				for ( int i = 0; i < profileNames.size(); ++i )
+					if ( NProfile::NameEquals( profileNames[i], szTarget ) )
+						szTarget = profileNames[i];
+				// The player name IS the profile: a new name switches to
+				// (or creates) profiles\<name>\ with its own saves,
+				// screenshots and settings.
+				SwitchToProfile( szTarget, szWindowText );
 				pButtonOK->EnableWindow( false ); // to disable second return
 				CloseInterface();
 			}
@@ -98,7 +106,7 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 				const int nName = pProfileList->GetItem( nRow )->GetUserData();
 				if ( nName >= 0 && nName < profileNames.size() )
 				{
-					SetEditBoxText( WideFromProfileName( profileNames[nName] ) );
+					SetEditBoxText( NProfile::DisplayName( profileNames[nName] ) );
 					pButtonOK->EnableWindow( true );
 				}
 			}
@@ -114,9 +122,12 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			const std::wstring szTyped = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 			if ( szTyped.empty() )
 				return true;
-			const std::string szTarget = NProfile::Sanitize( std::string( (const char*)bstr_t( szTyped.c_str() ) ) );
+			const std::string szTarget = NProfile::NameFromTyped( szTyped );
 			if ( szTarget.empty() )
+			{
+				ReportProfileError( "Textes\\UI\\Intermission\\MainMenu\\PlayerProfile\\err_fs", PROFILE_ERROR_INVALID );
 				return true;
+			}
 			for ( int i = 0; i < profileNames.size(); ++i )
 				if ( NProfile::NameEquals( profileNames[i], szTarget ) )
 					return true;
@@ -126,7 +137,7 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			// stays open, so its section goes back or input dies.
 			pInput->SetBindSection( "intermission" );
 			FillProfileList( szTarget );
-			SetEditBoxText( WideFromProfileName( szTarget ) );
+			SetEditBoxText( NProfile::DisplayName( szTarget ) );
 			pButtonOK->EnableWindow( true );
 		}
 
@@ -143,7 +154,12 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			const std::wstring szTyped = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 			if ( szTyped.empty() )
 				return true;
-			const std::string szTarget = NProfile::Sanitize( std::string( (const char*)bstr_t( szTyped.c_str() ) ) );
+			const std::string szTarget = NProfile::NameFromTyped( szTyped );
+			if ( szTarget.empty() )
+			{
+				ReportProfileError( "Textes\\UI\\Intermission\\MainMenu\\PlayerProfile\\err_fs", PROFILE_ERROR_INVALID );
+				return true;
+			}
 			// Renaming to the unchanged name touches nothing - not even a
 			// config flush, whose side effects (the input binder resets the
 			// bind section to "default" even on a write) would kill the
@@ -180,13 +196,13 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			{
 				SetGlobalVar( "Profile.Name", szTarget.c_str() );
 				NGeneratedData::Mount( GetSingleton<IUserProfile>()->GetMOD() );
-				std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
+				std::ofstream active( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ), std::ios::trunc );
 				if ( active )
 					active << szTarget;
 				GetSingleton<IOptionSystem>()->Set( "GamePlay.PlayerName", variant_t( szTyped.c_str() ) );
 			}
 			FillProfileList( szTarget );
-			SetEditBoxText( WideFromProfileName( szTarget ) );
+			SetEditBoxText( NProfile::DisplayName( szTarget ) );
 			pButtonOK->EnableWindow( true );
 		}
 
@@ -229,12 +245,12 @@ void CInterfacePlayerProfile::SwitchToProfile( const std::string &szNewProfile, 
 		// Random missions this profile generated, not the previous profile's.
 		NGeneratedData::Mount( GetSingleton<IUserProfile>()->GetMOD() );
 		std::error_code pathError;
-		std::filesystem::create_directories( NProfile::Dir() + "/" + szNewProfile + "/saves", pathError );
-		std::filesystem::create_directories( NProfile::Dir() + "/" + szNewProfile + "/screenshots", pathError );
-		std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
+		std::filesystem::create_directories( NProfile::Directory( szNewProfile ) / "saves", pathError );
+		std::filesystem::create_directories( NProfile::Directory( szNewProfile ) / "screenshots", pathError );
+		std::ofstream active( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ), std::ios::trunc );
 		if ( active )
 			active << szNewProfile;
-		if ( std::filesystem::exists( NProfile::Dir() + "/" + szNewProfile + "/config.cfg", pathError ) )
+		if ( std::filesystem::exists( NProfile::Directory( szNewProfile ) / "config.cfg", pathError ) )
 		{
 			// An existing profile brings its own settings - monitor
 			// included; the screen regaining focus applies mode (and
@@ -283,7 +299,7 @@ void CInterfacePlayerProfile::DeleteProfile( const std::string &szName )
 	// The active profile is gone; the screen may not close without one.
 	const std::vector<std::string> remaining = NProfile::List();
 	const std::string szTarget = remaining.empty() ? std::string( "Player" ) : remaining[0];
-	const std::wstring szWideTarget = WideFromProfileName( szTarget );
+	const std::wstring szWideTarget = NProfile::DisplayName( szTarget );
 	if ( !NProfile::NameEquals( szTarget, szActive ) )
 		SwitchToProfile( szTarget, szWideTarget );
 	else
@@ -293,9 +309,9 @@ void CInterfacePlayerProfile::DeleteProfile( const std::string &szName )
 		// the fresh directories and active.cfg are made here, seeded with the
 		// settings in effect by the flush.
 		std::error_code pathError;
-		std::filesystem::create_directories( NProfile::Dir() + "/" + szTarget + "/saves", pathError );
-		std::filesystem::create_directories( NProfile::Dir() + "/" + szTarget + "/screenshots", pathError );
-		std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
+		std::filesystem::create_directories( NProfile::Directory( szTarget ) / "saves", pathError );
+		std::filesystem::create_directories( NProfile::Directory( szTarget ) / "screenshots", pathError );
+		std::ofstream active( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ), std::ios::trunc );
 		if ( active )
 			active << szTarget;
 		GetSingleton<IOptionSystem>()->Set( "GamePlay.PlayerName", variant_t( szWideTarget.c_str() ) );
@@ -321,7 +337,7 @@ void CInterfacePlayerProfile::FillProfileList( const std::string &szSelect )
 		pProfileList->AddItem();
 		IUIListRow *pRow = pProfileList->GetItem( i );
 		pRow->SetUserData( i );
-		const std::wstring szName = WideFromProfileName( profileNames[i] );
+		const std::wstring szName = NProfile::DisplayName( profileNames[i] );
 		pRow->GetElement( 0 )->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szName.c_str() ) ) );
 		if ( NProfile::NameEquals( profileNames[i], szSelect ) )
 			nSelect = i;
@@ -346,8 +362,9 @@ void CInterfacePlayerProfile::ReportProfileError( const char *pszTextKey, const 
 		if ( pText->GetString() != 0 )
 			pConsole->Write( CONSOLE_STREAM_CHAT, NPlatform::WideFromWordString( pText->GetString() ).c_str(), 0xffff0000 );
 	}
+	// The detail may quote a profile name, which is UTF-8.
 	if ( !szDetail.empty() )
-		pConsole->WriteASCII( CONSOLE_STREAM_CHAT, szDetail.c_str(), 0xffff0000 );
+		pConsole->Write( CONSOLE_STREAM_CHAT, NProfile::DisplayName( szDetail ).c_str(), 0xffff0000 );
 }
 bool CInterfacePlayerProfile::StepLocal( bool bAppActive )
 {
@@ -404,12 +421,10 @@ void CInterfacePlayerProfile::StartInterface()
 	// GamePlay.PlayerName option: the option is a wide string that survived a
 	// wchar->char truncation round trip in older builds, so it can hold
 	// mojibake the profile system itself would never accept. Profile.Name is
-	// always the sanitized ASCII directory name and defaults to "Player", so
-	// this is what the player actually owns and what OK would switch against.
+	// always the directory's UTF-8 name and defaults to "Player", so this is
+	// what the player actually owns and what OK would switch against.
 	const std::string szProfile = NProfile::Sanitize( GetGlobalVar( "Profile.Name", "" ) );
-	std::wstring szName;
-	for ( std::string::size_type i = 0; i < szProfile.size(); ++i )
-		szName += wchar_t( (unsigned char)szProfile[i] );
+	const std::wstring szName = NProfile::DisplayName( szProfile );
 
 	pEdit->SetWindowText( 0, NPlatform::WordStringData( NPlatform::WordStringFromWide( szName.c_str() ) ) );
 	
