@@ -8187,6 +8187,14 @@ fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
     run.setEnvironmentVariable("BK_LANG", "en");
 }
 
+/// Points the Game's profiles folder (profiles, saves, screenshots, active.cfg: StreamIO/ProfilePaths.h,
+/// BK_PROFILES_ROOT) under zig-out/local-test. Without it a Game started by a test, from the editor's test
+/// launch or from a harness, writes them into the install, whose profiles folder is the player's own.
+fn setProfilesRootForTest(run: *std.Build.Step.Run, name: []const u8) void {
+    const b = run.step.owner;
+    run.setEnvironmentVariable("BK_PROFILES_ROOT", rootPath(b, b.fmt("zig-out/local-test/{s}/profiles", .{name})));
+}
+
 /// The C ABI of the bk-* string tables (tools/zig/bk_l10n.h) as a static library for the C++ tools
 /// bk-font, bk-map and bk-sprite, so they choose the language and read tools/zig/lang/<code>.lang
 /// the way the Zig tools do (M002 S07, D062). Zig code, no C++ runtime: nothing here allocates
@@ -9337,6 +9345,7 @@ fn addMapEditor(
     auto_run.setCwd(b.path(stage_root));
     auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
+    setProfilesRootForTest(auto_run, "map-editor-auto-user");
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", b.fmt(
         "3:key=2,4:press=c-120x-160,5:drag=c-95x-160,6:drag=c-70x-160,7:release=c-70x-160,8:key=3,9:click=c-40x-120,10:saveas={s},11:shot=edited,12:compare=edited,13:test,14:waitgame=240,15:exit",
         .{auto_saveas_path},
@@ -9782,6 +9791,7 @@ fn addMapEditor(
     auto_m2_run.setCwd(b.path(stage_root));
     auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
+    setProfilesRootForTest(auto_m2_run, "map-editor-auto-m2-user");
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m2_entries) catch @panic("OOM"));
     // 04-13: the test game's own schedule (a shot, then exit) and its
     // BK_MAP_TRACE, which the test_game_script predicate reads.
@@ -10681,6 +10691,7 @@ fn addMapEditor(
     // here and not in the person's own maps and logs folders.
     auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
     auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
+    setProfilesRootForTest(auto_m3_run, "map-editor-m3-auto-user");
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
     auto_m3_run.step.dependOn(&install_exe.step);
@@ -10703,6 +10714,7 @@ fn addMapEditor(
     setLeakReportStrict(game_reads_it_run);
     captureStdErrForFailure(game_reads_it_run);
     game_reads_it_run.setCwd(b.path(stage_root));
+    setProfilesRootForTest(game_reads_it_run, "map-editor-game-reads-it-user");
     game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it.log") });
     // What it reads (the staged Data and Game) and the second process it
     // starts are not file inputs of this step, so a cached pass would say
@@ -10722,6 +10734,7 @@ fn addMapEditor(
     setLeakReportStrict(game_reads_it_m2_run);
     captureStdErrForFailure(game_reads_it_m2_run);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
+    setProfilesRootForTest(game_reads_it_m2_run, "map-editor-game-reads-it-m2-user");
     game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
     game_reads_it_m2_run.step.dependOn(&install_exe.step);
@@ -10749,6 +10762,7 @@ fn addMapEditor(
     // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux and BK_USER_ROOT on Windows).
     game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
     game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    setProfilesRootForTest(game_reads_it_m3_run, "map-editor-game-reads-it-m3-user");
     game_reads_it_m3_run.has_side_effects = true;
     game_reads_it_m3_run.step.dependOn(&install_exe.step);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
@@ -11299,6 +11313,7 @@ fn addResourceEditor(
     game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
     game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
     game_reads_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
+    setProfilesRootForTest(game_reads_run, "resource-editor-game-reads-it-user");
     game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     game_reads_run.has_side_effects = true;
     game_reads_run.step.dependOn(&install_exe.step);
@@ -11371,6 +11386,7 @@ fn addResourceAutoRun(
     run.setCwd(b.path(stage_root));
     run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
+    setProfilesRootForTest(run, b.fmt("resource-editor-auto-{s}-user", .{auto.name}));
     run.has_side_effects = true;
     run.step.dependOn(install_step);
     run.step.dependOn(smoke_step);

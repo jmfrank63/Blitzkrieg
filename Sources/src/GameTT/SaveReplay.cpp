@@ -87,7 +87,7 @@ bool CInterfaceSaveReplay::ProcessMessage( const SGameMessage &msg )
 		case IMC_OK:
 			{
 				IMainLoop *pML = GetSingleton<IMainLoop>();
-				szSaveReplayFile = std::string( pML->GetBaseDir() ) + NProfile::Segment();
+				szSaveReplayFile = NProfile::Prefix( pML->GetBaseDir() );
 				const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 				if ( !szModname.empty() )
 				{

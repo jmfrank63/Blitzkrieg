@@ -365,6 +365,7 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     // bk-font's messages are English whatever the machine's language is.
     try environ.put("BK_LANG", "en");
@@ -397,6 +398,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");

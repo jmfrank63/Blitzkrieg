@@ -1314,6 +1314,7 @@ const Run = struct {
         var environ = try testing.environ.createMap(allocator);
         try environ.put("XDG_DATA_HOME", self.user);
         try environ.put("BK_USER_ROOT", self.user);
+        try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ self.user, "profiles" }));
         try environ.put("BK_MEM_REPORT", "count");
         try environ.put("BK_DEBUG_LOG", "1");
         try environ.put("BK_MOD_TRACE", "1");

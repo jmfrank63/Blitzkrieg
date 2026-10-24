@@ -23,6 +23,7 @@
 #include "iMainInternal.h"
 #include "RandomMapHelper.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Platform/Debug.h"
 #if !defined(_WIN32)
 #include <signal.h>
@@ -34,8 +35,7 @@ static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
 	if ( pszBaseDir == 0 || pszMessage == 0 )
 		return;
-	const std::string szTraceFileName = std::string( pszBaseDir ) + "load_trace.log";
-	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+	FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 	if ( pFile )
 	{
 		fprintf( pFile, "%u %s\n", NPlatform::MonotonicMilliseconds(), pszMessage );
@@ -168,7 +168,7 @@ void CICSave::Exec( IMainLoop *pML )
 	{
 		szModname = "mods\\" + szModname;
 	}
-	const std::string szSaveDir = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\";
+	const std::string szSaveDir = NProfile::Prefix( pML->GetBaseDir() ) + szModname + "saves\\";
 	NFile::CreatePath( szSaveDir.c_str() );
 	const std::string szFullFileName = szSaveDir + szFileName;
 #if !defined(_WIN32)
@@ -218,7 +218,7 @@ void CICLoad::Exec( IMainLoop *pML )
 	{
 		szModname = "mods\\" + szModname;
 	}
-	const std::string szFullFileName = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\" + szFileName;
+	const std::string szFullFileName = NProfile::Prefix( pML->GetBaseDir() ) + szModname + "saves\\" + szFileName;
 	CPtr<IDataStream> pStream = OpenFileStream( szFullFileName.c_str(), STREAM_ACCESS_READ );
 	if ( pStream == 0 )
 	{

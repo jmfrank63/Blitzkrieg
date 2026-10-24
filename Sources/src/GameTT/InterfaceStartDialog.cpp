@@ -180,7 +180,7 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			{
 				SetGlobalVar( "Profile.Name", szTarget.c_str() );
 				NGeneratedData::Mount( GetSingleton<IUserProfile>()->GetMOD() );
-				std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+				std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
 				if ( active )
 					active << szTarget;
 				GetSingleton<IOptionSystem>()->Set( "GamePlay.PlayerName", variant_t( szTyped.c_str() ) );
@@ -229,12 +229,12 @@ void CInterfacePlayerProfile::SwitchToProfile( const std::string &szNewProfile, 
 		// Random missions this profile generated, not the previous profile's.
 		NGeneratedData::Mount( GetSingleton<IUserProfile>()->GetMOD() );
 		std::error_code pathError;
-		std::filesystem::create_directories( "profiles/" + szNewProfile + "/saves", pathError );
-		std::filesystem::create_directories( "profiles/" + szNewProfile + "/screenshots", pathError );
-		std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+		std::filesystem::create_directories( NProfile::Dir() + "/" + szNewProfile + "/saves", pathError );
+		std::filesystem::create_directories( NProfile::Dir() + "/" + szNewProfile + "/screenshots", pathError );
+		std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
 		if ( active )
 			active << szNewProfile;
-		if ( std::filesystem::exists( "profiles/" + szNewProfile + "/config.cfg", pathError ) )
+		if ( std::filesystem::exists( NProfile::Dir() + "/" + szNewProfile + "/config.cfg", pathError ) )
 		{
 			// An existing profile brings its own settings - monitor
 			// included; the screen regaining focus applies mode (and
@@ -293,9 +293,9 @@ void CInterfacePlayerProfile::DeleteProfile( const std::string &szName )
 		// the fresh directories and active.cfg are made here, seeded with the
 		// settings in effect by the flush.
 		std::error_code pathError;
-		std::filesystem::create_directories( "profiles/" + szTarget + "/saves", pathError );
-		std::filesystem::create_directories( "profiles/" + szTarget + "/screenshots", pathError );
-		std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+		std::filesystem::create_directories( NProfile::Dir() + "/" + szTarget + "/saves", pathError );
+		std::filesystem::create_directories( NProfile::Dir() + "/" + szTarget + "/screenshots", pathError );
+		std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
 		if ( active )
 			active << szTarget;
 		GetSingleton<IOptionSystem>()->Set( "GamePlay.PlayerName", variant_t( szWideTarget.c_str() ) );

@@ -20,7 +20,7 @@ bool CInterfaceIMLoadMission::Init()
 	fileMasks.push_back( "*.sav" );
 	// Saves live under the active profile (CICSave::Exec); without the segment
 	// this dialog listed the pre-profile <game>\saves\ and showed nothing.
-	szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
+	szTopDir = NProfile::Prefix( GetSingleton<IMainLoop>()->GetBaseDir() );
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{

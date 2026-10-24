@@ -11816,6 +11816,32 @@ static bool ShardRange( const SBridgeTest *pTests, int nTests, int nShard, int *
 	return true;
 }
 
+// BK_PROFILES_ROOT moves the profiles folder: tests set it so a Game run against
+// an install never writes its profiles, saves or active.cfg into that install.
+static void CheckProfilesRoot()
+{
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_PROFILES_ROOT", "" );
+#else
+	unsetenv( "BK_PROFILES_ROOT" );
+#endif
+	Check( NProfile::Dir() == "profiles", "without BK_PROFILES_ROOT the profiles folder is ./profiles" );
+	Check( NProfile::PrefixFor( "G\\", "Probe" ) == "G\\profiles\\Probe\\", "without BK_PROFILES_ROOT a profile sits under the base" );
+	Check( NProfile::PrefixFor( "G\\", "" ) == "G\\", "no profile keeps the base" );
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_PROFILES_ROOT", "/scratch/profiles/" );
+#else
+	setenv( "BK_PROFILES_ROOT", "/scratch/profiles/", 1 );
+#endif
+	Check( NProfile::Dir() == ( std::string( "/scratch/profiles" ) ), "BK_PROFILES_ROOT names the profiles folder without a trailing separator" );
+	Check( NProfile::PrefixFor( "G\\", "Probe" ) == "/scratch/profiles\\Probe\\", "with BK_PROFILES_ROOT a profile sits under the root, not the base" );
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_PROFILES_ROOT", "" );
+#else
+	unsetenv( "BK_PROFILES_ROOT" );
+#endif
+}
+
 int main( int argc, char **argv )
 {
 	// Everything this test reports goes to stderr: the build shows a failing run's stderr and keeps
@@ -11844,6 +11870,7 @@ int main( int argc, char **argv )
 	// ("adding game type 100") while it was minutes further on. MSVC has no
 	// line buffering: _IOLBF is full buffering there.
 	setvbuf( stdout, 0, _IONBF, 0 );
+	CheckProfilesRoot();
 
 	// A real hidden window, never a null handle: passing 0 would take the
 	// no-device path on every machine and the tier would skip itself into

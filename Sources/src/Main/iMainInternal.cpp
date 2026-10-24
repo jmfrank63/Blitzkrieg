@@ -28,7 +28,7 @@ namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
 	{
-		FILE *pFile = fopen( "open_video_trace.log", "ab" );
+		FILE *pFile = NPlatform::Paths::OpenTraceLog( "open_video_trace.log" );
 		if ( pFile == 0 )
 			return;
 		va_list args;
@@ -78,9 +78,10 @@ static std::string ResolveConfigFileName( const std::string &szFileName, const b
 	// path; the next write lands in the profile directory. defconf.cfg never
 	// exists in a profile, so it keeps resolving from Data\Configs.
 	const std::string szProfileSegment = NProfile::Segment();
+	const std::string szProfilePrefix = NProfile::Prefix( ".\\" );
 	if ( !szProfileSegment.empty() )
 	{
-		candidates.push_back( ".\\" + szProfileSegment + szFileName );
+		candidates.push_back( szProfilePrefix + szFileName );
 		// Writes define the file's location; the existence scan below is for
 		// reads. Without this the flush kept updating a root-level config.cfg
 		// from before profiles existed instead of the profile's own copy.
@@ -208,8 +209,7 @@ static void TraceMainLoadProgress( const std::string &szBaseDir, const char *psz
 {
 	if ( pszMessage == 0 )
 		return;
-	const std::string szTraceFileName = szBaseDir + "load_trace.log";
-	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+	FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 	if ( pFile )
 	{
 		fprintf( pFile, "%lu %s\n", NPlatform::MonotonicMilliseconds(), pszMessage );
@@ -479,7 +479,7 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 				// never loses the shot.
 				const std::string screenshotRoot = NProfile::Segment().empty()
 					? NPlatform::Paths::ScreenshotRoot()
-					: std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment() + "screenshots";
+					: NProfile::Prefix( GetSingleton<IMainLoop>()->GetBaseDir() ) + "screenshots";
 				NFile::CreatePath( screenshotRoot.c_str() );
 				while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
 					++nShotIndex;
@@ -823,7 +823,7 @@ std::string CMainLoop::NextAutoSaveName()
 	std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 		szModname = "mods\\" + szModname;
-	const std::string szSaveDir = szBaseDir + NProfile::Segment() + szModname + "saves\\";
+	const std::string szSaveDir = NProfile::Prefix( szBaseDir ) + szModname + "saves\\";
 	if ( nAutoSaveSlot == 0 || szSaveDir != szAutoSaveDir )
 	{
 		szAutoSaveDir = szSaveDir;
@@ -1124,7 +1124,7 @@ void CProgressScreen::SetCurrPos( const int nPos )
 	// position change) — strip with the other load-speed diagnostics.
 	if ( nPos != nCurrentStep )
 	{
-		FILE *pFile = fopen( "load_trace.log", "ab" );
+		FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 		if ( pFile )
 		{
 			fprintf( pFile, "%lu [bar] pos=%d\n", NPlatform::MonotonicMilliseconds(), nPos );

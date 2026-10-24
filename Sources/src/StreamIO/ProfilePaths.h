@@ -1,6 +1,7 @@
 #ifndef BLITZKRIEG_STREAMIO_PROFILE_PATHS_H
 #define BLITZKRIEG_STREAMIO_PROFILE_PATHS_H
 
+#include <cstdlib>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -27,6 +28,41 @@ inline std::string Segment()
 	if ( szName.empty() )
 		return std::string();
 	return "profiles\\" + szName + "\\";
+}
+
+// The folder that holds the profiles, as a host path with no trailing
+// separator: "profiles" under the working directory, or the folder named by
+// BK_PROFILES_ROOT. Tests set it so a Game run against an install never writes
+// profiles, saves or active.cfg into that install (the install's profiles
+// folder holds the player's own). Not a player setting.
+inline std::string Dir()
+{
+	const char *pszRoot = std::getenv( "BK_PROFILES_ROOT" );
+	if ( pszRoot == 0 || pszRoot[0] == 0 )
+		return "profiles";
+	std::string szRoot = pszRoot;
+	while ( szRoot.size() > 1 && (szRoot[szRoot.size() - 1] == '/' || szRoot[szRoot.size() - 1] == '\\') )
+		szRoot.erase( szRoot.size() - 1 );
+	return szRoot;
+}
+
+// What to splice a per-player leaf onto for the profile `szName`:
+// `szBase` + "profiles\\<name>\\", or the same profile under BK_PROFILES_ROOT
+// (an absolute path, so the base is not used). `szBase` alone for no profile.
+inline std::string PrefixFor( const std::string &szBase, const std::string &szName )
+{
+	if ( szName.empty() )
+		return szBase;
+	const char *pszRoot = std::getenv( "BK_PROFILES_ROOT" );
+	if ( pszRoot == 0 || pszRoot[0] == 0 )
+		return szBase + "profiles\\" + szName + "\\";
+	return Dir() + "\\" + szName + "\\";
+}
+
+// The same for the active profile.
+inline std::string Prefix( const std::string &szBase )
+{
+	return PrefixFor( szBase, GetGlobalVar( "Profile.Name", "" ) );
 }
 
 // Profile names come from the player-name edit box; whatever cannot appear
@@ -92,7 +128,7 @@ inline std::vector<std::string> List()
 {
 	std::vector<std::string> names;
 	std::error_code ec;
-	std::filesystem::directory_iterator it( "profiles", ec );
+	std::filesystem::directory_iterator it( Dir(), ec );
 	const std::filesystem::directory_iterator end;
 	for ( ; !ec && it != end; it.increment( ec ) )
 	{
@@ -133,10 +169,10 @@ inline bool Rename( const std::string &from, const std::string &to, std::string 
 		// Only the case differs, and the filesystem considers that the same
 		// directory: a direct rename is a silent no-op on APFS. Hopping
 		// through a temporary name forces a real change both times.
-		const std::string szTemp = "profiles/" + szTo + ".tmp-rename";
-		std::filesystem::rename( "profiles/" + szFrom, szTemp, ec );
+		const std::string szTemp = Dir() + "/" + szTo + ".tmp-rename";
+		std::filesystem::rename( Dir() + "/" + szFrom, szTemp, ec );
 		if ( !ec )
-			std::filesystem::rename( szTemp, "profiles/" + szTo, ec );
+			std::filesystem::rename( szTemp, Dir() + "/" + szTo, ec );
 	}
 	else
 	{
@@ -150,7 +186,7 @@ inline bool Rename( const std::string &from, const std::string &to, std::string 
 				return false;
 			}
 		}
-		std::filesystem::rename( "profiles/" + szFrom, "profiles/" + szTo, ec );
+		std::filesystem::rename( Dir() + "/" + szFrom, Dir() + "/" + szTo, ec );
 	}
 	if ( ec )
 	{
@@ -173,7 +209,7 @@ inline bool Rename( const std::string &from, const std::string &to, std::string 
 inline bool Delete( const std::string &name, std::string *pError )
 {
 	std::error_code ec;
-	std::filesystem::remove_all( "profiles/" + Sanitize( name ), ec );
+	std::filesystem::remove_all( Dir() + "/" + Sanitize( name ), ec );
 	if ( ec )
 	{
 		if ( pError != 0 )

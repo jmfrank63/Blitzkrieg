@@ -72,7 +72,7 @@ void AppendCampaignCutScenesFromSaves( std::list<std::string> &cutscenes )
 	szBaseDir = szBaseDir.substr( 0, szBaseDir.rfind('\\') );
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	szBaseDir += "\\";
-	szBaseDir += NProfile::Segment();
+	szBaseDir = NProfile::Prefix( szBaseDir );
 	if ( !szModname.empty() )
 	{
 		szBaseDir += "mods\\";

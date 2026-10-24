@@ -502,7 +502,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// forced false), so the player's own remembered profile and saves
 		// are never touched by a test launch.
 		std::string szProfile = cmdp.szProfileName;
-		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( "profiles/active.cfg" );
+		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( NProfile::Dir() + "/active.cfg" );
 		if ( cmdp.bEditorTest )
 		{
 			if ( szProfile.empty() )
@@ -510,18 +510,18 @@ int RunGame( const BkGameLaunchInfo &launch )
 		}
 		else if ( szProfile.empty() && !bFirstProfileRun )
 		{
-			std::ifstream file( "profiles/active.cfg" );
+			std::ifstream file( NProfile::Dir() + "/active.cfg" );
 			if ( file )
 				std::getline( file, szProfile );
 		}
 		szProfile = NProfile::Sanitize( szProfile );
 		SetGlobalVar( "Profile.Name", szProfile.c_str() );
 		std::error_code pathError;
-		std::filesystem::create_directories( "profiles/" + szProfile + "/saves", pathError );
-		std::filesystem::create_directories( "profiles/" + szProfile + "/screenshots", pathError );
+		std::filesystem::create_directories( NProfile::Dir() + "/" + szProfile + "/saves", pathError );
+		std::filesystem::create_directories( NProfile::Dir() + "/" + szProfile + "/screenshots", pathError );
 		if ( !cmdp.bEditorTest )
 		{
-			std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+			std::ofstream active( NProfile::Dir() + "/active.cfg", std::ios::trunc );
 			if ( active )
 				active << szProfile;
 		}
@@ -537,7 +537,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			for ( int i = 0; i < 2; ++i )
 			{
 				const std::filesystem::path from( legacy[i][0] );
-				const std::filesystem::path to( "profiles/" + szProfile + "/" + legacy[i][1] );
+				const std::filesystem::path to( NProfile::Dir() + "/" + szProfile + "/" + legacy[i][1] );
 				if ( !std::filesystem::is_directory( from, pathError ) )
 					continue;
 				for ( const auto &entry : std::filesystem::directory_iterator( from, pathError ) )
@@ -573,7 +573,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// next launch - is otherwise indistinguishable from one that was
 		// never due, and nothing here persists a failure, so the gate that
 		// refused is the only evidence there is.
-		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
+		const std::string szConfigPath = NProfile::Dir() + "/" + szProfile + "/config.cfg";
 		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
 		if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
 			NStr::DebugTrace( "cloud sync: off for the editor's test game\n" );
