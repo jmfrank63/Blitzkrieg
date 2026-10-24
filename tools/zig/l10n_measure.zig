@@ -576,6 +576,9 @@ pub const HbOptions = struct {
     script: ?[]const u8 = null,
     /// A comma list in hb-view's `--features` syntax.
     features: ?[]const u8 = null,
+    /// hb-view's `--font-extents` (ascent, descent and line gap in pixels): references drawn apart
+    /// with the same extents share a baseline.
+    extents: ?[]const u8 = null,
 };
 
 /// The OpenType features that make a conjunct or a half form, off: the
@@ -603,6 +606,7 @@ pub fn hbView(allocator: std.mem.Allocator, io: std.Io, scratch: []const u8, nam
     });
     if (options.script) |script| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--script={s}", .{script}));
     if (options.features) |features| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--features={s}", .{features}));
+    if (options.extents) |extents| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--font-extents={s}", .{extents}));
     try argv.appendSlice(scoped, &.{ "--", text });
     const result = timed_run.run(allocator, io, .{
         .argv = argv.items,

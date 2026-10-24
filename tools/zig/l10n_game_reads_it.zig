@@ -691,6 +691,18 @@ fn changedIn(a: []const u8, b: []const u8, rect: Rect) usize {
     return changed;
 }
 
+/// Whether every character of `text` but white space is a full-width one (U+2E80 and up), drawn at
+/// one-em steps by the CJK faces.
+fn allWide(text: []const u8) bool {
+    var view = std.unicode.Utf8View.initUnchecked(text);
+    var it = view.iterator();
+    while (it.nextCodepoint()) |cp| {
+        if (cp == ' ' or cp == '\r' or cp == '\n') continue;
+        if (cp < 0x2e80) return false;
+    }
+    return true;
+}
+
 fn hasHan(text: []const u8) bool {
     var view = std.unicode.Utf8View.initUnchecked(text);
     var it = view.iterator();
@@ -744,7 +756,7 @@ fn checkLabels(io: std.Io, allocator: std.mem.Allocator, language: Language, fol
     const inks = try allocator.alloc(Gray, set.len);
     for (set, 0..) |label, index| {
         texts[index] = try overlayText(io, allocator, language.code, label);
-        refs[index] = try measure.hbView(allocator, io, hb_folder, try label.stem(allocator), texts[index], .{ .font = language.face, .language = language.tag, .script = language.script });
+        refs[index] = try chainView(allocator, io, hb_folder, try label.stem(allocator), texts[index], language);
         const full = try inkImage(allocator, frame, blank, label);
         const box = measure.inkBox(full, if (label.small and label.ink == .bright) small_box_threshold else ink_threshold) orelse {
             try report.check(false, "{s} {s}: no ink in the label's box (the Game drew nothing there)", .{ language.code, label.key });
@@ -958,6 +970,62 @@ fn checkHindi(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_f
 }
 
 /// Whether the language's labels are told apart from the other Han faces' forms (zh-Hans and ja).
+/// hb-view's raster of `text` as bk_text draws it: each character in the first face of the
+/// language's chain (BkText faces.zig chainFor) that has it, Liberation Serif, then Noto Sans, then
+/// the language's face, so a unit name that mixes Latin and Han ("Mk.IV“丘吉尔”步兵坦克") is not
+/// drawn all in Noto. White space stays in the run it is in. A text of one run is drawn as before;
+/// runs are drawn apart at one fixed line extent, so their baselines meet, and laid side by side.
+fn chainView(allocator: std.mem.Allocator, io: std.Io, folder: []const u8, name: []const u8, whole: []const u8, language: Language) !Gray {
+    // A label's trailing line break: hb-view draws a lone CR in a run as a missing-glyph box.
+    const text = std.mem.trimEnd(u8, whole, " \r\n");
+    const options = measure.HbOptions{ .font = language.face, .language = language.tag, .script = language.script };
+    if (std.mem.eql(u8, language.face, serif)) return measure.hbView(allocator, io, folder, name, whole, options);
+    const cwd = std.Io.Dir.cwd();
+    const chain = [_][]const u8{ serif, "vendor/fonts/NotoSans-Regular.ttf" };
+    var tables: [chain.len]check.cmap_table.Cmap = undefined;
+    for (chain, 0..) |face, at| tables[at] = try check.cmap_table.Cmap.init(try cwd.readFileAlloc(io, face, allocator, .limited(64 << 20)));
+    var runs: std.ArrayList(struct { face: []const u8, start: usize, end: usize }) = .empty;
+    var view = try std.unicode.Utf8View.init(text);
+    var it = view.iterator();
+    var at: usize = 0;
+    while (it.nextCodepointSlice()) |slice| : (at += slice.len) {
+        const cp = try std.unicode.utf8Decode(slice);
+        const space = cp == ' ' or cp == '\r' or cp == '\n' or cp == 0xA0;
+        var face: []const u8 = language.face;
+        for (chain, tables) |one, table| if (try table.covers(cp)) {
+            face = one;
+            break;
+        };
+        if (runs.items.len != 0 and (space or std.mem.eql(u8, runs.items[runs.items.len - 1].face, face))) {
+            runs.items[runs.items.len - 1].end = at + slice.len;
+        } else try runs.append(allocator, .{ .face = face, .start = at, .end = at + slice.len });
+    }
+    if (runs.items.len <= 1) return measure.hbView(allocator, io, folder, name, whole, options);
+    // At the references' 96 px em, every face of the chain fits 110 px above the baseline and 40 below.
+    var parts: std.ArrayList(Gray) = .empty;
+    var total: usize = 0;
+    for (runs.items, 0..) |run, index| {
+        const part_name = try std.fmt.allocPrint(allocator, "{s}-run{d}", .{ name, index });
+        const part = try measure.hbView(allocator, io, folder, part_name, text[run.start..run.end], .{ .font = run.face, .language = language.tag, .script = if (std.mem.eql(u8, run.face, language.face)) language.script else null, .extents = "110,40,0" });
+        total += part.width;
+        try parts.append(allocator, part);
+    }
+    const rows = parts.items[0].height;
+    const pixels = try allocator.alloc(u8, total * rows);
+    @memset(pixels, 0);
+    var x0: usize = 0;
+    for (parts.items) |part| {
+        for (0..@min(rows, part.height)) |y| @memcpy(pixels[y * total + x0 ..][0..part.width], part.pixels[y * part.width ..][0..part.width]);
+        x0 += part.width;
+    }
+    return .{ .width = total, .height = rows, .pixels = pixels };
+}
+
+/// Below this margin a Han character is a tie between the two faces, not a win or a loss: the USSR
+/// briefing's first objective (混 土 堡, 2026-10-25) differs by 0.044 at most where both faces draw
+/// nearly the same strokes, while a character the faces draw differently wins by 0.1 to 1.
+const han_tie_below: f64 = 0.05;
+
 fn isHanLanguage(language: Language) bool {
     return std.mem.eql(u8, language.code, "zh-Hans") or std.mem.eql(u8, language.code, "ja");
 }
@@ -978,8 +1046,13 @@ fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_fol
     var informative: usize = 0;
     var margin_sum: f64 = 0;
     var won: usize = 0;
+    var ties: usize = 0;
     for (set, 0..) |label, index| {
         if (!hasHan(texts[index])) continue;
+        if (!allWide(texts[index])) {
+            try report.line("      {s} {s}: mixes Latin with Han, so its characters are not at one-em steps; not judged for the face", .{ language.code, label.key });
+            continue;
+        }
         const stem = try label.stem(allocator);
         const ink = inks[index];
         const sc = try measure.hbView(allocator, io, hb_folder, try std.mem.concat(allocator, u8, &.{ stem, "-sc" }), texts[index], .{ .font = sc_face, .language = "zh-Hans" });
@@ -1005,7 +1078,7 @@ fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_fol
             if (faces >= han_informative_below) continue;
             informative += 1;
             margin_sum += margin;
-            won += @intFromBool(margin > 0);
+            if (@abs(margin) < han_tie_below) ties += 1 else won += @intFromBool(margin > 0);
         }
     }
     const where = if (strict) "" else " in the route's static labels";
@@ -1016,7 +1089,7 @@ fn checkHan(io: std.Io, allocator: std.mem.Allocator, language: Language, hb_fol
     try report.check(informative >= 3, "{s}: {d} Han characters are drawn differently by the two faces (at least 3)", .{ language.code, informative });
     const mean = margin_sum / @as(f64, @floatFromInt(@max(informative, 1)));
     try report.check(mean >= min_face_margin, "{s}: over those characters the {s} face wins by {d:.3} on average (at least {d:.2}), in {d} of {d}", .{ language.code, own_name, mean, min_face_margin, won, informative });
-    try report.check(won * 3 >= informative * 2, "{s}: the {s} face is nearer in {d} of {d} of those characters (at least two in three)", .{ language.code, own_name, won, informative });
+    try report.check(won * 3 >= (informative - ties) * 2, "{s}: the {s} face is nearer in {d} of the {d} of those characters that are no tie (at least two in three; {d} ties below {d:.2})", .{ language.code, own_name, won, informative - ties, ties, han_tie_below });
 }
 
 /// The least a line band's ink may correlate with the hb-view raster of the line the game's wrap
@@ -1066,7 +1139,7 @@ fn checkKinsoku(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
         if (trimmed.len == 0) continue;
         const utf8 = try std.unicode.utf16LeToUtf8Alloc(allocator, trimmed);
         const name = try std.fmt.allocPrint(allocator, "kinsoku-{s}-{d}", .{ tag, at });
-        try references.append(allocator, try measure.hbView(allocator, io, hb_folder, name, utf8, .{ .font = language.face, .language = language.tag, .script = language.script }));
+        try references.append(allocator, try chainView(allocator, io, hb_folder, name, utf8, language));
     }
     const region_label = Label{ .key = tag, .rect = .{ .x1 = box.x, .y1 = box.y, .x2 = box.x + box.wrap_width, .y2 = region_bottom }, .ink = .dark };
     const region = try inkImage(allocator, frame, blank, region_label);
@@ -1139,7 +1212,7 @@ fn checkTooltip(io: std.Io, allocator: std.mem.Allocator, language: Language, fo
         if (trimmed.len == 0) continue;
         const utf8 = try std.unicode.utf16LeToUtf8Alloc(allocator, trimmed);
         const name = try std.fmt.allocPrint(allocator, "tooltip-{s}-{d}", .{ language.code, at });
-        try references.append(allocator, try measure.hbView(allocator, io, hb_folder, name, utf8, .{ .font = language.face, .language = language.tag, .script = language.script }));
+        try references.append(allocator, try chainView(allocator, io, hb_folder, name, utf8, language));
     }
     const region = try inkImage(allocator, frame, blank, label);
     // The tooltip's dark fill differs from the blank background by up to about 26 (the strip's note above), which
