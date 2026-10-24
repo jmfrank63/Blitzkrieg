@@ -7,10 +7,3 @@
 #   S06   no longer used: S06 reworded the Latin and Cyrillic overflows, so only M003 lines remain. The tag is still
 #         accepted by l10n-check.
 # M003 empties the M003 lines. A line whose text fits again is the finding fit-known-unused: delete it.
-ja textes/strings/imheader-listheader-multiplayer-gameslist-playerscount # M003
-ja textes/ui/intermission/mainmenu/newgame/button_player_profile # M003
-ja textes/ui/intermission/multiplayer/creategame/numplayers # M003
-ja textes/ui/settings/button_cancel # M003
-ja units/humans/allies/officer/name # M003
-ja units/humans/allies/us_sniper/name # M003
-ja units/humans/german/panzer/name # M003

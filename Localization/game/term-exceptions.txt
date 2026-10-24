@@ -121,3 +121,627 @@ ja units/humans/allies/sniper/name sniper # the unit is a scout (斥候) with a 
 ja units/humans/german/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
 ja units/humans/ussr/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
 ja units/humans/ussr/ussr/sniper/name sniper # the unit is a scout (斥候) with a sniper rifle (狙撃銃)
+ru scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (зенитный), not the word for an aircraft
+ru scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (стартовая позиция)
+ru scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (контрбатарейная борьба), the military term
+ru scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (контрбатарейная борьба), the military term
+ru textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (начинайте печатать)
+ru textes/imtutorial/addressbook multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/mpcreategame multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/multiplayergameslist multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/multiplayergameslistgamespy multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/multiplayergameslistinternet multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/multiplayersettings multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/multiplayerstartinggame multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/ui/messagebox/confirm_play_1party_message multiplayer # a declined form: сетевой игры, сетевую игру, the glossary term in another case
+ru textes/imtutorial/addressbook new game # a declined form: новой игры, новую игру, the glossary term in another case
+ru textes/imtutorial/multiplayergameslist new game # a declined form: новой игры, новую игру, the glossary term in another case
+ru textes/imtutorial/multiplayergameslistgamespy new game # a declined form: новой игры, новую игру, the glossary term in another case
+ru textes/imtutorial/multiplayergameslistinternet new game # a declined form: новой игры, новую игру, the glossary term in another case
+ru textes/imtutorial/multiplayersettings settings # a declined form: настроек, the glossary term in another case
+ru textes/imtutorial/imoptionssettings options # prose: in-game options are параметры игры, the ordinary word; Опции is the menu button
+ru textes/multiplayerobjectives/flagcontrol/caption mission # a game type caption: the Russian name is the type itself, Захват флагов
+ru textes/multiplayerobjectives/sabotage/caption mission # a game type caption: the Russian name is the type itself, Штурм
+zh-Hans buildings/africa/summer/a_cisterns/01/name tank # a water tank (水箱, 储水罐), not a vehicle
+zh-Hans buildings/africa/summer/a_cisterns/02/name tank # a water tank (水箱, 储水罐), not a vehicle
+zh-Hans buildings/common/summer/watertankbig/name tank # a water tank (水箱, 储水罐), not a vehicle
+zh-Hans buildings/common/summer/watertanklittle/name tank # a water tank (水箱, 储水罐), not a vehicle
+zh-Hans buildings/ussr/summer/cistern/01/name tank # a water tank (水箱, 储水罐), not a vehicle
+zh-Hans buildings/ussr/summer/cistern/02/name tank # a water tank (水箱, 储水罐), not a vehicle
+zh-Hans scenarios/chapters/allies/tunis/description tank # a formation name: the German 5th Panzer Army is 第5装甲集团军
+zh-Hans scenarios/chapters/allies/france/description campaign # prose: a historical military campaign (战局, 作战), not the game's campaign
+zh-Hans scenarios/chapters/german/ardennes/description objectives # prose: aims or places to take (目标), not the mission objectives list
+zh-Hans scenarios/descriptions/sa_12_15/description objectives # prose: aims or places to take (目标), not the mission objectives list
+zh-Hans textes/imtutorial/chapter objectives # prose: aims or places to take (目标), not the mission objectives list
+zh-Hans scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/allies/auto/m3_halftruck_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/allies/auto/m3_halftruck_medicine_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/allies/spg/crusader_aa_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (防空, 高射炮), not the word for an aircraft
+zh-Hans scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (出发地点)
+zh-Hans scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (出发地点)
+zh-Hans scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (出发地点)
+zh-Hans scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (出发地点)
+zh-Hans textes/strings/barbarossa chapter # a numbered chapter title: 第N章 is the Chinese form, 章节 is the screen's name
+zh-Hans textes/strings/blau chapter # a numbered chapter title: 第N章 is the Chinese form, 章节 is the screen's name
+zh-Hans textes/strings/fretter chapter # a numbered chapter title: 第N章 is the Chinese form, 章节 is the screen's name
+zh-Hans textes/strings/kursk chapter # a numbered chapter title: 第N章 is the Chinese form, 章节 is the screen's name
+zh-Hans textes/strings/solcy chapter # a numbered chapter title: 第N章 is the Chinese form, 章节 is the screen's name
+zh-Hans textes/strings/typhoon chapter # a numbered chapter title: 第N章 is the Chinese form, 章节 is the screen's name
+zh-Hans units/humans/allies/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
+zh-Hans units/humans/german/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
+zh-Hans units/humans/ussr/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
+zh-Hans units/humans/ussr/ussr/sniper/name sniper # the unit is a scout (侦察兵) with a sniper rifle (狙击步枪)
+zh-Hans textes/ui/intermission/credits/credits engineer # a credit title: the sound engineer is a 音响工程师, not a 工兵
+zh-Hans textes/help load game # running text: 快速读档 is the quick-load key, not the load game menu
+zh-Hans textes/help save game # running text: 快速存档 is the quick-save key, not the save game menu
+zh-Hans units/technics/ussr/artillery/57_mm_zis_2/desc mission # a diplomatic mission: 代表团, a delegation
+zh-Hans textes/personals/allies/artillery/name12 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name13 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name14 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name15 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name16 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name17 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name18 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name19 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name20 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name21 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/artillery/name22 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name23 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name24 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name25 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name26 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name27 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name28 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name29 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name30 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name31 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/artillery/name42 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name43 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name44 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name45 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name46 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name47 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name48 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name49 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name50 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/artillery/name51 lieutenant # a second lieutenant is 少尉, not 中尉
+zh-Hans textes/personals/allies/rocket/name12 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name13 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name14 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name15 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name16 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name17 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name18 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name19 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name20 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name21 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/rocket/name22 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name23 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name24 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name25 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name26 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name27 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name28 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name29 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name30 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/rocket/name31 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name22 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name23 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name24 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name25 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name26 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name27 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name28 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name29 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name30 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name31 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name32 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name33 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name34 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name35 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name36 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name37 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name38 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name39 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name40 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name41 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/spg/name42 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name43 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name44 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name45 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name46 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name47 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name48 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name49 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name50 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name51 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name52 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name53 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name54 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name55 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name56 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name57 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name58 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name59 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name60 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/spg/name61 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name22 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name23 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name24 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name25 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name26 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name27 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name28 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name29 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name30 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name31 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name32 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name33 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name34 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name35 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name36 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name37 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name38 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name39 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name40 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name41 sergeant # a master sergeant is 上士, not 中士
+zh-Hans textes/personals/allies/tank/name42 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name43 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name44 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name45 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name46 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name47 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name48 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name49 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name50 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name51 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name52 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name53 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name54 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name55 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name56 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name57 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name58 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name59 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name60 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/allies/tank/name61 sergeant # a sergeant major is 军士长, not 中士
+zh-Hans textes/personals/ussr/artillery/name10 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name11 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name2 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name3 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name4 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name5 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name6 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name7 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name8 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/artillery/name9 sergeant # a senior sergeant (st. sergeant) is 上士, not 中士
+zh-Hans textes/personals/ussr/heavy_tank/name12 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name13 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name14 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name15 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name16 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name17 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name18 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name19 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name20 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name21 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/heavy_tank/name22 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name23 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name24 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name25 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name26 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name27 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name28 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name29 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name30 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name31 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name32 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name33 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name34 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name35 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name36 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name37 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name38 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name39 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name40 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/heavy_tank/name41 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name12 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name13 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name14 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name15 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name16 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name17 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name18 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name19 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name20 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name21 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/rocket/name22 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name23 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name24 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name25 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name26 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name27 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name28 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name29 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name30 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/rocket/name31 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name10 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name11 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name12 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name13 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name14 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name15 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name16 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name17 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name18 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name19 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name2 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name20 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name21 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/spg/name3 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name4 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name5 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name6 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name7 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name8 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/spg/name9 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name10 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name11 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name2 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name22 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name23 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name24 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name25 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name26 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name27 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name28 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name29 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name3 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name30 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name31 lieutenant # a Soviet senior lieutenant (st. lieutenant) is 上尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name32 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name33 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name34 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name35 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name36 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name37 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name38 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name39 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name4 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name40 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name41 captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name42 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name43 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name44 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name45 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name46 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name47 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name48 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name49 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name5 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name50 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name51 captain # a Soviet guards captain is 近卫大尉, above the senior lieutenant 上尉
+zh-Hans textes/personals/ussr/tank/name6 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name7 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name8 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/personals/ussr/tank/name9 lieutenant # a junior lieutenant (ml. lieutenant) is 少尉, not 中尉
+zh-Hans textes/playerranks/allies/lieutenant_colonel lieutenant # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/allies/lieutenant_colonel colonel # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/allies/lieutenant_colonel_full lieutenant # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/allies/lieutenant_colonel_full colonel # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/allies/lieutenant_general lieutenant # a lieutenant general is 中将, not 中尉
+zh-Hans textes/playerranks/allies/lieutenant_general_full lieutenant # a lieutenant general is 中将, not 中尉
+zh-Hans textes/playerranks/ussr/captain captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/playerranks/ussr/captain_full captain # a Soviet captain (kapitan) is 大尉, above the senior lieutenant 上尉
+zh-Hans textes/playerranks/ussr/colonel_general colonel # a colonel general is 上将, not 上校
+zh-Hans textes/playerranks/ussr/colonel_general_full colonel # a colonel general is 上将, not 上校
+zh-Hans textes/playerranks/ussr/lieutenant_colonel lieutenant # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/ussr/lieutenant_colonel colonel # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/ussr/lieutenant_colonel_full lieutenant # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/ussr/lieutenant_colonel_full colonel # a lieutenant colonel is 中校, not 中尉 or 上校
+zh-Hans textes/playerranks/ussr/lieutenant_general lieutenant # a lieutenant general is 中将, not 中尉
+zh-Hans textes/playerranks/ussr/lieutenant_general_full lieutenant # a lieutenant general is 中将, not 中尉
+zh-Hans scenarios/chapters/ussr/finland/description artillery # an artillery bombardment is 炮击
+zh-Hans scenarios/custom/missions/vitebsk/1 artillery # heavy artillery is 重炮
+zh-Hans scenarios/custom/missions/vitebsk/4 artillery # heavy artillery is 重炮
+zh-Hans scenarios/custom/missions/vitebsk/7h artillery # heavy artillery is 重炮
+zh-Hans scenarios/custom/missions/vitebsk/8 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/defend_area01/0h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_10_12_13_15_16/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_10_12_13_15_16/3 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_10_12_13_15_16/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_10_12_13_15_16/description artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_11_12_15_16/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_11_12_15_16/2 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_11_12_15_16/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_11_12_15_16/description artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_11_15/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_11_15/description artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_12_13_15_16/2 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_12_13_15_16/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_12_13_15_16/description artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/sa_12_15/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/france/2 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/france/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/intro/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/intro/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/intro/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/intro/5h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/intro/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/tobruk/3 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/allies/tobruk/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/africa/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/africa/4h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/ardennes/2 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/ardennes/2h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/ardennes/description artillery # heavy artillery is 重炮
+zh-Hans scenarios/scenariomissions/german/barbarossa/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/intro/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/intro/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/intro/5h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/german/intro/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/finland/1 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/intro/1h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/intro/3h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/intro/4 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/intro/4h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/intro/5h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/intro/9h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/leningrad/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/leningrad/5h artillery # heavy artillery is 重炮
+zh-Hans scenarios/scenariomissions/ussr/leningrad/description artillery # heavy artillery is 重炮
+zh-Hans scenarios/scenariomissions/ussr/rumania/0 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/scenariomissions/ussr/rumania/0h artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/tutorials/tutorial3/15 artillery # rocket artillery is 火箭炮
+zh-Hans scenarios/tutorials/tutorial3/15h artillery # rocket artillery is 火箭炮
+zh-Hans scenarios/tutorials/tutorial3/5 artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans textes/strings/_artilleryaagun artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
+zh-Hans textes/strings/_artillerygun artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
+zh-Hans textes/strings/_artilleryheavymg artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
+zh-Hans textes/strings/_artilleryhowitzer artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
+zh-Hans textes/strings/_artillerymortar artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
+zh-Hans textes/strings/_artilleryrocket artillery # a category name: the weapon (高射炮, 重机枪, 榴弹炮, 迫击炮, 火箭炮) names its kind of artillery
+zh-Hans units/technics/allies/auto/m3_halftruck_gb/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans units/technics/allies/auto/m3_halftruck_medicine_gb/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans units/technics/allies/auto/m3_halftruck_medicine_usa/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans units/technics/allies/auto/m3_halftruck_usa/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans units/technics/allies/auto/willys_mb_gb/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans units/technics/allies/auto/willys_mb_usa/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans units/technics/ussr/auto/willys_mb_lend_lease/desc artillery # the artillery arm or its units: 炮兵, not the guns 火炮
+zh-Hans scenarios/descriptions/defend_area00/description options # prose: "options" is the ordinary word for choices here, 选择
+ja scenarios/chapters/ussr/finland/description artillery # an artillery bombardment is 砲撃
+ja scenarios/custom/missions/kursk/6 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/custom/missions/vitebsk/1 artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/custom/missions/vitebsk/4 artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/custom/missions/vitebsk/7 artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/custom/missions/vitebsk/7h artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/custom/missions/vitebsk/8 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/defend_area01/0h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/defend_area01/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_10_12_13_15_16/0 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_10_12_13_15_16/3 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_10_12_13_15_16/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_10_12_13_15_16/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_11_12_15_16/1 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_11_12_15_16/2 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_11_12_15_16/2h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_11_12_15_16/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_11_15/0 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_11_15/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_12_13_15_16/2 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_12_13_15_16/2h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_12_13_15_16/description artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_12_15/0 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/descriptions/sa_13_15_17/0 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/scenariomissions/allies/france/2 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/france/2h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/intro/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/intro/5h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/intro/9h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/tobruk/3 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/allies/tobruk/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/german/ardennes/2 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/scenariomissions/german/ardennes/2h artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/scenariomissions/german/ardennes/description artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/scenariomissions/german/intro/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/german/intro/5h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/german/intro/9h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/intro/1h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/intro/3h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/intro/4h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/intro/5h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/intro/9h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/leningrad/5 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/leningrad/5h artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/scenariomissions/ussr/leningrad/description artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/scenariomissions/ussr/rumania/0 artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/scenariomissions/ussr/rumania/0h artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja scenarios/tutorials/tutorial3/13h artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/tutorials/tutorial3/14 artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja scenarios/tutorials/tutorial3/15 artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/tutorials/tutorial3/15h artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/tutorials/tutorial3/header artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/auto/m3_halftruck_gb/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/auto/m3_halftruck_medicine_gb/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/auto/m3_halftruck_medicine_usa/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/auto/m3_halftruck_usa/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/auto/willys_mb_gb/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/auto/willys_mb_usa/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/allies/spg/m7_priest_usa/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/allies/spg/semovente_75_46_italian/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/allies/spg/sexton_ii_gb/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/german/spg/jagdpanther_sdkfz173/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/german/spg/jagdpanzer_38t_hetzer/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/german/spg/jagdpanzer_elefant_ferdinand_sdkfz184/desc artillery # heavy artillery is 重砲, a compound with 砲 (glossary note)
+ja units/technics/german/spg/semovente_75_46_italian/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/german/spg/wirbelwind/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/artillery/122_mm_a_19/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/ussr/artillery/122_mm_m_30/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/ussr/artillery/152_mm_d1/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/ussr/auto/komintern/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/ussr/auto/willys_mb_lend_lease/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/aviation/il_2/desc artillery # the artillery arm or its units: 砲兵 (glossary note), not the guns 火砲
+ja units/technics/ussr/spg/jsu_122/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/spg/jsu_152/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/spg/su_100/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/spg/su_122/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/spg/su_152/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/spg/su_76/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja units/technics/ussr/spg/su_85/desc artillery # a kind of artillery named by its compound with 砲 (glossary note): 自走砲, 長距離砲, ロケット砲, 対空砲
+ja scenarios/custom/missions/dessau/2 mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/custom/missions/vitebsk/10 mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/descriptions/escort00/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/descriptions/sa_12_13_14_15/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/allies/ardennes/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/allies/intro/12h mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/allies/italy/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/allies/tobruk/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/allies/tunis/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/africa/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/ardennes/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/barbarossa/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/france/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/intro/12h mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/kharkov42/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/kharkov43/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/poland/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/german/typhoon/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/germany/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/intro/12h mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/kursk/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/leningrad/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/moscow/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/rumania/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/stalingrad/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja scenarios/scenariomissions/ussr/ukraine/description mission # prose: the briefing says 任務, the glossary row is the menu term ミッション
+ja units/technics/ussr/artillery/57_mm_zis_2/desc mission # a diplomatic mission: 軍事使節団
+ja scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/auto/m3_halftruck_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/auto/m3_halftruck_medicine_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/auto/m3_halftruck_medicine_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/auto/m3_halftruck_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/spg/crusader_aa_gb/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/allies/spg/m36_slugger_usa/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja units/technics/ussr/spg/su_100/desc aircraft # anti-aircraft: the language has its own compound for air defence (対空, 高射砲), not the word for an aircraft
+ja scenarios/chapters/allies/france/description campaign # prose: a historical military campaign (作戦, 戦役), not the game's campaign
+ja scenarios/chapters/german/typhoon/description campaign # prose: a historical military campaign (作戦, 戦役), not the game's campaign
+ja scenarios/scenariomissions/ussr/stalingrad/description campaign # prose: a historical military campaign (作戦, 戦役), not the game's campaign
+ja scenarios/chapters/allies/tunis/description tank # a formation name: the German 5th Panzer Army is 第5装甲軍
+ja scenarios/chapters/german/ardennes/description objectives # prose: the offensive's aims (目標), not the mission objectives list
+ja scenarios/descriptions/sa_12_15/description objectives # prose: the two places to take (目標), not the mission objectives list
+ja scenarios/descriptions/defend_area00/description options # prose: "options" is the ordinary word for choices here
+ja textes/imtutorial/imoptionssettings options # prose: in-game options are オプション; 最適化オプション is the main menu button's label
+ja textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (入力を始める)
+ja units/technics/allies/auto/fiat_spa_as37_cargo_italian/name truck # fit: the unit card holds one line, the name alone says what it is
+ja units/technics/allies/auto/studebaker_cargo_usa/name truck # fit: the unit card holds one line, the name alone says what it is
+ja units/technics/ussr/auto/studebaker_cargo/name truck # fit: the unit card holds one line, the name alone says what it is
+ja units/technics/german/auto/opel_blitz_cargo/name truck # fit: the unit card holds one line, the name alone says what it is
+hi scenarios/chapters/german/barbarossa/description artillery # pieces of artillery are counted as guns, तोपें
+hi scenarios/chapters/ussr/leningrad/description artillery # pieces of artillery are counted as guns, तोपें
+hi scenarios/descriptions/sa_13_15_17/0 artillery # pieces of artillery are counted as guns, तोपें
+hi textes/strings/_artilleryaagun artillery # a category name: the weapon (तोपें, भारी तोपें, हॉवित्ज़र, मोर्टार) names its kind of artillery
+hi textes/strings/_artillerygun artillery # a category name: the weapon (तोपें, भारी तोपें, हॉवित्ज़र, मोर्टार) names its kind of artillery
+hi textes/strings/_artilleryheavygun artillery # a category name: the weapon (तोपें, भारी तोपें, हॉवित्ज़र, मोर्टार) names its kind of artillery
+hi textes/strings/_artilleryheavymg artillery # a category name: the weapon (तोपें, भारी तोपें, हॉवित्ज़र, मोर्टार) names its kind of artillery
+hi textes/strings/_artilleryhowitzer artillery # a category name: the weapon (तोपें, भारी तोपें, हॉवित्ज़र, मोर्टार) names its kind of artillery
+hi textes/strings/_artillerymortar artillery # a category name: the weapon (तोपें, भारी तोपें, हॉवित्ज़र, मोर्टार) names its kind of artillery
+hi textes/tooltips/humanresup artillery # the artillery crew are the gunners, तोपची
+hi units/technics/allies/auto/m3_halftruck_gb/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
+hi units/technics/allies/auto/m3_halftruck_medicine_gb/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
+hi units/technics/allies/auto/m3_halftruck_medicine_usa/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
+hi units/technics/allies/auto/m3_halftruck_usa/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
+hi units/technics/allies/auto/willys_mb_gb/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
+hi units/technics/allies/auto/willys_mb_usa/desc artillery # an artillery tug is a gun tractor, तोप-ट्रैक्टर
+hi units/technics/german/spg/wirbelwind/desc artillery # anti-aircraft artillery is विमान-रोधी तोपें
+hi buildings/africa/summer/a_cisterns/01/name tank # a water tank (टंकी), not a vehicle
+hi buildings/africa/summer/a_cisterns/02/name tank # a water tank (टंकी), not a vehicle
+hi buildings/common/summer/watertankbig/name tank # a water tank (टंकी), not a vehicle
+hi buildings/common/summer/watertanklittle/name tank # a water tank (टंकी), not a vehicle
+hi buildings/ussr/summer/cistern/01/name tank # a water tank (टंकी), not a vehicle
+hi buildings/ussr/summer/cistern/02/name tank # a water tank (टंकी), not a vehicle
+hi scenarios/chapters/german/ardennes/description objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
+hi scenarios/descriptions/sa_12_15/description objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
+hi textes/imtutorial/chapter objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
+hi scenarios/tutorials/tutorial1/2 objectives # prose: aims or targets (उद्देश्य), not the mission objectives list
+hi scenarios/chapters/ussr/moscow/description start # prose: the start of an offensive, not the Start button
+hi scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (शुरुआती स्थान)
+hi textes/ui/messagebox/confirm_play_1party_message start # running text: the verb in the infinitive, खेल शुरू करने
+hi units/technics/allies/tanks/infantry_mkii_matilda_gb/name infantry # the British tank class Infantry tank, transliterated as इन्फ़ैंट्री टैंक
+hi units/technics/allies/tanks/infantry_mkiii_valentine_gb/name infantry # the British tank class Infantry tank, transliterated as इन्फ़ैंट्री टैंक
+hi units/technics/allies/tanks/infantry_mkiv_churchill_gb/name infantry # the British tank class Infantry tank, transliterated as इन्फ़ैंट्री टैंक
+hi textes/imtutorial/addunittomission tutorial # an in-game help text (सहायता), not the main menu's tutorial
+hi textes/imtutorial/encyclopedia tutorial # an in-game help text (सहायता), not the main menu's tutorial
+hi textes/imtutorial/mission tutorial # an in-game help text (सहायता), not the main menu's tutorial
+hi textes/help load game # running text: the quick-load key is त्वरित लोड, not the load game menu
+hi textes/help save game # running text: the quick-save key is त्वरित सेव, not the save game menu
+hi textes/tooltips/tt_ui_selectcampaign_back new game # the oblique case of the glossary term: नए खेल
+es scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+es scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (posición inicial)
+es scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (contrabatería), the military term
+es scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (contrabatería), the military term
+es units/technics/german/spg/semovente_75_46_italian/desc artillery # self-propelled artillery is cañón autopropulsado, the usual Spanish term
+es textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (comience, the imperative)
+fr scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (antiaérien), not the word for an aircraft
+fr scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (point de départ)
+fr scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (contre-batterie), the military term
+fr scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (contre-batterie), the military term
+fr textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (commencez, the imperative)
+de scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (Flugabwehr), not the word for an aircraft
+de scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (Startpunkt)
+de scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (Gegenbatteriefeuer), the military term
+de scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (Gegenbatteriefeuer), the military term
+de textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button
+de units/technics/german/spg/semovente_75_46_italian/desc artillery # self-propelled artillery is Selbstfahrlafette and Sturmgeschütz in German
+pt-BR scenarios/custom/missions/vitebsk/6 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/custom/missions/vitebsk/9 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/custom/missions/vitebsk/11 aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR textes/feedbacks/enemy_aa_detected aircraft # anti-aircraft: the language has its own compound for air defence (antiaéreo), not the word for an aircraft
+pt-BR scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (local de partida)
+pt-BR scenarios/scenariomissions/ussr/intro/1h artillery # counter-artillery fire is counter-battery fire (contrabateria), the military term
+pt-BR scenarios/scenariomissions/ussr/intro/4h artillery # counter-artillery fire is counter-battery fire (contrabateria), the military term
+pt-BR units/technics/german/spg/semovente_75_46_italian/desc artillery # self-propelled artillery is canhão autopropulsado, the usual Portuguese term
+pt-BR textes/imtutorial/multiplayerchat start # running text: the verb "start" here is not the Start button (comece a digitar)
+id scenarios/scenariomissions/allies/intro/8 start # a start location on the map, not the Start button (lokasi awal)
+id scenarios/scenariomissions/german/intro/11 start # a start location on the map, not the Start button (lokasi awal)
+id scenarios/scenariomissions/german/intro/3 start # a start location on the map, not the Start button (lokasi awal)
+id scenarios/scenariomissions/ussr/intro/11 start # a start location on the map, not the Start button (lokasi awal)

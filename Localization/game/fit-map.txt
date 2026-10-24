@@ -252,15 +252,15 @@ box textes/ui/optionssettings/caption_settings_of Data/UI/OptionsSettings.xml 20
 # strings/profile: the "Profile:" label on the main menu, MainMenu.xml 21000 (500x50), MainMenu.cpp:225 (the profile name is appended).
 box textes/strings/profile Data/UI/MainMenu.xml 21000
 
-box textes/help Data/UI/mission.xml 3000#2
-box textes/imtutorial/addunittomission Data/UI/AddUnitToMission.xml 31415
-box textes/imtutorial/campaign Data/UI/common/Campaign.xml 31415
-box textes/imtutorial/chapter Data/UI/common/Chapter.xml 31415
-box textes/imtutorial/encyclopedia Data/UI/Encyclopedia.xml 31415
-box textes/imtutorial/mission Data/UI/common/Mission.xml 31415
-box textes/imtutorial/stats Data/UI/Stats.xml 31415
-box textes/imtutorial/unitspool Data/UI/UnitsPool.xml 31415
-box textes/imtutorial/upgrades Data/UI/Upgrades.xml 31415
+scroll textes/help # the in-mission help screen: mission.xml 3000#2 is a UI_SCROLL_TEXT
+scroll textes/imtutorial/addunittomission # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/campaign # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/chapter # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/encyclopedia # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/mission # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/stats # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/unitspool # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
+scroll textes/imtutorial/upgrades # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
 box textes/nextchapterquestion Data/UI/Popup/NextChapter.xml 3000
 box textes/strings/addunitstomission Data/UI/AddUnitToMission.xml 20000
 box textes/strings/allies-campaign Data/UI/MainMenu.xml 10002#3
@@ -367,10 +367,6 @@ box textes/strings/showsingleobjective Data/UI/mission.xml 6001#2
 box textes/strings/unitstoupgr Data/UI/Upgrades.xml 20001
 box textes/strings/upgradeunits Data/UI/Upgrades.xml 20000
 box textes/strings/yes Data/UI/MainMenu.xml 3001
-box textes/tooltips/ammo1bar Data/UI/mission.xml 11
-box textes/tooltips/ammo2bar Data/UI/mission.xml 12
-box textes/tooltips/healthbar Data/UI/mission.xml 10#2
-box textes/tooltips/moralebar Data/UI/mission.xml 13
 box textes/tooltips/timeout Data/UI/mission.xml 10023
 box textes/ui/back Data/UI/MainMenu.xml 10001#4
 box textes/ui/intermission/credits/credits Data/UI/MainMenu.xml 7777
@@ -502,6 +498,43 @@ area textes/gamespeedlowered 900x82 large
 # The default player name, shown in the 150 px name field of the profile screen.
 area textes/playername 150x30 medium
 box textes/nextchapterquestion_nostay Data/UI/Popup/NextChapterNoStay.xml 3000
+# The unit status bar's indicators (mission.xml 10, 11, 12, 13: UI_NUMBER_INDICATOR bars of 41x2 px) hold healthbar,
+# ammo1bar, ammo2bar and moralebar as their TextKey in TextColor 0x00ffffff, which has no alpha: the bar draws no text, so
+# they are measured as the tooltips their folder names (family tooltip textes/tooltips/**), not in a 2 px box.
+# Skill hints: PlayersInterface.cpp sets <skill>.tooltip with SetHelpContext on the skill's name cell, so it is a tooltip,
+# not the 150x30 name cell of the textes/playerskills family below.
+tooltip textes/playerskills/*.tooltip
+# The escape menu's mission result (MissionInterfaceEscapeMenu.h): escape_mission_fail_message is the TextKey of
+# STATIC_SP_FAIL, mission.xml 10013; EscapeMenuReactions.xml sets escape_mission_win_message into STATIC_SP_WIN 10014 and
+# the multiplayer results (draw_mp, you_out_of_sync, several_out_of_sync) into STATIC_MP_FAIL 10012, whose TextKey is
+# escape_mission_fail_message_mp. All three are 320x108, medium, centred.
+box textes/strings/escape_mission_fail_message Data/UI/mission.xml 10013
+box textes/strings/escape_mission_win_message Data/UI/mission.xml 10014
+box textes/strings/escape_mission_fail_message_* Data/UI/mission.xml 10012
+# iMainInternal.cpp writes screenshot (plus the file name) into the chat console, as game_saved is.
+area textes/strings/screenshot 900x82 large
+# Message boxes: the code sends "caption;text" to MISSION_COMMAND_MESSAGE_BOX and InterfaceMessageBox.cpp sets the
+# caption into E_CAPTION 20000 and the text into E_MESSAGE 20001 of Popup/MessageBox.xml, or of Popup/MessageBoxMission.xml
+# when AreWeInMission is set: only SaveMission.cpp, the save screen of the mission's escape menu, asks from a mission
+# (overwrite_save_caption, overwrite_save_message); MessageBoxMission.xml 20001 is a UI_SCROLL_TEXT.
+box textes/ui/messagebox/overwrite_save_caption Data/UI/Popup/MessageBoxMission.xml 20000
+scroll textes/ui/messagebox/overwrite_save_message # the in-mission message box text, MessageBoxMission.xml 20001 is a UI_SCROLL_TEXT
+box textes/ui/messagebox/*_caption* Data/UI/Popup/MessageBox.xml 20000
+box textes/ui/messagebox/*_message* Data/UI/Popup/MessageBox.xml 20001
+# The address and password prompts: AddressBook.xml and MuptiplayerGamesList.xml hold them as TextKeys of their ask dialog,
+# the caption in 20000#2 (410x60) and the prompt in 19999 (395x100).
+box textes/ui/intermission/multiplayer/addressbook/caption_ask_address Data/UI/AddressBook.xml 20000#2
+box textes/ui/intermission/multiplayer/addressbook/ask_address Data/UI/AddressBook.xml 19999
+box textes/ui/intermission/multiplayer/gameslist/caption_ask_password Data/UI/MuptiplayerGamesList.xml 20000#2
+box textes/ui/intermission/multiplayer/gameslist/description_ask_password Data/UI/MuptiplayerGamesList.xml 19999
+# MultiplayerStartingGame.cpp adds the staging room notices to its chat (CChatWrapper::AddImportantText appends to an
+# IUIColorTextScroll).
+scroll textes/ui/intermission/multiplayer/stagingroom/immessage-* # notices in the staging room chat, a scrolling text
+# The upper-case custom game labels of Data/Textes/UI/Intermission/CustomGame: no code, Lua or layout of the Game reads
+# them (2026-10-24); they are measured in the buttons of their main menu namesakes (MainMenu.xml), where they would appear.
+box textes/ui/intermission/customgame/customcampaigns Data/UI/MainMenu.xml 10003#6
+box textes/ui/intermission/customgame/customchapters Data/UI/MainMenu.xml 10004#6
+box textes/ui/intermission/customgame/custommissions Data/UI/MainMenu.xml 10002#5
 scroll medals/**/desc # encyclopedia and rank popup text, UI_SCROLL_TEXT
 box textes/personals/** Data/UI/common/UnitInfoItem.xml 21
 scroll textes/playerranks/**/*_full # the promotion message of the rank popup, PlayerRank.xml 20001 is a UI_SCROLL_TEXT
@@ -535,8 +568,7 @@ area textes/gametypes/** 150x30 medium
 area textes/rpgclasses/** 150x30 medium
 area textes/rpgtypes/** 150x30 medium
 area textes/playerskills/** 150x30 medium
-box textes/imtutorial/** Data/UI/Encyclopedia.xml 31415
-box textes/help Data/UI/Encyclopedia.xml 31415
+scroll textes/imtutorial/** # the screen's help text: its hidden TUTORIAL_WINDOW_ID 31415 only holds it, CInterfaceIMTutorial (IMTutorial.cpp) shows it in Popup/IMTutorial.xml 3000, a UI_SCROLL_TEXT
 box textes/nextchapterquestion Data/UI/Popup/MessageBox.xml 20001
 box textes/ui/**/message* Data/UI/Popup/MessageBox.xml 20001
 box textes/ui/**/caption* Data/UI/Encyclopedia.xml 20000

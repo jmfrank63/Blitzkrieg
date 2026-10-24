@@ -10,7 +10,7 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 |---|---|---|
 | infantry | पैदल सेना |  |
 | tank | टैंक |  |
-| artillery | तोपखाना |  |
+| artillery | तोपखान | तोपखाना; stem survives the oblique तोपखाने |
 | anti-tank gun | टैंक-रोधी तोप |  |
 | truck | ट्रक |  |
 | aircraft | विमान |  |
