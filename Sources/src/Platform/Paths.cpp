@@ -132,6 +132,13 @@ const std::string &SaveRoot() { static std::string value; value = join(UserRoot(
 const std::string &ScreenshotRoot() { static std::string value; value = join(BaseRoot(), "screenshots"); return value; }
 const std::string &LogPath() { static std::string value; value = join(join(UserRoot(), "logs"), "log.txt"); return value; }
 const std::string &ErrorLogPath() { static std::string value; value = join(join(UserRoot(), "logs"), "error.txt"); return value; }
+std::FILE *OpenTraceLog(const char *name) {
+    const char *enabled = std::getenv("BK_DEBUG_LOG");
+    if (!name || !enabled || !*enabled || *enabled == '0') return nullptr;
+    const std::string &user = UserRoot();
+    if (user.empty()) return nullptr;
+    return std::fopen(join(join(user, "logs"), name).c_str(), "ab");
+}
 const std::string &CacheRoot() { static std::string value; value = join(UserRoot(), "cache"); return value; }
 const std::string &DataArchivePattern() { static std::string value; value = join(DataRoot(), "*.pak"); return value; }
 const std::string &SeasonDataRoot() { static std::string value; value = join(BaseRoot(), "SeasonData"); return value; }

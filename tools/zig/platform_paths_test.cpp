@@ -1,6 +1,17 @@
 #include "Platform/Paths.h"
 #include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
+
+static void SetTraceEnv(const char *value)
+{
+#if defined(_WIN32)
+    _putenv_s("BK_DEBUG_LOG", value ? value : "");
+#else
+    if (value) setenv("BK_DEBUG_LOG", value, 1); else unsetenv("BK_DEBUG_LOG");
+#endif
+}
 
 int main()
 {
@@ -52,6 +63,17 @@ int main()
     assert(std::filesystem::exists(user / "cache"));
     // Created at startup, so a first F9 never has to make it.
     assert(std::filesystem::exists(root / "screenshots"));
+    // Trace files go to the user root's logs folder, only when tracing is on, and
+    // never into the game folder (a stray "\load_trace.log" once landed there).
+    SetTraceEnv(nullptr);
+    assert(NPlatform::Paths::OpenTraceLog("load_trace.log") == nullptr);
+    SetTraceEnv("1");
+    std::FILE *trace = NPlatform::Paths::OpenTraceLog("load_trace.log");
+    assert(trace != nullptr);
+    std::fclose(trace);
+    assert(std::filesystem::exists(user / "logs" / "load_trace.log"));
+    assert(!std::filesystem::exists(root / "load_trace.log"));
+    SetTraceEnv(nullptr);
     NPlatform::Paths::ClearInjectedRootsForTest();
     std::filesystem::remove_all(root);
     return 0;

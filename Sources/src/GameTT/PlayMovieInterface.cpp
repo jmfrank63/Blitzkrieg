@@ -4,12 +4,13 @@
 
 #include "iMission.h"
 #include "../Misc/HPTimer.h"
+#include "../Platform/Paths.h"
 
 namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
 	{
-		FILE *pFile = fopen( "open_video_trace.log", "ab" );
+		FILE *pFile = NPlatform::Paths::OpenTraceLog( "open_video_trace.log" );
 		if ( pFile == 0 )
 			return;
 		va_list args;

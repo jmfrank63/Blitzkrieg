@@ -1,6 +1,7 @@
 // Deliberately self-contained legacy ABI shim.  These declarations mirror the
 // vtable order used by the old headers without importing their MSXML/MFC stack.
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Platform/Debug.h"
 #include <cstdio>
 #include <cstdlib>
@@ -828,7 +829,7 @@ class ZigStructureSaver final : public IStructureSaver {
     // [reader-diag] phase timestamps for the load-freeze investigation.
     void TraceReaderPhase(const char *phase, int count) {
         if (!progress_) return;
-        FILE *f = fopen("load_trace.log", "ab");
+        FILE *f = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
         if (f) {
             fprintf(f, "%lu [reader] %s count=%d iters=%llu\n", LegacyTickCount(), phase, count, bk_structure_scan_iters());
             fclose(f);
@@ -888,7 +889,7 @@ public:
         // [reader-diag] scan-iteration report for the save-game reader only
         // (progress hook == CICLoad); strip with the load-speed diagnostics.
         if (progress_) {
-            FILE *f = fopen("load_trace.log", "ab");
+            FILE *f = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
             if (f) {
                 fprintf(f, "%lu [reader] scan_iters=%llu stream_bytes=%d\n",
                         LegacyTickCount(), bk_structure_scan_iters(), source_ ? bk_stream_size(source_->Native()) : -1);

@@ -2,6 +2,7 @@
 
 #include "InterfaceScreenBase.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Main/iMainCommands.h"
 #include "../StreamIO/OptionSystem.h"
 #include "../AILogic/AILogic.h"
@@ -272,16 +273,11 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 		if ( NPlatform::MillisecondsElapsed( dwLastLoadTrace, dwNow ) >= 1000 )
 		{
 			dwLastLoadTrace = dwNow;
-			const char *pszBaseDir = GetSingleton<IMainLoop>() ? GetSingleton<IMainLoop>()->GetBaseDir() : 0;
-			if ( pszBaseDir )
+			FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
+			if ( pFile )
 			{
-				const std::string szTraceFileName = std::string( pszBaseDir ) + "load_trace.log";
-				FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
-				if ( pFile )
-				{
-					fprintf( pFile, "%lu CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", (unsigned long)dwNow, bAppActive, bStepLocalResult, bGFXActive );
-					fclose( pFile );
-				}
+				fprintf( pFile, "%lu CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", (unsigned long)dwNow, bAppActive, bStepLocalResult, bGFXActive );
+				fclose( pFile );
 			}
 			// Keep diagnostics in load_trace.log only to avoid debugger output stalls while recovering from draw-skip states.
 		}
