@@ -4,6 +4,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
+pub const app_identity = @import("app_identity.zig");
 const imgui = @import("editor_imgui");
 /// bridge.h: the engine's C ABI. Translated here directly (not through
 /// `Sources/editor/app/c_bridge.zig`) so the kit's host wrapper stays
@@ -22,6 +23,9 @@ pub const HostError = error{ SdlInitFailed, WindowFailed, EngineFailed, NoDevice
 
 pub const Options = struct {
     title: [*:0]const u8,
+    /// The desktop identity (kit/app_identity.zig): the Wayland app_id, so the
+    /// dock finds this program's desktop entry and icon.
+    app_id: [*:0]const u8 = app_identity.map_editor,
     width: c_int = 1280,
     height: c_int = 800,
     hidden: bool = false,
@@ -43,6 +47,7 @@ pub const Host = struct {
         // The first SDL call of the process: a block SDL allocated earlier would be freed
         // through BkMemory and panic. Repeating it with the same functions is harmless.
         _ = sdl3.c.SDL_SetMemoryFunctions(bk_mem_alloc, bk_mem_calloc, bk_mem_realloc, bk_mem_free);
+        app_identity.setMetadata(options.title, options.app_id);
         if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return failWith(error.SdlInitFailed, sdlError());
         errdefer sdl3.c.SDL_Quit();
         freeCommandW();
@@ -58,6 +63,7 @@ pub const Host = struct {
         const window = sdl3.c.SDL_CreateWindow(options.title, options.width, options.height, flags) orelse
             return failWith(error.WindowFailed, sdlError());
         errdefer sdl3.c.SDL_DestroyWindow(window);
+        app_identity.setWindowIcon(window, options.data_root);
 
         var session: ?*c.BkEditorSession = null;
         const started = c.BkEditorStart(window, options.data_root, &session);

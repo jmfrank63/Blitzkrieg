@@ -67,6 +67,8 @@ Quick commands:
 
 "Platform layer only" means the target builds and passes the platform test suites, but the full game build has not been brought up on it yet.
 
+On Linux the window icon is set in the program, which X11 and KDE honour. GNOME on Wayland ignores it and takes the dock and alt-tab icon from a desktop entry named after the program's app id (`org.blitzkrieg.game`, and `org.blitzkrieg.mapeditor`, `org.blitzkrieg.resourceeditor`, `org.blitzkrieg.elk` for the editors). The install ships an opt-in script that writes those entries and the icon into `~/.local/share`; nothing runs it for you. From the install folder run `Tools/install_desktop_entry.sh` (from a checkout: `tools/install_desktop_entry.sh [install-dir]`), and `Tools/install_desktop_entry.sh --remove` undoes it.
+
 Only `x86_64-windows-msvc` needs a Visual Studio installation. Zig supplies its own toolchain, headers and import libraries for every other target, MinGW included.
 
 Each target is exercised by the `Cross-platform validation` workflow on a runner of its own architecture, so the suites execute rather than merely link.

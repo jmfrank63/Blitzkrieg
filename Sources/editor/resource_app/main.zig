@@ -376,7 +376,7 @@ fn readUiLanguage(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Envir
 
 fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, first_kind: ?Kind, first_path: ?[]const u8, mod: ModRequest, hidden: bool) void {
     if (hidden) crt.attachParentConsole();
-    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = hidden }) catch |err| {
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .app_id = host_mod.app_identity.resource_editor, .hidden = hidden }) catch |err| {
         const reason = host_mod.failureReason();
         fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
     };
@@ -494,7 +494,7 @@ fn scenarioMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ
         std.debug.print("resource-editor: {s} FAIL: BK_EDITOR_AUTO is not set\n", .{tier});
         return 2;
     }
-    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .app_id = host_mod.app_identity.resource_editor, .hidden = true }) catch |err| {
         if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: {s} skipped: no GPU device ({s})\n", .{ tier, host_mod.failureReason() });
             return 0;
@@ -525,7 +525,7 @@ fn scenarioMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ
 fn batchMode(gpa: std.mem.Allocator, io: std.Io, args: []const []const u8, mod: ModRequest, self_check: bool) u8 {
     crt.attachParentConsole();
     if (!self_check) if (batch_cli.refuseArgs(args)) |code| return code;
-    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .app_id = host_mod.app_identity.resource_editor, .hidden = true }) catch |err| {
         if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: batch skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
             return if (self_check) 0 else 3;
@@ -550,7 +550,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, kind:
     const output_z = try gpa.dupeSentinel(u8, output, 0);
     defer gpa.free(output_z);
 
-    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .app_id = host_mod.app_identity.resource_editor, .hidden = true }) catch |err| {
         if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: host check skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
             return true;
@@ -652,7 +652,7 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, kind:
     const output_z = try gpa.dupeSentinel(u8, output, 0);
     defer gpa.free(output_z);
 
-    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .app_id = host_mod.app_identity.resource_editor, .hidden = true }) catch |err| {
         if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: smoke skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
             return true;

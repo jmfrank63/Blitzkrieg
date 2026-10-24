@@ -2961,6 +2961,7 @@ pub fn build(b: *std.Build) void {
         .metadata_files = stage_metadata_files,
         .editors_supported = target.result.os.tag == .windows,
         .tools = b.allocator.dupe(*std.Build.Step.Compile, staged_tools) catch @panic("OOM"),
+        .extra_tool_files = if (target.result.os.tag == .linux) &.{"tools/install_desktop_entry.sh"} else &.{},
     };
     const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
@@ -3787,6 +3788,8 @@ pub fn build(b: *std.Build) void {
     }
     const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
     const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
+    // app_identity's tests read the desktop-entry script, the Game's source and Data/icon.bmp.
+    editor_kit_tests_run.setCwd(b.path("."));
     const editor_kit_step = b.step("test-editor-kit", "Run the editor kit tests (reusable editor plumbing shared by the Zig editors)");
     editor_kit_step.dependOn(&editor_kit_tests.step);
     if (test_mode == .run) editor_kit_step.dependOn(&editor_kit_tests_run.step);
@@ -4581,6 +4584,9 @@ const StageGameInputs = struct {
     /// The bk-* modding tools, staged into <install>/Tools on every platform
     /// (Phase 8, D-27), so the release zip carries them.
     tools: []const *std.Build.Step.Compile,
+    /// Repository files staged into <install>/Tools beside the guide, for one
+    /// platform only. Linux ships the opt-in desktop-entry installer here.
+    extra_tool_files: []const []const u8 = &.{},
 };
 
 /// The one way to create a stage-game run (install-game, package-game,
@@ -4615,6 +4621,10 @@ fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const 
     for (package_policy.required_tool_docs) |staged| {
         run.addArg("--tool-doc");
         run.addFileArg(b.path(b.fmt("tools/guide/{s}", .{staged[("Tools/").len..]})));
+    }
+    for (inputs.extra_tool_files) |path| {
+        run.addArg("--tool-doc");
+        run.addFileArg(b.path(path));
     }
     for (inputs.metadata_files) |name| run.addFileInput(b.path(name));
     // Staging copies the third-party notice out of a plain path, the way it
