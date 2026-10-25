@@ -276,7 +276,33 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 		pHook->SetCurrPos( 97 );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize gfx/globals/sfx begin" );
 	saver.Add( 9, pGFX.GetPtr() );
+	// The language is the player's setting, not the mission's. A save holds every global of the
+	// moment it was written, the language among them, and loading one written in another language
+	// (or by a build without the option, which reads as Default) switched the session's language
+	// mid-mission: the texts read before the load stayed Russian, the rest came back English, and a
+	// mod's bitmap fonts without Cyrillic, back for English, drew the Russian ones as boxes.
+	static const char *pszSessionVars[] = { "Text.Language", "Text.LanguageLoaded" };
+	const int nSessionVars = sizeof( pszSessionVars ) / sizeof( pszSessionVars[0] );
+	std::vector< std::pair<bool, std::string> > sessionValues( nSessionVars );
+	if ( saver.IsReading() )
+	{
+		for ( int i = 0; i < nSessionVars; ++i )
+		{
+			const char *pszValue = GetSingleton<IGlobalVars>()->GetVar( pszSessionVars[i] );
+			sessionValues[i] = std::make_pair( pszValue != 0, std::string( pszValue != 0 ? pszValue : "" ) );
+		}
+	}
 	saver.Add( 10, GetSingleton<IGlobalVars>() );
+	if ( saver.IsReading() )
+	{
+		for ( int i = 0; i < nSessionVars; ++i )
+		{
+			if ( sessionValues[i].first )
+				SetGlobalVar( pszSessionVars[i], sessionValues[i].second.c_str() );
+			else
+				RemoveGlobalVar( pszSessionVars[i] );
+		}
+	}
 	saver.Add( 11, GetSingleton<ISFX>() );
 	saver.Add( 12, GetSingleton<ITransceiver>() );
 	saver.Add( 13, GetSingleton<IClientAckManager>() );
