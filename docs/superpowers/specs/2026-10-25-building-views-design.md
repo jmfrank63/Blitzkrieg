@@ -185,7 +185,8 @@ ground pictures, winter packs where the variant has them, the turned `1.xml`, `i
 not per family (decided by the milestone's orchestrator): two variants that share a view each get their own three
 turns, and colourways stay apart. `zig build bk-views-side` makes `e_ctownhouse01_2_r1` (side 3, which no 2003
 picture shows), `_r2` (side 4) and `_r3` (side 1) and checks every pack like the round trip (the engine's reader,
-compose-pack again byte for byte, decompose back).
+compose-pack again byte for byte, decompose back). The voxel hull, Blender's rays and the mirrors below were replaced
+in S03 (next section).
 
 - **Shape.** A voxel visual hull (2 world units) in the variant's frame: every voxel over its footprint (grown by a
   cell) whose centre every picture of the family covers, the other variants' zero crosses found by maximising the
@@ -206,6 +207,47 @@ compose-pack again byte for byte, decompose back).
   cast by Blender. Ground pictures are the 2003 ones laid on the ground plane.
 - **Icon.** `compose-pack --icon` runs the export's `SaveIconFile`; on `e_ctownhouse01_2`'s decomposed picture it
   gives the shipped `icon.tga` but for one byte off by one.
+
+## Quality gate and the block model (M005 S03, 2026-10-26)
+
+The S02 side read as a lumpy, smeared mass: the hull carved from 30-degree outlines got the roofs wrong, and texture
+projected onto a wrong surface smears. S03 measured that first and then replaced the shape, the ray casting and the
+mirrors (the S02 section above describes what was replaced).
+
+- **Gate.** `bk-views holdout <out-dir> <variant-dir>...` draws a side that exists in 2003 again from its family
+  without it (and without any variant showing that side), from another side of its colourway, and scores every damage
+  state against the 2003 picture: outline IoU, SSIM of the brightness at a quarter of the size (the layout; at full
+  size every drawn side scores near 0), sharpness (gradient energy ratio), mean colour and hue distance.
+  `bk-views style <out-dir> <variant-dir> <pictures-dir>...` scores pictures that have no 2003 original against the
+  building's own 2003 sides in its colourway. 23 variants of 11 families qualify (two or more measured sides, another
+  side of the colourway by the hue rule). [The hold-out](../evidence/building-views/holdout.md) and
+  [the style of e_ctownhouse01's sides](../evidence/building-views/style.md) are recorded;
+  `tools/zig/fixtures/bk-views/gate.json` holds floors from them, and `test-bk-views` draws the 23 again (with a
+  ReleaseFast host build) and fails below them.
+- **Blocks.** The building is a few blocks: the rectangles of the hull's ground slice within half a cell of the
+  footprint, each with a flat, gabled or hipped roof. Each block takes its best roof and heights on an 8-unit grid,
+  then every edge and height moves while the outline IoU over the family's pictures improves, less 0.02 IoU per volume
+  of the start (one outline leaves the depth of what stands in front open, and without that cost blocks grow into
+  towers seen from behind); roofs are no steeper than 2.5. Each damage state is fitted from the intact blocks to its
+  own outlines; the ruins too (their hold-out IoU rose from 0.59 to 0.74, so the voxel path was not kept).
+- **Rays in Zig, Blender gone.** A block is the intersection of at most nine half-spaces, so a ray of the exact
+  orthographic camera meets it in closed form. `tools/blender/bk_views_render.py` and the job file are deleted; `side`
+  takes 14.5 s for three turns of e_ctownhouse01_2 in ReleaseFast (S02: 26.6 s) and stays byte-deterministic (also
+  between Debug and ReleaseFast).
+- **Faces nobody sees.** A point of a face no 2003 picture of the colourway sees borrows from the first of the face's
+  donors one sees: its block's opposite face first (the half turn, so writing stays readable), then faces of other
+  blocks alike in width and height, facing the same way, the opposite way or across; the point keeps its place across
+  the face, and its height is scaled so that eaves and ridges meet. PatchMatch fills only what is left.
+- **Light.** One constant: azimuth 245, elevation 67.5 in the camera's frame. Fitted to the 2003 shadows of
+  e_ctownhouse01, a_h07, e_house01, e_house11 and townhouse05 with the hull it came out at 232 to 258 and 67.5 to 75,
+  the spread of the hull's shape.
+- **Measured.** Means of state 1 over the 23 variants, S02 to S03: outline IoU 0.672 to 0.860, colour distance 33.8
+  to 18.6, hue 0.242 to 0.123, SSIM 0.154 to 0.170; sharpness 0.90 to 1.30 (from smeared to more edges than the 2003
+  sides: seams where a face changes source, chimneys painted on roof planes). States 2 and 3 likewise for IoU, colour
+  and hue, with SSIM a little lower.
+- **Not done.** Chimneys, spires and dormers are not modelled: the hull's cap above the roofs merges with them, so
+  they could not be cut out of it; their pixels land on the roof planes. The colourway rule (whole-picture hue
+  histograms) is strict and leaves 70 of the 93 measured multi-side variants out of the hold-out.
 
 ## Open questions
 
