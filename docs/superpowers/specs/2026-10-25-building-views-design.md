@@ -147,6 +147,35 @@ passing on win-home (Windows x64); Linux and macOS are left to CI.
   camera, has half this scale (its `m11` is 0.354 where the shipped art's is 0.707); exports through the bridge
   and the golden comparison use the engine or MFC camera and are not affected.
 
+## Inventory and side convention (M005 S01, 2026-10-25)
+
+`bk-views inventory Data/Buildings <out>` writes
+[the inventory](../evidence/building-views/inventory.md) and `tools/zig/fixtures/bk-views/inventory.json`:
+115 families (variant folders grouped by name without the side suffix; numbered subfolders such as `dot/01`
+are variants of their folder's family), 194 variant folders, each with its measured side, missing sides,
+colourways and winter packs. `test-bk-views` fails when the tracked files differ from what the tool writes.
+
+- **Convention.** Side k + 1 is side k turned by the quarter turn that takes world (x, y) to (-y, x) about the
+  zero cross: the footprint's front corner goes to the right corner, the left wall becomes the right wall, and
+  every 1.xml `Direction` grows by 90 (Direction 0 faces +y, 90 -x, 180 -y, 270 +x). `turnPoint`, `turnGrid`
+  and `turnXml` turn a variant's passability and visibility grids with their origins, every `Position` and
+  `WorldPosition`, every `Direction`, and set each `PicturePosition` to the 2003 camera's projection of the
+  turned `WorldPosition`. A variant without a suffix starts at side 1.
+- **Measured, not assumed.** The suffix holds on every variant of `a_h07` (1, 2, 3), `e_ctownhouse01` (1, 2, 4)
+  and `e_house11` (1, 3, 4), and on most two-variant families. It does not hold everywhere: several variants
+  repeat an earlier variant's view with other textures or details (`e_house01_3` = view of `_1`, `e_house02_2`
+  = `_1`, `e_house03_4` = `_3`, `e_shed02_5` = `_2`, `townhouse05_3` = `_2`, both `_1_2` colourways), and a
+  few measure as another side or cannot be measured (listed at the end of the inventory). So the spec's
+  "`e_house01_1/_3` are different sides" above is wrong: they show the same side of two differently roofed
+  houses. The batch therefore takes a variant's side from the inventory, not from its suffix.
+- **How.** Same view: both visible walls correlate (brightness, sheared level, quarter scale) at 0.5 or more and
+  the outlines overlap 0.75 or more. Otherwise the footprints (passability IoU under the four turns) decide
+  even or odd, or the outlines when the footprints fit both ways; even is a half turn; odd is the better
+  footprint, else the shared wall. The passability grids are hand-painted and the colourways differ, so
+  the odd-turn direction is the weakest step: by eye `e_jettybuilding_4` (measured 2) and `e_townhouse02_3`
+  (measured 1) look like their suffix sides 4 and 3. `dot` and `dot_h` hold the same pictures with different
+  grids; `dot_h` measures as sides 1-4, `dot` does not.
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r
