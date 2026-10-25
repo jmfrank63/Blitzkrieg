@@ -2530,7 +2530,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_tests_run.step.dependOn(bk_map.install);
     bk_tools_tests_run.addFileInput(bk_map.tool.getEmittedBin());
     // bk-sprite, the same way.
-    const bk_sprite = addBkSprite(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    const bk_sprite = addBkSprite(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, randommapgen, bk_views, test_mode);
     bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
     bk_tools_tests_run.step.dependOn(bk_sprite.install);
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
@@ -8843,6 +8843,8 @@ fn addBkSprite(
     streamio_zig: *std.Build.Step.Compile,
     options_bridge: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    bk_views: *std.Build.Step.Compile,
     test_mode: build_support.TestMode,
 ) BkSprite {
     // bk-sprite (Phase 8, D-20): spcomp's sprite composer, a C++ console
@@ -8853,9 +8855,15 @@ fn addBkSprite(
     const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
-    const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    // bk-views-check (the building views round trip): the engine's reading of
+    // a sprite pack against what bk-views decompose wrote.
+    const check_module = b.createModule(.{ .target = target, .optimize = optimize });
+    // compose-pack is the Resource Editor's building composer (compose.cpp,
+    // image_export.cpp) over RandomMapGen's sprite pack builder.
+    const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "Sources/src/ResourceModel/compose.cpp", "Sources/src/ResourceModel/image_export.cpp", "Sources/src/ResourceModel/grid_projection.cpp", "Sources/src/ResourceModel/items/ai_tiles.cpp", "Sources/src/ResourceModel/mfc_value.cpp", "Sources/src/ResourceModel/xml.cpp", "Sources/src/ResourceModel/variant.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
     const test_files = &.{ "tools/zig/bk_sprite_test.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
-    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const []const u8{ tool_files, test_files }) |module, files| {
+    const check_files = &.{ "tools/zig/bk_views_check.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    for ([_]*std.Build.Module{ tool_module, test_module, check_module }, [_][]const []const u8{ tool_files, test_files, check_files }) |module, files| {
         linkEngineCxxRuntimeEngine(b, module, optimize);
         addProjectIncludePaths(b, module);
         module.addIncludePath(b.path("Sources/src/Image"));
@@ -8868,6 +8876,7 @@ fn addBkSprite(
         module.linkLibrary(formats);
         module.linkLibrary(misc);
         module.linkLibrary(platform_runtime);
+        module.linkLibrary(randommapgen);
         // Misc's System.cpp reaches SDL; nothing here opens a window.
         linkSdlImport(module, target, sdl_dynamic);
     }
@@ -8882,7 +8891,8 @@ fn addBkSprite(
     }
     const tool = b.addExecutable(.{ .name = "bk-sprite", .root_module = tool_module });
     const test_exe = b.addExecutable(.{ .name = "bk-sprite-test", .root_module = test_module });
-    for ([_]*std.Build.Step.Compile{ tool, test_exe }) |exe| {
+    const check_exe = b.addExecutable(.{ .name = "bk-views-check", .root_module = check_module });
+    for ([_]*std.Build.Step.Compile{ tool, test_exe, check_exe }) |exe| {
         exe.subsystem = .console;
         if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
         // The engine modules it loads resolve RTTI and the host globals from
@@ -8915,6 +8925,9 @@ fn addBkSprite(
         .{ .args = &.{ "compose", bad ++ "/unknown", work ++ "/bad" }, .stderr = "bk-sprite: animation \"walk\" is not an animation slot of the sprite format\n" },
         .{ .args = &.{ "compose", bad ++ "/range", work ++ "/bad" }, .stderr = "bk-sprite: frame 2 of dir 0 of animation \"idle\" is not one of its frames 0..1\n" },
         .{ .args = &.{ "compose", bad ++ "/missing", work ++ "/bad" }, .stderr = b.fmt("bk-sprite: cannot open image {s}\n", .{hostPath(b, bad ++ "/missing/death/000.tga")}) },
+        // compose-pack refuses a ragged passability grid, and names a missing picture with / on every host.
+        .{ .args = &.{ "compose-pack", fixture ++ "/1.tga", fixture ++ "/1.tga", work ++ "/bad", "--zero", "0,0", "--pass", "0101/01", "--locked", "0,0" }, .stderr = "bk-sprite: --pass 0101/01: not rows of hex bytes of one length\n" },
+        .{ .args = &.{ "compose-pack", bad ++ "/none.png", bad ++ "/none.png", work ++ "/bad", "--zero", "0,0" }, .stderr = "bk-sprite: composing the pack failed: cannot read the picture " ++ bad ++ "/none.png: the file is missing\n" },
     };
     const check = b.addRunArtifact(test_exe);
     setLeakReportStrict(check);
@@ -8945,6 +8958,35 @@ fn addBkSprite(
         run.has_side_effects = true;
         check.step.dependOn(&run.step);
     }
+    // The building views round trip (docs/superpowers/plans/
+    // 2026-10-25-building-views-01-decompose-camera.md): tracked buildings
+    // decomposed by bk-views, checked by the engine's reader, composed back
+    // by compose-pack and compared byte for byte with the shipped files.
+    const roundtrip = b.addExecutable(.{ .name = "bk-views-roundtrip", .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_views_roundtrip.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    }) });
+    const roundtrip_run = b.addRunArtifact(roundtrip);
+    setLeakReportStrict(roundtrip_run);
+    setUserRootsForTest(roundtrip_run, "bk-views-user");
+    roundtrip_run.setCwd(b.path("."));
+    roundtrip_run.addArtifactArg(bk_views);
+    roundtrip_run.addArtifactArg(tool);
+    roundtrip_run.addArtifactArg(check_exe);
+    roundtrip_run.addArgs(&.{ module_root, "zig-out/local-test/bk-views/roundtrip" });
+    for ([_][]const u8{ "e_ctownhouse01_1", "e_ctownhouse01_2", "e_ctownhouse01_4", "e_house01_1", "e_house01_2", "e_house01_3" }) |variant|
+        roundtrip_run.addArg(b.fmt("Data/Buildings/europe/summer/{s}", .{variant}));
+    roundtrip_run.step.dependOn(install);
+    addPathDir(roundtrip_run, rootPath(b, "zig-out/bin"));
+    // It reads Data/ by plain path.
+    roundtrip_run.has_side_effects = true;
+    const roundtrip_step = b.step("bk-views-roundtrip", "Decompose tracked buildings with bk-views, check them with the engine's reader, compose them back with bk-sprite compose-pack and compare");
+    roundtrip_step.dependOn(&roundtrip.step);
+    roundtrip_step.dependOn(&check_exe.step);
+    roundtrip_step.dependOn(install);
+    if (test_mode == .run) roundtrip_step.dependOn(&roundtrip_run.step);
+
     const step = b.step("test-bk-sprite", "Compose the fixture sprite with bk-sprite and judge it with the engine's readers");
     step.dependOn(&test_exe.step);
     step.dependOn(install);

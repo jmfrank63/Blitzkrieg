@@ -496,6 +496,14 @@ fn decomposeCommand(ctx: *bk_tool.Context, dir_arg: []const u8, out_arg: []const
         try files.append(arena, .{ .name = name, .pack = pack, .atlas = atlas });
     }
     if (bounds.min_x > bounds.max_x) return ctx.failKey("views.err.no_san", .{dir_path});
+    // The canvas starts where the 2003 picture did: the pack's center is the
+    // zero cross in that picture, and composing the canvas again keeps it.
+    // Squares reaching left of or above it hold only the padding the packer
+    // added outside that picture, which is empty.
+    bounds.min_x = -center.?[0];
+    bounds.min_y = -center.?[1];
+    bounds.max_x = @max(bounds.max_x, bounds.min_x + 1);
+    bounds.max_y = @max(bounds.max_y, bounds.min_y + 1);
 
     try cwd.createDirPath(io, out_path);
     var pictures: std.ArrayList([]const u8) = .empty;

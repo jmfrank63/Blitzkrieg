@@ -110,6 +110,10 @@ const tools = [_]Tool{
             &.{ "compose", "desc", "out", "extra" },
             &.{ "compose", "desc", "out", "--modules" },
             &.{ "compose", "desc", "out", "--data", "Data" },
+            &.{ "compose-pack", "a.png", "b.png" },
+            &.{ "compose-pack", "a.png", "b.png", "out" },
+            &.{ "compose-pack", "a.png", "b.png", "out", "--zero", "1" },
+            &.{ "compose-pack", "a.png", "b.png", "out", "--zero", "1,2", "--pass", "01" },
         },
         .failing = &.{ "compose", "missing", "out" },
         // Backslashes on input, and an output folder that is not there yet.

@@ -9,6 +9,12 @@
 // is a vector by animation slot, so each animation goes to the slot the
 // Resource Editor's exporter gives its name (NCompose::GetActionFromName).
 //
+// compose-pack is the Resource Editor's building composer on the command line
+// (NCompose::ComposeSingleObjectPack, and ComposeNoisePack for a damage
+// state's ground picture): the sprite set (SSpritesPack) of a building,
+// object or fence picture with its shadow, written as the export writes it.
+// The building views pipeline (bk-views) composes its pictures with it.
+//
 // The command-line rules are bk_tool.zig's (D-04), kept by hand as in
 // bk_font.cpp: --help anywhere prints the usage and exits 0, bad usage prints
 // it on stderr and exits 2, a failure is one "bk-sprite: reason" line on
@@ -32,6 +38,7 @@
 #include "../../Sources/src/Formats/fmtAnimation.h"
 #include "../../Sources/src/Image/Image.h"
 #include "../../Sources/src/ResourceModel/anim_names.h"
+#include "../../Sources/src/ResourceModel/compose.h"
 
 namespace fs = std::filesystem;
 
@@ -39,8 +46,11 @@ namespace fs = std::filesystem;
 static std::string UsageText()
 {
 	return std::string( "usage: bk-sprite compose <desc-dir> <out-name> [--force] [--modules <dir>]\n" )
+		+ "       bk-sprite compose-pack <sprite> <shadow> <out-name> --zero <x>,<y> [--noise <picture>]\n"
+		+ "                              [--pass <row>/<row>/... --locked <x>,<y>] [--force] [--modules <dir>]\n"
 		+ "\n" + BK_T( "sprite.usage.compose" ) + "\n"
 		+ "\n" + BK_T( "sprite.usage.desc" ) + "\n"
+		+ "\n" + BK_T( "sprite.usage.compose_pack" ) + "\n"
 		+ "\n" + BK_T( "sprite.usage.options" ) + "\n"
 		+ "\n" + BkFormat( "tool.usage.lang", { bk_l10n_valid_codes() } ) + "\n";
 }
@@ -336,6 +346,107 @@ static std::string Compose( const fs::path &descDir, std::vector<SAnimationDesc>
 	return std::string();
 }
 
+// "<x>,<y>" as two ints.
+static bool ParsePoint( const std::string &szText, CVec2 *pPoint )
+{
+	int x = 0, y = 0;
+	char cEnd = 0;
+	if ( sscanf( szText.c_str(), "%d,%d%c", &x, &y, &cEnd ) != 2 )
+		return false;
+	pPoint->Set( float( x ), float( y ) );
+	return true;
+}
+
+// The passability grid as 1.xml writes it, one hex byte per tile, rows joined by '/'.
+static bool ParsePass( const std::string &szText, CArray2D<BYTE> *pPass )
+{
+	std::vector<std::string> rows;
+	NStr::SplitString( szText, rows, '/' );
+	if ( rows.empty() || rows[0].empty() || rows[0].size() % 2 != 0 )
+		return false;
+	pPass->SetSizes( int( rows[0].size() / 2 ), int( rows.size() ) );
+	for ( int y = 0; y < int( rows.size() ); ++y )
+	{
+		if ( rows[y].size() != rows[0].size() || rows[y].find_first_not_of( "0123456789abcdefABCDEF" ) != std::string::npos )
+			return false;
+		for ( int x = 0; x < pPass->GetSizeX(); ++x )
+			( *pPass )[y][x] = BYTE( std::stoi( rows[y].substr( 2 * x, 2 ), nullptr, 16 ) );
+	}
+	return true;
+}
+
+// compose-pack: the export's ComposePictures for one picture, into the folder of out.
+static std::string ComposePack( const fs::path &sprite, const fs::path &shadow, const fs::path &noise, const fs::path &out,
+                                const CVec2 &zero, const CArray2D<BYTE> &pass, const CVec2 &locked, std::string *pSummary )
+{
+	NResourceModel::SExportContext context;
+	context.szStagingRoot = out.parent_path().string();
+	NResourceModel::SExportOutcome outcome;
+	const std::string szName = out.filename().string();
+	const NResourceModel::NImageExport::SGamma gamma{};
+	if ( !NResourceModel::NCompose::ComposeSingleObjectPack( context, gamma, GFXPF_ARGB1555, sprite.string(), shadow.string(), szName, zero, pass, locked, outcome ) )
+		return BkFormat( "sprite.err.pack", { outcome.szError } );
+	if ( !noise.empty() && !NResourceModel::NCompose::ComposeNoisePack( context, gamma, GFXPF_ARGB1555, sprite.string(), noise.string(), szName + "g", zero, outcome ) )
+		return BkFormat( "sprite.err.pack", { outcome.szError } );
+	*pSummary = NStr::Format( "%d files", outcome.nWritten );
+	return std::string();
+}
+
+static int ComposePackMain( int argc, char *argv[] )
+{
+	std::vector<std::string> positional;
+	std::string szModules, szNoise, szZero, szPass, szLocked;
+	bool bForce = false;
+	for ( int i = 2; i < argc; ++i )
+	{
+		const std::string szArg = argv[i];
+		std::string *pValue = szArg == "--modules" ? &szModules : szArg == "--noise" ? &szNoise : szArg == "--zero" ? &szZero :
+		                      szArg == "--pass" ? &szPass : szArg == "--locked" ? &szLocked : nullptr;
+		if ( szArg == "--force" ) bForce = true;
+		else if ( szArg.compare( 0, 2, "--" ) != 0 ) positional.push_back( szArg );
+		else if ( pValue != nullptr && i + 1 < argc ) *pValue = argv[++i];
+		else return Usage();
+	}
+	CVec2 zero = VNULL2, locked = VNULL2;
+	CArray2D<BYTE> pass;
+	if ( positional.size() != 3 || positional[2].empty() || !ParsePoint( szZero, &zero ) || szPass.empty() != szLocked.empty() )
+		return Usage();
+	if ( !szLocked.empty() && !ParsePoint( szLocked, &locked ) )
+		return Usage();
+	if ( !szPass.empty() && !ParsePass( szPass, &pass ) )
+		return Fail( BkFormat( "sprite.err.pass", { szPass } ) );
+
+	const fs::path sprite = NToolHost::InputPath( positional[0] );
+	const fs::path shadow = NToolHost::InputPath( positional[1] );
+	const fs::path noise = szNoise.empty() ? fs::path() : NToolHost::InputPath( szNoise );
+	const fs::path out = fs::absolute( NToolHost::InputPath( positional[2] ) );
+	const fs::path san = fs::path( out ) += ".san";
+	std::error_code ec;
+	if ( !bForce && fs::exists( san, ec ) )
+		return Fail( BkFormat( "cxx.err.exists", { Shown( san ) } ) );
+	fs::create_directories( out.parent_path(), ec );
+	if ( ec )
+		return Fail( BkFormat( "cxx.err.create", { Shown( out.parent_path() ), ec.message() } ) );
+
+	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
+	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
+		return Fail( BkFormat( "cxx.err.libs", { szModuleRoot } ) );
+	std::string szSummary, szError;
+	try
+	{
+		szError = ComposePack( sprite, shadow, noise, out, zero, pass, locked, &szSummary );
+	}
+	catch ( ... )
+	{
+		szError = BK_T( "cxx.err.threw" );
+	}
+	NDataOnly::Stop();
+	if ( !szError.empty() )
+		return Fail( szError );
+	printf( "wrote %s: %s\n", Shown( san ).c_str(), szSummary.c_str() );
+	return 0;
+}
+
 int main( int argc, char *argv[] )
 {
 	NToolHost::BinaryStdio();
@@ -348,6 +459,8 @@ int main( int argc, char *argv[] )
 			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
+	if ( argc >= 2 && strcmp( argv[1], "compose-pack" ) == 0 )
+		return ComposePackMain( argc, argv );
 	if ( argc < 2 || strcmp( argv[1], "compose" ) != 0 )
 		return Usage();
 	std::vector<std::string> positional;
