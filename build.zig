@@ -2110,12 +2110,25 @@ pub fn build(b: *std.Build) void {
         .optimize = .debug,
     });
     bk_views_test_module.addOptions("bk_tools", bk_tools_options);
+    // The quality gate draws 23 sides again with `bk-views holdout`: under a
+    // minute in ReleaseFast, over ten in Debug.
+    const bk_views_fast = b.addExecutable(.{
+        .name = "bk-views-fast",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_views.zig"),
+            .target = portable_host,
+            .optimize = .ReleaseFast,
+        }),
+    });
+    const bk_views_gate_options = b.addOptions();
+    bk_views_gate_options.addOptionPath("bk_views_fast", bk_views_fast.getEmittedBin());
+    bk_views_test_module.addOptions("bk_views_gate", bk_views_gate_options);
     const bk_views_tests = b.addTest(.{ .root_module = bk_views_test_module });
     const bk_views_tests_run = b.addRunArtifact(bk_views_tests);
     bk_views_tests_run.setCwd(b.path("."));
     // The tests read Data/ and the camera fixture by plain path.
     bk_views_tests_run.has_side_effects = true;
-    const bk_views_test_step = b.step("test-bk-views", "Run the bk-views decoder, picture, camera, inventory and quarter-turn tests and the bk-* convention test");
+    const bk_views_test_step = b.step("test-bk-views", "Run the bk-views decoder, picture, camera, inventory, quarter-turn and side tests, the quality gate (hold-out and style against tools/zig/fixtures/bk-views/gate.json) and the bk-* convention test");
     bk_views_test_step.dependOn(&bk_views_tests.step);
     bk_views_test_step.dependOn(bk_tools_test_step);
     if (test_mode == .run) bk_views_test_step.dependOn(&bk_views_tests_run.step);
@@ -2161,7 +2174,7 @@ pub fn build(b: *std.Build) void {
 
     // The bk-* tools and their tests ask macOS for the user's languages through CoreFoundation
     // (bk_l10n.OsLocales), so each module that compiles bk_l10n.zig names the framework.
-    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_views.root_module, bk_views_host.root_module, bk_views_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
+    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_views.root_module, bk_views_host.root_module, bk_views_fast.root_module, bk_views_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
 
     // ResourceEditor fixture generator. See
     // tools/zig/resource_editor_fixtures.zig for the design rationale and
@@ -8986,11 +8999,10 @@ fn addBkSprite(
     roundtrip_step.dependOn(&check_exe.step);
     roundtrip_step.dependOn(install);
     if (test_mode == .run) roundtrip_step.dependOn(&roundtrip_run.step);
-    // The first generated building views (M005 S02): `bk-views side` makes the
-    // three other quarter turns of e_ctownhouse01_2 (its side 3 is the view no
-    // 2003 picture shows) with Blender headless, and the round trip checks
-    // every generated pack: the engine's reader, compose-pack again byte for
-    // byte, decompose back.
+    // The first generated building views (M005 S02, S03): `bk-views side` makes
+    // the three other quarter turns of e_ctownhouse01_2 (its side 3 is the view
+    // no 2003 picture shows), and the round trip checks every generated pack:
+    // the engine's reader, compose-pack again byte for byte, decompose back.
     const side_run = b.addRunArtifact(bk_views);
     setUserRootsForTest(side_run, "bk-views-user");
     side_run.setCwd(b.path("."));
@@ -8998,7 +9010,7 @@ fn addBkSprite(
     _ = side_run.captureStdOut(.{});
     side_run.step.dependOn(install);
     addPathDir(side_run, rootPath(b, "zig-out/bin"));
-    // It reads Data/ and tools/blender by plain path.
+    // It reads Data/ by plain path.
     side_run.has_side_effects = true;
     const side_check = b.addRunArtifact(roundtrip);
     setLeakReportStrict(side_check);
@@ -9012,7 +9024,7 @@ fn addBkSprite(
     side_check.step.dependOn(&side_run.step);
     addPathDir(side_check, rootPath(b, "zig-out/bin"));
     side_check.has_side_effects = true;
-    const side_step = b.step("bk-views-side", "Make the missing side of e_ctownhouse01 and the other turns of e_ctownhouse01_2 with bk-views side (Blender headless) and check every pack with the engine's reader, compose-pack and decompose");
+    const side_step = b.step("bk-views-side", "Make the missing side of e_ctownhouse01 and the other turns of e_ctownhouse01_2 with bk-views side and check every pack with the engine's reader, compose-pack and decompose");
     side_step.dependOn(&roundtrip.step);
     side_step.dependOn(&check_exe.step);
     side_step.dependOn(install);

@@ -7,6 +7,7 @@
 const std = @import("std");
 const views = @import("bk_views.zig");
 const bk_tools = @import("bk_tools");
+const bk_views_gate = @import("bk_views_gate");
 
 const house = "Data/Buildings/europe/summer/e_ctownhouse01_1/";
 
@@ -399,15 +400,80 @@ test "the hull of a box seen from three sides is the box, and alignment finds a 
         const inside = c[0] > 3 and c[0] < hi[0] - 3 and c[1] > 3 and c[1] < hi[1] - 3 and c[2] < hi[2] - 3;
         if (inside) try std.testing.expect(hull.get(@intCast(i), @intCast(j), @intCast(l)));
     };
-    // The box is its own mirror image across x and y, not along a diagonal.
-    const fits = views.fitMirrors(hull);
-    try std.testing.expect(fits[0].iou > 0.9 and fits[1].iou > 0.9);
-    try std.testing.expect(fits[2].iou < 0.9);
-    // Its mesh is closed: every corner is shared by its faces.
-    const mesh = try views.hullMesh(arena, hull);
-    try std.testing.expectEqual(@as(usize, 0), mesh.quads.len % 4);
-    for (mesh.quads) |q| try std.testing.expect(q < mesh.verts.len / 3);
-    try std.testing.expect(mesh.verts.len / 3 < mesh.quads.len);
+    // Its ground slice within the footprint gives one block, which the fit
+    // to the outlines turns into the box, to within what the alignment
+    // misses (the half turn's eye sits 4.5 units off along y): a top flat to
+    // within 5 units at the box's height.
+    const rectangles = try views.baseBlocks(arena, hull, footprint);
+    try std.testing.expectEqual(@as(usize, 1), rectangles.len);
+    const box = (try views.fitBlocks(arena, rectangles, &pictures, &eyes))[0];
+    for (0..2) |k| {
+        try std.testing.expectApproxEqAbs(@as(f64, 0), box.lo[k], 2);
+        try std.testing.expectApproxEqAbs(hi[k], box.hi[k], 5);
+    }
+    try std.testing.expectApproxEqAbs(hi[2], box.ridge, 2);
+    try std.testing.expect(box.ridge - box.wall <= 5);
+}
+
+/// The picture of blocks for `eye`: opaque where a pixel's ray meets them.
+fn blocksPicture(gpa: std.mem.Allocator, eye: views.Eye, blocks: []const views.Block) !views.Image {
+    const image: views.Image = .{ .width = 260, .height = 240, .pixels = try gpa.alloc([4]u8, 260 * 240) };
+    for (0..image.height) |y| for (0..image.width) |x| {
+        const hit = views.castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+        image.pixels[y * image.width + x] = if (hit != null) .{ 200, 150, 100, 255 } else .{ 0, 0, 0, 0 };
+    };
+    return image;
+}
+
+test "a gabled house seen from three sides is fitted back from a rough box" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const gabled = [_]views.Block{.{ .lo = .{ 0, 0 }, .hi = .{ 3 * views.tile_size, 2 * views.tile_size }, .wall = 30, .ridge = 55, .roof = .gable_x }};
+    var eyes: [3]views.Eye = undefined;
+    var pictures: [3]views.Image = undefined;
+    for (&eyes, &pictures, [_]u2{ 0, 1, 2 }) |*eye, *picture, turn| {
+        eye.* = .{ .anchor = .{ 130, 150 }, .turn = turn };
+        picture.* = try blocksPicture(arena, eye.*, &gabled);
+    }
+    const start = [_]views.Block{.{ .lo = .{ 5, -6 }, .hi = .{ gabled[0].hi[0] - 4, gabled[0].hi[1] + 5 }, .wall = 22, .ridge = 60 }};
+    const fitted = (try views.fitBlocks(arena, &start, &pictures, &eyes))[0];
+    try std.testing.expectEqual(views.Roof.gable_x, fitted.roof);
+    for (0..2) |k| {
+        try std.testing.expectApproxEqAbs(gabled[0].lo[k], fitted.lo[k], 2);
+        try std.testing.expectApproxEqAbs(gabled[0].hi[k], fitted.hi[k], 2);
+    }
+    try std.testing.expectApproxEqAbs(gabled[0].wall, fitted.wall, 3);
+    try std.testing.expectApproxEqAbs(gabled[0].ridge, fitted.ridge, 3);
+    for (eyes, pictures) |eye, picture| try std.testing.expect(views.blocksIou(&.{fitted}, eye, picture) > 0.97);
+}
+
+test "a ray meets the first face, an eye sees only what nothing hides, and a hidden wall borrows the opposite one" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A low block with a tall one standing in front of it towards -y.
+    const blocks = [_]views.Block{
+        .{ .lo = .{ 0, 0 }, .hi = .{ 40, 40 }, .wall = 20, .ridge = 20 },
+        .{ .lo = .{ 0, -20 }, .hi = .{ 40, 0 }, .wall = 60, .ridge = 60 },
+    };
+    const down = views.castRay(&blocks, .{ 20, 20, 100 }, .{ 0, 0, -1 }).?;
+    try std.testing.expectApproxEqAbs(@as(f64, 80), down.t, 1e-9);
+    try std.testing.expectEqual(@as(usize, 0), down.block);
+    try std.testing.expectEqual([3]f64{ 0, 0, 1 }, down.normal);
+    // Nothing behind the ray's start counts.
+    try std.testing.expect(views.castRay(&blocks, .{ 20, 20, 100 }, .{ 0, 0, 1 }) == null);
+    // The eye looks along -x and +y (it sees the walls facing -y and +x):
+    // the tall block hides the low block's top near it, not far from it.
+    const eye: views.Eye = .{ .anchor = .{ 0, 0 } };
+    try std.testing.expect(!views.sees(&blocks, eye, .{ 20, 2, 20 }));
+    try std.testing.expect(views.sees(&blocks, eye, .{ 38, 38, 20 }));
+    // The low block's wall facing +y (plane 2) borrows from its wall facing
+    // -y (plane 3) at the same height, across the same way seen from outside.
+    const q = views.donorPoint(&blocks, .{ .block = 0, .plane = 2 }, .{ .block = 0, .plane = 3 }, .{ 10, 40, 12 });
+    try std.testing.expectEqual([3]f64{ 30, 0, 12 }, q);
+    const donors = try views.donorsOf(arena, &blocks, .{ .block = 0, .plane = 2 });
+    try std.testing.expectEqual(views.Face{ .block = 0, .plane = 3 }, donors[0]);
 }
 
 test "a shading class is the way a surface faces in the eye's own frame" {
@@ -488,7 +554,7 @@ test "the gate scores a picture against itself as perfect, finds a shift, and se
     defer arena_state.deinit();
     const arena = arena_state.allocator();
     const original = try wallPicture(arena, 80, 60);
-    const same = views.scorePicture(original, original, .{ 0, 0 });
+    const same = try views.scorePicture(arena, original, original, .{ 0, 0 });
     try std.testing.expectEqual(@as(f64, 1), same.iou);
     try std.testing.expectApproxEqAbs(@as(f64, 1), same.ssim, 1e-9);
     try std.testing.expectEqual(@as(f64, 1), same.sharpness);
@@ -504,7 +570,7 @@ test "the gate scores a picture against itself as perfect, finds a shift, and se
     };
     const offset = views.bestOffset(moved, original, .{ 9, 13 });
     try std.testing.expectEqual([2]i64{ 15, 7 }, offset);
-    try std.testing.expectApproxEqAbs(@as(f64, 1), views.scorePicture(moved, original, offset).ssim, 1e-9);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), (try views.scorePicture(arena, moved, original, offset)).ssim, 1e-9);
 
     // A box blur keeps the outline and the colour but loses the edges.
     const blurred: views.Image = .{ .width = 80, .height = 60, .pixels = try arena.alloc([4]u8, 80 * 60) };
@@ -519,10 +585,11 @@ test "the gate scores a picture against itself as perfect, finds a shift, and se
         const p = original.pixels[y * 80 + x];
         blurred.pixels[y * 80 + x] = .{ @intCast(sum[0] / 9), @intCast(sum[1] / 9), @intCast(sum[2] / 9), p[3] };
     };
-    const blur = views.scorePicture(blurred, original, .{ 0, 0 });
+    const blur = try views.scorePicture(arena, blurred, original, .{ 0, 0 });
     try std.testing.expectEqual(@as(f64, 1), blur.iou);
     try std.testing.expect(blur.sharpness < 0.5);
-    try std.testing.expect(blur.ssim < 0.9);
+    // Half a beam out of place, the layout no longer matches.
+    try std.testing.expect((try views.scorePicture(arena, original, original, .{ 4, 4 })).ssim < 0.5);
     try std.testing.expect(blur.colour < 3);
 
     // Green paint instead of plaster: the colour and the hue move.
@@ -530,8 +597,95 @@ test "the gate scores a picture against itself as perfect, finds a shift, and se
     for (green.pixels) |*p| {
         if (p[0] > 150) p.* = .{ 90, 170, 90, p[3] };
     }
-    const paint = views.scorePicture(green, original, .{ 0, 0 });
+    const paint = try views.scorePicture(arena, green, original, .{ 0, 0 });
     try std.testing.expect(paint.colour > 50 and paint.hue > 0.5);
+}
+
+/// The floors of one damage state in gate.json.
+const Floors = struct { iou: f64, mean_iou: f64, mean_ssim: f64, sharpness: [2]f64, colour: f64, hue: f64 };
+
+const Gate = struct {
+    variants: []const []const u8,
+    states: struct { @"1": Floors, @"2": Floors, @"3": Floors },
+
+    /// A state's floors; a winter state (`2w`) counts as its summer one.
+    fn floors(gate: Gate, state: []const u8) Floors {
+        return switch (state[0]) {
+            '1' => gate.states.@"1",
+            '2' => gate.states.@"2",
+            else => gate.states.@"3",
+        };
+    }
+};
+
+fn within(failures: *usize, what: []const u8, state: []const u8, name: []const u8, value: f64, low: f64, high: f64) void {
+    if (value >= low and value <= high) return;
+    std.debug.print("{s}, state {s}: {s} {d:.4} outside {d:.4}..{d:.4}\n", .{ what, state, name, value, low, high });
+    failures.* += 1;
+}
+
+test "the drawn sides stay above the quality gate (tools/zig/fixtures/bk-views/gate.json)" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = std.testing.io;
+    const options: std.json.ParseOptions = .{ .ignore_unknown_fields = true };
+    const gate = try std.json.parseFromSliceLeaky(Gate, arena, try read(arena, "tools/zig/fixtures/bk-views/gate.json"), options);
+    const out = "zig-out/local-test/bk-views/gate";
+    var argv: std.ArrayList([]const u8) = .empty;
+    try argv.appendSlice(arena, &.{ bk_views_gate.bk_views_fast, "holdout", out ++ "/holdout" });
+    for (gate.variants) |variant| try argv.append(arena, try std.fmt.allocPrint(arena, "Data/Buildings/{s}", .{variant}));
+    const result = try std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024) });
+    if (result.term != .exited or result.term.exited != 0) {
+        std.debug.print("bk-views holdout failed: {s}\n", .{result.stderr});
+        return error.HoldoutFailed;
+    }
+    const Row = struct { variant: []const u8, state: []const u8, iou: f64, ssim: f64, sharpness: f64, colour: f64, hue: f64 };
+    const rows = (try std.json.parseFromSliceLeaky(struct { holdout: []const Row }, arena, try read(arena, out ++ "/holdout/holdout.json"), options)).holdout;
+    var failures: usize = 0;
+    var sums: [3][3]f64 = std.mem.zeroes([3][3]f64);
+    for (rows) |row| {
+        const f = gate.floors(row.state);
+        within(&failures, row.variant, row.state, "IoU", row.iou, f.iou, 1);
+        within(&failures, row.variant, row.state, "sharpness", row.sharpness, f.sharpness[0], f.sharpness[1]);
+        within(&failures, row.variant, row.state, "colour", row.colour, 0, f.colour);
+        within(&failures, row.variant, row.state, "hue", row.hue, 0, f.hue);
+        const level = row.state[0] - '1';
+        sums[level] = .{ sums[level][0] + row.iou, sums[level][1] + row.ssim, sums[level][2] + 1 };
+    }
+    for (sums, [_][]const u8{ "1", "2", "3" }) |sum, state| {
+        const f = gate.floors(state);
+        within(&failures, "mean", state, "IoU", sum[0] / sum[2], f.mean_iou, 1);
+        within(&failures, "mean", state, "SSIM", sum[1] / sum[2], f.mean_ssim, 1);
+    }
+    // Every variant was drawn, and its pictures keep the style of the 2003 sides.
+    for (gate.variants) |variant| {
+        const name = std.fs.path.basename(variant);
+        for (rows) |row| {
+            if (std.mem.eql(u8, row.variant, name)) break;
+        } else {
+            std.debug.print("{s}: not drawn\n", .{name});
+            failures += 1;
+        }
+        const style_out = try std.fmt.allocPrint(arena, out ++ "/style/{s}", .{name});
+        const style = try std.process.run(arena, io, .{ .argv = &.{
+            bk_views_gate.bk_views_fast,                                     "style",                                                       style_out,
+            try std.fmt.allocPrint(arena, "Data/Buildings/{s}", .{variant}), try std.fmt.allocPrint(arena, out ++ "/holdout/{s}", .{name}),
+        } });
+        if (style.term != .exited or style.term.exited != 0) {
+            std.debug.print("bk-views style failed: {s}\n", .{style.stderr});
+            return error.StyleFailed;
+        }
+        const StyleRow = struct { generated: []const u8, state: []const u8, sharpness: f64, colour: f64, hue: f64 };
+        const styles = (try std.json.parseFromSliceLeaky(struct { style: []const StyleRow }, arena, try read(arena, try std.fmt.allocPrint(arena, "{s}/style.json", .{style_out})), options)).style;
+        for (styles) |row| {
+            const f = gate.floors(row.state);
+            within(&failures, row.generated, row.state, "style sharpness", row.sharpness, f.sharpness[0], f.sharpness[1]);
+            within(&failures, row.generated, row.state, "style colour", row.colour, 0, f.colour);
+            within(&failures, row.generated, row.state, "style hue", row.hue, 0, f.hue);
+        }
+    }
+    if (failures > 0) return error.BelowTheGate;
 }
 
 /// Tracked text is checked out with CRLF; the tool writes LF.

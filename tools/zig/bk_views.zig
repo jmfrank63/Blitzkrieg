@@ -18,11 +18,12 @@
 //! and measures which side of its building each variant shows; `turnXml`
 //! turns a variant's `1.xml` to another side.
 //!
-//! `side` makes a variant turned by quarter turns: a voxel block-out of the
-//! building carved from its family's outlines, the 2003 pictures of the
-//! variant's colourway projected onto it (Blender casts the rays,
-//! tools/blender/bk_views_render.py), mirrored or patch-filled where none
-//! sees a face, and packed by `bk-sprite compose-pack`.
+//! `side` makes a variant turned by quarter turns: the building as a few
+//! blocks with flat, gabled or hipped roofs fitted to its family's outlines,
+//! the 2003 pictures of the variant's colourway projected onto their faces
+//! through the exact 2003 camera, a face no picture sees borrowing the look of
+//! a matching face one does (the opposite wall, the other roof plane), the
+//! last gaps patch-filled, and packed by `bk-sprite compose-pack`.
 //!
 //! `holdout` and `style` are the quality gate: a side that exists in 2003
 //! drawn again without it and scored against it, and generated pictures
@@ -38,7 +39,7 @@ const usage: bk_tool.Usage = .{
     \\       bk-views inventory <buildings-dir> <out-dir>
     \\       bk-views side <variant-dir> <turns> <out-dir>
     \\       bk-views holdout <out-dir> <variant-dir>...
-    \\       bk-views style <out-dir> <variant-dir> <generated-dir>...
+    \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -523,6 +524,9 @@ fn readPacks(ctx: *bk_tool.Context, dir_path: []const u8) !Packs {
     for (names.items) |name| {
         const san_path = try std.fs.path.join(arena, &.{ dir_path, try std.fmt.allocPrint(arena, "{s}.san", .{name}) });
         const dds_path = try std.fs.path.join(arena, &.{ dir_path, try std.fmt.allocPrint(arena, "{s}_h.dds", .{name}) });
+        // townhouse03_1 holds stray 2gw/3gw packs without textures (its
+        // winter ground pictures are 2wg/3wg): no picture, so none to read.
+        std.Io.Dir.cwd().access(io, dds_path, .{}) catch continue;
         const san = try readFile(ctx, san_path);
         const pack = decodePack(arena, san) catch |err| return ctx.failKey("views.err.bad_san", .{ san_path, @errorName(err) });
         const atlas = readDds(arena, try readFile(ctx, dds_path)) catch |err| return ctx.failKey("views.err.bad_dds", .{ dds_path, @errorName(err) });
@@ -1486,6 +1490,492 @@ pub fn alignEyes(gpa: std.mem.Allocator, fixed: usize, footprints: []const Grid,
     };
 }
 
+/// A roof over a block: flat, a gable whose ridge runs along x or y, or a hip
+/// (every side sloping alike).
+pub const Roof = enum { flat, gable_x, gable_y, hip };
+
+/// A part of the building: walls over the rectangle lo..hi up to `wall`, the
+/// roof up to `ridge`. Buildings are unions of a few blocks.
+pub const Block = struct { lo: [2]f64, hi: [2]f64, wall: f64, ridge: f64, roof: Roof = .flat };
+
+/// A half-space n . p <= d; a block is the intersection of up to nine.
+const Plane = struct { n: [3]f64, d: f64 };
+
+fn blockPlanes(b: Block, out: *[9]Plane) []const Plane {
+    out[0..5].* = .{
+        .{ .n = .{ 1, 0, 0 }, .d = b.hi[0] },
+        .{ .n = .{ -1, 0, 0 }, .d = -b.lo[0] },
+        .{ .n = .{ 0, 1, 0 }, .d = b.hi[1] },
+        .{ .n = .{ 0, -1, 0 }, .d = -b.lo[1] },
+        .{ .n = .{ 0, 0, -1 }, .d = 0 },
+    };
+    const c = [2]f64{ (b.lo[0] + b.hi[0]) / 2, (b.lo[1] + b.hi[1]) / 2 };
+    const half = [2]f64{ (b.hi[0] - b.lo[0]) / 2, (b.hi[1] - b.lo[1]) / 2 };
+    // Slopes towards +x/-x and +y/-y: z <= wall + s (half - |p - c|).
+    const axes: [2]bool = switch (b.roof) {
+        .flat => .{ false, false },
+        .gable_x => .{ false, true },
+        .gable_y => .{ true, false },
+        .hip => .{ true, true },
+    };
+    var n: usize = 5;
+    for (0..2) |a| {
+        if (!axes[a]) continue;
+        const s = (b.ridge - b.wall) / (if (b.roof == .hip) @min(half[0], half[1]) else half[a]);
+        for ([2]f64{ 1, -1 }) |sign| {
+            var normal = [3]f64{ 0, 0, 1 };
+            normal[a] = sign * s;
+            out[n] = .{ .n = normal, .d = b.wall + s * half[a] + sign * s * c[a] };
+            n += 1;
+        }
+    }
+    if (n == 5) {
+        out[n] = .{ .n = .{ 0, 0, 1 }, .d = b.wall };
+        n += 1;
+    }
+    return out[0..n];
+}
+
+/// Where a ray meets the building: the distance along it, the block and the
+/// outward normal of the face it meets.
+pub const Hit = struct { t: f64, block: usize, plane: usize, normal: [3]f64 };
+
+fn dot(a: [3]f64, b: [3]f64) f64 {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+fn castBlock(b: Block, o: [3]f64, d: [3]f64) ?Hit {
+    var buffer: [9]Plane = undefined;
+    const planes = blockPlanes(b, &buffer);
+    var near = -std.math.inf(f64);
+    var far = std.math.inf(f64);
+    var entry: usize = 0;
+    for (planes, 0..) |plane, k| {
+        const along = dot(plane.n, d);
+        const room = plane.d - dot(plane.n, o);
+        if (along == 0) {
+            if (room < 0) return null;
+            continue;
+        }
+        const t = room / along;
+        if (along < 0) {
+            if (t > near) {
+                near = t;
+                entry = k;
+            }
+        } else far = @min(far, t);
+    }
+    if (near > far or far < 0 or near == -std.math.inf(f64)) return null;
+    const n = planes[entry].n;
+    const length = @sqrt(dot(n, n));
+    return .{ .t = near, .block = 0, .plane = entry, .normal = .{ n[0] / length, n[1] / length, n[2] / length } };
+}
+
+/// The first face along the ray from o in direction d (a unit vector).
+pub fn castRay(blocks: []const Block, o: [3]f64, d: [3]f64) ?Hit {
+    var best: ?Hit = null;
+    for (blocks, 0..) |b, i| {
+        var hit = castBlock(b, o, d) orelse continue;
+        if (best != null and hit.t >= best.?.t) continue;
+        hit.block = i;
+        best = hit;
+    }
+    return best;
+}
+
+/// The rays of picture pixels start this far before the picture plane.
+const far_away = 4000.0;
+
+/// The face an eye sees through picture point (x, y).
+pub fn castPixel(blocks: []const Block, eye: Eye, x: f64, y: f64) ?Hit {
+    const r = eye.ray(x, y);
+    return castRay(blocks, .{ r[0][0] - far_away * r[1][0], r[0][1] - far_away * r[1][1], r[0][2] - far_away * r[1][2] }, r[1]);
+}
+
+/// Does `eye` see the surface point p, nothing standing in front of it?
+pub fn sees(blocks: []const Block, eye: Eye, p: [3]f64) bool {
+    const d = eye.ray(0, 0)[1];
+    const hit = castRay(blocks, .{ p[0] - far_away * d[0], p[1] - far_away * d[1], p[2] - far_away * d[2] }, d) orelse return false;
+    return @abs(hit.t - far_away) < 0.5;
+}
+
+/// A face of the blocks: block `block`'s half-space `plane` (blockPlanes).
+pub const Face = struct { block: usize, plane: usize };
+
+fn facePlane(blocks: []const Block, f: Face) Plane {
+    var buffer: [9]Plane = undefined;
+    return blockPlanes(blocks[f.block], &buffer)[f.plane];
+}
+
+fn normalOf(blocks: []const Block, f: Face) [3]f64 {
+    const n = facePlane(blocks, f).n;
+    const length = @sqrt(dot(n, n));
+    return .{ n[0] / length, n[1] / length, n[2] / length };
+}
+
+/// A face's place: across it from its left end seen from outside (0..1) and
+/// its height; a flat roof's is across x and y (0..1 each).
+fn faceAt(b: Block, plane: Plane, p: [3]f64) [2]f64 {
+    if (plane.n[0] == 0 and plane.n[1] == 0) return .{ (p[0] - b.lo[0]) / (b.hi[0] - b.lo[0]), (p[1] - b.lo[1]) / (b.hi[1] - b.lo[1]) };
+    // Along the face runs axis a; seen from outside, right is (-n.y, n.x).
+    const a: usize = if (plane.n[0] != 0) 1 else 0;
+    const right = if (a == 1) plane.n[0] else -plane.n[1];
+    const u = (p[a] - b.lo[a]) / (b.hi[a] - b.lo[a]);
+    return .{ if (right > 0) u else 1 - u, p[2] };
+}
+
+/// The point at place `at` (faceAt) of a face.
+fn facePoint(b: Block, plane: Plane, at: [2]f64) [3]f64 {
+    if (plane.n[0] == 0 and plane.n[1] == 0) return .{ b.lo[0] + at[0] * (b.hi[0] - b.lo[0]), b.lo[1] + at[1] * (b.hi[1] - b.lo[1]), plane.d };
+    const a: usize = if (plane.n[0] != 0) 1 else 0;
+    const right = if (a == 1) plane.n[0] else -plane.n[1];
+    var q: [3]f64 = undefined;
+    q[2] = at[1];
+    q[a] = b.lo[a] + (if (right > 0) at[0] else 1 - at[0]) * (b.hi[a] - b.lo[a]);
+    q[1 - a] = (plane.d - plane.n[a] * q[a] - plane.n[2] * at[1]) / plane.n[1 - a];
+    return q;
+}
+
+/// Where a point of face `from` lands on face `to`: at the same place across
+/// it, its height scaled so that the eaves and the ridges meet (a flat
+/// roof's place turned half round, as a building's opposite side shows it).
+pub fn donorPoint(blocks: []const Block, from: Face, to: Face, p: [3]f64) [3]f64 {
+    const a = blocks[from.block];
+    const b = blocks[to.block];
+    const pa = facePlane(blocks, from);
+    var at = faceAt(a, pa, p);
+    if (pa.n[0] == 0 and pa.n[1] == 0) {
+        at = .{ 1 - at[0], 1 - at[1] };
+    } else if (at[1] <= a.wall) {
+        at[1] *= b.wall / a.wall;
+    } else {
+        at[1] = b.wall + (at[1] - a.wall) * (b.ridge - b.wall) / @max(0.5, a.ridge - a.wall);
+    }
+    return facePoint(b, facePlane(blocks, to), at);
+}
+
+/// The faces that may lend face f their look where no 2003 picture sees
+/// it, best first: faces of its kind (wall, sloped roof or flat roof), its
+/// own block's opposite face first, then faces of other blocks alike in
+/// width and height, facing the same way, the opposite way or across.
+pub fn donorsOf(gpa: std.mem.Allocator, blocks: []const Block, f: Face) ![]Face {
+    const Ranked = struct { face: Face, cost: f64 };
+    var ranked: std.ArrayList(Ranked) = .empty;
+    const pf = facePlane(blocks, f);
+    const bf = blocks[f.block];
+    for (blocks, 0..) |b, j| {
+        var buffer: [9]Plane = undefined;
+        for (blockPlanes(b, &buffer), 0..) |pg, k| {
+            if ((j == f.block and k == f.plane) or pg.n[2] < 0 or (pg.n[2] == 0) != (pf.n[2] == 0)) continue;
+            const flat_f = pf.n[0] == 0 and pf.n[1] == 0;
+            const flat_g = pg.n[0] == 0 and pg.n[1] == 0;
+            if (flat_f != flat_g) continue;
+            var cost: f64 = if (j == f.block) 0 else 1;
+            if (!flat_f) {
+                const hf = [2]f64{ std.math.sign(pf.n[0]), std.math.sign(pf.n[1]) };
+                const hg = [2]f64{ std.math.sign(pg.n[0]), std.math.sign(pg.n[1]) };
+                const along = hf[0] * hg[0] + hf[1] * hg[1];
+                cost += if (along > 0) 0 else if (along < 0) 0.25 else 0.5;
+                const af: usize = if (pf.n[0] != 0) 1 else 0;
+                const ag: usize = if (pg.n[0] != 0) 1 else 0;
+                const wf = bf.hi[af] - bf.lo[af];
+                const wg = b.hi[ag] - b.lo[ag];
+                cost += @abs(wf - wg) / @max(wf, wg);
+            }
+            cost += @abs(bf.ridge - b.ridge) / @max(bf.ridge, b.ridge);
+            try ranked.append(gpa, .{ .face = .{ .block = j, .plane = k }, .cost = cost });
+        }
+    }
+    std.mem.sort(Ranked, ranked.items, {}, struct {
+        fn less(_: void, x: Ranked, y: Ranked) bool {
+            return x.cost < y.cost;
+        }
+    }.less);
+    const faces = try gpa.alloc(Face, ranked.items.len);
+    for (faces, ranked.items) |*face, r| face.* = r.face;
+    return faces;
+}
+
+/// The rectangles of the hull's ground slice within half a cell of the
+/// footprint (with single stray voxels removed), largest first: at most six,
+/// none under 25 voxels or narrower than 4, each a flat block as high as the
+/// hull above it. The start of `fitBlocks`.
+pub fn baseBlocks(gpa: std.mem.Allocator, hull: Hull, footprint: Grid) ![]Block {
+    const w = hull.n[0];
+    const h = hull.n[1];
+    const slice = try gpa.alloc(bool, w * h);
+    defer gpa.free(slice);
+    for (slice, 0..) |*s, i| {
+        const c = hull.center(i % w, i / w, 0);
+        s.* = hull.cells[i] and for ([_][2]f64{ .{ 0, 0 }, .{ 1, 0 }, .{ -1, 0 }, .{ 0, 1 }, .{ 0, -1 } }) |d| {
+            const x = (c[0] + d[0] * tile_size / 2 + footprint.origin[0]) / tile_size;
+            const y = (c[1] + d[1] * tile_size / 2 + footprint.origin[1]) / tile_size;
+            if (x >= 0 and y >= 0 and occupied(footprint.rows, @intFromFloat(x), @intFromFloat(y))) break true;
+        } else false;
+    }
+    // An opening: a voxel stays where it lies in a full 3x3 square of them.
+    const free = try gpa.alloc(bool, w * h);
+    defer gpa.free(free);
+    @memset(free, false);
+    for (1..@max(1, h) - 1) |y| for (1..@max(1, w) - 1) |x| {
+        const full = for (0..9) |k| {
+            if (!slice[(y + k / 3 - 1) * w + x + k % 3 - 1]) break false;
+        } else true;
+        if (full) for (0..9) |k| {
+            free[(y + k / 3 - 1) * w + x + k % 3 - 1] = true;
+        };
+    };
+    var blocks: std.ArrayList(Block) = .empty;
+    while (blocks.items.len < 6) {
+        // The largest rectangle of free cells: for each top row and left
+        // column, widen right while every row below keeps it free.
+        var best = [5]usize{ 0, 0, 0, 0, 0 };
+        for (0..h) |y0| for (0..w) |x0| {
+            var x1 = x0;
+            var y1 = y0;
+            while (y1 < h and free[y1 * w + x0]) y1 += 1;
+            if (y1 == y0) continue;
+            var depth = y1 - y0;
+            while (x1 < w and depth > 0) : (x1 += 1) {
+                var d: usize = 0;
+                while (d < depth and free[(y0 + d) * w + x1]) d += 1;
+                depth = d;
+                if (depth == 0) break;
+                if ((x1 + 1 - x0) * depth > best[4] and depth >= 4 and x1 + 1 - x0 >= 4) best = .{ x0, y0, x1 + 1, y0 + depth, (x1 + 1 - x0) * depth };
+            }
+        };
+        if (best[4] < 25) break;
+        var top: usize = 0;
+        for (best[1]..best[3]) |y| for (best[0]..best[2]) |x| {
+            free[y * w + x] = false;
+            for (0..hull.n[2]) |l| {
+                if (hull.get(@intCast(x), @intCast(y), @intCast(l))) top = @max(top, l + 1);
+            }
+        };
+        const height = @as(f64, @floatFromInt(top)) * hull.size;
+        try blocks.append(gpa, .{
+            .lo = .{ hull.lo[0] + @as(f64, @floatFromInt(best[0])) * hull.size, hull.lo[1] + @as(f64, @floatFromInt(best[1])) * hull.size },
+            .hi = .{ hull.lo[0] + @as(f64, @floatFromInt(best[2])) * hull.size, hull.lo[1] + @as(f64, @floatFromInt(best[3])) * hull.size },
+            .wall = height * 0.6,
+            .ridge = height,
+        });
+    }
+    return blocks.items;
+}
+
+/// A picture the blocks are fitted to, sampled every `fit_step` pixels: its
+/// eye, its outline (alpha 128 or more) and, per sample, the blocks its ray meets.
+const Silhouette = struct { eye: Eye, w: usize, h: usize, inside: []bool, hits: []u8 };
+
+const fit_step = 2;
+
+fn sampleMeets(b: Block, eye: Eye, x: usize, y: usize) bool {
+    const r = eye.ray(@as(f64, @floatFromInt(x * fit_step)) + 0.5, @as(f64, @floatFromInt(y * fit_step)) + 0.5);
+    return castBlock(b, .{ r[0][0] - far_away * r[1][0], r[0][1] - far_away * r[1][1], r[0][2] - far_away * r[1][2] }, r[1]) != null;
+}
+
+/// The samples a block may cover in a silhouette: its box's corners projected.
+fn sampleBox(b: Block, s: Silhouette) [4]usize {
+    var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+    var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+    for (0..8) |c| {
+        const q = s.eye.project(.{ if (c & 1 != 0) b.hi[0] else b.lo[0], if (c & 2 != 0) b.hi[1] else b.lo[1], if (c & 4 != 0) @max(b.wall, b.ridge) else 0 });
+        lo = .{ @min(lo[0], q[0]), @min(lo[1], q[1]) };
+        hi = .{ @max(hi[0], q[0]), @max(hi[1], q[1]) };
+    }
+    const clamp = struct {
+        fn f(v: f64, n: usize) usize {
+            return @intFromFloat(std.math.clamp(v / fit_step, 0, @as(f64, @floatFromInt(n))));
+        }
+    }.f;
+    return .{ clamp(lo[0] - 2, s.w), clamp(lo[1] - 2, s.h), clamp(hi[0] + 3, s.w), clamp(hi[1] + 3, s.h) };
+}
+
+/// A block a building may hold: at least 4 world units each way, and a roof
+/// no steeper than 2.5 (68 degrees). Without that limit a thin block with a
+/// knife-edge roof stands in for a wall, and its faces take roof pixels.
+fn plausible(b: Block) bool {
+    if (b.hi[0] - b.lo[0] < 4 or b.hi[1] - b.lo[1] < 4 or b.wall < 2 or b.ridge < b.wall) return false;
+    const half = [2]f64{ (b.hi[0] - b.lo[0]) / 2, (b.hi[1] - b.lo[1]) / 2 };
+    const across = switch (b.roof) {
+        .flat => return true,
+        .gable_x => half[1],
+        .gable_y => half[0],
+        .hip => @min(half[0], half[1]),
+    };
+    return b.ridge - b.wall <= 2.5 * across;
+}
+
+/// A block's volume, its roof counted as half the box above the walls.
+fn blockVolume(b: Block) f64 {
+    return (b.hi[0] - b.lo[0]) * (b.hi[1] - b.lo[1]) * (b.wall + (b.ridge - b.wall) / 2);
+}
+
+/// What a fit costs per volume of the start: an outline seen from one side
+/// leaves the depth of what stands in front of the building open, and a
+/// block grown tall there costs the outline nothing but stands as a tower
+/// from behind. Over the 23 hold-out variants, a cost of 0.02 IoU for the
+/// start's volume once more gave the best mean outline IoU of the drawn
+/// sides (0.862 against 0.854 without and 0.848 at 0.05).
+const volume_cost = 0.02;
+
+/// The outline overlap of blocks with pictures, kept per sample so that
+/// replacing one block is counted over the samples it may cover only, and
+/// the blocks' volume.
+const Fit = struct {
+    silhouettes: []Silhouette,
+    both: i64 = 0,
+    either: i64 = 0,
+    volume: f64 = 0,
+    start: f64 = 1,
+
+    /// The overlap's counts (both, either) with block j replaced by c.
+    fn trial(fit: Fit, old: Block, j: usize, c: Block) [2]i64 {
+        const bit = @as(u8, 1) << @intCast(j);
+        var counts = [2]i64{ fit.both, fit.either };
+        for (fit.silhouettes) |s| {
+            const a = sampleBox(old, s);
+            const b = sampleBox(c, s);
+            for (@min(a[1], b[1])..@max(a[3], b[3])) |y| for (@min(a[0], b[0])..@max(a[2], b[2])) |x| {
+                const i = y * s.w + x;
+                const was = s.hits[i] != 0;
+                const now = (s.hits[i] & ~bit) != 0 or sampleMeets(c, s.eye, x, y);
+                if (was == now) continue;
+                counts[@intFromBool(!s.inside[i])] += if (now) 1 else -1;
+            };
+        }
+        return counts;
+    }
+
+    /// The fit's score with these counts and volume: the IoU less the cost of the volume.
+    fn score(fit: Fit, counts: [2]i64, total: f64) f64 {
+        return @as(f64, @floatFromInt(counts[0])) / @as(f64, @floatFromInt(@max(1, counts[1]))) - volume_cost * total / fit.start;
+    }
+
+    fn take(fit: *Fit, old: Block, j: usize, c: Block, counts: [2]i64) void {
+        const bit = @as(u8, 1) << @intCast(j);
+        for (fit.silhouettes) |s| {
+            const a = sampleBox(old, s);
+            const b = sampleBox(c, s);
+            for (@min(a[1], b[1])..@max(a[3], b[3])) |y| for (@min(a[0], b[0])..@max(a[2], b[2])) |x| {
+                const i = y * s.w + x;
+                s.hits[i] = (s.hits[i] & ~bit) | (if (sampleMeets(c, s.eye, x, y)) bit else 0);
+            };
+        }
+        fit.both = counts[0];
+        fit.either = counts[1];
+        fit.volume += blockVolume(c) - blockVolume(old);
+    }
+};
+
+/// The blocks, from `start`, that best fit the pictures' outlines (the IoU
+/// summed over the pictures, less the cost of their volume). Each block first
+/// takes its best roof, wall and ridge height on a grid of 8 world units (the
+/// ridge no higher than the start's, which is the hull's); then every edge,
+/// height and roof of every block is moved while the fit improves, in steps
+/// of 8 down to 1.
+pub fn fitBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const Image, eyes: []const Eye) ![]Block {
+    const blocks = try gpa.dupe(Block, start);
+    var fit: Fit = .{ .silhouettes = try gpa.alloc(Silhouette, pictures.len) };
+    for (blocks) |b| fit.volume += blockVolume(b);
+    fit.start = @max(1, fit.volume);
+    for (fit.silhouettes, pictures, eyes) |*s, picture, eye| {
+        const w = (picture.width + fit_step - 1) / fit_step;
+        const h = (picture.height + fit_step - 1) / fit_step;
+        s.* = .{ .eye = eye, .w = w, .h = h, .inside = try gpa.alloc(bool, w * h), .hits = try gpa.alloc(u8, w * h) };
+        for (0..h) |y| for (0..w) |x| {
+            const i = y * w + x;
+            s.inside[i] = picture.pixels[y * fit_step * picture.width + x * fit_step][3] >= 128;
+            s.hits[i] = 0;
+            for (blocks, 0..) |b, j| {
+                if (sampleMeets(b, eye, x, y)) s.hits[i] |= @as(u8, 1) << @intCast(j);
+            }
+            fit.both += @intFromBool(s.inside[i] and s.hits[i] != 0);
+            fit.either += @intFromBool(s.inside[i] or s.hits[i] != 0);
+        };
+    }
+    for (blocks, 0..) |b, j| bestHeights(&fit, blocks, j, 8, @max(b.wall, b.ridge) + 8, 8);
+    descend(&fit, blocks, &.{ 8, 4, 2, 1 });
+    return blocks;
+}
+
+/// Block j's best roof with wall and ridge heights from `from` to `to` in `step`s.
+fn bestHeights(fit: *Fit, blocks: []Block, j: usize, from: f64, to: f64, step: f64) void {
+    const block = blocks[j];
+    var best = block;
+    var best_counts = [2]i64{ fit.both, fit.either };
+    var best_score = fit.score(best_counts, fit.volume);
+    for (0..4) |roof| {
+        var ridge = from;
+        while (ridge <= to) : (ridge += step) {
+            var wall: f64 = if (roof == 0) ridge else from;
+            while (wall <= ridge) : (wall += step) {
+                var c = block;
+                c.roof = @fromBackingInt(@intCast(roof));
+                c.wall = wall;
+                c.ridge = ridge;
+                if (!plausible(c)) continue;
+                const counts = fit.trial(block, j, c);
+                const score = fit.score(counts, fit.volume - blockVolume(block) + blockVolume(c));
+                if (score <= best_score) continue;
+                best = c;
+                best_counts = counts;
+                best_score = score;
+            }
+        }
+    }
+    fit.take(block, j, best, best_counts);
+    blocks[j] = best;
+}
+
+/// Every edge, height and roof of every block moved by each step while the
+/// fit improves.
+fn descend(fit: *Fit, blocks: []Block, steps: []const f64) void {
+    for (steps) |step| {
+        var rounds: usize = 0;
+        var improved = true;
+        while (improved and rounds < 20) : (rounds += 1) {
+            improved = false;
+            for (blocks, 0..) |*block, j| {
+                for (0..18) |v| {
+                    var c = block.*;
+                    switch (v) {
+                        0...3 => c.lo[v % 2] += if (v < 2) step else -step,
+                        4...7 => c.hi[v % 2] += if (v < 6) step else -step,
+                        8, 9 => c.wall += if (v == 8) step else -step,
+                        10, 11 => c.ridge += if (v == 10) step else -step,
+                        12, 13 => {
+                            c.wall += if (v == 12) step else -step;
+                            c.ridge += if (v == 12) step else -step;
+                        },
+                        else => c.roof = @fromBackingInt(@intCast(v - 14)),
+                    }
+                    if (c.roof == block.roof and v >= 14) continue;
+                    if (!plausible(c)) continue;
+                    const counts = fit.trial(block.*, j, c);
+                    if (fit.score(counts, fit.volume - blockVolume(block.*) + blockVolume(c)) <= fit.score(.{ fit.both, fit.either }, fit.volume)) continue;
+                    fit.take(block.*, j, c, counts);
+                    block.* = c;
+                    improved = true;
+                }
+            }
+        }
+    }
+}
+
+/// The overlap of the blocks' outline with a picture's (alpha 128 or more).
+pub fn blocksIou(blocks: []const Block, eye: Eye, picture: Image) f64 {
+    var both: f64 = 0;
+    var either: f64 = 0;
+    for (0..picture.height) |y| for (0..picture.width) |x| {
+        const in_model = castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5) != null;
+        const in_picture = picture.pixels[y * picture.width + x][3] >= 128;
+        both += @floatFromInt(@intFromBool(in_model and in_picture));
+        either += @floatFromInt(@intFromBool(in_model or in_picture));
+    };
+    return if (either == 0) 0 else both / either;
+}
+
 /// Where grid b's zero cross sits in b's frame when b shows grid a's building
 /// turned `turn` times, their occupied boxes laid centre on centre.
 fn footprintShift(a: Grid, b: Grid, turn: u2) [2]f64 {
@@ -1553,139 +2043,6 @@ fn pictureOf(source: Source, name: []const u8) ?Image {
     return null;
 }
 
-/// The hull's outer faces as quads over shared corners, for Blender.
-pub const Mesh = struct { verts: []f32, quads: []u32 };
-
-pub fn hullMesh(gpa: std.mem.Allocator, hull: Hull) !Mesh {
-    var corners: std.AutoHashMapUnmanaged(u64, u32) = .empty;
-    defer corners.deinit(gpa);
-    var verts: std.ArrayList(f32) = .empty;
-    var quads: std.ArrayList(u32) = .empty;
-    for (0..hull.n[2]) |l| for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
-        const cell = [3]isize{ @intCast(i), @intCast(j), @intCast(l) };
-        if (!hull.get(cell[0], cell[1], cell[2])) continue;
-        for (0..3) |a| for ([2]isize{ -1, 1 }) |s| {
-            var next = cell;
-            next[a] += s;
-            if (hull.get(next[0], next[1], next[2])) continue;
-            // The face's corners counter-clockwise seen from outside: axes b and c follow a.
-            const b = (a + 1) % 3;
-            const c = (a + 2) % 3;
-            const order: [4][2]u1 = if (s > 0) .{ .{ 0, 0 }, .{ 1, 0 }, .{ 1, 1 }, .{ 0, 1 } } else .{ .{ 0, 0 }, .{ 0, 1 }, .{ 1, 1 }, .{ 1, 0 } };
-            for (order) |o| {
-                var corner = [3]usize{ i, j, l };
-                if (s > 0) corner[a] += 1;
-                corner[b] += o[0];
-                corner[c] += o[1];
-                const key = (@as(u64, corner[2]) * (hull.n[1] + 1) + corner[1]) * (hull.n[0] + 1) + corner[0];
-                const entry = try corners.getOrPut(gpa, key);
-                if (!entry.found_existing) {
-                    entry.value_ptr.* = @intCast(verts.items.len / 3);
-                    for (0..3) |k| try verts.append(gpa, @floatCast(hull.lo[k] + @as(f64, @floatFromInt(corner[k])) * hull.size));
-                }
-                try quads.append(gpa, entry.value_ptr.*);
-            }
-        };
-    };
-    return .{ .verts = verts.items, .quads = quads.items };
-}
-
-/// A mirror of the building or the identity: p goes to matrix * p + offset.
-pub const Mirror = struct { matrix: [3][3]f64, offset: [3]f64 };
-
-pub const identity: Mirror = .{ .matrix = .{ .{ 1, 0, 0 }, .{ 0, 1, 0 }, .{ 0, 0, 1 } }, .offset = .{ 0, 0, 0 } };
-
-pub fn mirrorPoint(m: Mirror, p: [3]f64) [3]f64 {
-    var q: [3]f64 = undefined;
-    for (0..3) |r| q[r] = m.matrix[r][0] * p[0] + m.matrix[r][1] * p[1] + m.matrix[r][2] * p[2] + m.offset[r];
-    return q;
-}
-
-/// A check of a view: does eye `eye` see the hit point moved by `mirror`?
-pub const Check = struct { eye: usize, mirror: ?usize };
-
-/// What Blender wrote for one view: the hit point of every pixel (NaN for
-/// none) and its flags (bit c: check c sees it; bit 7: the ground there is in
-/// shadow).
-pub const Buffers = struct { width: u32, height: u32, pos: [][3]f32, flags: []u8 };
-
-pub const shadow_bit: u8 = 128;
-
-/// One Blender view: `eye` (in the target variant's frame) looking at mesh
-/// `mesh`, a canvas of `size`.
-pub const JobView = struct { mesh: usize, eye: Eye, size: [2]u32, checks: []const Check = &.{}, light: ?[3]f64 = null, out: []const u8 };
-
-pub fn writeJob(w: *std.Io.Writer, meshes: []const [2][]const u8, views: []const JobView, eyes: []const Eye, mirrors: []const Mirror) !void {
-    try w.writeAll("{\"tolerance\":6,\"meshes\":[");
-    for (meshes, 0..) |mesh, i| try w.print("{s}{{\"verts\":{f},\"quads\":{f}}}", .{ if (i > 0) "," else "", std.json.fmt(mesh[0], .{}), std.json.fmt(mesh[1], .{}) });
-    try w.writeAll("],\n\"views\":[");
-    for (views, 0..) |view, i| {
-        const o = view.eye.ray(0, 0);
-        const ux = view.eye.ray(1, 0)[0];
-        const vy = view.eye.ray(0, 1)[0];
-        const far = 2000.0;
-        const d = o[1];
-        try w.print("{s}\n{{\"mesh\":{d},\"width\":{d},\"height\":{d},\"out\":{f},", .{ if (i > 0) "," else "", view.mesh, view.size[0], view.size[1], std.json.fmt(view.out, .{}) });
-        try w.print("\"origin\":[{d},{d},{d}],\"u\":[{d},{d},{d}],\"v\":[{d},{d},{d}],\"dir\":[{d},{d},{d}]", .{
-            o[0][0] - far * d[0], o[0][1] - far * d[1], o[0][2] - far * d[2],
-            ux[0] - o[0][0],      ux[1] - o[0][1],      ux[2] - o[0][2],
-            vy[0] - o[0][0],      vy[1] - o[0][1],      vy[2] - o[0][2],
-            d[0],                 d[1],                 d[2],
-        });
-        if (view.light) |l| try w.print(",\"light\":[{d},{d},{d}]", .{ l[0], l[1], l[2] });
-        try w.writeAll(",\"checks\":[");
-        for (view.checks, 0..) |check, c| {
-            const m = if (check.mirror) |k| mirrors[k] else identity;
-            const e = eyes[check.eye].ray(0, 0)[1];
-            try w.print("{s}{{\"matrix\":[{d},{d},{d},{d},{d},{d},{d},{d},{d}],\"offset\":[{d},{d},{d}],\"dir\":[{d},{d},{d}]}}", .{
-                if (c > 0) "," else "",
-                m.matrix[0][0],
-                m.matrix[0][1],
-                m.matrix[0][2],
-                m.matrix[1][0],
-                m.matrix[1][1],
-                m.matrix[1][2],
-                m.matrix[2][0],
-                m.matrix[2][1],
-                m.matrix[2][2],
-                m.offset[0],
-                m.offset[1],
-                m.offset[2],
-                e[0],
-                e[1],
-                e[2],
-            });
-        }
-        try w.writeAll("]}");
-    }
-    try w.writeAll("]}\n");
-}
-
-pub fn readBuffers(gpa: std.mem.Allocator, io: std.Io, out: []const u8, size: [2]u32) !Buffers {
-    const cwd = std.Io.Dir.cwd();
-    const count = @as(usize, size[0]) * size[1];
-    const pos_bytes = try cwd.readFileAlloc(io, try std.fmt.allocPrint(gpa, "{s}.pos", .{out}), gpa, .limited(64 * 1024 * 1024));
-    const flags = try cwd.readFileAlloc(io, try std.fmt.allocPrint(gpa, "{s}.flags", .{out}), gpa, .limited(64 * 1024 * 1024));
-    if (pos_bytes.len != count * 12 or flags.len != count) return error.BadBuffers;
-    const pos = try gpa.alloc([3]f32, count);
-    @memcpy(std.mem.sliceAsBytes(pos), pos_bytes);
-    return .{ .width = size[0], .height = size[1], .pos = pos, .flags = flags };
-}
-
-/// Runs Blender headless on the job; its own output is kept beside the job.
-fn runBlender(ctx: *bk_tool.Context, job: []const u8) !void {
-    const arena = ctx.arena;
-    // win-home's Blender 5.1; elsewhere the one on PATH.
-    const blender = if (@import("builtin").os.tag == .windows) "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe" else "blender";
-    const script = try bk_tool.inputPath(arena, "tools/blender/bk_views_render.py");
-    const result = std.process.run(arena, ctx.io, .{
-        .argv = &.{ blender, "-b", "--factory-startup", "--python-exit-code", "1", "--python", script, "--", job },
-        .stdout_limit = .limited(16 * 1024 * 1024),
-        .stderr_limit = .limited(16 * 1024 * 1024),
-    }) catch |err| return ctx.failKey("views.err.blender", .{ job, @errorName(err) });
-    if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.blender", .{ job, result.stderr });
-}
-
 /// The shading class of a surface with normal `n` seen by an eye turned
 /// `turn`: which of -y, +x, +y, -x its horizontal part faces in that eye's
 /// frame (0..3), plus 4 for a roof, which faces more up than sideways. The
@@ -1699,26 +2056,6 @@ pub fn shadeClass(n: [3]f64, turn: u2) usize {
         if (f > faces[best]) best = q;
     }
     return best + @as(usize, if (n[2] > 0.5) 4 else 0);
-}
-
-/// The hull's outward normal at `p`: away from the filled voxels around it.
-pub fn hullNormal(hull: Hull, p: [3]f64) [3]f64 {
-    var c: [3]i64 = undefined;
-    for (0..3) |k| c[k] = @intFromFloat(@floor((p[k] - hull.lo[k]) / hull.size));
-    var sum = [3]f64{ 0, 0, 0 };
-    var dz: i64 = -3;
-    while (dz <= 3) : (dz += 1) {
-        var dy: i64 = -3;
-        while (dy <= 3) : (dy += 1) {
-            var dx: i64 = -3;
-            while (dx <= 3) : (dx += 1) {
-                if (!hull.get(@intCast(c[0] + dx), @intCast(c[1] + dy), @intCast(c[2] + dz))) continue;
-                sum = .{ sum[0] - @as(f64, @floatFromInt(dx)), sum[1] - @as(f64, @floatFromInt(dy)), sum[2] - @as(f64, @floatFromInt(dz)) };
-            }
-        }
-    }
-    const length = @sqrt(sum[0] * sum[0] + sum[1] * sum[1] + sum[2] * sum[2]);
-    return if (length == 0) .{ 0, 0, 1 } else .{ sum[0] / length, sum[1] / length, sum[2] / length };
 }
 
 /// The mean colour of each shading class over the 2003 pictures, so a face
@@ -1740,7 +2077,7 @@ pub const Means = struct {
 };
 
 /// Where a pixel of a generated picture comes from.
-pub const Kind = enum(u8) { empty, projected, mirrored, filled };
+pub const Kind = enum(u8) { empty, projected, borrowed, filled };
 
 /// One 2003 picture as a projection source: its eye and its picture of the
 /// state being drawn (null where the variant lacks it).
@@ -1749,56 +2086,63 @@ pub const Projector = struct { eye: Eye, picture: ?Image };
 /// A generated picture with the source of each pixel and its shading class.
 pub const Generated = struct { image: Image, kinds: []Kind, classes: []u8 };
 
-/// The target's picture from Blender's buffers: every pixel the hull covers
-/// takes the colour of the 2003 picture that sees it (or, through a mirror of
-/// the building, sees its mirror image), relit to the target's shading class.
-/// A seen pixel beats a mirrored one, a picture that lit the face as the same
-/// class beats one that did not, and then the picture facing the surface
-/// most squarely wins. Pixels none sees are left for `patchFill`.
-pub fn projectPicture(gpa: std.mem.Allocator, hull: Hull, buffers: Buffers, target: Eye, checks: []const Check, mirrors: []const Mirror, projectors: []const Projector, means: Means) !Generated {
-    const count = buffers.pos.len;
+/// The target's picture: every pixel the blocks cover takes the colour of a
+/// 2003 picture that sees its point, relit to the target's shading class. A
+/// point none sees borrows from the first of its face's donors (donorsOf)
+/// whose matching point one sees: the opposite wall, the other roof plane.
+/// Of the pictures that see it, one that lit the face as the same class
+/// beats one that did not, then the one facing the surface most squarely
+/// wins. Pixels none sees either way are left for `patchFill`.
+pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye, size: [2]u32, projectors: []const Projector, means: Means) !Generated {
+    const count = @as(usize, size[0]) * size[1];
     const out: Generated = .{
-        .image = .{ .width = buffers.width, .height = buffers.height, .pixels = try gpa.alloc([4]u8, count) },
+        .image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, count) },
         .kinds = try gpa.alloc(Kind, count),
         .classes = try gpa.alloc(u8, count),
     };
     @memset(out.image.pixels, .{ 0, 0, 0, 0 });
     @memset(out.kinds, .empty);
     @memset(out.classes, 255);
-    for (buffers.pos, buffers.flags, 0..) |hit, flags, i| {
-        if (std.math.isNan(hit[0])) continue;
-        const p = [3]f64{ hit[0], hit[1], hit[2] };
-        const n = hullNormal(hull, p);
-        const class = shadeClass(n, target.turn);
+    const donor_table = try gpa.alloc(?[]Face, blocks.len * 9);
+    @memset(donor_table, null);
+    for (0..size[1]) |y| for (0..size[0]) |x| {
+        const i = y * size[0] + x;
+        const r = target.ray(@as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+        const hit = castPixel(blocks, target, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5) orelse continue;
+        const t = hit.t - far_away;
+        const p = [3]f64{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], r[0][2] + t * r[1][2] };
+        const class = shadeClass(hit.normal, target.turn);
         out.classes[i] = @intCast(class);
         out.kinds[i] = .filled;
-        var best_score: f64 = -1;
-        for (checks, 0..) |check, c| {
-            if (flags & (@as(u8, 1) << @intCast(c)) == 0) continue;
-            const projector = projectors[check.eye];
-            const source = projector.picture orelse continue;
-            const m = if (check.mirror) |k| mirrors[k] else identity;
-            const q = mirrorPoint(m, p);
-            var nm = mirrorPoint(.{ .matrix = m.matrix, .offset = .{ 0, 0, 0 } }, n);
-            const uv = projector.eye.project(q);
-            const pixel = (source.at(@intFromFloat(@floor(uv[0])), @intFromFloat(@floor(uv[1]))) orelse continue).*;
-            if (pixel[3] < 128) continue;
-            const from = shadeClass(nm, projector.eye.turn);
-            const d = projector.eye.ray(0, 0)[1];
-            nm = .{ -nm[0], -nm[1], -nm[2] };
-            const facing = nm[0] * d[0] + nm[1] * d[1] + nm[2] * d[2];
-            const score = @as(f64, if (check.mirror == null) 4 else 0) + @as(f64, if (from == class) 2 else 0) + facing;
-            if (score <= best_score) continue;
-            best_score = score;
-            for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * means.gain(class, from, ch))));
-            out.image.pixels[i][3] = 255;
-            out.kinds[i] = if (check.mirror == null) .projected else .mirrored;
+        var best_score: f64 = -std.math.inf(f64);
+        const face: Face = .{ .block = hit.block, .plane = hit.plane };
+        const donors = &donor_table[face.block * 9 + face.plane];
+        if (donors.* == null) donors.* = try donorsOf(gpa, blocks, face);
+        for (0..donors.*.?.len + 1) |k| {
+            if (out.kinds[i] != .filled) break;
+            const q = if (k == 0) p else donorPoint(blocks, face, donors.*.?[k - 1], p);
+            const nq = if (k == 0) hit.normal else normalOf(blocks, donors.*.?[k - 1]);
+            for (projectors) |projector| {
+                const source = projector.picture orelse continue;
+                if (!sees(blocks, projector.eye, q)) continue;
+                const uv = projector.eye.project(q);
+                const pixel = (source.at(@intFromFloat(@floor(uv[0])), @intFromFloat(@floor(uv[1]))) orelse continue).*;
+                if (pixel[3] < 128) continue;
+                const from = shadeClass(nq, projector.eye.turn);
+                const facing = -dot(nq, projector.eye.ray(0, 0)[1]);
+                const score = @as(f64, if (from == class) 2 else 0) + facing;
+                if (score <= best_score) continue;
+                best_score = score;
+                for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * means.gain(class, from, ch))));
+                out.image.pixels[i][3] = 255;
+                out.kinds[i] = if (k == 0) .projected else .borrowed;
+            }
         }
-    }
+    };
     return out;
 }
 
-/// Fills every `filled` pixel from the picture's own projected and mirrored
+/// Fills every `filled` pixel from the picture's own projected and borrowed
 /// pixels of the same shading class, PatchMatch-style: pixels are filled from
 /// the edge of the hole inwards, each takes the centre of the 7x7 patch that
 /// best matches what is already known around it, searched among the
@@ -1823,7 +2167,7 @@ pub fn patchFill(gpa: std.mem.Allocator, generated: Generated) !void {
     const known = try gpa.alloc(bool, count);
     defer gpa.free(known);
     for (generated.kinds, generated.classes, done, known, 0..) |kind, class, *d, *k, i| {
-        d.* = kind == .projected or kind == .mirrored;
+        d.* = kind == .projected or kind == .borrowed;
         k.* = d.*;
         if (!d.*) continue;
         try pools[class].append(gpa, @intCast(i));
@@ -1999,133 +2343,6 @@ pub fn lightFor(light: [3]f64, turn: u2) [3]f64 {
     return .{ h[0], h[1], light[2] };
 }
 
-/// How well the hull's shadow on the ground, cast towards `light` and drawn
-/// outside the sprite, overlaps the 2003 shadow picture of each eye (mean IoU).
-pub fn shadowScore(gpa: std.mem.Allocator, hull: Hull, light: [3]f64, eyes: []const Eye, sprites: []const Image, shadows: []const Image) !f64 {
-    var total: f64 = 0;
-    for (eyes, sprites, shadows) |eye, sprite, shadow| {
-        const mask = try shadowMask(gpa, hull, lightFor(light, eye.turn), eye, shadow.width, shadow.height);
-        defer gpa.free(mask);
-        var both: f64 = 0;
-        var either: f64 = 0;
-        for (mask, sprite.pixels, shadow.pixels) |m, s, d| {
-            const predicted = m and s[3] < 128;
-            const real = d[3] >= 128;
-            both += @floatFromInt(@intFromBool(predicted and real));
-            either += @floatFromInt(@intFromBool(predicted or real));
-        }
-        total += if (either == 0) 0 else both / either;
-    }
-    return total / @as(f64, @floatFromInt(eyes.len));
-}
-
-/// The ground pixels the hull shades from `light` (in the hull's frame),
-/// drawn by moving each surface voxel's corners along the light to the ground.
-fn shadowMask(gpa: std.mem.Allocator, hull: Hull, light: [3]f64, eye: Eye, width: u32, height: u32) ![]bool {
-    const mask = try gpa.alloc(bool, @as(usize, width) * height);
-    @memset(mask, false);
-    for (0..hull.n[2]) |l| for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
-        const x: isize = @intCast(i);
-        const y: isize = @intCast(j);
-        const z: isize = @intCast(l);
-        if (!hull.get(x, y, z) or (hull.get(x + 1, y, z) and hull.get(x - 1, y, z) and hull.get(x, y + 1, z) and hull.get(x, y - 1, z) and hull.get(x, y, z + 1))) continue;
-        const c = hull.center(i, j, l);
-        for (0..16) |k| {
-            const f = [2]f64{ @floatFromInt(k & 3), @floatFromInt(k >> 2) };
-            const p = [3]f64{ c[0] + (f[0] - 1.5) * hull.size / 4, c[1] + (f[1] - 1.5) * hull.size / 4, c[2] };
-            const g = [3]f64{ p[0] - light[0] * p[2] / light[2], p[1] - light[1] * p[2] / light[2], 0 };
-            const q = eye.project(g);
-            const px: i64 = @intFromFloat(@floor(q[0]));
-            const py: i64 = @intFromFloat(@floor(q[1]));
-            if (px >= 0 and py >= 0 and px < width and py < height) mask[@intCast(py * width + px)] = true;
-        }
-    };
-    return mask;
-}
-
-/// The light (azimuth, elevation in degrees in the camera's frame) whose
-/// shadows of the hull best match the 2003 shadow pictures: every 15 by 10
-/// degrees, then every 2.5 around the best.
-pub const Light = struct { azimuth: f64, elevation: f64, iou: f64 };
-
-pub fn fitLight(gpa: std.mem.Allocator, hull: Hull, eyes: []const Eye, sprites: []const Image, shadows: []const Image) !Light {
-    var best: Light = .{ .azimuth = 0, .elevation = 45, .iou = -1 };
-    var a: f64 = 0;
-    while (a < 360) : (a += 15) {
-        var e: f64 = 10;
-        while (e <= 80) : (e += 10) {
-            const iou = try shadowScore(gpa, hull, lightDirection(a, e), eyes, sprites, shadows);
-            if (iou > best.iou) best = .{ .azimuth = a, .elevation = e, .iou = iou };
-        }
-    }
-    const coarse = best;
-    var da: f64 = -12.5;
-    while (da <= 12.5) : (da += 2.5) {
-        var de: f64 = -7.5;
-        while (de <= 7.5) : (de += 2.5) {
-            const e = coarse.elevation + de;
-            if (e < 5 or e > 85) continue;
-            const iou = try shadowScore(gpa, hull, lightDirection(coarse.azimuth + da, e), eyes, sprites, shadows);
-            if (iou > best.iou) best = .{ .azimuth = coarse.azimuth + da, .elevation = e, .iou = iou };
-        }
-    }
-    return best;
-}
-
-/// The vertical mirror planes under which the hull is most like itself:
-/// across x, across y and along both diagonals, each at the position (within
-/// 12 world units of the hull's centre) that fits best, with the IoU of the
-/// hull and its mirror image.
-pub const MirrorFit = struct { mirror: Mirror, iou: f64 };
-
-pub fn fitMirrors(hull: Hull) [4]MirrorFit {
-    var centre = [2]f64{ 0, 0 };
-    var n: f64 = 0;
-    for (0..hull.n[2]) |l| for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
-        if (!hull.get(@intCast(i), @intCast(j), @intCast(l))) continue;
-        const c = hull.center(i, j, l);
-        centre = .{ centre[0] + c[0], centre[1] + c[1] };
-        n += 1;
-    };
-    centre = .{ centre[0] / @max(1, n), centre[1] / @max(1, n) };
-    const matrices = [4][3][3]f64{
-        .{ .{ -1, 0, 0 }, .{ 0, 1, 0 }, .{ 0, 0, 1 } },
-        .{ .{ 1, 0, 0 }, .{ 0, -1, 0 }, .{ 0, 0, 1 } },
-        .{ .{ 0, 1, 0 }, .{ 1, 0, 0 }, .{ 0, 0, 1 } },
-        .{ .{ 0, -1, 0 }, .{ -1, 0, 0 }, .{ 0, 0, 1 } },
-    };
-    const normals = [4][2]f64{ .{ 1, 0 }, .{ 0, 1 }, .{ @sqrt(0.5), -@sqrt(0.5) }, .{ @sqrt(0.5), @sqrt(0.5) } };
-    var fits: [4]MirrorFit = undefined;
-    for (matrices, normals, &fits) |m, normal, *fit| {
-        fit.iou = -1;
-        var shift: f64 = -12;
-        while (shift <= 12) : (shift += hull.size / 2) {
-            // The plane through c = centre + shift * normal: p' = m (p - c) + c.
-            const c = [3]f64{ centre[0] + shift * normal[0], centre[1] + shift * normal[1], 0 };
-            var offset: [3]f64 = undefined;
-            for (0..3) |r| offset[r] = c[r] - (m[r][0] * c[0] + m[r][1] * c[1] + m[r][2] * c[2]);
-            const mirror: Mirror = .{ .matrix = m, .offset = offset };
-            const iou = mirrorIou(hull, mirror);
-            if (iou > fit.iou) fit.* = .{ .mirror = mirror, .iou = iou };
-        }
-    }
-    return fits;
-}
-
-fn mirrorIou(hull: Hull, mirror: Mirror) f64 {
-    var both: f64 = 0;
-    var filled: f64 = 0;
-    for (0..hull.n[2]) |l| for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
-        if (!hull.get(@intCast(i), @intCast(j), @intCast(l))) continue;
-        filled += 1;
-        const q = mirrorPoint(mirror, hull.center(i, j, l));
-        var cell: [3]isize = undefined;
-        for (0..3) |k| cell[k] = @intFromFloat(@floor((q[k] - hull.lo[k]) / hull.size));
-        both += @floatFromInt(@intFromBool(hull.get(cell[0], cell[1], cell[2])));
-    };
-    return if (filled == 0) 0 else both / (2 * filled - both);
-}
-
 /// The ground picture of the target: every pixel takes the 2003 ground
 /// picture (`g`, drawn flat on the ground) that covers its ground point,
 /// the first in the projectors' order.
@@ -2161,15 +2378,18 @@ pub fn groundPoint(eye: Eye, x: f64, y: f64) [3]f64 {
     return .{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], 0 };
 }
 
-/// A mirror plane is used when the hull and its mirror image overlap this much.
-pub const mirror_iou = 0.8;
-
 const Turned = struct { turn: u2, eye: Eye, size: [2]u32, name: []const u8 };
+
+/// The 2003 light, towards it in the camera's frame. Fitted to the 2003
+/// shadow pictures of e_ctownhouse01, a_h07, e_house01, e_house11 and
+/// townhouse05 (M005 S02/S03), it came out at azimuth 232 to 258 and elevation
+/// 67.5 to 75, the spread of the hull's shape: one light lit every building.
+pub const light_2003 = lightDirection(245, 67.5);
 
 /// A variant's family set up to draw that variant from other sides: the 2003
 /// variants with their eyes aligned to it (`fixed` is the variant itself),
-/// which of them share its colourway, the light, the mirror planes and a hull
-/// per damage state (and season).
+/// which of them share its colourway, and the building's blocks in each
+/// damage state (and season).
 const Scene = struct {
     family: []const u8,
     name: []const u8,
@@ -2179,22 +2399,14 @@ const Scene = struct {
     same: []bool,
     fixed: usize,
     outlines: []Image,
-    light: Light,
-    fits: [4]MirrorFit,
-    mirrors: []Mirror,
-    checks: []Check,
     states: []const []const u8,
-    hulls: []Hull,
-    meshes: []const [2][]const u8,
-    work: []const u8,
+    shapes: []const []const Block,
 };
 
 /// The scene of variant `index` of the family; variants that show side
 /// `skip` are left out, so the hold-out draws that side without them.
-fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, out: []const u8) !Scene {
+fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !Scene {
     const arena = ctx.arena;
-    const io = ctx.io;
-    const cwd = std.Io.Dir.cwd();
     const own_side = found.family.variants[index].side orelse return ctx.failKey("views.err.no_side", .{found.family.variants[index].path});
     // Every measured variant gives the shape, those of the variant's own
     // colourway also give pixels.
@@ -2219,101 +2431,56 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, ou
     for (outlines, same) |outline, *s| s.* = sameColourway(outlines[fixed], outline);
     try alignEyes(arena, fixed, footprints, outlines, eyes);
 
-    // The light and the mirrors, from a coarse hull of the intact building.
-    const coarse = try carve(arena, footprints[fixed], 4, outlines, eyes);
-    var light_eyes: std.ArrayList(Eye) = .empty;
-    var light_sprites: std.ArrayList(Image) = .empty;
-    var light_shadows: std.ArrayList(Image) = .empty;
-    for (sources.items, eyes, outlines) |source, eye, outline| {
-        const shadow = pictureOf(source, "1s") orelse continue;
-        try light_eyes.append(arena, eye);
-        try light_sprites.append(arena, outline);
-        try light_shadows.append(arena, shadow);
-    }
-    const light = try fitLight(arena, coarse, light_eyes.items, light_sprites.items, light_shadows.items);
-    const fits = fitMirrors(coarse);
-    var projecting: usize = 0;
-    for (same) |s| projecting += @intFromBool(s);
-    var mirrors: std.ArrayList(Mirror) = .empty;
-    for (fits) |fit| {
-        // Seven checks fit in a byte beside the shadow bit.
-        if (fit.iou >= mirror_iou and projecting * (mirrors.items.len + 2) <= 7) try mirrors.append(arena, fit.mirror);
-    }
-    var checks: std.ArrayList(Check) = .empty;
-    for (same, 0..) |s, e| if (s) try checks.append(arena, .{ .eye = e, .mirror = null });
-    for (mirrors.items, 0..) |_, m| for (same, 0..) |s, e| if (s) try checks.append(arena, .{ .eye = e, .mirror = m });
-
-    // A hull per damage state (and season), each from that state's pictures.
+    // The intact building's blocks start from the rectangles of its hull's
+    // ground slice; every other state's from the intact ones.
     const own = sources.items[fixed];
-    const name = std.fs.path.basename(own.dir);
-    const work = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.work", .{name}) });
-    try cwd.createDirPath(io, work);
     var states: std.ArrayList([]const u8) = .empty;
     for (own.names) |state| {
         const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
         if (digits > 0 and (digits == state.len or std.mem.eql(u8, state[digits..], "w"))) try states.append(arena, state);
     }
-    const hulls = try arena.alloc(Hull, states.items.len);
-    var meshes: std.ArrayList([2][]const u8) = .empty;
-    for (states.items, hulls) |state, *hull| {
+    const base = try baseBlocks(arena, try carve(arena, footprints[fixed], 2, outlines, eyes), footprints[fixed]);
+    const shapes = try arena.alloc([]const Block, states.items.len);
+    var intact: []const Block = base;
+    for (states.items, shapes) |state, *shape| {
         var state_eyes: std.ArrayList(Eye) = .empty;
         var state_pictures: std.ArrayList(Image) = .empty;
         for (sources.items, eyes) |source, eye| {
             try state_pictures.append(arena, pictureOf(source, state) orelse continue);
             try state_eyes.append(arena, eye);
         }
-        hull.* = try carve(arena, footprints[fixed], 2, state_pictures.items, state_eyes.items);
-        const mesh = try hullMesh(arena, hull.*);
-        const verts = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.verts", .{state}) });
-        const quads = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.quads", .{state}) });
-        try cwd.writeFile(io, .{ .sub_path = verts, .data = std.mem.sliceAsBytes(mesh.verts) });
-        try cwd.writeFile(io, .{ .sub_path = quads, .data = std.mem.sliceAsBytes(mesh.quads) });
-        try meshes.append(arena, .{ verts, quads });
+        shape.* = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items);
+        if (std.mem.eql(u8, state, "1")) intact = shape.*;
     }
     return .{
         .family = found.family.name,
-        .name = name,
+        .name = std.fs.path.basename(own.dir),
         .own_side = own_side,
         .sources = sources.items,
         .eyes = eyes,
         .same = same,
         .fixed = fixed,
         .outlines = outlines,
-        .light = light,
-        .fits = fits,
-        .mirrors = mirrors.items,
-        .checks = checks.items,
         .states = states.items,
-        .hulls = hulls,
-        .meshes = meshes.items,
-        .work = work,
+        .shapes = shapes,
     };
 }
 
-fn lightOf(scene: Scene) [3]f64 {
-    return lightDirection(scene.light.azimuth, scene.light.elevation);
-}
-
-/// Each turn's canvas: it holds the hull's box, its shadow and the 2003
-/// ground pictures.
+/// Each turn's canvas: it holds every state's blocks, their shadows and the
+/// 2003 ground pictures.
 fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
     var eye: Eye = .{ .anchor = .{ 0, 0 }, .turn = k };
     var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
     var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
-    const l = lightFor(lightOf(scene), k);
-    const hull = scene.hulls[0];
-    for (0..8) |c| {
-        const p = [3]f64{
-            hull.lo[0] + @as(f64, @floatFromInt(if (c & 1 != 0) hull.n[0] else 0)) * hull.size,
-            hull.lo[1] + @as(f64, @floatFromInt(if (c & 2 != 0) hull.n[1] else 0)) * hull.size,
-            if (c & 4 != 0) hullTop(hull) else 0,
-        };
+    const l = lightFor(light_2003, k);
+    for (scene.shapes) |shape| for (shape) |b| for (0..8) |c| {
+        const p = [3]f64{ if (c & 1 != 0) b.hi[0] else b.lo[0], if (c & 2 != 0) b.hi[1] else b.lo[1], if (c & 4 != 0) @max(b.wall, b.ridge) else 0 };
         for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
             const s = eye.project(q);
             lo = .{ @min(lo[0], s[0]), @min(lo[1], s[1]) };
             hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
         }
-    }
+    };
     for (scene.sources, scene.eyes, scene.same) |source, source_eye, s| {
         if (!s) continue;
         for (source.names, source.pictures) |picture_name, picture| {
@@ -2335,45 +2502,17 @@ fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
     };
 }
 
-/// One Blender run: every source eye (for the shading classes and the
-/// outline check) and every target, per state.
-fn renderScene(ctx: *bk_tool.Context, scene: Scene, targets: []const Turned) !void {
-    const arena = ctx.arena;
-    var views: std.ArrayList(JobView) = .empty;
-    for (scene.states, 0..) |state, m| {
-        for (scene.sources, scene.eyes, 0..) |source, eye, e| {
-            const picture = pictureOf(source, state) orelse continue;
-            try views.append(arena, .{ .mesh = m, .eye = eye, .size = .{ picture.width, picture.height }, .out = try std.fmt.allocPrint(arena, "{s}/{s}_eye{d}", .{ scene.work, state, e }) });
-        }
-        for (targets) |target| try views.append(arena, .{
-            .mesh = m,
-            .eye = target.eye,
-            .size = target.size,
-            .checks = scene.checks,
-            .light = lightFor(lightOf(scene), target.turn),
-            .out = try std.fmt.allocPrint(arena, "{s}/{s}_{s}", .{ scene.work, state, target.name }),
-        });
-    }
-    var job: std.Io.Writer.Allocating = .init(arena);
-    try writeJob(&job.writer, scene.meshes, views.items, scene.eyes, scene.mirrors);
-    const job_path = try std.fs.path.join(arena, &.{ scene.work, "job.json" });
-    try std.Io.Dir.cwd().writeFile(ctx.io, .{ .sub_path = job_path, .data = job.written() });
-    try runBlender(ctx, job_path);
-}
-
 /// One damage state of a target: the sprite with the source of each pixel,
 /// its shadow, its ground picture where the variant has one, and how well the
-/// hull covers each source's outline.
+/// blocks cover each source's outline.
 const Drawn = struct { state: []const u8, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64 };
 
 fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const arena = ctx.arena;
-    const io = ctx.io;
     const n = scene.sources.len;
     const own = scene.sources[scene.fixed];
     const drawn = try arena.alloc(Drawn, scene.states.len);
-    for (scene.states, scene.hulls, drawn) |state, hull, *d| {
-        const buffers = try readBuffers(arena, io, try std.fmt.allocPrint(arena, "{s}/{s}_{s}", .{ scene.work, state, target.name }), target.size);
+    for (scene.states, scene.shapes, drawn) |state, blocks, *d| {
         var means: Means = .{};
         const projectors = try arena.alloc(Projector, n);
         const ground = try arena.alloc(Projector, n);
@@ -2382,16 +2521,16 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
         for (scene.sources, scene.eyes, scene.same, projectors, 0..) |source, eye, s, *projector, e| {
             const picture = pictureOf(source, state);
             projector.* = .{ .eye = eye, .picture = if (s) picture else null };
-            if (picture == null) continue;
-            const source_buffers = try readBuffers(arena, io, try std.fmt.allocPrint(arena, "{s}/{s}_eye{d}", .{ scene.work, state, e }), .{ picture.?.width, picture.?.height });
+            const p = picture orelse continue;
             var both: f64 = 0;
             var either: f64 = 0;
-            for (source_buffers.pos, picture.?.pixels) |hit, pixel| {
-                const in_hull = !std.math.isNan(hit[0]);
-                both += @floatFromInt(@intFromBool(in_hull and pixel[3] >= 128));
-                either += @floatFromInt(@intFromBool(in_hull or pixel[3] >= 128));
-                if (s and in_hull and pixel[3] >= 128) means.add(shadeClass(hullNormal(hull, .{ hit[0], hit[1], hit[2] }), eye.turn), pixel);
-            }
+            for (0..p.height) |y| for (0..p.width) |x| {
+                const pixel = p.pixels[y * p.width + x];
+                const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+                both += @floatFromInt(@intFromBool(hit != null and pixel[3] >= 128));
+                either += @floatFromInt(@intFromBool(hit != null or pixel[3] >= 128));
+                if (s and hit != null and pixel[3] >= 128) means.add(shadeClass(hit.?.normal, eye.turn), pixel);
+            };
             try covers.append(arena, if (either == 0) 0 else both / either);
             if (!s) continue;
             const g = pictureOf(source, try std.fmt.allocPrint(arena, "{s}g", .{state})) orelse continue;
@@ -2400,10 +2539,14 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             if (e == scene.fixed) std.mem.swap(Projector, &ground[0], &ground[ground_count]);
             ground_count += 1;
         }
-        const sprite = try projectPicture(arena, hull, buffers, target.eye, scene.checks, scene.mirrors, projectors, means);
+        const sprite = try projectPicture(arena, blocks, target.eye, target.size, projectors, means);
         try patchFill(arena, sprite);
-        const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, buffers.flags.len) };
-        for (shadow.pixels, buffers.flags) |*pixel, flags| pixel.* = if (flags & shadow_bit != 0) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
+        const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, sprite.kinds.len) };
+        const l = lightFor(light_2003, target.turn);
+        for (0..shadow.height) |y| for (0..shadow.width) |x| {
+            const g = groundPoint(target.eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+            shadow.pixels[y * shadow.width + x] = if (castRay(blocks, g, l) != null) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
+        };
         const has_ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state})) != null;
         d.* = .{
             .state = state,
@@ -2431,10 +2574,9 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     }
 
     const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
-    const scene = try loadScene(ctx, found, found.index, null, out);
+    const scene = try loadScene(ctx, found, found.index, null);
     var targets: std.ArrayList(Turned) = .empty;
     for (turns.items) |k| try targets.append(arena, turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, k })));
-    try renderScene(ctx, scene, targets.items);
 
     // The pictures, the source maps and the packs of each turn.
     // bk-sprite beside bk-views (zig-out/bin), else the one on PATH.
@@ -2443,7 +2585,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
     const own = scene.sources[scene.fixed];
     for (targets.items) |target| {
-        const pictures_dir = try std.fs.path.join(arena, &.{ scene.work, target.name });
+        const pictures_dir = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.work", .{scene.name}), target.name });
         const map_dir = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.map", .{target.name}) });
         const final = try std.fs.path.join(arena, &.{ out, target.name });
         const temp = try std.fmt.allocPrint(arena, "{s}.tmp", .{final});
@@ -2454,16 +2596,13 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const new_side = (scene.own_side - 1 + @as(u8, target.turn)) % 4 + 1;
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\n\"light\":{{\"azimuth\":{d:.1},\"elevation\":{d:.1},\"shadow_iou\":{d:.4}}},\n\"mirrors\":[", .{
-            scene.name, scene.own_side, target.turn, new_side, scene.light.azimuth, scene.light.elevation, scene.light.iou,
-        });
-        for (scene.fits, 0..) |fit, i| try r.print("{s}{{\"plane\":\"{s}\",\"iou\":{d:.4},\"used\":{}}}", .{ if (i > 0) "," else "", @as([]const u8, switch (i) {
-            0 => "x",
-            1 => "y",
-            2 => "x=y",
-            else => "x=-y",
-        }), fit.iou, fit.iou >= mirror_iou });
-        try r.writeAll("],\n\"sources\":[");
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side });
+        for (scene.states, scene.shapes, 0..) |state, shape, i| {
+            try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
+            for (shape, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
+            try r.writeAll("]");
+        }
+        try r.writeAll("},\n\"sources\":[");
         for (scene.sources, scene.eyes, scene.same, 0..) |source, eye, s, e| {
             try r.print("{s}\n{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"shift\":[{d:.1},{d:.1}],\"colourway_distance\":{d:.3},\"projects\":{}}}", .{
                 if (e > 0) "," else "", std.fs.path.basename(source.dir), source.side, eye.turn, eye.shift[0], eye.shift[1], colourwayDistance(scene.outlines[scene.fixed], scene.outlines[e]), s,
@@ -2516,18 +2655,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     }
 }
 
-/// The height of the hull's highest voxel top.
-fn hullTop(hull: Hull) f64 {
-    var l = hull.n[2];
-    while (l > 0) : (l -= 1) {
-        for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
-            if (hull.get(@intCast(i), @intCast(j), @intCast(l - 1))) return hull.lo[2] + @as(f64, @floatFromInt(l)) * hull.size;
-        };
-    }
-    return 0;
-}
-
-/// The source map of one generated picture: a PNG (projected green, mirrored
+/// The source map of one generated picture: a PNG (projected green, borrowed
 /// blue, filled red) and its counts per shading class in the report.
 fn writePictureReport(ctx: *bk_tool.Context, r: *std.Io.Writer, map_dir: []const u8, name: []const u8, generated: Generated, covers: []const f64, first: *bool) !void {
     const arena = ctx.arena;
@@ -2537,7 +2665,7 @@ fn writePictureReport(ctx: *bk_tool.Context, r: *std.Io.Writer, map_dir: []const
         pixel.* = switch (kind) {
             .empty => .{ 0, 0, 0, 0 },
             .projected => .{ 0, 160, 0, 255 },
-            .mirrored => .{ 0, 64, 255, 255 },
+            .borrowed => .{ 0, 64, 255, 255 },
             .filled => .{ 255, 32, 32, 255 },
         };
         counts[@min(class, 8)][@backingInt(kind)] += 1;
@@ -2547,14 +2675,14 @@ fn writePictureReport(ctx: *bk_tool.Context, r: *std.Io.Writer, map_dir: []const
     for (counts) |c| for (0..4) |k| {
         total[k] += c[k];
     };
-    try r.print("{s}\n{{\"picture\":\"{s}\",\"projected\":{d},\"mirrored\":{d},\"filled\":{d},\"hull_iou\":[", .{ if (first.*) "" else ",", name, total[1], total[2], total[3] });
+    try r.print("{s}\n{{\"picture\":\"{s}\",\"projected\":{d},\"borrowed\":{d},\"filled\":{d},\"model_iou\":[", .{ if (first.*) "" else ",", name, total[1], total[2], total[3] });
     first.* = false;
     for (covers, 0..) |c, i| try r.print("{s}{d:.4}", .{ if (i > 0) "," else "", c });
     try r.writeAll("],\"classes\":[");
     var first_class = true;
     for (counts, 0..) |c, class| {
         if (class == 8 or c[1] + c[2] + c[3] == 0) continue;
-        try r.print("{s}{{\"class\":\"{s}\",\"projected\":{d},\"mirrored\":{d},\"filled\":{d}}}", .{ if (first_class) "" else ",", class_names[class], c[1], c[2], c[3] });
+        try r.print("{s}{{\"class\":\"{s}\",\"projected\":{d},\"borrowed\":{d},\"filled\":{d}}}", .{ if (first_class) "" else ",", class_names[class], c[1], c[2], c[3] });
         first_class = false;
     }
     try r.writeAll("]}");
@@ -2624,13 +2752,13 @@ pub fn compareLooks(a: Look, b: Look) Style {
 /// `offset` takes a pixel of the 2003 picture to the generated one.
 pub const Score = struct { iou: f64, ssim: f64, sharpness: f64, colour: f64, hue: f64 };
 
-pub fn scorePicture(generated: Image, original: Image, offset: [2]i64) Score {
+pub fn scorePicture(gpa: std.mem.Allocator, generated: Image, original: Image, offset: [2]i64) !Score {
     var a: Look = .{};
     a.add(generated);
     var b: Look = .{};
     b.add(original);
     const style = compareLooks(a, b);
-    return .{ .iou = shiftedIou(generated, original, offset), .ssim = ssim(generated, original, offset), .sharpness = style.sharpness, .colour = style.colour, .hue = style.hue };
+    return .{ .iou = shiftedIou(generated, original, offset), .ssim = try ssim(gpa, generated, original, offset), .sharpness = style.sharpness, .colour = style.colour, .hue = style.hue };
 }
 
 fn isOpaque(image: Image, x: i64, y: i64) bool {
@@ -2681,27 +2809,40 @@ pub fn bestOffset(a: Image, b: Image, start: [2]i64) [2]i64 {
 }
 
 /// The mean structural similarity (Wang et al. 2004) of the two pictures'
-/// brightness over the 7x7 windows opaque in both.
-pub fn ssim(a: Image, b: Image, offset: [2]i64) f64 {
+/// brightness at a quarter of their size (4x4 pixels averaged), over the 5x5
+/// windows opaque in both: the layout of walls, roofs and windows. A side
+/// drawn from other sides cannot match the 2003 one pixel for pixel, and at
+/// full size both the old and the new generator score near 0.
+pub fn ssim(gpa: std.mem.Allocator, a: Image, b: Image, offset: [2]i64) !f64 {
+    const w = b.width / 4;
+    const h = b.height / 4;
+    const cells = try gpa.alloc(?[2]f64, @as(usize, w) * h);
+    defer gpa.free(cells);
+    for (0..h) |cy| for (0..w) |cx| {
+        var sum = [2]f64{ 0, 0 };
+        cells[cy * w + cx] = for (0..16) |k| {
+            const bx: i64 = @intCast(cx * 4 + k % 4);
+            const by: i64 = @intCast(cy * 4 + k / 4);
+            sum[0] += opaqueLuma(a, bx + offset[0], by + offset[1]) orelse break null;
+            sum[1] += opaqueLuma(b, bx, by) orelse break null;
+        } else .{ sum[0] / 16, sum[1] / 16 };
+    };
     const c1 = (0.01 * 255.0) * (0.01 * 255.0);
     const c2 = (0.03 * 255.0) * (0.03 * 255.0);
     var total: f64 = 0;
     var windows: f64 = 0;
-    for (3..@max(3, b.height) - 3) |y| for (3..@max(3, b.width) - 3) |x| {
+    for (2..@max(2, h) - 2) |y| for (2..@max(2, w) - 2) |x| {
         var s = [5]f64{ 0, 0, 0, 0, 0 };
-        const window = for (0..49) |k| {
-            const bx = @as(i64, @intCast(x + k % 7)) - 3;
-            const by = @as(i64, @intCast(y + k / 7)) - 3;
-            const v = opaqueLuma(b, bx, by) orelse break false;
-            const u = opaqueLuma(a, bx + offset[0], by + offset[1]) orelse break false;
-            s = .{ s[0] + u, s[1] + v, s[2] + u * u, s[3] + v * v, s[4] + u * v };
+        const window = for (0..25) |k| {
+            const c = cells[(y + k / 5 - 2) * w + x + k % 5 - 2] orelse break false;
+            s = .{ s[0] + c[0], s[1] + c[1], s[2] + c[0] * c[0], s[3] + c[1] * c[1], s[4] + c[0] * c[1] };
         } else true;
         if (!window) continue;
-        const mu = s[0] / 49;
-        const mv = s[1] / 49;
-        const vu = s[2] / 49 - mu * mu;
-        const vv = s[3] / 49 - mv * mv;
-        const cov = s[4] / 49 - mu * mv;
+        const mu = s[0] / 25;
+        const mv = s[1] / 25;
+        const vu = s[2] / 25 - mu * mu;
+        const vv = s[3] / 25 - mv * mv;
+        const cov = s[4] / 25 - mu * mv;
         total += (2 * mu * mv + c1) * (2 * cov + c2) / ((mu * mu + mv * mv + c1) * (vu + vv + c2));
         windows += 1;
     };
@@ -2717,6 +2858,13 @@ fn placeOn(gpa: std.mem.Allocator, image: Image, offset: [2]i64, width: u32, hei
         out.pixels[y * width + x] = if (from) |p| p.* else .{ 0, 0, 0, 0 };
     };
     return out;
+}
+
+/// A variant's folder name, with its family's in front for a numbered
+/// subfolder (`dot_01`).
+fn variantLabel(gpa: std.mem.Allocator, family: Family, index: usize) ![]const u8 {
+    const name = std.fs.path.basename(family.variants[index].path);
+    return if (std.ascii.isDigit(name[0])) std.fmt.allocPrint(gpa, "{s}_{s}", .{ family.name, name }) else name;
 }
 
 /// `holdout`: each variant's side drawn again from its family without it
@@ -2740,8 +2888,8 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
     var rows: usize = 0;
     for (dir_args) |dir_arg| {
         const dir = try bk_tool.inputPath(arena, dir_arg);
-        const name = std.fs.path.basename(dir);
         const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+        const name = try variantLabel(arena, found.family, found.index);
         const side = found.family.variants[found.index].side orelse return ctx.failKey("views.err.no_side", .{dir});
         const held = try loadSource(ctx, dir, side);
         const outline = pictureOf(held, "1") orelse return ctx.failKey("views.err.no_san", .{dir});
@@ -2755,10 +2903,10 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
             try ctx.out.print("{s}: no other side of its colourway\n", .{name});
             continue;
         };
-        const scene = try loadScene(ctx, found, reference, side, out);
+        const scene = try loadScene(ctx, found, reference, side);
+        const from = try variantLabel(arena, found.family, reference);
         const k: u2 = @intCast((side + 4 - scene.own_side) % 4);
         const target = turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_holdout", .{name}));
-        try renderScene(ctx, scene, &.{target});
         const pictures = try std.fs.path.join(arena, &.{ out, name });
         cwd.deleteTree(io, pictures) catch {};
         try cwd.createDirPath(io, pictures);
@@ -2774,12 +2922,12 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
         for (try drawTarget(ctx, scene, target)) |d| {
             const original = pictureOf(held, d.state) orelse continue;
             const offset = bestOffset(d.sprite.image, original, guess);
-            const score = scorePicture(d.sprite.image, original, offset);
+            const score = try scorePicture(arena, d.sprite.image, original, offset);
             try writeOut(ctx, pictures, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, try placeOn(arena, d.sprite.image, offset, original.width, original.height)));
             try writeOut(ctx, pictures, try std.fmt.allocPrint(arena, "{s}_2003.png", .{d.state}), try writePng(arena, original));
-            try md.writer.print("| {s} | {s} | {s} | {s} | {d:.3} | {d:.3} | {d:.2} | {d:.1} | {d:.3} |\n", .{ found.family.name, name, scene.name, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
-            try json.writer.print("{s}\n{{\"family\":\"{s}\",\"variant\":\"{s}\",\"from\":\"{s}\",\"state\":\"{s}\",\"iou\":{d:.4},\"ssim\":{d:.4},\"sharpness\":{d:.4},\"colour\":{d:.2},\"hue\":{d:.4}}}", .{ if (rows > 0) "," else "", found.family.name, name, scene.name, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
-            try ctx.out.print("{s} from {s}, state {s}: IoU {d:.3}, SSIM {d:.3}, sharpness {d:.2}, colour {d:.1}, hue {d:.3}\n", .{ name, scene.name, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
+            try md.writer.print("| {s} | {s} | {s} | {s} | {d:.3} | {d:.3} | {d:.2} | {d:.1} | {d:.3} |\n", .{ found.family.name, name, from, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
+            try json.writer.print("{s}\n{{\"family\":\"{s}\",\"variant\":\"{s}\",\"from\":\"{s}\",\"state\":\"{s}\",\"iou\":{d:.4},\"ssim\":{d:.4},\"sharpness\":{d:.4},\"colour\":{d:.2},\"hue\":{d:.4}}}", .{ if (rows > 0) "," else "", found.family.name, name, from, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
+            try ctx.out.print("{s} from {s}, state {s}: IoU {d:.3}, SSIM {d:.3}, sharpness {d:.2}, colour {d:.1}, hue {d:.3}\n", .{ name, from, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
             rows += 1;
         }
     }
@@ -2788,9 +2936,10 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
     try writeOut(ctx, out, "holdout.json", json.written());
 }
 
-/// `style`: each picture of generated variant folders against the 2003
-/// pictures of the same damage state of every side of the variant's family
-/// in its colourway.
+/// `style`: each generated picture (`<state>.png` in the folders given, as
+/// `side` leaves them in its work folder and `holdout` writes them) against
+/// the 2003 pictures of the same damage state of every side of the variant's
+/// family in its colourway.
 fn styleCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_arg: []const u8, generated_args: []const []const u8) !void {
     const arena = ctx.arena;
     const io = ctx.io;
@@ -2815,11 +2964,16 @@ fn styleCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_arg: []const u8,
     try json.writer.writeAll("{\"style\":[");
     var rows: usize = 0;
     for (generated_args) |generated_arg| {
-        const generated = try loadSource(ctx, try bk_tool.inputPath(arena, generated_arg), 0);
-        const name = std.fs.path.basename(generated.dir);
-        for (generated.names, generated.pictures) |state, picture| {
+        const generated = try bk_tool.inputPath(arena, generated_arg);
+        const name = std.fs.path.basename(generated);
+        const files = entries(arena, io, generated, .file) catch return ctx.failKey("views.err.no_dir", .{generated});
+        for (files) |file| {
+            if (!std.mem.endsWith(u8, file, ".png")) continue;
+            const state = file[0 .. file.len - 4];
             const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
             if (digits == 0 or !(digits == state.len or std.mem.eql(u8, state[digits..], "w"))) continue;
+            const path = try std.fs.path.join(arena, &.{ generated, file });
+            const picture = readStoredPng(arena, try readFile(ctx, path)) catch |err| return ctx.failKey("views.err.read", .{ path, @errorName(err) });
             var a: Look = .{};
             a.add(picture);
             var b: Look = .{};

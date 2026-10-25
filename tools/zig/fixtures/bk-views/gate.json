@@ -1,0 +1,63 @@
+{
+ "about": "Floors of the building views quality gate (M005 S03). test-bk-views draws the side of each variant again with bk-views holdout and scores its pictures with bk-views style; a picture or a damage state's mean outside these fails. They come from the hold-out of these 23 variants (docs/superpowers/evidence/building-views/holdout.md): per picture 0.05 IoU under the worst, colour 10 and hue 0.1 over the worst, sharpness 0.1 under and 0.25 over the extremes of the hold-out and the style pictures; per state the mean IoU 0.02 and the mean SSIM 0.04 under the measured. Winter states count as their summer state.",
+ "variants": [
+  "africa/summer/a_h01_1",
+  "africa/summer/a_h01_2",
+  "africa/summer/a_h02_2",
+  "africa/summer/a_h02_4",
+  "africa/summer/a_h03_2",
+  "africa/summer/a_h03_3",
+  "africa/summer/a_h07_1",
+  "africa/summer/a_h07_2",
+  "africa/summer/a_h07_3",
+  "africa/summer/a_h08_1",
+  "africa/summer/a_h08_4",
+  "europe/summer/e_ctownhouse01_2",
+  "europe/summer/e_ctownhouse01_4",
+  "europe/summer/e_ctownhouse03_2",
+  "europe/summer/e_ctownhouse03_4",
+  "europe/summer/e_house11_1",
+  "europe/summer/e_house11_3",
+  "europe/summer/e_shed01_2",
+  "europe/summer/e_shed01_3",
+  "europe/summer/e_townhouse01_3",
+  "europe/summer/e_townhouse01_4",
+  "ussr/summer/ukrainehouse03_1",
+  "ussr/summer/ukrainehouse03_2"
+ ],
+ "states": {
+  "1": {
+   "iou": 0.64,
+   "mean_iou": 0.84,
+   "mean_ssim": 0.13,
+   "sharpness": [
+    0.45,
+    3.2
+   ],
+   "colour": 62,
+   "hue": 0.77
+  },
+  "2": {
+   "iou": 0.59,
+   "mean_iou": 0.77,
+   "mean_ssim": 0.0,
+   "sharpness": [
+    0.5,
+    2.2
+   ],
+   "colour": 60,
+   "hue": 0.29
+  },
+  "3": {
+   "iou": 0.6,
+   "mean_iou": 0.72,
+   "mean_ssim": -0.02,
+   "sharpness": [
+    0.7,
+    1.55
+   ],
+   "colour": 49,
+   "hue": 0.26
+  }
+ }
+}
