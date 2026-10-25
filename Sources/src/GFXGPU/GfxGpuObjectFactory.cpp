@@ -45,6 +45,7 @@ void STDCALL FontGpu::SwapData( ISharedResource *resource )
     if ( !other ) return;
     std::swap( format_, other->format_ );
     std::swap( bk_font_, other->bk_font_ );
+    std::swap( ttf_pixel_size_, other->ttf_pixel_size_ );
     std::swap( bk_serial_, other->bk_serial_ );
     std::swap( scaled_fonts_, other->scaled_fonts_ );
 }
@@ -116,14 +117,15 @@ static void MeasureInkEnvelope( BkTextFont *font, float &up, float &down )
     }
 }
 
-bool FontGpu::OpenTtf( const char *reason )
+bool FontGpu::OpenTtf( const char *reason, int cell_height )
 {
     BkTextContext *context = NBkTextBridge::Context();
     if ( context == nullptr ) return false;
     CloseTtf();
     const BkTextSizeClass eClass = TtfSizeClass( name_ );
+    const float pixel_size = cell_height > 0 ? float( cell_height ) : TtfPixelSize( eClass );
     BkTextFont *font = nullptr;
-    if ( bk_text_font_open( context, eClass, TtfPixelSize( eClass ), &font ) != BK_TEXT_OK || font == nullptr ) return false;
+    if ( bk_text_font_open( context, eClass, pixel_size, &font ) != BK_TEXT_OK || font == nullptr ) return false;
     const uint16_t probe = 'H';
     BkTextMetrics metrics = {};
     if ( bk_text_measure_utf16( font, &probe, 1, &metrics ) != BK_TEXT_OK )
@@ -132,6 +134,7 @@ bool FontGpu::OpenTtf( const char *reason )
         return false;
     }
     bk_font_ = font;
+    ttf_pixel_size_ = pixel_size;
     bk_serial_ = NBkTextBridge::Serial();
     // A synthetic bitmap-font description: nHeight + nExternalLeading is the line space, no
     // characters and no kerning (the bitmap path's tables are not read under ttf).
@@ -152,9 +155,9 @@ bool FontGpu::OpenTtf( const char *reason )
     format_.metrics.nHeight = format_.metrics.nAscent + format_.metrics.nDescent;
     format_.metrics.nExternalLeading = nLineSpace > format_.metrics.nHeight ? nLineSpace - format_.metrics.nHeight : 0;
     format_.metrics.nInternalLeading = 0;
-    format_.metrics.nAveCharWidth = int( TtfPixelSize( eClass ) * 0.5f );
-    format_.metrics.nMaxCharWidth = int( TtfPixelSize( eClass ) );
-    format_.metrics.fSpaceWidth = TtfPixelSize( eClass ) * 0.25f;
+    format_.metrics.nAveCharWidth = int( pixel_size * 0.5f );
+    format_.metrics.nMaxCharWidth = int( pixel_size );
+    format_.metrics.fSpaceWidth = pixel_size * 0.25f;
     format_.metrics.cCharSet = 0;
     format_.metrics.wDefaultChar = 0;
     missing_reported_.clear();
@@ -217,8 +220,11 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     saver.Add( 1, &format_ );
     // A mod's font was drawn for the mod's own language. With a language mod chosen over the mod
     // (Russian over a mod made in English) its texts hold letters this font lacks, every one an
-    // empty box: the size draws on bk_text instead, which has the language's faces.
-    if ( reason != nullptr && !BitmapFontCoversLanguage( format_, NBkTextBridge::Language() ) && OpenTtf( "mod font lacks the language's letters" ) )
+    // empty box: the size draws on bk_text instead, which has the language's faces. At the mod
+    // font's own cell height: the mod's layouts are made for its fonts (Achtung Panzer 2's medium is
+    // 16 pixels where the base game's is 20), and at the size class's height every label was larger
+    // than the mod's buttons and boxes expect.
+    if ( reason != nullptr && !BitmapFontCoversLanguage( format_, NBkTextBridge::Language() ) && OpenTtf( "mod font lacks the language's letters", format_.metrics.nHeight ) )
         return true;
     missing_reported_.clear();
     LogFontMetrics( name_, "bitmap", format_, reason );
@@ -384,7 +390,7 @@ BkTextFont *FontGpu::TtfFontAt( float scale, float *factor ) const
     BkTextContext *context = NBkTextBridge::Context();
     if ( context == nullptr ) return bk_font_;
     const BkTextSizeClass eClass = TtfSizeClass( name_ );
-    const float fPixelSize = TtfPixelSize( eClass ) * scale;
+    const float fPixelSize = ( ttf_pixel_size_ > 0 ? ttf_pixel_size_ : TtfPixelSize( eClass ) ) * scale;
     const int nKey = int( fPixelSize * 4.0f + 0.5f );
     for ( const auto &scaled : scaled_fonts_ )
         if ( scaled.first == nKey ) { *factor = 1.0f; return scaled.second; }

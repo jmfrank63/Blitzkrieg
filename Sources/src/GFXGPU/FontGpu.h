@@ -143,7 +143,9 @@ public:
 private:
     ~FontGpu();
     template <typename T> float TextWidth( const T *text, int count ) const;
-    bool OpenTtf( const char *reason = nullptr );
+    // cell_height: the pixel size to open at instead of the size class's, the cell height of a mod's
+    // own font this size replaces (0: the size class's).
+    bool OpenTtf( const char *reason = nullptr, int cell_height = 0 );
     float TtfAdvance( const uint16_t *text, size_t length ) const;
     // BK_GLYPH_TRACE: names a character this font has no glyph for, once per font load. The font
     // draws its default character instead, an empty box, and says nothing; a frame measure of solid
@@ -154,6 +156,9 @@ private:
     SFontFormat format_{};
     IGFXTexture *texture_ = nullptr;
     BkTextFont *bk_font_ = nullptr;
+    // The pixel size bk_font_ was opened at: the size class's, or a mod font's cell height. A scaled
+    // font is opened at this times the scale, so a scaled label is drawn as large as it is measured.
+    float ttf_pixel_size_ = 0;
     unsigned bk_serial_ = 0;
     // Text drawn at a scale (a layout scaled to the window, the tooltip) is shaped and rasterised by a
     // bk_text font opened at the scaled pixel size and placed 1:1, so it stays sharp instead of being

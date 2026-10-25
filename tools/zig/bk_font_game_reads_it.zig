@@ -13,8 +13,11 @@
 //! - font-ru: the generated font with bk_text's language Russian
 //!   (BK_TEXT_LANG=ru). ProggyClean has no Cyrillic, so the mod's font would
 //!   draw every Russian letter as an empty box: the Game must read its `1.tfd`,
-//!   leave its atlas alone and draw the medium size on bk_text, as the control
-//!   does (the Achtung Panzer 2 mod under lang-ru drew its menu as boxes).
+//!   leave its atlas alone and draw the medium size on bk_text (the Achtung
+//!   Panzer 2 mod under lang-ru drew its menu as boxes), at the mod font's
+//!   16-pixel cell, not the shipped medium's 20: the mod's layouts are made for
+//!   its font. Against blank, each button's ink is four fifths as tall and as
+//!   wide as the control's, and the log's medium line is the smaller font's.
 //!
 //! Control against font must differ, and only inside the eight text windows
 //! that use the medium font: the generated font replaced the shipped one
@@ -145,20 +148,30 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
 
     for ([_][]const u8{ control, drawn, russian, blank }) |frame| try testing.expectEqual(@as(usize, width * height * 4), frame.len);
 
-    // Russian over the mod's font: the five buttons draw as the control does, on bk_text. Their
-    // English labels are in the face bk_text gives Russian too (Liberation Serif leads for Latin
-    // and Cyrillic), so a pixel that differs is the mod's bitmap font drawn after all.
+    // Russian over the mod's font: the five buttons draw on bk_text, not with the mod's bitmap font,
+    // and at the mod font's cell height. Their English labels are in the face bk_text gives Russian
+    // too (Liberation Serif leads for Latin and Cyrillic), so against blank (the same layout without
+    // ink) the Russian run's ink is the control's text at 16 pixels instead of 20: a box four fifths
+    // as tall and as wide, give or take two pixels of rounding and shadow.
     for (buttons) |button| {
-        var differs_from_control: usize = 0;
         var differs_from_font: usize = 0;
         for (button.rect.y1..button.rect.y2) |y| for (button.rect.x1..button.rect.x2) |x| {
             const at = (y * width + x) * 4;
-            if (maxChannelDelta(control[at..][0..3], russian[at..][0..3]) > 2) differs_from_control += 1;
             if (maxChannelDelta(drawn[at..][0..3], russian[at..][0..3]) > 2) differs_from_font += 1;
         };
-        errdefer std.debug.print("D-14: \"{s}\" under Russian differs from the control in {d} pixels and from the mod's font in {d}\n", .{ button.text, differs_from_control, differs_from_font });
-        try testing.expectEqual(@as(usize, 0), differs_from_control);
+        const control_ink = inkBox(control, blank, button.rect) orelse return error.NoInk;
+        const russian_ink = inkBox(russian, blank, button.rect) orelse return error.NoInk;
+        const sizes = [_][2]usize{ .{ russian_ink.y2 - russian_ink.y1, control_ink.y2 - control_ink.y1 }, .{ russian_ink.x2 - russian_ink.x1, control_ink.x2 - control_ink.x1 } };
+        errdefer std.debug.print("D-14: \"{s}\" under Russian differs from the mod's font in {d} pixels; its ink is {d} wide and {d} tall, the control's {d} and {d}\n", .{ button.text, differs_from_font, sizes[1][0], sizes[0][0], sizes[1][1], sizes[0][1] });
         try testing.expect(differs_from_font >= 50);
+        // 16/20 of the control's size, within two pixels.
+        for (sizes) |size| try testing.expect(size[0] * 20 + 40 >= size[1] * 16 and size[0] * 20 <= size[1] * 16 + 40);
+    }
+    {
+        const control_height = try lastMediumHeight(io, allocator, root, "control");
+        const russian_height = try lastMediumHeight(io, allocator, root, "font-ru");
+        errdefer std.debug.print("D-14: the medium bk_text font is {d} pixels tall under Russian, {d} in the control\n", .{ russian_height, control_height });
+        try testing.expect(russian_height < control_height);
     }
 
     // Control against font: changed pixels only in the medium-font windows,
@@ -401,6 +414,28 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
         std.debug.print("bk-font ended {any}:\n{s}{s}\n", .{ result.term, result.stdout, result.stderr });
         return error.ToolFailed;
     }
+}
+
+/// The box of the pixels inside `rect` where `frame` differs from `blank` by more than the linear
+/// filter's rounding: the ink of the text drawn there.
+fn inkBox(frame: []const u8, blank: []const u8, rect: Rect) ?Rect {
+    var box: ?Rect = null;
+    for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
+        const at = (y * width + x) * 4;
+        if (maxChannelDelta(frame[at..][0..3], blank[at..][0..3]) <= 2) continue;
+        box = if (box) |one| .{ .x1 = @min(one.x1, x), .y1 = @min(one.y1, y), .x2 = @max(one.x2, x + 1), .y2 = @max(one.y2, y + 1) } else .{ .x1 = x, .y1 = y, .x2 = x + 1, .y2 = y + 1 };
+    };
+    return box;
+}
+
+/// The height LogFontMetrics gave the medium bk_text font last in the run's log: the font it drew with.
+fn lastMediumHeight(io: std.Io, allocator: std.mem.Allocator, root: []const u8, name: []const u8) !i32 {
+    const log = try std.Io.Dir.cwd().readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name }), allocator, .limited(64 << 20));
+    const prefix = "font ttf fonts\\medium: height ";
+    const at = std.mem.lastIndexOf(u8, log, prefix) orelse return error.GameLineMissing;
+    const rest = log[at + prefix.len ..];
+    const end = std.mem.indexOfScalar(u8, rest, ' ') orelse return error.GameLineMissing;
+    return std.fmt.parseInt(i32, rest[0..end], 10);
 }
 
 fn maxChannelDelta(a: []const u8, b: []const u8) u8 {
