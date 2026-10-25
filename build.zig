@@ -4076,6 +4076,28 @@ pub fn build(b: *std.Build) void {
     // in every test mode.
     const install_language_mods_step = b.step("install-language-mods", "Write the nine language mods into the game installation's mods folder (fresh-install step; M002 D087)");
     install_language_mods_step.dependOn(&language_mods_run.step);
+
+    // A gameplay mod made in English under a language mod (Achtung Panzer 2 with lang-ru), from
+    // tracked data: which of their texts the Game shows, that the mod's empty .bik videos stay off and
+    // that a save does not switch the session's language (tools/zig/mod_language_game_reads_it.zig).
+    // Desktop and GPU, so not part of `test`.
+    const mod_language_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mod_language_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, mod_language_game_reads_module, toolchain);
+    }
+    const mod_language_game_reads_tests = b.addTest(.{ .root_module = mod_language_game_reads_module });
+    const mod_language_game_reads_run = b.addRunArtifact(mod_language_game_reads_tests);
+    mod_language_game_reads_run.setCwd(b.path("."));
+    mod_language_game_reads_run.setEnvironmentVariable("BK_MOD_LANGUAGE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    mod_language_game_reads_run.has_side_effects = true;
+    mod_language_game_reads_run.step.dependOn(&language_mods_run.step);
+    const mod_language_game_reads_step = b.step("mod-language-game-reads-it", "Prove on the real Game that a gameplay mod's unchanged English shows lang-ru's translation and its changed texts stay its own, that its empty .bik videos play nothing and that loading a save keeps the session's language");
+    mod_language_game_reads_step.dependOn(&mod_language_game_reads_tests.step);
+    if (test_mode == .run) mod_language_game_reads_step.dependOn(&mod_language_game_reads_run.step);
     // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
     // install-game's). The editor installs are added as its dependencies at the end of build().
     const verify_install_l10n_module = b.createModule(.{
