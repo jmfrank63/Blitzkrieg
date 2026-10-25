@@ -20,6 +20,9 @@ class CQueueUnit
 	void PopCmd( const int nID );
 public:
 	void Init();
+	// The world is destroyed: the state and the command let go of what they hold (a gun crew's
+	// state holds its soldiers, each soldier its formation, the formation its state).
+	void ReleaseStateForClear() { pState = 0; pCmdCurrent = 0; }
 
 	virtual const WORD GetID() const = 0;
 

@@ -68,6 +68,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "../Scene/Scene.h"
 
 #include "Guns.h"
+#include "Turret.h"
 
 #ifdef _PROFILER
 #include "VTuneAPI.h"
@@ -113,7 +114,11 @@ void CAILogic::Clear()
 	// The world is destroyed for real: CUnits breaks the turret-to-owner cycles before its units go
 	// (CUnits::DetachTurrets). Arming NRefCount::LeakObjectsOnExit here instead, as this did, kept
 	// every map's objects to the end of the process - on Linux, where the flag is one symbol for all
-	// modules, every refcounted object of every module after the first map.
+	// modules, every refcounted object of every module after the first map. What no list holds any
+	// more is reached through registries of its own: a gun's wreck through its turrets
+	// (CUnitTurret::DetachAllOwners), a gun crew through its formation (CFormation::ReleaseAllStates).
+	CUnitTurret::DetachAllOwners();
+	CFormation::ReleaseAllStates();
 	CQueueUnit::Clear();
 	NGlobalObjects::Clear();
 	CLinkObject::Clear();

@@ -113,7 +113,11 @@ public:
 };
 class CUnitTurret : public CTurret
 {
-	OBJECT_COMPLETE_METHODS( CUnitTurret );
+	OBJECT_NORMAL_METHODS( CUnitTurret );
+protected:
+	// Leaves the registry DetachAllOwners walks.
+	virtual ~CUnitTurret();
+private:
 	DECLARE_SERIALIZE;
 	
 	CPtr<CAIUnit> pOwner;
@@ -123,9 +127,17 @@ class CUnitTurret : public CTurret
 	WORD wVerConstraint;
 
 	bool bCanRotateTurret;
+
+	void Register();
 public:
-	CUnitTurret() { }
+	CUnitTurret() { Register(); }
 	CUnitTurret( class CAIUnit *pOwner, const int nModelPart, const DWORD dwGunCarriageParts, const WORD wHorRotationSpeed, const WORD wVerRotationSpeed, const WORD wHorConstraint, const WORD wVerConstraint );
+	// The world is destroyed (CAILogic::Clear): every unit turret alive lets go of its owner, wherever
+	// the unit is. CUnits breaks the cycle for the units alive and CMilitaryCar::PrepareToDelete for a
+	// car at its death; a gun does not, so the wreck of a gun the graveyard purged, and every such wreck
+	// a save restores, is reachable from no list, only from its own turrets, and stayed alive to the
+	// end of the process (Achtung Panzer 2's "bridgehead established": 64 guns, 1,330 blocks).
+	static void DetachAllOwners();
 
 	virtual bool TurnHor( const WORD wHorAngle, const bool bInstantly = false );
 	virtual bool TurnVer( const WORD wVerAngle, const bool bInstantly = false );
