@@ -59,7 +59,8 @@
 //! shard is a code, so each has a folder of its own): `menu.tga`, `briefing.tga` (and `briefing-german.tga`, `briefing-ussr.tga`), `switch.tga`,
 //! `restart.tga`, and the two routes' `options.png` and `encyclopedia.png`; the report names the hb-view
 //! correlation of every line. The user's data is never touched: XDG_DATA_HOME and BK_USER_ROOT are the
-//! scratch folder and the Game runs from it. BK_L10N_GAME names the installed Game executable;
+//! scratch folder and the Game runs from it; BK_MODS_ROOT is a scratch mods folder with copies of the
+//! installed language mods and the blank one. BK_L10N_GAME names the installed Game executable;
 //! `zig build l10n-game-reads-it` sets it and builds the mods first. The helpers the text-engine tier
 //! (text_engine_game_reads_it.zig) also uses are imported from it.
 const std = @import("std");
@@ -365,8 +366,10 @@ const menu_options_route = Route{
 };
 /// The gameplay mods screen (MISSION_COMMAND_MODS_LIST, Lists/IMModList.xml; Load Mod opens it): the
 /// caption in its top bar (mods/caption, white) and the list's first row, which
-/// CInterfaceIMModsList::FillListItem names remove_all_mods (dark on the light list; the language
-/// mods are left out of the list). Both are texts the ELK database lacks. The column header
+/// CInterfaceIMModsList::FillListItem names remove_all_mods (dark on the light list). The list
+/// sorts that row by its text among the mods' names, as the 2003 game did, so it is the first row
+/// only because the runs' mods folder (BK_MODS_ROOT) holds language mods alone, which the list
+/// leaves out. Both are texts the ELK database lacks. The column header
 /// (mods/mod_name) holds the caption's text and is not measured, so no two labels share a string.
 const mods_dir = "textes/ui/intermission/mainmenu/mods";
 const mods_labels = [_]Label{
@@ -480,11 +483,18 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
     const root = try std.fs.path.join(allocator, &.{ cwd_path, scratch });
     try cwd.createDirPath(io, scratch);
 
-    // The background: the blank language, in a profile of its own. The shards share
-    // the folder of the mods, so each installs the blank mod and removes it at the end.
-    const blank_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", blank_mod });
-    defer cwd.deleteTree(io, blank_folder) catch {};
-    try installBlankMod(io, allocator, game_root, root);
+    // The mods folder every run of the Game reads (BK_MODS_ROOT): the language mods the install
+    // holds and the blank mod, nothing else, so whatever else is installed (the editor tiers once
+    // left twenty test mods there) cannot move a row of the mods list the routes measure.
+    const mods_game = try std.fs.path.join(allocator, &.{ root, mods_game_folder });
+    cwd.deleteTree(io, mods_game) catch {};
+    for (languages) |language| if (language.mod) |mod| {
+        const installed = try std.fs.path.join(allocator, &.{ game_root, "mods", mod });
+        cwd.access(io, installed, .{}) catch continue;
+        try copyTree(io, allocator, installed, try std.fs.path.join(allocator, &.{ mods_game, "mods", mod }));
+    };
+    // The background: the blank language, in a profile of its own.
+    try installBlankMod(io, allocator, mods_game, root);
     const blank_root = try std.fs.path.join(allocator, &.{ root, "blank" });
     cwd.deleteTree(io, blank_root) catch {};
     const blank_run = try Run.init(io, allocator, game, game_root, root, "blank", blank_mod, true);
@@ -678,7 +688,8 @@ fn checkLists(allocator: std.mem.Allocator, run: Run, absent: []const []const u8
         all_seen = all_seen and (one or tolerated);
     }
     try report.line("== option and mods lists ({d} mods list entries, {d} language entries)", .{ entries, language_entries });
-    try report.check(entries > 0 and leaked == 0, "the gameplay mods list opened and shows no language mod ({d} entries, {d} language mods in it)", .{ entries, leaked });
+    // The scratch mods folder holds language mods only: Detach All MODs is the one entry.
+    try report.check(entries == 1 and leaked == 0, "the gameplay mods list opened and shows no language mod, only Detach All MODs ({d} entries, {d} language mods in it)", .{ entries, leaked });
     try report.check(default_first and all_seen, "Options > Language lists Default first and the nine native names (default first {any}, names all present {any})", .{ default_first, all_seen });
 }
 
@@ -1278,13 +1289,34 @@ fn onGrid(allocator: std.mem.Allocator, reference: Gray, ink: Gray) !Gray {
     return measure.resample(allocator, cut, ink.width, ink.height);
 }
 
+/// The folder below the tier's scratch root that stands in for the game folder of the mods:
+/// its `mods` child is BK_MODS_ROOT for every run of the Game.
+const mods_game_folder = "mods-game";
+
+/// Every file below `from` copied to the same place below `to`.
+fn copyTree(io: std.Io, allocator: std.mem.Allocator, from: []const u8, to: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    var dir = try cwd.openDir(io, from, .{ .iterate = true });
+    defer dir.close(io);
+    var walker = try dir.walk(allocator);
+    defer walker.deinit();
+    while (try walker.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const bytes = try dir.readFileAlloc(io, entry.path, allocator, .limited(256 << 20));
+        const out = try std.fs.path.join(allocator, &.{ to, entry.path });
+        if (std.fs.path.dirname(out)) |parent| try cwd.createDirPath(io, parent);
+        try cwd.writeFile(io, .{ .sub_path = out, .data = bytes });
+    }
+}
+
 /// One scratch profile of the Game: `<root>/<name>/user` is XDG_DATA_HOME,
-/// BK_USER_ROOT and the working directory.
+/// BK_USER_ROOT and the working directory; `<root>/mods-game/mods` is BK_MODS_ROOT.
 const Run = struct {
     io: std.Io,
     game: []const u8,
     folder: []const u8,
     user: []const u8,
+    mods: []const u8,
     mod: ?[]const u8,
     name: []const u8,
     /// Whether the Game runs with BK_TEXT_ENGINE=bitmap: the blank background's, whose mod brings
@@ -1303,7 +1335,8 @@ const Run = struct {
         try cwd.createDirPath(io, configs);
         const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
-        const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .mod = mod, .name = name, .bitmap = bitmap };
+        const mods = try std.fs.path.join(allocator, &.{ root, mods_game_folder, "mods" });
+        const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .mods = mods, .mod = mod, .name = name, .bitmap = bitmap };
         const schedule = try std.fmt.allocPrint(allocator, "30:set=GamePlay.Language={s},60:exit", .{mod orelse "Default"});
         const log = try run.play(allocator, &.{ "-windowed", profile_arg }, schedule, null, "choose");
         if (mod) |one| try expectLine(log, run.folder, try std.fmt.allocPrint(allocator, "language: \"{s}\" mounted", .{one}));
@@ -1315,6 +1348,7 @@ const Run = struct {
         try environ.put("XDG_DATA_HOME", self.user);
         try environ.put("BK_USER_ROOT", self.user);
         try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ self.user, "profiles" }));
+        try environ.put("BK_MODS_ROOT", self.mods);
         try environ.put("BK_MEM_REPORT", "count");
         try environ.put("BK_DEBUG_LOG", "1");
         try environ.put("BK_MOD_TRACE", "1");

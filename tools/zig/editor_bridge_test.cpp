@@ -6196,7 +6196,8 @@ static void TestObjectPictures( BkEditorSession *pSession, const std::string &sz
 }
 
 // D-26: BkEditorMods lists the fixture mod (tools/zig/fixtures/editor_mod,
-// staged at <install>/mods/EditorTestMod for this tier only - never the
+// staged in the scratch mods folder BK_MODS_ROOT names for this tier only,
+// never in the install's mods, which are the player's - never the
 // unlicensed AchtungPanzer2); BkEditorSetMod switches to it and back,
 // closing the open map each time (its object database is about to change
 // under it); a bad or unknown folder is refused and changes nothing.

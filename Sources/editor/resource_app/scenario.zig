@@ -68,7 +68,7 @@
 //!   do=keyframe:add/<x>/<y>   a key added by a press and release at that value (one command)
 //!   do=keyframe:move/<i>/<x>/<y>   key i pressed, dragged to that value and released (one command)
 //!   do=keyframe:delete/<i>  key i made the active one and Delete pressed (key 0 is protected)
-//!   {dir}, {fix}, {mods} and {data} stand in a path for the scratch folder, the fixtures, the installation's mods and Data folders
+//!   {dir}, {fix}, {mods} and {data} stand in a path for the scratch folder, the fixtures, the mods folder (BK_MODS_ROOT, else the installation's) and the installation's Data folder
 //!   do=image_open           the Image window drawn over the open mip, chc, cgc or mdc, placed clear of the tree
 //!   do=image_select         the first objective, mission or chapter made the active item (the tree's selection)
 //!   do=image_click:<x>/<y>  a pointer click on that picture pixel (place mode: the active item goes there)
@@ -128,7 +128,7 @@
 //!          zoom:<xs>/<ys>  the curve's pixels per step  camera:horizontal|default  the Camera button's state
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
-//! (the installation's mods folder) are replaced in every path and argument,
+//! (BK_MODS_ROOT, else the installation's mods folder) are replaced in every path and argument,
 //! since an argument may not hold a space. The actions of the pointer and
 //! the Map Editor's own tools (press, drag, tool, compare, test) are refused
 //! as unsupported rather than ignored. Shots are TGAs of the presented frame
@@ -456,6 +456,9 @@ const Runner = struct {
     dir: []const u8,
     fixtures: []const u8,
     base_root: []const u8,
+    /// Where {mods} points and the Game looks for the exported mod: BK_MODS_ROOT, which every tier
+    /// sets to a scratch folder, so a run never leaves its mods in the installation's mods folder.
+    mods_root: []const u8,
     running: ?testlaunch.Running = null,
     /// The manifest row last looked up (griRow), kept as one line so its slices outlive the file's bytes.
     gri_row_storage: [1024]u8 = undefined,
@@ -513,7 +516,7 @@ const Runner = struct {
             const tokens = [_]struct { token: []const u8, value: []const u8, suffix: []const u8 }{
                 .{ .token = "{dir}", .value = self.dir, .suffix = "" },
                 .{ .token = "{fix}", .value = self.fixtures, .suffix = "" },
-                .{ .token = "{mods}", .value = self.base_root, .suffix = "mods" },
+                .{ .token = "{mods}", .value = self.mods_root, .suffix = "" },
                 .{ .token = "{data}", .value = self.base_root, .suffix = "Data" },
             };
             var matched = false;
@@ -2638,8 +2641,8 @@ const Runner = struct {
         const b = self.bridge();
         var mod: core.bridge.ModSettings = .{};
         if (b.modSettingsGet(&mod) != .ok) return self.fail("MOD settings: {s}", .{b.lastMessage()});
-        const folder = tools.modFolderForGame(mod.exportDirSlice(), self.base_root) orelse
-            return self.fail("the export folder {s} is not directly in {s}mods", .{ mod.exportDirSlice(), self.base_root });
+        const folder = tools.modFolderForGame(mod.exportDirSlice(), self.mods_root) orelse
+            return self.fail("the export folder {s} is not directly in {s}", .{ mod.exportDirSlice(), self.mods_root });
         var installed_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const installed = testlaunch.gamePath(self.io, &installed_buffer) catch |err| return self.fail("the Game beside the editor: {s}", .{@errorName(err)});
         var log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -3012,6 +3015,11 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
     const root = std.mem.sliceTo(&paths.base_root, 0);
     const base_root = std.fmt.bufPrint(&base_buffer, "{s}{s}", .{ root, if (std.mem.endsWith(u8, root, "/") or std.mem.endsWith(u8, root, "\\")) "" else "/" }) catch
         return failLine("auto", "the installation path is too long", .{});
+    const mods_override: ?[]u8 = environ.getAlloc(gpa, tools.mods_root_env) catch null;
+    defer if (mods_override) |value| gpa.free(value);
+    var mods_buffer: [logic.path_capacity]u8 = undefined;
+    const mods_root = tools.modsFolder(&mods_buffer, base_root, mods_override) orelse
+        return failLine("auto", "the mods folder path is too long", .{});
 
     var runner: Runner = .{
         .gpa = gpa,
@@ -3022,6 +3030,7 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
         .dir = scratch,
         .fixtures = fixtures,
         .base_root = base_root,
+        .mods_root = mods_root,
     };
     defer runner.life.deinit(gpa);
     defer runner.panels.deinit(gpa);

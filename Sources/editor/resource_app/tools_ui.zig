@@ -622,7 +622,11 @@ pub const Tools = struct {
         if (self.gameRunning()) return;
         var mod: ModSettings = .{};
         if (self.bridge().modSettingsGet(&mod) != .ok) return self.showReport("resource_app.tools.title.run_game", "resource_app.tools.msg.mod_unreadable", .{self.bridge().lastMessage()});
-        const mod_folder = tools.modFolderForGame(mod.exportDirSlice(), self.baseRoot()) orelse
+        const override: ?[]u8 = self.environ.getAlloc(self.gpa, tools.mods_root_env) catch null;
+        defer if (override) |value| self.gpa.free(value);
+        var mods_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const mods_folder = tools.modsFolder(&mods_buffer, self.baseRoot(), override) orelse self.baseRoot();
+        const mod_folder = tools.modFolderForGame(mod.exportDirSlice(), mods_folder) orelse
             return self.showReport("resource_app.tools.title.run_game", "resource_app.tools.msg.mod_folder_bad", .{ mod.exportDirSlice(), self.baseRoot() });
         var installed_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const installed = testlaunch.gamePath(self.io, &installed_buffer) catch |err| return self.showReport("resource_app.tools.title.run_game", "resource_app.tools.msg.editor_folder_unknown", .{@errorName(err)});

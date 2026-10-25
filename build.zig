@@ -3021,11 +3021,14 @@ pub fn build(b: *std.Build) void {
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
     // or any package step (the fixture is not AchtungPanzer2 and is tracked,
-    // but it is still not part of what ships).
+    // but it is still not part of what ships). It is staged in a scratch mods
+    // folder the runs name with BK_MODS_ROOT (setFixtureModsRoot), not in the
+    // install's mods: that folder is the player's, and the Game's Load Mod list
+    // showed the fixture there.
     const install_fixture_mod = b.addInstallDirectory(.{
         .source_dir = b.path("tools/zig/fixtures/editor_mod/EditorTestMod"),
-        .install_dir = .{ .custom = stage_root["zig-out/".len..] },
-        .install_subdir = "mods/EditorTestMod",
+        .install_dir = .{ .custom = fixture_mods_root["zig-out/".len..] },
+        .install_subdir = "EditorTestMod",
     });
 
     // R045/R046: every C++ module in the staged layout allocates through BkMemory.
@@ -8262,6 +8265,23 @@ fn setProfilesRootForTest(run: *std.Build.Step.Run, name: []const u8) void {
     run.setEnvironmentVariable("BK_PROFILES_ROOT", rootPath(b, b.fmt("zig-out/local-test/{s}/profiles", .{name})));
 }
 
+/// BK_MODS_ROOT (StreamIO/ModsPaths.h) for a tier that writes mods: the Game, the editors and their
+/// bridge look for mods in zig-out/local-test/<name>/mods instead of the install's mods folder, which
+/// is the player's. Twenty folders of test exports left there once pushed the Game's Detach All MODs
+/// row down its Load Mod list.
+fn setModsRootForTest(run: *std.Build.Step.Run, name: []const u8) void {
+    const b = run.step.owner;
+    run.setEnvironmentVariable("BK_MODS_ROOT", rootPath(b, b.fmt("zig-out/local-test/{s}/mods", .{name})));
+}
+
+/// Where the Map Editor tiers' fixture mod is staged (install_fixture_mod), apart from the install.
+const fixture_mods_root = "zig-out/local-test/editor-fixture-mods";
+
+/// BK_MODS_ROOT for a run that needs the fixture mod: the folder it is staged in, and no other mod.
+fn setFixtureModsRoot(run: *std.Build.Step.Run) void {
+    run.setEnvironmentVariable("BK_MODS_ROOT", rootPath(run.step.owner, fixture_mods_root));
+}
+
 /// The C ABI of the bk-* string tables (tools/zig/bk_l10n.h) as a static library for the C++ tools
 /// bk-font, bk-map and bk-sprite, so they choose the language and read tools/zig/lang/<code>.lang
 /// the way the Zig tools do (M002 S07, D062). Zig code, no C++ runtime: nothing here allocates
@@ -8868,6 +8888,7 @@ fn addEditorBridgeTest(
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
     run.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(run);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -8886,6 +8907,7 @@ fn addEditorBridgeTest(
     run_m2_sweep.has_side_effects = true;
     run_m2_sweep.step.dependOn(&install_exe.step);
     run_m2_sweep.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(run_m2_sweep);
     const step_m2_sweep = b.step("test-editor-bridge-m2-sweep", "Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
@@ -8933,6 +8955,7 @@ fn addEditorBridgeTest(
     run_m3_rmg.has_side_effects = true;
     run_m3_rmg.step.dependOn(&install_exe.step);
     run_m3_rmg.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(run_m3_rmg);
     const step_m3_rmg = b.step("test-editor-bridge-m3-rmg", "Generate random maps through the engine with seeds and check the files, the refusals and the mod stamp");
     step_m3_rmg.dependOn(&exe.step);
     if (test_mode == .run) step_m3_rmg.dependOn(&run_m3_rmg.step);
@@ -9343,6 +9366,7 @@ fn addMapEditor(
     mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
     mod_run.step.dependOn(&install_exe.step);
     mod_run.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(mod_run);
     // After the absolute-path run, so two engines never start at once.
     mod_run.step.dependOn(&absolute_run.step);
     if (test_mode == .run) {
@@ -9389,6 +9413,7 @@ fn addMapEditor(
     // fixture mod and back, closing the map - staged here, never a
     // dependency of install-map-editor.
     smoke_run.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(smoke_run);
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
 
@@ -11381,6 +11406,7 @@ fn addResourceEditor(
     game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
     game_reads_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
     setProfilesRootForTest(game_reads_run, "resource-editor-game-reads-it-user");
+    setModsRootForTest(game_reads_run, "resource-editor-game-reads-it-user");
     game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     game_reads_run.has_side_effects = true;
     game_reads_run.step.dependOn(&install_exe.step);
@@ -11454,6 +11480,7 @@ fn addResourceAutoRun(
     run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
     setProfilesRootForTest(run, b.fmt("resource-editor-auto-{s}-user", .{auto.name}));
+    setModsRootForTest(run, b.fmt("resource-editor-auto-{s}-user", .{auto.name}));
     run.has_side_effects = true;
     run.step.dependOn(install_step);
     run.step.dependOn(smoke_step);
@@ -12525,7 +12552,7 @@ const resource_auto_pcp =
     "531:shot=pcp_fn_delete," ++
     "531:expect=shot_lit:pcp_fn_delete," ++
     "532:do=function_close," ++
-    "533:do=import_file:pcp/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "533:do=import_file:pcp/{data}/Effects/Particles/flame.xml," ++
     "534:expect=kind:pcp," ++
     "534:expect=nodes_min:5," ++
     "534:expect=untitled," ++
@@ -12534,7 +12561,7 @@ const resource_auto_pcp =
     "536:do=export," ++
     "536:expect=exported," ++
     "536:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
-    "537:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml,";
+    "537:do=import_refused:eff/{data}/Effects/Particles/flame.xml,";
 
 /// S12 Effect (with S13's whole-number position and the Direction dock).
 const resource_auto_eff =
@@ -12632,7 +12659,7 @@ const resource_auto_3rd =
     "19:do=pause:200," ++
     "20:shot=road_solid_again," ++
     "20:differ=road_wire/road_solid_again@0.005," ++
-    "21:do=import_file:3rd/{mods}/../Data/Terrain/sets/1/Roads3D/rail_road_grass.xml," ++
+    "21:do=import_file:3rd/{data}/Terrain/sets/1/Roads3D/rail_road_grass.xml," ++
     "22:expect=kind:3rd," ++
     "22:saveas={dir}/3rd/imported.3rd," ++
     "23:do=export," ++
@@ -12671,7 +12698,7 @@ const resource_auto_3rv =
     "18:shot=river_wire," ++
     "18:differ=river_d/river_wire@0.005," ++
     "19:do=wireframe:off," ++
-    "20:do=import_file:3rv/{mods}/../Data/Terrain/sets/1/Rivers/water.xml," ++
+    "20:do=import_file:3rv/{data}/Terrain/sets/1/Rivers/water.xml," ++
     "21:expect=kind:3rv," ++
     "22:saveas={dir}/3rv/imported.3rv," ++
     "23:do=export," ++
