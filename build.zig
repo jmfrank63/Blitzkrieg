@@ -2245,7 +2245,7 @@ pub fn build(b: *std.Build) void {
     // itself (the C++ bridge and CRT selection stay at the game's optimize
     // mode either way).
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
-    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, streamio_fast);
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, sdl_dynamic, streamio_fast);
     // Cloud profile sync. Nothing loads it yet — the C++ facade arrives with
     // P06-M01 — so it is built and exercised by test-cloudsync-abi rather than
     // installed into the game layout; the packet that gives the game a reason
@@ -4816,6 +4816,7 @@ fn addStreamIOZig(
     toolchain: ToolchainIncludes,
     options_bridge: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
+    sdl: *std.Build.Step.Compile,
     streamio_fast: bool,
 ) *std.Build.Step.Compile {
     // The module optimize mode applies to the zig sources only; the C++
@@ -4845,6 +4846,11 @@ fn addStreamIOZig(
             "Sources/src/StreamIOZig/legacy_bridge.cpp",
             "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/Debug.cpp",
+            // The load trace (OpenTraceLog) needs the user root. Every module links its
+            // own copy of Paths.cpp: StreamIOOptionsAbi's copy exports nothing on
+            // Windows, where a DLL only offers what it marks dllexport, so a call
+            // into it linked on Linux and macOS and failed with lld-link.
+            "Sources/src/Platform/Paths.cpp",
         },
         .flags = flags.items,
     });
@@ -4853,6 +4859,8 @@ fn addStreamIOZig(
     addMsvcLibraryPaths(b, streamio_module, toolchain);
     streamio_module.linkLibrary(options_bridge);
     streamio_module.linkLibrary(platform_runtime);
+    // Paths.cpp asks SDL for the base and preference paths: the Game's one shared SDL3.
+    streamio_module.linkLibrary(sdl);
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
     const def_path = if (target.result.cpu.arch == .x86)
