@@ -3777,6 +3777,29 @@ pub fn build(b: *std.Build) void {
     const paths_step = b.step("test-platform-paths", "Run portable data and writable root tests");
     paths_step.dependOn(&paths_test.step);
     if (test_mode == .run) paths_step.dependOn(&paths_run.step);
+
+    // The mods folders of a game folder holding both "mods" and "Mods" (StreamIO/ModsPaths.h).
+    const mods_paths_module = b.createModule(.{ .target = target, .optimize = .debug });
+    mods_paths_module.addIncludePath(b.path("Sources/src"));
+    mods_paths_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/mods_paths_test.cpp"},
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"},
+    });
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, mods_paths_module, toolchain);
+        addMsvcLibraryPaths(b, mods_paths_module, toolchain);
+        linkMsvcRuntime(mods_paths_module, .debug);
+    } else {
+        mods_paths_module.link_libc = true;
+        mods_paths_module.link_libcpp = true;
+    }
+    const mods_paths_test = b.addExecutable(.{ .name = "mods-paths-test", .root_module = mods_paths_module });
+    mods_paths_test.subsystem = .console;
+    if (platform == .windows_x64) mods_paths_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const mods_paths_run = b.addRunArtifact(mods_paths_test);
+    const mods_paths_step = b.step("test-mods-paths", "Run the mods folder lookup tests: every case variant of mods is one mods folder");
+    mods_paths_step.dependOn(&mods_paths_test.step);
+    if (test_mode == .run) mods_paths_step.dependOn(&mods_paths_run.step);
     const gfx_gpu_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
         .target = target,

@@ -375,7 +375,7 @@ static bool MountLanguage()
 	pStorage->RemoveStorage( "LANGUAGE" );
 	if ( szLanguage.empty() || NStr::CompareAsciiNoCase( szLanguage.c_str(), "Default" ) == 0 )
 		return true;
-	const std::string szPak = NMods::Root( GetSingleton<IMainLoop>()->GetBaseDir() ) + szLanguage + "\\data\\texts.pak";
+	const std::string szPak = NMods::Find( GetSingleton<IMainLoop>()->GetBaseDir(), szLanguage ) + "\\data\\texts.pak";
 	CPtr<IDataStorage> pLanguage = OpenStorage( szPak.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
 	if ( pLanguage == 0 )
 		return false;
@@ -425,7 +425,9 @@ void CICChangeMOD::Configure( const char *pszConfig )
 }
 void CICChangeMOD::Exec( IMainLoop *pML )
 {
-	const std::string szMODPath = NMods::Root( pML->GetBaseDir() ) + szMOD + "data\\";
+	// In whichever mods folder holds it: szMOD is lower-cased, and a Linux
+	// install can have a Mods/ beside its mods/ (NMods::Roots).
+	const std::string szMODPath = NMods::Find( pML->GetBaseDir(), szMOD ) + "\\data\\";
 	if ( szMOD.empty() ) 
 		ClearMOD();
 	else if ( CPtr<IDataStorage> pMOD = OpenStorage((szMODPath + "*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON) )

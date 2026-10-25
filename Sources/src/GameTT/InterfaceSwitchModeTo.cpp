@@ -57,11 +57,13 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 	{
 		std::string szDesiredModDirectory;
 
-		const std::string szModsDirectory = NMods::Root( GetSingleton<IMainLoop>()->GetBaseDir() );
+		// Every spelling of the mods folder a case-sensitive disk may hold (NMods::Roots).
+		const std::vector<std::string> modsDirectories = NMods::Roots( GetSingleton<IMainLoop>()->GetBaseDir() );
 		CModNames modDirs;
 		SEnumDirs cb;
 		cb.pModDirs = &modDirs;
-		NFile::EnumerateFiles( szModsDirectory.c_str(), "*.*", cb, false );
+		for ( size_t i = 0; i < modsDirectories.size(); ++i )
+			NFile::EnumerateFiles( modsDirectories[i].c_str(), "*.*", cb, false );
 
 		const std::string szMODPath = NMods::Root( pML->GetBaseDir() ) + szDesiredModDirectory;
 
