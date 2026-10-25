@@ -2081,6 +2081,44 @@ pub fn build(b: *std.Build) void {
     bk_image_test_step.dependOn(&bk_image_tests.step);
     bk_image_test_step.dependOn(bk_tools_test_step);
     if (test_mode == .run) bk_image_test_step.dependOn(&bk_image_tests_run.step);
+    // `bk-views`: the building views pipeline (docs/superpowers/specs/
+    // 2026-10-25-building-views-design.md), std-only Zig built like bk-image.
+    // Its tests read tracked buildings in Data/ and the camera fixture; the
+    // round trip through the engine is bk-views-roundtrip (addBkSprite).
+    const bk_views = b.addExecutable(.{
+        .name = "bk-views",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_views.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_views_step = b.step("bk-views", "Build and install the bk-views building views tool");
+    bk_views_step.dependOn(&b.addInstallArtifact(bk_views, .{}).step);
+    const bk_views_host = b.addExecutable(.{
+        .name = "bk-views",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_views.zig"),
+            .target = portable_host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_views", bk_views_host.getEmittedBin());
+    const bk_views_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_views_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    bk_views_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_views_tests = b.addTest(.{ .root_module = bk_views_test_module });
+    const bk_views_tests_run = b.addRunArtifact(bk_views_tests);
+    bk_views_tests_run.setCwd(b.path("."));
+    // The tests read Data/ and the camera fixture by plain path.
+    bk_views_tests_run.has_side_effects = true;
+    const bk_views_test_step = b.step("test-bk-views", "Run the bk-views decoder, picture and camera tests and the bk-* convention test");
+    bk_views_test_step.dependOn(&bk_views_tests.step);
+    bk_views_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_views_test_step.dependOn(&bk_views_tests_run.step);
     // `bk-video` (D-22): convert_bik_to_ogv.ps1 as a std-only Zig wrapper over
     // ffmpeg/ffprobe on PATH, built and staged like bk-image. Its tests convert
     // tracked Bink movies; the ones that need ffmpeg skip, saying so, without it.
@@ -2123,7 +2161,7 @@ pub fn build(b: *std.Build) void {
 
     // The bk-* tools and their tests ask macOS for the user's languages through CoreFoundation
     // (bk_l10n.OsLocales), so each module that compiles bk_l10n.zig names the framework.
-    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
+    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_views.root_module, bk_views_host.root_module, bk_views_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
 
     // ResourceEditor fixture generator. See
     // tools/zig/resource_editor_fixtures.zig for the design rationale and

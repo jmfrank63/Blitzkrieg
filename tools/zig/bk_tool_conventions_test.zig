@@ -132,6 +132,24 @@ const tools = [_]Tool{
         .setup = setupImage,
     },
     .{
+        .name = "bk-views",
+        .path = bk_tools.bk_views,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"decompose"},
+            &.{ "decompose", "house" },
+            &.{ "decompose", "house", "out", "extra" },
+            &.{ "decompose", "house", "--force" },
+            &.{"camera"},
+            &.{ "camera", "house", "--out" },
+        },
+        .failing = &.{ "decompose", "missing", "out" },
+        // Backslashes on input, and an output folder that is not there yet.
+        .succeeding = &.{ "decompose", "mod\\house", "mod\\out\\house" },
+        .setup = setupViews,
+    },
+    .{
         .name = "bk-video",
         .path = bk_tools.bk_video,
         .bad_usage = &.{
@@ -174,6 +192,18 @@ fn setupSprite(io: std.Io, dir: std.Io.Dir) !void {
 fn setupImage(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "mod");
     try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/small-tools/offset-romb/tile16.tga", dir, "mod/tile.tga", io, .{});
+}
+
+/// One damage state of a tracked building: its pack, atlas and stats.
+fn setupViews(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod/house");
+    for ([_][]const u8{ "1.san", "1_h.dds", "1.xml" }) |name| {
+        var from_buffer: [128]u8 = undefined;
+        var to_buffer: [64]u8 = undefined;
+        const from = try std.fmt.bufPrint(&from_buffer, "Data/Buildings/europe/summer/e_ctownhouse01_1/{s}", .{name});
+        const to = try std.fmt.bufPrint(&to_buffer, "mod/house/{s}", .{name});
+        try std.Io.Dir.copyFile(std.Io.Dir.cwd(), from, dir, to, io, .{});
+    }
 }
 
 /// An empty movie folder.
