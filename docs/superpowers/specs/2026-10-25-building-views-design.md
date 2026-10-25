@@ -176,6 +176,37 @@ colourways and winter packs. `test-bk-views` fails when the tracked files differ
   (measured 1) look like their suffix sides 4 and 3. `dot` and `dot_h` hold the same pictures with different
   grids; `dot_h` measures as sides 1-4, `dot` does not.
 
+## First generated side (M005 S02, 2026-10-26)
+
+`bk-views side <variant-dir> <turns> <out-dir>` writes the variant turned by each of `<turns>` (1, 2, 3 quarter
+turns) as `<out-dir>/<variant>_r<k>/`, a folder like a shipped variant (packs of every damage state with shadow and
+ground pictures, winter packs where the variant has them, the turned `1.xml`, `icon.tga`, `name.txt`), and
+`<variant>_r<k>.map/` with the source of every pixel (`sources.json` and a map per picture). Output is per variant,
+not per family (decided by the milestone's orchestrator): two variants that share a view each get their own three
+turns, and colourways stay apart. `zig build bk-views-side` makes `e_ctownhouse01_2_r1` (side 3, which no 2003
+picture shows), `_r2` (side 4) and `_r3` (side 1) and checks every pack like the round trip (the engine's reader,
+compose-pack again byte for byte, decompose back).
+
+- **Shape.** A voxel visual hull (2 world units) in the variant's frame: every voxel over its footprint (grown by a
+  cell) whose centre every picture of the family covers, the other variants' zero crosses found by maximising the
+  hull's volume. From 30 degrees up a wall facing the eye hides what stands in front of it except at its foot, so
+  a column stands only on a kept ground voxel. Hull outline against the 2003 outlines (IoU): 0.96 to 0.98 intact,
+  0.91 to 0.94 damaged, 0.82 to 0.93 ruined. Every variant of the family gives the shape; only those of the
+  target's colourway give pixels (hue histograms differ by less than 0.1: 0.014 for `e_ctownhouse01_2`/`_4`,
+  0.16 for `_1`).
+- **Blender casts the rays.** `tools/blender/bk_views_render.py` builds a BVH of the hull's faces and writes, per
+  pixel of each view, the hit point and which 2003 eye sees it (directly or through a mirror plane of the hull), and
+  whether the ground there lies in the hull's shadow. No Blender renderer is involved, so the output is exact and
+  byte-identical run to run (and between Debug and ReleaseFast bk-views). Everything else is Zig.
+- **Pixels.** A seen pixel takes the 2003 picture that sees it, relit by the ratio of mean colours of its shading
+  class (which way it faces in the camera's frame) between the target and the source; then mirrored pixels (mirror
+  planes whose hull IoU is 0.8 or more: `x = y` at 0.85 here); the rest is patch-filled (PatchMatch-style
+  propagation and random search, 7x7 patches, the same shading class, fixed seed). The light is fitted to the 2003
+  shadow pictures (azimuth 245, elevation 67.5 in the camera's frame, shadow IoU 0.73); shadows are the hull's,
+  cast by Blender. Ground pictures are the 2003 ones laid on the ground plane.
+- **Icon.** `compose-pack --icon` runs the export's `SaveIconFile`; on `e_ctownhouse01_2`'s decomposed picture it
+  gives the shipped `icon.tga` but for one byte off by one.
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r
