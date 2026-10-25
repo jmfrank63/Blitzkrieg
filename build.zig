@@ -8986,6 +8986,37 @@ fn addBkSprite(
     roundtrip_step.dependOn(&check_exe.step);
     roundtrip_step.dependOn(install);
     if (test_mode == .run) roundtrip_step.dependOn(&roundtrip_run.step);
+    // The first generated building views (M005 S02): `bk-views side` makes the
+    // three other quarter turns of e_ctownhouse01_2 (its side 3 is the view no
+    // 2003 picture shows) with Blender headless, and the round trip checks
+    // every generated pack: the engine's reader, compose-pack again byte for
+    // byte, decompose back.
+    const side_run = b.addRunArtifact(bk_views);
+    setUserRootsForTest(side_run, "bk-views-user");
+    side_run.setCwd(b.path("."));
+    side_run.addArgs(&.{ "side", "Data/Buildings/europe/summer/e_ctownhouse01_2", "1,2,3", "zig-out/local-test/bk-views/side" });
+    _ = side_run.captureStdOut(.{});
+    side_run.step.dependOn(install);
+    addPathDir(side_run, rootPath(b, "zig-out/bin"));
+    // It reads Data/ and tools/blender by plain path.
+    side_run.has_side_effects = true;
+    const side_check = b.addRunArtifact(roundtrip);
+    setLeakReportStrict(side_check);
+    setUserRootsForTest(side_check, "bk-views-user");
+    side_check.setCwd(b.path("."));
+    side_check.addArtifactArg(bk_views);
+    side_check.addArtifactArg(tool);
+    side_check.addArtifactArg(check_exe);
+    side_check.addArgs(&.{ module_root, "zig-out/local-test/bk-views/side-check" });
+    for ([_][]const u8{ "1", "2", "3" }) |k| side_check.addArg(b.fmt("zig-out/local-test/bk-views/side/e_ctownhouse01_2_r{s}", .{k}));
+    side_check.step.dependOn(&side_run.step);
+    addPathDir(side_check, rootPath(b, "zig-out/bin"));
+    side_check.has_side_effects = true;
+    const side_step = b.step("bk-views-side", "Make the missing side of e_ctownhouse01 and the other turns of e_ctownhouse01_2 with bk-views side (Blender headless) and check every pack with the engine's reader, compose-pack and decompose");
+    side_step.dependOn(&roundtrip.step);
+    side_step.dependOn(&check_exe.step);
+    side_step.dependOn(install);
+    if (test_mode == .run) side_step.dependOn(&side_check.step);
 
     const step = b.step("test-bk-sprite", "Compose the fixture sprite with bk-sprite and judge it with the engine's readers");
     step.dependOn(&test_exe.step);

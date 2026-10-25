@@ -323,6 +323,153 @@ test "the tracked inventory is what bk-views inventory writes" {
     }
 }
 
+test "an eye's ray runs through the picture point it starts at, and meets the ground under it" {
+    const eye: views.Eye = .{ .anchor = .{ 120, 80 }, .turn = 3, .shift = .{ 5, -7 } };
+    for ([_][2]f64{ .{ 0, 0 }, .{ 33.5, 12.25 }, .{ 200, 140 } }) |pixel| {
+        const r = eye.ray(pixel[0], pixel[1]);
+        for ([_]f64{ -50, 0, 80 }) |t| {
+            const q = eye.project(.{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], r[0][2] + t * r[1][2] });
+            try std.testing.expectApproxEqAbs(pixel[0], q[0], 1e-9);
+            try std.testing.expectApproxEqAbs(pixel[1], q[1], 1e-9);
+        }
+        const g = views.groundPoint(eye, pixel[0], pixel[1]);
+        try std.testing.expectEqual(@as(f64, 0), g[2]);
+        const q = eye.project(g);
+        try std.testing.expectApproxEqAbs(pixel[0], q[0], 1e-9);
+    }
+    // The eye looks down, away from the walls it sees (-y and +x in its own frame).
+    const d = (views.Eye{ .anchor = .{ 0, 0 } }).ray(0, 0)[1];
+    try std.testing.expect(d[2] < 0 and d[0] < 0 and d[1] > 0);
+}
+
+/// The picture a box makes for `eye`: opaque where a pixel's ray meets it.
+fn boxPicture(gpa: std.mem.Allocator, eye: views.Eye, lo: [3]f64, hi: [3]f64) !views.Image {
+    const image: views.Image = .{ .width = 240, .height = 200, .pixels = try gpa.alloc([4]u8, 240 * 200) };
+    for (0..image.height) |y| for (0..image.width) |x| {
+        const r = eye.ray(@as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+        var near = -std.math.inf(f64);
+        var far = std.math.inf(f64);
+        for (0..3) |k| {
+            const a = (lo[k] - r[0][k]) / r[1][k];
+            const b = (hi[k] - r[0][k]) / r[1][k];
+            near = @max(near, @min(a, b));
+            far = @min(far, @max(a, b));
+        }
+        image.pixels[y * image.width + x] = if (near <= far) .{ 200, 150, 100, 255 } else .{ 0, 0, 0, 0 };
+    };
+    return image;
+}
+
+test "the hull of a box seen from three sides is the box, and alignment finds a picture's shift" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A footprint of 3 x 2 cells at the zero cross and a box of 30 world units over it.
+    const footprint: views.Grid = .{ .rows = &.{ "010101", "010101" }, .origin = .{ 0, 0 } };
+    const hi = [3]f64{ 3 * views.tile_size, 2 * views.tile_size, 30 };
+    const true_shift = [2]f64{ 6, -4 };
+    var eyes: [3]views.Eye = undefined;
+    var pictures: [3]views.Image = undefined;
+    var footprints: [3]views.Grid = undefined;
+    for (&eyes, &pictures, &footprints, [_]u2{ 0, 1, 2 }) |*eye, *picture, *grid, turn| {
+        eye.* = .{ .anchor = .{ 120, 120 }, .turn = turn, .shift = if (turn == 1) true_shift else .{ 0, 0 } };
+        picture.* = try boxPicture(arena, eye.*, .{ 0, 0, 0 }, hi);
+        // Each picture's own grid, as its 1.xml would hold it: the turned footprint, the shift unknown.
+        grid.* = try views.turnGrid(arena, footprint, turn);
+        eye.shift = .{ 0, 0 };
+    }
+    try views.alignEyes(arena, 0, &footprints, &pictures, &eyes);
+    try std.testing.expectApproxEqAbs(true_shift[0], eyes[1].shift[0], 1);
+    try std.testing.expectApproxEqAbs(true_shift[1], eyes[1].shift[1], 1);
+    try std.testing.expectApproxEqAbs(@as(f64, 0), eyes[2].shift[0], 1);
+
+    // The hull holds the box (but for the unit the alignment may miss), and
+    // its ground slice is the box's base: every wall faces some eye, whose
+    // outline ends at the wall's foot. Above the flat top it holds a low hip
+    // cap: seen from 30 degrees up, the two look alike.
+    const hull = try views.carve(arena, footprint, 2, &pictures, &eyes);
+    var base: f64 = 0;
+    for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
+        base += @floatFromInt(@intFromBool(hull.get(@intCast(i), @intCast(j), 0)));
+    };
+    // To within about a voxel (the grid does not start at the box).
+    try std.testing.expect(base * 4 >= hi[0] * hi[1] and base * 4 <= (hi[0] + 6) * (hi[1] + 6));
+    for (0..hull.n[2]) |l| for (0..hull.n[1]) |j| for (0..hull.n[0]) |i| {
+        const c = hull.center(i, j, l);
+        const inside = c[0] > 3 and c[0] < hi[0] - 3 and c[1] > 3 and c[1] < hi[1] - 3 and c[2] < hi[2] - 3;
+        if (inside) try std.testing.expect(hull.get(@intCast(i), @intCast(j), @intCast(l)));
+    };
+    // The box is its own mirror image across x and y, not along a diagonal.
+    const fits = views.fitMirrors(hull);
+    try std.testing.expect(fits[0].iou > 0.9 and fits[1].iou > 0.9);
+    try std.testing.expect(fits[2].iou < 0.9);
+    // Its mesh is closed: every corner is shared by its faces.
+    const mesh = try views.hullMesh(arena, hull);
+    try std.testing.expectEqual(@as(usize, 0), mesh.quads.len % 4);
+    for (mesh.quads) |q| try std.testing.expect(q < mesh.verts.len / 3);
+    try std.testing.expect(mesh.verts.len / 3 < mesh.quads.len);
+}
+
+test "a shading class is the way a surface faces in the eye's own frame" {
+    try std.testing.expectEqual(@as(usize, 0), views.shadeClass(.{ 0, -1, 0 }, 0));
+    try std.testing.expectEqual(@as(usize, 1), views.shadeClass(.{ 1, 0, 0 }, 0));
+    // A quarter turn shows the wall facing -y as the one facing +x.
+    try std.testing.expectEqual(@as(usize, 1), views.shadeClass(.{ 0, -1, 0 }, 1));
+    try std.testing.expectEqual(@as(usize, 4 + 2), views.shadeClass(.{ 0, 0.5, 0.86 }, 0));
+}
+
+test "the patch fill continues the picture's own texture into a hole, the same way every time" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const size = 48;
+    const stripe = struct {
+        fn colour(x: usize) [4]u8 {
+            return if (x % 6 < 3) .{ 180, 140, 90, 255 } else .{ 60, 40, 30, 255 };
+        }
+    }.colour;
+    var results: [2][]const [4]u8 = undefined;
+    for (&results) |*result| {
+        const generated: views.Generated = .{
+            .image = .{ .width = size, .height = size, .pixels = try arena.alloc([4]u8, size * size) },
+            .kinds = try arena.alloc(views.Kind, size * size),
+            .classes = try arena.alloc(u8, size * size),
+        };
+        for (0..size) |y| for (0..size) |x| {
+            const hole = x >= 16 and x < 32 and y >= 16 and y < 32;
+            generated.image.pixels[y * size + x] = if (hole) .{ 0, 0, 0, 0 } else stripe(x);
+            generated.kinds[y * size + x] = if (hole) .filled else .projected;
+            generated.classes[y * size + x] = 0;
+        };
+        try views.patchFill(arena, generated);
+        result.* = generated.image.pixels;
+    }
+    try std.testing.expectEqualSlices([4]u8, results[0], results[1]);
+    var right: usize = 0;
+    for (16..32) |y| for (16..32) |x| {
+        right += @intFromBool(std.mem.eql(u8, &results[0][y * size + x], &stripe(x)));
+    };
+    try std.testing.expect(right >= 16 * 16 * 9 / 10);
+}
+
+test "e_ctownhouse01_1 has another colourway than _2 and _4" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var pictures: [3]views.Image = undefined;
+    for (&pictures, [_][]const u8{ "1", "2", "4" }) |*picture, suffix| {
+        const dir = try std.fmt.allocPrint(arena, "Data/Buildings/europe/summer/e_ctownhouse01_{s}/", .{suffix});
+        const pack = try views.decodePack(arena, try read(arena, try std.fmt.allocPrint(arena, "{s}1.san", .{dir})));
+        const atlas = try views.readDds(arena, try read(arena, try std.fmt.allocPrint(arena, "{s}1_h.dds", .{dir})));
+        var bounds: views.Bounds = .{};
+        for (pack.sprites[0].squares) |square| bounds.add(square);
+        picture.* = try views.unpack(arena, pack.sprites[0], atlas, bounds);
+    }
+    try std.testing.expect(views.sameColourway(pictures[1], pictures[2]));
+    try std.testing.expect(!views.sameColourway(pictures[1], pictures[0]));
+    try std.testing.expect(!views.sameColourway(pictures[2], pictures[0]));
+}
+
 /// Tracked text is checked out with CRLF; the tool writes LF.
 fn withoutCr(gpa: std.mem.Allocator, text: []const u8) ![]u8 {
     var out: std.ArrayList(u8) = .empty;

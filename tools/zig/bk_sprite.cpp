@@ -47,7 +47,7 @@ static std::string UsageText()
 {
 	return std::string( "usage: bk-sprite compose <desc-dir> <out-name> [--force] [--modules <dir>]\n" )
 		+ "       bk-sprite compose-pack <sprite> <shadow> <out-name> --zero <x>,<y> [--noise <picture>]\n"
-		+ "                              [--pass <row>/<row>/... --locked <x>,<y>] [--force] [--modules <dir>]\n"
+		+ "                              [--pass <row>/<row>/... --locked <x>,<y>] [--icon <tga>] [--force] [--modules <dir>]\n"
 		+ "\n" + BK_T( "sprite.usage.compose" ) + "\n"
 		+ "\n" + BK_T( "sprite.usage.desc" ) + "\n"
 		+ "\n" + BK_T( "sprite.usage.compose_pack" ) + "\n"
@@ -376,7 +376,7 @@ static bool ParsePass( const std::string &szText, CArray2D<BYTE> *pPass )
 }
 
 // compose-pack: the export's ComposePictures for one picture, into the folder of out.
-static std::string ComposePack( const fs::path &sprite, const fs::path &shadow, const fs::path &noise, const fs::path &out,
+static std::string ComposePack( const fs::path &sprite, const fs::path &shadow, const fs::path &noise, const fs::path &icon, const fs::path &out,
                                 const CVec2 &zero, const CArray2D<BYTE> &pass, const CVec2 &locked, std::string *pSummary )
 {
 	NResourceModel::SExportContext context;
@@ -388,6 +388,8 @@ static std::string ComposePack( const fs::path &sprite, const fs::path &shadow, 
 		return BkFormat( "sprite.err.pack", { outcome.szError } );
 	if ( !noise.empty() && !NResourceModel::NCompose::ComposeNoisePack( context, gamma, GFXPF_ARGB1555, sprite.string(), noise.string(), szName + "g", zero, outcome ) )
 		return BkFormat( "sprite.err.pack", { outcome.szError } );
+	if ( !icon.empty() && !NResourceModel::NCompose::SaveIconFile( context, sprite.string(), icon.string(), outcome ) )
+		return BkFormat( "sprite.err.pack", { outcome.szError } );
 	*pSummary = NStr::Format( "%d files", outcome.nWritten );
 	return std::string();
 }
@@ -395,13 +397,13 @@ static std::string ComposePack( const fs::path &sprite, const fs::path &shadow, 
 static int ComposePackMain( int argc, char *argv[] )
 {
 	std::vector<std::string> positional;
-	std::string szModules, szNoise, szZero, szPass, szLocked;
+	std::string szModules, szNoise, szZero, szPass, szLocked, szIcon;
 	bool bForce = false;
 	for ( int i = 2; i < argc; ++i )
 	{
 		const std::string szArg = argv[i];
 		std::string *pValue = szArg == "--modules" ? &szModules : szArg == "--noise" ? &szNoise : szArg == "--zero" ? &szZero :
-		                      szArg == "--pass" ? &szPass : szArg == "--locked" ? &szLocked : nullptr;
+		                      szArg == "--pass" ? &szPass : szArg == "--locked" ? &szLocked : szArg == "--icon" ? &szIcon : nullptr;
 		if ( szArg == "--force" ) bForce = true;
 		else if ( szArg.compare( 0, 2, "--" ) != 0 ) positional.push_back( szArg );
 		else if ( pValue != nullptr && i + 1 < argc ) *pValue = argv[++i];
@@ -419,6 +421,7 @@ static int ComposePackMain( int argc, char *argv[] )
 	const fs::path sprite = NToolHost::InputPath( positional[0] );
 	const fs::path shadow = NToolHost::InputPath( positional[1] );
 	const fs::path noise = szNoise.empty() ? fs::path() : NToolHost::InputPath( szNoise );
+	const fs::path icon = szIcon.empty() ? fs::path() : fs::absolute( NToolHost::InputPath( szIcon ) );
 	const fs::path out = fs::absolute( NToolHost::InputPath( positional[2] ) );
 	const fs::path san = fs::path( out ) += ".san";
 	std::error_code ec;
@@ -434,7 +437,7 @@ static int ComposePackMain( int argc, char *argv[] )
 	std::string szSummary, szError;
 	try
 	{
-		szError = ComposePack( sprite, shadow, noise, out, zero, pass, locked, &szSummary );
+		szError = ComposePack( sprite, shadow, noise, icon, out, zero, pass, locked, &szSummary );
 	}
 	catch ( ... )
 	{
