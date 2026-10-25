@@ -586,6 +586,10 @@ jobs:
         if: matrix.part == 'platform'
         run: zig build test-text-precedence -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: The Remastered option's rules
+        if: matrix.part == 'platform'
+        run: zig build test-remastered -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
 
 
       - name: Mission data tier
@@ -1713,6 +1717,8 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            # mod-compat-game-reads-it plays the shipped smoke videos under a mod's BinkFile key.
+            /Data/movies/interface/
             /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
@@ -1852,6 +1858,18 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build mod-compat-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: A gameplay mod under a language mod
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build mod-language-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: The Remastered option, off and on
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build remastered-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
       - name: Season textures
