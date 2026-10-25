@@ -62,6 +62,8 @@ protected:
 	void DrawText( IGFX *pGFX );
 	void VisitBackground( ISceneVisitor *pVisitor );
 	void VisitText( ISceneVisitor *pVisitor );
+	// IGFXText::FitToBox with the box the text is laid out in (textRC, the window below the text offset).
+	void FitTextToBox( IGFXText *pText, const CTRect<float> &textRC );
 	void BlinkMe( const int nBlinkTime = 0, const int nBlinkColorIndex = 0 );
 
 	friend class CUIWindowManipulator;

@@ -133,6 +133,15 @@ BK_TEXT_API float bk_text_size_class_pixel_size(uint32_t size_class, float ui_sc
  * height (bk_text_size_class_pixel_size): the font is opened at the em size that makes the chain's
  * primary face (Liberation Serif) that tall from ascent to descent. */
 BK_TEXT_API BkTextResult bk_text_font_open(BkTextContext *ctx, uint32_t size_class, float pixel_size, BkTextFont **out);
+/* The face a font's chain starts with: the Game's serif (bk_text_font_open), or Noto Sans for a
+ * font standing in for a mod's own sans font. */
+typedef enum BkTextStyle {
+	BK_TEXT_STYLE_SERIF = 0,
+	BK_TEXT_STYLE_SANS = 1
+} BkTextStyle;
+/* bk_text_font_open with the chain led by the style's face, opened at the em size that makes that
+ * face pixel_size tall from ascent to descent; the other faces follow for what it lacks. */
+BK_TEXT_API BkTextResult bk_text_font_open_style(BkTextContext *ctx, uint32_t size_class, float pixel_size, uint32_t style, BkTextFont **out);
 BK_TEXT_API void bk_text_font_close(BkTextFont *font);
 
 /* Shapes text into at most cap glyphs in text order. BUFFER_TOO_SMALL sets *out_count to the

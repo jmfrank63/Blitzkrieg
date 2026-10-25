@@ -40,6 +40,21 @@ pub fn chainFor(lang_code: []const u8) [face_count]Face {
     return .{ .liberation_serif, .noto_sans, .noto_sans_sc, .noto_sans_jp, .noto_sans_devanagari };
 }
 
+/// The face that leads a font's chain: serif is the Game's own (the 2003 fonts are Times), sans
+/// stands in for a mod's sans font, whose layouts a serif drew too wide and in the wrong style.
+pub const Style = enum(u32) { serif = 0, sans = 1 };
+
+/// chainFor with Noto Sans first for `sans`: Liberation Serif follows it only for a code point
+/// Noto Sans lacks, and the CJK and Devanagari faces keep their places.
+pub fn chainForStyle(lang_code: []const u8, style: Style) [face_count]Face {
+    var chain = chainFor(lang_code);
+    if (style == .sans) {
+        chain[0] = .noto_sans;
+        chain[1] = .liberation_serif;
+    }
+    return chain;
+}
+
 pub const Loaded = struct {
     bytes: []u8,
     blob: *c.hb.hb_blob_t,
@@ -173,6 +188,9 @@ test "chain order per language" {
     const ja = [_]F{ .liberation_serif, .noto_sans, .noto_sans_jp, .noto_sans_sc, .noto_sans_devanagari };
     inline for (.{ "en", "ru", "zh", "hi" }) |code| try std.testing.expectEqualSlices(F, &latin, &chainFor(code));
     try std.testing.expectEqualSlices(F, &ja, &chainFor("ja"));
+    inline for (.{ "en", "ru", "ja" }) |code| try std.testing.expectEqualSlices(F, &chainFor(code), &chainForStyle(code, .serif));
+    try std.testing.expectEqualSlices(F, &[_]F{ .noto_sans, .liberation_serif, .noto_sans_sc, .noto_sans_jp, .noto_sans_devanagari }, &chainForStyle("ru", .sans));
+    try std.testing.expectEqualSlices(F, &[_]F{ .noto_sans, .liberation_serif, .noto_sans_jp, .noto_sans_sc, .noto_sans_devanagari }, &chainForStyle("ja", .sans));
 }
 
 test "every face loads, verifies and covers its script" {

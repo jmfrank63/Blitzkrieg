@@ -10,7 +10,9 @@
 #include "..//Main//TextSystem.h"
 
 #include "..//GFX//GFXObjectFactory.h"
+#include "..//Image//Image.h"
 
+#include <algorithm>
 #include <map>
 #include <cctype>
 #include <cmath>
@@ -46,6 +48,8 @@ void STDCALL FontGpu::SwapData( ISharedResource *resource )
     std::swap( format_, other->format_ );
     std::swap( bk_font_, other->bk_font_ );
     std::swap( ttf_pixel_size_, other->ttf_pixel_size_ );
+    std::swap( ttf_sans_, other->ttf_sans_ );
+    std::swap( stand_in_, other->stand_in_ );
     std::swap( bk_serial_, other->bk_serial_ );
     std::swap( scaled_fonts_, other->scaled_fonts_ );
 }
@@ -117,15 +121,16 @@ static void MeasureInkEnvelope( BkTextFont *font, float &up, float &down )
     }
 }
 
-bool FontGpu::OpenTtf( const char *reason, int cell_height )
+bool FontGpu::OpenTtf( const char *reason, int cell_height, bool sans )
 {
     BkTextContext *context = NBkTextBridge::Context();
     if ( context == nullptr ) return false;
     CloseTtf();
+    stand_in_ = false;
     const BkTextSizeClass eClass = TtfSizeClass( name_ );
     const float pixel_size = cell_height > 0 ? float( cell_height ) : TtfPixelSize( eClass );
     BkTextFont *font = nullptr;
-    if ( bk_text_font_open( context, eClass, pixel_size, &font ) != BK_TEXT_OK || font == nullptr ) return false;
+    if ( bk_text_font_open_style( context, eClass, pixel_size, sans ? BK_TEXT_STYLE_SANS : BK_TEXT_STYLE_SERIF, &font ) != BK_TEXT_OK || font == nullptr ) return false;
     const uint16_t probe = 'H';
     BkTextMetrics metrics = {};
     if ( bk_text_measure_utf16( font, &probe, 1, &metrics ) != BK_TEXT_OK )
@@ -135,6 +140,7 @@ bool FontGpu::OpenTtf( const char *reason, int cell_height )
     }
     bk_font_ = font;
     ttf_pixel_size_ = pixel_size;
+    ttf_sans_ = sans;
     bk_serial_ = NBkTextBridge::Serial();
     // A synthetic bitmap-font description: nHeight + nExternalLeading is the line space, no
     // characters and no kerning (the bitmap path's tables are not read under ttf).
@@ -191,6 +197,52 @@ bool BitmapFontCoversLanguage( const SFontFormat &format, const std::string &lan
     return true;
 }
 
+bool BitmapFontIsSerif( const SFontFormat &format, const unsigned char *alpha, int width, int height )
+{
+    if ( alpha == nullptr || width <= 0 || height <= 0 ) return false;
+    const auto narrow = format.chars.find( 'i' ), wide = format.chars.find( 'W' ), bar = format.chars.find( 'I' );
+    if ( narrow == format.chars.end() || wide == format.chars.end() || bar == format.chars.end() ) return false;
+    // A typewriter face: its narrowest letter advances as far as its widest.
+    const auto advance = []( const SFontFormat::SCharDesc &character ) { return character.fA + character.fB + character.fC; };
+    if ( std::fabs( advance( narrow->second ) - advance( wide->second ) ) < 0.5f ) return false;
+    // The ink of each row of the 'I' cell, from its first to its last covered texel: the stem in the
+    // middle rows, the serifs (when it has them) in the first and the last.
+    const SFontFormat::SCharDesc &glyph = bar->second;
+    const auto texel = []( float coordinate, int size ) { const int at = int( coordinate * float( size ) + 0.5f ); return at < 0 ? 0 : ( at > size ? size : at ); };
+    const int x1 = texel( glyph.x1, width ), x2 = texel( glyph.x2, width ), y1 = texel( glyph.y1, height ), y2 = texel( glyph.y2, height );
+    std::vector<int> extents;
+    for ( int y = y1; y < y2; ++y )
+    {
+        int first = -1, last = -1;
+        for ( int x = x1; x < x2; ++x )
+            if ( alpha[size_t( y ) * size_t( width ) + size_t( x )] >= 128 ) { if ( first < 0 ) first = x; last = x; }
+        if ( first >= 0 ) extents.push_back( last - first + 1 );
+    }
+    if ( extents.size() < 4 ) return false;
+    const int stem = extents[extents.size() / 2];
+    const int edge = std::max( extents.front(), extents.back() );
+    return edge >= stem + 2 && edge * 2 >= stem * 3;
+}
+
+// BitmapFontIsSerif on a mod font's atlas, read through the image service as the texture manager
+// reads it. An atlas that cannot be read stands in as sans.
+static bool ModFontIsSerif( const SFontFormat &format, IDataStorage *storage, const std::string &atlas_name )
+{
+    ISingleton *globals = GetSingletonGlobal();
+    IImageProcessor *processor = globals ? GetSingleton<IImageProcessor>( globals ) : nullptr;
+    if ( processor == nullptr || storage == nullptr ) return false;
+    CPtr<IDataStream> stream = storage->OpenStream( atlas_name.c_str(), STREAM_ACCESS_READ );
+    if ( !stream ) return false;
+    CPtr<IDDSImage> dds = processor->LoadDDSImage( stream );
+    CPtr<IImage> image = dds ? processor->Decompress( dds ) : nullptr;
+    if ( !image ) return false;
+    const int width = image->GetSizeX(), height = image->GetSizeY();
+    std::vector<unsigned char> alpha( size_t( width ) * size_t( height ) );
+    const SColor *pixels = image->GetLFB();
+    for ( size_t i = 0; i != alpha.size(); ++i ) alpha[i] = (unsigned char)pixels[i].a;
+    return BitmapFontIsSerif( format, alpha.data(), width, height );
+}
+
 bool STDCALL FontGpu::Load( bool bPreLoad )
 {
     ISingleton *globals = GetSingletonGlobal();
@@ -224,8 +276,18 @@ bool STDCALL FontGpu::Load( bool bPreLoad )
     // font's own cell height: the mod's layouts are made for its fonts (Achtung Panzer 2's medium is
     // 16 pixels where the base game's is 20), and at the size class's height every label was larger
     // than the mod's buttons and boxes expect.
-    if ( reason != nullptr && !BitmapFontCoversLanguage( format_, NBkTextBridge::Language() ) && OpenTtf( "mod font lacks the language's letters", format_.metrics.nHeight ) )
-        return true;
+    // In the mod font's style: Noto Sans for a sans or typewriter face, Liberation Serif only for a
+    // proportional serif (BitmapFontIsSerif, read from the font's own atlas).
+    if ( reason != nullptr && !BitmapFontCoversLanguage( format_, NBkTextBridge::Language() ) )
+    {
+        const bool serif = ModFontIsSerif( format_, storage, storage_name + "\\1_h.dds" );
+        if ( OpenTtf( serif ? "mod font lacks the language's letters, serif stand-in" : "mod font lacks the language's letters, sans stand-in", format_.metrics.nHeight, !serif ) )
+        {
+            stand_in_ = true;
+            return true;
+        }
+    }
+    stand_in_ = false;
     missing_reported_.clear();
     LogFontMetrics( name_, "bitmap", format_, reason );
     if ( bPreLoad ) return true;
@@ -396,7 +458,7 @@ BkTextFont *FontGpu::TtfFontAt( float scale, float *factor ) const
         if ( scaled.first == nKey ) { *factor = 1.0f; return scaled.second; }
     if ( scaled_fonts_.size() >= kScaledFontLimit ) return bk_font_;
     BkTextFont *font = nullptr;
-    if ( bk_text_font_open( context, eClass, float( nKey ) / 4.0f, &font ) != BK_TEXT_OK || font == nullptr ) return bk_font_;
+    if ( bk_text_font_open_style( context, eClass, float( nKey ) / 4.0f, ttf_sans_ ? BK_TEXT_STYLE_SANS : BK_TEXT_STYLE_SERIF, &font ) != BK_TEXT_OK || font == nullptr ) return bk_font_;
     scaled_fonts_.push_back( std::make_pair( nKey, font ) );
     *factor = 1.0f;
     return font;
@@ -775,7 +837,8 @@ public:
     int STDCALL operator&( IStructureSaver &ss ) override;
     void STDCALL SetFont( IGFXFont *font ) override { if ( font_.GetPtr() != font ) { font_ = font; wrap_valid_ = false; } }
     IGFXFont *Font() const override { return font_; }
-    float Scale() const override { return scale_; }
+    // The scale the text is drawn and measured at: the caller's, times the fit to its box.
+    float Scale() const override { return scale_ * fit_; }
     void STDCALL SetText( IText *text ) override { if ( text_.GetPtr() != text ) { text_ = text; wrap_valid_ = false; } }
     IText * STDCALL GetText() override { return text_; }
     // Only a real change invalidates: DrawText calls SetWidth with the same
@@ -790,6 +853,26 @@ public:
     void STDCALL SetChanged() override { wrap_valid_ = false; }
     void STDCALL SetScale( float scale ) override { const float clamped = scale < 0.1f ? 0.1f : scale; if ( scale_ != clamped ) { scale_ = clamped; wrap_valid_ = false; } }
     float STDCALL GetScale() const override { return scale_; }
+    void STDCALL FitToBox( int width, int height ) override
+    {
+        // Asked every frame: the fit is measured again only when the box, the scale, the font or
+        // the text changed, or the font now stands in at another cell or no longer does (a reload).
+        const WORD *value = text_ ? text_->GetString() : 0;
+        size_t length = 0;
+        if ( value ) while ( value[length] ) ++length;
+        if ( fit_width_ == width && fit_height_ == height && fit_scale_ == scale_ && fit_font_ == font_.GetPtr() && fit_cell_ == StandInCell() &&
+            fit_text_.size() == length && ( length == 0 || std::memcmp( &fit_text_[0], value, length * sizeof( WORD ) ) == 0 ) )
+            return;
+        fit_width_ = width;
+        fit_height_ = height;
+        fit_scale_ = scale_;
+        fit_font_ = font_.GetPtr();
+        fit_cell_ = StandInCell();
+        if ( value ) fit_text_.assign( value, value + length );
+        else fit_text_.clear();
+        const float fit = StandInFit( width, height );
+        if ( fit_ != fit ) { fit_ = fit; wrap_valid_ = false; }
+    }
     int STDCALL GetNumLines() const override
     {
         if ( !text_ || !text_->GetString() ) return 0;
@@ -803,7 +886,7 @@ public:
         EnsureWrapped();
         return wrap_lines_;
     }
-    int STDCALL GetLineSpace() const override { return font_ ? static_cast<int>( font_->GetLineSpace() * scale_ ) : 12; }
+    int STDCALL GetLineSpace() const override { return font_ ? static_cast<int>( font_->GetLineSpace() * Scale() ) : 12; }
     int STDCALL GetWidth( int count = -1 ) const override
     {
         NTextPerf::Scope perf( NTextPerf::Measure );
@@ -813,10 +896,45 @@ public:
         while ( value[length] && value[length] != L'\n' && value[length] != L'\r' ) ++length;
         if ( count >= 0 && count < length ) length = count;
         FontGpu *gpu_font = dynamic_cast_ptr<FontGpu *>( font_ );
-        return gpu_font ? static_cast<int>( gpu_font->TextWidthFloat( value, length ) * scale_ ) : (font_ ? static_cast<int>( font_->GetTextWidth( value, length ) * scale_ ) : static_cast<int>( length * 8 * scale_ ));
+        return gpu_font ? static_cast<int>( gpu_font->TextWidthFloat( value, length ) * Scale() ) : (font_ ? static_cast<int>( font_->GetTextWidth( value, length ) * scale_ ) : static_cast<int>( length * 8 * scale_ ));
     }
 
 private:
+    // FitToBox's factor: 1 unless the font stands in for a mod's font and the text is a caption
+    // wider than its box, a text without a line break in a box less than three lines tall (a button,
+    // a title, a label: Achtung Panzer 2's buttons are one line of its 40 pixel font in a 50 pixel
+    // box, and under lang-ru their Russian wrapped to two lines over the next button). Then it is
+    // the largest whole pixel size of the cell at which the text is one line inside the box, two
+    // pixels to spare for the scaled face's own rounding.
+    // The cell a stand-in font draws at, 0 for any other font: part of FitToBox's key.
+    float StandInCell() const
+    {
+        FontGpu *font = dynamic_cast_ptr<FontGpu *>( font_ );
+        return font != 0 && font->IsStandIn() ? font->TtfCellHeight() : 0.0f;
+    }
+    float StandInFit( int width, int height ) const
+    {
+        FontGpu *font = dynamic_cast_ptr<FontGpu *>( font_ );
+        const WORD *value = text_ ? text_->GetString() : 0;
+        if ( font == 0 || !font->IsStandIn() || value == 0 || width <= 2 ) return 1.0f;
+        int length = 0;
+        for ( ; value[length]; ++length )
+            if ( value[length] == L'\n' || value[length] == L'\r' ) return 1.0f;
+        if ( length == 0 || static_cast<float>( height ) >= 3.0f * static_cast<float>( font->GetLineSpace() ) * scale_ ) return 1.0f;
+        const float limit = static_cast<float>( width - 2 );
+        const float wide = font->TextWidthFloat( value, length ) * scale_;
+        if ( wide <= limit ) return 1.0f;
+        const float cell = font->TtfCellHeight() * scale_;
+        std::vector<std::pair<size_t, size_t> > lines;
+        for ( int pixels = static_cast<int>( std::floor( cell * limit / wide ) ); pixels >= 1; --pixels )
+        {
+            const float fit = static_cast<float>( pixels ) / cell;
+            if ( wide * fit > limit ) continue;
+            WrapTextLines( font, value, scale_ * fit, static_cast<float>( width ), lines );
+            if ( lines.size() <= 1 ) return fit;
+        }
+        return 1.0f;
+    }
     // GetNumLines is asked once per row while a list lays itself out, every
     // frame, and each call used to break the whole string again. Re-wrap only
     // when something the wrap depends on has actually changed.
@@ -834,16 +952,16 @@ private:
         const WORD *value = text_ ? text_->GetString() : 0;
         size_t length = 0;
         if ( value ) while ( value[length] ) ++length;
-        if ( wrap_valid_ && wrap_font_ == font_.GetPtr() && wrap_width_ == width_ && wrap_scale_ == scale_ &&
+        if ( wrap_valid_ && wrap_font_ == font_.GetPtr() && wrap_width_ == width_ && wrap_scale_ == Scale() &&
             wrap_text_.size() == length &&
             ( length == 0 || std::memcmp( &wrap_text_[0], value, length * sizeof( WORD ) ) == 0 ) )
             return;
-        WrapTextLines( dynamic_cast_ptr<FontGpu *>( font_ ), value, scale_, static_cast<float>( width_ ), wrap_lines_ );
+        WrapTextLines( dynamic_cast_ptr<FontGpu *>( font_ ), value, Scale(), static_cast<float>( width_ ), wrap_lines_ );
         if ( value ) wrap_text_.assign( value, value + length );
         else wrap_text_.clear();
         wrap_font_ = font_.GetPtr();
         wrap_width_ = width_;
-        wrap_scale_ = scale_;
+        wrap_scale_ = Scale();
         wrap_valid_ = true;
     }
     // Owning, as CGFXText's are: a saved game restores the text object through
@@ -853,6 +971,15 @@ private:
     CPtr<IGFXFont> font_;
     DWORD color_ = 0xffffffff;
     float scale_ = 1.0f;
+    // StandInFit's factor from the last FitToBox, and what it was measured for; not saved, the
+    // window asks again every frame.
+    float fit_ = 1.0f;
+    int fit_width_ = -1;
+    int fit_height_ = -1;
+    float fit_scale_ = 0.0f;
+    IGFXFont *fit_font_ = nullptr;
+    float fit_cell_ = 0.0f;
+    std::vector<WORD> fit_text_;
     int width_ = 0;
     mutable std::vector<std::pair<size_t, size_t> > wrap_lines_;
     mutable std::vector<WORD> wrap_text_;

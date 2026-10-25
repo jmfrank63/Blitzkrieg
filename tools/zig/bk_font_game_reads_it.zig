@@ -13,11 +13,13 @@
 //! - font-ru: the generated font with bk_text's language Russian
 //!   (BK_TEXT_LANG=ru). ProggyClean has no Cyrillic, so the mod's font would
 //!   draw every Russian letter as an empty box: the Game must read its `1.tfd`,
-//!   leave its atlas alone and draw the medium size on bk_text (the Achtung
+//!   read its atlas only for the font's style (ProggyClean, a typewriter face,
+//!   stands in as Noto Sans) and draw the medium size on bk_text (the Achtung
 //!   Panzer 2 mod under lang-ru drew its menu as boxes), at the mod font's
 //!   16-pixel cell, not the shipped medium's 20: the mod's layouts are made for
-//!   its font. Against blank, each button's ink is four fifths as tall and as
-//!   wide as the control's, and the log's medium line is the smaller font's.
+//!   its font. Against blank, each button's ink is four fifths as tall as the
+//!   control's and three to four fifths as wide, and the log's medium line is
+//!   the smaller font's.
 //!
 //! Control against font must differ, and only inside the eight text windows
 //! that use the medium font: the generated font replaced the shipped one
@@ -149,10 +151,11 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
     for ([_][]const u8{ control, drawn, russian, blank }) |frame| try testing.expectEqual(@as(usize, width * height * 4), frame.len);
 
     // Russian over the mod's font: the five buttons draw on bk_text, not with the mod's bitmap font,
-    // and at the mod font's cell height. Their English labels are in the face bk_text gives Russian
-    // too (Liberation Serif leads for Latin and Cyrillic), so against blank (the same layout without
-    // ink) the Russian run's ink is the control's text at 16 pixels instead of 20: a box four fifths
-    // as tall and as wide, give or take two pixels of rounding and shadow.
+    // and at the mod font's cell height. ProggyClean is a typewriter face, so Noto Sans stands in for
+    // it where the control draws its English labels in Liberation Serif. Against blank (the same
+    // layout without ink) the Russian run's ink is as tall as the control's text at 16 pixels instead
+    // of 20, four fifths, give or take two pixels of rounding and shadow; Noto Sans at that cell is
+    // narrower than the serif, so its ink is no wider than four fifths and at least three fifths.
     for (buttons) |button| {
         var differs_from_font: usize = 0;
         for (button.rect.y1..button.rect.y2) |y| for (button.rect.x1..button.rect.x2) |x| {
@@ -164,8 +167,9 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
         const sizes = [_][2]usize{ .{ russian_ink.y2 - russian_ink.y1, control_ink.y2 - control_ink.y1 }, .{ russian_ink.x2 - russian_ink.x1, control_ink.x2 - control_ink.x1 } };
         errdefer std.debug.print("D-14: \"{s}\" under Russian differs from the mod's font in {d} pixels; its ink is {d} wide and {d} tall, the control's {d} and {d}\n", .{ button.text, differs_from_font, sizes[1][0], sizes[0][0], sizes[1][1], sizes[0][1] });
         try testing.expect(differs_from_font >= 50);
-        // 16/20 of the control's size, within two pixels.
-        for (sizes) |size| try testing.expect(size[0] * 20 + 40 >= size[1] * 16 and size[0] * 20 <= size[1] * 16 + 40);
+        // 16/20 of the control's height, within two pixels; between 12/20 and 16/20 of its width.
+        try testing.expect(sizes[0][0] * 20 + 40 >= sizes[0][1] * 16 and sizes[0][0] * 20 <= sizes[0][1] * 16 + 40);
+        try testing.expect(sizes[1][0] * 20 >= sizes[1][1] * 12 and sizes[1][0] * 20 <= sizes[1][1] * 16 + 40);
     }
     {
         const control_height = try lastMediumHeight(io, allocator, root, "control");
@@ -479,9 +483,9 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try l10n_measure.expectNoLeak(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
-    // The font's description is read from the mod whenever the mod ships one, its atlas only when
-    // the font draws.
-    for ([_][]const u8{ "fonts/medium/1.tfd", "fonts/medium/1_h.dds" }, [_]bool{ run != .control, run == .mod_font }) |file, from_mod| {
+    // The font's description and its atlas are read from the mod whenever the mod ships them: the
+    // atlas to draw with, or when bk_text stands in for the font, to tell the stand-in's style.
+    for ([_][]const u8{ "fonts/medium/1.tfd", "fonts/medium/1_h.dds" }, [_]bool{ run != .control, run != .control }) |file, from_mod| {
         if (opensFromMod(log, file) == from_mod) continue;
         std.debug.print("Game ({s}) {s} {s} from the mod; its output is in {s}\n", .{ name, if (from_mod) "did not open" else "opened", file, log_path });
         return error.FontSource;

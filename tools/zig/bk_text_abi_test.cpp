@@ -78,6 +78,9 @@ static void TestBadArguments( const char *szFonts )
 	CHECK( bk_text_font_open( ctx, BK_TEXT_SIZE_MEDIUM, 0.0f, &font ) == BK_TEXT_INVALID_ARGUMENT );
 	CHECK( bk_text_font_open( ctx, BK_TEXT_SIZE_MEDIUM, 20.0f, nullptr ) == BK_TEXT_INVALID_ARGUMENT );
 	CHECK( font == nullptr );
+	CHECK( bk_text_font_open_style( ctx, BK_TEXT_SIZE_MEDIUM, 20.0f, 2, &font ) == BK_TEXT_INVALID_ARGUMENT );
+	CHECK( bk_text_font_open_style( nullptr, BK_TEXT_SIZE_MEDIUM, 20.0f, BK_TEXT_STYLE_SANS, &font ) == BK_TEXT_INVALID_ARGUMENT );
+	CHECK( font == nullptr );
 	CHECK_OK( bk_text_font_open( ctx, BK_TEXT_SIZE_MEDIUM, 20.0f, &font ) );
 
 	const uint16_t aText[] = { 'A', 'B' };
@@ -247,6 +250,34 @@ static void TestMissingGlyph( const char *szFonts )
 	bk_text_context_destroy( ctx );
 }
 
+// A sans font stands in for a mod's sans font: Noto Sans draws the Cyrillic a serif font draws in
+// Liberation Serif, each as tall from ascent to descent as the cell it was opened at.
+static void TestSansStyle( const char *szFonts )
+{
+	BkTextContext *ctx = nullptr;
+	BkTextFont *serif = nullptr, *sans = nullptr;
+	CHECK_OK( bk_text_context_create( szFonts, "ru", &ctx ) );
+	CHECK_OK( bk_text_font_open_style( ctx, BK_TEXT_SIZE_LARGE, 40.0f, BK_TEXT_STYLE_SERIF, &serif ) );
+	CHECK_OK( bk_text_font_open_style( ctx, BK_TEXT_SIZE_LARGE, 40.0f, BK_TEXT_STYLE_SANS, &sans ) );
+	if ( !ctx || !serif || !sans ) return;
+	const std::vector<uint16_t> text = Utf16( "\xD0\x9D\xD0\xB0\xD0\xB7\xD0\xB0\xD0\xB4" );
+	BkTextGlyph aSerif[8], aSans[8];
+	uint32_t nSerif = 0, nSans = 0;
+	CHECK_OK( bk_text_shape_utf16( serif, text.data(), (uint32_t)text.size(), aSerif, 8, &nSerif ) );
+	CHECK_OK( bk_text_shape_utf16( sans, text.data(), (uint32_t)text.size(), aSans, 8, &nSans ) );
+	CHECK( nSerif == 5 && nSans == 5 );
+	// The glyph key's top byte is the face: 0 Liberation Serif, 1 Noto Sans.
+	for ( uint32_t i = 0; i < nSerif && i < nSans; ++i ) CHECK( ( aSerif[i].glyph_key >> 24 ) == 0 && ( aSans[i].glyph_key >> 24 ) == 1 );
+	BkTextMetrics mSerif, mSans;
+	CHECK_OK( bk_text_measure_utf16( serif, text.data(), (uint32_t)text.size(), &mSerif ) );
+	CHECK_OK( bk_text_measure_utf16( sans, text.data(), (uint32_t)text.size(), &mSans ) );
+	CHECK( fabsf( mSerif.ascent + mSerif.descent - 40.0f ) < 1.0f );
+	CHECK( fabsf( mSans.ascent + mSans.descent - 40.0f ) < 1.0f );
+	bk_text_font_close( sans );
+	bk_text_font_close( serif );
+	bk_text_context_destroy( ctx );
+}
+
 int main( int argc, char **argv )
 {
 	if ( argc < 2 )
@@ -261,6 +292,7 @@ int main( int argc, char **argv )
 	TestLanguage( szFonts, "hi", "\xE0\xA4\x9F\xE0\xA5\x88\xE0\xA4\x82\xE0\xA4\x95" );
 	TestWrap( szFonts );
 	TestMissingGlyph( szFonts );
+	TestSansStyle( szFonts );
 	if ( g_nFailures ) fprintf( stderr, "bk-text-abi-test: %d check(s) failed\n", g_nFailures );
 	return g_nFailures ? 1 : 0;
 }

@@ -176,6 +176,16 @@ export fn bk_text_size_class_pixel_size(size_class: u32, ui_scale: f32) callconv
 }
 
 export fn bk_text_font_open(ctx: ?*Context, size_class: u32, pixel_size: f32, out: ?*?*Font) callconv(.c) c_int {
+    return openFont(ctx, size_class, pixel_size, .serif, out);
+}
+
+export fn bk_text_font_open_style(ctx: ?*Context, size_class: u32, pixel_size: f32, style: u32, out: ?*?*Font) callconv(.c) c_int {
+    if (out) |out_ptr| out_ptr.* = null;
+    if (style > @intFromEnum(faces.Style.sans)) return code(.invalid_argument);
+    return openFont(ctx, size_class, pixel_size, @enumFromInt(style), out);
+}
+
+fn openFont(ctx: ?*Context, size_class: u32, pixel_size: f32, style: faces.Style, out: ?*?*Font) c_int {
     const out_ptr = out orelse return code(.invalid_argument);
     out_ptr.* = null;
     const c = ctx orelse return code(.invalid_argument);
@@ -185,11 +195,14 @@ export fn bk_text_font_open(ctx: ?*Context, size_class: u32, pixel_size: f32, ou
     const font = c.allocator.create(Font) catch return code(.out_of_memory);
     font.ctx = c;
     font.size_class = size_class;
-    // pixel_size is the cell height of the 2003 fonts; the shaper works in em pixels.
-    font.shaper = shape.Shaper.init(c.allocator, &c.set, c.lang_buf[0..c.lang_len], sizes.emForCell(&c.set, pixel_size)) catch |err| {
+    // pixel_size is the cell height of the 2003 fonts; the shaper works in em pixels, from the
+    // ascent and descent of the face that leads the style's chain.
+    const chain = faces.chainForStyle(c.lang_buf[0..c.lang_len], style);
+    font.shaper = shape.Shaper.init(c.allocator, &c.set, c.lang_buf[0..c.lang_len], sizes.emForCellOf(&c.set, chain[0], pixel_size)) catch |err| {
         c.allocator.destroy(font);
         return fail(err);
     };
+    font.shaper.chain = chain;
     font.shaper.sink = .{ .context = font, .report = reportMissing };
     out_ptr.* = font;
     return code(.ok);

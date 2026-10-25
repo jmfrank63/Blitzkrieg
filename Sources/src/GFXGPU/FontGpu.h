@@ -113,6 +113,12 @@ public:
     // BK_TEXT_ENGINE=ttf (M004): the font is a bk_text font and draws from the glyph atlas, not
     // from a bitmap texture. format_ then holds only synthetic metrics.
     bool IsTtf() const { return bk_font_ != nullptr; }
+    // A bk_text font drawing in place of a mod's own bitmap font, which lacks the language's
+    // letters. The mod's layouts were made for its font, so TextGpu fits a caption drawn in this
+    // font to its box (TextGpu::FitToBox).
+    bool IsStandIn() const { return bk_font_ != nullptr && stand_in_; }
+    // The cell height in pixels the bk_text font was opened at (0 for a bitmap font).
+    float TtfCellHeight() const { return bk_font_ != nullptr ? ttf_pixel_size_ : 0.0f; }
     BkTextFont *TtfFont() const { return bk_font_; }
     // Closes the bk_text font if its context is still the one it was opened in.
     void CloseTtf();
@@ -144,8 +150,9 @@ private:
     ~FontGpu();
     template <typename T> float TextWidth( const T *text, int count ) const;
     // cell_height: the pixel size to open at instead of the size class's, the cell height of a mod's
-    // own font this size replaces (0: the size class's).
-    bool OpenTtf( const char *reason = nullptr, int cell_height = 0 );
+    // own font this size replaces (0: the size class's). sans: the chain starts with Noto Sans
+    // instead of Liberation Serif, for a stand-in for a mod's sans font.
+    bool OpenTtf( const char *reason = nullptr, int cell_height = 0, bool sans = false );
     float TtfAdvance( const uint16_t *text, size_t length ) const;
     // BK_GLYPH_TRACE: names a character this font has no glyph for, once per font load. The font
     // draws its default character instead, an empty box, and says nothing; a frame measure of solid
@@ -159,12 +166,17 @@ private:
     // The pixel size bk_font_ was opened at: the size class's, or a mod font's cell height. A scaled
     // font is opened at this times the scale, so a scaled label is drawn as large as it is measured.
     float ttf_pixel_size_ = 0;
+    // The face bk_font_ and its scaled fonts lead with (OpenTtf's sans), and whether it stands in
+    // for a mod's font (IsStandIn).
+    bool ttf_sans_ = false;
+    bool stand_in_ = false;
     unsigned bk_serial_ = 0;
     // Text drawn at a scale (a layout scaled to the window, the tooltip) is shaped and rasterised by a
     // bk_text font opened at the scaled pixel size and placed 1:1, so it stays sharp instead of being
     // the base size stretched. One font per quarter pixel of size, at most kScaledFontLimit of them; a
-    // size beyond the limit (an animated scale) stretches the base glyphs as before.
-    static const size_t kScaledFontLimit = 8;
+    // size beyond the limit (an animated scale) stretches the base glyphs as before. A stand-in's
+    // captions fitted to their boxes take a size each (whole pixels of the cell), hence 16.
+    static const size_t kScaledFontLimit = 16;
     mutable std::vector<std::pair<int, BkTextFont *>> scaled_fonts_;
     // The font that draws at `scale` (the base font at 1) and the factor its glyph metrics still need.
     BkTextFont *TtfFontAt( float scale, float *factor ) const;
@@ -187,6 +199,14 @@ private:
 // over it, a letter it lacks is drawn as the font's default character, an empty box. English and a
 // code without a table need nothing beyond ASCII.
 bool BitmapFontCoversLanguage( const SFontFormat &format, const std::string &language );
+
+// Whether bk_text stands in for a mod's bitmap font with its serif face rather than its sans: only
+// for a proportional font whose 'I' has serifs, the style of Liberation Serif (a Times). A sans font
+// (Achtung Panzer 2's large is a Gill Sans) and a typewriter face (its medium, small and tiny are
+// Courier-like: even strokes, every letter as wide as the next) stand in as Noto Sans; Liberation
+// Serif drew them as book type. alpha is the font's atlas, one coverage byte per texel, row after
+// row; null (an atlas that could not be read) is sans.
+bool BitmapFontIsSerif( const SFontFormat &format, const unsigned char *alpha, int width, int height );
 
 // Shared greedy line breaking, so the row height reported by
 // TextGpu::GetNumLines and the lines actually emitted by

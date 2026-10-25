@@ -35,7 +35,13 @@ test "pixelSize is the Game's table" {
 /// is `cell` pixels from ascent to descent: FontGen's stbtt_ScaleForPixelHeight, so a size class is
 /// as tall as the shipped bitmap font of that class.
 pub fn emForCell(set: *const faces.FaceSet, cell: f32) f32 {
-    const stb = set.get(.liberation_serif).stb.ptr;
+    return emForCellOf(set, .liberation_serif, cell);
+}
+
+/// emForCell for a chain led by `face`: a sans font standing in for a mod's font is as tall from
+/// ascent to descent as the mod's cell, as FontGen made the mod's font from its own face.
+pub fn emForCellOf(set: *const faces.FaceSet, face: faces.Face, cell: f32) f32 {
+    const stb = set.get(face).stb.ptr;
     var ascent: c_int = 0;
     var descent: c_int = 0;
     var line_gap: c_int = 0;
@@ -51,4 +57,6 @@ test "emForCell makes Liberation Serif as tall as the cell" {
     const em = emForCell(&set, 40);
     try std.testing.expect(em > 35.9 and em < 36.3);
     try std.testing.expectApproxEqAbs(@as(f32, 18.07), emForCell(&set, 20), 0.05);
+    // Noto Sans spans 1.362 em from ascent to descent.
+    try std.testing.expectApproxEqAbs(@as(f32, 40.0 / 1.362), emForCellOf(&set, .noto_sans, 40), 0.05);
 }

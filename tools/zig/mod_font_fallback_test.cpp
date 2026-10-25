@@ -14,6 +14,10 @@
 // Achtung Panzer 2 mod's fonts have no Cyrillic, and with lang-ru chosen its main menu was a row of
 // empty boxes. BitmapFontCoversLanguage is the decision Load makes on the 1.tfd it read; it is
 // checked on fonts built here, one with ASCII only and one that also has the language's letters.
+//
+// bk_text then stands in with its serif face only for a proportional font whose 'I' has serifs
+// (BitmapFontIsSerif); a sans or a typewriter font stands in as sans. Checked on a small atlas
+// drawn here.
 #include "StdAfx.h"
 #include "GFX.H"
 #include "../../Sources/src/GFXGPU/FontGpu.h"
@@ -152,6 +156,45 @@ void RunCoverage()
     CheckCovers( "German font", FontWith( { 0xc4, 0xd6, 0xdc, 0xe4, 0xf6, 0xfc, 0xdf } ), "de", true );
 }
 
+// A 16x16 atlas holding one 'I' at its left half: a two texel stem from row 2 to row 13, with
+// six texel wide serifs on its first and last rows when `serifs`. 'i' and 'W' advance alike
+// for a typewriter face.
+void CheckStyle( const char *label, bool serifs, bool monospaced, bool expected )
+{
+    SFontFormat format = FontWith( {} );
+    format.chars['I'].x1 = 0.0f;
+    format.chars['I'].x2 = 0.5f;
+    format.chars['I'].y1 = 0.0f;
+    format.chars['I'].y2 = 1.0f;
+    format.chars['i'].fB = monospaced ? 9.0f : 4.0f;
+    format.chars['W'].fB = 9.0f;
+    std::vector<unsigned char> alpha( 16 * 16, 0 );
+    for ( int y = 2; y <= 13; ++y )
+        for ( int x = 3; x <= 4; ++x ) alpha[y * 16 + x] = 255;
+    if ( serifs )
+        for ( int x = 1; x <= 6; ++x ) alpha[2 * 16 + x] = alpha[13 * 16 + x] = 255;
+    ++g_checks;
+    const bool serif = BitmapFontIsSerif( format, alpha.data(), 16, 16 );
+    if ( serif != expected )
+    {
+        ++g_failures;
+        std::fprintf( stderr, "%s: expected %s, measured %s\n", label, expected ? "serif" : "sans", serif ? "serif" : "sans" );
+    }
+}
+
+void RunStyle()
+{
+    CheckStyle( "proportional font with serifs", true, false, true );
+    CheckStyle( "proportional font without serifs", false, false, false );
+    CheckStyle( "typewriter font with slab serifs", true, true, false );
+    ++g_checks;
+    if ( BitmapFontIsSerif( FontWith( {} ), nullptr, 16, 16 ) )
+    {
+        ++g_failures;
+        std::fprintf( stderr, "a font without an atlas: expected sans, measured serif\n" );
+    }
+}
+
 void RunCase( const char *label, const char *mod_size )
 {
     g_storage.mod.clear();
@@ -175,6 +218,7 @@ int main()
     RunCase( "mod medium", "medium" );
     RunCase( "mod tiny", "tiny" );
     RunCoverage();
+    RunStyle();
     NBkTextBridge::Destroy();
     if ( g_failures != 0 )
         std::printf( "mod-font-fallback: %d checks, %d failures\n", g_checks, g_failures );

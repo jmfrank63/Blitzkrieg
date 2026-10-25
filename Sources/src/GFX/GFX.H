@@ -112,6 +112,11 @@ interface IGFXText : public IRefCount
 	virtual int STDCALL GetNumLines() const = 0;
 	virtual int STDCALL GetLineSpace() const = 0;
 	virtual int STDCALL GetWidth( int nNumCharacters = -1 ) const = 0;
+	// The box a window lays its text out in, every frame before it asks for the lines. A caption
+	// (one line, a box less than three lines tall) drawn in a face standing in for a mod's own font
+	// is scaled down to fit the box on one line: the mod's layout was made for its font, and the
+	// stand-in's letters are wider. Every other text and font ignores it.
+	virtual void STDCALL FitToBox( int nWidth, int nHeight ) {}
 };
 interface IFontManager : public ISharedManager
 {
