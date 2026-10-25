@@ -160,6 +160,15 @@ jobs:
             /Data/Fonts/
             /Data/UI/
             /Data/Editor/TestProjects/
+            # Since the checker takes the English the Game ships (2026-10-25), it reads the text
+            # trees too: their .txt files only, a few MB (2,139 stale findings without them).
+            /Data/Textes/
+            /Data/Scenarios/**/*.txt
+            /Data/Units/**/*.txt
+            /Data/Buildings/**/*.txt
+            /Data/Medals/**/*.txt
+            /Data/Objects/**/*.txt
+            /Data/movies/*.txt
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.17.0
@@ -239,6 +248,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -444,6 +454,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -875,6 +886,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1242,6 +1254,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1498,6 +1511,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1699,6 +1713,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1945,6 +1960,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -2203,6 +2219,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -2596,6 +2613,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -2985,6 +3003,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -3335,6 +3354,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -3537,6 +3557,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -3780,6 +3801,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -4025,6 +4047,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -4407,6 +4430,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -4758,6 +4782,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -5033,6 +5058,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -5255,6 +5281,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
