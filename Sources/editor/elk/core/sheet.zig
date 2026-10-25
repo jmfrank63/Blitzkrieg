@@ -698,14 +698,14 @@ test "every text of Data/ELK round-trips through .xlsx and .csv, and importing i
     var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena_state.deinit();
     const grid = try exportGrid(arena_state.allocator(), &db, null);
-    try testing.expectEqual(@as(usize, 3_072 + 1), grid.len);
+    try testing.expectEqual(@as(usize, 3_078 + 1), grid.len);
     var before = try snapshot(io, root);
     defer before.deinit();
 
     for ([_][]const u8{ "texts.xlsx", "texts.csv" }) |name| {
         const path = try std.fs.path.join(testing.allocator, &.{ root, "..", name });
         defer testing.allocator.free(path);
-        try testing.expectEqual(@as(usize, 3_072), try exportTo(testing.allocator, io, &db, path, null));
+        try testing.expectEqual(@as(usize, 3_078), try exportTo(testing.allocator, io, &db, path, null));
         var sheet = try readFile(testing.allocator, io, path);
         defer sheet.deinit();
         try testing.expectEqual(grid.len - 1, sheet.rows.len);

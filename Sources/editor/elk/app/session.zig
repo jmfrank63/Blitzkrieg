@@ -670,7 +670,7 @@ test "the tracked database lists every text and shows the selected one" {
     var session = Session.init(testing.allocator, io);
     defer session.deinit();
     try session.open("Data/ELK/elk.xml");
-    try testing.expectEqual(@as(usize, 3072), session.textCount());
+    try testing.expectEqual(@as(usize, 3078), session.textCount());
     const index = session.find("medals/1/name").?;
     try session.select(index);
     try testing.expectEqualStrings("Test Medal", session.original.text());

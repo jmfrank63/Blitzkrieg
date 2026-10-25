@@ -419,7 +419,7 @@ test "an untouched Data/ELK copy saves back byte for byte" {
     defer database.deinit();
     try testing.expectEqual(@as(usize, 1), database.bases.len);
     // The 2,852 tracked originals, and nothing for the orphan state files.
-    try testing.expectEqual(@as(usize, 3_072), database.bases[0].keys.len);
+    try testing.expectEqual(@as(usize, 3_078), database.bases[0].keys.len);
 
     var translated: usize = 0;
     for (database.bases[0].keys) |key| {
@@ -452,7 +452,7 @@ test "an untouched Data/ELK copy saves back byte for byte" {
     var reopened = try Database.open(testing.allocator, io, elk_path);
     defer reopened.deinit();
     try testing.expectEqualStrings("game", reopened.project.elements[0].name);
-    try testing.expectEqual(@as(usize, 3_072), reopened.bases[0].keys.len);
+    try testing.expectEqual(@as(usize, 3_078), reopened.bases[0].keys.len);
 }
 
 test "an edited translation is written UTF-16LE with CRLF and reads back with LF" {
