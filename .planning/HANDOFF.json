@@ -23,7 +23,6 @@
   "blockers": [],
   "async_jobs": [],
   "human_actions_pending": [
-    {"action": "Park or close GSD milestone M004 (it is the slice 1 work, done outside GSD); `gsd headless park M004` hung and was killed", "context": "GSD still lists M004 active; gsd auto would re-plan slice 1", "blocking": false},
     {"action": "Run tools/zig/run-resource-sweep.sh and push feat/building-views for CI (Linux, macOS)", "context": "Only win-home was tested; full sweep left to the maintainer", "blocking": false},
     {"action": "Decide which stale D:\\bk-* worktrees and loose files to delete", "context": "Listed in the session: bk-base, bk-ci, bk-rmg, bk-goldens*, loose logs; bk-fixwin may still be in use", "blocking": false}
   ],
