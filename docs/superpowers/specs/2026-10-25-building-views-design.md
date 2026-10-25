@@ -37,9 +37,8 @@ The original game (Remastered off) is not touched.
 - Variants of one building do not always share a colourway (`e_ctownhouse02_1` slate roof, `_4` tile roof).
 - Each variant has its own footprint and passability (`1.xml`); damage states are `1.san`, `2.san`, `3.san`
   with shadows `1s.san` and ground parts `2g.san`, textures `<n>_c.dds` (colour), `_h`, `_l`.
-- `.san` layout (decoded for the study, to be confirmed against `Sources/src/ResourceModel` and
-  `Sources/src/Scene/VisObjBuilder.cpp`): records of 9 floats `x, y, size, u1, v1, u2, v2, d1, d2` from offset
-  0x24 place square texture pieces of 16 or 32 px on screen; the texture `1_c.dds` is an atlas of those pieces.
+- `.san` layout (confirmed in slice 1, see below): square texture pieces of 16 to 256 px, each 9 floats
+  `x, y, size, u1, v1, u2, v2, depth_left, depth_right`; the texture `1_c.dds` is an atlas of those pieces.
 - A building `.san` is not the animation format `bk-sprite compose` writes (`SSpriteAnimationFormat`): it is
   `SSpritesPack` (`Sources/src/Formats/fmtSprite.h/.cpp`), an engine structure file with the signature
   `0x314e4153` in chunk 127 and the pack in chunk 1: per sprite its squares (`vLeftTop`, `fSize`, `rcMaps`,
@@ -112,9 +111,43 @@ The original game (Remastered off) is not touched.
 - The 2003 sprites are never modified; new variants are added beside them, and with Remastered off the Game
   loads none of them.
 
+## Slice 1 results (2026-10-25)
+
+Plan: [building views 01](../plans/2026-10-25-building-views-01-decompose-camera.md). Tiers: `test-bk-views`,
+`bk-views-roundtrip`, `test-bk-sprite`, `test-bk-tools`, `test-bk-tools-l10n`, `test-bk-l10n`, `test-bk-image`, all
+passing on win-home (Windows x64); Linux and macOS are left to CI.
+
+- **`.san` layout.** An engine structure file (`StreamIO/StructureSaver2.cpp`): a chunk is an id byte and a length
+  `n << 1` in one byte, or `(n << 1) | 1` in four bytes when that is 256 or more, then `n` bytes. The file holds
+  chunk 1 (and empty chunks 0 and 2 for objects); inside it chunk 127 is the signature `u32 0x314e4153` and chunk
+  1 the pack. The pack's chunk 1 is the sprite vector, one chunk 1 per sprite; a sprite is chunk 1 squares
+  (chunk 1 the count `i32`, chunk 2 the raw 36-byte squares), chunk 2 edge (chunk 1 `bool` horizontal, chunk 2
+  the `CVarArray2D<short, BYTE>` as chunks 1 size, 2 line count, 3 raw `i16` crossings, 4 raw `u8` line sizes,
+  chunk 3 the bound box as 4 `f32`) and chunk 3 the center (2 `i32`). Every building pack has one sprite. The
+  center is the zero cross in the 2003 source picture; squares are relative to it, on a grid of their own size.
+- **Decompose.** `bk-views decompose` (std-only Zig) writes what `CSpritesPackBuilder::Unpack` makes, on one
+  canvas per variant that starts at the 2003 picture's corner. `bk-views-check` reads the same packs with the
+  engine's structure saver and `Unpack`, and every field and pixel agrees.
+- **Round trip.** `bk-sprite compose-pack` (`NCompose::ComposeSingleObjectPack` and `ComposeNoisePack`, the
+  Resource Editor's building composer) on the decomposed pictures, with the zero cross, the passability of
+  `1.xml` and the grid origin on screen under the MFC camera, gives back every `.san` and `_h.dds` of
+  `e_ctownhouse01_1/_2/_4` and `e_house01_1/_2/_3` (sprites, shadows and ground pictures of the three damage
+  states) byte for byte. So the pipeline's last step reproduces the 2003 export exactly, and a new view
+  composed the same way is a pack the Game reads as it reads the originals. `_c.dds` and `_l.dds` are
+  re-encoded and only within the DXT tolerance of the Resource Editor port; the Game draws `_c`/`_l`.
+- **Camera.** The 2003 camera is a pure orthographic projection, and it is `MfcEditorCamera`: the 928 picture
+  and world point pairs of the 25 variants of the eight three-side families (fire slots, fire, smoke and
+  explosion points in `1.xml`) fit one linear camera with an rms of 0.0002 px: one pixel per world unit, yaw
+  45 degrees, pitch -120 degrees (30 degrees above the ground), an AI tile (`16 * sqrt(2)` world units) 32 x 16
+  px. A box over each locked footprint, its height fitted, overlaps the sprite outline with IoU 0.69 to 0.95
+  (pitched roofs, chimneys and porches are what a box misses). Recorded in
+  `tools/zig/fixtures/bk-views/camera-2003.json`; `test-bk-views` fails if the fit leaves it or an IoU drops by
+  more than 0.01.
+- **Seen on the way.** `NResourceModel::DefaultEditorCamera()`, the exporters' fallback without an engine
+  camera, has half this scale (its `m11` is 0.354 where the shipped art's is 0.707); exports through the bridge
+  and the golden comparison use the engine or MFC camera and are not affected.
+
 ## Open questions
 
-- The exact `.san` header and chunk layout (the study decoder stopped before the end of some files).
-- Whether the 2003 camera is a pure orthographic projection; the camera fit answers it.
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r
   (variant (k + r) mod 4), including the families whose variants differ in colourway.
