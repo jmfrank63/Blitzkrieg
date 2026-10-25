@@ -249,6 +249,25 @@ mirrors (the S02 section above describes what was replaced).
   they could not be cut out of it; their pixels land on the roof planes. The colourway rule (whole-picture hue
   histograms) is strict and leaves 70 of the 93 measured multi-side variants out of the hold-out.
 
+## The Game draws it (M005 S04, 2026-10-27)
+
+- **Tier.** `zig build building-views-game-reads-it` (`tools/zig/building_views_game_reads_it.zig`) writes side 3 of
+  e_ctownhouse01 (`e_ctownhouse01_2_r1`) and sides 2 to 4 of the single-sprite e_frenchshed01 with `bk-views side`
+  straight into a scratch mod's `data/buildings/views/`; the mod's `modobjects.xml` registers them as buildings
+  (`Views_<variant>`, read by `CObjectsDB::LoadDB` after objects.xml). The 2003 sides keep their objects.xml names.
+  Four maps from `river3d.xml` each hold side k of both families, 500 pixels apart: the map is too small for four
+  town houses in one frame. The Game runs from `zig-out/local-test/building-views` with every user path redirected
+  and `BK_SCENE_DISABLE` turning every pass but the objects off, so only the buildings and the interface are not
+  black.
+- **Placement, measured.** `camera=` takes the AI's coordinates (visual over sqrt 2): camera 512 puts a building
+  at the visual (724, 724) on the screen's (511, 383); a visual step of (1, 1) is 1 pixel right, (1, -1) a quarter
+  pixel down.
+- **Measured.** Each building against its decomposed intact sprite (the `_h.dds`), zero cross where it stands, best
+  offset within 4 pixels: outline IoU 0.994 to 1.000 at offset 0,0, mean colour difference 0.00 for all eight sides
+  (the Game draws the pack's pixels unchanged); the best IoU of another side of the family at the same place is
+  0.654. Floors: IoU 0.95, colour 2, and the own sprite must beat every other side. With the side-3 maps given the
+  wrong pictures (side 2), the tier failed at IoU 0.166 and 0.133.
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r
