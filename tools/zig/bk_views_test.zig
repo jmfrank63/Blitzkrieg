@@ -470,6 +470,70 @@ test "e_ctownhouse01_1 has another colourway than _2 and _4" {
     try std.testing.expect(!views.sameColourway(pictures[2], pictures[0]));
 }
 
+/// A picture of a timber-framed wall: plaster with dark beams every 8 pixels
+/// and a little texture, opaque inside a margin of 10.
+fn wallPicture(gpa: std.mem.Allocator, width: u32, height: u32) !views.Image {
+    const image: views.Image = .{ .width = width, .height = height, .pixels = try gpa.alloc([4]u8, width * height) };
+    for (0..height) |y| for (0..width) |x| {
+        const inside = x >= 10 and y >= 10 and x < width - 10 and y < height - 10;
+        const beam = x % 8 < 2 or y % 8 < 2;
+        const grain: u8 = @intCast((x * 7 + y * 13) % 23);
+        image.pixels[y * width + x] = if (!inside) .{ 0, 0, 0, 0 } else if (beam) .{ 60 + grain, 40, 30, 255 } else .{ 200 + grain, 180, 140, 255 };
+    };
+    return image;
+}
+
+test "the gate scores a picture against itself as perfect, finds a shift, and sees blur and colour" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const original = try wallPicture(arena, 80, 60);
+    const same = views.scorePicture(original, original, .{ 0, 0 });
+    try std.testing.expectEqual(@as(f64, 1), same.iou);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), same.ssim, 1e-9);
+    try std.testing.expectEqual(@as(f64, 1), same.sharpness);
+    try std.testing.expectEqual(@as(f64, 0), same.colour);
+    try std.testing.expectEqual(@as(f64, 0), same.hue);
+
+    // The same picture moved by (5, -3) on a larger canvas: the best offset
+    // brings it back from a guess 9 pixels off.
+    const moved: views.Image = .{ .width = 100, .height = 80, .pixels = try arena.alloc([4]u8, 100 * 80) };
+    @memset(moved.pixels, .{ 0, 0, 0, 0 });
+    for (0..60) |y| for (0..80) |x| {
+        moved.pixels[(y + 7) * 100 + x + 15] = original.pixels[y * 80 + x];
+    };
+    const offset = views.bestOffset(moved, original, .{ 9, 13 });
+    try std.testing.expectEqual([2]i64{ 15, 7 }, offset);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), views.scorePicture(moved, original, offset).ssim, 1e-9);
+
+    // A box blur keeps the outline and the colour but loses the edges.
+    const blurred: views.Image = .{ .width = 80, .height = 60, .pixels = try arena.alloc([4]u8, 80 * 60) };
+    for (0..60) |y| for (0..80) |x| {
+        var sum = [3]u32{ 0, 0, 0 };
+        for (0..9) |k| for (0..3) |c| {
+            // Within the opaque part.
+            const sx: usize = @min(70, @max(11, x + k % 3)) - 1;
+            const sy: usize = @min(50, @max(11, y + k / 3)) - 1;
+            sum[c] += original.pixels[sy * 80 + sx][c];
+        };
+        const p = original.pixels[y * 80 + x];
+        blurred.pixels[y * 80 + x] = .{ @intCast(sum[0] / 9), @intCast(sum[1] / 9), @intCast(sum[2] / 9), p[3] };
+    };
+    const blur = views.scorePicture(blurred, original, .{ 0, 0 });
+    try std.testing.expectEqual(@as(f64, 1), blur.iou);
+    try std.testing.expect(blur.sharpness < 0.5);
+    try std.testing.expect(blur.ssim < 0.9);
+    try std.testing.expect(blur.colour < 3);
+
+    // Green paint instead of plaster: the colour and the hue move.
+    const green: views.Image = .{ .width = 80, .height = 60, .pixels = try arena.dupe([4]u8, original.pixels) };
+    for (green.pixels) |*p| {
+        if (p[0] > 150) p.* = .{ 90, 170, 90, p[3] };
+    }
+    const paint = views.scorePicture(green, original, .{ 0, 0 });
+    try std.testing.expect(paint.colour > 50 and paint.hue > 0.5);
+}
+
 /// Tracked text is checked out with CRLF; the tool writes LF.
 fn withoutCr(gpa: std.mem.Allocator, text: []const u8) ![]u8 {
     var out: std.ArrayList(u8) = .empty;

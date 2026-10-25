@@ -23,6 +23,10 @@
 //! variant's colourway projected onto it (Blender casts the rays,
 //! tools/blender/bk_views_render.py), mirrored or patch-filled where none
 //! sees a face, and packed by `bk-sprite compose-pack`.
+//!
+//! `holdout` and `style` are the quality gate: a side that exists in 2003
+//! drawn again without it and scored against it, and generated pictures
+//! scored against the building's own 2003 sides.
 
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
@@ -33,6 +37,8 @@ const usage: bk_tool.Usage = .{
     \\       bk-views camera <variant-dir>... [--out <camera.json>]
     \\       bk-views inventory <buildings-dir> <out-dir>
     \\       bk-views side <variant-dir> <turns> <out-dir>
+    \\       bk-views holdout <out-dir> <variant-dir>...
+    \\       bk-views style <out-dir> <variant-dir> <generated-dir>...
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -59,6 +65,13 @@ fn run(ctx: *bk_tool.Context) !void {
         if (ctx.args.len != 4) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return sideCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3]);
+    }
+    if (std.mem.eql(u8, command, "holdout") or std.mem.eql(u8, command, "style")) {
+        const style = std.mem.eql(u8, command, "style");
+        if (ctx.args.len < @as(usize, if (style) 4 else 3)) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        if (style) return styleCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3..]);
+        return holdoutCommand(ctx, ctx.args[1], ctx.args[2..]);
     }
     if (std.mem.eql(u8, command, "camera")) {
         var dirs: std.ArrayList([]const u8) = .empty;
@@ -1445,18 +1458,7 @@ fn nearFootprint(footprint: Grid, p: [3]f64) bool {
 pub fn alignEyes(gpa: std.mem.Allocator, fixed: usize, footprints: []const Grid, pictures: []const Image, eyes: []Eye) !void {
     const footprint = footprints[fixed];
     for (eyes, footprints, 0..) |*eye, grid, e| {
-        if (e == fixed) continue;
-        const a = occupiedBox(footprint.rows);
-        const b = occupiedBox(grid.rows);
-        const ca = turnPoint(.{
-            @as(f64, @floatFromInt(a[0] + a[2])) * tile_size / 2 - footprint.origin[0],
-            @as(f64, @floatFromInt(a[1] + a[3])) * tile_size / 2 - footprint.origin[1],
-        }, eye.turn);
-        const cb = [2]f64{
-            @as(f64, @floatFromInt(b[0] + b[2])) * tile_size / 2 - grid.origin[0],
-            @as(f64, @floatFromInt(b[1] + b[3])) * tile_size / 2 - grid.origin[1],
-        };
-        eye.shift = .{ cb[0] - ca[0], cb[1] - ca[1] };
+        if (e != fixed) eye.shift = footprintShift(footprint, grid, eye.turn);
     }
     var arena_state = std.heap.ArenaAllocator.init(gpa);
     defer arena_state.deinit();
@@ -1481,6 +1483,22 @@ pub fn alignEyes(gpa: std.mem.Allocator, fixed: usize, footprints: []const Grid,
                 if (best_shift[0] == start[0] and best_shift[1] == start[1]) break;
             }
         }
+    };
+}
+
+/// Where grid b's zero cross sits in b's frame when b shows grid a's building
+/// turned `turn` times, their occupied boxes laid centre on centre.
+fn footprintShift(a: Grid, b: Grid, turn: u2) [2]f64 {
+    const ca = turnPoint(boxCentre(a), turn);
+    const cb = boxCentre(b);
+    return .{ cb[0] - ca[0], cb[1] - ca[1] };
+}
+
+fn boxCentre(grid: Grid) [2]f64 {
+    const box = occupiedBox(grid.rows);
+    return .{
+        @as(f64, @floatFromInt(box[0] + box[2])) * tile_size / 2 - grid.origin[0],
+        @as(f64, @floatFromInt(box[1] + box[3])) * tile_size / 2 - grid.origin[1],
     };
 }
 
@@ -1928,20 +1946,25 @@ pub fn hueHistogram(image: Image) [12]f64 {
     var total: f64 = 0;
     for (image.pixels) |p| {
         if (p[3] < 128) continue;
-        const r: f64 = @floatFromInt(p[0]);
-        const g: f64 = @floatFromInt(p[1]);
-        const b: f64 = @floatFromInt(p[2]);
-        const max = @max(r, g, b);
-        const chroma = max - @min(r, g, b);
-        if (chroma < 20) continue;
-        const hue = if (max == r) @mod((g - b) / chroma, 6) else if (max == g) (b - r) / chroma + 2 else (r - g) / chroma + 4;
-        bands[@as(usize, @intFromFloat(hue * 2)) % 12] += 1;
+        bands[hueBand(p) orelse continue] += 1;
         total += 1;
     }
     if (total > 0) for (&bands) |*band| {
         band.* /= total;
     };
     return bands;
+}
+
+/// The 30 degree hue band of a colour with a chroma of 20 or more.
+fn hueBand(p: [4]u8) ?usize {
+    const r: f64 = @floatFromInt(p[0]);
+    const g: f64 = @floatFromInt(p[1]);
+    const b: f64 = @floatFromInt(p[2]);
+    const max = @max(r, g, b);
+    const chroma = max - @min(r, g, b);
+    if (chroma < 20) return null;
+    const hue = if (max == r) @mod((g - b) / chroma, 6) else if (max == g) (b - r) / chroma + 2 else (r - g) / chroma + 4;
+    return @as(usize, @intFromFloat(hue * 2)) % 12;
 }
 
 /// Two variants share a colourway when their intact pictures' hue
@@ -2143,29 +2166,44 @@ pub const mirror_iou = 0.8;
 
 const Turned = struct { turn: u2, eye: Eye, size: [2]u32, name: []const u8 };
 
-fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8) !void {
+/// A variant's family set up to draw that variant from other sides: the 2003
+/// variants with their eyes aligned to it (`fixed` is the variant itself),
+/// which of them share its colourway, the light, the mirror planes and a hull
+/// per damage state (and season).
+const Scene = struct {
+    family: []const u8,
+    name: []const u8,
+    own_side: u8,
+    sources: []Source,
+    eyes: []Eye,
+    same: []bool,
+    fixed: usize,
+    outlines: []Image,
+    light: Light,
+    fits: [4]MirrorFit,
+    mirrors: []Mirror,
+    checks: []Check,
+    states: []const []const u8,
+    hulls: []Hull,
+    meshes: []const [2][]const u8,
+    work: []const u8,
+};
+
+/// The scene of variant `index` of the family; variants that show side
+/// `skip` are left out, so the hold-out draws that side without them.
+fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, out: []const u8) !Scene {
     const arena = ctx.arena;
     const io = ctx.io;
     const cwd = std.Io.Dir.cwd();
-    const dir = try bk_tool.inputPath(arena, dir_arg);
-    const out = try bk_tool.inputPath(arena, out_arg);
-    var turns: std.ArrayList(u2) = .empty;
-    var split = std.mem.splitScalar(u8, turns_arg, ',');
-    while (split.next()) |t| {
-        const k = std.fmt.parseInt(u2, t, 10) catch return error.Usage;
-        if (k == 0) return error.Usage;
-        try turns.append(arena, k);
-    }
-
-    // The family's measured variants: all of them give the shape, those of
-    // the variant's own colourway also give pixels.
-    const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
-    const own_side = found.family.variants[found.index].side orelse return ctx.failKey("views.err.no_side", .{dir});
+    const own_side = found.family.variants[index].side orelse return ctx.failKey("views.err.no_side", .{found.family.variants[index].path});
+    // Every measured variant gives the shape, those of the variant's own
+    // colourway also give pixels.
     var sources: std.ArrayList(Source) = .empty;
     var fixed: usize = 0;
     for (found.family.variants, 0..) |variant, i| {
         const side = variant.side orelse continue;
-        if (i == found.index) fixed = sources.items.len;
+        if (skip == side) continue;
+        if (i == index) fixed = sources.items.len;
         try sources.append(arena, try loadSource(ctx, try std.fs.path.join(arena, &.{ found.root, variant.path }), side));
     }
     const n = sources.items.len;
@@ -2193,7 +2231,6 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         try light_shadows.append(arena, shadow);
     }
     const light = try fitLight(arena, coarse, light_eyes.items, light_sprites.items, light_shadows.items);
-    const light_dir = lightDirection(light.azimuth, light.elevation);
     const fits = fitMirrors(coarse);
     var projecting: usize = 0;
     for (same) |s| projecting += @intFromBool(s);
@@ -2208,13 +2245,13 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
 
     // A hull per damage state (and season), each from that state's pictures.
     const own = sources.items[fixed];
-    const own_name = std.fs.path.basename(own.dir);
-    const work = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.work", .{own_name}) });
+    const name = std.fs.path.basename(own.dir);
+    const work = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.work", .{name}) });
     try cwd.createDirPath(io, work);
     var states: std.ArrayList([]const u8) = .empty;
-    for (own.names) |name| {
-        const digits = std.mem.indexOfNone(u8, name, "0123456789") orelse name.len;
-        if (digits > 0 and (digits == name.len or std.mem.eql(u8, name[digits..], "w"))) try states.append(arena, name);
+    for (own.names) |state| {
+        const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
+        if (digits > 0 and (digits == state.len or std.mem.eql(u8, state[digits..], "w"))) try states.append(arena, state);
     }
     const hulls = try arena.alloc(Hull, states.items.len);
     var meshes: std.ArrayList([2][]const u8) = .empty;
@@ -2233,78 +2270,180 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         try cwd.writeFile(io, .{ .sub_path = quads, .data = std.mem.sliceAsBytes(mesh.quads) });
         try meshes.append(arena, .{ verts, quads });
     }
+    return .{
+        .family = found.family.name,
+        .name = name,
+        .own_side = own_side,
+        .sources = sources.items,
+        .eyes = eyes,
+        .same = same,
+        .fixed = fixed,
+        .outlines = outlines,
+        .light = light,
+        .fits = fits,
+        .mirrors = mirrors.items,
+        .checks = checks.items,
+        .states = states.items,
+        .hulls = hulls,
+        .meshes = meshes.items,
+        .work = work,
+    };
+}
 
-    // Each turn's canvas holds the hull's box, its shadow and the 2003 ground pictures.
-    var targets: std.ArrayList(Turned) = .empty;
-    for (turns.items) |k| {
-        var eye: Eye = .{ .anchor = .{ 0, 0 }, .turn = k };
-        var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
-        var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
-        const l = lightFor(light_dir, k);
-        const hull = hulls[0];
-        for (0..8) |c| {
-            const p = [3]f64{
-                hull.lo[0] + @as(f64, @floatFromInt(if (c & 1 != 0) hull.n[0] else 0)) * hull.size,
-                hull.lo[1] + @as(f64, @floatFromInt(if (c & 2 != 0) hull.n[1] else 0)) * hull.size,
-                if (c & 4 != 0) hullTop(hull) else 0,
-            };
-            for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
-                const s = eye.project(q);
-                lo = .{ @min(lo[0], s[0]), @min(lo[1], s[1]) };
-                hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
-            }
+fn lightOf(scene: Scene) [3]f64 {
+    return lightDirection(scene.light.azimuth, scene.light.elevation);
+}
+
+/// Each turn's canvas: it holds the hull's box, its shadow and the 2003
+/// ground pictures.
+fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
+    var eye: Eye = .{ .anchor = .{ 0, 0 }, .turn = k };
+    var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+    var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+    const l = lightFor(lightOf(scene), k);
+    const hull = scene.hulls[0];
+    for (0..8) |c| {
+        const p = [3]f64{
+            hull.lo[0] + @as(f64, @floatFromInt(if (c & 1 != 0) hull.n[0] else 0)) * hull.size,
+            hull.lo[1] + @as(f64, @floatFromInt(if (c & 2 != 0) hull.n[1] else 0)) * hull.size,
+            if (c & 4 != 0) hullTop(hull) else 0,
+        };
+        for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
+            const s = eye.project(q);
+            lo = .{ @min(lo[0], s[0]), @min(lo[1], s[1]) };
+            hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
         }
-        for (sources.items, eyes, same) |source, source_eye, s| {
-            if (!s) continue;
-            for (source.names, source.pictures) |name, picture| {
-                if (!std.mem.endsWith(u8, name, "g")) continue;
-                for (0..picture.height) |y| for (0..picture.width) |x| {
-                    if (picture.pixels[y * picture.width + x][3] == 0) continue;
-                    const q = eye.project(groundPoint(source_eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5));
-                    lo = .{ @min(lo[0], q[0]), @min(lo[1], q[1]) };
-                    hi = .{ @max(hi[0], q[0]), @max(hi[1], q[1]) };
-                };
-            }
-        }
-        eye.anchor = .{ 2 - @floor(lo[0]), 2 - @floor(lo[1]) };
-        try targets.append(arena, .{
-            .turn = k,
-            .eye = eye,
-            .size = .{ @intFromFloat(@ceil(hi[0]) - @floor(lo[0]) + 4), @intFromFloat(@ceil(hi[1]) - @floor(lo[1]) + 4) },
-            .name = try std.fmt.allocPrint(arena, "{s}_r{d}", .{ own_name, k }),
-        });
     }
-
-    // One Blender run: every source eye (for the shading classes and the
-    // outline check) and every target, per state.
-    var views: std.ArrayList(JobView) = .empty;
-    for (states.items, 0..) |state, m| {
-        for (sources.items, eyes, 0..) |source, eye, e| {
-            const picture = pictureOf(source, state) orelse continue;
-            try views.append(arena, .{ .mesh = m, .eye = eye, .size = .{ picture.width, picture.height }, .out = try std.fmt.allocPrint(arena, "{s}/{s}_eye{d}", .{ work, state, e }) });
+    for (scene.sources, scene.eyes, scene.same) |source, source_eye, s| {
+        if (!s) continue;
+        for (source.names, source.pictures) |picture_name, picture| {
+            if (!std.mem.endsWith(u8, picture_name, "g")) continue;
+            for (0..picture.height) |y| for (0..picture.width) |x| {
+                if (picture.pixels[y * picture.width + x][3] == 0) continue;
+                const q = eye.project(groundPoint(source_eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5));
+                lo = .{ @min(lo[0], q[0]), @min(lo[1], q[1]) };
+                hi = .{ @max(hi[0], q[0]), @max(hi[1], q[1]) };
+            };
         }
-        for (targets.items) |target| try views.append(arena, .{
+    }
+    eye.anchor = .{ 2 - @floor(lo[0]), 2 - @floor(lo[1]) };
+    return .{
+        .turn = k,
+        .eye = eye,
+        .size = .{ @intFromFloat(@ceil(hi[0]) - @floor(lo[0]) + 4), @intFromFloat(@ceil(hi[1]) - @floor(lo[1]) + 4) },
+        .name = name,
+    };
+}
+
+/// One Blender run: every source eye (for the shading classes and the
+/// outline check) and every target, per state.
+fn renderScene(ctx: *bk_tool.Context, scene: Scene, targets: []const Turned) !void {
+    const arena = ctx.arena;
+    var views: std.ArrayList(JobView) = .empty;
+    for (scene.states, 0..) |state, m| {
+        for (scene.sources, scene.eyes, 0..) |source, eye, e| {
+            const picture = pictureOf(source, state) orelse continue;
+            try views.append(arena, .{ .mesh = m, .eye = eye, .size = .{ picture.width, picture.height }, .out = try std.fmt.allocPrint(arena, "{s}/{s}_eye{d}", .{ scene.work, state, e }) });
+        }
+        for (targets) |target| try views.append(arena, .{
             .mesh = m,
             .eye = target.eye,
             .size = target.size,
-            .checks = checks.items,
-            .light = lightFor(light_dir, target.turn),
-            .out = try std.fmt.allocPrint(arena, "{s}/{s}_{s}", .{ work, state, target.name }),
+            .checks = scene.checks,
+            .light = lightFor(lightOf(scene), target.turn),
+            .out = try std.fmt.allocPrint(arena, "{s}/{s}_{s}", .{ scene.work, state, target.name }),
         });
     }
     var job: std.Io.Writer.Allocating = .init(arena);
-    try writeJob(&job.writer, meshes.items, views.items, eyes, mirrors.items);
-    const job_path = try std.fs.path.join(arena, &.{ work, "job.json" });
-    try cwd.writeFile(io, .{ .sub_path = job_path, .data = job.written() });
+    try writeJob(&job.writer, scene.meshes, views.items, scene.eyes, scene.mirrors);
+    const job_path = try std.fs.path.join(arena, &.{ scene.work, "job.json" });
+    try std.Io.Dir.cwd().writeFile(ctx.io, .{ .sub_path = job_path, .data = job.written() });
     try runBlender(ctx, job_path);
+}
+
+/// One damage state of a target: the sprite with the source of each pixel,
+/// its shadow, its ground picture where the variant has one, and how well the
+/// hull covers each source's outline.
+const Drawn = struct { state: []const u8, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64 };
+
+fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const n = scene.sources.len;
+    const own = scene.sources[scene.fixed];
+    const drawn = try arena.alloc(Drawn, scene.states.len);
+    for (scene.states, scene.hulls, drawn) |state, hull, *d| {
+        const buffers = try readBuffers(arena, io, try std.fmt.allocPrint(arena, "{s}/{s}_{s}", .{ scene.work, state, target.name }), target.size);
+        var means: Means = .{};
+        const projectors = try arena.alloc(Projector, n);
+        const ground = try arena.alloc(Projector, n);
+        var ground_count: usize = 0;
+        var covers: std.ArrayList(f64) = .empty;
+        for (scene.sources, scene.eyes, scene.same, projectors, 0..) |source, eye, s, *projector, e| {
+            const picture = pictureOf(source, state);
+            projector.* = .{ .eye = eye, .picture = if (s) picture else null };
+            if (picture == null) continue;
+            const source_buffers = try readBuffers(arena, io, try std.fmt.allocPrint(arena, "{s}/{s}_eye{d}", .{ scene.work, state, e }), .{ picture.?.width, picture.?.height });
+            var both: f64 = 0;
+            var either: f64 = 0;
+            for (source_buffers.pos, picture.?.pixels) |hit, pixel| {
+                const in_hull = !std.math.isNan(hit[0]);
+                both += @floatFromInt(@intFromBool(in_hull and pixel[3] >= 128));
+                either += @floatFromInt(@intFromBool(in_hull or pixel[3] >= 128));
+                if (s and in_hull and pixel[3] >= 128) means.add(shadeClass(hullNormal(hull, .{ hit[0], hit[1], hit[2] }), eye.turn), pixel);
+            }
+            try covers.append(arena, if (either == 0) 0 else both / either);
+            if (!s) continue;
+            const g = pictureOf(source, try std.fmt.allocPrint(arena, "{s}g", .{state})) orelse continue;
+            // The variant's own ground picture first.
+            ground[ground_count] = .{ .eye = eye, .picture = g };
+            if (e == scene.fixed) std.mem.swap(Projector, &ground[0], &ground[ground_count]);
+            ground_count += 1;
+        }
+        const sprite = try projectPicture(arena, hull, buffers, target.eye, scene.checks, scene.mirrors, projectors, means);
+        try patchFill(arena, sprite);
+        const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, buffers.flags.len) };
+        for (shadow.pixels, buffers.flags) |*pixel, flags| pixel.* = if (flags & shadow_bit != 0) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
+        const has_ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state})) != null;
+        d.* = .{
+            .state = state,
+            .sprite = sprite,
+            .shadow = shadow,
+            .ground = if (has_ground) try projectGround(arena, target.eye, target.size, ground[0..ground_count]) else null,
+            .covers = covers.items,
+        };
+    }
+    return drawn;
+}
+
+fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const dir = try bk_tool.inputPath(arena, dir_arg);
+    const out = try bk_tool.inputPath(arena, out_arg);
+    var turns: std.ArrayList(u2) = .empty;
+    var split = std.mem.splitScalar(u8, turns_arg, ',');
+    while (split.next()) |t| {
+        const k = std.fmt.parseInt(u2, t, 10) catch return error.Usage;
+        if (k == 0) return error.Usage;
+        try turns.append(arena, k);
+    }
+
+    const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+    const scene = try loadScene(ctx, found, found.index, null, out);
+    var targets: std.ArrayList(Turned) = .empty;
+    for (turns.items) |k| try targets.append(arena, turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, k })));
+    try renderScene(ctx, scene, targets.items);
 
     // The pictures, the source maps and the packs of each turn.
     // bk-sprite beside bk-views (zig-out/bin), else the one on PATH.
     const exe_dir = try std.process.executableDirPathAlloc(io, arena);
     const beside = try std.fs.path.join(arena, &.{ exe_dir, if (@import("builtin").os.tag == .windows) "bk-sprite.exe" else "bk-sprite" });
     const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
+    const own = scene.sources[scene.fixed];
     for (targets.items) |target| {
-        const pictures_dir = try std.fs.path.join(arena, &.{ work, target.name });
+        const pictures_dir = try std.fs.path.join(arena, &.{ scene.work, target.name });
         const map_dir = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.map", .{target.name}) });
         const final = try std.fs.path.join(arena, &.{ out, target.name });
         const temp = try std.fmt.allocPrint(arena, "{s}.tmp", .{final});
@@ -2312,71 +2451,41 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             cwd.deleteTree(io, path) catch {};
             try cwd.createDirPath(io, path);
         }
+        const new_side = (scene.own_side - 1 + @as(u8, target.turn)) % 4 + 1;
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
         try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\n\"light\":{{\"azimuth\":{d:.1},\"elevation\":{d:.1},\"shadow_iou\":{d:.4}}},\n\"mirrors\":[", .{
-            own_name, own_side, target.turn, (own_side - 1 + @as(u8, target.turn)) % 4 + 1, light.azimuth, light.elevation, light.iou,
+            scene.name, scene.own_side, target.turn, new_side, scene.light.azimuth, scene.light.elevation, scene.light.iou,
         });
-        for (fits, 0..) |fit, i| try r.print("{s}{{\"plane\":\"{s}\",\"iou\":{d:.4},\"used\":{}}}", .{ if (i > 0) "," else "", @as([]const u8, switch (i) {
+        for (scene.fits, 0..) |fit, i| try r.print("{s}{{\"plane\":\"{s}\",\"iou\":{d:.4},\"used\":{}}}", .{ if (i > 0) "," else "", @as([]const u8, switch (i) {
             0 => "x",
             1 => "y",
             2 => "x=y",
             else => "x=-y",
         }), fit.iou, fit.iou >= mirror_iou });
         try r.writeAll("],\n\"sources\":[");
-        for (sources.items, eyes, same, 0..) |source, eye, s, e| {
+        for (scene.sources, scene.eyes, scene.same, 0..) |source, eye, s, e| {
             try r.print("{s}\n{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"shift\":[{d:.1},{d:.1}],\"colourway_distance\":{d:.3},\"projects\":{}}}", .{
-                if (e > 0) "," else "", std.fs.path.basename(source.dir), source.side, eye.turn, eye.shift[0], eye.shift[1], colourwayDistance(outlines[fixed], outlines[e]), s,
+                if (e > 0) "," else "", std.fs.path.basename(source.dir), source.side, eye.turn, eye.shift[0], eye.shift[1], colourwayDistance(scene.outlines[scene.fixed], scene.outlines[e]), s,
             });
         }
         try r.writeAll("],\n\"pictures\":[");
         var first_picture = true;
-        for (states.items, hulls) |state, hull| {
-            const buffers = try readBuffers(arena, io, try std.fmt.allocPrint(arena, "{s}/{s}_{s}", .{ work, state, target.name }), target.size);
-            var means: Means = .{};
-            const projectors = try arena.alloc(Projector, n);
-            const ground = try arena.alloc(Projector, n);
-            var ground_count: usize = 0;
-            var covers: std.ArrayList(f64) = .empty;
-            for (sources.items, eyes, same, projectors, 0..) |source, eye, s, *projector, e| {
-                const picture = pictureOf(source, state);
-                projector.* = .{ .eye = eye, .picture = if (s) picture else null };
-                if (picture == null) continue;
-                const source_buffers = try readBuffers(arena, io, try std.fmt.allocPrint(arena, "{s}/{s}_eye{d}", .{ work, state, e }), .{ picture.?.width, picture.?.height });
-                var both: f64 = 0;
-                var either: f64 = 0;
-                for (source_buffers.pos, picture.?.pixels) |hit, pixel| {
-                    const in_hull = !std.math.isNan(hit[0]);
-                    both += @floatFromInt(@intFromBool(in_hull and pixel[3] >= 128));
-                    either += @floatFromInt(@intFromBool(in_hull or pixel[3] >= 128));
-                    if (s and in_hull and pixel[3] >= 128) means.add(shadeClass(hullNormal(hull, .{ hit[0], hit[1], hit[2] }), eye.turn), pixel);
-                }
-                try covers.append(arena, if (either == 0) 0 else both / either);
-                if (!s) continue;
-                const g = pictureOf(source, try std.fmt.allocPrint(arena, "{s}g", .{state})) orelse continue;
-                // The variant's own ground picture first.
-                ground[ground_count] = .{ .eye = eye, .picture = g };
-                if (e == fixed) std.mem.swap(Projector, &ground[0], &ground[ground_count]);
-                ground_count += 1;
-            }
-            const sprite = try projectPicture(arena, hull, buffers, target.eye, checks.items, mirrors.items, projectors, means);
-            try patchFill(arena, sprite);
-            const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, buffers.flags.len) };
-            for (shadow.pixels, buffers.flags) |*pixel, flags| pixel.* = if (flags & shadow_bit != 0) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
-            const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{state});
-            const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{state});
-            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{state}), try writePng(arena, sprite.image));
-            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}), try writePng(arena, shadow));
-            try writePictureReport(ctx, r, map_dir, state, sprite, covers.items, &first_picture);
+        for (try drawTarget(ctx, scene, target)) |d| {
+            const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{d.state});
+            const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{d.state});
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, d.sprite.image));
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}), try writePng(arena, d.shadow));
+            try writePictureReport(ctx, r, map_dir, d.state, d.sprite, d.covers, &first_picture);
             var argv: std.ArrayList([]const u8) = .empty;
             const grid = try turnGrid(arena, own.footprint, target.turn);
             const locked = lockedCenter(.{ @floatCast(grid.origin[0]), @floatCast(grid.origin[1]) });
             try argv.appendSlice(arena, &.{
                 sprite_tool,
                 "compose-pack",
-                try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{state}) }),
+                try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}) }),
                 try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}) }),
-                try std.fs.path.join(arena, &.{ temp, state }),
+                try std.fs.path.join(arena, &.{ temp, d.state }),
                 "--zero",
                 try std.fmt.allocPrint(arena, "{d},{d}", .{ target.eye.anchor[0], target.eye.anchor[1] }),
                 "--pass",
@@ -2385,13 +2494,12 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
                 try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }),
                 "--force",
             });
-            if (pictureOf(own, ground_name) != null) {
-                const g = try projectGround(arena, target.eye, target.size, ground[0..ground_count]);
+            if (d.ground) |g| {
                 try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}), try writePng(arena, g.image));
                 try writePictureReport(ctx, r, map_dir, ground_name, g, &.{}, &first_picture);
                 try argv.appendSlice(arena, &.{ "--noise", try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}) }) });
             }
-            if (std.mem.eql(u8, state, "1")) try argv.appendSlice(arena, &.{ "--icon", try std.fs.path.join(arena, &.{ temp, "icon.tga" }) });
+            if (std.mem.eql(u8, d.state, "1")) try argv.appendSlice(arena, &.{ "--icon", try std.fs.path.join(arena, &.{ temp, "icon.tga" }) });
             const result = std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
                 return ctx.failKey("views.err.compose", .{ temp, @errorName(err) });
             if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ temp, result.stderr });
@@ -2399,12 +2507,12 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         try r.writeAll("]}\n");
         try writeOut(ctx, map_dir, "sources.json", report.written());
         try writeOut(ctx, temp, "1.xml", try turnXml(arena, own.xml, target.turn));
-        if (cwd.readFileAlloc(io, try std.fs.path.join(arena, &.{ own.dir, "name.txt" }), arena, .limited(1024 * 1024))) |name| {
-            try writeOut(ctx, temp, "name.txt", name);
+        if (cwd.readFileAlloc(io, try std.fs.path.join(arena, &.{ own.dir, "name.txt" }), arena, .limited(1024 * 1024))) |text| {
+            try writeOut(ctx, temp, "name.txt", text);
         } else |_| {}
         cwd.deleteTree(io, final) catch {};
         try cwd.rename(temp, cwd, final, io);
-        try ctx.out.print("wrote {s}: side {d} of {s}, {d} damage states\n", .{ final, (own_side - 1 + @as(u8, target.turn)) % 4 + 1, found.family.name, states.items.len });
+        try ctx.out.print("wrote {s}: side {d} of {s}, {d} damage states\n", .{ final, new_side, scene.family, scene.states.len });
     }
 }
 
@@ -2454,3 +2562,277 @@ fn writePictureReport(ctx: *bk_tool.Context, r: *std.Io.Writer, map_dir: []const
 
 /// The shading classes by the way they face in the picture's own frame.
 const class_names = [8][]const u8{ "wall -y", "wall +x", "wall +y", "wall -x", "roof -y", "roof +x", "roof +y", "roof -x" };
+
+// ---------------------------------------------------------------------------
+// holdout and style: the quality gate
+
+/// What a picture looks like as a whole, over its opaque pixels (alpha 128
+/// or more): the mean colour, the hue histogram and the gradient energy (the
+/// mean squared brightness difference across a pixel, horizontally plus
+/// vertically, where its four neighbours are opaque too).
+pub const Look = struct {
+    rgb: [3]f64 = .{ 0, 0, 0 },
+    count: f64 = 0,
+    hues: [12]f64 = @splat(0),
+    energy: f64 = 0,
+    inner: f64 = 0,
+
+    pub fn add(look: *Look, image: Image) void {
+        for (0..image.height) |y| for (0..image.width) |x| {
+            const p = image.pixels[y * image.width + x];
+            if (p[3] < 128) continue;
+            for (0..3) |c| look.rgb[c] += @floatFromInt(p[c]);
+            look.count += 1;
+            if (hueBand(p)) |band| look.hues[band] += 1;
+            const xi: i64 = @intCast(x);
+            const yi: i64 = @intCast(y);
+            const gx = (opaqueLuma(image, xi + 1, yi) orelse continue) - (opaqueLuma(image, xi - 1, yi) orelse continue);
+            const gy = (opaqueLuma(image, xi, yi + 1) orelse continue) - (opaqueLuma(image, xi, yi - 1) orelse continue);
+            look.energy += gx * gx + gy * gy;
+            look.inner += 1;
+        };
+    }
+};
+
+fn opaqueLuma(image: Image, x: i64, y: i64) ?f64 {
+    const p = (image.at(x, y) orelse return null).*;
+    return if (p[3] >= 128) luma(p) else null;
+}
+
+/// How a picture's look compares with another's: the ratio of their gradient
+/// energy (below 1 is blurred or flat, above 1 noisier), the distance of
+/// their mean colours (0..255 a channel) and of their hue histograms (L1).
+pub const Style = struct { sharpness: f64, colour: f64, hue: f64 };
+
+pub fn compareLooks(a: Look, b: Look) Style {
+    var colour: f64 = 0;
+    for (a.rgb, b.rgb) |x, y| {
+        const d = x / @max(1, a.count) - y / @max(1, b.count);
+        colour += d * d;
+    }
+    var hue: f64 = 0;
+    const ha = @reduce(.Add, @as(@Vector(12, f64), a.hues));
+    const hb = @reduce(.Add, @as(@Vector(12, f64), b.hues));
+    for (a.hues, b.hues) |x, y| hue += @abs(x / @max(1, ha) - y / @max(1, hb));
+    const ea = a.energy / @max(1, a.inner);
+    const eb = b.energy / @max(1, b.inner);
+    return .{ .sharpness = ea / @max(1e-9, eb), .colour = @sqrt(colour), .hue = hue };
+}
+
+/// A generated picture against the 2003 one of the same view: the outlines'
+/// overlap, the structural similarity of their brightness and their looks.
+/// `offset` takes a pixel of the 2003 picture to the generated one.
+pub const Score = struct { iou: f64, ssim: f64, sharpness: f64, colour: f64, hue: f64 };
+
+pub fn scorePicture(generated: Image, original: Image, offset: [2]i64) Score {
+    var a: Look = .{};
+    a.add(generated);
+    var b: Look = .{};
+    b.add(original);
+    const style = compareLooks(a, b);
+    return .{ .iou = shiftedIou(generated, original, offset), .ssim = ssim(generated, original, offset), .sharpness = style.sharpness, .colour = style.colour, .hue = style.hue };
+}
+
+fn isOpaque(image: Image, x: i64, y: i64) bool {
+    const p = image.at(x, y) orelse return false;
+    return p[3] >= 128;
+}
+
+/// The outlines' overlap when pixel (x, y) of `b` lies on (x, y) + offset of `a`.
+pub fn shiftedIou(a: Image, b: Image, offset: [2]i64) f64 {
+    var both: f64 = 0;
+    var either: f64 = 0;
+    for (0..b.height) |y| for (0..b.width) |x| {
+        const in_a = isOpaque(a, @as(i64, @intCast(x)) + offset[0], @as(i64, @intCast(y)) + offset[1]);
+        const in_b = b.pixels[y * b.width + x][3] >= 128;
+        both += @floatFromInt(@intFromBool(in_a and in_b));
+        either += @floatFromInt(@intFromBool(in_a or in_b));
+    };
+    // What of a lies outside b's canvas.
+    for (0..a.height) |y| for (0..a.width) |x| {
+        const bx = @as(i64, @intCast(x)) - offset[0];
+        const by = @as(i64, @intCast(y)) - offset[1];
+        if (a.pixels[y * a.width + x][3] >= 128 and (bx < 0 or by < 0 or bx >= b.width or by >= b.height)) either += 1;
+    };
+    return if (either == 0) 0 else both / either;
+}
+
+/// The offset with the best outline overlap, climbing from `start` in steps
+/// of 8 down to 1 pixel.
+pub fn bestOffset(a: Image, b: Image, start: [2]i64) [2]i64 {
+    var best = start;
+    var best_iou = shiftedIou(a, b, start);
+    for ([_]i64{ 8, 4, 2, 1 }) |step| {
+        var moved = true;
+        while (moved) {
+            moved = false;
+            const at = best;
+            for ([_][2]i64{ .{ -1, 0 }, .{ 1, 0 }, .{ 0, -1 }, .{ 0, 1 }, .{ -1, -1 }, .{ 1, 1 }, .{ -1, 1 }, .{ 1, -1 } }) |d| {
+                const o = [2]i64{ at[0] + d[0] * step, at[1] + d[1] * step };
+                const iou = shiftedIou(a, b, o);
+                if (iou <= best_iou) continue;
+                best_iou = iou;
+                best = o;
+                moved = true;
+            }
+        }
+    }
+    return best;
+}
+
+/// The mean structural similarity (Wang et al. 2004) of the two pictures'
+/// brightness over the 7x7 windows opaque in both.
+pub fn ssim(a: Image, b: Image, offset: [2]i64) f64 {
+    const c1 = (0.01 * 255.0) * (0.01 * 255.0);
+    const c2 = (0.03 * 255.0) * (0.03 * 255.0);
+    var total: f64 = 0;
+    var windows: f64 = 0;
+    for (3..@max(3, b.height) - 3) |y| for (3..@max(3, b.width) - 3) |x| {
+        var s = [5]f64{ 0, 0, 0, 0, 0 };
+        const window = for (0..49) |k| {
+            const bx = @as(i64, @intCast(x + k % 7)) - 3;
+            const by = @as(i64, @intCast(y + k / 7)) - 3;
+            const v = opaqueLuma(b, bx, by) orelse break false;
+            const u = opaqueLuma(a, bx + offset[0], by + offset[1]) orelse break false;
+            s = .{ s[0] + u, s[1] + v, s[2] + u * u, s[3] + v * v, s[4] + u * v };
+        } else true;
+        if (!window) continue;
+        const mu = s[0] / 49;
+        const mv = s[1] / 49;
+        const vu = s[2] / 49 - mu * mu;
+        const vv = s[3] / 49 - mv * mv;
+        const cov = s[4] / 49 - mu * mv;
+        total += (2 * mu * mv + c1) * (2 * cov + c2) / ((mu * mu + mv * mv + c1) * (vu + vv + c2));
+        windows += 1;
+    };
+    return if (windows == 0) 0 else total / windows;
+}
+
+/// Picture `image` moved by -offset onto a canvas of `width` x `height`, so
+/// it lies on the 2003 picture it was scored against.
+fn placeOn(gpa: std.mem.Allocator, image: Image, offset: [2]i64, width: u32, height: u32) !Image {
+    const out: Image = .{ .width = width, .height = height, .pixels = try gpa.alloc([4]u8, @as(usize, width) * height) };
+    for (0..height) |y| for (0..width) |x| {
+        const from = image.at(@as(i64, @intCast(x)) + offset[0], @as(i64, @intCast(y)) + offset[1]);
+        out.pixels[y * width + x] = if (from) |p| p.* else .{ 0, 0, 0, 0 };
+    };
+    return out;
+}
+
+/// `holdout`: each variant's side drawn again from its family without it
+/// (and without any variant showing that side), from the first other side of
+/// its colourway, and scored against its 2003 pictures, damage state by
+/// damage state.
+fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []const u8) !void {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const out = try bk_tool.inputPath(arena, out_arg);
+    try cwd.createDirPath(io, out);
+    var md: std.Io.Writer.Allocating = .init(arena);
+    try md.writer.writeAll(
+        \\| Family | Held out | From | State | IoU | SSIM | Sharpness | Colour | Hue |
+        \\|---|---|---|---|---|---|---|---|---|
+        \\
+    );
+    var json: std.Io.Writer.Allocating = .init(arena);
+    try json.writer.writeAll("{\"holdout\":[");
+    var rows: usize = 0;
+    for (dir_args) |dir_arg| {
+        const dir = try bk_tool.inputPath(arena, dir_arg);
+        const name = std.fs.path.basename(dir);
+        const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+        const side = found.family.variants[found.index].side orelse return ctx.failKey("views.err.no_side", .{dir});
+        const held = try loadSource(ctx, dir, side);
+        const outline = pictureOf(held, "1") orelse return ctx.failKey("views.err.no_san", .{dir});
+        const reference = for (found.family.variants, 0..) |variant, i| {
+            const s = variant.side orelse continue;
+            if (s == side) continue;
+            const candidate = try loadSource(ctx, try std.fs.path.join(arena, &.{ found.root, variant.path }), s);
+            if (sameColourway(outline, pictureOf(candidate, "1") orelse continue)) break i;
+        } else {
+            try md.writer.print("| {s} | {s} | - | no other side of its colourway | | | | | |\n", .{ found.family.name, name });
+            try ctx.out.print("{s}: no other side of its colourway\n", .{name});
+            continue;
+        };
+        const scene = try loadScene(ctx, found, reference, side, out);
+        const k: u2 = @intCast((side + 4 - scene.own_side) % 4);
+        const target = turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_holdout", .{name}));
+        try renderScene(ctx, scene, &.{target});
+        const pictures = try std.fs.path.join(arena, &.{ out, name });
+        cwd.deleteTree(io, pictures) catch {};
+        try cwd.createDirPath(io, pictures);
+        // The footprints laid on each other place the 2003 picture first.
+        const shift = mfc_camera.project(blk: {
+            const s = footprintShift(scene.sources[scene.fixed].footprint, held.footprint, k);
+            break :blk .{ s[0], s[1], 0 };
+        });
+        const guess = [2]i64{
+            @intFromFloat(@round(target.eye.anchor[0] - @as(f64, @floatFromInt(held.anchor[0])) - shift[0])),
+            @intFromFloat(@round(target.eye.anchor[1] - @as(f64, @floatFromInt(held.anchor[1])) - shift[1])),
+        };
+        for (try drawTarget(ctx, scene, target)) |d| {
+            const original = pictureOf(held, d.state) orelse continue;
+            const offset = bestOffset(d.sprite.image, original, guess);
+            const score = scorePicture(d.sprite.image, original, offset);
+            try writeOut(ctx, pictures, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, try placeOn(arena, d.sprite.image, offset, original.width, original.height)));
+            try writeOut(ctx, pictures, try std.fmt.allocPrint(arena, "{s}_2003.png", .{d.state}), try writePng(arena, original));
+            try md.writer.print("| {s} | {s} | {s} | {s} | {d:.3} | {d:.3} | {d:.2} | {d:.1} | {d:.3} |\n", .{ found.family.name, name, scene.name, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
+            try json.writer.print("{s}\n{{\"family\":\"{s}\",\"variant\":\"{s}\",\"from\":\"{s}\",\"state\":\"{s}\",\"iou\":{d:.4},\"ssim\":{d:.4},\"sharpness\":{d:.4},\"colour\":{d:.2},\"hue\":{d:.4}}}", .{ if (rows > 0) "," else "", found.family.name, name, scene.name, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
+            try ctx.out.print("{s} from {s}, state {s}: IoU {d:.3}, SSIM {d:.3}, sharpness {d:.2}, colour {d:.1}, hue {d:.3}\n", .{ name, scene.name, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
+            rows += 1;
+        }
+    }
+    try json.writer.writeAll("]}\n");
+    try writeOut(ctx, out, "holdout.md", md.written());
+    try writeOut(ctx, out, "holdout.json", json.written());
+}
+
+/// `style`: each picture of generated variant folders against the 2003
+/// pictures of the same damage state of every side of the variant's family
+/// in its colourway.
+fn styleCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_arg: []const u8, generated_args: []const []const u8) !void {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const dir = try bk_tool.inputPath(arena, dir_arg);
+    const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+    const own = try loadSource(ctx, dir, 0);
+    const outline = pictureOf(own, "1") orelse return ctx.failKey("views.err.no_san", .{dir});
+    var sources: std.ArrayList(Source) = .empty;
+    for (found.family.variants) |variant| {
+        const source = try loadSource(ctx, try std.fs.path.join(arena, &.{ found.root, variant.path }), variant.side orelse 0);
+        if (sameColourway(outline, pictureOf(source, "1") orelse continue)) try sources.append(arena, source);
+    }
+    try std.Io.Dir.cwd().createDirPath(io, out);
+    var md: std.Io.Writer.Allocating = .init(arena);
+    try md.writer.writeAll(
+        \\| Generated | State | Sharpness | Colour | Hue |
+        \\|---|---|---|---|---|
+        \\
+    );
+    var json: std.Io.Writer.Allocating = .init(arena);
+    try json.writer.writeAll("{\"style\":[");
+    var rows: usize = 0;
+    for (generated_args) |generated_arg| {
+        const generated = try loadSource(ctx, try bk_tool.inputPath(arena, generated_arg), 0);
+        const name = std.fs.path.basename(generated.dir);
+        for (generated.names, generated.pictures) |state, picture| {
+            const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
+            if (digits == 0 or !(digits == state.len or std.mem.eql(u8, state[digits..], "w"))) continue;
+            var a: Look = .{};
+            a.add(picture);
+            var b: Look = .{};
+            for (sources.items) |source| b.add(pictureOf(source, state) orelse continue);
+            if (b.count == 0) continue;
+            const s = compareLooks(a, b);
+            try md.writer.print("| {s} | {s} | {d:.2} | {d:.1} | {d:.3} |\n", .{ name, state, s.sharpness, s.colour, s.hue });
+            try json.writer.print("{s}\n{{\"generated\":\"{s}\",\"state\":\"{s}\",\"sharpness\":{d:.4},\"colour\":{d:.2},\"hue\":{d:.4}}}", .{ if (rows > 0) "," else "", name, state, s.sharpness, s.colour, s.hue });
+            try ctx.out.print("{s}, state {s}: sharpness {d:.2}, colour {d:.1}, hue {d:.3}\n", .{ name, state, s.sharpness, s.colour, s.hue });
+            rows += 1;
+        }
+    }
+    try json.writer.writeAll("]}\n");
+    try writeOut(ctx, out, "style.md", md.written());
+    try writeOut(ctx, out, "style.json", json.written());
+}
