@@ -597,6 +597,13 @@ CScenarioTracker2::CScenarioTracker2()
 	nUserPlayerID = -1;
 	Zero( guidMission );
 }
+// The chapter script is replaced when the next chapter starts; the last one, with its whole
+// Lua state, goes with the tracker.
+CScenarioTracker2::~CScenarioTracker2()
+{
+	delete pChapterScript;
+	pChapterScript = 0;
+}
 bool CScenarioTracker2::Init( ISingleton *pSingleton )
 {
 	Zero( guidMission );

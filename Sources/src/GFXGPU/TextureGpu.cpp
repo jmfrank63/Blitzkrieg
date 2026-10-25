@@ -287,6 +287,13 @@ bool STDCALL TextureGpu::Unlock( int level )
     return uploaded;
 }
 
+bool TextureGpu::UploadRegion( int x, int y, int w, int h, const unsigned char *pixels, int pitch )
+{
+    if ( !owner_ || !handle_ || !pixels || w <= 0 || h <= 0 || pitch < w ) return false;
+    const size_t bytes = static_cast<size_t>( pitch ) * static_cast<size_t>( h - 1 ) + static_cast<size_t>( w );
+    return owner_->UploadTextureRegion( handle_, pixels, bytes, pitch, x, y, w, h );
+}
+
 int STDCALL TextureGpu::GetSizeX( int level ) const
 {
     if ( level < 0 || level >= mips_ ) return 0;

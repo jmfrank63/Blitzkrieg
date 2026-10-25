@@ -1,6 +1,7 @@
 #ifndef BLITZKRIEG_PLATFORM_PATHS_H
 #define BLITZKRIEG_PLATFORM_PATHS_H
 
+#include <cstdio>
 #include <string>
 
 namespace NPlatform {
@@ -24,6 +25,11 @@ const std::string &ScreenshotRoot();
 const std::string &LogPath();
 const std::string &ErrorLogPath();
 const std::string &CacheRoot();
+// Opens a diagnostic trace file for appending, in the user root's logs folder
+// (never the game folder, which is an install that may be read-only and holds
+// the player's profiles). Returns null unless BK_DEBUG_LOG is set, so a normal
+// run writes no trace files at all.
+std::FILE *OpenTraceLog(const char *name);
 const std::string &DataArchivePattern();
 // The generated winter/Africa unit textures, a build output staged beside Data
 // and mounted over it (StreamIO/SeasonData.h). Data is never written, so a

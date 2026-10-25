@@ -7,7 +7,7 @@
 #          <first chapter> <chapter> <template mission> <historical mission>
 #   campaign index: 0 German, 1 USSR, 2 Allies (GameTT/UIState.cpp)
 #
-# Uses the throw-away profile MissionRun; never the player's profiles.
+# Uses the throw-away profile MissionRun in a scratch folder; never the player's profiles.
 # Output: zig-out/local-test/mission-run/<template>.log and .png
 set -euo pipefail
 [ $# -eq 6 ] || { sed -n 2,12p "$0"; exit 2; }
@@ -18,7 +18,12 @@ out="$root/zig-out/local-test/mission-run"
 name=$(echo "$template" | tr '\\/' '__')
 log="$out/$name.log"
 mkdir -p "$out"
-rm -rf "$game/profiles/MissionRun" "$HOME/.local/share/Nival/Blitzkrieg/cache/generated/MissionRun"
+# The profile and the user root (saves, generated maps) are scratch folders under zig-out/local-test:
+# nothing goes into the install's profiles folder or the player's own data.
+user="$out/user"
+rm -rf "$user"
+mkdir -p "$user"
+export BK_PROFILES_ROOT="$user/profiles" XDG_DATA_HOME="$user" BK_USER_ROOT="$user"
 
 # Frames: tuned with the frame lines of a BK_UI_TRACE log (Task 6 Step 5), and
 # with screenshots (`shot`) measured by hand - the win dialog's own "Finish

@@ -12,6 +12,7 @@
 #include "../Main/ScenarioTracker.h"
 #include "../Main/CloudSyncFacade.h"
 #include "CloudJson.h"
+#include "../StreamIO/ProfileNames.h"
 #include <algorithm>
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {
@@ -83,12 +84,14 @@ bool CInterfaceOptionsSettings::Init()
 bool CInterfaceOptionsSettings::StepLocal( bool bAppActive )
 {
 	const bool bResult = CInterfaceInterMission::StepLocal( bAppActive );
-	// The language row switched the texts: the Game reloaded them in place
-	// before this step, so the layout's own labels already show the new
-	// language; the ones this screen copied out are set again here, in the
-	// same frame.
+	// The language row switched the texts: the Game reloads them in place at
+	// the start of the frame after the click, so the layout's own labels show
+	// the new language from then on; the ones this screen copied out are set
+	// again here once the reload is done. Text.Language, the choice, changes
+	// in this very step when the click lands here, before the reload: keyed
+	// on it, the copies were set from the old texts and stayed one choice behind.
 	{
-		const std::string szLanguage = GetGlobalVar( "Text.Language", "Default" );
+		const std::string szLanguage = GetGlobalVar( "Text.LanguageLoaded", "Default" );
 		if ( szLanguage != szShownLanguage && pUIScreen != 0 )
 		{
 			szShownLanguage = szLanguage;
@@ -376,7 +379,7 @@ void CInterfaceOptionsSettings::Create()
 	}
 	
 	languageOverride["GamePlay.Language"] = ScanLanguages();
-	szShownLanguage = GetGlobalVar( "Text.Language", "Default" );
+	szShownLanguage = GetGlobalVar( "Text.LanguageLoaded", "Default" );
 
 	nMaxDivision = 0;
 	nCloudDivision = -1;
@@ -423,7 +426,12 @@ void CInterfaceOptionsSettings::Create()
 	}
 	
 	nActive = -1;
-	OnChangeDivision( 0 );
+	// No division at all when the option system holds no options (no
+	// defconf.cfg was found): the screen opens empty, and Cancel still closes it.
+	if ( optionsLists.empty() )
+		NStr::DebugTrace( "CInterfaceOptionsSettings: the option system holds no option of this screen\n" );
+	else
+		OnChangeDivision( 0 );
 	SetCaptionTexts();
 }
 // A tab's button, its list's caption and the button's tooltip, from
@@ -447,14 +455,12 @@ void CInterfaceOptionsSettings::SetCaptionTexts()
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	// "Settings of <profile>" caption and the gold profile label in the lower
 	// left (id convention E_STATIC_PROFILE, mirroring the main menu's version
-	// label in the lower right). The profile name is printable ASCII by
-	// contract (NProfile::Sanitize), so widening per character is exact.
+	// label in the lower right). The profile name is the directory's UTF-8
+	// name, shown as the player typed it (NProfile::DisplayName).
 	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 	if ( !szProfile.empty() )
 	{
-		std::wstring szWideProfile;
-		for ( int i = 0; i < szProfile.size(); ++i )
-			szWideProfile += wchar_t( (unsigned char)szProfile[i] );
+		const std::wstring szWideProfile = NProfile::DisplayName( szProfile );
 
 		if ( IUIElement *pCaption = pUIScreen->GetChildByID( E_STATIC_CAPTION ) )
 		{
@@ -470,6 +476,8 @@ void CInterfaceOptionsSettings::SetCaptionTexts()
 }
 void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 {
+	if ( nDivision < 0 || nDivision >= int( optionsLists.size() ) )
+		return;
 	if ( nActive != -1 )
 	{
 		optionsLists[nActive]->ShowWindow( UI_SW_HIDE );

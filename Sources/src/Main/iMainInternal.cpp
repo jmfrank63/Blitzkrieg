@@ -28,7 +28,7 @@ namespace
 {
 	void AppendOpenVideoTrace( const char *pszFormat, ... )
 	{
-		FILE *pFile = fopen( "open_video_trace.log", "ab" );
+		FILE *pFile = NPlatform::Paths::OpenTraceLog( "open_video_trace.log" );
 		if ( pFile == 0 )
 			return;
 		va_list args;
@@ -77,22 +77,29 @@ static std::string ResolveConfigFileName( const std::string &szFileName, const b
 	// still resolves through the later candidates - that is the migration
 	// path; the next write lands in the profile directory. defconf.cfg never
 	// exists in a profile, so it keeps resolving from Data\Configs.
+	//
+	// Every candidate is under the install (Paths::BaseRoot, the executable's
+	// folder), not the working directory: a Game started from a shortcut or
+	// another shell's folder found no defconf.cfg, so a fresh profile had no
+	// options at all and the settings screen had no division to open.
+	const std::string szBase = NPlatform::Paths::BaseRoot();
 	const std::string szProfileSegment = NProfile::Segment();
+	const std::string szProfilePrefix = NProfile::Prefix( szBase );
 	if ( !szProfileSegment.empty() )
 	{
-		candidates.push_back( ".\\" + szProfileSegment + szFileName );
+		candidates.push_back( szProfilePrefix + szFileName );
 		// Writes define the file's location; the existence scan below is for
 		// reads. Without this the flush kept updating a root-level config.cfg
 		// from before profiles existed instead of the profile's own copy.
 		if ( !bMustExist )
 			return candidates[0];
 	}
-	candidates.push_back( ".\\" + szFileName );
-	candidates.push_back( ".\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\..\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\..\\..\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\..\\..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + szFileName );
+	candidates.push_back( szBase + "Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\..\\..\\..\\Data\\Configs\\" + szFileName );
 
 	for ( std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++it )
 	{
@@ -208,8 +215,7 @@ static void TraceMainLoadProgress( const std::string &szBaseDir, const char *psz
 {
 	if ( pszMessage == 0 )
 		return;
-	const std::string szTraceFileName = szBaseDir + "load_trace.log";
-	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+	FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 	if ( pFile )
 	{
 		fprintf( pFile, "%lu %s\n", NPlatform::MonotonicMilliseconds(), pszMessage );
@@ -270,7 +276,33 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 		pHook->SetCurrPos( 97 );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize gfx/globals/sfx begin" );
 	saver.Add( 9, pGFX.GetPtr() );
+	// The language is the player's setting, not the mission's. A save holds every global of the
+	// moment it was written, the language among them, and loading one written in another language
+	// (or by a build without the option, which reads as Default) switched the session's language
+	// mid-mission: the texts read before the load stayed Russian, the rest came back English, and a
+	// mod's bitmap fonts without Cyrillic, back for English, drew the Russian ones as boxes.
+	static const char *pszSessionVars[] = { "Text.Language", "Text.LanguageLoaded" };
+	const int nSessionVars = sizeof( pszSessionVars ) / sizeof( pszSessionVars[0] );
+	std::vector< std::pair<bool, std::string> > sessionValues( nSessionVars );
+	if ( saver.IsReading() )
+	{
+		for ( int i = 0; i < nSessionVars; ++i )
+		{
+			const char *pszValue = GetSingleton<IGlobalVars>()->GetVar( pszSessionVars[i] );
+			sessionValues[i] = std::make_pair( pszValue != 0, std::string( pszValue != 0 ? pszValue : "" ) );
+		}
+	}
 	saver.Add( 10, GetSingleton<IGlobalVars>() );
+	if ( saver.IsReading() )
+	{
+		for ( int i = 0; i < nSessionVars; ++i )
+		{
+			if ( sessionValues[i].first )
+				SetGlobalVar( pszSessionVars[i], sessionValues[i].second.c_str() );
+			else
+				RemoveGlobalVar( pszSessionVars[i] );
+		}
+	}
 	saver.Add( 11, GetSingleton<ISFX>() );
 	saver.Add( 12, GetSingleton<ITransceiver>() );
 	saver.Add( 13, GetSingleton<IClientAckManager>() );
@@ -479,7 +511,7 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 				// never loses the shot.
 				const std::string screenshotRoot = NProfile::Segment().empty()
 					? NPlatform::Paths::ScreenshotRoot()
-					: std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment() + "screenshots";
+					: NProfile::Prefix( GetSingleton<IMainLoop>()->GetBaseDir() ) + "screenshots";
 				NFile::CreatePath( screenshotRoot.c_str() );
 				while ( NFile::IsFileExist(NStr::Format("%s\\shot%.4d.tga", screenshotRoot.c_str(), nShotIndex)) )
 					++nShotIndex;
@@ -823,7 +855,7 @@ std::string CMainLoop::NextAutoSaveName()
 	std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 		szModname = "mods\\" + szModname;
-	const std::string szSaveDir = szBaseDir + NProfile::Segment() + szModname + "saves\\";
+	const std::string szSaveDir = NProfile::Prefix( szBaseDir ) + szModname + "saves\\";
 	if ( nAutoSaveSlot == 0 || szSaveDir != szAutoSaveDir )
 	{
 		szAutoSaveDir = szSaveDir;
@@ -1124,7 +1156,7 @@ void CProgressScreen::SetCurrPos( const int nPos )
 	// position change) — strip with the other load-speed diagnostics.
 	if ( nPos != nCurrentStep )
 	{
-		FILE *pFile = fopen( "load_trace.log", "ab" );
+		FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 		if ( pFile )
 		{
 			fprintf( pFile, "%lu [bar] pos=%d\n", NPlatform::MonotonicMilliseconds(), nPos );

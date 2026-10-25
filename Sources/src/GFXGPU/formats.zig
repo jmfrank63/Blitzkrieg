@@ -15,12 +15,17 @@ pub fn formatUnsupported(category: []const u8, value: u32, buffer: []u8) []const
     return written;
 }
 
+/// Public GFXGPU_PIXEL_FORMAT_R8, chosen outside the game's GFXPF_ range.
+pub const gfx_pixel_format_r8: u32 = 33;
+
 pub fn fromGfxPixelFormat(value: u32) ConversionError!PixelFormat {
     return switch (value) {
         1 => .dxt1,
         3 => .dxt3,
         5 => .dxt5,
         6 => .rgba8,
+        // Not an EGFXPixelFormat: the glyph atlas of the TTF text engine, one coverage byte per texel.
+        gfx_pixel_format_r8 => .r8,
         else => ConversionError.UnsupportedValue,
     };
 }
@@ -69,12 +74,14 @@ pub fn primitiveVertexCount(topology: Topology, primitive_count: u32) Conversion
 }
 
 test "legacy conversion tables cover supported values and reject unknowns" {
-    const pixel_values = [_]u32{ 1, 3, 5, 6 };
+    const pixel_values = [_]u32{ 1, 3, 5, 6, gfx_pixel_format_r8 };
     for (pixel_values) |value| _ = try fromGfxPixelFormat(value);
     for ([_]u32{ 28, 21, 32, 75, 80, 71 }) |value| _ = try fromD3dPixelFormat(value);
     for ([_]u32{ 101, 102 }) |value| _ = try fromIndexFormat(value);
     for ([_]u32{ 1, 2, 3, 4, 5 }) |value| _ = try fromPrimitive(value);
     for ([_]u32{ 1, 2, 3, 4, 5, 6, 7, 8 }) |value| _ = try fromCompare(value);
+    try std.testing.expectEqual(PixelFormat.r8, try fromGfxPixelFormat(33));
+    try std.testing.expectError(ConversionError.UnsupportedValue, fromGfxPixelFormat(34));
     try std.testing.expectError(ConversionError.UnsupportedValue, fromPrimitive(99));
     try std.testing.expectError(ConversionError.UnsupportedValue, fromD3dPixelFormat(999));
 }

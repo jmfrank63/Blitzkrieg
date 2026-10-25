@@ -205,8 +205,18 @@ class CFormation : public CFormationCenter
 	void CheckForMoveFormationBored();
 	bool IsMemberResting( class CSoldier *pSoldier ) const;
 	void ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue );
+protected:
+	// Leaves the registry ReleaseAllStates walks.
+	virtual ~CFormation();
 public:
-	CFormation() : pObjInside( 0 ), bWithMoraleOfficer( false ) { }
+	CFormation() : pObjInside( 0 ), bWithMoraleOfficer( false ) { Register(); }
+	// The world is destroyed (CAILogic::Clear): every formation alive lets go of its state and
+	// command. A gun crew serving its gun is a cycle through its state, its soldiers and itself that
+	// no list breaks; Achtung Panzer 2's "bridgehead established" left five such crews at exit.
+	static void ReleaseAllStates();
+private:
+	void Register();
+public:
 	void Init( const SSquadRPGStats *pStats, const CVec2 &center, const int z, const WORD dir, const int dbID );
 	void MoveGeometries2Center();
 	void ChangeGeometry( const int nGeometry );

@@ -4,6 +4,7 @@
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
 #include "FontGpu.h"
+#include "BkTextBridge.h"
 #include "GeometryBufferGpu.h"
 #include "MeshGpu.h"
 #include "..//GFX//GFXHelper.h"
@@ -215,6 +216,14 @@ bool GraphicsEngineGpu::UploadTexture( GfxGpuHandle handle, int mip, const void 
     return Check( api_.upload_texture( renderer_, handle, &info ), "upload_texture" );
 }
 
+bool GraphicsEngineGpu::UploadTextureRegion( GfxGpuHandle handle, const void *data, size_t bytes, int row_pitch, int x, int y, int w, int h )
+{
+    if ( !renderer_ || !api_.upload_texture_region || bytes > 0xffffffffu ) return fail( "upload_texture_region is unavailable" );
+    GfxGpuTextureRegionUploadInfo info{ sizeof( info ), data, static_cast<uint32_t>( bytes ), static_cast<uint32_t>( row_pitch ), 0,
+        static_cast<uint32_t>( x ), static_cast<uint32_t>( y ), static_cast<uint32_t>( w ), static_cast<uint32_t>( h ) };
+    return Check( api_.upload_texture_region( renderer_, handle, &info ), "upload_texture_region" );
+}
+
 bool GraphicsEngineGpu::DestroyTextureHandle( GfxGpuHandle handle )
 {
     if ( !handle || !renderer_ || !api_.destroy_texture ) return false;
@@ -303,6 +312,7 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     SetGlobalVar( "GFX.Caps.Texture.NonPow2", 1 );
     SetGlobalVar( "GFX.Caps.Texture.NonPow2Conditional", 1 );
     SetGlobalVar( "GFX.Caps.Texture.SquareOnly", 0 );
+    NBkTextBridge::Create();
     initialized_ = true;
     adapter_name_ = pszAdapterName ? pszAdapterName : "SDL GPU";
     return true;
@@ -312,6 +322,7 @@ bool STDCALL GraphicsEngineGpu::Done()
 {
     if ( current_font_ ) current_font_->Release();
     current_font_ = nullptr;
+    NBkTextBridge::Destroy();
     if ( renderer_ ) api_.destroy( renderer_ );
     renderer_ = nullptr;
     sdl_window_ = nullptr;
@@ -902,6 +913,8 @@ bool STDCALL GraphicsEngineGpu::BeginScene()
     const bool result = renderer_ && Check( api_.begin_frame( renderer_ ), "begin_frame" );
     frame_pending_ = result;
     if ( result ) (void)ApplyTransforms();
+    // Glyphs drawn this frame are not evicted from the atlas page until the next frame begins.
+    if ( result ) NBkTextBridge::BeginFrame();
     return result;
 }
 bool STDCALL GraphicsEngineGpu::EndScene()
@@ -1174,6 +1187,14 @@ bool STDCALL GraphicsEngineGpu::Flip()
                     ( counts.temporary_index_in_use - previous.temporary_index_in_use ) * per_frame,
                     ( counts.temporary_transfer_free - previous.temporary_transfer_free ) * per_frame,
                     ( counts.temporary_transfer_in_use - previous.temporary_transfer_in_use ) * per_frame );
+            // Text work of the same interval, from either engine; the shape cache is bk_text's.
+            std::fprintf( stderr, "BK_PERF text: %s", NTextPerf::TakeInterval().c_str() );
+            BkTextStats text_stats = {};
+            if ( NBkTextBridge::Context() && bk_text_stats( NBkTextBridge::Context(), &text_stats ) == BK_TEXT_OK )
+                std::fprintf( stderr, " shape hits/misses %llu/%llu evictions %u",
+                    static_cast<unsigned long long>( text_stats.shape_cache_hits ),
+                    static_cast<unsigned long long>( text_stats.shape_cache_misses ), text_stats.atlas_eviction_count );
+            std::fprintf( stderr, " frames %d ms/frame %.3f\n", frames, 1000.0 * elapsed / frames );
             fflush( stderr );
             previous = counts;
             frames = 0; last = now;
@@ -1348,9 +1369,61 @@ bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *matric
 // draw with and fell back to one filled rectangle per character. Everything that
 // goes through them rendered as coloured blocks: the statistics overlay in the
 // top left, the console, and the chat lines.
+bool GraphicsEngineGpu::DrawTtfBatch()
+{
+    std::vector<SGFXLVertex> &vertices = text_vertices_;
+    std::vector<WORD> &indices = text_indices_;
+    if ( vertices.empty() || indices.empty() ) return true;
+    // The atlas page has to hold every glyph of the batch before the batch is drawn.
+    if ( !NBkTextBridge::FlushAtlas( this ) ) return fail( "the bk_text atlas page could not be uploaded" );
+    const int previous_effect = shade_effect_;
+    if ( !SetShadingEffect( 400 ) ) return false;
+    bool drawn = false;
+    if ( SetTexture( 0, NBkTextBridge::Atlas( this ) ) )
+    {
+        SGFXLVertex *destination = static_cast<SGFXLVertex *>( GetTempVertices( static_cast<int>( vertices.size() ), SGFXLVertex::format, GFXPT_TRIANGLELIST ) );
+        WORD *index_destination = destination ? static_cast<WORD *>( GetTempIndices( static_cast<int>( indices.size() ), GFXIF_INDEX16, GFXPT_TRIANGLELIST ) ) : nullptr;
+        if ( index_destination )
+        {
+            std::memcpy( destination, vertices.data(), vertices.size() * sizeof( SGFXLVertex ) );
+            std::memcpy( index_destination, indices.data(), indices.size() * sizeof( WORD ) );
+            drawn = DrawTemp();
+        }
+    }
+    (void)SetShadingEffect( previous_effect );
+    return drawn;
+}
 bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD color )
 {
     FontGpu *font = dynamic_cast<FontGpu *>( current_font_ );
+    if ( font && font->IsTtf() )
+    {
+        if ( !text || !*text ) return false;
+        // wchar_t is UTF-16 on Windows and UTF-32 elsewhere: narrow it to UTF-16, with surrogates.
+        text_utf16_.clear();
+        for ( const wchar_t *unit = text; *unit; ++unit )
+        {
+            const uint32_t code = static_cast<uint32_t>( *unit );
+            if ( code >= 0x10000 && code <= 0x10ffff )
+            {
+                text_utf16_.push_back( static_cast<uint16_t>( 0xd800 + ( ( code - 0x10000 ) >> 10 ) ) );
+                text_utf16_.push_back( static_cast<uint16_t>( 0xdc00 + ( ( code - 0x10000 ) & 0x3ff ) ) );
+            }
+            else
+                text_utf16_.push_back( static_cast<uint16_t>( code ) );
+        }
+        int status = FontGpu::kTtfRetry;
+        for ( int attempt = 0; attempt != 2 && status == FontGpu::kTtfRetry; ++attempt )
+        {
+            text_vertices_.clear();
+            text_indices_.clear();
+            status = font->AppendTtfLine( text_utf16_.data(), text_utf16_.size(), static_cast<float>( x ), static_cast<float>( y ), 1.0f, color,
+                text_vertices_, text_indices_, NBkTextBridge::AtlasGeneration() );
+        }
+        if ( status == FontGpu::kTtfAtlasFull ) { NBkTextBridge::ReportAtlasFull(); return true; }
+        if ( status != FontGpu::kTtfOk ) return true;
+        return DrawTtfBatch();
+    }
     if ( getenv( "BK_TEXT_TRACE" ) && text )
     {
         // Reports both halves of the question at once: how long the string
@@ -1397,6 +1470,7 @@ bool GraphicsEngineGpu::DrawFontLine( const wchar_t *text, int x, int y, DWORD c
 }
 bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWORD color )
 {
+    NTextPerf::Scope perf( NTextPerf::Draw );
     if ( !text || !*text ) return true;
     std::wstring wide;
     while ( *text ) wide.push_back( static_cast<unsigned char>( *text++ ) );
@@ -1405,11 +1479,13 @@ bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWO
 }
 bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, DWORD color )
 {
+    NTextPerf::Scope perf( NTextPerf::Draw );
     if ( DrawFontLine( text, x, y, color ) ) return true;
     return DrawFallbackGlyphs( this, text, x, y, color );
 }
 bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD flags )
 {
+    NTextPerf::Scope perf( NTextPerf::Draw );
     if ( !text ) return false;
     text->SetWidth( rect.right - rect.left );
     IText *source = text->GetText();
@@ -1418,19 +1494,86 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
     // two UTF-16 units per character on a 32-bit wchar_t, drawing every second
     // character. Keep the raw pointer for measuring and widen a copy to draw.
     const WORD *raw_value = source->GetString();
-    text_wide_.clear();
-    if ( raw_value ) for ( const WORD *unit = raw_value; *unit; ++unit ) text_wide_.push_back( static_cast<wchar_t>( *unit ) );
-    const wchar_t *value = text_wide_.c_str();
     IGFXTextGpuFontProvider *font_provider = dynamic_cast<IGFXTextGpuFontProvider *>( text );
     FontGpu *font = font_provider ? dynamic_cast<FontGpu *>( font_provider->Font() ) : nullptr;
+    // FNT_FORMAT_SINGLE_LINE, a layout's SingleLine="1": CGFXText::FillGeometryData draws the text
+    // as one line however wide it is, never wrapped, and clips it to the rectangle on every side.
+    // The line is PreFormatLine's: the words and the spaces between them, without the spaces before
+    // the first word and after the last; a line break only ends a word. Left text starts at
+    // rect.left, right text ends at rect.right and a wider one is cut at rect.left; centred and
+    // justified text draws nothing, as FillGeometryData refuses both in single-line mode.
+    const bool single_line = font && (flags & FNT_FORMAT_SINGLE_LINE) != 0;
+    if ( single_line )
+    {
+        if ( (flags & (FNT_FORMAT_LEFT | FNT_FORMAT_RIGHT)) == 0 ) return true;
+        single_line_text_.clear();
+        size_t words_end = 0;
+        for ( const WORD *unit = raw_value; unit && *unit; ++unit )
+        {
+            if ( *unit == L'\n' || *unit == L'\r' || ( *unit == L' ' && single_line_text_.empty() ) ) continue;
+            single_line_text_.push_back( *unit );
+            if ( *unit != L' ' ) words_end = single_line_text_.size();
+        }
+        single_line_text_.resize( words_end );
+        single_line_text_.push_back( 0 );
+        single_line_range_.assign( 1, std::make_pair( size_t( 0 ), words_end ) );
+        raw_value = single_line_text_.data();
+    }
+    // The ttf path shapes the UTF-16 string as it is; only the other paths read the widened copy.
+    text_wide_.clear();
+    if ( raw_value && !( font && font->IsTtf() ) ) for ( const WORD *unit = raw_value; *unit; ++unit ) text_wide_.push_back( static_cast<wchar_t>( *unit ) );
+    const wchar_t *value = text_wide_.c_str();
     const int width = text->GetWidth();
     const float scale = font_provider ? font_provider->Scale() : 1.0f;
     const float wrap_width = static_cast<float>( rect.right - rect.left );
+    const float clip_left = single_line ? static_cast<float>( rect.left ) : -1e30f;
+    const float clip_right = single_line ? static_cast<float>( rect.right ) : 1e30f;
     float x = static_cast<float>( rect.left );
     if ( !font )
     {
         if ( (flags & FNT_FORMAT_CENTER) != 0 ) x = static_cast<float>( rect.left + (rect.right - rect.left - width) / 2 );
         else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) x = static_cast<float>( rect.right - width );
+    }
+    if ( font && font->IsTtf() )
+    {
+        const std::vector<std::pair<size_t, size_t> > &lines = single_line ? single_line_range_ : font_provider->WrappedLines();
+        // The whole-pixel step TextGpu::GetLineSpace reports: lists reserve rows from it.
+        const float line_step = static_cast<float>( static_cast<int>( static_cast<float>( font->GetLineSpace() ) * scale ) );
+        const float clip_top = static_cast<float>( rect.top );
+        const float clip_bottom = static_cast<float>( rect.bottom );
+        int status = FontGpu::kTtfRetry;
+        for ( int attempt = 0; attempt != 2 && status == FontGpu::kTtfRetry; ++attempt )
+        {
+            text_vertices_.clear();
+            text_indices_.clear();
+            const unsigned generation = NBkTextBridge::AtlasGeneration();
+            float pen_y = static_cast<float>( rect.top + y );
+            status = FontGpu::kTtfOk;
+            for ( size_t line_index = 0; line_index != lines.size() && status == FontGpu::kTtfOk; ++line_index )
+            {
+                const size_t begin = lines[line_index].first;
+                const size_t end = lines[line_index].second;
+                if ( pen_y >= clip_bottom ) break;
+                if ( end > begin && pen_y + line_step > clip_top )
+                {
+                    float line_x = static_cast<float>( rect.left );
+                    // Only an aligned line needs its width.
+                    if ( (flags & (FNT_FORMAT_CENTER | FNT_FORMAT_RIGHT)) != 0 )
+                    {
+                        const float line_width = font->TextWidthFloat( raw_value + begin, static_cast<int>( end - begin ) ) * scale;
+                        if ( (flags & FNT_FORMAT_CENTER) != 0 ) line_x += std::floor( ( wrap_width - line_width ) * 0.5f );
+                        else line_x = static_cast<float>( rect.right ) - line_width;
+                    }
+                    // GetString() is UTF-16 already: shaped as it is.
+                    status = font->AppendTtfLine( raw_value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(),
+                        text_vertices_, text_indices_, generation, clip_top, clip_bottom, clip_left, clip_right );
+                }
+                pen_y += line_step;
+            }
+        }
+        if ( status == FontGpu::kTtfAtlasFull ) { NBkTextBridge::ReportAtlasFull(); return true; }
+        if ( status != FontGpu::kTtfOk ) return true;
+        return DrawTtfBatch();
     }
     if ( font )
     {
@@ -1440,7 +1583,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
         // SetWidth above has just given it this rectangle's width, so this is
         // the same break WrapTextLines( font, raw_value, scale, wrap_width )
         // would produce - without breaking the paragraph again every frame.
-        const std::vector<std::pair<size_t, size_t> > &lines = font_provider->WrappedLines();
+        const std::vector<std::pair<size_t, size_t> > &lines = single_line ? single_line_range_ : font_provider->WrappedLines();
 
         std::vector<SGFXLVertex> &vertices = text_vertices_;
         std::vector<WORD> &indices = text_indices_;
@@ -1466,7 +1609,7 @@ bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int 
                 else if ( (flags & FNT_FORMAT_RIGHT) != 0 ) line_x = static_cast<float>( rect.right ) - line_width;
                 // The widened string is one wchar_t per UTF-16 unit, so the
                 // wrap's offsets index it directly and the line needs no copy.
-                font->AppendGeometry( value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom );
+                font->AppendGeometry( value + begin, end - begin, line_x, pen_y, scale, font_provider->Color(), vertices, indices, clip_top, clip_bottom, clip_left, clip_right );
                 if ( line_index == 0 ) x = line_x;
             }
             pen_y += line_step;
@@ -1575,7 +1718,7 @@ bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect )
     // previous effect's filter.
     switch ( effect )
     {
-        case 1: case 3: case 14: case 100: case 111:
+        case 1: case 3: case 14: case 100: case 111: case 400:
             sampler_linear_ = false;
             break;
         case 2: case 4: case 5: case 8: case 9: case 10: case 12: case 15:

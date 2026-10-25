@@ -86,7 +86,8 @@ fn vertexFormat(value: layout_mod.AttributeFormat) sdl.c.SDL_GPUVertexElementFor
 }
 
 fn textureFormat(value: u8, depth: bool) ?sdl.c.SDL_GPUTextureFormat {
-    if (depth) return switch (value) { 80 => sdl.c.SDL_GPU_TEXTUREFORMAT_D16_UNORM, 75 => sdl.c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT, 71 => sdl.c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT, else => null };
+    // 75 (D3DFMT_D24S8) is the depth texture's format, whichever depth-stencil format the device took.
+    if (depth) return switch (value) { 80 => sdl.c.SDL_GPU_TEXTUREFORMAT_D16_UNORM, 75 => sdl.depthFormat(), 71 => sdl.c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT, else => null };
     return switch (value) { 6 => sdl.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, 32 => sdl.c.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM, else => null };
 }
 

@@ -72,7 +72,7 @@ void AppendCampaignCutScenesFromSaves( std::list<std::string> &cutscenes )
 	szBaseDir = szBaseDir.substr( 0, szBaseDir.rfind('\\') );
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	szBaseDir += "\\";
-	szBaseDir += NProfile::Segment();
+	szBaseDir = NProfile::Prefix( szBaseDir );
 	if ( !szModname.empty() )
 	{
 		szBaseDir += "mods\\";
@@ -121,7 +121,6 @@ CInterfaceCutsceneList::~CInterfaceCutsceneList()
 }
 bool CInterfaceCutsceneList::Init()
 {
-	NStr::SetCodePage( GetACP() );
 	CInterfaceScreenBase::Init();
 	SetBindSection( "loadmission" );
 	commandMsgs.Init( pInput, commonCommands );

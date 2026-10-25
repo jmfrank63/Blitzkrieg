@@ -213,6 +213,5 @@ int main()
 		}
 	}
 
-	std::puts("input text, repeat, and focus fixture passed");
 	return 0;
 }

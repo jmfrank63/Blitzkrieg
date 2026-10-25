@@ -125,6 +125,35 @@ void CloseModule( void *module )
 #endif
 }
 
+// The module's GlobalsLoader opens StreamIO wherever the loader finds it (on
+// Windows beside this executable, where a full build installs it), and StreamIO
+// then makes its core services: the factory database, the options, the console.
+// The Game ends them with the registry before it unloads its modules
+// (Main/LoadDLLs.cpp, UnloadAllModules); this harness does the same, or BkMemory
+// reports them as 16 leaked blocks. Nothing happens when no StreamIO was opened.
+void EndStreamIORegistry()
+{
+    typedef ISingleton *( STDCALL *GETSINGLETONGLOBAL_HOOK )();
+#if defined(_WIN32)
+    HMODULE streamio = GetModuleHandleA( "StreamIO.dll" );
+    if ( streamio == nullptr ) return;
+    const auto hook = reinterpret_cast<GETSINGLETONGLOBAL_HOOK>( GetProcAddress( streamio, "GetSingletonGlobal_Hook" ) );
+#else
+#if defined(__APPLE__)
+    void *streamio = dlopen( "libStreamIO.dylib", RTLD_NOW | RTLD_NOLOAD );
+#else
+    void *streamio = dlopen( "libStreamIO.so", RTLD_NOW | RTLD_NOLOAD );
+#endif
+    if ( streamio == nullptr ) return;
+    const auto hook = reinterpret_cast<GETSINGLETONGLOBAL_HOOK>( dlsym( streamio, "GetSingletonGlobal_Hook" ) );
+#endif
+    if ( hook != nullptr )
+        if ( ISingleton *registry = hook() ) registry->Done();
+#if !defined(_WIN32)
+    dlclose( streamio );
+#endif
+}
+
 enum { MAX_PATH_BUFFER = 1024 };
 // The module path argument, or null when there is none.
 const char *ModulePathFromCommandLine( int argc, char **argv, char *buffer, size_t buffer_size )
@@ -210,7 +239,9 @@ int FontGpu::GetTextWidth( const char *, int ) const { return 0; }
 int FontGpu::GetTextWidth( const WORD *, int ) const { return 0; }
 float FontGpu::TextWidthFloat( const WORD *, int ) const { return 0.0f; }
 bool FontGpu::AppendGeometry( const wchar_t *, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float ) const { return true; }
-bool FontGpu::AppendGeometry( const wchar_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float ) const { return true; }
+void FontGpu::CloseTtf() {}
+int FontGpu::AppendTtfLine( const uint16_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, unsigned, float, float, float, float ) const { return kTtfOk; }
+bool FontGpu::AppendGeometry( const wchar_t *, size_t, float, float, float, DWORD, std::vector<SGFXLVertex> &, std::vector<WORD> &, float, float, float, float ) const { return true; }
 
 
 namespace NPlatform
@@ -457,8 +488,11 @@ static int HarnessMain( int argc, char **argv )
     object->AddRef();
     object->Release();
     Stage( "close the module" );
+    EndStreamIORegistry();
     PrintLoadedObjects();
     CloseModule( module );
+    // SDL keeps the base path the module's StreamIO asked for until SDL_Quit.
+    SDL_Quit();
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;
 }

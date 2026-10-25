@@ -155,11 +155,15 @@ pub const Discovery = struct {
         self.lock();
         self.next_gen += 1;
         const my_gen = self.next_gen;
-        // Copied under the lock: `setExplicit` replaces this struct from the
-        // UI thread, and a torn read of a slice is a crash. The slice
-        // contents themselves are never freed — see `setExplicit`.
-        const search = self.search;
+        // Copied under the lock, the override's bytes too: `setExplicit`
+        // replaces and frees it from the UI thread while this probe runs.
+        var search = self.search;
+        search.explicit = if (search.explicit) |path| self.gpa.dupe(u8, path) catch |err| {
+            self.unlock();
+            return err;
+        } else null;
         self.unlock();
+        defer if (search.explicit) |path| self.gpa.free(path);
 
         // Outside the lock: this launches a process and waits for it.
         var probed = try self.resolver(self.gpa, search);
@@ -228,15 +232,14 @@ pub const Discovery = struct {
     }
 
     /// Install the player's explicit rclone override as the first search
-    /// source. The *previous* override allocation is deliberately never
-    /// freed: a refresh already in flight captured the old slice outside the
-    /// lock and may read it for the length of a probe, and a player changes
-    /// this path a handful of times per session — a bounded, tiny leak buys
-    /// the absence of a use-after-free with no reference counting.
+    /// source, freeing the one it replaces: a refresh in flight probes its own
+    /// copy (`refresh`), so nothing outside the lock still reads the old one.
+    /// Null removes the override; shutdown does so to free the last one.
     pub fn setExplicit(self: *Discovery, path: ?[]const u8) Allocator.Error!void {
         const copy: ?[]u8 = if (path) |p| try self.gpa.dupe(u8, p) else null;
         self.lock();
         defer self.unlock();
+        if (self.search.explicit) |previous| self.gpa.free(previous);
         self.search.explicit = copy;
     }
 };
@@ -370,6 +373,7 @@ pub export fn bk_cloudsync_shutdown() callconv(.c) void {
     }
 
     module.clear();
+    module.setExplicit(null) catch unreachable;
     clearError();
 }
 
@@ -2032,15 +2036,22 @@ test "a saved rclone override flips availability without a restart" {
     try testing.expect(std.mem.indexOf(u8, buffer[0..length], "\"path\":\"/opt/rclone/rclone\"") != null);
     try testing.expect(std.mem.indexOf(u8, buffer[0..length], "\"found\":true") != null);
 
-    // And back: clearing the override re-finds nothing. `setExplicit`
-    // deliberately never frees the previous override (see its doc comment),
-    // so this test frees the superseded copy by hand to keep the testing
-    // allocator's leak check meaningful.
-    const superseded = discovery.search.explicit;
+    // And back: clearing the override, which frees it, re-finds nothing.
     try discovery.setExplicit(null);
     try discovery.refresh();
     try testing.expect(!discovery.available());
-    if (superseded) |allocation| testing.allocator.free(@constCast(allocation));
+}
+
+test "replacing the rclone override frees the one it replaces" {
+    var discovery: Discovery = .{ .gpa = testing.allocator, .resolver = searchSensitiveResolve };
+    defer discovery.clear();
+    // Each save replaces the override; the testing allocator fails the test on any copy left.
+    try discovery.setExplicit("/first/rclone");
+    try discovery.refresh();
+    try discovery.setExplicit("/second/rclone");
+    try discovery.refresh();
+    try expectCachedPath(&discovery, "/second/rclone");
+    try discovery.setExplicit(null);
 }
 
 const StressState = struct {

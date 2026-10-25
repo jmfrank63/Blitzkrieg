@@ -92,5 +92,4 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("{d} step difference(s) against {s}\n", .{ differences, baseline_path });
         std.process.exit(1);
     }
-    std.debug.print("{d} steps match {s}\n", .{ baseline.count(), baseline_path });
 }

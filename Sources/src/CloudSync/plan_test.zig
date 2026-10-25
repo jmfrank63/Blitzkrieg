@@ -150,6 +150,12 @@ test "the link root is the platform cache directory" {
     try std.testing.expectEqualStrings(expected, root);
 }
 
+test "a test build never falls back to the real home for the link root" {
+    // Nothing injected: outside a test this reads $HOME. Here it must refuse, so a
+    // test that forgot its scratch root cannot put a link into the player's home.
+    try std.testing.expectError(error.RootUnknown, plan.linkRootPath(std.testing.allocator, .{}));
+}
+
 test "a missing base directory is a typed failure, not a relative path" {
     const gpa = std.testing.allocator;
 
@@ -1017,6 +1023,36 @@ test "the projected length is the resolved session's, exactly" {
     by_alias.remote_target = "";
     try plan.checkSyncBudget(gpa, by_alias, &projected);
     try std.testing.expectEqual(@as(usize, 71), projected);
+}
+
+test "a Cyrillic or CJK profile keeps its name and is measured in bytes" {
+    if (builtin.os.tag == .windows) return;
+    const gpa = std.testing.allocator;
+
+    // Profile names are UTF-8 folder names now (NProfile::NameFromTyped). The
+    // remote path carries them unchanged, and rclone's canonicalisation only
+    // touches ASCII, so "Пётр Иванов" loses nothing but its space.
+    const path2 = try plan.remoteProfileRoot(gpa, "bkremote", "Иван");
+    defer gpa.free(path2);
+    try std.testing.expectEqualStrings("bkremote:profiles/Иван", path2);
+
+    const ctx = resolvedContext("/Users/johannes/Library/Caches/blitzkrieg/p2", "bkraw:Blitzkrieg Cloud Sync", "Пётр Иванов");
+    const session = try plan.syncSessionName(gpa, ctx);
+    defer gpa.free(session);
+    try std.testing.expectEqualStrings("Users_johannes_Library_Caches_blitzkrieg_p2..bkraw_Blitzkrieg_Cloud_Sync_profiles_Пётр_Иванов", session);
+    // The filename limit is 255 bytes, so the budget counts bytes: the
+    // 11 letters of the name are 21 of them.
+    var projected: usize = 0;
+    try plan.checkSyncBudget(gpa, ctx, &projected);
+    try std.testing.expectEqual(@as(usize, 43 + 2 + 37 + 21), projected);
+
+    // 60 CJK characters leave the session name at 142 characters, well under
+    // 241, but they are 180 bytes and the state file could not be created.
+    var cjk_name: [180]u8 = undefined;
+    for (0..60) |index| @memcpy(cjk_name[index * 3 ..][0..3], "山");
+    const cjk = resolvedContext("/Users/johannes/Library/Caches/blitzkrieg/p2", "bkraw:Blitzkrieg Cloud Sync", &cjk_name);
+    try std.testing.expectError(error.SessionNameTooLong, plan.checkSyncBudget(gpa, cjk, &projected));
+    try std.testing.expectEqual(@as(usize, 43 + 2 + 37 + 180), projected);
 }
 
 test "a long remote root the alias name hid is refused before rclone would fail" {

@@ -10,7 +10,7 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 |---|---|---|
 | infantry | पैदल सेना |  |
 | tank | टैंक |  |
-| artillery | तोपखाना |  |
+| artillery | तोपखान | तोपखाना; stem survives the oblique तोपखाने |
 | anti-tank gun | टैंक-रोधी तोप |  |
 | truck | ट्रक |  |
 | aircraft | विमान |  |
@@ -21,14 +21,14 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 
 | English term | Translation | Note |
 |---|---|---|
-| private | सिपाही |  |
+| private | सिपाही | no-term-check: also an ordinary English word |
 | corporal | लांस नायक |  |
 | sergeant | हवलदार |  |
 | lieutenant | लेफ्टिनेंट |  |
 | captain | कप्तान |  |
-| major | मेजर |  |
+| major | मेजर | no-term-check: also an ordinary English word |
 | colonel | कर्नल |  |
-| general | जनरल |  |
+| general | जनरल | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +42,7 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 | objectives | मिशन के उद्देश्य |  |
 | briefing | मिशन विवरण |  |
 | start | शुरू करें |  |
-| back | वापस |  |
+| back | वापस | no-term-check: also an ordinary English word |
 | options | विकल्प |  |
 | settings | सेटिंग्स |  |
 | load game | खेल लोड करें |  |

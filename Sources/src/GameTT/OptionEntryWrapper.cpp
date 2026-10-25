@@ -7,6 +7,7 @@
 #include "CommonId.h"
 #include "../Main/iMain.h"
 #include "../Misc/FileUtils.h"
+#include "../StreamIO/ModsPaths.h"
 BASIC_REGISTER_CLASS(COptionsListWrapper);
 enum EUIElements
 {
@@ -33,14 +34,17 @@ static bool IsGeneratedSelectionText( const char *pszOptionName )
 		     (NStr::CompareAsciiNoCase( pszOptionName, "Cloud.Provider" ) == 0) ||		// rclone ids, shown as they are
 		     (NStr::CompareAsciiNoCase( pszOptionName, "GamePlay.Language" ) == 0);	// mod names
 }
-// mods\ under the game's folder, in whatever case it is spelled on disk.
-static std::string ModsFolder()
+std::string ModsFolder()
 {
-	const std::string szBase = GetSingleton<IMainLoop>()->GetBaseDir();
-	for ( NFile::CFileIterator it( ( szBase + "*" ).c_str() ); !it.IsEnd(); ++it )
-		if ( it.IsDirectory() && NStr::CompareAsciiNoCase( it.GetFileName().c_str(), "mods" ) == 0 )
-			return szBase + it.GetFileName() + "\\";
-	return std::string();
+	return NMods::Roots( GetSingleton<IMainLoop>()->GetBaseDir() ).front();
+}
+std::vector<std::string> ModsFolders()
+{
+	return NMods::Roots( GetSingleton<IMainLoop>()->GetBaseDir() );
+}
+std::string ModFolder( const std::string &szName )
+{
+	return NMods::Find( GetSingleton<IMainLoop>()->GetBaseDir(), szName ) + "\\";
 }
 // The entry of folder szFolder named szName in any case, or empty.
 static std::string FindEntry( const std::string &szFolder, const char *pszName, const bool bDirectory )
@@ -54,20 +58,28 @@ std::vector<SOptionDropListValue> ScanLanguages()
 {
 	std::vector<SOptionDropListValue> languages( 1 );
 	languages[0].szProgName = "Default";
-	const std::string szMods = ModsFolder();
-	NStr::DebugTrace( "BK_L10N_TRACE: scanning languages in \"%s\"\n", szMods.c_str() );
-	if ( szMods.empty() )
-		return languages;
-	for ( NFile::CFileIterator it( ( szMods + "*" ).c_str() ); !it.IsEnd(); ++it )
+	const std::vector<std::string> folders = ModsFolders();
+	for ( size_t nFolder = 0; nFolder < folders.size(); ++nFolder )
 	{
-		if ( !it.IsDirectory() || it.IsDots() )
-			continue;
-		const std::string szData = FindEntry( szMods + it.GetFileName() + "\\", "data", true );
-		if ( szData.empty() || FindEntry( szData + "\\", "texts.pak", false ).empty() )
-			continue;
-		SOptionDropListValue language;
-		language.szProgName = it.GetFileName();
-		languages.push_back( language );
+		const std::string &szMods = folders[nFolder];
+		NStr::DebugTrace( "BK_L10N_TRACE: scanning languages in \"%s\"\n", szMods.c_str() );
+		for ( NFile::CFileIterator it( ( szMods + "*" ).c_str() ); !it.IsEnd(); ++it )
+		{
+			if ( !it.IsDirectory() || it.IsDots() )
+				continue;
+			// A language in two mods folders is the first one's, as ModFolder finds it.
+			bool bListed = false;
+			for ( size_t i = 1; i < languages.size() && !bListed; ++i )
+				bListed = NMods::SameName( languages[i].szProgName, it.GetFileName() );
+			if ( bListed )
+				continue;
+			const std::string szData = FindEntry( szMods + it.GetFileName() + "\\", "data", true );
+			if ( szData.empty() || FindEntry( szData + "\\", "texts.pak", false ).empty() )
+				continue;
+			SOptionDropListValue language;
+			language.szProgName = it.GetFileName();
+			languages.push_back( language );
+		}
 	}
 	for ( size_t i = 0; i < languages.size(); ++i )
 		NStr::DebugTrace( "BK_L10N_TRACE: language entry %d \"%s\" name \"%s\"\n", int( i ), languages[i].szProgName.c_str(), i == 0 ? "Default" : LanguageDisplayName( languages[i].szProgName ).c_str() );
@@ -78,8 +90,7 @@ std::string LanguageDisplayName( const std::string &szFolder )
 	if ( NStr::CompareAsciiNoCase( szFolder.c_str(), "Default" ) == 0 )
 		return std::string();
 	std::string szName = szFolder;
-	const std::string szMods = ModsFolder();
-	const std::string szData = szMods.empty() ? std::string() : FindEntry( szMods + szFolder + "\\", "data", true );
+	const std::string szData = FindEntry( ModFolder( szFolder ), "data", true );
 	const std::string szModXml = szData.empty() ? std::string() : FindEntry( szData + "\\", "mod.xml", false );
 	// mod.xml alone: the mods list opens the mod's PAKs to read it, which here
 	// would load every language's archives on every opening of the screen.
@@ -95,8 +106,7 @@ std::string LanguageDisplayName( const std::string &szFolder )
 }
 bool IsLanguageOnlyMod( const std::string &szFolder )
 {
-	const std::string szMods = ModsFolder();
-	const std::string szData = szMods.empty() ? std::string() : FindEntry( szMods + szFolder + "\\", "data", true );
+	const std::string szData = FindEntry( ModFolder( szFolder ), "data", true );
 	const std::string szModXml = szData.empty() ? std::string() : FindEntry( szData + "\\", "mod.xml", false );
 	if ( szModXml.empty() )
 		return false;

@@ -79,6 +79,5 @@ int main() {
         if (!Check(restart.Start(port), "immediate restart")) return 6;
         restart.Finish();
     }
-    std::puts("network workers passed: cycles=100 wake/cancel/restart");
     return 0;
 }

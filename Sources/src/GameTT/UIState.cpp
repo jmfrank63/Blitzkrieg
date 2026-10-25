@@ -13,18 +13,24 @@
 #include "CutScenesHelper.h"
 #include "UIConsts.h"
 #include "../Misc/FileUtils.h"
+#include "../StreamIO/ProfileNames.h"
 void IUIState::Show()
 {
 	GetSingleton<IScene>()->SetToolTip( 0, CVec2(0, 0), CTRect<float>(0, 0, 0, 0) );
 	
 	IUIElement *pMenu = GetMainInterface()->GetUIScreen()->GetChildByID( nMenuID );
 	pMenu->ShowWindow( UI_SW_SHOW );
-	
+
+	SetTitleText();
+	GetMainInterface()->RefreshCursor();
+}
+void IUIState::SetTitleText()
+{
 	CPtr<IText> pHeaderText = GetSingleton<ITextManager>()->GetString( szTitleKey.c_str() );
 	NI_ASSERT_T( pHeaderText != 0, NStr::Format( "There is no text with key %s", szTitleKey.c_str() ) );
 	IUIElement *pHeader = GetMainInterface()->GetUIScreen()->GetChildByID( 20001 );
-	pHeader->SetWindowText( 0, pHeaderText->GetString() );
-	GetMainInterface()->RefreshCursor();
+	if ( pHeaderText != 0 && pHeader != 0 )
+		pHeader->SetWindowText( 0, pHeaderText->GetString() );
 }
 void IUIState::Hide()
 {
@@ -234,8 +240,8 @@ void CUIMultiplayerState::Show()
 	// Seed the multiplayer player name from the active profile. Only a
 	// name that is empty or still the shipped default is replaced - a
 	// name the player typed stays. Options are per-profile, so each
-	// profile is seeded once. The profile name is printable ASCII by
-	// contract (NProfile::Sanitize), so widening per character is exact.
+	// profile is seeded once. The profile name is the directory's UTF-8
+	// name, shown as the player typed it (NProfile::DisplayName).
 	IOptionSystem * pOptions = GetSingleton<IOptionSystem>();
 	variant_t varPlayerName;
 	pOptions->Get( "Multiplayer.PlayerName", &varPlayerName );
@@ -250,9 +256,7 @@ void CUIMultiplayerState::Show()
 		const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 		if ( !szProfile.empty() )
 		{
-			std::wstring wszProfile;
-			for ( int i = 0; i < szProfile.size(); ++i )
-				wszProfile += wchar_t( (unsigned char)szProfile[i] );
+			const std::wstring wszProfile = NProfile::DisplayName( szProfile );
 			if ( wszProfile != szNameFromOptions )
 				pOptions->Set( "Multiplayer.PlayerName", variant_t( wszProfile.c_str() ) );
 		}

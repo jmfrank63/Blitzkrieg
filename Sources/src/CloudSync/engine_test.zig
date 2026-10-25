@@ -314,6 +314,21 @@ test "each captured failure classifies to its outcome" {
         // Captured live through the connection probe: a cleared secret means
         // rclone cannot even build the fs — a credentials problem.
         .{ .log = "error in ListJSON: secret_access_key not found", .expected = .auth_failed },
+        // Captured live (v1.75.0, yandex, 2026-10-24) through a Game run
+        // whose token had no refresh token, and one whose token was not JSON.
+        .{ .log = "unable to get RefreshToken. If you are upgrading from older versions of rclone, please run `rclone config` and re-configure this backend", .expected = .auth_failed },
+        .{ .log = "couldn't read OAuth token: invalid character 'd' looking for beginning of value", .expected = .auth_failed },
+        .{ .log = "empty token found - please run \"rclone config reconnect bkraw:\"", .expected = .auth_failed },
+        .{ .log = "oauth2: cannot fetch token: 400 Bad Request Response: {\"error\":\"invalid_client\"}", .expected = .auth_failed },
+        .{ .log = "ERROR : Bisync critical error: [401 - UnauthorizedError] Unauthorized", .expected = .auth_failed },
+        // Offline: the lookup or the route fails before any request.
+        .{ .log = "Get \"https://cloud-api.yandex.net/v1/disk/\": dial tcp: lookup cloud-api.yandex.net on 127.0.0.53:53: server misbehaving", .expected = .remote_unreachable },
+        .{ .log = "dial tcp: lookup cloud-api.yandex.net: Temporary failure in name resolution", .expected = .remote_unreachable },
+        .{ .log = "connect: no route to host", .expected = .remote_unreachable },
+        .{ .log = "net/http: TLS handshake timeout", .expected = .remote_unreachable },
+        .{ .log = "read tcp 10.0.0.2:51234->213.180.204.158:443: read: connection reset by peer", .expected = .remote_unreachable },
+        // Connected, but the answer outlived the client's deadline.
+        .{ .log = "Get \"https://cloud-api.yandex.net/v1/disk/resources\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)", .expected = .timed_out },
     };
     for (cases) |case| {
         try std.testing.expectEqual(case.expected, engine.classify(bare_reply, case.log));

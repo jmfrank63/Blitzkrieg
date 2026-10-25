@@ -67,8 +67,7 @@ int main()
 	// With no host attached a trace still reaches stderr, whatever this build
 	// says about the engine's own commentary.
 	NPlatform::TraceWrite( "unattached trace reaches stderr\n" );
-
-	std::printf( "diagnostic stderr enabled: %s\n", NPlatform::IsDiagnosticStderrEnabled() ? "yes" : "no" );
-	std::printf( "debugger attached: %s\n", NPlatform::IsDebuggerAttached() ? "yes" : "no" );
+	// With the host gone nothing is left to report a debugger.
+	if ( NPlatform::IsDebuggerAttached() ) return 8;
 	return 0;
 }

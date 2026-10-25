@@ -28,7 +28,8 @@ int main( int argc, char **argv )
 	for ( int i = 0; i < kReferenceTypeCount; ++i )
 	{
 		EReferenceType t = (EReferenceType)i;
-		std::fprintf( stderr, "REF %s count=%zu\n", ReferenceTypeName( t ), refs.count( t ) );
+		if ( refs.count( t ) != expected[i] )
+			std::fprintf( stderr, "REF %s count=%zu, expected %zu\n", ReferenceTypeName( t ), refs.count( t ), expected[i] );
 		CHECK( refs.count( t ) == expected[i] );
 		sum += expected[i];
 	}
@@ -40,10 +41,11 @@ int main( int argc, char **argv )
 	References none;
 	CHECK( none.rebuild( root / "does-not-exist" ) == 0 );
 
+	const int nFailBeforeCombos = g_fail;
 	CHECK( aiClasses().size() == 4 && aiClasses()[0] == "wheel" && aiClasses()[3] == "human" );
 	CHECK( playerSides().size() > 0 );
 	CHECK( readPlayerSides( root / "partys.xml" ) == playerSides() );
-	std::fprintf( stderr, "COMBO ai=%zu sides=%zu\n", aiClasses().size(), playerSides().size() );
+	if ( g_fail != nFailBeforeCombos ) std::fprintf( stderr, "COMBO ai=%zu sides=%zu\n", aiClasses().size(), playerSides().size() );
 
 	SLocalizationItem loc;
 	CHECK( loadLocalization( root / "locale", &loc ) );
@@ -51,6 +53,6 @@ int main( int argc, char **argv )
 	CHECK( loc.name == "Name \xe9\n" );  // raw bytes, no re-encoding
 	CHECK( !loadLocalization( root / "nope", &loc ) );
 
-	std::fprintf( stderr, g_fail ? "resource-model-references FAILED (%d)\n" : "resource-model-references OK\n", g_fail );
+	if ( g_fail ) std::fprintf( stderr, "resource-model-references FAILED (%d)\n", g_fail );
 	return g_fail ? 1 : 0;
 }

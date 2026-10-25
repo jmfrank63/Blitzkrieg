@@ -18,8 +18,13 @@
 #include "..//Formats//fmtFont.h"
 #include "..//GFX//GFXHelper.h"
 
+#include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <vector>
+
+// bk_text's font handle (Sources/src/BkText/bk_text.h), opaque here.
+typedef struct BkTextFont BkTextFont;
 
 class FontGpu final : public IGFXFont
 {
@@ -87,7 +92,7 @@ public:
         }
         if ( ref_count_ == 0 ) delete this;
     }
-    bool STDCALL IsValid() const override { return ref_count_ >= 0 && texture_ != nullptr; }
+    bool STDCALL IsValid() const override { return ref_count_ >= 0 && ( texture_ != nullptr || bk_font_ != nullptr ); }
     void STDCALL SwapData( ISharedResource *resource ) override;
     int STDCALL GetRefCounter() const override { return ref_count_; }
     const char * STDCALL GetSharedResourceName() const override { return name_.c_str(); }
@@ -104,9 +109,26 @@ public:
     float TextWidthFloat( const WORD *text, int count = 2000000000 ) const;
 
     IGFXTexture *Texture() const { return texture_; }
+
+    // BK_TEXT_ENGINE=ttf (M004): the font is a bk_text font and draws from the glyph atlas, not
+    // from a bitmap texture. format_ then holds only synthetic metrics.
+    bool IsTtf() const { return bk_font_ != nullptr; }
+    BkTextFont *TtfFont() const { return bk_font_; }
+    // Closes the bk_text font if its context is still the one it was opened in.
+    void CloseTtf();
+    // Appends the quads of one line of UTF-16 text (at most up to its first \n or \r), shaped by
+    // bk_text and placed from the atlas. Returns kTtfOk, kTtfRetry when the atlas was cleared
+    // while the line was built (every quad of the batch is stale: build it again with the new
+    // generation), or kTtfAtlasFull when the glyphs do not fit the page (the line draws nothing).
+    enum { kTtfOk = 0, kTtfRetry = 1, kTtfAtlasFull = 2 };
+    int AppendTtfLine( const uint16_t *text, size_t length, float x, float y, float scale, DWORD color,
+        std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices, unsigned generation,
+        float clip_top = -1e30f, float clip_bottom = 1e30f, float clip_left = -1e30f, float clip_right = 1e30f ) const;
     // clip_top/clip_bottom bound the glyph quads the way CTextClipVisitor does
     // in the D3D path: a line that only partly fits its rectangle is cut, not
-    // spilled over whatever sits below the text box.
+    // spilled over whatever sits below the text box. clip_left/clip_right do
+    // the same sideways, for a single line (FNT_FORMAT_SINGLE_LINE) wider than
+    // its box.
     bool AppendGeometry( const wchar_t *text, float x, float y, float scale, DWORD color,
         std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
         float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
@@ -116,17 +138,55 @@ public:
     // frame.
     bool AppendGeometry( const wchar_t *text, size_t length, float x, float y, float scale, DWORD color,
         std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices,
-        float clip_top = -1e30f, float clip_bottom = 1e30f ) const;
+        float clip_top = -1e30f, float clip_bottom = 1e30f, float clip_left = -1e30f, float clip_right = 1e30f ) const;
 
 private:
     ~FontGpu();
     template <typename T> float TextWidth( const T *text, int count ) const;
+    // cell_height: the pixel size to open at instead of the size class's, the cell height of a mod's
+    // own font this size replaces (0: the size class's).
+    bool OpenTtf( const char *reason = nullptr, int cell_height = 0 );
+    float TtfAdvance( const uint16_t *text, size_t length ) const;
+    // BK_GLYPH_TRACE: names a character this font has no glyph for, once per font load. The font
+    // draws its default character instead, an empty box, and says nothing; a frame measure of solid
+    // boxes misses that, so the l10n tiers read this line.
+    void ReportMissingGlyph( WORD character ) const;
     int ref_count_ = 0;
     std::string name_;
     SFontFormat format_{};
     IGFXTexture *texture_ = nullptr;
+    BkTextFont *bk_font_ = nullptr;
+    // The pixel size bk_font_ was opened at: the size class's, or a mod font's cell height. A scaled
+    // font is opened at this times the scale, so a scaled label is drawn as large as it is measured.
+    float ttf_pixel_size_ = 0;
+    unsigned bk_serial_ = 0;
+    // Text drawn at a scale (a layout scaled to the window, the tooltip) is shaped and rasterised by a
+    // bk_text font opened at the scaled pixel size and placed 1:1, so it stays sharp instead of being
+    // the base size stretched. One font per quarter pixel of size, at most kScaledFontLimit of them; a
+    // size beyond the limit (an animated scale) stretches the base glyphs as before.
+    static const size_t kScaledFontLimit = 8;
+    mutable std::vector<std::pair<int, BkTextFont *>> scaled_fonts_;
+    // The font that draws at `scale` (the base font at 1) and the factor its glyph metrics still need.
+    BkTextFont *TtfFontAt( float scale, float *factor ) const;
+    // Atlas rects handed out in the current frame, by glyph key. Looking a glyph up marks it used for
+    // the frame, so one lookup per glyph per frame is enough; dropped on a new frame or generation.
+    // Same fields as BkTextAtlasGlyph, which this header keeps opaque; the page generation is the cache's own.
+    // Direct-mapped by glyph key: a collision only costs a lookup. A slot is live when its epoch is the current one.
+    struct AtlasRect { const BkTextFont *font; uint32_t key, epoch, x, y, w, h; int32_t bearing_x, bearing_y; };
+    static const unsigned kAtlasRectSlots = 1024;
+    mutable std::vector<AtlasRect> atlas_rects_;
+    mutable uint32_t atlas_rects_epoch_ = 1;
+    mutable uint64_t atlas_rects_frame_ = ~uint64_t( 0 );
+    mutable uint32_t atlas_rects_generation_ = 0;
+    mutable std::unordered_set<WORD> missing_reported_;
     int shared_resource_last_usage_ = 0;
 };
+
+// Whether a bitmap font has a glyph for every letter of a language (bk_text's code: "ru", "de", ...)
+// beyond ASCII. A mod's own bitmap font was drawn for the mod's language; with a language mod chosen
+// over it, a letter it lacks is drawn as the font's default character, an empty box. English and a
+// code without a table need nothing beyond ASCII.
+bool BitmapFontCoversLanguage( const SFontFormat &format, const std::string &language );
 
 // Shared greedy line breaking, so the row height reported by
 // TextGpu::GetNumLines and the lines actually emitted by
@@ -134,6 +194,32 @@ private:
 // ranges over the UTF-16 string; carriage returns are skipped.
 void WrapTextLines( const FontGpu *font, const WORD *text, float scale, float wrap_width,
     std::vector<std::pair<size_t, size_t> > &lines );
+
+// BK_PERF=1 text timing (M004 S03): steady-clock time and call counts of the measuring, wrapping
+// and drawing work, on the bitmap and the bk_text path alike, printed once a second beside the
+// BK_PERF frame line. Only the outermost scope on a thread adds its time (a draw that wraps and
+// measures is all draw), so the three buckets never overlap; nested scopes still count calls.
+// Without BK_PERF the scope is one static bool test.
+namespace NTextPerf
+{
+    enum Bucket { Measure, Draw, Wrap, BucketCount };
+    bool Enabled();
+    void Add( Bucket bucket, double seconds, bool outermost );
+    class Scope
+    {
+    public:
+        explicit Scope( Bucket bucket );
+        ~Scope();
+    private:
+        Bucket bucket_;
+        bool active_;
+        bool outermost_ = false;
+        long long start_ = 0;
+    };
+    // Returns "measure X ms draw Y ms wrap Z ms calls N" for the work since the last call and
+    // resets it; the milliseconds are totals over the interval.
+    std::string TakeInterval();
+}
 
 class IGFXTextGpuFontProvider
 {

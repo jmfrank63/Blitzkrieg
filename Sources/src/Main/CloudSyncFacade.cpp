@@ -5,7 +5,8 @@
 // Deliberately C-runtime only (no STL): the facade sits on a module boundary
 // and is also compiled into a small test binary whose link line must not
 // pick a RuntimeLibrary fight. Buffers are fixed and bounded - profile names
-// are printable ASCII by NProfile contract, and the JSON documents crossing
+// are UTF-8 of at most NProfile::MAX_NAME_BYTES (120) bytes with no quote,
+// backslash or control character, and the JSON documents crossing
 // here are small - with one exception: the pairing fingerprint embeds the
 // remote root, so it and the job document carrying it are heap-sized under
 // the ABI's required-size contract rather than cut at a fixed cliff.

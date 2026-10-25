@@ -42,9 +42,9 @@ replaces (or adds to) the database file of the same key; the originals (`.elk`) 
 `Data/ELK` itself is never written (the step hashes it before and after). The `.txt` files are kept
 byte for byte (`Localization/**/*.txt -text -eol` in `.gitattributes`).
 
-The overlays are real Unicode. Only the exported pak holds the shaped form: for `hi` the export rewrites
-every text into Private Use Area characters, one per shaped cluster, and the generated font holds one
-glyph per such character (M002 D058).
+The overlays are real Unicode, and so is the exported pak: since M004 S05 the Game draws with bk_text, which shapes
+the text itself in the shipped faces, so a mod holds texts only, with no generated font, atlas or Private Use Area
+table (M002 D058's Hindi rewrite is gone); `language-mods` fails on a Private Use Area code point in any exported text.
 
 ## Texts
 
@@ -81,6 +81,32 @@ the captured main menu against hb-view rasters of the same strings. The frame mi
 with the same fonts blanked is the ink of the labels. Thresholds are named constants in
 `tools/zig/l10n_game_reads_it.zig`, each with how it was measured. Frames, the references and `report.txt` are
 written under `zig-out/local-test/l10n-game-reads-it/<code>/`.
+
+Besides the menu and the briefing the tier captures two more routes (M003 S01), each against a blank background
+of its own and written as `options.png` and `encyclopedia.png` next to the report:
+
+- `options`: the settings screen with the cursor parked on its restore-defaults button until the tooltip
+  (`tt_button_default`) is up; the caption and the tooltip's box are measured. A reference-scene capture skips
+  the screen's step, where the cursor reaches the tooltip, so the schedule lifts `X64.ReferenceScene` with
+  `var=` once the screen is up.
+- `encyclopedia`: the Allied Churchill's unit page, opened from the main menu with `cmdc=` and the encyclopedia
+  command's configuration (`1;Infantry_MKIV_Churchill_GB`); the title, the two panel headers and the wrapped
+  description are measured.
+
+Three more screens hold texts the ELK database lacks (2026-10-24), which reach a mod only because `language-mods` adds
+an original for every overlay text without one before ELK's export: the main menu's Options page (`mainmenu-options.png`,
+Load Mod), the gameplay mods screen (`mods.png`, its caption and Detach All MODs) and the first Allied mission's escape
+menu with its End Mission page (`escape.png`, `escape-end.png`: Save Game, Load Game, Help Screen, Finish Mission). Each of
+their labels must also match the language's string better than the English one, so a screen left in English fails.
+
+Without a desktop session the tier runs under `xvfb-run -a -s "-screen 0 1280x1024x24"`, with `--cache-poison=poisoned`
+so the build does not reuse a configuration cached without `DISPLAY`.
+
+Every language is measured for ink in each label's box and for no missing-glyph box. A language is measured
+further only where its scope in `Localization/game/scope.txt` (read with l10n-check's own parser) holds the
+route's keys, because a seed-scope language still shows English there: a bitmap-font language must draw all but
+one label differently from English, and a face language's static labels are compared with hb-view like the
+menu's. A route's report section names its PNG and says which of the two applied.
 
 Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
 cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.
@@ -183,6 +209,7 @@ Rules:
   byte order mark) beside its `.xml` state file, and the state is not "not translated".
 - `stale`, `base-hash-missing`, `untranslated`: the English source of a key must still match its hash in
   `Localization/game/base-hashes.txt`, and a translation must not equal the English bytes.
+- `glossary-term`, `term-exception`, `term-exception-unused`: see Rule glossary-term below.
 - `placeholder`: the complete C printf codes (`%[n$][flags][width][.precision][length]conversion`, so `%ld` and
   `%ls`, `%1$s` and `%2$s` differ and `%%` is a literal), `{n}`, `$name`, `<tag>` tokens and literal `\n` of the English text and
   the translation are the same multiset.
@@ -195,12 +222,94 @@ Rules:
 - `literal`: in the strict source directories a UI call takes `l10n.t`, `l10n.id` or `l10n.format`, not an
   English string literal. An ID-bearing call (`igButton`, `igMenuItemEx`, `igBegin`, ...) whose label is `l10n.t(` fails too: use `l10n.id`.
 
-`Localization/game/scope.txt` lists the ELK keys (relative to `Data/ELK/game_data_base`, no extension) every
-overlay must hold. `Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per
-scope key, because an overlay `.xml` cannot record which English text it was made from. When `stale` fires,
-review the translations of that key in every language, then run `zig build l10n-check-update-base` to
-rewrite the file. A `same-as-base <code> <key>` line in the same file says that language's translation may
-equal the English byte for byte (a proper name); without it `untranslated` fires.
+### Scope per language
+
+`Localization/game/scope.txt` says which ELK keys (relative to `Data/ELK/game_data_base`, no extension, forward
+slashes) each language overlay must hold. Every line that is not a comment or one of the two directives is a
+seed key; all nine languages hold the seed keys. A language widens its scope with:
+
+- `whole-database <code>`: every text the Game reads (`databaseKeys` in `tools/zig/l10n_check.zig`, 3,544 texts): each
+  `.elk` original of the database (found case-insensitively), each `.txt` of the database without one, and each text of
+  the Game's own text trees (`Data/Textes`, `Data/Scenarios`, `Data/Units`, `Data/Buildings`, `Data/Medals`,
+  `Data/Objects`, `Data/movies`) the database lacks, such as the escape menu's save and load captions, the mod screen
+  and most tutorial texts. A text whose English is blank is not counted.
+- `prefix <code> <key prefix>`: the seed keys plus every such key that starts with the prefix; several lines
+  are allowed. `whole-database` makes a language's prefix lines redundant (finding `scope`).
+
+A language with neither line is seed-only. An unknown language code or a malformed line is a `scope`
+finding, and an overlay text outside the language's scope is `extra` (the detail names the rule that excludes
+it). The run prints one `l10n-check: scope: <code>: <seed | seed + prefixes ... | whole-database>, <n> keys checked`
+note per language.
+
+Progress per language (M003 S01 to S06, 2026-10-25): all nine languages are `whole-database`, all 3,544 texts translated
+and passing every rule (completeness, placeholders, glyphs, glossary terms and fit); all are machine translations not
+reviewed by a native speaker. The English source of a key (`readBase` in `tools/zig/l10n_check.zig`) is the text the
+Game shows from its own text trees (`Data/Textes`, `Data/Scenarios`, `Data/Units`, ...), else its ELK original, else
+the database `.txt`. The ELK database comes from an early release: for about 1,600 keys (tutorial and mission
+objectives, unit names and descriptions with their specification block, the personal names of unit commanders) its
+original differs from what the English Game shows, so the translations follow the shipped English text. Where that
+English is longer than its room (the unit names of the selection panel, the statistics rows), the translations use
+short forms that fit, measured by the fit rule below.
+
+`Localization/game/base-hashes.txt` (D075) holds one SHA-256 of the English bytes per text of the database (and per
+seed key without one), because an overlay `.xml` cannot record which English text it was made from; a language
+can widen its scope without a new hash run. When `stale` fires, review the translations of that key in every
+language, then run `zig build l10n-check-update-base` to rewrite the file. A `same-as-base <code> <key>` line
+in the same file says that language's translation may equal the English byte for byte (a proper name); without
+it `untranslated` fires.
+
+### Rule fit
+
+The fit rule (`fit`, `fit-word`, `fit-unmapped`, `fit-known`, `fit-known-unused`) measures a translation the way the Game
+draws it: the `bk_text` Zig module shapes it with HarfBuzz in the vendored faces (`vendor/fonts`, Liberation Serif and the
+Noto faces) at the Game's own size table (`bk_text.sizes`) and breaks the lines with `bk_text`'s wrap. No `1.tfd` and no
+generated atlas is read, so all nine languages are measured in plain `zig build l10n-check` and in the cheap CI job;
+every language prints a `l10n-check: fit: <code>: ...` note. A character no face holds is measured with the missing glyph
+and noted per language. The fit-base allowance compares the translation with the English original measured the same way.
+A Japanese text has no spaces, so `fit-word` measures the runs between break opportunities (the game's
+`CanBreakTextBetween`), not the whole sentence. `language-mods` runs the same stage for the language it builds, before any
+font work, and stops with `TextDoesNotFit` on a finding.
+
+`Localization/game/fit-known.txt` (D108) is the baseline of today's overflows: one line `<code> <key> # S06|M003`. A listed
+text is counted as `N known` in its language's note and not reported, so the gate stays meaningful for every other key
+while M003 finishes the CJK ones (`# M003`); S06 reworded the Latin and Cyrillic texts, so no `# S06` line is left. A listed line whose text
+fits again is the finding `fit-known-unused`; a malformed line is `fit-known`. S04 recorded 102 ru, 46 de, 62 fr, 57 es,
+45 pt-BR, 52 id (all `S06`, now reworded) and 25 ja (`M003`) keys; the last seven ja ones were reworded when ja became
+`whole-database` (2026-10-24), so the file holds no line today.
+
+`language-mods` builds no atlas any more (M004 S05), so the former 4096x4096 atlas bound no longer applies. The no-start set of the line breaker
+also holds U+2025, U+2026, U+30A0 and U+FF5E (TextBreak.h, l10n_wrap.zig and gfx_text_wrap_test.cpp in step).
+
+`l10n-check` does not depend on the `language-mods` step in `build.zig`, on purpose: that step takes about a
+minute and takes `-Dlm-langs`, so every check would pay for it.
+
+### Rule glossary-term
+
+For each in-scope key, every English term of `Localization/glossary/<code>.md` (the `English term |
+Translation | Note` tables) that occurs as a whole word in the English original, ignoring case, must occur in
+the overlay text as a case-insensitive substring of its translation (D098). A multi-word term matches over a
+line break. Two ways out where a term does not fit:
+
+- A glossary row whose Note holds `no-term-check` is skipped (a word that is also ordinary English: `back`,
+  `general`, `major`, `private`).
+- `Localization/game/term-exceptions.txt` holds `<code> <key> <english term> # <reason>` lines that excuse one
+  key and one term; the reason is required (`term-exception` otherwise) and a line that excuses nothing any
+  more is the finding `term-exception-unused`.
+
+### Translating a prefix: the overlay sheet
+
+`tools/zig/l10n_sheet.zig` writes the overlay files, so nobody types UTF-16LE by hand:
+
+1. `zig build l10n-sheet-export -- <code> <key prefix>...` writes `zig-out/local-test/l10n-sheet/<code>-<n>.txt`
+   (UTF-8, CRLF, cut at about 40,000 bytes). Each text is a `=== <key>` line followed by the English text, read as
+   l10n-check reads it, with its line breaks; an existing translation follows under a `--- current` line.
+2. Replace the English text of every block by the translation (keep the `=== <key>` lines; a trailing line
+   break belongs to the text, so keep it where the English has one).
+3. `zig build l10n-sheet-import -- <code> <sheet>` writes `Localization/game/<code>/game_data_base/<key>.txt`
+   (UTF-16LE with a byte order mark, CRLF inside) and `<key>.xml` (State 2). It refuses the whole sheet, and
+   writes nothing, for a key that is not a text of the game (none of the `whole-database` keys above) or an empty block.
+4. Add `prefix <code> <prefix>` to `scope.txt` (or `whole-database <code>` when the language is complete) and run
+   `zig build l10n-check`. Tests: `zig build test-l10n-sheet`.
 
 Not active yet (each prints the note until its scope is filled): `table-*` until a directory with an
 `en.lang` is listed in `table_dirs`, `doc-*` until S08 adds the

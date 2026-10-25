@@ -5,6 +5,7 @@
 #include "Transceiver.h"
 #include "ScenarioTracker.h"
 #include "RandomMapHelper.h"
+#include "Remastered.h"
 
 #include "../AILogic/AILogic.h"
 #include "../Misc/FileUtils.h"
@@ -136,6 +137,12 @@ bool CCommandsHistory::Load( const char *pszFileName )
 	saver.Add( "MODName", &szModName );
 	saver.Add( "MODVersion", &szModVersion );
 
+	// The Remastered mode the replay was recorded with; a history written
+	// before the option has none and plays back as the original game.
+	int nRemastered = 0;
+	saver.Add( "Remastered", &nRemastered );
+	SetGlobalVar( NRemastered::pszReplayVar, nRemastered );
+
 #if defined(_FINALRELEASE) || defined(_BETARELEASE)
 	if ( checkSumRes != savedCheckSumRes || checkSumMap != savedCheckSumMap )
 	{
@@ -222,6 +229,9 @@ void CCommandsHistory::Save( const char *pszFileName )
 		saver.Add( "MODName", &szCurModName );
 		std::string szCurModVersion = GetGlobalVar( "MOD.Version", "" );
 		saver.Add( "MODVersion", &szCurModVersion );
+
+		int nRemastered = NRemastered::Enabled() ? 1 : 0;
+		saver.Add( "Remastered", &nRemastered );
 	}
 }
 void CCommandsHistory::AddCommand( const int nSegment, IAILogicCommand *pCmd )

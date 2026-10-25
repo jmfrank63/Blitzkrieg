@@ -176,6 +176,5 @@ int main( int argc, char *argv[] )
 		printf( "bk-sprite-test: %d failures\n", g_nFailures );
 		return 1;
 	}
-	printf( "bk-sprite-test: ok\n" );
 	return 0;
 }

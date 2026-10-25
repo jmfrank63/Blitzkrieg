@@ -50,8 +50,12 @@ pub const exe_name = if (builtin.os.tag == .windows) "rclone.exe" else "rclone";
 /// The oldest rclone this plan can drive. 1.66 is where `resyncMode` arrived,
 /// where `backupDir1`/`backupDir2` became rc parameters, and where
 /// `bilib.BasePath` began writing listing files under readable names instead
-/// of the older `{hexstring}` form. Every one of those is load-bearing here.
-pub const MIN_RCLONE: Version = .{ .major = 1, .minor = 66, .patch = 0 };
+/// of the older `{hexstring}` form, but 1.74 is the first release whose
+/// pairing keeps the newer side: measured 2026-10-23 with the live engine,
+/// backend and worker suites, 1.68, 1.71, 1.72 and 1.73 kept the older local
+/// save over a newer cloud one (the pairing case of engine_test.zig), and 1.73
+/// failed the backend's cycle too; 1.74 and the bundled 1.75 pass them all.
+pub const MIN_RCLONE: Version = .{ .major = 1, .minor = 74, .patch = 0 };
 
 /// How long `rclone version` may take before the binary is written off. It
 /// normally answers in single-digit milliseconds; this bound is for the

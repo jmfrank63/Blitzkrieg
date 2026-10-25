@@ -105,6 +105,5 @@ int main()
 {
 	if (!testCompletionHandoff() || !testFadeTimeline() || !testShutdownWake())
 		return 1;
-	std::printf("audio workers passed: 1000 handoffs fade shutdown restart\n");
 	return 0;
 }

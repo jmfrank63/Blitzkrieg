@@ -135,6 +135,15 @@ void CUISlider::NotifyPositionChanged()
 void CUISlider::UpdatePosition( int nCoord )
 {
 	const CTRect<float> rc = GetScreenRect();
+	// A slider with a single position (a list with nothing to scroll) has no
+	// interval to divide by: the position came out NaN, which the int
+	// conversion traps on in a debug build.
+	if ( m_nMax <= m_nMin || m_nStep <= 0 )
+	{
+		m_nPos = m_nMin;
+		NotifyPositionChanged();
+		return;
+	}
 
 	if ( !bVertical )
 	{

@@ -50,6 +50,5 @@ int main() {
     NoiseOriginal(right, 0, 0, &u1, &v1);
     assert(v1 != v0);               // the jump that drew the vertical line
 
-    std::puts("terrain noise coordinates are continuous across patch seams");
     return 0;
 }

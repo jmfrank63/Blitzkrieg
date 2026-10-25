@@ -156,6 +156,9 @@ fn dispatch(minimal: std.process.Init.Minimal) !bool {
     crt.routeCrtReportsToStderr();
     const gpa = bk_memory.allocator;
     plantZigLeaks(gpa, plantZigLeakCount(gpa, minimal.environ));
+    // The first defer, so the last to run: the string tables outlive every window and panel that
+    // drew them, and are freed before the exit report counts what is left.
+    defer kit.l10n.deinit();
     // Not global_single_threaded: its allocator is .failing by design (a
     // minimal, no-concurrency fallback), which every spawnPosix/spawnWindows
     // allocation under Test in game's std.process.spawn would then fail with

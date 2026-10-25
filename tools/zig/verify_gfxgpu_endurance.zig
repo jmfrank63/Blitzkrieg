@@ -28,5 +28,4 @@ pub fn main(init: std.process.Init) !void {
 
     var restart: usize = 0;
     while (restart < 2) : (restart += 1) try runSmoke(init, allocator, install_dir);
-    std.debug.print("P08-M04 native Zig endurance smoke passed: restarts=2\n", .{});
 }

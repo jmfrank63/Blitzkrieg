@@ -18,6 +18,7 @@ pub const crt = @import("crt.zig");
 pub const testlaunch = @import("testlaunch.zig");
 pub const auto_schedule = @import("auto_schedule.zig");
 pub const pictures_cache = @import("pictures_cache.zig");
+pub const app_identity = @import("app_identity.zig");
 pub const host = @import("host.zig");
 pub const window = @import("window.zig");
 pub const capture = @import("capture.zig");

@@ -8,7 +8,6 @@
 #include "../GameTT/MuliplayerToUIConsts.h"
 CChatMessage::CChatMessage( const char *pszMessage, const char *pszPlayerName, bool _bWhisper ) : bWhisper( _bWhisper )
 {
-	NStr::SetCodePage( GetACP() );
 	szMessage = NStr::ToUnicode( pszMessage );
 	szPlayerName = NStr::ToUnicode( pszPlayerName );
 }
@@ -36,7 +35,6 @@ void CSimpleChatMessage::SendToUI()
 CChatUserChanged::CChatUserChanged( const EUserState &_eState, const char *pszUserNick, const IChat::EUserMode &_eMode )
 : eState( _eState ), eMode( _eMode )
 {
-	NStr::SetCodePage( GetACP() );
 	wszUserNick = NStr::ToUnicode( pszUserNick );
 }
 void CChatUserChanged::SendToUI()
@@ -76,7 +74,6 @@ void CChatUserChanged::SendToUI()
 }
 CChatUserChangedNick::CChatUserChangedNick( const char *pszOldNick, const char *pszNewNick )
 {
-	NStr::SetCodePage( GetACP() );
 	wszOldNick = NStr::ToUnicode( pszOldNick );
 	wszNewNick = NStr::ToUnicode( pszNewNick );
 }

@@ -90,8 +90,7 @@ fn lintTree(io: std.Io, gpa: std.mem.Allocator) !usize {
 }
 
 pub fn main(init: std.process.Init) !void {
-    const scanned = try lintTree(init.io, init.gpa);
-    std.debug.print("windows min/max lint passed: {d} files\n", .{scanned});
+    _ = try lintTree(init.io, init.gpa);
 }
 
 test "flags the spellings windows.h macros capture" {

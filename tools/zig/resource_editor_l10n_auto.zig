@@ -107,6 +107,7 @@ fn runEditor(allocator: std.mem.Allocator, setup: Setup, name: []const u8, code:
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user_root);
     try environ.put("BK_USER_ROOT", user_root);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user_root, "profiles" }));
     try environ.put("BK_RESOURCE_EDITOR_SETTINGS", config);
     try environ.put("BK_EDITOR_AUTO", schedule);
     if (table_dir) |dir| try environ.put("BK_L10N_DIR", dir);

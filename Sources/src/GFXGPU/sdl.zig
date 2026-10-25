@@ -151,17 +151,38 @@ pub fn createColorTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, wi
     return c.SDL_CreateGPUTexture(device, &info);
 }
 
-// The one depth-stencil format the depth texture and every pipeline that
-// declares a depth-stencil target must agree on.
+// The depth-stencil formats in the order they are preferred: D24S8 is what the
+// D3D path used, but Metal and AMD's Vulkan driver (RADV) offer only D32S8, and
+// SDL's GPU debug mode asserts on a format the device does not support.
+const depth_formats = if (builtin.target.os.tag == .macos)
+    [_]c.SDL_GPUTextureFormat{ c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT }
+else
+    [_]c.SDL_GPUTextureFormat{ c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT, c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT };
+
+// The format chooseDepthFormat picked for the device; the first preference
+// until a device has been asked.
+var chosen_depth_format: c.SDL_GPUTextureFormat = depth_formats[0];
+
+// The first depth-stencil format the device supports as a depth target, kept as
+// the one the depth texture and every pipeline that declares a depth-stencil
+// target must agree on.
+pub fn chooseDepthFormat(device: *GpuDevice) c.SDL_GPUTextureFormat {
+    for (depth_formats) |format| {
+        if (c.SDL_GPUTextureSupportsFormat(device, format, c.SDL_GPU_TEXTURETYPE_2D, c.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)) {
+            chosen_depth_format = format;
+            break;
+        }
+    }
+    return chosen_depth_format;
+}
+
+// The depth-stencil format of the depth texture (chooseDepthFormat's choice).
 pub fn depthFormat() c.SDL_GPUTextureFormat {
-    return if (builtin.target.os.tag == .macos)
-        c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT
-    else
-        c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+    return chosen_depth_format;
 }
 
 pub fn createDepthTexture(device: *GpuDevice, width: u32, height: u32) ?*GpuTexture {
-    const depth_format = depthFormat();
+    const depth_format = chooseDepthFormat(device);
     const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = depth_format, .usage = c.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
     return c.SDL_CreateGPUTexture(device, &info);
 }
@@ -170,10 +191,11 @@ pub fn releaseTexture(device: *GpuDevice, texture: *GpuTexture) void {
     c.SDL_ReleaseGPUTexture(device, texture);
 }
 
-pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, texture: *GpuTexture, width: u32, height: u32, row_pitch: u32) bool {
+// pixels_per_row is in texels, not bytes: the caller divides its row pitch by the texel size.
+pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, texture: *GpuTexture, x: u32, y: u32, width: u32, height: u32, pixels_per_row: u32) bool {
     const copy_pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse return false;
-    const source = c.SDL_GPUTextureTransferInfo{ .transfer_buffer = transfer, .offset = 0, .pixels_per_row = row_pitch / 4, .rows_per_layer = height };
-    const destination = c.SDL_GPUTextureRegion{ .texture = texture, .w = width, .h = height, .d = 1 };
+    const source = c.SDL_GPUTextureTransferInfo{ .transfer_buffer = transfer, .offset = 0, .pixels_per_row = pixels_per_row, .rows_per_layer = height };
+    const destination = c.SDL_GPUTextureRegion{ .texture = texture, .x = x, .y = y, .w = width, .h = height, .d = 1 };
     c.SDL_UploadToGPUTexture(copy_pass, &source, &destination, false);
     c.SDL_EndGPUCopyPass(copy_pass);
     return true;

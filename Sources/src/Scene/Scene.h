@@ -426,7 +426,8 @@ enum ESoundAddMode
 	SAM_NEED_ID,													// �������� ID �����
 	SAM_ADD_N_FORGET,											// �������� 0, ����� ���� ������ ����.
 };
-const DWORD TOOLTIP_DEFAULT_GROUND_COLOR = 0xff2a1817;
+// Three quarters opaque: the screen behind the hint shows through, the amber text keeps its contrast.
+const DWORD TOOLTIP_DEFAULT_GROUND_COLOR = 0xc02a1817;
 interface IScene : public IRefCount
 {
 	enum { tidTypeID = SCENE_SCENE };

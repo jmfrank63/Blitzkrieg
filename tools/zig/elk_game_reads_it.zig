@@ -10,13 +10,14 @@
 //! BK_UI_TRACE that the main menu is laid out 1:1 on the 1024x768 canvas the
 //! button's rect below is in.
 //!
-//! The user's data is never touched: the Game runs from a scratch folder (its
-//! `profiles/` are relative to the working directory) in the dedicated ELKTest
-//! profile, with XDG_DATA_HOME and BK_USER_ROOT in that folder too. The mod is
+//! The user's data is never touched: the Game runs from a scratch folder in
+//! the dedicated ELKTest profile, with XDG_DATA_HOME, BK_USER_ROOT and
+//! BK_PROFILES_ROOT in that folder too. The mod is
 //! removed from the installation afterwards. BK_ELK_GAME names the installed
 //! Game executable; `zig build elk-game-reads-it` sets it.
 const std = @import("std");
 const timed_run = @import("timed_run.zig");
+const measure = @import("l10n_measure.zig");
 const elk = @import("elk");
 const database = elk.database;
 const packages = elk.packages;
@@ -45,6 +46,20 @@ const height = 768;
 /// 610 + 200 - 160 = 650 to 970 and y from 267 + 260 = 527 to 577. Exclusive
 /// right and bottom.
 const label_rect = Rect{ .x1 = 650, .y1 = 527, .x2 = 970, .y2 = 577 };
+/// The settings screen's Gameplay tab: the division's name, which the screen
+/// sets on its tab button (element 10008 in Data/UI/OptionsSettings.xml, at
+/// (45,223) sized 433x66 on the 1024x768 canvas).
+const tab_key = "textes/options/gameplay.name";
+const tab_marker = "ELK TAB MARKER";
+const gameplay_tab = Rect{ .x1 = 45, .y1 = 223, .x2 = 478, .y2 = 289 };
+/// Labels the main menu copies out of the text manager rather than draws from
+/// its layout: the panel's header (element 20001, the panel above the buttons)
+/// and the profile line (element 21000, LEFT|BOTTOM at (10,88) sized 500x50,
+/// so y from 768 - 88 - 50 = 630 to 680).
+const copied_labels = [_]struct { key: []const u8, marker: []const u8, rect: Rect }{
+    .{ .key = "textes/strings/imheader-mainmenu-header", .marker = "ELK HEADER MARKER", .rect = .{ .x1 = 630, .y1 = 175, .x2 = 990, .y2 = 248 } },
+    .{ .key = "textes/strings/profile", .marker = "ELK PROFILE MARKER:", .rect = .{ .x1 = 10, .y1 = 630, .x2 = 510, .y2 = 680 } },
+};
 
 const Rect = struct {
     x1: usize,
@@ -108,7 +123,7 @@ test "the Game shows a main-menu label the ELK exported to a mod (E-06)" {
         changed += 1;
         box = .{ .x1 = @min(box.x1, x), .y1 = @min(box.y1, y), .x2 = @max(box.x2, x + 1), .y2 = @max(box.y2, y + 1) };
     };
-    std.debug.print("E-06: {d} pixels differ, in ({d},{d})-({d},{d}); the Exit Game button is ({d},{d})-({d},{d})\n", .{ changed, box.x1, box.y1, box.x2, box.y2, label_rect.x1, label_rect.y1, label_rect.x2, label_rect.y2 });
+    errdefer std.debug.print("E-06: {d} pixels differ, in ({d},{d})-({d},{d}); the Exit Game button is ({d},{d})-({d},{d})\n", .{ changed, box.x1, box.y1, box.x2, box.y2, label_rect.x1, label_rect.y1, label_rect.x2, label_rect.y2 });
     try testing.expect(changed >= 100);
     try testing.expect(label_rect.contains(box));
 }
@@ -140,14 +155,9 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), scratch ++ "-language" });
     cwd.deleteTree(io, scratch ++ "-language") catch {};
     const user = try std.fs.path.join(allocator, &.{ root, "user" });
-    // The Game looks for defconf.cfg, the options' declarations, under its
-    // working directory (.\Data\Configs and up to four folders above); run
-    // from the scratch folder it needs the installed copy beside it, or it
-    // has no options at all.
-    const configs = try std.fs.path.join(allocator, &.{ user, "Data", "Configs" });
-    try cwd.createDirPath(io, configs);
-    const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
-    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
+    // Run from this scratch folder, not the install: the Game finds its
+    // defconf.cfg, the options' declarations, in the install all the same.
+    try cwd.createDirPath(io, user);
 
     const db_folder = try std.fs.path.join(allocator, &.{ root, "db" });
     try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));
@@ -158,6 +168,13 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", mod_name });
     defer cwd.deleteTree(io, mod_folder) catch {};
     try testing.expect(try db.writeTranslation(0, label_key, marker));
+    try testing.expect(try db.writeTranslation(0, tab_key, tab_marker));
+    // The profile line's text is Not translated in the database, and the export
+    // carries the original of such a text: each marker is approved as well.
+    for (copied_labels) |label| {
+        try testing.expect(try db.writeTranslation(0, label.key, label.marker));
+        _ = try db.setState(0, label.key, .approved);
+    }
     try exportMod(io, allocator, &db, game_root, marker);
 
     // Opens the settings screen from the main panel at `frame`, picks the
@@ -171,13 +188,23 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     }.at;
     // Run 1: the shipped label (60), the mod chosen in the options (480),
     // Default chosen again (900), the mod chosen once more and the Game left.
-    const first = try std.mem.join(allocator, ",", &.{ "60:shot", try switch_to(allocator, 70, "RIGHT"), "480:shot", try switch_to(allocator, 490, "LEFT"), "900:shot", try switch_to(allocator, 910, "RIGHT"), "1320:exit" });
+    // The settings screen itself is shot on the Gameplay tab just before the
+    // first switch (265) and just after it (300), still open.
+    const first = try std.mem.join(allocator, ",", &.{ "60:shot", try switch_to(allocator, 70, "RIGHT"), "265:shot", "300:shot", "480:shot", try switch_to(allocator, 490, "LEFT"), "900:shot", try switch_to(allocator, 910, "RIGHT"), "1320:exit" });
     const log1 = try runAuto(io, allocator, game, user, first, "language-1");
     const layout = try menuLayout(log1);
     const button = layout.scaled(exit_button);
     const original = try shot(io, allocator, user, 60, layout);
     const chosen = try shot(io, allocator, user, 480, layout);
     const back = try shot(io, allocator, user, 900, layout);
+    const settings_layout = try screenLayout(log1, "ui\\OptionsSettings");
+    const tab = settings_layout.scaled(gameplay_tab);
+    const tab_before = try shot(io, allocator, user, 265, settings_layout);
+    const tab_switched = try shot(io, allocator, user, 300, settings_layout);
+    // Run 3, the same profile, which kept the mod: the settings screen opened
+    // on the language it started in, the reference the live switch must match.
+    _ = try runAuto(io, allocator, game, user, "60:settings,90:msg=10003,190:msg=10008,265:shot,280:exit", "language-3");
+    const tab_cold = try shot(io, allocator, user, 265, settings_layout);
     // Run 2, the same profile: the menu comes up in the mod's language; then
     // Default is set on the open main menu at frame 80, the way the row
     // commits it, and the frames on either side of the switch are kept.
@@ -194,7 +221,7 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     const before = try shot(io, allocator, user, 80, layout);
     const after = try shot(io, allocator, user, 81, layout);
     const marked = changedIn(original, chosen, layout.width, button);
-    std.debug.print("language: the Exit Game button ({d},{d})-({d},{d}) on a {d}x{d} window; {d} of its pixels change with the mod chosen, {d} differ from the original with Default chosen again, {d} from the chosen frame after a restart, {d} between the frames drawn just before and just after a switch on the open menu, {d} from the original in the frame just after\n", .{
+    errdefer std.debug.print("language: the Exit Game button ({d},{d})-({d},{d}) on a {d}x{d} window; {d} of its pixels change with the mod chosen, {d} differ from the original with Default chosen again, {d} from the chosen frame after a restart, {d} between the frames drawn just before and just after a switch on the open menu, {d} from the original in the frame just after\n", .{
         button.x1, button.y1, button.x2, button.y2, layout.width, layout.height, marked, changedIn(original, back, layout.width, button), changedIn(chosen, restarted, layout.width, button), changedIn(before, after, layout.width, button), changedIn(original, after, layout.width, button),
     });
     try testing.expect(marked >= 100);
@@ -202,6 +229,22 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     try testing.expectEqual(@as(usize, 0), changedIn(chosen, restarted, layout.width, button));
     try testing.expectEqual(@as(usize, 0), changedIn(chosen, before, layout.width, button));
     try testing.expectEqual(@as(usize, 0), changedIn(original, after, layout.width, button));
+    // The tab buttons are texts the settings screen copies out of the text
+    // manager. Refreshed on the choice instead of on the reload, they showed
+    // the previous language until the next switch.
+    try testing.expect(changedIn(tab_before, tab_switched, settings_layout.width, tab) >= 100);
+    try testing.expectEqual(@as(usize, 0), changedIn(tab_cold, tab_switched, settings_layout.width, tab));
+    // The main menu's own copies: on the switch at frame 80 they leave the
+    // mod's marker and show what the Default menu run 1 came back to (900)
+    // shows; the first frame of run 1 has no profile line yet.
+    // The header's panel lets the animated sky through by a level or two, so
+    // these boxes count the pixels that differ by more than that.
+    for (copied_labels) |label| {
+        const box = layout.scaled(label.rect);
+        errdefer std.debug.print("language: {s} at ({d},{d})-({d},{d}): {d} pixels change on the switch, {d} differ from the Default menu after it\n", .{ label.key, box.x1, box.y1, box.x2, box.y2, changedBeyond(before, after, layout.width, box, backdrop_tolerance), changedBeyond(back, after, layout.width, box, backdrop_tolerance) });
+        try testing.expect(changedBeyond(before, after, layout.width, box, backdrop_tolerance) >= 100);
+        try testing.expectEqual(@as(usize, 0), changedBeyond(back, after, layout.width, box, backdrop_tolerance));
+    }
 }
 
 /// How the main menu sits in the window, from BK_UI_TRACE's line for it.
@@ -234,8 +277,15 @@ const Layout = struct {
 /// reposition before it, as the window may still settle after the first one
 /// (on macbook-air-frank's 1440x900 screen it shrank from 799 to 797 rows).
 fn menuLayout(log: []const u8) !Layout {
-    const prefix = "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen ";
-    const first_shot = std.mem.indexOf(u8, log, " action shot") orelse return error.GameLineMissing;
+    return screenLayout(log, "ui\\mainmenu");
+}
+
+/// The layout of `screen` when it was first shot: the last reposition of it
+/// before the first shot taken after it was laid out.
+fn screenLayout(log: []const u8, comptime screen: []const u8) !Layout {
+    const prefix = "BK_UI_TRACE: reposition \"" ++ screen ++ "\" screen ";
+    const laid_out = std.mem.indexOf(u8, log, prefix) orelse return error.GameLineMissing;
+    const first_shot = (std.mem.indexOfPos(u8, log, laid_out, " action shot") orelse return error.GameLineMissing);
     const start = (std.mem.lastIndexOf(u8, log[0..first_shot], prefix) orelse return error.GameLineMissing) + prefix.len;
     const line = log[start .. std.mem.indexOfScalarPos(u8, log, start, '\n') orelse log.len];
     // "<w>x<h> -> parent <pw>x<ph> at (<x>,<y>) scale <sx>,<sy> ..."
@@ -264,6 +314,25 @@ fn shot(io: std.Io, allocator: std.mem.Allocator, user: []const u8, frame: u32, 
     return bytes;
 }
 
+/// The largest channel difference the menu's animated backdrop makes through
+/// a panel (3 was measured behind the header); glyphs differ by far more.
+const backdrop_tolerance: u8 = 16;
+
+/// The pixels of `rect` whose channels differ by more than `tolerance`.
+fn changedBeyond(a: []const u8, b: []const u8, row: usize, rect: Rect, tolerance: u8) usize {
+    var changed: usize = 0;
+    for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
+        const at = (y * row + x) * 4;
+        for (0..3) |channel| {
+            if (@abs(@as(i16, a[at + channel]) - @as(i16, b[at + channel])) > tolerance) {
+                changed += 1;
+                break;
+            }
+        }
+    };
+    return changed;
+}
+
 fn changedIn(a: []const u8, b: []const u8, row: usize, rect: Rect) usize {
     var changed: usize = 0;
     for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
@@ -279,10 +348,12 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
+    try environ.put("BK_GLYPH_TRACE", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_AUTO_UI", schedule);
     const result = try timed_run.run(allocator, io, .{
@@ -298,6 +369,8 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
+    try measure.expectNoMissingGlyph(log, log_path);
+    try measure.expectNoLeak(log, log_path);
     return log;
 }
 
@@ -336,10 +409,12 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
+    try environ.put("BK_GLYPH_TRACE", "1");
     const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=ELKTest" },
         .cwd = .{ .path = user },
@@ -353,6 +428,8 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
+    try measure.expectNoMissingGlyph(log, log_path);
+    try measure.expectNoLeak(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
     if (!opensFromMod(log, label_key ++ ".txt")) {

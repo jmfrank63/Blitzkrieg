@@ -11,6 +11,7 @@
 #include "Diplomacy.h"
 #include "Building.h"
 #include "StaticObjectsIters.h"
+#include "../Main/Remastered.h"
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 int CAILogic::operator&( IStructureSaver &ss )
@@ -47,15 +48,10 @@ int CAILogic::operator&( IStructureSaver &ss )
 	
 	if ( saver.IsReading() )
 	{
-		// Saves written while a transport's load was flagged unselectable
-		// keep that flag. The player's soldiers inside a transport are
-		// selectable now: put the flag back and let the client hear of it.
-		for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
-		{
-			CSoldier *pSoldier = dynamic_cast<CSoldier*>( *iter );
-			if ( pSoldier && pSoldier->IsInTransport() && !pSoldier->IsSelectable() && pSoldier->GetPlayer() == theDipl.GetMyNumber() )
-				pSoldier->SetSelectable( true );
-		}
+		// A save keeps each soldier's selectable flag, so one written in the
+		// other mode (or by a build from before the Remastered option) has
+		// a transport's load flagged the other way: apply this mode's rule.
+		SyncTransportLoadSelectable();
 		// The client's copy of "can this building be selected" and of whose it
 		// is rides along in the savegame, and it was only ever pushed when a
 		// building filled from empty or emptied completely - so a save written
@@ -71,6 +67,27 @@ int CAILogic::operator&( IStructureSaver &ss )
 		}
 	}
 	return 0;
+}
+// Whether a transport's load can be selected is the one piece of AI state
+// the Remastered option decides (CSoldier::SetInTransport): the original
+// flags every soldier aboard unselectable, Remastered keeps the player's own
+// selectable so the who-is-inside strip can pick them. A save written in the
+// other mode is brought in line when it is read, and a change of the option
+// on the next segment; the client hears of every flag that changes.
+void CAILogic::SyncTransportLoadSelectable()
+{
+	const bool bRemastered = NRemastered::Enabled();
+	nRemasteredApplied = bRemastered ? 1 : 0;
+	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: transport loads follow remastered=%d\n", int( bRemastered ) );
+	for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+	{
+		CSoldier *pSoldier = dynamic_cast<CSoldier*>( *iter );
+		if ( pSoldier == 0 || !pSoldier->IsInTransport() )
+			continue;
+		const bool bSelectable = bRemastered && pSoldier->GetPlayer() == theDipl.GetMyNumber();
+		if ( pSoldier->IsSelectable() != bSelectable )
+			pSoldier->SetSelectable( bSelectable );
+	}
 }
 int CUnitCreation::STankPitInfo::operator&( IDataTree  &ss )
 {

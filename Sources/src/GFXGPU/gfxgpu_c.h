@@ -31,6 +31,9 @@ typedef uint32_t GfxGpuResult;
 /* How the swapchain hands finished frames to the display (GFX.Present.Mode).
    VSYNC is the only mode every window is guaranteed to present, so it is the
    default and the fallback for an unsupported request. */
+/* GfxGpuTextureCreateInfo.format: the game's GFXPF_ values, plus this one outside their range. */
+#define GFXGPU_PIXEL_FORMAT_R8 UINT32_C(33)
+
 #define GFXGPU_PRESENT_MODE_VSYNC     UINT32_C(0)
 #define GFXGPU_PRESENT_MODE_MAILBOX   UINT32_C(1)
 #define GFXGPU_PRESENT_MODE_IMMEDIATE UINT32_C(2)
@@ -127,6 +130,7 @@ typedef struct GfxGpuTemporaryIndexedGeometryInfo {
 typedef struct GfxGpuStateInfo { uint32_t struct_size; uint32_t kind; uint32_t index; uint32_t value; float values[16]; } GfxGpuStateInfo;
 typedef struct GfxGpuTextureCreateInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t mip_count; uint32_t format; uint32_t usage; } GfxGpuTextureCreateInfo;
 typedef struct GfxGpuTextureUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t row_pitch; uint32_t mip_level; } GfxGpuTextureUploadInfo;
+typedef struct GfxGpuTextureRegionUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t row_pitch; uint32_t mip_level; uint32_t x; uint32_t y; uint32_t w; uint32_t h; } GfxGpuTextureRegionUploadInfo;
 typedef struct GfxGpuRenderTargetCreateInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t format; } GfxGpuRenderTargetCreateInfo;
 typedef struct GfxGpuBufferCreateInfo { uint32_t struct_size; uint32_t element_count; uint32_t format; uint32_t stride; uint32_t usage; } GfxGpuBufferCreateInfo;
 typedef struct GfxGpuBufferUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t byte_offset; } GfxGpuBufferUploadInfo;
@@ -205,6 +209,11 @@ typedef struct GfxGpuApi {
     /* Appended: nonzero captures the next presented frame for
        gfxgpu_readback_frame. Refused inside a frame. */
     GfxGpuResult (*set_frame_capture)(GfxGpuRenderer *, uint32_t);
+    /* Appended: uploads the w x h rectangle at (x, y) of the texture's base
+       level (mip_level must be 0). row_pitch is in bytes; byte_length has to
+       cover the last row's texels. A rectangle outside the texture returns
+       GFXGPU_INVALID_ARGUMENT and names itself in get_last_error. */
+    GfxGpuResult (*upload_texture_region)(GfxGpuRenderer *, GfxGpuHandle, const GfxGpuTextureRegionUploadInfo *);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

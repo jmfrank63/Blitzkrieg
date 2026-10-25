@@ -36,6 +36,10 @@ class CAILogic : public IAILogic
 
 	bool bSegment;
 	bool bNetGameStarted;
+	// The Remastered mode the transport loads were last flagged for (0 or 1,
+	// -1 for not yet); not saved, so a load re-applies it.
+	int nRemasteredApplied;
+	void SyncTransportLoadSelectable();
 	
 	typedef std::unordered_set<CGDBPtr<SMechUnitRPGStats>, SDefaultPtrHash> CAvailTrucks;
 	CAvailTrucks availableTrucks;

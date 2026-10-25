@@ -17,6 +17,7 @@
 #include "StdAfx.h"
 
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -39,10 +40,32 @@ namespace fs = std::filesystem;
 
 static int g_nFailures = 0;
 
+// What the test measured on the way is context for a failure, not news on a
+// pass: it waits here and prints just before the next FAIL line, or at the
+// end of a failing run.
+static std::string g_szNotes;
+
+static void Note( const char *pszFormat, ... )
+{
+	char szLine[4096];
+	va_list args;
+	va_start( args, pszFormat );
+	vsnprintf( szLine, sizeof( szLine ), pszFormat, args );
+	va_end( args );
+	g_szNotes += szLine;
+}
+
+static void FlushNotes()
+{
+	fputs( g_szNotes.c_str(), stdout );
+	g_szNotes.clear();
+}
+
 static bool Check( bool bCondition, const std::string &szWhat )
 {
 	if ( !bCondition )
 	{
+		FlushNotes();
 		printf( "FAIL: %s\n", szWhat.c_str() );
 		++g_nFailures;
 	}
@@ -221,7 +244,7 @@ static void CheckKerning( const std::string &szWhat, const FontAtlas::SFontAtlas
 	Check( nWrong == 0 && int( atlas.format.kerns.size() ) == nSource,
 		szWhat + ": kerning matches the face (" + std::to_string( nSource ) + " pairs in the face, " +
 		std::to_string( atlas.format.kerns.size() ) + " in the atlas, " + std::to_string( nWrong ) + " differ)" );
-	printf( "bk-font-test: %s: %d kerning pairs\n", szWhat.c_str(), nSource );
+	Note( "bk-font-test: %s: %d kerning pairs\n", szWhat.c_str(), nSource );
 }
 
 static bool BuildFont( const std::vector<BYTE> &font, int nHeight, int nCodePage, FontAtlas::SFontAtlas *pAtlas,
@@ -329,7 +352,7 @@ static void TestEngineReadsWhatBkFontWrote( const std::vector<BYTE> &font, const
 				std::vector<DWORD>( pLFB, pLFB + size_t( nSizeX ) * nSizeY ) == expected.image.pixels, "1_h.dds holds the built atlas" );
 		}
 	}
-	printf( "bk-font-test: bk-font output: face \"%s\", %d characters, %dx%d, height %d, ascent %d, space %g\n",
+	Note( "bk-font-test: bk-font output: face \"%s\", %d characters, %dx%d, height %d, ascent %d, space %g\n",
 		format.szFaceName.c_str(), int( format.chars.size() ), nSizeX, nSizeY, format.metrics.nHeight, format.metrics.nAscent, format.metrics.fSpaceWidth );
 }
 
@@ -438,7 +461,7 @@ static void TestShippedFontsPassTheChecker()
 		if ( !ReadFontDirectory( dir, &format, 0, 0, 0 ) )
 			continue;
 		const int nCodePage = format.metrics.cCharSet == 204 ? 1251 : format.metrics.cCharSet == 238 ? 1250 : 1252;
-		printf( "bk-font-test: shipped %s: face \"%s\", %d characters, %dx%d, height %d, charset %d, default U+%04X, %d kerning pairs\n",
+		Note( "bk-font-test: shipped %s: face \"%s\", %d characters, %dx%d, height %d, charset %d, default U+%04X, %d kerning pairs\n",
 			sizes[i], format.szFaceName.c_str(), int( format.chars.size() ), nSizeX, nSizeY, format.metrics.nHeight,
 			int( format.metrics.cCharSet ), format.metrics.wDefaultChar, int( format.kerns.size() ) );
 		CheckStructure( std::string( "shipped " ) + sizes[i], format, nSizeX, nSizeY, 0, nCodePage );
@@ -490,7 +513,7 @@ static void TestCyrillic( const fs::path &dir )
 		nBlank += !CellHasInk( format, c, nSizeX, nSizeY, pixels );
 	Check( nBlank == 0, "cyrillic: every U+0410..U+044F reads back with ink (" + std::to_string( nBlank ) + " blank)" );
 	Check( format.metrics.wDefaultChar == '?', "cyrillic: the default character is '?'" );
-	printf( "bk-font-test: cyrillic: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
+	Note( "bk-font-test: cyrillic: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
 }
 
 // --chars of 30 Han characters from NotoSansSC.
@@ -517,7 +540,7 @@ static void TestHan( const fs::path &dir )
 	CheckStructure( "han", format, nSizeX, nSizeY, &pixels, 1252, &codes );
 	Check( nBlank == 0, "han: every character reads back with ink (" + std::to_string( nBlank ) + " blank)" );
 	Check( nSizeX <= 4096 && nSizeY <= 4096, "han: the atlas fits" );
-	printf( "bk-font-test: han: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
+	Note( "bk-font-test: han: %d characters, %dx%d\n", int( format.chars.size() ), nSizeX, nSizeY );
 }
 
 // The cluster glyph drawn again straight from stb at the shaper's glyph ids
@@ -711,7 +734,7 @@ static void TestHindi( const fs::path &dir, const std::vector<BYTE> &font, int n
 			}
 			putchar( '\n' );
 		}
-	printf( "bk-font-test: hindi: %d px word, headline row %d with %d inked columns, widest gap %d px\n", nWordWidth, nRow, nInked, nGap );
+	Note( "bk-font-test: hindi: %d px word, headline row %d with %d inked columns, widest gap %d px\n", nWordWidth, nRow, nInked, nGap );
 	Check( nInked >= nWordWidth * 3 / 4, "hindi: the word has a headline (" + std::to_string( nInked ) + " inked columns of " + std::to_string( nWordWidth ) + ")" );
 	Check( nGap <= 1, "hindi: the headline of cells at their advances has no gap wider than 1 px (" + std::to_string( nGap ) + ") - D058 fallback trigger" );
 
@@ -779,7 +802,7 @@ static void TestHindiSizes( const std::vector<BYTE> &font )
 		}
 		int nRow = 0, nInked = 0;
 		const int nGap = HeadlineGap( word, nWidth, heights[h], &nRow, &nInked );
-		printf( "bk-font-test: hindi %dpx: %d px word, headline row %d, widest gap %d px\n", heights[h], nPen, nRow, nGap );
+		Note( "bk-font-test: hindi %dpx: %d px word, headline row %d, widest gap %d px\n", heights[h], nPen, nRow, nGap );
 		Check( nGap <= 1, "hindi " + std::to_string( heights[h] ) + "px: the headline has no gap wider than 1 px (" + std::to_string( nGap ) + ") - D058 fallback trigger" );
 	}
 }
@@ -808,6 +831,103 @@ static void TestTooLarge( const std::vector<BYTE> &font )
 		Check( atlas.nSkipped == 1 && atlas.format.chars.size() == 1, "NotoSans has no Han glyph: skipped, not boxed" );
 }
 
+// --fallback-ttf: the Devanagari face has no Latin letter, so 'A' comes from Noto Sans, drawn with ink
+// and counted; without the fallback it is skipped. KA stays the Devanagari face's own.
+static void TestFallback( const std::vector<BYTE> &devanagari, const std::vector<BYTE> &latin )
+{
+	FontAtlas::SFontRequest request;
+	request.pFontData = &devanagari[0];
+	request.nFontDataSize = int( devanagari.size() );
+	request.nHeight = 20;
+	request.codePoints.push_back( 'A' );
+	request.codePoints.push_back( 0x0915 );
+	FontAtlas::SFontAtlas alone;
+	std::string szError;
+	if ( Check( FontAtlas::Build( request, &alone, &szError ), "the Devanagari face alone builds: " + szError ) )
+		Check( alone.nSkipped == 1 && alone.format.chars.count( 'A' ) == 0, "without a fallback the Devanagari face skips 'A'" );
+	request.pFallbackData = &latin[0];
+	request.nFallbackDataSize = int( latin.size() );
+	FontAtlas::SFontAtlas merged;
+	if ( !Check( FontAtlas::Build( request, &merged, &szError ), "the Devanagari face with the Noto Sans fallback builds: " + szError ) )
+		return;
+	Check( merged.nSkipped == 0 && merged.nFallback == 1, "the fallback draws 'A' and only 'A'" );
+	Check( CellHasInk( merged.format, 'A', merged.image.nSizeX, merged.image.nSizeY, merged.image.pixels ), "the fallback's 'A' has ink" );
+	Check( CellHasInk( merged.format, 0x0915, merged.image.nSizeX, merged.image.nSizeY, merged.image.pixels ), "KA has ink" );
+	const std::vector<BYTE> broken( 64, 0 );
+	request.pFallbackData = &broken[0];
+	request.nFallbackDataSize = int( broken.size() );
+	Check( !FontAtlas::Build( request, &merged, &szError ) && szError.find( "fallback" ) != std::string::npos, "a fallback that is not a font is refused: " + szError );
+}
+
+// --base: the shipped medium font plus e acute from Liberation Serif. Every shipped character keeps its
+// widths and its cell's pixels, the metrics, default character and kerning stay, and the e acute is added
+// with ink, standing on the shipped baseline.
+static void TestAddToBase( const std::vector<BYTE> &face )
+{
+	SFontFormat base;
+	int nBaseX = 0, nBaseY = 0;
+	std::vector<DWORD> basePixels;
+	{
+		CPtr<IDataStorage> pStorage = OpenStorage( "Data/Fonts/medium/", STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+		CPtr<IDataStream> pFormat = pStorage != 0 ? pStorage->OpenStream( "1.tfd", STREAM_ACCESS_READ ) : 0;
+		if ( !Check( pFormat != 0, "the shipped medium 1.tfd opens" ) )
+			return;
+		{
+			CPtr<IStructureSaver> pSaver = CreateStructureSaver( pFormat, IStructureSaver::READ );
+			CSaverAccessor saver = pSaver;
+			saver.Add( 1, &base );
+		}
+		CPtr<IDataStream> pStream = pStorage->OpenStream( "1_h.dds", STREAM_ACCESS_READ );
+		CPtr<IDDSImage> pDDS = pStream != 0 ? GetImageProcessor()->LoadDDSImage( pStream ) : 0;
+		CPtr<IImage> pImage = pDDS != 0 ? GetImageProcessor()->Decompress( pDDS ) : 0;
+		if ( !Check( pImage != 0, "the shipped medium 1_h.dds loads" ) )
+			return;
+		nBaseX = pImage->GetSizeX();
+		nBaseY = pImage->GetSizeY();
+		const DWORD *pLFB = reinterpret_cast<const DWORD*>( pImage->GetLFB() );
+		basePixels.assign( pLFB, pLFB + size_t( nBaseX ) * nBaseY );
+	}
+	Check( base.chars.count( 0x00E9 ) == 0, "the shipped medium font has no e acute" );
+	FontAtlas::SFontRequest request;
+	request.pFontData = &face[0];
+	request.nFontDataSize = int( face.size() );
+	request.nHeight = base.metrics.nHeight;
+	request.codePoints.push_back( 0x00E9 );
+	FontAtlas::SFontAtlas added, merged;
+	std::string szError;
+	if ( !Check( FontAtlas::Build( request, &added, &szError ), "e acute builds: " + szError ) )
+		return;
+	if ( !Check( FontAtlas::AddToBase( base, nBaseX, nBaseY, basePixels, added, &merged, &szError ), "AddToBase merges: " + szError ) )
+		return;
+	Check( merged.format.chars.size() == base.chars.size() + 1, "the merged font holds the shipped characters and e acute" );
+	Check( merged.format.metrics.nHeight == base.metrics.nHeight && merged.format.metrics.nAscent == base.metrics.nAscent &&
+		merged.format.metrics.wDefaultChar == base.metrics.wDefaultChar && merged.format.metrics.fSpaceWidth == base.metrics.fSpaceWidth &&
+		merged.format.kerns.size() >= base.kerns.size(), "the shipped metrics, default character and kerning stay" );
+	int nChanged = 0;
+	for ( SFontFormat::CCharacterMap::const_iterator it = base.chars.begin(); it != base.chars.end(); ++it )
+	{
+		const SFontFormat::SCharDesc &was = it->second, &now = merged.format.chars[it->first];
+		const SCell a = CellOf( it->first, was, nBaseX, nBaseY ), b = CellOf( it->first, now, merged.image.nSizeX, merged.image.nSizeY );
+		bool bSame = was.fA == now.fA && was.fB == now.fB && was.fC == now.fC && was.fWidth == now.fWidth &&
+			int( a.fRight - a.fLeft + 0.5f ) == int( b.fRight - b.fLeft + 0.5f ) && int( a.fBottom - a.fTop + 0.5f ) == int( b.fBottom - b.fTop + 0.5f );
+		for ( int y = int( a.fTop + 0.5f ); bSame && y < int( a.fBottom + 0.5f ); ++y )
+			for ( int x = int( a.fLeft + 0.5f ); x < int( a.fRight + 0.5f ); ++x )
+			{
+				const int bx = x - int( a.fLeft + 0.5f ) + int( b.fLeft + 0.5f ), by = y - int( a.fTop + 0.5f ) + int( b.fTop + 0.5f );
+				if ( basePixels[size_t( y ) * nBaseX + x] != merged.image.pixels[size_t( by ) * merged.image.nSizeX + bx] ) { bSame = false; break; }
+			}
+		nChanged += bSame ? 0 : 1;
+	}
+	Check( nChanged == 0, "every shipped character keeps its widths and its cell's pixels (" + std::to_string( nChanged ) + " changed)" );
+	Check( CellHasInk( merged.format, 0x00E9, merged.image.nSizeX, merged.image.nSizeY, merged.image.pixels ), "the added e acute has ink" );
+	const SFontFormat::SCharDesc &acute = merged.format.chars[0x00E9];
+	Check( acute.y1 * merged.image.nSizeY - 0.5f >= nBaseY - 0.01f, "the added e acute sits below the shipped atlas" );
+	SFontFormat other = base;
+	other.metrics.nHeight += 1;
+	Check( !FontAtlas::AddToBase( other, nBaseX, nBaseY, basePixels, added, &merged, &szError ) && szError.find( "high" ) != std::string::npos,
+		"characters of another height are refused: " + szError );
+}
+
 int main( int argc, char **argv )
 {
 	if ( argc < 4 )
@@ -834,6 +954,8 @@ int main( int argc, char **argv )
 		TestHindi( root / "hindi", VendorFont( "NotoSansDevanagari-Regular.ttf" ), 24 );
 		TestHindiSizes( VendorFont( "NotoSansDevanagari-Regular.ttf" ) );
 		TestTooLarge( VendorFont( "NotoSans-Regular.ttf" ) );
+		TestFallback( VendorFont( "NotoSansDevanagari-Regular.ttf" ), VendorFont( "NotoSans-Regular.ttf" ) );
+		TestAddToBase( VendorFont( "LiberationSerif-Regular.ttf" ) );
 	}
 	else
 		Check( false, "BK_FONT_TEST_UNICODE names the folder of the language-mod fonts" );
@@ -847,6 +969,10 @@ int main( int argc, char **argv )
 		CheckKerning( argv[i], atlas, extra, 16, 1252 );
 	}
 	NDataOnly::Stop();
-	printf( g_nFailures == 0 ? "bk-font-test: PASS\n" : "bk-font-test: FAIL (%d)\n", g_nFailures );
+	if ( g_nFailures != 0 )
+	{
+		FlushNotes();
+		printf( "bk-font-test: FAIL (%d)\n", g_nFailures );
+	}
 	return g_nFailures == 0 ? 0 : 1;
 }

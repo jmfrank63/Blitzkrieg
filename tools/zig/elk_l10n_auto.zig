@@ -93,6 +93,7 @@ fn runElk(allocator: std.mem.Allocator, setup: Setup, name: []const u8, code: []
     try cwd.writeFile(setup.io, .{ .sub_path = config, .data = try std.fmt.allocPrint(allocator, "ui_language={s}\r\n", .{code}) });
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", try std.fs.path.join(allocator, &.{ folder, "xdg" }));
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ folder, "xdg", "profiles" }));
     try environ.put("BK_ELK_SETTINGS", config);
     if (table_dir) |dir| try environ.put("BK_L10N_DIR", dir);
     const result = try common.timed_run.run(allocator, setup.io, .{

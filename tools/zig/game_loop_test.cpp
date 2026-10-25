@@ -49,6 +49,5 @@ int main()
 		trace += policy.Next().render ? 'R' : 's';
 	}
 	CHECK( trace == "RsRsRsRsRsRs" );
-	std::puts( "game loop policy passed: focus/minimize/resize/quit pacing and 3 restart traces" );
 	return 0;
 }

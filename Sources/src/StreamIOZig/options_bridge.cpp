@@ -1,4 +1,5 @@
 #include "../Platform/LegacyVariant.h"
+#include "../Platform/LegacyText.h"
 #include "../Platform/Paths.h"
 #include "../PlatformABI/PlatformClient.h"
 
@@ -173,19 +174,26 @@ static bool AssignVariant(variant_t *out, unsigned short type, const char *text)
         case VT_R4: *out = variant_t(static_cast<float>(std::strtod(text, nullptr))); break;
         case VT_R8: *out = variant_t(std::strtod(text, nullptr)); break;
         case VT_BOOL: *out = variant_t(std::strtol(text, nullptr, 10) != 0); break;
-        case VT_BSTR: default: *out = variant_t(text); break;
+        case VT_BSTR: default: {
+            // The store keeps text in UTF-8; the engine reads a BSTR as UTF-16 units. variant_t's own
+            // char constructor goes through the ANSI code page (Windows) or byte by byte (elsewhere).
+            std::wstring wide;
+            NPlatform::Utf16FromUtf8(&wide, text);
+            *out = variant_t(wide.c_str());
+            break;
+        }
     }
     return true;
 }
 static std::string VariantText(const variant_t &value) {
     char buffer[96] = {};
     switch (value.vt) {
-        case VT_BSTR:
-#if defined(_WIN32) || defined(_WIN64)
-            return value.bstrVal ? std::string(_bstr_t(value.bstrVal)) : std::string();
-#else
-            return value.bstrVal ? std::string(bstr_t(value.bstrVal)) : std::string();
-#endif
+        case VT_BSTR: {
+            if (!value.bstrVal) return std::string();
+            std::string utf8;
+            NPlatform::Utf8FromUtf16(&utf8, std::wstring(value.bstrVal));
+            return utf8;
+        }
         case VT_UI1: std::snprintf(buffer, sizeof(buffer), "%u", unsigned(value.bVal)); break;
         case VT_I2: std::snprintf(buffer, sizeof(buffer), "%d", int(value.iVal)); break;
         case VT_I4: std::snprintf(buffer, sizeof(buffer), "%ld", static_cast<long>(value.lVal)); break;
@@ -413,6 +421,7 @@ public:
         else if (fill && std::strcmp(fill, "GetVideoModes") == 0) FillVideoModes(&drops_);
         else if (fill && std::strcmp(fill, "GetMonitors") == 0) FillMonitors(&drops_);
         else if (fill && std::strcmp(fill, "GetTextureQuality") == 0) { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; values[3] = "Ultra"; count = 4; }
+        else if (fill && std::strcmp(fill, "GetPresentMode") == 0) { values[0] = "VSync"; values[1] = "Mailbox"; values[2] = "Immediate"; count = 3; }
         else if (fill && std::strcmp(fill, "GetCloudProvider") == 0) {
             // The settings screen supplies the real list (Off plus the
             // catalogue's destinations) through COptionsListWrapper's

@@ -209,6 +209,42 @@ CUnitTurret::CUnitTurret( CAIUnit *_pOwner, const int _nModelPart, const DWORD _
 	pOwner( _pOwner ), nModelPart( _nModelPart ), dwGunCarriageParts( _dwGunCarriageParts ),
 	wHorConstraint( _wHorConstraint ), wVerConstraint( _wVerConstraint ), bCanRotateTurret( true )
 {
+	Register();
+}
+// Every unit turret alive. A plain pointer, made with the first turret and freed with the last, so
+// it neither runs a destructor at module unload nor holds a block at the leak report.
+static std::set<CUnitTurret*> *pUnitTurrets = 0;
+void CUnitTurret::Register()
+{
+	if ( pUnitTurrets == 0 )
+		pUnitTurrets = new std::set<CUnitTurret*>;
+	pUnitTurrets->insert( this );
+}
+CUnitTurret::~CUnitTurret()
+{
+	if ( pUnitTurrets == 0 )
+		return;
+	pUnitTurrets->erase( this );
+	if ( pUnitTurrets->empty() )
+	{
+		delete pUnitTurrets;
+		pUnitTurrets = 0;
+	}
+}
+void CUnitTurret::DetachAllOwners()
+{
+	if ( pUnitTurrets == 0 )
+		return;
+	// The owners are held here while every turret lets go, and released after: a wreck only its
+	// turrets held is destroyed then, its turrets with it, outside any turret's own member function.
+	std::vector< CPtr<CAIUnit> > owners;
+	owners.reserve( pUnitTurrets->size() );
+	for ( std::set<CUnitTurret*>::iterator it = pUnitTurrets->begin(); it != pUnitTurrets->end(); ++it )
+	{
+		owners.push_back( (*it)->pOwner );
+		(*it)->DetachOwner();
+	}
+	owners.clear();
 }
 WORD CUnitTurret::GetHorTurnConstraint() const 
 { 

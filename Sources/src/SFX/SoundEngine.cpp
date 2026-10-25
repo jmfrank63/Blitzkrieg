@@ -8,6 +8,7 @@
 #include "../Formats/fmtTerrain.h"
 #include "../Misc/Win32Helper.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Platform/Debug.h"
 static NWin32Helper::CCriticalSection critSection;
 
@@ -209,7 +210,7 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 				// expect ~44.1 frames/ms; flag anything under 60% of realtime
 				if ( nDeltaMs < 5000 && nDeltaFrames >= 0 && nDeltaFrames * 10 < nDeltaMs * 441 * 6 / 10 )
 				{
-					FILE *pFile = fopen( "sfx_trace.log", "ab" );
+					FILE *pFile = NPlatform::Paths::OpenTraceLog( "sfx_trace.log" );
 					if ( pFile )
 					{
 						fprintf( pFile, "%u [cursor] stall: dt=%ldms frames=%ld (expected ~%ld)\n", tNow, nDeltaMs, nDeltaFrames, nDeltaMs * 44 );

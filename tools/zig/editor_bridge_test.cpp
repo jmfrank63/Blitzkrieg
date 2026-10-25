@@ -7,8 +7,14 @@
 // with exit 1. A tier that cannot tell a skip from a failure is worse than no
 // tier: the map file tier once swept zero maps and reported success.
 #include "StdAfx.h"
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if defined(_WIN32) || defined(_WIN64)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include <SDL3/SDL.h>
 #include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 #include <chrono>
@@ -6190,7 +6196,8 @@ static void TestObjectPictures( BkEditorSession *pSession, const std::string &sz
 }
 
 // D-26: BkEditorMods lists the fixture mod (tools/zig/fixtures/editor_mod,
-// staged at <install>/mods/EditorTestMod for this tier only - never the
+// staged in the scratch mods folder BK_MODS_ROOT names for this tier only,
+// never in the install's mods, which are the player's - never the
 // unlicensed AchtungPanzer2); BkEditorSetMod switches to it and back,
 // closing the open map each time (its object database is about to change
 // under it); a bad or unknown folder is refused and changes nothing.
@@ -11810,8 +11817,42 @@ static bool ShardRange( const SBridgeTest *pTests, int nTests, int nShard, int *
 	return true;
 }
 
+// BK_PROFILES_ROOT moves the profiles folder: tests set it so a Game run against
+// an install never writes its profiles, saves or active.cfg into that install.
+static void CheckProfilesRoot()
+{
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_PROFILES_ROOT", "" );
+#else
+	unsetenv( "BK_PROFILES_ROOT" );
+#endif
+	Check( NProfile::Dir() == NPlatform::Paths::BaseRoot() + "profiles", "without BK_PROFILES_ROOT the profiles folder is the install's profiles, whatever the working directory" );
+	Check( NProfile::PrefixFor( "G\\", "Probe" ) == "G\\profiles\\Probe\\", "without BK_PROFILES_ROOT a profile sits under the base" );
+	Check( NProfile::PrefixFor( "G\\", "" ) == "G\\", "no profile keeps the base" );
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_PROFILES_ROOT", "/scratch/profiles/" );
+#else
+	setenv( "BK_PROFILES_ROOT", "/scratch/profiles/", 1 );
+#endif
+	Check( NProfile::Dir() == ( std::string( "/scratch/profiles" ) ), "BK_PROFILES_ROOT names the profiles folder without a trailing separator" );
+	Check( NProfile::PrefixFor( "G\\", "Probe" ) == "/scratch/profiles\\Probe\\", "with BK_PROFILES_ROOT a profile sits under the root, not the base" );
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_PROFILES_ROOT", "" );
+#else
+	unsetenv( "BK_PROFILES_ROOT" );
+#endif
+}
+
 int main( int argc, char **argv )
 {
+	// Everything this test reports goes to stderr: the build shows a failing run's stderr and keeps
+	// a passing one's to itself, while a captured stdout would be lost with the failure.
+	std::fflush( stdout );
+#if defined(_WIN32) || defined(_WIN64)
+	_dup2( _fileno( stderr ), _fileno( stdout ) );
+#else
+	dup2( fileno( stderr ), fileno( stdout ) );
+#endif
 	// A failed assert in a Windows debug build prints to stderr and then calls
 	// abort(), which the debug CRT reports as a "Debug Error!" message box. On a
 	// CI runner nobody clicks it: run 35683754678 sat behind one for three and a
@@ -11830,6 +11871,7 @@ int main( int argc, char **argv )
 	// ("adding game type 100") while it was minutes further on. MSVC has no
 	// line buffering: _IOLBF is full buffering there.
 	setvbuf( stdout, 0, _IONBF, 0 );
+	CheckProfilesRoot();
 
 	// A real hidden window, never a null handle: passing 0 would take the
 	// no-device path on every machine and the tier would skip itself into

@@ -186,5 +186,5 @@ test "every tracked text without a trailing run encodes back to its own bytes" {
         }
     }
     try testing.expect(checked > 11_000);
-    try testing.expectEqual(@as(usize, 1_365), with_run);
+    try testing.expectEqual(@as(usize, 1_366), with_run);
 }

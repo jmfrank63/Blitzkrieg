@@ -11,6 +11,7 @@
 //! every draw call the visible window does.
 const std = @import("std");
 const sdl3 = @import("sdl3");
+pub const app_identity = @import("app_identity.zig");
 const imgui = @import("editor_imgui");
 const tga = @import("capture.zig");
 
@@ -21,6 +22,8 @@ pub const Error = error{ SdlInitFailed, WindowFailed, NoDevice, ImguiFailed, Fra
 
 pub const Options = struct {
     title: [*:0]const u8,
+    /// The desktop identity (kit/app_identity.zig), as in host.zig.
+    app_id: [*:0]const u8 = app_identity.elk,
     width: c_int = 1280,
     height: c_int = 800,
     hidden: bool = false,
@@ -48,6 +51,7 @@ pub const Window = struct {
     /// On failure, `failureReason()` says why.
     pub fn start(options: Options) Error!Window {
         failure_len = 0;
+        app_identity.setMetadata(options.title, options.app_id);
         if (!c.SDL_Init(c.SDL_INIT_VIDEO)) return failWith(error.SdlInitFailed, sdlError());
         errdefer c.SDL_Quit();
         var flags: c.SDL_WindowFlags = c.SDL_WINDOW_RESIZABLE;
@@ -57,6 +61,7 @@ pub const Window = struct {
         const window = c.SDL_CreateWindow(options.title, options.width, options.height, flags) orelse
             return failWith(error.WindowFailed, sdlError());
         errdefer c.SDL_DestroyWindow(window);
+        app_identity.setWindowIcon(window, null);
 
         // Every shader format the vendored ImGui SDL_GPU backend carries.
         const formats = c.SDL_GPU_SHADERFORMAT_SPIRV | c.SDL_GPU_SHADERFORMAT_DXBC | c.SDL_GPU_SHADERFORMAT_MSL | c.SDL_GPU_SHADERFORMAT_METALLIB;

@@ -35,7 +35,7 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 
 	std::vector<std::string> divisionNames;	// the tabs' divisions, in tab order
 	OptionDropOverrides languageOverride;		// GamePlay.Language: the scanned language list
-	std::string szShownLanguage;						// Text.Language the copied labels were set in
+	std::string szShownLanguage;						// Text.LanguageLoaded the copied labels were set in
 	void SetDivisionTexts( const int nDivision );
 	void SetCaptionTexts();
 

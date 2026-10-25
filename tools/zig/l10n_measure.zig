@@ -167,6 +167,74 @@ pub fn changedPixels(a: []const u8, b: []const u8, stride: usize, rect: Rect, to
     return changed;
 }
 
+/// The Game's BK_GLYPH_TRACE lines (FontGpu::ReportMissingGlyph): a character some drawn text
+/// asked for that its font has no glyph for. The font draws its default character instead, a hollow
+/// box that hasSolidBox does not see, so a run of the Game under BK_GLYPH_TRACE=1 must print none.
+pub fn expectNoMissingGlyph(log: []const u8, log_path: []const u8) !void {
+    const missing = missingGlyphs(log);
+    if (missing == 0) return;
+    var shown: usize = 0;
+    var lines = std.mem.tokenizeAny(u8, log, "\r\n");
+    while (lines.next()) |line| {
+        if (std.mem.indexOf(u8, line, glyph_trace) == null) continue;
+        shown += 1;
+        if (shown <= 20) std.debug.print("{s}\n", .{line});
+    }
+    std.debug.print("{d} characters have no glyph in their font; the Game's output is in {s}\n", .{ missing, log_path });
+    return error.MissingGlyph;
+}
+
+const glyph_trace = "BK_GLYPH_TRACE: no glyph ";
+
+/// How many BK_GLYPH_TRACE lines `log` holds.
+fn missingGlyphs(log: []const u8) usize {
+    var missing: usize = 0;
+    var lines = std.mem.tokenizeAny(u8, log, "\r\n");
+    while (lines.next()) |line| {
+        if (std.mem.indexOf(u8, line, glyph_trace) != null) missing += 1;
+    }
+    return missing;
+}
+
+test "a BK_GLYPH_TRACE line fails the run, other lines do not" {
+    try expectNoMissingGlyph("BK_UI_TRACE: reposition\r\nBK_MOD_TRACE: open \"x\" from MOD\n", "log");
+    try std.testing.expectEqual(@as(usize, 1), missingGlyphs("a\r\nBK_GLYPH_TRACE: no glyph U+00E8 in font \"fonts\\medium\"\r\n"));
+}
+
+/// BkMemory's exit report under BK_MEM_REPORT=count: "bk_mem: N leaked block(s)" counts the blocks of
+/// our own code still live at exit (foreign libraries' blocks are reported on their own lines and never
+/// counted). The Game tiers run with count, which leaves the exit code alone, so the tier reads the line:
+/// a Game that leaks fails it (2026-10-22: the chapter's Lua state, 397 blocks per campaign run, went
+/// unnoticed while every tier stayed green). A log without the line (a backend without leak records)
+/// passes.
+pub fn expectNoLeak(log: []const u8, log_path: []const u8) !void {
+    const leaked = leakedBlocks(log);
+    if (leaked == 0) return;
+    std.debug.print("the Game leaked {d} block(s) of ours at exit; its output is in {s}\n", .{ leaked, log_path });
+    return error.Leaked;
+}
+
+/// The first nonzero "bk_mem: N leaked block(s)" count in `log`, or 0.
+fn leakedBlocks(log: []const u8) usize {
+    const marker = "bk_mem: ";
+    const suffix = " leaked block(s)";
+    var lines = std.mem.tokenizeAny(u8, log, "\r\n");
+    while (lines.next()) |line| {
+        const at = std.mem.indexOf(u8, line, marker) orelse continue;
+        const rest = line[at + marker.len ..];
+        if (!std.mem.endsWith(u8, rest, suffix)) continue;
+        const leaked = std.fmt.parseInt(usize, rest[0 .. rest.len - suffix.len], 10) catch continue;
+        if (leaked != 0) return leaked;
+    }
+    return 0;
+}
+
+test "a leak count above zero fails the run, zero and foreign blocks do not" {
+    try expectNoLeak("warning(BkMemory): bk_mem: 0 leaked block(s)\nwarning(BkMemory): bk_mem: 2669 foreign block(s) from libLLVM.so.21.1\n", "log");
+    try expectNoLeak("no report at all\n", "log");
+    try std.testing.expectEqual(@as(usize, 397), leakedBlocks("warning(BkMemory): bk_mem: 397 leaked block(s)\r\nwarning(BkMemory): bk_mem: of those, 394 from the C ABI\r\n"));
+}
+
 /// Whether the image holds a `w` by `h` window in which at least `min_fill`
 /// (0..1) of the pixels are above `threshold`: the solid box a bitmap font
 /// draws for a code point it has no glyph for. Letter strokes at the sizes of
@@ -508,6 +576,9 @@ pub const HbOptions = struct {
     script: ?[]const u8 = null,
     /// A comma list in hb-view's `--features` syntax.
     features: ?[]const u8 = null,
+    /// hb-view's `--font-extents` (ascent, descent and line gap in pixels): references drawn apart
+    /// with the same extents share a baseline.
+    extents: ?[]const u8 = null,
 };
 
 /// The OpenType features that make a conjunct or a half form, off: the
@@ -535,6 +606,7 @@ pub fn hbView(allocator: std.mem.Allocator, io: std.Io, scratch: []const u8, nam
     });
     if (options.script) |script| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--script={s}", .{script}));
     if (options.features) |features| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--features={s}", .{features}));
+    if (options.extents) |extents| try argv.append(scoped, try std.fmt.allocPrint(scoped, "--font-extents={s}", .{extents}));
     try argv.appendSlice(scoped, &.{ "--", text });
     const result = timed_run.run(allocator, io, .{
         .argv = argv.items,
@@ -555,6 +627,108 @@ pub fn hbView(allocator: std.mem.Allocator, io: std.Io, scratch: []const u8, nam
     const bytes = try std.Io.Dir.cwd().readFileAlloc(io, out, allocator, .limited(16 << 20));
     defer allocator.free(bytes);
     return decodePng(allocator, bytes);
+}
+
+/// A run of rows of a text box that hold ink: one line of text.
+pub const Band = struct { y1: usize, y2: usize };
+
+/// The line bands of a box of wrapped text: rows with ink above `threshold`, where fewer than
+/// `min_gap` empty rows between two runs join them (a line whose glyphs leave one row empty is
+/// still one line).
+pub fn rowBands(allocator: std.mem.Allocator, image: Gray, threshold: u8, min_gap: usize) ![]Band {
+    var list: std.ArrayList(Band) = .empty;
+    var start: ?usize = null;
+    var empty: usize = 0;
+    for (0..image.height + 1) |y| {
+        var inked = false;
+        if (y < image.height) for (0..image.width) |x| {
+            if (image.at(x, y) > threshold) {
+                inked = true;
+                break;
+            }
+        };
+        if (inked) {
+            if (start == null) start = y;
+            empty = 0;
+        } else if (start != null) {
+            empty += 1;
+            if (empty >= min_gap or y == image.height) {
+                try list.append(allocator, .{ .y1 = start.?, .y2 = y + 1 - empty });
+                start = null;
+                empty = 0;
+            }
+        }
+    }
+    return list.toOwnedSlice(allocator);
+}
+
+/// What a frame's wrapped text holds against the lines the game's wrap predicts for it: how many
+/// line bands the ink has, and how well each band matches the hb-view raster of its predicted line.
+pub const LineCheck = struct {
+    predicted: usize,
+    measured: usize,
+    /// One per band when the counts agree, empty when they do not (the bands then pair with no line).
+    correlations: []f64,
+
+    pub const Fault = enum { count_differs, weak_line };
+
+    pub fn minCorrelation(self: LineCheck) f64 {
+        var least: f64 = 1;
+        for (self.correlations) |one| least = @min(least, one);
+        return least;
+    }
+
+    /// The first thing wrong with the text, or null: the band count differs from the prediction
+    /// (a line broke elsewhere, or one more or fewer was drawn), or a band's ink is not its
+    /// predicted line's (below `floor`).
+    pub fn fault(self: LineCheck, floor: f64) ?Fault {
+        if (self.predicted != self.measured) return .count_differs;
+        for (self.correlations) |one| if (one < floor) return .weak_line;
+        return null;
+    }
+};
+
+/// A text box's ink (`region`, ink above `ink_threshold`) against `references`, the hb-view
+/// rasters of the lines the game's wrap predicts, in order. The ink's row bands are the lines; each
+/// band's ink box is correlated with the same-index reference's (smoothed by `blur_radius` for
+/// small text, 0 for none) when the counts agree.
+pub fn lineBands(allocator: std.mem.Allocator, region: Gray, references: []const Gray, ink_threshold: u8, reference_threshold: u8, min_gap: usize, blur_radius: usize) !LineCheck {
+    const bands = try rowBands(allocator, region, ink_threshold, min_gap);
+    defer allocator.free(bands);
+    var found: std.ArrayList(f64) = .empty;
+    errdefer found.deinit(allocator);
+    if (bands.len == references.len) for (bands, references) |band, reference| {
+        const strip = try crop(allocator, region, .{ .x1 = 0, .y1 = band.y1, .x2 = region.width, .y2 = band.y2 });
+        defer allocator.free(strip.pixels);
+        const box = inkBox(strip, ink_threshold) orelse return error.NoInk;
+        const cut = try crop(allocator, strip, box);
+        defer allocator.free(cut.pixels);
+        const match = if (blur_radius == 0) try matchReference(allocator, cut, reference, reference_threshold) else try matchReferenceBlurred(allocator, cut, reference, reference_threshold, blur_radius);
+        try found.append(allocator, match.correlation);
+    };
+    return .{ .predicted = references.len, .measured = bands.len, .correlations = try found.toOwnedSlice(allocator) };
+}
+
+/// A predicted line that breaks the kinsoku rules.
+pub const Kinsoku = struct {
+    line: usize,
+    reason: []const u8,
+};
+
+/// The first line of `lines` (UTF-16) that starts with a character in the no-start set or follows a
+/// line that ends in a no-end one, or null. The sets are the game's (l10n_wrap.zig); they are
+/// passed in so this file stays free of the wrap's module. Leading and trailing spaces of a line
+/// do not count as its first or last character.
+pub fn kinsokuViolation(lines: []const []const u16, no_start: *const fn (u16) bool, no_end: *const fn (u16) bool) ?Kinsoku {
+    var previous_last: ?u16 = null;
+    for (lines, 0..) |line, at| {
+        const text = std.mem.trim(u16, line, &[_]u16{ ' ', '\r', '\n', 0 });
+        if (text.len == 0) continue;
+        if (at != 0 and no_start(text[0])) return .{ .line = at, .reason = "starts with a character that must not start a line" };
+        if (previous_last) |last| if (no_end(last)) return .{ .line = at - 1, .reason = "ends with a character that must not end a line" };
+        previous_last = text[text.len - 1];
+    }
+    return null;
 }
 
 // ----------------------------------------------------------------------------
@@ -742,7 +916,7 @@ test "hb-view draws the Simplified and Japanese forms of 直骨角化 differentl
     const sc_box = try crop(allocator, sc, inkBox(sc, 64).?);
     const same = try matchReference(allocator, sc_box, sc, 64);
     const other = try matchReference(allocator, sc_box, jp, 64);
-    std.debug.print("Han 直骨角化: SC against itself {d:.4}, against JP {d:.4}\n", .{ same.correlation, other.correlation });
+    errdefer std.debug.print("Han 直骨角化: SC against itself {d:.4}, against JP {d:.4}\n", .{ same.correlation, other.correlation });
     try testing.expect(same.correlation > 0.999);
     try testing.expect(other.correlation < same.correlation - 0.02);
 }
@@ -757,8 +931,10 @@ test "the halant spelling of त्र is wider than the conjunct and the matra 
     const apart = try hbView(allocator, testing.io, scratch_dir, "hi-tra-halant", "मित्रों", .{ .font = face, .language = "hi", .script = "Deva", .features = halant_spelling });
     const joined_box = inkBox(joined, 64).?;
     const apart_box = inkBox(apart, 64).?;
-    std.debug.print("मित्रों: conjunct {d} px wide, halant spelling {d}\n", .{ joined_box.width(), apart_box.width() });
-    try testing.expect(apart_box.width() > joined_box.width());
+    {
+        errdefer std.debug.print("मित्रों: conjunct {d} px wide, halant spelling {d}\n", .{ joined_box.width(), apart_box.width() });
+        try testing.expect(apart_box.width() > joined_box.width());
+    }
     // कि: the matra's bar is in the first third of the cluster, so that third of
     // the raster is like itself and not like the last third.
     const ki = try hbView(allocator, testing.io, scratch_dir, "hi-ki", "कि", .{ .font = face, .language = "hi", .script = "Deva" });
@@ -768,7 +944,7 @@ test "the halant spelling of त्र is wider than the conjunct and the matra 
     const last = window(whole, 0.7, 1);
     const same = try correlationIn(allocator, cut, cut, first, first);
     const swapped = try correlationIn(allocator, cut, cut, first, last);
-    std.debug.print("कि: first third against itself {d:.2}, against the last third {d:.2}\n", .{ same, swapped });
+    errdefer std.debug.print("कि: first third against itself {d:.2}, against the last third {d:.2}\n", .{ same, swapped });
     try testing.expect(same > 0.999 and swapped < 0.8);
 }
 
@@ -801,7 +977,7 @@ test "the conjunct columns of मुख्य tell the captured shaped label fro
         const whole = try matchReference(allocator, ink, joined, 64);
         const whole_apart = try matchReference(allocator, ink, apart, 64);
         const c = try conjunctMatch(allocator, ink, mine[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
-        std.debug.print("{s}: whole label {d:.3} against {d:.3}; conjunct columns {d:.3} against {d:.3}\n", .{ name, whole.correlation, whole_apart.correlation, c.shaped, c.spelled });
+        errdefer std.debug.print("{s}: whole label {d:.3} against {d:.3}; conjunct columns {d:.3} against {d:.3}\n", .{ name, whole.correlation, whole_apart.correlation, c.shaped, c.spelled });
         try testing.expect(c.shaped - c.spelled >= conjunct_margin);
     }
 
@@ -810,11 +986,82 @@ test "the conjunct columns of मुख्य tell the captured shaped label fro
     // frame wins.
     const drawn_apart = try resample(allocator, apart_cut, 102, 34);
     const lost = try conjunctMatch(allocator, drawn_apart, (try words(allocator, drawn_apart, 64, 3))[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
-    std.debug.print("halant spelling as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ lost.shaped, lost.spelled });
-    try testing.expect(lost.shaped - lost.spelled < conjunct_margin);
-    try testing.expect(lost.spelled > lost.shaped);
+    {
+        errdefer std.debug.print("halant spelling as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ lost.shaped, lost.spelled });
+        try testing.expect(lost.shaped - lost.spelled < conjunct_margin);
+        try testing.expect(lost.spelled > lost.shaped);
+    }
     const drawn_joined = try resample(allocator, joined_cut, 102, 34);
     const won = try conjunctMatch(allocator, drawn_joined, (try words(allocator, drawn_joined, 64, 3))[0], joined_cut, joined_words[0], apart_cut, apart_words[0], 2 * 255);
-    std.debug.print("shaped reference as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ won.shaped, won.spelled });
+    errdefer std.debug.print("shaped reference as the frame: conjunct columns {d:.3} against {d:.3}\n", .{ won.shaped, won.spelled });
     try testing.expect(won.shaped - won.spelled >= conjunct_margin);
+}
+
+fn fineBars(x: usize, y: usize) u8 {
+    _ = y;
+    return if (x % 4 < 2) 200 else 0;
+}
+
+/// A 64 x 30 box with two lines of ink: `bars` on rows 2 to 10 and `fineBars` on rows 14 to 22 (plus,
+/// when `extra`, a third one on rows 25 to 28).
+fn twoLines(allocator: std.mem.Allocator, extra: bool) !Gray {
+    var image = try synthetic(allocator, 64, 30, zero);
+    for (0..64) |x| {
+        for (2..10) |y| image.pixels[y * 64 + x] = bars(x, y);
+        for (14..22) |y| image.pixels[y * 64 + x] = fineBars(x, y);
+        if (extra) for (25..28) |y| {
+            image.pixels[y * 64 + x] = bars(x, y);
+        };
+    }
+    return image;
+}
+
+fn never(_: u16) bool {
+    return false;
+}
+fn comma(c: u16) bool {
+    return c == 0x3001 or c == 0x30FC;
+}
+fn bracket(c: u16) bool {
+    return c == 0x300C;
+}
+
+test "two ink lines that match their predicted lines pass; a wrong or an extra line fails with a named reason" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const first = try synthetic(allocator, 64, 8, bars);
+    const second = try synthetic(allocator, 64, 8, fineBars);
+    const good = try lineBands(allocator, try twoLines(allocator, false), &.{ first, second }, 24, 64, 2, 0);
+    try testing.expectEqual(@as(usize, 2), good.measured);
+    try testing.expect(good.minCorrelation() > 0.95);
+    try testing.expectEqual(@as(?LineCheck.Fault, null), good.fault(0.5));
+    // Planted: an extra ink row where the prediction has no third line.
+    const extra = try lineBands(allocator, try twoLines(allocator, true), &.{ first, second }, 24, 64, 2, 0);
+    try testing.expectEqual(@as(usize, 3), extra.measured);
+    try testing.expectEqual(@as(?LineCheck.Fault, .count_differs), extra.fault(0.5));
+    // Planted: the lines swapped, so each band meets the other's raster.
+    const swapped = try lineBands(allocator, try twoLines(allocator, false), &.{ second, first }, 24, 64, 2, 0);
+    try testing.expectEqual(@as(?LineCheck.Fault, .weak_line), swapped.fault(0.5));
+    // A one-row gap inside a line does not split it; a wider one does.
+    var split = try twoLines(allocator, false);
+    for (0..64) |x| split.pixels[5 * 64 + x] = 0;
+    try testing.expectEqual(@as(usize, 2), (try rowBands(allocator, split, 24, 2)).len);
+    try testing.expectEqual(@as(usize, 3), (try rowBands(allocator, split, 24, 1)).len);
+}
+
+test "a line broken before 、 or ー, or after 「, is a kinsoku violation; a clean break is not" {
+    const clean = [_][]const u16{ std.unicode.utf8ToUtf16LeStringLiteral("我が軍は"), std.unicode.utf8ToUtf16LeStringLiteral("ドイツ軍から"), std.unicode.utf8ToUtf16LeStringLiteral("") };
+    try testing.expectEqual(@as(?Kinsoku, null), kinsokuViolation(&clean, comma, bracket));
+    const before_comma = [_][]const u16{ std.unicode.utf8ToUtf16LeStringLiteral("我が軍は"), std.unicode.utf8ToUtf16LeStringLiteral("、ドイツ軍") };
+    const found = kinsokuViolation(&before_comma, comma, bracket).?;
+    try testing.expectEqual(@as(usize, 1), found.line);
+    try testing.expect(std.mem.indexOf(u8, found.reason, "must not start") != null);
+    const before_dash = [_][]const u16{ std.unicode.utf8ToUtf16LeStringLiteral("ナルヴィク "), std.unicode.utf8ToUtf16LeStringLiteral("ーの港") };
+    try testing.expectEqual(@as(usize, 1), kinsokuViolation(&before_dash, comma, bracket).?.line);
+    const after_bracket = [_][]const u16{ std.unicode.utf8ToUtf16LeStringLiteral("我が軍は「"), std.unicode.utf8ToUtf16LeStringLiteral("ドイツ軍」") };
+    const opened = kinsokuViolation(&after_bracket, comma, bracket).?;
+    try testing.expectEqual(@as(usize, 0), opened.line);
+    try testing.expect(std.mem.indexOf(u8, opened.reason, "must not end") != null);
+    try testing.expectEqual(@as(?Kinsoku, null), kinsokuViolation(&before_comma, never, never));
 }

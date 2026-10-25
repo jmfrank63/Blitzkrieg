@@ -25,3 +25,12 @@ textes/strings/missiondescriptiontext
 textes/strings/missiontext
 textes/strings/missiontypetext
 textes/strings/scenariomission
+whole-database de
+whole-database fr
+whole-database es
+whole-database pt-BR
+whole-database id
+whole-database ru
+whole-database ja
+whole-database hi
+whole-database zh-Hans

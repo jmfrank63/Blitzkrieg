@@ -2,7 +2,6 @@
 #include "../../Sources/src/PlatformABI/platform_c.h"
 #include "../../Sources/src/GFXGPU/gfxgpu_c.h"
 
-#include <cstdio>
 #include <string>
 
 int main()
@@ -62,6 +61,5 @@ int main()
         trace += 'p';
     }
     if ( trace != "PAMERrapPAMERrapPAMERrap" ) return 9;
-    std::puts( "game bootstrap: SDL window, event/controller services, 3 GfxGpu restart cycles, clean shutdown" );
     return 0;
 }

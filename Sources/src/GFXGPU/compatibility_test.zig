@@ -28,6 +28,7 @@ const rows = [_]MatrixRow{
     .{ .requirement = "shader-pipeline-probes", .legacy_symbol = "effect shader stages", .new_symbol = "gfxgpu_smoke effect probes", .test_name = "25 shader pairs and pipelines", .evidence = .shader },
     .{ .requirement = "buffer-lifecycle", .legacy_symbol = "Create/DestroyVertexBuffer", .new_symbol = "abi.create_buffer/destroy_buffer", .test_name = "ABI resource lifecycle", .evidence = .lifecycle },
     .{ .requirement = "texture-lifecycle", .legacy_symbol = "Create/DestroyTexture", .new_symbol = "abi.create_texture/destroy_texture", .test_name = "ABI resource lifecycle", .evidence = .lifecycle },
+    .{ .requirement = "texture-r8-region", .legacy_symbol = "LockRect partial update", .new_symbol = "abi.upload_texture_region", .test_name = "texture region upload bounds", .evidence = .lifecycle },
     .{ .requirement = "render-target", .legacy_symbol = "SetRenderTarget", .new_symbol = "abi.create_render_target/bind_render_target", .test_name = "ABI state validation", .evidence = .abi },
     .{ .requirement = "screenshot", .legacy_symbol = "TakeScreenShot", .new_symbol = "gfxgpu_readback", .test_name = "ABI readback validation", .evidence = .abi },
     .{ .requirement = "frame-lifecycle", .legacy_symbol = "BeginScene/EndScene/Present", .new_symbol = "abi.begin_frame/end_frame/present", .test_name = "ABI state validation", .evidence = .lifecycle },
@@ -55,4 +56,14 @@ test "all compatibility matrix evidence kinds are populated" {
     var seen: [6]bool = @splat(false);
     for (rows) |row| seen[@intFromEnum(row.evidence)] = true;
     for (seen) |value| try std.testing.expect(value);
+}
+
+test "texture region upload is appended after the shipped table and R8 is a public format" {
+    const Api = gpu.abi.Api;
+    try std.testing.expect(@offsetOf(Api, "upload_texture_region") > @offsetOf(Api, "set_frame_capture"));
+    try std.testing.expectEqual(@sizeOf(Api), @offsetOf(Api, "upload_texture_region") + @sizeOf(*const anyopaque));
+    // Same layout the C header declares: nine 32-bit-aligned fields after the data pointer.
+    try std.testing.expectEqual(@as(usize, 48), @sizeOf(gpu.abi.TextureRegionUploadInfo));
+    try std.testing.expectEqual(@as(usize, 24), @offsetOf(gpu.abi.TextureRegionUploadInfo, "mip_level"));
+    try std.testing.expectEqual(gpu.formats.PixelFormat.r8, try gpu.formats.fromGfxPixelFormat(33));
 }

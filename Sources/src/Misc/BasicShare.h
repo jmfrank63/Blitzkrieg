@@ -2,12 +2,13 @@
 #define __BASICSHARE_H__
 #pragma ONCE
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 // [share-trace] temporary load-speed diagnostics (2026-07-27): one line per
 // share deserialize in load_trace.log (game CWD) — map-read vs resource-load
 // split. Strip when the load-time work is done.
 inline void BkShareSerializeTrace( int nShareID, int nEntries, std::uint32_t dwMapMs, std::uint32_t dwLoadMs, int nLoads, int nSwaps )
 {
-	FILE *pFile = fopen( "load_trace.log", "ab" );
+	FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 	if ( pFile )
 	{
 		fprintf( pFile, "%u [share] id=%d entries=%d mapread_ms=%u load_ms=%u loads=%d swaps=%d\n",

@@ -120,6 +120,11 @@ struct SExportRead
 };
 SExportRead ReadExport( EExportKind kind, const std::string &szFile );
 
+// Whether CompareStats also prints an unknown field on stderr (on by default). A test
+// that plants one on purpose turns it off around that call and checks the message
+// instead, so that its passing run prints nothing.
+void SetUnknownFieldStderr( bool bEnabled );
+
 // Port export against the golden, both stats files of the given kind.
 SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile );
 // A runtime stats file against what BkResImportFromGame then BkResExport

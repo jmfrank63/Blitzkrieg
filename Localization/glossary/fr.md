@@ -4,6 +4,10 @@ Scope: terms of the main menu, the mission briefing, unit types and ranks, so th
 
 Review state: machine seed, needs native review. The menu terms are what the `fr` overlay uses; nothing here has been checked by a native speaker.
 
+Typography (S02 T01): a no-break space (U+00A0) stands before `: ; ! ?` and inside guillemets (`« texte »`); the shipped game fonts have a glyph for it, for U+00AB/U+00BB, U+2019, U+2026 and U+2013, so none of them falls back. The apostrophe is the ASCII `'` everywhere. U+202F and U+2009 are not cp1252 and are never used. Hotkey tokens (`<Esc>`, `<Shift>`, `<Space>`, `<F5>`) stay as the game reads them. Terms used in the T01 overlay but not in a row (the glossary tests keep all nine glossaries at equal row counts): sergeant major = sergent-major, master sergeant = sergent-chef, warrant officer = adjudant, second lieutenant = sous-lieutenant, lieutenant colonel = lieutenant-colonel, lieutenant general = général de corps d'armée, medal = médaille, encyclopedia = encyclopédie, statistics = statistiques.
+
+Historical names (S02 T05): French usage throughout the chapter texts: opération Barbarossa, Stalingrad, Narvik, Tobrouk, Koursk, Dniepr, Dantzig; one spelling "Kharkov" (not Kharkiv) for the city and the chapter headers; operation names that are German or Allied code names stay as they are (Overlord, Crusader, Torch, Diadem, Fall Gelb), "operation" is "opération" and no term exception was needed. Aircraft counts read "N appareils d'aviation" so the glossary term "aviation" is present.
+
 ## Unit types
 
 | English term | Translation | Note |
@@ -21,14 +25,14 @@ Review state: machine seed, needs native review. The menu terms are what the `fr
 
 | English term | Translation | Note |
 |---|---|---|
-| private | soldat de 2e classe |  |
+| private | soldat de 2e classe | no-term-check: also an ordinary English word |
 | corporal | caporal |  |
 | sergeant | sergent |  |
 | lieutenant | lieutenant |  |
 | captain | capitaine |  |
-| major | commandant |  |
+| major | commandant | no-term-check: also an ordinary English word |
 | colonel | colonel |  |
-| general | général |  |
+| general | général | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,7 +46,7 @@ Review state: machine seed, needs native review. The menu terms are what the `fr
 | objectives | Objectifs |  |
 | briefing | Briefing |  |
 | start | Commencer |  |
-| back | Retour |  |
+| back | Retour | no-term-check: also an ordinary English word |
 | options | Options |  |
 | settings | Paramètres |  |
 | load game | Charger une partie |  |

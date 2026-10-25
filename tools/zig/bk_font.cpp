@@ -34,6 +34,7 @@ static std::string UsageText()
 	return std::string( "usage: bk-font --ttf <file|face name> [--height <px>] [--weight <0..1000>] [--italic]\n"
 		"               [--no-aa] [--charset <name>] [--chars <file>] [--set <name>]\n"
 		"               [--clusters <table>] [--script <tag>] [--language <tag>]\n"
+		"               [--fallback-ttf <file>] [--base <dir>]\n"
 		"               [--face-index <n>] [--out <dir>] [--force] [--modules <dir>]\n" )
 		+ "\n" + BK_T( "font.usage.intro" ) + "\n"
 		+ "\n" + BK_T( "font.usage.options" ) + "\n"
@@ -202,6 +203,39 @@ static bool CreateOutput( const fs::path &file, CPtr<IDataStream> *pStream )
 // Every file through the engine, so they are what its readers expect. An
 // empty string on success, the reason otherwise; every engine object made
 // here is released before it returns, ahead of NDataOnly::Stop.
+// The font of a folder as the game reads it: 1.tfd and the lossless atlas
+// 1_h.dds, through the engine's own readers. False with the reason otherwise;
+// every engine object made here is released before it returns.
+static bool ReadBaseFont( const fs::path &dir, SFontFormat *pFormat, int *pSizeX, int *pSizeY, std::vector<DWORD> *pPixels, std::string *pszError )
+{
+	const std::string szDir = dir.generic_string() + "/";
+	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pFormatStream = pStorage != 0 ? pStorage->OpenStream( "1.tfd", STREAM_ACCESS_READ ) : 0;
+	if ( pFormatStream == 0 )
+	{
+		*pszError = "no 1.tfd";
+		return false;
+	}
+	{
+		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pFormatStream, IStructureSaver::READ );
+		CSaverAccessor saver = pSaver;
+		saver.Add( 1, pFormat );
+	}
+	CPtr<IDataStream> pAtlasStream = pStorage->OpenStream( "1_h.dds", STREAM_ACCESS_READ );
+	CPtr<IDDSImage> pDDS = pAtlasStream != 0 ? GetImageProcessor()->LoadDDSImage( pAtlasStream ) : 0;
+	CPtr<IImage> pImage = pDDS != 0 ? GetImageProcessor()->Decompress( pDDS ) : 0;
+	if ( pImage == 0 || pFormat->chars.empty() )
+	{
+		*pszError = pImage == 0 ? "no readable 1_h.dds" : "1.tfd holds no characters";
+		return false;
+	}
+	*pSizeX = pImage->GetSizeX();
+	*pSizeY = pImage->GetSizeY();
+	const DWORD *pLFB = reinterpret_cast<const DWORD*>( pImage->GetLFB() );
+	pPixels->assign( pLFB, pLFB + size_t( *pSizeX ) * *pSizeY );
+	return true;
+}
+
 static std::string WriteFont( FontAtlas::SFontAtlas &atlas, const fs::path &tfd, const fs::path &tga, const fs::path &dds )
 {
 	{
@@ -242,7 +276,7 @@ int main( int argc, char *argv[] )
 			fputs( UsageText().c_str(), stdout );
 			return 0;
 		}
-	std::string szFont, szModules, szOut = ".", szChars, szClusters;
+	std::string szFont, szModules, szOut = ".", szChars, szClusters, szFallback, szBase;
 	std::vector<std::string> sets;
 	FontAtlas::SFontRequest request;
 	bool bForce = false;
@@ -256,6 +290,8 @@ int main( int argc, char *argv[] )
 		else if ( szArg == "--force" ) bForce = true;
 		else if ( !bHasValue ) return Usage();
 		else if ( szArg == "--ttf" ) szFont = argv[++i];
+		else if ( szArg == "--fallback-ttf" ) szFallback = argv[++i];
+		else if ( szArg == "--base" ) szBase = argv[++i];
 		else if ( szArg == "--out" ) szOut = argv[++i];
 		else if ( szArg == "--modules" ) szModules = argv[++i];
 		else if ( szArg == "--height" ) { if ( !ParseInt( argv[++i], &request.nHeight ) ) return Usage(); }
@@ -318,26 +354,71 @@ int main( int argc, char *argv[] )
 	}
 	request.pFontData = &data[0];
 	request.nFontDataSize = int( data.size() );
+	std::vector<BYTE> fallback;
+	if ( !szFallback.empty() )
+	{
+		fs::path fallback_path = NToolHost::InputPath( szFallback );
+		if ( !ReadFile( fallback_path, &fallback ) || fallback.empty() )
+			return Fail( BkFormat( "font.err.cannot_read", { fallback_path.make_preferred().string() } ) );
+		request.pFallbackData = &fallback[0];
+		request.nFallbackDataSize = int( fallback.size() );
+	}
+
+	// The startup reports its own reason on stderr before this one.
+	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
+	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
+		return Fail( BkFormat( "cxx.err.libs", { szModuleRoot } ) );
+	const auto stopAndFail = [&]( const std::string &szReason ) { NDataOnly::Stop(); return Fail( szReason ); };
+
+	// --base: the font of <dir> stays as it is and only the characters it lacks
+	// are built, at its height, to be added to it.
+	SFontFormat base;
+	int nBaseSizeX = 0, nBaseSizeY = 0;
+	std::vector<DWORD> basePixels;
+	if ( !szBase.empty() )
+	{
+		const fs::path base_dir = NToolHost::InputPath( szBase );
+		std::string szReadError;
+		if ( !ReadBaseFont( base_dir, &base, &nBaseSizeX, &nBaseSizeY, &basePixels, &szReadError ) )
+			return stopAndFail( BkFormat( "tool.err.path_reason", { fs::path( base_dir ).make_preferred().string(), szReadError } ) );
+		request.nHeight = base.metrics.nHeight;
+		std::vector<WORD> missing;
+		for ( size_t i = 0; i < request.codePoints.size(); ++i )
+			if ( base.chars.find( request.codePoints[i] ) == base.chars.end() )
+				missing.push_back( request.codePoints[i] );
+		request.codePoints.swap( missing );
+	}
 
 	FontAtlas::SFontAtlas atlas;
 	std::string szError;
-	if ( !FontAtlas::Build( request, &atlas, &szError ) )
-		return Fail( BkFormat( "tool.err.path_reason", { font.make_preferred().string(), szError } ) );
+	if ( !szBase.empty() && request.codePoints.empty() && request.clusters.empty() )
+	{
+		atlas.format = base;
+		atlas.image.nSizeX = nBaseSizeX;
+		atlas.image.nSizeY = nBaseSizeY;
+		atlas.image.pixels = basePixels;
+	}
+	else
+	{
+		FontAtlas::SFontAtlas built;
+		if ( !FontAtlas::Build( request, &built, &szError ) )
+			return stopAndFail( BkFormat( "tool.err.path_reason", { font.make_preferred().string(), szError } ) );
+		if ( szBase.empty() )
+			atlas = built;
+		else if ( !FontAtlas::AddToBase( base, nBaseSizeX, nBaseSizeY, basePixels, built, &atlas, &szError ) )
+			return stopAndFail( BkFormat( "tool.err.path_reason", { NToolHost::InputPath( szBase ).make_preferred().string(), szError } ) );
+	}
 
 	const fs::path out = NToolHost::InputPath( szOut );
 	const fs::path tfd = out / "1.tfd";
 	const fs::path tga = out / "1.tga";
 	const fs::path dds = out / "1_h.dds";
 	if ( !bForce && ( fs::exists( tfd, ec ) || fs::exists( tga, ec ) || fs::exists( dds, ec ) ) )
-		return Fail( BkFormat( "font.err.exists", { fs::path( out ).make_preferred().string() } ) );
+		return stopAndFail( BkFormat( "font.err.exists", { fs::path( out ).make_preferred().string() } ) );
 	fs::create_directories( out, ec );
 	if ( ec )
-		return Fail( BkFormat( "cxx.err.create", { fs::path( out ).make_preferred().string(), ec.message() } ) );
+		return stopAndFail( BkFormat( "cxx.err.create", { fs::path( out ).make_preferred().string(), ec.message() } ) );
 
-	// The startup reports its own reason on stderr before this one.
-	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
-	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
-		return Fail( BkFormat( "cxx.err.libs", { szModuleRoot } ) );
 	const std::string szWriteError = WriteFont( atlas, tfd, tga, dds );
 	NDataOnly::Stop();
 	if ( !szWriteError.empty() )
@@ -345,6 +426,8 @@ int main( int argc, char *argv[] )
 	std::string szClusterNote;
 	if ( !szClusters.empty() )
 		szClusterNote = NStr::Format( ", clusters %d of %d", atlas.nClusters, CBkClusterTable::LAST - CBkClusterTable::FIRST + 1 );
+	if ( !szFallback.empty() )
+		szClusterNote += NStr::Format( ", %d from the fallback", atlas.nFallback );
 	printf( "wrote %s, 1.tga and 1_h.dds: %d characters, %d kerning pairs%s, %dx%d atlas\n",
 		fs::path( tfd ).make_preferred().string().c_str(), int( atlas.format.chars.size() ), int( atlas.format.kerns.size() ),
 		szClusterNote.c_str(), atlas.image.nSizeX, atlas.image.nSizeY );

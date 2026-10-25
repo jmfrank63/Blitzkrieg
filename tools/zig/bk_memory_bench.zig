@@ -140,7 +140,7 @@ pub fn main(init: std.process.Init) !void {
     const ops = done * 2;
     const ns_per_op = @as(f64, @floatFromInt(elapsed)) / @as(f64, @floatFromInt(ops));
     const peak_mib = @as(f64, @floatFromInt(peakPrivateBytes())) / (1024.0 * 1024.0);
-    std.debug.print("{s: <16} {s: <6} {d: >2} thr {d: >9} allocs {d: >8.1} ns/op {d: >8.1} MiB peak (live {d}, sum {d})\n", .{
+    printOut(io, "{s: <16} {s: <6} {d: >2} thr {d: >9} allocs {d: >8.1} ns/op {d: >8.1} MiB peak (live {d}, sum {d})\n", .{
         label, @tagName(pass), threads, done, ns_per_op, peak_mib, bk_mem_live_count(), check,
     });
 }
@@ -148,4 +148,12 @@ pub fn main(init: std.process.Init) !void {
 fn usage() noreturn {
     std.debug.print("usage: bk_memory_bench <label> <small|large> <threads> <total-allocs>\n", .{});
     std.process.exit(1);
+}
+
+/// A result line on stdout: stderr is for what went wrong.
+fn printOut(io: std.Io, comptime format: []const u8, args: anytype) void {
+    var buffer: [1024]u8 = undefined;
+    var stdout = std.Io.File.stdout().writer(io, &buffer);
+    stdout.interface.print(format, args) catch return;
+    stdout.interface.flush() catch {};
 }

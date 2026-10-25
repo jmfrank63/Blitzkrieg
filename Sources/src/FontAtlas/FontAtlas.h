@@ -43,8 +43,15 @@ struct SFontRequest
 	std::vector<std::u16string> clusters;
 	std::string szScript;									// ISO 15924 tag for the shaper, "Deva" for Hindi
 	std::string szLanguage;								// BCP 47 tag, "hi"
+	// A second face for the code points the first has no glyph for (Unicode
+	// mode only): scaled to the same cell height and drawn on the first face's
+	// baseline. The Devanagari face holds no Latin letters, and Hindi texts name
+	// units and maps in them. Null for none; read only during Build.
+	const BYTE *pFallbackData;
+	int nFallbackDataSize;
 	SFontRequest() : pFontData( 0 ), nFontDataSize( 0 ), nFaceIndex( 0 ), nHeight( 20 ), nWeight( 400 ),
-		bItalic( false ), bAntialias( true ), nCodePage( 1252 ), szScript( "Deva" ), szLanguage( "hi" ) {  }
+		bItalic( false ), bAntialias( true ), nCodePage( 1252 ), szScript( "Deva" ), szLanguage( "hi" ),
+		pFallbackData( 0 ), nFallbackDataSize( 0 ) {  }
 };
 
 struct SFontImage
@@ -58,9 +65,10 @@ struct SFontAtlas
 {
 	SFontFormat format;										// what the game reads from 1.tfd
 	SFontImage image;											// what it reads from 1.tga (IImageProcessor::CreateImage's layout)
-	int nSkipped;													// requested code points the face has no glyph for
+	int nSkipped;													// requested code points neither the face nor the fallback has a glyph for
+	int nFallback;												// code points drawn from the fallback face
 	int nClusters;												// cluster glyphs in the atlas
-	SFontAtlas() : nSkipped( 0 ), nClusters( 0 ) {  }
+	SFontAtlas() : nSkipped( 0 ), nFallback( 0 ), nClusters( 0 ) {  }
 };
 
 // The GDI charset byte FontGen stored in SFontMetrics::cCharSet for a code
@@ -76,6 +84,14 @@ int FindFace( const BYTE *pFontData, int nFontDataSize, const std::string &szNam
 // font cannot be read, the request is out of range or the atlas would be
 // larger than 4096x4096 (the message names the size and the glyph count).
 bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszError );
+// A font that keeps every character of base (its format and its atlas of
+// nBaseSizeX x nBaseSizeY pixels) as it is, at the same atlas pixels with the
+// same widths, metrics, default character and kerning, and adds the characters
+// of added (built at base's height for the characters base lacks) below them,
+// moved to base's baseline. A character both have stays base's. False with the
+// reason when the heights differ or the atlas would be larger than 4096x4096.
+bool AddToBase( const SFontFormat &base, int nBaseSizeX, int nBaseSizeY, const std::vector<DWORD> &basePixels,
+	const SFontAtlas &added, SFontAtlas *pAtlas, std::string *pszError );
 }
 
 #endif // __FONT_ATLAS_H__

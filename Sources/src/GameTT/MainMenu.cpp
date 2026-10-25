@@ -7,6 +7,7 @@
 #include "MultiplayerCommandManager.h"
 #include "../StreamIO/OptionSystem.h"
 #include "../Platform/System.h"
+#include "../StreamIO/ProfileNames.h"
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "show_console"		, MC_SHOW_CONSOLE		},
@@ -189,6 +190,27 @@ void CInterfaceMainMenu::Create( int nState )
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	pUIScreen->Load( "ui\\mainmenu" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
+	szShownLanguage = GetGlobalVar( "Text.LanguageLoaded", "Default" );
+	SetCopiedTexts();
+	pScene->AddUIScreen( pUIScreen );
+
+	if ( nState == 99 )
+	{
+		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CUTSCENE_LIST, 0 );
+		SetActiveState( E_OPTIONS );
+		PlayIntermissionSound();
+		return;
+	}
+	SetActiveState( nState );
+	if ( GetGlobalVar( "X64.StartupSmoke", 0 ) != 0 )
+	{
+		SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
+		::OutputDebugStringA( "BK_STARTUP: main menu created\n" );
+	}
+}
+// The version (or copy owner) label and the profile line, from their texts.
+void CInterfaceMainMenu::SetCopiedTexts()
+{
 	const std::string szCopyUserName = GetGlobalVar( "CopyUserName", "" );
 	const std::string szVersion = GetMainModuleVersion();
 	if ( !szCopyUserName.empty() ) 
@@ -214,8 +236,7 @@ void CInterfaceMainMenu::Create( int nState )
 	}
 	// Active profile name in the lower left, opposite the version label
 	// (id 21000, the same convention as the settings screen). The name is
-	// printable ASCII by contract (NProfile::Sanitize), so widening per
-	// character is exact.
+	// the profile directory's UTF-8 name (NProfile::DisplayName decodes it).
 	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
 	if ( !szProfile.empty() )
 	{
@@ -227,25 +248,9 @@ void CInterfaceMainMenu::Create( int nState )
 			else
 				wszProfile = L"Profile:";
 			wszProfile += L" ";
-			for ( int i = 0; i < szProfile.size(); ++i )
-				wszProfile += wchar_t( (unsigned char)szProfile[i] );
+			wszProfile += NProfile::DisplayName( szProfile );
 			pElement->SetWindowText( 0, ToWordString( wszProfile ) );
 		}
-	}
-	pScene->AddUIScreen( pUIScreen );
-
-	if ( nState == 99 )
-	{
-		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CUTSCENE_LIST, 0 );
-		SetActiveState( E_OPTIONS );
-		PlayIntermissionSound();
-		return;
-	}
-	SetActiveState( nState );
-	if ( GetGlobalVar( "X64.StartupSmoke", 0 ) != 0 )
-	{
-		SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
-		::OutputDebugStringA( "BK_STARTUP: main menu created\n" );
 	}
 }
 // Which text under textes\ui\cloudsync\ a failure maps to. The classified
@@ -380,6 +385,20 @@ void CInterfaceMainMenu::RefreshCloudIndicator()
 }
 bool CInterfaceMainMenu::StepLocal( bool bAppActive )
 {
+	// The Game reloads the texts at the start of the frame after a language
+	// is chosen; the copies are set again here, in that frame.
+	const std::string szLanguage = GetGlobalVar( "Text.LanguageLoaded", "Default" );
+	if ( szLanguage != szShownLanguage && pUIScreen != 0 )
+	{
+		szShownLanguage = szLanguage;
+		SetCopiedTexts();
+		states[nActiveState]->SetTitleText();
+		// The indicator sets its text only when its key changes, and Retry
+		// only when it is shown: both are made to set it again.
+		szCloudShownKey.clear();
+		if ( IUIElement *pRetry = pUIScreen->GetChildByID( 21002 ) )
+			pRetry->ShowWindow( UI_SW_HIDE );
+	}
 	RefreshCloudIndicator();
 	return CInterfaceInterMission::StepLocal( bAppActive );
 }

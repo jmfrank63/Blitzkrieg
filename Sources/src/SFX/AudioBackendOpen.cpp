@@ -3,6 +3,7 @@
 #include "AudioBackendImpl.h"
 #include "AudioBackendXiphVorbis.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Platform/Debug.h"
 #include "../BkMemory/bk_memory.h"
 
@@ -521,7 +522,7 @@ namespace
 		const long nCount = g_nXiphReadTraceCount;
 		if ( nCount == 0 )
 			return;
-		FILE *pFile = fopen( "sfx_trace.log", "ab" );
+		FILE *pFile = NPlatform::Paths::OpenTraceLog( "sfx_trace.log" );
 		if ( !pFile )
 			return;
 		fprintf( pFile, "=== xiph read trace (%s): %ld reads ===\n", pszReason, nCount );

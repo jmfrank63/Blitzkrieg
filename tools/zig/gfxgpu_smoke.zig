@@ -59,7 +59,8 @@ fn probePipeline(device: *sdl3.c.SDL_GPUDevice, vertex: *anyopaque, fragment: *a
         .{ .location = 3, .buffer_slot = 0, .format = sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = if (lighting_layout) 28 else 24 },
     };
     const target = sdl3.c.SDL_GPUColorTargetDescription{ .format = sdl3.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, .blend_state = .{ .src_color_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ONE, .dst_color_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ZERO, .color_blend_op = sdl3.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl3.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = false, .enable_color_write_mask = true } };
-    const depth_format = if (builtin.target.os.tag == .macos) sdl3.c.SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT else sdl3.c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+    // The engine's own choice for this device: RADV and Metal have no D24S8.
+    const depth_format = gpu.sdl.chooseDepthFormat(@ptrCast(device));
     const info = sdl3.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(vertex), .fragment_shader = @ptrCast(fragment), .vertex_input_state = .{ .vertex_buffer_descriptions = &buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdl3.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl3.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl3.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl3.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl3.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdl3.c.SDL_GPU_COMPAREOP_LESS, .enable_depth_test = true, .enable_depth_write = true }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = depth_format, .has_depth_stencil_target = true }, .props = 0 };
     return sdl3.c.SDL_CreateGPUGraphicsPipeline(device, &info);
 }
@@ -75,9 +76,7 @@ fn checkFixtures() !void {
 }
 
 fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
-    std.debug.print("GfxGpu reference: creating SDL window\n", .{});
     const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, 0) orelse return error.SdlWindowFailed;
-    std.debug.print("GfxGpu reference: SDL window created\n", .{});
     defer sdl3.c.SDL_DestroyWindow(window);
     if (!sdl3.c.SDL_ShowWindow(window)) return error.SdlWindowShowFailed;
     sdl3.c.SDL_PumpEvents();
@@ -87,9 +86,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     var renderer: ?*gpu.abi.RendererHandle = null;
     const shader_directory = "zig-out/shaders";
     var create_info = gpu.abi.CreateInfo{ .struct_size = @sizeOf(gpu.abi.CreateInfo), .flags = 1, .sdl_window = @ptrCast(window), .width = 64, .height = 64, .shader_directory_utf8 = shader_directory, .preferred_driver_utf8 = preferred_driver.ptr };
-    std.debug.print("GfxGpu reference: creating window-backed renderer\n", .{});
     const create_result = api.create(&create_info, &renderer);
-    std.debug.print("GfxGpu reference: renderer create returned {}\n", .{create_result});
     if (create_result != gpu.error_codes.ok) {
         std.debug.print("GfxGpu reference create failed: result={} SDL={s}\n", .{ create_result, std.mem.span(sdl3.c.SDL_GetError()) });
         return error.ReferenceCreateFailed;
@@ -103,7 +100,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     };
     const vertices = [_]Vertex{
         .{ .position = .{ 0.0, 0.75, 0.0 }, .color = .{ 255, 0, 0, 255 } },
-        .{ .position = .{ -0.75, -0.75, 0.0 }, .color = .{ 0, 255, 0, 255 } },
+        .{ .position = .{ -0.75, -0.75, 0.0 }, .color = .{ 0, 255, 0, 128 } },
         .{ .position = .{ 0.75, -0.75, 0.0 }, .color = .{ 0, 0, 255, 255 } },
     };
     var buffer: u64 = 0;
@@ -161,7 +158,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     }
     try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);
     try std.testing.expectEqualSlices(u8, &hashes[1], &hashes[2]);
-    std.debug.print("GfxGpu reference smoke: 3 identical frame hashes\n", .{});
 
     const TexturedVertex = extern struct { position: [3]f32, color: [4]u8, specular: [4]u8 = .{ 0, 0, 0, 0 }, uv: [2]f32, padding: u32 = 0 };
     const textured_vertices = [_]TexturedVertex{
@@ -197,7 +193,55 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &textured_readback));
     const textured_probe = std.mem.readInt(u32, textured_pixels[(16 * 64 + 16) * 4 ..][0..4], .little);
     try std.testing.expect(textured_probe != 0x10ff3020);
-    std.debug.print("GfxGpu textured smoke: visible textured quad\n", .{});
+
+    // R8 glyph-atlas texture: two disjoint regions uploaded separately, then read back.
+    var atlas: u64 = 0;
+    var atlas_info = gpu.abi.TextureCreateInfo{ .struct_size = @sizeOf(gpu.abi.TextureCreateInfo), .width = 8, .height = 8, .mip_count = 1, .format = gpu.formats.gfx_pixel_format_r8, .usage = 1 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_texture(renderer, &atlas_info, &atlas));
+    defer _ = api.destroy_texture(renderer, atlas);
+    const zeros: [64]u8 = @splat(0);
+    var atlas_clear = gpu.abi.TextureUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureUploadInfo), .data = @ptrCast(&zeros), .byte_length = zeros.len, .row_pitch = 8, .mip_level = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture(renderer, atlas, &atlas_clear));
+    const block_a = [_]u8{ 1, 2, 3, 4, 5, 6 }; // 3 x 2 at (1, 1), tightly packed
+    const block_b = [_]u8{ 0xA0, 0xA1, 0xFF, 0xB0, 0xB1, 0xFF, 0xC0, 0xC1, 0xFF }; // 2 x 3 at (5, 4), pitch 3, last row short of a pitch
+    var region_a = gpu.abi.TextureRegionUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureRegionUploadInfo), .data = @ptrCast(&block_a), .byte_length = block_a.len, .row_pitch = 3, .mip_level = 0, .x = 1, .y = 1, .w = 3, .h = 2 };
+    var region_b = gpu.abi.TextureRegionUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureRegionUploadInfo), .data = @ptrCast(&block_b), .byte_length = block_b.len - 1, .row_pitch = 3, .mip_level = 0, .x = 5, .y = 4, .w = 2, .h = 3 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture_region(renderer, atlas, &region_a));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture_region(renderer, atlas, &region_b));
+    var atlas_texels: [64]u8 = undefined;
+    const atlas_renderer: *gpu.Renderer = @ptrCast(@alignCast(renderer.?));
+    try atlas_renderer.readbackTexture(atlas, &atlas_texels);
+    var expected_texels: [64]u8 = @splat(0);
+    for (0..2) |row| for (0..3) |column| {
+        expected_texels[(1 + row) * 8 + 1 + column] = block_a[row * 3 + column];
+    };
+    for (0..3) |row| for (0..2) |column| {
+        expected_texels[(4 + row) * 8 + 5 + column] = block_b[row * 3 + column];
+    };
+    try std.testing.expectEqualSlices(u8, &expected_texels, &atlas_texels);
+    // A rectangle past the edge, an empty one, a short buffer and a mip level are errors that name themselves.
+    var bad = region_a;
+    bad.x = 6;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    var message: [160]u8 = undefined;
+    var message_size: u32 = 0;
+    try std.testing.expectEqual(gpu.error_codes.ok, api.get_last_error(renderer, &message, message.len, &message_size));
+    try std.testing.expect(std.mem.indexOf(u8, message[0..message_size], "x=6 y=1 w=3 h=2") != null);
+    bad = region_a;
+    bad.w = 0;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    bad = region_a;
+    bad.byte_length = 5;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    bad = region_a;
+    bad.mip_level = 1;
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    bad = region_a;
+    bad.x = std.math.maxInt(u32);
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas, &bad));
+    try std.testing.expectEqual(gpu.error_codes.invalid_argument, api.upload_texture_region(renderer, atlas + 1000, &region_a));
+    try atlas_renderer.readbackTexture(atlas, &atlas_texels);
+    try std.testing.expectEqualSlices(u8, &expected_texels, &atlas_texels);
 
     const screen_vertices = [_]TexturedVertex{
         .{ .position = .{ 8, 8, 0 }, .color = .{ 255, 255, 255, 255 }, .uv = .{ 0, 0 } },
@@ -233,8 +277,61 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expect(screen_changed > 0);
     try std.testing.expect(std.mem.readInt(u32, screen_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
     try std.testing.expect(std.mem.readInt(u32, screen_pixels[(48 * 64 + 48) * 4 ..][0..4], .little) != 0x10ff3020);
-    std.debug.print("GfxGpu pixel-transform smoke: visible textured quad\n", .{});
 
+    // Effect 400 samples an R8 atlas as coverage: rgb stays the vertex colour and alpha becomes
+    // vertex alpha * coverage. A fully covered quad tinted green at half alpha over the clear
+    // colour must read back as the 50% blend; the texels outside the quad stay the clear colour.
+    // The default vertex format is XYZRHW | DIFFUSE | SPECULAR | TEX1, so the colour sits after a
+    // four-float position, unlike the three-float TexturedVertex the older cases read.
+    const TextVertex = extern struct { position: [4]f32, color: [4]u8, specular: [4]u8 = .{ 0, 0, 0, 0 }, uv: [2]f32 };
+    const text_vertices = [_]TextVertex{
+        .{ .position = .{ 8, 8, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 0, 0 } },
+        .{ .position = .{ 40, 8, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 1, 0 } },
+        .{ .position = .{ 40, 40, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 1, 1 } },
+        .{ .position = .{ 8, 8, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 0, 0 } },
+        .{ .position = .{ 40, 40, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 1, 1 } },
+        .{ .position = .{ 8, 40, 0, 1 }, .color = .{ 0, 255, 0, 128 }, .uv = .{ 0, 1 } },
+    };
+    var text_buffer: u64 = 0;
+    var text_buffer_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = text_vertices.len, .format = 0, .stride = 32, .usage = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_buffer(renderer, &text_buffer_info, &text_buffer));
+    defer _ = api.destroy_buffer(renderer, text_buffer);
+    var text_buffer_upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&text_vertices), .byte_length = @sizeOf(@TypeOf(text_vertices)), .byte_offset = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, text_buffer, &text_buffer_upload));
+    var coverage: u64 = 0;
+    var coverage_info = gpu.abi.TextureCreateInfo{ .struct_size = @sizeOf(gpu.abi.TextureCreateInfo), .width = 2, .height = 2, .mip_count = 1, .format = gpu.formats.gfx_pixel_format_r8, .usage = 1 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_texture(renderer, &coverage_info, &coverage));
+    defer _ = api.destroy_texture(renderer, coverage);
+    const full_coverage = [_]u8{ 255, 255, 255, 255 };
+    var coverage_upload = gpu.abi.TextureUploadInfo{ .struct_size = @sizeOf(gpu.abi.TextureUploadInfo), .data = @ptrCast(&full_coverage), .byte_length = full_coverage.len, .row_pitch = 2, .mip_level = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_texture(renderer, coverage, &coverage_upload));
+    var text_effect = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 8, .index = 0, .value = 400, .values = @splat(0) };
+    var plain_effect = text_effect;
+    plain_effect.value = 3;
+    try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &screen_viewport));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_transform(renderer, &pixel_world, &pixel_view_proj));
+    var text_clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &text_clear));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &text_effect));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, coverage));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(text_buffer), 2));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &plain_effect));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
+    try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
+    var text_pixels: [64 * 64 * 4]u8 = undefined;
+    var text_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = text_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&text_pixels) };
+    try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &text_readback));
+    // Readback is BGRA. Half-alpha green over the clear colour leaves each colour channel about halfway to the tint.
+    const background_bgra = text_pixels[(60 * 64 + 60) * 4 ..][0..4];
+    const inside_bgra = text_pixels[(24 * 64 + 24) * 4 ..][0..4];
+    const tint_bgra = [4]u8{ 0, 255, 0, 255 };
+    for (0..3) |channel| {
+        const expected: i32 = @divTrunc(@as(i32, background_bgra[channel]) + @as(i32, tint_bgra[channel]), 2);
+        try std.testing.expect(@abs(@as(i32, inside_bgra[channel]) - expected) <= 3);
+    }
+    // A texel outside the quad is still the clear colour.
+    try std.testing.expectEqualSlices(u8, background_bgra, text_pixels[(4 * 64 + 4) * 4 ..][0..4]);
     const depth_vertices = [_]Vertex{
         .{ .position = .{ -0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },
         .{ .position = .{ 0.75, 0.75, 0.75 }, .color = .{ 255, 0, 0, 255 } },
@@ -256,7 +353,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     var depth_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = depth_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&depth_pixels) };
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &depth_readback));
     try std.testing.expect(std.mem.readInt(u32, depth_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
-    std.debug.print("GfxGpu depth smoke: overlapping triangles resolved\n", .{});
 
     // Draw once with D3DRS_SPECULARENABLE on. The specular variants are selected
     // by vertex format and this state, and their shader slots are indexed by the
@@ -282,7 +378,6 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &specular_off));
     try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
     try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
-    std.debug.print("GfxGpu specular smoke: specular variants build and draw\n", .{});
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -309,7 +404,6 @@ pub fn main(init: std.process.Init) !void {
     if (!std.mem.eql(u8, selected_driver, driver_arg)) return error.DriverSelectionMismatch;
     const selected_format = try gpu.device.formatForDriver(selected_driver);
     const selected_format_flag = gpu.device.formatFlag(selected_format);
-    std.debug.print("GfxGpu native matrix: driver={s} format={s}\n", .{ selected_driver, @tagName(selected_format) });
 
     const manifest_bytes = try readFile(init, "zig-out/shaders/gfxgpu-shaders.manifest");
     defer init.gpa.free(manifest_bytes);
@@ -343,5 +437,4 @@ pub fn main(init: std.process.Init) !void {
         sdl3.c.SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
         pipeline_count += 1;
     }
-    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs, {} probe geometries, and {} pipelines\n", .{ loader.count(), effect_probes.len, pipeline_count });
 }

@@ -886,6 +886,16 @@ pub const Worker = struct {
             }
             return;
         }
+        if (err == error.SessionNameTooLong) {
+            // The plan refused before bisync ever ran, so there is no run
+            // outcome to lead with - but it is the same failure rclone's
+            // own "file name too long" classifies as, and the menu reads
+            // the first word: the bare error name fell back to the generic
+            // "sync failed - changes will sync later", a promise no later
+            // run keeps while the name stays this long.
+            self.publishFailureText(@tagName(engine.Outcome.name_too_long) ++ ": SessionNameTooLong");
+            return;
+        }
         self.publishFailure(err, eng.lastErrorText());
     }
 

@@ -147,15 +147,28 @@ jobs:
             !/*/
             # build.zig reads the engine's .vcxproj files while it evaluates its graph, so
             # Sources is needed even though no engine step runs. Measured 2026-10-20 in a
-            # sparse worktree: this list passes the three steps below. The S08 document sets also
+            # sparse worktree: this list builds the steps below. The S08 document sets also
             # read Data/Editor/TestProjects/**/README*.md (22 doc-missing findings without it).
+            # Since M004 S04 the job links bk_text (libc, the C++ runtime, HarfBuzz) for the fit rule:
+            # it reads Data/UI (the layouts) and Data/Fonts (test-l10n-font), measured 2026-10-22.
             /Sources/
             !/Sources/src/data/
             /tools/
             /vendor/
             /Localization/
             /Data/ELK/
+            /Data/Fonts/
+            /Data/UI/
             /Data/Editor/TestProjects/
+            # Since the checker takes the English the Game ships (2026-10-25), it reads the text
+            # trees too: their .txt files only, a few MB (2,139 stale findings without them).
+            /Data/Textes/
+            /Data/Scenarios/**/*.txt
+            /Data/Units/**/*.txt
+            /Data/Buildings/**/*.txt
+            /Data/Medals/**/*.txt
+            /Data/Objects/**/*.txt
+            /Data/movies/*.txt
           sparse-checkout-cone-mode: false
 
       - name: Install Zig 0.17.0
@@ -172,7 +185,7 @@ jobs:
           zig version
 
       - name: Localisation gate
-        run: zig build l10n-check test-l10n-check test-l10n-glossary -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary new
+        run: zig build l10n-check test-l10n-check test-l10n-fit test-l10n-font test-l10n-glossary -Dtarget=x86_64-linux-gnu -Dtest-mode=run --summary new
 
   linux-build:
     needs: [changes]
@@ -235,6 +248,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -314,7 +328,7 @@ jobs:
 
       - name: Compile the tiers
         shell: bash
-        run: zig build bk-font-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
+        run: zig build bk-font-game-reads-it mod-compat-game-reads-it editor-overlay-spike-build elk-game-reads-it elk-l10n-auto elk-smoke gfxgpu-factory-test install-game install-language-mods install-map-editor install-resource-editor map-editor-host-check map-editor-l10n-auto resource-editor-auto-3rd resource-editor-auto-3rv resource-editor-auto-bdg resource-editor-auto-bld resource-editor-auto-cgc resource-editor-auto-chc resource-editor-auto-core resource-editor-auto-eff resource-editor-auto-fnc resource-editor-auto-gui resource-editor-auto-mdc resource-editor-auto-mip resource-editor-auto-msh resource-editor-auto-obt resource-editor-auto-pcp resource-editor-auto-spt resource-editor-auto-til resource-editor-auto-unt resource-editor-auto-wpn resource-editor-batch resource-editor-game-reads-it resource-editor-host-check resource-editor-l10n-auto resource-editor-smoke test-bk-font test-bk-image test-bk-l10n test-bk-map test-bk-memory test-bk-memory-c-sources test-bk-memory-import-audit test-bk-memory-zig test-bk-memory-zig-host test-bk-pak test-bk-sprite test-bk-table test-bk-tools test-bk-tools-l10n test-bk-video test-editor-bridge test-editor-core test-editor-kit test-elk-app test-elk-core test-gfxgpu-core test-l10n-font test-l10n-measure test-map-editor-auto test-map-editor-engine test-map-editor-panels test-map-editor-testlaunch test-map-editor-view test-map-files test-mission-data test-platform-debug test-platform-files test-platform-foundation test-platform-modules test-platform-system test-resource-bridge test-resource-core test-resource-mod-roundtrip test-resource-model test-rmg-composer-roundtrip test-rmg-determinism test-season-textures test-stage verify-runtime -Dtest-mode=compile -Dtarget=x86_64-linux-gnu --summary new
 
       - name: Compile the tiers with --release=fast
         shell: bash
@@ -440,6 +454,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -557,13 +572,23 @@ jobs:
 
       - name: Run system facade tests
         if: matrix.part == 'platform'
-        run: zig build test-platform-system -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+        run: zig build test-platform-system test-unicode-paths test-mods-paths -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
 
       - name: Run GFX GPU effect table tests
         if: matrix.part == 'platform'
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
+
+      - name: Text precedence under a gameplay mod and a language
+        if: matrix.part == 'platform'
+        run: zig build test-text-precedence -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: The Remastered option's rules
+        if: matrix.part == 'platform'
+        run: zig build test-remastered -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
 
@@ -865,6 +890,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1232,6 +1258,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1488,6 +1515,7 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1689,6 +1717,9 @@ jobs:
             /Data/Icons/
             /Data/Medals/
             /Data/movies/progress/
+            # mod-compat-game-reads-it plays the shipped smoke videos under a mod's BinkFile key.
+            /Data/movies/interface/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -1822,6 +1853,25 @@ jobs:
         run: zig build bk-font-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
+      - name: The game plays a mod made for the original game
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build mod-compat-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: A gameplay mod under a language mod
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build mod-language-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: The Remastered option, off and on
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build remastered-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+
       - name: Season textures
         if: matrix.part == 'all'
         run: zig build test-season-textures -Dtarget=x86_64-linux-gnu -Dtest-mode=run
@@ -1928,6 +1978,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -2186,6 +2237,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -2299,7 +2351,7 @@ jobs:
 
       - name: Run system facade tests
         if: matrix.part == 'platform'
-        run: zig build test-platform-system -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+        run: zig build test-platform-system test-unicode-paths test-mods-paths -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
 
@@ -2579,6 +2631,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -2968,6 +3021,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -3318,6 +3372,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -3520,6 +3575,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -3763,6 +3819,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -4008,6 +4065,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -4133,7 +4191,7 @@ jobs:
 
       - name: Run system facade tests
         if: matrix.part == 'random'
-        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=aarch64-macos -Dtest-mode=run
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system test-unicode-paths test-mods-paths -Dtarget=aarch64-macos -Dtest-mode=run
 
 
 
@@ -4390,6 +4448,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -4741,6 +4800,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -5016,6 +5076,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -5238,6 +5299,7 @@ jobs:
             /Data/Medals/
             /Data/Old/
             /Data/movies/progress/
+            /Data/movies/*.txt
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -5532,7 +5594,7 @@ jobs:
         run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
       - name: Run system facade tests
-        run: zig build test-platform-system -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+        run: zig build test-platform-system test-unicode-paths test-mods-paths -Dtarget=x86_64-windows-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -5792,7 +5854,7 @@ jobs:
         run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Run system facade tests
-        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system -Dtarget=x86_64-macos -Dtest-mode=run
+        run: zig build -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" test-platform-system test-unicode-paths test-mods-paths -Dtarget=x86_64-macos -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests
@@ -6069,7 +6131,7 @@ jobs:
         run: zig build test-platform-debug -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
       - name: Run system facade tests
-        run: zig build test-platform-system -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+        run: zig build test-platform-system test-unicode-paths test-mods-paths -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
 
       - name: Run GFX GPU effect table tests

@@ -74,7 +74,7 @@ void CInterfaceSaveMission::StartInterface()
 	// GetBaseDir is where quicksave and the intermission dialogs already write.
 	// Saves live under the active profile (CICSave::Exec), so the profile
 	// segment is part of the listing dir like in LoadMission.
-	std::string szBaseDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
+	std::string szBaseDir = NProfile::Prefix( GetSingleton<IMainLoop>()->GetBaseDir() );
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
@@ -176,7 +176,7 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 				szProspecitveSave = szEdit;
 				// The overwrite probe must look where CICSave::Exec will write -
 				// the profile's (and mod's) saves dir.
-				std::string szFileName = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
+				std::string szFileName = NProfile::Prefix( GetSingleton<IMainLoop>()->GetBaseDir() );
 				std::string szOverwriteModname = GetSingleton<IUserProfile>()->GetMOD();
 				if ( !szOverwriteModname.empty() )
 					szFileName += "mods\\" + szOverwriteModname;

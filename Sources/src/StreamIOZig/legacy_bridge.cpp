@@ -1,6 +1,7 @@
 // Deliberately self-contained legacy ABI shim.  These declarations mirror the
 // vtable order used by the old headers without importing their MSXML/MFC stack.
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Platform/Debug.h"
 #include <cstdio>
 #include <cstdlib>
@@ -22,6 +23,8 @@ extern "C" bool bk_storage_add(void *storage, void *child, const char *name);
 extern "C" void *bk_storage_remove(void *storage, const char *name);
 extern "C" const char *bk_storage_name(void *storage);
 extern "C" bool bk_storage_exists(void *storage, const char *name);
+extern "C" bool bk_storage_exists_in_layer(void *storage, const char *name);
+extern "C" void *bk_storage_open_below(void *storage, const char *name, const char *layer);
 extern "C" void *bk_storage_open(void *storage, const char *name, unsigned long access);
 extern "C" void *bk_storage_create_stream(void *storage, const char *name, unsigned long access);
 extern "C" bool bk_storage_stats(void *storage, const char *name, void *stats);
@@ -282,6 +285,8 @@ struct IDataStorage : public IRefCount {
     virtual const char *BK_STDCALL GetName() const = 0;
     virtual bool BK_STDCALL AddStorage(IDataStorage *, const char *) = 0;
     virtual bool BK_STDCALL RemoveStorage(const char *) = 0;
+    virtual bool BK_STDCALL IsStreamInModLayer(const char *) { return false; }
+    virtual void *BK_STDCALL OpenStreamBelow(const char *, const char *) { return 0; }
 };
 
 struct IStorageEnumerator : public IRefCount {
@@ -826,7 +831,7 @@ class ZigStructureSaver final : public IStructureSaver {
     // [reader-diag] phase timestamps for the load-freeze investigation.
     void TraceReaderPhase(const char *phase, int count) {
         if (!progress_) return;
-        FILE *f = fopen("load_trace.log", "ab");
+        FILE *f = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
         if (f) {
             fprintf(f, "%lu [reader] %s count=%d iters=%llu\n", LegacyTickCount(), phase, count, bk_structure_scan_iters());
             fclose(f);
@@ -886,7 +891,7 @@ public:
         // [reader-diag] scan-iteration report for the save-game reader only
         // (progress hook == CICLoad); strip with the load-speed diagnostics.
         if (progress_) {
-            FILE *f = fopen("load_trace.log", "ab");
+            FILE *f = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
             if (f) {
                 fprintf(f, "%lu [reader] scan_iters=%llu stream_bytes=%d\n",
                         LegacyTickCount(), bk_structure_scan_iters(), source_ ? bk_stream_size(source_->Native()) : -1);
@@ -1337,6 +1342,7 @@ public:
         else if (fill && std::string(fill) == "GetDifficulty") { values[0] = "Easy"; values[1] = "Normal"; values[2] = "Hard"; values[3] = "Ironman"; count = 4; }
         else if (fill && std::string(fill) == "GetGameSpeed") { values[0] = "VerySlow"; values[1] = "Slow"; values[2] = "Normal"; values[3] = "Fast"; values[4] = "VeryFast"; count = 5; }
         else if (fill && std::string(fill) == "GetTextureQuality") { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; count = 3; }
+        else if (fill && std::string(fill) == "GetPresentMode") { values[0] = "VSync"; values[1] = "Mailbox"; values[2] = "Immediate"; count = 3; }
         else if (fill && std::string(fill) == "GetCloudProvider") {
             values[0] = "Off"; count = 1;
             unsigned short cur_type = VT_EMPTY; const char *cur = bk_options_value(options_, name.c_str(), &cur_type);
@@ -1460,6 +1466,8 @@ public:
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return storage_ != 0; }
     bool BK_STDCALL IsStreamExist(const char *name) override { return bk_storage_exists(storage_, name); }
+    bool BK_STDCALL IsStreamInModLayer(const char *name) override { return name && bk_storage_exists_in_layer(storage_, name); }
+    void *BK_STDCALL OpenStreamBelow(const char *name, const char *layer) override { void *stream = name && layer ? bk_storage_open_below(storage_, name, layer) : 0; return stream ? new ZigDataStream(stream) : 0; }
     void *BK_STDCALL CreateStream(const char *name, unsigned long access) override { void *stream = bk_storage_create_stream(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     void *BK_STDCALL OpenStream(const char *name, unsigned long access) override { void *stream = bk_storage_open(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     bool BK_STDCALL GetStreamStats(const char *name, void *stats) override {
@@ -1923,6 +1931,14 @@ extern "C" __declspec(dllexport) void bk_bridge_apply_option_action(const char *
             // ITextureManager lives in the GFX module; CInterfaceScreenBase::Step
             // picks the value up and forwards it (same pattern as GFX.DisplayChanged).
             global_vars->SetVar("GFX.Texture.QualityPending", value);
+            return;
+        }
+        if (std::strcmp(action, "SetRemastered") == 0) {
+            // The Remastered gameplay option (ON/OFF) as the one global var
+            // every feature behind it reads through NRemastered::Enabled()
+            // (Main/Remastered.h); anything but ON is the original game.
+            const bool on = (value[0] == 'O' || value[0] == 'o') && (value[1] == 'N' || value[1] == 'n') && value[2] == 0;
+            global_vars->SetVar("Options.GamePlay.Remastered", on ? "1" : "0");
             return;
         }
         if (std::strcmp(action, "SetLanguage") == 0) {

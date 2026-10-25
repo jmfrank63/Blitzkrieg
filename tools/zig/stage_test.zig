@@ -58,6 +58,7 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "zig-out/shaders" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Configs" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Maps" }));
+    try writeFontsFixture(io, allocator, &tmp, repo_name);
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/cache" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/temp" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/saves" }));
@@ -141,6 +142,10 @@ test "stages through a destination path with spaces and non-ASCII characters" {
     try expectStagedFile(destination, io, allocator, "README.md", "readme fixture");
     try expectStagedFile(destination, io, allocator, "README_German.md", "readme fixture");
     try expectStagedFile(destination, io, allocator, "Data/Objects/SimpleObjects/common/summer/logs/01/1.xml", "log pile fixture");
+    for (font_fixtures) |font| {
+        const staged = try std.fs.path.join(allocator, &.{ stage.fonts_dir, font.name });
+        if (font.staged) try expectStagedFile(destination, io, allocator, staged, font.data) else try expectStagedPathAbsent(destination, io, staged);
+    }
     for ([_][]const u8{
         "Data/cache/compiled.bin",
         "Data/temp/session.bin",
@@ -218,6 +223,24 @@ const RepositoryFixture = struct {
     options: stage.Options,
 };
 
+/// vendor/fonts as copyFonts reads it: the faces, their licence text and SHA256SUMS are staged under
+/// Fonts/, anything else stays behind.
+const font_fixtures = [_]struct { name: []const u8, data: []const u8, staged: bool }{
+    .{ .name = "SHA256SUMS", .data = "sums fixture", .staged = true },
+    .{ .name = "NotoSans-Regular.ttf", .data = "ttf fixture", .staged = true },
+    .{ .name = "NotoSansSC-Regular.otf", .data = "otf fixture", .staged = true },
+    .{ .name = "OFL.txt", .data = "licence fixture", .staged = true },
+    .{ .name = "README.md", .data = "fonts readme fixture", .staged = false },
+};
+
+fn writeFontsFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.testing.TmpDir, repo_name: []const u8) !void {
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "vendor/fonts" }));
+    for (font_fixtures) |font| try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ repo_name, "vendor/fonts", font.name }),
+        .data = font.data,
+    });
+}
+
 fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.testing.TmpDir) !RepositoryFixture {
     const fixture_root = try tmp.dir.realPathFileAlloc(io, ".", allocator);
     const repo_name = "repository";
@@ -229,6 +252,7 @@ fn writeRepositoryFixture(io: std.Io, allocator: std.mem.Allocator, tmp: *std.te
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "zig-out/shaders" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Configs" }));
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ repo_name, "Data/Maps" }));
+    try writeFontsFixture(io, allocator, tmp, repo_name);
     const files = [_]struct { path: []const u8, data: []const u8 }{
         .{ .path = "zig-out/bin/Game", .data = "game fixture" },
         .{ .path = "Data/Configs/defconf.cfg", .data = "default fixture" },
@@ -308,7 +332,11 @@ test "a missing map editor binary fails the stage naming the path" {
     const fixture = try writeRepositoryFixture(io, allocator, &tmp);
     var options = fixture.options;
     options.map_editor = "zig-out/bin/NoSuchMapEditor";
+    var messages: std.Io.Writer.Allocating = undefined;
+    stage.captureDiagnostics(&messages);
+    defer stage.releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingMapEditor, stage.stage(io, allocator, options));
+    try std.testing.expect(std.mem.indexOf(u8, messages.written(), "map editor 'zig-out/bin/NoSuchMapEditor' could not be staged") != null);
 }
 
 test "--resource-editor stages the file beside the game and the map editor" {
@@ -351,7 +379,11 @@ test "a missing resource editor binary fails the stage naming the path" {
     const fixture = try writeRepositoryFixture(io, allocator, &tmp);
     var options = fixture.options;
     options.resource_editor = "zig-out/bin/NoSuchResourceEditor";
+    var messages: std.Io.Writer.Allocating = undefined;
+    stage.captureDiagnostics(&messages);
+    defer stage.releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingResourceEditor, stage.stage(io, allocator, options));
+    try std.testing.expect(std.mem.indexOf(u8, messages.written(), "resource editor 'zig-out/bin/NoSuchResourceEditor' could not be staged") != null);
 }
 
 test "--tool stages each bk-* tool under Tools and prunes one no longer passed" {
@@ -394,7 +426,11 @@ test "a missing bk-* tool binary fails the stage naming the path" {
     const fixture = try writeRepositoryFixture(io, allocator, &tmp);
     var options = fixture.options;
     options.tools = &.{"zig-out/bin/bk-nosuch"};
+    var messages: std.Io.Writer.Allocating = undefined;
+    stage.captureDiagnostics(&messages);
+    defer stage.releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingTool, stage.stage(io, allocator, options));
+    try std.testing.expect(std.mem.indexOf(u8, messages.written(), "tool 'zig-out/bin/bk-nosuch' could not be staged") != null);
 }
 
 test "--tool-doc stages each guide file under Tools and prunes one no longer passed" {
@@ -445,7 +481,11 @@ test "a missing tools guide file fails the stage naming the path" {
     const fixture = try writeRepositoryFixture(io, allocator, &tmp);
     var options = fixture.options;
     options.tool_docs = &.{"tools/guide/README_Nosuch.md"};
+    var messages: std.Io.Writer.Allocating = undefined;
+    stage.captureDiagnostics(&messages);
+    defer stage.releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingToolDoc, stage.stage(io, allocator, options));
+    try std.testing.expect(std.mem.indexOf(u8, messages.written(), "tool doc 'tools/guide/README_Nosuch.md' could not be staged") != null);
 }
 
 test "a mods directory in the repository is never staged" {
@@ -539,7 +579,11 @@ test "a missing season data directory fails the stage" {
     const fixture = try writeRepositoryFixture(io, allocator, &tmp);
     var options = fixture.options;
     options.season_data = "no-such-season-data";
+    var messages: std.Io.Writer.Allocating = undefined;
+    stage.captureDiagnostics(&messages);
+    defer stage.releaseDiagnostics(&messages);
     try std.testing.expectError(error.FileNotFound, stage.stage(io, allocator, options));
+    try std.testing.expect(std.mem.indexOf(u8, messages.written(), "season data 'no-such-season-data' could not be opened") != null);
 }
 
 test "a runtime file that is not built yet fails the stage naming it" {
@@ -555,6 +599,9 @@ test "a runtime file that is not built yet fails the stage naming it" {
     const fixture = try writeRepositoryFixture(io, allocator, &tmp);
     var options = fixture.options;
     options.layout.runtime_files = &.{ "Game", "libSDL3.dylib" };
+    var messages: std.Io.Writer.Allocating = undefined;
+    stage.captureDiagnostics(&messages);
+    defer stage.releaseDiagnostics(&messages);
     try std.testing.expectError(error.MissingRuntimeFile, stage.stage(io, allocator, options));
 
     try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/lib" }));

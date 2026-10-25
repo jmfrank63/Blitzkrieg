@@ -1,5 +1,4 @@
 #include <cassert>
-#include <cstdio>
 #include <cmath>
 #include <algorithm>
 
@@ -71,6 +70,5 @@ int main() {
     NSceneScreenScale::ScaleGameplayScreenPoint(&nx, &ny, native);
     assert(nx == 333.5f && ny == 111.25f);
 
-    std::puts("scene screen scale: scaled vertices land on whole pixels");
     return 0;
 }

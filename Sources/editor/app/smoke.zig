@@ -371,8 +371,9 @@ pub const script = [_]Step{
 };
 
 /// The mod the smoke switches to: the tracked fixture
-/// (tools/zig/fixtures/editor_mod), which build.zig stages at
-/// `<stage>/mods/EditorTestMod` before `map-editor-smoke` runs.
+/// (tools/zig/fixtures/editor_mod), which build.zig stages in the scratch
+/// mods folder BK_MODS_ROOT names (`zig-out/local-test/editor-fixture-mods`)
+/// before `map-editor-smoke` runs, never in the install's mods.
 pub const smoke_mod = "EditorTestMod";
 
 /// The second installation `open_foreign` builds, beside the smoke's output

@@ -8,6 +8,5 @@ int main()
 	const unsigned int stereoFrames = 1024;
 	const unsigned int stereoSamples = stereoFrames * 2;
 	if (stereoSamples != 2048) return 1;
-	std::puts("platform audio initialization contract passed");
 	return 0;
 }

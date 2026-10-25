@@ -1,6 +1,5 @@
 #include "../../Sources/src/Platform/SDLApplication.h"
 
-#include <cstdio>
 #include <cstring>
 
 int main()
@@ -16,6 +15,5 @@ int main()
 		return 3;
 	if (!application.RemoveVirtualControllerForTests(7) || application.GetControllerName(7, name, sizeof(name)))
 		return 4;
-	std::puts("platform controller passed: virtual name copy and removal");
 	return 0;
 }

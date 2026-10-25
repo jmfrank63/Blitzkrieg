@@ -551,7 +551,5 @@ int main()
 			static_cast<unsigned long long>(hash));
 		return 1;
 	}
-	std::printf("input bindings fixture passed: commands=9 bytes=%zu fnv1a64=%016llx\n", byte_count,
-		static_cast<unsigned long long>(hash));
 	return 0;
 }

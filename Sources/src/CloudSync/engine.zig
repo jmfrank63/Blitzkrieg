@@ -1718,6 +1718,23 @@ fn classifyText(text: []const u8) ?Outcome {
         // the credentials dialog, which is where a new sign-in starts.
         "couldn't fetch token",
         "invalid_grant",
+        // The other ways rclone's oauthutil gives up on a stored token
+        // before any request is made. Captured live (v1.75.0, yandex): a
+        // token without a refresh token fails every run with `unable to
+        // get RefreshToken. If you are upgrading from older versions of
+        // rclone, please run `rclone config` and re-configure this
+        // backend`, and one that is not JSON with `couldn't read OAuth
+        // token: invalid character ...`. Both read as a generic failure
+        // with a promise to sync later, which no later run can keep.
+        "unable to get refreshtoken",
+        "couldn't read oauth token",
+        "empty token found",
+        "oauth2: cannot fetch token",
+        "invalid_client",
+        "unauthorized_client",
+        // Yandex Disk's own refusal of an access token, as rclone prints
+        // its API error: `[401 - UnauthorizedError] ...`.
+        "unauthorizederror",
     };
     for (auth_patterns) |pattern| {
         if (containsIgnoreCase(text, pattern)) return .auth_failed;
@@ -1731,10 +1748,27 @@ fn classifyText(text: []const u8) ?Outcome {
         "connection refused",
         "network is unreachable",
         "i/o timeout",
+        // The rest of Go's resolver and socket vocabulary for "no way to
+        // the cloud from here": a lookup that cannot run (offline, no DNS
+        // server), a route or interface that is gone, and a TLS handshake
+        // that never completes behind a captive portal.
+        "temporary failure in name resolution",
+        "server misbehaving",
+        "no route to host",
+        "network is down",
+        "tls handshake timeout",
+        "connection reset by peer",
     };
     for (unreachable_patterns) |pattern| {
         if (containsIgnoreCase(text, pattern)) return .remote_unreachable;
     }
+
+    // A request that connected but whose answer never came in time: Go's
+    // HTTP client reports its own deadline as `context deadline exceeded
+    // (Client.Timeout exceeded while awaiting headers)`. After the
+    // unreachable patterns, so a dial that timed out stays unreachable.
+    if (containsIgnoreCase(text, "client.timeout exceeded")) return .timed_out;
+    if (containsIgnoreCase(text, "context deadline exceeded")) return .timed_out;
 
     if (containsIgnoreCase(text, "directory not found")) return .remote_missing;
 

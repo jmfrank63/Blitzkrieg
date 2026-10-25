@@ -27,6 +27,7 @@
 #include "bridge_session.h"
 #include "map_tools.h"
 #include "guarded.h"
+#include "../StreamIO/ModsPaths.h"
 
 #include "../ResourceModel/project.h"
 #include "../ResourceModel/factory.h"
@@ -2549,13 +2550,23 @@ std::filesystem::path ShippedDataFolder( const BkEditorSession *pSession )
 	return ChildFolder( pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot ), "Data" );
 }
 
+// The folder the mods live in: the folder BK_MODS_ROOT names (StreamIO/ModsPaths.h),
+// else the installation's mods.
+std::filesystem::path ModsFolderOf( const BkEditorSession *pSession )
+{
+	const std::string szOverride = NMods::Override();
+	if ( !szOverride.empty() )
+		return std::filesystem::path( szOverride );
+	const std::filesystem::path root = pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot );
+	return ChildFolder( root, "mods" );
+}
+
 // The active mod's data folder, or an empty path with none active.
 std::filesystem::path ModDataFolder( const BkEditorSession *pSession )
 {
 	if ( pSession->szModFolder.empty() || pSession->szModFolder == "none" )
 		return std::filesystem::path();
-	const std::filesystem::path root = pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot );
-	return ChildFolder( ChildFolder( ChildFolder( root, "mods" ), pSession->szModFolder ), "data" );
+	return ChildFolder( ChildFolder( ModsFolderOf( pSession ), pSession->szModFolder ), "data" );
 }
 
 void BuildReferenceLists( BkEditorSession *pSession, ResourceState &state )
@@ -3368,9 +3379,8 @@ std::filesystem::path ExportDirOf( BkEditorSession *pSession )
 	const ResourceState &state = StateOf( pSession );
 	if ( !state.szExportDir.empty() )
 		return std::filesystem::path( state.szExportDir );
-	const std::filesystem::path root = pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot );
 	const bool bMod = !pSession->szModFolder.empty() && pSession->szModFolder != "none";
-	return ChildFolder( ChildFolder( root, "mods" ), bMod ? pSession->szModFolder : std::string( "mymod" ) );
+	return ChildFolder( ModsFolderOf( pSession ), bMod ? pSession->szModFolder : std::string( "mymod" ) );
 }
 
 // True when dir is the shipped Data/ folder: no export, mod.xml or batch

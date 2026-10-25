@@ -14,7 +14,9 @@
 //
 // The tier always runs over the tracked mini-mod first (tools/zig/fixtures/mod-roundtrip, built
 // from Data/ files), so CI exercises the whole path. The real mod comes from BK_MOD_ROOT (the
-// build option -Dmod-root exports it); without one the tier prints "skipped: no mod".
+// build option -Dmod-root exports it); without one the tier runs the mini-mod alone. The
+// fixture run prints only its failures; a real mod's run (or BK_MOD_DETAIL) lists every resource
+// with its verdict and the per-kind summary.
 // BK_MOD_KINDS=unt,msh limits both runs to those kinds, to keep a run inside the tier budget.
 // BK_MOD_DETAIL=1 lists under each ACCEPTED resource every accepted field as "<field>: <mod value> vs <port value>
 // [reason]", which is the per-file justification of the accept table.
@@ -35,6 +37,7 @@
 #include "StdAfx.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -57,6 +60,19 @@ using NResourceModel::EExportKind;
 static int g_nFailures = 0;
 // The mod's own mod.xml, which the scratch export root takes; empty for a mod that has none.
 static fs::path g_modXml;
+// Whether the per-resource verdicts and summaries are printed: for a real mod (BK_MOD_ROOT) or
+// BK_MOD_DETAIL. A failure is printed either way.
+static bool g_bVerbose = false;
+
+static void Detail( const char *pszFormat, ... )
+{
+	if ( !g_bVerbose )
+		return;
+	va_list args;
+	va_start( args, pszFormat );
+	std::vprintf( pszFormat, args );
+	va_end( args );
+}
 
 static bool Check( bool bCondition, const std::string &szWhat )
 {
@@ -601,7 +617,7 @@ static void RoundTripOne( BkResSession *pSession, int nKind, const SResource &re
 		if ( const char *pszReason = AcceptReason( pKind->pszExt, szImportMessage, nSiblings == 0, proofContext ) )
 		{
 			++pCounts->nAccepted;
-			std::printf( "MOD %s %s ACCEPTED %s [not imported]\n", pKind->pszExt, res.szRel.c_str(), pszReason );
+			Detail( "MOD %s %s ACCEPTED %s [not imported]\n", pKind->pszExt, res.szRel.c_str(), pszReason );
 			return;
 		}
 		Fail( *pCounts, pKind->pszExt, res.szRel, std::string( "import: " ) + BkEditorLastMessage( pSession ) + " vs imported" );
@@ -650,7 +666,7 @@ static void RoundTripOne( BkResSession *pSession, int nKind, const SResource &re
 		if ( const char *pszReason = AcceptReason( pKind->pszExt, szExportMessage, nSiblings == 0, proofContext ) )
 		{
 			++pCounts->nAccepted;
-			std::printf( "MOD %s %s ACCEPTED %s [%s]\n", pKind->pszExt, res.szRel.c_str(), pszReason, szExportMessage.c_str() );
+			Detail( "MOD %s %s ACCEPTED %s [%s]\n", pKind->pszExt, res.szRel.c_str(), pszReason, szExportMessage.c_str() );
 			return;
 		}
 		Fail( *pCounts, pKind->pszExt, res.szRel, "export: " + szExportMessage + " vs exported" );
@@ -709,14 +725,14 @@ static void RoundTripOne( BkResSession *pSession, int nKind, const SResource &re
 	if ( nAcceptedFields == 0 )
 	{
 		++pCounts->nEqual;
-		std::printf( "MOD %s %s EQUAL\n", pKind->pszExt, res.szRel.c_str() );
+		Detail( "MOD %s %s EQUAL\n", pKind->pszExt, res.szRel.c_str() );
 		return;
 	}
 	++pCounts->nAccepted;
 	std::string szReasons;
 	for ( const std::string &szReason : reasons )
 		szReasons += ( szReasons.empty() ? "" : "; " ) + szReason;
-	std::printf( "MOD %s %s ACCEPTED %s (%d fields)\n", pKind->pszExt, res.szRel.c_str(), szReasons.c_str(), nAcceptedFields );
+	Detail( "MOD %s %s ACCEPTED %s (%d fields)\n", pKind->pszExt, res.szRel.c_str(), szReasons.c_str(), nAcceptedFields );
 	const char *pszDetail = std::getenv( "BK_MOD_DETAIL" );
 	if ( pszDetail != 0 && *pszDetail != 0 && std::strcmp( pszDetail, "0" ) != 0 )
 		for ( const std::string &szField : accepted )
@@ -751,7 +767,7 @@ static bool KindWanted( const char *pszExt )
 
 static void RunMod( BkResSession *pSession, const char *pszName, const fs::path &modRoot, const fs::path &scratch )
 {
-	std::printf( "MOD ROOT %s %s\n", pszName, modRoot.string().c_str() );
+	Detail( "MOD ROOT %s %s\n", pszName, modRoot.string().c_str() );
 	g_modXml.clear();
 	{
 		std::error_code ec;
@@ -772,7 +788,7 @@ static void RunMod( BkResSession *pSession, const char *pszName, const fs::path 
 			// Not a stats file of any kind the importer ports: a note, not a failure, unless the
 			// folder said it should have been one of them (a file that no reader accepts).
 			++nUnclassified;
-			std::printf( "MOD ? %s UNCLASSIFIED %s\n", res.szRel.c_str(), szWhy.c_str() );
+			Detail( "MOD ? %s UNCLASSIFIED %s\n", res.szRel.c_str(), szWhy.c_str() );
 			continue;
 		}
 		if ( !KindWanted( kKinds[nKind].pszExt ) )
@@ -781,14 +797,15 @@ static void RunMod( BkResSession *pSession, const char *pszName, const fs::path 
 		RoundTripOne( pSession, nKind, res, scratch, nIndex++, counts );
 	}
 	for ( int i = 0; i < kKindCount; ++i )
-		if ( KindWanted( kKinds[i].pszExt ) )
+		if ( KindWanted( kKinds[i].pszExt ) && ( g_bVerbose || counts[i].nFailed != 0 ) )
 			std::printf( "MOD SUMMARY %s found=%d imported=%d equal=%d accepted=%d failed=%d\n", kKinds[i].pszExt, counts[i].nFound, counts[i].nImported, counts[i].nEqual, counts[i].nAccepted, counts[i].nFailed );
-	std::printf( "MOD NOTE %s: %d .xml files that no importable kind's reader accepts (an effect, a tileset, a context file...)\n", pszName, nUnclassified );
+	Detail( "MOD NOTE %s: %d .xml files that no importable kind's reader accepts (an effect, a tileset, a context file...)\n", pszName, nUnclassified );
 
 	// The mod is read-only: nothing in it may have been written, created or removed.
 	const TFileStates after = Snapshot( modRoot );
 	Check( before == after, std::string( pszName ) + ": the mod's files (path, size, mtime) are the same after the run as before" );
-	std::printf( "MOD GUARD %s: %d files, %s\n", pszName, int( before.size() ), before == after ? "unchanged" : "CHANGED" );
+	if ( g_bVerbose || before != after )
+		std::printf( "MOD GUARD %s: %d files, %s\n", pszName, int( before.size() ), before == after ? "unchanged" : "CHANGED" );
 }
 
 int main( int argc, char **argv )
@@ -802,6 +819,8 @@ int main( int argc, char **argv )
 	const fs::path fixtureMod = argc > 2 ? argv[2] : ( fs::path( szSelfDir ) / "fixtures/mod-roundtrip/data" );
 	const fs::path scratch = argc > 3 ? argv[3] : ( fs::path( szSelfDir ) / "local-test/mod-roundtrip" );
 	const char *pszModRoot = std::getenv( "BK_MOD_ROOT" );
+	const char *pszDetail = std::getenv( "BK_MOD_DETAIL" );
+	g_bVerbose = ( pszModRoot != 0 && *pszModRoot != 0 ) || ( pszDetail != 0 && *pszDetail != 0 && std::strcmp( pszDetail, "0" ) != 0 );
 
 	// Hooks first: the first SDL call of the process must already allocate through BkMemory.
 	BkMemoryInstallSdlFunctions();
@@ -868,16 +887,12 @@ int main( int argc, char **argv )
 			if ( Check( fs::is_directory( pszModRoot, ec ), std::string( "BK_MOD_ROOT " ) + pszModRoot + " is a folder" ) )
 				RunMod( pSession, "mod", pszModRoot, scratch / "mod" );
 		}
-		else
-			std::printf( "resource-mod-roundtrip: skipped: no mod (set BK_MOD_ROOT or -Dmod-root to the mod's data folder)\n" );
 	}
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );
 	SDL_Quit();
-	if ( g_nFailures == 0 )
-		std::printf( "resource-mod-roundtrip: OK\n" );
-	else
+	if ( g_nFailures != 0 )
 		std::printf( "resource-mod-roundtrip: %d failures\n", g_nFailures );
 	return g_nFailures == 0 ? 0 : 1;
 }

@@ -112,6 +112,9 @@ bool SDLApplication::ShowSplash( const char *bmpPath, int width, int height )
 	// The splash comes up before Initialize() has run SDL_Init, so open the
 	// video subsystem here. SDL3 refcounts it: HideSplash closes this
 	// reference and Initialize()'s own stays live for the game.
+	// The Wayland app_id is cached when a window is created and the splash is
+	// the first one: without this it would be "SDL_App", not Blitzkrieg.
+	SDL_SetAppMetadata( "Blitzkrieg", "2.0.0", "org.blitzkrieg.game" );
 	SetInputHints();
 	if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) ) { SetError( "SDL_InitSubSystem" ); return false; }
 	splash_video_opened_ = true;

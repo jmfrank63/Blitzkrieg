@@ -21,14 +21,14 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 
 | English term | Translation | Note |
 |---|---|---|
-| private | 列兵 |  |
+| private | 列兵 | no-term-check: also an ordinary English word |
 | corporal | 下士 |  |
 | sergeant | 中士 |  |
 | lieutenant | 中尉 |  |
 | captain | 上尉 |  |
-| major | 少校 |  |
+| major | 少校 | no-term-check: also an ordinary English word |
 | colonel | 上校 |  |
-| general | 将军 |  |
+| general | 将军 | no-term-check: also an ordinary English word |
 
 ## Interface
 
@@ -42,8 +42,8 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 | objectives | 任务目标 |  |
 | briefing | 任务简报 |  |
 | start | 开始 |  |
-| back | 返回 |  |
-| options | 个性化选项 |  |
+| back | 返回 | no-term-check: also an ordinary English word |
+| options | 选项 | the main menu label is 个性化选项 (S01); 选项 is the word in running text and inside the label |
 | settings | 设置 |  |
 | load game | 载入游戏 |  |
 | save game | 保存游戏 |  |
@@ -52,4 +52,4 @@ Review state: the menu terms (the thirteen main-menu labels and the header) are 
 | cutscenes | 过场动画 |  |
 | custom game | 自定义游戏 |  |
 | multiplayer | 多人游戏 |  |
-| tutorial | 直观教程 |  |
+| tutorial | 教程 | the main menu label is 直观教程 (S01); 教程 is the word in running text and inside the label |

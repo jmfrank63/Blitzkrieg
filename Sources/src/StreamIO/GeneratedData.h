@@ -39,7 +39,7 @@ inline std::string ModKey( const std::string &szMOD )
 inline std::string Root( const std::string &szMOD )
 {
 	const std::string szProfile = GetGlobalVar( "Profile.Name", "" );
-	std::string szRoot = ( std::filesystem::path( NProfile::GeneratedDirectory( szProfile.empty() ? std::string( "default" ) : szProfile ) ) / ModKey( szMOD ) ).string();
+	std::string szRoot = NPlatform::Utf8FromPath( NPlatform::PathFromUtf8( NProfile::GeneratedDirectory( szProfile.empty() ? std::string( "default" ) : szProfile ) ) / ModKey( szMOD ) );
 	for ( std::string::size_type i = 0; i < szRoot.size(); ++i )
 	{
 		if ( szRoot[i] == '/' )
@@ -60,7 +60,7 @@ inline void CreateParentDirectories( const std::string &szFilePath )
 	}
 #endif
 	std::error_code error;
-	std::filesystem::create_directories( std::filesystem::path( szHostPath ).parent_path(), error );
+	std::filesystem::create_directories( NPlatform::PathFromUtf8( szHostPath ).parent_path(), error );
 }
 
 // Whether the profile's generated data holds this data name - asked of the

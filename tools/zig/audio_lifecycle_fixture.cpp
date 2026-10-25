@@ -141,6 +141,5 @@ int main()
 {
 	if (!exerciseAllocator() || !exerciseMiniaudio())
 		return 1;
-	std::printf("audio lifecycle passed: allocator semantics and null-device restart\n");
 	return 0;
 }

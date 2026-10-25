@@ -85,7 +85,7 @@ bool CInterfaceReplayList::Init()
 {
 	fileMasks.clear();
 	fileMasks.push_back( "*.rpl" );
-	szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + NProfile::Segment();
+	szTopDir = NProfile::Prefix( GetSingleton<IMainLoop>()->GetBaseDir() );
 	const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{

@@ -244,6 +244,36 @@ void CFormation::CCarryedMortar::Init( const class CAIUnit *pArt )
 	pStats = pArt->GetStats();
 }
 BASIC_REGISTER_CLASS( CFormation );
+// Every formation alive. A plain pointer, made with the first formation and freed with the last,
+// so it neither runs a destructor at module unload nor holds a block at the leak report.
+static std::set<CFormation*> *pFormations = 0;
+void CFormation::Register()
+{
+	if ( pFormations == 0 )
+		pFormations = new std::set<CFormation*>;
+	pFormations->insert( this );
+}
+CFormation::~CFormation()
+{
+	if ( pFormations == 0 )
+		return;
+	pFormations->erase( this );
+	if ( pFormations->empty() )
+	{
+		delete pFormations;
+		pFormations = 0;
+	}
+}
+void CFormation::ReleaseAllStates()
+{
+	if ( pFormations == 0 )
+		return;
+	// Held here while every state lets go, released after, outside any formation's own code.
+	std::vector< CPtr<CFormation> > formations( pFormations->begin(), pFormations->end() );
+	for ( int i = 0; i < formations.size(); ++i )
+		formations[i]->ReleaseStateForClear();
+	formations.clear();
+}
 void CFormation::AddUnit( class CSoldier *pUnit, const int nPos )
 {
 	++nUnits;

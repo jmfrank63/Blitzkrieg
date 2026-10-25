@@ -95,7 +95,6 @@ void SServerInfo::Unpack( const INetDriver::SGameInfo &gameInfo )
 
 	nCurPlayers = gameInfo.nCurPlayers;
 	nMaxPlayers = gameInfo.nMaxPlayers;
-	NStr::SetCodePage( GetACP() );
 	szMapName = NStr::ToAscii( gameInfo.wszMapName );
 	szGameName = gameInfo.wszServerName;
 	nHostPort = gameInfo.nHostPort;

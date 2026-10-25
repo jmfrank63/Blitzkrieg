@@ -92,6 +92,7 @@ class CScenarioTracker2 : public CTRefCount<IScenarioTracker>
 	void AssignPlayerColors();
 public:
 	CScenarioTracker2();
+	~CScenarioTracker2();
 	bool STDCALL Init( ISingleton *pSingleton );
 	IPlayerScenarioInfo* STDCALL AddPlayer( const int nPlayerID );
 	bool STDCALL RemovePlayer( const int nPlayerID );

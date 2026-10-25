@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  The Game runs with UTF-8 as its ANSI code page (Windows 10 1903 and later;
+  older Windows ignore the setting). Every 8-bit string of the engine is UTF-8,
+  but the narrow Windows file APIs - fopen, std::filesystem from a std::string,
+  CreateFileA, getenv - read 8-bit strings in the ANSI code page, so a Cyrillic
+  or CJK profile, mod, save or install folder was not found. Platform/Utf8Path.h
+  converts explicitly where the code is ours; this covers every other narrow call.
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>

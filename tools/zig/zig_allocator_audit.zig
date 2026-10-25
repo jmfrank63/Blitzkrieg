@@ -115,7 +115,6 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("zig-allocator-audit: FAIL, {d} hit(s) in {d} file(s)\n", .{ hits.items.len, files });
         std.process.exit(1);
     }
-    std.debug.print("zig-allocator-audit: ok, {d} file(s) scanned, no forbidden allocator\n", .{files});
 }
 
 test "a planted forbidden line is reported with its file and line" {

@@ -28,7 +28,6 @@ CInterfaceLoadMission::~CInterfaceLoadMission()
 }
 bool CInterfaceLoadMission::Init()
 {
-	NStr::SetCodePage( GetACP() );
 	CInterfaceScreenBase::Init();
 	SetBindSection( "loadmission" );
 	loadmissionMsgs.Init( pInput, loadmissionCommands );

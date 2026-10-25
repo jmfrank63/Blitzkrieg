@@ -1,7 +1,7 @@
 //! Tests for the config snapshot.
 //!
-//! Offline: the host sanitiser, which follows `NProfile::Sanitize`'s rules
-//! exactly. Live (gated on `BK_TEST_RCLONE` like every live suite): one
+//! Offline: the host sanitiser, which keeps the ASCII rules
+//! `NProfile::Sanitize` had before profile names became UTF-8. Live (gated on `BK_TEST_RCLONE` like every live suite): one
 //! snapshot lands at the per-host path outside the synced prefix, and a
 //! worker-driven sync with the backup option on proves the whole chain —
 //! snapshot after a clean finish, nothing pulled back down, and `config.cfg`

@@ -34,6 +34,7 @@
 #include "../StreamIO/RandomGen.h"
 #include <fstream>
 #include <filesystem>
+#include <set>
 #include "../StreamIO/OptionSystem.h"
 
 #include "../AILogic/AILogic.h"
@@ -501,7 +502,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// forced false), so the player's own remembered profile and saves
 		// are never touched by a test launch.
 		std::string szProfile = cmdp.szProfileName;
-		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( "profiles/active.cfg" );
+		const bool bFirstProfileRun = !cmdp.bEditorTest && !std::filesystem::exists( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ) );
 		if ( cmdp.bEditorTest )
 		{
 			if ( szProfile.empty() )
@@ -509,18 +510,18 @@ int RunGame( const BkGameLaunchInfo &launch )
 		}
 		else if ( szProfile.empty() && !bFirstProfileRun )
 		{
-			std::ifstream file( "profiles/active.cfg" );
+			std::ifstream file( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ) );
 			if ( file )
 				std::getline( file, szProfile );
 		}
 		szProfile = NProfile::Sanitize( szProfile );
 		SetGlobalVar( "Profile.Name", szProfile.c_str() );
 		std::error_code pathError;
-		std::filesystem::create_directories( "profiles/" + szProfile + "/saves", pathError );
-		std::filesystem::create_directories( "profiles/" + szProfile + "/screenshots", pathError );
+		std::filesystem::create_directories( NProfile::Directory( szProfile ) / "saves", pathError );
+		std::filesystem::create_directories( NProfile::Directory( szProfile ) / "screenshots", pathError );
 		if ( !cmdp.bEditorTest )
 		{
-			std::ofstream active( "profiles/active.cfg", std::ios::trunc );
+			std::ofstream active( NPlatform::PathFromUtf8( NProfile::Dir() + "/active.cfg" ), std::ios::trunc );
 			if ( active )
 				active << szProfile;
 		}
@@ -536,7 +537,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			for ( int i = 0; i < 2; ++i )
 			{
 				const std::filesystem::path from( legacy[i][0] );
-				const std::filesystem::path to( "profiles/" + szProfile + "/" + legacy[i][1] );
+				const std::filesystem::path to( NProfile::Directory( szProfile ) / legacy[i][1] );
 				if ( !std::filesystem::is_directory( from, pathError ) )
 					continue;
 				for ( const auto &entry : std::filesystem::directory_iterator( from, pathError ) )
@@ -572,7 +573,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 		// next launch - is otherwise indistinguishable from one that was
 		// never due, and nothing here persists a failure, so the gate that
 		// refused is the only evidence there is.
-		const std::string szConfigPath = "profiles/" + szProfile + "/config.cfg";
+		const std::string szConfigPath = NProfile::Dir() + "/" + szProfile + "/config.cfg";
 		const std::string szProvider = CloudOptionValue( szConfigPath, "Cloud.Provider" );
 		if ( GetGlobalVar( "Editor.TestLaunch", 0 ) != 0 )
 			NStr::DebugTrace( "cloud sync: off for the editor's test game\n" );
@@ -1272,7 +1273,23 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence; build-preview query) |
 			// units=<x>x<y>x<r> (counts each player's units within radius r of
 			// (x,y), in the AI's own coordinates - a harness's way to see a
-			// placed unit in the running mission without driving the UI).
+			// placed unit in the running mission without driving the UI) |
+			// world=<Command>(<args>) (a world console command, e.g. the
+			// TraceSelection and TraceContainers dumps of CWorldClient::Update).
+			// An entry keyed g<ms> instead of a frame fires once, ms of game time
+			// after the entry before it has run, counted from the start of a new
+			// game when one starts in between (game time going back is a mission
+			// start, a jump ahead of more than two seconds a load restoring its
+			// saved time): a mission's scene evolves with game time, and how many
+			// frames a second covers depends on the build and the display (the
+			// objective's chat line, shown for UI.TextAnimTime, had gone at frame 900
+			// of a debug Game on a 120 Hz Mac and was still there on a release one).
+			// An entry keyed t<ms> fires ms of the timer's absolute time after the
+			// entry before it, counted from the end of a blocking load when one ends
+			// in between (a jump of more than half a second): the clock the chat lines
+			// expire on (UI.TextAnimTime), and what a loaded game, which starts
+			// paused, still counts.
+			// A shot is named after its key, autoshot_<key>_<w>x<h>.rgba.
 			// It also reports frame timing every 120 frames, which is how the menu
 			// frame rate is measured headless.
 			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
@@ -1342,15 +1359,57 @@ int RunGame( const BkGameLaunchInfo &launch )
 					nAutoUIRelease2 = 0;
 				}
 				const std::string szSchedule = pszAutoUI;
+				// The g<ms> and t<ms> entries: which have run (by offset), and the times
+				// their count starts from - the last entry's run, or for game time the
+				// last new game.
+				static std::set<size_t> autoUIGameTimeFired;
+				static unsigned nAutoUIGameBase = 0;
+				static unsigned nAutoUIGameLast = 0;
+				static unsigned nAutoUIAbsBase = 0;
+				static unsigned nAutoUIAbsLast = 0;
+				const unsigned nAutoUIGameTime = GetSingleton<IGameTimer>() ? unsigned( GetSingleton<IGameTimer>()->GetGameTime() ) : 0;
+				const unsigned nAutoUIAbsTime = GetSingleton<IGameTimer>() ? unsigned( GetSingleton<IGameTimer>()->GetAbsTime() ) : 0;
+				if ( nAutoUIGameTime < nAutoUIGameLast || nAutoUIGameTime > nAutoUIGameLast + 2000 )
+					nAutoUIGameBase = nAutoUIGameTime;
+				nAutoUIGameLast = nAutoUIGameTime;
+				if ( nAutoUIAbsTime > nAutoUIAbsLast + 500 )
+					nAutoUIAbsBase = nAutoUIAbsTime;
+				nAutoUIAbsLast = nAutoUIAbsTime;
+				bool bAutoUIEarlierPending = false;
 				for ( size_t nPos = 0; nPos < szSchedule.size(); )
 				{
+					const size_t nEntryPos = nPos;
 					size_t nEnd = szSchedule.find( ',', nPos );
 					if ( nEnd == std::string::npos ) nEnd = szSchedule.size();
 					const std::string szEntry = szSchedule.substr( nPos, nEnd - nPos );
 					nPos = nEnd + 1;
 					const size_t nColon = szEntry.find( ':' );
-					if ( nColon == std::string::npos || atoi( szEntry.substr( 0, nColon ).c_str() ) != nAutoUIFrame )
+					if ( nColon == std::string::npos )
 						continue;
+					const std::string szKey = szEntry.substr( 0, nColon );
+					if ( !szKey.empty() && ( szKey[0] == 'g' || szKey[0] == 't' ) )
+					{
+						if ( autoUIGameTimeFired.count( nEntryPos ) != 0 )
+							continue;
+						const unsigned nWait = unsigned( atoi( szKey.c_str() + 1 ) );
+						const bool bDue = szKey[0] == 'g' ? nAutoUIGameTime >= nAutoUIGameBase + nWait : nAutoUIAbsTime >= nAutoUIAbsBase + nWait;
+						if ( bAutoUIEarlierPending || !bDue )
+						{
+							bAutoUIEarlierPending = true;
+							continue;
+						}
+						autoUIGameTimeFired.insert( nEntryPos );
+					}
+					else
+					{
+						const int nEntryFrame = atoi( szKey.c_str() );
+						if ( nEntryFrame > nAutoUIFrame )
+							bAutoUIEarlierPending = true;
+						if ( nEntryFrame != nAutoUIFrame )
+							continue;
+					}
+					nAutoUIGameBase = nAutoUIGameTime;
+					nAutoUIAbsBase = nAutoUIAbsTime;
 					const std::string szAction = szEntry.substr( nColon + 1 );
 					fprintf( stderr, "BK_AUTO_UI: frame %d action %s\n", nAutoUIFrame, szAction.c_str() );
 					if ( szAction == "settings" ) pInput->AddMessage( SGameMessage( 10005 ) );		// IMC_SETTINGS
@@ -1601,7 +1660,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 						pGFXShot->Flip();
 						if ( pGFXShot->TakeScreenShot( shotImage ) )
 						{
-							FILE *pShotFile = fopen( NStr::Format( "autoshot_%d_%dx%d.rgba", nAutoUIFrame, shotImage->GetSizeX(), shotImage->GetSizeY() ), "wb" );
+							FILE *pShotFile = fopen( NStr::Format( "autoshot_%s_%dx%d.rgba", szKey.c_str(), shotImage->GetSizeX(), shotImage->GetSizeY() ), "wb" );
 							if ( pShotFile )
 							{
 								const SColor *pPixels = shotImage->GetLFB();
@@ -1672,6 +1731,13 @@ int RunGame( const BkGameLaunchInfo &launch )
 						}
 					}
 					else if ( szAction == "exit" ) pMainLoop->Command( MAIN_COMMAND_EXIT_GAME, 0 );
+					else if ( szAction.compare( 0, 6, "world=" ) == 0 )
+					{
+						// world=<Command>(<args>): a command to the running mission's
+						// world, the console's world stream - e.g. world=TraceSelection(0)
+						// prints what is selected (CWorldClient::Update lists them).
+						GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, szAction.c_str() + 6 );
+					}
 					else if ( szAction.compare( 0, 4, "var=" ) == 0 )
 					{
 						const std::string szPair = szAction.substr( 4 );
@@ -1735,7 +1801,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 			static const char *pszCaptureDelay = getenv( "BK_REFERENCE_DELAY" );
 			static const int nCaptureDelay = pszCaptureDelay != 0 ? atoi( pszCaptureDelay ) : 5;
 			const bool bCaptureGate = pszCaptureDelay != 0 || GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0;
-			if ( cmdp.bReferenceScene && bCaptureGate && ++nReferenceCaptureDelay >= nCaptureDelay )
+			// Only a frame that drew counts towards the capture: a window the desktop
+			// gives no swapchain image (one covered by another Game's window, as two
+			// Game tiers in one build had) skips its frames, and five skipped frames
+			// read back a scene never drawn - an all black capture.
+			const bool bFrameDrawn = GetSingleton<IGFX>() != 0 && GetSingleton<IGFX>()->GetNumPassedVertices() > 0;
+			if ( cmdp.bReferenceScene && bCaptureGate && bFrameDrawn && ++nReferenceCaptureDelay >= nCaptureDelay )
 			{
 				IGFX *pGFX = GetSingleton<IGFX>();
 				// Printed in the form BK_REFERENCE_CAMERA takes, so a capture can be

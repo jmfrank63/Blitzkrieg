@@ -7,6 +7,7 @@
 #include "MainMenu.h"
 #include "MultiplayerCommandManager.h"
 #include "OptionEntryWrapper.h"
+#include "../StreamIO/ModsPaths.h"
 CInterfaceIMModsList::~CInterfaceIMModsList()
 {
 }
@@ -14,8 +15,11 @@ bool CInterfaceIMModsList::Init()
 {
 	fileMasks.clear();
 	fileMasks.push_back( "*.pak" );
-	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
-	szTopDir += "Mods\\";
+	// The folder as it is spelled on disk: "Mods\\" listed nothing on Linux,
+	// where the installs' folder is "mods".
+	szTopDir = ModsFolder();
+	if ( szTopDir.empty() )
+		szTopDir = NMods::Root( GetSingleton<IMainLoop>()->GetBaseDir() );
 	szCurrentDir = szTopDir;
 	szInterfaceName = "ui\\Lists\\IMModList";
 	nSortType = E_SORT_BY_TIME;
@@ -27,6 +31,23 @@ bool CInterfaceIMModsList::Init()
 }
 void CInterfaceIMModsList::PrepareList( std::vector<std::string> *pFiles )
 {
+	// The base list read the first mods folder; a mod in another spelling of
+	// it (a Mods/ beside the installs' mods/ on a case-sensitive disk) is
+	// listed too, once, and FillListItem opens it where it lies.
+	const std::vector<std::string> folders = ModsFolders();
+	for ( size_t nFolder = 1; nFolder < folders.size(); ++nFolder )
+	{
+		for ( NFile::CFileIterator it( ( folders[nFolder] + "*" ).c_str() ); !it.IsEnd(); ++it )
+		{
+			if ( !it.IsDirectory() || it.IsDots() )
+				continue;
+			bool bListed = false;
+			for ( size_t i = 0; i < pFiles->size() && !bListed; ++i )
+				bListed = NMods::SameName( (*pFiles)[i], it.GetFileName() );
+			if ( !bListed )
+				pFiles->push_back( it.GetFileName() );
+		}
+	}
 	// Language mods are chosen under Options > Language, not here.
 	for ( std::vector<std::string>::iterator it = pFiles->begin(); it != pFiles->end(); )
 	{
@@ -57,7 +78,8 @@ bool CInterfaceIMModsList::FillListItem( IUIListRow *pRow, const std::string &sz
 	{
 		std::string szMODName = "Unsupported MOD", szMODVersion = "";
 
-		if ( CPtr<IDataStorage> pMOD = OpenStorage((szMODPath + "\\data\\*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON) )
+		const std::string szFolder = ModFolder( szMODPath.substr( nPos + 1 ) );
+		if ( CPtr<IDataStorage> pMOD = OpenStorage((szFolder + "data\\*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON) )
 		{
 			if ( CPtr<IDataStream> pStream = pMOD->OpenStream("mod.xml", STREAM_ACCESS_READ) )
 			{

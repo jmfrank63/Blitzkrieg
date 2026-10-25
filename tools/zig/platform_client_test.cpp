@@ -52,6 +52,5 @@ int main(int argc, char **argv) {
     BkPlatform::Client::Destroy();
     close_library(consumer_b);
     close_library(consumer_a);
-    std::printf("platform client runtime generation: %llu\n", static_cast<unsigned long long>(generation));
     return 0;
 }

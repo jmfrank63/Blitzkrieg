@@ -22,6 +22,7 @@
 #include <algorithm>
 // MSVC has no getpid; _getpid from <process.h> is the same call.
 #ifdef _WIN32
+#include <io.h>
 #include <process.h>
 #define getpid _getpid
 #else
@@ -9548,6 +9549,14 @@ static bool ShardRange( const SBridgeTest *pTests, int nTests, int nShard, int *
 
 int main( int argc, char **argv )
 {
+	// Everything this test reports goes to stderr: the build shows a failing run's stderr and keeps
+	// a passing one's to itself, while a captured stdout would be lost with the failure.
+	std::fflush( stdout );
+#if defined(_WIN32) || defined(_WIN64)
+	_dup2( _fileno( stderr ), _fileno( stdout ) );
+#else
+	dup2( fileno( stderr ), fileno( stdout ) );
+#endif
 #if defined(_WIN32) || defined(_WIN64)
 	_set_error_mode( _OUT_TO_STDERR );
 	_set_abort_behavior( 0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );

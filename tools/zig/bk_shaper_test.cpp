@@ -7,6 +7,7 @@
 // vendor/fonts/SHA256SUMS against the tracked files, in this test's own SHA-256.
 //
 // Argument: the vendor/fonts folder.
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,11 +18,102 @@
 #include <vector>
 
 #include "../../Sources/src/FontAtlas/Shaper.h"
-// The language-mods C ABI, compiled into this test to reach LmShaperEncode.
-#include "language_mods_shape.cpp"
+
+// The C ABI the language-mods step used to rewrite texts into PUA clusters with (M002 D058). The
+// language mods ship plain Unicode since M004 S05; the cluster table stays what bk-font --clusters
+// reads, so the shaper facts are still proved here.
+struct SLmShaper
+{
+	std::string font;
+	std::string script, language;
+	CBkClusterTable table;
+};
+
+extern "C"
+{
+
+SLmShaper *LmShaperCreate( const unsigned char *pFont, size_t nFontSize, const char *szScript, const char *szLanguage )
+{
+	SLmShaper *pShaper = new SLmShaper;
+	pShaper->font.assign( (const char *)pFont, nFontSize );
+	pShaper->script = szScript;
+	pShaper->language = szLanguage;
+	return pShaper;
+}
+
+void LmShaperDestroy( SLmShaper *pShaper )
+{
+	delete pShaper;
+}
+
+// Rewrites pText[0, nLen) into pOut (room for nLen units) and returns the
+// units written, or -1 with szError filled. The result is never longer than
+// the text: a cluster becomes one character.
+long LmShaperEncode( SLmShaper *pShaper, const unsigned short *pText, size_t nLen, unsigned short *pOut, char *szError, size_t nErrorSize )
+{
+	if ( nLen == 0 )
+		return 0;
+	SBkShaped *pShaped = BkShapeClusters( (const unsigned char *)pShaper->font.data(), pShaper->font.size(), pText, nLen,
+		pShaper->script.c_str(), pShaper->language.c_str(), szError, nErrorSize );
+	if ( pShaped == 0 )
+		return -1;
+	std::u16string result;
+	std::string szWhy;
+	const bool bOk = pShaper->table.Encode( pText, *pShaped, &result, &szWhy );
+	BkShapeFree( pShaped );
+	if ( !bOk )
+	{
+		if ( szError && nErrorSize > 0 )
+		{
+			strncpy( szError, szWhy.c_str(), nErrorSize - 1 );
+			szError[nErrorSize - 1] = 0;
+		}
+		return -1;
+	}
+	memcpy( pOut, result.data(), result.size() * sizeof( unsigned short ) );
+	return (long)result.size();
+}
+
+size_t LmShaperClusters( const SLmShaper *pShaper )
+{
+	return pShaper->table.Size();
+}
+
+// The table as bk-font --clusters reads it. Returns its size; copies it when
+// it fits nCapacity.
+size_t LmShaperSerialize( const SLmShaper *pShaper, char *pOut, size_t nCapacity )
+{
+	const std::string sz = pShaper->table.Serialize();
+	if ( sz.size() <= nCapacity )
+		memcpy( pOut, sz.data(), sz.size() );
+	return sz.size();
+}
+
+}
 
 static int g_nFailures = 0;
-#define CHECK( cond ) do { if ( !( cond ) ) { fprintf( stderr, "bk-shaper-test: FAILED %s (line %d)\n", #cond, __LINE__ ); ++g_nFailures; } } while ( 0 )
+
+// What the test measured on the way is context for a failure, not news on a
+// pass: it waits here and prints just before the next FAIL line, or at the
+// end of a failing run.
+static std::string g_szNotes;
+
+static void Note( const char *pszFormat, ... )
+{
+	char szLine[4096];
+	va_list args;
+	va_start( args, pszFormat );
+	vsnprintf( szLine, sizeof( szLine ), pszFormat, args );
+	va_end( args );
+	g_szNotes += szLine;
+}
+
+static void FlushNotes()
+{
+	fputs( g_szNotes.c_str(), stderr );
+	g_szNotes.clear();
+}
+#define CHECK( cond ) do { if ( !( cond ) ) { FlushNotes(); fprintf( stderr, "bk-shaper-test: FAILED %s (line %d)\n", #cond, __LINE__ ); ++g_nFailures; } } while ( 0 )
 
 static std::vector<unsigned char> ReadFile( const std::string &szPath )
 {
@@ -106,8 +198,8 @@ static void CheckChecksums( const std::string &szDir )
 		CHECK( bOk );
 		++nChecked;
 	}
-	CHECK( nChecked == 5 );
-	printf( "bk-shaper-test: SHA256SUMS lists %d files, all match\n", nChecked );
+	CHECK( nChecked == 7 );
+	Note( "bk-shaper-test: SHA256SUMS lists %d files, all match\n", nChecked );
 }
 
 static SBkShaped *Shape( const std::vector<unsigned char> &font, const std::u16string &text, const char *szScript, const char *szLanguage )
@@ -142,7 +234,7 @@ static void CheckDevanagari( const std::vector<unsigned char> &font )
 	CHECK( ki.p->pGlyphs[ki.p->nGlyphs - 1].nGlyphId == ka.p->pGlyphs[0].nGlyphId );
 	// The matra is first: its pen position is left of the consonant's.
 	CHECK( ki.p->pGlyphs[0].nXAdvance + ki.p->pGlyphs[0].nXOffset > 0 || ki.p->pGlyphs[ki.p->nGlyphs - 1].nXOffset != ki.p->pGlyphs[0].nXOffset );
-	printf( "bk-shaper-test: ki: %zu cluster, %zu glyphs, first glyph %u, consonant glyph %u (units/em %u)\n", ki.p->nClusters, ki.p->nGlyphs,
+	Note( "bk-shaper-test: ki: %zu cluster, %zu glyphs, first glyph %u, consonant glyph %u (units/em %u)\n", ki.p->nClusters, ki.p->nGlyphs,
 		ki.p->pGlyphs[0].nGlyphId, ka.p->pGlyphs[0].nGlyphId, ki.p->nUnitsPerEm );
 
 	const char16_t *conjuncts[4] = { u"क्ष", u"त्र", u"ज्ञ", u"श्र" };
@@ -156,7 +248,7 @@ static void CheckDevanagari( const std::vector<unsigned char> &font )
 			continue;
 		CHECK( conjunct.p->nClusters == 1 );
 		CHECK( conjunct.p->nGlyphs < spelled.p->nGlyphs );
-		printf( "bk-shaper-test: %s: %zu cluster of %zu glyphs, halant spelling %zu glyphs\n", names[i], conjunct.p->nClusters, conjunct.p->nGlyphs, spelled.p->nGlyphs );
+		Note( "bk-shaper-test: %s: %zu cluster of %zu glyphs, halant spelling %zu glyphs\n", names[i], conjunct.p->nClusters, conjunct.p->nGlyphs, spelled.p->nGlyphs );
 	}
 }
 
@@ -167,7 +259,7 @@ static std::string EncodeSentence( const std::vector<unsigned char> &font, const
 	if ( !shaped.p )
 		return "no shape";
 	CHECK( pTable->Encode( (const unsigned short *)text.data(), *shaped.p, pEncoded, &szError ) );
-	printf( "bk-shaper-test: %zu code units -> %zu clusters -> %zu table entries\n", text.size(), shaped.p->nClusters, pTable->Size() );
+	Note( "bk-shaper-test: %zu code units -> %zu clusters -> %zu table entries\n", text.size(), shaped.p->nClusters, pTable->Size() );
 	return szError;
 }
 
@@ -184,7 +276,7 @@ static void CheckTable( const std::vector<unsigned char> &font )
 	CHECK( first.Serialize() == second.Serialize() );
 	CHECK( encodedFirst.size() < text.size() );
 	const std::string szTable = first.Serialize();
-	printf( "bk-shaper-test: cluster table\n%s", szTable.c_str() );
+	Note( "bk-shaper-test: cluster table\n%s", szTable.c_str() );
 	for ( size_t i = 0; i < encodedFirst.size(); ++i )
 		CHECK( encodedFirst[i] == u' ' || encodedFirst[i] >= 0x0900 );
 	// Space is not shaped away: one cluster per word break.
@@ -217,7 +309,7 @@ static void CheckFull( const std::vector<unsigned char> &font )
 	std::string szError;
 	CHECK( !small.Encode( (const unsigned short *)text.data(), *shaped.p, &encoded, &szError ) );
 	CHECK( szError.find( "PUA full" ) != std::string::npos );
-	printf( "bk-shaper-test: full table error: %s\n", szError.c_str() );
+	Note( "bk-shaper-test: full table error: %s\n", szError.c_str() );
 	// The real limit: 6400 slots U+E000..U+F8FF, the next cluster is refused.
 	CBkClusterTable big;
 	bool bAllAdded = true;
@@ -251,7 +343,7 @@ static void CheckPlain( const std::vector<unsigned char> &font )
 		CHECK( table.Encode( (const unsigned short *)texts[i].data(), *shaped.p, &encoded, &szError ) );
 		CHECK( table.Size() == 0 );
 		CHECK( encoded == texts[i] );
-		printf( "bk-shaper-test: plain text %d: %zu clusters, %zu PUA entries\n", i, shaped.p->nClusters, table.Size() );
+		Note( "bk-shaper-test: plain text %d: %zu clusters, %zu PUA entries\n", i, shaped.p->nClusters, table.Size() );
 	}
 }
 
@@ -264,7 +356,7 @@ static void CheckErrors( const std::vector<unsigned char> &font )
 	CHECK( strstr( szError, "face load failed" ) != 0 );
 	CHECK( BkShapeClusters( &font[0], font.size(), (const unsigned short *)text, 0, 0, 0, szError, sizeof( szError ) ) == 0 );
 	CHECK( strstr( szError, "no text" ) != 0 );
-	printf( "bk-shaper-test: error text: %s\n", szError );
+	Note( "bk-shaper-test: error text: %s\n", szError );
 }
 
 // Right-to-left text: HarfBuzz returns descending cluster values, so a range
@@ -285,7 +377,7 @@ static void CheckRightToLeft( const std::vector<unsigned char> &font )
 		for ( size_t i = 0; i < shaped.p->nClusters; ++i )
 		{
 			const SBkShapedCluster &c = shaped.p->pClusters[i];
-			printf( "bk-shaper-test: rtl %d cluster %zu: [%zu, %zu) glyphs %zu+%zu\n", t, i, c.nStart, c.nEnd, c.nGlyphStart, c.nGlyphCount );
+			Note( "bk-shaper-test: rtl %d cluster %zu: [%zu, %zu) glyphs %zu+%zu\n", t, i, c.nStart, c.nEnd, c.nGlyphStart, c.nGlyphCount );
 			if ( !( c.nStart < c.nEnd && c.nEnd <= text.size() ) )
 			{
 				fprintf( stderr, "bk-shaper-test: rtl text %d cluster %zu has bad range [%zu, %zu) of %zu\n", t, i, c.nStart, c.nEnd, text.size() );
@@ -323,7 +415,7 @@ static void CheckRightToLeft( const std::vector<unsigned char> &font )
 		std::string szError;
 		CHECK( !table.Encode( (const unsigned short *)text.data(), fake, &encoded, &szError ) );
 		CHECK( !szError.empty() );
-		printf( "bk-shaper-test: bad cluster %d: %s\n", i, szError.c_str() );
+		Note( "bk-shaper-test: bad cluster %d: %s\n", i, szError.c_str() );
 	}
 }
 
@@ -366,7 +458,7 @@ static void CheckEncodeErrorBuffer( const std::vector<unsigned char> &font )
 	char roomy[256];
 	CHECK( LmShaperEncode( pShaper, (const unsigned short *)text.data(), text.size(), out, roomy, sizeof( roomy ) ) == -1 );
 	CHECK( strstr( roomy, "PUA full" ) != 0 );
-	printf( "bk-shaper-test: encode error with size 0 left the buffer alone, size 10 gave '%s', size 256 gave '%s'\n", small, roomy );
+	Note( "bk-shaper-test: encode error with size 0 left the buffer alone, size 10 gave '%s', size 256 gave '%s'\n", small, roomy );
 	LmShaperDestroy( pShaper );
 }
 
@@ -393,9 +485,9 @@ int main( int argc, char **argv )
 	CheckEncodeErrorBuffer( deva );
 	if ( g_nFailures )
 	{
+		FlushNotes();
 		fprintf( stderr, "bk-shaper-test: %d checks failed\n", g_nFailures );
 		return 1;
 	}
-	printf( "bk-shaper-test: all checks passed\n" );
 	return 0;
 }

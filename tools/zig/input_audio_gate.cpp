@@ -11,6 +11,5 @@ int main()
 	std::thread worker([&audioStopped] { audioStopped.store(true); });
 	worker.join();
 	if (focusLost.type != NPlatform::EventType::focusLost || !audioStopped.load()) return 1;
-	std::puts("input audio lifecycle gate passed");
 	return 0;
 }

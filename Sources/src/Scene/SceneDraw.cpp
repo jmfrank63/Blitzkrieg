@@ -693,10 +693,11 @@ void CScene::Draw( ICamera *pCamera )
 		gfxRect.rect.Inflate( tooltip.nPadding, tooltip.nPadding );
 		gfxRect.maps.SetEmpty();
 		gfxRect.fZ = 0;
-		// Opaque, and on the plate the constants name rather than a flat black.
-		// At just over half alpha the panel behind the cursor - the unit card,
-		// its bars and its numbers - read straight through the order hint, and
-		// the amber text had nothing to stand against.
+		// Semi-transparent, on the plate the constants name rather than a flat black:
+		// three quarters opaque (TOOLTIP_DEFAULT_GROUND_COLOR) lets the screen behind
+		// the hint show through, while at just over half alpha the unit card, its bars
+		// and its numbers read straight through the amber text. A mod sets its own
+		// with Scene.Colors.ToolTip.Ground.Color.
 		gfxRect.color = tooltip.dwGroundColor;
 		pGFX->DrawRects( &gfxRect, 1, true );
 		// Two lines, one inside the other: at this size a single hairline is

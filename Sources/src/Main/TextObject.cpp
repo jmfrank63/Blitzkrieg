@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "TextObject.h"
+#include "TextLayers.h"
 BASIC_REGISTER_CLASS( IText );
 int CTextString::operator&( IStructureSaver &ss )
 {
@@ -26,16 +27,21 @@ void CTextDialog::SwapData( ISharedResource *pResource )
 bool CTextDialog::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();
-	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( szStreamName.c_str(), STREAM_ACCESS_READ );
-	if ( pStream == 0 )
-		return false;
-	WORD wSignature = 0;
-	pStream->Read( &wSignature, 2 );
-	NI_ASSERT_TF( wSignature == 0xfeff, NStr::Format("Text \"%s\" is not a UNICODE text!", szStreamName.c_str()), return false );
-	const int nSize = pStream->GetSize() - 2;
-	szString.resize( nSize / 2 );
-	const int nCheck = pStream->Read( &(szString[0]), nSize );
-	NI_ASSERT_SLOW_TF( nCheck == nSize, NStr::Format("Readed size (%d) doesn't match requested (%d)", nCheck, nSize), return false );
+	// With a gameplay mod and a language both mounted, which of their texts the key shows is
+	// NTextPrecedence's rule; otherwise the storage's order decides.
+	if ( !NTextLayers::Read( szStreamName.c_str(), &szString ) )
+	{
+		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( szStreamName.c_str(), STREAM_ACCESS_READ );
+		if ( pStream == 0 )
+			return false;
+		WORD wSignature = 0;
+		pStream->Read( &wSignature, 2 );
+		NI_ASSERT_TF( wSignature == 0xfeff, NStr::Format("Text \"%s\" is not a UNICODE text!", szStreamName.c_str()), return false );
+		const int nSize = pStream->GetSize() - 2;
+		szString.resize( nSize / 2 );
+		const int nCheck = pStream->Read( &(szString[0]), nSize );
+		NI_ASSERT_SLOW_TF( nCheck == nSize, NStr::Format("Readed size (%d) doesn't match requested (%d)", nCheck, nSize), return false );
+	}
 	int nPos = szString.find_last_not_of( u'\n' );
 	while ( nPos + 1 < szString.size() ) 
 	{

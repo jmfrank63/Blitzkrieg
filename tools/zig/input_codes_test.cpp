@@ -145,6 +145,5 @@ int main()
     CHECK( NInput::SanitizeClipboardText( boundary ) == std::string( 4095, 'x' ) );
 
     (void)required;
-    std::puts( "portable input code mapping passed" );
     return 0;
 }

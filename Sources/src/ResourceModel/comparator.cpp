@@ -693,6 +693,13 @@ SExportRead ReadExport( EExportKind kind, const std::string &szFile )
 	return read;
 }
 
+static bool g_bUnknownFieldStderr = true;
+
+void SetUnknownFieldStderr( bool bEnabled )
+{
+	g_bUnknownFieldStderr = bEnabled;
+}
+
 SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile )
 {
 	const SExportRead port = ReadExport( kind, szPortFile );
@@ -711,8 +718,9 @@ SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, co
 	{
 		// Loud: a field nobody reads is either port drift the game cannot see or
 		// an MFC field this comparator was never taught; both stop the run.
-		for ( const std::string &szMessage : result.messages )
-			std::fprintf( stderr, "%s\n", szMessage.c_str() );
+		if ( g_bUnknownFieldStderr )
+			for ( const std::string &szMessage : result.messages )
+				std::fprintf( stderr, "%s\n", szMessage.c_str() );
 		result.status = ECompareStatus::UNKNOWN_FIELD;
 	}
 	if ( port.szVariant != golden.szVariant )

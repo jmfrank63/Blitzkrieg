@@ -32,6 +32,5 @@ int main()
 	if (!Check(Receive(accepted, received, sizeof(received)) == sizeof(payload) && std::strcmp(received, payload) == 0, "TCP receive")) return 1;
 	if (!Check(SetNonBlocking(accepted, true) && !WaitReadable(accepted, 0) && Receive(accepted, received, sizeof(received)) < 0 && LastError() == SocketError::wouldBlock, "nonblocking would-block")) return 1;
 	Close(accepted); Close(client); Close(udp); Close(listener); Close(listener); SocketRuntimeDone(); SocketRuntimeDone();
-	std::puts("portable network loopback passed");
 	return 0;
 }

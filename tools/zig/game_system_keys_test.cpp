@@ -31,6 +31,5 @@ int main()
 	CHECK( NSysKeys::Process( Key( NPlatform::EventType::focusLost ) ) == NSysKeys::Action::pass );
 	CHECK( NSysKeys::Process( Key( NPlatform::EventType::quit ) ) == NSysKeys::Action::pass );
 	NSysKeys::Reset();
-	std::puts( "system key policy passed: toggle, release, reserved suppression, focus cleanup" );
 	return 0;
 }

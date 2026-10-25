@@ -2,6 +2,7 @@
 #include "../Platform/LegacyText.h"
 
 #include "MainLoopCommands.h"
+#include "TextLayers.h"
 
 #include "../Input/Input.h"
 #include "../SFX/SFX.h"
@@ -11,6 +12,7 @@
 #include "../StreamIO/RandomGen.h"
 #include "../StreamIO/StreamIOTypes.h"
 #include "../StreamIO/ProfilePaths.h"
+#include "../StreamIO/ModsPaths.h"
 #include "../StreamIO/GeneratedData.h"
 #include "../Misc/FileUtils.h"
 #include "../StreamIO/StreamAdaptor.h"
@@ -23,6 +25,7 @@
 #include "iMainInternal.h"
 #include "RandomMapHelper.h"
 #include "../Platform/Clock.h"
+#include "../Platform/Paths.h"
 #include "../Platform/Debug.h"
 #if !defined(_WIN32)
 #include <signal.h>
@@ -34,8 +37,7 @@ static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
 	if ( pszBaseDir == 0 || pszMessage == 0 )
 		return;
-	const std::string szTraceFileName = std::string( pszBaseDir ) + "load_trace.log";
-	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+	FILE *pFile = NPlatform::Paths::OpenTraceLog( "load_trace.log" );
 	if ( pFile )
 	{
 		fprintf( pFile, "%u %s\n", NPlatform::MonotonicMilliseconds(), pszMessage );
@@ -168,7 +170,7 @@ void CICSave::Exec( IMainLoop *pML )
 	{
 		szModname = "mods\\" + szModname;
 	}
-	const std::string szSaveDir = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\";
+	const std::string szSaveDir = NProfile::Prefix( pML->GetBaseDir() ) + szModname + "saves\\";
 	NFile::CreatePath( szSaveDir.c_str() );
 	const std::string szFullFileName = szSaveDir + szFileName;
 #if !defined(_WIN32)
@@ -218,7 +220,7 @@ void CICLoad::Exec( IMainLoop *pML )
 	{
 		szModname = "mods\\" + szModname;
 	}
-	const std::string szFullFileName = std::string( pML->GetBaseDir() ) + NProfile::Segment() + szModname + "saves\\" + szFileName;
+	const std::string szFullFileName = NProfile::Prefix( pML->GetBaseDir() ) + szModname + "saves\\" + szFileName;
 	CPtr<IDataStream> pStream = OpenFileStream( szFullFileName.c_str(), STREAM_ACCESS_READ );
 	if ( pStream == 0 )
 	{
@@ -356,6 +358,7 @@ void CICExitGame::Exec( IMainLoop *pML )
 void ClearMOD()
 {
 	GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
+	NTextLayers::SetMod( 0 );
 	RemoveGlobalVar( "MOD.Active" );
 	RemoveGlobalVar( "MOD.Name" );
 	RemoveGlobalVar( "MOD.Folder" );
@@ -372,9 +375,10 @@ static bool MountLanguage()
 {
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	pStorage->RemoveStorage( "LANGUAGE" );
+	NTextLayers::SetLanguage( 0 );
 	if ( szLanguage.empty() || NStr::CompareAsciiNoCase( szLanguage.c_str(), "Default" ) == 0 )
 		return true;
-	const std::string szPak = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + "mods\\" + szLanguage + "\\data\\texts.pak";
+	const std::string szPak = NMods::Find( GetSingleton<IMainLoop>()->GetBaseDir(), szLanguage ) + "\\data\\texts.pak";
 	CPtr<IDataStorage> pLanguage = OpenStorage( szPak.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
 	if ( pLanguage == 0 )
 		return false;
@@ -385,7 +389,10 @@ static bool MountLanguage()
 	pEnumerator->Reset( "*.*" );
 	if ( !pEnumerator->Next() )
 		return false;
-	return pStorage->AddStorage( pLanguage, "LANGUAGE" );
+	if ( !pStorage->AddStorage( pLanguage, "LANGUAGE" ) )
+		return false;
+	NTextLayers::SetLanguage( pLanguage );
+	return true;
 }
 namespace NMain
 {
@@ -400,6 +407,12 @@ void ApplyLanguage( const char *pszLanguage )
 	// cached font is read again in place, so the open screens draw the language's glyphs too.
 	GetSingleton<ITextureManager>()->Clear( ISharedManager::CLEAR_ALL );
 	GetSingleton<IFontManager>()->Reload();
+	// Text.Language is the choice, published by the option row the moment it
+	// is clicked; this is the language whose texts are now loaded. A screen that
+	// copied texts out refreshes them on this one: refreshing on the choice ran
+	// before the reload whenever the click was handled in the screen's own step,
+	// and set the old language's texts again (the tabs lagged one choice behind).
+	SetGlobalVar( "Text.LanguageLoaded", szLanguage.c_str() );
 	NStr::DebugTrace( "language: \"%s\" %s, texts reloaded, fonts reloaded\n", szLanguage.c_str(), bMounted ? "mounted" : "has no texts.pak, the shipped texts stay" );
 }
 const char *GetLanguage() { return szLanguage.c_str(); }
@@ -418,7 +431,9 @@ void CICChangeMOD::Configure( const char *pszConfig )
 }
 void CICChangeMOD::Exec( IMainLoop *pML )
 {
-	const std::string szMODPath = std::string( pML->GetBaseDir() ) + "mods\\" + szMOD + "data\\";
+	// In whichever mods folder holds it: szMOD is lower-cased, and a Linux
+	// install can have a Mods/ beside its mods/ (NMods::Roots).
+	const std::string szMODPath = NMods::Find( pML->GetBaseDir(), szMOD ) + "\\data\\";
 	if ( szMOD.empty() ) 
 		ClearMOD();
 	else if ( CPtr<IDataStorage> pMOD = OpenStorage((szMODPath + "*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON) )
@@ -427,6 +442,7 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 		{
 			GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
 			GetSingleton<IDataStorage>()->AddStorage( pMOD, "MOD" );
+			NTextLayers::SetMod( pMOD );
 			std::string szMODName = "MyMOD", szMODVersion = "1.0";
 			{
 				CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );

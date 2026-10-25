@@ -2,6 +2,7 @@
 #define __OBJVISOBJ_H__
 #pragma ONCE
 #include "Icon.h"
+#include "../Main/Remastered.h"
 template <class TBase>
 class CTObjVisObj : public TBase
 {
@@ -54,15 +55,22 @@ public:
 	virtual void STDCALL Select( EVisObjSelectionState state ) 
 	{ 
 		selectionState = state;
-		// Only this object's own icons follow its selection. Ids from 10000
-		// up are passengers' HP bars ported onto a container (and packed
-		// group/level ids): a passenger's bar is bright when the passenger
-		// is selected, not when the truck or building carrying him is.
 		for ( CIconsList::iterator it = icons.begin(); it != icons.end(); ++it )
 		{
-			if ( it->nID < 10000 ) 
+			if ( FollowsOwnSelection( it->nID ) )
 				it->pIcon->SetAlpha( selectionState == SGVOSS_SELECTED ? 0xff : 0x60 );
 		}
+	}
+	// Which icons follow this object's selection. Ids from 10000 up are
+	// passengers' HP bars ported onto a container (and from 10100 packed
+	// group/level ids). The original brightens the passengers' bars with the
+	// truck or building carrying them; with Remastered, where the strip
+	// selects passengers themselves, a passenger's bar is bright when the
+	// passenger is selected (the client sets it), so a visual only touches
+	// its own icons.
+	static bool FollowsOwnSelection( const int nID )
+	{
+		return nID < ( NRemastered::Enabled() ? 10000 : 10100 );
 	}
 	virtual bool STDCALL IsVisible() const { return bVisible; }
 	virtual void STDCALL SetVisible( const bool _bVisible ) { bVisible = _bVisible; }
@@ -89,7 +97,7 @@ public:
 			icons.back().vAddValue = vAddValue;
 			icons.back().vAddStep = vAddStep;
 
-			if ( nID < 10000 )
+			if ( FollowsOwnSelection( nID ) || !NRemastered::Enabled() )
 				pIcon->SetAlpha( selectionState == SGVOSS_SELECTED ? 0xff : 0x60 );
 		}
 		if ( bReposition ) 

@@ -486,6 +486,7 @@ const gfx_gpu_sources = &.{
     "Sources/src/GFXGPU/MeshManagerGpu.cpp",
     "Sources/src/GFXGPU/GlobalsLoader.cpp",
     "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+    "Sources/src/GFXGPU/BkTextBridge.cpp",
 };
 
 fn auditDefaultRendererInputs(files: []const []const u8) void {
@@ -548,6 +549,8 @@ const main_sources = &.{
     "Sources/src/Main/LoadDLLs.cpp",
     "Sources/src/Main/TextManager.cpp",
     "Sources/src/Main/TextObject.cpp",
+    "Sources/src/Main/TextLayers.cpp",
+    "Sources/src/Main/TextPrecedence.cpp",
     "Sources/src/Main/AILogicCommand.cpp",
     "Sources/src/Main/AILogicCommandInternal.cpp",
     "Sources/src/Main/MultiPlayerTransceiver.cpp",
@@ -696,6 +699,30 @@ fn setLeakReportStrict(run: *std.Build.Step.Run) void {
     run.setEnvironmentVariable("BK_MEM_REPORT", "1");
 }
 
+/// A tool a test runs reports what it wrote on stdout, for a human at a terminal. The test
+/// judges the files instead, so the report is kept out of a passing run (a test that passes
+/// prints nothing); stderr, where the tool says why it failed, still reaches the terminal. A
+/// captured stdout would make the run cacheable, so it is marked as having side effects: the
+/// tool reads Data and the fixtures by plain path, which the cache does not see.
+fn discardToolStdOut(run: *std.Build.Step.Run) void {
+    _ = run.captureStdOut(.{});
+    run.has_side_effects = true;
+}
+
+/// A test whose run writes to stderr even when it passes: code under test that reports on
+/// stderr on purpose (a diagnostic with no host attached, an unattended error box), the Zig
+/// test runner's per-test lines in terminal mode, an editor's scripted run (its frame and action
+/// trail, the PASS line, the engine's DebugTrace in a debug build) or BkMemory's per-library
+/// foreign-block lines of a clean report. The stream is captured, so a pass prints
+/// nothing, and a failing exit code still shows all of it with the step's error. A check of
+/// the text (expectStdErrMatch) would not: Zig then reports a wrong exit code without the
+/// stderr, which loses a leak report or a failed check's line. Marked as having side effects
+/// because a captured stream would make the run cacheable.
+fn captureStdErrForFailure(run: *std.Build.Step.Run) void {
+    _ = run.captureStdErr(.{});
+    run.has_side_effects = true;
+}
+
 /// Appends `dir` to the run step's PATH like the removed Run.addPathDir did.
 fn addPathDir(run: *std.Build.Step.Run, dir: []const u8) void {
     const b = run.step.owner;
@@ -841,6 +868,19 @@ pub fn build(b: *std.Build) void {
     const runtime_platform_audit_step = b.step("test-runtime-platform-audit", "Audit playable source platform dependencies");
     runtime_platform_audit_step.dependOn(&runtime_platform_audit_tests.step);
     if (test_mode == .run) runtime_platform_audit_step.dependOn(&runtime_platform_audit_run.step);
+
+    // Every setting in Data/Configs/defconf.cfg has its label, tooltip and value texts, in Data/Textes and Data/ELK.
+    const option_texts_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/option_texts_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    const option_texts_tests = b.addTest(.{ .root_module = option_texts_module });
+    const option_texts_run = b.addRunArtifact(option_texts_tests);
+    option_texts_run.setCwd(b.path("."));
+    option_texts_run.has_side_effects = true;
+    const option_texts_step = b.step("test-option-texts", "Every setting in Data/Configs/defconf.cfg has its label, tooltip and value texts in Data/Textes and as ELK originals");
+    if (test_mode == .run) option_texts_step.dependOn(&option_texts_run.step);
 
     // The CI workflow runs the l10n tiers (M002 S09 T03): a text check of cross-platform.yml.
     const ci_l10n_wiring_module = b.createModule(.{
@@ -1047,6 +1087,7 @@ pub fn build(b: *std.Build) void {
     const client_run = b.addRunArtifact(client_test);
     client_run.addArtifactArg(consumer_a);
     client_run.addArtifactArg(consumer_b);
+    captureStdErrForFailure(client_run);
     const client_step = b.step("test-platform-client", "Run checked C++ platform client tests");
     client_step.dependOn(&platform_runtime.step);
     client_step.dependOn(&consumer_a.step);
@@ -1150,6 +1191,7 @@ pub fn build(b: *std.Build) void {
     platform_debug_test.subsystem = .console;
     if (platform == .windows_x64) platform_debug_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_debug_run = b.addRunArtifact(platform_debug_test);
+    captureStdErrForFailure(platform_debug_run);
     const platform_debug_step = b.step("test-platform-debug", "Run portable diagnostic and debugger facade tests");
     platform_debug_step.dependOn(&platform_debug_test.step);
     platform_debug_step.dependOn(&platform_runtime.step);
@@ -1224,6 +1266,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) platform_system_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_system_run = b.addRunArtifact(platform_system_test);
     setLeakReportStrict(platform_system_run);
+    captureStdErrForFailure(platform_system_run);
     platform_system_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     platform_system_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     addPathDir(platform_system_run, rootPath(b, if (build_support.isWindows(platform)) "zig-out/bin" else "zig-out/lib"));
@@ -1236,6 +1279,8 @@ pub fn build(b: *std.Build) void {
     legacy_variant_module.link_libc = !build_support.usesMsvc(platform);
     legacy_variant_module.link_libcpp = build_support.needsBundledLibcpp(platform);
     legacy_variant_module.addIncludePath(b.path("Sources/src"));
+    addLinuxCxxIncludePaths(b, legacy_variant_module);
+    linkCxxRuntime(legacy_variant_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, legacy_variant_module, toolchain);
         addMsvcLibraryPaths(b, legacy_variant_module, toolchain);
@@ -1256,6 +1301,27 @@ pub fn build(b: *std.Build) void {
     const legacy_variant_step = b.step("test-legacy-variant", "Run portable legacy variant ownership and conversion tests");
     legacy_variant_step.dependOn(&legacy_variant_test.step);
     if (test_mode == .run) legacy_variant_step.dependOn(&legacy_variant_run.step);
+    // The UTF-8 <-> UTF-16 conversion of Platform/LegacyText.h, header only.
+    const legacy_text_module = b.createModule(.{ .target = target, .optimize = .debug });
+    legacy_text_module.link_libc = !build_support.usesMsvc(platform);
+    legacy_text_module.link_libcpp = !build_support.usesMsvc(platform);
+    legacy_text_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, legacy_text_module, toolchain);
+        addMsvcLibraryPaths(b, legacy_text_module, toolchain);
+        linkMsvcRuntime(legacy_text_module, .debug);
+    }
+    legacy_text_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/legacy_text_test.cpp"},
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{},
+    });
+    const legacy_text_test = b.addExecutable(.{ .name = "legacy-text-test", .root_module = legacy_text_module });
+    legacy_text_test.subsystem = .console;
+    if (platform == .windows_x64) legacy_text_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const legacy_text_run = b.addRunArtifact(legacy_text_test);
+    const legacy_text_step = b.step("test-legacy-text", "Run the UTF-8 <-> UTF-16 conversion tests every 8-bit to wide string of the engine goes through");
+    legacy_text_step.dependOn(&legacy_text_test.step);
+    if (test_mode == .run) legacy_text_step.dependOn(&legacy_text_run.step);
     // Project-XML round trip (spec D-07): Sources/src/ResourceModel/xml.cpp over the 21 ResourceEditor
     // fixtures plus an unknown-node preservation check and the MFC editor's own saved projects. No engine modules are loaded, so no rdynamic;
     // the $ORIGIN rpath keeps the AGENTS.md Linux pattern.
@@ -1467,6 +1533,7 @@ pub fn build(b: *std.Build) void {
     // Task 7.3 review: in the foundation matrix, so every CI job builds it and
     // the run-mode jobs run it.
     test_platform_foundation.dependOn(wheel_scroll_step);
+    const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
     addInputTextRepeatTest(b, target, test_mode, toolchain);
     addInputControllerTest(b, target, test_mode, toolchain);
@@ -1481,8 +1548,8 @@ pub fn build(b: *std.Build) void {
     addPlatformSocketTypesTest(b, target, test_mode, toolchain);
     addPlatformNetworkTest(b, target, test_mode, toolchain);
     addPlatformSocketAbiTest(b, target, test_mode, toolchain, platform_runtime);
-    addNetLowestTest(b, target, test_mode, toolchain);
-    addNetworkWorkersTest(b, target, test_mode, toolchain);
+    addNetLowestTest(b, target, test_mode, toolchain, platform_runtime);
+    addNetworkWorkersTest(b, target, test_mode, toolchain, platform_runtime);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
@@ -1560,7 +1627,7 @@ pub fn build(b: *std.Build) void {
     const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
     const editor_overlay_spike_build_step = b.step("editor-overlay-spike-build", "Build the Map Editor ImGui overlay spike");
     editor_overlay_spike_build_step.dependOn(&editor_overlay_spike_install.step);
-    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic_dep.path("include"), test_mode);
+    addGameBootstrapSmoke(b, target, dependency_target, optimize, toolchain, gfx_gpu_zig, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), test_mode);
     const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
@@ -1720,7 +1787,7 @@ pub fn build(b: *std.Build) void {
     const stage_runtime_files = stage_files: {
         const engine_files: []const []const u8 = switch (target.result.os.tag) {
             .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "BkMemory.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libBkMemory.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libBkMemory.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libBkText.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
             .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libBkMemory.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
             else => &[_][]const u8{stage_game_name},
         };
@@ -2168,7 +2235,8 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, platform_storage_gate_module, toolchain);
     const platform_storage_gate = b.addExecutable(.{ .name = "platform-storage-gate", .root_module = platform_storage_gate_module });
     platform_storage_gate.subsystem = .console;
-    platform_storage_gate.entry = .{ .symbol_name = "mainCRTStartup" };
+    // mainCRTStartup is the Windows CRT's; elsewhere it does not exist and lld left the start address unset.
+    if (build_support.isWindows(platform)) platform_storage_gate.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_storage_gate_run = b.addRunArtifact(platform_storage_gate);
     platform_storage_gate_run.setCwd(b.path("."));
     const platform_storage_gate_step = b.step("test-platform-storage", "Run config/save/package storage gate");
@@ -2180,7 +2248,7 @@ pub fn build(b: *std.Build) void {
     // itself (the C++ bridge and CRT selection stay at the game's optimize
     // mode either way).
     const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
-    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, streamio_fast);
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, platform_runtime, sdl_dynamic, streamio_fast);
     // Cloud profile sync. Nothing loads it yet — the C++ facade arrives with
     // P06-M01 — so it is built and exercised by test-cloudsync-abi rather than
     // installed into the game layout; the packet that gives the game a reason
@@ -2280,7 +2348,9 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) {
         const clean = b.addRunArtifact(bk_zig_host_test);
         clean.setEnvironmentVariable("BK_MEM_REPORT", "1");
-        clean.expectExitCode(0);
+        // A nonzero exit fails the run without a check; the foreign-block line of a clean report stays
+        // out of a pass and is shown with a failure.
+        captureStdErrForFailure(clean);
         const planted = b.addRunArtifact(bk_zig_host_test);
         planted.setEnvironmentVariable("BK_MEM_REPORT", "1");
         planted.setEnvironmentVariable("BK_ZIG_PLANT_LEAK", "1");
@@ -2311,7 +2381,7 @@ pub fn build(b: *std.Build) void {
             const churn = b.addRunArtifact(bk_zig_host_test);
             churn.setEnvironmentVariable("BK_MEM_REPORT", "1");
             churn.setEnvironmentVariable("BK_ZIG_EXIT_CHURN", "1");
-            churn.expectExitCode(0);
+            captureStdErrForFailure(churn);
             churn.has_side_effects = true;
             churn.step.dependOn(previous);
             previous = &churn.step;
@@ -2376,7 +2446,7 @@ pub fn build(b: *std.Build) void {
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
     const input = addInput(b, target, optimize, toolchain, misc, platform_runtime, sdl_dynamic);
-    addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic);
+    addInputModuleTest(b, target, optimize, test_mode, toolchain, platform_runtime, input, misc, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const formats = addFormats(b, target, optimize, toolchain);
     const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats }, platform_runtime, sdl_dynamic);
     const anim = addAnim(b, target, optimize, toolchain, misc, platform_runtime, formats, sdl_dynamic);
@@ -2394,6 +2464,7 @@ pub fn build(b: *std.Build) void {
     addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     const bk_font = addBkFont(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
     addBkShaperTest(b, target, optimize, toolchain, test_mode);
+    addBkTextTests(b, target, optimize, toolchain, test_mode);
     // bk-font is in the shared convention test too. It runs the installed
     // executable, which finds the engine libraries beside it or in ../lib.
     bk_tools_options.addOption([]const u8, "bk_font", if (target.result.os.tag == .windows) "zig-out/bin/bk-font.exe" else "zig-out/bin/bk-font");
@@ -2402,10 +2473,10 @@ pub fn build(b: *std.Build) void {
     // a changed bk-font runs the test again instead of reusing a cached pass.
     bk_tools_tests_run.addFileInput(bk_font.tool.getEmittedBin());
     setUserRootsForTest(bk_tools_tests_run, "bk-tools-user");
-    // That test judges stdout, stderr and exit codes. A debug bk-font carries
-    // BkMemory's exit-time leak check, which in its default mode turns the
-    // engine's process-lifetime statics into exit 3 and in count mode adds a
-    // stderr line; test-bk-font runs the tool with the count, this test without.
+    // That test judges stdout, stderr and exit codes byte for byte, and any report
+    // mode adds BkMemory's summary line to stderr, so it runs without one. bk-font
+    // leaks nothing (count 0 on a help run and on a conversion, 2026-10-22); the
+    // Game tiers that run it, test-bk-font among them, fail on a leak count above 0.
     bk_tools_tests_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
@@ -2489,6 +2560,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(bk_memory_artifact.?);
     b.installArtifact(game);
     b.installArtifact(gfx_gpu_zig);
+    b.installArtifact(addBkTextLib(b, target, optimize, toolchain));
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -2517,16 +2589,21 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, net_module_test_module, toolchain);
     net_module_test_module.linkLibrary(misc);
     net_module_test_module.linkLibrary(platform_runtime);
+    // SDL_Quit at the end, on the same SDL the module loaded, as in the SFX module test.
+    net_module_test_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    linkSdlImport(net_module_test_module, target, sdl_dynamic);
     const net_module_test = b.addExecutable(.{ .name = "net-module-test", .root_module = net_module_test_module });
     if (target.result.os.tag == .windows) {
         net_module_test.subsystem = .console;
         net_module_test.entry = .{ .symbol_name = "mainCRTStartup" };
     }
     const net_module_test_run = b.addRunArtifact(net_module_test);
+    setLeakReportStrict(net_module_test_run);
     net_module_test_run.setCwd(b.path("."));
-    net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else "zig-out/lib/libNet.so");
+    net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libNet.dylib" else "zig-out/lib/libNet.so");
     addPathDir(net_module_test_run, rootPath(b, "zig-out/bin"));
-    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .linux) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .macos) net_module_test_run.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     net_module_test_run.step.dependOn(&b.addInstallArtifact(net, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -2563,6 +2640,7 @@ pub fn build(b: *std.Build) void {
 
     const gfx_gpu_step = b.step("gfx-sdl-gpu", "Build the SDL GPU GFX adapter dynamic library");
     gfx_gpu_step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    gfx_gpu_step.dependOn(&b.addInstallArtifact(addBkTextLib(b, target, optimize, toolchain), .{}).step);
 
     const gfx_gpu_factory_test_module = b.createModule(.{
         .target = target,
@@ -2579,7 +2657,7 @@ pub fn build(b: *std.Build) void {
         linkEngineCxxRuntimeEngine(b, gfx_gpu_factory_test_module, optimize);
     }
     gfx_gpu_factory_test_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp", "Sources/src/GFXGPU/BkTextBridge.cpp" },
         // These are the real engine sources, so they need the portable CRT
         // shim that every other non-Windows build force-includes: bare
         // -std=c++17 leaves LARGE_INTEGER and QueryPerformanceCounter
@@ -2594,6 +2672,9 @@ pub fn build(b: *std.Build) void {
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
     addMacosSysrootPaths(b, gfx_gpu_factory_test_module, target);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
+    // GraphicsEngineGpu.cpp creates the bk_text context, so the harness takes the same library.
+    gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/BkText"));
+    gfx_gpu_factory_test_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
     // gfx_gpu_zig already brings the dynamic SDL3 in, the same copy the GFXGPU
     // module this harness dlopens was linked against. Linking the static SDL3
     // on top of it put two SDL runtimes into one process: the ObjC runtime
@@ -2630,6 +2711,7 @@ pub fn build(b: *std.Build) void {
     // with no leaked block; the report stays the count like the other tiers'.
     setLeakReportStrict(gfx_gpu_factory_test_run);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(addBkTextLib(b, target, optimize, toolchain), .{}).step);
     // The module's own dependencies: on Windows a DLL's imports resolve from
     // the executable's directory and PATH, not from the DLL's, so the runtime
     // DLLs the module needs are installed and the install directory put on the
@@ -2651,6 +2733,146 @@ pub fn build(b: *std.Build) void {
     // binary under a debugger from the repository root.
     gfx_gpu_factory_test_step.dependOn(&b.addInstallArtifact(gfx_gpu_factory_test, .{}).step);
     if (test_mode == .run) gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
+
+    // M004 S03: every measuring call of the GPU font and text objects against the geometry the
+    // draw path emits, on bk_text. The harness is the GFXGPU module's own sources (the real
+    // FontGpu, TextGpu and GraphicsEngineGpu) over a fake GPU API that records the vertices,
+    // so the numbers compared are the ones the Game draws. BK_TEXT_FONTS_DIR points the bridge
+    // at the tracked vendor/fonts, as the run happens from the build cache.
+    const text_measure_draw_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addAtexitStub(b, text_measure_draw_module, target, optimize, toolchain);
+    if (target.result.os.tag == .macos) {
+        addEngineCxxNewDelete(b, text_measure_draw_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, text_measure_draw_module, optimize);
+    }
+    text_measure_draw_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/text_measure_draw_test.cpp",
+            "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+            "Sources/src/GFXGPU/TextureGpu.cpp",
+            "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
+            "Sources/src/GFXGPU/MeshGpu.cpp",
+            "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+            "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+            "Sources/src/GFXGPU/BkTextBridge.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, text_measure_draw_module);
+    text_measure_draw_module.addIncludePath(b.path("Sources/src/GFX"));
+    text_measure_draw_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    text_measure_draw_module.addIncludePath(b.path("Sources/src/BkText"));
+    addMsvcIncludePaths(b, text_measure_draw_module, toolchain);
+    addLinuxCxxIncludePaths(b, text_measure_draw_module);
+    addMsvcLibraryPaths(b, text_measure_draw_module, toolchain);
+    addMacosSysrootPaths(b, text_measure_draw_module, target);
+    text_measure_draw_module.linkLibrary(misc);
+    text_measure_draw_module.linkLibrary(platform_runtime);
+    text_measure_draw_module.linkLibrary(formats);
+    text_measure_draw_module.linkLibrary(gfx_gpu_zig);
+    text_measure_draw_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
+    if (target.result.os.tag == .macos) {
+        text_measure_draw_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(text_measure_draw_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
+    if (target.result.os.tag == .windows) {
+        text_measure_draw_module.linkSystemLibrary("user32", .{});
+        text_measure_draw_module.linkSystemLibrary("gdi32", .{});
+        text_measure_draw_module.linkSystemLibrary("shell32", .{});
+    }
+    applyLoaderPath(target, text_measure_draw_module);
+    const text_measure_draw_test = b.addExecutable(.{
+        .name = "text-measure-draw-test",
+        .root_module = text_measure_draw_module,
+    });
+    text_measure_draw_test.subsystem = .console;
+    text_measure_draw_test.rdynamic = true;
+    if (target.result.os.tag == .windows) text_measure_draw_test.entry = .{ .symbol_name = "main" };
+    const text_measure_draw_run = b.addRunArtifact(text_measure_draw_test);
+    setLeakReportStrict(text_measure_draw_run);
+    text_measure_draw_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    text_measure_draw_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    addPathDir(text_measure_draw_run, rootPath(b, "zig-out/bin"));
+    text_measure_draw_run.setCwd(b.path("."));
+    text_measure_draw_run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    text_measure_draw_run.has_side_effects = true;
+    const text_measure_draw_step = b.step("test-text-measure-draw", "Check every IGFXFont/IGFXText measuring call on bk_text equals the geometry the draw path emits (M004 S03)");
+    text_measure_draw_step.dependOn(&text_measure_draw_test.step);
+    if (test_mode == .run) text_measure_draw_step.dependOn(&text_measure_draw_run.step);
+
+    // M004 S05: a mod that ships fonts/<size>/1.tfd keeps its bitmap font for that size while the
+    // other sizes draw on bk_text. The harness is the real FontGpu over a fake storage with a base
+    // layer and a mod layer; the check is the decision FontGpu::Load makes per size.
+    const mod_font_fallback_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addAtexitStub(b, mod_font_fallback_module, target, optimize, toolchain);
+    if (target.result.os.tag == .macos) {
+        addEngineCxxNewDelete(b, mod_font_fallback_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, mod_font_fallback_module, optimize);
+    }
+    mod_font_fallback_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/mod_font_fallback_test.cpp",
+            "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+            "Sources/src/GFXGPU/TextureGpu.cpp",
+            "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
+            "Sources/src/GFXGPU/MeshGpu.cpp",
+            "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+            "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+            "Sources/src/GFXGPU/BkTextBridge.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, mod_font_fallback_module);
+    mod_font_fallback_module.addIncludePath(b.path("Sources/src/GFX"));
+    mod_font_fallback_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    mod_font_fallback_module.addIncludePath(b.path("Sources/src/BkText"));
+    addMsvcIncludePaths(b, mod_font_fallback_module, toolchain);
+    addLinuxCxxIncludePaths(b, mod_font_fallback_module);
+    addMsvcLibraryPaths(b, mod_font_fallback_module, toolchain);
+    addMacosSysrootPaths(b, mod_font_fallback_module, target);
+    mod_font_fallback_module.linkLibrary(misc);
+    mod_font_fallback_module.linkLibrary(platform_runtime);
+    mod_font_fallback_module.linkLibrary(formats);
+    mod_font_fallback_module.linkLibrary(gfx_gpu_zig);
+    mod_font_fallback_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
+    if (target.result.os.tag == .macos) {
+        mod_font_fallback_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(mod_font_fallback_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
+    if (target.result.os.tag == .windows) {
+        mod_font_fallback_module.linkSystemLibrary("user32", .{});
+        mod_font_fallback_module.linkSystemLibrary("gdi32", .{});
+        mod_font_fallback_module.linkSystemLibrary("shell32", .{});
+    }
+    applyLoaderPath(target, mod_font_fallback_module);
+    const mod_font_fallback_test = b.addExecutable(.{
+        .name = "mod-font-fallback-test",
+        .root_module = mod_font_fallback_module,
+    });
+    mod_font_fallback_test.subsystem = .console;
+    mod_font_fallback_test.rdynamic = true;
+    if (target.result.os.tag == .windows) mod_font_fallback_test.entry = .{ .symbol_name = "main" };
+    const mod_font_fallback_run = b.addRunArtifact(mod_font_fallback_test);
+    setLeakReportStrict(mod_font_fallback_run);
+    mod_font_fallback_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    mod_font_fallback_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    addPathDir(mod_font_fallback_run, rootPath(b, "zig-out/bin"));
+    mod_font_fallback_run.setCwd(b.path("."));
+    mod_font_fallback_run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    mod_font_fallback_run.has_side_effects = true;
+    const mod_font_fallback_step = b.step("test-mod-font-fallback", "Check a size a mod ships a 1.tfd for keeps its bitmap font while the other sizes use bk_text (M004 S05)");
+    mod_font_fallback_step.dependOn(&mod_font_fallback_test.step);
+    if (test_mode == .run) mod_font_fallback_step.dependOn(&mod_font_fallback_run.step);
 
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
@@ -2689,6 +2911,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(addBkTextLib(b, target, optimize, toolchain), .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -2741,6 +2964,7 @@ pub fn build(b: *std.Build) void {
         .metadata_files = stage_metadata_files,
         .editors_supported = target.result.os.tag == .windows,
         .tools = b.allocator.dupe(*std.Build.Step.Compile, staged_tools) catch @panic("OOM"),
+        .extra_tool_files = if (target.result.os.tag == .linux) &.{"tools/install_desktop_entry.sh"} else &.{},
     };
     const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
@@ -2775,15 +2999,62 @@ pub fn build(b: *std.Build) void {
     bk_font_game_reads_step.dependOn(&bk_font_game_reads_tests.step);
     if (test_mode == .run) bk_font_game_reads_step.dependOn(&bk_font_game_reads_run.step);
 
+    // A mod made for the original game, in a Cyrillic-named folder: the main menu's
+    // BinkFile videos play and the mod's Russian label is drawn on the real Game
+    // (tools/zig/mod_compat_game_reads_it.zig). Desktop and GPU, so not part of `test`.
+    const mod_compat_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mod_compat_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, mod_compat_game_reads_module, toolchain);
+    }
+    const mod_compat_game_reads_tests = b.addTest(.{ .root_module = mod_compat_game_reads_module });
+    const mod_compat_game_reads_run = b.addRunArtifact(mod_compat_game_reads_tests);
+    mod_compat_game_reads_run.setCwd(b.path("."));
+    mod_compat_game_reads_run.setEnvironmentVariable("BK_MOD_COMPAT_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    mod_compat_game_reads_run.has_side_effects = true;
+    mod_compat_game_reads_run.step.dependOn(install_game_step);
+    const mod_compat_game_reads_step = b.step("mod-compat-game-reads-it", "Write a mod made for the original game into a Cyrillic-named folder of the install (Russian MODName and label, the main menu with the original BinkFile key) and prove on the real Game that its smoke videos play, its label is drawn and Options > Load Mod lists it");
+    mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_tests.step);
+    if (test_mode == .run) mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_run.step);
+
+    // The Remastered option on the real Game (tools/zig/remastered_game_reads_it.zig):
+    // a mission with soldiers in a house and a truck, the who-is-inside strip
+    // clicked, the occupants ordered into another house, with the option off
+    // (the original game) and on, and saves carried between the two modes.
+    // Desktop and GPU, so not part of `test`.
+    const remastered_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/remastered_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, remastered_game_module, toolchain);
+    }
+    const remastered_game_tests = b.addTest(.{ .root_module = remastered_game_module });
+    const remastered_game_run = b.addRunArtifact(remastered_game_tests);
+    remastered_game_run.setCwd(b.path("."));
+    remastered_game_run.setEnvironmentVariable("BK_REMASTERED_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    remastered_game_run.has_side_effects = true;
+    remastered_game_run.step.dependOn(install_game_step);
+    const remastered_game_step = b.step("remastered-game-reads-it", "Drive the who-is-inside strip of a house and a truck and a change of building on the real Game with the Remastered option off (the original game) and on, and load a save written in one mode in the other");
+    remastered_game_step.dependOn(&remastered_game_tests.step);
+    if (test_mode == .run) remastered_game_step.dependOn(&remastered_game_run.step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
     // or any package step (the fixture is not AchtungPanzer2 and is tracked,
-    // but it is still not part of what ships).
+    // but it is still not part of what ships). It is staged in a scratch mods
+    // folder the runs name with BK_MODS_ROOT (setFixtureModsRoot), not in the
+    // install's mods: that folder is the player's, and the Game's Load Mod list
+    // showed the fixture there.
     const install_fixture_mod = b.addInstallDirectory(.{
         .source_dir = b.path("tools/zig/fixtures/editor_mod/EditorTestMod"),
-        .install_dir = .{ .custom = stage_root["zig-out/".len..] },
-        .install_subdir = "mods/EditorTestMod",
+        .install_dir = .{ .custom = fixture_mods_root["zig-out/".len..] },
+        .install_subdir = "EditorTestMod",
     });
 
     // R045/R046: every C++ module in the staged layout allocates through BkMemory.
@@ -2904,7 +3175,9 @@ pub fn build(b: *std.Build) void {
     linkEngineCxxRuntimeEngine(b, console_bridge_test_module, optimize);
     if (platform != .windows_x64) {
         console_bridge_test_module.link_libc = true;
-        console_bridge_test_module.link_libcpp = true;
+        // Linux compiles against the native libstdc++ headers (addProjectIncludePaths) and links
+        // its soname; Zig's libc++ beside them is two standard libraries in one translation unit.
+        if (build_support.isLinux(platform)) linkCxxRuntime(console_bridge_test_module, target) else console_bridge_test_module.link_libcpp = true;
     }
     console_bridge_test_module.addCSourceFile(.{
         .file = b.path("tools/zig/console_bridge_test.cpp"),
@@ -2949,6 +3222,8 @@ pub fn build(b: *std.Build) void {
         .file = b.path("tools/zig/scene_screen_scale_test.cpp"),
         .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
     });
+    // Its own Globals.h (every option at its default) comes before the engine's headers.
+    scene_scale_module.addIncludePath(b.path("tools/zig/scene_scale_test"));
     scene_scale_module.addIncludePath(b.path("Sources/src"));
     addMsvcIncludePaths(b, scene_scale_module, toolchain);
     addMsvcLibraryPaths(b, scene_scale_module, toolchain);
@@ -3018,6 +3293,29 @@ pub fn build(b: *std.Build) void {
     const text_wrap_step = b.step("test-gfx-text-wrap", "Check CJK text wraps between characters with kinsoku and Latin text wraps as before");
     text_wrap_step.dependOn(&text_wrap_test.step);
     if (test_mode == .run) text_wrap_step.dependOn(&text_wrap_run.step);
+
+    // Which text a key shows under a gameplay mod and a language mod: the language's translation
+    // where the mod kept the base game's English, the mod's own text where it changed it, and the
+    // translation of the same English under another key for a text only the mod has.
+    const text_precedence_module = b.createModule(.{ .target = target, .optimize = .debug });
+    if (platform != .windows_x64) {
+        text_precedence_module.link_libc = true;
+        text_precedence_module.link_libcpp = true;
+    }
+    text_precedence_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/text_precedence_test.cpp", "Sources/src/Main/TextPrecedence.cpp" },
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, text_precedence_module, toolchain);
+    addMsvcLibraryPaths(b, text_precedence_module, toolchain);
+    linkMsvcRuntime(text_precedence_module, .debug);
+    const text_precedence_test = b.addExecutable(.{ .name = "text-precedence-test", .root_module = text_precedence_module });
+    text_precedence_test.subsystem = .console;
+    if (platform == .windows_x64) text_precedence_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const text_precedence_run = b.addRunArtifact(text_precedence_test);
+    const text_precedence_step = b.step("test-text-precedence", "Check a gameplay mod's unchanged English shows the language's translation, its changed texts stay its own");
+    text_precedence_step.dependOn(&text_precedence_test.step);
+    if (test_mode == .run) text_precedence_step.dependOn(&text_precedence_run.step);
 
     const noise_seam_step = b.step("test-terrain-noise", "Check terrain noise coordinates are continuous across patches");
     noise_seam_step.dependOn(&noise_seam_test.step);
@@ -3318,6 +3616,27 @@ pub fn build(b: *std.Build) void {
     const test_cloudsync_oauth_step = b.step("test-cloudsync-oauth", "Run Zig CloudSync config state machine tests");
     test_cloudsync_oauth_step.dependOn(&cloudsync_oauth_unit_tests.step);
     if (test_mode == .run) test_cloudsync_oauth_step.dependOn(&run_cloudsync_oauth_unit_tests.step);
+    // The live cases start their own `rclone serve webdav` and `rclone rcd` on scratch folders,
+    // so all they need is an rclone binary: BK_TEST_RCLONE, else the first one on PATH, and they
+    // return early when there is none (CI). On Linux PATH often holds the distribution's rclone
+    // (1.68 on the maintainer's machine), older than the 1.75 the game ships and finds beside
+    // itself first; its bisync and error texts differ from what the cases pin, and three engine
+    // cases, the backend cycle and the worker's auth_failed case failed against it. Linux runs
+    // them against the bundled binary instead.
+    if (target.result.os.tag == .linux) {
+        const live_rclone_runs = [_]*std.Build.Step.Run{
+            run_cloudsync_daemon_unit_tests,
+            run_cloudsync_engine_unit_tests,
+            run_cloudsync_backend_unit_tests,
+            run_cloudsync_backup_unit_tests,
+            run_cloudsync_worker_unit_tests,
+            run_cloudsync_oauth_unit_tests,
+        };
+        for (live_rclone_runs) |run| {
+            run.setEnvironmentVariable("BK_TEST_RCLONE", rootPath(b, b.fmt("zig-out/bin/{s}", .{rclone_bundle.installed_name})));
+            run.step.dependOn(&install_rclone.step);
+        }
+    }
     // The C ABI is proven from both sides in one step: the zig tests below
     // cover the discovery cache and its threading contract, and the C++ smoke
     // consumer links the real shared library and calls every export, which is
@@ -3344,6 +3663,12 @@ pub fn build(b: *std.Build) void {
         // win. The consumer proves the ABI, not the STL.
         .flags = &.{"-std=c++17"},
     });
+    // <cstdio> and <cstring> are C++ headers all the same; Linux takes them from the native
+    // libstdc++ the engine uses, with the soname and libc beside it.
+    if (target.result.os.tag == .linux) {
+        addLinuxCxxIncludePaths(b, cloudsync_abi_consumer_module);
+        linkCxxRuntime(cloudsync_abi_consumer_module, target);
+    }
     addMsvcIncludePaths(b, cloudsync_abi_consumer_module, toolchain);
     addMsvcLibraryPaths(b, cloudsync_abi_consumer_module, toolchain);
     cloudsync_abi_consumer_module.linkLibrary(cloudsync);
@@ -3404,6 +3729,8 @@ pub fn build(b: *std.Build) void {
     // The build's PATH entry for BkMemory.dll is relative to the build root and the cwd above is
     // elsewhere, so the loader would not find it: give the run the installed copy by absolute path.
     addPathDir(run_facade_present, rootPath(b, "zig-out/bin"));
+    // The Linux loader finds the installed libBkMemory.so only through LD_LIBRARY_PATH from there.
+    if (target.result.os.tag == .linux) run_facade_present.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     run_facade_present.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const test_cloudsync_facade_step = b.step("test-cloudsync-facade", "Run the CloudSync C++ facade tests");
     test_cloudsync_facade_step.dependOn(&cloudsync_facade_test.step);
@@ -3449,6 +3776,32 @@ pub fn build(b: *std.Build) void {
     file_utils_step.dependOn(&file_utils_test.step);
     if (test_mode == .run) file_utils_step.dependOn(&file_utils_run.step);
 
+    // Cyrillic and CJK profile, folder and file names through NFile, the UTF-8
+    // path helpers and the profile directories. Meant for Windows above all,
+    // where the narrow file calls read UTF-8 in the ANSI code page.
+    const unicode_paths_module = b.createModule(.{ .target = target, .optimize = .debug });
+    unicode_paths_module.addIncludePath(b.path("Sources/src"));
+    unicode_paths_module.addIncludePath(b.path("Sources/src/Misc"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, unicode_paths_module, toolchain);
+        addMsvcLibraryPaths(b, unicode_paths_module, toolchain);
+        linkMsvcRuntime(unicode_paths_module, .debug);
+    } else {
+        unicode_paths_module.link_libc = true;
+        unicode_paths_module.link_libcpp = true;
+    }
+    unicode_paths_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/unicode_paths_test.cpp", "Sources/src/Misc/FileUtils.cpp", "Sources/src/Platform/Paths.cpp" },
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" }) else &.{ "-std=c++17", "-DBLITZKRIEG_PATHS_TEST" },
+    });
+    const unicode_paths_test = b.addExecutable(.{ .name = "unicode-paths-test", .root_module = unicode_paths_module });
+    unicode_paths_test.subsystem = .console;
+    if (platform == .windows_x64) unicode_paths_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const unicode_paths_run = b.addRunArtifact(unicode_paths_test);
+    const unicode_paths_step = b.step("test-unicode-paths", "Run Cyrillic and CJK file, folder and profile name tests");
+    unicode_paths_step.dependOn(&unicode_paths_test.step);
+    if (test_mode == .run) unicode_paths_step.dependOn(&unicode_paths_run.step);
+
     const paths_module = b.createModule(.{ .target = target, .optimize = .debug });
     paths_module.addIncludePath(b.path("Sources/src"));
     paths_module.addCSourceFiles(.{
@@ -3473,6 +3826,29 @@ pub fn build(b: *std.Build) void {
     const paths_step = b.step("test-platform-paths", "Run portable data and writable root tests");
     paths_step.dependOn(&paths_test.step);
     if (test_mode == .run) paths_step.dependOn(&paths_run.step);
+
+    // The mods folders of a game folder holding both "mods" and "Mods" (StreamIO/ModsPaths.h).
+    const mods_paths_module = b.createModule(.{ .target = target, .optimize = .debug });
+    mods_paths_module.addIncludePath(b.path("Sources/src"));
+    mods_paths_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/mods_paths_test.cpp"},
+        .flags = if (platform == .windows_x64) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"},
+    });
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, mods_paths_module, toolchain);
+        addMsvcLibraryPaths(b, mods_paths_module, toolchain);
+        linkMsvcRuntime(mods_paths_module, .debug);
+    } else {
+        mods_paths_module.link_libc = true;
+        mods_paths_module.link_libcpp = true;
+    }
+    const mods_paths_test = b.addExecutable(.{ .name = "mods-paths-test", .root_module = mods_paths_module });
+    mods_paths_test.subsystem = .console;
+    if (platform == .windows_x64) mods_paths_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const mods_paths_run = b.addRunArtifact(mods_paths_test);
+    const mods_paths_step = b.step("test-mods-paths", "Run the mods folder lookup tests: every case variant of mods is one mods folder");
+    mods_paths_step.dependOn(&mods_paths_test.step);
+    if (test_mode == .run) mods_paths_step.dependOn(&mods_paths_run.step);
     const gfx_gpu_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
         .target = target,
@@ -3500,6 +3876,7 @@ pub fn build(b: *std.Build) void {
     test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(wheel_scroll_step);
+    test_step.dependOn(remastered_step);
     // The editor kit tier: reusable editor plumbing (files, shipped, autosave,
     // history stack primitive, settings primitive, host, crt, imgui wrapper,
     // BK_EDITOR_AUTO schedule driver, pictures-cache, testlaunch) without any
@@ -3523,6 +3900,8 @@ pub fn build(b: *std.Build) void {
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     // kit/fonts.zig and kit/l10n.zig reach the HarfBuzz font loader in imgui_backend.cpp, which needs the C++ runtime.
     if (!build_support.usesMsvc(platform)) linkCxxRuntime(editor_kit_module, target);
+    // kit/l10n.zig keeps its tables on the process's one heap, so the exit report sees them.
+    linkBkMemoryAllocator(b, editor_kit_module, false);
     // The test tiers build for the requested target. Only an MSVC target needs
     // the Visual Studio library paths (Zig's own libc supplies the runtime, and
     // naming vcruntimed too fails to link); MinGW has everything built in.
@@ -3532,6 +3911,8 @@ pub fn build(b: *std.Build) void {
     }
     const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
     const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
+    // app_identity's tests read the desktop-entry script, the Game's source and Data/icon.bmp.
+    editor_kit_tests_run.setCwd(b.path("."));
     const editor_kit_step = b.step("test-editor-kit", "Run the editor kit tests (reusable editor plumbing shared by the Zig editors)");
     editor_kit_step.dependOn(&editor_kit_tests.step);
     if (test_mode == .run) editor_kit_step.dependOn(&editor_kit_tests_run.step);
@@ -3663,32 +4044,21 @@ pub fn build(b: *std.Build) void {
     const elk_game_reads_step = b.step("elk-game-reads-it", "Export the tracked Data/ELK to mods/ELKTest, capture the real Game's main menu before and after a marker translation of one label and prove from the frames that it shows the marker there (E-06); then switch the Game's Language option to the mod and back on its settings screen and across a restart, measured the same way (E-11)");
     elk_game_reads_step.dependOn(&elk_game_reads_tests.step);
     if (test_mode == .run) elk_game_reads_step.dependOn(&elk_game_reads_run.step);
-    // The language mods (M002 D060): lang-ru, lang-zh-hans, lang-ja and lang-hi
-    // of the install, built by ELK's pak export from Localization/ and the
-    // tracked Data/ELK, with bk-font's Noto fonts and, for Hindi, the HarfBuzz
-    // shaper rewriting the exported texts (tools/zig/language_mods.zig).
+    // The language mods (M002 D060; texts only since M004 S05): the nine lang-* mods of the install,
+    // built by ELK's pak export from Localization/ and the tracked Data/ELK, plain Unicode and no fonts
+    // (tools/zig/language_mods.zig).
+    const language_mods_bk_text = bkTextModule(b, target, optimize, toolchain);
     const language_mods_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/language_mods.zig"),
         .target = target,
         .optimize = optimize,
-        .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module } },
+        .imports = &.{ .{ .name = "elk", .module = elk_core_module }, .{ .name = "zip", .module = elk_zip_module }, .{ .name = "bk_text", .module = language_mods_bk_text }, .{ .name = "l10n_wrap", .module = language_mods_bk_text.import_table.get("l10n_wrap").? } },
     });
-    linkEngineCxxRuntimeEngine(b, language_mods_module, optimize);
-    language_mods_module.addIncludePath(b.path("vendor/harfbuzz/src"));
-    language_mods_module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/FontAtlas/Shaper.cpp", "tools/zig/language_mods_shape.cpp" },
-        .flags = cppflagsForTarget(target, optimize),
-    });
-    addMsvcIncludePaths(b, language_mods_module, toolchain);
-    addMsvcLibraryPaths(b, language_mods_module, toolchain);
-    addLinuxCxxIncludePaths(b, language_mods_module);
-    language_mods_module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    // bk_text links the engine's C++ runtime and HarfBuzz into this module graph.
     const language_mods_tests = b.addTest(.{ .root_module = language_mods_module });
     const language_mods_run = b.addRunArtifact(language_mods_tests);
     language_mods_run.setCwd(b.path("."));
     language_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-    language_mods_run.setEnvironmentVariable("BK_LM_FONT_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-font{s}", .{target.result.exeFileExt()})));
-    language_mods_run.setEnvironmentVariable("BK_LM_MODULES", rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
     // The run step does not pass the caller's environment on, so the subset options are build options
     // that export the variables the test reads: -Dlm-langs limits the codes, -Dlm-overlays reads the
     // overlays from another root, and -Dlm-allow-missing is the one switch that lets a missing overlay
@@ -3698,8 +4068,7 @@ pub fn build(b: *std.Build) void {
     if (b.option(bool, "lm-allow-missing", "language-mods: skip a language whose overlay is missing instead of failing (BK_LM_ALLOW_MISSING=1)") orelse false) language_mods_run.setEnvironmentVariable("BK_LM_ALLOW_MISSING", "1");
     language_mods_run.has_side_effects = true;
     language_mods_run.step.dependOn(install_game_step);
-    language_mods_run.step.dependOn(bk_font.install);
-    const language_mods_step = b.step("language-mods", "Build the nine language mods (ru, zh-Hans, ja, hi with their Noto fonts, Hindi shaped into Private Use Area clusters; es, fr, de, pt-BR, id texts only on the bitmap fonts) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
+    const language_mods_step = b.step("language-mods", "Build the nine language mods (texts only: plain Unicode, no fonts, no Private Use Area; bk_text draws them) from the Localization overlays through ELK's pak export and install them into the game's mods folder; BK_LM_LANGS limits it to some codes (M002 D060)");
     language_mods_step.dependOn(&language_mods_tests.step);
     if (test_mode == .run) language_mods_step.dependOn(&language_mods_run.step);
     // The install form of the same run (D087): `language-mods` only runs under test_mode == .run and
@@ -3707,6 +4076,53 @@ pub fn build(b: *std.Build) void {
     // in every test mode.
     const install_language_mods_step = b.step("install-language-mods", "Write the nine language mods into the game installation's mods folder (fresh-install step; M002 D087)");
     install_language_mods_step.dependOn(&language_mods_run.step);
+
+    // A gameplay mod made in English under a language mod (Achtung Panzer 2 with lang-ru), from
+    // tracked data: which of their texts the Game shows, that the mod's empty .bik videos stay off and
+    // that a save does not switch the session's language (tools/zig/mod_language_game_reads_it.zig).
+    // Desktop and GPU, so not part of `test`.
+    const mod_language_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mod_language_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, mod_language_game_reads_module, toolchain);
+    }
+    const mod_language_game_reads_tests = b.addTest(.{ .root_module = mod_language_game_reads_module });
+    const mod_language_game_reads_run = b.addRunArtifact(mod_language_game_reads_tests);
+    mod_language_game_reads_run.setCwd(b.path("."));
+    mod_language_game_reads_run.setEnvironmentVariable("BK_MOD_LANGUAGE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    mod_language_game_reads_run.has_side_effects = true;
+    mod_language_game_reads_run.step.dependOn(&language_mods_run.step);
+    const mod_language_game_reads_step = b.step("mod-language-game-reads-it", "Prove on the real Game that a gameplay mod's unchanged English shows lang-ru's translation and its changed texts stay its own, that its empty .bik videos play nothing and that loading a save keeps the session's language");
+    mod_language_game_reads_step.dependOn(&mod_language_game_reads_tests.step);
+    if (test_mode == .run) mod_language_game_reads_step.dependOn(&mod_language_game_reads_run.step);
+
+    // The Achtung Panzer 2 mod's own save under lang-ru, where the mod is at hand: -Dap2-mod names its
+    // folder and -Dap2-save a save written with it (tools/zig/ap2_save_game_reads_it.zig); without them
+    // the test is skipped. Its content is not tracked.
+    const ap2_options = b.addOptions();
+    ap2_options.addOption([]const u8, "mod", b.option([]const u8, "ap2-mod", "ap2-save-game-reads-it: the Achtung Panzer 2 mod's folder (holding data/)") orelse "");
+    ap2_options.addOption([]const u8, "save", b.option([]const u8, "ap2-save", "ap2-save-game-reads-it: a .sav written with the Achtung Panzer 2 mod") orelse "");
+    const ap2_save_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/ap2_save_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    ap2_save_game_reads_module.addOptions("ap2_options", ap2_options);
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, ap2_save_game_reads_module, toolchain);
+    }
+    const ap2_save_game_reads_tests = b.addTest(.{ .root_module = ap2_save_game_reads_module });
+    const ap2_save_game_reads_run = b.addRunArtifact(ap2_save_game_reads_tests);
+    ap2_save_game_reads_run.setCwd(b.path("."));
+    ap2_save_game_reads_run.setEnvironmentVariable("BK_AP2_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    ap2_save_game_reads_run.has_side_effects = true;
+    ap2_save_game_reads_run.step.dependOn(&language_mods_run.step);
+    const ap2_save_game_reads_step = b.step("ap2-save-game-reads-it", "Load an Achtung Panzer 2 save (-Dap2-mod, -Dap2-save; skipped without them) under lang-ru on the real Game and prove it stays Russian on bk_text and leaks nothing at exit");
+    ap2_save_game_reads_step.dependOn(&ap2_save_game_reads_tests.step);
+    if (test_mode == .run) ap2_save_game_reads_step.dependOn(&ap2_save_game_reads_run.step);
     // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
     // install-game's). The editor installs are added as its dependencies at the end of build().
     const verify_install_l10n_module = b.createModule(.{
@@ -3749,14 +4165,17 @@ pub fn build(b: *std.Build) void {
     const l10n_glossary_step = b.step("test-l10n-glossary", "The nine glossaries in Localization/glossary have the same sections, table header and CRLF lines (M002 S02 T03)");
     l10n_glossary_step.dependOn(&l10n_glossary_tests.step);
     if (test_mode == .run) l10n_glossary_step.dependOn(&l10n_glossary_run.step);
-    // The completeness gate (tools/zig/l10n_check.zig, M002 S03): plain Zig, no engine modules, no libc.
+    // The completeness gate (tools/zig/l10n_check.zig, M002 S03): no engine modules, but since M004 S04 it links libc,
+    // the C++ runtime and HarfBuzz through bk_text, which measures the D097 fit rule at the Game's own sizes.
     // `l10n-check` reads the tracked tree from the repository root and fails the build on a finding.
+    const l10n_bk_text_module = bkTextModule(b, target, .debug, toolchain);
     const l10n_check_exe = b.addExecutable(.{
         .name = "l10n-check",
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/zig/l10n_check.zig"),
             .target = target,
             .optimize = .debug,
+            .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
         }),
     });
     const l10n_check_run = b.addRunArtifact(l10n_check_exe);
@@ -3777,11 +4196,14 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/l10n_check.zig"),
         .target = target,
         .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
     }) });
     const l10n_check_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/l10n_check_test.zig"),
         .target = target,
         .optimize = .debug,
+        // The fit fixtures derive their box sizes from the same bk_text measures the rule uses.
+        .imports = &.{.{ .name = "bk_text", .module = l10n_bk_text_module }},
     });
     const l10n_check_tests = b.addTest(.{ .root_module = l10n_check_test_module });
     const l10n_check_tests_run = b.addRunArtifact(l10n_check_tests);
@@ -3799,8 +4221,79 @@ pub fn build(b: *std.Build) void {
         l10n_check_tests_step.dependOn(&l10n_check_tests_run.step);
         l10n_check_tests_step.dependOn(&l10n_check_unit_run.step);
     }
+    // The fit rule on bk_text (M004 S04): the l10n-check unit tests whose names start with "fit", from the repository root.
+    const l10n_fit_unit = b.addTest(.{
+        .root_module = l10n_check_unit.root_module,
+        .filters = &.{"fit"},
+    });
+    const l10n_fit_step = b.step("test-l10n-fit", "The D097 fit rule measured with the bk_text module at the Game's size table: the l10n-check unit tests named fit* (M004 S04)");
+    l10n_fit_step.dependOn(&l10n_fit_unit.step);
+    if (test_mode == .run) {
+        const l10n_fit_run = b.addRunArtifact(l10n_fit_unit);
+        l10n_fit_run.setCwd(b.path("."));
+        l10n_fit_step.dependOn(&l10n_fit_run.step);
+    }
 
-    // M002 R056/D066 on the real Game: the language mods' main menus measured against
+    // The fit rule's parts (M003 S01 T02): the 1.tfd reader reads the shipped fonts and the wrap port
+    // breaks the lines the way gfx_text_wrap_test.cpp expects. Both run from the repository root.
+    const l10n_font_step = b.step("test-l10n-font", "The 1.tfd reader and the game's text wrap ported to Zig, on the shipped fonts (M003 S01 T02)");
+    for ([_][]const u8{ "tools/zig/l10n_font.zig", "tools/zig/l10n_wrap.zig" }) |source| {
+        const font_tests = b.addTest(.{ .root_module = b.createModule(.{
+            .root_source_file = b.path(source),
+            .target = target,
+            .optimize = .debug,
+        }) });
+        l10n_font_step.dependOn(&font_tests.step);
+        if (test_mode == .run) {
+            const font_tests_run = b.addRunArtifact(font_tests);
+            font_tests_run.setCwd(b.path("."));
+            l10n_font_step.dependOn(&font_tests_run.step);
+        }
+    }
+
+    // The overlay sheet helper (tools/zig/l10n_sheet.zig, M003 S01 T01): export the English originals under
+    // key prefixes to a text sheet, import the translated sheet as UTF-16LE overlay texts.
+    const l10n_sheet_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_sheet.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
+    });
+    const l10n_sheet_exe = b.addExecutable(.{ .name = "l10n-sheet", .root_module = l10n_sheet_module });
+    for ([_][]const u8{ "export", "import" }) |command| {
+        const run = b.addRunArtifact(l10n_sheet_exe);
+        run.addArg(command);
+        run.addPassthruArgs();
+        run.setCwd(b.path("."));
+        run.has_side_effects = true;
+        const step = b.step(b.fmt("l10n-sheet-{s}", .{command}), if (std.mem.eql(u8, command, "export"))
+            "Write the English texts the Game reads under key prefixes to zig-out/local-test/l10n-sheet/<code>-<n>.txt: zig build l10n-sheet-export -- <code> <prefix>... (M003 S01)"
+        else
+            "Write a translated sheet as the overlay texts of a language: zig build l10n-sheet-import -- <code> <sheet> (M003 S01)");
+        step.dependOn(&run.step);
+    }
+    const l10n_sheet_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_sheet_test.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
+    }) });
+    const l10n_sheet_tests_run = b.addRunArtifact(l10n_sheet_tests);
+    l10n_sheet_tests_run.setCwd(b.path("."));
+    l10n_sheet_tests_run.has_side_effects = true;
+    const l10n_sheet_tests_step = b.step("test-l10n-sheet", "The overlay sheet export and import: round trip, line breaks, refusals (M003 S01)");
+    l10n_sheet_tests_step.dependOn(&l10n_sheet_tests.step);
+    if (test_mode == .run) l10n_sheet_tests_step.dependOn(&l10n_sheet_tests_run.step);
+
+    // The scope parser of l10n-check, for the routes of l10n-game-reads-it below.
+    const l10n_check_scope_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/l10n_check.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{ .{ .name = "bk_text", .module = l10n_bk_text_module }, .{ .name = "l10n_wrap", .module = l10n_bk_text_module.import_table.get("l10n_wrap").? } },
+    });
+
+    // M002 R056/D066 on the real Game, on bk_text: the ten languages' menus, briefings and routes measured against
     // hb-view's rasters of the same strings (tools/zig/l10n_game_reads_it.zig). It needs a
     // desktop, a GPU and hb-view, and fails without them; the mods are built first.
     const l10n_game_reads_module = b.createModule(.{
@@ -3811,21 +4304,31 @@ pub fn build(b: *std.Build) void {
             .{ .name = "elk", .module = elk_core_module },
             .{ .name = "zip", .module = elk_zip_module },
             .{ .name = "l10n_measure", .module = l10n_measure_module },
+            // The scope parser of the completeness gate, so a route is measured against English
+            // only for a language whose scope holds its keys.
+            .{ .name = "l10n_check", .module = l10n_check_scope_module },
         },
     });
     if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, l10n_game_reads_module, toolchain);
     }
     const l10n_game_reads_tests = b.addTest(.{ .root_module = l10n_game_reads_module });
+    // The briefing table of that file against Data/Scenarios (no Game needed): the filter keeps the
+    // Game-driven test out of this step.
+    const l10n_briefing_table_tests = b.addTest(.{ .root_module = l10n_game_reads_module, .filters = &.{"briefing table"} });
+    const l10n_briefing_table_run = b.addRunArtifact(l10n_briefing_table_tests);
+    l10n_briefing_table_run.setCwd(b.path("."));
+    const l10n_briefing_table_step = b.step("test-l10n-game-reads-it-table", "Check the briefing table of l10n-game-reads-it (each campaign's first chapter and its first mission) against Data/Scenarios (M004 S07)");
+    if (test_mode == .run) l10n_briefing_table_step.dependOn(&l10n_briefing_table_run.step);
     // One shard per language (BK_L10N_LANGS), each well under the 10 minute foreground
     // limit: the menu, the briefing, a live switch and a restart. The aggregate runs its
     // own copy of every shard in a chain, so two Games never start at once; a shard run
     // alone does not pull the others in.
-    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu and the first mission's briefing and measure them (hb-view for ru, zh-Hans, ja and hi; ink, difference from English and missing glyphs for es, fr, de, pt-BR and id), then a live switch and a restart (M002 R056, D066)");
+    const l10n_game_reads_step = b.step("l10n-game-reads-it", "Start the real Game on bk_text (the default engine) on English and the nine language mods, one shard per language (l10n-game-reads-it-<code>): capture the main menu, the first mission's briefing, the options screen with a hovered tooltip and a unit's encyclopedia page and measure them against hb-view of the language's face (Liberation Serif for the Latin languages, Noto for ru, zh-Hans, ja and hi; the two newer routes only where the language's scope covers their keys), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, then a live switch and a restart (M002 R056, D066, M003 S01, M004 S05)");
     const l10n_shards = [_][]const u8{ "en", "ru", "zh-hans", "ja", "hi", "es", "fr", "de", "pt-br", "id" };
     var l10n_chain: ?*std.Build.Step = null;
     for (l10n_shards) |code| {
-        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, live switch and restart on the real Game, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056)", .{code});
+        const shard_about = b.fmt("l10n-game-reads-it for {s} alone: menu, briefing, options with tooltip, unit encyclopedia, live switch and restart on the real Game on bk_text, measured against hb-view, report in zig-out/local-test/l10n-game-reads-it/<code>/report.txt (M002 R056, M004 S05)", .{code});
         const shard_step = b.step(b.fmt("l10n-game-reads-it-{s}", .{code}), shard_about);
         shard_step.dependOn(&l10n_game_reads_tests.step);
         for ([_]bool{ false, true }) |chained| {
@@ -3843,6 +4346,134 @@ pub fn build(b: *std.Build) void {
         }
     }
     l10n_game_reads_step.dependOn(&l10n_game_reads_tests.step);
+    // M004 S02 on the real Game: BK_TEXT_ENGINE=ttf draws the menu and a briefing in en, de and hi
+    // through bk_text, measured like the l10n tier (tools/zig/text_engine_game_reads_it.zig), and a
+    // save written on the bitmap path loads under ttf. The test compiles on every target; it runs where
+    // the Game does. It needs lang-ru (the blank background's fonts), lang-de and the plain-Unicode Hindi
+    // mod, so it builds those alone, one run after the other (all write below the game's mods folder),
+    // and does not wait for the other languages' mods.
+    const text_engine_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/text_engine_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = elk_core_module },
+            .{ .name = "zip", .module = elk_zip_module },
+            .{ .name = "l10n_measure", .module = l10n_measure_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, text_engine_reads_module, toolchain);
+    }
+    const text_engine_reads_tests = b.addTest(.{ .root_module = text_engine_reads_module });
+    // The l10n tier takes the helpers it shares with this one from it.
+    l10n_game_reads_module.addImport("text_engine_reads", text_engine_reads_module);
+    const text_engine_mods_run = b.addRunArtifact(language_mods_tests);
+    text_engine_mods_run.setCwd(b.path("."));
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    text_engine_mods_run.setEnvironmentVariable("BK_LM_LANGS", "ru,de,hi");
+    text_engine_mods_run.has_side_effects = true;
+    text_engine_mods_run.step.dependOn(install_game_step);
+    const text_engine_reads_step = b.step("text-engine-game-reads-it", "Start the real Game on bk_text (the default since M004 S05; BK_TEXT_ENGINE=bitmap is the escape hatch) on English, German and Hindi (text-engine-game-reads-it-<code> is one shard): capture the main menu, the first mission's briefing, the options screen with a tooltip, a unit's encyclopedia page and the first mission running, and measure them (hb-view for hi on the menu and briefing), fail on a BK_GLYPH_TRACE line or a missing 'engine ttf' log line, and load a save written on the bitmap path, and the reverse (M004 S02, S05)");
+    var text_engine_chain: ?*std.Build.Step = null;
+    for ([_][]const u8{ "en", "de", "hi" }) |code| {
+        const shard_step = b.step(b.fmt("text-engine-game-reads-it-{s}", .{code}), b.fmt("text-engine-game-reads-it for {s} alone, report in zig-out/local-test/text-engine-game-reads-it/{s}/report.txt (M004 S02)", .{ code, code }));
+        shard_step.dependOn(&text_engine_reads_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(text_engine_reads_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&text_engine_mods_run.step);
+            if (chained) {
+                if (text_engine_chain) |before| run.step.dependOn(before);
+                text_engine_chain = &run.step;
+                if (test_mode == .run) text_engine_reads_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    text_engine_reads_step.dependOn(&text_engine_reads_tests.step);
+    // M004 S05: old and new side by side for the maintainer's approval (tools/zig/text_engine_sidebyside.zig).
+    // The Game runs four screens on BK_TEXT_ENGINE=bitmap and on BK_TEXT_ENGINE=ttf in en, de, ru and hi and
+    // keeps PNG pairs, a composite per screen and a measured report.txt. It needs lang-de, lang-ru and the
+    // language mods (text_engine_mods_run); the bitmap side draws their texts with the Game's own fonts.
+    const text_engine_sbs_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/text_engine_sidebyside.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "elk", .module = elk_core_module },
+            .{ .name = "zip", .module = elk_zip_module },
+            .{ .name = "l10n_measure", .module = l10n_measure_module },
+            .{ .name = "text_engine_reads", .module = text_engine_reads_module },
+        },
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, text_engine_sbs_module, toolchain);
+    }
+    const text_engine_sbs_tests = b.addTest(.{ .root_module = text_engine_sbs_module });
+    const text_engine_sbs_step = b.step("text-engine-sidebyside", "Start the real Game on the main menu, the first briefing, the options screen with a tooltip and the Churchill's encyclopedia page on BK_TEXT_ENGINE=bitmap and on BK_TEXT_ENGINE=ttf in en, de, ru and hi (text-engine-sidebyside-<code> is one shard): PNG pairs, a side-by-side composite per screen and a measured report.txt in zig-out/local-test/text-engine-sidebyside/<code>/, for the maintainer's approval (M004 S05)");
+    var text_engine_sbs_chain: ?*std.Build.Step = null;
+    for ([_][]const u8{ "en", "de", "ru", "hi" }) |code| {
+        const shard_step = b.step(b.fmt("text-engine-sidebyside-{s}", .{code}), b.fmt("text-engine-sidebyside for {s} alone, report in zig-out/local-test/text-engine-sidebyside/{s}/report.txt (M004 S05)", .{ code, code }));
+        shard_step.dependOn(&text_engine_sbs_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(text_engine_sbs_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_TEXT_ENGINE_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&text_engine_mods_run.step);
+            if (chained) {
+                if (text_engine_sbs_chain) |before| run.step.dependOn(before);
+                text_engine_sbs_chain = &run.step;
+                if (test_mode == .run) text_engine_sbs_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    text_engine_sbs_step.dependOn(&text_engine_sbs_tests.step);
+    // M004 S03: the frame-time tier. The Game runs each screen on the bitmap fonts and on bk_text with
+    // BK_PERF=1 and the medians of its `BK_PERF text:` line are compared (tools/zig/text_engine_perf.zig).
+    // It needs the language mods (texts only); ja has no mod
+    // (language-mods fails its fit check), so the tier reports ja as not run unless the mod is installed.
+    // One shard per language (text-engine-perf-<code>) keeps each under the foreground limit.
+    const text_engine_perf_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/text_engine_perf.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "l10n_measure", .module = l10n_measure_module }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, text_engine_perf_module, toolchain);
+    }
+    const text_engine_perf_tests = b.addTest(.{ .root_module = text_engine_perf_module });
+    const text_engine_perf_hi_run = b.addRunArtifact(language_mods_tests);
+    text_engine_perf_hi_run.setCwd(b.path("."));
+    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    text_engine_perf_hi_run.setEnvironmentVariable("BK_LM_LANGS", "hi");
+    text_engine_perf_hi_run.has_side_effects = true;
+    text_engine_perf_hi_run.step.dependOn(install_game_step);
+    const text_engine_perf_step = b.step("text-engine-perf", "Start the real Game on the options screen with a tooltip, the encyclopedia, the briefing and the first mission, on the bitmap fonts (BK_TEXT_ENGINE=bitmap, set explicitly: bk_text is the default) and on bk_text, in en, hi and ja (ja only where its mod is installed), and fail if bk_text spends more text time per frame than bitmap * 1.10 + 0.3 ms, 1.6 ms in a debug build (text-engine-perf-<code> is one shard; report in zig-out/local-test/text-engine-perf/; M004 S03)");
+    var text_engine_perf_chain: ?*std.Build.Step = null;
+    for ([_][]const u8{ "en", "hi", "ja" }) |code| {
+        const shard_step = b.step(b.fmt("text-engine-perf-{s}", .{code}), b.fmt("text-engine-perf for {s} alone, report in zig-out/local-test/text-engine-perf/report-{s}.txt (M004 S03)", .{ code, code }));
+        shard_step.dependOn(&text_engine_perf_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(text_engine_perf_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_TEXT_PERF_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_TEXT_PERF_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&text_engine_perf_hi_run.step);
+            if (chained) {
+                if (text_engine_perf_chain) |before| run.step.dependOn(before);
+                text_engine_perf_chain = &run.step;
+                if (test_mode == .run) text_engine_perf_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
+    text_engine_perf_step.dependOn(&text_engine_perf_tests.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
@@ -3910,8 +4541,9 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
-    // single_instance.zig's job state allocates through the shared allocator.
-    linkBkMemoryAllocator(b, panels_logic_module, false);
+    // single_instance.zig's job state allocates through the shared allocator; the kit it
+    // imports links BkMemory already, and a second copy aborts dyld on macOS.
+    linkBkMemoryAllocator(b, panels_logic_module, true);
     const panels_logic_tests = b.addTest(.{ .root_module = panels_logic_module });
     const panels_logic_tests_run = b.addRunArtifact(panels_logic_tests);
     const panels_logic_step = b.step("test-map-editor-panels", "Run the panels' pure file-action, palette and properties tests");
@@ -3957,6 +4589,13 @@ pub fn build(b: *std.Build) void {
     // exist where the editors build).
     for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
         if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
+    }
+
+    // install-all: every install step this host has, in one command. Looked up by name because the
+    // editor installs only exist where the editors build.
+    const install_all_step = b.step("install-all", "Install the Game, the nine language mods, MapEditor, ResourceEditor and ELK into the game installation");
+    for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
+        if (b.top_level_steps.get(name)) |install| install_all_step.dependOn(&install.step);
     }
 
     b.default_step = game_all_step;
@@ -4122,6 +4761,9 @@ const StageGameInputs = struct {
     /// The bk-* modding tools, staged into <install>/Tools on every platform
     /// (Phase 8, D-27), so the release zip carries them.
     tools: []const *std.Build.Step.Compile,
+    /// Repository files staged into <install>/Tools beside the guide, for one
+    /// platform only. Linux ships the opt-in desktop-entry installer here.
+    extra_tool_files: []const []const u8 = &.{},
 };
 
 /// The one way to create a stage-game run (install-game, package-game,
@@ -4156,6 +4798,10 @@ fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const 
     for (package_policy.required_tool_docs) |staged| {
         run.addArg("--tool-doc");
         run.addFileArg(b.path(b.fmt("tools/guide/{s}", .{staged[("Tools/").len..]})));
+    }
+    for (inputs.extra_tool_files) |path| {
+        run.addArg("--tool-doc");
+        run.addFileArg(b.path(path));
     }
     for (inputs.metadata_files) |name| run.addFileInput(b.path(name));
     // Staging copies the third-party notice out of a plain path, the way it
@@ -4290,6 +4936,7 @@ fn addStreamIOZig(
     toolchain: ToolchainIncludes,
     options_bridge: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
+    sdl: *std.Build.Step.Compile,
     streamio_fast: bool,
 ) *std.Build.Step.Compile {
     // The module optimize mode applies to the zig sources only; the C++
@@ -4319,6 +4966,11 @@ fn addStreamIOZig(
             "Sources/src/StreamIOZig/legacy_bridge.cpp",
             "Sources/src/PlatformABI/PlatformClient.cpp",
             "Sources/src/Platform/Debug.cpp",
+            // The load trace (OpenTraceLog) needs the user root. Every module links its
+            // own copy of Paths.cpp: StreamIOOptionsAbi's copy exports nothing on
+            // Windows, where a DLL only offers what it marks dllexport, so a call
+            // into it linked on Linux and macOS and failed with lld-link.
+            "Sources/src/Platform/Paths.cpp",
         },
         .flags = flags.items,
     });
@@ -4327,6 +4979,8 @@ fn addStreamIOZig(
     addMsvcLibraryPaths(b, streamio_module, toolchain);
     streamio_module.linkLibrary(options_bridge);
     streamio_module.linkLibrary(platform_runtime);
+    // Paths.cpp asks SDL for the base and preference paths: the Game's one shared SDL3.
+    streamio_module.linkLibrary(sdl);
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
     const def_path = if (target.result.cpu.arch == .x86)
@@ -4835,6 +5489,9 @@ fn addGame(
     const game = b.addExecutable(.{
         .name = "Game",
         .root_module = game_module,
+        // UTF-8 as the process's ANSI code page, so the narrow file calls
+        // take the engine's UTF-8 paths; ignored off Windows.
+        .win32_manifest = b.path("Sources/src/Game/Game.manifest"),
     });
     if (target.result.os.tag == .linux or target.result.os.tag == .macos) {
         // Legacy modules resolve RTTI owned by Main from the executable when
@@ -5122,18 +5779,22 @@ fn addInputModuleTest(
     input: *std.Build.Step.Compile,
     misc: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
     linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Input"));
+    // SDL_Quit at the end, on the same SDL the module loaded, as in the SFX module test.
+    module.addIncludePath(sdl_include);
+    linkSdlImport(module, target, sdl_dynamic);
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_module_test.cpp" }, .flags = if (target.result.os.tag == .windows) cppflagsForOptimize(optimize) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -5146,6 +5807,11 @@ fn addInputModuleTest(
     setLeakReportStrict(run);
     run.setCwd(b.path("zig-out/bin"));
     addPathDir(run, rootPath(b, "zig-out/bin"));
+    // The test executable itself needs libBkMemory before it loads Input; the Linux and macOS
+    // loaders find it only through their library path, as for the net-module and SFX tests.
+    if (target.result.os.tag == .linux) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     run.addArg(if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin/Input.dll") else if (target.result.os.tag == .macos) rootPath(b, "zig-out/lib/libInput.dylib") else rootPath(b, "zig-out/lib/libInput.so"));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
     step.dependOn(&b.addInstallArtifact(input, .{}).step);
@@ -5712,6 +6378,8 @@ fn addGFXGPU(
     gfx_gpu_module.linkLibrary(platform_runtime);
     gfx_gpu_module.linkLibrary(formats);
     gfx_gpu_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_module.addIncludePath(b.path("Sources/src/BkText"));
+    gfx_gpu_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
     if (target.result.os.tag == .macos) {
         // gfx_gpu_zig already links SDL3, so linking it again here emits a
         // second LC_LOAD_DYLIB for @rpath/libSDL3.dylib. ELF tolerates the
@@ -5995,6 +6663,144 @@ fn addBkShaperTest(
     if (test_mode == .run) step.dependOn(&run.step);
 }
 
+/// The bk_text module (M004): the Zig text engine over HarfBuzz and a file-local
+/// stb_truetype. Later tools (S04) and the hbview test import it from here.
+fn bkTextModule(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Module {
+    return bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/root.zig", true);
+}
+
+/// bkTextModule with another root file: the library's is abi.zig, which imports root.zig.
+fn bkTextModuleAt(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    root_source: []const u8,
+    link_memory: bool,
+) *std.Build.Module {
+    const module = b.createModule(.{
+        .root_source_file = b.path(root_source),
+        .target = target,
+        .optimize = optimize,
+        // On MSVC the CRT is the engine's (the C++ runtime link below): Zig's own libc as well puts two
+        // of them into the consumer (duplicate _cexit, _wctype, ...).
+        .link_libc = target.result.abi != .msvc,
+    });
+    module.addImport("hb_c", addTranslatedHeaders(b, target, optimize, toolchain, &.{ "hb.h", "hb-ot.h" }, &.{b.path("vendor/harfbuzz/src")}));
+    // The game's wrap port in tools/zig, the cross-check for wrap.zig's tests.
+    module.addImport("l10n_wrap", b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_wrap.zig") }));
+    module.addIncludePath(b.path("vendor/harfbuzz/src"));
+    module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
+    module.addCSourceFile(.{ .file = b.path("Sources/src/BkText/stbtt.c"), .flags = &.{"-fno-sanitize=undefined"} });
+    // HarfBuzz needs the C++ runtime (std::mutex); the engine's own new/delete
+    // keep it on the same allocator as the rest, as in addBkShaperTest.
+    if (link_memory) {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+    } else {
+        addEngineCxxNewDelete(b, module, optimize, cppflagsForTarget(target, optimize));
+    }
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    module.linkLibrary(addHarfBuzz(b, target, optimize, toolchain, .dll));
+    return module;
+}
+
+/// The BkText library behind bk_text.h: dynamic on Linux, static elsewhere, like GfxGpuZig. The
+/// module links BkMemory itself only on Linux (see below); the allocator import is always added.
+fn addBkTextLib(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    // One library per graph: the contract test and GFXGPU share it, and a second addLibrary named
+    // BkText would clash on the artifact name.
+    if (bk_text_lib) |lib| return lib;
+    // A static library (macOS, Windows) must not link BkMemory itself: every consumer already gets it
+    // through GfxGpuZig or its own runtime link, and a second link is a second LC_LOAD_DYLIB in the
+    // consumer, which dyld on macOS 26 rejects ("duplicate linked dylib", as for SDL3 in addGFXGPU).
+    const module = bkTextModuleAt(b, target, optimize, toolchain, "Sources/src/BkText/abi.zig", target.result.os.tag == .linux);
+    applyLoaderPath(target, module);
+    linkBkMemoryAllocator(b, module, true);
+    const lib = b.addLibrary(.{
+        .name = "BkText",
+        .linkage = if (target.result.os.tag == .linux) .dynamic else .static,
+        .root_module = module,
+    });
+    bk_text_lib = lib;
+    return lib;
+}
+
+var bk_text_lib: ?*std.Build.Step.Compile = null;
+
+/// test-bk-text: faces, UTF-16 and the HarfBuzz/stb_truetype spike on the
+/// vendored fonts; the fonts directory arrives as BK_TEXT_FONTS_DIR.
+fn addBkTextTests(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    test_mode: build_support.TestMode,
+) void {
+    const tests = b.addTest(.{ .root_module = bkTextModule(b, target, optimize, toolchain) });
+    const run = b.addRunArtifact(tests);
+    run.setCwd(b.path("."));
+    run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    const step = b.step("test-bk-text", "bk_text: the Zig core tests and the C++ contract test of bk_text.h (M004)");
+    step.dependOn(&tests.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+
+    // The C ABI from C++: the library, linked like any engine module, run with the leak report on.
+    const abi_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = if (target.result.abi == .msvc) false else null });
+    linkEngineCxxRuntimeEngine(b, abi_module, optimize);
+    abi_module.addIncludePath(b.path("Sources/src/BkText"));
+    abi_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/bk_text_abi_test.cpp"},
+        .flags = cppflagsForTarget(target, optimize),
+    });
+    addMsvcIncludePaths(b, abi_module, toolchain);
+    addMsvcLibraryPaths(b, abi_module, toolchain);
+    addLinuxCxxIncludePaths(b, abi_module);
+    applyLoaderPath(target, abi_module);
+    abi_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
+    const abi_exe = b.addExecutable(.{ .name = "bk-text-abi-test", .root_module = abi_module });
+    abi_exe.subsystem = .console;
+    if (target.result.os.tag == .linux) abi_exe.rdynamic = true;
+    if (target.result.os.tag == .windows) abi_exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const abi_run = b.addRunArtifact(abi_exe);
+    setLeakReportStrict(abi_run);
+    abi_run.setCwd(b.path("."));
+    abi_run.addArg(rootPath(b, "vendor/fonts"));
+    step.dependOn(&abi_exe.step);
+    if (test_mode == .run) step.dependOn(&abi_run.step);
+
+    // The lines of five scripts against hb-view and hb-shape (D069); part of test-bk-text so the
+    // slice gate covers it, and a step of its own for the fast loop.
+    const hbview_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_text_hbview_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = target.result.abi != .msvc,
+    });
+    hbview_module.addImport("bk_text", bkTextModule(b, target, optimize, toolchain));
+    hbview_module.addImport("l10n_measure", b.createModule(.{ .root_source_file = b.path("tools/zig/l10n_measure.zig") }));
+    const hbview_tests = b.addTest(.{ .root_module = hbview_module });
+    const hbview_run = b.addRunArtifact(hbview_tests);
+    hbview_run.setCwd(b.path("."));
+    hbview_run.has_side_effects = true;
+    hbview_run.setEnvironmentVariable("BK_TEXT_FONTS_DIR", rootPath(b, "vendor/fonts"));
+    const hbview_step = b.step("test-bk-text-hbview", "bk_text lines against hb-view and hb-shape: ink boxes, advances and correlation (M004 D069)");
+    hbview_step.dependOn(&hbview_tests.step);
+    if (test_mode == .run) hbview_step.dependOn(&hbview_run.step);
+    step.dependOn(hbview_step);
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
         .debug => portable_cflags,
@@ -6015,6 +6821,18 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
         .debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .safe, .fast, .small => cppflags_release,
     };
+}
+
+/// atexit for a Windows test executable that is entered at main: no C runtime start-up or exit sequence
+/// runs in it, so a registered handler is never called, and the engine libraries' global destructors
+/// otherwise take atexit out of the static C runtime, whose members clash with the debug DLL runtime
+/// (duplicate _cexit, _wctype, ...). An object, added before the libraries, so it is read first.
+fn addAtexitStub(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes) void {
+    if (target.result.abi != .msvc) return;
+    const stub_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = false });
+    stub_module.addCSourceFile(.{ .file = b.path("tools/zig/atexit_stub.cpp"), .flags = cppflagsForOptimize(optimize) });
+    addMsvcIncludePaths(b, stub_module, toolchain);
+    module.addObject(b.addObject(.{ .name = "atexit-stub", .root_module = stub_module }));
 }
 
 fn cppflagsForTarget(target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) []const []const u8 {
@@ -6045,6 +6863,15 @@ fn linuxMultiarchDir(arch: std.Target.Cpu.Arch) []const u8 {
         .aarch64 => "/usr/lib/aarch64-linux-gnu",
         else => "/usr/lib/x86_64-linux-gnu",
     };
+}
+
+/// linkCxxRuntime for a standalone C++ test executable on Linux. libstdc++ is
+/// built on glibc, and a test module that asked for nothing but C++ left
+/// printf, pthread_mutex_lock and getauxval undefined, so it links libc too.
+/// The engine modules keep their own libc setup and call linkCxxRuntime.
+fn linkLinuxTestCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
+    module.link_libc = true;
+    linkCxxRuntime(module, target);
 }
 
 fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
@@ -6365,7 +7192,7 @@ fn addGameFrameTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => {
             module.linkSystemLibrary("c++", .{});
             // SDLApplication reaches AppKit through the Objective-C runtime
@@ -6380,6 +7207,8 @@ fn addGameFrameTest(
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     setLeakReportStrict(test_run);
+    // The splash's renderer brings up Mesa, whose blocks BkMemory lists as foreign on stderr.
+    captureStdErrForFailure(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -6481,7 +7310,7 @@ fn addGameLoopTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => {
             module.linkSystemLibrary("c++", .{});
             // SDLApplication reaches AppKit through the Objective-C runtime
@@ -6541,7 +7370,7 @@ fn addSdlApplicationTest(
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
     } else if (target.result.os.tag == .linux) {
-        module.linkSystemLibrary("stdc++", .{});
+        linkLinuxTestCxxRuntime(module, target);
     } else if (target.result.os.tag == .macos) {
         module.linkSystemLibrary("c++", .{});
         // SDLApplication reaches AppKit through the Objective-C runtime
@@ -6690,6 +7519,39 @@ fn addWheelScrollTest(
     return step;
 }
 
+/// The Remastered switch's policy (Sources/src/Main/Remastered.h): the option,
+/// multiplayer and replays, with the global vars the game sets. Built the way
+/// addWheelScrollTest builds its header-only test.
+fn addRemasteredTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    platform: build_support.PlatformTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step {
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    addLinuxCxxIncludePaths(b, module);
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/remastered_test.cpp"}, .flags = &.{"-std=c++17"} });
+    linkCxxRuntime(module, target);
+    if (build_support.usesMsvc(platform)) {
+        addMsvcIncludePaths(b, module, toolchain);
+        addMsvcLibraryPaths(b, module, toolchain);
+        linkMsvcRuntime(module, .debug);
+    }
+    const exe = b.addExecutable(.{ .name = "remastered-test", .root_module = module });
+    if (build_support.usesMsvc(platform)) {
+        exe.subsystem = .console;
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const run = b.addRunArtifact(exe);
+    setLeakReportStrict(run);
+    run.setCwd(b.path("."));
+    const step = b.step("test-remastered", "Run the Remastered option's policy test: off by default, always off in multiplayer, a replay keeps its recorded mode");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+    return step;
+}
+
 fn addInputHeaderAuditTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -6707,7 +7569,7 @@ fn addInputHeaderAuditTest(
             addMsvcLibraryPaths(b, module, toolchain);
             linkMsvcRuntime(module, .debug);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -6868,7 +7730,7 @@ fn addPlatformControllerTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -6969,7 +7831,7 @@ fn addAudioWorkerTest(
             addMsvcLibraryPaths(b, module, toolchain);
             linkMsvcRuntime(module, .debug);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7003,7 +7865,7 @@ fn addAudioStreamTest(
             addMsvcLibraryPaths(b, module, toolchain);
             linkMsvcRuntime(module, .debug);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7148,6 +8010,7 @@ fn addNetLowestTest(
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
@@ -7155,7 +8018,6 @@ fn addNetLowestTest(
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{
         .files = &.{
-            "Sources/src/Platform/SocketWin32.cpp",
             "Sources/src/Platform/SocketPosix.cpp",
             "Sources/src/Platform/Debug.cpp",
             "Sources/src/Net/NetLowest.cpp",
@@ -7171,16 +8033,24 @@ fn addNetLowestTest(
             linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime. On Windows
+    // that DLL also exports the sockets, so SocketWin32.cpp (empty elsewhere) is not compiled here:
+    // lld-link rejects a second copy.
+    module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformClient.cpp"), .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "netlowest-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-netlowest", "Run NetLowest loopback UDP fixture");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -7191,6 +8061,7 @@ fn addNetworkWorkersTest(
     target: std.Build.ResolvedTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
@@ -7198,10 +8069,8 @@ fn addNetworkWorkersTest(
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{
         .files = &.{
-            "Sources/src/Platform/Clock.cpp",
             "Sources/src/Platform/Debug.cpp",
             "Sources/src/Platform/Sync.cpp",
-            "Sources/src/Platform/SocketWin32.cpp",
             "Sources/src/Platform/SocketPosix.cpp",
             "Sources/src/Misc/Thread.cpp",
             "Sources/src/Net/NetLowest.cpp",
@@ -7217,16 +8086,25 @@ fn addNetworkWorkersTest(
             linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
+    // Debug.cpp speaks through the platform client, which lives in the shared runtime. On Windows
+    // that DLL also exports the sockets and the clock, so SocketWin32.cpp (empty elsewhere) and,
+    // there, Clock.cpp are not compiled here: lld-link rejects a second copy.
+    if (target.result.os.tag != .windows) module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/Clock.cpp"), .flags = &.{"-std=c++17"} });
+    module.addCSourceFile(.{ .file = b.path("Sources/src/PlatformABI/PlatformClient.cpp"), .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
+    module.linkLibrary(platform_runtime);
     const exe = b.addExecutable(.{ .name = "network-workers-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-network-workers", "Run network worker cancellation and restart cycles");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -7292,7 +8170,7 @@ fn addNetworkSystemGateTest(
             addMsvcLibraryPaths(b, module, toolchain);
             module.linkSystemLibrary("ws2_32", .{});
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7322,6 +8200,7 @@ fn addGameBootstrapSmoke(
     toolchain: ToolchainIncludes,
     gfx_gpu_zig: *std.Build.Step.Compile,
     platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
     test_mode: build_support.TestMode,
 ) void {
@@ -7337,6 +8216,8 @@ fn addGameBootstrapSmoke(
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    // new_delete.cpp is added by hand above, so the native libstdc++ headers are too.
+    if (target.result.os.tag == .linux) addLinuxCxxIncludePaths(b, module);
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "Sources/src/Platform/System.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
     module.linkLibrary(platform_runtime);
@@ -7345,7 +8226,12 @@ fn addGameBootstrapSmoke(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => {
+            linkLinuxTestCxxRuntime(module, target);
+            // GfxGpuZig is a shared library on Linux and does not re-export SDL to the
+            // C++ sources here, so they link the one dynamic SDL3 the game ships.
+            linkSdlImport(module, target, sdl_dynamic);
+        },
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
@@ -7355,6 +8241,9 @@ fn addGameBootstrapSmoke(
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    // SDL's GTK backend warns about the locale on stderr, which is no failure of the smoke,
+    // whose checks are its exit code.
+    captureStdErrForFailure(run);
     run.setCwd(b.path("."));
     run.step.dependOn(&platform_runtime.step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
@@ -7529,6 +8418,31 @@ fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
     run.setEnvironmentVariable("BK_LANG", "en");
 }
 
+/// Points the Game's profiles folder (profiles, saves, screenshots, active.cfg: StreamIO/ProfilePaths.h,
+/// BK_PROFILES_ROOT) under zig-out/local-test. Without it a Game started by a test, from the editor's test
+/// launch or from a harness, writes them into the install, whose profiles folder is the player's own.
+fn setProfilesRootForTest(run: *std.Build.Step.Run, name: []const u8) void {
+    const b = run.step.owner;
+    run.setEnvironmentVariable("BK_PROFILES_ROOT", rootPath(b, b.fmt("zig-out/local-test/{s}/profiles", .{name})));
+}
+
+/// BK_MODS_ROOT (StreamIO/ModsPaths.h) for a tier that writes mods: the Game, the editors and their
+/// bridge look for mods in zig-out/local-test/<name>/mods instead of the install's mods folder, which
+/// is the player's. Twenty folders of test exports left there once pushed the Game's Detach All MODs
+/// row down its Load Mod list.
+fn setModsRootForTest(run: *std.Build.Step.Run, name: []const u8) void {
+    const b = run.step.owner;
+    run.setEnvironmentVariable("BK_MODS_ROOT", rootPath(b, b.fmt("zig-out/local-test/{s}/mods", .{name})));
+}
+
+/// Where the Map Editor tiers' fixture mod is staged (install_fixture_mod), apart from the install.
+const fixture_mods_root = "zig-out/local-test/editor-fixture-mods";
+
+/// BK_MODS_ROOT for a run that needs the fixture mod: the folder it is staged in, and no other mod.
+fn setFixtureModsRoot(run: *std.Build.Step.Run) void {
+    run.setEnvironmentVariable("BK_MODS_ROOT", rootPath(run.step.owner, fixture_mods_root));
+}
+
 /// The C ABI of the bk-* string tables (tools/zig/bk_l10n.h) as a static library for the C++ tools
 /// bk-font, bk-map and bk-sprite, so they choose the language and read tools/zig/lang/<code>.lang
 /// the way the Zig tools do (M002 S07, D062). Zig code, no C++ runtime: nothing here allocates
@@ -7638,6 +8552,7 @@ fn addBkFont(
     generate.addArgs(&.{ "--ttf", fixture, "--height", "13", "--charset", "ansi", "--out", output, "--force", "--modules", module_root });
     generate.step.dependOn(install);
     addPathDir(generate, rootPath(b, "zig-out/bin"));
+    discardToolStdOut(generate);
     const check = b.addRunArtifact(test_exe);
     setLeakReportStrict(check);
     setUserRootsForTest(check, "bk-font-user");
@@ -7663,6 +8578,7 @@ fn addBkFont(
         for (run_def.args) |arg| unicode_generate.addArg(if (std.mem.startsWith(u8, arg, "tools/")) rootPath(b, arg) else arg);
         unicode_generate.step.dependOn(install);
         addPathDir(unicode_generate, rootPath(b, "zig-out/bin"));
+        discardToolStdOut(unicode_generate);
         check.step.dependOn(&unicode_generate.step);
     }
     addPathDir(check, rootPath(b, "zig-out/bin"));
@@ -7822,6 +8738,7 @@ fn addBkMap(
             run.expectStdErrEqual(spec.stderr orelse "");
         } else {
             setLeakReportStrict(run);
+            discardToolStdOut(run);
         }
         // The tool reads Data and the fixtures by plain path; a changed map
         // or fixture is a changed run.
@@ -7983,6 +8900,7 @@ fn addBkSprite(
             run.expectStdErrEqual(stderr);
         } else {
             setLeakReportStrict(run);
+            discardToolStdOut(run);
         }
         // The tool reads the fixtures by plain path; a changed fixture is a
         // changed run.
@@ -8111,6 +9029,8 @@ fn addEditorBridgeTest(
     install_exe.step.dependOn(install_game_step);
 
     const run = b.addRunArtifact(exe);
+    // The engine logs its modules and maps on stderr; a pass keeps them, a failure shows them.
+    captureStdErrForFailure(run);
     setLeakReportStrict(run);
     // Run from the installation, and tell it so: cwd is what the engine's
     // relative data names resolve against.
@@ -8129,6 +9049,7 @@ fn addEditorBridgeTest(
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
     run.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(run);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -8138,6 +9059,7 @@ fn addEditorBridgeTest(
     // Local only, like test-map-files-m2-sweep: not in the default test step
     // or CI.
     const run_m2_sweep = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m2_sweep);
     setLeakReportStrict(run_m2_sweep);
     run_m2_sweep.setCwd(b.path(stage_root));
     run_m2_sweep.addArg(".");
@@ -8146,6 +9068,7 @@ fn addEditorBridgeTest(
     run_m2_sweep.has_side_effects = true;
     run_m2_sweep.step.dependOn(&install_exe.step);
     run_m2_sweep.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(run_m2_sweep);
     const step_m2_sweep = b.step("test-editor-bridge-m2-sweep", "Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
@@ -8153,6 +9076,7 @@ fn addEditorBridgeTest(
     // 05-05: the players, the unit creation and Check Map's fixes through the engine,
     // alone (the full tier above runs them too, among everything else).
     const run_m3_players = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_players);
     setLeakReportStrict(run_m3_players);
     run_m3_players.setCwd(b.path(stage_root));
     run_m3_players.addArg(".");
@@ -8167,6 +9091,7 @@ fn addEditorBridgeTest(
     // 05-07: the Minimap panel's reads and Create Minimap Images through the engine,
     // alone (the full tier above runs them too, among everything else).
     const run_m3_minimap = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_minimap);
     setLeakReportStrict(run_m3_minimap);
     run_m3_minimap.setCwd(b.path(stage_root));
     run_m3_minimap.addArg(".");
@@ -8182,6 +9107,7 @@ fn addEditorBridgeTest(
     // tier above runs it too, among everything else): the refusals, the seed, the
     // output folders, the mod stamp and the generated map's open.
     const run_m3_rmg = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_rmg);
     setLeakReportStrict(run_m3_rmg);
     run_m3_rmg.setCwd(b.path(stage_root));
     run_m3_rmg.addArg(".");
@@ -8190,6 +9116,7 @@ fn addEditorBridgeTest(
     run_m3_rmg.has_side_effects = true;
     run_m3_rmg.step.dependOn(&install_exe.step);
     run_m3_rmg.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(run_m3_rmg);
     const step_m3_rmg = b.step("test-editor-bridge-m3-rmg", "Generate random maps through the engine with seeds and check the files, the refusals and the mod stamp");
     step_m3_rmg.dependOn(&exe.step);
     if (test_mode == .run) step_m3_rmg.dependOn(&run_m3_rmg.step);
@@ -8197,6 +9124,7 @@ fn addEditorBridgeTest(
     // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
     // layer entries through the engine, alone (the full tier above runs them too).
     const run_m3_layers = b.addRunArtifact(exe);
+    captureStdErrForFailure(run_m3_layers);
     setLeakReportStrict(run_m3_layers);
     run_m3_layers.setCwd(b.path(stage_root));
     run_m3_layers.addArg(".");
@@ -8220,6 +9148,7 @@ fn addEditorBridgeTest(
     var previous_craft: ?*std.Build.Step = null;
     for (craft_kinds) |entry| {
         const run_craft = b.addRunArtifact(exe);
+        captureStdErrForFailure(run_craft);
         setLeakReportStrict(run_craft);
         run_craft.setCwd(b.path(stage_root));
         run_craft.addArg(".");
@@ -8380,6 +9309,7 @@ fn addResourceBridge(
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path(stage_root));
     // The bridge's diagnostics (the preview-clock stall detector, the preview
     // timer trace) are BK_DEBUG_LOG-gated in a release build; a tier built
@@ -8565,6 +9495,7 @@ fn addMapEditor(
     // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path("zig-out"));
     run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
@@ -8580,6 +9511,7 @@ fn addMapEditor(
     // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
     setLeakReportStrict(absolute_run);
+    captureStdErrForFailure(absolute_run);
     absolute_run.setCwd(b.path("zig-out"));
     absolute_run.addArgs(&.{ "--check", rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), rootPath(b, "zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
@@ -8590,10 +9522,12 @@ fn addMapEditor(
     // game and the host check's own acceptance criterion greps this line.
     const mod_run = b.addRunArtifact(exe);
     setLeakReportStrict(mod_run);
+    captureStdErrForFailure(mod_run);
     mod_run.setCwd(b.path(stage_root));
     mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
     mod_run.step.dependOn(&install_exe.step);
     mod_run.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(mod_run);
     // After the absolute-path run, so two engines never start at once.
     mod_run.step.dependOn(&absolute_run.step);
     if (test_mode == .run) {
@@ -8629,6 +9563,7 @@ fn addMapEditor(
     // Save As and reopen.
     const smoke_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_run);
+    captureStdErrForFailure(smoke_run);
     smoke_run.setCwd(b.path(stage_root));
     smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-smoke.bzm") });
     // What it reads - the staged Data and engine - is not a file input of the
@@ -8639,6 +9574,7 @@ fn addMapEditor(
     // fixture mod and back, closing the map - staged here, never a
     // dependency of install-map-editor.
     smoke_run.step.dependOn(install_fixture_mod_step);
+    setFixtureModsRoot(smoke_run);
     const smoke_step = b.step("map-editor-smoke", "Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map");
     smoke_step.dependOn(&smoke_run.step);
 
@@ -8658,9 +9594,11 @@ fn addMapEditor(
     // own BK_AUTO_UI: a shot (for a person to look at, unmeasured) then exit.
     const auto_run = b.addRunArtifact(exe);
     setLeakReportStrict(auto_run);
+    captureStdErrForFailure(auto_run);
     auto_run.setCwd(b.path(stage_root));
     auto_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_dir);
+    setProfilesRootForTest(auto_run, "map-editor-auto-user");
     auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", b.fmt(
         "3:key=2,4:press=c-120x-160,5:drag=c-95x-160,6:drag=c-70x-160,7:release=c-70x-160,8:key=3,9:click=c-40x-120,10:saveas={s},11:shot=edited,12:compare=edited,13:test,14:waitgame=240,15:exit",
         .{auto_saveas_path},
@@ -9102,9 +10040,11 @@ fn addMapEditor(
     };
     const auto_m2_run = b.addRunArtifact(exe);
     setLeakReportStrict(auto_m2_run);
+    captureStdErrForFailure(auto_m2_run);
     auto_m2_run.setCwd(b.path(stage_root));
     auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
+    setProfilesRootForTest(auto_m2_run, "map-editor-auto-m2-user");
     auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m2_entries) catch @panic("OOM"));
     // 04-13: the test game's own schedule (a shot, then exit) and its
     // BK_MAP_TRACE, which the test_game_script predicate reads.
@@ -9995,6 +10935,7 @@ fn addMapEditor(
     };
     const auto_m3_run = b.addRunArtifact(exe);
     setLeakReportStrict(auto_m3_run);
+    captureStdErrForFailure(auto_m3_run);
     auto_m3_run.setCwd(b.path(stage_root));
     auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
@@ -10003,6 +10944,7 @@ fn addMapEditor(
     // here and not in the person's own maps and logs folders.
     auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
     auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
+    setProfilesRootForTest(auto_m3_run, "map-editor-m3-auto-user");
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
     auto_m3_run.step.dependOn(&install_exe.step);
@@ -10023,7 +10965,9 @@ fn addMapEditor(
     // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_it_run);
+    captureStdErrForFailure(game_reads_it_run);
     game_reads_it_run.setCwd(b.path(stage_root));
+    setProfilesRootForTest(game_reads_it_run, "map-editor-game-reads-it-user");
     game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it.log") });
     // What it reads (the staged Data and Game) and the second process it
     // starts are not file inputs of this step, so a cached pass would say
@@ -10041,7 +10985,9 @@ fn addMapEditor(
     // two games never start at once.
     const game_reads_it_m2_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_it_m2_run);
+    captureStdErrForFailure(game_reads_it_m2_run);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
+    setProfilesRootForTest(game_reads_it_m2_run, "map-editor-game-reads-it-m2-user");
     game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
     game_reads_it_m2_run.step.dependOn(&install_exe.step);
@@ -10061,6 +11007,7 @@ fn addMapEditor(
     // test's `--craft` first. After its siblings, so two games never start at once.
     const game_reads_it_m3_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_it_m3_run);
+    captureStdErrForFailure(game_reads_it_m3_run);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
     game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", rootPath(b, "zig-out/local-test/m3-short-railroad.bzm"), rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3.log") });
     // The authored leg writes its template, graph, container and field set under the
@@ -10068,6 +11015,7 @@ fn addMapEditor(
     // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux and BK_USER_ROOT on Windows).
     game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
     game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    setProfilesRootForTest(game_reads_it_m3_run, "map-editor-game-reads-it-m3-user");
     game_reads_it_m3_run.has_side_effects = true;
     game_reads_it_m3_run.step.dependOn(&install_exe.step);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
@@ -10136,6 +11084,8 @@ fn addMapEditor(
     // mode a passing run returns from main, through c_bridge_test.zig's
     // crtMain into the CRT's exit; a failing one still exits 1.
     engine_test_run.stdio = .infer_from_args;
+    // Terminal mode prints a line per test; a pass keeps them, and the engine's commentary, to itself.
+    captureStdErrForFailure(engine_test_run);
     setLeakReportStrict(engine_test_run);
     engine_test_run.setCwd(b.path(stage_root));
     // What it reads - the staged Data and engine - is not a file input of the
@@ -10252,6 +11202,8 @@ fn editorAppKit(
     });
     // bridge.h, for kit/host.zig's translation.
     kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // kit/l10n.zig's tables, on the process's one heap; every app on this kit links BkMemory itself.
+    linkBkMemoryAllocator(b, kit_module, true);
     addMsvcIncludePaths(b, kit_module, toolchain);
     addMsvcLibraryPaths(b, kit_module, toolchain);
     return .{ .sdl = sdl_module, .kit = kit_module };
@@ -10356,6 +11308,7 @@ fn addElk(
     // host checks; it needs a GPU device, so it is not part of `test`.
     const smoke_run = b.addSystemCommand(&.{rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename }))});
     setLeakReportStrict(smoke_run);
+    captureStdErrForFailure(smoke_run);
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke", rootPath(b, "Data/ELK"), rootPath(b, "zig-out/local-test/elk/app-smoke") });
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
@@ -10504,6 +11457,7 @@ fn addResourceEditor(
     // the working directory.
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path("zig-out"));
     // The tracked picture the docks half shows in the thumbnail list.
     run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
@@ -10541,6 +11495,7 @@ fn addResourceEditor(
     // and the missing gamma.cfg, the shipped Data folder is refused.
     const batch_run = b.addRunArtifact(exe);
     setLeakReportStrict(batch_run);
+    captureStdErrForFailure(batch_run);
     batch_run.setCwd(b.path("zig-out"));
     batch_run.addArgs(&.{ "--batch-check", rootPath(b, "tools/zig/fixtures/resource_editor"), rootPath(b, "zig-out/local-test/resource_editor/batch") });
     batch_run.has_side_effects = true;
@@ -10553,6 +11508,7 @@ fn addResourceEditor(
     // edited, saved, undone, saved and compared byte for byte (scenario.zig).
     const smoke_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_run);
+    captureStdErrForFailure(smoke_run);
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke-edit", rootPath(b, "tools/zig/fixtures/resource_editor/unt/project.unt"), rootPath(b, "zig-out/local-test/resource_editor/smoke") });
     smoke_run.has_side_effects = true;
@@ -10562,6 +11518,7 @@ fn addResourceEditor(
     // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
     const smoke_kind_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_kind_run);
+    captureStdErrForFailure(smoke_kind_run);
     smoke_kind_run.setCwd(b.path("zig-out"));
     smoke_kind_run.addArgs(&.{ "--smoke", "unt", rootPath(b, "zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
     smoke_kind_run.has_side_effects = true;
@@ -10603,11 +11560,14 @@ fn addResourceEditor(
     const game_reads_dir = rootPath(b, "zig-out/local-test/resource-editor-game-reads-it");
     const game_reads_run = b.addRunArtifact(exe);
     setLeakReportStrict(game_reads_run);
+    captureStdErrForFailure(game_reads_run);
     game_reads_run.setCwd(b.path(stage_root));
     game_reads_run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), game_reads_dir });
     game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
     game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
     game_reads_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
+    setProfilesRootForTest(game_reads_run, "resource-editor-game-reads-it-user");
+    setModsRootForTest(game_reads_run, "resource-editor-game-reads-it-user");
     game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     game_reads_run.has_side_effects = true;
     game_reads_run.step.dependOn(&install_exe.step);
@@ -10676,9 +11636,12 @@ fn addResourceAutoRun(
     const auto_dir = rootPath(b, "zig-out/local-test/resource_editor/auto-" ++ auto.name);
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path(stage_root));
     run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
+    setProfilesRootForTest(run, b.fmt("resource-editor-auto-{s}-user", .{auto.name}));
+    setModsRootForTest(run, b.fmt("resource-editor-auto-{s}-user", .{auto.name}));
     run.has_side_effects = true;
     run.step.dependOn(install_step);
     run.step.dependOn(smoke_step);
@@ -11750,7 +12713,7 @@ const resource_auto_pcp =
     "531:shot=pcp_fn_delete," ++
     "531:expect=shot_lit:pcp_fn_delete," ++
     "532:do=function_close," ++
-    "533:do=import_file:pcp/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "533:do=import_file:pcp/{data}/Effects/Particles/flame.xml," ++
     "534:expect=kind:pcp," ++
     "534:expect=nodes_min:5," ++
     "534:expect=untitled," ++
@@ -11759,7 +12722,7 @@ const resource_auto_pcp =
     "536:do=export," ++
     "536:expect=exported," ++
     "536:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
-    "537:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml,";
+    "537:do=import_refused:eff/{data}/Effects/Particles/flame.xml,";
 
 /// S12 Effect (with S13's whole-number position and the Direction dock).
 const resource_auto_eff =
@@ -11857,7 +12820,7 @@ const resource_auto_3rd =
     "19:do=pause:200," ++
     "20:shot=road_solid_again," ++
     "20:differ=road_wire/road_solid_again@0.005," ++
-    "21:do=import_file:3rd/{mods}/../Data/Terrain/sets/1/Roads3D/rail_road_grass.xml," ++
+    "21:do=import_file:3rd/{data}/Terrain/sets/1/Roads3D/rail_road_grass.xml," ++
     "22:expect=kind:3rd," ++
     "22:saveas={dir}/3rd/imported.3rd," ++
     "23:do=export," ++
@@ -11896,7 +12859,7 @@ const resource_auto_3rv =
     "18:shot=river_wire," ++
     "18:differ=river_d/river_wire@0.005," ++
     "19:do=wireframe:off," ++
-    "20:do=import_file:3rv/{mods}/../Data/Terrain/sets/1/Rivers/water.xml," ++
+    "20:do=import_file:3rv/{data}/Terrain/sets/1/Rivers/water.xml," ++
     "21:expect=kind:3rv," ++
     "22:saveas={dir}/3rv/imported.3rv," ++
     "23:do=export," ++
@@ -12391,6 +13354,7 @@ fn addEngineHostedTool(
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     // Run from the installation, and tell it so: cwd is what the engine's
     // relative data names resolve against.
     run.setCwd(b.path(stage_root));
@@ -12431,7 +13395,7 @@ fn addSdlEventTest(
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
         },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .linux => linkLinuxTestCxxRuntime(module, target),
         .macos => {
             // The CI runner links against the SDK (-Dsystem_framework_path and friends), which
             // has to be on the search path for objc and c++ to resolve.
@@ -12448,6 +13412,8 @@ fn addSdlEventTest(
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     setLeakReportStrict(test_run);
+    // A text event over the buffer is truncated on purpose and reported once through DebugWrite.
+    captureStdErrForFailure(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&platform_runtime.step);
     test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
@@ -12803,6 +13769,7 @@ fn addResourceModelComparatorTest(
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
+    captureStdErrForFailure(run);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
     run.addArg(rootPath(b, "zig-out/local-test"));

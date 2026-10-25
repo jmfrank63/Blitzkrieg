@@ -9,7 +9,15 @@
 //! - control: the mod without fonts, so the shipped `fonts\medium` draws;
 //! - font: the generated font;
 //! - blank: the generated `1.tfd` with a fully transparent `1_h.dds`, the
-//!   same layout with no glyph ink.
+//!   same layout with no glyph ink;
+//! - font-ru: the generated font with bk_text's language Russian
+//!   (BK_TEXT_LANG=ru). ProggyClean has no Cyrillic, so the mod's font would
+//!   draw every Russian letter as an empty box: the Game must read its `1.tfd`,
+//!   leave its atlas alone and draw the medium size on bk_text (the Achtung
+//!   Panzer 2 mod under lang-ru drew its menu as boxes), at the mod font's
+//!   16-pixel cell, not the shipped medium's 20: the mod's layouts are made for
+//!   its font. Against blank, each button's ink is four fifths as tall and as
+//!   wide as the control's, and the log's medium line is the smaller font's.
 //!
 //! Control against font must differ, and only inside the eight text windows
 //! that use the medium font: the generated font replaced the shipped one
@@ -24,12 +32,13 @@
 //!
 //! The user's data is never touched: the Game and bk-font run with
 //! XDG_DATA_HOME and BK_USER_ROOT in a scratch folder, the Game from that
-//! folder (its `profiles/` are relative to the working directory) in a
+//! folder, its profiles there too (BK_PROFILES_ROOT), in a
 //! dedicated profile. The mod is removed from the installation afterwards.
 //! BK_FONT_GAME names the installed Game executable and BK_FONT_TOOL the
 //! staged bk-font; `zig build bk-font-game-reads-it` sets both.
 const std = @import("std");
 const timed_run = @import("timed_run.zig");
+const l10n_measure = @import("l10n_measure.zig");
 const testing = std.testing;
 
 /// The value of an environment variable the build step sets, or null.
@@ -117,7 +126,7 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
         .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>bk-font test</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n",
     });
 
-    const control = try runGame(io, allocator, game, user, root, "control", false);
+    const control = try runGame(io, allocator, game, user, root, "control", .control);
 
     const font_folder = try std.fs.path.join(allocator, &.{ mod_data, "fonts", "medium" });
     try runTool(io, allocator, tool, user, font_folder);
@@ -125,7 +134,8 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
     const tga = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ font_folder, "1.tga" }), allocator, .limited(64 << 20));
     const font = try Font.read(allocator, tfd, tga);
     try testing.expectEqual(@as(i32, font_height), font.height);
-    const drawn = try runGame(io, allocator, game, user, root, "font", true);
+    const drawn = try runGame(io, allocator, game, user, root, "font", .mod_font);
+    const russian = try runGame(io, allocator, game, user, root, "font-ru", .mod_font_lacks_language);
 
     // The same description over a texture with no ink.
     const dds_path = try std.fs.path.join(allocator, &.{ font_folder, "1_h.dds" });
@@ -134,9 +144,35 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
     try testing.expectEqual(128 + font.atlas_width * font.atlas_height * 4, dds.len);
     @memset(dds[128..], 0);
     try cwd.writeFile(io, .{ .sub_path = dds_path, .data = dds });
-    const blank = try runGame(io, allocator, game, user, root, "blank", true);
+    const blank = try runGame(io, allocator, game, user, root, "blank", .mod_font);
 
-    for ([_][]const u8{ control, drawn, blank }) |frame| try testing.expectEqual(@as(usize, width * height * 4), frame.len);
+    for ([_][]const u8{ control, drawn, russian, blank }) |frame| try testing.expectEqual(@as(usize, width * height * 4), frame.len);
+
+    // Russian over the mod's font: the five buttons draw on bk_text, not with the mod's bitmap font,
+    // and at the mod font's cell height. Their English labels are in the face bk_text gives Russian
+    // too (Liberation Serif leads for Latin and Cyrillic), so against blank (the same layout without
+    // ink) the Russian run's ink is the control's text at 16 pixels instead of 20: a box four fifths
+    // as tall and as wide, give or take two pixels of rounding and shadow.
+    for (buttons) |button| {
+        var differs_from_font: usize = 0;
+        for (button.rect.y1..button.rect.y2) |y| for (button.rect.x1..button.rect.x2) |x| {
+            const at = (y * width + x) * 4;
+            if (maxChannelDelta(drawn[at..][0..3], russian[at..][0..3]) > 2) differs_from_font += 1;
+        };
+        const control_ink = inkBox(control, blank, button.rect) orelse return error.NoInk;
+        const russian_ink = inkBox(russian, blank, button.rect) orelse return error.NoInk;
+        const sizes = [_][2]usize{ .{ russian_ink.y2 - russian_ink.y1, control_ink.y2 - control_ink.y1 }, .{ russian_ink.x2 - russian_ink.x1, control_ink.x2 - control_ink.x1 } };
+        errdefer std.debug.print("D-14: \"{s}\" under Russian differs from the mod's font in {d} pixels; its ink is {d} wide and {d} tall, the control's {d} and {d}\n", .{ button.text, differs_from_font, sizes[1][0], sizes[0][0], sizes[1][1], sizes[0][1] });
+        try testing.expect(differs_from_font >= 50);
+        // 16/20 of the control's size, within two pixels.
+        for (sizes) |size| try testing.expect(size[0] * 20 + 40 >= size[1] * 16 and size[0] * 20 <= size[1] * 16 + 40);
+    }
+    {
+        const control_height = try lastMediumHeight(io, allocator, root, "control");
+        const russian_height = try lastMediumHeight(io, allocator, root, "font-ru");
+        errdefer std.debug.print("D-14: the medium bk_text font is {d} pixels tall under Russian, {d} in the control\n", .{ russian_height, control_height });
+        try testing.expect(russian_height < control_height);
+    }
 
     // Control against font: changed pixels only in the medium-font windows,
     // and in every one of them.
@@ -156,17 +192,21 @@ test "the Game draws a font bk-font generated, legibly (D-14)" {
             per_window[buttons.len + i] += 1;
             inside = true;
         };
-        if (!inside) outside += 1;
+        // A difference of two levels of 255 or less is the linear filter's rounding next to a window
+        // (bk_text's control run puts six such pixels beside the mod-name label), not text.
+        if (!inside and maxChannelDelta(control[at..][0..3], drawn[at..][0..3]) > 2) outside += 1;
     };
-    std.debug.print("D-14: control and generated font differ in {d} pixels, {d} outside the eight medium-font windows; per window {any}\n", .{ changed, outside, per_window });
-    try testing.expectEqual(@as(usize, 0), outside);
-    for (per_window) |count| try testing.expect(count >= 50);
+    {
+        errdefer std.debug.print("D-14: control and generated font differ in {d} pixels, {d} outside the eight medium-font windows; per window {any}\n", .{ changed, outside, per_window });
+        try testing.expectEqual(@as(usize, 0), outside);
+        for (per_window) |count| try testing.expect(count >= 50);
+    }
 
     // Font against blank, per button: the generated font's ink against the
     // reference.
     for (buttons) |button| {
         const result = try measure(allocator, font, button, drawn, blank);
-        std.debug.print("D-14: \"{s}\": {d} glyphs, all with ink: {any}, quads overlap: {any}; {d} ink pixels, reference {d}, drawn {d} ({d:.1}%), outside the reference {d}, origin ({d},{d})\n", .{
+        errdefer std.debug.print("D-14: \"{s}\": {d} glyphs, all with ink: {any}, quads overlap: {any}; {d} ink pixels, reference {d}, drawn {d} ({d:.1}%), outside the reference {d}, origin ({d},{d})\n", .{
             button.text,    result.glyphs,    result.glyphs_with_ink == result.glyphs, result.overlap,
             result.ink,     result.reference, result.hit,                              100.0 * @as(f64, @floatFromInt(result.hit)) / @as(f64, @floatFromInt(result.reference)),
             result.foreign, result.origin.x,  result.origin.y,
@@ -360,6 +400,7 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     // bk-font's messages are English whatever the machine's language is.
     try environ.put("BK_LANG", "en");
@@ -375,21 +416,54 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, user: []c
     }
 }
 
+/// The box of the pixels inside `rect` where `frame` differs from `blank` by more than the linear
+/// filter's rounding: the ink of the text drawn there.
+fn inkBox(frame: []const u8, blank: []const u8, rect: Rect) ?Rect {
+    var box: ?Rect = null;
+    for (rect.y1..rect.y2) |y| for (rect.x1..rect.x2) |x| {
+        const at = (y * width + x) * 4;
+        if (maxChannelDelta(frame[at..][0..3], blank[at..][0..3]) <= 2) continue;
+        box = if (box) |one| .{ .x1 = @min(one.x1, x), .y1 = @min(one.y1, y), .x2 = @max(one.x2, x + 1), .y2 = @max(one.y2, y + 1) } else .{ .x1 = x, .y1 = y, .x2 = x + 1, .y2 = y + 1 };
+    };
+    return box;
+}
+
+/// The height LogFontMetrics gave the medium bk_text font last in the run's log: the font it drew with.
+fn lastMediumHeight(io: std.Io, allocator: std.mem.Allocator, root: []const u8, name: []const u8) !i32 {
+    const log = try std.Io.Dir.cwd().readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name }), allocator, .limited(64 << 20));
+    const prefix = "font ttf fonts\\medium: height ";
+    const at = std.mem.lastIndexOf(u8, log, prefix) orelse return error.GameLineMissing;
+    const rest = log[at + prefix.len ..];
+    const end = std.mem.indexOfScalar(u8, rest, ' ') orelse return error.GameLineMissing;
+    return std.fmt.parseInt(i32, rest[0..end], 10);
+}
+
+fn maxChannelDelta(a: []const u8, b: []const u8) u8 {
+    var most: u8 = 0;
+    for (a, b) |x, y| most = @max(most, if (x > y) x - y else y - x);
+    return most;
+}
+
 /// Runs the Game on the mod to its main-menu capture `<root>/<name>.rgba` and
 /// returns the frame (RGBA, alpha zero). It must exit 0, report the capture,
-/// lay the main menu out at scale 1 and open the medium font from the mod
-/// exactly when `from_mod`. Its output is kept beside the capture as
-/// `<name>.log`.
-fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []const u8, root: []const u8, name: []const u8, from_mod: bool) ![]u8 {
+/// lay the main menu out at scale 1 and open the medium font from the mod as
+/// `run` says. Its output is kept beside the capture as `<name>.log`.
+fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []const u8, root: []const u8, name: []const u8, run: Run) ![]u8 {
     const capture = try std.fmt.allocPrint(allocator, "{s}/{s}.rgba", .{ root, name });
     const log_path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name });
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ user, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");
     try environ.put("BK_UI_TRACE", "1");
+    // The Game's text engine is bk_text (M004 S05): the control draws every size on it, and the
+    // mod's own medium font must still draw with its bitmap while the other sizes stay on bk_text.
+    try environ.put("BK_TEXT_ENGINE", "ttf");
+    // bk_text's language, which the mod's font is checked against; the menu's texts stay English.
+    if (run == .mod_font_lacks_language) try environ.put("BK_TEXT_LANG", "ru") else _ = environ.swapRemove("BK_TEXT_LANG");
     const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-reference-scene", capture, "-reference-resolution", "1024", "768", "-windowed", "-mod=" ++ mod_name, "-profile=BkFontTest" },
         .cwd = .{ .path = user },
@@ -402,15 +476,46 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
         std.debug.print("Game ({s}) ended {any}; its output is in {s}\n", .{ name, result.term, log_path });
         return error.GameFailed;
     }
+    try l10n_measure.expectNoLeak(log, log_path);
     try expectLine(log, log_path, "BK_REFERENCE_SCENE: capture complete");
     try expectLine(log, log_path, "BK_UI_TRACE: reposition \"ui\\mainmenu\" screen 1024x768 -> parent 1024x768 at (0,0) scale 1.000,1.000");
-    for ([_][]const u8{ "fonts/medium/1.tfd", "fonts/medium/1_h.dds" }) |file| {
+    // The font's description is read from the mod whenever the mod ships one, its atlas only when
+    // the font draws.
+    for ([_][]const u8{ "fonts/medium/1.tfd", "fonts/medium/1_h.dds" }, [_]bool{ run != .control, run == .mod_font }) |file, from_mod| {
         if (opensFromMod(log, file) == from_mod) continue;
         std.debug.print("Game ({s}) {s} {s} from the mod; its output is in {s}\n", .{ name, if (from_mod) "did not open" else "opened", file, log_path });
         return error.FontSource;
     }
+    // LogFontMetrics names the path each size took: the mod's medium is a bitmap font (reason "mod
+    // font"), every other size that loaded is a bk_text font; without the mod's font medium is bk_text too.
+    for ([_][]const u8{ "tiny", "small", "medium", "large" }) |size| {
+        const bitmap = run == .mod_font and std.mem.eql(u8, size, "medium");
+        const line_bitmap = try std.fmt.allocPrint(allocator, "font bitmap fonts\\{s}:", .{size});
+        const line_ttf = try std.fmt.allocPrint(allocator, "font ttf fonts\\{s}:", .{size});
+        // The Game opens every font before the mod is added and again when it is (the font manager
+        // reloads), so the last line of a size is the path it draws with.
+        const last_bitmap = std.mem.lastIndexOf(u8, log, line_bitmap);
+        const last_ttf = std.mem.lastIndexOf(u8, log, line_ttf);
+        const is_bitmap = last_bitmap != null and (last_ttf == null or last_bitmap.? > last_ttf.?);
+        const is_ttf = last_ttf != null and !is_bitmap;
+        const loaded = is_bitmap or is_ttf;
+        if (std.mem.eql(u8, size, "medium") and !loaded or loaded and (is_bitmap != bitmap or is_ttf == bitmap)) {
+            std.debug.print("Game ({s}) drew fonts\\{s} on {s} (bitmap {any}, bk_text {any}), expected {s}; its output is in {s}\n", .{ name, size, if (is_bitmap) "bitmap" else "bk_text", is_bitmap, is_ttf, if (bitmap) "bitmap" else "bk_text", log_path });
+            return error.FontEngine;
+        }
+    }
+    switch (run) {
+        .control => {},
+        .mod_font => try expectLine(log, log_path, "reason mod font"),
+        .mod_font_lacks_language => try expectLine(log, log_path, "reason mod font lacks the language's letters"),
+    }
     return std.Io.Dir.cwd().readFileAlloc(io, capture, allocator, .limited(16 << 20));
 }
+
+/// What a run of the Game draws the medium size with: the shipped size on bk_text (the mod has no
+/// font), the mod's bitmap font, or bk_text again because the mod's font lacks the letters of
+/// bk_text's language.
+const Run = enum { control, mod_font, mod_font_lacks_language };
 
 fn expectLine(log: []const u8, log_path: []const u8, line: []const u8) !void {
     if (std.mem.indexOf(u8, log, line) != null) return;

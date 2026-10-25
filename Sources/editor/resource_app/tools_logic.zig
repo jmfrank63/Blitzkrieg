@@ -561,20 +561,35 @@ pub fn formatBatchReport(summary: *const BatchSummary, writer: *std.Io.Writer) s
 
 // --- Run Blitzkrieg ---------------------------------------------------------------
 
+/// The variable the engine's mods folder seam reads (StreamIO/ModsPaths.h). Tests point it at a
+/// scratch folder, so the mods they export and play never land in an installation's mods folder,
+/// which is the player's.
+pub const mods_root_env = "BK_MODS_ROOT";
+
+/// The folder the Game looks for a mod by name in: `override` (BK_MODS_ROOT's value) when it is
+/// set and not empty, else `<base_root>mods`. Null when it does not fit `buffer`.
+pub fn modsFolder(buffer: []u8, base_root: []const u8, override: ?[]const u8) ?[]const u8 {
+    const root = trimSeparators(override orelse "");
+    if (root.len != 0) {
+        if (root.len > buffer.len) return null;
+        @memcpy(buffer[0..root.len], root);
+        return buffer[0..root.len];
+    }
+    return joinFile(buffer, base_root, "mods");
+}
+
 /// The -mod= folder name Game takes for the export folder: its last path
-/// component, when the folder sits directly in `<base_root>mods/` (the only
-/// place the game looks for a mod by name). Null otherwise. MFC passed the
-/// last component unconditionally (and, by a slip, an empty one when the
+/// component, when the folder sits directly in `mods_folder` (modsFolder: the
+/// only place the game looks for a mod by name). Null otherwise. MFC passed
+/// the last component unconditionally (and, by a slip, an empty one when the
 /// folder ended in a separator).
-pub fn modFolderForGame(export_dir: []const u8, base_root: []const u8) ?[]const u8 {
+pub fn modFolderForGame(export_dir: []const u8, mods_folder: []const u8) ?[]const u8 {
     const dir = trimSeparators(export_dir);
     if (dir.len == 0) return null;
     const name = std.fs.path.basename(dir);
     if (name.len == 0) return null;
     const parent = std.fs.path.dirname(dir) orelse return null;
-    var expected_buffer: [logic.path_capacity]u8 = undefined;
-    const expected = joinFile(&expected_buffer, base_root, "mods") orelse return null;
-    if (!samePath(parent, expected)) return null;
+    if (!samePath(parent, mods_folder)) return null;
     return name;
 }
 
@@ -875,11 +890,21 @@ test "a batch report lists exported, failed with reasons, other warnings and mis
 }
 
 test "Run Blitzkrieg: the export folder's mod name only under <base>mods, this editor's profile, no map" {
-    try testing.expectEqualStrings("mymod", modFolderForGame(native("/game/mods/mymod/"), native("/game/")).?);
-    try testing.expectEqualStrings("My Mod", modFolderForGame(native("/Game/Mods/My Mod"), native("/game/")).?);
-    try testing.expect(modFolderForGame(native("/elsewhere/mymod"), native("/game/")) == null);
-    try testing.expect(modFolderForGame(native("/game/mods"), native("/game/")) == null);
-    try testing.expect(modFolderForGame("", native("/game/")) == null);
+    var mods_buffer: [64]u8 = undefined;
+    const mods = modsFolder(&mods_buffer, native("/game/"), null).?;
+    try testing.expectEqualStrings(native("/game/mods"), mods);
+    try testing.expectEqualStrings("mymod", modFolderForGame(native("/game/mods/mymod/"), mods).?);
+    try testing.expectEqualStrings("My Mod", modFolderForGame(native("/Game/Mods/My Mod"), mods).?);
+    try testing.expect(modFolderForGame(native("/elsewhere/mymod"), mods) == null);
+    try testing.expect(modFolderForGame(native("/game/mods"), mods) == null);
+    try testing.expect(modFolderForGame("", mods) == null);
+    // BK_MODS_ROOT: the scratch folder is the only place, the installation's mods no longer one.
+    var scratch_buffer: [64]u8 = undefined;
+    const scratch = modsFolder(&scratch_buffer, native("/game/"), native("/scratch/mods/")).?;
+    try testing.expectEqualStrings(native("/scratch/mods"), scratch);
+    try testing.expectEqualStrings("mymod", modFolderForGame(native("/scratch/mods/mymod"), scratch).?);
+    try testing.expect(modFolderForGame(native("/game/mods/mymod"), scratch) == null);
+    try testing.expectEqualStrings(mods, modsFolder(&scratch_buffer, native("/game/"), "").?);
 
     var buffer: [128]u8 = undefined;
     try testing.expectEqualStrings("/stage/Game", gamePath(&buffer, "", "/stage/Game", false).?);

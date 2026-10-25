@@ -51,6 +51,7 @@ pub const TemporaryGeometryInfo = extern struct { struct_size: u32, data: ?*cons
 pub const StateInfo = extern struct { struct_size: u32, kind: u32, index: u32, value: u32, values: [16]f32 };
 pub const TextureCreateInfo = extern struct { struct_size: u32, width: u32, height: u32, mip_count: u32, format: u32, usage: u32 };
 pub const TextureUploadInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, row_pitch: u32, mip_level: u32 };
+pub const TextureRegionUploadInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, row_pitch: u32, mip_level: u32, x: u32, y: u32, w: u32, h: u32 };
 pub const RenderTargetCreateInfo = extern struct { struct_size: u32, width: u32, height: u32, format: u32 };
 pub const BufferCreateInfo = extern struct { struct_size: u32, element_count: u32, format: u32, stride: u32, usage: u32 };
 pub const BufferUploadInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, byte_offset: u32 };
@@ -105,6 +106,9 @@ pub const Api = extern struct {
     // Appended: nonzero captures the next presented frame for
     // gfxgpu_readback_frame. Refused inside a frame.
     set_frame_capture: *const fn (?*RendererHandle, u32) callconv(.c) Result,
+    // Appended: uploads a rectangle of a texture's base level; the glyph atlas
+    // of the TTF text engine grows by regions, never by whole textures.
+    upload_texture_region: *const fn (?*RendererHandle, u64, ?*const TextureRegionUploadInfo) callconv(.c) Result,
 };
 
 pub const TemporaryIndexedGeometryInfo = extern struct {
@@ -384,6 +388,19 @@ fn uploadTexture(handle: ?*RendererHandle, texture: u64, info: ?*const TextureUp
     };
     return errors.ok;
 }
+fn uploadTextureRegion(handle: ?*RendererHandle, texture: u64, info: ?*const TextureRegionUploadInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(TextureRegionUploadInfo) or info.?.data == null or info.?.byte_length == 0) return errors.invalid_argument;
+    const region = info.?;
+    renderer.uploadTextureRegion(texture, region.data.?, region.byte_length, region.row_pitch, region.mip_level, .{ .x = region.x, .y = region.y, .w = region.w, .h = region.h }) catch |err| {
+        if (err == error.InvalidTexture) renderer.last_error = "upload_texture_region: unknown texture";
+        return switch (err) {
+            error.InvalidTexture, error.TextureUploadOutOfBounds => errors.invalid_argument,
+            error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed => errors.sdl_error,
+        };
+    };
+    return errors.ok;
+}
 fn destroyTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (texture == 0) return errors.invalid_handle;
@@ -637,13 +654,14 @@ const api = Api{
     .set_overlay = setOverlay,
     .get_gpu_device = getGpuDevice,
     .set_frame_capture = setFrameCapture,
+    .upload_texture_region = uploadTextureRegion,
 };
 
 // The size of the table as it shipped before the presentation entry points
 // were appended. A caller compiled against that layout asks for exactly this
-// many bytes, and the function pointers appended since (there are five now:
-// set_present_fit, set_present_mode, set_overlay, get_gpu_device and
-// set_frame_capture) do not exist in its struct at all - so requiring
+// many bytes, and the function pointers appended since (there are six now:
+// set_present_fit, set_present_mode, set_overlay, get_gpu_device,
+// set_frame_capture and upload_texture_region) do not exist in its struct at all - so requiring
 // @sizeOf(Api) here would reject every such caller, which is what
 // "appended, callers that predate it keep working via the struct_size
 // check" is supposed to rule out.

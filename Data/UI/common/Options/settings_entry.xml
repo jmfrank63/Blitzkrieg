@@ -15,9 +15,10 @@
 						<ShadowShift x="1" y="2"/>
 						<TextPos x="0" y="0"/>
 						<Script>UI\common\Options\ForwardMouseClicks</Script>
-						<!--value-->
-						<WindowPos x="0" y="0"/>
-						<WindowSize x="130" y="30"/>
+						<!--value: right-aligned, and 20 wider to the left, into the empty end of the name column,
+						    so a value a little wider than the column (the language name "Portugues (Brasil)") stays on one line-->
+						<WindowPos x="-20" y="0"/>
+						<WindowSize x="150" y="30"/>
 						<States>
 							<item>
 								<AppearanceNormal Color="-1" Specular="-16777216" TextColor="0xFFe29b00">

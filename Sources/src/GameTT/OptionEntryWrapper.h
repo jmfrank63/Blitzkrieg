@@ -116,4 +116,13 @@ std::string LanguageDisplayName( const std::string &szFolder );
 // Whether the mod's data\mod.xml marks it <MODType>language</MODType>: such a
 // mod belongs to Options > Language and stays out of the gameplay mods list.
 bool IsLanguageOnlyMod( const std::string &szFolder );
+// The mods folders (StreamIO/ModsPaths.h, NMods::Roots), each with a trailing
+// backslash: on a case-sensitive file system every spelling of mods\ under the
+// game's folder, the installs' "mods" first, or the folder BK_MODS_ROOT names.
+// ModsFolder is the first of them.
+std::vector<std::string> ModsFolders();
+std::string ModsFolder();
+// The folder of the mod named szName in whichever mods folder holds it, as it
+// is spelled on disk, with a trailing backslash (NMods::Find).
+std::string ModFolder( const std::string &szName );
 #endif // __OPTIONENTRYWRAPPER_H__

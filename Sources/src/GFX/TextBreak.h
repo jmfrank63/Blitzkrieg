@@ -15,13 +15,15 @@ inline bool IsTextBreakKana( const wchar_t c ) { return c >= 0x3040 && c <= 0x30
 inline bool IsTextBreakCjkPunct( const wchar_t c ) { return ( c >= 0x3000 && c <= 0x303F ) || ( c >= 0xFF00 && c <= 0xFFEF ); }
 inline bool IsTextBreakCjk( const wchar_t c ) { return IsTextBreakHan( c ) || IsTextBreakKana( c ) || IsTextBreakCjkPunct( c ); }
 // Characters that must not start a line: closing brackets, stops, the prolonged
-// sound mark, iteration marks and the small kana.
+// sound mark, iteration marks, the two-dot and three-dot leaders, the katakana double hyphen, the
+// fullwidth wave dash and the small kana.
 inline bool IsTextBreakNoStart( const wchar_t c )
 {
 	switch ( c )
 	{
 		case 0x3001: case 0x3002: case 0x3005: case 0x3009: case 0x300B: case 0x300D: case 0x300F: case 0x3011: case 0x3015:
 		case 0x301C: case 0x30FB: case 0x30FC: case 0x30FD: case 0x30FE: case 0x309B: case 0x309C: case 0x309D: case 0x309E:
+		case 0x2025: case 0x2026: case 0x30A0: case 0xFF5E:
 		case 0xFF01: case 0xFF09: case 0xFF0C: case 0xFF0E: case 0xFF1A: case 0xFF1B: case 0xFF1F: case 0xFF3D: case 0xFF5D:
 			return true;
 		default:

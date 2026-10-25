@@ -9,21 +9,48 @@
 //! The rules are `pub` and take a `Report`, so tests can run them on in-memory data and later
 //! rules plug in beside `checkOverlays` without touching the format.
 //!
-//! Scope: `Localization/game/scope.txt` lists the ELK keys (relative to `game_data_base`, no
-//! extension) every language overlay must hold. An overlay text is `<key>.txt` (UTF-16LE with a
-//! byte order mark) beside its state file `<key>.xml` (`<base State="n" .../>`, 0 not translated,
-//! 1 outdated, 2 translated, 3 approved, as Sources/editor/elk/core/state.zig names them).
+//! Scope (M003 D096): `Localization/game/scope.txt` lists the seed ELK keys (relative to
+//! `game_data_base`, no extension) every language overlay must hold, and two directives widen one
+//! language: `whole-database <code>` (every text the Game reads, `databaseKeys`: the `.elk` originals
+//! of Data/ELK found case-insensitively, its `.txt` texts without one, and the texts of the Data text
+//! trees the database lacks) and `prefix <code> <key prefix>` (the seed keys plus every such key under
+//! the prefix). A language
+//! with neither is seed-only; both for one language is a `scope` finding, as are an unknown code and a
+//! malformed line. `extra` names the scope rule an overlay text breaks. The run prints one
+//! `l10n-check: scope: <code>: <scope>, <n> keys checked` note per language. An overlay text is
+//! `<key>.txt` (UTF-16LE with a byte order mark) beside its state file `<key>.xml`
+//! (`<base State="n" .../>`, 0 not translated, 1 outdated, 2 translated, 3 approved, as
+//! Sources/editor/elk/core/state.zig names them).
 //!
-//! The English source of a key is its `Data/ELK/game_data_base/<key>.elk` (the original; the
-//! `.txt` beside it is a translation working copy, used only when no `.elk` exists). An overlay
+//! The English source of a key is the `.txt` the Game reads from its own text tree (Data/Textes,
+//! Data/Scenarios, ...: `game_text_trees`), else its `Data/ELK/game_data_base/<key>.elk` original, else
+//! the `.txt` beside it (a translation working copy), as `readBase` reads it: the ELK database holds an
+//! early release's English for about 1,600 keys, and the player sees the Game's. An overlay
 //! .xml cannot record which English text a translation was made from, so D075 keeps a tracked
 //! manifest, `Localization/game/base-hashes.txt`: `<key> <sha256 hex of the English bytes>` per
-//! scope key, plus `same-as-base <code> <key>` lines naming translations that may equal the
+//! database key (and seed key), plus `same-as-base <code> <key>` lines naming translations that may equal the
 //! English byte for byte (a proper name). Rule `stale` fires when the English bytes no longer
-//! match their hash, `base-hash-missing` when a scope key has no line, `untranslated` when an
+//! match their hash, `base-hash-missing` when a key in any language's scope has no line, `untranslated` when an
 //! overlay text equals the English bytes without a `same-as-base` line. `--update-base` rewrites
 //! the manifest (`zig build l10n-check-update-base`) after a person reviewed the translations.
 //! Some Data/ELK originals are Russian; every comparison is against the base of that key.
+//!
+//! Rule `glossary-term` (D098): for each in-scope key, every term of `Localization/glossary/<code>.md`
+//! (its `English term | Translation | Note` rows) that is a whole word of the English original,
+//! ignoring case and line breaks, must be a case-insensitive substring of the overlay text. A row
+//! whose Note holds `no-term-check` is skipped; a line `<code> <key> <english term> # <reason>` of
+//! `Localization/game/term-exceptions.txt` excuses one key and term (`term-exception` for a line without a
+//! reason, `term-exception-unused` for one that excuses nothing). A missing glossary is a finding.
+//!
+//! Rule `fit` (D097): a translated text must fit the room the game draws it in. `checkFit` measures every
+//! in-scope text of a language with the bk_text module, the Game's own text engine: HarfBuzz-shaped
+//! Liberation Serif or Noto from `--fonts <dir>` (default `<root>/vendor/fonts`) at the Game's size
+//! table (`bk_text.sizes`) and bk_text's wrap, against the box `Localization/game/fit-map.txt` gives its key
+//! family: a `Data/UI` layout element, a rectangle, a tooltip or a scrolling text. Findings are `fit` (too
+//! many lines for the box), `fit-word` (a word wider than the box, which the game splits), `fit-unmapped`
+//! (no map line for a key), `fit-map` and `fit-font`. An English original that already overflows is
+//! `fit-base` information in the language's note. All nine languages are measured on every run, with no
+//! generated font. Without a fit map the scope is `not active`. See `checkFit`.
 //!
 //! Rule `placeholder`: the multiset of substituted or interpreted tokens must be the same in the
 //! English and the translation. Scanning the 2,852 originals of Data/ELK found no printf code, no
@@ -31,15 +58,18 @@
 //! `<F5>`), square-bracket keys (`[Q]`, `[DISABLED]`) and `#n` counters. The 25 in-scope originals
 //! hold none of them, only CRLF line breaks. The rule therefore counts complete printf codes (`%s`, `%5.2f`,
 //! `%ld`, `%1$s`, `%-*.*lld`: position, flags, width, precision and length all belong to the token;
-//! `%%` is a literal), `{n}`, `$name`, `<tag>` (no white space inside, at most 24 characters)
-//! and a literal `\n`; square-bracket keys are left to the translator, who may write the local key.
+//! `%%` is a literal), `{n}`, `$name`, a literal `\n`, and the number of `<key>` names (no white
+//! space inside, at most 24 characters): every angle-bracket token of the English is a hotkey name
+//! the translator writes as the local keyboard label (`<Leertaste>`, `<Пробел>`), so its spelling is
+//! free and only the count must match. Square-bracket keys are left to the translator as well.
 //!
-//! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. A language with a
-//! face (ru, zh-Hans, ja, hi) needs each code point in its face or in NotoSans-Regular (the Hindi
-//! texts hold ASCII and punctuation the Devanagari face lacks), read from the fonts' `cmap`
-//! (tools/zig/l10n_cmap.zig); the five Latin languages draw with the game's cp1252 bitmap fonts, so
-//! each code point must be in cp1252. CR, LF and TAB are ignored. The tracked Unicode overlay is
-//! checked, never a generated pak (the Hindi private-use forms live only there, D058). The fonts are
+//! Rule `glyph` (D063, D068): every code point of an overlay text must be drawable. Each language's
+//! mod ships fonts bk-font generates from its face (Liberation Serif for the Latin languages, Noto for
+//! the others) with NotoSans-Regular as the fallback for what the face lacks (the Devanagari face holds
+//! no Latin letters), so each code point must be in one of the two, read from the fonts' `cmap`
+//! (tools/zig/l10n_cmap.zig). The game's own bitmap fonts are no measure: they
+//! hold ASCII and the Cyrillic set, none of the accented Latin letters. CR, LF and TAB are ignored. The tracked Unicode overlay is
+//! checked, never a generated pak. Rule `pua` (D066): no text holds a Private Use Area code point. The fonts are
 //! read from `--fonts <dir>`, default `<root>/vendor/fonts`.
 //!
 //! Rule `table-*` (D061): a string table directory holds `en.lang` and one `<code>.lang` of the nine
@@ -49,8 +79,7 @@
 //! ID suffix differs from en, or a `###` suffix is not the key itself), `table-format` (a line
 //! without `=`, a duplicate key, an LF-only line, invalid UTF-8); `glyph` covers each value. The
 //! editors draw every table with Noto Sans plus the language's own face, so a code point must be
-//! in the language face or in NotoSans-Regular, for the Latin languages too (not cp1252 as the
-//! game's bitmap fonts need). `table_dirs` lists the real tree's directories; with none holding an
+//! in the language face or in NotoSans-Regular. `table_dirs` lists the real tree's directories; with none holding an
 //! `en.lang` the scope is `not active`.
 //!
 //! Rule `doc-*`: a document set is an English `<stem>.md` and nine `<stem>_<Language>.md`.
@@ -66,6 +95,17 @@
 const std = @import("std");
 const languages = @import("l10n_languages.zig");
 const cmap = @import("l10n_cmap.zig");
+/// The Game's own text engine, which the fit rule measures with (M004 S04, D097): shaping and the size table.
+const bk_text = @import("bk_text");
+/// The tiers that predict the Game's wrap (l10n-game-reads-it) use the same text module and language table.
+pub const text_module = bk_text;
+pub const language_table = @import("l10n_languages.zig");
+/// The game font reader and wrap, public for the l10n-game-reads-it tier, which predicts the lines of a
+/// captured text with them.
+pub const font_file = @import("l10n_font.zig");
+/// The cmap reader of the glyph rule, for a tier that needs to know which face has a character.
+pub const cmap_table = cmap;
+pub const wrap = @import("l10n_wrap");
 
 pub const Finding = struct {
     rule: []const u8,
@@ -78,6 +118,8 @@ pub const Report = struct {
     arena: std.mem.Allocator,
     findings: std.ArrayList(Finding) = .empty,
     inactive: std.ArrayList([]const u8) = .empty,
+    /// One printed line per language: its scope and how many keys were checked.
+    scope_notes: std.ArrayList([]const u8) = .empty,
     checked: usize = 0,
 
     pub fn add(self: *Report, rule: []const u8, code: []const u8, where: []const u8, detail: []const u8) !void {
@@ -145,19 +187,277 @@ pub fn parseState(xml: []const u8) ?u8 {
     return std.fmt.parseInt(u8, xml[start..end], 10) catch null;
 }
 
-/// The scope keys of a `scope.txt`: one per line, `#` lines and blank lines skipped.
-pub fn parseScope(arena: std.mem.Allocator, text: []const u8) ![]const []const u8 {
-    var keys: std.ArrayList([]const u8) = .empty;
-    var lines = std.mem.splitScalar(u8, text, '\n');
-    while (lines.next()) |raw| {
-        const key = std.mem.trim(u8, raw, " \t\r");
-        if (key.len == 0 or key[0] == '#') continue;
-        try keys.append(arena, key);
+pub const scope_path = "Localization/game/scope.txt";
+pub const exceptions_path = "Localization/game/term-exceptions.txt";
+
+pub const ScopeProblem = struct { line: usize, detail: []const u8 };
+pub const WholeLine = struct { code: []const u8, line: usize };
+pub const PrefixLine = struct { code: []const u8, prefix: []const u8, line: usize };
+
+/// The lines of a `scope.txt`: seed keys (every other line), `whole-database <code>` and
+/// `prefix <code> <key prefix>`. A key may hold a space, so only the two words followed by a space
+/// start a directive. Problems are returned, not reported, so the parser stays pure.
+pub const ScopeFile = struct {
+    seed: []const []const u8,
+    whole: []const WholeLine,
+    prefixes: []const PrefixLine,
+    problems: []const ScopeProblem,
+};
+
+fn knownCode(code: []const u8) bool {
+    for (languages.languages) |language| {
+        if (std.mem.eql(u8, language.code, code)) return true;
     }
+    return false;
+}
+
+pub fn parseScopeFile(arena: std.mem.Allocator, text: []const u8) !ScopeFile {
+    var seed: std.ArrayList([]const u8) = .empty;
+    var whole: std.ArrayList(WholeLine) = .empty;
+    var prefixes: std.ArrayList(PrefixLine) = .empty;
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (lines.next()) |raw| {
+        number += 1;
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        if (std.mem.eql(u8, line, "whole-database") or std.mem.eql(u8, line, "prefix")) {
+            try problems.append(arena, .{ .line = number, .detail = "directive without arguments" });
+        } else if (std.mem.startsWith(u8, line, "whole-database ")) {
+            const code = std.mem.trim(u8, line["whole-database ".len..], " \t");
+            if (code.len == 0 or std.mem.indexOfScalar(u8, code, ' ') != null) {
+                try problems.append(arena, .{ .line = number, .detail = "whole-database wants exactly one language code" });
+            } else if (!knownCode(code)) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{code}) });
+            } else try whole.append(arena, .{ .code = code, .line = number });
+        } else if (std.mem.startsWith(u8, line, "prefix ")) {
+            const rest = std.mem.trimStart(u8, line["prefix ".len..], " \t");
+            const space = std.mem.indexOfScalar(u8, rest, ' ');
+            const prefix = if (space) |s| std.mem.trimStart(u8, rest[s + 1 ..], " \t") else "";
+            if (space == null or prefix.len == 0) {
+                try problems.append(arena, .{ .line = number, .detail = "prefix wants a language code and a key prefix" });
+            } else if (!knownCode(rest[0..space.?])) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{rest[0..space.?]}) });
+            } else try prefixes.append(arena, .{ .code = rest[0..space.?], .prefix = prefix, .line = number });
+        } else try seed.append(arena, line);
+    }
+    return .{ .seed = seed.items, .whole = whole.items, .prefixes = prefixes.items, .problems = problems.items };
+}
+
+/// The seed keys of a `scope.txt`: one per line, `#` lines, blank lines and directives skipped.
+pub fn parseScope(arena: std.mem.Allocator, text: []const u8) ![]const []const u8 {
+    return (try parseScopeFile(arena, text)).seed;
+}
+
+pub const ScopeKind = enum { seed, prefixes, whole };
+
+/// The keys one language must translate, in file order (seed first), with a set for membership.
+pub const LanguageScope = struct {
+    code: []const u8,
+    kind: ScopeKind,
+    keys: []const []const u8,
+    set: std.StringHashMapUnmanaged(void),
+    prefixes: []const []const u8,
+
+    pub fn contains(self: LanguageScope, key: []const u8) bool {
+        return self.set.contains(key);
+    }
+
+    /// The scope as the run prints it: `seed`, `seed + prefixes a, b` or `whole-database`.
+    pub fn describe(self: LanguageScope, arena: std.mem.Allocator) ![]const u8 {
+        return switch (self.kind) {
+            .seed => "seed",
+            .whole => "whole-database",
+            .prefixes => try std.fmt.allocPrint(arena, "seed + prefixes {s}", .{try std.mem.join(arena, ", ", self.prefixes)}),
+        };
+    }
+
+    /// The rule a key outside the scope breaks, for the `extra` finding.
+    pub fn rule(self: LanguageScope) []const u8 {
+        return switch (self.kind) {
+            .seed => "not in the seed list of Localization/game/scope.txt (no prefix or whole-database line for this language)",
+            .prefixes => "not in the seed list or under a `prefix` line of this language in Localization/game/scope.txt",
+            .whole => "not a text of the game: no original in Data/ELK/game_data_base or the Data text trees (whole-database scope)",
+        };
+    }
+};
+
+pub const Scopes = struct {
+    /// One per entry of `languages.languages`, in that order.
+    per_language: []const LanguageScope,
+    /// Every key any language has in scope, sorted: the keys whose English base is hashed.
+    all_keys: []const []const u8,
+};
+
+/// The Data trees whose `.txt` files are texts the Game reads, each with the key prefix it has in
+/// `game_data_base`. Data/Maps is left out: its texts are the names of the multiplayer maps.
+pub const game_text_trees = [_]struct { data: []const u8, key: []const u8 }{
+    .{ .data = "Data/Textes", .key = "textes" },
+    .{ .data = "Data/Scenarios", .key = "scenarios" },
+    .{ .data = "Data/Units", .key = "units" },
+    .{ .data = "Data/Buildings", .key = "buildings" },
+    .{ .data = "Data/Medals", .key = "medals" },
+    .{ .data = "Data/Objects", .key = "objects" },
+    .{ .data = "Data/movies", .key = "movies" },
+};
+
+/// Every text of the game as a key (relative to `game_data_base`, no extension, forward slashes),
+/// sorted: each `.elk` original below Data/ELK/game_data_base (the spelling on disk), each `.txt`
+/// there without an `.elk` beside it, and each `.txt` of the Game's own text trees
+/// (`game_text_trees`) the database does not hold, lowercased. The ELK database was made from an
+/// early release: about 190 of its texts have no `.elk` original and about 280 texts the Game
+/// reads (the escape menu's save and load captions, the mod screen, most tutorial and intro
+/// mission texts) are not in it at all, so a scope of `.elk` originals alone left them in English.
+/// A text whose English is blank is not a key: there is nothing to translate. Empty when neither
+/// directory exists.
+pub fn databaseKeys(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir) ![]const []const u8 {
+    var keys: std.ArrayList([]const u8) = .empty;
+    var seen: std.StringHashMapUnmanaged(void) = .empty;
+    if (try findIgnoreCase(io, arena, root, "Data/ELK/game_data_base")) |base| {
+        var dir = try root.openDir(io, base, .{ .iterate = true });
+        defer dir.close(io);
+        var originals: std.StringHashMapUnmanaged(void) = .empty;
+        var texts: std.ArrayList([]const u8) = .empty;
+        var walker = try dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next(io)) |entry| {
+            if (entry.kind != .file or entry.path.len <= 4) continue;
+            const ext = entry.path[entry.path.len - 4 ..];
+            const is_elk = std.ascii.eqlIgnoreCase(ext, ".elk");
+            if (!is_elk and !std.ascii.eqlIgnoreCase(ext, ".txt")) continue;
+            const key = try arena.dupe(u8, entry.path[0 .. entry.path.len - 4]);
+            for (key) |*c| {
+                if (c.* == '\\') c.* = '/';
+            }
+            if (is_elk) {
+                try originals.put(arena, try std.ascii.allocLowerString(arena, key), {});
+                if (try firstSight(arena, &seen, key)) try keys.append(arena, key);
+            } else {
+                try texts.append(arena, key);
+            }
+        }
+        for (texts.items) |key| {
+            if (originals.contains(try std.ascii.allocLowerString(arena, key))) continue;
+            if (!try firstSight(arena, &seen, key)) continue;
+            const bytes = (try readOptional(io, arena, dir, try std.fmt.allocPrint(arena, "{s}.txt", .{key}))) orelse continue;
+            if (isBlankText(bytes)) continue;
+            try keys.append(arena, key);
+        }
+    }
+    for (game_text_trees) |tree| {
+        const found = (try findIgnoreCase(io, arena, root, tree.data)) orelse continue;
+        var dir = try root.openDir(io, found, .{ .iterate = true });
+        defer dir.close(io);
+        var walker = try dir.walk(arena);
+        defer walker.deinit();
+        while (try walker.next(io)) |entry| {
+            if (entry.kind != .file or entry.path.len <= 4) continue;
+            if (!std.ascii.eqlIgnoreCase(entry.path[entry.path.len - 4 ..], ".txt")) continue;
+            const key = try std.ascii.allocLowerString(arena, try std.fmt.allocPrint(arena, "{s}/{s}", .{ tree.key, entry.path[0 .. entry.path.len - 4] }));
+            for (key) |*c| {
+                if (c.* == '\\') c.* = '/';
+            }
+            if (!try firstSight(arena, &seen, key)) continue;
+            const bytes = (try readOptional(io, arena, dir, entry.path)) orelse continue;
+            if (isBlankText(bytes)) continue;
+            try keys.append(arena, key);
+        }
+    }
+    std.mem.sort([]const u8, keys.items, {}, lessString);
     return keys.items;
 }
 
-fn readOptional(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, path: []const u8) !?[]u8 {
+/// Whether a text file holds nothing but white space: UTF-16LE (with or without a byte order
+/// mark) or a single-byte code page.
+fn isBlankText(bytes: []const u8) bool {
+    const utf16 = (bytes.len >= 2 and bytes[0] == 0xff and bytes[1] == 0xfe) or (bytes.len >= 2 and bytes.len % 2 == 0 and bytes[1] == 0);
+    if (utf16) {
+        var at: usize = if (bytes[0] == 0xff and bytes[1] == 0xfe) 2 else 0;
+        while (at + 1 < bytes.len) : (at += 2) {
+            const unit = std.mem.readInt(u16, bytes[at..][0..2], .little);
+            if (unit != ' ' and unit != '\t' and unit != '\r' and unit != '\n' and unit != 0xFEFF) return false;
+        }
+        return true;
+    }
+    return std.mem.trim(u8, bytes, " \t\r\n").len == 0;
+}
+
+/// Whether `key` is new to `seen`, which holds keys ASCII-lowercased: a Data tree may spell a
+/// directory with another case than a seed key, and both name one text.
+fn firstSight(arena: std.mem.Allocator, seen: *std.StringHashMapUnmanaged(void), key: []const u8) !bool {
+    const lower = try std.ascii.allocLowerString(arena, key);
+    return (try seen.fetchPut(arena, lower, {})) == null;
+}
+
+/// The scope of each language. `report` null reads the file without reporting its problems (a rule
+/// that only needs the key sets; `checkOverlays` reports them once).
+pub fn loadScopes(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, report: ?*Report) !?Scopes {
+    const text = (try readOptional(io, arena, root, scope_path)) orelse {
+        if (report) |r| try r.add("scope", "all", scope_path, "file is missing");
+        return null;
+    };
+    const file = try parseScopeFile(arena, text);
+    if (report) |r| {
+        for (file.problems) |problem| {
+            try r.addFmt("scope", "all", scope_path, "line {d}: {s}", .{ problem.line, problem.detail });
+        }
+        if (file.seed.len == 0) try r.add("scope", "all", scope_path, "lists no key");
+    }
+    const needs_elk = file.whole.len != 0 or file.prefixes.len != 0;
+    const elk: []const []const u8 = if (needs_elk) try databaseKeys(io, arena, root) else &.{};
+
+    var per_language: std.ArrayList(LanguageScope) = .empty;
+    var all: std.StringHashMapUnmanaged(void) = .empty;
+    var all_keys: std.ArrayList([]const u8) = .empty;
+    for (languages.languages) |language| {
+        var kind: ScopeKind = .seed;
+        var set: std.StringHashMapUnmanaged(void) = .empty;
+        var seen: std.StringHashMapUnmanaged(void) = .empty;
+        var keys: std.ArrayList([]const u8) = .empty;
+        var prefixes: std.ArrayList([]const u8) = .empty;
+        for (file.seed) |key| {
+            if (try firstSight(arena, &seen, key)) {
+                try set.put(arena, key, {});
+                try keys.append(arena, key);
+            }
+        }
+        for (file.whole) |one| {
+            if (std.mem.eql(u8, one.code, language.code)) kind = .whole;
+        }
+        for (file.prefixes) |one| {
+            if (!std.mem.eql(u8, one.code, language.code)) continue;
+            if (kind == .whole) {
+                if (report) |r| try r.addFmt("scope", language.code, scope_path, "line {d}: prefix `{s}` is redundant, {s} is whole-database", .{ one.line, one.prefix, language.code });
+                continue;
+            }
+            kind = .prefixes;
+            try prefixes.append(arena, one.prefix);
+        }
+        if (kind == .whole) {
+            for (elk) |key| {
+                if (!try firstSight(arena, &seen, key)) continue;
+                try set.put(arena, key, {});
+                try keys.append(arena, key);
+            }
+        } else for (prefixes.items) |prefix| {
+            for (elk) |key| {
+                if (!std.ascii.startsWithIgnoreCase(key, prefix)) continue;
+                if (!try firstSight(arena, &seen, key)) continue;
+                try set.put(arena, key, {});
+                try keys.append(arena, key);
+            }
+        }
+        for (keys.items) |key| {
+            if (try firstSight(arena, &all, key)) try all_keys.append(arena, key);
+        }
+        try per_language.append(arena, .{ .code = language.code, .kind = kind, .keys = keys.items, .set = set, .prefixes = prefixes.items });
+    }
+    std.mem.sort([]const u8, all_keys.items, {}, lessString);
+    return .{ .per_language = per_language.items, .all_keys = all_keys.items };
+}
+
+pub fn readOptional(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, path: []const u8) !?[]u8 {
     return root.readFileAlloc(io, path, arena, .limited(16 << 20)) catch |err| switch (err) {
         error.FileNotFound, error.NotDir => null,
         else => err,
@@ -206,8 +506,17 @@ pub fn existsIgnoreCase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, 
     return (try findIgnoreCase(io, arena, root, rel)) != null;
 }
 
-/// The English bytes of `key`: its `.elk` original, else its `.txt`; null when neither exists.
+/// The English bytes of `key`: the `.txt` the Game reads from its own text tree (`game_text_trees`),
+/// else its `.elk` original, else its `.txt` in the database; null when none exists. The Game's text
+/// comes first because it is what the player sees: for about 1,600 keys the ELK database holds an
+/// early release's English (other officer surnames, renumbered tutorial objectives, unit texts without
+/// their specification block), and a translation made from that one tells the player something else.
 pub fn readBase(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, key: []const u8) !?[]u8 {
+    for (game_text_trees) |tree| {
+        if (key.len <= tree.key.len or key[tree.key.len] != '/' or !std.ascii.startsWithIgnoreCase(key, tree.key)) continue;
+        const rel = try std.fmt.allocPrint(arena, "{s}{s}.txt", .{ tree.data, key[tree.key.len..] });
+        if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
+    }
     for ([_][]const u8{ "elk", "txt" }) |ext| {
         const rel = try std.fmt.allocPrint(arena, "Data/ELK/game_data_base/{s}.{s}", .{ key, ext });
         if (try findIgnoreCase(io, arena, root, rel)) |found| return try readOptional(io, arena, root, found);
@@ -223,8 +532,12 @@ pub const Manifest = struct {
     keys: []const []const u8,
     hashes: []const []const u8,
     same_as_base: []const SameAsBase,
+    /// Key to its position in `keys`, built by `parseManifest`; the database has about 3,540 keys.
+    index: std.StringHashMapUnmanaged(usize) = .empty,
+    same_index: std.StringHashMapUnmanaged(void) = .empty,
 
     pub fn hashOf(self: Manifest, key: []const u8) ?[]const u8 {
+        if (self.index.count() != 0) return if (self.index.get(key)) |at| self.hashes[at] else null;
         for (self.keys, self.hashes) |one, hash| {
             if (std.mem.eql(u8, one, key)) return hash;
         }
@@ -232,6 +545,11 @@ pub const Manifest = struct {
     }
 
     pub fn allowsSame(self: Manifest, code: []const u8, key: []const u8) bool {
+        if (self.same_index.count() != 0) {
+            var buffer: [512]u8 = undefined;
+            const joined = std.fmt.bufPrint(&buffer, "{s} {s}", .{ code, key }) catch return false;
+            return self.same_index.contains(joined);
+        }
         for (self.same_as_base) |one| {
             if (std.mem.eql(u8, one.code, code) and std.mem.eql(u8, one.key, key)) return true;
         }
@@ -241,27 +559,35 @@ pub const Manifest = struct {
 
 /// The lines of a `base-hashes.txt`: `<key> <hash>` and `same-as-base <code> <key>`; `#` lines and
 /// blank lines are skipped, and a line of any other shape is ignored so the scope check names it.
+/// A key may hold a space (one original is `hawker_hurricane_ mk1_gb`), so the hash is the text
+/// after the last space and the key everything before it.
 pub fn parseManifest(arena: std.mem.Allocator, text: []const u8) !Manifest {
     var keys: std.ArrayList([]const u8) = .empty;
     var hashes: std.ArrayList([]const u8) = .empty;
     var same: std.ArrayList(SameAsBase) = .empty;
+    var index: std.StringHashMapUnmanaged(usize) = .empty;
+    var same_index: std.StringHashMapUnmanaged(void) = .empty;
     var lines = std.mem.splitScalar(u8, text, '\n');
     while (lines.next()) |raw| {
         const line = std.mem.trim(u8, raw, " \t\r");
         if (line.len == 0 or line[0] == '#') continue;
-        var fields = std.mem.tokenizeScalar(u8, line, ' ');
-        const first = fields.next() orelse continue;
-        if (std.mem.eql(u8, first, "same-as-base")) {
-            const code = fields.next() orelse continue;
-            const key = fields.next() orelse continue;
-            try same.append(arena, .{ .code = code, .key = key });
+        if (std.mem.startsWith(u8, line, "same-as-base ")) {
+            const rest = std.mem.trimStart(u8, line["same-as-base ".len..], " ");
+            const space = std.mem.indexOfScalar(u8, rest, ' ') orelse continue;
+            const key = std.mem.trimStart(u8, rest[space + 1 ..], " ");
+            if (key.len == 0) continue;
+            try same.append(arena, .{ .code = rest[0..space], .key = key });
+            try same_index.put(arena, try std.fmt.allocPrint(arena, "{s} {s}", .{ rest[0..space], key }), {});
         } else {
-            const hash = fields.next() orelse continue;
-            try keys.append(arena, first);
-            try hashes.append(arena, hash);
+            const space = std.mem.lastIndexOfScalar(u8, line, ' ') orelse continue;
+            const key = std.mem.trimEnd(u8, line[0..space], " ");
+            if (key.len == 0) continue;
+            try index.put(arena, key, keys.items.len);
+            try keys.append(arena, key);
+            try hashes.append(arena, line[space + 1 ..]);
         }
     }
-    return .{ .keys = keys.items, .hashes = hashes.items, .same_as_base = same.items };
+    return .{ .keys = keys.items, .hashes = hashes.items, .same_as_base = same.items, .index = index, .same_index = same_index };
 }
 
 pub fn hashHex(bytes: []const u8) [64]u8 {
@@ -289,7 +615,7 @@ pub fn placeholderTokens(arena: std.mem.Allocator, bytes: []const u8) ![]const [
 }
 
 /// The tokens of an ASCII view of a text (see `placeholderTokens`), sorted. A string table value
-/// counts only printf codes and `{n}` (`all_kinds` false): `$`, `<tag>` and a literal `\n` are
+/// counts only printf codes and `{n}` (`all_kinds` false): `$`, `<key>` names and a literal `\n` are
 /// ordinary characters there.
 fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]const []const u8 {
     var tokens: std.ArrayList([]const u8) = .empty;
@@ -326,11 +652,14 @@ fn scanTokens(arena: std.mem.Allocator, ascii: []const u8, all_kinds: bool) ![]c
                 }
             },
             '<' => {
+                // A key name the player reads: the translator writes the local keyboard label
+                // (`<Leertaste>`, `<Пробел>`), so only the number of names must match.
                 var i = at + 1;
-                while (i < ascii.len and i - at <= 24 and ascii[i] != '>' and ascii[i] != '<' and ascii[i] > ' ' and ascii[i] != 0x80) i += 1;
+                while (i < ascii.len and i - at <= 24 and ascii[i] != '>' and ascii[i] != '<' and ascii[i] > ' ') i += 1;
                 if (i > at + 1 and i < ascii.len and ascii[i] == '>') {
-                    end = i + 1;
-                    is_token = true;
+                    try tokens.append(arena, "<key>");
+                    at = i + 1;
+                    continue;
                 }
             },
             '\\' => {
@@ -411,25 +740,22 @@ fn joinTokens(arena: std.mem.Allocator, tokens: []const []const u8) ![]const u8 
 }
 
 /// Overlay completeness and state (rules missing, missing-xml, state, stale, encoding, empty,
-/// extra, base-missing): every language of the table holds every scope key as a text with a
-/// Translated or Approved state, and holds nothing else; every scope key exists in the base.
+/// extra, base-missing, glossary-term): every language of the table holds every key of its scope
+/// as a text with a Translated or Approved state, and holds nothing else; every key in any scope
+/// exists in the base. A run prints one `scope` note per language.
 pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     const arena = report.arena;
-    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse {
-        try report.add("scope", "all", "Localization/game/scope.txt", "file is missing");
-        return;
-    };
-    const keys = try parseScope(arena, scope_text);
-    if (keys.len == 0) try report.add("scope", "all", "Localization/game/scope.txt", "lists no key");
+    const scopes = (try loadScopes(io, arena, root, report)) orelse return;
 
     const manifest: ?Manifest = if (try readOptional(io, arena, root, manifest_path)) |text| try parseManifest(arena, text) else null;
     if (manifest == null) try report.add("base-hash-missing", "all", manifest_path, "file is missing; run zig build l10n-check-update-base");
 
-    const bases = try arena.alloc(?[]u8, keys.len);
-    for (keys, bases) |key, *base_bytes| {
+    var bases: std.StringHashMapUnmanaged(?[]u8) = .empty;
+    for (scopes.all_keys) |key| {
         report.checked += 1;
-        base_bytes.* = try readBase(io, arena, root, key);
-        const bytes = base_bytes.* orelse {
+        const base_bytes = try readBase(io, arena, root, key);
+        try bases.put(arena, key, base_bytes);
+        const bytes = base_bytes orelse {
             try report.add("base-missing", "all", key, "no original text in Data/ELK/game_data_base");
             continue;
         };
@@ -444,19 +770,28 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
         }
     }
 
-    for (languages.languages) |language| {
-        const base = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base", .{language.code});
-        for (keys, bases) |key, base_bytes| {
+    var exceptions = try loadTermExceptions(io, report, root);
+    for (languages.languages, scopes.per_language) |language, scope| {
+        const terms = try loadGlossary(io, report, root, language.code);
+        const dir = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base", .{language.code});
+        for (scope.keys) |key| {
             report.checked += 1;
-            const txt_path = try std.fmt.allocPrint(arena, "{s}/{s}.txt", .{ base, key });
-            const xml_path = try std.fmt.allocPrint(arena, "{s}/{s}.xml", .{ base, key });
+            const base_bytes = bases.get(key) orelse null;
+            const txt_path = try std.fmt.allocPrint(arena, "{s}/{s}.txt", .{ dir, key });
+            const xml_path = try std.fmt.allocPrint(arena, "{s}/{s}.xml", .{ dir, key });
             if (try readOptional(io, arena, root, txt_path)) |bytes| {
                 switch (textProblem(bytes)) {
-                    .ok => if (base_bytes) |english| try checkAgainstBase(report, manifest, language.code, key, english, bytes),
+                    .ok => if (base_bytes) |english| {
+                        try checkAgainstBase(report, manifest, language.code, key, english, bytes);
+                        try checkTerms(report, &exceptions, terms, language.code, key, english, bytes);
+                    },
                     .no_bom => try report.add("encoding", language.code, key, "text lacks the UTF-16LE byte order mark"),
                     .odd_length => try report.addFmt("encoding", language.code, key, "text has an odd byte count ({d})", .{bytes.len}),
                     .unpaired_surrogate => |unit| try report.addFmt("encoding", language.code, key, "unpaired surrogate at unit {d}", .{unit}),
-                    .empty => try report.add("empty", language.code, key, "text holds no characters"),
+                    // Two tutorial steps (tutorial4/22 and /25) have an empty 2003 original; an empty translation is the faithful one.
+                    .empty => if (base_bytes == null or textProblem(base_bytes.?) != .empty) {
+                        try report.add("empty", language.code, key, "text holds no characters");
+                    },
                 }
             } else {
                 try report.add("missing", language.code, key, "no translation");
@@ -475,7 +810,203 @@ pub fn checkOverlays(io: std.Io, report: *Report, root: std.Io.Dir) !void {
                 try report.add("missing-xml", language.code, key, "no state file");
             }
         }
-        try checkExtra(io, report, root, language.code, base, keys);
+        try checkExtra(io, report, root, scope, dir);
+        try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: scope: {s}: {s}, {d} keys checked", .{ language.code, try scope.describe(arena), scope.keys.len }));
+    }
+    for (exceptions.items, exceptions.used) |one, used| {
+        if (used) continue;
+        try report.addFmt("term-exception-unused", one.code, try std.fmt.allocPrint(arena, "{s}:{d}", .{ exceptions_path, one.line }), "`{s}` matches no missing glossary term; remove the line", .{one.rest});
+    }
+}
+
+/// One glossary row: the English term, its translation and whether the check skips it.
+pub const Term = struct { english: []const u8, translation: []const u8, skip: bool };
+
+fn cells(arena: std.mem.Allocator, line: []const u8) !?[]const []const u8 {
+    const trimmed = std.mem.trim(u8, line, " \t\r");
+    if (trimmed.len < 2 or trimmed[0] != '|') return null;
+    var out: std.ArrayList([]const u8) = .empty;
+    var parts = std.mem.splitScalar(u8, std.mem.trimEnd(u8, trimmed[1..], "|"), '|');
+    while (parts.next()) |part| try out.append(arena, std.mem.trim(u8, part, " \t"));
+    return out.items;
+}
+
+/// The rows of every table in a glossary (`English term | Translation | Note`). A row whose Note
+/// holds `no-term-check` is marked to skip (a word that is also ordinary English).
+pub fn parseGlossary(arena: std.mem.Allocator, text: []const u8) ![]const Term {
+    var terms: std.ArrayList(Term) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    while (lines.next()) |line| {
+        const row = (try cells(arena, line)) orelse continue;
+        if (row.len < 2 or row[0].len == 0 or row[1].len == 0) continue;
+        if (std.mem.eql(u8, row[0], "English term") or std.mem.startsWith(u8, row[0], "---")) continue;
+        const note = if (row.len > 2) row[2] else "";
+        try terms.append(arena, .{ .english = row[0], .translation = row[1], .skip = std.mem.indexOf(u8, note, "no-term-check") != null });
+    }
+    return terms.items;
+}
+
+fn loadGlossary(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8) ![]const Term {
+    const arena = report.arena;
+    const path = try std.fmt.allocPrint(arena, "Localization/glossary/{s}.md", .{code});
+    const text = (try readOptional(io, arena, root, path)) orelse {
+        try report.add("glossary-term", code, path, "glossary file is missing");
+        return &.{};
+    };
+    return parseGlossary(arena, text);
+}
+
+pub const TermException = struct { code: []const u8, rest: []const u8, line: usize };
+
+/// The exceptions of `term-exceptions.txt` and whether each one excused a missing term.
+pub const TermExceptions = struct {
+    items: []const TermException = &.{},
+    used: []bool = &.{},
+
+    fn excuses(self: *TermExceptions, code: []const u8, key: []const u8, term: []const u8, scratch: *std.ArrayList(u8), arena: std.mem.Allocator) !bool {
+        scratch.clearRetainingCapacity();
+        try scratch.appendSlice(arena, key);
+        try scratch.append(arena, ' ');
+        try scratch.appendSlice(arena, term);
+        for (self.items, 0..) |one, i| {
+            if (std.mem.eql(u8, one.code, code) and std.ascii.eqlIgnoreCase(one.rest, scratch.items)) {
+                self.used[i] = true;
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+/// The lines `<code> <key> <english term> # <reason>`. A key may hold a space, so the entry is kept
+/// as `<key> <english term>` and compared whole. A line without a reason, or of another shape, is
+/// a `term-exception` finding.
+pub fn parseTermExceptions(arena: std.mem.Allocator, text: []const u8, problems: *std.ArrayList(ScopeProblem)) ![]const TermException {
+    var items: std.ArrayList(TermException) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (lines.next()) |raw| {
+        number += 1;
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        const hash = std.mem.indexOfScalar(u8, line, '#');
+        if (hash == null or std.mem.trim(u8, line[hash.? + 1 ..], " \t").len == 0) {
+            try problems.append(arena, .{ .line = number, .detail = "an exception needs a reason after `#`" });
+            continue;
+        }
+        const entry = std.mem.trim(u8, line[0..hash.?], " \t");
+        const space = std.mem.indexOfScalar(u8, entry, ' ');
+        const rest = if (space) |s| std.mem.trimStart(u8, entry[s + 1 ..], " ") else "";
+        if (space == null or std.mem.indexOfScalar(u8, rest, ' ') == null) {
+            try problems.append(arena, .{ .line = number, .detail = "want `<code> <key> <english term> # <reason>`" });
+        } else if (!knownCode(entry[0..space.?])) {
+            try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{entry[0..space.?]}) });
+        } else try items.append(arena, .{ .code = entry[0..space.?], .rest = rest, .line = number });
+    }
+    return items.items;
+}
+
+fn loadTermExceptions(io: std.Io, report: *Report, root: std.Io.Dir) !TermExceptions {
+    const arena = report.arena;
+    const text = (try readOptional(io, arena, root, exceptions_path)) orelse return .{};
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const items = try parseTermExceptions(arena, text, &problems);
+    for (problems.items) |problem| {
+        try report.addFmt("term-exception", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ exceptions_path, problem.line }), "{s}", .{problem.detail});
+    }
+    const used = try arena.alloc(bool, items.len);
+    @memset(used, false);
+    return .{ .items = items, .used = used };
+}
+
+/// Simple case folding for the scripts the nine languages use: ASCII, Latin-1, Latin Extended-A,
+/// Greek and Cyrillic. Other code points fold to themselves.
+fn foldCase(c: u21) u21 {
+    if (c < 0x80) return std.ascii.toLower(@intCast(c));
+    if (c >= 0xC0 and c <= 0xDE and c != 0xD7) return c + 0x20;
+    if (c >= 0x100 and c <= 0x137) return c | 1;
+    if (c >= 0x139 and c <= 0x148) return if (c % 2 == 1) c + 1 else c;
+    if (c >= 0x14A and c <= 0x177) return c | 1;
+    if (c == 0x178) return 0xFF;
+    if (c >= 0x179 and c <= 0x17E) return if (c % 2 == 1) c + 1 else c;
+    if (c >= 0x391 and c <= 0x3A9) return c + 0x20;
+    if (c >= 0x410 and c <= 0x42F) return c + 0x20;
+    if (c >= 0x400 and c <= 0x40F) return c + 0x50;
+    return c;
+}
+
+fn isSpaceUnit(c: u21) bool {
+    return c == ' ' or c == '\t' or c == '\r' or c == '\n' or c == 0xA0 or c == 0xFEFF;
+}
+
+/// A word unit for the whole-word rule: an ASCII letter or digit, or a letter beyond Latin-1.
+fn isWordUnit(c: u21) bool {
+    return (c < 0x80 and std.ascii.isAlphanumeric(@intCast(c))) or c >= 0xC0;
+}
+
+/// Case-folded code points of a UTF-16LE text after its byte order mark (surrogates combined, white
+/// space runs one space), so a term finds a phrase that wraps over a line break.
+fn foldedUnits(arena: std.mem.Allocator, bytes: []const u8) ![]u21 {
+    var out: std.ArrayList(u21) = .empty;
+    var at: usize = 2;
+    while (at + 1 < bytes.len) : (at += 2) {
+        var unit: u21 = std.mem.readInt(u16, bytes[at..][0..2], .little);
+        if (unit >= 0xD800 and unit <= 0xDBFF and at + 3 < bytes.len) {
+            const low = std.mem.readInt(u16, bytes[at + 2 ..][0..2], .little);
+            if (low >= 0xDC00 and low <= 0xDFFF) {
+                unit = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
+                at += 2;
+            }
+        }
+        try appendFolded(arena, &out, unit);
+    }
+    return out.items;
+}
+
+fn appendFolded(arena: std.mem.Allocator, out: *std.ArrayList(u21), unit: u21) !void {
+    if (isSpaceUnit(unit)) {
+        if (out.items.len != 0 and out.items[out.items.len - 1] == ' ') return;
+        try out.append(arena, ' ');
+    } else try out.append(arena, foldCase(unit));
+}
+
+fn foldedUtf8(arena: std.mem.Allocator, text: []const u8) ![]u21 {
+    var out: std.ArrayList(u21) = .empty;
+    var view = std.unicode.Utf8View.init(text) catch return out.items;
+    var it = view.iterator();
+    while (it.nextCodepoint()) |c| try appendFolded(arena, &out, c);
+    return out.items;
+}
+
+fn findUnits(hay: []const u21, needle: []const u21, whole_word: bool) bool {
+    if (needle.len == 0 or needle.len > hay.len) return false;
+    var at: usize = 0;
+    while (at + needle.len <= hay.len) : (at += 1) {
+        if (!std.mem.eql(u21, hay[at..][0..needle.len], needle)) continue;
+        if (!whole_word) return true;
+        const before = at == 0 or !isWordUnit(hay[at - 1]);
+        const after = at + needle.len == hay.len or !isWordUnit(hay[at + needle.len]);
+        if (before and after) return true;
+    }
+    return false;
+}
+
+/// Rule glossary-term (D098): each glossary term (not marked no-term-check) that occurs as a whole
+/// word in the English original must occur, case-insensitively, in the translation. A line of
+/// `term-exceptions.txt` excuses one key and term.
+fn checkTerms(report: *Report, exceptions: *TermExceptions, terms: []const Term, code: []const u8, key: []const u8, english: []const u8, translation: []const u8) !void {
+    if (terms.len == 0) return;
+    const arena = report.arena;
+    const english_units = try foldedUnits(arena, english);
+    var translated: ?[]u21 = null;
+    var scratch: std.ArrayList(u8) = .empty;
+    for (terms) |term| {
+        if (term.skip) continue;
+        if (!findUnits(english_units, try foldedUtf8(arena, term.english), true)) continue;
+        if (translated == null) translated = try foldedUnits(arena, translation);
+        if (findUnits(translated.?, try foldedUtf8(arena, term.translation), false)) continue;
+        if (try exceptions.excuses(code, key, term.english, &scratch, arena)) continue;
+        try report.addFmt("glossary-term", code, key, "English \"{s}\" needs \"{s}\" in the translation (Localization/glossary/{s}.md); use it, or add `{s} {s} {s} # reason` to {s}", .{ term.english, term.translation, code, code, key, term.english, exceptions_path });
     }
 }
 
@@ -523,31 +1054,30 @@ pub fn codePoints(arena: std.mem.Allocator, bytes: []const u8) ![]const u21 {
     return found.items;
 }
 
-/// Rule glyph: every code point of every in-scope overlay text is covered by the language's font
-/// (or NotoSans-Regular), or by cp1252 for a language without a face. One finding per code point.
+/// Rule glyph: every code point of every in-scope overlay text is covered by the language's face or by
+/// NotoSans-Regular, the faces bk_text chains for it. One finding per code point. Rule pua: no code point
+/// of the Private Use Area U+E000..U+F8FF anywhere in a text (D066).
 pub fn checkGlyphs(io: std.Io, report: *Report, root: std.Io.Dir, fonts: std.Io.Dir) !void {
     const arena = report.arena;
-    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse return;
-    const keys = try parseScope(arena, scope_text);
+    const scopes = (try loadScopes(io, arena, root, null)) orelse return;
     const latin = Face.load(io, arena, fonts, "NotoSans-Regular.ttf");
     if (latin.table == null) try report.add("glyph", "all", latin.name, "font is missing or has no usable cmap");
-    for (languages.languages) |language| {
-        var own: ?Face = null;
-        if (language.face) |name| {
-            own = Face.load(io, arena, fonts, name);
-            if (own.?.table == null) try report.add("glyph", language.code, name, "font is missing or has no usable cmap");
-        }
-        for (keys) |key| {
+    for (languages.languages, scopes.per_language) |language, scope| {
+        const own = Face.load(io, arena, fonts, language.face);
+        if (own.table == null) try report.add("glyph", language.code, language.face, "font is missing or has no usable cmap");
+        for (scope.keys) |key| {
             const path = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.txt", .{ language.code, key });
             const bytes = (try readOptional(io, arena, root, path)) orelse continue;
             if (textProblem(bytes) != .ok) continue;
             for (try codePoints(arena, bytes)) |code_point| {
-                if (own) |face| {
-                    if (face.table == null or face.covers(code_point) or latin.covers(code_point)) continue;
-                    try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in {s}", .{ code_point, face.name });
-                } else if (code_point > 0xFFFF or !languages.inCp1252(@intCast(code_point))) {
-                    try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in cp1252", .{code_point});
+                // Texts are plain Unicode since bk_text shapes them itself (D066): the Private Use Area
+                // held the old Hindi cluster table, which no mod ships any more.
+                if (code_point >= 0xE000 and code_point <= 0xF8FF) {
+                    try report.addFmt("pua", language.code, key, "U+{X:0>4} is a Private Use Area code point; texts are plain Unicode", .{code_point});
+                    continue;
                 }
+                if (own.table == null or own.covers(code_point) or latin.covers(code_point)) continue;
+                try report.addFmt("glyph", language.code, key, "U+{X:0>4} not in {s}", .{ code_point, own.name });
             }
         }
     }
@@ -613,6 +1143,23 @@ fn optionalEql(a: ?[]const u8, b: ?[]const u8) bool {
 
 /// The face that lacks `code_point` for a table value, or null when it is covered (or no face
 /// could be read; the overlay glyph rule reports a missing font).
+/// `units` without a byte order mark and the white space around the text.
+fn trimUnits(units: []const u16) []const u16 {
+    var text = units;
+    while (text.len != 0 and (text[0] == 0xfeff or text[0] == ' ' or text[0] == '\r' or text[0] == '\n')) text = text[1..];
+    while (text.len != 0 and (text[text.len - 1] == ' ' or text[text.len - 1] == '\r' or text[text.len - 1] == '\n')) text = text[0 .. text.len - 1];
+    return text;
+}
+
+/// The face the editors draw a language with besides Noto Sans (Sources/editor/kit/fonts.zig merges
+/// them): Noto Sans alone for the Latin and Cyrillic languages, whatever face their game mods use.
+fn editorFace(code: []const u8) ?[]const u8 {
+    if (std.mem.eql(u8, code, "zh-Hans")) return "NotoSansSC-Regular.otf";
+    if (std.mem.eql(u8, code, "ja")) return "NotoSansJP-Regular.otf";
+    if (std.mem.eql(u8, code, "hi")) return "NotoSansDevanagari-Regular.ttf";
+    return null;
+}
+
 fn missingFace(own: ?Face, latin: Face, code_point: u21) ?[]const u8 {
     if (latin.table == null) return null;
     if (own) |face| {
@@ -685,7 +1232,7 @@ fn checkTableDir(io: std.Io, report: *Report, root: std.Io.Dir, fonts: ?std.Io.D
             try report.add("table-missing", language.code, path, "no table file although en.lang exists");
             continue;
         };
-        const own: ?Face = if (language.face) |name| (if (fonts) |f| Face.load(io, arena, f, name) else null) else null;
+        const own: ?Face = if (fonts) |f| (if (editorFace(language.code)) |name| Face.load(io, arena, f, name) else null) else null;
         const table = try parseTable(arena, bytes);
         try reportTableProblems(report, language.code, path, table);
         var have_index: std.StringHashMapUnmanaged(usize) = .empty;
@@ -1171,21 +1718,28 @@ fn checkAgainstBase(report: *Report, manifest: ?Manifest, code: []const u8, key:
     }
 }
 
-/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every scope key, keeping
-/// the `same-as-base` lines. A scope key without an original is a finding and no file is written.
+/// Rewrites `Localization/game/base-hashes.txt` from the English bytes of every database key
+/// (`databaseKeys`: the whole database, not only the scope keys, so a language can widen its scope without a new
+/// hash run) and every seed key, keeping the `same-as-base` lines. A seed key without an original
+/// is a finding and no file is written.
 pub fn updateBase(io: std.Io, report: *Report, root: std.Io.Dir) !void {
     const arena = report.arena;
-    const scope_text = (try readOptional(io, arena, root, "Localization/game/scope.txt")) orelse {
-        try report.add("scope", "all", "Localization/game/scope.txt", "file is missing");
+    const scope_text = (try readOptional(io, arena, root, scope_path)) orelse {
+        try report.add("scope", "all", scope_path, "file is missing");
         return;
     };
-    const keys = try arena.dupe([]const u8, try parseScope(arena, scope_text));
-    std.mem.sort([]const u8, keys, {}, lessString);
+    const seed = (try parseScopeFile(arena, scope_text)).seed;
+    var seen: std.StringHashMapUnmanaged(void) = .empty;
+    var keys: std.ArrayList([]const u8) = .empty;
+    for ([_][]const []const u8{ seed, try databaseKeys(io, arena, root) }) |list| for (list) |key| {
+        if (try firstSight(arena, &seen, key)) try keys.append(arena, key);
+    };
+    std.mem.sort([]const u8, keys.items, {}, lessString);
     const old: Manifest = if (try readOptional(io, arena, root, manifest_path)) |text| try parseManifest(arena, text) else .{ .keys = &.{}, .hashes = &.{}, .same_as_base = &.{} };
 
     var out: std.ArrayList(u8) = .empty;
     try out.appendSlice(arena, manifest_header);
-    for (keys) |key| {
+    for (keys.items) |key| {
         report.checked += 1;
         const bytes = (try readBase(io, arena, root, key)) orelse {
             try report.add("base-missing", "all", key, "no original text in Data/ELK/game_data_base");
@@ -1207,15 +1761,15 @@ fn lessSame(_: void, a: SameAsBase, b: SameAsBase) bool {
 }
 
 const manifest_header =
-    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per scope key.\r\n" ++
-    "# The hash is of the English bytes in Data/ELK/game_data_base (the .elk original, else the .txt).\r\n" ++
+    "# Base-text hashes of the l10n-check gate (M002 D075), one `<key> <sha256 hex>` line per text the Game reads and seed key.\r\n" ++
+    "# The hash is of the English bytes: the Game's Data text, else the .elk original in Data/ELK/game_data_base, else its .txt.\r\n" ++
     "# l10n-check reports `stale` when the English text no longer matches its hash: review the\r\n" ++
     "# translations of that key in every language, then rewrite this file with\r\n" ++
     "#   zig build l10n-check-update-base\r\n" ++
     "# A `same-as-base <code> <key>` line lets that translation equal the English (a proper name);\r\n" ++
     "# the update keeps those lines.\r\n";
 
-fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, base: []const u8, keys: []const []const u8) !void {
+fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, scope: LanguageScope, base: []const u8) !void {
     const arena = report.arena;
     var dir = root.openDir(io, base, .{ .iterate = true }) catch return;
     defer dir.close(io);
@@ -1227,19 +1781,690 @@ fn checkExtra(io: std.Io, report: *Report, root: std.Io.Dir, code: []const u8, b
         for (key) |*c| {
             if (c.* == '\\') c.* = '/';
         }
-        var in_scope = false;
-        for (keys) |one| {
-            if (std.mem.eql(u8, one, key)) {
-                in_scope = true;
+        if (!scope.contains(key)) try report.add("extra", scope.code, key, scope.rule());
+    }
+}
+
+pub const fit_map_path = "Localization/game/fit-map.txt";
+pub const fit_known_path = "Localization/game/fit-known.txt";
+
+pub const FitKind = enum { box, area, tooltip, scroll };
+pub const FitFont = enum { small, medium, large };
+
+/// One line of `fit-map.txt`. A `box` line names a layout element, an `area` line gives the
+/// rectangle itself, a `tooltip` line the hint, a `scroll` line a text that scrolls.
+pub const FitLine = struct {
+    kind: FitKind,
+    /// Lowercase, as the keys are compared.
+    glob: []const u8,
+    layout: []const u8 = "",
+    /// `<ElementID>` or `<ElementID>#<n>` for the n-th element of the file with that ID.
+    element: []const u8 = "",
+    width: f32 = 0,
+    height: f32 = 0,
+    font: FitFont = .medium,
+    line: usize,
+};
+
+fn parseElementRef(ref: []const u8) ?struct { id: i64, nth: usize } {
+    const hash = std.mem.indexOfScalar(u8, ref, '#');
+    const id = std.fmt.parseInt(i64, if (hash) |h| ref[0..h] else ref, 10) catch return null;
+    const nth = if (hash) |h| std.fmt.parseInt(usize, ref[h + 1 ..], 10) catch return null else 1;
+    if (nth == 0) return null;
+    return .{ .id = id, .nth = nth };
+}
+
+/// The lines of a `fit-map.txt`. A line is a directive and its words; ` # ` starts a comment, and
+/// is the reason a `scroll` line must give. Problems are returned, not reported, so the parser
+/// stays pure.
+pub fn parseFitMap(arena: std.mem.Allocator, text: []const u8, problems: *std.ArrayList(ScopeProblem)) ![]const FitLine {
+    var out: std.ArrayList(FitLine) = .empty;
+    var raw_lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (raw_lines.next()) |raw| {
+        number += 1;
+        var line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        var reason: []const u8 = "";
+        if (std.mem.indexOf(u8, line, " # ")) |at| {
+            reason = std.mem.trim(u8, line[at + 3 ..], " \t");
+            line = std.mem.trimEnd(u8, line[0..at], " \t");
+        } else if (std.mem.endsWith(u8, line, " #")) line = std.mem.trimEnd(u8, line[0 .. line.len - 2], " \t");
+        var words: [6][]const u8 = undefined;
+        var count: usize = 0;
+        var split = std.mem.tokenizeAny(u8, line, " \t");
+        while (split.next()) |word| {
+            if (count == words.len) {
+                count += 1;
                 break;
             }
+            words[count] = word;
+            count += 1;
         }
-        if (!in_scope) try report.add("extra", code, key, "not listed in Localization/game/scope.txt");
+        const glob = if (count > 1 and count <= words.len) try std.ascii.allocLowerString(arena, words[1]) else "";
+        if (std.mem.eql(u8, words[0], "box")) {
+            if (count != 4) {
+                try problems.append(arena, .{ .line = number, .detail = "box wants `box <glob> <Data/UI layout> <ElementID>`" });
+            } else if (parseElementRef(words[3]) == null) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "`{s}` is not an ElementID (a number, then optionally `#n`)", .{words[3]}) });
+            } else try out.append(arena, .{ .kind = .box, .glob = glob, .layout = try arena.dupe(u8, words[2]), .element = try arena.dupe(u8, words[3]), .line = number });
+        } else if (std.mem.eql(u8, words[0], "area")) {
+            const x = if (count == 4) std.mem.indexOfScalar(u8, words[2], 'x') else null;
+            const width = if (x) |at| std.fmt.parseInt(u32, words[2][0..at], 10) catch null else null;
+            const height = if (x) |at| std.fmt.parseInt(u32, words[2][at + 1 ..], 10) catch null else null;
+            const font = if (count == 4) std.meta.stringToEnum(FitFont, words[3]) else null;
+            if (width == null or height == null or font == null) {
+                try problems.append(arena, .{ .line = number, .detail = "area wants `area <glob> <W>x<H> <small|medium|large>`" });
+            } else try out.append(arena, .{ .kind = .area, .glob = glob, .width = @floatFromInt(width.?), .height = @floatFromInt(height.?), .font = font.?, .line = number });
+        } else if (std.mem.eql(u8, words[0], "tooltip")) {
+            if (count != 2) {
+                try problems.append(arena, .{ .line = number, .detail = "tooltip wants `tooltip <glob>`" });
+            } else try out.append(arena, .{ .kind = .tooltip, .glob = glob, .font = .medium, .line = number });
+        } else if (std.mem.eql(u8, words[0], "scroll")) {
+            if (count != 2) {
+                try problems.append(arena, .{ .line = number, .detail = "scroll wants `scroll <glob> # <reason>`" });
+            } else if (reason.len == 0) {
+                try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "scroll `{s}` gives no reason; write `scroll {s} # why this text scrolls`", .{ words[1], words[1] }) });
+            } else try out.append(arena, .{ .kind = .scroll, .glob = glob, .line = number });
+        } else try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown directive `{s}`", .{words[0]}) });
+    }
+    return out.items;
+}
+
+/// Whether the lowercase `text` matches the lowercase `pattern`: `*` runs over any characters but
+/// `/`, `**` over any, `[0-9]+` over one or more digits; every other character stands for itself.
+pub fn globMatch(pattern: []const u8, text: []const u8) bool {
+    if (pattern.len == 0) return text.len == 0;
+    if (std.mem.startsWith(u8, pattern, "**")) {
+        var at: usize = 0;
+        while (at <= text.len) : (at += 1) {
+            if (globMatch(pattern[2..], text[at..])) return true;
+        }
+        return false;
+    }
+    if (pattern[0] == '*') {
+        var at: usize = 0;
+        while (true) : (at += 1) {
+            if (globMatch(pattern[1..], text[at..])) return true;
+            if (at == text.len or text[at] == '/') return false;
+        }
+    }
+    if (std.mem.startsWith(u8, pattern, "[0-9]+")) {
+        var at: usize = 0;
+        while (at < text.len and std.ascii.isDigit(text[at])) {
+            at += 1;
+            if (globMatch(pattern[6..], text[at..])) return true;
+        }
+        return false;
+    }
+    if (text.len == 0 or pattern[0] != text[0]) return false;
+    return globMatch(pattern[1..], text[1..]);
+}
+
+/// The layout elements text is drawn in: UI elements (`item` or `Element` tags with a ClassTypeID)
+/// with their size, text inset, text alignment and font size.
+pub const LayoutElement = struct {
+    id: i64,
+    /// FontSize attribute; the engine's default is 1 (medium).
+    font: u8 = 1,
+    /// TextAlign attribute; the engine's default is 0x0011 (left, top).
+    text_align: u32 = 0x0011,
+    width: f32 = 0,
+    height: f32 = 0,
+    inset_x: f32 = 0,
+    inset_y: f32 = 0,
+    has_size: bool = false,
+    /// The element that holds this one, or null at the top.
+    parent: ?usize = null,
+    /// For a list (UI_LIST): the column widths of its ColumnProps and its HeaderSize, if it has one.
+    columns: std.ArrayList(f32) = .empty,
+    header_size: ?f32 = null,
+
+    /// The room the text has (CSimpleWindow::VisitText): a left or right aligned text loses the
+    /// TextPos inset in x, a top or bottom aligned one in y; centred text keeps the whole size.
+    pub fn textWidth(self: LayoutElement) f32 {
+        const horizontal = self.text_align & 0xf;
+        return if (horizontal == 1 or horizontal == 3) self.width - self.inset_x else self.width;
+    }
+
+    pub fn textHeight(self: LayoutElement) f32 {
+        const vertical = self.text_align & 0xf0;
+        return if (vertical == 0x10 or vertical == 0x30) self.height - self.inset_y else self.height;
+    }
+};
+
+fn tagAttribute(tag: []const u8, name: []const u8) ?[]const u8 {
+    var at: usize = 0;
+    while (std.mem.indexOfPos(u8, tag, at, name)) |found| {
+        at = found + name.len;
+        const before_ok = found == 0 or tag[found - 1] == ' ' or tag[found - 1] == '\t' or tag[found - 1] == '\r' or tag[found - 1] == '\n';
+        if (!before_ok) continue;
+        var cursor = at;
+        while (cursor < tag.len and tag[cursor] == ' ') cursor += 1;
+        if (cursor >= tag.len or tag[cursor] != '=') continue;
+        cursor += 1;
+        while (cursor < tag.len and tag[cursor] == ' ') cursor += 1;
+        if (cursor >= tag.len or (tag[cursor] != '"' and tag[cursor] != '\'')) continue;
+        const quote = tag[cursor];
+        const end = std.mem.indexOfScalarPos(u8, tag, cursor + 1, quote) orelse return null;
+        return tag[cursor + 1 .. end];
+    }
+    return null;
+}
+
+fn attributeNumber(value: ?[]const u8) f32 {
+    const text = std.mem.trim(u8, value orelse return 0, " \t");
+    return std.fmt.parseFloat(f32, text) catch 0;
+}
+
+/// UI_LIST (UI.h: UI_BASE_VALUE + 0x1100 + 10).
+const ui_list_class: u32 = 0x1000110A;
+
+/// The elements of a layout in document order. A hand-written scan, not an XML parser: the layouts
+/// are well-formed, and only the tags `item`/`Element` (with ClassTypeID), `WindowSize` and
+/// `TextPos` directly inside one matter, and a list's `ColumnProps`. A list's column headers are its
+/// children 10, 11, ... (UIList.cpp GetChildByID(i + 10)); its Reposition gives header i the width
+/// of column i and the list's HeaderSize as height whatever their own WindowSize says, so that is
+/// their size here too (2026-10-25: the profile list's header, 150 wide in PlayerProfile.xml, is
+/// 126 wide in the Game, and "Perfil del jugador" wrapped where the map said it fit).
+pub fn parseLayout(arena: std.mem.Allocator, xml: []const u8) ![]const LayoutElement {
+    var elements: std.ArrayList(LayoutElement) = .empty;
+    const Open = struct { name: []const u8, element: ?usize };
+    var stack: std.ArrayList(Open) = .empty;
+    var at: usize = 0;
+    while (std.mem.indexOfScalarPos(u8, xml, at, '<')) |open| {
+        if (std.mem.startsWith(u8, xml[open..], "<!--")) {
+            at = if (std.mem.indexOfPos(u8, xml, open, "-->")) |end| end + 3 else xml.len;
+            continue;
+        }
+        if (std.mem.startsWith(u8, xml[open..], "<?") or std.mem.startsWith(u8, xml[open..], "<!")) {
+            at = if (std.mem.indexOfScalarPos(u8, xml, open, '>')) |end| end + 1 else xml.len;
+            continue;
+        }
+        // The end of the tag: the first `>` outside quotes.
+        var cursor = open + 1;
+        var quote: u8 = 0;
+        while (cursor < xml.len) : (cursor += 1) {
+            const c = xml[cursor];
+            if (quote != 0) {
+                if (c == quote) quote = 0;
+            } else if (c == '"' or c == '\'') {
+                quote = c;
+            } else if (c == '>') break;
+        }
+        if (cursor >= xml.len) break;
+        at = cursor + 1;
+        var tag = xml[open + 1 .. cursor];
+        if (tag.len != 0 and tag[0] == '/') {
+            if (stack.items.len != 0) _ = stack.pop();
+            continue;
+        }
+        const self_closing = tag.len != 0 and tag[tag.len - 1] == '/';
+        if (self_closing) tag = tag[0 .. tag.len - 1];
+        const name_end = std.mem.indexOfAny(u8, tag, " \t\r\n") orelse tag.len;
+        const name = tag[0..name_end];
+        const parent: ?usize = if (stack.items.len != 0) stack.items[stack.items.len - 1].element else null;
+        // The element the tag is in, through Children and States.
+        var enclosing: ?usize = null;
+        var depth = stack.items.len;
+        while (depth > 0) : (depth -= 1) if (stack.items[depth - 1].element) |found| {
+            enclosing = found;
+            break;
+        };
+        var element: ?usize = null;
+        if (std.mem.eql(u8, name, "item") and tagAttribute(tag, "ClassTypeID") == null and stack.items.len >= 1 and std.mem.eql(u8, stack.items[stack.items.len - 1].name, "ColumnProps")) {
+            if (enclosing) |list| if (tagAttribute(tag, "Width")) |value| try elements.items[list].columns.append(arena, attributeNumber(value));
+        } else if ((std.mem.eql(u8, name, "item") or std.mem.eql(u8, name, "Element")) and tagAttribute(tag, "ClassTypeID") != null) {
+            var one: LayoutElement = .{ .id = std.fmt.parseInt(i64, std.mem.trim(u8, tagAttribute(tag, "ElementID") orelse "0", " \t"), 10) catch 0, .parent = enclosing };
+            if (tagAttribute(tag, "HeaderSize")) |value| one.header_size = attributeNumber(value);
+            if ((std.fmt.parseInt(u32, std.mem.trim(u8, tagAttribute(tag, "ClassTypeID").?, " \t"), 0) catch 0) != ui_list_class) one.header_size = null;
+            if (tagAttribute(tag, "FontSize")) |value| one.font = std.fmt.parseInt(u8, std.mem.trim(u8, value, " \t"), 10) catch 1;
+            if (tagAttribute(tag, "TextAlign")) |value| one.text_align = std.fmt.parseInt(u32, std.mem.trim(u8, value, " \t"), 0) catch 0x0011;
+            try elements.append(arena, one);
+            element = elements.items.len - 1;
+        } else if (parent) |owner| {
+            if (std.mem.eql(u8, name, "WindowSize")) {
+                elements.items[owner].width = attributeNumber(tagAttribute(tag, "x"));
+                elements.items[owner].height = attributeNumber(tagAttribute(tag, "y"));
+                elements.items[owner].has_size = true;
+            } else if (std.mem.eql(u8, name, "TextPos")) {
+                elements.items[owner].inset_x = attributeNumber(tagAttribute(tag, "x"));
+                elements.items[owner].inset_y = attributeNumber(tagAttribute(tag, "y"));
+            }
+        }
+        if (!self_closing) try stack.append(arena, .{ .name = name, .element = element });
+    }
+    for (elements.items) |*one| {
+        const owner = &elements.items[one.parent orelse continue];
+        if (owner.columns.items.len == 0) continue;
+        if (one.id < 10 or one.id >= 10 + @as(i64, @intCast(owner.columns.items.len))) continue;
+        one.width = owner.columns.items[@intCast(one.id - 10)];
+        if (owner.header_size) |size| one.height = size;
+    }
+    return elements.items;
+}
+
+/// The three bitmap fonts of a mod, `<folder>/{small,medium,large}/1.tfd`. The fit rule no longer measures
+/// with them (M004 S04: it measures with bk_text); the l10n-game-reads-it tier still predicts captured
+/// lines with them until S05 retires the bitmap fonts.
+pub const FitFonts = struct {
+    fonts: [3]font_file.Font,
+
+    pub fn get(self: *const FitFonts, size: FitFont) *const font_file.Font {
+        return &self.fonts[@intFromEnum(size)];
+    }
+
+};
+
+pub const FontProblem = struct { path: []const u8, reason: []const u8 };
+
+/// The three fonts below `folder` of `root`.
+pub fn loadFitFontsIn(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, folder: []const u8, problem: *FontProblem) !FitFonts {
+    var fonts: FitFonts = undefined;
+    for (std.meta.tags(FitFont)) |size| {
+        const rel = try std.fmt.allocPrint(arena, "{s}/{s}/1.tfd", .{ folder, @tagName(size) });
+        problem.path = rel;
+        const found = (try findIgnoreCase(io, arena, root, rel)) orelse {
+            problem.reason = "file is missing";
+            return error.FontUnreadable;
+        };
+        const bytes = (try readOptional(io, arena, root, found)) orelse {
+            problem.reason = "file is missing";
+            return error.FontUnreadable;
+        };
+        fonts.fonts[@intFromEnum(size)] = font_file.Font.read(arena, bytes) catch |err| {
+            problem.reason = @errorName(err);
+            return error.FontUnreadable;
+        };
+    }
+    return fonts;
+}
+
+/// SceneInternal.cpp SetToolTip: the hint is drawn in the medium font, the labels' own, and wraps at
+/// TOOLTIP_MAX_WIDTH (300); both scale with the window like the screens, so at 1024x768 the room is
+/// 300 pixels (2026-10-22: it used to be the large font, twice the labels' size, at 300 x large/medium).
+pub const tooltip_width: f32 = 300;
+
+/// A fit line with its room worked out: for a `box` line the layout element's text room, for an
+/// `area` line its rectangle, for a `tooltip` line the hint width and no height limit.
+pub const FitResolved = struct {
+    ok: bool = false,
+    kind: FitKind = .scroll,
+    width: f32 = 0,
+    height: f32 = std.math.inf(f32),
+    font: FitFont = .medium,
+    /// How a finding names the room: `<layout>#<ElementID>`, `area (fit-map line n)` or `tooltip`.
+    where: []const u8 = "",
+};
+
+/// Works out the room of every line. A `box` line whose layout or element cannot be found is a
+/// problem and stays `ok = false`; so does one whose element has no WindowSize.
+pub fn resolveFitLines(io: std.Io, arena: std.mem.Allocator, root: std.Io.Dir, lines: []const FitLine, problems: *std.ArrayList(ScopeProblem)) ![]FitResolved {
+    var layouts: std.StringHashMapUnmanaged(?[]const LayoutElement) = .empty;
+    const resolved = try arena.alloc(FitResolved, lines.len);
+    for (lines, resolved) |line, *one| {
+        one.* = .{ .kind = line.kind, .font = line.font };
+        switch (line.kind) {
+            .scroll => one.ok = true,
+            .tooltip => {
+                one.ok = true;
+                one.width = tooltip_width;
+                one.where = "tooltip";
+            },
+            .area => {
+                one.ok = true;
+                one.width = line.width;
+                one.height = line.height;
+                one.where = try std.fmt.allocPrint(arena, "area {d}x{d} (fit-map line {d})", .{ @as(u32, @intFromFloat(line.width)), @as(u32, @intFromFloat(line.height)), line.line });
+            },
+            .box => {
+                const entry = try layouts.getOrPut(arena, line.layout);
+                if (!entry.found_existing) {
+                    entry.value_ptr.* = null;
+                    if (try findIgnoreCase(io, arena, root, line.layout)) |found| {
+                        if (try readOptional(io, arena, root, found)) |xml| entry.value_ptr.* = try parseLayout(arena, xml);
+                    }
+                }
+                const elements = entry.value_ptr.* orelse {
+                    try problems.append(arena, .{ .line = line.line, .detail = try std.fmt.allocPrint(arena, "layout {s} does not exist", .{line.layout}) });
+                    continue;
+                };
+                const ref = parseElementRef(line.element).?;
+                var seen: usize = 0;
+                const element: ?LayoutElement = for (elements) |candidate| {
+                    if (candidate.id != ref.id) continue;
+                    seen += 1;
+                    if (seen == ref.nth) break candidate;
+                } else null;
+                const found = element orelse {
+                    try problems.append(arena, .{ .line = line.line, .detail = try std.fmt.allocPrint(arena, "{s} holds no element {s}", .{ line.layout, line.element }) });
+                    continue;
+                };
+                if (!found.has_size or found.textWidth() <= 0 or found.textHeight() <= 0) {
+                    try problems.append(arena, .{ .line = line.line, .detail = try std.fmt.allocPrint(arena, "{s} element {s} has no room for text ({d} x {d})", .{ line.layout, line.element, found.textWidth(), found.textHeight() }) });
+                    continue;
+                }
+                one.ok = true;
+                one.width = found.textWidth();
+                one.height = found.textHeight();
+                one.font = switch (found.font) {
+                    0 => .small,
+                    2 => .large,
+                    else => .medium,
+                };
+                one.where = try std.fmt.allocPrint(arena, "{s}#{s}", .{ line.layout, line.element });
+            },
+        }
+    }
+    return resolved;
+}
+
+/// The lines of `fit-map.txt` that apply to `key` (lowercase): the first match, and every later
+/// line with the same glob. Empty when no line matches.
+pub fn fitMatches(arena: std.mem.Allocator, lines: []const FitLine, key: []const u8) ![]const usize {
+    var out: std.ArrayList(usize) = .empty;
+    var glob: ?[]const u8 = null;
+    for (lines, 0..) |line, at| {
+        if (glob) |g| {
+            if (std.mem.eql(u8, g, line.glob)) try out.append(arena, at);
+        } else if (globMatch(line.glob, key)) {
+            glob = line.glob;
+            try out.append(arena, at);
+        }
+    }
+    return out.items;
+}
+
+/// The UTF-16 units of a text after its byte order mark.
+fn textUnits(arena: std.mem.Allocator, bytes: []const u8) ![]u16 {
+    const start: usize = if (bytes.len >= 2 and bytes[0] == 0xff and bytes[1] == 0xfe) 2 else 0;
+    const units = try arena.alloc(u16, (bytes.len - start) / 2);
+    for (units, 0..) |*unit, at| unit.* = std.mem.readInt(u16, bytes[start + at * 2 ..][0..2], .little);
+    return units;
+}
+
+/// The shapers of the fit rule: one bk_text face set, and a Shaper per language and size class made when
+/// first asked for, at the Game's own pixel size (`bk_text.sizes`). The last slot is English, which
+/// measures the 2003 originals. A language's shapers report a glyph no face has into `missing`.
+pub const Fit = struct {
+    allocator: std.mem.Allocator,
+    set: *bk_text.faces.FaceSet,
+    shapers: [languages.languages.len + 1][3]?*bk_text.shape.Shaper = @splat(@splat(null)),
+    missing: [languages.languages.len]std.AutoArrayHashMapUnmanaged(u21, void) = @splat(.empty),
+    sinks: [languages.languages.len]MissingGlyphs = undefined,
+    lines: std.ArrayList(bk_text.wrap.Line) = .empty,
+
+    pub const english = languages.languages.len;
+
+    pub fn init(allocator: std.mem.Allocator, io: std.Io, fonts_dir: []const u8) !Fit {
+        const set = try allocator.create(bk_text.faces.FaceSet);
+        errdefer allocator.destroy(set);
+        set.* = try bk_text.faces.FaceSet.load(allocator, io, fonts_dir);
+        return .{ .allocator = allocator, .set = set };
+    }
+
+    pub fn deinit(self: *Fit) void {
+        for (&self.shapers) |*row| for (row) |cell| if (cell) |one| {
+            one.deinit();
+            self.allocator.destroy(one);
+        };
+        for (&self.missing) |*one| one.deinit(self.allocator);
+        self.lines.deinit(self.allocator);
+        self.set.deinit();
+        self.allocator.destroy(self.set);
+    }
+
+    fn noteMissing(context: ?*anyopaque, cp: u21, _: u32, _: []const u8) void {
+        const found: *MissingGlyphs = @ptrCast(@alignCast(context.?));
+        found.set.put(found.allocator, cp, {}) catch {};
+    }
+
+    const MissingGlyphs = struct {
+        allocator: std.mem.Allocator,
+        set: *std.AutoArrayHashMapUnmanaged(u21, void),
+    };
+
+    /// The shaper of language slot `slot` (an index of `languages.languages`, or `english`) at `size`.
+    pub fn shaper(self: *Fit, slot: usize, size: FitFont) !*bk_text.shape.Shaper {
+        const cell = &self.shapers[slot][@intFromEnum(size)];
+        if (cell.*) |one| return one;
+        const code = if (slot == english) "en" else languages.bkTextCode(languages.languages[slot].code);
+        const class: bk_text.sizes.SizeClass = switch (size) {
+            .small => .small,
+            .medium => .medium,
+            .large => .large,
+        };
+        const one = try self.allocator.create(bk_text.shape.Shaper);
+        errdefer self.allocator.destroy(one);
+        // The Game opens its fonts at the cell height of the class (bk_text_font_open): the same em.
+        one.* = try bk_text.shape.Shaper.init(self.allocator, self.set, code, bk_text.sizes.emForCell(self.set, bk_text.sizes.pixelSize(class, 1.0)));
+        if (slot != english) {
+            // The Fit stays where it is declared, so the shaper may keep a pointer into it.
+            self.sinks[slot] = .{ .allocator = self.allocator, .set = &self.missing[slot] };
+            one.sink = .{ .context = &self.sinks[slot], .report = noteMissing };
+        }
+        cell.* = one;
+        return one;
+    }
+
+    /// The distance between baselines of `size` in `slot`'s language, in whole pixels.
+    pub fn lineSpace(self: *Fit, slot: usize, size: FitFont) !f32 {
+        return bk_text.measure.lineSpace(try self.shaper(slot, size));
+    }
+};
+
+const Measure = struct { lines: usize, word: f32 };
+
+/// The height `lines` lines of `shaper` take: each costs the line space, but the last only its glyph
+/// height (the primary face's ascent plus descent), since the leading below a line is not drawn and
+/// the game clips at the box (a one line text fits a box as high as the font).
+fn fitNeeds(shaper: *const bk_text.shape.Shaper, lines: usize) f32 {
+    if (lines == 0) return 0;
+    const metrics = bk_text.measure.faceMetrics(shaper, shaper.chain[0]);
+    return @as(f32, @floatFromInt(lines - 1)) * bk_text.measure.lineSpace(shaper) + @ceil(metrics.ascent + metrics.descent);
+}
+
+/// The lines `units` wrap to in `width` and the widest word. Empty lines at the end draw nothing
+/// (a text ends with a line break), so they do not count.
+fn measureText(fit: *Fit, shaper: *bk_text.shape.Shaper, units: []const u16, width: f32) !Measure {
+    try bk_text.wrap.wrapText(fit.allocator, shaper, units, width, &fit.lines);
+    var count = fit.lines.items.len;
+    while (count > 0 and fit.lines.items[count - 1].start == fit.lines.items[count - 1].end) count -= 1;
+    return .{ .lines = count, .word = try bk_text.wrap.widestUnit(fit.allocator, shaper, units) };
+}
+
+/// The space-separated word of `units` that is widest, for a finding to name.
+fn wordText(arena: std.mem.Allocator, fit: *Fit, shaper: *bk_text.shape.Shaper, units: []const u16) ![]const u8 {
+    var best: []const u16 = &.{};
+    var widest: f32 = -1;
+    var words = std.mem.tokenizeAny(u16, units, &.{ ' ', '\r', '\n' });
+    while (words.next()) |word| {
+        const width = try bk_text.wrap.widestUnit(fit.allocator, shaper, word);
+        if (width > widest) {
+            widest = width;
+            best = word;
+        }
+    }
+    return std.unicode.utf16LeToUtf8Alloc(arena, best) catch "?";
+}
+
+/// One line of `fit-known.txt`: a text of `code` that overflows its room today and is excused until
+/// the owner named in the comment (`S06` rewords it, `M003` translates it) deals with it.
+pub const FitKnown = struct { code: []const u8, key: []const u8, line: usize };
+
+/// The lines `<code> <key> # S06|M003` (M004 D108). The key may hold a space, so it is the rest of the
+/// entry after the code. A line of another shape, an unknown code or an owner other than S06 and M003
+/// is a `fit-known` finding.
+pub fn parseFitKnown(arena: std.mem.Allocator, text: []const u8, problems: *std.ArrayList(ScopeProblem)) ![]const FitKnown {
+    var items: std.ArrayList(FitKnown) = .empty;
+    var lines = std.mem.splitScalar(u8, text, '\n');
+    var number: usize = 0;
+    while (lines.next()) |raw| {
+        number += 1;
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        const hash = std.mem.indexOfScalar(u8, line, '#');
+        const owner = if (hash) |h| std.mem.trim(u8, line[h + 1 ..], " \t") else "";
+        if (!std.mem.eql(u8, owner, "S06") and !std.mem.eql(u8, owner, "M003")) {
+            try problems.append(arena, .{ .line = number, .detail = "want `<code> <key> # S06` or `# M003`: the comment names who fixes the text" });
+            continue;
+        }
+        const entry = std.mem.trim(u8, line[0..hash.?], " \t");
+        const space = std.mem.indexOfScalar(u8, entry, ' ');
+        const key = if (space) |s| std.mem.trimStart(u8, entry[s + 1 ..], " ") else "";
+        if (space == null or key.len == 0) {
+            try problems.append(arena, .{ .line = number, .detail = "want `<code> <key> # S06` or `# M003`" });
+        } else if (!knownCode(entry[0..space.?])) {
+            try problems.append(arena, .{ .line = number, .detail = try std.fmt.allocPrint(arena, "unknown language code `{s}`", .{entry[0..space.?]}) });
+        } else try items.append(arena, .{ .code = entry[0..space.?], .key = key, .line = number });
+    }
+    return items.items;
+}
+
+/// Rule `fit` (M003 D097, on bk_text since M004 S04): every translated text must fit the room the game
+/// draws it in, measured with the Game's own text engine (HarfBuzz-shaped faces from `fonts_dir` at the
+/// Game's size table) and its wrap. `Localization/game/fit-map.txt` says which room each key family has;
+/// the first line a key matches decides, and every later line with the same glob applies too, so a text
+/// shown in two places is measured in both.
+///
+/// - `fit`: the wrapped lines times the line space are taller than the box (the game clips at
+///   the box, so the last lines vanish). The detail is `<n> lines x <line space> > <height> in <room>`.
+/// - `fit-word`: a word is wider than the box or the tooltip, so the game splits it where it overflows.
+/// - `fit-unmapped`: no line of the map matches a key in some language's scope (code `all`).
+/// - `fit-map` and `fit-font`: the map or the faces it needs are malformed or missing.
+///
+/// An English original that already overflows its room (a 2003 flaw) is not held against a
+/// translation that needs no more lines and no wider a word than the original: those are counted as
+/// `fit-base` in the language's note, not reported. A text in a `scroll` family is counted, not measured.
+/// A text listed in `Localization/game/fit-known.txt` (D108) is counted as `known` in its language's note and
+/// not reported; a listed line that no longer overflows is `fit-known-unused`, a malformed one `fit-known`.
+/// Every language is measured, with no generated font; `only` limits the run to one language code, which
+/// language-mods uses for the language it builds. Without a fit map the scope is `not active`.
+pub fn checkFit(io: std.Io, report: *Report, root: std.Io.Dir, fonts_dir: []const u8, only: ?[]const u8) !void {
+    const arena = report.arena;
+    const map_text = (try readOptional(io, arena, root, fit_map_path)) orelse {
+        try report.inactive.append(arena, "fit");
+        return;
+    };
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena, map_text, &problems);
+    const scopes = (try loadScopes(io, arena, root, null)) orelse return;
+    var fit = Fit.init(std.heap.smp_allocator, io, fonts_dir) catch |err| {
+        try report.addFmt("fit-font", "all", fonts_dir, "cannot read the font the fit rule measures with ({s})", .{@errorName(err)});
+        return;
+    };
+    defer fit.deinit();
+    // The map's own problems, once, with English line spaces; each language resolves its rooms again.
+    _ = try resolveFitLines(io, arena, root, lines, &problems);
+    for (problems.items) |problem| {
+        try report.addFmt("fit-map", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_map_path, problem.line }), "{s}", .{problem.detail});
+    }
+
+    var known_problems: std.ArrayList(ScopeProblem) = .empty;
+    const known: []const FitKnown = if (try readOptional(io, arena, root, fit_known_path)) |text| try parseFitKnown(arena, text, &known_problems) else &.{};
+    for (known_problems.items) |problem| {
+        try report.addFmt("fit-known", "all", try std.fmt.allocPrint(arena, "{s}:{d}", .{ fit_known_path, problem.line }), "{s}", .{problem.detail});
+    }
+    const known_used = try arena.alloc(bool, known.len);
+    @memset(known_used, false);
+
+    var matches: std.StringHashMapUnmanaged([]const usize) = .empty;
+    for (scopes.all_keys) |key| {
+        const found = try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key));
+        if (found.len == 0) try report.add("fit-unmapped", "all", key, "no line of Localization/game/fit-map.txt matches this key; add an exact line or a family");
+        try matches.put(arena, key, found);
+    }
+
+    var english_cache: std.StringHashMapUnmanaged(?[]const u16) = .empty;
+    for (languages.languages, scopes.per_language, 0..) |language, scope, slot| {
+        if (only) |code| if (!std.mem.eql(u8, code, language.code)) continue;
+        // The rooms per language; the map's problems were reported above.
+        var own_problems: std.ArrayList(ScopeProblem) = .empty;
+        const resolved = try resolveFitLines(io, arena, root, lines, &own_problems);
+        var boxed: usize = 0;
+        var tooltips: usize = 0;
+        var scrolls: usize = 0;
+        var base_overflow: usize = 0;
+        var known_keys: usize = 0;
+        for (scope.keys) |key| {
+            const found = matches.get(key) orelse continue;
+            if (found.len == 0) continue;
+            const path = try std.fmt.allocPrint(arena, "Localization/game/{s}/game_data_base/{s}.txt", .{ language.code, key });
+            const bytes = (try readOptional(io, arena, root, path)) orelse continue;
+            if (textProblem(bytes) != .ok) continue;
+            const units = try textUnits(arena, bytes);
+            const english_entry = try english_cache.getOrPut(arena, key);
+            if (!english_entry.found_existing) {
+                english_entry.value_ptr.* = if (try readBase(io, arena, root, key)) |english| try textUnits(arena, english) else null;
+            }
+            const english = english_entry.value_ptr.*;
+            var is_boxed = false;
+            var is_tooltip = false;
+            var is_scroll = false;
+            var overflowed = false;
+            var key_known = false;
+            const known_at = for (known, 0..) |one, i| {
+                if (std.mem.eql(u8, one.code, language.code) and std.mem.eql(u8, one.key, key)) break i;
+            } else null;
+            for (found) |at| {
+                const room = resolved[at];
+                if (!room.ok) continue;
+                switch (room.kind) {
+                    .scroll => {
+                        is_scroll = true;
+                        continue;
+                    },
+                    .tooltip => is_tooltip = true,
+                    .box, .area => is_boxed = true,
+                }
+                // The translation in its language's chain; the English original in the English one at the
+                // same size, so fit-base only excuses a text no worse than what shipped in 2003.
+                const shaper = try fit.shaper(slot, room.font);
+                const shipped = try fit.shaper(Fit.english, room.font);
+                const mine = try measureText(&fit, shaper, units, room.width);
+                const theirs: ?Measure = if (english) |original| try measureText(&fit, shipped, original, room.width) else null;
+                const too_tall = fitNeeds(shaper, mine.lines) > room.height;
+                const too_wide = mine.word > room.width;
+                const english_tall = if (theirs) |t| fitNeeds(shipped, t.lines) > room.height else false;
+                const english_wide = if (theirs) |t| t.word > room.width else false;
+                if (english_tall or english_wide) overflowed = true;
+                // A text left as the original ("Ping", "Rel") overflows where the original did, a pixel
+                // more or less with the face: nothing a translator can change.
+                const unchanged = if (english) |original| std.mem.eql(u16, trimUnits(units), trimUnits(original)) else false;
+                if (unchanged and (english_tall or english_wide)) continue;
+                if (too_tall and !(english_tall and mine.lines <= theirs.?.lines)) {
+                    if (known_at) |i| {
+                        known_used[i] = true;
+                        key_known = true;
+                    } else try report.addFmt("fit", language.code, key, "{d} lines x {d} > {d} in {s}", .{ mine.lines, @as(i64, @intFromFloat(bk_text.measure.lineSpace(shaper))), @as(i64, @intFromFloat(room.height)), room.where });
+                }
+                if (too_wide and !(english_wide and mine.word <= theirs.?.word)) {
+                    if (known_at) |i| {
+                        known_used[i] = true;
+                        key_known = true;
+                    } else try report.addFmt("fit-word", language.code, key, "\"{s}\" is {d} px wide, the room is {d} px in {s}", .{ try wordText(arena, &fit, shaper, units), @as(i64, @intFromFloat(mine.word)), @as(i64, @intFromFloat(@floor(room.width))), room.where });
+                }
+            }
+            if (is_boxed) boxed += 1;
+            if (is_tooltip) tooltips += 1;
+            if (is_scroll) scrolls += 1;
+            if (overflowed) base_overflow += 1;
+            if (key_known) known_keys += 1;
+        }
+        try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} boxed, {d} tooltip, {d} scroll keys measured, {d} with an English original that overflows (fit-base), {d} known", .{ language.code, boxed, tooltips, scrolls, base_overflow, known_keys }));
+        // The glyph rule guards coverage against the faces; a gap here means a face lacks a character the text holds.
+        const missing = fit.missing[slot].count();
+        if (missing != 0) try report.scope_notes.append(arena, try std.fmt.allocPrint(arena, "l10n-check: fit: {s}: {d} characters have no glyph in the faces and were measured with the missing glyph", .{ language.code, missing }));
+        for (known, known_used) |one, used| {
+            if (!used and std.mem.eql(u8, one.code, language.code)) {
+                try report.addFmt("fit-known-unused", language.code, one.key, "{s}:{d} lists a text that fits its room now; delete the line", .{ fit_known_path, one.line });
+            }
+        }
     }
 }
 
 fn usage() noreturn {
-    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base]\n", .{});
+    std.debug.print("usage: l10n_check [--root <dir>] [--fonts <dir>] [--doc-set <stem>] [--no-default-docs] [--strict-dir <dir>] [--update-base] [--summary]\n", .{});
     std.process.exit(2);
 }
 
@@ -1255,6 +2480,7 @@ pub fn main(init: std.process.Init) !void {
     var root_path: []const u8 = ".";
     var fonts_path: ?[]const u8 = null;
     var update_base = false;
+    var summary = false;
     var doc_sets: std.ArrayList([]const u8) = .empty;
     var default_docs: []const []const u8 = &document_sets;
     var strict: std.ArrayList([]const u8) = .empty;
@@ -1271,6 +2497,8 @@ pub fn main(init: std.process.Init) !void {
             try strict.append(arena, try arena.dupe(u8, iterator.next() orelse usage()));
         } else if (std.mem.eql(u8, arg, "--update-base")) {
             update_base = true;
+        } else if (std.mem.eql(u8, arg, "--summary")) {
+            summary = true;
         } else usage();
     }
 
@@ -1285,10 +2513,11 @@ pub fn main(init: std.process.Init) !void {
         try updateBase(io, &report, root);
         for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
         if (report.findings.items.len != 0) std.process.exit(1);
-        std.debug.print("l10n-check: wrote {s} for {d} keys\n", .{ manifest_path, report.checked });
+        try printOut(io, "l10n-check: wrote {s} for {d} keys\n", .{ manifest_path, report.checked });
         return;
     }
     try checkOverlays(io, &report, root);
+    try checkFit(io, &report, root, fonts_path orelse try std.fs.path.join(arena, &.{ root_path, "vendor/fonts" }), null);
     var fonts = if (fonts_path) |path| std.Io.Dir.cwd().openDir(io, path, .{}) else root.openDir(io, "vendor/fonts", .{});
     if (fonts) |*dir| {
         defer dir.close(io);
@@ -1301,14 +2530,176 @@ pub fn main(init: std.process.Init) !void {
     try checkDocuments(io, &report, root, default_docs, doc_sets.items);
     try checkLiterals(io, &report, root, strict.items);
 
-    for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
-    for (report.inactive.items) |scope| std.debug.print("l10n-check: {s}: not active\n", .{scope});
-    std.debug.print("l10n-check: {d} findings, {d} checked\n", .{ report.findings.items.len, report.checked });
-    if (report.findings.items.len != 0) std.process.exit(1);
+    // A clean tree prints nothing; --summary asks for the notes and counts on stdout (the seeded-fault
+    // tests read them to see that every check ran). A finding prints them all on stderr and fails.
+    const failed = report.findings.items.len != 0;
+    if (!failed and !summary) return;
+    var text: std.Io.Writer.Allocating = .init(arena);
+    for (report.findings.items) |finding| try text.writer.print("{s}\n", .{try report.line(finding)});
+    for (report.inactive.items) |scope| try text.writer.print("l10n-check: {s}: not active\n", .{scope});
+    for (report.scope_notes.items) |note| try text.writer.print("{s}\n", .{note});
+    try text.writer.print("l10n-check: {d} findings, {d} checked\n", .{ report.findings.items.len, report.checked });
+    if (failed) {
+        std.debug.print("{s}", .{text.written()});
+        std.process.exit(1);
+    }
+    try printOut(io, "{s}", .{text.written()});
+}
+
+/// A result line on stdout: stderr is for what went wrong.
+fn printOut(io: std.Io, comptime format: []const u8, args: anytype) !void {
+    var buffer: [4096]u8 = undefined;
+    var stdout = std.Io.File.stdout().writer(io, &buffer);
+    try stdout.interface.print(format, args);
+    try stdout.interface.flush();
 }
 
 test {
     _ = cmap;
+    _ = font_file;
+    _ = wrap;
+}
+
+test "fit: bk_text shapes a line with the vendored faces at the medium size" {
+    var set = try bk_text.faces.FaceSet.load(std.testing.allocator, std.testing.io, "vendor/fonts");
+    defer set.deinit();
+    var shaper = try bk_text.shape.Shaper.init(std.testing.allocator, &set, "en", bk_text.sizes.pixelSize(.medium, 1));
+    defer shaper.deinit();
+    const run = try shaper.shape(std.unicode.utf8ToUtf16LeStringLiteral("Start"));
+    defer run.deinit(std.testing.allocator);
+    try std.testing.expect(run.glyphs.len == 5);
+    var width: f32 = 0;
+    for (run.glyphs) |glyph| width += glyph.x_advance;
+    try std.testing.expect(width > 0);
+}
+
+test "parseFitMap reads the four directives and names each malformed line" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const text = "# c\r\nbox Textes/Ui/** Data/UI/A.xml 20000#2\r\narea a/** 410x30 large # why\r\ntooltip t/**\r\n" ++
+        "scroll s/** # long prose\r\nscroll s2/**\r\nscroll # no glob\r\nbox x Data/UI/A.xml abc\r\narea y 10 medium\r\narea y 10x10 huge\r\nbogus z\r\nbox a b\r\n";
+    const lines = try parseFitMap(arena, text, &problems);
+    try testing.expectEqual(@as(usize, 4), lines.len);
+    try testing.expectEqual(FitKind.box, lines[0].kind);
+    try testing.expectEqualStrings("textes/ui/**", lines[0].glob);
+    try testing.expectEqualStrings("20000#2", lines[0].element);
+    try testing.expectEqual(@as(f32, 410), lines[1].width);
+    try testing.expectEqual(FitFont.large, lines[1].font);
+    try testing.expectEqual(FitKind.tooltip, lines[2].kind);
+    try testing.expectEqual(FitKind.scroll, lines[3].kind);
+    try testing.expectEqual(@as(usize, 7), problems.items.len);
+    try testing.expectEqual(@as(usize, 6), problems.items[0].line);
+    try testing.expect(std.mem.indexOf(u8, problems.items[0].detail, "gives no reason") != null);
+    try testing.expectEqual(@as(usize, 12), problems.items[6].line);
+}
+
+test "globMatch: * stops at a slash, ** does not, [0-9]+ is a digit run" {
+    const testing = std.testing;
+    try testing.expect(globMatch("textes/ui/**/tt*", "textes/ui/intermission/warehouse/tt_button_back"));
+    try testing.expect(!globMatch("textes/ui/**/tt*", "textes/ui/intermission/warehouse/button_back"));
+    try testing.expect(globMatch("units/**/name", "units/technics/allies/auto/m5/name"));
+    try testing.expect(!globMatch("units/*/name", "units/technics/allies/name"));
+    try testing.expect(globMatch("units/*/name", "units/humans/name"));
+    try testing.expect(globMatch("scenarios/**/[0-9]+h", "scenarios/scenariomissions/german/poland/12h"));
+    try testing.expect(!globMatch("scenarios/**/[0-9]+h", "scenarios/scenariomissions/german/poland/h"));
+    try testing.expect(!globMatch("scenarios/**/[0-9]+", "scenarios/scenariomissions/german/poland/1h"));
+    try testing.expect(globMatch("textes/strings/**", "textes/strings/ok"));
+    try testing.expect(globMatch("a**", "a"));
+    try testing.expect(!globMatch("a", "ab"));
+}
+
+test "parseLayout reads size, inset, alignment and font of each element in document order" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const xml = "<?xml version=\"1.0\"?><!-- <item ClassTypeID=\"1\"> --><base><WindowSize x=\"9\" y=\"9\"/><Children>" ++
+        "<item ClassTypeID=\"0x10001105\" ElementID=\"7\" TextAlign=\"0x0021\" FontSize=\"2\"><TextPos x=\"30\" y=\"4\"/><WindowSize x=\"850\" y=\"70\"/>" ++
+        "<States><item EventID=\"-1\"><WindowSize x=\"1\" y=\"1\"/></item></States>" ++
+        "<Children><Element ClassTypeID=\"0x10001103\" ElementID=\"-1\"><WindowSize x=\"132\" y=\"62\"></WindowSize></Element></Children></item></Children></base>";
+    const elements = try parseLayout(arena_state.allocator(), xml);
+    try testing.expectEqual(@as(usize, 2), elements.len);
+    try testing.expectEqual(@as(i64, 7), elements[0].id);
+    try testing.expectEqual(@as(u8, 2), elements[0].font);
+    try testing.expectEqual(@as(f32, 820), elements[0].textWidth());
+    try testing.expectEqual(@as(f32, 70), elements[0].textHeight());
+    try testing.expectEqual(@as(i64, -1), elements[1].id);
+    try testing.expectEqual(@as(u8, 1), elements[1].font);
+    try testing.expectEqual(@as(f32, 132), elements[1].textWidth());
+    try testing.expectEqual(@as(f32, 62), elements[1].textHeight());
+}
+
+test "parseLayout gives a list's column headers the width of their column and the list's header size" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const xml = "<base><Children><item ClassTypeID=\"0x1000110A\" ElementID=\"1000\" HeaderSize=\"41\"><ColumnProps><item Width=\"126\"><FileName>x</FileName></item>" ++
+        "<item Width=\"60\"/></ColumnProps><Children><item ClassTypeID=\"0x10001105\" ElementID=\"10\" TextAlign=\"0x0021\"><TextPos x=\"20\" y=\"4\"/><WindowSize x=\"150\" y=\"30\"/></item>" ++
+        "<item ClassTypeID=\"0x10001105\" ElementID=\"12\"><WindowSize x=\"150\" y=\"30\"/></item></Children><WindowSize x=\"204\" y=\"443\"/></item></Children></base>";
+    const elements = try parseLayout(arena_state.allocator(), xml);
+    try testing.expectEqual(@as(usize, 3), elements.len);
+    try testing.expectEqual(@as(f32, 106), elements[1].textWidth());
+    try testing.expectEqual(@as(f32, 41), elements[1].height);
+    // Element 12 is no header: the list has two columns, headers 10 and 11.
+    try testing.expectEqual(@as(f32, 150), elements[2].textWidth());
+}
+
+test "fit_real_tree: the repository has no fit finding and every language prints a fit note" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const io = testing.io;
+    var root = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
+    defer root.close(io);
+    var report: Report = .{ .arena = arena_state.allocator() };
+    try checkFit(io, &report, root, "vendor/fonts", null);
+    for (report.findings.items) |finding| std.debug.print("{s}\n", .{try report.line(finding)});
+    for (report.findings.items) |finding| {
+        try testing.expect(!std.mem.startsWith(u8, finding.rule, "fit"));
+    }
+    var notes: usize = 0;
+    for (report.scope_notes.items) |note| {
+        if (std.mem.indexOf(u8, note, "keys measured") != null) notes += 1;
+    }
+    try testing.expectEqual(@as(usize, 9), notes);
+}
+
+test "fit_map_covers_database: every ELK key has a line and every line finds its room" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = testing.io;
+    var root = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
+    defer root.close(io);
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena, (try readOptional(io, arena, root, fit_map_path)).?, &problems);
+    const resolved = try resolveFitLines(io, arena, root, lines, &problems);
+    for (problems.items) |problem| std.debug.print("{s}:{d}: {s}\n", .{ fit_map_path, problem.line, problem.detail });
+    try testing.expectEqual(@as(usize, 0), problems.items.len);
+    for (resolved) |one| try testing.expect(one.ok);
+
+    const keys = try databaseKeys(io, arena, root);
+    try testing.expect(keys.len > 2800);
+    var unmapped: usize = 0;
+    for (keys) |key| {
+        if ((try fitMatches(arena, lines, try std.ascii.allocLowerString(arena, key))).len != 0) continue;
+        std.debug.print("fit-unmapped: {s}\n", .{key});
+        unmapped += 1;
+    }
+    try testing.expectEqual(@as(usize, 0), unmapped);
+}
+
+test "fit: a tooltip line is measured in the medium font at the 300 pixel hint width" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    var problems: std.ArrayList(ScopeProblem) = .empty;
+    const lines = try parseFitMap(arena_state.allocator(), "tooltip textes/ui/**/tt*\n", &problems);
+    try std.testing.expectEqual(@as(usize, 1), lines.len);
+    try std.testing.expectEqual(FitFont.medium, lines[0].font);
+    try std.testing.expectEqual(@as(f32, 300), tooltip_width);
 }
 
 test "textProblem tells the byte order mark, length, surrogates and empty text apart" {
@@ -1337,9 +2728,33 @@ test "placeholderTokens finds printf codes, numbered slots, tags and a literal b
     try bytes.appendSlice(arena, "\xff\xfe");
     for (text[2..]) |c| try bytes.appendSlice(arena, &.{ c, 0 });
     const tokens = try placeholderTokens(arena, bytes.items);
-    const want = [_][]const u8{ "$name", "%5.2f", "%s", "<Ctrl-1>", "<br>", "\\n", "{0}" };
+    const want = [_][]const u8{ "$name", "%5.2f", "%s", "<key>", "<key>", "\\n", "{0}" };
     try testing.expectEqual(want.len, tokens.len);
     for (want, tokens) |w, t| try testing.expectEqualStrings(w, t);
+}
+
+test "placeholderTokens counts a key name in the local keyboard label as the English one" {
+    const testing = std.testing;
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const utf16 = struct {
+        fn of(a: std.mem.Allocator, text: []const u8) ![]u8 {
+            var out: std.ArrayList(u8) = .empty;
+            try out.appendSlice(a, "\xff\xfe");
+            var view = try std.unicode.Utf8View.init(text);
+            var it = view.iterator();
+            while (it.nextCodepoint()) |cp| try out.appendSlice(a, &std.mem.toBytes(std.mem.nativeToLittle(u16, @intCast(cp))));
+            return out.items;
+        }
+    };
+    const english = try placeholderTokens(arena, try utf16.of(arena, "<Space> - pause, <Shift> adds"));
+    const german = try placeholderTokens(arena, try utf16.of(arena, "<Leertaste> - Pause, <Umschalt> fügt hinzu"));
+    const russian = try placeholderTokens(arena, try utf16.of(arena, "<Пробел> - пауза, <Shift> добавляет"));
+    const dropped = try placeholderTokens(arena, try utf16.of(arena, "Leertaste - Pause, <Umschalt> fügt hinzu"));
+    try testing.expect(tokensEqual(english, german));
+    try testing.expect(tokensEqual(english, russian));
+    try testing.expect(!tokensEqual(english, dropped));
 }
 
 test "placeholderTokens keeps the whole printf code: position, flags, width, precision, length" {

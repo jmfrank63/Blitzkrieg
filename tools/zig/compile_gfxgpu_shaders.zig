@@ -283,12 +283,11 @@ fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []con
                 const value = define.value orelse "1";
                 try command.append(allocator, try std.fmt.allocPrint(allocator, "-D{s}={s}", .{ define.name, value }));
             }
-            std.debug.print("shadercross", .{});
-            for (command.items) |argument| std.debug.print(" {s}", .{argument});
-            std.debug.print("\n", .{});
             const result = try std.process.run(allocator, init.io, .{ .argv = command.items });
             if (result.term != .exited or result.term.exited != 0) {
-                std.debug.print("shadercross failed: {s}\n{s}", .{ record.effect, result.stderr });
+                std.debug.print("shadercross failed: {s}\n", .{record.effect});
+                for (command.items) |argument| std.debug.print(" {s}", .{argument});
+                std.debug.print("\n{s}", .{result.stderr});
                 return error.ShaderCompilationFailed;
             }
             var blob: []const u8 = try std.Io.Dir.cwd().readFileAlloc(init.io, output_path, allocator, .limited(64 * 1024 * 1024));
@@ -305,7 +304,6 @@ fn compile(init: std.process.Init, manifest_path: []const u8, shadercross: []con
             std.crypto.hash.sha2.Sha256.hash(blob, &hash, .{});
             compiled[compiled_count] = .{ .source = record, .format = format, .blob_path = blob_path, .byte_length = @intCast(blob.len), .hash = hash };
             compiled_count += 1;
-            std.debug.print("generated {s} bytes={d}\n", .{ blob_path, blob.len });
         }
     }
     sortCompiled(compiled[0..compiled_count]);
