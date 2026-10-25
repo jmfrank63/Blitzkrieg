@@ -13,6 +13,10 @@
 //! `camera` solves the 2003 camera from the picture/world point pairs every
 //! building's `1.xml` stores, and measures it by drawing a box over each
 //! building's footprint against the sprite's outline.
+//!
+//! `inventory` groups the variant folders of `Data/Buildings` into families
+//! and measures which side of its building each variant shows; `turnXml`
+//! turns a variant's `1.xml` to another side.
 
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
@@ -37,6 +41,11 @@ fn run(ctx: *bk_tool.Context) !void {
         if (ctx.args.len != 3) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return decomposeCommand(ctx, ctx.args[1], ctx.args[2]);
+    }
+    if (std.mem.eql(u8, command, "inventory")) {
+        if (ctx.args.len != 3) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return inventoryCommand(ctx, ctx.args[1], ctx.args[2]);
     }
     if (std.mem.eql(u8, command, "camera")) {
         var dirs: std.ArrayList([]const u8) = .empty;
@@ -395,15 +404,7 @@ pub const Stats = struct {
 
 pub fn readStats(gpa: std.mem.Allocator, xml: []const u8) !Stats {
     var stats: Stats = .{};
-    if (sliceBetween(xml, "<passability>", "</passability>")) |grid| {
-        var rows: std.ArrayList([]const u8) = .empty;
-        var rest = grid;
-        while (sliceBetween(rest, "<item>", "</item>")) |row| {
-            try rows.append(gpa, row);
-            rest = rest[@intFromPtr(row.ptr) - @intFromPtr(rest.ptr) + row.len ..];
-        }
-        stats.passability = rows.items;
-    }
+    stats.passability = try gridRows(gpa, xml, "passability");
     if (std.mem.indexOf(u8, xml, "<origin ")) |at| {
         stats.origin = .{ attribute(xml[at..], "x") orelse 0, attribute(xml[at..], "y") orelse 0 };
     }
@@ -424,6 +425,18 @@ pub fn readStats(gpa: std.mem.Allocator, xml: []const u8) !Stats {
     }
     stats.pairs = pairs.items;
     return stats;
+}
+
+/// The rows of the grid `name` (passability or visibility), two hex digits a cell.
+fn gridRows(gpa: std.mem.Allocator, xml: []const u8, comptime name: []const u8) ![]const []const u8 {
+    const grid = sliceBetween(xml, "<" ++ name ++ ">", "</" ++ name ++ ">") orelse return &.{};
+    var rows: std.ArrayList([]const u8) = .empty;
+    var rest = grid;
+    while (sliceBetween(rest, "<item>", "</item>")) |row| {
+        try rows.append(gpa, row);
+        rest = rest[@intFromPtr(row.ptr) - @intFromPtr(rest.ptr) + row.len ..];
+    }
+    return rows.items;
 }
 
 fn sliceBetween(text: []const u8, open: []const u8, close: []const u8) ?[]const u8 {
@@ -727,8 +740,8 @@ fn cameraCommand(ctx: *bk_tool.Context, dir_args: []const []const u8, out_arg: ?
     const arena = ctx.arena;
     const io = ctx.io;
     const cwd = std.Io.Dir.cwd();
-    const Variant = struct { dir: []const u8, stats: Stats, sprite: Image, anchor: [2]i32 };
-    var variants: std.ArrayList(Variant) = .empty;
+    const Sample = struct { dir: []const u8, stats: Stats, sprite: Image, anchor: [2]i32 };
+    var variants: std.ArrayList(Sample) = .empty;
     var pairs: std.ArrayList([5]f32) = .empty;
     for (dir_args) |dir_arg| {
         const dir = try bk_tool.inputPath(arena, dir_arg);
@@ -763,7 +776,7 @@ fn cameraCommand(ctx: *bk_tool.Context, dir_args: []const []const u8, out_arg: ?
     var json: std.Io.Writer.Allocating = .init(arena);
     const w = &json.writer;
     try w.print("{{\"pairs\":{d},\"rms_px\":{d:.4},\n\"fitted\":{{\"px_per_world_unit\":{d:.6},\"yaw\":{d:.4},\"pitch\":{d:.4},\"rows\":[[{d:.6},{d:.6},{d:.6}],[{d:.6},{d:.6},{d:.6}]]}},\n", .{
-        pairs.items.len,  rms,              fitted[0],        fitted[1],        fitted[2],
+        pairs.items.len,   rms,               fitted[0],         fitted[1],         fitted[2],
         camera.rows[0][0], camera.rows[0][1], camera.rows[0][2], camera.rows[1][0], camera.rows[1][1],
         camera.rows[1][2],
     });
@@ -786,4 +799,504 @@ fn cameraCommand(ctx: *bk_tool.Context, dir_args: []const []const u8, out_arg: ?
         cwd.writeFile(io, .{ .sub_path = path, .data = json.written() }) catch |err| return ctx.failKey("views.err.read", .{ path, @errorName(err) });
     }
     try ctx.out.print("camera of {d} variants, lowest box IoU {d:.3}\n", .{ variants.items.len, min_iou });
+}
+
+// ---------------------------------------------------------------------------
+// quarter turns
+
+/// One quarter turn of a building turns world (x, y) into (-y, x) about the
+/// zero cross: the footprint's front corner goes where its right corner was,
+/// and a wall facing Direction d then faces d + 90 (in 1.xml Direction 0
+/// faces +y, 90 -x, 180 -y and 270 +x).
+pub fn turnPoint(p: [2]f64, k: u2) [2]f64 {
+    var q = p;
+    for (0..k) |_| {
+        const x = q[0];
+        q = .{ -q[1], x };
+    }
+    return q;
+}
+
+pub const Grid = struct { rows: []const []const u8, origin: [2]f64 };
+
+/// A 1.xml grid after k quarter turns, with the origin that keeps every cell
+/// under the same part of the building: cell (x, y) covers world
+/// [x, x + 1] * tile_size - origin.
+pub fn turnGrid(gpa: std.mem.Allocator, grid: Grid, k: u2) !Grid {
+    var out = grid;
+    for (0..k) |_| {
+        const h = out.rows.len;
+        const w = if (h == 0) 0 else out.rows[0].len / 2;
+        const rows = try gpa.alloc([]u8, w);
+        for (rows, 0..) |*row, y| {
+            row.* = try gpa.alloc(u8, 2 * h);
+            for (0..h) |x| row.*[2 * x ..][0..2].* = out.rows[h - 1 - x][2 * y ..][0..2].*;
+        }
+        // Built apart: assigned in place, origin[1] would read the new origin[0].
+        const origin = [2]f64{ @as(f64, @floatFromInt(h)) * tile_size - out.origin[1], out.origin[0] };
+        out = .{ .rows = rows, .origin = origin };
+    }
+    return out;
+}
+
+/// `1.xml` after k quarter turns: the passability and visibility grids with
+/// their origins, every Position and WorldPosition, the PicturePosition the
+/// 2003 camera gives the turned WorldPosition, and every Direction.
+pub fn turnXml(gpa: std.mem.Allocator, xml: []const u8, k: u2) ![]u8 {
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    const w = &out.writer;
+    var pos: usize = 0;
+    while (std.mem.indexOfScalarPos(u8, xml, pos, '<')) |open| {
+        const close = std.mem.indexOfScalarPos(u8, xml, open, '>') orelse break;
+        try w.writeAll(xml[pos..open]);
+        var tag: []const u8 = xml[open .. close + 1];
+        pos = close + 1;
+        inline for (.{ .{ "passability", "origin" }, .{ "visibility", "VisOrigin" } }) |names| {
+            if (std.mem.eql(u8, tag, "<" ++ names[0] ++ ">")) {
+                const turned = try turnGrid(gpa, try xmlGrid(gpa, xml, names[0], names[1]), k);
+                try w.print("<" ++ names[0] ++ "><item size_x=\"{d}\" size_y=\"{d}\"/>", .{ if (turned.rows.len == 0) 0 else turned.rows[0].len / 2, turned.rows.len });
+                for (turned.rows) |row| try w.print("<item>{s}</item>", .{row});
+                pos = (std.mem.indexOfPos(u8, xml, pos, "</" ++ names[0] ++ ">") orelse return error.BadGrid) + names[0].len + 3;
+                tag = "</" ++ names[0] ++ ">";
+            } else if (std.mem.startsWith(u8, tag, "<" ++ names[1] ++ " ")) {
+                const turned = try turnGrid(gpa, try xmlGrid(gpa, xml, names[0], names[1]), k);
+                tag = try setAttribute(gpa, try setAttribute(gpa, tag, "x", turned.origin[0]), "y", turned.origin[1]);
+            }
+        }
+        if (std.mem.startsWith(u8, tag, "<Position ") or std.mem.startsWith(u8, tag, "<WorldPosition ")) {
+            const p = turnPoint(.{ attribute(tag, "x") orelse 0, attribute(tag, "y") orelse 0 }, k);
+            tag = try setAttribute(gpa, try setAttribute(gpa, tag, "x", p[0]), "y", p[1]);
+        } else if (std.mem.startsWith(u8, tag, "<PicturePosition ")) {
+            const at = std.mem.indexOfPos(u8, xml, pos, "<WorldPosition ") orelse return error.NoWorldPosition;
+            const p = turnPoint(.{ attribute(xml[at..], "x") orelse 0, attribute(xml[at..], "y") orelse 0 }, k);
+            const q = mfc_camera.project(.{ p[0], p[1], attribute(xml[at..], "z") orelse 0 });
+            tag = try setAttribute(gpa, try setAttribute(gpa, tag, "x", q[0]), "y", q[1]);
+        }
+        if (attribute(tag, "Direction")) |d| tag = try setAttribute(gpa, tag, "Direction", @mod(d + 90 * @as(f64, @floatFromInt(k)), 360));
+        try w.writeAll(tag);
+    }
+    try w.writeAll(xml[pos..]);
+    return out.written();
+}
+
+fn xmlGrid(gpa: std.mem.Allocator, xml: []const u8, comptime grid: []const u8, comptime origin: []const u8) !Grid {
+    const at = std.mem.indexOf(u8, xml, "<" ++ origin ++ " ") orelse return error.NoOrigin;
+    return .{ .rows = try gridRows(gpa, xml, grid), .origin = .{ attribute(xml[at..], "x") orelse 0, attribute(xml[at..], "y") orelse 0 } };
+}
+
+/// The tag with attribute `name` set to `value`, written as the f32 1.xml holds.
+fn setAttribute(gpa: std.mem.Allocator, tag: []const u8, name: []const u8, value: f64) ![]const u8 {
+    const key = try std.fmt.allocPrint(gpa, " {s}=\"", .{name});
+    const start = (std.mem.indexOf(u8, tag, key) orelse return tag) + key.len;
+    const end = std.mem.indexOfScalarPos(u8, tag, start, '"') orelse return tag;
+    const v: f32 = @floatCast(value);
+    return std.fmt.allocPrint(gpa, "{s}{d}{s}", .{ tag[0..start], v, tag[end..] });
+}
+
+/// How well grid a turned k times covers grid b: the overlap of their
+/// occupied cells over their union, the occupied boxes laid corner on corner.
+pub fn footprintIou(gpa: std.mem.Allocator, a: []const []const u8, b: []const []const u8, k: u2) !f64 {
+    const turned = (try turnGrid(gpa, .{ .rows = a, .origin = .{ 0, 0 } }, k)).rows;
+    const ba = occupiedBox(turned);
+    const bb = occupiedBox(b);
+    var both: usize = 0;
+    var either: usize = 0;
+    for (0..@max(ba[3] - ba[1], bb[3] - bb[1])) |y| for (0..@max(ba[2] - ba[0], bb[2] - bb[0])) |x| {
+        const in_a = occupied(turned, ba[0] + x, ba[1] + y);
+        const in_b = occupied(b, bb[0] + x, bb[1] + y);
+        both += @intFromBool(in_a and in_b);
+        either += @intFromBool(in_a or in_b);
+    };
+    return if (either == 0) 0 else @as(f64, @floatFromInt(both)) / @as(f64, @floatFromInt(either));
+}
+
+fn occupied(rows: []const []const u8, x: usize, y: usize) bool {
+    if (y >= rows.len or 2 * x + 2 > rows[y].len) return false;
+    return !std.mem.eql(u8, rows[y][2 * x ..][0..2], "00");
+}
+
+/// Min x, min y, max x, max y (exclusive) of the occupied cells.
+fn occupiedBox(rows: []const []const u8) [4]usize {
+    var box = [4]usize{ std.math.maxInt(usize), std.math.maxInt(usize), 0, 0 };
+    for (rows, 0..) |row, y| for (0..row.len / 2) |x| {
+        if (!occupied(rows, x, y)) continue;
+        box = .{ @min(box[0], x), @min(box[1], y), @max(box[2], x + 1), @max(box[3], y + 1) };
+    };
+    return if (box[0] > box[2]) .{ 0, 0, 0, 0 } else box;
+}
+
+// ---------------------------------------------------------------------------
+// inventory: which side of its building each variant shows
+
+/// The variant's intact sprite at a quarter of its size (variants of one
+/// building differ in fine detail, not in the layout of their walls), the
+/// footprint's front corner on it and the two visible walls' lengths: under
+/// the 2003 camera the wall facing -y runs up-left from the front corner and
+/// the wall facing +x up-right, 16 px a cell.
+pub const View = struct { sprite: Image, front: [2]i64, walls: [2]i64, passability: []const []const u8 };
+
+pub const Wall = enum(u1) { left, right };
+
+const view_scale = 4;
+
+pub fn loadView(gpa: std.mem.Allocator, io: std.Io, dir: []const u8) !View {
+    const cwd = std.Io.Dir.cwd();
+    const limit: std.Io.Limit = .limited(256 * 1024 * 1024);
+    const pack = try decodePack(gpa, try cwd.readFileAlloc(io, try std.fs.path.join(gpa, &.{ dir, "1.san" }), gpa, limit));
+    const atlas = try readDds(gpa, try cwd.readFileAlloc(io, try std.fs.path.join(gpa, &.{ dir, "1_h.dds" }), gpa, limit));
+    const stats = try readStats(gpa, try cwd.readFileAlloc(io, try std.fs.path.join(gpa, &.{ dir, "1.xml" }), gpa, limit));
+    if (pack.sprites.len == 0) return error.NoSprite;
+    var bounds: Bounds = .{};
+    for (pack.sprites[0].squares) |square| bounds.add(square);
+    const full = try unpack(gpa, pack.sprites[0], atlas, bounds);
+    const sprite: Image = .{ .width = full.width / view_scale, .height = full.height / view_scale, .pixels = try gpa.alloc([4]u8, (full.width / view_scale) * (full.height / view_scale)) };
+    for (0..sprite.height) |y| for (0..sprite.width) |x| {
+        var sum = [4]u32{ 0, 0, 0, 0 };
+        for (0..view_scale) |dy| for (0..view_scale) |dx| for (0..4) |c| {
+            sum[c] += full.pixels[(y * view_scale + dy) * full.width + x * view_scale + dx][c];
+        };
+        for (0..4) |c| sprite.pixels[y * sprite.width + x][c] = @intCast(sum[c] / (view_scale * view_scale));
+    };
+    const box = occupiedBox(stats.passability);
+    const corner = mfc_camera.project(.{
+        @as(f64, @floatFromInt(box[2])) * tile_size - stats.origin[0],
+        @as(f64, @floatFromInt(box[1])) * tile_size - stats.origin[1],
+        0,
+    });
+    return .{
+        .sprite = sprite,
+        .front = .{ @intFromFloat(@round((corner[0] - @as(f64, @floatFromInt(bounds.min_x))) / view_scale)), @intFromFloat(@round((corner[1] - @as(f64, @floatFromInt(bounds.min_y))) / view_scale)) },
+        .walls = .{ @intCast((box[2] - box[0]) * 16 / view_scale), @intCast((box[3] - box[1]) * 16 / view_scale) },
+        .passability = stats.passability,
+    };
+}
+
+/// How alike two walls look: the best normalised cross-correlation of their
+/// brightness, each wall sheared so its ground line is level, over shifts of
+/// up to two pixels. The light on the left and the right wall differs, which
+/// the correlation ignores.
+pub fn wallScore(a: View, a_wall: Wall, b: View, b_wall: Wall) f64 {
+    var best: f64 = 0;
+    var dx: i64 = -2;
+    while (dx <= 2) : (dx += 1) {
+        var dy: i64 = -2;
+        while (dy <= 2) : (dy += 1) best = @max(best, correlate(a, a_wall, b, b_wall, dx, dy));
+    }
+    return best;
+}
+
+/// The pixel of column i (0 at the wall's left end seen from outside) and
+/// row r from the ground line (r <= 0 is the wall and what stands on it).
+fn wallPixel(view: View, wall: Wall, i: i64, r: i64) ?[4]u8 {
+    const w = view.walls[@backingInt(wall)];
+    const x = if (wall == .left) view.front[0] - w + i else view.front[0] + i;
+    const ground = if (wall == .left) view.front[1] - @divFloor(w - i, 2) else view.front[1] - @divFloor(i, 2);
+    const pixel = (view.sprite.at(x, ground + r) orelse return null).*;
+    return if (pixel[3] >= 128) pixel else null;
+}
+
+fn correlate(a: View, a_wall: Wall, b: View, b_wall: Wall, dx: i64, dy: i64) f64 {
+    var n: f64 = 0;
+    var sum = [5]f64{ 0, 0, 0, 0, 0 };
+    const width = @min(a.walls[@backingInt(a_wall)], b.walls[@backingInt(b_wall)]);
+    var i: i64 = 0;
+    while (i < width) : (i += 1) {
+        var r: i64 = -@as(i64, a.sprite.height);
+        while (r <= 1) : (r += 1) {
+            const x = luma(wallPixel(a, a_wall, i, r) orelse continue);
+            const y = luma(wallPixel(b, b_wall, i + dx, r + dy) orelse continue);
+            n += 1;
+            sum = .{ sum[0] + x, sum[1] + y, sum[2] + x * x, sum[3] + y * y, sum[4] + x * y };
+        }
+    }
+    // Too little overlap says nothing.
+    if (n < @as(f64, @floatFromInt(width)) * 4) return 0;
+    const va = sum[2] - sum[0] * sum[0] / n;
+    const vb = sum[3] - sum[1] * sum[1] / n;
+    if (va <= 0 or vb <= 0) return 0;
+    return (sum[4] - sum[0] * sum[1] / n) / @sqrt(va * vb);
+}
+
+fn luma(p: [4]u8) f64 {
+    return 0.299 * @as(f64, @floatFromInt(p[0])) + 0.587 * @as(f64, @floatFromInt(p[1])) + 0.114 * @as(f64, @floatFromInt(p[2]));
+}
+
+/// The outlines' overlap with the front corners on one pixel.
+pub fn outlineIou(a: View, b: View) f64 {
+    var both: u64 = 0;
+    var either: u64 = 0;
+    for ([2]View{ a, b }, [2]View{ b, a }, 0..) |one, other, pass| {
+        for (0..one.sprite.height) |y| for (0..one.sprite.width) |x| {
+            if (one.sprite.pixels[y * one.sprite.width + x][3] < 128) continue;
+            const at = other.sprite.at(@as(i64, @intCast(x)) - one.front[0] + other.front[0], @as(i64, @intCast(y)) - one.front[1] + other.front[1]);
+            const in_other = if (at) |p| p[3] >= 128 else false;
+            // A pixel in both is counted once, from a.
+            if (pass == 0 and in_other) both += 1;
+            if (pass == 0 or !in_other) either += 1;
+        };
+    }
+    return if (either == 0) 0 else @as(f64, @floatFromInt(both)) / @as(f64, @floatFromInt(either));
+}
+
+/// Two variants show the same side (of one building, or of two that differ
+/// in textures or details) when both visible walls look alike and their
+/// outlines agree.
+pub fn sameView(a: View, b: View) bool {
+    return @min(wallScore(a, .left, b, .left), wallScore(a, .right, b, .right)) >= 0.5 and outlineIou(a, b) >= 0.75;
+}
+
+pub const Turn = struct { turn: ?u2, how: []const u8 };
+
+/// The quarter turns from variant a to variant b. The footprints decide
+/// whether the turn is even or odd, unless they fit both ways about as well;
+/// then the outlines do (a half turn keeps a symmetric building's outline, a
+/// quarter turn does not). An even turn that is not the same view is a half
+/// turn. An odd one is the footprints' if they tell it, else the shared
+/// wall's: one turn shows a's left wall as b's right wall.
+pub fn measureTurn(gpa: std.mem.Allocator, a: View, b: View) !Turn {
+    if (sameView(a, b)) return .{ .turn = 0, .how = "same view" };
+    var fit: [4]f64 = undefined;
+    for (&fit, 0..) |*f, k| f.* = try footprintIou(gpa, a.passability, b.passability, @intCast(k));
+    const even = @max(fit[0], fit[2]);
+    const odd = @max(fit[1], fit[3]);
+    const by_footprint = @abs(even - odd) >= 0.05;
+    const is_odd = if (by_footprint) odd > even else outlineIou(a, b) < 0.75;
+    if (!is_odd) return .{ .turn = 2, .how = if (by_footprint) "footprint" else "outline" };
+    if (@abs(fit[1] - fit[3]) >= 0.05) return .{ .turn = if (fit[1] > fit[3]) 1 else 3, .how = "footprint" };
+    const lr = wallScore(a, .left, b, .right);
+    const rl = wallScore(a, .right, b, .left);
+    if (@abs(lr - rl) >= 0.1) return .{ .turn = if (lr > rl) 1 else 3, .how = "walls" };
+    return .{ .turn = null, .how = "unresolved" };
+}
+
+/// A variant folder's name: `<family>_<side>` or `<family>_<side>_<colourway>`
+/// with one digit each, or a bare family.
+pub const Name = struct { family: []const u8, suffix: ?u8 = null, colourway: ?u8 = null };
+
+pub fn parseName(name: []const u8) Name {
+    var out: Name = .{ .family = name };
+    const last = digitSuffix(name) orelse return out;
+    out.family = name[0 .. name.len - 2];
+    out.suffix = last;
+    if (digitSuffix(out.family)) |side| {
+        out.family = out.family[0 .. out.family.len - 2];
+        out.colourway = last;
+        out.suffix = side;
+    }
+    return out;
+}
+
+fn digitSuffix(name: []const u8) ?u8 {
+    if (name.len < 3 or name[name.len - 2] != '_' or name[name.len - 1] < '1' or name[name.len - 1] > '9') return null;
+    return name[name.len - 1] - '0';
+}
+
+pub const Variant = struct {
+    /// Under the buildings folder, with forward slashes.
+    path: []const u8,
+    suffix: ?u8,
+    colourway: ?u8,
+    winter: bool,
+    side: ?u8 = null,
+    how: []const u8 = "",
+    view_of: ?[]const u8 = null,
+};
+
+pub const Family = struct { name: []const u8, region: []const u8, variants: []Variant };
+
+/// Every variant folder (one holding `1.san`) under `root`/<region>/<season>,
+/// or one level deeper (`dot/01`), grouped into families in name order.
+pub fn listFamilies(gpa: std.mem.Allocator, io: std.Io, root: []const u8) ![]Family {
+    const Found = struct { rel: []const u8, name: Name, winter: bool };
+    const Group = struct { name: []const u8, variants: std.ArrayList(Variant) };
+    var families: std.ArrayList(Family) = .empty;
+    for (try entries(gpa, io, root, .directory)) |region| {
+        const region_path = try std.fs.path.join(gpa, &.{ root, region });
+        for (try entries(gpa, io, region_path, .directory)) |season| {
+            const season_path = try std.fs.path.join(gpa, &.{ region_path, season });
+            var groups: std.ArrayList(Group) = .empty;
+            for (try entries(gpa, io, season_path, .directory)) |folder| {
+                const folder_path = try std.fs.path.join(gpa, &.{ season_path, folder });
+                const files = try entries(gpa, io, folder_path, .file);
+                var found: std.ArrayList(Found) = .empty;
+                if (hasName(files, "1.san")) {
+                    try found.append(gpa, .{ .rel = folder, .name = parseName(folder), .winter = hasName(files, "1w.san") });
+                } else for (try entries(gpa, io, folder_path, .directory)) |sub| {
+                    const sub_files = try entries(gpa, io, try std.fs.path.join(gpa, &.{ folder_path, sub }), .file);
+                    if (!hasName(sub_files, "1.san")) continue;
+                    try found.append(gpa, .{ .rel = try std.fmt.allocPrint(gpa, "{s}/{s}", .{ folder, sub }), .name = .{ .family = folder }, .winter = hasName(sub_files, "1w.san") });
+                }
+                for (found.items) |item| {
+                    const group = for (groups.items) |*g| {
+                        if (std.mem.eql(u8, g.name, item.name.family)) break g;
+                    } else blk: {
+                        try groups.append(gpa, .{ .name = item.name.family, .variants = .empty });
+                        break :blk &groups.items[groups.items.len - 1];
+                    };
+                    try group.variants.append(gpa, .{
+                        .path = try std.fmt.allocPrint(gpa, "{s}/{s}/{s}", .{ region, season, item.rel }),
+                        .suffix = item.name.suffix,
+                        .colourway = item.name.colourway,
+                        .winter = item.winter,
+                    });
+                }
+            }
+            for (groups.items) |g| try families.append(gpa, .{ .name = g.name, .region = region, .variants = g.variants.items });
+        }
+    }
+    std.mem.sort(Family, families.items, {}, struct {
+        fn less(_: void, a: Family, b: Family) bool {
+            const order = std.mem.order(u8, a.region, b.region);
+            return order == .lt or (order == .eq and std.mem.lessThan(u8, a.name, b.name));
+        }
+    }.less);
+    return families.items;
+}
+
+fn entries(gpa: std.mem.Allocator, io: std.Io, path: []const u8, kind: std.Io.File.Kind) ![][]const u8 {
+    var dir = try std.Io.Dir.cwd().openDir(io, path, .{ .iterate = true });
+    defer dir.close(io);
+    var names: std.ArrayList([]const u8) = .empty;
+    var iterator = dir.iterate();
+    while (try iterator.next(io)) |entry| {
+        if (entry.kind == kind) try names.append(gpa, try gpa.dupe(u8, entry.name));
+    }
+    std.mem.sort([]const u8, names.items, {}, lessThan);
+    return names.items;
+}
+
+fn hasName(names: []const []const u8, name: []const u8) bool {
+    for (names) |n| if (std.ascii.eqlIgnoreCase(n, name)) return true;
+    return false;
+}
+
+/// Gives every variant of the family its side. The first variant is the
+/// reference: its suffix, or side 1 without one. A later variant that shows
+/// the same view as an earlier one takes that one's side; any other is the
+/// reference turned as measured.
+pub fn placeFamily(gpa: std.mem.Allocator, io: std.Io, root: []const u8, family: Family) !void {
+    const first = &family.variants[0];
+    first.side = first.suffix orelse 1;
+    first.how = if (family.variants.len > 1) "reference" else if (first.suffix != null) "suffix" else "single";
+    if (family.variants.len == 1) return;
+    const views = try gpa.alloc(View, family.variants.len);
+    for (family.variants, views) |variant, *view| view.* = try loadView(gpa, io, try std.fs.path.join(gpa, &.{ root, variant.path }));
+    for (family.variants[1..], 1..) |*variant, i| {
+        for (0..i) |j| {
+            if (!sameView(views[j], views[i])) continue;
+            variant.side = family.variants[j].side;
+            variant.how = "same view";
+            variant.view_of = family.variants[j].path;
+            break;
+        } else {
+            const turn = try measureTurn(gpa, views[0], views[i]);
+            variant.how = turn.how;
+            if (turn.turn) |t| variant.side = (first.side.? - 1 + @as(u8, t)) % 4 + 1;
+        }
+    }
+}
+
+fn missingSides(family: Family) [4]bool {
+    var missing = [4]bool{ true, true, true, true };
+    for (family.variants) |variant| {
+        if (variant.side) |side| missing[side - 1] = false;
+    }
+    return missing;
+}
+
+fn inventoryCommand(ctx: *bk_tool.Context, root_arg: []const u8, out_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const root = try bk_tool.inputPath(arena, root_arg);
+    const out_path = try bk_tool.inputPath(arena, out_arg);
+    const families = listFamilies(arena, io, root) catch |err| return ctx.failKey("views.err.read", .{ root, @errorName(err) });
+    if (families.len == 0) return ctx.failKey("views.err.no_san", .{root});
+    var variants: usize = 0;
+    for (families) |family| {
+        placeFamily(arena, io, root, family) catch |err| return ctx.failKey("views.err.read", .{ family.name, @errorName(err) });
+        variants += family.variants.len;
+    }
+
+    var json: std.Io.Writer.Allocating = .init(arena);
+    const j = &json.writer;
+    try j.writeAll("{\"families\":[");
+    for (families, 0..) |family, f| {
+        try j.print("{s}\n{{\"family\":\"{s}\",\"region\":\"{s}\",\"missing\":[", .{ if (f > 0) "," else "", family.name, family.region });
+        try writeSides(j, missingSides(family), ",");
+        try j.writeAll("],\"variants\":[");
+        for (family.variants, 0..) |v, i| {
+            try j.print("{s}\n {{\"path\":\"{s}\",\"suffix\":{?d},\"colourway\":{?d},\"side\":{?d},\"how\":\"{s}\",\"view_of\":", .{ if (i > 0) "," else "", v.path, v.suffix, v.colourway, v.side, v.how });
+            if (v.view_of) |of| try j.print("\"{s}\"", .{of}) else try j.writeAll("null");
+            try j.print(",\"winter\":{}}}", .{v.winter});
+        }
+        try j.writeAll("]}");
+    }
+    try j.writeAll("]}\n");
+
+    var md: std.Io.Writer.Allocating = .init(arena);
+    const m = &md.writer;
+    try m.print(
+        \\# Building inventory and side convention
+        \\
+        \\Written by `bk-views inventory Data/Buildings <out>` (`tools/zig/bk_views.zig`), the same data as
+        \\`tools/zig/fixtures/bk-views/inventory.json`; `test-bk-views` fails when either differs from what the
+        \\tool writes. {d} families, {d} variant folders.
+        \\
+        \\**Sides.** Side k + 1 is side k turned by the quarter turn that takes world (x, y) to (-y, x) about the
+        \\zero cross: the footprint's front corner goes to the right corner, the left wall becomes the right
+        \\wall and every 1.xml Direction grows by 90 (`turnPoint`, `turnGrid`, `turnXml`). A suffix `_1` .. `_4`
+        \\names that side where the variants of a family are turns of one building; `_1_2` is colourway 2 of
+        \\side 1; a folder without a suffix, or a numbered subfolder (`dot/01`), starts at side 1. Each
+        \\variant's side is measured against the family's first variant (`how`): `same view` when both visible
+        \\walls correlate at 0.5 or more and the outlines overlap 0.75 or more (it repeats that view with other
+        \\textures or details); otherwise the footprints say whether the turn is even or odd (`outline` when
+        \\they fit both ways and the outlines decide), an even turn is a half turn, and an odd one goes to the
+        \\footprint that fits better (`footprint`), else to the wall the two views share (`walls`);
+        \\`unresolved` when nothing tells.
+        \\
+        \\| Family | Region | Variants (folder under Data/Buildings: side, how) | Missing sides | Colourways | Winter |
+        \\|---|---|---|---|---|---|
+        \\
+    , .{ families.len, variants });
+    for (families) |family| {
+        try m.print("| {s} | {s} | ", .{ family.name, family.region });
+        for (family.variants, 0..) |v, i| {
+            try m.print("{s}`{s}`: ", .{ if (i > 0) "; " else "", v.path });
+            if (v.side) |side| try m.print("{d}", .{side}) else try m.writeAll("?");
+            if (i > 0) try m.print(" ({s})", .{v.how});
+        }
+        try m.writeAll(" | ");
+        try writeSides(m, missingSides(family), ", ");
+        try m.writeAll(" | ");
+        var colourways: usize = 0;
+        for (family.variants) |v| if (v.colourway != null) {
+            try m.print("{s}`{s}`", .{ if (colourways > 0) ", " else "", std.fs.path.basename(v.path) });
+            colourways += 1;
+        };
+        if (colourways == 0) try m.writeAll("-");
+        var winter: usize = 0;
+        for (family.variants) |v| winter += @intFromBool(v.winter);
+        try m.print(" | {s} |\n", .{if (winter == 0) "no" else if (winter == family.variants.len) "yes" else "partly"});
+    }
+    try m.writeAll("\n## Where the measured side is not the suffix\n\n");
+    for (families) |family| for (family.variants) |v| {
+        if (v.suffix == null or (v.side != null and v.side.? == v.suffix.?)) continue;
+        try m.print("- `{s}`: suffix {d}, measured ", .{ v.path, v.suffix.? });
+        if (v.side) |side| try m.print("side {d} ({s}", .{ side, v.how }) else try m.print("nothing ({s}", .{v.how});
+        if (v.view_of) |of| try m.print(" as `{s}`", .{of});
+        try m.writeAll(")\n");
+    };
+
+    try std.Io.Dir.cwd().createDirPath(io, out_path);
+    try writeOut(ctx, out_path, "inventory.json", json.written());
+    try writeOut(ctx, out_path, "inventory.md", md.written());
+    try ctx.out.print("wrote {s}: {d} families, {d} variants\n", .{ out_path, families.len, variants });
+}
+
+fn writeSides(w: *std.Io.Writer, sides: [4]bool, separator: []const u8) !void {
+    var first = true;
+    for (sides, 1..) |on, side| if (on) {
+        try w.print("{s}{d}", .{ if (first) "" else separator, side });
+        first = false;
+    };
 }

@@ -147,6 +147,9 @@ const tools = [_]Tool{
             &.{ "decompose", "house", "--force" },
             &.{"camera"},
             &.{ "camera", "house", "--out" },
+            &.{"inventory"},
+            &.{ "inventory", "buildings" },
+            &.{ "inventory", "buildings", "out", "extra" },
         },
         .failing = &.{ "decompose", "missing", "out" },
         // Backslashes on input, and an output folder that is not there yet.

@@ -2115,7 +2115,7 @@ pub fn build(b: *std.Build) void {
     bk_views_tests_run.setCwd(b.path("."));
     // The tests read Data/ and the camera fixture by plain path.
     bk_views_tests_run.has_side_effects = true;
-    const bk_views_test_step = b.step("test-bk-views", "Run the bk-views decoder, picture and camera tests and the bk-* convention test");
+    const bk_views_test_step = b.step("test-bk-views", "Run the bk-views decoder, picture, camera, inventory and quarter-turn tests and the bk-* convention test");
     bk_views_test_step.dependOn(&bk_views_tests.step);
     bk_views_test_step.dependOn(bk_tools_test_step);
     if (test_mode == .run) bk_views_test_step.dependOn(&bk_views_tests_run.step);

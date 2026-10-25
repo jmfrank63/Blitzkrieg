@@ -180,3 +180,152 @@ test "the camera of the three-side families stays the recorded one" {
         }
     }
 }
+
+test "a variant folder's name gives its family, side and colourway" {
+    const cases = [_]struct { []const u8, views.Name }{
+        .{ "e_ctownhouse01_4", .{ .family = "e_ctownhouse01", .suffix = 4 } },
+        .{ "e_ctownhouse02_1_2", .{ .family = "e_ctownhouse02", .suffix = 1, .colourway = 2 } },
+        .{ "a_mosque_01_4", .{ .family = "a_mosque_01", .suffix = 4 } },
+        .{ "e_shed02_5", .{ .family = "e_shed02", .suffix = 5 } },
+        .{ "factoryfloor01", .{ .family = "factoryfloor01" } },
+        .{ "barracks", .{ .family = "barracks" } },
+    };
+    for (cases) |case| {
+        const name = views.parseName(case[0]);
+        try std.testing.expectEqualStrings(case[1].family, name.family);
+        try std.testing.expectEqual(case[1].suffix, name.suffix);
+        try std.testing.expectEqual(case[1].colourway, name.colourway);
+    }
+}
+
+test "a turned grid keeps every cell under the same part of the building" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const stats = try views.readStats(arena, try read(arena, house ++ "1.xml"));
+    const grid: views.Grid = .{ .rows = stats.passability, .origin = .{ stats.origin[0], stats.origin[1] } };
+    for (1..4) |k| {
+        const turned = try views.turnGrid(arena, grid, @intCast(k));
+        for (grid.rows, 0..) |row, y| for (0..row.len / 2) |x| {
+            const centre = [2]f64{
+                (@as(f64, @floatFromInt(x)) + 0.5) * views.tile_size - grid.origin[0],
+                (@as(f64, @floatFromInt(y)) + 0.5) * views.tile_size - grid.origin[1],
+            };
+            const p = views.turnPoint(centre, @intCast(k));
+            const tx: usize = @intFromFloat(@floor((p[0] + turned.origin[0]) / views.tile_size));
+            const ty: usize = @intFromFloat(@floor((p[1] + turned.origin[1]) / views.tile_size));
+            try std.testing.expectEqualStrings(row[2 * x ..][0..2], turned.rows[ty][2 * tx ..][0..2]);
+        };
+    }
+    const back = try views.turnGrid(arena, try views.turnGrid(arena, grid, 3), 1);
+    try std.testing.expectEqual(grid.rows.len, back.rows.len);
+    for (grid.rows, back.rows) |a, b| try std.testing.expectEqualStrings(a, b);
+    try std.testing.expectApproxEqAbs(grid.origin[0], back.origin[0], 1e-9);
+    try std.testing.expectApproxEqAbs(grid.origin[1], back.origin[1], 1e-9);
+}
+
+test "a turned 1.xml keeps its points on the 2003 camera and four turns give it back" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const xml = try read(arena, house ++ "1.xml");
+    const was = try views.readStats(arena, xml);
+    const once = try views.turnXml(arena, xml, 1);
+    const turned = try views.readStats(arena, once);
+    const expected = try views.turnGrid(arena, .{ .rows = was.passability, .origin = .{ was.origin[0], was.origin[1] } }, 1);
+    for (expected.rows, turned.passability) |a, b| try std.testing.expectEqualStrings(a, b);
+    try std.testing.expectApproxEqAbs(expected.origin[0], turned.origin[0], 1e-3);
+    try std.testing.expectEqual(was.pairs.len, turned.pairs.len);
+    for (turned.pairs) |pair| {
+        const q = views.mfc_camera.project(.{ pair[2], pair[3], pair[4] });
+        try std.testing.expectApproxEqAbs(q[0], pair[0], 1e-3);
+        try std.testing.expectApproxEqAbs(q[1], pair[1], 1e-3);
+    }
+    // Every Direction grows by 90.
+    var pos: usize = 0;
+    var pos_once: usize = 0;
+    while (std.mem.indexOfPos(u8, xml, pos, "Direction=\"")) |at| {
+        const at_once = std.mem.indexOfPos(u8, once, pos_once, "Direction=\"").?;
+        pos = at + 11;
+        pos_once = at_once + 11;
+        const d = try std.fmt.parseFloat(f64, xml[pos..std.mem.indexOfScalarPos(u8, xml, pos, '"').?]);
+        const e = try std.fmt.parseFloat(f64, once[pos_once..std.mem.indexOfScalarPos(u8, once, pos_once, '"').?]);
+        try std.testing.expectApproxEqAbs(@mod(d + 90, 360), e, 1e-3);
+    }
+    var again = once;
+    for (0..3) |_| again = try views.turnXml(arena, again, 1);
+    const back = try views.readStats(arena, again);
+    for (was.passability, back.passability) |a, b| try std.testing.expectEqualStrings(a, b);
+    try std.testing.expectApproxEqAbs(was.origin[0], back.origin[0], 1e-3);
+    try std.testing.expectApproxEqAbs(was.origin[1], back.origin[1], 1e-3);
+    // The 2003 pictures are the camera's to within its fit (rms 0.0002 px).
+    for (was.pairs, back.pairs) |a, b| for (a, b) |x, y| try std.testing.expectApproxEqAbs(x, y, 2e-3);
+}
+
+test "the three-side families measure as suffix k being k - 1 quarter turns, with the recorded exceptions" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = std.testing.io;
+    const expected = [_]struct { []const u8, []const ?u8 }{
+        // Every side where the suffix says.
+        .{ "a_h07", &.{ 1, 2, 3 } },
+        .{ "e_ctownhouse01", &.{ 1, 2, 4 } },
+        .{ "e_house11", &.{ 1, 3, 4 } },
+        // _3 repeats _1's view with another roof; _2 is a half turn, not one.
+        .{ "e_house01", &.{ 1, 3, 1 } },
+        // _2 repeats _1's view; _4 holds.
+        .{ "e_house02", &.{ 1, 1, 4 } },
+        // _3 and _4 are one view, a half turn from _2.
+        .{ "e_house03", &.{ 2, 4, 4 } },
+        // _3 cannot be told from its mirror turn (an open shed); _5 repeats _2.
+        .{ "e_shed02", &.{ 2, null, 4, 2 } },
+        // _3 repeats _2's view with a green roof.
+        .{ "townhouse05", &.{ 1, 2, 2 } },
+    };
+    const families = try views.listFamilies(arena, io, "Data/Buildings");
+    for (expected) |want| {
+        const family = for (families) |f| {
+            if (std.mem.eql(u8, f.name, want[0])) break f;
+        } else return error.NoSuchFamily;
+        try views.placeFamily(arena, io, "Data/Buildings", family);
+        try std.testing.expectEqual(want[1].len, family.variants.len);
+        for (family.variants, want[1]) |variant, side| {
+            if (variant.side != side) {
+                std.debug.print("{s}: side {?d}, expected {?d} ({s})\n", .{ variant.path, variant.side, side, variant.how });
+                return error.SideChanged;
+            }
+        }
+    }
+}
+
+test "the tracked inventory is what bk-views inventory writes" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = std.testing.io;
+    const out = "zig-out/local-test/bk-views/inventory";
+    const result = try std.process.run(arena, io, .{ .argv = &.{ bk_tools.bk_views, "inventory", "Data/Buildings", out } });
+    if (result.term != .exited or result.term.exited != 0) {
+        std.debug.print("bk-views inventory failed: {s}\n", .{result.stderr});
+        return error.InventoryFailed;
+    }
+    for ([_][2][]const u8{
+        .{ out ++ "/inventory.md", "docs/superpowers/evidence/building-views/inventory.md" },
+        .{ out ++ "/inventory.json", "tools/zig/fixtures/bk-views/inventory.json" },
+    }) |pair| {
+        const written = try withoutCr(arena, try read(arena, pair[0]));
+        const tracked = try withoutCr(arena, try read(arena, pair[1]));
+        if (!std.mem.eql(u8, written, tracked)) {
+            std.debug.print("{s} differs from {s}; regenerate it with bk-views inventory\n", .{ pair[1], pair[0] });
+            return error.InventoryChanged;
+        }
+    }
+}
+
+/// Tracked text is checked out with CRLF; the tool writes LF.
+fn withoutCr(gpa: std.mem.Allocator, text: []const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    for (text) |c| if (c != '\r') try out.append(gpa, c);
+    return out.items;
+}
