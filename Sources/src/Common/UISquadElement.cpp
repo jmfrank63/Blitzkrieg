@@ -11,6 +11,7 @@
 #include "../GameTT/WorldClient.h"
 #include "../Input/Input.h"
 #include "Icons.h"
+#include "../Main/Remastered.h"
 BASIC_REGISTER_CLASS( CUISquadElement );
 void CUIUnitObserver::AddIcon( const int nType, ISceneIcon *pIcon )
 {
@@ -122,11 +123,13 @@ void CUISquadElement::Visit( interface ISceneVisitor *pVisitor )
 		rect.rect.Set( fX, fY - rcWindow.Height(), fX + rcWindow.Height(), fY);
 		rect.maps.Set( 0, 0, 1, 1 );
 		rect.maps.Move( 0.5f / pSquadIcon->GetSizeX(0), 0.5f / pSquadIcon->GetSizeY(0) );
-		// The cell background is the only thing that changes with selection:
-		// full brightness for a selected squad, a little dimmer otherwise, so
-		// the unit glyphs drawn over it keep their own colours. (An overlay
-		// would not do - solid rects render after textured ones.)
-		rect.color = (*it)->IsSelected() ? 0xffffffff : 0xffc0c0c0;
+		// Remastered: the cell background is the only thing that changes with
+		// selection - full brightness for a selected squad, a little dimmer
+		// otherwise, so the unit glyphs drawn over it keep their own colours.
+		// (An overlay would not do - solid rects render after textured ones.)
+		// The original draws every cell the same.
+		if ( NRemastered::Enabled() )
+			rect.color = (*it)->IsSelected() ? 0xffffffff : 0xffc0c0c0;
 		if ( !(*(passangers.begin()))->GetMOUnit()->CanSelect() )
 		{
 			rect.color = 0xff808080;
@@ -330,9 +333,45 @@ bool CUISquadElement::HasUnit( const IMOUnit *pUnit ) const
 			return true;
 	return false;
 }
+// The original click: the element toggles its own flag, selecting the
+// squad through its first passenger or deselecting every passenger.
+void CUISquadElement::ToggleSquad()
+{
+	bSelected = !bSelected;
+	if ( passangers.empty() )
+		return;
+	SGameMessage msg = SGameMessage( 0 );
+	msg.nEventID = bSelected ? WCC_UI_SQUAD_SEL : WCC_UI_SQUAD_DESEL;
+	if ( bSelected )
+	{
+		CUIUnitObserver *observer = *(passangers.begin());
+		if ( observer->GetMOUnit()->CanSelect() )
+		{
+			msg.nParam = reinterpret_cast<std::intptr_t>( observer->GetMOUnit() );
+			GetSingleton<IInput>()->AddMessage( msg );
+		}
+	}
+	else
+	{
+		for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
+		{
+			CUIUnitObserver *observer = *(it);
+			if ( observer->GetMOUnit()->CanSelect() )
+			{
+				msg.nParam = reinterpret_cast<std::intptr_t>( observer->GetMOUnit() );
+				GetSingleton<IInput>()->AddMessage( msg );
+			}
+		}
+	}
+}
 bool CUISquadElement::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
-	// The cell under the cursor names the soldier. What the click means
+	if ( !NRemastered::Enabled() )
+	{
+		ToggleSquad();
+		return true;
+	}
+	// Remastered: the cell under the cursor names the soldier. What the click means
 	// (the squad, or with shift that one soldier) is the world client's
 	// call - it holds the selection and the modifier.
 	if ( passangers.empty() )

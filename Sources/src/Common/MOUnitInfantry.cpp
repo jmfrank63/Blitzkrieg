@@ -14,6 +14,7 @@
 #include "../Misc/Win32Random.h"
 #include "ObjectStatus.h"
 #include "../Misc/Checker.h"
+#include "../Main/Remastered.h"
 inline const int GetHPIconState( const float fHP )
 {
 	if ( fHP <= 0.7f ) 
@@ -121,10 +122,12 @@ void CMOUnitInfantry::GetActions( CUserActions *pActions, EActionsType eActions 
 			pActions->SetAction( USER_ACTION_MOVE );
 		if ( acts.HasAction(USER_ACTION_BOARD) ) 
 			pActions->SetAction( USER_ACTION_BOARD );
-		// inside a building or a transport the exit is always on offer - the
-		// container's own LEAVE covers everyone, this one covers the squads
-		// picked in the who-is-inside strip
-		pActions->SetAction( USER_ACTION_LEAVE );
+		// Remastered: inside a building or a transport the exit is always on
+		// offer - the container's own LEAVE covers everyone, this one covers
+		// the squads picked in the who-is-inside strip. The original offers
+		// the unit's own LEAVE only.
+		if ( acts.HasAction(USER_ACTION_LEAVE) || NRemastered::Enabled() )
+			pActions->SetAction( USER_ACTION_LEAVE );
 	}
 	else
 	{
@@ -390,10 +393,10 @@ void CMOUnitInfantry::SetSquad( interface IMOSquad *_pSquad )
 		if ( GetObserver() )
 			GetObserver()->RemoveUnit();
 		SetObserver( 0 );
-		// A dissolved squad inside a container: the strip loses this
-		// soldier's cell with the observer, so ask for a rebuild in which he
-		// gets a cell of his own.
-		if ( GetContainer() )
+		// Remastered: a dissolved squad inside a container - the strip loses
+		// this soldier's cell with the observer, so ask for a rebuild in which
+		// he gets a cell of his own.
+		if ( GetContainer() && NRemastered::Enabled() )
 			GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( GetContainer() )) );
 	}
 }

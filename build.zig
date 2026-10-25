@@ -1531,6 +1531,7 @@ pub fn build(b: *std.Build) void {
     // Task 7.3 review: in the foundation matrix, so every CI job builds it and
     // the run-mode jobs run it.
     test_platform_foundation.dependOn(wheel_scroll_step);
+    const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
     addInputTextRepeatTest(b, target, test_mode, toolchain);
     addInputControllerTest(b, target, test_mode, toolchain);
@@ -3017,6 +3018,29 @@ pub fn build(b: *std.Build) void {
     mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_tests.step);
     if (test_mode == .run) mod_compat_game_reads_step.dependOn(&mod_compat_game_reads_run.step);
 
+    // The Remastered option on the real Game (tools/zig/remastered_game_reads_it.zig):
+    // a mission with soldiers in a house and a truck, the who-is-inside strip
+    // clicked, the occupants ordered into another house, with the option off
+    // (the original game) and on, and saves carried between the two modes.
+    // Desktop and GPU, so not part of `test`.
+    const remastered_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/remastered_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, remastered_game_module, toolchain);
+    }
+    const remastered_game_tests = b.addTest(.{ .root_module = remastered_game_module });
+    const remastered_game_run = b.addRunArtifact(remastered_game_tests);
+    remastered_game_run.setCwd(b.path("."));
+    remastered_game_run.setEnvironmentVariable("BK_REMASTERED_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    remastered_game_run.has_side_effects = true;
+    remastered_game_run.step.dependOn(install_game_step);
+    const remastered_game_step = b.step("remastered-game-reads-it", "Drive the who-is-inside strip of a house and a truck and a change of building on the real Game with the Remastered option off (the original game) and on, and load a save written in one mode in the other");
+    remastered_game_step.dependOn(&remastered_game_tests.step);
+    if (test_mode == .run) remastered_game_step.dependOn(&remastered_game_run.step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
@@ -3827,6 +3851,7 @@ pub fn build(b: *std.Build) void {
     test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(wheel_scroll_step);
+    test_step.dependOn(remastered_step);
     // The editor kit tier: reusable editor plumbing (files, shipped, autosave,
     // history stack primitive, settings primitive, host, crt, imgui wrapper,
     // BK_EDITOR_AUTO schedule driver, pictures-cache, testlaunch) without any
@@ -7417,6 +7442,39 @@ fn addWheelScrollTest(
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
     const step = b.step("test-wheel-scroll", "Run the mouse wheel and trackpad swipe translation tests");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+    return step;
+}
+
+/// The Remastered switch's policy (Sources/src/Main/Remastered.h): the option,
+/// multiplayer and replays, with the global vars the game sets. Built the way
+/// addWheelScrollTest builds its header-only test.
+fn addRemasteredTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    platform: build_support.PlatformTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step {
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    addLinuxCxxIncludePaths(b, module);
+    module.addCSourceFiles(.{ .files = &.{"tools/zig/remastered_test.cpp"}, .flags = &.{"-std=c++17"} });
+    linkCxxRuntime(module, target);
+    if (build_support.usesMsvc(platform)) {
+        addMsvcIncludePaths(b, module, toolchain);
+        addMsvcLibraryPaths(b, module, toolchain);
+        linkMsvcRuntime(module, .debug);
+    }
+    const exe = b.addExecutable(.{ .name = "remastered-test", .root_module = module });
+    if (build_support.usesMsvc(platform)) {
+        exe.subsystem = .console;
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    const run = b.addRunArtifact(exe);
+    setLeakReportStrict(run);
+    run.setCwd(b.path("."));
+    const step = b.step("test-remastered", "Run the Remastered option's policy test: off by default, always off in multiplayer, a replay keeps its recorded mode");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
     return step;

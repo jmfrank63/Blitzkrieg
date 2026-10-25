@@ -72,6 +72,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #ifdef _PROFILER
 #include "VTuneAPI.h"
 #endif // _PROFILER
+#include "../Main/Remastered.h"
 extern CWeather theWeather;
 extern CSupremeBeing theSupremeBeing;
 extern CCombatEstimator theCombatEstimator;
@@ -103,6 +104,7 @@ extern CShellsStore theShellsStore;
 NTimer::STime timeToLogStart;
 NTimer::STime timeToLogFinish;
 CAILogic::CAILogic()
+: nRemasteredApplied( -1 )
 {
 	pAILogic = this;
 }
@@ -949,6 +951,7 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 	GetSingleton<ICommandsHistory>()->CheckStartMapCheckSum( checkSum );
 	bool bOldSuspended = bSuspended;
 	bSuspended = false;
+	nRemasteredApplied = -1;
 	Segment();
 	bSuspended = bOldSuspended;
 	
@@ -1053,6 +1056,8 @@ void CAILogic::Segment()
 				fprintf( stderr, "BK_AUTO_UI: KillAviation downed %d aircraft\n", nDowned );
 			}
 		}
+		if ( int( NRemastered::Enabled() ) != nRemasteredApplied )
+			SyncTransportLoadSelectable();
 		theGroupLogic.Segment();
 
 		if ( theCheats.GetWarFog() )

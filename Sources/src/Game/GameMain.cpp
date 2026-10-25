@@ -1273,7 +1273,9 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// probe=t<x1>x<y1>x<x2>x<y2> (or f for fence; build-preview query) |
 			// units=<x>x<y>x<r> (counts each player's units within radius r of
 			// (x,y), in the AI's own coordinates - a harness's way to see a
-			// placed unit in the running mission without driving the UI).
+			// placed unit in the running mission without driving the UI) |
+			// world=<Command>(<args>) (a world console command, e.g. the
+			// TraceSelection and TraceContainers dumps of CWorldClient::Update).
 			// An entry keyed g<ms> instead of a frame fires once, ms of game time
 			// after the entry before it has run, counted from the start of a new
 			// game when one starts in between (game time going back is a mission
@@ -1729,6 +1731,13 @@ int RunGame( const BkGameLaunchInfo &launch )
 						}
 					}
 					else if ( szAction == "exit" ) pMainLoop->Command( MAIN_COMMAND_EXIT_GAME, 0 );
+					else if ( szAction.compare( 0, 6, "world=" ) == 0 )
+					{
+						// world=<Command>(<args>): a command to the running mission's
+						// world, the console's world stream - e.g. world=TraceSelection(0)
+						// prints what is selected (CWorldClient::Update lists them).
+						GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, szAction.c_str() + 6 );
+					}
 					else if ( szAction.compare( 0, 4, "var=" ) == 0 )
 					{
 						const std::string szPair = szAction.substr( 4 );

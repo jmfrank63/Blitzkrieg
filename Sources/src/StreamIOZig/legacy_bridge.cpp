@@ -1930,6 +1930,14 @@ extern "C" __declspec(dllexport) void bk_bridge_apply_option_action(const char *
             global_vars->SetVar("GFX.Texture.QualityPending", value);
             return;
         }
+        if (std::strcmp(action, "SetRemastered") == 0) {
+            // The Remastered gameplay option (ON/OFF) as the one global var
+            // every feature behind it reads through NRemastered::Enabled()
+            // (Main/Remastered.h); anything but ON is the original game.
+            const bool on = (value[0] == 'O' || value[0] == 'o') && (value[1] == 'N' || value[1] == 'n') && value[2] == 0;
+            global_vars->SetVar("Options.GamePlay.Remastered", on ? "1" : "0");
+            return;
+        }
         if (std::strcmp(action, "SetLanguage") == 0) {
             // The text manager and the data storage are the Game's; its frame
             // loop mounts the chosen texts.pak and reloads the texts whenever

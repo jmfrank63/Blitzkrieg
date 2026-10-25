@@ -60,7 +60,8 @@ class CUISquadElement : public CTRefCount<IUIElement>
 	typedef std::list< CObj<CUIUnitObserver> > CPassangersList;
 	CPassangersList passangers;					// container passangers
 	CPtr<IGFXTexture> pSquadIcon;				// general squad icon
-public:	
+	void ToggleSquad();
+public:
 	CUISquadElement();
 	virtual int STDCALL operator&( IDataTree &ss );
 
@@ -125,9 +126,9 @@ public:
 	virtual void STDCALL RemovePassanger( IUnitStateObserver *pObserver );
 	virtual int STDCALL GetPassangerCount();
 	virtual void STDCALL SetSquadIcon( IGFXTexture *pTexSquadIcon ) { pSquadIcon = pTexSquadIcon; }
-	// The strip outlives a selection change now (the selector rebuilds it for
-	// the container the selected units sit in), so the highlight follows the
-	// game selection rather than the last click.
+	// With Remastered the strip outlives a selection change (the selector
+	// rebuilds it for the container the selected units sit in), so the
+	// highlight follows the game selection rather than the last click.
 	void SetSelected( bool bSelect ) { bSelected = bSelect; }
 	bool IsSelected() const { return bSelected; }
 	bool HasUnit( const IMOUnit *pUnit ) const;

@@ -17,6 +17,7 @@
 #include "Mine.h"
 #include "Technics.h"
 #include "UnitGuns.h"
+#include "../Main/Remastered.h"
 #include "Formation.h"
 #include "Shell.h"
 #include "FormationStates.h"
@@ -135,8 +136,11 @@ void CSoldier::SetInTransport( class CMilitaryCar *pUnit )
 
 	updater.Update( ACTION_NOTIFY_ENTRANCE_STATE, this );
 	ChangeWarFogState();
-	// A transport's load stays selectable, the way a building's occupants
-	// are: the who-is-inside strip picks squads to send out of either.
+	// Remastered: a transport's load stays selectable, the way a building's
+	// occupants are - the who-is-inside strip picks squads to send out of
+	// either. The original makes it unselectable until it is put out.
+	if ( !NRemastered::Enabled() )
+		SetSelectable( false );
 }
 void CSoldier::SetFree()
 {

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "../Common/PauseGame.h"
 #include "../Main/iMainCommands.h"
+#include "../Main/Remastered.h"
 
 #include "SelectorVisitors.h"
 #include "../Main/ScenarioTrackerTypes.h"
@@ -318,8 +319,9 @@ void CSelector::UpdateSelection( intptr_t nContainerToken )
 	}
 }
 // The container whose passengers the strip should show: the single selected
-// container itself, or the one every selected unit is riding in - clicking
-// a portrait selects that squad, and the strip must stay for the next click.
+// container itself, or with Remastered the one every selected unit is riding
+// in - clicking a portrait selects that squad, and the strip must stay for
+// the next click. The original shows it for a single selected object only.
 static IMOContainer* StripContainer( const CMapObjectsList &objects )
 {
 	if ( objects.empty() )
@@ -327,9 +329,11 @@ static IMOContainer* StripContainer( const CMapObjectsList &objects )
 	if ( objects.size() == 1 )
 	{
 		IMOContainer *pContainer = static_cast_ptr<IMOContainer*>( objects.back() );
-		if ( pContainer->GetPassangers( 0 ) > 0 )
+		if ( pContainer->GetPassangers( 0 ) > 0 || !NRemastered::Enabled() )
 			return pContainer;
 	}
+	if ( !NRemastered::Enabled() )
+		return 0;
 	IMOContainer *pShared = 0;
 	for ( CMapObjectsList::const_iterator it = objects.begin(); it != objects.end(); ++it )
 	{
@@ -363,15 +367,16 @@ void CSelector::DoneSelection()
 				std::vector<IMOUnit*> passangers( nNumPassangers );
 				pStripContainer->GetPassangers( &(passangers[0]) );
 				std::list<CUISquadElement*> squadElements;
+				const bool bRemastered = NRemastered::Enabled();
 				for ( std::vector<IMOUnit*>::iterator it = passangers.begin(); it != passangers.end(); ++it )
 				{
-					// One element per squad; a soldier whose squad was dissolved
-					// has no squad to share, so he gets a cell of his own (all
-					// squadless soldiers used to share the null key and showed
-					// as one squad row).
+					// One element per squad. With Remastered a soldier whose squad
+					// was dissolved has no squad to share, so he gets a cell of his
+					// own; the original lets all squadless soldiers share the null
+					// key, and they show as one squad row.
 					IRefCount *pAISquad = (*it)->GetSquad();
 					CUISquadElement *pSquad = 0;
-					if ( pAISquad != 0 )
+					if ( pAISquad != 0 || !bRemastered )
 					{
 						for ( CSquadsAIList::iterator squad = squadsAI.begin(); squad != squadsAI.end(); ++squad )
 						{
@@ -387,14 +392,14 @@ void CSelector::DoneSelection()
 						pSquad = new CUISquadElement;
 						squads.push_back( pSquad );
 						squadElements.push_back( pSquad );
-						if ( pAISquad != 0 )
+						if ( pAISquad != 0 || !bRemastered )
 							squadsAI.push_back( CSquadAIPair(pAISquad, pSquad) );
 					}
 					CUIUnitObserver *pObserver = new CUIUnitObserver(*it);
 					pObserver->SetSquad( pSquad );
 					(*it)->SetObserver( pObserver );
 					pSquad->AddPassanger( pObserver );
-					if ( objset.find( *it ) != objset.end() )
+					if ( bRemastered && objset.find( *it ) != objset.end() )
 					{
 						pObserver->SetSelected( true );
 						pSquad->SetSelected( true );
@@ -748,6 +753,10 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 				GetSingleton<IAILogic>()->CallScriptFunction( szCmd.c_str() );
 			}
 		}
+		else if ( szParts[0].compare( "TraceSelection" ) == 0 )
+			TraceSelection();
+		else if ( szParts[0].compare( "TraceContainers" ) == 0 )
+			TraceContainers();
 		else
 		{
 			NStr::DebugTrace( "Skipping command: unknown function\n" );
@@ -1022,6 +1031,51 @@ void CWorldClient::ReconcileSelection()
 		}
 	}
 	if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ReconcileSelection refreshed=%d dropped=%d\n", nRefreshed, nDropped );
+}
+// The TraceSelection world command (BK_AUTO_UI world=TraceSelection(0)):
+// what is selected and what the who-is-inside strip shows, one line, so a
+// harness can check what a click on the strip did.
+void CWorldClient::TraceSelection()
+{
+	int nInside = 0;
+	std::set<IMOContainer*> containers;
+	for ( CMapObjectsList::const_iterator it = selunits.GetObjects().begin(); it != selunits.GetObjects().end(); ++it )
+	{
+		IMOUnit *pUnit = dynamic_cast<IMOUnit*>( it->GetPtr() );
+		if ( pUnit != 0 && pUnit->GetContainer() != 0 )
+		{
+			++nInside;
+			containers.insert( pUnit->GetContainer() );
+		}
+	}
+	const CSelector &strip = selunits.pStripContainer != 0 ? selunits : selbuildings;
+	fprintf( stderr, "BK_SELECTION_TRACE: units=%d buildings=%d inside=%d containers=%d strip=%d strip_cells=%d\n",
+	         selunits.size(), selbuildings.size(), nInside, int( containers.size() ),
+	         strip.pStripContainer != 0 ? strip.pStripContainer->GetPassangers( 0 ) : 0, strip.GetStripElementCount() );
+}
+// The TraceContainers world command: every building and vehicle with
+// someone inside, with how many of them the player can select.
+void CWorldClient::TraceContainers()
+{
+	for ( iterator it = begin(); it != end(); ++it )
+	{
+		SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
+		if ( pMO == 0 || pMO->pDesc == 0 || ( pMO->pDesc->eGameType != SGVOGT_BUILDING && pMO->pDesc->eGameType != SGVOGT_UNIT ) )
+			continue;
+		IMOContainer *pContainer = dynamic_cast<IMOContainer*>( pMO );
+		if ( pContainer == 0 || dynamic_cast<IMOSquad*>( pMO ) != 0 )
+			continue;
+		const int nPassangers = pContainer->GetPassangers( 0 );
+		if ( nPassangers == 0 )
+			continue;
+		CVec3 vPos;
+		WORD wDir = 0;
+		pMO->GetPlacement( &vPos, &wDir );
+		fprintf( stderr, "BK_CONTAINER_TRACE: %s \"%s\" at %.0f,%.0f passangers=%d selectable=%d\n",
+		         pMO->pDesc->eGameType == SGVOGT_BUILDING ? "building" : "unit", pMO->pDesc->szKey.c_str(),
+		         vPos.x, vPos.y, nPassangers, pContainer->GetPassangers( 0, true ) );
+	}
+	fprintf( stderr, "BK_CONTAINER_TRACE: end\n" );
 }
 void CWorldClient::ResetSelection( SMapObject *pMO )
 {
@@ -1548,8 +1602,17 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 			break;
 
 		case WCC_UI_SQUAD_SEL:
+			if ( !NRemastered::Enabled() )
 			{
-				// A cell in the who-is-inside strip. Plain click: every occupant
+				// The original: the strip element's squad, through the soldier
+				// it names, replaces the selection.
+				CMapObjectsPtrList lst;
+				lst.push_back( reinterpret_cast<IMOUnit*>(msg.nParam) );
+				Select( lst, false );
+			}
+			else
+			{
+				// Remastered: a cell in the who-is-inside strip. Plain click: every occupant
 				// of the container, alone. Shift-click: the clicked soldier's
 				// squad - the mates riding in the same container - joins the
 				// selection, or leaves it when the soldier is in; a soldier whose
@@ -1599,6 +1662,9 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 			}
 			break;
 		case WCC_UI_SQUAD_DESEL:
+			if ( !NRemastered::Enabled() )
+				ResetSelection( reinterpret_cast<IMOUnit*>(msg.nParam) );
+			else
 			{
 				IMOUnit *pUnit = reinterpret_cast<IMOUnit*>( msg.nParam );
 				std::vector<IMOUnit*> units( 1, pUnit );

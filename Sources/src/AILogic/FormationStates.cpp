@@ -6,6 +6,7 @@
 
 #include "FormationStates.h"
 #include "Formation.h"
+#include "../Main/Remastered.h"
 #include "Commands.h"
 #include "Soldier.h"
 #include "Guns.h"
@@ -200,7 +201,7 @@ IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand 
 			{
 				pResult = CFormationLeaveBuildingState::Instance( pFormation, pFormation->GetBuilding(), cmd.vPos );
 			}
-			else if ( pFormation->IsInTransport() )
+			else if ( pFormation->IsInTransport() && NRemastered::Enabled() )
 			{
 				pResult = CFormationLeaveTransportState::Instance( pFormation, pFormation->GetTransportUnit(), cmd.vPos );
 			}
@@ -273,7 +274,7 @@ IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand 
 				pResult = CFormationLeaveBuildingState::Instance( pFormation, pFormation->GetBuilding(), cmd.vPos );
 			else if ( pFormation->IsInEntrenchment() )
 				pResult = CFormationLeaveEntrenchmentState::Instance( pFormation, pFormation->GetEntrenchment(), cmd.vPos );
-			else if ( pFormation->IsInTransport() )
+			else if ( pFormation->IsInTransport() && NRemastered::Enabled() )
 				pResult = CFormationLeaveTransportState::Instance( pFormation, pFormation->GetTransportUnit(), cmd.vPos );
 
 			break;
@@ -1621,19 +1622,41 @@ void CFormationIdleTransportState::Segment()
 }
 ETryStateInterruptResult CFormationIdleTransportState::TryInterruptState( class CAICommand *pCommand )
 {
+	const bool bRemastered = NRemastered::Enabled();
 	if ( !pCommand ||
 			pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_MOVE_TO  || 
-			pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_LEAVE ||
+			( bRemastered && pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_LEAVE ) ||
 			pCommand->ToUnitCmd().cmdType == ACTION_MOVE_REPAIR_UNIT ||
 			pCommand->ToUnitCmd().cmdType == ACTION_MOVE_RESUPPLY_UNIT )
 	{
 		pFormation->SetCommandFinished();
 		// The transport's own land sequence puts the soldiers out before it sends
-		// the squad on, so the squad is free by now. A squad ordered out while
-		// still aboard keeps its transport: the leave state lands it.
-		if ( !pCommand || !pFormation->IsAnyUnitInTransport() )
+		// the squad on, so the squad is free by now. With Remastered a squad
+		// ordered out while still aboard keeps its transport: the leave state
+		// lands it. The original frees the squad's flag either way.
+		if ( !pCommand || !bRemastered || !pFormation->IsAnyUnitInTransport() )
 			pFormation->SetFree();
 		return TSIR_YES_IMMIDIATELY;
+	}
+
+	// Remastered: a squad picked in the who-is-inside strip and ordered into
+	// a building gets out first and then goes in, in one order - the way a
+	// building's occupants change buildings (CFormationIdleBuildingState puts
+	// a LEAVE before the order). The transport's entrance is where it gets
+	// out, so the walk starts there. A queued order (flag 1) waits, as it
+	// does in a building, and a towed gun's crew stays with its gun.
+	if ( bRemastered && pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_ENTER && pCommand->GetFlag() != 1 &&
+			 IsValidObj( pTransport ) && pTransport->IsAlive() && pFormation != pTransport->GetTowedArtilleryCrew() &&
+			 pFormation->IsAnyUnitInTransport() )
+	{
+		// Finished first: a push onto a unit with a current command interrupts
+		// this state without a command, which frees the squad's flag while it
+		// is still aboard.
+		pFormation->SetCommandFinished();
+		theGroupLogic.PushFrontUnitCommand( pCommand->ToUnitCmd(), pFormation );
+		theGroupLogic.PushFrontUnitCommand( SAIUnitCmd( ACTION_COMMAND_LEAVE, pTransport->GetEntrancePoint() ), pFormation );
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai transport to building: squad of %d gets out to enter\n", pFormation->Size() );
+		return TSIR_YES_MANAGED_ALREADY;
 	}
 
 	return TSIR_NO_COMMAND_INCOMPATIBLE;

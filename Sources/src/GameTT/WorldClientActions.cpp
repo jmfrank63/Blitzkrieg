@@ -8,6 +8,7 @@
 #include "../Formats/fmtTerrain.h"
 #include "SelectorVisitors.h"
 #include "../UI/UI.h"
+#include "../Main/Remastered.h"
 void CWorldClient::RegisterAction( int nAction, DWORD flags, USER_ACTION pfnUserAction )
 {
 	NI_ASSERT_SLOW_T( (flags != 0) && (pfnUserAction), NStr::Format("Can't register action %d with NULL functions and/or flags", nAction) );
@@ -599,9 +600,11 @@ bool CWorldClient::ActionLeave( const CVec2 &vPos2, bool bAddAction )
 			if ( pContainer->GetPassangers(0) != 0 ) 
 				return PerformActionPos( ACTION_COMMAND_UNLOAD, vPos2, bAddAction );
 		}
-		// Squads picked in the who-is-inside strip: the selected units are the
-		// passengers themselves, and they leave the way a building unloads its
-		// load - to the clicked spot.
+		// Remastered: squads picked in the who-is-inside strip - the selected
+		// units are the passengers themselves, and they leave the way a
+		// building unloads its load, to the clicked spot.
+		if ( !NRemastered::Enabled() )
+			return false;
 		for ( CMapObjectsList::const_iterator it = visitor.GetObjects().begin(); it != visitor.GetObjects().end(); ++it )
 		{
 			SMapObject *pMO = *it;

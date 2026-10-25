@@ -187,6 +187,7 @@ public:
 	void SendAcknowledgement( interface IAILogic *pAILogic );
 	void UpdateSelection( intptr_t nContainerToken );
 	IMOContainer *pStripContainer;	// whose passengers the who-is-inside strip shows, 0 for none
+	int GetStripElementCount() const { return squads.size(); }
 	SSelectionGroup& GetSelectionGroup( const int nIndex ) { return groups[nIndex]; }
 	int operator&( IStructureSaver &ss );
 };
@@ -302,6 +303,8 @@ class CWorldClient : public CWorldBase
 	void SelectBuilding( IVisObj *pObj, bool bAddAction );
 	virtual void ResetSelection( SMapObject *pMO );
 	void ReconcileSelection();
+	void TraceSelection();
+	void TraceContainers();
 	void PickFoF( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &friends, CMapObjectsPtrList &foes, CMapObjectsPtrList &neutrals );
 	void Pick( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &objects );
 	void PickAll( const CVec2 &vPos, CMapObjectsPtrList &objects, EObjGameType upto = SGVOGT_MINE, bool bVisible = false, bool bAliveUnits = true, bool bAliveOther = true );
