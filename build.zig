@@ -4098,6 +4098,31 @@ pub fn build(b: *std.Build) void {
     const mod_language_game_reads_step = b.step("mod-language-game-reads-it", "Prove on the real Game that a gameplay mod's unchanged English shows lang-ru's translation and its changed texts stay its own, that its empty .bik videos play nothing and that loading a save keeps the session's language");
     mod_language_game_reads_step.dependOn(&mod_language_game_reads_tests.step);
     if (test_mode == .run) mod_language_game_reads_step.dependOn(&mod_language_game_reads_run.step);
+
+    // The Achtung Panzer 2 mod's own save under lang-ru, where the mod is at hand: -Dap2-mod names its
+    // folder and -Dap2-save a save written with it (tools/zig/ap2_save_game_reads_it.zig); without them
+    // the test is skipped. Its content is not tracked.
+    const ap2_options = b.addOptions();
+    ap2_options.addOption([]const u8, "mod", b.option([]const u8, "ap2-mod", "ap2-save-game-reads-it: the Achtung Panzer 2 mod's folder (holding data/)") orelse "");
+    ap2_options.addOption([]const u8, "save", b.option([]const u8, "ap2-save", "ap2-save-game-reads-it: a .sav written with the Achtung Panzer 2 mod") orelse "");
+    const ap2_save_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/ap2_save_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    ap2_save_game_reads_module.addOptions("ap2_options", ap2_options);
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, ap2_save_game_reads_module, toolchain);
+    }
+    const ap2_save_game_reads_tests = b.addTest(.{ .root_module = ap2_save_game_reads_module });
+    const ap2_save_game_reads_run = b.addRunArtifact(ap2_save_game_reads_tests);
+    ap2_save_game_reads_run.setCwd(b.path("."));
+    ap2_save_game_reads_run.setEnvironmentVariable("BK_AP2_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    ap2_save_game_reads_run.has_side_effects = true;
+    ap2_save_game_reads_run.step.dependOn(&language_mods_run.step);
+    const ap2_save_game_reads_step = b.step("ap2-save-game-reads-it", "Load an Achtung Panzer 2 save (-Dap2-mod, -Dap2-save; skipped without them) under lang-ru on the real Game and prove it stays Russian on bk_text and leaks nothing at exit");
+    ap2_save_game_reads_step.dependOn(&ap2_save_game_reads_tests.step);
+    if (test_mode == .run) ap2_save_game_reads_step.dependOn(&ap2_save_game_reads_run.step);
     // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
     // install-game's). The editor installs are added as its dependencies at the end of build().
     const verify_install_l10n_module = b.createModule(.{
