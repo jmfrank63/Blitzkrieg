@@ -52,6 +52,26 @@ namespace
 		return szFileName.substr( 0, nDot );
 	}
 
+	// A mod made for the original game replaces a video by shipping its .bik: Achtung Panzer 2 ships
+	// its main menu's two smoke videos as empty files, so that nothing plays over its own picture.
+	// This port plays only the open formats the base game's videos were converted to, and the
+	// base game's smoke video under the mod's name drew the base menu's tanks into the mod's menu.
+	// When a layer above the base data (the mod) has the .bik and no layer has an open replacement,
+	// the video is the mod's, which this port cannot play: nothing plays, as the mod meant.
+	bool IsReplacedByModBik( const std::string &szBaseName )
+	{
+		IDataStorage *pStorage = GetSingleton<IDataStorage>();
+		if ( pStorage == 0 || !pStorage->IsStreamInModLayer( ( szBaseName + ".bik" ).c_str() ) )
+			return false;
+		const char *pszExtensions[] = { ".ogv", ".ogg", ".theora" };
+		for ( int i = 0; i < sizeof(pszExtensions) / sizeof(pszExtensions[0]); ++i )
+		{
+			if ( pStorage->IsStreamInModLayer( ( szBaseName + pszExtensions[i] ).c_str() ) )
+				return false;
+		}
+		return true;
+	}
+
 	std::string ResolveOpenVideoName( const std::string &szOriginalFileName )
 	{
 		AppendOpenVideoTrace( "resolver requested \"%s\"\n", szOriginalFileName.c_str() );
@@ -169,6 +189,14 @@ int CVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, ISFX
 	Stop();
 	const std::string szOriginalFileName = pszFileName == 0 ? "" : pszFileName;
 	AppendOpenVideoTrace( "player play \"%s\" flags 0x%x\n", szOriginalFileName.c_str(), dwFlags );
+	if ( IsReplacedByModBik( RemoveExtension( szOriginalFileName ) ) )
+	{
+		AppendOpenVideoTrace( "player skips \"%s\": the mod replaced it with a .bik\n", szOriginalFileName.c_str() );
+		NStr::DebugTrace( "Open video: \"%s\" is replaced by the mod's .bik, which is not played; nothing plays.\n", szOriginalFileName.c_str() );
+		szFileName = szOriginalFileName;
+		dwPlayFlags = dwFlags;
+		return 0;
+	}
 	const std::string szResolvedFileName = ResolveOpenVideoName( szOriginalFileName );
 	szFileName = szResolvedFileName;
 	dwPlayFlags = dwFlags;
