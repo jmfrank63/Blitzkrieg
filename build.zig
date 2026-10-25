@@ -2547,6 +2547,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
     bk_tools_tests_run.step.dependOn(bk_sprite.install);
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
+    addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -8867,6 +8868,9 @@ const BkSprite = struct {
     /// Installs bk-sprite and every engine library it loads at run time.
     install: *std.Build.Step,
     tool: *std.Build.Step.Compile,
+    /// bk-views-check and the bk-views-roundtrip runner, for the building views batch.
+    check: *std.Build.Step.Compile,
+    roundtrip: *std.Build.Step.Compile,
 };
 
 fn addBkSprite(
@@ -9059,7 +9063,106 @@ fn addBkSprite(
     step.dependOn(&test_exe.step);
     step.dependOn(install);
     if (test_mode == .run) step.dependOn(&check.step);
-    return .{ .install = install, .tool = tool };
+    return .{ .install = install, .tool = tool, .check = check_exe, .roundtrip = roundtrip };
+}
+
+/// The building views batch (M005 S05, docs/superpowers/evidence/building-views/batch.md): every
+/// variant of the inventory (tools/zig/fixtures/bk-views/inventory.json) turned by one, two and
+/// three quarter turns with `bk-views side` into zig-out/remastered/Buildings/<region>/summer/
+/// <variant>_r<k> (a numbered subfolder dot/01 gives dot/01_r1), every pack through the round trip
+/// (bk-views-check, compose-pack again, decompose back), the generated pictures through
+/// `bk-views style` and, where the family has another measured side, the variant through
+/// `bk-views holdout`; the work goes to zig-out/local-test/building-views/batch/<variant path>.
+/// One step per region, each variant its own runs so they spread over the cores; the report step
+/// writes the tracked evidence from whatever the groups left there.
+fn addBuildingViewsBatch(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) void {
+    const inventory_path = "tools/zig/fixtures/bk-views/inventory.json";
+    b.dependOnFileContents(b.path(inventory_path));
+    const bytes = b.root.root_dir.handle.readFileAlloc(b.graph.io, inventory_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const Inventory = struct { families: []const struct { region: []const u8, variants: []const struct { path: []const u8, side: ?u8 = null } } };
+    const inventory = std.json.parseFromSliceLeaky(Inventory, b.allocator, bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    // Silent runs judged by their exit code, stderr reported on failure: a run that inherits
+    // stderr holds the build's stderr lock, and one that pipes stdout and stderr both reads them
+    // through one multi-reader; either way the variants went one at a time on Windows.
+    const quiet = struct {
+        fn f(run: *std.Build.Step.Run) void {
+            run.expectExitCode(0);
+            run.has_side_effects = true;
+        }
+    }.f;
+    const module_root = if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin") else rootPath(b, "zig-out/lib");
+    const work_root = "zig-out/local-test/building-views/batch";
+    const aggregate = b.step("building-views-batch", "Run every building-views-batch-<region> step (longer than one ten-minute foreground command: run the groups one by one) and the report");
+    const report_args = [_][]const u8{ "report", inventory_path, "tools/zig/fixtures/bk-views/gate.json", work_root, "docs/superpowers/evidence/building-views" };
+    const aggregate_report = b.addRunArtifact(views);
+    aggregate_report.setCwd(b.path("."));
+    aggregate_report.addArgs(&report_args);
+    quiet(aggregate_report);
+    for ([_][]const u8{ "africa", "common", "europe", "ussr" }) |region| {
+        const group = b.step(b.fmt("building-views-batch-{s}", .{region}), b.fmt("Make the three other quarter turns of every {s} building variant into zig-out/remastered/Buildings with bk-views side, check every pack with the engine's reader, compose-pack and decompose, and score them with bk-views style and holdout", .{region}));
+        aggregate.dependOn(group);
+        aggregate_report.step.dependOn(group);
+        for (inventory.families) |family| {
+            if (!std.mem.eql(u8, family.region, region)) continue;
+            var sides: usize = 0;
+            for (family.variants, 0..) |variant, i| {
+                const side = variant.side orelse continue;
+                sides += @intFromBool(for (family.variants[0..i]) |other| {
+                    if (other.side == side) break false;
+                } else true);
+            }
+            for (family.variants) |variant| {
+                const name = std.fs.path.basename(variant.path);
+                const data = b.fmt("Data/Buildings/{s}", .{variant.path});
+                const out = b.fmt("zig-out/remastered/Buildings/{s}", .{std.fs.path.dirname(variant.path).?});
+                const work = b.fmt("{s}/{s}", .{ work_root, variant.path });
+                const side = b.addRunArtifact(views);
+                side.setCwd(b.path("."));
+                setUserRootsForTest(side, "bk-views-user");
+                side.addArgs(&.{ "side", data, "1,2,3", out, work });
+                side.step.dependOn(sprite.install);
+                addPathDir(side, rootPath(b, "zig-out/bin"));
+                quiet(side);
+                const check = b.addRunArtifact(sprite.roundtrip);
+                check.setCwd(b.path("."));
+                setLeakReportStrict(check);
+                setUserRootsForTest(check, "bk-views-user");
+                check.addArtifactArg(views);
+                check.addArtifactArg(sprite.tool);
+                check.addArtifactArg(sprite.check);
+                check.addArgs(&.{ module_root, b.fmt("{s}/check", .{work}) });
+                const style = b.addRunArtifact(views);
+                style.setCwd(b.path("."));
+                setUserRootsForTest(style, "bk-views-user");
+                style.addArgs(&.{ "style", b.fmt("{s}/style", .{work}), data });
+                for (1..4) |k| {
+                    check.addArg(b.fmt("{s}/{s}_r{d}", .{ out, name, k }));
+                    style.addArg(b.fmt("{s}/{s}.work/{s}_r{d}", .{ work, name, name, k }));
+                }
+                check.step.dependOn(&side.step);
+                addPathDir(check, rootPath(b, "zig-out/bin"));
+                quiet(check);
+                style.step.dependOn(&side.step);
+                quiet(style);
+                group.dependOn(&check.step);
+                group.dependOn(&style.step);
+                // The hold-out where the family shows the building from another measured side.
+                if (variant.side == null or sides < 2) continue;
+                const holdout = b.addRunArtifact(views);
+                holdout.setCwd(b.path("."));
+                setUserRootsForTest(holdout, "bk-views-user");
+                holdout.addArgs(&.{ "holdout", b.fmt("{s}/holdout", .{work}), data });
+                quiet(holdout);
+                group.dependOn(&holdout.step);
+            }
+        }
+    }
+    aggregate.dependOn(&aggregate_report.step);
+    const report = b.addRunArtifact(views);
+    report.setCwd(b.path("."));
+    report.addArgs(&report_args);
+    quiet(report);
+    b.step("building-views-batch-report", "Write docs/superpowers/evidence/building-views/batch.md and <family>.md with bk-views report from what the building-views-batch-<region> steps left in zig-out/local-test/building-views/batch").dependOn(&report.step);
 }
 
 /// A build-root-relative path with the host's separators, as a tool prints it.
