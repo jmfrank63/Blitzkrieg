@@ -40,6 +40,13 @@ The original game (Remastered off) is not touched.
 - `.san` layout (decoded for the study, to be confirmed against `Sources/src/ResourceModel` and
   `Sources/src/Scene/VisObjBuilder.cpp`): records of 9 floats `x, y, size, u1, v1, u2, v2, d1, d2` from offset
   0x24 place square texture pieces of 16 or 32 px on screen; the texture `1_c.dds` is an atlas of those pieces.
+- A building `.san` is not the animation format `bk-sprite compose` writes (`SSpriteAnimationFormat`): it is
+  `SSpritesPack` (`Sources/src/Formats/fmtSprite.h/.cpp`), an engine structure file with the signature
+  `0x314e4153` in chunk 127 and the pack in chunk 1: per sprite its squares (`vLeftTop`, `fSize`, `rcMaps`,
+  `fDepthLeft`, `fDepthRight`), its edge (`CVarArray2D<short, BYTE>` with a bound box) and its `center`. The
+  builder is `CSpritesPackBuilder::Pack` (`Sources/src/RandomMapGen/IB_StaticMethods.cpp`), reached from
+  `NCompose::ComposeSingleObjectPack` (`Sources/src/ResourceModel/compose.cpp`), which the Resource Editor's
+  building export calls with the picture's zero cross and the passability grid of `1.xml`.
 - Blitzkrieg 2: 135 building models in Maya sources (`Complete/Buildings/<region>/<name>/*.mb`, not
   readable by open tools) and compiled geometry (`Versions/Current/Data/bin/Geometries/<uid>`, named by each
   building's `summer_<n>_geometry.xdb`), with damaged and destroyed states. 32 of our 116 family names match a
@@ -47,8 +54,11 @@ The original game (Remastered off) is not touched.
 
 ## Pipeline
 
-1. **Decompose** (`bk-sprite decompose`, Zig): a `.san` plus its `.dds` become a PNG per animation frame and
-   damage state, with the screen anchor, the depth values and the footprint from `1.xml`.
+1. **Decompose** (`bk-views decompose`, Zig): a `.san` plus its `.dds` become a PNG per animation frame and
+   damage state, with the screen anchor, the depth values and the footprint from `1.xml`. Changed 2026-10-25
+   (Johannes): `bk-sprite` is C++ on the engine libraries, so decompose is a new std-only Zig tool, `bk-views`,
+   that reads the structure file, `SSpritesPack` and `_h.dds` itself; a C++ test checks its reading against the
+   engine's `SSpritesPack::Load`. The later Zig steps (camera, symmetry, fill, style check) join `bk-views`.
 2. **Camera** (Zig): solve the 2003 camera (projection, tilt, pixels per tile) from the buildings that have
    2-3 sides, by fitting a box model's outline to their sprites. Stored once, used by every render.
 3. **Symmetry** (Zig): compare each sprite with its mirror image; where the building is symmetric about the
@@ -72,13 +82,15 @@ The original game (Remastered off) is not touched.
    statistics, edge sharpness, light direction; a face that drifts is rejected.
 9. **Render** (Blender): 4 (or 8) views per building, damage states, shadow layers, seasons, at the solved
    camera, lit from the same screen direction as the 2003 sprites.
-10. **Compose** (`bk-sprite compose`, existing): renders back into `.san`/`.dds` variants beside the originals;
-    each orientation keeps (or gets, rotated) its footprint data.
+10. **Compose** (`bk-sprite compose-pack`, new, C++): renders back into `.san`/`.dds` variants beside the
+    originals through the existing `NCompose::ComposeSingleObjectPack`; each orientation keeps (or gets,
+    rotated) its footprint data. `bk-sprite compose` stays the animation composer it is.
 
 ## Slices
 
-1. **Decompose and camera:** `bk-sprite decompose` with a round-trip test (decompose, compose, byte-compare the
-   frames), and the camera fit on the 3-side families, measured by outline overlap.
+1. **Decompose and camera:** `bk-views decompose` with a round-trip test (decompose, `bk-sprite compose-pack`,
+   decompose again, byte-compare the frames), and the camera fit on the 3-side families, measured by outline
+   overlap.
 2. **First building, end to end:** `e_ctownhouse01` (3 sides): shape, projection, the missing fourth side by
    patch fill, render, compose, and the Game drawing all four; measured against the three originals.
 3. **Blueprint:** the Blitzkrieg 2 geometry converter and label maps, on `church` or another exact match;
