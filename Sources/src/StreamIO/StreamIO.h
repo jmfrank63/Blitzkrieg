@@ -104,6 +104,10 @@ interface IDataStorage : public IRefCount
 	// True when a layer added above the base storage (a mod, a language) provides the stream. Appended
 	// last so the layout the C ABI callers know is unchanged; a storage without layers has none.
 	virtual bool STDCALL IsStreamInModLayer( const char *pszName ) { return false; }
+	// The stream the storage would open without the layer named pszLayer and every layer added after
+	// it (the base game's own text of a key under a mod: "MOD"). Appended last as the one above; a
+	// storage without layers opens nothing.
+	virtual IDataStream* STDCALL OpenStreamBelow( const char *pszName, const char *pszLayer ) { return 0; }
 };
 inline std::string GetStreamName( IDataStream *pStream )
 {

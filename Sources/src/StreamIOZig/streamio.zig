@@ -1295,6 +1295,29 @@ pub export fn bk_storage_open(handle: ?*anyopaque, name: [*:0]const u8, access: 
     return overlayStream(storage, stream_name, @truncate(access)) orelse openStream(storage, stream_name, @truncate(access), false) orelse archiveStream(storage, stream_name, @truncate(access));
 }
 
+// What the storage would serve for the name without the overlay named `layer` and every overlay
+// added after it: the base's own files and archives and the overlays below the layer. With a mod
+// and a language mounted (MOD, then LANGUAGE above it), "MOD" opens the base game's own text of a
+// key, which TextLayers compares with the mod's to see whether the mod changed it. A layer that is
+// not mounted hides nothing.
+pub export fn bk_storage_open_below(handle: ?*anyopaque, name: [*:0]const u8, layer: [*:0]const u8) callconv(.c) ?*anyopaque {
+    const storage = fromHandle(Storage, handle) orelse return null;
+    const stream_name = std.mem.span(name);
+    var index = storage.overlays.items.len;
+    for (storage.overlays.items, 0..) |overlay, at| {
+        if (std.ascii.eqlIgnoreCase(overlay.name, std.mem.span(layer))) {
+            index = at;
+            break;
+        }
+    }
+    while (index > 0) {
+        index -= 1;
+        const child = storage.overlays.items[index].storage;
+        if (openStream(child, stream_name, 1, false) orelse archiveStream(child, stream_name, 1)) |stream| return stream;
+    }
+    return openStream(storage, stream_name, 1, false) orelse archiveStream(storage, stream_name, 1);
+}
+
 pub export fn bk_storage_add(handle: ?*anyopaque, child_handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) bool {
     const storage = fromHandle(Storage, handle) orelse return false;
     const child = fromHandle(Storage, child_handle) orelse return false;
@@ -2684,6 +2707,54 @@ test "storage overlay exposes child archive entries" {
     try std.testing.expect(bk_storage_stats(base_handle, entry_name.ptr, &stats));
     try std.testing.expect(stats.size > 0 and stats.modification_time != 0);
     try std.testing.expect(bk_storage_remove(base_handle, "elk") == child_handle);
+}
+
+test "a stream below a layer is the base's own, or a lower layer's" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const io = hostIo();
+    for ([_][]const u8{ "base", "season", "mod/data", "lang/data" }) |folder| {
+        const sub = try std.fmt.allocPrint(allocator, "{s}/textes", .{folder});
+        defer allocator.free(sub);
+        try tmp.dir.createDirPath(io, sub);
+    }
+    try tmp.dir.writeFile(io, .{ .sub_path = "base/textes/a.txt", .data = "base a" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "season/textes/b.txt", .data = "season b" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "mod/data/textes/a.txt", .data = "mod a" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "mod/data/textes/b.txt", .data = "mod b" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "lang/data/textes/a.txt", .data = "lang a" });
+
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const root = buffer[0..try tmp.dir.realPath(io, &buffer)];
+    var handles: [4]*anyopaque = undefined;
+    for ([_][]const u8{ "base", "season", "mod/data", "lang/data" }, 0..) |folder, i| {
+        const mask = try std.fmt.allocPrintSentinel(allocator, "{s}/{s}/*.pak", .{ root, folder }, 0);
+        defer allocator.free(mask);
+        handles[i] = bk_storage_create(mask.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    }
+    defer for (handles) |one| bk_storage_destroy(one);
+    try std.testing.expect(bk_storage_add(handles[0], handles[1], "SEASON"));
+    defer _ = bk_storage_remove(handles[0], "SEASON");
+    try std.testing.expect(bk_storage_add(handles[0], handles[2], "MOD"));
+    defer _ = bk_storage_remove(handles[0], "MOD");
+    try std.testing.expect(bk_storage_add(handles[0], handles[3], "LANGUAGE"));
+    defer _ = bk_storage_remove(handles[0], "LANGUAGE");
+
+    const cases = [_]struct { name: [:0]const u8, layer: [:0]const u8, expected: ?[]const u8 }{
+        .{ .name = "textes\\a.txt", .layer = "MOD", .expected = "base a" },
+        .{ .name = "textes\\b.txt", .layer = "mod", .expected = "season b" },
+        .{ .name = "textes\\a.txt", .layer = "LANGUAGE", .expected = "mod a" },
+        .{ .name = "textes\\a.txt", .layer = "ELK", .expected = "lang a" },
+        .{ .name = "textes\\c.txt", .layer = "MOD", .expected = null },
+    };
+    for (cases) |case| {
+        const stream_handle = bk_storage_open_below(handles[0], case.name.ptr, case.layer.ptr);
+        if (case.expected) |expected| {
+            const stream = fromHandle(Stream, stream_handle orelse return error.TestUnexpectedResult).?;
+            defer bk_stream_destroy(stream_handle);
+            try std.testing.expectEqualStrings(expected, stream.bytes[stream.begin..]);
+        } else try std.testing.expect(stream_handle == null);
+    }
 }
 
 test "storage enumeration lists an overlay's loose files once" {

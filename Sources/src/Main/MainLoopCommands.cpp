@@ -2,6 +2,7 @@
 #include "../Platform/LegacyText.h"
 
 #include "MainLoopCommands.h"
+#include "TextLayers.h"
 
 #include "../Input/Input.h"
 #include "../SFX/SFX.h"
@@ -357,6 +358,7 @@ void CICExitGame::Exec( IMainLoop *pML )
 void ClearMOD()
 {
 	GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
+	NTextLayers::SetMod( 0 );
 	RemoveGlobalVar( "MOD.Active" );
 	RemoveGlobalVar( "MOD.Name" );
 	RemoveGlobalVar( "MOD.Folder" );
@@ -373,6 +375,7 @@ static bool MountLanguage()
 {
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	pStorage->RemoveStorage( "LANGUAGE" );
+	NTextLayers::SetLanguage( 0 );
 	if ( szLanguage.empty() || NStr::CompareAsciiNoCase( szLanguage.c_str(), "Default" ) == 0 )
 		return true;
 	const std::string szPak = NMods::Find( GetSingleton<IMainLoop>()->GetBaseDir(), szLanguage ) + "\\data\\texts.pak";
@@ -386,7 +389,10 @@ static bool MountLanguage()
 	pEnumerator->Reset( "*.*" );
 	if ( !pEnumerator->Next() )
 		return false;
-	return pStorage->AddStorage( pLanguage, "LANGUAGE" );
+	if ( !pStorage->AddStorage( pLanguage, "LANGUAGE" ) )
+		return false;
+	NTextLayers::SetLanguage( pLanguage );
+	return true;
 }
 namespace NMain
 {
@@ -436,6 +442,7 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 		{
 			GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
 			GetSingleton<IDataStorage>()->AddStorage( pMOD, "MOD" );
+			NTextLayers::SetMod( pMOD );
 			std::string szMODName = "MyMOD", szMODVersion = "1.0";
 			{
 				CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );

@@ -549,6 +549,8 @@ const main_sources = &.{
     "Sources/src/Main/LoadDLLs.cpp",
     "Sources/src/Main/TextManager.cpp",
     "Sources/src/Main/TextObject.cpp",
+    "Sources/src/Main/TextLayers.cpp",
+    "Sources/src/Main/TextPrecedence.cpp",
     "Sources/src/Main/AILogicCommand.cpp",
     "Sources/src/Main/AILogicCommandInternal.cpp",
     "Sources/src/Main/MultiPlayerTransceiver.cpp",
@@ -3291,6 +3293,29 @@ pub fn build(b: *std.Build) void {
     const text_wrap_step = b.step("test-gfx-text-wrap", "Check CJK text wraps between characters with kinsoku and Latin text wraps as before");
     text_wrap_step.dependOn(&text_wrap_test.step);
     if (test_mode == .run) text_wrap_step.dependOn(&text_wrap_run.step);
+
+    // Which text a key shows under a gameplay mod and a language mod: the language's translation
+    // where the mod kept the base game's English, the mod's own text where it changed it, and the
+    // translation of the same English under another key for a text only the mod has.
+    const text_precedence_module = b.createModule(.{ .target = target, .optimize = .debug });
+    if (platform != .windows_x64) {
+        text_precedence_module.link_libc = true;
+        text_precedence_module.link_libcpp = true;
+    }
+    text_precedence_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/text_precedence_test.cpp", "Sources/src/Main/TextPrecedence.cpp" },
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, text_precedence_module, toolchain);
+    addMsvcLibraryPaths(b, text_precedence_module, toolchain);
+    linkMsvcRuntime(text_precedence_module, .debug);
+    const text_precedence_test = b.addExecutable(.{ .name = "text-precedence-test", .root_module = text_precedence_module });
+    text_precedence_test.subsystem = .console;
+    if (platform == .windows_x64) text_precedence_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    const text_precedence_run = b.addRunArtifact(text_precedence_test);
+    const text_precedence_step = b.step("test-text-precedence", "Check a gameplay mod's unchanged English shows the language's translation, its changed texts stay its own");
+    text_precedence_step.dependOn(&text_precedence_test.step);
+    if (test_mode == .run) text_precedence_step.dependOn(&text_precedence_run.step);
 
     const noise_seam_step = b.step("test-terrain-noise", "Check terrain noise coordinates are continuous across patches");
     noise_seam_step.dependOn(&noise_seam_test.step);

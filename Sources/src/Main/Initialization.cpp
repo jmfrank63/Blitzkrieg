@@ -19,6 +19,7 @@
 #include "../Image/Image.h"
 #include "../Formats/fmtTerrain.h"
 #include "../Main/TextSystem.h"
+#include "../Main/TextLayers.h"
 #include "../UI/MaskSystem.h"
 #include "../Main/Transceiver.h"
 #include "../GameTT/AckManager.h"
@@ -252,6 +253,8 @@ void STDCALL NMain::SetApplicationShutdown( void (STDCALL *pfnShutdown)() )
 
 bool STDCALL NMain::Finalize()
 {
+	// The mod's and the language's storages the texts hold, while their module is loaded.
+	NTextLayers::Clear();
 	ISingleton *pSingleton = GetSingletonGlobal();
 	if ( pSingleton )
 	{

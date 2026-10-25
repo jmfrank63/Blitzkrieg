@@ -24,6 +24,7 @@ extern "C" void *bk_storage_remove(void *storage, const char *name);
 extern "C" const char *bk_storage_name(void *storage);
 extern "C" bool bk_storage_exists(void *storage, const char *name);
 extern "C" bool bk_storage_exists_in_layer(void *storage, const char *name);
+extern "C" void *bk_storage_open_below(void *storage, const char *name, const char *layer);
 extern "C" void *bk_storage_open(void *storage, const char *name, unsigned long access);
 extern "C" void *bk_storage_create_stream(void *storage, const char *name, unsigned long access);
 extern "C" bool bk_storage_stats(void *storage, const char *name, void *stats);
@@ -285,6 +286,7 @@ struct IDataStorage : public IRefCount {
     virtual bool BK_STDCALL AddStorage(IDataStorage *, const char *) = 0;
     virtual bool BK_STDCALL RemoveStorage(const char *) = 0;
     virtual bool BK_STDCALL IsStreamInModLayer(const char *) { return false; }
+    virtual void *BK_STDCALL OpenStreamBelow(const char *, const char *) { return 0; }
 };
 
 struct IStorageEnumerator : public IRefCount {
@@ -1465,6 +1467,7 @@ public:
     bool BK_STDCALL IsValid() const override { return storage_ != 0; }
     bool BK_STDCALL IsStreamExist(const char *name) override { return bk_storage_exists(storage_, name); }
     bool BK_STDCALL IsStreamInModLayer(const char *name) override { return name && bk_storage_exists_in_layer(storage_, name); }
+    void *BK_STDCALL OpenStreamBelow(const char *name, const char *layer) override { void *stream = name && layer ? bk_storage_open_below(storage_, name, layer) : 0; return stream ? new ZigDataStream(stream) : 0; }
     void *BK_STDCALL CreateStream(const char *name, unsigned long access) override { void *stream = bk_storage_create_stream(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     void *BK_STDCALL OpenStream(const char *name, unsigned long access) override { void *stream = bk_storage_open(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     bool BK_STDCALL GetStreamStats(const char *name, void *stats) override {
