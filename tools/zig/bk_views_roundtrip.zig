@@ -13,6 +13,7 @@
 //! usage: bk-views-roundtrip <bk-views> <bk-sprite> <bk-views-check> <module-root> <work-dir> <variant-dir>...
 
 const std = @import("std");
+const bk_views = @import("bk_views.zig");
 
 const Building = struct {
     canvas: [2]i32,
@@ -56,15 +57,23 @@ pub fn main(init: std.process.Init) !u8 {
         for (building.pictures) |picture| {
             const pack = picture[0..std.mem.lastIndexOfScalar(u8, picture, '_').?];
             try packs.append(arena, pack);
-            // A damage state is a pack named by its number alone; its shadow and noise follow its name.
-            const is_state = for (pack) |ch| {
-                if (!std.ascii.isDigit(ch)) break false;
-            } else true;
-            if (!is_state) continue;
+            // A damage state is a pack named by its number, `w` after it in winter; its shadow and
+            // noise follow its name.
+            const digits = std.mem.indexOfNone(u8, pack, "0123456789") orelse pack.len;
+            if (digits == 0 or !(digits == pack.len or std.mem.eql(u8, pack[digits..], "w"))) continue;
+            // compose-pack needs a shadow; a state without one (a pillbox) gets
+            // a stand-in covering the canvas, whose pack is not compared.
+            var shadow = try picturePath(arena, a, pack, "s");
+            if (std.Io.Dir.cwd().access(io, shadow, .{})) |_| {} else |_| {
+                const canvas = try bk_views.readStoredPng(arena, try std.Io.Dir.cwd().readFileAlloc(io, try picturePath(arena, a, pack, ""), arena, .limited(256 * 1024 * 1024)));
+                @memset(canvas.pixels, .{ 0, 0, 0, 255 });
+                shadow = try std.fs.path.join(arena, &.{ work, name, try std.fmt.allocPrint(arena, "{s}s_stand_in.png", .{pack}) });
+                try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = shadow, .data = try bk_views.writePng(arena, canvas) });
+            }
             var argv: std.ArrayList([]const u8) = .empty;
             try argv.appendSlice(arena, &.{
                 sprite,                                     "compose-pack",
-                try picturePath(arena, a, pack, ""),        try picturePath(arena, a, pack, "s"),
+                try picturePath(arena, a, pack, ""),        shadow,
                 try std.fs.path.join(arena, &.{ b, pack }), "--zero",
                 zero,                                       "--force",
                 "--modules",                                modules,
@@ -73,6 +82,9 @@ pub fn main(init: std.process.Init) !u8 {
             const noise = try picturePath(arena, a, pack, "g");
             if (std.Io.Dir.cwd().access(io, noise, .{})) |_| try argv.appendSlice(arena, &.{ "--noise", noise }) else |_| {}
             _ = try runTool(arena, io, argv.items);
+            if (std.mem.endsWith(u8, shadow, "_stand_in.png")) for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
+                std.Io.Dir.cwd().deleteFile(io, try std.fmt.allocPrint(arena, "{s}s{s}", .{ try std.fs.path.join(arena, &.{ b, pack }), suffix })) catch {};
+            };
         }
         for (packs.items) |pack| {
             for ([_][]const u8{ ".san", "_h.dds" }) |suffix| {

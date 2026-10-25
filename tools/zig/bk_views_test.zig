@@ -415,6 +415,23 @@ test "the hull of a box seen from three sides is the box, and alignment finds a 
     try std.testing.expect(box.ridge - box.wall <= 5);
 }
 
+test "a post too thin for a rectangle of the hull stands as one block over its footprint" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // One cell (a barrel, a watchtower on legs) and a post 3 units wide and 40 high in it.
+    const footprint: views.Grid = .{ .rows = &.{"01"}, .origin = .{ 5, 7 } };
+    const eye: views.Eye = .{ .anchor = .{ 120, 120 } };
+    const picture = try boxPicture(arena, eye, .{ 0, 0, 0 }, .{ 3, 3, 40 });
+    const hull = try views.carve(arena, footprint, 2, &.{picture}, &.{eye});
+    try std.testing.expect(hull.count() > 0);
+    const blocks = try views.baseBlocks(arena, hull, footprint);
+    try std.testing.expectEqual(@as(usize, 1), blocks.len);
+    try std.testing.expectEqual([2]f64{ -5, -7 }, blocks[0].lo);
+    try std.testing.expectEqual([2]f64{ views.tile_size - 5, views.tile_size - 7 }, blocks[0].hi);
+    try std.testing.expect(blocks[0].ridge >= 40);
+}
+
 /// The picture of blocks for `eye`: opaque where a pixel's ray meets them.
 fn blocksPicture(gpa: std.mem.Allocator, eye: views.Eye, blocks: []const views.Block) !views.Image {
     const image: views.Image = .{ .width = 260, .height = 240, .pixels = try gpa.alloc([4]u8, 260 * 240) };

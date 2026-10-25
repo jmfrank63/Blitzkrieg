@@ -37,9 +37,10 @@ const usage: bk_tool.Usage = .{
     \\usage: bk-views decompose <variant-dir> <out-dir>
     \\       bk-views camera <variant-dir>... [--out <camera.json>]
     \\       bk-views inventory <buildings-dir> <out-dir>
-    \\       bk-views side <variant-dir> <turns> <out-dir>
+    \\       bk-views side <variant-dir> <turns> <out-dir> [<work-dir>]
     \\       bk-views holdout <out-dir> <variant-dir>...
     \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
+    \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -63,9 +64,9 @@ fn run(ctx: *bk_tool.Context) !void {
         return inventoryCommand(ctx, ctx.args[1], ctx.args[2]);
     }
     if (std.mem.eql(u8, command, "side")) {
-        if (ctx.args.len != 4) return error.Usage;
+        if (ctx.args.len != 4 and ctx.args.len != 5) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
-        return sideCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3]);
+        return sideCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], if (ctx.args.len == 5) ctx.args[4] else ctx.args[3]);
     }
     if (std.mem.eql(u8, command, "holdout") or std.mem.eql(u8, command, "style")) {
         const style = std.mem.eql(u8, command, "style");
@@ -73,6 +74,11 @@ fn run(ctx: *bk_tool.Context) !void {
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         if (style) return styleCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3..]);
         return holdoutCommand(ctx, ctx.args[1], ctx.args[2..]);
+    }
+    if (std.mem.eql(u8, command, "report")) {
+        if (ctx.args.len != 5) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return reportCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], ctx.args[4]);
     }
     if (std.mem.eql(u8, command, "camera")) {
         var dirs: std.ArrayList([]const u8) = .empty;
@@ -1760,6 +1766,22 @@ pub fn baseBlocks(gpa: std.mem.Allocator, hull: Hull, footprint: Grid) ![]Block 
             .ridge = height,
         });
     }
+    // A small or open object (a barrel, a watchtower on legs) leaves no
+    // rectangle that wide: one block over its footprint, as high as the hull.
+    if (blocks.items.len == 0) {
+        const box = occupiedBox(footprint.rows);
+        var top: usize = 2;
+        for (hull.cells, 0..) |c, i| {
+            if (c) top = @max(top, i / (w * h) + 1);
+        }
+        const height = @as(f64, @floatFromInt(top)) * hull.size;
+        try blocks.append(gpa, .{
+            .lo = .{ @as(f64, @floatFromInt(box[0])) * tile_size - footprint.origin[0], @as(f64, @floatFromInt(box[1])) * tile_size - footprint.origin[1] },
+            .hi = .{ @as(f64, @floatFromInt(box[2])) * tile_size - footprint.origin[0], @as(f64, @floatFromInt(box[3])) * tile_size - footprint.origin[1] },
+            .wall = height * 0.6,
+            .ridge = height,
+        });
+    }
     return blocks.items;
 }
 
@@ -1997,11 +2019,14 @@ fn boxCentre(grid: Grid) [2]f64 {
 const InFamily = struct { root: []const u8, family: Family, index: usize };
 
 fn findFamily(gpa: std.mem.Allocator, io: std.Io, dir: []const u8) !InFamily {
-    // <root>/<region>/<season>/<variant>, or one level deeper for a numbered subfolder.
+    // <root>/<region>/<season>/<variant>, or one level deeper for a numbered
+    // subfolder (whose name starts with a digit; one level up it would pass
+    // for a family of its own).
     var root: []const u8 = dir;
+    const numbered = std.ascii.isDigit(std.fs.path.basename(dir)[0]);
     for (0..4) |depth| {
         root = std.fs.path.dirname(root) orelse break;
-        if (depth < 2) continue;
+        if (depth < @as(usize, if (numbered) 3 else 2)) continue;
         const families = listFamilies(gpa, io, root) catch continue;
         for (families) |family| for (family.variants, 0..) |variant, i| {
             const path = try std.fs.path.join(gpa, &.{ root, variant.path });
@@ -2076,8 +2101,11 @@ pub const Means = struct {
     }
 };
 
-/// Where a pixel of a generated picture comes from.
-pub const Kind = enum(u8) { empty, projected, borrowed, filled };
+/// Where a pixel of a generated picture comes from: a 2003 picture seeing
+/// its point, one seeing the matching point of a face of the same block
+/// (mirrored: the opposite wall, the other roof plane), of a face of another
+/// block (transferred), or the patch fill.
+pub const Kind = enum(u8) { empty, projected, mirrored, transferred, filled };
 
 /// One 2003 picture as a projection source: its eye and its picture of the
 /// state being drawn (null where the variant lacks it).
@@ -2135,7 +2163,7 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye
                 best_score = score;
                 for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * means.gain(class, from, ch))));
                 out.image.pixels[i][3] = 255;
-                out.kinds[i] = if (k == 0) .projected else .borrowed;
+                out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
             }
         }
     };
@@ -2167,7 +2195,7 @@ pub fn patchFill(gpa: std.mem.Allocator, generated: Generated) !void {
     const known = try gpa.alloc(bool, count);
     defer gpa.free(known);
     for (generated.kinds, generated.classes, done, known, 0..) |kind, class, *d, *k, i| {
-        d.* = kind == .projected or kind == .borrowed;
+        d.* = kind != .empty and kind != .filled;
         k.* = d.*;
         if (!d.*) continue;
         try pools[class].append(gpa, @intCast(i));
@@ -2407,13 +2435,15 @@ const Scene = struct {
 /// `skip` are left out, so the hold-out draws that side without them.
 fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !Scene {
     const arena = ctx.arena;
-    const own_side = found.family.variants[index].side orelse return ctx.failKey("views.err.no_side", .{found.family.variants[index].path});
     // Every measured variant gives the shape, those of the variant's own
-    // colourway also give pixels.
+    // colourway also give pixels. A variant whose side the inventory could
+    // not measure is drawn from itself alone, as a single-sprite family.
+    const unresolved = found.family.variants[index].side == null;
+    const own_side = found.family.variants[index].side orelse 1;
     var sources: std.ArrayList(Source) = .empty;
     var fixed: usize = 0;
     for (found.family.variants, 0..) |variant, i| {
-        const side = variant.side orelse continue;
+        const side = if (i == index) own_side else if (unresolved) continue else variant.side orelse continue;
         if (skip == side) continue;
         if (i == index) fixed = sources.items.len;
         try sources.append(arena, try loadSource(ctx, try std.fs.path.join(arena, &.{ found.root, variant.path }), side));
@@ -2547,6 +2577,16 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             const g = groundPoint(target.eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
             shadow.pixels[y * shadow.width + x] = if (castRay(blocks, g, l) != null) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
         };
+        // The export packs the shadow outside the sprite only, and an empty
+        // pack fails: a low ruin whose shadow falls all under it keeps one
+        // shadow pixel below its lowest pixel (the canvas has a margin).
+        var lowest: ?usize = null;
+        for (sprite.image.pixels, shadow.pixels, 0..) |p, s, i| {
+            if (s[3] > 0 and p[3] < 128) break;
+            if (p[3] >= 128) lowest = i;
+        } else if (lowest) |i| {
+            shadow.pixels[i + shadow.width] = .{ 0, 0, 0, 255 };
+        }
         const has_ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state})) != null;
         d.* = .{
             .state = state,
@@ -2559,12 +2599,13 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     return drawn;
 }
 
-fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8) !void {
+fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8, work_arg: []const u8) !void {
     const arena = ctx.arena;
     const io = ctx.io;
     const cwd = std.Io.Dir.cwd();
     const dir = try bk_tool.inputPath(arena, dir_arg);
     const out = try bk_tool.inputPath(arena, out_arg);
+    const work = try bk_tool.inputPath(arena, work_arg);
     var turns: std.ArrayList(u2) = .empty;
     var split = std.mem.splitScalar(u8, turns_arg, ',');
     while (split.next()) |t| {
@@ -2585,8 +2626,8 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
     const own = scene.sources[scene.fixed];
     for (targets.items) |target| {
-        const pictures_dir = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.work", .{scene.name}), target.name });
-        const map_dir = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}.map", .{target.name}) });
+        const pictures_dir = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.work", .{scene.name}), target.name });
+        const map_dir = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.map", .{target.name}) });
         const final = try std.fs.path.join(arena, &.{ out, target.name });
         const temp = try std.fmt.allocPrint(arena, "{s}.tmp", .{final});
         for ([_][]const u8{ pictures_dir, map_dir, temp }) |path| {
@@ -2594,9 +2635,20 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             try cwd.createDirPath(io, path);
         }
         const new_side = (scene.own_side - 1 + @as(u8, target.turn)) % 4 + 1;
+        const drawn = try drawTarget(ctx, scene, target);
+        // How plausible the intact shape is: the turned sprite's height
+        // against the 2003 one's (a stray tall block stands out turned), and
+        // the ground the blocks cover against the footprint's cells.
+        var height_ratio: f64 = 0;
+        var area_ratio: f64 = 0;
+        for (drawn, scene.shapes) |d, shape| {
+            if (!std.mem.eql(u8, d.state, "1")) continue;
+            height_ratio = @as(f64, @floatFromInt(outlineHeight(d.sprite.image))) / @as(f64, @floatFromInt(@max(1, outlineHeight(pictureOf(own, "1").?))));
+            area_ratio = groundArea(shape) / footprintArea(own.footprint);
+        }
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"height_ratio\":{d:.3},\"area_ratio\":{d:.3},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, height_ratio, area_ratio });
         for (scene.states, scene.shapes, 0..) |state, shape, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (shape, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -2610,7 +2662,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         }
         try r.writeAll("],\n\"pictures\":[");
         var first_picture = true;
-        for (try drawTarget(ctx, scene, target)) |d| {
+        for (drawn) |d| {
             const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{d.state});
             const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{d.state});
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, d.sprite.image));
@@ -2642,6 +2694,11 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             const result = std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
                 return ctx.failKey("views.err.compose", .{ temp, @errorName(err) });
             if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ temp, result.stderr });
+            // compose-pack always packs a shadow; where the 2003 variant has
+            // none (pillboxes, tracks, some ruins) the turned one has none either.
+            if (pictureOf(own, shadow_name) == null) for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
+                try cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ temp, shadow_name }), suffix }));
+            };
         }
         try r.writeAll("]}\n");
         try writeOut(ctx, map_dir, "sources.json", report.written());
@@ -2655,37 +2712,82 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     }
 }
 
-/// The source map of one generated picture: a PNG (projected green, borrowed
-/// blue, filled red) and its counts per shading class in the report.
+/// The source map of one generated picture: a PNG (projected green, mirrored
+/// blue, transferred cyan, filled red) and its counts per shading class in
+/// the report.
 fn writePictureReport(ctx: *bk_tool.Context, r: *std.Io.Writer, map_dir: []const u8, name: []const u8, generated: Generated, covers: []const f64, first: *bool) !void {
     const arena = ctx.arena;
     const map: Image = .{ .width = generated.image.width, .height = generated.image.height, .pixels = try arena.alloc([4]u8, generated.kinds.len) };
-    var counts = std.mem.zeroes([9][4]usize);
+    var counts = std.mem.zeroes([9][5]usize);
     for (map.pixels, generated.kinds, generated.classes) |*pixel, kind, class| {
         pixel.* = switch (kind) {
             .empty => .{ 0, 0, 0, 0 },
             .projected => .{ 0, 160, 0, 255 },
-            .borrowed => .{ 0, 64, 255, 255 },
+            .mirrored => .{ 0, 64, 255, 255 },
+            .transferred => .{ 0, 200, 220, 255 },
             .filled => .{ 255, 32, 32, 255 },
         };
         counts[@min(class, 8)][@backingInt(kind)] += 1;
     }
     try writeOut(ctx, map_dir, try std.fmt.allocPrint(arena, "{s}.png", .{name}), try writePng(arena, map));
-    var total = [4]usize{ 0, 0, 0, 0 };
-    for (counts) |c| for (0..4) |k| {
+    var total = [5]usize{ 0, 0, 0, 0, 0 };
+    for (counts) |c| for (0..5) |k| {
         total[k] += c[k];
     };
-    try r.print("{s}\n{{\"picture\":\"{s}\",\"projected\":{d},\"borrowed\":{d},\"filled\":{d},\"model_iou\":[", .{ if (first.*) "" else ",", name, total[1], total[2], total[3] });
+    try r.print("{s}\n{{\"picture\":\"{s}\",\"projected\":{d},\"mirrored\":{d},\"transferred\":{d},\"filled\":{d},\"model_iou\":[", .{ if (first.*) "" else ",", name, total[1], total[2], total[3], total[4] });
     first.* = false;
     for (covers, 0..) |c, i| try r.print("{s}{d:.4}", .{ if (i > 0) "," else "", c });
     try r.writeAll("],\"classes\":[");
     var first_class = true;
     for (counts, 0..) |c, class| {
-        if (class == 8 or c[1] + c[2] + c[3] == 0) continue;
-        try r.print("{s}{{\"class\":\"{s}\",\"projected\":{d},\"borrowed\":{d},\"filled\":{d}}}", .{ if (first_class) "" else ",", class_names[class], c[1], c[2], c[3] });
+        if (class == 8 or c[1] + c[2] + c[3] + c[4] == 0) continue;
+        try r.print("{s}{{\"class\":\"{s}\",\"projected\":{d},\"mirrored\":{d},\"transferred\":{d},\"filled\":{d}}}", .{ if (first_class) "" else ",", class_names[class], c[1], c[2], c[3], c[4] });
         first_class = false;
     }
     try r.writeAll("]}");
+}
+
+/// The height in pixels of a picture's outline (alpha 128 or more).
+fn outlineHeight(image: Image) usize {
+    var top: ?usize = null;
+    var bottom: usize = 0;
+    for (0..image.height) |y| for (0..image.width) |x| {
+        if (image.pixels[y * image.width + x][3] < 128) continue;
+        if (top == null) top = y;
+        bottom = y + 1;
+    };
+    return bottom - (top orelse 0);
+}
+
+/// The ground the blocks stand on, in square world units, sampled every unit.
+fn groundArea(blocks: []const Block) f64 {
+    var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+    var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+    for (blocks) |b| {
+        lo = .{ @min(lo[0], b.lo[0]), @min(lo[1], b.lo[1]) };
+        hi = .{ @max(hi[0], b.hi[0]), @max(hi[1], b.hi[1]) };
+    }
+    var area: f64 = 0;
+    var y = @floor(lo[1]) + 0.5;
+    while (y < hi[1]) : (y += 1) {
+        var x = @floor(lo[0]) + 0.5;
+        while (x < hi[0]) : (x += 1) {
+            for (blocks) |b| {
+                if (x >= b.lo[0] and x < b.hi[0] and y >= b.lo[1] and y < b.hi[1]) break;
+            } else continue;
+            area += 1;
+        }
+    }
+    return area;
+}
+
+/// The occupied cells of a footprint in square world units.
+fn footprintArea(grid: Grid) f64 {
+    var cells: f64 = 0;
+    for (grid.rows, 0..) |row, y| for (0..row.len / 2) |x| {
+        cells += @floatFromInt(@intFromBool(occupied(grid.rows, x, y)));
+    };
+    return @max(1, cells) * tile_size * tile_size;
 }
 
 /// The shading classes by the way they face in the picture's own frame.
@@ -2989,4 +3091,213 @@ fn styleCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_arg: []const u8,
     try json.writer.writeAll("]}\n");
     try writeOut(ctx, out, "style.md", md.written());
     try writeOut(ctx, out, "style.json", json.written());
+}
+
+// ---------------------------------------------------------------------------
+// report: the batch's tracked evidence
+
+const Inventory = struct {
+    families: []const struct {
+        family: []const u8,
+        region: []const u8,
+        variants: []const struct { path: []const u8, side: ?u8 = null, winter: bool = false },
+    },
+};
+
+const GateFloors = struct {
+    states: std.json.ArrayHashMap(struct { iou: f64, sharpness: [2]f64, colour: f64, hue: f64 }),
+};
+
+const SideReport = struct {
+    new_side: u8,
+    height_ratio: f64,
+    area_ratio: f64,
+    pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
+};
+
+const StyleRow = struct { generated: []const u8 = "", variant: []const u8 = "", state: []const u8, iou: ?f64 = null, sharpness: f64, colour: f64, hue: f64 };
+
+/// A turned intact sprite's height against the 2003 one's, outside this
+/// range: a block stands up that the 2003 side does not show (single-view
+/// depth), or a tall part (a chimney stalk) is lost.
+const height_range = [2]f64{ 0.7, 1.3 };
+/// The blocks' ground against the footprint's cells, outside this range.
+const ground_ratio = [2]f64{ 0.5, 2.0 };
+/// The intact blocks cover a 2003 outline less than this (IoU).
+const outline_floor = 0.85;
+
+/// Where a picture fails the gate's floors of its damage state (winter
+/// counting as summer), or null.
+fn gateFailure(gpa: std.mem.Allocator, floors: GateFloors, row: StyleRow) !?[]const u8 {
+    const digits = std.mem.indexOfNone(u8, row.state, "0123456789") orelse row.state.len;
+    const f = floors.states.map.get(row.state[0..digits]) orelse return null;
+    if (row.iou) |iou| if (iou < f.iou) return try std.fmt.allocPrint(gpa, "IoU {d:.3} < {d:.2}", .{ iou, f.iou });
+    if (row.sharpness < f.sharpness[0] or row.sharpness > f.sharpness[1]) return try std.fmt.allocPrint(gpa, "sharpness {d:.2} outside {d:.2}..{d:.2}", .{ row.sharpness, f.sharpness[0], f.sharpness[1] });
+    if (row.colour > f.colour) return try std.fmt.allocPrint(gpa, "colour {d:.1} > {d:.0}", .{ row.colour, f.colour });
+    if (row.hue > f.hue) return try std.fmt.allocPrint(gpa, "hue {d:.3} > {d:.2}", .{ row.hue, f.hue });
+    return null;
+}
+
+fn readJson(comptime T: type, ctx: *bk_tool.Context, path: []const u8) !?T {
+    const bytes = std.Io.Dir.cwd().readFileAlloc(ctx.io, path, ctx.arena, .limited(64 * 1024 * 1024)) catch return null;
+    return std.json.parseFromSliceLeaky(T, ctx.arena, bytes, .{ .ignore_unknown_fields = true }) catch |err|
+        return ctx.failKey("views.err.read", .{ path, @errorName(err) });
+}
+
+/// Writes `text` with CRLF line ends, as every tracked text file has.
+fn writeCrlf(ctx: *bk_tool.Context, dir: []const u8, name: []const u8, text: []const u8) !void {
+    try writeOut(ctx, dir, name, try std.mem.replaceOwned(u8, ctx.arena, text, "\n", "\r\n"));
+}
+
+fn percent(part: f64, whole: f64) f64 {
+    return if (whole == 0) 0 else 100 * part / whole;
+}
+
+/// `report`: for every variant of the inventory, what the batch left in
+/// `<work-root>/<variant path>/` (side's source maps, style.json and
+/// holdout.json) as `<family>.md` per family and `batch.md`.
+fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []const u8, work_arg: []const u8, out_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const inventory_path = try bk_tool.inputPath(arena, inventory_arg);
+    const gate_path = try bk_tool.inputPath(arena, gate_arg);
+    const work = try bk_tool.inputPath(arena, work_arg);
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const inventory = (try readJson(Inventory, ctx, inventory_path)) orelse return ctx.failKey("views.err.read", .{ inventory_path, "FileNotFound" });
+    const floors = (try readJson(GateFloors, ctx, gate_path)) orelse return ctx.failKey("views.err.read", .{ gate_path, "FileNotFound" });
+    try std.Io.Dir.cwd().createDirPath(ctx.io, out);
+
+    var index: std.Io.Writer.Allocating = .init(arena);
+    const x = &index.writer;
+    var counts = struct { variants: usize = 0, folders: usize = 0, missing: usize = 0, pass: usize = 0, flagged: usize = 0, held: usize = 0, held_pass: usize = 0 }{};
+    for (inventory.families) |family| {
+        var doc: std.Io.Writer.Allocating = .init(arena);
+        const d = &doc.writer;
+        try d.print(
+            \\# {s} ({s})
+            \\
+            \\Generated by `zig build building-views-batch-{s}`, written by `bk-views report`. Shares are of the
+            \\pixels the blocks cover; style is against the family's 2003 pictures of the colourway; gate floors are
+            \\`tools/zig/fixtures/bk-views/gate.json`.
+            \\
+            \\| Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
+            \\|---|---|---|---|---|---|---|---|---|---|---|---|
+            \\
+        , .{ family.family, family.region, family.region });
+        var shapes: std.Io.Writer.Allocating = .init(arena);
+        var held_rows: std.Io.Writer.Allocating = .init(arena);
+        for (family.variants) |variant| {
+            counts.variants += 1;
+            const name = std.fs.path.basename(variant.path);
+            const dir = try std.fs.path.join(arena, &.{ work, variant.path });
+            const style = try readJson(struct { style: []const StyleRow }, ctx, try std.fs.path.join(arena, &.{ dir, "style", "style.json" }));
+            var failure: ?[]const u8 = null;
+            var flags: std.ArrayList([]const u8) = .empty;
+            var generated: usize = 0;
+            var heights = [2]f64{ std.math.inf(f64), 0 };
+            var new_sides: std.Io.Writer.Allocating = .init(arena);
+            for (1..4) |k| {
+                const target = try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k });
+                const side = (try readJson(SideReport, ctx, try std.fs.path.join(arena, &.{ dir, try std.fmt.allocPrint(arena, "{s}.map", .{target}), "sources.json" }))) orelse continue;
+                generated += 1;
+                if (variant.side != null) try new_sides.writer.print("{s}{d}", .{ if (k > 1) ", " else "", side.new_side });
+                heights = .{ @min(heights[0], side.height_ratio), @max(heights[1], side.height_ratio) };
+                if (k == 1) {
+                    if (side.area_ratio < ground_ratio[0] or side.area_ratio > ground_ratio[1]) try flags.append(arena, try std.fmt.allocPrint(arena, "ground {d:.2}", .{side.area_ratio}));
+                }
+                for (side.pictures) |picture| {
+                    if (std.mem.endsWith(u8, picture.picture, "g")) continue;
+                    const all = picture.projected + picture.mirrored + picture.transferred + picture.filled;
+                    var row_gate: []const u8 = "-";
+                    var row: ?StyleRow = null;
+                    if (style) |s| for (s.style) |r| {
+                        if (std.mem.eql(u8, r.generated, target) and std.mem.eql(u8, r.state, picture.picture)) row = r;
+                    };
+                    if (row) |r| {
+                        const why = try gateFailure(arena, floors, r);
+                        row_gate = if (why) |w| w else "pass";
+                        if (why != null and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} {s}: {s}", .{ k, picture.picture, why.? });
+                    }
+                    if (std.mem.eql(u8, picture.picture, "1") and k == 1) {
+                        var worst: f64 = 1;
+                        for (picture.model_iou) |m| worst = @min(worst, m);
+                        if (worst < outline_floor) try flags.append(arena, try std.fmt.allocPrint(arena, "outline {d:.2}", .{worst}));
+                    }
+                    try d.print("| {s} | r{d} | {d} | {s} | {d:.1} | {d:.1} | {d:.1} | {d:.1} | ", .{ name, k, side.new_side, picture.picture, percent(picture.projected, all), percent(picture.mirrored, all), percent(picture.transferred, all), percent(picture.filled, all) });
+                    if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
+                }
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} |\n", .{ name, k, side.height_ratio, side.area_ratio });
+            }
+            for (heights) |h| if (h < height_range[0] or h > height_range[1]) try flags.append(arena, try std.fmt.allocPrint(arena, "height {d:.2}", .{h}));
+            // The hold-out where the family has another side of the colourway.
+            var held: []const u8 = "-";
+            if (try readJson(struct { holdout: []const StyleRow }, ctx, try std.fs.path.join(arena, &.{ dir, "holdout", "holdout.json" }))) |h| if (h.holdout.len > 0) {
+                counts.held += 1;
+                var why: ?[]const u8 = null;
+                for (h.holdout) |r| {
+                    const w = try gateFailure(arena, floors, r);
+                    if (w != null and why == null) why = try std.fmt.allocPrint(arena, "{s}: {s}", .{ r.state, w.? });
+                    try held_rows.writer.print("| {s} | {s} | {d:.3} | {d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ name, r.state, r.iou.?, r.sharpness, r.colour, r.hue, w orelse "pass" });
+                }
+                held = why orelse "pass";
+                if (why == null) counts.held_pass += 1;
+                if (why != null and failure == null) failure = try std.fmt.allocPrint(arena, "hold-out {s}", .{why.?});
+            };
+            counts.folders += generated;
+            if (generated < 3) {
+                counts.missing += 1;
+                failure = try std.fmt.allocPrint(arena, "not generated: {d} of 3 turns", .{generated});
+            } else if (failure == null) counts.pass += 1;
+            if (flags.items.len > 0) counts.flagged += 1;
+            try x.print("| {s} | {s} | {s} | {s} | {s} | {s} | {s} | {s} |\n", .{
+                family.region,
+                family.family,
+                variant.path,
+                if (variant.side) |s| try std.fmt.allocPrint(arena, "{d}", .{s}) else "?",
+                if (variant.side == null) "? (turns 1, 2, 3)" else new_sides.written(),
+                failure orelse "pass",
+                held,
+                if (flags.items.len > 0) try std.mem.join(arena, ", ", flags.items) else "-",
+            });
+        }
+        try d.print(
+            \\
+            \\Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+            \\
+            \\| Variant | Turn | Height ratio | Ground ratio |
+            \\|---|---|---|---|
+            \\{s}
+        , .{shapes.written()});
+        if (held_rows.written().len > 0) try d.print(
+            \\
+            \\Hold-out: the variant's own side drawn without it, against the 2003 picture.
+            \\
+            \\| Variant | State | IoU | Sharpness | Colour | Hue | Gate |
+            \\|---|---|---|---|---|---|---|
+            \\{s}
+        , .{held_rows.written()});
+        try writeCrlf(ctx, out, try std.fmt.allocPrint(arena, "{s}.md", .{family.family}), doc.written());
+    }
+    var md: std.Io.Writer.Allocating = .init(arena);
+    try md.writer.print(
+        \\# Building views batch
+        \\
+        \\Every variant of `Data/Buildings` turned by one, two and three quarter turns with `bk-views side`, by
+        \\`zig build building-views-batch-<group>` into `zig-out/remastered/Buildings/<region>/summer/<variant>_r<k>/`
+        \\(a numbered subfolder `dot/01` gives `dot/01_r1`); each pack passed `bk-views-check` and decomposed back, or
+        \\the step failed. Per family: `<family>.md`. Written by `bk-views report`.
+        \\
+        \\- Variants: {d}; generated folders: {d} of {d}; not generated: {d}.
+        \\- Gate (style of every generated picture, and the hold-out where the family has another side of the
+        \\  colourway, against the floors of `tools/zig/fixtures/bk-views/gate.json`): {d} of {d} variants pass;
+        \\  hold-out {d} of {d}.
+        \\- Flagged for S06: {d} variants. `height`: a turned intact sprite's height outside {d:.1}..{d:.1} times the 2003 one's;
+        \\  `ground`: the blocks' ground outside {d:.1}..{d:.1} times the footprint's cells; `outline`: the intact blocks
+        \\  cover a 2003 outline with IoU under {d:.2}. Missing chimneys and roof seams are not measured here.
+        \\
+        \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | Flags |
+        \\|---|---|---|---|---|---|---|---|
+        \\{s}
+    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, counts.pass, counts.variants, counts.held_pass, counts.held, counts.flagged, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, index.written() });
+    try writeCrlf(ctx, out, "batch.md", md.written());
+    try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} flagged\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.flagged });
 }
