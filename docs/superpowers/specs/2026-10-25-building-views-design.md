@@ -268,6 +268,34 @@ mirrors (the S02 section above describes what was replaced).
   0.654. Floors: IoU 0.95, colour 2, and the own sprite must beat every other side. With the side-3 maps given the
   wrong pictures (side 2), the tier failed at IoU 0.166 and 0.133.
 
+## Batch over all variants (M005 S05, 2026-10-26)
+
+- **Unit and layout.** Every one of the 194 variants gets its three other quarter turns (`<variant>_r1.._r3`, per
+  variant rather than per family side, because two variants of a family can show the same side in other
+  colourways): `zig-out/remastered/Buildings/<region>/summer/<variant>_r<k>/`, a numbered subfolder `dot/01`
+  giving `dot/01_r1` beside it. A folder holds what the shipped variant holds, winter packs included, except the
+  stray texture-less `2gw`/`3gw` of `townhouse03_1`; where the 2003 variant has no shadow pack for a state
+  (pillboxes, tracks, some ruins: 22 variants) the turned one has none either. The `.map` and `.work` folders go
+  to `zig-out/local-test/building-views/batch/<variant path>/` (`bk-views side`'s optional `<work-dir>`).
+- **Steps.** `zig build building-views-batch-<region>` (africa, common, europe, ussr): per variant `side`, the
+  round trip runner (`bk-views-check`, compose-pack again byte for byte, decompose back), `style` on the generated
+  pictures and `holdout` where the family has a second measured side. Measured on win-home from a clean output:
+  38 s, 48 s, 121 s and 181 s; two runs give the same bytes. The runs are silent and judged by exit code: a run
+  that inherits stderr holds the build's stderr lock, and one that pipes stdout and stderr goes through one
+  multi-reader; either way the variants ran one at a time on Windows (about 5 minutes for africa instead of 40 s).
+  `building-views-batch` only lists the groups; `building-views-batch-report` writes `batch.md` and
+  `<family>.md` under `docs/superpowers/evidence/building-views/` with `bk-views report`.
+- **Fixes the batch needed.** A numbered subfolder's family was found one level too high (each subfolder its own
+  family); a variant whose side the inventory could not measure (20) is drawn from itself alone; an object too thin
+  for a hull rectangle (conduitbarrel, watchtower) starts from one block over its footprint; a ruin whose shadow
+  falls all under it keeps one shadow pixel below it (an empty shadow pack does not compose).
+- **Sources.** The source map tells mirrored (a face of the same block: the opposite wall, the other roof plane)
+  from transferred (a face of another block).
+- **Result.** 582 of 582 folders, every pack through the engine check; 168 of 194 variants pass the S03 floors
+  (hold-out 35 of 43); 59 variants flagged for S06 by the shape: turned sprite height outside 0.7..1.3 of the 2003
+  one (20, e.g. the lost chimney stalks), blocks' ground outside 0.5..2 of the footprint (20, mostly open props),
+  intact outline IoU under 0.85 (34).
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r
