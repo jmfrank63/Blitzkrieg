@@ -118,6 +118,7 @@ std::string LanguageDisplayName( const std::string &szFolder );
 bool IsLanguageOnlyMod( const std::string &szFolder );
 // mods\ under the game's folder, in whatever case it is spelled on disk (the
 // installs make it "mods"; a case-sensitive file system has no "Mods"), with
-// a trailing backslash; empty when there is none.
+// a trailing backslash; empty when there is none. BK_MODS_ROOT, when set, is
+// the folder instead (StreamIO/ModsPaths.h).
 std::string ModsFolder();
 #endif // __OPTIONENTRYWRAPPER_H__

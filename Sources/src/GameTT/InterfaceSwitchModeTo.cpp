@@ -3,6 +3,7 @@
 #include "InterfaceSwitchModeTo.h"
 #include "CommonId.h"
 #include "MultiplayerCommandManager.h"
+#include "../StreamIO/ModsPaths.h"
 enum EControls
 {
 	E_REPLAY_EDIT_BOX											= 2000,
@@ -56,14 +57,13 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 	{
 		std::string szDesiredModDirectory;
 
-		std::string szModsDirectory = GetSingleton<IMainLoop>()->GetBaseDir();
-		szModsDirectory += "Mods\\";
+		const std::string szModsDirectory = NMods::Root( GetSingleton<IMainLoop>()->GetBaseDir() );
 		CModNames modDirs;
 		SEnumDirs cb;
 		cb.pModDirs = &modDirs;
 		NFile::EnumerateFiles( szModsDirectory.c_str(), "*.*", cb, false );
 
-		const std::string szMODPath = std::string( pML->GetBaseDir() ) + "mods\\" + szDesiredModDirectory;
+		const std::string szMODPath = NMods::Root( pML->GetBaseDir() ) + szDesiredModDirectory;
 
 		for ( CModNames::iterator filesIter = modDirs.begin(); 
 					filesIter != modDirs.end() && !bModExists;  

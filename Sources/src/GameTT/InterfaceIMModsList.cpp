@@ -7,6 +7,7 @@
 #include "MainMenu.h"
 #include "MultiplayerCommandManager.h"
 #include "OptionEntryWrapper.h"
+#include "../StreamIO/ModsPaths.h"
 CInterfaceIMModsList::~CInterfaceIMModsList()
 {
 }
@@ -18,7 +19,7 @@ bool CInterfaceIMModsList::Init()
 	// where the installs' folder is "mods".
 	szTopDir = ModsFolder();
 	if ( szTopDir.empty() )
-		szTopDir = std::string( GetSingleton<IMainLoop>()->GetBaseDir() ) + "mods\\";
+		szTopDir = NMods::Root( GetSingleton<IMainLoop>()->GetBaseDir() );
 	szCurrentDir = szTopDir;
 	szInterfaceName = "ui\\Lists\\IMModList";
 	nSortType = E_SORT_BY_TIME;

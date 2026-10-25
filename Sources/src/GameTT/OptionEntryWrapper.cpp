@@ -7,6 +7,7 @@
 #include "CommonId.h"
 #include "../Main/iMain.h"
 #include "../Misc/FileUtils.h"
+#include "../StreamIO/ModsPaths.h"
 BASIC_REGISTER_CLASS(COptionsListWrapper);
 enum EUIElements
 {
@@ -35,6 +36,9 @@ static bool IsGeneratedSelectionText( const char *pszOptionName )
 }
 std::string ModsFolder()
 {
+	const std::string szOverride = NMods::Override();
+	if ( !szOverride.empty() )
+		return szOverride + "\\";
 	const std::string szBase = GetSingleton<IMainLoop>()->GetBaseDir();
 	for ( NFile::CFileIterator it( ( szBase + "*" ).c_str() ); !it.IsEnd(); ++it )
 		if ( it.IsDirectory() && NStr::CompareAsciiNoCase( it.GetFileName().c_str(), "mods" ) == 0 )

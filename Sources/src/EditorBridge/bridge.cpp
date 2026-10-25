@@ -14,6 +14,7 @@
 #include "../MapFile/MapOverlay.h"
 #include "../MapFile/MapRecords.h"
 #include "../Main/iMain.h"
+#include "../StreamIO/ModsPaths.h"
 #include "../GFX/GFX.H"
 #include "../Scene/Scene.h"
 #include "../Scene/SceneScreenScale.h"
@@ -218,15 +219,16 @@ void CopyBoundedField( char *pField, size_t nCapacity, const std::string &rszVal
 	pField[nCopy] = 0;
 }
 
-// <BaseRoot>mods\<folder>\, backslash-separated and trailing one - OpenStorage's
-// own convention (BkEditorTestMapPath, GeneratedData.h), matching
-// CICChangeMOD::Exec's szMODPath (MainLoopCommands.cpp:393).
+// <BaseRoot>mods\<folder>\ (or the folder below BK_MODS_ROOT), backslash-
+// separated and trailing one - OpenStorage's own convention
+// (BkEditorTestMapPath, GeneratedData.h), matching CICChangeMOD::Exec's
+// szMODPath (MainLoopCommands.cpp).
 std::string ModEngineDir( const std::string &szFolder )
 {
-	std::string szBase = NPlatform::Paths::BaseRoot();
-	for ( char &c : szBase )
+	std::string szRoot = NMods::Root( NPlatform::Paths::BaseRoot() );
+	for ( char &c : szRoot )
 		if ( c == '/' ) c = '\\';
-	return szBase + "mods\\" + szFolder + "\\";
+	return szRoot + szFolder + "\\";
 }
 
 // Reads folder's own mod.xml, the same way the game's mod-list screen does
@@ -266,7 +268,8 @@ std::vector<BkEditorMod> ListInstalledMods()
 {
 	std::vector<BkEditorMod> mods;
 	std::error_code error;
-	const std::filesystem::path modsDir = std::filesystem::path( NPlatform::Paths::BaseRoot() ) / "mods";
+	const std::string szOverride = NMods::Override();
+	const std::filesystem::path modsDir = szOverride.empty() ? std::filesystem::path( NPlatform::Paths::BaseRoot() ) / "mods" : std::filesystem::path( szOverride );
 	std::filesystem::directory_iterator it( modsDir, error );
 	if ( error )
 		return mods;
