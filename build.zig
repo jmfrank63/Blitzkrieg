@@ -3094,6 +3094,31 @@ pub fn build(b: *std.Build) void {
     remastered_game_step.dependOn(&remastered_game_tests.step);
     if (test_mode == .run) remastered_game_step.dependOn(&remastered_game_run.step);
 
+    // The generated building views on the real Game (M005 S04,
+    // tools/zig/building_views_game_reads_it.zig): bk-views side writes them
+    // into a scratch mod, side k of both families stands on map k, and each
+    // shot is measured against the sprites. Desktop and GPU, so not part of `test`.
+    const views_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/building_views_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, views_game_module, toolchain);
+    }
+    const views_game_tests = b.addTest(.{ .root_module = views_game_module, .filters = &.{"the Game draws all four sides"} });
+    const views_game_run = b.addRunArtifact(views_game_tests);
+    views_game_run.setCwd(b.path("."));
+    views_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    views_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    views_game_run.has_side_effects = true;
+    views_game_run.step.dependOn(install_game_step);
+    views_game_run.step.dependOn(bk_views_step);
+    views_game_run.step.dependOn(bk_sprite.install);
+    const views_game_step = b.step("building-views-game-reads-it", "Make side 3 of e_ctownhouse01 and the other sides of e_frenchshed01 with bk-views side into a scratch mod, draw all eight sides on the real Game, four maps of two buildings, and measure each shot against the sprites");
+    views_game_step.dependOn(&views_game_tests.step);
+    if (test_mode == .run) views_game_step.dependOn(&views_game_run.step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
