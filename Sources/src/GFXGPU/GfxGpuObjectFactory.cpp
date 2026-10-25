@@ -220,7 +220,7 @@ bool BitmapFontIsSerif( const SFontFormat &format, const unsigned char *alpha, i
     }
     if ( extents.size() < 4 ) return false;
     const int stem = extents[extents.size() / 2];
-    const int edge = std::max( extents.front(), extents.back() );
+    const int edge = ( std::max )( extents.front(), extents.back() );
     return edge >= stem + 2 && edge * 2 >= stem * 3;
 }
 
