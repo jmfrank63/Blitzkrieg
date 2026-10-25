@@ -91,9 +91,12 @@ inline IDataStorage* CreateStorage( const char *pszName, DWORD dwAccessMode, DWO
 {
 	return GetSLS()->CreateStorage( pszName, dwAccessMode, type );
 }
+// The folder is everything up to the last separator of either kind: an absolute
+// POSIX path ("/home/.../defconf.cfg") has no backslash, and splitting on '\\'
+// alone opened it as ".\\/home/...", under the working directory.
 inline IDataStream* OpenFileStream( const std::string &szFullName, DWORD dwAccessMode )
 {
-	const int nPos = szFullName.rfind( '\\' );
+	const int nPos = szFullName.find_last_of( "\\/" );
 	const std::string szPathName = nPos != std::string::npos ? szFullName.substr( 0, nPos + 1 ) : ".\\";
 	const std::string szFileName = nPos != std::string::npos ? szFullName.substr( nPos + 1 ) : szFullName;
 	CPtr<IDataStorage> pStorage = OpenStorage( szPathName.c_str(), dwAccessMode, STORAGE_TYPE_FILE );
@@ -101,7 +104,7 @@ inline IDataStream* OpenFileStream( const std::string &szFullName, DWORD dwAcces
 }
 inline IDataStream* CreateFileStream( const std::string &szFullName, DWORD dwAccessMode )
 {
-	const int nPos = szFullName.rfind( '\\' );
+	const int nPos = szFullName.find_last_of( "\\/" );
 	const std::string szPathName = nPos != std::string::npos ? szFullName.substr( 0, nPos + 1 ) : ".\\";
 	const std::string szFileName = nPos != std::string::npos ? szFullName.substr( nPos + 1 ) : szFullName;
 	CPtr<IDataStorage> pStorage = CreateStorage( szPathName.c_str(), dwAccessMode, STORAGE_TYPE_FILE );

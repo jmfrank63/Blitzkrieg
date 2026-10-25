@@ -77,8 +77,14 @@ static std::string ResolveConfigFileName( const std::string &szFileName, const b
 	// still resolves through the later candidates - that is the migration
 	// path; the next write lands in the profile directory. defconf.cfg never
 	// exists in a profile, so it keeps resolving from Data\Configs.
+	//
+	// Every candidate is under the install (Paths::BaseRoot, the executable's
+	// folder), not the working directory: a Game started from a shortcut or
+	// another shell's folder found no defconf.cfg, so a fresh profile had no
+	// options at all and the settings screen had no division to open.
+	const std::string szBase = NPlatform::Paths::BaseRoot();
 	const std::string szProfileSegment = NProfile::Segment();
-	const std::string szProfilePrefix = NProfile::Prefix( ".\\" );
+	const std::string szProfilePrefix = NProfile::Prefix( szBase );
 	if ( !szProfileSegment.empty() )
 	{
 		candidates.push_back( szProfilePrefix + szFileName );
@@ -88,12 +94,12 @@ static std::string ResolveConfigFileName( const std::string &szFileName, const b
 		if ( !bMustExist )
 			return candidates[0];
 	}
-	candidates.push_back( ".\\" + szFileName );
-	candidates.push_back( ".\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\..\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\..\\..\\Data\\Configs\\" + szFileName );
-	candidates.push_back( "..\\..\\..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + szFileName );
+	candidates.push_back( szBase + "Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( szBase + "..\\..\\..\\..\\Data\\Configs\\" + szFileName );
 
 	for ( std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++it )
 	{

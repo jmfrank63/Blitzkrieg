@@ -10,9 +10,9 @@
 //! BK_UI_TRACE that the main menu is laid out 1:1 on the 1024x768 canvas the
 //! button's rect below is in.
 //!
-//! The user's data is never touched: the Game runs from a scratch folder (its
-//! `profiles/` are relative to the working directory) in the dedicated ELKTest
-//! profile, with XDG_DATA_HOME and BK_USER_ROOT in that folder too. The mod is
+//! The user's data is never touched: the Game runs from a scratch folder in
+//! the dedicated ELKTest profile, with XDG_DATA_HOME, BK_USER_ROOT and
+//! BK_PROFILES_ROOT in that folder too. The mod is
 //! removed from the installation afterwards. BK_ELK_GAME names the installed
 //! Game executable; `zig build elk-game-reads-it` sets it.
 const std = @import("std");
@@ -155,14 +155,9 @@ test "the Options' Language row switches the Game's texts at once and keeps the 
     const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), scratch ++ "-language" });
     cwd.deleteTree(io, scratch ++ "-language") catch {};
     const user = try std.fs.path.join(allocator, &.{ root, "user" });
-    // The Game looks for defconf.cfg, the options' declarations, under its
-    // working directory (.\Data\Configs and up to four folders above); run
-    // from the scratch folder it needs the installed copy beside it, or it
-    // has no options at all.
-    const configs = try std.fs.path.join(allocator, &.{ user, "Data", "Configs" });
-    try cwd.createDirPath(io, configs);
-    const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
-    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
+    // Run from this scratch folder, not the install: the Game finds its
+    // defconf.cfg, the options' declarations, in the install all the same.
+    try cwd.createDirPath(io, user);
 
     const db_folder = try std.fs.path.join(allocator, &.{ root, "db" });
     try database.copyTree(io, "Data/ELK/game_data_base", try std.fs.path.join(allocator, &.{ db_folder, "game_data_base" }));

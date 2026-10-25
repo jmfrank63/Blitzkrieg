@@ -1,5 +1,5 @@
 //! A mod made for the original game, in a folder with a Cyrillic name, on the
-//! real Game. The mod is written at test time into `mods/Тестмод` of the
+//! real Game. The mod is written at test time into `Mods/Тестмод` of the
 //! installed game from tracked data: its `mod.xml` names it in Russian, it
 //! carries one label's text (the main menu's Exit Game, in Russian) and the
 //! shipped `Data/UI/MainMenu.xml` with the original game's key for the
@@ -18,6 +18,15 @@
 //! make "mods"), and listed no mod at all on Linux. The frames and the log of
 //! each run are kept in zig-out/local-test/mod-compat/game-reads-it.
 //!
+//! The mod sits in `Mods/`, as the player had copied Achtung Panzer 2, and a
+//! language mod in the installs' `mods/`: on a case-sensitive file system the
+//! two are one mods folder. The Game took the first spelling it found, listed
+//! only Default under Options > Language and did not find a mod in the other
+//! one. The third run opens Options > Settings first, so Options > Language
+//! must list the language too. It runs from the scratch folder, not the
+//! install, with a fresh profile: the settings screen found no defconf.cfg
+//! there and the Debug Game stopped on an empty division list.
+//!
 //! The user's data is never touched: the Game runs from a scratch folder
 //! with XDG_DATA_HOME and BK_USER_ROOT there, in a dedicated profile. The mod
 //! is removed from the installation afterwards. BK_MOD_COMPAT_GAME names the
@@ -31,6 +40,10 @@ const scratch = "zig-out/local-test/mod-compat/game-reads-it";
 /// CICChangeMOD lower-cases the mod's name before it opens the folder, but
 /// only its ASCII letters: the capital Т stays, and the folder is found.
 const mod_name = "Тестмод";
+/// The language mod in the installs' `mods/`, beside the mod's `Mods/`.
+const language_name = "ModsCaseLanguage";
+/// MISSION_COMMAND_MODS_LIST (iMission.h: MISSION_BASE_VALUE 0x100e0000 + 245).
+const mods_list_command = "269353205";
 const label_text = "Выйти из мода";
 const width = 1024;
 const height = 768;
@@ -62,10 +75,22 @@ test "a mod with a Cyrillic folder and the original game's BinkFile key plays an
     const user = try std.fs.path.join(allocator, &.{ root, "user" });
     try cwd.createDirPath(io, user);
 
-    const mod_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", mod_name });
+    // A mods folder this test makes goes again afterwards (only if it is empty: the deferred
+    // deletes of the mods below run first).
+    const upper_mods = try std.fs.path.join(allocator, &.{ game_root, "Mods" });
+    const lower_mods = try std.fs.path.join(allocator, &.{ game_root, "mods" });
+    const made_upper = if (cwd.access(io, upper_mods, .{})) false else |_| true;
+    const made_lower = if (cwd.access(io, lower_mods, .{})) false else |_| true;
+    defer if (made_upper) cwd.deleteDir(io, upper_mods) catch {};
+    defer if (made_lower) cwd.deleteDir(io, lower_mods) catch {};
+    const mod_folder = try std.fs.path.join(allocator, &.{ upper_mods, mod_name });
     cwd.deleteTree(io, mod_folder) catch {};
     defer cwd.deleteTree(io, mod_folder) catch {};
     try writeMod(io, allocator, mod_folder);
+    const language_folder = try std.fs.path.join(allocator, &.{ lower_mods, language_name });
+    cwd.deleteTree(io, language_folder) catch {};
+    defer cwd.deleteTree(io, language_folder) catch {};
+    try writeLanguage(io, allocator, language_folder);
 
     const control = try runGame(io, allocator, game, user, root, "control", null);
     const modded = try runGame(io, allocator, game, user, root, "mod", mod_name);
@@ -81,18 +106,25 @@ test "a mod with a Cyrillic folder and the original game's BinkFile key plays an
         try testing.expect(changed >= 200);
     }
 
-    // The mods list (main menu IMC_SETTINGS 10005, then the options page's IMC_MODS 10007) names
-    // each entry it lists in a BK_L10N_TRACE line.
-    const list = try runAuto(io, allocator, game, user, root, "mods-list", "60:msg=10005,120:msg=10007,180:exit");
+    // Options > Settings (Options.Language lists the languages), then the mods list; both name
+    // each entry in a BK_L10N_TRACE line. The profile is a fresh one.
+    const list = try runAuto(io, allocator, game, user, root, "mods-list", "60:settings,100:msg=10003,240:cancel,300:cancel,360:cmd=" ++ mods_list_command ++ ",420:exit");
     const entry = try std.fmt.allocPrint(allocator, "\"{s}\"", .{mod_name});
+    const language = try std.fmt.allocPrint(allocator, "\"{s}\" name", .{language_name});
     var listed = false;
+    var language_listed = false;
     var lines = std.mem.splitScalar(u8, list, '\n');
     while (lines.next()) |line| {
         if (std.mem.indexOf(u8, line, "BK_L10N_TRACE: mods list entry ") != null and std.mem.endsWith(u8, std.mem.trimEnd(u8, line, "\r"), entry)) listed = true;
+        if (std.mem.indexOf(u8, line, "BK_L10N_TRACE: language entry ") != null and std.mem.indexOf(u8, line, language) != null) language_listed = true;
     }
     if (!listed) {
         std.debug.print("the mods list did not hold {s}; the Game's output is in {s}/mods-list.log\n", .{ mod_name, root });
         return error.ModNotListed;
+    }
+    if (!language_listed) {
+        std.debug.print("Options > Language did not list {s}; the Game's output is in {s}/mods-list.log\n", .{ language_name, root });
+        return error.LanguageNotListed;
     }
 }
 
@@ -103,13 +135,14 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ root, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_GLYPH_TRACE", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_AUTO_UI", schedule);
     const result = try timed_run.run(allocator, io, .{
-        .argv = &.{ game, "-windowed", "-profile=ModCompat" },
+        .argv = &.{ game, "-windowed", "-profile=ModCompatLists" },
         .cwd = .{ .path = user },
         .environ_map = &environ,
         .timeout = .{ .duration = .{ .raw = .fromSeconds(180), .clock = .awake } },
@@ -123,6 +156,21 @@ fn runAuto(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     try l10n_measure.expectNoLeak(log, log_path);
     try l10n_measure.expectNoMissingGlyph(log, log_path);
     return log;
+}
+
+/// A language mod as the installs' are, to Options > Language: data/texts.pak (an empty
+/// archive: the language is listed, never chosen) and a loose data/mod.xml of MODType
+/// language, which keeps it out of the mods list.
+fn writeLanguage(io: std.Io, allocator: std.mem.Allocator, folder: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    const data = try std.fs.path.join(allocator, &.{ folder, "data" });
+    try cwd.createDirPath(io, data);
+    try cwd.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "mod.xml" }),
+        .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>" ++ language_name ++ "</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n\t<MODType>language</MODType>\r\n</base>\r\n",
+    });
+    // The end-of-central-directory record of a zip with no entries.
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ data, "texts.pak" }), .data = "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" });
 }
 
 /// The mod: mod.xml, the label's text (UTF-16 LE with a BOM, as the game
@@ -166,6 +214,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, user: []c
     var environ = try testing.environ.createMap(allocator);
     try environ.put("XDG_DATA_HOME", user);
     try environ.put("BK_USER_ROOT", user);
+    try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ root, "profiles" }));
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_MOD_TRACE", "1");

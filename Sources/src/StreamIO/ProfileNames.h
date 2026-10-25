@@ -193,15 +193,18 @@ inline bool NameEquals( const std::string &a, const std::string &b )
 }
 
 // The folder that holds the profiles, as a host path with no trailing
-// separator: "profiles" under the working directory, or the folder named by
-// BK_PROFILES_ROOT. Tests set it so a Game run against an install never writes
-// profiles, saves or active.cfg into that install (the install's profiles
-// folder holds the player's own). Not a player setting.
+// separator: "profiles" under the install (Paths::BaseRoot, where
+// ProfilePaths.h's Prefix puts a profile's saves and config.cfg), or the
+// folder named by BK_PROFILES_ROOT. Under the working directory, a Game
+// started from another folder kept active.cfg there and its profiles in the
+// install. Tests set BK_PROFILES_ROOT so a Game run against an install never
+// writes profiles, saves or active.cfg into that install (the install's
+// profiles folder holds the player's own). Not a player setting.
 inline std::string Dir()
 {
 	const char *pszRoot = std::getenv( "BK_PROFILES_ROOT" );
 	if ( pszRoot == 0 || pszRoot[0] == 0 )
-		return "profiles";
+		return NPlatform::Paths::BaseRoot() + "profiles";
 	std::string szRoot = pszRoot;
 	while ( szRoot.size() > 1 && (szRoot[szRoot.size() - 1] == '/' || szRoot[szRoot.size() - 1] == '\\') )
 		szRoot.erase( szRoot.size() - 1 );

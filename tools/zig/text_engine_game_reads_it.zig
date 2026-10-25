@@ -32,8 +32,8 @@
 //!
 //! Frames (`menu.tga`, `briefing.tga`, `options.tga`, `encyclopedia.tga`, `mission.tga`, `saved.tga`, `loaded.tga`) and `report.txt` are kept in
 //! `zig-out/local-test/text-engine-game-reads-it/<code>/`. The user's data is never touched:
-//! XDG_DATA_HOME and BK_USER_ROOT are the scratch folder. A profile keeps its saves under the
-//! Game's own folder, so the save proof uses a profile of its own and removes it. BK_TEXT_ENGINE_GAME
+//! XDG_DATA_HOME, BK_USER_ROOT and BK_PROFILES_ROOT are the scratch folder, so the save proof's
+//! profile and its saves stay there too. BK_TEXT_ENGINE_GAME
 //! names the installed Game executable; `zig build text-engine-game-reads-it` sets it and builds the
 //! mods first. The tier runs on Linux and macOS, where hb-view and a window exist; it compiles on
 //! every target.
@@ -328,11 +328,11 @@ test "the Game draws and measures its text through bk_text under BK_TEXT_ENGINE=
         defer cwd.deleteTree(io, blank_folder) catch {};
         try installBlankMod(io, allocator, game_root, root);
         const blank_name = try std.fs.path.join(allocator, &.{ language.code, "blank" });
-        const blank_run = try Run.init(io, allocator, game, game_root, root, blank_name, blank_mod, false, true);
+        const blank_run = try Run.init(io, allocator, game, root, blank_name, blank_mod, false, true);
         const blank = try blank_run.capture(allocator);
         const blank_briefing = try blank_run.briefing(allocator, false);
 
-        const run = try Run.init(io, allocator, game, game_root, root, language.code, language.mod, true, false);
+        const run = try Run.init(io, allocator, game, root, language.code, language.mod, true, false);
         const menu = try run.capture(allocator);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "menu.tga" }), menu);
         const shot = try run.briefing(allocator, language.mod != null);
@@ -346,7 +346,7 @@ test "the Game draws and measures its text through bk_text under BK_TEXT_ENGINE=
             english_briefing = shot;
         } else if (language.face == null) {
             const english_name = try std.fs.path.join(allocator, &.{ language.code, "english" });
-            const english = try Run.init(io, allocator, game, game_root, root, english_name, null, true, false);
+            const english = try Run.init(io, allocator, game, root, english_name, null, true, false);
             english_menu = try english.capture(allocator);
             english_briefing = try english.briefing(allocator, false);
         }
@@ -378,7 +378,7 @@ test "the Game draws and measures its text through bk_text under BK_TEXT_ENGINE=
         try report.line("-- {s} mission in progress", .{language.code});
         try checkInk(allocator, language, mission_frame, mission_background, &mission_labels, &report);
 
-        if (language.mod == null) try saveProof(io, allocator, game, game_root, root, &report);
+        if (language.mod == null) try saveProof(io, allocator, game, root, &report);
 
         try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, language.code, "report.txt" }), .data = report.lines.items });
         if (report.failures != 0) std.debug.print("text-engine-game-reads-it: {s}: {d} measures failed; the report is {s}/{s}/report.txt\n", .{ language.code, report.failures, scratch, language.code });
@@ -389,14 +389,13 @@ test "the Game draws and measures its text through bk_text under BK_TEXT_ENGINE=
 /// A save written on the bitmap escape hatch in the first Allied mission loads under the ttf engine: the
 /// load runs to its end, and the frame after it has the load's chat line as ink where the frame
 /// before it (the main menu) has none.
-fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, report: *Report) !void {
+fn saveProof(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, report: *Report) !void {
     const cwd = std.Io.Dir.cwd();
-    const profile_folder = try std.fs.path.join(allocator, &.{ game_root, "profiles", save_profile });
-    cwd.deleteTree(io, profile_folder) catch {};
-    defer cwd.deleteTree(io, profile_folder) catch {};
+    var writer = try Run.init(io, allocator, game, root, "en/save", null, false, false);
+    // Under the run's BK_PROFILES_ROOT, the scratch folder's profiles.
+    const profile_folder = try std.fs.path.join(allocator, &.{ writer.user, "profiles", save_profile });
     try report.line("-- save written on the bitmap path, loaded under ttf, and the reverse ({s}/saves/{s})", .{ profile_folder, save_name });
 
-    var writer = try Run.init(io, allocator, game, game_root, root, "en/save", null, false, false);
     writer.profile = "-profile=" ++ save_profile;
     cwd.deleteTree(io, profile_folder) catch {};
     const written = try writer.play(allocator, &.{ "-windowed", "-mode=1024x768", writer.profile }, save_schedule, null, "write");
@@ -617,15 +616,11 @@ pub const Run = struct {
 
     /// Makes the scratch folder and sets the profile's language option to `mod` (Default for the
     /// base game) with a short run of the Game on the options' own `set=`, which the profile keeps.
-    pub fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, ttf: bool, fonts: bool) !Run {
+    pub fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, ttf: bool, fonts: bool) !Run {
         const cwd = std.Io.Dir.cwd();
         const folder = try std.fs.path.join(allocator, &.{ root, name });
         const user = try std.fs.path.join(allocator, &.{ folder, "user" });
-        // defconf.cfg, the options' declarations, is looked for under the working directory.
-        const configs = try std.fs.path.join(allocator, &.{ user, "Data", "Configs" });
-        try cwd.createDirPath(io, configs);
-        const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
-        try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
+        try cwd.createDirPath(io, user);
         const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .mod = mod, .name = name, .ttf = ttf, .fonts = fonts };
         const schedule = try std.fmt.allocPrint(allocator, "30:set=GamePlay.Language={s},60:exit", .{mod orelse "Default"});
         const log = try run.play(allocator, &.{ "-windowed", profile_arg }, schedule, null, "choose");
@@ -637,6 +632,7 @@ pub const Run = struct {
         var environ = try testing.environ.createMap(allocator);
         try environ.put("XDG_DATA_HOME", self.user);
         try environ.put("BK_USER_ROOT", self.user);
+        try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ self.user, "profiles" }));
         try environ.put("BK_MEM_REPORT", "count");
         try environ.put("BK_DEBUG_LOG", "1");
         try environ.put("BK_MOD_TRACE", "1");

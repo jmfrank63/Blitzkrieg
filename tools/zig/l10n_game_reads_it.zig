@@ -497,7 +497,7 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
     try installBlankMod(io, allocator, mods_game, root);
     const blank_root = try std.fs.path.join(allocator, &.{ root, "blank" });
     cwd.deleteTree(io, blank_root) catch {};
-    const blank_run = try Run.init(io, allocator, game, game_root, root, "blank", blank_mod, true);
+    const blank_run = try Run.init(io, allocator, game, root, "blank", blank_mod, true);
     const blank = try blank_run.capture(allocator, null, null);
     try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, "blank", "menu.tga" }), blank);
     var blank_briefings: [briefings.len][]u8 = undefined;
@@ -539,7 +539,7 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
             try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, language.code, "report.txt" }), .data = note });
             continue :languages;
         };
-        const run = try Run.init(io, allocator, game, game_root, root, language.code, language.mod, false);
+        const run = try Run.init(io, allocator, game, root, language.code, language.mod, false);
         const menu = try run.capture(allocator, null, null);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "menu.tga" }), menu);
 
@@ -584,7 +584,7 @@ test "the Game draws the ten languages on bk_text, measured against hb-view (R05
         // its text on a live switch, so it is reported and not measured.
         const from = if (!std.mem.eql(u8, language.code, ru.code)) ru else languages[0];
         const switch_name = try std.fs.path.join(allocator, &.{ language.code, "switch" });
-        var switch_run = try Run.init(io, allocator, game, game_root, root, switch_name, from.mod, false);
+        var switch_run = try Run.init(io, allocator, game, root, switch_name, from.mod, false);
         const schedule = try std.fmt.allocPrint(allocator, "60:var=Text.Language={s}", .{language.option()});
         const live = try switch_run.capture(allocator, schedule, 160);
         try writeTga(io, allocator, try std.fs.path.join(allocator, &.{ root, language.code, "switch.tga" }), live);
@@ -1326,15 +1326,11 @@ const Run = struct {
     /// Makes the scratch folder and sets the profile's language option to
     /// `mod` (Default for the base game) with a short run of the Game on the
     /// options' own `set=`, which the profile keeps.
-    fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, game_root: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, bitmap: bool) !Run {
+    fn init(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, mod: ?[]const u8, bitmap: bool) !Run {
         const cwd = std.Io.Dir.cwd();
         const folder = try std.fs.path.join(allocator, &.{ root, name });
         const user = try std.fs.path.join(allocator, &.{ folder, "user" });
-        // defconf.cfg, the options' declarations, is looked for under the working directory.
-        const configs = try std.fs.path.join(allocator, &.{ user, "Data", "Configs" });
-        try cwd.createDirPath(io, configs);
-        const defconf = try std.fs.path.join(allocator, &.{ game_root, "Data", "Configs", "defconf.cfg" });
-        try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
+        try cwd.createDirPath(io, user);
         const mods = try std.fs.path.join(allocator, &.{ root, mods_game_folder, "mods" });
         const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .mods = mods, .mod = mod, .name = name, .bitmap = bitmap };
         const schedule = try std.fmt.allocPrint(allocator, "30:set=GamePlay.Language={s},60:exit", .{mod orelse "Default"});

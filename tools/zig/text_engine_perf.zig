@@ -174,11 +174,7 @@ const Run = struct {
         const cwd = std.Io.Dir.cwd();
         const folder = try std.fs.path.join(allocator, &.{ root, name });
         const user = try std.fs.path.join(allocator, &.{ folder, "user" });
-        // defconf.cfg, the options' declarations, is looked for under the working directory.
-        const configs = try std.fs.path.join(allocator, &.{ user, "Data", "Configs" });
-        try cwd.createDirPath(io, configs);
-        const defconf = try std.fs.path.join(allocator, &.{ std.fs.path.dirname(game).?, "Data", "Configs", "defconf.cfg" });
-        try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ configs, "defconf.cfg" }), .data = try cwd.readFileAlloc(io, defconf, allocator, .limited(1 << 20)) });
+        try cwd.createDirPath(io, user);
         const run = Run{ .io = io, .game = game, .folder = folder, .user = user, .ttf = ttf };
         const schedule = try std.fmt.allocPrint(allocator, "30:set=GamePlay.Language={s},60:exit", .{mod orelse "Default"});
         const log = try run.play(allocator, &.{ "-windowed", profile_arg }, schedule, "choose");
@@ -190,6 +186,7 @@ const Run = struct {
         var environ = try testing.environ.createMap(allocator);
         try environ.put("XDG_DATA_HOME", self.user);
         try environ.put("BK_USER_ROOT", self.user);
+        try environ.put("BK_PROFILES_ROOT", try std.fs.path.join(allocator, &.{ self.user, "profiles" }));
         try environ.put("BK_MEM_REPORT", "count");
         try environ.put("BK_PERF", "1");
         try environ.put("BK_DEBUG_LOG", "1");

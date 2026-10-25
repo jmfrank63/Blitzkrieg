@@ -426,7 +426,12 @@ void CInterfaceOptionsSettings::Create()
 	}
 	
 	nActive = -1;
-	OnChangeDivision( 0 );
+	// No division at all when the option system holds no options (no
+	// defconf.cfg was found): the screen opens empty, and Cancel still closes it.
+	if ( optionsLists.empty() )
+		NStr::DebugTrace( "CInterfaceOptionsSettings: the option system holds no option of this screen\n" );
+	else
+		OnChangeDivision( 0 );
 	SetCaptionTexts();
 }
 // A tab's button, its list's caption and the button's tooltip, from
@@ -471,6 +476,8 @@ void CInterfaceOptionsSettings::SetCaptionTexts()
 }
 void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 {
+	if ( nDivision < 0 || nDivision >= int( optionsLists.size() ) )
+		return;
 	if ( nActive != -1 )
 	{
 		optionsLists[nActive]->ShowWindow( UI_SW_HIDE );

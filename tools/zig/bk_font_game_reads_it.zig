@@ -29,7 +29,7 @@
 //!
 //! The user's data is never touched: the Game and bk-font run with
 //! XDG_DATA_HOME and BK_USER_ROOT in a scratch folder, the Game from that
-//! folder (its `profiles/` are relative to the working directory) in a
+//! folder, its profiles there too (BK_PROFILES_ROOT), in a
 //! dedicated profile. The mod is removed from the installation afterwards.
 //! BK_FONT_GAME names the installed Game executable and BK_FONT_TOOL the
 //! staged bk-font; `zig build bk-font-game-reads-it` sets both.

@@ -109,7 +109,7 @@ test "old and new side by side: the Game on bitmap and on bk_text, measured and 
         const blank_folder = try std.fs.path.join(allocator, &.{ game_root, "mods", reads.blank_mod });
         defer cwd.deleteTree(io, blank_folder) catch {};
         try reads.installBlankMod(io, allocator, game_root, root);
-        var blank_run = try reads.Run.init(io, allocator, game, game_root, root, try std.fs.path.join(allocator, &.{ language.code, "blank" }), reads.blank_mod, false, true);
+        var blank_run = try reads.Run.init(io, allocator, game, root, try std.fs.path.join(allocator, &.{ language.code, "blank" }), reads.blank_mod, false, true);
         blank_run.bitmap = true;
         const blank = try captureAll(allocator, blank_run, false);
 
@@ -123,13 +123,13 @@ test "old and new side by side: the Game on bitmap and on bk_text, measured and 
         try report.line("== {s}: old = BK_TEXT_ENGINE=bitmap ({s}), new = BK_TEXT_ENGINE=ttf ({s}); awaiting maintainer approval", .{ language.code, language.bitmap_mod orelse "base game", ttf_mod orelse "base game" });
         var old: ?[4][]u8 = null;
         if (bitmap_present) {
-            var run = try reads.Run.init(io, allocator, game, game_root, root, try std.fs.path.join(allocator, &.{ language.code, "bitmap" }), language.bitmap_mod, false, false);
+            var run = try reads.Run.init(io, allocator, game, root, try std.fs.path.join(allocator, &.{ language.code, "bitmap" }), language.bitmap_mod, false, false);
             run.bitmap = true;
             old = try captureAll(allocator, run, language.bitmap_mod != null);
         } else {
             try report.line("note  {s}: the bitmap mod {s} is not installed; the old side is not captured", .{ language.code, language.bitmap_mod.? });
         }
-        const run = try reads.Run.init(io, allocator, game, game_root, root, try std.fs.path.join(allocator, &.{ language.code, "ttf" }), ttf_mod, true, false);
+        const run = try reads.Run.init(io, allocator, game, root, try std.fs.path.join(allocator, &.{ language.code, "ttf" }), ttf_mod, true, false);
         const new = try captureAll(allocator, run, ttf_mod != null);
 
         for (screens, 0..) |screen, index| {

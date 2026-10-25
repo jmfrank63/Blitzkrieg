@@ -11826,7 +11826,7 @@ static void CheckProfilesRoot()
 #else
 	unsetenv( "BK_PROFILES_ROOT" );
 #endif
-	Check( NProfile::Dir() == "profiles", "without BK_PROFILES_ROOT the profiles folder is ./profiles" );
+	Check( NProfile::Dir() == NPlatform::Paths::BaseRoot() + "profiles", "without BK_PROFILES_ROOT the profiles folder is the install's profiles, whatever the working directory" );
 	Check( NProfile::PrefixFor( "G\\", "Probe" ) == "G\\profiles\\Probe\\", "without BK_PROFILES_ROOT a profile sits under the base" );
 	Check( NProfile::PrefixFor( "G\\", "" ) == "G\\", "no profile keeps the base" );
 #if defined(_WIN32) || defined(_WIN64)
