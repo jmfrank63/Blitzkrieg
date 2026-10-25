@@ -74,7 +74,12 @@ int main()
 		// One folder on a case-insensitive file system (Windows, a default macOS volume).
 		const std::vector<std::string> roots = NMods::Roots( szBase );
 		CHECK( roots.size() == 1 );
-		CHECK( fs::exists( NMods::Find( szBase, "achtungpanzer2" ) ) );
+		// Find answers an engine path (backslash separators); the host file system wants slashes.
+		std::string szFound = NMods::Find( szBase, "achtungpanzer2" );
+		for ( size_t i = 0; i < szFound.size(); ++i )
+			if ( szFound[i] == '\\' )
+				szFound[i] = '/';
+		CHECK( fs::exists( szFound ) );
 	}
 
 	// BK_MODS_ROOT is the one mods folder, whatever the game folder holds.
