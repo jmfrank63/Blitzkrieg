@@ -122,7 +122,7 @@ namespace NTextLayers
 		const NTextPrecedence::ESource eSource = NTextPrecedence::Resolve( szKey, base, mod, language, Memory(), pText );
 		if ( Traced() )
 		{
-			static const char *pszSources[] = { "storage", "language", "memory", "mod" };
+			static const char *pszSources[] = { "storage", "language", "memory", "mod", "reworded" };
 			fprintf( stderr, "BK_TEXT_TRACE: %s %s\n", pszSources[eSource], szKey.c_str() );
 		}
 		return eSource != NTextPrecedence::SOURCE_STORAGE;

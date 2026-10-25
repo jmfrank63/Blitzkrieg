@@ -2,7 +2,7 @@
 // loaded (Sources/src/Main/TextPrecedence.h). Each layer is a map of key to text; each case names
 // the source and the text Resolve must pick. The data imitates Achtung Panzer 2 under lang-ru: a
 // tree it ships under the base game's key and English, a menu caption it only lower-cased, a word
-// it reworded ("paused"), a caption it emptied, its own mission text, a bush under a key of its own
+// it reworded ("paused"), a caption it turned into another one ("Grand Campaign"), a caption it emptied, its own mission text, a bush under a key of its own
 // whose English the base game has, and one of its own vehicles the base game has no English for.
 //
 // Each mismatch prints one line; the test prints nothing when it passes.
@@ -53,6 +53,26 @@ int main()
 	Expect( NTextPrecedence::Normalize( u"\x00d7" ) == u"\x00d7", "the multiplication sign is not a letter" );
 	Expect( NTextPrecedence::Normalize( u"Exit Game" ) != NTextPrecedence::Normalize( u"Exit Blitzkrieg" ), "other words stay other words" );
 
+	// Similarity: 2 * LCS / (|a| + |b|) on the normalised texts, against values measured on AP2's keys.
+	const struct { const char16_t *a, *b; double expected; } similar[] = {
+		{ u"paused", u"Pause", 10.0 / 11.0 },
+		{ u"German Reich", u"Germany", 12.0 / 19.0 },
+		{ u"Grand Campaign", u"SWITCH MOD", 4.0 / 24.0 },
+		{ u"", u"", 1.0 },
+		{ u"abc", u"", 0.0 },
+	};
+	for ( const auto &one : similar )
+	{
+		const double measured = NTextPrecedence::Similarity( one.a, one.b );
+		if ( measured > one.expected + 1e-9 || measured < one.expected - 1e-9 )
+		{
+			std::printf( "text-precedence: similarity of \"%s\" and \"%s\" is %f, expected %f\n", Narrow( one.a ).c_str(), Narrow( one.b ).c_str(), measured, one.expected );
+			++failures;
+		}
+	}
+	Expect( NTextPrecedence::Similarity( u"German Reich", u"Germany" ) >= NTextPrecedence::kRewordedSimilarity, "German Reich is a rewording of Germany" );
+	Expect( NTextPrecedence::Similarity( u"zzz BK DEMO MAP (DO NOT RUN)\r\nNot One Step Back", u"Not One Step Back" ) < NTextPrecedence::kRewordedSimilarity, "a demo map's warning is not a rewording" );
+
 	const CLayer base = {
 		{ "objects\\flora\\birch01\\name.txt", u"Birch Tree" },
 		{ "objects\\flora\\bush01\\name.txt", u"Bush" },
@@ -67,6 +87,7 @@ int main()
 		{ "textes\\squad2.txt", u"Squad" },
 		{ "textes\\notranslation.txt", u"Hut" },
 		{ "textes\\pause.txt", u"Pause" },
+		{ "textes\\switch.txt", u"SWITCH MOD" },
 		{ "textes\\caption.txt", u"ESRB Notice:" },
 	};
 	const CLayer language = {
@@ -83,6 +104,7 @@ int main()
 		{ "textes\\squad2.txt", u"\x0412\x0437\x0432\x043e\x0434" },
 		{ "textes\\languageonly.txt", u"\x042f" },
 		{ "textes\\pause.txt", u"\x041f\x0430\x0443\x0437\x0430" },
+		{ "textes\\switch.txt", u"\x0421\x041c\x0415\x041d\x0410" },
 		{ "textes\\caption.txt", u"\x0412\x043d\x0438\x043c\x0430\x043d\x0438\x0435" },
 	};
 	const CLayer mod = {
@@ -96,6 +118,7 @@ int main()
 		{ "textes\\mod_squad.txt", u"Squad" },
 		{ "textes\\empty.txt", u"" },
 		{ "textes\\pause.txt", u"paused" },
+		{ "textes\\switch.txt", u"Grand Campaign" },
 		{ "textes\\caption.txt", u"\r\n" },
 		{ "scenarios\\wizna\\1.txt", u"Hold the bridgehead at Wizna" },
 	};
@@ -110,7 +133,8 @@ int main()
 		{ "objects\\flora\\birch01\\name.txt", NTextPrecedence::SOURCE_LANGUAGE, u"\x0411\x0435\x0440\x0451\x0437\x0430", "the mod's unchanged English shows the translation of its key" },
 		{ "textes\\mainmenu\\multiplayer.txt", NTextPrecedence::SOURCE_LANGUAGE, u"\x0421\x0415\x0422\x042c", "a caption the mod only lower-cased shows the translation" },
 		{ "textes\\credits.txt", NTextPrecedence::SOURCE_MOD, u"ACHTUNG PANZER 2 created by GordonCZ", "the mod's rewritten text stays its own" },
-		{ "textes\\pause.txt", NTextPrecedence::SOURCE_MOD, u"paused", "a word the mod reworded stays its own" },
+		{ "textes\\pause.txt", NTextPrecedence::SOURCE_REWORDED, u"\x041f\x0430\x0443\x0437\x0430", "a word the mod lightly reworded shows the translation of the key" },
+		{ "textes\\switch.txt", NTextPrecedence::SOURCE_MOD, u"Grand Campaign", "a caption the mod gave another meaning stays its own" },
 		{ "textes\\caption.txt", NTextPrecedence::SOURCE_MOD, u"\r\n", "a text the mod emptied stays empty" },
 		{ "scenarios\\wizna\\1.txt", NTextPrecedence::SOURCE_MOD, u"Hold the bridgehead at Wizna", "the mod's own text nothing translates stays its own" },
 		{ "textes\\exit.txt", NTextPrecedence::SOURCE_MEMORY, u"\x0412\x044b\x0445\x043e\x0434?", "a rewritten text the base game has under another key shows that translation" },

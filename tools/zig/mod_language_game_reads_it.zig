@@ -6,7 +6,8 @@
 //! - langcompat: the shipped main menu with its Multiplayer button's text key renamed to a key only
 //!   the mod has, and the texts NTextPrecedence picks between (Sources/src/Main/TextPrecedence.h):
 //!   Options as the base game's English byte for byte and Load Game in other case and spacing (the
-//!   language's translation of the key wins), Exit Game rewritten (the mod's own text stays), the
+//!   language's translation of the key wins), New Game lightly reworded ("New Games", the
+//!   translation of the key wins too), Exit Game rewritten (the mod's own text stays), the
 //!   new key's text the base game's English "Multiplayer" (the translation of that English wins). It
 //!   ships the menu's two smoke videos as empty .bik files, as Achtung Panzer 2 does to keep its
 //!   picture clear.
@@ -14,7 +15,7 @@
 //!
 //! The Game captures the main menu at 1024x768 with each (`-reference-scene`), and once without a
 //! mod. Each text's source is the Game's own BK_TEXT_TRACE line; the frames prove what is drawn:
-//! the Options, Load Game and Multiplayer buttons of langcompat are the control's to the pixel (the
+//! the New Game, Options, Load Game and Multiplayer buttons of langcompat are the control's to the pixel (the
 //! same Russian words), its Exit Game button is not (the mod's English). Neither mod plays a smoke
 //! video (the Game logs the skip and decodes no smoke frame), while the base game without a mod
 //! does, so its video windows differ from langcontrol's.
@@ -40,6 +41,7 @@ const language = "lang-ru";
 
 const Rect = struct { x1: usize, y1: usize, x2: usize, y2: usize };
 /// The main menu's buttons on the 1024x768 canvas (bk_font_game_reads_it.zig places them).
+const new_game_button = Rect{ .x1 = 650, .y1 = 267, .x2 = 970, .y2 = 317 };
 const multiplayer_button = Rect{ .x1 = 650, .y1 = 332, .x2 = 970, .y2 = 382 };
 const load_button = Rect{ .x1 = 650, .y1 = 397, .x2 = 970, .y2 = 447 };
 const options_button = Rect{ .x1 = 650, .y1 = 462, .x2 = 970, .y2 = 512 };
@@ -162,6 +164,7 @@ test "a gameplay mod's texts under a language mod: the language translates what 
     for ([_][]const u8{
         "BK_TEXT_TRACE: language textes\\strings\\imheader-gbutton-options.txt",
         "BK_TEXT_TRACE: language textes\\strings\\imheader-gbutton-loadgame.txt",
+        "BK_TEXT_TRACE: reworded textes\\strings\\imheader-gbutton-newgame.txt",
         "BK_TEXT_TRACE: mod textes\\strings\\imheader-gbutton-exitgame.txt",
         "BK_TEXT_TRACE: memory textes\\strings\\langcompat-multiplayer.txt",
     }) |line| try expectLine(modded.log, "mod", line);
@@ -184,6 +187,7 @@ test "a gameplay mod's texts under a language mod: the language translates what 
     for ([_]Check{
         .{ .name = "Options (the base game's English)", .rect = options_button, .same = true },
         .{ .name = "Load Game (other case and spacing)", .rect = load_button, .same = true },
+        .{ .name = "New Game (lightly reworded)", .rect = new_game_button, .same = true },
         .{ .name = "Multiplayer (a key of the mod's, English of the base game)", .rect = multiplayer_button, .same = true },
         .{ .name = "Exit Game (the mod's own text)", .rect = exit_button, .same = false },
     }) |check| {
@@ -241,6 +245,7 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, mods: []const u8, name: []
         try copyFile(io, allocator, "Data/Textes/strings/imheader-gbutton-options.txt", try std.fs.path.join(allocator, &.{ strings, "imheader-gbutton-options.txt" }));
         for ([_][2][]const u8{
             .{ "imheader-gbutton-loadgame.txt", "  load   GAME\r\n" },
+            .{ "imheader-gbutton-newgame.txt", "New Games" },
             .{ "imheader-gbutton-exitgame.txt", "Leave the test mod" },
             .{ "langcompat-multiplayer.txt", "Multiplayer" },
         }) |text| try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ strings, text[0] }), .data = try utf16(allocator, text[1]) });

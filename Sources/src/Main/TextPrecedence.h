@@ -13,10 +13,19 @@
 // - the mod's text is empty: the mod removed the text, it stays empty;
 // - the language's translation memory (the base game's English of every key the language
 //   translates) has the mod's text: that translation, the mod's own words translated;
-// - otherwise the mod's own text. The mod changed the key's English, and the translation of the
-//   base game's text may say something else: Achtung Panzer 2 turns the switch-mod message box into
-//   "Grand Campaign" / "To start the campaign of this mod, go to Custom Game", whose translation
-//   asked whether to change the mod. Its rewordings ("paused" for "Pause") stay English with it.
+// - the mod's text is a light rewording of the base game's English of the key (Similarity at least
+//   kRewordedSimilarity: "paused" for "Pause", "German Reich" for "Germany", "German officer
+//   (Walther P38)" for "German Officer - Walther P38 Sidearm"): the language's translation of the
+//   key, which names the same thing where the mod's English would leave a Russian game English;
+// - otherwise the mod's own text: the mod changed what the key says, and the translation of the
+//   base game's text would say something else. Achtung Panzer 2 turns the switch-mod message box
+//   into "Grand Campaign" (0.17 against "SWITCH MOD") / "To start the campaign of this mod, go to
+//   Custom Game" (0.30), marks demo maps "zzz BK DEMO MAP (DO NOT RUN)" (0.43 to 0.54) and writes its
+//   own credits and help page (0.30, 0.37).
+// The threshold is measured on Achtung Panzer 2's 109 shared keys whose English it changed: no
+// change of meaning scores above 0.54 (the Kursk demo map's warning), 18 rewordings score 0.6 or
+// more. Most of its infantry names (0.45 to 0.60: "German rifleman (Karabiner 98k)" 0.53) and
+// "Factory" for "Factory Warehouse" (0.58) fall between and stay English.
 // Normalising drops a byte order mark, folds every run of white space to one space, trims both
 // ends and folds the case of Latin and Cyrillic letters: the case is the mod's styling of a menu
 // ("multiplayer" for "MULTIPLAYER"), not other words.
@@ -31,6 +40,10 @@
 namespace NTextPrecedence
 {
 	std::u16string Normalize( const std::u16string &szText );
+	// How alike two texts are, 0 to 1: twice their longest common subsequence of code units over their
+	// summed lengths, on the normalised texts (two empty texts are alike).
+	double Similarity( const std::u16string &szA, const std::u16string &szB );
+	const double kRewordedSimilarity = 0.6;
 
 	// The base game's English and the language's translation of every key the language translates,
 	// indexed by the normalised English.
@@ -57,6 +70,7 @@ namespace NTextPrecedence
 		SOURCE_LANGUAGE,		// the mod's text is the base game's English: the language's text of the key
 		SOURCE_MEMORY,			// the language's translation of the mod's English, from any key
 		SOURCE_MOD,				// the mod's own text
+		SOURCE_REWORDED,		// the mod lightly reworded the key's English: the language's text of the key
 	};
 
 	ESource Resolve( const std::string &szKey, const FReader &base, const FReader &mod, const FReader &language,

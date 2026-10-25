@@ -36,6 +36,23 @@ namespace NTextPrecedence
 		return szResult;
 	}
 
+	double Similarity( const std::u16string &szA, const std::u16string &szB )
+	{
+		const std::u16string a = Normalize( szA ), b = Normalize( szB );
+		if ( a.empty() && b.empty() )
+			return 1.0;
+		// One row of the table at a time, over the shorter text.
+		const std::u16string &rShort = a.size() < b.size() ? a : b, &rLong = a.size() < b.size() ? b : a;
+		std::vector<int> row( rShort.size() + 1, 0 ), next( rShort.size() + 1, 0 );
+		for ( std::u16string::size_type i = 0; i < rLong.size(); ++i )
+		{
+			for ( std::u16string::size_type j = 0; j < rShort.size(); ++j )
+				next[j + 1] = rLong[i] == rShort[j] ? row[j] + 1 : ( row[j + 1] > next[j] ? row[j + 1] : next[j] );
+			row.swap( next );
+		}
+		return 2.0 * row[rShort.size()] / double( a.size() + b.size() );
+	}
+
 	void CMemory::Add( const std::string &szKey, const std::u16string &szEnglish, const std::u16string &szTranslation )
 	{
 		const std::u16string szNormal = Normalize( szEnglish );
@@ -89,13 +106,24 @@ namespace NTextPrecedence
 			return SOURCE_STORAGE;
 		const std::u16string szModNormal = Normalize( szMod );
 		std::u16string szBase, szLanguage;
-		if ( base( szKey, &szBase ) && Normalize( szBase ) == szModNormal && language( szKey, &szLanguage ) )
+		const bool bShared = base( szKey, &szBase ) && language( szKey, &szLanguage );
+		if ( bShared && Normalize( szBase ) == szModNormal )
 		{
 			*pText = szLanguage;
 			return SOURCE_LANGUAGE;
 		}
-		if ( !szModNormal.empty() && memory.Find( szMod, pText ) )
+		if ( szModNormal.empty() )
+		{
+			*pText = szMod;
+			return SOURCE_MOD;
+		}
+		if ( memory.Find( szMod, pText ) )
 			return SOURCE_MEMORY;
+		if ( bShared && Similarity( szMod, szBase ) >= kRewordedSimilarity )
+		{
+			*pText = szLanguage;
+			return SOURCE_REWORDED;
+		}
 		*pText = szMod;
 		return SOURCE_MOD;
 	}
