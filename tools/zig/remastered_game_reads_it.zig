@@ -188,11 +188,6 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
     const cwd = std.Io.Dir.cwd();
     const user = try std.fs.path.join(allocator, &.{ root, "user", user_name });
     try cwd.createDirPath(io, user);
-    // The Game finds defconf.cfg beside its working folder (iMainInternal.cpp
-    // ResolveConfigFileName), and without it the options have no actions.
-    const defconf = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ std.fs.path.dirname(game).?, "defconf.cfg" }), allocator, .limited(1 << 20));
-    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ user, "defconf.cfg" }), .data = defconf });
-
     const log_path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name });
     var environ = try testing.environ.createMap(allocator);
     try environ.put("HOME", user);
