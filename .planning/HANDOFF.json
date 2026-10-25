@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-10-25T15:19:14Z",
+  "phase": "M004",
+  "phase_name": "Building views (Remastered rotatable camera)",
+  "phase_dir": "docs/superpowers/specs/2026-10-25-building-views-design.md",
+  "plan": 1,
+  "task": 8,
+  "total_tasks": 8,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Spec amended: bk-views decompose in Zig, bk-sprite compose-pack in C++", "status": "done", "commit": "f952b8c93"},
+    {"id": 2, "name": "bk-views decompose and camera, unit tests, camera fixture, convention and l10n rows", "status": "done", "commit": "efd720b12"},
+    {"id": 3, "name": "bk-sprite compose-pack, bk-views-check (engine reader), bk-views-roundtrip tier", "status": "done", "commit": "64e362e66"},
+    {"id": 4, "name": "Spec records slice 1 results (.san layout, camera, byte-exact round trip)", "status": "done", "commit": "3c690880e"}
+  ],
+  "remaining_tasks": [
+    {"id": 5, "name": "Slice 2: e_ctownhouse01 end to end (shape, projection, patch-filled fourth side, render, compose, Game draws all four)", "status": "not_started"},
+    {"id": 6, "name": "Slice 3: Blitzkrieg 2 geometry converter and label maps", "status": "not_started"},
+    {"id": 7, "name": "Slice 4: generative fill (B1 LoRA, ComfyUI from Zig, style check)", "status": "not_started"},
+    {"id": 8, "name": "Slices 5-7: batch of 116 families, bridges/fences/objects, the camera in the Game", "status": "not_started"}
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {"action": "Park or close GSD milestone M004 (it is the slice 1 work, done outside GSD); `gsd headless park M004` hung and was killed", "context": "GSD still lists M004 active; gsd auto would re-plan slice 1", "blocking": false},
+    {"action": "Run tools/zig/run-resource-sweep.sh and push feat/building-views for CI (Linux, macOS)", "context": "Only win-home was tested; full sweep left to the maintainer", "blocking": false},
+    {"action": "Decide which stale D:\\bk-* worktrees and loose files to delete", "context": "Listed in the session: bk-base, bk-ci, bk-rmg, bk-goldens*, loose logs; bk-fixwin may still be in use", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Decompose is a new std-only Zig tool bk-views, not a bk-sprite subcommand", "rationale": "bk-sprite is C++; spec says all new code in Zig; later pipeline steps join bk-views", "phase": "M004"},
+    {"decision": "compose-pack wraps NCompose::ComposeSingleObjectPack/ComposeNoisePack", "rationale": "Building .san is SSpritesPack, not the animation format bk-sprite compose writes; reuse the Resource Editor's composer", "phase": "M004"},
+    {"decision": "Decompose canvas starts at -center (the 2003 picture's corner)", "rationale": "The pack's center is the zero cross in the source picture; anchoring there makes compose-pack reproduce the shipped .san byte for byte", "phase": "M004"},
+    {"decision": "Camera measured from 1.xml PicturePosition/WorldPosition pairs plus box-outline IoU", "rationale": "928 pairs fit exactly (rms 0.0002 px): MfcEditorCamera, orthographic, yaw 45, pitch -120", "phase": "M004"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Write docs/superpowers/plans/2026-10-25-building-views-02-first-building.md for slice 2 (e_ctownhouse01) and execute it",
+  "context_notes": "Work in worktree C:\\Users\\jmfrank\\.t3\\worktrees\\Blitzkrieg\\feat-building-views on branch feat/building-views (not pushed). User asked to plan and execute without questions, YAGNI, short code, no skipped features."
+}
