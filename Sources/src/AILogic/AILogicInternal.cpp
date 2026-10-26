@@ -983,13 +983,13 @@ void CAILogic::InitEditor( const STerrainInfo &terrainInfo )
 	
 	Resume();
 }
-void CAILogic::UpdateCheckSum( bool bSend )
+void CAILogic::AddUnitsToCheckSum( uLong *pCheckSum ) const
 {
 	using namespace NCheckSums;
-	
+
 	static SCheckSumBufferStorage	checkSumBuf( 10000 );
 	checkSumBuf.nCnt = 0;
-	
+
 	for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit *pUnit = *iter;
@@ -1004,14 +1004,32 @@ void CAILogic::UpdateCheckSum( bool bSend )
 		CopyToBuf( &checkSumBuf, fMorale );
 	}
 
-	checkSum = crc32( checkSum, &(checkSumBuf.buf[0]), checkSumBuf.nCnt );
-	
+	*pCheckSum = crc32( *pCheckSum, &(checkSumBuf.buf[0]), checkSumBuf.nCnt );
+}
+void CAILogic::UpdateCheckSum( bool bSend )
+{
+	AddUnitsToCheckSum( &checkSum );
+
 	GetSingleton<IConsoleBuffer>()->WriteASCII( 10, NStr::Format( "%ul", checkSum ), 0, true );
 
 	theShellsStore.UpdateCheckSum( &checkSum );
 
 	if ( bSend )
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_MULTIPLAYER_CHECK, NStr::Format( "%ul", checkSum ), 0, false );
+}
+// The multiplayer check (UpdateCheckSum) chains each CRC onto the one before;
+// this one starts from nothing, so two runs that differ at one second and
+// agree again later are not reported as different for the rest of the mission.
+unsigned int CAILogic::GetStateHash()
+{
+	uLong hash = crc32( 0L, Z_NULL, 0 );
+	AddUnitsToCheckSum( &hash );
+	theShellsStore.UpdateCheckSum( &hash );
+	return (unsigned int)hash;
+}
+int CAILogic::GetChosenDifficultyLevel() const
+{
+	return theDifficultyLevel.GetChosenLevel();
 }
 void CAILogic::Segment()
 {

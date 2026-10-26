@@ -2,6 +2,7 @@
 #define __COMMANDS_HISTORY_H__
 #pragma ONCE
 #include "CommandsHistoryInterface.h"
+#include "ReplayCore.h"
 
 #include "../zlib/zlib.h"
 interface IAILogicCommand;
@@ -43,11 +44,33 @@ class CCommandsHistory : public ICommandsHistory
 	};
 	std::vector<SMPPlayerInfo> players;
 
+	// The state hashes this run took, and those of the replay it plays back.
+	std::vector<NReplay::SStateHash> stateHashes;
+	std::vector<NReplay::SStateHash> loadedStateHashes;
+	NReplay::CStateHashCheck stateHashCheck;
+
+	// The recording's start: the random generator's state and the difficulty
+	// (0..2) when the mission started, written as StartRandomState and
+	// Difficulty; unknown for a history read from a save older than them.
+	unsigned int nStartRandomState;
+	int nStartDifficulty;
+	bool bStartStateKnown;
+	// The start of the replay being played, if it is a single-player one that
+	// has it, and the viewer's own difficulty to go back to afterwards (-1: none).
+	bool bLoadedStartState;
+	unsigned int nLoadedStartRandomState;
+	int nLoadedDifficulty;
+	int nViewerDifficulty;
+
 	std::string szModName;
 	std::string szModVersion;
 	void InvalidHistory( const char *pMessage );
+	void ApplyLoadedStartState();
+	void TakeStartState();
 public:
-	CCommandsHistory() : startMapCheckSum( 0 ), bLoadedFromCommandLine( false ), bLoadedHistory( false ), bStored( false ) { }
+	CCommandsHistory() : startMapCheckSum( 0 ), bLoadedFromCommandLine( false ), bLoadedHistory( false ), bStored( false ),
+		nStartRandomState( 0 ), nStartDifficulty( -1 ), bStartStateKnown( false ),
+		bLoadedStartState( false ), nLoadedStartRandomState( 0 ), nLoadedDifficulty( -1 ), nViewerDifficulty( -1 ) { }
 
 	virtual void STDCALL PrepareToStartMission();
 	virtual bool STDCALL LoadCommandLineHistory();
@@ -65,5 +88,7 @@ public:
 
 	virtual const char* STDCALL GetModName() const { return szModName.c_str(); }
 	virtual const char* STDCALL GetModVersion() const { return szModVersion.c_str(); }
+
+	virtual void STDCALL AddStateHash( const int nSegment, const unsigned int nHash );
 };
 #endif // __COMMANDS_HISTORY_H__

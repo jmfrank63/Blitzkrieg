@@ -141,8 +141,8 @@ with periodic CRC checks), so the AI was written for it. What holds and what doe
 | Fixed time step | Holds: the AI advances in 50 ms segments, independent of frame rate and game speed | `aiconsts.h:12`, `SinglePlayerTransceiver.cpp:56-67`; `AILogic` reads no clock (only `Updater.cpp:306`, for visual interpolation) |
 | AI threads | Holds: the AI runs on the main thread; no thread creation in `AILogic`, `Main`, `GameTT` | grep |
 | One random stream for the AI | Holds: `Random()` (`Sources/src/StreamIO/RandomGen.h:23-35`) is the global generator; visual randomness uses the separate `NWin32Random` (`Sources/src/Misc/Win32Random.h`) in `Scene` and `Common`, and `rand()` in a few visual spots (`Common/MOUnitMechanical.cpp:897`, `978`, `Common/MOUnitInfantry.cpp:244`) | grep |
-| Start seed | Broken for single player: entropy at launch (`686fe5b84`), not stored, zero on playback | above |
-| Random state across a load | Broken in the port: not saved | `legacy_bridge.cpp:1752-1776`, `iMainInternal.cpp:312-313` |
+| Start seed | Broken for single player: entropy at launch (`686fe5b84`), not stored, zero on playback. Fixed in slice 1: `StartRandomState` | above |
+| Random state across a load | Broken in the port: not saved. Fixed in slice 1: chunk 14 holds it again | `legacy_bridge.cpp:1752-1776`, `iMainInternal.cpp:312-313` |
 | Load transparency | Unproved: the replay plays the world through the save's moment without loading; the recording continued from a loaded world | - |
 | AI state changed outside the transceiver | Gaps: "Call HQ" runs a script function directly (`Sources/src/GameTT/WorldClientActions.cpp:873-877`), the difficulty is set by the options (`Sources/src/StreamIO/OptionSystemInternal.cpp:113-135`) and is not in the replay | grep |
 | Pointer-ordered containers in the AI | Risk: `std::set< CObj<CFormation> >` (`Sources/src/AILogic/Units.h:25`), pointer hashes (`AILogicInternal.h:44`, `RailroadGraph.h:197`, `Graveyard.h:64`). Iterating them follows heap addresses, which differ between a recorded run and its playback | grep |
@@ -366,6 +366,49 @@ may decide a version range is compatible when the determinism tiers say so.
 
 Each slice runs the tiers above on Linux, then on win-home and mac-office before a push; the full sweep
 is left to the maintainer.
+
+### Slice 1 as built (2026-10-26, Linux x64)
+
+Where the build differs from the text above, this wins:
+
+- **Where the start state is taken and set.** `CICMission::PostCreate` calls `LoadCommandLineHistory`,
+  which calls `PrepareToStartMission` itself; the second call right after it skips its block. So the
+  start state is taken in that first call. A replay from the list (`Load` before the mission) sets its
+  state in `PrepareToStartMission`; one from `-lh<file>` is read by `Load` *after* that call, so
+  `LoadCommandLineHistory` sets it right after `Load`, at the same point of the mission start. `Load`
+  itself still sets the zero seed, which a multiplayer replay and one without `StartRandomState` keep.
+- **`StartRandomState`** is eight hex digits (a string, so a missing key is told apart from a zero
+  state). `CCommandsHistory` reads the 32-bit state through `IRandomGen::Store`/`Restore`, which now
+  write and read it as four bytes on a stream (they were empty). Written for single player only.
+- **`Difficulty`** is the level the player chose (`CDifficultyLevel::GetChosenLevel`, without a script's
+  cheat level). Single-player playback sets it and gives the viewer's level back on `Clear` or at the
+  next mission that is not a playback.
+- **The state hash** is `IAILogic::GetStateHash`, the data of `UpdateCheckSum` (units and shells) but a
+  fresh CRC each call: `UpdateCheckSum` chains every CRC onto the one before, which would report every
+  second after one difference. The single-player transceiver takes it after every 20th segment and hands
+  it to `ICommandsHistory::AddStateHash`; multiplayer keeps its own check. Playback reports the first
+  difference once ("Replay out of sync at mm:ss", chat and debug log).
+- **`StateHashes`** in the `.rpl` is one string, `<segments since the previous>:<hash in hex>` separated
+  by spaces (`20:1a2b3c4d 20:0 ...`). A hash at or after the segment a save is loaded at is dropped
+  before the next one goes in (`NReplay::RecordStateHash`). The rules are `Sources/src/Main/ReplayCore.h`.
+- **The save.** Chunk 14 holds chunk 1, the state (`RandomGen::operator&`); an empty chunk 14 (an older
+  save) leaves the state as it is. The history's chunk 23 gained 11 (`stateHashes`), 12
+  (`loadedStateHashes`), 13-15 (start state, difficulty, and whether they are known: a history from an
+  older save writes no `StartRandomState`).
+- **Found on the way:** reading a replay that holds a group command crashed a debug build:
+  `CGroupCommand`, `CUnitCommand` and `CShowAreasCommand` left their members uninitialised and the data
+  tree reader loads the old value of a bool before it overwrites it (UBSan: "load of value 85, which is
+  not valid for type 'bool'"). The 2026-10-26 experiment gave no orders and never met it. They now start
+  zeroed.
+- **`-lh` is not the replay list.** `LoadCommandLineHistory` removes `History.Playing` after `Load`, so
+  a command-line playback does not ignore the viewer's orders (the list's playback does). The tier gives
+  none during playback.
+- **Measured** (`replay-game-reads-it`, the test map above plus an order: a squad sent from one house to
+  another): before slice 1 both playbacks matched 2 of the recording's 22 state hashes (the first
+  difference at segment 60) and reported themselves out of sync, and two loads of one save matched 0 of
+  10. After it: 22 of 22 in both playbacks, the 3 recorded commands played at their segments, no
+  out-of-sync report, and the two loads 9 of 9. Both loads also matched the run that wrote the save going
+  on (9 of 9): this small map is already load-transparent; slice 3 needs harder ones.
 
 ## Risks
 

@@ -1266,6 +1266,32 @@ test "a saved random generator state restores exactly" {
     try std.testing.expectEqual(@as(c_uint, 0x12345678) *% 1664525 +% 1013904223, bk_random_get());
 }
 
+/// What RandomGen::operator& (legacy_bridge.cpp) reads from a save's chunk 14:
+/// one chunk 1 of four bytes, the state, through the same calls in the same
+/// order; null when the chunk holds none.
+fn readSavedRandomState(save: []const u8) !?c_uint {
+    const stream = bk_stream_create_memory(save.ptr, @intCast(save.len)) orelse return error.NoStream;
+    defer bk_stream_destroy(stream);
+    const saver = bk_structure_create(stream, 1) orelse return error.NoSaver;
+    defer bk_structure_destroy(saver);
+    if (!bk_structure_start(saver, 14)) return error.NoChunk14;
+    defer bk_structure_finish(saver);
+    if (bk_structure_count(saver, 1) != 1) return null;
+    var state: c_uint = 0;
+    bk_structure_data(saver, 1, &state, @sizeOf(c_uint));
+    return state;
+}
+
+test "a save's chunk 14 holds the random generator state, and a save without it has none" {
+    // The file's main data (chunk 1) holding chunk 14 holding chunk 1: the
+    // state, little-endian, as ZigStructureWriter writes it.
+    const with_state = [_]u8{ 1, 16, 14, 12, 1, 8, 0x78, 0x56, 0x34, 0x12 };
+    try std.testing.expectEqual(@as(?c_uint, 0x12345678), try readSavedRandomState(&with_state));
+    // A save written before the generator had a serializer: chunk 14 is empty.
+    const without_state = [_]u8{ 1, 4, 14, 0 };
+    try std.testing.expectEqual(@as(?c_uint, null), try readSavedRandomState(&without_state));
+}
+
 pub export fn bk_storage_name(handle: ?*anyopaque) callconv(.c) ?[*:0]const u8 {
     const storage = fromHandle(Storage, handle) orelse return null;
     // The storage's own terminated base, valid while the storage lives. This used to return a
