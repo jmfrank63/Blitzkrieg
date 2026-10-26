@@ -479,3 +479,13 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.9: Local multiplayer: two players on one computer, two monitors, two keyboard and mouse sets (BACKLOG)
+
+**Goal:** The first multiplayer the port implements, before LAN and then WAN. Two Games run on one computer, one per monitor, and play against each other; each Game takes input only from its own keyboard and mouse set. Johannes, 2026-10-26, prompted by two Game instances running side by side in the test tiers, which the 2003 game could not do. Detect the second keyboard and mouse (SDL3 gives every keyboard and mouse event the id of its device: raw input on Windows, XInput2 on X11, seats on Wayland, IOHID on macOS) and let the players claim a set each, for example by pressing a key and clicking on their monitor. Open questions: one process driving two windows, or two processes where one owns the devices and forwards each set's events to the other (an unfocused window gets no keyboard input from the system); how the two Games talk (the existing multiplayer transport over loopback, so LAN and WAN reuse it); how the cursor of each player is drawn and confined to its monitor; sound for two players. Order: local two-monitor, then LAN, then WAN. Captured 2026-10-26.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
