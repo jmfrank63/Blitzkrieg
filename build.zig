@@ -4105,6 +4105,7 @@ pub fn build(b: *std.Build) void {
     const ap2_options = b.addOptions();
     ap2_options.addOption([]const u8, "mod", b.option([]const u8, "ap2-mod", "ap2-save-game-reads-it, ap2-menu-game-reads-it: the Achtung Panzer 2 mod's folder (holding data/)") orelse "");
     ap2_options.addOption([]const u8, "save", b.option([]const u8, "ap2-save", "ap2-save-game-reads-it: a .sav written with the Achtung Panzer 2 mod") orelse "");
+    ap2_options.addOption([]const u8, "langs", b.option([]const u8, "ap2-langs", "ap2-menu-game-reads-it: comma separated language codes to measure (Localization/game codes); default all nine") orelse "");
     const ap2_save_game_reads_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/ap2_save_game_reads_it.zig"),
         .target = target,
@@ -4123,8 +4124,9 @@ pub fn build(b: *std.Build) void {
     const ap2_save_game_reads_step = b.step("ap2-save-game-reads-it", "Load an Achtung Panzer 2 save (-Dap2-mod, -Dap2-save; skipped without them) under lang-ru on the real Game and prove it stays Russian on bk_text and leaks nothing at exit");
     ap2_save_game_reads_step.dependOn(&ap2_save_game_reads_tests.step);
     if (test_mode == .run) ap2_save_game_reads_step.dependOn(&ap2_save_game_reads_run.step);
-    // The same mod's Load Game menu under lang-ru (-Dap2-mod; skipped without it): each caption a
-    // whole line inside its control, drawn by the sans stand-in for the mod's fonts
+    // The same mod's main menu and the sub-menus it reaches without a mission, in the nine languages
+    // (-Dap2-mod; skipped without it): each caption a whole line inside its control at full size, a
+    // title that says something else than its buttons, the sans stand-in for the mod's fonts
     // (tools/zig/ap2_menu_game_reads_it.zig).
     const ap2_menu_game_reads_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/ap2_menu_game_reads_it.zig"),
@@ -4141,9 +4143,30 @@ pub fn build(b: *std.Build) void {
     ap2_menu_game_reads_run.setEnvironmentVariable("BK_AP2_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
     ap2_menu_game_reads_run.has_side_effects = true;
     ap2_menu_game_reads_run.step.dependOn(&language_mods_run.step);
-    const ap2_menu_game_reads_step = b.step("ap2-menu-game-reads-it", "Open the Achtung Panzer 2 mod's Load Game menu (-Dap2-mod; skipped without it) under lang-ru on the real Game, capture it and measure that each caption's ink is one whole line inside its control and the stand-in face is sans");
+    const ap2_menu_game_reads_step = b.step("ap2-menu-game-reads-it", "Open the Achtung Panzer 2 mod's main menu and its Load Game, Options, New Game and Custom Game menus (-Dap2-mod; skipped without it, -Dap2-langs to pick languages) in the nine languages on the real Game, capture them and measure that each caption's ink is one whole line inside its control at full size, each title differs from its buttons, the stand-in face is sans and the settings screen's player name tooltip is drawn inside its frame with no missing glyph");
     ap2_menu_game_reads_step.dependOn(&ap2_menu_game_reads_tests.step);
     if (test_mode == .run) ap2_menu_game_reads_step.dependOn(&ap2_menu_game_reads_run.step);
+    // The settings screen's "Settings of <profile>" caption in English and under lang-ru, in the base
+    // game's style and (-Dap2-mod) the Achtung Panzer 2 one: where its layout puts it, measured on the
+    // captured frame (tools/zig/settings_caption_game_reads_it.zig).
+    const settings_caption_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/settings_caption_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    settings_caption_module.addOptions("ap2_options", ap2_options);
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, settings_caption_module, toolchain);
+    }
+    const settings_caption_tests = b.addTest(.{ .root_module = settings_caption_module });
+    const settings_caption_run = b.addRunArtifact(settings_caption_tests);
+    settings_caption_run.setCwd(b.path("."));
+    settings_caption_run.setEnvironmentVariable("BK_SETTINGS_CAPTION_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    settings_caption_run.has_side_effects = true;
+    settings_caption_run.step.dependOn(&language_mods_run.step);
+    const settings_caption_step = b.step("settings-caption-game-reads-it", "Open the settings screen for a profile named Johannes in English and under lang-ru on the real Game, in the base game's style and with -Dap2-mod the Achtung Panzer 2 one, capture it and measure that the caption's ink starts (base, left aligned) or is centred (the mod's style) within 2 pixels of where its layout puts it");
+    settings_caption_step.dependOn(&settings_caption_tests.step);
+    if (test_mode == .run) settings_caption_step.dependOn(&settings_caption_run.step);
     // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
     // install-game's). The editor installs are added as its dependencies at the end of build().
     const verify_install_l10n_module = b.createModule(.{

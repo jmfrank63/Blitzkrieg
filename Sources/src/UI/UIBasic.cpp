@@ -802,15 +802,6 @@ void CSimpleWindow::VisitBackground( ISceneVisitor *pVisitor )
 	}
 	pVisitor->VisitUIRects( currentSubState.pTexture, 3, pRects, nSize );
 }
-// The box the window's text is laid out in, for IGFXText::FitToBox: the text's width and the
-// window's height below the text's offset (a text centred vertically is shifted by it, not cut).
-void CSimpleWindow::FitTextToBox( IGFXText *pText, const CTRect<float> &textRC )
-{
-	float fHeight = wndRect.Height();
-	if ( ( nTextAlign & 0xf0 ) != UIPLACE_VMID )
-		fHeight -= vTextPos.y;
-	pText->FitToBox( int( textRC.Width() ), int( fHeight ) );
-}
 void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 {
 	IGFXText *pTempGFXText = states[nCurrentState].pGfxText;
@@ -839,7 +830,6 @@ void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 			flag = FNT_FORMAT_CENTER;
 			break;
 	}
-	FitTextToBox( pTempGFXText, textRC );
 	if ( bBounded )
 		nY = wndRect.y1 - rcBound.y1;
 	switch ( nTextAlign & 0xf0 )
@@ -989,7 +979,6 @@ void CSimpleWindow::DrawText( IGFX *pGFX )
 		flag = FNT_FORMAT_CENTER;
 		break;
 	}
-	FitTextToBox( pTempGFXText, textRC );
 	
 	if ( bBounded )
 		nY = wndRect.y1 - rcBound.y1;

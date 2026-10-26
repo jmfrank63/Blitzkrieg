@@ -113,12 +113,6 @@ public:
     // BK_TEXT_ENGINE=ttf (M004): the font is a bk_text font and draws from the glyph atlas, not
     // from a bitmap texture. format_ then holds only synthetic metrics.
     bool IsTtf() const { return bk_font_ != nullptr; }
-    // A bk_text font drawing in place of a mod's own bitmap font, which lacks the language's
-    // letters. The mod's layouts were made for its font, so TextGpu fits a caption drawn in this
-    // font to its box (TextGpu::FitToBox).
-    bool IsStandIn() const { return bk_font_ != nullptr && stand_in_; }
-    // The cell height in pixels the bk_text font was opened at (0 for a bitmap font).
-    float TtfCellHeight() const { return bk_font_ != nullptr ? ttf_pixel_size_ : 0.0f; }
     BkTextFont *TtfFont() const { return bk_font_; }
     // Closes the bk_text font if its context is still the one it was opened in.
     void CloseTtf();
@@ -166,17 +160,14 @@ private:
     // The pixel size bk_font_ was opened at: the size class's, or a mod font's cell height. A scaled
     // font is opened at this times the scale, so a scaled label is drawn as large as it is measured.
     float ttf_pixel_size_ = 0;
-    // The face bk_font_ and its scaled fonts lead with (OpenTtf's sans), and whether it stands in
-    // for a mod's font (IsStandIn).
+    // The face bk_font_ and its scaled fonts lead with (OpenTtf's sans).
     bool ttf_sans_ = false;
-    bool stand_in_ = false;
     unsigned bk_serial_ = 0;
     // Text drawn at a scale (a layout scaled to the window, the tooltip) is shaped and rasterised by a
     // bk_text font opened at the scaled pixel size and placed 1:1, so it stays sharp instead of being
     // the base size stretched. One font per quarter pixel of size, at most kScaledFontLimit of them; a
-    // size beyond the limit (an animated scale) stretches the base glyphs as before. A stand-in's
-    // captions fitted to their boxes take a size each (whole pixels of the cell), hence 16.
-    static const size_t kScaledFontLimit = 16;
+    // size beyond the limit (an animated scale) stretches the base glyphs as before.
+    static const size_t kScaledFontLimit = 8;
     mutable std::vector<std::pair<int, BkTextFont *>> scaled_fonts_;
     // The font that draws at `scale` (the base font at 1) and the factor its glyph metrics still need.
     BkTextFont *TtfFontAt( float scale, float *factor ) const;
