@@ -212,7 +212,7 @@ was not exercised; the replay list UI was not driven either. The scripts are scr
    save is written: `{ index, segment, state hash, real-time timestamp }`. The marker is in the save
    (it is part of the history) and in the replay.
 5. A regular save (escape menu > Save, or an autosave) is allowed and is a marker too, but such a save
-   cannot be loaded until the mission ends (rule 8). Ironman (`Options.MissionSave.Disabled`) keeps
+   cannot be loaded until the mission ends (rule 8; decision 3). Ironman (`Options.MissionSave.Disabled`) keeps
    refusing manual saves.
 
 ### Quickload: rewinding the recording
@@ -256,10 +256,11 @@ was not exercised; the replay list UI was not driven either. The scripts are scr
 10. Recording stops when the mission ends: won, lost, aborted (escape menu > End mission / Exit to main
     menu / Exit to Windows), restarted (a restart is a new mission start and a new recording), or the
     game quits. The replay is then written automatically to
-    `<profile>/[mods/<mod>/]replays/auto/<chapter>-<mission>-<yyyymmdd-hhmmss>.rpl`, keeping the newest
-    20 (`Replays.KeepAuto`, an option). The statistics screen shows "Save Replay" for single-player
-    missions too (`Stats.cpp:489`), which copies the automatic replay under a name of the player's choice
-    into `replays/`. The lose screen's "Return to game" and a quickload from it continue the recording.
+    `<profile>/[mods/<mod>/]replays/auto/<chapter>-<mission>.rpl`: one replay per mission, the latest
+    attempt, overwriting the one before (decision 2). There are no manual replay saves: the statistics
+    screen's "Save Replay" (`Stats.cpp:489`) goes, in single player and multiplayer alike, and a
+    multiplayer game is saved the same automatic way. The lose screen's "Return to game" and a quickload
+    from it continue the recording.
 11. After the mission ends, loading is allowed again.
 
 ### Multiplayer
@@ -306,7 +307,8 @@ keys, all optional for a reader of an older file:
 | `DurationSegments`, `Outcome` | for the list and the playback time line |
 
 The replay is language-independent: it stores commands, ids and hashes, no text. A replay plays only on
-the same `GameVersion` and `Platform` until cross-platform determinism is proved (slice 7); a later build
+the same `GameVersion` and `Platform` until cross-platform determinism is proved (slice 7, decision 5:
+replays must play on every platform); a later build
 may decide a version range is compatible when the determinism tiers say so.
 
 ## Verification
@@ -343,16 +345,24 @@ may decide a version range is compatible when the determinism tiers say so.
 4. Quicksave markers, quickload rewind, other loads refused, the two texts in ten languages. Verify:
    `zig build replay-game-reads-it`, `zig build language-mods`, `zig build l10n-game-reads-it`,
    `zig build test-mods-paths`.
-5. Ending: automatic save, the ring, Save Replay in single player, the new header keys, the list's
-   version check. Verify: `zig build test-replay-core`, `zig build replay-game-reads-it`.
+5. Ending: the automatic save, one per mission overwriting the last, Save Replay removed, the new
+   header keys, the list's version check. Verify: `zig build test-replay-core`, `zig build replay-game-reads-it`.
 6. Playback UI: speed, pause, fast forward, time line, markers, out-of-sync report; its texts in ten
    languages. Verify: `zig build replay-game-reads-it`, `zig build language-mods`,
    `zig build l10n-game-reads-it`, frames captured and measured by code.
-7. Cross-platform determinism (optional, its own milestone): `-ffp-contract=off` for the engine,
-   deterministic `sin`/`cos`/`atan2`/`exp` for the AI (one implementation in Zig, exported over the C
-   ABI), `unordered_map` iteration and `std::sort` ties made order-independent where the AI depends on
-   them, then the cross-platform job made gating. Verify: `zig build replay-game-reads-it` on all three
-   platforms with a replay recorded on Linux.
+7. Cross-platform determinism (required, decision 5; its own milestone): `-ffp-contract=off` for the
+   engine; every floating-point function the AI and the simulation call (`sin`, `cos`, `atan2`, `exp`,
+   `sqrt`, `pow`, `fmod` and whatever the audit finds) comes from one deterministic implementation in
+   Zig, exported over the C ABI, bit-identical on x64 and arm64 and proved so by a test that compares
+   result tables across the three platforms; `unordered_map` iteration and `std::sort` ties made
+   order-independent where the AI depends on them; then the cross-platform job made gating. Verify:
+   `zig build test-det-math` on all three platforms, `zig build replay-game-reads-it` on all three
+   with a replay recorded on each of the others.
+8. The 2003 replays (decision 4): a Zig tool `bk-replay convert` reads the original game's `.rpl` files
+   and writes the new format, keeping the commands, map and mission; a replay recorded by the 32-bit
+   2003 game is marked incompatible in its header (it cannot play identically: x87 versus SSE), and the
+   replay list shows it marked so and does not play it. Verify: `zig build test-replay-convert` on
+   replays from the Steam install on win-home copied to `tools/zig/fixtures/`.
 
 Each slice runs the tiers above on Linux, then on win-home and mac-office before a push; the full sweep
 is left to the maintainer.
@@ -372,13 +382,13 @@ is left to the maintainer.
 - File size: a typical mission has a few thousand commands and 3,600 hashes an hour; as XML that is
   some hundred KB, compressible.
 
-## Open questions
+## Decisions (Johannes, 2026-10-26)
 
-1. If a world cannot be made load-transparent, should the replay embed the quicksave it was rewound to
-   (a save is several MB) and load it at the marker on playback? That also makes "jump to marker" instant.
-2. Keep 20 automatic replays, or one per mission (the latest attempt), or none until the player asks?
-3. Should a regular save during recording be allowed at all, given it cannot be loaded until the
-   mission ends (rule 5)? It is useful as a checkpoint for later.
-4. Should the 2003 game's own replays (Steam install on win-home) be listed at all? They cannot play
-   identically (x87 versus SSE); today they are refused only when checksums differ.
-5. Cross-platform replays (slice 7): worth a milestone, or same-platform replays only?
+1. Load transparency first: the random state goes back into saves so a loaded world continues exactly
+   like the run that wrote it; the replay stores no quicksaves.
+2. One automatic replay per mission, the latest attempt; no manual replay saves.
+3. Regular saves during a recording are allowed; loading them is not, until the mission ends.
+4. The 2003 game's replays get a conversion tool; those recorded by the 32-bit game are marked
+   incompatible.
+5. Replays are cross-platform: the simulation's floating-point maths comes from one deterministic Zig
+   implementation shared by Linux, macOS and Windows (slice 7 is required).
