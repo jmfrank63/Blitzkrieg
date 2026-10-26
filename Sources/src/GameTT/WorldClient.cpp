@@ -743,14 +743,12 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 			CMapObjectsList selList = selunits.GetObjects();
 			if ( selList.size() != 0 )
 			{
-				std::string szCmd = "ReturnScriptIDs( ";
-
+				// The answer changes what the script does next, so it is recorded:
+				// the transceiver sends ReturnScriptIDs the selection as unique IDs.
+				std::vector<IRefCount*> objects;
 				for ( CMapObjectsList::const_iterator it = selList.begin(); it != selList.end(); ++it )
-					szCmd += NStr::Format( "%llu,", static_cast<unsigned long long>( reinterpret_cast<uintptr_t>( (*it)->pAIObj.GetPtr() ) ) );
-				szCmd.resize( szCmd.size() - 1 );
-				szCmd += " )";
-
-				GetSingleton<IAILogic>()->CallScriptFunction( szCmd.c_str() );
+					objects.push_back( (*it)->pAIObj.GetPtr() );
+				pTransceiver->CommandScriptCall( SCRIPT_CALL_OBJECTS, "ReturnScriptIDs", &(objects[0]), objects.size() );
 			}
 		}
 		else if ( szParts[0].compare( "TraceSelection" ) == 0 )
@@ -1726,7 +1724,7 @@ bool CWorldClient::ProcessMessage( const SGameMessage &msg )
 		case USER_ACTION_CHOOSE_PLANE:
 			if ( !bAviationLocked )
 			{
-				vAviationAppear = pAILogic->LockAvitaionAppearPoint();
+				pTransceiver->CommandLockAviationAppearPoint( &vAviationAppear );
 				bAviationLocked = true;
 				bAADetectedFlag = false;
 			}

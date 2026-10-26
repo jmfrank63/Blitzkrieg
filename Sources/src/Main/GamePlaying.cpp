@@ -171,6 +171,22 @@ void CGamePlaying::ProcessPacket( const int nClientID, IDataStream *pPkt )
 					}
 
 					break;
+				case NGM_ID_COMMAND_SCRIPT_CALL:
+					if ( bStartGameReceived )
+					{
+						pAICmd = new CScriptCallCommand();
+						commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_AI_COMMAND, nPlayer, -1, pAICmd ) );
+					}
+
+					break;
+				case NGM_ID_COMMAND_CLIENT_ACTION:
+					if ( bStartGameReceived )
+					{
+						pAICmd = new CClientActionCommand();
+						commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_AI_COMMAND, nPlayer, -1, pAICmd ) );
+					}
+
+					break;
 				case NGM_PAUSE:
 					if ( bStartGameReceived )
 						commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_PAUSE, nPlayer, -1, 0 ) );

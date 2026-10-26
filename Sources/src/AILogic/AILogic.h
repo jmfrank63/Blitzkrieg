@@ -202,5 +202,9 @@ interface IAILogic : public IRefCount
 	// The difficulty the player chose (0 easy .. 2 hard), without a script's
 	// cheat level, which the mission's own script sets again on playback.
 	virtual int STDCALL GetChosenDifficultyLevel() const = 0;
+	// A console script line ('@' in the console), with the cheat gate the AI
+	// applies to it: the single-player transceiver reads the console itself and
+	// sends each line here as a recorded command (CScriptCallCommand).
+	virtual void STDCALL CallConsoleScriptFunction( const char *pszCommand ) = 0;
 };
 #endif // __AI_LOGIC_H__

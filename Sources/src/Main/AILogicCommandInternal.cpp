@@ -420,3 +420,159 @@ int CDropPlayerCommand::operator&( IStructureSaver &ss )
 
 	return 0;
 }
+CScriptCallCommand::CScriptCallCommand( const int _nKind, const char *pszCall, IRefCount **pObjects, const int nLen, IAILogic *pAILogic )
+: nKind( _nKind ), szCall( pszCall != 0 ? pszCall : "" )
+{
+	if ( nLen <= 0 || pObjects == 0 )
+		return;
+	// SubstituteUniqueIDs leaves each ID in a pointer-sized slot (CRegisterGroupCommand).
+	std::vector<IRefCount*> buffer( pObjects, pObjects + nLen );
+	pAILogic->SubstituteUniqueIDs( &(buffer[0]), nLen );
+	objectIDs.reserve( nLen );
+	for ( int i = 0; i < nLen; ++i )
+		objectIDs.push_back( static_cast<int>( reinterpret_cast<intptr_t>( buffer[i] ) ) );
+}
+void CScriptCallCommand::Execute( IAILogic *pAILogic )
+{
+	if ( nKind == OBJECTS )
+	{
+		// The call the client made before the port recorded it: the objects as
+		// the script reads them, pointer values (CScripts::ReturnScriptIDs).
+		std::string szCommand = szCall + "( ";
+		int nKnown = 0;
+		int nUnknown = 0;
+		for ( std::vector<int>::const_iterator it = objectIDs.begin(); it != objectIDs.end(); ++it )
+		{
+			IRefCount *pObj = *it > 0 ? pAILogic->GetObjByUniqueID( *it ) : 0;
+			if ( pObj == 0 )
+			{
+				++nUnknown;
+				continue;
+			}
+			szCommand += NStr::Format( "%s%llu", nKnown == 0 ? "" : ",", static_cast<unsigned long long>( reinterpret_cast<uintptr_t>( pObj ) ) );
+			++nKnown;
+		}
+		szCommand += " )";
+		if ( getenv( "BK_REPLAY_TRACE" ) != 0 )
+			fprintf( stderr, "BK_REPLAY_TRACE: script call %s of %d objects, %d unknown\n", szCall.c_str(), int( objectIDs.size() ), nUnknown );
+		if ( nKnown > 0 )
+			pAILogic->CallScriptFunction( szCommand.c_str() );
+	}
+	else
+	{
+		if ( getenv( "BK_REPLAY_TRACE" ) != 0 )
+			fprintf( stderr, "BK_REPLAY_TRACE: script call %s%s\n", nKind == CONSOLE ? "console " : "", szCall.c_str() );
+		if ( nKind == CONSOLE )
+			pAILogic->CallConsoleScriptFunction( szCall.c_str() );
+		else
+			pAILogic->CallScriptFunction( szCall.c_str() );
+	}
+}
+int CScriptCallCommand::operator&( IStructureSaver &ss )
+{
+	CSaverAccessor saver = &ss;
+
+	saver.Add( 1, &nKind );
+	saver.Add( 2, &szCall );
+	saver.Add( 3, &objectIDs );
+
+	return 0;
+}
+int CScriptCallCommand::operator&( IDataTree &ss )
+{
+	CTreeAccessor saver = &ss;
+
+	std::string name = "ScriptCall";
+
+	saver.Add( "Name", &name );
+	saver.Add( "Kind", &nKind );
+	saver.Add( "Call", &szCall );
+	saver.Add( "Objects", &objectIDs );
+
+	return 0;
+}
+void CScriptCallCommand::Store( IDataStream *pPacket )
+{
+	CStreamAccessor packet = pPacket;
+
+	const BYTE commandID = CScriptCallCommand::tidTypeID;
+	packet << commandID << nKind;
+	const int nLength = szCall.size();
+	packet << nLength;
+	if ( nLength > 0 )
+		pPacket->Write( szCall.data(), nLength );
+	const int nNumObjects = objectIDs.size();
+	packet << nNumObjects;
+	if ( nNumObjects > 0 )
+		pPacket->Write( &(objectIDs[0]), nNumObjects * sizeof(objectIDs[0]) );
+}
+void CScriptCallCommand::Restore( IDataStream *pPacket )
+{
+	CStreamAccessor packet = pPacket;
+
+	// A packet is another machine's: lengths beyond any call a client makes are refused.
+	int nLength = 0;
+	packet >> nKind >> nLength;
+	szCall.clear();
+	if ( nLength > 0 && nLength <= 65536 )
+	{
+		szCall.resize( nLength );
+		pPacket->Read( &(szCall[0]), nLength );
+	}
+	int nNumObjects = 0;
+	packet >> nNumObjects;
+	objectIDs.clear();
+	if ( nNumObjects > 0 && nNumObjects <= 65536 )
+	{
+		objectIDs.resize( nNumObjects );
+		pPacket->Read( &(objectIDs[0]), nNumObjects * sizeof(objectIDs[0]) );
+	}
+}
+void CClientActionCommand::Execute( IAILogic *pAILogic )
+{
+	if ( getenv( "BK_REPLAY_TRACE" ) != 0 )
+		fprintf( stderr, "BK_REPLAY_TRACE: client action %d\n", nAction );
+	switch ( nAction )
+	{
+		case LOCK_AVIATION_APPEAR_POINT:
+			pAILogic->LockAvitaionAppearPoint();
+			break;
+		case UNLOCK_AVIATION_APPEAR_POINT:
+			pAILogic->UnlockAviationAppearPoint();
+			break;
+		case TOGGLE_WAR_FOG:
+			pAILogic->ToggleShow( 0 );
+			break;
+	}
+}
+int CClientActionCommand::operator&( IStructureSaver &ss )
+{
+	CSaverAccessor saver = &ss;
+
+	saver.Add( 1, &nAction );
+
+	return 0;
+}
+int CClientActionCommand::operator&( IDataTree &ss )
+{
+	CTreeAccessor saver = &ss;
+
+	std::string name = "ClientAction";
+
+	saver.Add( "Name", &name );
+	saver.Add( "Action", &nAction );
+
+	return 0;
+}
+void CClientActionCommand::Store( IDataStream *pPacket )
+{
+	CStreamAccessor packet = pPacket;
+
+	const BYTE commandID = CClientActionCommand::tidTypeID;
+	packet << commandID << nAction;
+}
+void CClientActionCommand::Restore( IDataStream *pPacket )
+{
+	CStreamAccessor packet = pPacket;
+	packet >> nAction;
+}

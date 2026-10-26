@@ -3,6 +3,7 @@
 #pragma ONCE
 #include "AILogicCommand.h"
 #include "NetMessages.h"
+#include "Transceiver.h"
 #include "../Common/Actions.h"
 #include "../zlib/zconf.h"
 class CRegisterGroupCommand : public IAILogicCommand
@@ -147,6 +148,64 @@ public:
 	explicit CDropPlayerCommand( const int _nPlayerToDrop ) : nPlayerToDrop( _nPlayerToDrop ) { }
 
 	virtual void Execute( interface IAILogic *pAILogic );
+	virtual void Store( IDataStream *pStream );
+	virtual void Restore( IDataStream *pStream );
+	virtual bool NeedToBeStored() const { return true; }
+
+	virtual int STDCALL operator&( IDataTree &ss );
+};
+// A call into the mission script that the player's input makes: Call HQ, the
+// answer to a script's AskClient("GetSelectedUnits()"), a console script line.
+// It goes through the transceiver like an order, so a replay holds it and plays
+// it at its segment. The answer's objects travel as unique IDs and become
+// pointers again when it runs.
+class CScriptCallCommand : public IAILogicCommand
+{
+public:
+	enum { tidTypeID = NGM_ID_COMMAND_SCRIPT_CALL };
+	enum EKind
+	{
+		CALL		= SCRIPT_CALL,					// szCall is the whole call, e.g. "CallHQ()"
+		OBJECTS	= SCRIPT_CALL_OBJECTS,	// szCall is a function's name, objectIDs its arguments
+		CONSOLE	= SCRIPT_CALL_CONSOLE,	// a console line, under the AI's cheat gate
+	};
+private:
+	OBJECT_COMPLETE_METHODS( CScriptCallCommand );
+	DECLARE_SERIALIZE;
+	int nKind;
+	std::string szCall;
+	std::vector<int> objectIDs;
+public:
+	CScriptCallCommand() : nKind( CALL ) { }
+	CScriptCallCommand( const int nKind, const char *pszCall, IRefCount **pObjects, const int nLen, IAILogic *pAILogic );
+	virtual void Execute( IAILogic *pAILogic );
+	virtual void Store( IDataStream *pStream );
+	virtual void Restore( IDataStream *pStream );
+	virtual bool NeedToBeStored() const { return true; }
+
+	virtual int STDCALL operator&( IDataTree &ss );
+};
+// What the client changes in the AI besides orders and script calls: the lock
+// of the player's aviation appear point while planes are picked (where they
+// come from) and the war fog cheat (what every side sees).
+class CClientActionCommand : public IAILogicCommand
+{
+public:
+	enum { tidTypeID = NGM_ID_COMMAND_CLIENT_ACTION };
+	enum EAction
+	{
+		LOCK_AVIATION_APPEAR_POINT		= 0,
+		UNLOCK_AVIATION_APPEAR_POINT	= 1,
+		TOGGLE_WAR_FOG								= 2,
+	};
+private:
+	OBJECT_COMPLETE_METHODS( CClientActionCommand );
+	DECLARE_SERIALIZE;
+	int nAction;
+public:
+	CClientActionCommand() : nAction( LOCK_AVIATION_APPEAR_POINT ) { }
+	explicit CClientActionCommand( const int _nAction ) : nAction( _nAction ) { }
+	virtual void Execute( IAILogic *pAILogic );
 	virtual void Store( IDataStream *pStream );
 	virtual void Restore( IDataStream *pStream );
 	virtual bool NeedToBeStored() const { return true; }

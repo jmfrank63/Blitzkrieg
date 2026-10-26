@@ -3063,9 +3063,32 @@ pub fn build(b: *std.Build) void {
     replay_game_run.setEnvironmentVariable("BK_REPLAY_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
     replay_game_run.has_side_effects = true;
     replay_game_run.step.dependOn(install_game_step);
-    const replay_game_step = b.step("replay-game-reads-it", "Record a mission where two sides fight with an order on the real Game, play the replay back twice and prove every state hash equals the recording's; then load a save written mid-mission in two fresh processes and prove they go on with identical hashes");
+    const replay_game_step = b.step("replay-game-reads-it", "Record a mission where two sides fight with an order and Call HQ on the real Game, play the replay back twice and prove every state hash and script call equals the recording's; then load a save written mid-mission in two fresh processes and prove they go on with identical hashes");
     replay_game_step.dependOn(&replay_game_tests.step);
     if (test_mode == .run) replay_game_step.dependOn(&replay_game_run.step);
+
+    // The replay input audit's trap on the real Game (tools/zig/replay_rng_audit.zig):
+    // a mission with orders, Call HQ and a save, recorded and played back by a
+    // debug Game with BK_RNG_AUDIT=1, must draw from the AI's random generator
+    // only inside the simulation. Desktop and GPU, so not part of `test`; the
+    // trap is compiled into debug builds only, so run it without --release.
+    const replay_rng_audit_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/replay_rng_audit.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, replay_rng_audit_module, toolchain);
+    }
+    const replay_rng_audit_tests = b.addTest(.{ .root_module = replay_rng_audit_module });
+    const replay_rng_audit_run = b.addRunArtifact(replay_rng_audit_tests);
+    replay_rng_audit_run.setCwd(b.path("."));
+    replay_rng_audit_run.setEnvironmentVariable("BK_REPLAY_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    replay_rng_audit_run.has_side_effects = true;
+    replay_rng_audit_run.step.dependOn(install_game_step);
+    const replay_rng_audit_step = b.step("replay-rng-audit", "Play a mission with orders, Call HQ and a save on the real debug Game, record it and play it back, and prove that neither run draws from the AI's random generator outside the simulation (BK_RNG_AUDIT names any caller that does)");
+    replay_rng_audit_step.dependOn(&replay_rng_audit_tests.step);
+    if (test_mode == .run) replay_rng_audit_step.dependOn(&replay_rng_audit_run.step);
 
     // The Cloud tab's Repair on the real Game (tools/zig/cloud_repair_game_reads_it.zig):
     // a profile paired against a local-filesystem remote in zig-out/local-test, its

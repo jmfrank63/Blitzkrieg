@@ -97,6 +97,8 @@ void CCommandsHistory::TakeStartState()
 	nStartRandomState = GetRandomState();
 	nStartDifficulty = GetSingleton<IAILogic>()->GetChosenDifficultyLevel();
 	bStartStateKnown = true;
+	// From the start state on, every draw a replay cannot repeat is one too many.
+	GetSingleton<IRandomGen>()->ArmAudit( true );
 	if ( ReplayTrace() )
 		fprintf( stderr, "BK_REPLAY_TRACE: start random state %08x difficulty %d\n", nStartRandomState, nStartDifficulty );
 }

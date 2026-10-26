@@ -46,5 +46,9 @@ enum ENetGameMessages
 	NGM_PACKET,
 	NGM_FINISHED,
 	NGM_STREAM_FINISHED,
+
+	// Added by the port after every id above, so none of them moves.
+	NGM_ID_COMMAND_SCRIPT_CALL,
+	NGM_ID_COMMAND_CLIENT_ACTION,
 };
 #endif // __NET_MESSAGES_H__

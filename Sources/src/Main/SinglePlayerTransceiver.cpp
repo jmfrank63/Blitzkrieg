@@ -7,6 +7,7 @@
 #include "ReplayCore.h"
 
 #include "../Input/Input.h"
+#include "../StreamIO/RandomGen.h"
 int CSinglePlayerTransceiver::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -61,6 +62,15 @@ void CSinglePlayerTransceiver::DoSegments()
 	{
 		if ( pAILogic && !pAILogic->IsSuspended() )
 		{
+			CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
+			// The console's script lines, which the AI read inside its Segment:
+			// read here they become commands a replay holds. A playback drops the
+			// viewer's, as it ignores the viewer's orders.
+			while ( const char *pszCommand = pBuffer->ReadASCII( CONSOLE_STREAM_SCRIPT ) )
+			{
+				if ( !bHistoryPlaying )
+					RecordAndExecute( new CScriptCallCommand( CScriptCallCommand::CONSOLE, pszCommand, 0, 0, pAILogic ) );
+			}
 			pCmdsHistory->ExecuteSegmentCommands( nCommonSegment, this );
 			pAILogic->Segment();
 			++nCommonSegment;
@@ -73,6 +83,7 @@ int CSinglePlayerTransceiver::CommandRegisterGroup( IRefCount **pUnitsBuffer, co
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		const WORD wID = pAILogic->GenerateGroupNumber();
 		pAILogic->RegisterGroup( pUnitsBuffer, nLen, wID );
 
@@ -88,6 +99,7 @@ void CSinglePlayerTransceiver::CommandUnregisterGroup( const WORD wGroup )
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		pAILogic->UnregisterGroup( wGroup );
 		pCmdsHistory->AddCommand( nCommonSegment, new CUnregisterGroupCommand( wGroup ) );
 	}
@@ -96,6 +108,7 @@ void CSinglePlayerTransceiver::CommandGroupCommand( const SAIUnitCmd *pCommand, 
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		SAIUnitCmd cmd( *pCommand );
 		cmd.bFromAI = false;
 		pAILogic->GroupCommand( &cmd, wGroup, bPlaceInQueue );
@@ -107,6 +120,7 @@ int CSinglePlayerTransceiver::CommandUnitCommand( const struct SAIUnitCmd *pComm
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		const int nGroup = pAILogic->GenerateGroupNumber();
 		SAIUnitCmd cmd( *pCommand );
 		cmd.bFromAI = false;
@@ -123,15 +137,53 @@ void CSinglePlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, bo
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		pAILogic->ShowAreas( nGroupID, EActionNotify(nAreaType), bShow );
 		pCmdsHistory->AddCommand( nCommonSegment, new CShowAreasCommand( nGroupID, nAreaType, bShow ) );
 	}
 }
 void CSinglePlayerTransceiver::AddCommandToSend( IAILogicCommand *pCommand )
 {
+	CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 	pCommand->Execute( pAILogic );
 }
-void CSinglePlayerTransceiver::CommandClientTogglePause() 
+void CSinglePlayerTransceiver::RecordAndExecute( IAILogicCommand *pCommand )
+{
+	CPtr<IAILogicCommand> pHold = pCommand;
+	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
+		pCommand->Execute( pAILogic );
+	}
+	pCmdsHistory->AddCommand( nCommonSegment, pCommand );
+}
+void CSinglePlayerTransceiver::CommandScriptCall( const int nKind, const char *pszCall, IRefCount **pObjects, const int nLen )
+{
+	if ( !bHistoryPlaying )
+		RecordAndExecute( new CScriptCallCommand( nKind, pszCall, pObjects, nLen, pAILogic ) );
+}
+void CSinglePlayerTransceiver::CommandLockAviationAppearPoint( CVec2 *pvAppearPoint )
+{
+	CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
+	*pvAppearPoint = pAILogic->LockAvitaionAppearPoint();
+	// A playback's viewer still sees where planes would come from, but leaves the
+	// lock as the recording has it: the point is only read while locked and is
+	// taken again whenever the lock begins.
+	if ( bHistoryPlaying )
+		pAILogic->UnlockAviationAppearPoint();
+	else
+		pCmdsHistory->AddCommand( nCommonSegment, new CClientActionCommand( CClientActionCommand::LOCK_AVIATION_APPEAR_POINT ) );
+}
+void CSinglePlayerTransceiver::CommandUnlockAviationAppearPoint()
+{
+	if ( !bHistoryPlaying )
+		RecordAndExecute( new CClientActionCommand( CClientActionCommand::UNLOCK_AVIATION_APPEAR_POINT ) );
+}
+void CSinglePlayerTransceiver::CommandToggleWarFog()
+{
+	if ( !bHistoryPlaying )
+		RecordAndExecute( new CClientActionCommand( CClientActionCommand::TOGGLE_WAR_FOG ) );
+}
+void CSinglePlayerTransceiver::CommandClientTogglePause()
 { 
 	GetSingleton<IInput>()->AddMessage( SGameMessage(CMD_GAME_PAUSE) );
 }

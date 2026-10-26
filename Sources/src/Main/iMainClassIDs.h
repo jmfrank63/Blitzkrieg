@@ -18,6 +18,8 @@ enum
 	MAIN_TRANS_COMMAND_SHOW_AREAS						= MAIN_BASE_VALUE + 14,	// internal command for MP transceiver
 	MAIN_CONTROL_CHECK_SUM_COMMAND					= MAIN_BASE_VALUE + 15, // internal command for MP transceiver
 	MAIN_DROP_PLAYER_COMMAND								= MAIN_BASE_VALUE + 16, // internal command for MP transceiver
+	MAIN_SCRIPT_CALL_COMMAND								= MAIN_BASE_VALUE + 17, // a call into the mission script (Call HQ, ...)
+	MAIN_CLIENT_ACTION_COMMAND							= MAIN_BASE_VALUE + 18, // aviation appear point lock, war fog cheat
 	MAIN_COMMAND_SAVE												= MAIN_BASE_VALUE + 20,
 	MAIN_COMMAND_LOAD												= MAIN_BASE_VALUE + 21,
 	MAIN_COMMAND_POP												= MAIN_BASE_VALUE + 22,

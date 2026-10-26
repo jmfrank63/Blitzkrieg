@@ -144,7 +144,7 @@ with periodic CRC checks), so the AI was written for it. What holds and what doe
 | Start seed | Broken for single player: entropy at launch (`686fe5b84`), not stored, zero on playback. Fixed in slice 1: `StartRandomState` | above |
 | Random state across a load | Broken in the port: not saved. Fixed in slice 1: chunk 14 holds it again | `legacy_bridge.cpp:1752-1776`, `iMainInternal.cpp:312-313` |
 | Load transparency | Unproved: the replay plays the world through the save's moment without loading; the recording continued from a loaded world | - |
-| AI state changed outside the transceiver | Gaps: "Call HQ" runs a script function directly (`Sources/src/GameTT/WorldClientActions.cpp:873-877`), the difficulty is set by the options (`Sources/src/StreamIO/OptionSystemInternal.cpp:113-135`) and is not in the replay | grep |
+| AI state changed outside the transceiver | Gaps: "Call HQ" runs a script function directly (`Sources/src/GameTT/WorldClientActions.cpp:873-877`), the difficulty is set by the options (`Sources/src/StreamIO/OptionSystemInternal.cpp:113-135`) and is not in the replay. Fixed in slice 2: Call HQ, the selection a script asks for, console script lines, the aviation lock and the war fog cheat are recorded commands; see "Slice 2 as built" | grep, `replay-rng-audit` |
 | Pointer-ordered containers in the AI | Risk: `std::set< CObj<CFormation> >` (`Sources/src/AILogic/Units.h:25`), pointer hashes (`AILogicInternal.h:44`, `RailroadGraph.h:197`, `Graveyard.h:64`). Iterating them follows heap addresses, which differ between a recorded run and its playback | grep |
 | Same build, same platform | Holds in the experiment below (two playbacks identical); the pointer-ordered containers can still break it on other maps | experiment |
 | Across platforms | Does not hold today: three standard libraries (MSVC STL, libstdc++, libc++) differ in `unordered_map` bucket order (117 uses in `AILogic`) and in `std::sort` order for equal keys (`Commander.cpp:45`, `69`, `GeneralIntendant.cpp:642` sort by ratings); libm `sin`/`cos`/`atan2` differ in the last bit between glibc, Apple and UCRT; clang contracts `a*b+c` into FMA by default on arm64 (the build sets no `-ffp-contract`, `build.zig:21-41`), and not on baseline x86_64 | grep, `build.zig` |
@@ -409,6 +409,72 @@ Where the build differs from the text above, this wins:
   10. After it: 22 of 22 in both playbacks, the 3 recorded commands played at their segments, no
   out-of-sync report, and the two loads 9 of 9. Both loads also matched the run that wrote the save going
   on (9 of 9): this small map is already load-transparent; slice 3 needs harder ones.
+
+### Slice 2 as built (2026-10-27, Linux x64)
+
+**The audit.** Every call from outside `AILogic` into `IAILogic` (and the console's script stream the AI
+reads) was listed and sorted by whether it changes the simulation and whether a player's input reaches it
+during a mission:
+
+| Call | Where | Disposition |
+| --- | --- | --- |
+| `CallScriptFunction( "CallHQ()" )` | `GameTT/WorldClientActions.cpp`, Call HQ | Recorded: `CScriptCallCommand` (kind `SCRIPT_CALL`) through `ITransceiver::CommandScriptCall` |
+| `CallScriptFunction( "ReturnScriptIDs( <pointers> )" )` | `GameTT/WorldClient.cpp`, the answer to a script's `AskClient("GetSelectedUnits()")` (tutorial 1 checks the selection this way); it runs the script's `GetSelectedUnitsFeedBack` | Recorded: `CScriptCallCommand` (kind `SCRIPT_CALL_OBJECTS`), the selection as unique IDs, made pointers again when it runs |
+| Console lines after `@` (`CONSOLE_STREAM_SCRIPT`), read by `CScripts::Segment` | `UI/UIConsole.cpp`; with the cheats on (`-cheats` or `Password()`) any Lua call | Recorded in single player: the transceiver reads the stream before each segment and sends each line as `CScriptCallCommand` (kind `SCRIPT_CALL_CONSOLE`, the AI's cheat gate kept in `IAILogic::CallConsoleScriptFunction`); a playback drops the viewer's lines. Multiplayer: the AI still reads them in its segment |
+| `LockAvitaionAppearPoint` / `UnlockAviationAppearPoint` | `GameTT`, when the player picks planes and when he calls them | Recorded: `CClientActionCommand`. The lock fixes where the player's planes come from (`CUnitCreation::LockAppearPoint`): unlocked, the point depends on how many planes any side called in between. A playback's viewer gets the point by a lock and an unlock at once, which leaves the AI as the recording has it |
+| `ToggleShow( 0 )`, the war fog cheat (Ctrl+Shift+Q, `MC_SHOW_WARFOG`) | `GameTT/iMissionInternal.cpp` | Recorded: `CClientActionCommand`; with the cheats on it makes every side see everything (`CGlobalWarFog::IsTileVisible`) |
+| `SetDifficultyLevel` from the options (`GamePlay.Difficulty` may change in a mission, flag 17) | `StreamIO/OptionSystemInternal.cpp` | Harmless today: the port's option bridge does not implement the `SetDifficulty` action (`legacy_bridge.cpp`, "still TODO"), so the AI keeps the level the history records at the start. When it is implemented it must go through a recorded command |
+| `SendAcknowlegdementForced` | `GameTT/WorldClient.cpp`, selection | Harmless: queues a voice line for the client (`CAckManager`), read by nothing in the simulation |
+| `Suspend` / `Resume` | `Common/InterfaceScreenBase.cpp`, `GameTT/iMissionInternal.cpp` | Harmless: a suspended AI runs no segment and the segment counter waits |
+| `lua=<call>` | `Game/GameMain.cpp`, the `BK_AUTO_UI` harness | Harmless: a test hook, not player input; left direct |
+| `Init`, `Clear`, `SetNetGame`, `SetMyInfo`, `SetNPlayers`, `NetGameStarted`, `NeutralizePlayer`, `NoWin` | mission start and end, multiplayer set-up, multiplayer commands | Not input during a mission, or already a command (`CDropPlayerCommand`) |
+| `Update*`, `Get*`, `GetZ`, `CanBuildLongObjectLine`, `GetGridUnitsCoordinates`, `GetMiniMapInfo`, `GetVisibilities`, `IsFrozen` ... | the client every frame | Read the AI or drain its output queues; the trap below found no draw in them |
+
+In multiplayer `CommandScriptCall` sends the command like an order, so every machine runs Call HQ at the
+same segment (the original ran it on the calling machine only); the lock and the war fog cheat stay local
+as they were (the AI locks its own player's point, which is another player's on another machine, and
+refuses the cheat in a network game). The new commands take the net ids after every existing one
+(`NGM_ID_COMMAND_SCRIPT_CALL`, `NGM_ID_COMMAND_CLIENT_ACTION`, `Main/NetMessages.h`) and class ids
+`MAIN_BASE_VALUE + 17` and `+ 18`; the other commands' `.rpl` and packet format is unchanged, so a replay
+without the new commands loads and plays as before. In the `.rpl` a call reads
+`<item ClassTypeID="268501009" Kind="0"><Name>ScriptCall</Name><Call>CallHQ()</Call><Objects/></item>`.
+
+**The trap.** `IRandomGen` gained `EnterSimulation`, `LeaveSimulation` and `ArmAudit`. The transceivers
+bracket `IAILogic::Segment()` and every command they execute (`CSimulationRandomScope`), the mission
+brackets the AI's `Init`; `CCommandsHistory::TakeStartState` arms the trap and `CInterfaceMission::Done`
+disarms it. A non-final build run with `BK_RNG_AUDIT=1` counts every draw outside a bracket and prints
+each caller once with its stack (`BK_RNG_AUDIT: draw outside the simulation ...`), then a summary at the
+mission's end. The test is `_FINALRELEASE`, not `_DEBUG`: on Linux and macOS a debug build defines no
+`_DEBUG`, and the StreamIO bridge is compiled optimised, with `NDEBUG`, even in a debug Game.
+
+**What it found.** On the replay test map with orders, Call HQ, the selection's answer and a save, the
+only draw outside the simulation was Call HQ itself: `CScripts::RandomInt` called from the script that
+`CallScriptFunction` ran between segments. No visual code (Scene, UI, SFX, the client's updates) draws
+from the AI's generator on this map; `NWin32Random` and `rand()` already serve them.
+
+**The tiers.** The replay map gained a script (`replay_fight.lua`, `tools/zig/replay_game_common.zig`,
+shared by both tiers): `CallHQ` counts party 1, draws `RandomInt(1000)`, hands the Soviet squad of
+script group 100 to player 0, counts again and asks for the selection. The recording calls HQ 3 s after
+the squad order (`msg=110`). `replay-game-reads-it` now also requires the recording to hold the Call HQ
+and a selection answer with every soldier known, party 1 to shrink, and both playbacks to run the same
+script calls with the same script lines (the drawn number among them). A soldier is in no script group
+(its squad is), so `GetSelectedUnitsFeedBack` is not called for this selection; the answer is recorded
+and played all the same. `replay-rng-audit` records the mission with the orders, Call HQ and a save
+under the trap and plays it back under the trap; both must report draws inside the simulation and none
+outside.
+
+**Measured.** Before (the trap and the new mission, Call HQ still direct): `replay-rng-audit` 1 draw
+outside (`CScripts::RandomInt`), both playbacks of `replay-game-reads-it` matched 5 of the recording's 22
+state hashes (first difference at segment 120, the first hash after the Call HQ at about segment 100), reported
+themselves out of sync and ran none of the script's lines. After: 0 draws outside in the recording
+and its playback (13,000 to 16,000 inside, by run); both playbacks 22 of 22 hashes, the 5 recorded commands
+(group, order, Call HQ, the answer, an unregister) at their segments, the same script lines. The two
+loads of one save still match each other (9 of 9); against the run that wrote the save going on they now
+match 5 or 6 of 9 or 10 (slice 1 measured 9 of 9 without a script): a mission script is a first lead for slice 3.
+
+**Left open.** The replay does not record whether the cheats were on (`-cheats`): a console line or the
+war fog cheat recorded with them plays back refused without them (slice 5's header). Multiplayer keeps the
+aviation lock local and reads console lines inside the segment, as the original did.
 
 ## Risks
 

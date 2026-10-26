@@ -1887,6 +1887,12 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build replay-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: A replay's mission draws random numbers only inside the simulation
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build replay-rng-audit -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
 
       - name: Season textures
         if: matrix.part == 'all'

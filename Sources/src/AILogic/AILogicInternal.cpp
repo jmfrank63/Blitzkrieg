@@ -1304,6 +1304,10 @@ void CAILogic::CallScriptFunction( const char *pszCommand )
 {
 	scripts.CallScriptFunction( pszCommand );
 }
+void CAILogic::CallConsoleScriptFunction( const char *pszCommand )
+{
+	scripts.CallConsoleCommand( pszCommand );
+}
 void CAILogic::UpdateTurretTurn( struct SAINotifyTurretTurn **pTurretsBuffer, int *pnLen )
 {
 	updater.UpdateTurretTurn( pTurretsBuffer, pnLen );
