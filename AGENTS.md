@@ -49,6 +49,11 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
   redirects or quoted one-liners. GSD's pre-run check rejects anything else and pauses auto mode. Put notes in the
   task description.
 - `BK_DEBUG_LOG=1` is needed for `DebugTrace` output in release builds.
+- A Game tier run on a private display (`Xvfb :N`, `DISPLAY=:N`, `WAYLAND_DISPLAY` unset) must also pass
+  `--cache-poison=poisoned` on its first `zig build` after a display change: Zig 0.17 caches the build
+  configuration, and a run step that sets any environment variable keeps the whole environment it was
+  configured with, `DISPLAY` and `WAYLAND_DISPLAY` included. Without the flag the Game opened on the
+  maintainer's own desktop (2026-10-26).
 - Do not edit `.gitignore`'s GSD lines (`.gsd`, `.gsd-id`, `.bg-shell/`, `.mcp.json`) and do not ignore `vendor/`,
   `build/` or `.vscode/`: they hold tracked files.
 - `CArray2D::SetZero` used to trap in debug builds (fixed in `3e8afc8a7`); the Map Editor tiers that open a map now pass
