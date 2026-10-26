@@ -147,6 +147,7 @@ void CDrawVisitor::AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList
 			break;
 	}
 	ScaleRect( &rcRect, fSpriteScale );
+	pInfo->TurnRect( &rcRect );
 	rcRect.Move( pInfo->relpos.x, pInfo->relpos.y );
 	if ( rcScreen.IsInside(rcRect) ) 
 	{

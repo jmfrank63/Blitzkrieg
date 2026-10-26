@@ -118,7 +118,41 @@ struct SBasicSpriteInfo
 	interface IGFXTexture *pTexture;			// sprite's texture
 	CVec3 relpos;													// relative screen position (one frame valid only!!!)
 	DWORD dwCheckFlags;										// screen check flags (low WORD) and priority (high WORD)
-	SBasicSpriteInfo( EType _type ) : type( _type ), pTexture( 0 ), dwCheckFlags( 0 ) {  }
+	// How the Remastered camera turn (Main/CameraTurn.h) draws the 2003 picture:
+	// mirrored about the zero cross's column, then turned as flat ground by
+	// nFlatTurn quarter turns. Neither at the 2003 view.
+	BYTE nFlatTurn;
+	bool bMirror;
+	SBasicSpriteInfo( EType _type ) : type( _type ), pTexture( 0 ), dwCheckFlags( 0 ), nFlatTurn( 0 ), bMirror( false ) {  }
+	// Where a screen offset from the zero cross goes under nFlatTurn: a quarter
+	// turn of the ground takes (dx, dy) to (2 dy, -dx / 2) (the 2003 camera
+	// projects world x to (1, 1/2) and world y to (1, -1/2)).
+	void TurnOffset( float *pfX, float *pfY ) const
+	{
+		for ( int k = 0; k < nFlatTurn; ++k )
+		{
+			const float fX = *pfX;
+			*pfX = 2.0f * *pfY;
+			*pfY = -fX / 2.0f;
+		}
+	}
+	// A rectangle around the zero cross as drawn: mirrored, then the box around it turned.
+	void TurnRect( CTRect<float> *pRect ) const
+	{
+		if ( bMirror )
+			pRect->Set( -pRect->x2, pRect->y1, -pRect->x1, pRect->y2 );
+		if ( nFlatTurn == 0 )
+			return;
+		float fMinX = 1e30f, fMinY = 1e30f, fMaxX = -1e30f, fMaxY = -1e30f;
+		for ( int i = 0; i < 4; ++i )
+		{
+			float fX = ( i & 1 ) ? pRect->x2 : pRect->x1, fY = ( i & 2 ) ? pRect->y2 : pRect->y1;
+			TurnOffset( &fX, &fY );
+			fMinX = Min( fMinX, fX ); fMaxX = Max( fMaxX, fX );
+			fMinY = Min( fMinY, fY ); fMaxY = Max( fMaxY, fY );
+		}
+		pRect->Set( fMinX, fMinY, fMaxX, fMaxY );
+	}
 };
 struct SSpriteInfo : public SBasicSpriteInfo
 {
@@ -245,6 +279,8 @@ interface ISpriteVisObj : public IObjVisObj
 {
 	virtual const SSpriteInfo* STDCALL GetSpriteInfo() const = 0;
 	virtual interface IGFXTexture* STDCALL GetTexture() const = 0;
+	// SBasicSpriteInfo's nFlatTurn and bMirror (the Remastered camera turn).
+	virtual void STDCALL SetScreenTurn( const int nFlatTurn, const bool bMirror ) = 0;
 };
 interface IMeshVisObj : public IObjVisObj
 {

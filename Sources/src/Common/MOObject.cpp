@@ -10,6 +10,7 @@
 #include "PlayEffect.h"
 #include "../Main/ScenarioTracker.h"
 #include "../UI/UI.h"
+#include "../Main/CameraTurn.h"
 int CMOObject::nLastMarkerID = 0;
 bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int nSeason, int nFrameIndex, 
 											  float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
@@ -101,7 +102,92 @@ bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal
 	UpdateModelWithHP( fNewHP / pRPG->fMaxHP, pVOB );
 	fHP = fNewHP / pRPG->fMaxHP;
 	FillActions();
+	nCameraTurn = NCameraTurn::Step();
+	nOwnFrame = pDesc->eGameType == SGVOGT_FENCE ? nFrameIndex : -1;
+	ApplyCameraTurn();
 	return true;
+}
+// The frame of a fence segment at camera step nStep: the segment at the same
+// place among the same kind (centre, left, right or centre damaged) of the
+// direction DrawnTurn( its direction, nStep ). The four directions, North-east,
+// North-west, South-west and South-east, are the fence's quarter turns
+// (x, y) -> (-y, x), as a building's sides are, so its direction is its own
+// facing.
+static int TurnedFenceFrame( const SFenceRPGStats *pStats, const int nFrame, const int nStep )
+{
+	const int nDirs = pStats->dirs.size();
+	for ( int d = 0; d < nDirs; ++d )
+	{
+		const SFenceRPGStats::SDir &from = pStats->dirs[d];
+		const SFenceRPGStats::SDir &to = pStats->dirs[NCameraTurn::DrawnTurn( d, nStep ) % nDirs];
+		const std::vector<int> *froms[4] = { &from.centers, &from.ldamages, &from.rdamages, &from.cdamages };
+		const std::vector<int> *tos[4] = { &to.centers, &to.ldamages, &to.rdamages, &to.cdamages };
+		for ( int k = 0; k < 4; ++k )
+		{
+			for ( int j = 0; j < froms[k]->size(); ++j )
+			{
+				if ( pStats->stats[(*froms[k])[j]].nIndex != nFrame )
+					continue;
+				return tos[k]->empty() ? nFrame : pStats->stats[(*tos[k])[j % tos[k]->size()]].nIndex;
+			}
+		}
+	}
+	return nFrame;
+}
+// Draws it for the camera step (Remastered, Main/CameraTurn.h), each kind by
+// the shortest path (docs/superpowers/specs/2026-10-26-camera-turn-design.md,
+// S03), with no new pictures:
+// - a terra object lies flat on the ground: its picture turns as the ground
+//   does, and so does its shadow;
+// - an object (flora, a prop) on a footprint a quarter turn keeps (square or
+//   none) is its own picture, as M005 turns thin and small buildings; on a
+//   longer rectangle its picture is mirrored at an odd step, which lays it on
+//   the turned footprint (its shadow kept, as M005's mirrored sprites keep it);
+// - a fence segment shows the segment of its direction turned by the step.
+// At step 0 each is drawn as in 2003.
+void CMOObject::ApplyCameraTurn()
+{
+	ISpriteVisObj *pSprite = dynamic_cast<ISpriteVisObj*>( pVisObj.GetPtr() );
+	if ( pSprite == 0 || pRPG == 0 )
+		return;
+	switch ( pDesc->eGameType )
+	{
+		case SGVOGT_TERRAOBJ:
+			pSprite->SetScreenTurn( nCameraTurn, false );
+			if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
+				pShadowSprite->SetScreenTurn( nCameraTurn, false );
+			break;
+		case SGVOGT_OBJECT:
+			{
+				const CArray2D<BYTE> &passability = static_cast_gdb<const SStaticObjectRPGStats*>( pRPG )->GetPassability();
+				const bool bRectangle = passability.GetSizeX() != passability.GetSizeY() && passability.GetSizeX() * passability.GetSizeY() != 0;
+				pSprite->SetScreenTurn( 0, bRectangle && ( nCameraTurn & 1 ) != 0 );
+			}
+			break;
+		case SGVOGT_FENCE:
+			{
+				ISpriteAnimation *pAnim = static_cast<ISpriteAnimation*>( static_cast<IObjVisObj*>( pSprite )->GetAnimation() );
+				if ( nOwnFrame < 0 )
+					nOwnFrame = pAnim->GetFrameIndex();
+				const int nFrame = TurnedFenceFrame( static_cast_gdb<const SFenceRPGStats*>( pRPG ), nOwnFrame, nCameraTurn );
+				if ( nFrame == pAnim->GetFrameIndex() )
+					break;
+				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
+				pAnim->SetFrameIndex( nFrame );
+				pVisObj->Update( currTime, true );
+				if ( pShadow )
+				{
+					static_cast<ISpriteAnimation*>( static_cast_ptr<IObjVisObj*>(pShadow)->GetAnimation() )->SetFrameIndex( nFrame );
+					pShadow->Update( currTime, true );
+				}
+			}
+			break;
+	}
+}
+void CMOObject::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
+{
+	nCameraTurn = nTurn;
+	ApplyCameraTurn();
 }
 void CMOObject::Visit( IMapObjVisitor *pVisitor )
 {
@@ -117,6 +203,13 @@ int CMOObject::operator&( IStructureSaver &ss )
 	saver.Add( 3, &szFlagSide );
 	if ( !szFlagSide.empty() )
 		saver.Add( 4, &nMarkerID );
+	// A fence saved at a turned step shows a turned segment; at the 2003 view
+	// nothing new is written.
+	if ( saver.IsReading() || nCameraTurn != 0 )
+	{
+		saver.Add( 5, &nCameraTurn );
+		saver.Add( 6, &nOwnFrame );
+	}
 	if ( saver.IsReading() ) 
 		FillActions();
 	return 0;
@@ -295,11 +388,18 @@ int CMOObject::AIUpdateActions( const struct SAINotifyAction &action, const NTim
 			break;
 		case ACTION_NOTIFY_CHANGE_FRAME_INDEX:
 			{
-				static_cast<ISpriteAnimation*>(static_cast_ptr<IObjVisObj*>(pVisObj)->GetAnimation())->SetFrameIndex( action.nParam );
+				// A fence's new segment (it was damaged) as the camera step shows it.
+				int nFrame = action.nParam;
+				if ( pDesc->eGameType == SGVOGT_FENCE )
+				{
+					nOwnFrame = nFrame;
+					nFrame = TurnedFenceFrame( static_cast_gdb<const SFenceRPGStats*>( pRPG ), nOwnFrame, nCameraTurn );
+				}
+				static_cast<ISpriteAnimation*>(static_cast_ptr<IObjVisObj*>(pVisObj)->GetAnimation())->SetFrameIndex( nFrame );
 				pVisObj->Update( currTime, true );
 				if ( pShadow ) 
 				{
-					static_cast<ISpriteAnimation*>(static_cast_ptr<IObjVisObj*>(pShadow)->GetAnimation())->SetFrameIndex( action.nParam );
+					static_cast<ISpriteAnimation*>(static_cast_ptr<IObjVisObj*>(pShadow)->GetAnimation())->SetFrameIndex( nFrame );
 					pShadow->Update( currTime, true );
 				}
 			}

@@ -57,5 +57,10 @@ public:
 	virtual void STDCALL Visit( ISceneVisitor *pVisitor, int nType = -1 );
 	virtual const SSpriteInfo* STDCALL GetSpriteInfo() const { return &info; }
 	virtual IGFXTexture* STDCALL GetTexture() const { return pTexture; }
+	virtual void STDCALL SetScreenTurn( const int nFlatTurn, const bool bMirror )
+	{
+		info.nFlatTurn = info2.nFlatTurn = BYTE( nFlatTurn & 3 );
+		info.bMirror = info2.bMirror = bMirror;
+	}
 };
 #endif // __SPRITEVISOBJ_H__

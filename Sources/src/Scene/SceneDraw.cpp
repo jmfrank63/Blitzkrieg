@@ -907,6 +907,62 @@ inline const DWORD CheckForRect( const CTRect<float> &rect, const float x, const
 {
 	return GetFlags( rect.x1, rect.y1, rect.x2, rect.y2, x, y );
 }
+// The Remastered camera turn (SBasicSpriteInfo's bMirror and nFlatTurn)
+// moves a square's four vertices, set up as the 2003 view draws them (0 and 1
+// on the left, 2 and 3 on the right). Mirrored about the zero cross's column
+// (as bk-views mirrors a 2003 picture), the left and right vertices trade
+// places, so the square keeps its winding and each vertex its depth; then the
+// corners turn as flat ground about the zero cross. Along an axis the turn
+// reverses (a mirror, a half turn) point sampling picks the texel one further
+// along the square for every pixel, which leaves a foreign column at one edge
+// and drops one at the other: the mapping goes back one texel there (twice the
+// half-texel shift; measured on a mirrored bench, pixel for pixel the 2003
+// picture mirrored). At an odd step, where the square is stretched 2:1, the
+// mapping is pulled half a texel inside the square instead.
+inline void TurnSquare( SSpriteVertex *pVertices, const SBasicSpriteInfo *pInfo, const float fScrDiff,
+												const float fTexDiffX, const float fTexDiffY )
+{
+	bool bReverseX = false, bReverseY = false;
+	if ( pInfo->bMirror )
+	{
+		std::swap( pVertices[0], pVertices[2] );
+		std::swap( pVertices[1], pVertices[3] );
+		for ( int i = 0; i < 4; ++i )
+			pVertices[i].x = 2.0f * ( pInfo->relpos.x + fScrDiff ) + 1.0f - pVertices[i].x;
+		bReverseX = true;
+	}
+	for ( int i = 0; i < 4 && pInfo->nFlatTurn != 0; ++i )
+	{
+		float fX = pVertices[i].x - fScrDiff - pInfo->relpos.x - 0.5f;
+		float fY = pVertices[i].y - fScrDiff - pInfo->relpos.y - 0.5f;
+		pInfo->TurnOffset( &fX, &fY );
+		pVertices[i].x = pInfo->relpos.x + 0.5f + fX + fScrDiff;
+		pVertices[i].y = pInfo->relpos.y + 0.5f + fY + fScrDiff;
+	}
+	if ( pInfo->nFlatTurn == 2 )
+	{
+		bReverseX = !bReverseX;
+		bReverseY = true;
+	}
+	if ( ( pInfo->nFlatTurn & 1 ) == 0 )
+	{
+		for ( int i = 0; i < 4; ++i )
+		{
+			if ( bReverseX )
+				pVertices[i].tu += 2.0f * fTexDiffX;
+			if ( bReverseY )
+				pVertices[i].tv += 2.0f * fTexDiffY;
+		}
+		return;
+	}
+	const float fMinU = Min( pVertices[0].tu, pVertices[2].tu ), fMaxU = Max( pVertices[0].tu, pVertices[2].tu );
+	const float fMinV = Min( pVertices[0].tv, pVertices[1].tv ), fMaxV = Max( pVertices[0].tv, pVertices[1].tv );
+	for ( int i = 0; i < 4; ++i )
+	{
+		pVertices[i].tu = pVertices[i].tu == fMinU ? fMinU - 2.0f * fTexDiffX : fMaxU;
+		pVertices[i].tv = pVertices[i].tv == fMinV ? fMinV - 2.0f * fTexDiffY : fMaxV;
+	}
+}
 template <class TDepthCalculator>
 int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
@@ -917,7 +973,7 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	const float fX2 = MINT( pInfo->relpos.x + ( square.vLeftTop.x + square.fSize ) * fSpriteScale ) + fScrDiff;
 	const float fY1 = MINT( pInfo->relpos.y + square.vLeftTop.y * fSpriteScale ) + fScrDiff;
 	const float fY2 = MINT( pInfo->relpos.y + ( square.vLeftTop.y + square.fSize ) * fSpriteScale ) + fScrDiff;
-	if ( pInfo->dwCheckFlags & 1 ) 
+	if ( (pInfo->dwCheckFlags & 1) && !pInfo->bMirror && pInfo->nFlatTurn == 0 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
 		const DWORD dwPoint2 = CheckForRect( rcScreen, fX1, fY1 );
@@ -947,6 +1003,8 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	++pVertices;
 	pVertices->Setup( fX2, fY1, fZ4, 1, pInfo->color, pInfo->specular, fMapX2, fMapY1 );
 	++pVertices;
+	if ( pInfo->bMirror || pInfo->nFlatTurn != 0 )
+		TurnSquare( pVertices - 4, pInfo, fScrDiff, fTexDiffX, fTexDiffY );
 	WORD *pIndices = Resize2Fit( drawindices, 6 );
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 1;
@@ -966,7 +1024,7 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	const float fX2 = MINT( pInfo->relpos.x + pInfo->rect.x2 * fSpriteScale ) + fScrDiff;
 	const float fY1 = MINT( pInfo->relpos.y + pInfo->rect.y1 * fSpriteScale ) + fScrDiff;
 	const float fY2 = MINT( pInfo->relpos.y + pInfo->rect.y2 * fSpriteScale ) + fScrDiff;
-	if ( pInfo->dwCheckFlags & 1 ) 
+	if ( (pInfo->dwCheckFlags & 1) && !pInfo->bMirror && pInfo->nFlatTurn == 0 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
 		const DWORD dwPoint2 = CheckForRect( rcScreen, fX1, fY1 );
@@ -994,6 +1052,8 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	++pVertices;
 	pVertices->Setup( fX2, fY1, fZ4, 1, pInfo->color, pInfo->specular, fMapX2, fMapY1 );
 	++pVertices;
+	if ( pInfo->bMirror || pInfo->nFlatTurn != 0 )
+		TurnSquare( pVertices - 4, pInfo, fScrDiff, fTexDiffX, fTexDiffY );
 	WORD *pIndices = Resize2Fit( drawindices, 6 );
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 1;
