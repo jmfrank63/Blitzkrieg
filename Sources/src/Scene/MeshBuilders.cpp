@@ -20,6 +20,8 @@ const float fHeightCoeff = 0.86602540378444f;// cos( ToRadian(30.0f) );
 
 #define MAKE_COORD_X4 ( groundTurn.bTurned ? TURNED_X( 1, 1 ) : fX + (j - i)*fCellSizeX )
 #define MAKE_COORD_Y4 ( ( groundTurn.bTurned ? TURNED_Y( 1, 1 ) : fY + (j + i + 2)*fCellSizeY ) - heights[nMapY1][nMapX1].fHeight*fHeightCoeff )
+// A tile corner's point of its picture (groundTurn.nMaps, TerrainInternal.h).
+#define TILE_MAP( c ) maps[groundTurn.nMaps[c]]
 #define MAKE_NOISE_X1 ( fPosX*fNoiseRcprX )
 #define MAKE_NOISE_Y1 ( fPosY*fNoiseRcprY )
 
@@ -80,16 +82,16 @@ void CreateTiles( const float fX, const float fY,
 			{
 				STerrainPatch::SVertex1 *pVerts = ResizeToAdd( pPatch->mainverts1, 4 );
 				pVerts->Setup( MAKE_COORD_X1, MAKE_COORD_Y1, 1, 1, MakeShade(heights[nMapY][nMapX].shade), 
-											 maps[0].u, maps[0].v, MAKE_NOISE_X1, MAKE_NOISE_Y1 );
+											 TILE_MAP( 0 ).u, TILE_MAP( 0 ).v, MAKE_NOISE_X1, MAKE_NOISE_Y1 );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X2, MAKE_COORD_Y2, 1, 1, MakeShade(heights[nMapY][nMapX1].shade), 
-											 maps[1].u, maps[1].v, MAKE_NOISE_X2, MAKE_NOISE_Y2 );
+											 TILE_MAP( 1 ).u, TILE_MAP( 1 ).v, MAKE_NOISE_X2, MAKE_NOISE_Y2 );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X3, MAKE_COORD_Y3, 1, 1, MakeShade(heights[nMapY1][nMapX].shade), 
-											 maps[2].u, maps[2].v, MAKE_NOISE_X3, MAKE_NOISE_Y3 );
+											 TILE_MAP( 2 ).u, TILE_MAP( 2 ).v, MAKE_NOISE_X3, MAKE_NOISE_Y3 );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X4, MAKE_COORD_Y4, 1, 1, MakeShade(heights[nMapY1][nMapX1].shade), 
-											 maps[3].u, maps[3].v, MAKE_NOISE_X4, MAKE_NOISE_Y4 );
+											 TILE_MAP( 3 ).u, TILE_MAP( 3 ).v, MAKE_NOISE_X4, MAKE_NOISE_Y4 );
 				++pVerts;
 			}
 			else
@@ -97,19 +99,19 @@ void CreateTiles( const float fX, const float fY,
 				STerrainPatch::SVertex2 *pVerts = ResizeToAdd( pPatch->mainverts2, 4 );
 				pVerts->Setup( MAKE_COORD_X1, MAKE_COORD_Y1, 1, 1, 
 											 MakeShade(heights[nMapY][nMapX].shade), 0xff000000, 
-											 maps[0].u, maps[0].v );
+											 TILE_MAP( 0 ).u, TILE_MAP( 0 ).v );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X2, MAKE_COORD_Y2, 1, 1, 
 											 MakeShade(heights[nMapY][nMapX1].shade), 0xff000000,
-											 maps[1].u, maps[1].v );
+											 TILE_MAP( 1 ).u, TILE_MAP( 1 ).v );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X3, MAKE_COORD_Y3, 1, 1, 
 											 MakeShade(heights[nMapY1][nMapX].shade), 0xff000000,
-											 maps[2].u, maps[2].v );
+											 TILE_MAP( 2 ).u, TILE_MAP( 2 ).v );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X4, MAKE_COORD_Y4, 1, 1, 
 											 MakeShade(heights[nMapY1][nMapX1].shade), 0xff000000,
-											 maps[3].u, maps[3].v );
+											 TILE_MAP( 3 ).u, TILE_MAP( 3 ).v );
 				++pVerts;
 			}
 		}
@@ -140,16 +142,16 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 		const CVec2 *maskmaps = crosset.tilemaps[it->cross].maps;
 		STerrainPatch::SVertex1 *pVerts = ResizeToAdd( pPatch->basecrossverts, 4 );
 		pVerts->Setup( MAKE_COORD_X1, MAKE_COORD_Y1, 1, 1, MakeShade(heights[nMapY][nMapX].shade), 
-									 maps[0].u, maps[0].v, maskmaps[0].u, maskmaps[0].v );
+									 TILE_MAP( 0 ).u, TILE_MAP( 0 ).v, maskmaps[0].u, maskmaps[0].v );
 		++pVerts;
 		pVerts->Setup( MAKE_COORD_X2, MAKE_COORD_Y2, 1, 1, MakeShade(heights[nMapY][nMapX1].shade), 
-									 maps[1].u, maps[1].v, maskmaps[1].u, maskmaps[1].v );
+									 TILE_MAP( 1 ).u, TILE_MAP( 1 ).v, maskmaps[1].u, maskmaps[1].v );
 		++pVerts;
 		pVerts->Setup( MAKE_COORD_X3, MAKE_COORD_Y3, 1, 1, MakeShade(heights[nMapY1][nMapX].shade), 
-									 maps[2].u, maps[2].v, maskmaps[2].u, maskmaps[2].v );
+									 TILE_MAP( 2 ).u, TILE_MAP( 2 ).v, maskmaps[2].u, maskmaps[2].v );
 		++pVerts;
 		pVerts->Setup( MAKE_COORD_X4, MAKE_COORD_Y4, 1, 1, MakeShade(heights[nMapY1][nMapX1].shade), 
-									 maps[3].u, maps[3].v, maskmaps[3].u, maskmaps[3].v );
+									 TILE_MAP( 3 ).u, TILE_MAP( 3 ).v, maskmaps[3].u, maskmaps[3].v );
 		++pVerts;
 	}
 	Reserve( pPatch->noiseverts, patch.noisecrosses.size()*4 );
@@ -196,16 +198,16 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 			{
 				STerrainPatch::SVertex1 *pVerts = ResizeToAdd( pPatch->layercrossverts[nLayer], 4 );
 				pVerts->Setup( MAKE_COORD_X1, MAKE_COORD_Y1, 1, 1, MakeShade(heights[nMapY][nMapX].shade), 
-											 maps[0].u, maps[0].v, maskmaps[0].u, maskmaps[0].v );
+											 TILE_MAP( 0 ).u, TILE_MAP( 0 ).v, maskmaps[0].u, maskmaps[0].v );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X2, MAKE_COORD_Y2, 1, 1, MakeShade(heights[nMapY][nMapX1].shade), 
-											 maps[1].u, maps[1].v, maskmaps[1].u, maskmaps[1].v );
+											 TILE_MAP( 1 ).u, TILE_MAP( 1 ).v, maskmaps[1].u, maskmaps[1].v );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X3, MAKE_COORD_Y3, 1, 1, MakeShade(heights[nMapY1][nMapX].shade), 
-											 maps[2].u, maps[2].v, maskmaps[2].u, maskmaps[2].v );
+											 TILE_MAP( 2 ).u, TILE_MAP( 2 ).v, maskmaps[2].u, maskmaps[2].v );
 				++pVerts;
 				pVerts->Setup( MAKE_COORD_X4, MAKE_COORD_Y4, 1, 1, MakeShade(heights[nMapY1][nMapX1].shade), 
-											 maps[3].u, maps[3].v, maskmaps[3].u, maskmaps[3].v );
+											 TILE_MAP( 3 ).u, TILE_MAP( 3 ).v, maskmaps[3].u, maskmaps[3].v );
 				++pVerts;
 			}
 			if ( it->flags == SCrossTileInfo::MIXED )
@@ -386,6 +388,10 @@ inline const float GetHeight( int x, int y, const STerrainInfo &info )
 	else
 		return 0;
 }
+// An AI tile corner (column j + dj, row i + di, half a terrain tile each) on the
+// screen: the 2003 offsets, or half the turned view's tile steps (groundTurn).
+#define AI_MARK_X( dj, di ) ( groundTurn.bTurned ? fX + ( (j + (dj))*groundTurn.fColX + (i + (di))*groundTurn.fRowX ) / 2.0f : fX + ( j - i + (dj) - (di) ) * fCellSizeX / 2.0f )
+#define AI_MARK_Y( dj, di ) ( groundTurn.bTurned ? fY + ( (j + (dj))*groundTurn.fColY + (i + (di))*groundTurn.fRowY ) / 2.0f : fY + ( j + i + (dj) + (di) ) * fCellSizeY / 2.0f )
 void CreateAIMarker( const float fX, const float fY, const STerrainInfo &info, 
 										 struct SAIPassabilityInfo *marker, int nMarkerSize, IGFXVertices *pVertices, IGFXIndices *pIndices )
 {
@@ -400,20 +406,20 @@ void CreateAIMarker( const float fX, const float fY, const STerrainInfo &info,
 			
 			const int i = info.AIY2Terra( int( marker[k].y ) );
 			const int j = marker[k].x;
-			pVerts->Setup( fX + ( j - i ) * fCellSizeX / 2.0f,  
-										 fY + ( j + i ) * fCellSizeY / 2.0f - GetHeight( j, i, info ), 
+			pVerts->Setup( AI_MARK_X( 0, 0 ),  
+										 AI_MARK_Y( 0, 0 ) - GetHeight( j, i, info ), 
 										 1, 1, dwColor, dwSpecular, 0, 0 );
 			++pVerts;
-			pVerts->Setup( fX + ( j - i + 1 ) * fCellSizeX / 2.0f, 
-										 fY + ( j + i + 1 ) * fCellSizeY / 2.0f - GetHeight( j + 1, i, info ), 
+			pVerts->Setup( AI_MARK_X( 1, 0 ), 
+										 AI_MARK_Y( 1, 0 ) - GetHeight( j + 1, i, info ), 
 										 1, 1, dwColor, dwSpecular, 0, 0 );
 			++pVerts;
-			pVerts->Setup( fX + ( j - i - 1 ) * fCellSizeX / 2.0f, 
-										 fY + ( j + i + 1 ) * fCellSizeY / 2.0f - GetHeight( j, i + 1, info ), 
+			pVerts->Setup( AI_MARK_X( 0, 1 ), 
+										 AI_MARK_Y( 0, 1 ) - GetHeight( j, i + 1, info ), 
 										 1, 1, dwColor, dwSpecular, 0, 0 );
 			++pVerts;
-			pVerts->Setup( fX + ( j - i ) * fCellSizeX / 2.0f, 
-										 fY + ( j + i + 2 ) * fCellSizeY / 2.0f - GetHeight( j + 1, i + 1, info ), 
+			pVerts->Setup( AI_MARK_X( 1, 1 ), 
+										 AI_MARK_Y( 1, 1 ) - GetHeight( j + 1, i + 1, info ), 
 										 1, 1, dwColor, dwSpecular, 0, 0 );
 			++pVerts;
 		}

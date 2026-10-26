@@ -14,6 +14,7 @@
 #include "../UI/UI.h"
 #include "../UI/UIMessages.h"
 #include <typeinfo>
+#include "../Main/CameraTurn.h"
 int CComplexObjects::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -601,15 +602,40 @@ void CWorldBase::GetVisibilityRectBounds( const CTRect<float> &rcScreen, CVec2 *
 {
 	CVec3 vPos;
 	const float fCellCoeff = 1.0f / fWorldCellSize;
+	if ( NCameraTurn::Step() != 0 )
 	{
-		CTPoint<float> point = rcScreen.GetLeftTop();
-		GetPos3( &vPos, point.x, point.y );
-		pvLT->Set( int(vPos.x * fCellCoeff + 0.5f) - 3, int(vPos.y * fCellCoeff + 0.5f) );
+		// The Remastered camera turn: the screen's corners land on other
+		// corners of the cells' diamond than its left top and right bottom,
+		// so the rectangle in x + y and x - y holds all four (and the 2003
+		// margin of 3 cells).
+		int nMinS = 1 << 30, nMaxS = -( 1 << 30 ), nMinD = 1 << 30, nMaxD = -( 1 << 30 );
+		const CTPoint<float> corners[4] = { rcScreen.GetLeftTop(), rcScreen.GetRightBottom(), CTPoint<float>( rcScreen.x2, rcScreen.y1 ), CTPoint<float>( rcScreen.x1, rcScreen.y2 ) };
+		for ( int i = 0; i < 4; ++i )
+		{
+			GetPos3( &vPos, corners[i].x, corners[i].y );
+			const int nX = int( vPos.x * fCellCoeff + 0.5f ), nY = int( vPos.y * fCellCoeff + 0.5f );
+			nMinS = Min( nMinS, nX + nY - 3 );
+			nMaxS = Max( nMaxS, nX + nY + 3 );
+			nMinD = Min( nMinD, nX - nY - 3 );
+			nMaxD = Max( nMaxD, nX - nY + 3 );
+		}
+		nMinS -= ( nMinS - nMinD ) & 1;
+		nMaxS += ( nMaxS - nMaxD ) & 1;
+		pvLT->Set( ( nMinS + nMinD ) / 2, ( nMinS - nMinD ) / 2 );
+		pvRB->Set( ( nMaxS + nMaxD ) / 2, ( nMaxS - nMaxD ) / 2 );
 	}
+	else
 	{
-		CTPoint<float> point = rcScreen.GetRightBottom();
-		GetPos3( &vPos, point.x, point.y );
-		pvRB->Set( int(vPos.x * fCellCoeff + 0.5f) + 3, int(vPos.y * fCellCoeff + 0.5f) );
+		{
+			CTPoint<float> point = rcScreen.GetLeftTop();
+			GetPos3( &vPos, point.x, point.y );
+			pvLT->Set( int(vPos.x * fCellCoeff + 0.5f) - 3, int(vPos.y * fCellCoeff + 0.5f) );
+		}
+		{
+			CTPoint<float> point = rcScreen.GetRightBottom();
+			GetPos3( &vPos, point.x, point.y );
+			pvRB->Set( int(vPos.x * fCellCoeff + 0.5f) + 3, int(vPos.y * fCellCoeff + 0.5f) );
+		}
 	}
 	pvLB->x = 0.5f*( pvRB->x - pvRB->y + pvLT->x + pvLT->y );
 	pvLB->y = 0.5f*( pvLT->x + pvLT->y - pvRB->x + pvRB->y );
@@ -638,8 +664,11 @@ void CWorldBase::AIUpdateWarFogLocal()
 }
 void CWorldBase::AIUpdateWarFog( const NTimer::STime &currTime )
 {
-	if ( (currTime >= warFogLastTime + 1000) || (vLastAnchor != pCamera->GetAnchor()) )
+	// A camera turn (Remastered) shows other ground as well.
+	static int nWarFogTurn = 0;
+	if ( (currTime >= warFogLastTime + 1000) || (vLastAnchor != pCamera->GetAnchor()) || nWarFogTurn != NCameraTurn::Step() )
 	{
+		nWarFogTurn = NCameraTurn::Step();
 		AIUpdateWarFogLocal();
 		warFogLastTime = currTime;
 		vLastAnchor = pCamera->GetAnchor();

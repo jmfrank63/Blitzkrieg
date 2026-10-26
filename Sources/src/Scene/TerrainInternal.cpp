@@ -234,10 +234,12 @@ void CTerrain::SetWarFog( SAIVisInfo *vises, int nNumVises )
 	*/
 	MoveWarFog();
 }
-SGroundTurn groundTurn = { false, 0, 0, 0, 0 };
+SGroundTurn groundTurn = { false, 0, 0, 0, 0, { 0, 1, 2, 3 } };
 void UpdateGroundTurn( const SHMatrix &matTransform, const CVec3 &vO, const CVec3 &vScreenO )
 {
 	groundTurn.bTurned = NCameraTurn::Step() != 0;
+	for ( int i = 0; i < 4; ++i )
+		groundTurn.nMaps[i] = i;
 	if ( !groundTurn.bTurned )
 		return;
 	// A quarter turn maps the tile grid onto itself, so a tile's steps are whole
@@ -250,6 +252,25 @@ void UpdateGroundTurn( const SHMatrix &matTransform, const CVec3 &vO, const CVec
 	groundTurn.fColY = floor( vCol.y - vScreenO.y + 0.5f );
 	groundTurn.fRowX = floor( vRow.x - vScreenO.x + 0.5f );
 	groundTurn.fRowY = floor( vRow.y - vScreenO.y + 0.5f );
+	if ( ( NCameraTurn::Step() & 1 ) == 0 )
+		return;
+	// The tile corners at the screen's top, right, left and bottom show the
+	// picture's (a half turn keeps the ground's mapping: it turns the screen alike).
+	float fX[4], fY[4];
+	for ( int c = 0; c < 4; ++c )
+	{
+		fX[c] = ( c & 1 ) * groundTurn.fColX + ( c >> 1 ) * groundTurn.fRowX;
+		fY[c] = ( c & 1 ) * groundTurn.fColY + ( c >> 1 ) * groundTurn.fRowY;
+	}
+	for ( int c = 0; c < 4; ++c )
+	{
+		if ( fY[c] <= Min( Min( fY[0], fY[1] ), Min( fY[2], fY[3] ) ) )
+			groundTurn.nMaps[c] = 0;
+		else if ( fY[c] >= Max( Max( fY[0], fY[1] ), Max( fY[2], fY[3] ) ) )
+			groundTurn.nMaps[c] = 3;
+		else
+			groundTurn.nMaps[c] = fX[c] > ( fX[0] + fX[1] + fX[2] + fX[3] ) / 4 ? 1 : 2;
+	}
 }
 static CMatrixStack<4> mstack;
 void CTerrain::MovePatches()
