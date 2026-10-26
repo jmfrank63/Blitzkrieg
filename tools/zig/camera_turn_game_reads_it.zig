@@ -19,9 +19,11 @@
 //!   world x one pixel right and half a pixel down, world y right and up) and
 //!   the side convention (x, y) -> (-y, x), not from the engine: a screen
 //!   offset (dx, dy) from the centre becomes (2 dy, -dx / 2).
-//! - terrain only: every ground pixel around the centre must be found where
-//!   the same turn takes it in the step-0 frame, and much closer there than
-//!   under no turn or the opposite turn.
+//! - terrain only: the ground around the centre, in 9 x 9 pixel blocks (S03:
+//!   at an odd step a tile shows its picture as drawn for the screen, not
+//!   stretched with the ground, so the grain within a tile does not turn),
+//!   must be found where the same turn takes it in the step-0 frame, and much
+//!   closer there than under no turn or the opposite turn.
 //! - objects only with the option off: the key does nothing, the 2003 sides
 //!   stay where they were.
 //!
@@ -45,16 +47,16 @@ const game_views = @import("building_views_game_reads_it.zig");
 const testing = std.testing;
 
 const scratch = "zig-out/local-test/camera-turn/game";
-const mod_name = "camera_turn_test";
+pub const mod_name = "camera_turn_test";
 /// Where the turned sides go in the mod: the folder of the 2003 variants, so
 /// `buildings\Europe\Summer\<variant>_r<k>` finds them.
 const mod_buildings = "buildings/europe/summer";
-const width = 1024;
-const height = 768;
+pub const width = 1024;
+pub const height = 768;
 /// `camera=` 512 puts the map's middle under the screen's (511, 383)
 /// (building-views-game-reads-it), the point the camera turns about.
 const camera = 512;
-const centre = [2]i32{ 511, 383 };
+pub const centre = [2]i32{ 511, 383 };
 
 const Building = struct {
     /// Its objects.xml name.
@@ -86,17 +88,20 @@ const sibling_folder = "Data/Buildings/europe/summer/e_ctownhouse01_4";
 /// building-views-game-reads-it's floors: the Game draws the packs' pixels unchanged.
 const min_iou = 0.95;
 const max_colour = 2.0;
-/// The ground: the mean RGB difference of the turned frame against the step-0
-/// frame turned, and how much closer that must be than under a wrong turn.
-const max_ground_difference = 12.0;
+/// The ground: the mean RGB difference of 9 x 9 pixel blocks of the turned
+/// frame against the step-0 frame turned, and how much closer that must be
+/// than under a wrong turn.
+const max_ground_difference = 6.0;
 const min_ground_margin = 2.0;
-/// Steps k and k + 2 over the whole screen but the interface.
-const max_half_turn_difference = 3.0;
+/// Steps k and k + 2 over the whole screen but the interface (S03: 2.84 for
+/// steps 1 and 3, whose tiles each show their picture as drawn for the
+/// screen, so the grain within a tile is a half turn apart).
+const max_half_turn_difference = 4.0;
 
 /// A screen offset from the centre after k quarter turns of the world: world x
 /// projects to (1, 1/2), world y to (1, -1/2), and the turn takes x to y, so
 /// (dx, dy) goes to (2 dy, -dx / 2).
-fn turnOffset(d: [2]f64, k: usize) [2]f64 {
+pub fn turnOffset(d: [2]f64, k: usize) [2]f64 {
     var q = d;
     for (0..k) |_| {
         const x = q[0];
@@ -105,7 +110,7 @@ fn turnOffset(d: [2]f64, k: usize) [2]f64 {
     return q;
 }
 
-fn turnScreen(screen: [2]i32, k: usize) [2]i32 {
+pub fn turnScreen(screen: [2]i32, k: usize) [2]i32 {
     const d = turnOffset(.{ @floatFromInt(screen[0] - centre[0]), @floatFromInt(screen[1] - centre[1]) }, k);
     return .{ centre[0] + @as(i32, @intFromFloat(@round(d[0]))), centre[1] + @as(i32, @intFromFloat(@round(d[1]))) };
 }
@@ -162,7 +167,7 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
 
     // Remastered on: each step draws the turned side where the turn puts it.
     try report.appendSlice(allocator, "on, objects: step building: IoU / colour at x,y (offset); best IoU of another side there\n");
-    const on = try runGame(io, allocator, game, root, "on", "turn.xml", "ON", objects_only, 4);
+    const on = try runGame(io, allocator, game, root, "on", "turn.xml", .{ camera, camera }, "ON", objects_only, 4);
     for (on, 0..) |frame, k| for (buildings, 0..) |building, b| {
         const at = turnScreen(building.screen, k);
         const own = game_views.score(frame, sprites[b][k], at);
@@ -175,12 +180,12 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
     };
 
     // Remastered on, the ground alone: step k's frame is step 0's turned k times.
-    try report.appendSlice(allocator, "on, terrain: step: mean RGB difference turned / not turned / turned the other way; mean brightness\n");
-    const ground = try runGame(io, allocator, game, root, "ground", "turn.xml", "ON", "shadows,objects,units,effects,noise,warfog,border,haze,grid", 4);
+    try report.appendSlice(allocator, "on, terrain: step: mean RGB difference of blocks turned / not turned / turned the other way; mean brightness\n");
+    const ground = try runGame(io, allocator, game, root, "ground", "turn.xml", .{ camera, camera }, "ON", "shadows,objects,units,effects,noise,warfog,border,haze,grid", 4);
     for (1..4) |k| {
-        const turned_diff = groundDifference(ground[0], ground[k], k);
-        const still = groundDifference(ground[0], ground[k], 0);
-        const other_way = groundDifference(ground[0], ground[k], 4 - k);
+        const turned_diff = (try blockDifference(allocator, ground[0], ground[k], k, k, .{ 200, 100 })).difference;
+        const still = (try blockDifference(allocator, ground[0], ground[k], 0, k, .{ 200, 100 })).difference;
+        const other_way = (try blockDifference(allocator, ground[0], ground[k], 4 - k, k, .{ 200, 100 })).difference;
         const brightness = meanBrightness(ground[k]);
         try report.print(allocator, "{d}: {d:.2} / {d:.2} / {d:.2}; {d:.1}\n", .{ k, turned_diff, still, other_way, brightness });
         const wrong = if (k == 2) still else @min(still, other_way);
@@ -190,7 +195,7 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
     // whole screen on the screen: so steps k and k + 2 must agree out to the
     // screen's edges, where a tile culled as if unturned leaves a gap.
     for (0..2) |k| {
-        const half = halfTurnDifference(ground[k], ground[k + 2]);
+        const half = (try blockDifference(allocator, ground[k], ground[k + 2], 2, 2, .{ 500, 200 })).difference;
         try report.print(allocator, "{d} and {d}, the whole screen: {d:.2}\n", .{ k, k + 2, half });
         if (half > max_half_turn_difference) failed = true;
     }
@@ -199,7 +204,7 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
     // stands over the shed at some steps): it shows turn (facing + step) of its
     // state.
     try report.appendSlice(allocator, "on, facing: step building facing state: turn: IoU / colour at x,y (offset); best IoU of another turn there\n");
-    for (facing_map, 0..) |placed, p| for (try runGame(io, allocator, game, root, try std.fmt.allocPrint(allocator, "facing{d}", .{p}), try std.fmt.allocPrint(allocator, "facing{d}.xml", .{p}), "ON", objects_only, 4), 0..) |frame, k| {
+    for (facing_map, 0..) |placed, p| for (try runGame(io, allocator, game, root, try std.fmt.allocPrint(allocator, "facing{d}", .{p}), try std.fmt.allocPrint(allocator, "facing{d}.xml", .{p}), .{ camera, camera }, "ON", objects_only, 4), 0..) |frame, k| {
         const building = buildings[placed.building];
         const at = turnScreen(building.screen, k);
         const t = (placed.facing + k) % 4;
@@ -215,7 +220,7 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
     // Remastered off, facing.xml: the key does nothing, and every building
     // shows its 2003 picture where it stands, its Direction ignored.
     try report.appendSlice(allocator, "off, facing: shot building: IoU / colour (offset); pixels changed by the key\n");
-    const off = try runGame(io, allocator, game, root, "off", "facing.xml", "OFF", objects_only, 2);
+    const off = try runGame(io, allocator, game, root, "off", "facing.xml", .{ camera, camera }, "OFF", objects_only, 2);
     for (off, 0..) |frame, shot| for (facing_map, 0..) |placed, p| {
         const building = buildings[placed.building];
         const own = game_views.score(frame, placed_sprites[p][0], building.screen);
@@ -326,10 +331,10 @@ fn comparePictures(a: game_views.Sprite, b: game_views.Sprite) struct { iou: f64
 }
 
 /// Runs the Game on `map` with the Remastered option set to `remastered`
-/// and the passes `disable` off, takes `shots` shots with the turn key pressed
+/// and the passes `disable` off, looking at `look` (world), takes `shots` shots with the turn key pressed
 /// between them and returns them (RGBA), also kept as `<name>-<k>.png`; it must
 /// exit 0 without a leak.
-fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, remastered: []const u8, disable: []const u8, comptime shots: usize) ![shots][]u8 {
+pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize) ![shots][]u8 {
     const cwd = std.Io.Dir.cwd();
     const user = try std.fs.path.join(allocator, &.{ root, "user", name });
     try cwd.createDirPath(io, user);
@@ -351,7 +356,7 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
     // building-views-game-reads-it), then the camera set and the option chosen;
     // each shot has its own wait so that its file name is its own.
     var schedule: std.ArrayList(u8) = .empty;
-    try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d},g10:set=GamePlay.Remastered={s}", .{ camera, camera, remastered });
+    try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d},g10:set=GamePlay.Remastered={s}", .{ look[0], look[1], remastered });
     for (0..shots) |k| {
         if (k != 0) try schedule.appendSlice(allocator, ",g10:key=.");
         try schedule.print(allocator, ",g{d}:shot", .{1500 + k});
@@ -385,66 +390,126 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
     return frames;
 }
 
-fn pixel(frame: []const u8, x: i32, y: i32) [3]f64 {
+pub fn pixel(frame: []const u8, x: i32, y: i32) [3]f64 {
     const i: usize = @intCast((y * width + x) * 4);
     return .{ @floatFromInt(frame[i]), @floatFromInt(frame[i + 1]), @floatFromInt(frame[i + 2]) };
 }
 
-/// The mean RGB difference between the ground around the centre in `before`
-/// and where k quarter turns take it in `after`, at the best offset within 2
-/// pixels (the anchor snaps to whole screen steps along the turned axes). The
-/// region, 400 x 200 pixels, stays on the screen when turned.
-fn groundDifference(before: []const u8, after: []const u8, k: usize) f64 {
-    var best: f64 = std.math.floatMax(f64);
-    var oy: i32 = -2;
-    while (oy <= 2) : (oy += 1) {
-        var ox: i32 = -2;
-        while (ox <= 2) : (ox += 1) {
-            var sum: f64 = 0;
-            var count: f64 = 0;
-            var dy: i32 = -100;
-            while (dy <= 100) : (dy += 2) {
-                var dx: i32 = -200;
-                while (dx <= 200) : (dx += 2) {
-                    const to = turnScreen(.{ centre[0] + dx, centre[1] + dy }, k);
-                    const a = pixel(before, centre[0] + dx, centre[1] + dy);
-                    const b = pixel(after, to[0] + ox, to[1] + oy);
-                    for (0..3) |c| sum += @abs(a[c] - b[c]);
-                    count += 3;
-                }
-            }
-            best = @min(best, sum / count);
-        }
+/// The inverse of turnOffset: (X, Y) came from (-2 Y, X / 2).
+pub fn unturn(d: [2]f64, k: usize) [2]f64 {
+    var q = d;
+    for (0..k) |_| {
+        const x = q[0];
+        q = .{ -2 * q[1], x / 2 };
     }
-    return best;
+    return q;
 }
 
-/// The mean RGB difference between `a` and `b` reflected about the centre,
-/// over the screen's full width and the rows that are clear of the interface
-/// in both (the message line at the top, the panels at the bottom), at the
-/// best offset within 2 pixels.
-fn halfTurnDifference(a: []const u8, b: []const u8) f64 {
+/// Rows the interface may cover in any shot: the message line at the top
+/// ("Game saved") and the panels at the bottom.
+pub const clear_rows = [2]i32{ 90, 600 };
+
+/// `before` as k quarter turns of the ground about the centre take it (each
+/// pixel the one it came from), null where that is off the screen or under
+/// the interface.
+fn turnFrame(allocator: std.mem.Allocator, before: []const u8, k: usize) ![]?[3]f64 {
+    const out = try allocator.alloc(?[3]f64, width * height);
+    for (0..height) |y| for (0..width) |x| {
+        const d = unturn(.{ @as(f64, @floatFromInt(x)) - centre[0], @as(f64, @floatFromInt(y)) - centre[1] }, k);
+        const sx: i32 = centre[0] + @as(i32, @intFromFloat(@round(d[0])));
+        const sy: i32 = centre[1] + @as(i32, @intFromFloat(@round(d[1])));
+        out[y * width + x] = if (sx < 0 or sx >= width or sy < clear_rows[0] or sy >= clear_rows[1]) null else pixel(before, sx, sy);
+    };
+    return out;
+}
+
+/// `after` as it is, null under the interface.
+fn clearFrame(allocator: std.mem.Allocator, after: []const u8) ![]?[3]f64 {
+    const out = try allocator.alloc(?[3]f64, width * height);
+    for (0..height) |y| for (0..width) |x| {
+        const yi: i32 = @intCast(y);
+        out[y * width + x] = if (yi < clear_rows[0] or yi >= clear_rows[1]) null else pixel(after, @intCast(x), yi);
+    };
+    return out;
+}
+
+/// Sums of a picture over the rectangle above and left of each pixel, and the
+/// count of its pixels there, so that a block's mean takes four look-ups.
+const Integral = struct {
+    sum: [][3]f64,
+    count: []f64,
+
+    fn init(allocator: std.mem.Allocator, picture: []const ?[3]f64) !Integral {
+        const stride = width + 1;
+        const self: Integral = .{ .sum = try allocator.alloc([3]f64, stride * (height + 1)), .count = try allocator.alloc(f64, stride * (height + 1)) };
+        @memset(self.sum, .{ 0, 0, 0 });
+        @memset(self.count, 0);
+        for (0..height) |y| for (0..width) |x| {
+            const i = (y + 1) * stride + x + 1;
+            const p = picture[y * width + x];
+            for (0..3) |c| self.sum[i][c] = (if (p) |q| q[c] else 0) + self.sum[i - 1][c] + self.sum[i - stride][c] - self.sum[i - stride - 1][c];
+            self.count[i] = @as(f64, @floatFromInt(@intFromBool(p != null))) + self.count[i - 1] + self.count[i - stride] - self.count[i - stride - 1];
+        };
+        return self;
+    }
+
+    /// The mean of the 9 x 9 block around (x, y), null unless all of it is there.
+    fn block(self: Integral, x: i32, y: i32) ?[3]f64 {
+        if (x < 4 or y < 4 or x + 5 > width or y + 5 > height) return null;
+        const stride: i32 = width + 1;
+        const a: usize = @intCast((y - 4) * stride + x - 4);
+        const b: usize = @intCast((y - 4) * stride + x + 5);
+        const c: usize = @intCast((y + 5) * stride + x - 4);
+        const d: usize = @intCast((y + 5) * stride + x + 5);
+        if (self.count[d] - self.count[b] - self.count[c] + self.count[a] < 81) return null;
+        var mean: [3]f64 = undefined;
+        for (0..3) |ch| mean[ch] = (self.sum[d][ch] - self.sum[b][ch] - self.sum[c][ch] + self.sum[a][ch]) / 81;
+        return mean;
+    }
+};
+
+/// The mean RGB difference of 9 x 9 pixel blocks within `region` of the
+/// centre between `after` and `before` turned k times: the shapes of the
+/// ground (fields, roads, banks, fog, the border) without the grain of its
+/// pictures. The camera turns about its anchor at height 0, so ground lifted
+/// h pixels lands h (T^s (0, -1) - (0, -1)) from where a turn of its step-0
+/// place puts it, s being the turn from `before` to `after` (`lifted`): the
+/// best lift within 24 pixels is taken, and the best offset within a pixel.
+pub fn blockDifference(allocator: std.mem.Allocator, before: []const u8, after: []const u8, k: usize, lifted: usize, region: [2]i32) !struct { difference: f64, lift: i32 } {
+    const want = try Integral.init(allocator, try turnFrame(allocator, before, k));
+    const got = try Integral.init(allocator, try clearFrame(allocator, after));
+    const up = turnOffset(.{ 0, -1 }, lifted);
+    const direction = [2]f64{ up[0], up[1] + 1 };
     var best: f64 = std.math.floatMax(f64);
-    var oy: i32 = -2;
-    while (oy <= 2) : (oy += 1) {
-        var ox: i32 = -2;
-        while (ox <= 2) : (ox += 1) {
-            var sum: f64 = 0;
-            var count: f64 = 0;
-            var y: i32 = 172;
-            while (y < 594) : (y += 2) {
-                var x: i32 = 2;
-                while (x < width - 4) : (x += 2) {
-                    const p = pixel(a, x, y);
-                    const q = pixel(b, 2 * centre[0] - x + ox, 2 * centre[1] - y + oy);
-                    for (0..3) |c| sum += @abs(p[c] - q[c]);
-                    count += 3;
+    var best_lift: i32 = 0;
+    var lift: i32 = -24;
+    while (lift <= 24) : (lift += 1) {
+        const h: f64 = @floatFromInt(lift);
+        const shift = [2]i32{ @intFromFloat(@round(direction[0] * h)), @intFromFloat(@round(direction[1] * h)) };
+        var oy: i32 = -1;
+        while (oy <= 1) : (oy += 1) {
+            var ox: i32 = -1;
+            while (ox <= 1) : (ox += 1) {
+                var sum: f64 = 0;
+                var blocks: f64 = 0;
+                var y: i32 = -region[1];
+                while (y <= region[1]) : (y += 4) {
+                    var x: i32 = -region[0];
+                    while (x <= region[0]) : (x += 4) {
+                        const a = want.block(centre[0] + x, centre[1] + y) orelse continue;
+                        const b = got.block(centre[0] + x + shift[0] + ox, centre[1] + y + shift[1] + oy) orelse continue;
+                        for (0..3) |c| sum += @abs(a[c] - b[c]);
+                        blocks += 3;
+                    }
+                }
+                if (blocks > 0 and sum / blocks < best) {
+                    best = sum / blocks;
+                    best_lift = lift;
                 }
             }
-            best = @min(best, sum / count);
         }
     }
-    return best;
+    return .{ .difference = best, .lift = best_lift };
 }
 
 fn meanBrightness(frame: []const u8) f64 {

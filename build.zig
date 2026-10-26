@@ -3147,6 +3147,30 @@ pub fn build(b: *std.Build) void {
     turn_game_step.dependOn(&turn_game_tests.step);
     if (test_mode == .run) turn_game_step.dependOn(&turn_game_run.step);
 
+    // The rest of the world at every camera step (M006 S03,
+    // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and
+    // road3d, the dessau scene, and objects of each kind on a ring, each shot
+    // measured against the step-0 frame turned. Desktop and GPU, so not part
+    // of `test`.
+    const world_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_world_game_reads_it.zig"),
+        .target = target,
+        // The block and object scores walk every pixel of a dozen shots.
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, world_game_module, toolchain);
+    }
+    const world_game_tests = b.addTest(.{ .root_module = world_game_module, .filters = &.{ "a ring point", "the ground, roads" } });
+    const world_game_run = b.addRunArtifact(world_game_tests);
+    world_game_run.setCwd(b.path("."));
+    world_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    world_game_run.has_side_effects = true;
+    world_game_run.step.dependOn(install_game_step);
+    const world_game_step = b.step("camera-turn-world-game-reads-it", "Press the camera turn key on the real Game with Remastered on over dessau's and road3d's ground, the dessau scene and objects of every kind, and measure each shot against the step-0 frame turned; with it off the key changes nothing");
+    world_game_step.dependOn(&world_game_tests.step);
+    if (test_mode == .run) world_game_step.dependOn(&world_game_run.step);
+
     // The turned building sides as a mod, to try the camera turn by hand
     // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
     // building-views-batch-<region> steps left in zig-out/remastered/Buildings,
