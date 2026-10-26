@@ -1686,6 +1686,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 						{
 							{ "UP", 0xc8 }, { "DOWN", 0xd0 }, { "LEFT", 0xcb }, { "RIGHT", 0xcd },
 							{ "TAB", 0x0f }, { "ENTER", 0x1c }, { "ESC", 0x01 }, { "SPACE", 0x39 },
+							{ ".", 0x34 },
 						};
 						const std::string szKey = szAction.substr( 4 );
 						for ( int nKey = 0; nKey < int( sizeof(autoUIKeys) / sizeof(autoUIKeys[0]) ); ++nKey )

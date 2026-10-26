@@ -9,6 +9,7 @@
 #include "../AILogic/aiconsts.h"
 #include "../GFX/GFXHelper.h"
 #include "../Misc/Intersection.h"
+#include "../Main/CameraTurn.h"
 /**
 inline int GetNextRoadByPriority( int nPriority, const SRoadsetDesc &roadset )
 {
@@ -171,6 +172,7 @@ void CTerrain::DrawMarker()
 	const CVec3 vO( 0, fPatchSize * terrainInfo.patches.GetSizeY(), 0 );
 	CVec3 vScreenO;											// screen space position of the terrain's origin
 	matTransform.RotateHVector( &vScreenO, vO );
+	UpdateGroundTurn( matTransform, vO, vScreenO );
 	pGFX->SetShadingEffect( 3 );
 	pGFX->SetTexture( 0, 0 );
 	if ( !vismarker.info.empty() && !vismarker.vertices.empty() && !vismarker.indices.empty() )
@@ -269,6 +271,17 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 		const CVec2 point = vCameraO - vCameraY - vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.maxy = floor( Clamp( fTerrainPatchesY - (fDist / fPatchSize), 0.0f, fTerrainPatchesY ) + 0.99f );
+	}
+	if ( NCameraTurn::Step() != 0 )
+	{
+		// Turned, the screen's corners land elsewhere on the ground: take the
+		// square around the anchor that holds the screen at every quarter turn
+		// and leave the rest to the view volume test below.
+		const float fReach = ( fWidth + fHeight ) / FP_SQRT_2;
+		rcL0Rect.minx = floor( Clamp( (vCamera.x - fReach) / fPatchSize, 0.0f, fTerrainPatchesX ) );
+		rcL0Rect.maxx = floor( Clamp( (vCamera.x + fReach) / fPatchSize, 0.0f, fTerrainPatchesX ) + 0.99f );
+		rcL0Rect.miny = floor( Clamp( fTerrainPatchesY - ( (vCamera.y + fReach) / fPatchSize ), 0.0f, fTerrainPatchesY ) );
+		rcL0Rect.maxy = floor( Clamp( fTerrainPatchesY - ( (vCamera.y - fReach) / fPatchSize ), 0.0f, fTerrainPatchesY ) + 0.99f );
 	}
 	rcL0Rect.Inflate( 1, 1 );
 	rcL0Rect.minx = Clamp( rcL0Rect.minx, 0, terrainInfo.patches.GetSizeX() );

@@ -60,6 +60,8 @@ void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, co
 #include "MessageReaction.h"
 #include "MissionInterfaceEscapeMenu.h"
 #include "../GameTT/WorldClient.h"
+#include "../Main/Remastered.h"
+#include "../Main/CameraTurn.h"
 enum
 {
 	E_MULTIPLAYER_PLAYER_LAGGED_DIALOG								= 100001,
@@ -144,6 +146,7 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "zoom_in"							, MC_ZOOM_IN							},
 	{ "zoom_out"						, MC_ZOOM_OUT							},
 	{ "zoom_reset"					, MC_ZOOM_RESET						},
+	{ "camera_turn"					, MC_CAMERA_TURN					},
 	{ "show_avia_buttons"		,	MC_SHOW_AVIA_BUTTONS		},
 	{ "add_action_on"				,	MC_ADD_ACTION_ON				},
 	{ "add_action_off"			,	MC_ADD_ACTION_OFF				},
@@ -932,6 +935,8 @@ bool CInterfaceMission::Init()
 	// session globals that survive loads by design.
 	SetGlobalVar( "GFX.World.ZoomSteps", 0 );
 	SetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
+	// The camera turn is session-local the same way: every mission starts on the 2003 view.
+	SetGlobalVar( NCameraTurn::pszStepVar, 0 );
 	// Keep whatever anchor the camera already carries. Init runs before
 	// NewMission on a fresh start, where the anchor is still the default, but
 	// during deserialization on a load - and hardcoding the origin here threw
@@ -2136,6 +2141,12 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 				SetGlobalVar( "GFX.World.ZoomSteps", 0 );
 			else
 				ApplyZoomStep( msg.nEventID == MC_ZOOM_IN ? +1 : -1 );
+			break;
+		case MC_CAMERA_TURN:
+			// A quarter turn about the point at the screen centre (Remastered
+			// only): the camera, the terrain and the buildings read the step.
+			if ( NRemastered::Enabled() && pTimer->GetPauseReason() <= PAUSE_TYPE_NO_CONTROL )
+				SetGlobalVar( NCameraTurn::pszStepVar, ( NCameraTurn::Step() + 1 ) & 3 );
 			break;
 		case MC_SHOW_AVIA_BUTTONS:
 			GetSingleton<IInput>()->AddMessage( SGameMessage( UI_NEXT_STATE_MESSAGE, 12003 ) );

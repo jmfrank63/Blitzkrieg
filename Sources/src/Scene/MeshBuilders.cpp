@@ -5,17 +5,21 @@
 #include "../AILogic/AITypes.h"
 #include "TerrainInternal.h"
 const float fHeightCoeff = 0.86602540378444f;// cos( ToRadian(30.0f) );
-#define MAKE_COORD_X1 ( fX + (j - i)*fCellSizeX )
-#define MAKE_COORD_Y1 ( fY + (j + i)*fCellSizeY - heights[nMapY][nMapX].fHeight*fHeightCoeff )
+// A tile corner (column j + dj, row i + di) on the screen: the 2003 offsets of
+// the 45 degree view, or the turned view's steps (groundTurn, TerrainInternal.h).
+#define TURNED_X( dj, di ) ( fX + (j + (dj))*groundTurn.fColX + (i + (di))*groundTurn.fRowX )
+#define TURNED_Y( dj, di ) ( fY + (j + (dj))*groundTurn.fColY + (i + (di))*groundTurn.fRowY )
+#define MAKE_COORD_X1 ( groundTurn.bTurned ? TURNED_X( 0, 0 ) : fX + (j - i)*fCellSizeX )
+#define MAKE_COORD_Y1 ( ( groundTurn.bTurned ? TURNED_Y( 0, 0 ) : fY + (j + i)*fCellSizeY ) - heights[nMapY][nMapX].fHeight*fHeightCoeff )
 
-#define MAKE_COORD_X2 ( fX + (j - i + 1)*fCellSizeX )
-#define MAKE_COORD_Y2 ( fY + (j + i + 1)*fCellSizeY - heights[nMapY][nMapX1].fHeight*fHeightCoeff )
+#define MAKE_COORD_X2 ( groundTurn.bTurned ? TURNED_X( 1, 0 ) : fX + (j - i + 1)*fCellSizeX )
+#define MAKE_COORD_Y2 ( ( groundTurn.bTurned ? TURNED_Y( 1, 0 ) : fY + (j + i + 1)*fCellSizeY ) - heights[nMapY][nMapX1].fHeight*fHeightCoeff )
 
-#define MAKE_COORD_X3 ( fX + (j - i - 1)*fCellSizeX )
-#define MAKE_COORD_Y3 ( fY + (j + i + 1)*fCellSizeY - heights[nMapY1][nMapX].fHeight*fHeightCoeff )
+#define MAKE_COORD_X3 ( groundTurn.bTurned ? TURNED_X( 0, 1 ) : fX + (j - i - 1)*fCellSizeX )
+#define MAKE_COORD_Y3 ( ( groundTurn.bTurned ? TURNED_Y( 0, 1 ) : fY + (j + i + 1)*fCellSizeY ) - heights[nMapY1][nMapX].fHeight*fHeightCoeff )
 
-#define MAKE_COORD_X4 ( fX + (j - i)*fCellSizeX )
-#define MAKE_COORD_Y4 ( fY + (j + i + 2)*fCellSizeY - heights[nMapY1][nMapX1].fHeight*fHeightCoeff )
+#define MAKE_COORD_X4 ( groundTurn.bTurned ? TURNED_X( 1, 1 ) : fX + (j - i)*fCellSizeX )
+#define MAKE_COORD_Y4 ( ( groundTurn.bTurned ? TURNED_Y( 1, 1 ) : fY + (j + i + 2)*fCellSizeY ) - heights[nMapY1][nMapX1].fHeight*fHeightCoeff )
 #define MAKE_NOISE_X1 ( fPosX*fNoiseRcprX )
 #define MAKE_NOISE_Y1 ( fPosY*fNoiseRcprY )
 

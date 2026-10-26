@@ -3,6 +3,7 @@
 #include "../Input/Input.h"
 #include "Camera.h"
 #include "../Common/PauseGame.h"
+#include "../Main/CameraTurn.h"
 CCamera::CCamera() 
 {
 	vAnchor = VNULL3;
@@ -73,7 +74,8 @@ void CCamera::Update()
 	if ( ( fabsf( fStrafe ) > 0.001f || fabsf( fFwd ) > 0.001f ) && getenv( "BK_INPUT_TRACE" ) )
 		fprintf( stderr, "BK_INPUT_TRACE: camera strafe=%.2f fwd=%.2f anchor=(%.0f,%.0f)\n", fStrafe, fFwd, vAnchor.x, vAnchor.y );
 	float fZoom = pZoom->GetDelta();
-	CQuat quat = CQuat( fYaw, V3_AXIS_Z ) * CQuat( fPitch, V3_AXIS_X );
+	// The turned yaw, so the keys and the screen edges scroll the way the turned view faces.
+	CQuat quat = CQuat( fYaw + NCameraTurn::YawOffset( NCameraTurn::Step() ), V3_AXIS_Z ) * CQuat( fPitch, V3_AXIS_X );
 	CVec3 vAxisX, vAxisY;
 	quat.GetZAxis( &vAxisY );
 	vAxisY.z = 0;
@@ -123,7 +125,8 @@ void CCamera::Update()
 }
 const SHMatrix CCamera::GetPlacement() const
 {
-	CQuat quat = CQuat( fYaw, V3_AXIS_Z ) * CQuat( fPitch, V3_AXIS_X );
+	// The Remastered quarter turns (NCameraTurn) turn about the anchor, which Update put under the screen centre.
+	CQuat quat = CQuat( fYaw + NCameraTurn::YawOffset( NCameraTurn::Step() ), V3_AXIS_Z ) * CQuat( fPitch, V3_AXIS_X );
 	SHMatrix matrix;
 	CreateViewMatrixRH( &matrix, vPos, quat );
 	return matrix;

@@ -13,6 +13,7 @@
 #include "../Input/Input.h"
 #include "PlayEffect.h"
 #include "../Misc/Win32Random.h"
+#include "../Main/CameraTurn.h"
 CMOBuilding::~CMOBuilding()
 {
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
@@ -23,6 +24,7 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 {
 	nSeason = _nSeason;
 	pDesc = pDescLocal;
+	nCameraTurn = NCameraTurn::Step();
 	pRPG = NGDB::GetRPGStats<SHPObjectRPGStats>( pGDB, pDesc );
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for building \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
@@ -72,6 +74,10 @@ int CMOBuilding::operator&( IStructureSaver &ss )
 	saver.Add( 3, &pLocalName );
 	saver.Add( 4, &pGarbage );
 	saver.Add( 5, &nSeason );
+	// The side it is drawn with, so a save made with the camera turned (Remastered)
+	// loads knowing it; at the 2003 view nothing is written, as before.
+	if ( saver.IsReading() || nCameraTurn != 0 )
+		saver.Add( 6, &nCameraTurn );
 	return 0;
 }
 bool CMOBuilding::CanEnterOrBoard() const
@@ -286,7 +292,7 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 	const int nNewState = GetBuildingDamageState( fNewHP );
 	if ( (nNewState != nOldState) || bForced )
 	{
-		const std::string szBaseModelName = NStr::Format( "%s\\%d", pDesc->szPath.c_str(), nNewState + 1 );
+		const std::string szBaseModelName = NStr::Format( "%s\\%d", GetModelPath().c_str(), nNewState + 1 );
 		CPtr<IVisObj> pTempVO = UpdateVisObj( pVisObj, szBaseModelName, GetSeasonApp(nSeason), "", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pVisObj );
@@ -302,6 +308,41 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 		return true;
 	}
 	return false;
+}
+// The variant folder of the side the camera sees: at quarter turn k a
+// building shows its variant turned k times, M005's sibling folder
+// `<variant>_r<k>` (for now a building's own side counts as side 1). Where
+// that folder was not made, the building keeps its own picture.
+std::string CMOBuilding::GetModelPath() const
+{
+	if ( nCameraTurn != 0 )
+	{
+		const std::string szTurned = NStr::Format( "%s_r%d", pDesc->szPath.c_str(), nCameraTurn );
+		if ( GetSingleton<IDataStorage>()->IsStreamExist( (szTurned + "\\1.san").c_str() ) )
+			return szTurned;
+	}
+	return pDesc->szPath;
+}
+void CMOBuilding::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
+{
+	if ( nTurn == nCameraTurn || pVisObj == 0 )
+		return;
+	nCameraTurn = nTurn;
+	// The pictures change in place, so the scene keeps the objects it holds; a
+	// shadow or ground picture the other side has and this one had not is new.
+	const bool bHadShadow = pShadow != 0, bHadGarbage = pGarbage != 0;
+	UpdateModelWithHP( fHP, pVOB, true );
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pShadow != 0 && !bHadShadow )
+	{
+		pShadow->SetPosition( pVisObj->GetPosition() );
+		pScene->AddObject( pShadow, SGVOGT_SHADOW );
+	}
+	if ( pGarbage != 0 && !bHadGarbage )
+	{
+		pGarbage->SetPosition( pVisObj->GetPosition() );
+		pScene->AddObject( pGarbage, SGVOGT_TERRAOBJ );
+	}
 }
 IVisObj* AddDirEffect( const std::string &szEffect, const CVec3 &vPos, const float fHDir, const float fVDir, 
 											const NTimer::STime &timeEffect, const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene )

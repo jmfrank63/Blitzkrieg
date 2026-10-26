@@ -15,6 +15,7 @@
 #include "../Platform/Clock.h"
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
+#include "../Main/CameraTurn.h"
 #define MESH_SHADOW_DENSITY 0.5f
 // The terra-object shadow pass (effect 111) draws pre-baked shadow sprites
 // whose alpha carries per-texel detail (frond gaps, dither). At a fractional
@@ -270,14 +271,19 @@ void CScene::Draw( ICamera *pCamera )
 	// changes made outside that path (resolution+zoom combinations, future
 	// wheel/script zoom), so stale meshes cannot survive either way.
 	const float fPlayerZoom = NSceneScreenScale::GetPlayerZoom( rcGameplayScreen );
+	// A camera turn (NCameraTurn) lays the terrain's patches out anew as well.
+	static int nLastCameraTurn = 0;
+	const int nCameraTurn = NCameraTurn::Step();
 	if ( pTerrain && ( nLastGameplayScreenWidth != rcScreenRect.Width() || nLastGameplayScreenHeight != rcScreenRect.Height() ||
-		                 bLastScaleGameplayProjection != bScaleGameplayProjection || fabsf( fPlayerZoom - fLastPlayerZoom ) > 0.001f ) )
+		                 bLastScaleGameplayProjection != bScaleGameplayProjection || fabsf( fPlayerZoom - fLastPlayerZoom ) > 0.001f ||
+		                 nLastCameraTurn != nCameraTurn ) )
 	{
 		pTerrain->ResetPosition();
 		nLastGameplayScreenWidth = rcScreenRect.Width();
 		nLastGameplayScreenHeight = rcScreenRect.Height();
 		bLastScaleGameplayProjection = bScaleGameplayProjection;
 		fLastPlayerZoom = fPlayerZoom;
+		nLastCameraTurn = nCameraTurn;
 	}
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
@@ -286,7 +292,12 @@ void CScene::Draw( ICamera *pCamera )
 	matTransform.RotateHVector( &vecZ1, CVec3(0, 0, 0) );
 	matTransform.RotateHVector( &vecZ2, CVec3(0, 0, 2.0f/FP_SQRT_3) );
 	fZBias = vecZ2.z - vecZ1.z;
-	matTransform.RotateHVector( &vecZ2, CVec3(-FP_SQRT_2, FP_SQRT_2, 0) );
+	// The ground step that goes up the screen, turned with the camera: a
+	// sprite's depth offsets are measured along it.
+	CVec3 vScreenUp( -FP_SQRT_2, FP_SQRT_2, 0 );
+	if ( nCameraTurn != 0 )
+		vScreenUp = CQuat( NCameraTurn::YawOffset( nCameraTurn ), V3_AXIS_Z ).Rotate( vScreenUp );
+	matTransform.RotateHVector( &vecZ2, vScreenUp );
 	fZBias2 = vecZ2.z - vecZ1.z;
 	if ( bEnableDepthComplexity )
 		pGFX->SetShadingEffect( 300 );
@@ -1902,6 +1913,23 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		rcL0Rect.maxy = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesY ) );
 	}
 	rcL0Rect.Normalize();
+	if ( NCameraTurn::Step() != 0 )
+	{
+		// Turned, the screen's corners land elsewhere on the ground: every patch
+		// of the square around the anchor that holds the screen at every quarter
+		// turn (the sprites outside the screen are dropped when they are drawn).
+		const float fReach = ( fWidth + fHeight ) / FP_SQRT_2;
+		const int nMinX = int( Clamp( (vCameraO.x - fReach) / fPatchSize, 0.0f, fPatchesX ) );
+		const int nMinY = int( Clamp( (vCameraO.y - fReach) / fPatchSize, 0.0f, fPatchesY ) );
+		const int nMaxX = Clamp( int( Clamp( (vCameraO.x + fReach) / fPatchSize, 0.0f, fPatchesX ) ) + 3, 0, int(fPatchesX) );
+		const int nMaxY = Clamp( int( Clamp( (vCameraO.y + fReach) / fPatchSize, 0.0f, fPatchesY ) ) + 3, 0, int(fPatchesY) );
+		for ( int j = nMinY; j < nMaxY; ++j )
+		{
+			for ( int i = nMinX; i < nMaxX; ++i )
+				pPatches->push_back( std::pair<int, int>( i, j ) );
+		}
+		return;
+	}
 	CTRect<int> rcL1Rect;								// level 1 of roughness rect
 	const CVec3 vTerraOX( 0, 0, 0 );
 	const CVec3 vTerraOY( 0, fPatchesY * fPatchSize, 0 );

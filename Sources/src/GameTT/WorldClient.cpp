@@ -19,6 +19,7 @@
 #include "../Common/PauseGame.h"
 #include "../Main/iMainCommands.h"
 #include "../Main/Remastered.h"
+#include "../Main/CameraTurn.h"
 
 #include "SelectorVisitors.h"
 #include "../Main/ScenarioTrackerTypes.h"
@@ -501,6 +502,7 @@ int CWorldClient::operator&( IStructureSaver &ss )
 		ResetPreSelection();
 		statusObject.Clear();
 		bReconcileSelection = true;
+		nCameraTurn = -1;
 	}
 	saver.Add( 18, &aviationCircles );
 	saver.Add( 19, &availCrossActions );
@@ -521,6 +523,7 @@ CWorldClient::CWorldClient()
 	bActionModifierForcedAttack = false;
 	bCheckDiplomacy = true;
 	bReconcileSelection = false;
+	nCameraTurn = 0;
 	nLastAvailableActionsSet = 0;
 	timeLastPick = 0;
 	vLastPickPos = VNULL2;
@@ -655,6 +658,17 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 	{
 		bReconcileSelection = false;
 		ReconcileSelection();
+	}
+	// The camera turned (NCameraTurn): every building shows the side it sees now.
+	if ( nCameraTurn != NCameraTurn::Step() )
+	{
+		nCameraTurn = NCameraTurn::Step();
+		for ( iterator it = begin(); it != end(); ++it )
+		{
+			SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
+			if ( pMO != 0 )
+				pMO->SetCameraTurn( nCameraTurn, pVOB );
+		}
 	}
 	while ( const char *pszString = GetSingleton<IConsoleBuffer>()->ReadASCII(CONSOLE_STREAM_WORLD) )
 	{
