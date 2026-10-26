@@ -132,3 +132,95 @@ between shots (`key=.` was added to the BK_AUTO_UI keys):
   faces) but is not measured; the step is not in a save (every mission starts at step 0), a building saved turned
   remembers its side; a replay does not record the step. (S05)
 - **Map Editor:** unchanged (the step var is never set there). (S06)
+
+## Sides by facing plus camera (S02, 2026-10-26)
+
+- **The rule** (`Main/CameraTurn.h`, for the Game now and the Map Editor in S06): a building is drawn with turn
+  `NCameraTurn::DrawnTurn(facing, step)` = (own facing + camera step) mod 4 of its objects.xml variant, so a variant
+  that shows side s is drawn as side (s - 1 + facing + step) mod 4 + 1. `NCameraTurn::ModelPath(variant, turn)` is
+  the folder: the variant at turn 0, else `<variant>_r<turn>` where the data holds its `1.san`, else the variant.
+  Every picture the building loads comes from that folder (`<damage state>`, `s`, `g`, the season's `w`), so the rule
+  holds for every damage state, winter and shadow alike. `CMOBuilding::GetDrawnTurn` applies it, with the facing
+  counted only while `NRemastered::Enabled()`.
+- **Own facing of a 2003 map object** (decided): its map `Direction` (0..65535, the AI's convention: 0 faces +y,
+  16384 faces -x, the same as a variant's 1.xml `Direction` 0 and 90) to the nearest quarter turn,
+  `NCameraTurn::Facing(dir) = ((dir + 0x2000) >> 14) & 3`. One quarter of Direction is one side turn
+  (x, y) -> (-y, x). The 2003 game ignored it: `CStaticObjects::AddNewBuilding` takes no direction,
+  `CGivenPassabilityStObject::GetDir` is 0, so the client always got 0. Measured: all 4415 buildings and
+  fortifications in the 57 shipped maps (`bk-map to-xml Data/Maps`, names matched to objects.xml's
+  building/fortification entries) have `Direction="0"`, so every 2003 map draws as before at step 0.
+  The AI now keeps the map Direction for buildings (`CBuilding::SetMapDirection`, chunk 41 of its save only when
+  not 0) and passes it on in the new-object info's `dir`; `CMOBuilding::SetPlacement` turns it into the facing
+  (chunk 7 of its save only when not 0) and keeps its sprites at direction 0, as 2003 had them. The building's
+  footprint, entrances, armour sides and `GetDir` do not turn: a building at a facing other than 0 stands on its
+  variant's own footprint (S06 decides how the Map Editor's turned buildings get a turned footprint).
+- **Option changes.** `CWorldClient::Update` redraws every building when the step or the option changes (the
+  option decides whether the facing counts); a building redraws only if its drawn turn changed. With the option
+  off the drawn turn is always 0: the 2003 picture, whatever the map's Direction.
+- **The family's 2003 sides** (M005's inventory): `bk-views side` now makes turn k of a variant from the family's
+  2003 variant that shows that side (the inventory's measured side, eye turn k), in the same colourway
+  (`sameColourway`) and holding every picture the variant holds (every damage state, shadow, ground and winter
+  picture); otherwise it draws the turn with the blocks as before. The sibling's pictures are packed unmoved, with
+  the zero cross moved to the variant's turned zero cross (the sibling's own plus the projection of the family's
+  measured shift, rounded to a pixel). So the engine only ever looks for `<variant>_r<k>`, and the Resource
+  Editor's Sides window, the Game and the Map Editor all see the 2003 art where it exists. `sources.json` names the
+  sibling (`"sibling"`), the batch report lists such turns as `r<k> = <sibling>`. Example: e_ctownhouse01_2's
+  turn 2 (side 4) is e_ctownhouse01_4; its turn 3 (side 1) stays drawn, because e_ctownhouse01_1 is another
+  colourway (hue distance 0.163). The sibling's zero cross lies 10, 122 pixels from the turned one (shift
+  -179.2, 165.3 world units): the 2003 variants of one building do not share a zero cross.
+- **A variant without a turn** (no `_r<k>` folder in the data, e.g. a mod's building nobody ran Generate sides on)
+  keeps its own picture at that turn (`ModelPath`'s last case). M005's batch makes turns for all 194 variants, so
+  in the Remastered data every shipped building has all four.
+- **Frame index.** All 2048 `.san` files under `Data/Buildings` are one-sprite packs (counted with
+  `bk_views_pack.decodePack`), so a 2003 building has no frames to lose; `ChangeObject` carries the frame index over
+  anyway. For a mod's multi-sprite pack, whose turn bk-views packs from sprite 0 (the turned pack has one sprite and
+  clamps the index), the building keeps its own frame index (`Create`'s, saved as chunk 8 only while drawn turned)
+  and sets it again after every redraw.
+- **Passengers' HP bars** stand on the sprite's nearest depth (`CalcPassangerHPAdd`), taken when a unit enters; a
+  redraw now places every passenger's bar again from the new picture's depth (`GetPassangerIconPlacement`, shared
+  with `Load`) and repositions the icons. Not measured in a capture.
+
+### The tier (S02)
+
+`camera-turn-game-reads-it` gains a second map, `facing.xml`: E_CTownHouse01_2 at own facing 3 (Direction 49152)
+and E_FrenchShed01 damaged (HP 0.3, its second damage state) at own facing 2, at the places of `turn.xml`. With
+Remastered on each runs alone (turned, the tall town house stands over the shed at some steps) and must show turn
+(facing + step) mod 4 of its state where the turn puts it, better than any other turn there; with the option off
+both run together and must show their 2003 pictures at offset 0,0 and the key must change no pixel. A damaged state
+is measured over its rubble picture (`2g`), which the Game draws with the objects. Before the scores, the town
+house's turn 2 is compared with the decomposed 2003 e_ctownhouse01_4: IoU 1.000, colour 0.00.
+
+Measured (win-home, debug install):
+- facing 3 town house, steps 0..3 (turns 3, 0, 1, 2): IoU 1.000 / 0.999 / 1.000 / 0.998, colour 0.00..0.18,
+  offset 0,0; best other turn 0.200..0.245.
+- facing 2 damaged shed, steps 0..3 (turns 2, 3, 0, 1): IoU 0.999 / 0.999 / 0.993 / 0.999, colour 0.00..0.29,
+  offset 0,0; best other turn 0.196..0.211.
+- off: town house 0.999 / 0.00, damaged shed 0.993 / 0.18, both at 0,0; 0 pixels changed by the key.
+- The S01 parts unchanged: objects IoU 0.994..1.000 (turn 2 now the sibling picture, 0.999), terrain 6.63 / 0.91 /
+  6.74, half turns 1.48 and 1.82.
+
+Before the shed ran alone and before the rubble was composited, the run failed honestly: the town house over the
+shed's rubble at step 1 (IoU 0.858), the "Game saved" line over the town house at the top band (0.939), and
+the damaged shed without its rubble (0.82). With the AI's map Direction taken only while Remastered was on at
+mission start, the facing never arrived (the tier sets the option after the map loads): the facing is therefore
+kept always and counted at draw time.
+
+### Rough edges left (S02)
+
+- A building at a facing other than 0 keeps its variant's own footprint, entrances and armour sides (only its
+  picture turns). Shipped maps have none; S06 places them and must decide (turn the passability with the facing,
+  or keep facings for square footprints).
+- Shadows and winter are covered by the rule (same folder) but not measured in a capture: the objects-only shots
+  disable shadows and river3d is a summer map.
+- Passenger bar heights after a redraw are not measured.
+- The batch output in `zig-out/remastered/Buildings` (and so `camera-turn-mod`) holds siblings only after the
+  `building-views-batch-<region>` steps run again.
+
+### Map Editor tiers (S02 step 0)
+
+S01 changed Scene code the Map Editor shares and left `test-editor-bridge` and `test-map-editor-engine` unfinished.
+Run on win-home (Windows x64, debug), one at a time, all exit 0: `test-editor-bridge` in its five CI shards
+(`-Deditor-bridge-shard=1..5`: 13.9, 22.4, 11.3, 8.2 and 21.9 minutes; shards 1 and 2 on the S01 code, 3 to 5 with
+S02's changes), `test-map-editor-engine` (11.0 minutes, with S02), and `map-editor-host-check map-editor-smoke
+map-editor-game-reads-it-m3` (19.8 minutes in one call, with S02). No regression was found, so nothing was fixed.
+The whole editor-bridge list is longer than one foreground command on this host: run it by shards.
