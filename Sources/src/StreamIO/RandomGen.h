@@ -18,8 +18,25 @@ interface IRandomGen : public IRefCount
 	virtual unsigned int STDCALL Get() = 0;
 	virtual void STDCALL Store( IDataStream *pStream ) = 0;
 	virtual void STDCALL Restore( IDataStream *pStream ) = 0;
+	// The replay-rng-audit trap (StreamIOZig/legacy_bridge.cpp, debug builds with
+	// BK_RNG_AUDIT=1): a replay holds commands, not draws, so a draw that the
+	// simulation did not make itself shifts every draw after it on playback. The
+	// transceivers bracket IAILogic::Segment() and command execution, the mission
+	// the AI's Init; between ArmAudit( true ) at the mission start and
+	// ArmAudit( false ) at its end every draw outside a bracket is reported.
+	virtual void STDCALL EnterSimulation() = 0;
+	virtual void STDCALL LeaveSimulation() = 0;
+	virtual void STDCALL ArmAudit( const bool bArm ) = 0;
 };
 extern IRandomGen *g_pGlobalRandomGen;
+// One bracket of the simulation for the trap above, for the scope it lives in.
+class CSimulationRandomScope
+{
+	IRandomGen *pGen;
+public:
+	explicit CSimulationRandomScope( IRandomGen *_pGen ) : pGen( _pGen ) { if ( pGen ) pGen->EnterSimulation(); }
+	~CSimulationRandomScope() { if ( pGen ) pGen->LeaveSimulation(); }
+};
 inline unsigned int Random() 
 { 
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)

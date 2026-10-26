@@ -17,6 +17,7 @@
 #include "../Scene/SceneScreenScale.h"
 #include "../Main/GameDB.h"
 #include "../Main/CommandsHistoryInterface.h"
+#include "../StreamIO/RandomGen.h"
 #include "../AILogic/AILogic.h"
 #include "../AILogic/AITypes.h"
 #include "../AILogic/aiconsts.h"
@@ -945,6 +946,8 @@ bool CInterfaceMission::Init()
 }
 void CInterfaceMission::Done()
 {
+	// The mission's draws end here; tearing its world down draws nothing a replay needs.
+	GetSingleton<IRandomGen>()->ArmAudit( false );
 	GetSingleton<IMessageLinkContainer>()->SetInterface( 0 );
 	GetSingleton<IGlobalVars>()->RemoveVarsByMatch( "temp." );	
 	pFrameSelection = 0;
@@ -1509,7 +1512,11 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 	pCamera->SetBounds( 0, 0, mapinfo.terrain.tiles.GetSizeX() * fWorldCellSize, mapinfo.terrain.tiles.GetSizeY() * fWorldCellSize );
 
 	pProgress->Step(); //5
-	pAILogic->Init( mapinfo, pProgress );
+	{
+		// The AI's own start: a playback runs the same, so its draws belong to the simulation.
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
+		pAILogic->Init( mapinfo, pProgress );
+	}
 	pProgress->Step(); //11
 	ITerrain *pTerrain = CreateTerrain();
 	pTerrain->Load( szTerrainName.c_str(), mapinfo.terrain );

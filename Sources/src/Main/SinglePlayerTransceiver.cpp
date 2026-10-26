@@ -7,6 +7,7 @@
 #include "ReplayCore.h"
 
 #include "../Input/Input.h"
+#include "../StreamIO/RandomGen.h"
 int CSinglePlayerTransceiver::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -61,6 +62,7 @@ void CSinglePlayerTransceiver::DoSegments()
 	{
 		if ( pAILogic && !pAILogic->IsSuspended() )
 		{
+			CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 			pCmdsHistory->ExecuteSegmentCommands( nCommonSegment, this );
 			pAILogic->Segment();
 			++nCommonSegment;
@@ -73,6 +75,7 @@ int CSinglePlayerTransceiver::CommandRegisterGroup( IRefCount **pUnitsBuffer, co
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		const WORD wID = pAILogic->GenerateGroupNumber();
 		pAILogic->RegisterGroup( pUnitsBuffer, nLen, wID );
 
@@ -88,6 +91,7 @@ void CSinglePlayerTransceiver::CommandUnregisterGroup( const WORD wGroup )
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		pAILogic->UnregisterGroup( wGroup );
 		pCmdsHistory->AddCommand( nCommonSegment, new CUnregisterGroupCommand( wGroup ) );
 	}
@@ -96,6 +100,7 @@ void CSinglePlayerTransceiver::CommandGroupCommand( const SAIUnitCmd *pCommand, 
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		SAIUnitCmd cmd( *pCommand );
 		cmd.bFromAI = false;
 		pAILogic->GroupCommand( &cmd, wGroup, bPlaceInQueue );
@@ -107,6 +112,7 @@ int CSinglePlayerTransceiver::CommandUnitCommand( const struct SAIUnitCmd *pComm
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		const int nGroup = pAILogic->GenerateGroupNumber();
 		SAIUnitCmd cmd( *pCommand );
 		cmd.bFromAI = false;
@@ -123,12 +129,14 @@ void CSinglePlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, bo
 {
 	if ( !bHistoryPlaying )
 	{
+		CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 		pAILogic->ShowAreas( nGroupID, EActionNotify(nAreaType), bShow );
 		pCmdsHistory->AddCommand( nCommonSegment, new CShowAreasCommand( nGroupID, nAreaType, bShow ) );
 	}
 }
 void CSinglePlayerTransceiver::AddCommandToSend( IAILogicCommand *pCommand )
 {
+	CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 	pCommand->Execute( pAILogic );
 }
 void CSinglePlayerTransceiver::CommandClientTogglePause() 

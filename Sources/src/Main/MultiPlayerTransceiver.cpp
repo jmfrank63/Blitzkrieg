@@ -15,6 +15,7 @@
 #include "../StreamIO/StreamIOTypes.h"
 #include "../AILogic/AILogic.h"
 #include "../Input/Input.h"
+#include "../StreamIO/RandomGen.h"
 #include "../GameTT/MultiplayerCommandManager.h"
 #include "../Common/PauseGame.h"
 #include "../Main/TextSystem.h"
@@ -647,6 +648,7 @@ void CMultiPlayerTransceiver::DoSegments()
 					// x64 SSE has no x87 precision control; only DN/EM/RC bits are valid here
 					_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _RC_NEAR | _DN_SAVE, _MCW_EM | _MCW_RC | _MCW_DN );
 #endif
+					CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 					for ( int i = 0; i < nNumPlayersInMap; ++i )
 					{
 						for ( CAILogicCommandsList::iterator it = cmds[nPastSegment][i].begin(); it != cmds[nPastSegment][i].end(); ++it )
@@ -680,6 +682,7 @@ void CMultiPlayerTransceiver::DoSegments()
 			else
 			{
 				pGameSegment->NextSegment();
+				CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
 				pAILogic->Segment();
 
 				nSegment = ( nSegment + 1 ) % MAX_LATENCY;

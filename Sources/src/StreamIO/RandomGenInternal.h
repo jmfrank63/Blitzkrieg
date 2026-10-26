@@ -54,6 +54,10 @@ public:
 	}
 	virtual void STDCALL Store( IDataStream *pStream );
 	virtual void STDCALL Restore( IDataStream *pStream );
+	// The replay-rng-audit trap lives in the port's generator (StreamIOZig/legacy_bridge.cpp).
+	virtual void STDCALL EnterSimulation() { }
+	virtual void STDCALL LeaveSimulation() { }
+	virtual void STDCALL ArmAudit( const bool bArm ) { }
 
 	unsigned _int32 Get( unsigned _int32 nMax ) { return Get() % ( nMax + 1 ); }
 	unsigned _int32 Get( unsigned _int32 nMin, unsigned _int32 nMax )	{ return Get( nMax - nMin ) + nMin; }

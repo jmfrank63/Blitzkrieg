@@ -6,6 +6,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#if !defined(_FINALRELEASE) && !defined(_BETARELEASE) && (defined(__linux__) || defined(__APPLE__))
+#include <execinfo.h>
+#endif
 #include <deque>
 #include <new>
 #include <string>
@@ -272,6 +275,9 @@ struct IRandomGen : public IRefCount {
     virtual unsigned int BK_STDCALL Get() = 0;
     virtual void BK_STDCALL Store(void *) = 0;
     virtual void BK_STDCALL Restore(void *) = 0;
+    virtual void BK_STDCALL EnterSimulation() = 0;
+    virtual void BK_STDCALL LeaveSimulation() = 0;
+    virtual void BK_STDCALL ArmAudit(bool) = 0;
 };
 
 struct IDataStorage : public IRefCount {
@@ -1749,8 +1755,71 @@ public:
 };
 #endif
 
+// The replay-rng-audit trap (IRandomGen in StreamIO/RandomGen.h). Counting is
+// compiled into debug builds only (not _FINALRELEASE: the bridge itself is
+// built optimised, with NDEBUG, in a debug Game) and runs with BK_RNG_AUDIT=1: every draw
+// outside a bracket of the simulation, while armed, is counted, and each
+// distinct caller is reported once with its stack, so the tier can name it.
+#if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
+static bool RandomAuditOn()
+{
+    static const bool on = std::getenv("BK_RNG_AUDIT") != 0;
+    return on;
+}
+// The frames of Random() and its overloads, RandomCheck, Dice and the
+// generator itself are not the caller: the first frame after them is.
+static bool IsRandomFrame(const char *frame)
+{
+    static const char *const wrappers[] = { "_Z6Random", "_Z11RandomCheck", "_Z4Dice", "RandomGen", "ReportDraw" };
+    for (const char *wrapper : wrappers)
+        if (std::strstr(frame, wrapper)) return true;
+    return false;
+}
+#endif
+
 class RandomGen final : public IRandomGen {
     int refs_ = 0;
+    int simulation_depth_ = 0;
+    bool audit_armed_ = false;
+    unsigned long long draws_inside_ = 0;
+    unsigned long long draws_outside_ = 0;
+    // A hash of each caller already reported; fixed storage, so the trap adds no
+    // heap block a leak check would count.
+    enum { MAX_CALLERS = 64 };
+    unsigned long long callers_[MAX_CALLERS] = {};
+    int num_callers_ = 0;
+#if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
+    void ReportDraw()
+    {
+        ++draws_outside_;
+        char tag[1024];
+        tag[0] = 0;
+#if defined(__linux__) || defined(__APPLE__)
+        void *frames[24];
+        const int num_frames = backtrace(frames, 24);
+        char **symbols = backtrace_symbols(frames, num_frames);
+        // The trap's own frames carry no symbol; the caller follows the last
+        // wrapper among the first few frames.
+        int first = 0;
+        for (int i = 0; symbols && i < num_frames && i < 8; ++i)
+            if (IsRandomFrame(symbols[i])) first = i + 1;
+        size_t length = 0;
+        for (int i = first; symbols && i < num_frames && i < first + 6; ++i) {
+            const int written = std::snprintf(tag + length, sizeof(tag) - length, "%s%s", i == first ? "" : " < ", symbols[i]);
+            if (written < 0 || size_t(written) >= sizeof(tag) - length) break;
+            length += size_t(written);
+        }
+        std::free(symbols);
+#endif
+        unsigned long long hash = 14695981039346656037ull;
+        for (const char *c = tag; *c; ++c) hash = (hash ^ (unsigned char)*c) * 1099511628211ull;
+        for (int i = 0; i < num_callers_; ++i)
+            if (callers_[i] == hash) return;
+        if (num_callers_ < MAX_CALLERS) callers_[num_callers_++] = hash;
+        std::fprintf(stderr, "BK_RNG_AUDIT: draw outside the simulation (draw %llu, caller %d): %s\n", draws_outside_, num_callers_, tag[0] ? tag : "(no stack on this platform)");
+        std::fflush(stderr);
+    }
+#endif
 public:
     void BK_STDCALL AddRef(int count, int) override { refs_ += count; }
     void BK_STDCALL Release(int count, int) override { refs_ -= count; if ( refs_ <= 0 ) delete this; }
@@ -1770,7 +1839,36 @@ public:
         seed->SetGeneratorState(bk_random_get_state());
         return static_cast<IRandomGenSeed *>(seed);
     }
-    unsigned int BK_STDCALL Get() override { return bk_random_get(); }
+    unsigned int BK_STDCALL Get() override
+    {
+#if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
+        if (audit_armed_) {
+            if (simulation_depth_ > 0) ++draws_inside_;
+            else ReportDraw();
+        }
+#endif
+        return bk_random_get();
+    }
+    void BK_STDCALL EnterSimulation() override { ++simulation_depth_; }
+    void BK_STDCALL LeaveSimulation() override { if (simulation_depth_ > 0) --simulation_depth_; }
+    void BK_STDCALL ArmAudit(bool arm) override
+    {
+#if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
+        if (!RandomAuditOn() || arm == audit_armed_) return;
+        if (arm) {
+            draws_inside_ = 0;
+            draws_outside_ = 0;
+            num_callers_ = 0;
+            std::fprintf(stderr, "BK_RNG_AUDIT: armed\n");
+        } else {
+            std::fprintf(stderr, "BK_RNG_AUDIT: disarmed: %llu draws inside the simulation, %llu outside from %d callers\n", draws_inside_, draws_outside_, num_callers_);
+        }
+        std::fflush(stderr);
+        audit_armed_ = arm;
+#else
+        (void)arm;
+#endif
+    }
     // The state as four bytes on a stream (the original wrote its whole ISAAC
     // state here): how CCommandsHistory takes a replay's StartRandomState and
     // sets it again on playback.
