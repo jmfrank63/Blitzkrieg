@@ -108,6 +108,13 @@ route's keys, because a seed-scope language still shows English there: a bitmap-
 one label differently from English, and a face language's static labels are compared with hb-view like the
 menu's. A route's report section names its PNG and says which of the two applied.
 
+A gameplay mod's menus are laid out for the mod's own fonts. Where they lack a language's letters, bk_text stands in for
+them at the mod font's cell height and at full size: a caption is never scaled down to fit its box (2026-10-26, the
+maintainer: shorten the translated text rather than reduce the font size). A translation that does not fit is shortened
+here, to a text that still says what the English says. `ap2-menu-game-reads-it -Dap2-mod=<folder>` measures Achtung
+Panzer 2's main menu, Load Game, New Game, Custom Game and Options menus and the settings tooltip in the nine languages:
+each caption one whole line inside its control, every title different from its buttons.
+
 Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
 cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.
 

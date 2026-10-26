@@ -154,6 +154,17 @@ void CUIOption::RefreshTexts()
 	SetNameTexts();
 	if ( EOT_SELECTION == pOption->GetType() && nCurSelection >= 0 && nCurSelection < szSelections.size() )
 		ChangeSelection( nCurSelection );
+	else if ( pSubDialog != 0 )
+	{
+		// A slider's and an entry box's tooltip is a copy of the name's, made when the row was built:
+		// after a language switch it kept the old language, in a font that may lack its letters (a
+		// mod's bitmap font under Default shows Russian as empty boxes). Each sub-dialog holds its
+		// control as 10003 (E_SLIDER, E_EDITBOX, ...).
+		IUIElement *pValue = pSubDialog->GetChildByID( E_SLIDER );
+		IText *pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
+		if ( pValue != 0 && pHelpContext != 0 )
+			pValue->SetHelpContext( 0, pHelpContext->GetString() );
+	}
 }
 void CUIOption::SaveOption()
 {

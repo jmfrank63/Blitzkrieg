@@ -968,6 +968,19 @@ bool CMainLoop::StepApp( bool bActive )
 			GetSingleton<ITransceiver>()->CommandTimeOut( false );
 	}
 	*/
+	// A language chosen by one of this step's messages (a click on the settings screen's language
+	// row) is loaded before the screens step and draw. Loaded at the start of the next frame, as the
+	// Game's loop does for any other change, it left one frame with the row's new value set from the
+	// old language's texts ("Standard" under German for Default, or a language's own name in a font
+	// without its letters) beside every other label still in the old language. The screens then
+	// see Text.LanguageLoaded change in their own step and set their copied texts again. Only once
+	// the Game's loop has loaded a language: the editors run this loop without one.
+	if ( NMain::GetLanguage()[0] != 0 )
+	{
+		const std::string szChosen = GetGlobalVar( "Text.Language", "Default" );
+		if ( NStr::CompareAsciiNoCase( szChosen.c_str(), NMain::GetLanguage() ) != 0 )
+			NMain::ApplyLanguage( szChosen.c_str() );
+	}
 	for ( CInterfacesList::reverse_iterator it = interfaces.rbegin(); it != interfaces.rend(); ++it )
 		(*it)->Step( bActive );
 	if ( bActive ) 
