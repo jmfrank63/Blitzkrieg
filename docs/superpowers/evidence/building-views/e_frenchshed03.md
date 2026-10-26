@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed03 | r1 | 2 | 1 | 73.2 | 24.1 | 2.5 | 0.1 | 1.18 | 7.0 | 0.032 | pass |
-| e_frenchshed03 | r1 | 2 | 2 | 75.8 | 20.4 | 3.8 | 0.0 | 1.13 | 2.1 | 0.019 | pass |
-| e_frenchshed03 | r1 | 2 | 3 | 80.9 | 12.3 | 6.8 | 0.0 | 1.11 | 1.1 | 0.092 | pass |
-| e_frenchshed03 | r2 | 3 | 1 | 46.7 | 40.1 | 13.1 | 0.1 | 1.25 | 10.6 | 0.028 | pass |
-| e_frenchshed03 | r2 | 3 | 2 | 56.0 | 34.0 | 10.0 | 0.0 | 1.29 | 7.2 | 0.052 | pass |
-| e_frenchshed03 | r2 | 3 | 3 | 71.3 | 18.4 | 10.3 | 0.0 | 1.13 | 2.2 | 0.018 | pass |
-| e_frenchshed03 | r3 | 4 | 1 | 73.5 | 14.5 | 11.9 | 0.1 | 1.18 | 10.3 | 0.003 | pass |
-| e_frenchshed03 | r3 | 4 | 2 | 72.5 | 17.7 | 9.8 | 0.0 | 1.29 | 4.1 | 0.065 | pass |
-| e_frenchshed03 | r3 | 4 | 3 | 82.0 | 10.3 | 7.7 | 0.0 | 1.20 | 2.2 | 0.104 | pass |
+| e_frenchshed03 | r1 | 2 | 1 | 70.1 | 27.8 | 2.0 | 0.1 | 1.14 | 5.0 | 0.047 | pass |
+| e_frenchshed03 | r1 | 2 | 2 | 72.1 | 23.9 | 3.9 | 0.0 | 1.24 | 2.4 | 0.031 | pass |
+| e_frenchshed03 | r1 | 2 | 3 | 73.9 | 16.4 | 6.9 | 2.9 | 1.24 | 1.7 | 0.063 | pass |
+| e_frenchshed03 | r2 | 3 | 1 | 43.0 | 44.4 | 12.3 | 0.3 | 1.14 | 9.0 | 0.007 | pass |
+| e_frenchshed03 | r2 | 3 | 2 | 53.4 | 34.4 | 12.2 | 0.0 | 1.26 | 5.0 | 0.041 | pass |
+| e_frenchshed03 | r2 | 3 | 3 | 64.8 | 23.6 | 8.4 | 3.2 | 1.31 | 1.3 | 0.027 | pass |
+| e_frenchshed03 | r3 | 4 | 1 | 70.0 | 18.5 | 11.2 | 0.3 | 1.14 | 6.3 | 0.020 | pass |
+| e_frenchshed03 | r3 | 4 | 2 | 72.7 | 16.4 | 10.9 | 0.0 | 1.29 | 2.4 | 0.069 | pass |
+| e_frenchshed03 | r3 | 4 | 3 | 78.2 | 12.8 | 6.5 | 2.5 | 1.25 | 2.2 | 0.074 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_frenchshed03 | r1 | 0.87 | 1.07 |
-| e_frenchshed03 | r2 | 0.81 | 1.07 |
-| e_frenchshed03 | r3 | 0.76 | 1.07 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_frenchshed03 | r1 | 0.88 | 1.08 | 0.98 | 0.065 | 0.059 | pass | blocks |
+| e_frenchshed03 | r2 | 0.84 | 1.08 | 0.98 | 0.042 | 0.059 | pass | blocks |
+| e_frenchshed03 | r3 | 0.77 | 1.08 | 0.98 | 0.037 | 0.059 | pass | blocks |

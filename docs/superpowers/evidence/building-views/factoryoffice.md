@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryoffice | r1 | 2 | 1 | 64.9 | 18.1 | 16.9 | 0.1 | 1.06 | 8.9 | 0.536 | pass |
-| factoryoffice | r1 | 2 | 1w | 66.0 | 18.7 | 15.3 | 0.0 | 0.88 | 31.6 | 0.447 | pass |
-| factoryoffice | r1 | 2 | 2 | 66.4 | 16.2 | 17.3 | 0.0 | 1.07 | 3.4 | 0.013 | pass |
-| factoryoffice | r1 | 2 | 2w | 66.4 | 16.2 | 17.3 | 0.0 | 1.03 | 3.5 | 0.032 | pass |
-| factoryoffice | r1 | 2 | 3 | 66.2 | 30.8 | 2.9 | 0.1 | 1.18 | 5.9 | 0.050 | pass |
-| factoryoffice | r1 | 2 | 3w | 66.2 | 30.8 | 2.9 | 0.1 | 1.18 | 6.9 | 0.050 | pass |
-| factoryoffice | r2 | 3 | 1 | 30.2 | 32.0 | 37.7 | 0.1 | 1.16 | 16.9 | 0.216 | pass |
-| factoryoffice | r2 | 3 | 1w | 31.6 | 32.0 | 36.4 | 0.0 | 1.27 | 9.3 | 0.306 | pass |
-| factoryoffice | r2 | 3 | 2 | 32.7 | 49.0 | 18.3 | 0.0 | 1.05 | 2.6 | 0.171 | pass |
-| factoryoffice | r2 | 3 | 2w | 32.7 | 49.0 | 18.3 | 0.0 | 0.98 | 2.9 | 0.117 | pass |
-| factoryoffice | r2 | 3 | 3 | 53.9 | 43.2 | 2.8 | 0.1 | 0.99 | 2.2 | 0.031 | pass |
-| factoryoffice | r2 | 3 | 3w | 53.9 | 43.2 | 2.8 | 0.1 | 0.96 | 2.4 | 0.022 | pass |
-| factoryoffice | r3 | 4 | 1 | 65.3 | 13.9 | 20.7 | 0.0 | 1.01 | 4.7 | 0.221 | pass |
-| factoryoffice | r3 | 4 | 1w | 65.5 | 14.3 | 20.2 | 0.0 | 0.96 | 25.3 | 0.061 | pass |
-| factoryoffice | r3 | 4 | 2 | 65.8 | 33.7 | 0.5 | 0.0 | 0.82 | 18.8 | 0.138 | pass |
-| factoryoffice | r3 | 4 | 2w | 65.8 | 33.7 | 0.5 | 0.0 | 0.79 | 22.2 | 0.126 | pass |
-| factoryoffice | r3 | 4 | 3 | 80.7 | 17.1 | 2.1 | 0.1 | 0.95 | 5.8 | 0.034 | pass |
-| factoryoffice | r3 | 4 | 3w | 80.7 | 17.1 | 2.1 | 0.1 | 0.95 | 6.8 | 0.038 | pass |
+| factoryoffice | r1 | 2 | 1 | 64.8 | 35.0 | 0.1 | 0.1 | 0.97 | 1.8 | 0.049 | pass |
+| factoryoffice | r1 | 2 | 1w | 64.7 | 35.1 | 0.1 | 0.1 | 0.91 | 4.4 | 0.075 | pass |
+| factoryoffice | r1 | 2 | 2 | 64.9 | 35.1 | 0.0 | 0.0 | 0.97 | 0.3 | 0.061 | pass |
+| factoryoffice | r1 | 2 | 2w | 64.9 | 35.1 | 0.0 | 0.0 | 0.91 | 0.9 | 0.075 | pass |
+| factoryoffice | r1 | 2 | 3 | 75.5 | 18.9 | 3.7 | 1.9 | 1.09 | 0.5 | 0.009 | pass |
+| factoryoffice | r1 | 2 | 3w | 75.5 | 18.9 | 3.7 | 1.9 | 1.07 | 0.7 | 0.010 | pass |
+| factoryoffice | r2 | 3 | 1 | 3.9 | 92.0 | 4.0 | 0.1 | 1.07 | 2.3 | 0.054 | pass |
+| factoryoffice | r2 | 3 | 1w | 2.7 | 93.4 | 3.7 | 0.2 | 1.09 | 5.9 | 0.032 | pass |
+| factoryoffice | r2 | 3 | 2 | 3.5 | 96.5 | 0.0 | 0.0 | 0.99 | 0.9 | 0.040 | pass |
+| factoryoffice | r2 | 3 | 2w | 3.5 | 96.5 | 0.0 | 0.0 | 0.99 | 1.1 | 0.043 | pass |
+| factoryoffice | r2 | 3 | 3 | 56.1 | 38.2 | 3.7 | 2.0 | 1.07 | 1.8 | 0.034 | pass |
+| factoryoffice | r2 | 3 | 3w | 56.1 | 38.2 | 3.7 | 2.0 | 1.04 | 1.7 | 0.028 | pass |
+| factoryoffice | r3 | 4 | 1 | 33.2 | 62.8 | 3.9 | 0.1 | 0.98 | 3.1 | 0.090 | pass |
+| factoryoffice | r3 | 4 | 1w | 33.2 | 63.0 | 3.6 | 0.1 | 0.94 | 8.6 | 0.072 | pass |
+| factoryoffice | r3 | 4 | 2 | 32.1 | 67.9 | 0.0 | 0.0 | 0.97 | 0.2 | 0.060 | pass |
+| factoryoffice | r3 | 4 | 2w | 32.1 | 67.9 | 0.0 | 0.0 | 0.92 | 0.7 | 0.075 | pass |
+| factoryoffice | r3 | 4 | 3 | 72.8 | 24.3 | 0.9 | 1.9 | 1.07 | 2.3 | 0.025 | pass |
+| factoryoffice | r3 | 4 | 3w | 72.8 | 24.3 | 0.9 | 1.9 | 1.05 | 2.4 | 0.026 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| factoryoffice | r1 | 0.96 | 1.06 |
-| factoryoffice | r2 | 0.97 | 1.06 |
-| factoryoffice | r3 | 0.99 | 1.06 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| factoryoffice | r1 | 0.98 | 0.97 | 0.93 | 0.031 | 0.032 | pass | blocks |
+| factoryoffice | r2 | 0.98 | 0.97 | 0.93 | 0.018 | 0.032 | pass | blocks |
+| factoryoffice | r3 | 0.99 | 0.97 | 0.93 | 0.020 | 0.032 | pass | blocks |

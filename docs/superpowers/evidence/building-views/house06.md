@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house06 | r1 | 2 | 1 | 59.2 | 24.3 | 16.3 | 0.2 | 0.99 | 2.1 | 0.011 | pass |
-| house06 | r1 | 2 | 1w | 38.4 | 44.4 | 17.2 | 0.0 | 1.10 | 7.5 | 0.066 | pass |
-| house06 | r1 | 2 | 2 | 30.0 | 62.8 | 6.4 | 0.8 | 1.07 | 2.7 | 0.024 | pass |
-| house06 | r1 | 2 | 2w | 30.0 | 62.8 | 6.4 | 0.8 | 1.06 | 2.8 | 0.024 | pass |
-| house06 | r1 | 2 | 3 | 48.5 | 40.0 | 7.4 | 4.1 | 1.19 | 7.0 | 0.007 | pass |
-| house06 | r1 | 2 | 3w | 48.5 | 40.0 | 7.4 | 4.1 | 1.13 | 8.1 | 0.008 | pass |
-| house06 | r2 | 3 | 1 | 40.7 | 40.8 | 18.3 | 0.2 | 0.99 | 8.2 | 0.014 | pass |
-| house06 | r2 | 3 | 1w | 18.1 | 63.4 | 18.6 | 0.0 | 1.04 | 10.9 | 0.058 | pass |
-| house06 | r2 | 3 | 2 | 16.9 | 75.9 | 6.8 | 0.5 | 1.04 | 1.9 | 0.003 | pass |
-| house06 | r2 | 3 | 2w | 16.9 | 75.9 | 6.8 | 0.5 | 1.04 | 2.4 | 0.011 | pass |
-| house06 | r2 | 3 | 3 | 40.4 | 48.5 | 7.0 | 4.1 | 0.99 | 0.4 | 0.001 | pass |
-| house06 | r2 | 3 | 3w | 40.4 | 48.5 | 7.0 | 4.1 | 0.99 | 0.4 | 0.002 | pass |
-| house06 | r3 | 4 | 1 | 67.4 | 25.1 | 7.0 | 0.4 | 0.93 | 1.8 | 0.025 | pass |
-| house06 | r3 | 4 | 1w | 68.9 | 24.1 | 7.0 | 0.0 | 1.05 | 2.5 | 0.063 | pass |
-| house06 | r3 | 4 | 2 | 72.7 | 18.0 | 8.7 | 0.6 | 1.10 | 2.0 | 0.041 | pass |
-| house06 | r3 | 4 | 2w | 72.7 | 18.0 | 8.7 | 0.6 | 1.07 | 1.9 | 0.036 | pass |
-| house06 | r3 | 4 | 3 | 76.6 | 13.6 | 5.9 | 4.0 | 1.15 | 6.1 | 0.012 | pass |
-| house06 | r3 | 4 | 3w | 76.6 | 13.6 | 5.9 | 4.0 | 1.10 | 7.1 | 0.015 | pass |
+| house06 | r1 | 2 | 1 | 54.7 | 44.8 | 0.4 | 0.0 | 1.09 | 5.4 | 0.025 | pass |
+| house06 | r1 | 2 | 1w | 51.4 | 47.7 | 0.9 | 0.0 | 1.09 | 2.7 | 0.034 | pass |
+| house06 | r1 | 2 | 2 | 40.9 | 55.5 | 3.5 | 0.1 | 1.24 | 8.5 | 0.034 | pass |
+| house06 | r1 | 2 | 2w | 40.9 | 55.5 | 3.5 | 0.1 | 1.17 | 9.5 | 0.037 | pass |
+| house06 | r1 | 2 | 3 | 54.1 | 37.8 | 7.6 | 0.5 | 1.02 | 1.0 | 0.032 | pass |
+| house06 | r1 | 2 | 3w | 54.1 | 37.8 | 7.6 | 0.5 | 1.02 | 1.2 | 0.031 | pass |
+| house06 | r2 | 3 | 1 | 20.8 | 76.1 | 3.0 | 0.1 | 1.15 | 5.8 | 0.020 | pass |
+| house06 | r2 | 3 | 1w | 17.7 | 78.3 | 4.1 | 0.0 | 1.09 | 4.5 | 0.012 | pass |
+| house06 | r2 | 3 | 2 | 15.0 | 79.9 | 5.0 | 0.1 | 1.27 | 6.8 | 0.027 | pass |
+| house06 | r2 | 3 | 2w | 15.0 | 79.9 | 5.0 | 0.1 | 1.21 | 7.6 | 0.030 | pass |
+| house06 | r2 | 3 | 3 | 39.3 | 51.0 | 9.0 | 0.7 | 1.04 | 2.7 | 0.050 | pass |
+| house06 | r2 | 3 | 3w | 39.3 | 51.0 | 9.0 | 0.7 | 1.04 | 3.1 | 0.048 | pass |
+| house06 | r3 | 4 | 1 | 48.2 | 48.4 | 3.3 | 0.1 | 0.90 | 6.1 | 0.005 | pass |
+| house06 | r3 | 4 | 1w | 49.5 | 46.8 | 3.6 | 0.0 | 1.04 | 2.3 | 0.021 | pass |
+| house06 | r3 | 4 | 2 | 46.5 | 49.5 | 3.8 | 0.1 | 1.20 | 5.1 | 0.034 | pass |
+| house06 | r3 | 4 | 2w | 46.5 | 49.5 | 3.8 | 0.1 | 1.14 | 5.6 | 0.031 | pass |
+| house06 | r3 | 4 | 3 | 69.2 | 22.5 | 7.7 | 0.6 | 1.01 | 1.5 | 0.055 | pass |
+| house06 | r3 | 4 | 3w | 69.2 | 22.5 | 7.7 | 0.6 | 1.01 | 1.7 | 0.049 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| house06 | r1 | 0.83 | 0.89 |
-| house06 | r2 | 0.99 | 0.89 |
-| house06 | r3 | 0.91 | 0.89 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| house06 | r1 | 1.31 | 0.77 | 0.96 | 0.198 | 0.061 | height 1.31 outside 0.7..1.3 | blocks |
+| house06 | r2 | 1.45 | 0.77 | 0.96 | 0.189 | 0.061 | height 1.45 outside 0.7..1.3 | blocks |
+| house06 | r3 | 1.20 | 0.77 | 0.96 | 0.133 | 0.061 | protrusion 0.133 > 0.122 | blocks |

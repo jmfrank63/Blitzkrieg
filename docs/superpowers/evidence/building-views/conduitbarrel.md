@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| conduitbarrel | r1 | 2 | 1 | 13.8 | 43.0 | 0.0 | 43.2 | 0.78 | 3.7 | 0.200 | pass |
-| conduitbarrel | r1 | 2 | 1w | 12.9 | 49.4 | 0.0 | 37.7 | 0.86 | 1.8 | 0.653 | pass |
-| conduitbarrel | r1 | 2 | 2 | 13.8 | 43.0 | 0.0 | 43.2 | 0.78 | 3.7 | 0.200 | pass |
-| conduitbarrel | r1 | 2 | 2w | 12.9 | 49.4 | 0.0 | 37.7 | 0.86 | 1.8 | 0.653 | hue 0.653 > 0.29 |
-| conduitbarrel | r1 | 2 | 3 | 20.5 | 46.1 | 0.0 | 33.4 | 0.92 | 13.0 | 0.322 | hue 0.322 > 0.26 |
-| conduitbarrel | r1 | 2 | 3w | 20.5 | 46.1 | 0.0 | 33.4 | 0.96 | 16.2 | 0.315 | hue 0.315 > 0.26 |
-| conduitbarrel | r2 | 3 | 1 | 0.3 | 55.9 | 0.0 | 43.8 | 0.82 | 1.0 | 0.136 | pass |
-| conduitbarrel | r2 | 3 | 1w | 0.2 | 61.8 | 0.0 | 38.1 | 0.86 | 5.0 | 0.532 | pass |
-| conduitbarrel | r2 | 3 | 2 | 0.3 | 55.9 | 0.0 | 43.8 | 0.82 | 1.0 | 0.136 | pass |
-| conduitbarrel | r2 | 3 | 2w | 0.2 | 61.8 | 0.0 | 38.1 | 0.86 | 5.0 | 0.532 | hue 0.532 > 0.29 |
-| conduitbarrel | r2 | 3 | 3 | 0.8 | 65.1 | 0.0 | 34.1 | 0.75 | 14.7 | 0.228 | pass |
-| conduitbarrel | r2 | 3 | 3w | 0.8 | 65.1 | 0.0 | 34.1 | 0.79 | 15.8 | 0.211 | pass |
-| conduitbarrel | r3 | 4 | 1 | 19.2 | 37.5 | 0.0 | 43.3 | 0.84 | 0.6 | 0.119 | pass |
-| conduitbarrel | r3 | 4 | 1w | 20.9 | 41.4 | 0.0 | 37.7 | 0.90 | 2.5 | 0.272 | pass |
-| conduitbarrel | r3 | 4 | 2 | 19.2 | 37.5 | 0.0 | 43.3 | 0.84 | 0.6 | 0.119 | pass |
-| conduitbarrel | r3 | 4 | 2w | 20.9 | 41.4 | 0.0 | 37.7 | 0.90 | 2.5 | 0.272 | pass |
-| conduitbarrel | r3 | 4 | 3 | 42.6 | 24.0 | 0.0 | 33.4 | 0.88 | 14.4 | 0.271 | hue 0.271 > 0.26 |
-| conduitbarrel | r3 | 4 | 3w | 42.6 | 24.0 | 0.0 | 33.4 | 0.94 | 18.4 | 0.273 | hue 0.273 > 0.26 |
+| conduitbarrel | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| conduitbarrel | r1 | 0.69 | 1.03 |
-| conduitbarrel | r2 | 0.71 | 1.03 |
-| conduitbarrel | r3 | 0.71 | 1.03 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| conduitbarrel | r1 | 0.94 | 0.33 | 0.43 | 1.030 | 2.904 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| conduitbarrel | r2 | 0.95 | 0.33 | 0.43 | 1.035 | 2.904 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| conduitbarrel | r3 | 0.94 | 0.33 | 0.43 | 1.037 | 2.904 | ground 0.33 outside 0.5..2.0 | 2003 sprite |

@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| shed01 | r1 | 2 | 1 | 78.7 | 16.9 | 4.5 | 0.0 | 1.18 | 2.0 | 0.028 | pass |
-| shed01 | r1 | 2 | 1w | 80.4 | 18.0 | 1.6 | 0.0 | 1.06 | 7.7 | 0.006 | pass |
-| shed01 | r1 | 2 | 2 | 79.8 | 13.5 | 6.7 | 0.0 | 1.15 | 3.7 | 0.033 | pass |
-| shed01 | r1 | 2 | 2w | 79.8 | 13.5 | 6.7 | 0.0 | 1.07 | 5.0 | 0.033 | pass |
-| shed01 | r1 | 2 | 3 | 79.0 | 16.0 | 4.8 | 0.2 | 0.95 | 0.7 | 0.019 | pass |
-| shed01 | r1 | 2 | 3w | 79.0 | 16.0 | 4.8 | 0.2 | 0.95 | 0.8 | 0.010 | pass |
-| shed01 | r2 | 3 | 1 | 58.4 | 36.9 | 4.7 | 0.0 | 1.15 | 8.0 | 0.036 | pass |
-| shed01 | r2 | 3 | 1w | 59.4 | 38.6 | 2.0 | 0.0 | 1.17 | 7.1 | 0.010 | pass |
-| shed01 | r2 | 3 | 2 | 50.9 | 40.3 | 8.7 | 0.1 | 1.14 | 0.8 | 0.013 | pass |
-| shed01 | r2 | 3 | 2w | 50.9 | 40.3 | 8.7 | 0.1 | 1.13 | 0.8 | 0.013 | pass |
-| shed01 | r2 | 3 | 3 | 59.4 | 29.8 | 10.4 | 0.4 | 1.04 | 0.4 | 0.037 | pass |
-| shed01 | r2 | 3 | 3w | 59.4 | 29.8 | 10.4 | 0.4 | 1.04 | 0.5 | 0.042 | pass |
-| shed01 | r3 | 4 | 1 | 73.1 | 23.3 | 3.5 | 0.0 | 1.13 | 5.4 | 0.017 | pass |
-| shed01 | r3 | 4 | 1w | 69.6 | 28.8 | 1.6 | 0.0 | 1.09 | 6.0 | 0.061 | pass |
-| shed01 | r3 | 4 | 2 | 71.7 | 22.8 | 5.4 | 0.1 | 1.17 | 6.0 | 0.035 | pass |
-| shed01 | r3 | 4 | 2w | 71.7 | 22.8 | 5.4 | 0.1 | 1.10 | 7.5 | 0.033 | pass |
-| shed01 | r3 | 4 | 3 | 72.1 | 17.7 | 10.0 | 0.2 | 0.94 | 1.8 | 0.012 | pass |
-| shed01 | r3 | 4 | 3w | 72.1 | 17.7 | 10.0 | 0.2 | 0.94 | 2.1 | 0.017 | pass |
+| shed01 | r1 | 2 | 1 | 66.5 | 21.9 | 11.6 | 0.0 | 0.97 | 13.8 | 0.017 | pass |
+| shed01 | r1 | 2 | 1w | 60.8 | 32.7 | 5.8 | 0.8 | 0.98 | 9.7 | 0.033 | pass |
+| shed01 | r1 | 2 | 2 | 64.8 | 23.5 | 11.6 | 0.0 | 1.00 | 0.9 | 0.007 | pass |
+| shed01 | r1 | 2 | 2w | 64.8 | 23.5 | 11.6 | 0.0 | 0.99 | 1.1 | 0.005 | pass |
+| shed01 | r1 | 2 | 3 | 66.6 | 24.2 | 8.5 | 0.7 | 0.94 | 4.1 | 0.060 | pass |
+| shed01 | r1 | 2 | 3w | 66.6 | 24.2 | 8.5 | 0.7 | 0.94 | 4.8 | 0.044 | pass |
+| shed01 | r2 | 3 | 1 | 44.6 | 43.2 | 12.2 | 0.0 | 1.02 | 1.5 | 0.021 | pass |
+| shed01 | r2 | 3 | 1w | 35.5 | 57.8 | 5.9 | 0.7 | 1.02 | 10.0 | 0.013 | pass |
+| shed01 | r2 | 3 | 2 | 37.4 | 47.0 | 15.4 | 0.2 | 1.08 | 1.6 | 0.015 | pass |
+| shed01 | r2 | 3 | 2w | 37.4 | 47.0 | 15.4 | 0.2 | 1.08 | 2.0 | 0.013 | pass |
+| shed01 | r2 | 3 | 3 | 43.2 | 48.0 | 8.5 | 0.4 | 0.97 | 3.3 | 0.033 | pass |
+| shed01 | r2 | 3 | 3w | 43.2 | 48.0 | 8.5 | 0.4 | 0.97 | 3.9 | 0.037 | pass |
+| shed01 | r3 | 4 | 1 | 62.4 | 27.6 | 10.0 | 0.0 | 0.93 | 11.1 | 0.019 | pass |
+| shed01 | r3 | 4 | 1w | 63.8 | 30.0 | 5.5 | 0.7 | 0.96 | 10.0 | 0.033 | pass |
+| shed01 | r3 | 4 | 2 | 57.2 | 30.1 | 12.5 | 0.2 | 0.98 | 2.7 | 0.004 | pass |
+| shed01 | r3 | 4 | 2w | 57.2 | 30.1 | 12.5 | 0.2 | 0.98 | 3.1 | 0.003 | pass |
+| shed01 | r3 | 4 | 3 | 64.5 | 27.7 | 7.4 | 0.5 | 0.98 | 2.7 | 0.064 | pass |
+| shed01 | r3 | 4 | 3w | 64.5 | 27.7 | 7.4 | 0.5 | 0.98 | 3.2 | 0.050 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| shed01 | r1 | 0.72 | 1.13 |
-| shed01 | r2 | 0.89 | 1.13 |
-| shed01 | r3 | 0.72 | 1.13 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| shed01 | r1 | 0.83 | 0.97 | 0.87 | 0.136 | 0.170 | pass | blocks |
+| shed01 | r2 | 1.06 | 0.97 | 0.87 | 0.134 | 0.170 | pass | blocks |
+| shed01 | r3 | 0.82 | 0.97 | 0.87 | 0.127 | 0.170 | pass | blocks |

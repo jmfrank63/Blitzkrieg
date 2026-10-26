@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| chimneystalklittle | r1 | 2 | 1 | 41.8 | 57.6 | 0.4 | 0.3 | 1.30 | 18.2 | 0.319 | pass |
-| chimneystalklittle | r1 | 2 | 1w | 40.3 | 58.8 | 0.3 | 0.6 | 1.20 | 26.0 | 0.318 | pass |
-| chimneystalklittle | r1 | 2 | 2 | 51.1 | 46.7 | 0.3 | 1.9 | 0.95 | 8.1 | 0.089 | pass |
-| chimneystalklittle | r1 | 2 | 2w | 51.1 | 46.7 | 0.3 | 1.9 | 0.85 | 9.0 | 0.088 | pass |
-| chimneystalklittle | r1 | 2 | 3 | 61.3 | 35.6 | 0.7 | 2.5 | 1.26 | 1.4 | 0.026 | pass |
-| chimneystalklittle | r1 | 2 | 3w | 61.3 | 35.6 | 0.7 | 2.5 | 1.14 | 1.5 | 0.074 | pass |
-| chimneystalklittle | r2 | 3 | 1 | 0.3 | 98.7 | 0.5 | 0.4 | 1.31 | 18.1 | 0.321 | pass |
-| chimneystalklittle | r2 | 3 | 1w | 0.3 | 98.5 | 0.5 | 0.7 | 1.23 | 22.9 | 0.325 | pass |
-| chimneystalklittle | r2 | 3 | 2 | 0.7 | 96.7 | 0.5 | 2.0 | 0.94 | 3.0 | 0.146 | pass |
-| chimneystalklittle | r2 | 3 | 2w | 0.7 | 96.7 | 0.5 | 2.0 | 0.92 | 3.0 | 0.136 | pass |
-| chimneystalklittle | r2 | 3 | 3 | 39.5 | 57.3 | 0.6 | 2.6 | 1.15 | 3.0 | 0.032 | pass |
-| chimneystalklittle | r2 | 3 | 3w | 39.5 | 57.3 | 0.6 | 2.6 | 1.09 | 3.6 | 0.037 | pass |
-| chimneystalklittle | r3 | 4 | 1 | 41.6 | 57.7 | 0.4 | 0.3 | 1.28 | 18.3 | 0.318 | pass |
-| chimneystalklittle | r3 | 4 | 1w | 47.7 | 51.5 | 0.4 | 0.4 | 1.18 | 26.6 | 0.331 | pass |
-| chimneystalklittle | r3 | 4 | 2 | 38.2 | 59.5 | 0.4 | 1.9 | 0.94 | 8.3 | 0.075 | pass |
-| chimneystalklittle | r3 | 4 | 2w | 38.2 | 59.5 | 0.4 | 1.9 | 0.84 | 9.4 | 0.079 | pass |
-| chimneystalklittle | r3 | 4 | 3 | 68.6 | 28.2 | 0.6 | 2.6 | 1.31 | 3.6 | 0.064 | pass |
-| chimneystalklittle | r3 | 4 | 3w | 68.6 | 28.2 | 0.6 | 2.6 | 1.19 | 4.3 | 0.040 | pass |
+| chimneystalklittle | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalklittle | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| chimneystalklittle | r1 | 0.51 | 0.82 |
-| chimneystalklittle | r2 | 0.53 | 0.82 |
-| chimneystalklittle | r3 | 0.51 | 0.82 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| chimneystalklittle | r1 | 1.00 | 0.78 | 0.75 | 0.414 | 0.662 | outline 0.75 < 0.85 | 2003 sprite |
+| chimneystalklittle | r2 | 1.00 | 0.78 | 0.75 | 0.422 | 0.662 | outline 0.75 < 0.85 | 2003 sprite |
+| chimneystalklittle | r3 | 0.99 | 0.78 | 0.75 | 0.407 | 0.662 | outline 0.75 < 0.85 | 2003 sprite |

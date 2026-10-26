@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| warehouse | r1 | 2 | 1 | 59.2 | 37.9 | 2.6 | 0.3 | 1.14 | 3.1 | 0.044 | pass |
-| warehouse | r1 | 2 | 1w | 59.1 | 35.9 | 4.5 | 0.6 | 1.23 | 1.8 | 0.024 | pass |
-| warehouse | r1 | 2 | 2 | 57.0 | 38.8 | 3.9 | 0.3 | 1.19 | 2.9 | 0.032 | pass |
-| warehouse | r1 | 2 | 2w | 57.0 | 38.8 | 3.9 | 0.3 | 1.22 | 3.4 | 0.019 | pass |
-| warehouse | r1 | 2 | 3 | 86.5 | 6.0 | 6.9 | 0.6 | 0.99 | 1.0 | 0.018 | pass |
-| warehouse | r1 | 2 | 3w | 86.5 | 6.0 | 6.9 | 0.6 | 0.99 | 1.1 | 0.019 | pass |
-| warehouse | r2 | 3 | 1 | 39.9 | 52.8 | 6.9 | 0.3 | 1.22 | 2.1 | 0.038 | pass |
-| warehouse | r2 | 3 | 1w | 41.0 | 48.8 | 9.3 | 0.9 | 1.28 | 0.8 | 0.022 | pass |
-| warehouse | r2 | 3 | 2 | 42.6 | 49.1 | 7.9 | 0.4 | 1.19 | 1.4 | 0.051 | pass |
-| warehouse | r2 | 3 | 2w | 42.6 | 49.1 | 7.9 | 0.4 | 1.20 | 1.2 | 0.030 | pass |
-| warehouse | r2 | 3 | 3 | 80.9 | 10.8 | 7.7 | 0.6 | 0.99 | 0.7 | 0.005 | pass |
-| warehouse | r2 | 3 | 3w | 80.9 | 10.8 | 7.7 | 0.6 | 0.99 | 0.8 | 0.005 | pass |
-| warehouse | r3 | 4 | 1 | 58.1 | 33.6 | 7.9 | 0.4 | 1.33 | 4.3 | 0.030 | pass |
-| warehouse | r3 | 4 | 1w | 59.2 | 29.5 | 10.3 | 1.0 | 1.43 | 6.5 | 0.041 | pass |
-| warehouse | r3 | 4 | 2 | 66.9 | 23.8 | 8.9 | 0.4 | 1.10 | 3.5 | 0.027 | pass |
-| warehouse | r3 | 4 | 2w | 66.9 | 23.8 | 8.9 | 0.4 | 1.13 | 4.0 | 0.040 | pass |
-| warehouse | r3 | 4 | 3 | 85.4 | 6.1 | 7.9 | 0.6 | 0.98 | 1.1 | 0.012 | pass |
-| warehouse | r3 | 4 | 3w | 85.4 | 6.1 | 7.9 | 0.6 | 0.98 | 1.2 | 0.015 | pass |
+| warehouse | r1 | 2 | 1 | 77.1 | 20.6 | 2.2 | 0.0 | 1.30 | 7.0 | 0.037 | pass |
+| warehouse | r1 | 2 | 1w | 76.5 | 20.4 | 2.9 | 0.2 | 1.33 | 7.4 | 0.044 | pass |
+| warehouse | r1 | 2 | 2 | 76.7 | 20.2 | 2.8 | 0.3 | 1.15 | 2.2 | 0.066 | pass |
+| warehouse | r1 | 2 | 2w | 76.7 | 20.2 | 2.8 | 0.3 | 1.18 | 2.4 | 0.058 | pass |
+| warehouse | r1 | 2 | 3 | 79.7 | 11.9 | 7.6 | 0.8 | 1.06 | 2.4 | 0.007 | pass |
+| warehouse | r1 | 2 | 3w | 79.7 | 11.9 | 7.6 | 0.8 | 1.03 | 2.7 | 0.006 | pass |
+| warehouse | r2 | 3 | 1 | 65.4 | 25.5 | 9.1 | 0.0 | 1.27 | 1.7 | 0.054 | pass |
+| warehouse | r2 | 3 | 1w | 65.4 | 24.7 | 9.6 | 0.2 | 1.29 | 1.2 | 0.046 | pass |
+| warehouse | r2 | 3 | 2 | 64.1 | 26.1 | 9.5 | 0.2 | 1.14 | 1.3 | 0.010 | pass |
+| warehouse | r2 | 3 | 2w | 64.1 | 26.1 | 9.5 | 0.2 | 1.14 | 1.7 | 0.022 | pass |
+| warehouse | r2 | 3 | 3 | 69.9 | 20.6 | 8.6 | 0.9 | 0.98 | 3.5 | 0.009 | pass |
+| warehouse | r2 | 3 | 3w | 69.9 | 20.6 | 8.6 | 0.9 | 0.98 | 3.9 | 0.008 | pass |
+| warehouse | r3 | 4 | 1 | 82.7 | 8.4 | 8.9 | 0.0 | 1.40 | 4.3 | 0.064 | pass |
+| warehouse | r3 | 4 | 1w | 82.7 | 8.0 | 9.2 | 0.2 | 1.45 | 1.8 | 0.088 | pass |
+| warehouse | r3 | 4 | 2 | 81.4 | 9.2 | 9.2 | 0.2 | 1.13 | 2.0 | 0.059 | pass |
+| warehouse | r3 | 4 | 2w | 81.4 | 9.2 | 9.2 | 0.2 | 1.17 | 2.2 | 0.053 | pass |
+| warehouse | r3 | 4 | 3 | 82.5 | 10.2 | 6.8 | 0.6 | 1.06 | 2.2 | 0.006 | pass |
+| warehouse | r3 | 4 | 3w | 82.5 | 10.2 | 6.8 | 0.6 | 1.03 | 2.5 | 0.005 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| warehouse | r1 | 1.30 | 1.03 |
-| warehouse | r2 | 1.30 | 1.03 |
-| warehouse | r3 | 0.94 | 1.03 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| warehouse | r1 | 0.91 | 1.04 | 0.95 | 0.025 | 0.018 | pass | blocks |
+| warehouse | r2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | pass | blocks |
+| warehouse | r3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | pass | blocks |

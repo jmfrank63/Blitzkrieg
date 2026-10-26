@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| railroadlittlehouse | r1 | 2 | 1 | 56.4 | 38.6 | 4.6 | 0.4 | 1.29 | 13.7 | 0.127 | pass |
-| railroadlittlehouse | r1 | 2 | 1w | 57.4 | 36.1 | 6.2 | 0.4 | 1.25 | 3.7 | 0.243 | pass |
-| railroadlittlehouse | r1 | 2 | 2 | 51.8 | 42.6 | 5.3 | 0.3 | 1.21 | 1.5 | 0.075 | pass |
-| railroadlittlehouse | r1 | 2 | 2w | 51.8 | 42.6 | 5.3 | 0.3 | 1.20 | 1.6 | 0.071 | pass |
-| railroadlittlehouse | r1 | 2 | 3 | 79.1 | 9.5 | 10.6 | 0.8 | 1.04 | 1.2 | 0.008 | pass |
-| railroadlittlehouse | r1 | 2 | 3w | 79.1 | 9.5 | 10.6 | 0.8 | 1.03 | 1.3 | 0.025 | pass |
-| railroadlittlehouse | r2 | 3 | 1 | 26.3 | 69.1 | 4.3 | 0.4 | 1.41 | 6.8 | 0.146 | pass |
-| railroadlittlehouse | r2 | 3 | 1w | 26.7 | 66.6 | 6.5 | 0.1 | 1.23 | 7.5 | 0.104 | pass |
-| railroadlittlehouse | r2 | 3 | 2 | 30.2 | 64.3 | 5.3 | 0.2 | 1.08 | 8.1 | 0.124 | pass |
-| railroadlittlehouse | r2 | 3 | 2w | 30.2 | 64.3 | 5.3 | 0.2 | 1.08 | 9.3 | 0.127 | pass |
-| railroadlittlehouse | r2 | 3 | 3 | 60.5 | 19.5 | 19.0 | 1.0 | 1.03 | 2.5 | 0.022 | pass |
-| railroadlittlehouse | r2 | 3 | 3w | 60.5 | 19.5 | 19.0 | 1.0 | 1.03 | 3.0 | 0.024 | pass |
-| railroadlittlehouse | r3 | 4 | 1 | 65.3 | 33.8 | 0.5 | 0.4 | 1.31 | 1.1 | 0.070 | pass |
-| railroadlittlehouse | r3 | 4 | 1w | 66.3 | 33.2 | 0.2 | 0.3 | 1.25 | 9.3 | 0.135 | pass |
-| railroadlittlehouse | r3 | 4 | 2 | 69.7 | 29.7 | 0.5 | 0.1 | 1.14 | 2.1 | 0.040 | pass |
-| railroadlittlehouse | r3 | 4 | 2w | 69.7 | 29.7 | 0.5 | 0.1 | 1.14 | 2.5 | 0.033 | pass |
-| railroadlittlehouse | r3 | 4 | 3 | 72.1 | 15.9 | 11.2 | 0.9 | 1.08 | 0.7 | 0.059 | pass |
-| railroadlittlehouse | r3 | 4 | 3w | 72.1 | 15.9 | 11.2 | 0.9 | 1.07 | 0.9 | 0.062 | pass |
+| railroadlittlehouse | r1 | 2 | 1 | 67.2 | 19.8 | 13.0 | 0.0 | 1.06 | 8.6 | 0.098 | pass |
+| railroadlittlehouse | r1 | 2 | 1w | 64.2 | 22.1 | 13.5 | 0.1 | 0.96 | 17.9 | 0.119 | pass |
+| railroadlittlehouse | r1 | 2 | 2 | 66.9 | 21.0 | 12.0 | 0.0 | 0.91 | 5.1 | 0.065 | pass |
+| railroadlittlehouse | r1 | 2 | 2w | 66.9 | 21.0 | 12.0 | 0.0 | 0.93 | 5.8 | 0.060 | pass |
+| railroadlittlehouse | r1 | 2 | 3 | 78.6 | 18.5 | 2.3 | 0.5 | 1.05 | 1.0 | 0.059 | pass |
+| railroadlittlehouse | r1 | 2 | 3w | 78.6 | 18.5 | 2.3 | 0.5 | 1.05 | 1.3 | 0.075 | pass |
+| railroadlittlehouse | r2 | 3 | 1 | 46.3 | 33.0 | 20.7 | 0.0 | 1.33 | 1.3 | 0.077 | pass |
+| railroadlittlehouse | r2 | 3 | 1w | 41.0 | 39.4 | 19.4 | 0.2 | 1.37 | 1.4 | 0.087 | pass |
+| railroadlittlehouse | r2 | 3 | 2 | 47.4 | 35.4 | 17.2 | 0.0 | 1.06 | 4.5 | 0.051 | pass |
+| railroadlittlehouse | r2 | 3 | 2w | 47.4 | 35.4 | 17.2 | 0.0 | 1.06 | 5.2 | 0.055 | pass |
+| railroadlittlehouse | r2 | 3 | 3 | 55.8 | 41.2 | 2.3 | 0.7 | 1.05 | 1.5 | 0.003 | pass |
+| railroadlittlehouse | r2 | 3 | 3w | 55.8 | 41.2 | 2.3 | 0.7 | 1.05 | 1.8 | 0.004 | pass |
+| railroadlittlehouse | r3 | 4 | 1 | 58.8 | 23.8 | 17.4 | 0.0 | 1.00 | 6.8 | 0.131 | pass |
+| railroadlittlehouse | r3 | 4 | 1w | 55.1 | 28.3 | 16.3 | 0.3 | 1.08 | 17.1 | 0.123 | pass |
+| railroadlittlehouse | r3 | 4 | 2 | 62.2 | 24.2 | 13.4 | 0.1 | 0.94 | 3.0 | 0.096 | pass |
+| railroadlittlehouse | r3 | 4 | 2w | 62.2 | 24.2 | 13.4 | 0.1 | 0.94 | 3.6 | 0.088 | pass |
+| railroadlittlehouse | r3 | 4 | 3 | 70.7 | 28.2 | 0.3 | 0.7 | 1.06 | 3.3 | 0.027 | pass |
+| railroadlittlehouse | r3 | 4 | 3w | 70.7 | 28.2 | 0.3 | 0.7 | 1.05 | 3.8 | 0.044 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| railroadlittlehouse | r1 | 0.74 | 0.90 |
-| railroadlittlehouse | r2 | 0.88 | 0.90 |
-| railroadlittlehouse | r3 | 0.97 | 0.90 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| railroadlittlehouse | r1 | 0.74 | 1.33 | 0.94 | 0.054 | 0.138 | pass | blocks |
+| railroadlittlehouse | r2 | 1.00 | 1.33 | 0.94 | 0.097 | 0.138 | pass | blocks |
+| railroadlittlehouse | r3 | 0.74 | 1.33 | 0.94 | 0.140 | 0.138 | pass | blocks |

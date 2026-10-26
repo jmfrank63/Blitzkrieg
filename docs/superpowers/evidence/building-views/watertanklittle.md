@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| watertanklittle | r1 | 2 | 1 | 54.8 | 43.1 | 0.0 | 2.1 | 1.17 | 2.4 | 0.187 | pass |
-| watertanklittle | r1 | 2 | 1w | 57.7 | 41.6 | 0.0 | 0.7 | 1.00 | 3.6 | 0.078 | pass |
-| watertanklittle | r1 | 2 | 2 | 54.8 | 43.1 | 0.0 | 2.1 | 1.17 | 2.4 | 0.187 | pass |
-| watertanklittle | r1 | 2 | 2w | 57.7 | 41.6 | 0.0 | 0.7 | 1.00 | 3.6 | 0.078 | pass |
-| watertanklittle | r1 | 2 | 3 | 53.2 | 39.2 | 0.0 | 7.5 | 0.81 | 17.2 | 0.081 | pass |
-| watertanklittle | r1 | 2 | 3w | 53.2 | 39.2 | 0.0 | 7.5 | 0.83 | 20.0 | 0.084 | pass |
-| watertanklittle | r2 | 3 | 1 | 15.6 | 82.2 | 0.0 | 2.2 | 1.27 | 5.2 | 0.040 | pass |
-| watertanklittle | r2 | 3 | 1w | 16.6 | 82.7 | 0.0 | 0.7 | 1.07 | 3.3 | 0.056 | pass |
-| watertanklittle | r2 | 3 | 2 | 15.6 | 82.2 | 0.0 | 2.2 | 1.27 | 5.2 | 0.040 | pass |
-| watertanklittle | r2 | 3 | 2w | 16.6 | 82.7 | 0.0 | 0.7 | 1.07 | 3.3 | 0.056 | pass |
-| watertanklittle | r2 | 3 | 3 | 24.5 | 68.8 | 0.0 | 6.7 | 0.87 | 5.6 | 0.074 | pass |
-| watertanklittle | r2 | 3 | 3w | 24.5 | 68.8 | 0.0 | 6.7 | 0.86 | 6.7 | 0.081 | pass |
-| watertanklittle | r3 | 4 | 1 | 45.8 | 51.8 | 0.0 | 2.4 | 1.00 | 7.5 | 0.197 | pass |
-| watertanklittle | r3 | 4 | 1w | 50.2 | 49.3 | 0.0 | 0.5 | 0.95 | 8.3 | 0.065 | pass |
-| watertanklittle | r3 | 4 | 2 | 45.8 | 51.8 | 0.0 | 2.4 | 1.00 | 7.5 | 0.197 | pass |
-| watertanklittle | r3 | 4 | 2w | 50.2 | 49.3 | 0.0 | 0.5 | 0.95 | 8.3 | 0.065 | pass |
-| watertanklittle | r3 | 4 | 3 | 57.6 | 34.4 | 0.0 | 8.0 | 0.74 | 15.5 | 0.029 | pass |
-| watertanklittle | r3 | 4 | 3w | 57.6 | 34.4 | 0.0 | 8.0 | 0.75 | 17.9 | 0.027 | pass |
+| watertanklittle | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| watertanklittle | r1 | 0.84 | 0.44 |
-| watertanklittle | r2 | 0.86 | 0.44 |
-| watertanklittle | r3 | 0.84 | 0.44 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| watertanklittle | r1 | 0.92 | 0.41 | 0.77 | 1.079 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r2 | 0.93 | 0.41 | 0.77 | 1.089 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r3 | 0.92 | 0.41 | 0.77 | 1.086 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |

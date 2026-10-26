@@ -6,50 +6,53 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| storehouse_1 | r1 | 2 | 1 | 76.2 | 4.4 | 19.4 | 0.0 | 1.89 | 6.2 | 0.091 | pass |
-| storehouse_1 | r1 | 2 | 1w | 70.4 | 12.8 | 14.2 | 2.7 | 1.29 | 10.9 | 0.190 | pass |
-| storehouse_1 | r1 | 2 | 2 | 69.0 | 11.7 | 14.5 | 4.7 | 1.17 | 3.4 | 0.085 | pass |
-| storehouse_1 | r1 | 2 | 2w | 69.1 | 11.7 | 14.5 | 4.7 | 1.04 | 2.0 | 0.082 | pass |
-| storehouse_1 | r1 | 2 | 3 | 74.8 | 21.7 | 3.4 | 0.1 | 0.89 | 24.5 | 0.029 | pass |
-| storehouse_1 | r1 | 2 | 3w | 74.8 | 21.7 | 3.4 | 0.1 | 0.89 | 28.8 | 0.059 | pass |
-| storehouse_1 | r2 | 3 | 1 | 53.2 | 27.4 | 19.4 | 0.0 | 1.34 | 1.1 | 0.122 | pass |
-| storehouse_1 | r2 | 3 | 1w | 48.6 | 34.5 | 14.3 | 2.7 | 1.19 | 8.2 | 0.026 | pass |
-| storehouse_1 | r2 | 3 | 2 | 47.3 | 33.1 | 14.8 | 4.8 | 0.98 | 2.4 | 0.005 | pass |
-| storehouse_1 | r2 | 3 | 2w | 47.3 | 33.1 | 14.8 | 4.8 | 0.97 | 0.9 | 0.003 | pass |
-| storehouse_1 | r2 | 3 | 3 | 66.3 | 30.1 | 3.4 | 0.1 | 1.12 | 1.4 | 0.036 | pass |
-| storehouse_1 | r2 | 3 | 3w | 66.3 | 30.1 | 3.4 | 0.1 | 1.08 | 1.9 | 0.040 | pass |
-| storehouse_1 | r3 | 4 | 1 | 73.5 | 25.8 | 0.7 | 0.0 | 1.68 | 43.5 | 0.557 | pass |
-| storehouse_1 | r3 | 4 | 1w | 73.2 | 24.9 | 0.3 | 1.6 | 1.14 | 14.3 | 0.164 | pass |
-| storehouse_1 | r3 | 4 | 2 | 71.8 | 24.3 | 1.2 | 2.7 | 1.13 | 8.3 | 0.089 | pass |
-| storehouse_1 | r3 | 4 | 2w | 72.2 | 24.0 | 1.2 | 2.7 | 1.02 | 7.8 | 0.073 | pass |
-| storehouse_1 | r3 | 4 | 3 | 87.3 | 9.9 | 2.6 | 0.1 | 0.80 | 21.8 | 0.006 | pass |
-| storehouse_1 | r3 | 4 | 3w | 87.3 | 9.9 | 2.6 | 0.1 | 0.82 | 25.5 | 0.001 | pass |
-| storehouse_2 | r1 | 3 | 1 | 72.7 | 25.9 | 1.4 | 0.0 | 1.01 | 23.6 | 0.196 | pass |
-| storehouse_2 | r1 | 3 | 1w | 73.6 | 25.0 | 0.4 | 1.1 | 1.03 | 2.3 | 0.048 | pass |
-| storehouse_2 | r1 | 3 | 2 | 73.3 | 25.1 | 0.4 | 1.1 | 0.94 | 2.6 | 0.050 | pass |
-| storehouse_2 | r1 | 3 | 2w | 73.3 | 25.1 | 0.4 | 1.1 | 0.94 | 3.0 | 0.043 | pass |
-| storehouse_2 | r1 | 3 | 3 | 76.3 | 10.6 | 12.1 | 1.0 | 1.04 | 0.2 | 0.008 | pass |
-| storehouse_2 | r1 | 3 | 3w | 76.3 | 10.6 | 12.1 | 1.0 | 1.04 | 0.3 | 0.007 | pass |
-| storehouse_2 | r2 | 4 | 1 | 52.4 | 29.8 | 17.8 | 0.0 | 1.19 | 1.7 | 0.013 | pass |
-| storehouse_2 | r2 | 4 | 1w | 50.4 | 34.9 | 12.7 | 2.0 | 1.09 | 2.3 | 0.010 | pass |
-| storehouse_2 | r2 | 4 | 2 | 50.7 | 34.0 | 12.8 | 2.5 | 0.98 | 1.3 | 0.023 | pass |
-| storehouse_2 | r2 | 4 | 2w | 50.7 | 34.0 | 12.8 | 2.5 | 0.99 | 1.4 | 0.023 | pass |
-| storehouse_2 | r2 | 4 | 3 | 61.1 | 23.5 | 14.5 | 0.9 | 1.12 | 0.3 | 0.008 | pass |
-| storehouse_2 | r2 | 4 | 3w | 61.1 | 23.5 | 14.5 | 0.9 | 1.11 | 0.3 | 0.008 | pass |
-| storehouse_2 | r3 | 1 | 1 | 75.0 | 6.5 | 18.4 | 0.0 | 0.99 | 1.4 | 0.039 | pass |
-| storehouse_2 | r3 | 1 | 1w | 71.8 | 13.5 | 12.7 | 2.0 | 1.14 | 3.3 | 0.067 | pass |
-| storehouse_2 | r3 | 1 | 2 | 72.4 | 12.2 | 12.9 | 2.5 | 0.94 | 2.5 | 0.045 | pass |
-| storehouse_2 | r3 | 1 | 2w | 72.4 | 12.2 | 12.9 | 2.5 | 0.94 | 2.8 | 0.039 | pass |
-| storehouse_2 | r3 | 1 | 3 | 67.1 | 17.3 | 14.5 | 1.1 | 1.07 | 0.7 | 0.011 | pass |
-| storehouse_2 | r3 | 1 | 3w | 67.1 | 17.3 | 14.5 | 1.1 | 1.07 | 0.9 | 0.010 | pass |
+| storehouse_1 | r1 | 2 | 1 | 64.8 | 35.2 | 0.0 | 0.0 | 1.90 | 10.1 | 0.157 | pass |
+| storehouse_1 | r1 | 2 | 1w | 64.9 | 35.1 | 0.0 | 0.0 | 1.37 | 9.6 | 0.042 | pass |
+| storehouse_1 | r1 | 2 | 2 | 64.2 | 35.7 | 0.0 | 0.0 | 1.32 | 8.4 | 0.117 | pass |
+| storehouse_1 | r1 | 2 | 2w | 64.3 | 35.7 | 0.0 | 0.0 | 1.14 | 10.8 | 0.113 | pass |
+| storehouse_1 | r1 | 2 | 3 | 90.7 | 7.2 | 1.4 | 0.7 | 0.96 | 1.4 | 0.025 | pass |
+| storehouse_1 | r1 | 2 | 3w | 90.7 | 7.2 | 1.4 | 0.7 | 0.97 | 1.5 | 0.030 | pass |
+| storehouse_1 | r2 | 3 | 1 | 12.8 | 87.2 | 0.0 | 0.0 | 1.07 | 3.2 | 0.027 | pass |
+| storehouse_1 | r2 | 3 | 1w | 12.8 | 87.2 | 0.0 | 0.0 | 1.03 | 1.5 | 0.051 | pass |
+| storehouse_1 | r2 | 3 | 2 | 13.2 | 86.7 | 0.0 | 0.1 | 1.00 | 2.9 | 0.059 | pass |
+| storehouse_1 | r2 | 3 | 2w | 13.2 | 86.8 | 0.0 | 0.0 | 1.00 | 4.0 | 0.072 | pass |
+| storehouse_1 | r2 | 3 | 3 | 84.8 | 12.8 | 1.7 | 0.7 | 1.00 | 1.6 | 0.006 | pass |
+| storehouse_1 | r2 | 3 | 3w | 84.8 | 12.8 | 1.7 | 0.7 | 0.99 | 1.8 | 0.002 | pass |
+| storehouse_1 | r3 | 4 | 1 | 33.1 | 66.9 | 0.0 | 0.0 | 1.86 | 10.6 | 0.157 | pass |
+| storehouse_1 | r3 | 4 | 1w | 33.1 | 66.9 | 0.0 | 0.0 | 1.35 | 10.8 | 0.038 | pass |
+| storehouse_1 | r3 | 4 | 2 | 33.4 | 66.4 | 0.0 | 0.1 | 1.34 | 8.3 | 0.108 | pass |
+| storehouse_1 | r3 | 4 | 2w | 33.6 | 66.4 | 0.0 | 0.0 | 1.17 | 10.9 | 0.102 | pass |
+| storehouse_1 | r3 | 4 | 3 | 88.2 | 9.8 | 1.5 | 0.5 | 0.99 | 1.0 | 0.025 | pass |
+| storehouse_1 | r3 | 4 | 3w | 88.2 | 9.8 | 1.5 | 0.5 | 0.99 | 1.2 | 0.026 | pass |
+| storehouse_2 | r1 | 3 | 1 | 34.7 | 65.3 | 0.0 | 0.0 | 0.71 | 10.7 | 0.128 | pass |
+| storehouse_2 | r1 | 3 | 1w | 34.5 | 65.5 | 0.0 | 0.0 | 0.96 | 15.8 | 0.118 | pass |
+| storehouse_2 | r1 | 3 | 2 | 34.7 | 65.3 | 0.0 | 0.0 | 0.86 | 11.1 | 0.042 | pass |
+| storehouse_2 | r1 | 3 | 2w | 34.7 | 65.3 | 0.0 | 0.0 | 0.85 | 12.9 | 0.029 | pass |
+| storehouse_2 | r1 | 3 | 3 | 77.7 | 11.9 | 3.2 | 7.3 | 0.96 | 0.7 | 0.006 | pass |
+| storehouse_2 | r1 | 3 | 3w | 77.7 | 11.9 | 3.2 | 7.3 | 0.95 | 0.7 | 0.007 | pass |
+| storehouse_2 | r2 | 4 | 1 | 14.2 | 85.8 | 0.0 | 0.0 | 1.00 | 1.4 | 0.031 | pass |
+| storehouse_2 | r2 | 4 | 1w | 14.0 | 86.0 | 0.0 | 0.0 | 1.10 | 3.5 | 0.041 | pass |
+| storehouse_2 | r2 | 4 | 2 | 14.2 | 85.8 | 0.0 | 0.0 | 1.17 | 3.1 | 0.009 | pass |
+| storehouse_2 | r2 | 4 | 2w | 14.2 | 85.8 | 0.0 | 0.0 | 1.06 | 3.6 | 0.001 | pass |
+| storehouse_2 | r2 | 4 | 3 | 76.7 | 12.7 | 3.2 | 7.4 | 0.98 | 0.7 | 0.016 | pass |
+| storehouse_2 | r2 | 4 | 3w | 76.7 | 12.7 | 3.2 | 7.4 | 0.98 | 0.8 | 0.021 | pass |
+| storehouse_2 | r3 | 1 | 1 | 63.8 | 36.2 | 0.0 | 0.0 | 0.75 | 10.2 | 0.140 | pass |
+| storehouse_2 | r3 | 1 | 1w | 63.8 | 36.2 | 0.0 | 0.0 | 0.97 | 15.9 | 0.112 | pass |
+| storehouse_2 | r3 | 1 | 2 | 63.9 | 36.1 | 0.0 | 0.0 | 0.86 | 10.8 | 0.031 | pass |
+| storehouse_2 | r3 | 1 | 2w | 63.9 | 36.1 | 0.0 | 0.0 | 0.85 | 12.6 | 0.017 | pass |
+| storehouse_2 | r3 | 1 | 3 | 80.7 | 9.2 | 3.0 | 7.1 | 0.98 | 0.5 | 0.017 | pass |
+| storehouse_2 | r3 | 1 | 3w | 80.7 | 9.2 | 3.0 | 7.1 | 0.98 | 0.5 | 0.018 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| storehouse_1 | r1 | 0.99 | 0.98 |
-| storehouse_1 | r2 | 0.98 | 0.98 |
-| storehouse_1 | r3 | 0.98 | 0.98 |
-| storehouse_2 | r1 | 0.98 | 0.97 |
-| storehouse_2 | r2 | 0.98 | 0.97 |
-| storehouse_2 | r3 | 0.97 | 0.97 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| storehouse_1 | r1 | 1.00 | 1.00 | 0.97 | 0.002 | 0.001 | pass | blocks |
+| storehouse_1 | r2 | 1.00 | 1.00 | 0.97 | 0.001 | 0.001 | pass | blocks |
+| storehouse_1 | r3 | 1.00 | 1.00 | 0.97 | 0.002 | 0.001 | pass | blocks |
+| storehouse_2 | r1 | 0.98 | 0.99 | 0.96 | 0.000 | 0.002 | pass | blocks |
+| storehouse_2 | r2 | 0.98 | 0.99 | 0.96 | 0.000 | 0.002 | pass | blocks |
+| storehouse_2 | r3 | 0.98 | 0.99 | 0.96 | 0.000 | 0.002 | pass | blocks |

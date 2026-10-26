@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| chimneystalkbig | r1 | 2 | 1 | 38.5 | 58.0 | 0.0 | 3.6 | 1.26 | 3.9 | 0.022 | pass |
-| chimneystalkbig | r1 | 2 | 1w | 36.1 | 60.2 | 0.0 | 3.6 | 1.04 | 4.3 | 0.032 | pass |
-| chimneystalkbig | r1 | 2 | 2 | 37.3 | 59.8 | 0.0 | 2.8 | 1.11 | 3.0 | 0.042 | pass |
-| chimneystalkbig | r1 | 2 | 2w | 37.3 | 59.8 | 0.0 | 2.8 | 0.95 | 3.4 | 0.020 | pass |
-| chimneystalkbig | r1 | 2 | 3 | 66.7 | 25.5 | 0.0 | 7.8 | 1.15 | 0.5 | 0.056 | pass |
-| chimneystalkbig | r1 | 2 | 3w | 66.7 | 25.5 | 0.0 | 7.8 | 1.12 | 0.6 | 0.069 | pass |
-| chimneystalkbig | r2 | 3 | 1 | 0.6 | 95.7 | 0.1 | 3.5 | 1.24 | 8.2 | 0.022 | pass |
-| chimneystalkbig | r2 | 3 | 1w | 0.2 | 95.6 | 0.1 | 4.1 | 1.01 | 8.5 | 0.012 | pass |
-| chimneystalkbig | r2 | 3 | 2 | 0.6 | 96.0 | 0.1 | 3.2 | 1.04 | 2.2 | 0.017 | pass |
-| chimneystalkbig | r2 | 3 | 2w | 0.6 | 96.0 | 0.1 | 3.2 | 0.97 | 2.2 | 0.013 | pass |
-| chimneystalkbig | r2 | 3 | 3 | 45.6 | 45.8 | 0.4 | 8.1 | 1.09 | 0.1 | 0.023 | pass |
-| chimneystalkbig | r2 | 3 | 3w | 45.6 | 45.8 | 0.4 | 8.1 | 1.11 | 0.8 | 0.018 | pass |
-| chimneystalkbig | r3 | 4 | 1 | 36.0 | 60.5 | 0.1 | 3.4 | 1.27 | 4.1 | 0.021 | pass |
-| chimneystalkbig | r3 | 4 | 1w | 36.2 | 59.4 | 0.1 | 4.2 | 1.03 | 4.2 | 0.039 | pass |
-| chimneystalkbig | r3 | 4 | 2 | 35.9 | 61.1 | 0.1 | 2.8 | 1.11 | 3.0 | 0.040 | pass |
-| chimneystalkbig | r3 | 4 | 2w | 35.9 | 61.1 | 0.1 | 2.8 | 0.95 | 3.3 | 0.022 | pass |
-| chimneystalkbig | r3 | 4 | 3 | 67.0 | 24.5 | 0.4 | 8.1 | 1.16 | 1.1 | 0.047 | pass |
-| chimneystalkbig | r3 | 4 | 3w | 67.0 | 24.5 | 0.4 | 8.1 | 1.10 | 1.4 | 0.044 | pass |
+| chimneystalkbig | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| chimneystalkbig | r1 | 0.56 | 1.09 |
-| chimneystalkbig | r2 | 0.56 | 1.09 |
-| chimneystalkbig | r3 | 0.56 | 1.09 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| chimneystalkbig | r1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | outline 0.71 < 0.85 | 2003 sprite |
+| chimneystalkbig | r2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | outline 0.71 < 0.85 | 2003 sprite |
+| chimneystalkbig | r3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | outline 0.71 < 0.85 | 2003 sprite |

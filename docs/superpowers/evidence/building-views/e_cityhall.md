@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 2 | 1 | 56.8 | 24.1 | 19.1 | 0.0 | 0.97 | 12.3 | 0.050 | pass |
-| e_cityhall_1 | r1 | 2 | 2 | 57.5 | 25.9 | 16.7 | 0.0 | 0.96 | 6.0 | 0.035 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 55.4 | 34.3 | 10.2 | 0.0 | 1.19 | 4.0 | 0.032 | pass |
-| e_cityhall_1 | r2 | 3 | 1 | 0.2 | 74.2 | 25.6 | 0.0 | 1.04 | 7.2 | 0.089 | pass |
-| e_cityhall_1 | r2 | 3 | 2 | 0.2 | 76.4 | 23.4 | 0.0 | 0.95 | 6.8 | 0.038 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 30.2 | 56.9 | 12.9 | 0.0 | 0.99 | 2.5 | 0.005 | pass |
-| e_cityhall_1 | r3 | 4 | 1 | 25.6 | 56.3 | 18.2 | 0.0 | 0.82 | 25.4 | 0.065 | pass |
-| e_cityhall_1 | r3 | 4 | 2 | 25.1 | 53.4 | 21.5 | 0.0 | 0.79 | 19.1 | 0.009 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 59.1 | 30.5 | 10.4 | 0.0 | 1.13 | 2.1 | 0.037 | pass |
+| e_cityhall_1 | r1 | 2 | 1 | 66.1 | 25.8 | 8.1 | 0.0 | 1.01 | 7.6 | 0.028 | pass |
+| e_cityhall_1 | r1 | 2 | 2 | 65.5 | 25.1 | 9.4 | 0.0 | 1.14 | 2.7 | 0.016 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 52.0 | 37.9 | 10.2 | 0.0 | 1.17 | 0.6 | 0.023 | pass |
+| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 85.0 | 15.0 | 0.0 | 1.11 | 2.7 | 0.061 | pass |
+| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 82.6 | 17.4 | 0.0 | 1.14 | 1.6 | 0.041 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 13.8 | 67.1 | 19.1 | 0.0 | 1.01 | 8.2 | 0.029 | pass |
+| e_cityhall_1 | r3 | 4 | 1 | 27.0 | 63.8 | 9.2 | 0.0 | 1.07 | 11.0 | 0.061 | pass |
+| e_cityhall_1 | r3 | 4 | 2 | 24.4 | 64.3 | 11.3 | 0.0 | 1.04 | 10.3 | 0.057 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 50.1 | 35.7 | 14.2 | 0.0 | 1.07 | 4.5 | 0.017 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_cityhall_1 | r1 | 0.96 | 0.69 |
-| e_cityhall_1 | r2 | 0.98 | 0.69 |
-| e_cityhall_1 | r3 | 1.07 | 0.69 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_cityhall_1 | r1 | 0.93 | 0.70 | 0.95 | 0.025 | 0.026 | pass | blocks |
+| e_cityhall_1 | r2 | 0.96 | 0.70 | 0.95 | 0.092 | 0.026 | protrusion 0.092 > 0.069 | blocks |
+| e_cityhall_1 | r3 | 1.12 | 0.70 | 0.95 | 0.096 | 0.026 | protrusion 0.096 > 0.069 | blocks |

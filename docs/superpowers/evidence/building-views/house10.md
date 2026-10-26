@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house10 | r1 | 2 | 1 | 41.0 | 42.5 | 16.4 | 0.0 | 1.03 | 5.9 | 0.034 | pass |
-| house10 | r1 | 2 | 1w | 71.5 | 27.1 | 1.4 | 0.0 | 1.15 | 1.3 | 0.131 | pass |
-| house10 | r1 | 2 | 2 | 66.3 | 27.1 | 5.2 | 1.4 | 1.05 | 0.9 | 0.055 | pass |
-| house10 | r1 | 2 | 2w | 66.3 | 27.1 | 5.2 | 1.4 | 0.98 | 0.8 | 0.015 | pass |
-| house10 | r1 | 2 | 3 | 80.1 | 11.5 | 8.4 | 0.0 | 0.94 | 4.9 | 0.009 | pass |
-| house10 | r1 | 2 | 3w | 82.0 | 7.8 | 10.2 | 0.1 | 0.96 | 4.0 | 0.013 | pass |
-| house10 | r2 | 3 | 1 | 0.9 | 79.9 | 19.2 | 0.0 | 1.11 | 5.4 | 0.056 | pass |
-| house10 | r2 | 3 | 1w | 33.7 | 56.9 | 9.3 | 0.1 | 0.85 | 3.1 | 0.029 | pass |
-| house10 | r2 | 3 | 2 | 1.4 | 80.6 | 16.7 | 1.3 | 0.97 | 3.8 | 0.023 | pass |
-| house10 | r2 | 3 | 2w | 1.4 | 80.6 | 16.7 | 1.3 | 0.97 | 4.4 | 0.025 | pass |
-| house10 | r2 | 3 | 3 | 69.2 | 22.1 | 8.6 | 0.1 | 1.01 | 5.7 | 0.018 | pass |
-| house10 | r2 | 3 | 3w | 73.6 | 16.3 | 10.1 | 0.0 | 1.02 | 4.6 | 0.015 | pass |
-| house10 | r3 | 4 | 1 | 31.5 | 47.9 | 20.6 | 0.0 | 0.92 | 6.0 | 0.029 | pass |
-| house10 | r3 | 4 | 1w | 60.8 | 29.7 | 9.4 | 0.1 | 0.94 | 2.5 | 0.138 | pass |
-| house10 | r3 | 4 | 2 | 27.0 | 55.3 | 16.7 | 1.0 | 0.98 | 3.8 | 0.083 | pass |
-| house10 | r3 | 4 | 2w | 27.0 | 55.3 | 16.7 | 1.0 | 0.92 | 5.1 | 0.030 | pass |
-| house10 | r3 | 4 | 3 | 76.0 | 15.2 | 8.8 | 0.1 | 0.96 | 4.6 | 0.024 | pass |
-| house10 | r3 | 4 | 3w | 78.8 | 10.9 | 10.3 | 0.0 | 0.95 | 3.3 | 0.010 | pass |
+| house10 | r1 | 2 | 1 | 68.3 | 30.9 | 0.7 | 0.1 | 1.12 | 1.2 | 0.110 | pass |
+| house10 | r1 | 2 | 1w | 67.8 | 31.4 | 0.8 | 0.1 | 1.12 | 3.8 | 0.134 | pass |
+| house10 | r1 | 2 | 2 | 68.4 | 30.9 | 0.7 | 0.0 | 1.06 | 0.7 | 0.073 | pass |
+| house10 | r1 | 2 | 2w | 68.4 | 30.9 | 0.7 | 0.0 | 1.01 | 0.9 | 0.020 | pass |
+| house10 | r1 | 2 | 3 | 76.3 | 12.0 | 11.5 | 0.2 | 0.94 | 3.2 | 0.007 | pass |
+| house10 | r1 | 2 | 3w | 80.5 | 9.8 | 9.3 | 0.5 | 0.96 | 2.5 | 0.005 | pass |
+| house10 | r2 | 3 | 1 | 3.3 | 95.5 | 1.0 | 0.2 | 0.98 | 3.0 | 0.012 | pass |
+| house10 | r2 | 3 | 1w | 3.9 | 92.8 | 3.1 | 0.1 | 1.00 | 2.9 | 0.040 | pass |
+| house10 | r2 | 3 | 2 | 3.7 | 92.3 | 3.9 | 0.0 | 1.01 | 2.1 | 0.036 | pass |
+| house10 | r2 | 3 | 2w | 3.7 | 92.3 | 3.9 | 0.0 | 0.99 | 2.8 | 0.034 | pass |
+| house10 | r2 | 3 | 3 | 63.9 | 22.8 | 13.1 | 0.2 | 1.03 | 4.3 | 0.009 | pass |
+| house10 | r2 | 3 | 3w | 69.8 | 19.3 | 10.3 | 0.6 | 1.01 | 3.5 | 0.004 | pass |
+| house10 | r3 | 4 | 1 | 31.2 | 67.4 | 1.3 | 0.1 | 1.02 | 4.9 | 0.133 | pass |
+| house10 | r3 | 4 | 1w | 32.5 | 63.9 | 3.4 | 0.1 | 1.05 | 7.2 | 0.172 | pass |
+| house10 | r3 | 4 | 2 | 32.7 | 63.5 | 3.8 | 0.1 | 1.04 | 0.7 | 0.121 | pass |
+| house10 | r3 | 4 | 2w | 32.7 | 63.5 | 3.8 | 0.1 | 0.98 | 0.9 | 0.039 | pass |
+| house10 | r3 | 4 | 3 | 72.8 | 15.4 | 11.5 | 0.2 | 0.99 | 4.1 | 0.006 | pass |
+| house10 | r3 | 4 | 3w | 76.5 | 12.6 | 10.5 | 0.4 | 0.96 | 3.4 | 0.003 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| house10 | r1 | 1.05 | 0.93 |
-| house10 | r2 | 1.20 | 0.93 |
-| house10 | r3 | 1.18 | 0.93 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| house10 | r1 | 1.02 | 0.87 | 0.95 | 0.055 | 0.055 | pass | blocks |
+| house10 | r2 | 0.97 | 0.87 | 0.95 | 0.043 | 0.055 | pass | blocks |
+| house10 | r3 | 0.97 | 0.87 | 0.95 | 0.045 | 0.055 | pass | blocks |

@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_chapel_1 | r1 | 2 | 1 | 37.5 | 59.8 | 2.0 | 0.6 | 1.56 | 18.3 | 0.185 | pass |
-| e_chapel_1 | r1 | 2 | 2 | 40.4 | 55.0 | 3.6 | 1.0 | 1.57 | 7.5 | 0.111 | pass |
-| e_chapel_1 | r1 | 2 | 3 | 63.5 | 30.2 | 6.3 | 0.1 | 1.12 | 0.8 | 0.015 | pass |
-| e_chapel_1 | r2 | 3 | 1 | 0.6 | 77.0 | 21.7 | 0.7 | 1.03 | 6.2 | 0.103 | pass |
-| e_chapel_1 | r2 | 3 | 2 | 0.3 | 74.3 | 24.2 | 1.2 | 0.99 | 12.3 | 0.060 | pass |
-| e_chapel_1 | r2 | 3 | 3 | 17.7 | 72.8 | 9.4 | 0.1 | 0.99 | 11.8 | 0.028 | pass |
-| e_chapel_1 | r3 | 4 | 1 | 67.1 | 13.3 | 19.2 | 0.4 | 1.85 | 30.1 | 0.317 | pass |
-| e_chapel_1 | r3 | 4 | 2 | 58.9 | 18.0 | 22.2 | 0.9 | 1.85 | 17.9 | 0.183 | pass |
-| e_chapel_1 | r3 | 4 | 3 | 53.5 | 37.8 | 8.7 | 0.0 | 1.00 | 15.2 | 0.060 | pass |
+| e_chapel_1 | r1 | 2 | 1 | 33.0 | 62.4 | 4.5 | 0.1 | 1.88 | 28.5 | 0.263 | pass |
+| e_chapel_1 | r1 | 2 | 2 | 33.2 | 60.7 | 5.9 | 0.2 | 1.86 | 21.9 | 0.095 | pass |
+| e_chapel_1 | r1 | 2 | 3 | 59.7 | 24.5 | 14.6 | 1.2 | 1.18 | 1.8 | 0.047 | pass |
+| e_chapel_1 | r2 | 3 | 1 | 0.1 | 86.0 | 13.7 | 0.2 | 1.22 | 9.0 | 0.096 | pass |
+| e_chapel_1 | r2 | 3 | 2 | 0.0 | 89.7 | 10.1 | 0.1 | 1.12 | 12.4 | 0.054 | pass |
+| e_chapel_1 | r2 | 3 | 3 | 27.1 | 38.9 | 32.5 | 1.5 | 1.18 | 9.0 | 0.030 | pass |
+| e_chapel_1 | r3 | 4 | 1 | 68.3 | 18.9 | 12.6 | 0.1 | 2.11 | 32.7 | 0.343 | pass |
+| e_chapel_1 | r3 | 4 | 2 | 61.0 | 27.7 | 11.2 | 0.2 | 1.91 | 21.3 | 0.130 | pass |
+| e_chapel_1 | r3 | 4 | 3 | 57.9 | 17.4 | 23.6 | 1.1 | 1.18 | 1.5 | 0.028 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_chapel_1 | r1 | 0.76 | 1.01 |
-| e_chapel_1 | r2 | 0.76 | 1.01 |
-| e_chapel_1 | r3 | 0.77 | 1.01 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_chapel_1 | r1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | pass | blocks |
+| e_chapel_1 | r2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | pass | blocks |
+| e_chapel_1 | r3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | pass | blocks |

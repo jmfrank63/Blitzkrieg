@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house12_3 | r1 | 4 | 1 | 26.1 | 55.7 | 18.2 | 0.0 | 1.22 | 6.2 | 0.113 | pass |
-| e_house12_3 | r1 | 4 | 2 | 24.8 | 57.9 | 17.4 | 0.0 | 1.40 | 15.6 | 0.180 | pass |
-| e_house12_3 | r1 | 4 | 3 | 70.4 | 17.7 | 11.8 | 0.0 | 0.92 | 17.0 | 0.010 | pass |
-| e_house12_3 | r2 | 1 | 1 | 0.6 | 67.8 | 31.5 | 0.0 | 1.15 | 7.2 | 0.051 | pass |
-| e_house12_3 | r2 | 1 | 2 | 1.3 | 71.6 | 27.1 | 0.0 | 1.05 | 5.0 | 0.065 | pass |
-| e_house12_3 | r2 | 1 | 3 | 44.9 | 37.5 | 17.6 | 0.0 | 1.24 | 9.2 | 0.164 | pass |
-| e_house12_3 | r3 | 2 | 1 | 48.9 | 25.3 | 25.8 | 0.0 | 1.20 | 3.6 | 0.156 | pass |
-| e_house12_3 | r3 | 2 | 2 | 54.7 | 25.2 | 20.1 | 0.0 | 1.32 | 10.6 | 0.174 | pass |
-| e_house12_3 | r3 | 2 | 3 | 63.9 | 24.2 | 11.9 | 0.0 | 1.29 | 18.6 | 0.131 | pass |
+| e_house12_3 | r1 | 4 | 1 | 30.4 | 57.7 | 11.9 | 0.0 | 1.29 | 9.0 | 0.131 | pass |
+| e_house12_3 | r1 | 4 | 2 | 32.4 | 59.1 | 8.5 | 0.0 | 0.97 | 12.8 | 0.064 | pass |
+| e_house12_3 | r1 | 4 | 3 | 65.3 | 19.7 | 14.2 | 0.9 | 1.09 | 1.3 | 0.037 | pass |
+| e_house12_3 | r2 | 1 | 1 | 4.1 | 74.1 | 21.8 | 0.0 | 1.04 | 7.9 | 0.033 | pass |
+| e_house12_3 | r2 | 1 | 2 | 1.9 | 86.0 | 12.0 | 0.0 | 1.05 | 6.5 | 0.045 | pass |
+| e_house12_3 | r2 | 1 | 3 | 33.0 | 47.0 | 19.0 | 0.9 | 0.98 | 6.4 | 0.038 | pass |
+| e_house12_3 | r3 | 2 | 1 | 66.6 | 22.9 | 10.5 | 0.0 | 1.31 | 7.3 | 0.127 | pass |
+| e_house12_3 | r3 | 2 | 2 | 56.4 | 35.7 | 8.0 | 0.0 | 1.00 | 13.6 | 0.067 | pass |
+| e_house12_3 | r3 | 2 | 3 | 43.3 | 44.9 | 11.1 | 0.8 | 1.13 | 3.8 | 0.016 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_house12_3 | r1 | 1.21 | 0.88 |
-| e_house12_3 | r2 | 1.28 | 0.88 |
-| e_house12_3 | r3 | 1.02 | 0.88 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_house12_3 | r1 | 0.99 | 1.09 | 0.97 | 0.049 | 0.046 | pass | blocks |
+| e_house12_3 | r2 | 0.99 | 1.09 | 0.97 | 0.054 | 0.046 | pass | blocks |
+| e_house12_3 | r3 | 1.02 | 1.09 | 0.97 | 0.050 | 0.046 | pass | blocks |

@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| church | r1 | 2 | 1 | 56.6 | 39.6 | 3.6 | 0.2 | 1.43 | 7.8 | 0.086 | pass |
-| church | r1 | 2 | 1w | 59.2 | 38.6 | 2.2 | 0.0 | 1.19 | 9.7 | 0.095 | pass |
-| church | r1 | 2 | 2 | 60.4 | 36.1 | 2.2 | 1.4 | 1.26 | 11.5 | 0.080 | pass |
-| church | r1 | 2 | 2w | 60.4 | 36.1 | 2.2 | 1.4 | 1.23 | 13.0 | 0.062 | pass |
-| church | r1 | 2 | 3 | 70.5 | 22.8 | 6.6 | 0.2 | 1.21 | 2.8 | 0.037 | pass |
-| church | r1 | 2 | 3w | 70.5 | 22.8 | 6.6 | 0.2 | 1.14 | 3.7 | 0.051 | pass |
-| church | r2 | 3 | 1 | 6.5 | 89.3 | 3.8 | 0.3 | 1.10 | 5.2 | 0.156 | pass |
-| church | r2 | 3 | 1w | 9.7 | 86.4 | 4.0 | 0.0 | 1.09 | 12.1 | 0.109 | pass |
-| church | r2 | 3 | 2 | 13.1 | 82.4 | 3.2 | 1.3 | 1.19 | 1.1 | 0.219 | pass |
-| church | r2 | 3 | 2w | 13.1 | 82.4 | 3.2 | 1.3 | 1.21 | 1.4 | 0.200 | pass |
-| church | r2 | 3 | 3 | 45.8 | 46.2 | 7.7 | 0.2 | 1.07 | 1.0 | 0.032 | pass |
-| church | r2 | 3 | 3w | 45.8 | 46.2 | 7.7 | 0.2 | 1.04 | 0.9 | 0.045 | pass |
-| church | r3 | 4 | 1 | 64.6 | 32.1 | 3.2 | 0.1 | 1.42 | 7.0 | 0.156 | pass |
-| church | r3 | 4 | 1w | 69.6 | 28.4 | 2.1 | 0.0 | 1.21 | 1.1 | 0.099 | pass |
-| church | r3 | 4 | 2 | 69.2 | 28.1 | 1.8 | 0.9 | 1.20 | 2.3 | 0.086 | pass |
-| church | r3 | 4 | 2w | 69.2 | 28.1 | 1.8 | 0.9 | 1.19 | 2.4 | 0.062 | pass |
-| church | r3 | 4 | 3 | 73.1 | 21.4 | 5.5 | 0.1 | 1.25 | 1.0 | 0.036 | pass |
-| church | r3 | 4 | 3w | 73.1 | 21.4 | 5.5 | 0.1 | 1.18 | 1.7 | 0.057 | pass |
+| church | r1 | 2 | 1 | 53.7 | 41.8 | 4.3 | 0.2 | 1.62 | 15.4 | 0.078 | pass |
+| church | r1 | 2 | 1w | 55.2 | 40.9 | 3.9 | 0.1 | 1.34 | 12.6 | 0.062 | pass |
+| church | r1 | 2 | 2 | 59.3 | 34.8 | 4.5 | 1.4 | 1.25 | 9.0 | 0.068 | pass |
+| church | r1 | 2 | 2w | 59.3 | 34.8 | 4.5 | 1.4 | 1.23 | 10.0 | 0.088 | pass |
+| church | r1 | 2 | 3 | 69.4 | 23.8 | 6.3 | 0.5 | 1.25 | 1.3 | 0.061 | pass |
+| church | r1 | 2 | 3w | 69.4 | 23.8 | 6.3 | 0.5 | 1.19 | 2.0 | 0.072 | pass |
+| church | r2 | 3 | 1 | 8.1 | 85.3 | 6.4 | 0.2 | 1.21 | 7.7 | 0.155 | pass |
+| church | r2 | 3 | 1w | 9.8 | 85.3 | 4.8 | 0.0 | 1.20 | 16.4 | 0.126 | pass |
+| church | r2 | 3 | 2 | 14.6 | 77.1 | 6.9 | 1.4 | 1.25 | 1.9 | 0.196 | pass |
+| church | r2 | 3 | 2w | 14.6 | 77.1 | 6.9 | 1.4 | 1.23 | 2.6 | 0.177 | pass |
+| church | r2 | 3 | 3 | 39.0 | 51.8 | 8.9 | 0.4 | 1.12 | 4.4 | 0.084 | pass |
+| church | r2 | 3 | 3w | 39.0 | 51.8 | 8.9 | 0.4 | 1.09 | 5.3 | 0.084 | pass |
+| church | r3 | 4 | 1 | 74.4 | 23.3 | 2.2 | 0.1 | 1.46 | 0.3 | 0.016 | pass |
+| church | r3 | 4 | 1w | 73.7 | 23.9 | 2.3 | 0.0 | 1.26 | 1.3 | 0.040 | pass |
+| church | r3 | 4 | 2 | 73.9 | 22.3 | 2.6 | 1.2 | 1.11 | 0.8 | 0.068 | pass |
+| church | r3 | 4 | 2w | 73.9 | 22.3 | 2.6 | 1.2 | 1.10 | 0.9 | 0.074 | pass |
+| church | r3 | 4 | 3 | 76.3 | 18.7 | 4.5 | 0.5 | 1.29 | 1.6 | 0.038 | pass |
+| church | r3 | 4 | 3w | 76.3 | 18.7 | 4.5 | 0.5 | 1.21 | 2.7 | 0.042 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| church | r1 | 0.68 | 0.81 |
-| church | r2 | 0.57 | 0.81 |
-| church | r3 | 0.69 | 0.81 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| church | r1 | 0.81 | 0.76 | 0.92 | 0.076 | 0.064 | pass | blocks |
+| church | r2 | 0.74 | 0.76 | 0.92 | 0.100 | 0.064 | pass | blocks |
+| church | r3 | 0.81 | 0.76 | 0.92 | 0.064 | 0.064 | pass | blocks |

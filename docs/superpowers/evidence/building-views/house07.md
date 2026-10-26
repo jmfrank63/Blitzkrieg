@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house07 | r1 | 2 | 1 | 46.5 | 38.2 | 13.7 | 1.6 | 1.24 | 8.8 | 0.062 | pass |
-| house07 | r1 | 2 | 1w | 46.1 | 37.5 | 15.1 | 1.3 | 1.05 | 7.2 | 0.041 | pass |
-| house07 | r1 | 2 | 2 | 41.8 | 51.2 | 7.0 | 0.0 | 1.30 | 12.0 | 0.035 | pass |
-| house07 | r1 | 2 | 2w | 41.8 | 51.2 | 7.0 | 0.0 | 1.17 | 12.9 | 0.057 | pass |
-| house07 | r1 | 2 | 3 | 85.2 | 7.9 | 6.9 | 0.0 | 0.94 | 2.2 | 0.008 | pass |
-| house07 | r1 | 2 | 3w | 85.2 | 7.9 | 6.9 | 0.0 | 0.93 | 3.2 | 0.006 | pass |
-| house07 | r2 | 3 | 1 | 0.8 | 79.1 | 18.3 | 1.7 | 1.17 | 2.7 | 0.026 | pass |
-| house07 | r2 | 3 | 1w | 0.7 | 77.7 | 20.3 | 1.3 | 1.15 | 4.9 | 0.046 | pass |
-| house07 | r2 | 3 | 2 | 28.3 | 53.5 | 18.2 | 0.0 | 0.98 | 25.6 | 0.171 | pass |
-| house07 | r2 | 3 | 2w | 28.3 | 53.5 | 18.2 | 0.0 | 0.93 | 29.2 | 0.162 | pass |
-| house07 | r2 | 3 | 3 | 78.7 | 12.8 | 8.6 | 0.0 | 1.03 | 1.7 | 0.004 | pass |
-| house07 | r2 | 3 | 3w | 78.7 | 12.8 | 8.6 | 0.0 | 1.02 | 2.7 | 0.004 | pass |
-| house07 | r3 | 4 | 1 | 37.1 | 46.6 | 14.9 | 1.5 | 1.21 | 2.1 | 0.119 | pass |
-| house07 | r3 | 4 | 1w | 38.2 | 45.5 | 15.2 | 1.1 | 1.06 | 2.0 | 0.120 | pass |
-| house07 | r3 | 4 | 2 | 68.2 | 16.6 | 15.1 | 0.0 | 1.22 | 32.1 | 0.142 | pass |
-| house07 | r3 | 4 | 2w | 68.2 | 16.6 | 15.1 | 0.0 | 1.08 | 35.3 | 0.154 | pass |
-| house07 | r3 | 4 | 3 | 86.5 | 7.0 | 6.5 | 0.0 | 0.94 | 1.0 | 0.008 | pass |
-| house07 | r3 | 4 | 3w | 86.5 | 7.0 | 6.5 | 0.0 | 0.93 | 1.9 | 0.010 | pass |
+| house07 | r1 | 2 | 1 | 64.6 | 26.9 | 8.4 | 0.0 | 1.07 | 19.6 | 0.041 | pass |
+| house07 | r1 | 2 | 1w | 68.6 | 25.3 | 6.1 | 0.0 | 1.11 | 7.8 | 0.176 | pass |
+| house07 | r1 | 2 | 2 | 63.4 | 27.0 | 9.6 | 0.0 | 1.01 | 6.6 | 0.175 | pass |
+| house07 | r1 | 2 | 2w | 63.4 | 27.0 | 9.6 | 0.0 | 0.97 | 7.2 | 0.116 | pass |
+| house07 | r1 | 2 | 3 | 78.5 | 15.0 | 5.6 | 0.8 | 0.96 | 0.8 | 0.030 | pass |
+| house07 | r1 | 2 | 3w | 78.5 | 15.0 | 5.6 | 0.8 | 0.95 | 0.7 | 0.026 | pass |
+| house07 | r2 | 3 | 1 | 5.8 | 78.8 | 15.4 | 0.0 | 1.19 | 2.7 | 0.003 | pass |
+| house07 | r2 | 3 | 1w | 5.5 | 85.5 | 9.0 | 0.0 | 1.09 | 1.0 | 0.034 | pass |
+| house07 | r2 | 3 | 2 | 5.7 | 77.2 | 17.0 | 0.0 | 1.12 | 2.1 | 0.042 | pass |
+| house07 | r2 | 3 | 2w | 5.7 | 77.2 | 17.0 | 0.0 | 1.11 | 1.7 | 0.035 | pass |
+| house07 | r2 | 3 | 3 | 66.0 | 25.9 | 7.5 | 0.7 | 1.00 | 1.0 | 0.018 | pass |
+| house07 | r2 | 3 | 3w | 66.0 | 25.9 | 7.5 | 0.7 | 1.00 | 1.0 | 0.016 | pass |
+| house07 | r3 | 4 | 1 | 28.8 | 57.2 | 14.0 | 0.1 | 1.07 | 18.8 | 0.038 | pass |
+| house07 | r3 | 4 | 1w | 27.0 | 63.4 | 9.5 | 0.1 | 1.10 | 6.5 | 0.189 | pass |
+| house07 | r3 | 4 | 2 | 28.8 | 55.7 | 15.6 | 0.0 | 1.01 | 8.9 | 0.174 | pass |
+| house07 | r3 | 4 | 2w | 28.8 | 55.7 | 15.6 | 0.0 | 0.98 | 9.5 | 0.106 | pass |
+| house07 | r3 | 4 | 3 | 76.2 | 16.3 | 6.6 | 0.9 | 0.94 | 0.4 | 0.004 | pass |
+| house07 | r3 | 4 | 3w | 76.2 | 16.3 | 6.6 | 0.9 | 0.93 | 0.5 | 0.007 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| house07 | r1 | 1.03 | 0.91 |
-| house07 | r2 | 1.14 | 0.91 |
-| house07 | r3 | 1.06 | 0.91 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| house07 | r1 | 0.95 | 0.93 | 0.96 | 0.050 | 0.041 | pass | blocks |
+| house07 | r2 | 1.06 | 0.93 | 0.96 | 0.047 | 0.041 | pass | blocks |
+| house07 | r3 | 0.85 | 0.93 | 0.96 | 0.090 | 0.041 | pass | blocks |

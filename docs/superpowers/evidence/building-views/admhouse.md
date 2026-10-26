@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| admhouse | r1 | 2 | 1 | 66.9 | 30.9 | 2.2 | 0.0 | 0.86 | 45.1 | 0.019 | pass |
-| admhouse | r1 | 2 | 1w | 67.4 | 31.3 | 1.3 | 0.0 | 0.74 | 60.9 | 0.052 | pass |
-| admhouse | r1 | 2 | 2 | 66.6 | 31.6 | 1.8 | 0.0 | 1.00 | 2.7 | 0.045 | pass |
-| admhouse | r1 | 2 | 2w | 66.6 | 31.6 | 1.8 | 0.0 | 0.95 | 2.6 | 0.049 | pass |
-| admhouse | r1 | 2 | 3 | 55.3 | 29.7 | 14.9 | 0.1 | 1.14 | 7.8 | 0.009 | pass |
-| admhouse | r1 | 2 | 3w | 55.3 | 29.7 | 14.9 | 0.1 | 1.09 | 9.2 | 0.016 | pass |
-| admhouse | r2 | 3 | 1 | 41.4 | 55.3 | 3.3 | 0.0 | 1.05 | 3.2 | 0.311 | pass |
-| admhouse | r2 | 3 | 1w | 41.8 | 56.4 | 1.8 | 0.0 | 1.01 | 4.9 | 0.211 | pass |
-| admhouse | r2 | 3 | 2 | 40.0 | 57.2 | 2.8 | 0.0 | 0.81 | 0.4 | 0.167 | pass |
-| admhouse | r2 | 3 | 2w | 40.0 | 57.2 | 2.8 | 0.0 | 0.75 | 1.1 | 0.108 | pass |
-| admhouse | r2 | 3 | 3 | 38.6 | 45.2 | 16.1 | 0.1 | 0.97 | 0.4 | 0.024 | pass |
-| admhouse | r2 | 3 | 3w | 38.6 | 45.2 | 16.1 | 0.1 | 0.99 | 0.4 | 0.025 | pass |
-| admhouse | r3 | 4 | 1 | 73.8 | 24.5 | 1.7 | 0.0 | 1.05 | 40.8 | 0.182 | pass |
-| admhouse | r3 | 4 | 1w | 74.0 | 25.1 | 1.0 | 0.0 | 0.77 | 58.5 | 0.135 | pass |
-| admhouse | r3 | 4 | 2 | 73.7 | 24.8 | 1.4 | 0.0 | 0.88 | 2.1 | 0.102 | pass |
-| admhouse | r3 | 4 | 2w | 73.7 | 24.8 | 1.4 | 0.0 | 0.76 | 2.3 | 0.065 | pass |
-| admhouse | r3 | 4 | 3 | 68.6 | 21.6 | 9.7 | 0.1 | 1.16 | 8.3 | 0.047 | pass |
-| admhouse | r3 | 4 | 3w | 68.6 | 21.6 | 9.7 | 0.1 | 1.07 | 9.5 | 0.038 | pass |
+| admhouse | r1 | 2 | 1 | 61.0 | 36.2 | 2.9 | 0.0 | 1.07 | 15.6 | 0.044 | pass |
+| admhouse | r1 | 2 | 1w | 61.7 | 36.6 | 1.6 | 0.1 | 0.66 | 75.7 | 0.029 | colour 75.7 > 62 |
+| admhouse | r1 | 2 | 2 | 63.2 | 34.8 | 2.0 | 0.0 | 1.12 | 8.6 | 0.027 | pass |
+| admhouse | r1 | 2 | 2w | 63.2 | 34.8 | 2.0 | 0.0 | 1.07 | 8.8 | 0.030 | pass |
+| admhouse | r1 | 2 | 3 | 78.6 | 13.7 | 7.7 | 0.0 | 1.00 | 1.9 | 0.021 | pass |
+| admhouse | r1 | 2 | 3w | 78.6 | 13.7 | 7.7 | 0.0 | 1.00 | 2.2 | 0.019 | pass |
+| admhouse | r2 | 3 | 1 | 6.0 | 86.5 | 7.5 | 0.0 | 1.09 | 10.3 | 0.029 | pass |
+| admhouse | r2 | 3 | 1w | 5.6 | 89.5 | 4.8 | 0.1 | 1.06 | 13.3 | 0.009 | pass |
+| admhouse | r2 | 3 | 2 | 4.1 | 89.5 | 6.4 | 0.0 | 1.11 | 5.8 | 0.010 | pass |
+| admhouse | r2 | 3 | 2w | 4.1 | 89.5 | 6.4 | 0.0 | 1.11 | 6.6 | 0.012 | pass |
+| admhouse | r2 | 3 | 3 | 59.4 | 31.6 | 8.9 | 0.0 | 1.02 | 3.1 | 0.034 | pass |
+| admhouse | r2 | 3 | 3w | 59.4 | 31.6 | 8.9 | 0.0 | 1.02 | 3.6 | 0.034 | pass |
+| admhouse | r3 | 4 | 1 | 40.8 | 54.3 | 4.9 | 0.0 | 1.08 | 12.5 | 0.051 | pass |
+| admhouse | r3 | 4 | 1w | 39.4 | 56.9 | 3.7 | 0.1 | 0.73 | 69.4 | 0.069 | colour 69.4 > 62 |
+| admhouse | r3 | 4 | 2 | 39.7 | 55.3 | 5.1 | 0.0 | 1.09 | 6.0 | 0.048 | pass |
+| admhouse | r3 | 4 | 2w | 39.7 | 55.3 | 5.1 | 0.0 | 1.03 | 6.0 | 0.054 | pass |
+| admhouse | r3 | 4 | 3 | 70.8 | 22.5 | 6.8 | 0.0 | 0.95 | 5.6 | 0.029 | pass |
+| admhouse | r3 | 4 | 3w | 70.8 | 22.5 | 6.8 | 0.0 | 0.95 | 6.5 | 0.029 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| admhouse | r1 | 0.98 | 0.79 |
-| admhouse | r2 | 0.96 | 0.79 |
-| admhouse | r3 | 0.97 | 0.79 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| admhouse | r1 | 0.95 | 0.78 | 0.95 | 0.015 | 0.015 | pass | blocks |
+| admhouse | r2 | 0.95 | 0.78 | 0.95 | 0.010 | 0.015 | pass | blocks |
+| admhouse | r3 | 0.96 | 0.78 | 0.95 | 0.009 | 0.015 | pass | blocks |

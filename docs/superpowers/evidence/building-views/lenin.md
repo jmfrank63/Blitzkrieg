@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| lenin | r1 | 2 | 1 | 49.4 | 34.3 | 10.0 | 6.3 | 1.25 | 29.3 | 0.105 | pass |
-| lenin | r1 | 2 | 1w | 62.0 | 24.0 | 13.6 | 0.5 | 1.20 | 16.3 | 0.074 | pass |
-| lenin | r1 | 2 | 2 | 52.1 | 32.6 | 7.9 | 7.5 | 1.21 | 35.8 | 0.069 | pass |
-| lenin | r1 | 2 | 2w | 62.0 | 24.0 | 13.6 | 0.5 | 1.20 | 16.3 | 0.074 | pass |
-| lenin | r1 | 2 | 3 | 62.4 | 27.0 | 7.6 | 3.0 | 1.14 | 1.7 | 0.027 | pass |
-| lenin | r1 | 2 | 3w | 62.4 | 27.0 | 7.6 | 3.0 | 1.12 | 1.9 | 0.027 | pass |
-| lenin | r2 | 3 | 1 | 1.5 | 71.8 | 17.1 | 9.6 | 1.23 | 3.3 | 0.012 | pass |
-| lenin | r2 | 3 | 1w | 6.7 | 72.3 | 20.9 | 0.1 | 1.09 | 4.6 | 0.032 | pass |
-| lenin | r2 | 3 | 2 | 1.4 | 73.4 | 14.1 | 11.2 | 0.95 | 8.8 | 0.043 | pass |
-| lenin | r2 | 3 | 2w | 6.7 | 72.3 | 20.9 | 0.1 | 1.09 | 4.6 | 0.032 | pass |
-| lenin | r2 | 3 | 3 | 44.4 | 44.9 | 7.5 | 3.2 | 1.04 | 0.3 | 0.004 | pass |
-| lenin | r2 | 3 | 3w | 44.4 | 44.9 | 7.5 | 3.2 | 1.04 | 0.3 | 0.011 | pass |
-| lenin | r3 | 4 | 1 | 32.2 | 48.7 | 11.9 | 7.1 | 1.24 | 26.3 | 0.108 | pass |
-| lenin | r3 | 4 | 1w | 41.7 | 43.3 | 14.5 | 0.5 | 1.04 | 28.7 | 0.050 | pass |
-| lenin | r3 | 4 | 2 | 28.2 | 54.7 | 9.4 | 7.8 | 1.04 | 37.5 | 0.036 | pass |
-| lenin | r3 | 4 | 2w | 41.7 | 43.3 | 14.5 | 0.5 | 1.04 | 28.7 | 0.050 | pass |
-| lenin | r3 | 4 | 3 | 63.4 | 25.3 | 8.0 | 3.4 | 1.10 | 1.3 | 0.003 | pass |
-| lenin | r3 | 4 | 3w | 63.4 | 25.3 | 8.0 | 3.4 | 1.08 | 1.4 | 0.011 | pass |
+| lenin | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| lenin | r1 | 0.71 | 0.51 |
-| lenin | r2 | 0.67 | 0.51 |
-| lenin | r3 | 0.70 | 0.51 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| lenin | r1 | 0.78 | 0.65 | 0.68 | 0.529 | 1.599 | outline 0.68 < 0.85 | 2003 sprite |
+| lenin | r2 | 0.68 | 0.65 | 0.68 | 1.199 | 1.599 | height 0.68 outside 0.7..1.3 | 2003 sprite |
+| lenin | r3 | 0.78 | 0.65 | 0.68 | 0.412 | 1.599 | outline 0.68 < 0.85 | 2003 sprite |

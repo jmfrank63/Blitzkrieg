@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_monument | r1 | 2 | 1 | 49.6 | 40.9 | 9.1 | 0.4 | 1.31 | 2.0 | 0.050 | pass |
-| e_monument | r1 | 2 | 2 | 50.4 | 40.8 | 8.5 | 0.4 | 1.29 | 2.6 | 0.038 | pass |
-| e_monument | r1 | 2 | 3 | 73.2 | 17.3 | 7.4 | 2.0 | 1.18 | 1.5 | 0.090 | pass |
-| e_monument | r2 | 3 | 1 | 5.3 | 82.6 | 11.4 | 0.7 | 1.13 | 14.7 | 0.241 | pass |
-| e_monument | r2 | 3 | 2 | 5.4 | 83.2 | 11.0 | 0.5 | 1.13 | 14.7 | 0.260 | pass |
-| e_monument | r2 | 3 | 3 | 54.8 | 34.1 | 8.7 | 2.3 | 1.21 | 1.7 | 0.066 | pass |
-| e_monument | r3 | 4 | 1 | 47.5 | 46.1 | 6.0 | 0.4 | 1.03 | 15.9 | 0.048 | pass |
-| e_monument | r3 | 4 | 2 | 47.4 | 46.8 | 5.5 | 0.3 | 1.03 | 15.8 | 0.047 | pass |
-| e_monument | r3 | 4 | 3 | 71.2 | 19.9 | 6.7 | 2.2 | 1.15 | 3.8 | 0.134 | pass |
+| e_monument | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_monument | r1 | 0.79 | 0.77 |
-| e_monument | r2 | 0.68 | 0.77 |
-| e_monument | r3 | 0.77 | 0.77 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_monument | r1 | 0.76 | 0.71 | 0.75 | 0.462 | 0.948 | outline 0.75 < 0.85 | 2003 sprite |
+| e_monument | r2 | 0.69 | 0.71 | 0.75 | 0.561 | 0.948 | height 0.69 outside 0.7..1.3 | 2003 sprite |
+| e_monument | r3 | 0.80 | 0.71 | 0.75 | 0.562 | 0.948 | outline 0.75 < 0.85 | 2003 sprite |

@@ -49,6 +49,102 @@ its source and chimneys painted onto roof planes (the blocks hold no chimneys). 
 different picture of the same building, as a side drawn from the opposite side must; damaged and ruined states lose
 a little SSIM. The ruins (state 3) are drawn from blocks too: their IoU rose from 0.592 to 0.743.
 
+## S06 generator (M005 S06, 2026-10-26)
+
+The same 23 variants drawn by the S06 generator: blocks cost 0.03 of IoU each (a block the outlines barely need is
+dropped and the rest refit), at least 12 world units each way, roofs no steeper than 1.75 and, but for ruins, on walls
+a third of their height; chimneys, towers and spires cut from the variant's own outline; a face a picture sees at a
+grazing angle (cosine under 0.25) taken from one it sees squarely. Means, S03 -> S06:
+
+| State | IoU | Worst IoU | SSIM | Sharpness | Colour | Hue |
+|---|---|---|---|---|---|---|
+| 1 | 0.860 -> 0.868 | 0.693 -> 0.715 | 0.170 -> 0.190 | 1.30 -> 1.29 | 18.6 -> 16.4 | 0.123 -> 0.101 |
+| 2 | 0.799 -> 0.813 | 0.640 -> 0.649 | 0.049 -> 0.050 | 1.21 -> 1.25 | 14.2 -> 13.1 | 0.071 -> 0.064 |
+| 3 | 0.743 -> 0.761 | 0.658 -> 0.613 | 0.023 -> 0.050 | 1.03 -> 1.06 | 11.6 -> 12.6 | 0.050 -> 0.057 |
+
+Every row stays inside the floors of `tools/zig/fixtures/bk-views/gate.json` (they were not changed). Tried and not
+kept: one source picture per face (the face's best source first; state 1 SSIM 0.195 -> 0.173), a volume cost of
+0.005 instead of 0.02 (worst state-3 IoU 0.586, under the floor), and the wall rule for ruins (e_shed01_2's ruin hue
+0.27, over the floor; 0.217 without it).
+
+| Family | Held out | From | State | IoU | SSIM | Sharpness | Colour | Hue |
+|---|---|---|---|---|---|---|---|---|
+| a_h01 | a_h01_1 | a_h01_2 | 1 | 0.928 | 0.367 | 1.28 | 13.5 | 0.043 |
+| a_h01 | a_h01_1 | a_h01_2 | 2 | 0.887 | 0.017 | 1.11 | 2.7 | 0.074 |
+| a_h01 | a_h01_1 | a_h01_2 | 3 | 0.747 | 0.064 | 1.08 | 8.9 | 0.013 |
+| a_h01 | a_h01_2 | a_h01_1 | 1 | 0.920 | 0.358 | 1.19 | 9.8 | 0.190 |
+| a_h01 | a_h01_2 | a_h01_1 | 2 | 0.880 | 0.040 | 1.23 | 12.9 | 0.027 |
+| a_h01 | a_h01_2 | a_h01_1 | 3 | 0.800 | 0.058 | 0.98 | 15.3 | 0.010 |
+| a_h02 | a_h02_2 | a_h02_4 | 1 | 0.875 | 0.267 | 1.14 | 12.9 | 0.044 |
+| a_h02 | a_h02_2 | a_h02_4 | 2 | 0.802 | 0.086 | 1.16 | 3.7 | 0.017 |
+| a_h02 | a_h02_2 | a_h02_4 | 3 | 0.760 | 0.066 | 0.84 | 18.5 | 0.016 |
+| a_h02 | a_h02_4 | a_h02_2 | 1 | 0.860 | 0.202 | 1.61 | 6.2 | 0.058 |
+| a_h02 | a_h02_4 | a_h02_2 | 2 | 0.777 | 0.029 | 1.11 | 13.5 | 0.008 |
+| a_h02 | a_h02_4 | a_h02_2 | 3 | 0.758 | 0.040 | 1.34 | 14.2 | 0.016 |
+| a_h03 | a_h03_2 | a_h03_3 | 1 | 0.817 | 0.150 | 1.48 | 39.5 | 0.097 |
+| a_h03 | a_h03_2 | a_h03_3 | 2 | 0.796 | 0.044 | 0.94 | 39.9 | 0.099 |
+| a_h03 | a_h03_2 | a_h03_3 | 3 | 0.733 | 0.094 | 0.97 | 6.5 | 0.005 |
+| a_h03 | a_h03_3 | a_h03_2 | 1 | 0.845 | 0.135 | 1.03 | 26.8 | 0.161 |
+| a_h03 | a_h03_3 | a_h03_2 | 2 | 0.820 | 0.012 | 1.44 | 35.1 | 0.112 |
+| a_h03 | a_h03_3 | a_h03_2 | 3 | 0.674 | 0.043 | 1.36 | 35.6 | 0.080 |
+| a_h07 | a_h07_1 | a_h07_2 | 1 | 0.903 | 0.298 | 1.06 | 4.2 | 0.082 |
+| a_h07 | a_h07_1 | a_h07_2 | 2 | 0.813 | 0.213 | 0.96 | 6.8 | 0.079 |
+| a_h07 | a_h07_1 | a_h07_2 | 3 | 0.814 | -0.026 | 0.98 | 5.4 | 0.015 |
+| a_h07 | a_h07_2 | a_h07_1 | 1 | 0.913 | 0.434 | 0.91 | 4.3 | 0.162 |
+| a_h07 | a_h07_2 | a_h07_1 | 2 | 0.774 | -0.022 | 1.61 | 8.1 | 0.055 |
+| a_h07 | a_h07_2 | a_h07_1 | 3 | 0.738 | -0.022 | 1.03 | 9.2 | 0.039 |
+| a_h07 | a_h07_3 | a_h07_1 | 1 | 0.940 | 0.310 | 1.24 | 7.8 | 0.048 |
+| a_h07 | a_h07_3 | a_h07_1 | 2 | 0.838 | -0.015 | 0.89 | 6.8 | 0.046 |
+| a_h07 | a_h07_3 | a_h07_1 | 3 | 0.776 | 0.108 | 1.10 | 8.0 | 0.040 |
+| a_h08 | a_h08_1 | a_h08_4 | 1 | 0.792 | 0.320 | 1.15 | 9.1 | 0.040 |
+| a_h08 | a_h08_1 | a_h08_4 | 2 | 0.651 | -0.006 | 1.28 | 1.0 | 0.002 |
+| a_h08 | a_h08_1 | a_h08_4 | 3 | 0.807 | 0.032 | 0.97 | 11.1 | 0.020 |
+| a_h08 | a_h08_4 | a_h08_1 | 1 | 0.795 | 0.331 | 1.46 | 11.7 | 0.038 |
+| a_h08 | a_h08_4 | a_h08_1 | 2 | 0.713 | 0.025 | 1.15 | 17.3 | 0.005 |
+| a_h08 | a_h08_4 | a_h08_1 | 3 | 0.761 | 0.074 | 1.08 | 3.0 | 0.012 |
+| e_ctownhouse01 | e_ctownhouse01_2 | e_ctownhouse01_4 | 1 | 0.908 | 0.057 | 1.20 | 7.7 | 0.028 |
+| e_ctownhouse01 | e_ctownhouse01_2 | e_ctownhouse01_4 | 2 | 0.843 | 0.030 | 1.11 | 6.0 | 0.043 |
+| e_ctownhouse01 | e_ctownhouse01_2 | e_ctownhouse01_4 | 3 | 0.690 | 0.090 | 0.96 | 3.2 | 0.053 |
+| e_ctownhouse01 | e_ctownhouse01_4 | e_ctownhouse01_2 | 1 | 0.861 | -0.001 | 1.12 | 4.7 | 0.060 |
+| e_ctownhouse01 | e_ctownhouse01_4 | e_ctownhouse01_2 | 2 | 0.818 | 0.053 | 1.41 | 4.5 | 0.095 |
+| e_ctownhouse01 | e_ctownhouse01_4 | e_ctownhouse01_2 | 3 | 0.613 | 0.061 | 1.06 | 8.7 | 0.066 |
+| e_ctownhouse03 | e_ctownhouse03_2 | e_ctownhouse03_4 | 1 | 0.715 | 0.098 | 1.64 | 24.3 | 0.106 |
+| e_ctownhouse03 | e_ctownhouse03_2 | e_ctownhouse03_4 | 2 | 0.649 | -0.008 | 1.16 | 7.7 | 0.036 |
+| e_ctownhouse03 | e_ctownhouse03_2 | e_ctownhouse03_4 | 3 | 0.758 | 0.085 | 0.85 | 35.0 | 0.123 |
+| e_ctownhouse03 | e_ctownhouse03_4 | e_ctownhouse03_2 | 1 | 0.744 | 0.093 | 0.87 | 16.2 | 0.179 |
+| e_ctownhouse03 | e_ctownhouse03_4 | e_ctownhouse03_2 | 2 | 0.722 | 0.019 | 1.05 | 9.3 | 0.188 |
+| e_ctownhouse03 | e_ctownhouse03_4 | e_ctownhouse03_2 | 3 | 0.676 | 0.028 | 1.23 | 34.9 | 0.106 |
+| e_house11 | e_house11_1 | e_house11_3 | 1 | 0.882 | 0.069 | 0.83 | 7.7 | 0.045 |
+| e_house11 | e_house11_1 | e_house11_3 | 2 | 0.835 | 0.033 | 0.80 | 11.1 | 0.040 |
+| e_house11 | e_house11_1 | e_house11_3 | 3 | 0.744 | 0.087 | 1.00 | 24.1 | 0.050 |
+| e_house11 | e_house11_3 | e_house11_1 | 1 | 0.888 | 0.106 | 1.53 | 14.5 | 0.040 |
+| e_house11 | e_house11_3 | e_house11_1 | 2 | 0.852 | 0.070 | 1.33 | 9.6 | 0.050 |
+| e_house11 | e_house11_3 | e_house11_1 | 3 | 0.724 | 0.017 | 1.02 | 25.5 | 0.062 |
+| e_shed01 | e_shed01_2 | e_shed01_3 | 1 | 0.923 | 0.115 | 0.99 | 35.3 | 0.060 |
+| e_shed01 | e_shed01_2 | e_shed01_3 | 2 | 0.878 | 0.101 | 1.36 | 17.0 | 0.031 |
+| e_shed01 | e_shed01_2 | e_shed01_3 | 3 | 0.850 | 0.017 | 1.06 | 11.8 | 0.217 |
+| e_shed01 | e_shed01_3 | e_shed01_2 | 1 | 0.889 | 0.102 | 0.72 | 48.4 | 0.049 |
+| e_shed01 | e_shed01_3 | e_shed01_2 | 2 | 0.860 | 0.063 | 0.61 | 23.3 | 0.038 |
+| e_shed01 | e_shed01_3 | e_shed01_2 | 3 | 0.826 | 0.031 | 0.95 | 4.7 | 0.082 |
+| e_townhouse01 | e_townhouse01_3 | e_townhouse01_4 | 1 | 0.895 | 0.111 | 1.01 | 7.9 | 0.088 |
+| e_townhouse01 | e_townhouse01_3 | e_townhouse01_4 | 2 | 0.828 | 0.069 | 1.51 | 12.0 | 0.031 |
+| e_townhouse01 | e_townhouse01_3 | e_townhouse01_4 | 3 | 0.800 | 0.035 | 1.14 | 5.2 | 0.009 |
+| e_townhouse01 | e_townhouse01_4 | e_townhouse01_3 | 1 | 0.945 | 0.168 | 1.85 | 8.4 | 0.226 |
+| e_townhouse01 | e_townhouse01_4 | e_townhouse01_3 | 2 | 0.919 | 0.124 | 1.79 | 5.0 | 0.060 |
+| e_townhouse01 | e_townhouse01_4 | e_townhouse01_3 | 3 | 0.845 | 0.031 | 1.06 | 3.1 | 0.040 |
+| ukrainehouse03 | ukrainehouse03_1 | ukrainehouse03_2 | 1 | 0.875 | 0.157 | 2.34 | 34.3 | 0.304 |
+| ukrainehouse03 | ukrainehouse03_1 | ukrainehouse03_2 | 1w | 0.871 | 0.184 | 2.06 | 23.4 | 0.232 |
+| ukrainehouse03 | ukrainehouse03_1 | ukrainehouse03_2 | 2 | 0.860 | -0.003 | 1.47 | 20.2 | 0.120 |
+| ukrainehouse03 | ukrainehouse03_1 | ukrainehouse03_2 | 2w | 0.860 | -0.003 | 1.47 | 20.2 | 0.120 |
+| ukrainehouse03 | ukrainehouse03_1 | ukrainehouse03_2 | 3 | 0.743 | 0.058 | 1.02 | 10.2 | 0.059 |
+| ukrainehouse03 | ukrainehouse03_1 | ukrainehouse03_2 | 3w | 0.743 | 0.058 | 1.02 | 10.2 | 0.059 |
+| ukrainehouse03 | ukrainehouse03_2 | ukrainehouse03_1 | 1 | 0.863 | 0.162 | 1.32 | 18.4 | 0.103 |
+| ukrainehouse03 | ukrainehouse03_2 | ukrainehouse03_1 | 1w | 0.853 | 0.150 | 1.16 | 14.1 | 0.039 |
+| ukrainehouse03 | ukrainehouse03_2 | ukrainehouse03_1 | 2 | 0.823 | 0.143 | 1.62 | 17.5 | 0.114 |
+| ukrainehouse03 | ukrainehouse03_2 | ukrainehouse03_1 | 2w | 0.823 | 0.143 | 1.62 | 17.5 | 0.114 |
+| ukrainehouse03 | ukrainehouse03_2 | ukrainehouse03_1 | 3 | 0.822 | 0.061 | 1.17 | 1.5 | 0.113 |
+| ukrainehouse03 | ukrainehouse03_2 | ukrainehouse03_1 | 3w | 0.822 | 0.061 | 1.17 | 1.5 | 0.113 |
+
 ## After (S03 generator)
 
 | Family | Held out | From | State | IoU | SSIM | Sharpness | Colour | Hue |

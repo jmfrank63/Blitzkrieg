@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| railroadbighouse | r1 | 2 | 1 | 65.1 | 34.0 | 0.8 | 0.2 | 1.20 | 1.8 | 0.073 | pass |
-| railroadbighouse | r1 | 2 | 1w | 63.8 | 35.8 | 0.2 | 0.2 | 1.12 | 9.1 | 0.260 | pass |
-| railroadbighouse | r1 | 2 | 2 | 47.5 | 50.2 | 1.1 | 1.2 | 1.07 | 1.1 | 0.068 | pass |
-| railroadbighouse | r1 | 2 | 2w | 47.5 | 50.2 | 1.1 | 1.2 | 0.97 | 1.1 | 0.096 | pass |
-| railroadbighouse | r1 | 2 | 3 | 67.8 | 30.4 | 0.5 | 1.3 | 1.04 | 2.6 | 0.011 | pass |
-| railroadbighouse | r1 | 2 | 3w | 67.8 | 30.4 | 0.5 | 1.3 | 0.96 | 2.7 | 0.013 | pass |
-| railroadbighouse | r2 | 3 | 1 | 25.9 | 56.0 | 17.9 | 0.2 | 0.97 | 0.9 | 0.039 | pass |
-| railroadbighouse | r2 | 3 | 1w | 27.3 | 64.1 | 8.5 | 0.2 | 1.07 | 8.4 | 0.146 | pass |
-| railroadbighouse | r2 | 3 | 2 | 8.9 | 72.0 | 17.9 | 1.2 | 0.93 | 2.7 | 0.036 | pass |
-| railroadbighouse | r2 | 3 | 2w | 8.9 | 72.0 | 17.9 | 1.2 | 0.94 | 3.2 | 0.039 | pass |
-| railroadbighouse | r2 | 3 | 3 | 49.5 | 46.3 | 1.9 | 2.2 | 0.99 | 0.4 | 0.003 | pass |
-| railroadbighouse | r2 | 3 | 3w | 49.5 | 46.3 | 1.9 | 2.2 | 0.97 | 0.7 | 0.007 | pass |
-| railroadbighouse | r3 | 4 | 1 | 59.0 | 23.3 | 17.7 | 0.0 | 1.14 | 2.3 | 0.084 | pass |
-| railroadbighouse | r3 | 4 | 1w | 60.8 | 30.9 | 8.3 | 0.0 | 1.05 | 7.7 | 0.140 | pass |
-| railroadbighouse | r3 | 4 | 2 | 57.7 | 23.3 | 17.9 | 1.0 | 1.24 | 4.8 | 0.066 | pass |
-| railroadbighouse | r3 | 4 | 2w | 57.7 | 23.3 | 17.9 | 1.0 | 1.09 | 6.1 | 0.054 | pass |
-| railroadbighouse | r3 | 4 | 3 | 72.5 | 24.0 | 1.4 | 2.0 | 1.02 | 3.2 | 0.017 | pass |
-| railroadbighouse | r3 | 4 | 3w | 72.5 | 24.0 | 1.4 | 2.0 | 0.93 | 3.4 | 0.014 | pass |
+| railroadbighouse | r1 | 2 | 1 | 40.8 | 59.2 | 0.0 | 0.0 | 0.89 | 5.9 | 0.056 | pass |
+| railroadbighouse | r1 | 2 | 1w | 38.7 | 61.3 | 0.0 | 0.0 | 0.96 | 1.2 | 0.202 | pass |
+| railroadbighouse | r1 | 2 | 2 | 40.0 | 58.7 | 0.0 | 1.2 | 1.06 | 6.1 | 0.055 | pass |
+| railroadbighouse | r1 | 2 | 2w | 40.0 | 58.7 | 0.0 | 1.2 | 0.96 | 7.1 | 0.066 | pass |
+| railroadbighouse | r1 | 2 | 3 | 66.8 | 25.6 | 6.8 | 0.8 | 1.07 | 3.8 | 0.018 | pass |
+| railroadbighouse | r1 | 2 | 3w | 66.8 | 25.6 | 6.8 | 0.8 | 0.97 | 3.8 | 0.014 | pass |
+| railroadbighouse | r2 | 3 | 1 | 1.9 | 98.1 | 0.0 | 0.0 | 1.00 | 1.3 | 0.015 | pass |
+| railroadbighouse | r2 | 3 | 1w | 2.3 | 97.7 | 0.0 | 0.0 | 0.97 | 1.2 | 0.012 | pass |
+| railroadbighouse | r2 | 3 | 2 | 1.0 | 97.7 | 0.0 | 1.2 | 0.97 | 2.6 | 0.035 | pass |
+| railroadbighouse | r2 | 3 | 2w | 1.0 | 97.7 | 0.0 | 1.2 | 0.97 | 3.0 | 0.036 | pass |
+| railroadbighouse | r2 | 3 | 3 | 48.2 | 44.0 | 6.7 | 1.1 | 1.03 | 1.7 | 0.011 | pass |
+| railroadbighouse | r2 | 3 | 3w | 48.2 | 44.0 | 6.7 | 1.1 | 1.02 | 1.7 | 0.010 | pass |
+| railroadbighouse | r3 | 4 | 1 | 58.5 | 41.5 | 0.0 | 0.0 | 0.90 | 6.2 | 0.057 | pass |
+| railroadbighouse | r3 | 4 | 1w | 59.9 | 40.1 | 0.0 | 0.0 | 0.96 | 2.8 | 0.212 | pass |
+| railroadbighouse | r3 | 4 | 2 | 58.2 | 40.6 | 0.0 | 1.2 | 1.06 | 6.8 | 0.053 | pass |
+| railroadbighouse | r3 | 4 | 2w | 58.2 | 40.6 | 0.0 | 1.2 | 0.95 | 8.0 | 0.067 | pass |
+| railroadbighouse | r3 | 4 | 3 | 72.6 | 26.1 | 0.8 | 0.6 | 1.02 | 3.2 | 0.017 | pass |
+| railroadbighouse | r3 | 4 | 3w | 72.6 | 26.1 | 0.8 | 0.6 | 0.94 | 3.5 | 0.012 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| railroadbighouse | r1 | 0.98 | 0.64 |
-| railroadbighouse | r2 | 0.97 | 0.64 |
-| railroadbighouse | r3 | 0.97 | 0.64 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| railroadbighouse | r1 | 0.98 | 0.60 | 0.94 | 0.088 | 0.083 | pass | blocks |
+| railroadbighouse | r2 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | pass | blocks |
+| railroadbighouse | r3 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | pass | blocks |

@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| a_mosque_01_4 | r1 | 1 | 1 | 72.5 | 20.9 | 6.6 | 0.0 | 1.35 | 3.0 | 0.004 | pass |
-| a_mosque_01_4 | r1 | 1 | 2 | 76.7 | 16.5 | 6.7 | 0.1 | 1.05 | 0.8 | 0.037 | pass |
-| a_mosque_01_4 | r1 | 1 | 3 | 77.4 | 18.8 | 3.7 | 0.0 | 1.19 | 9.1 | 0.025 | pass |
-| a_mosque_01_4 | r2 | 2 | 1 | 47.4 | 34.2 | 18.4 | 0.0 | 1.76 | 3.9 | 0.017 | pass |
-| a_mosque_01_4 | r2 | 2 | 2 | 58.2 | 32.8 | 9.0 | 0.1 | 1.16 | 4.1 | 0.007 | pass |
-| a_mosque_01_4 | r2 | 2 | 3 | 68.6 | 25.8 | 5.5 | 0.0 | 1.14 | 1.3 | 0.006 | pass |
-| a_mosque_01_4 | r3 | 3 | 1 | 74.9 | 11.1 | 14.0 | 0.0 | 1.67 | 1.2 | 0.206 | pass |
-| a_mosque_01_4 | r3 | 3 | 2 | 80.7 | 14.2 | 5.0 | 0.1 | 1.10 | 2.4 | 0.029 | pass |
-| a_mosque_01_4 | r3 | 3 | 3 | 86.2 | 9.2 | 4.6 | 0.0 | 1.15 | 3.6 | 0.036 | pass |
+| a_mosque_01_4 | r1 | 1 | 1 | 44.4 | 42.5 | 13.1 | 0.0 | 1.29 | 0.9 | 0.024 | pass |
+| a_mosque_01_4 | r1 | 1 | 2 | 76.6 | 16.0 | 7.4 | 0.1 | 1.12 | 0.5 | 0.002 | pass |
+| a_mosque_01_4 | r1 | 1 | 3 | 33.7 | 50.1 | 16.1 | 0.1 | 1.07 | 3.8 | 0.019 | pass |
+| a_mosque_01_4 | r2 | 2 | 1 | 17.1 | 61.8 | 21.0 | 0.0 | 1.30 | 2.3 | 0.018 | pass |
+| a_mosque_01_4 | r2 | 2 | 2 | 47.2 | 40.0 | 12.6 | 0.2 | 1.22 | 1.8 | 0.016 | pass |
+| a_mosque_01_4 | r2 | 2 | 3 | 14.0 | 63.4 | 22.6 | 0.0 | 1.08 | 4.7 | 0.006 | pass |
+| a_mosque_01_4 | r3 | 3 | 1 | 46.9 | 33.3 | 19.8 | 0.0 | 1.26 | 12.6 | 0.046 | pass |
+| a_mosque_01_4 | r3 | 3 | 2 | 60.0 | 29.4 | 10.3 | 0.3 | 1.21 | 1.9 | 0.009 | pass |
+| a_mosque_01_4 | r3 | 3 | 3 | 51.1 | 28.5 | 20.3 | 0.0 | 1.03 | 3.8 | 0.018 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| a_mosque_01_4 | r1 | 0.86 | 1.07 |
-| a_mosque_01_4 | r2 | 0.83 | 1.07 |
-| a_mosque_01_4 | r3 | 0.83 | 1.07 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| a_mosque_01_4 | r1 | 1.18 | 0.90 | 0.96 | 0.099 | 0.048 | pass | blocks |
+| a_mosque_01_4 | r2 | 1.49 | 0.90 | 0.96 | 0.084 | 0.048 | height 1.49 outside 0.7..1.3 | blocks |
+| a_mosque_01_4 | r3 | 1.22 | 0.90 | 0.96 | 0.101 | 0.048 | pass | blocks |

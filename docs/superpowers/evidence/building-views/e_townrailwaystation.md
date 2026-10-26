@@ -6,20 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townrailwaystation_4 | r1 | 1 | 1 | 38.1 | 57.9 | 3.9 | 0.0 | 1.70 | 37.2 | 0.179 | pass |
-| e_townrailwaystation_4 | r1 | 1 | 2 | 38.2 | 51.7 | 10.0 | 0.0 | 2.00 | 30.8 | 0.155 | pass |
-| e_townrailwaystation_4 | r1 | 1 | 3 | 51.5 | 41.3 | 7.2 | 0.0 | 1.53 | 12.8 | 0.041 | pass |
-| e_townrailwaystation_4 | r2 | 2 | 1 | 18.2 | 68.4 | 13.4 | 0.0 | 1.07 | 3.5 | 0.038 | pass |
-| e_townrailwaystation_4 | r2 | 2 | 2 | 17.1 | 63.3 | 19.6 | 0.0 | 1.07 | 0.9 | 0.037 | pass |
-| e_townrailwaystation_4 | r2 | 2 | 3 | 36.3 | 56.6 | 7.1 | 0.0 | 0.93 | 1.1 | 0.025 | pass |
-| e_townrailwaystation_4 | r3 | 3 | 1 | 77.6 | 10.3 | 12.0 | 0.0 | 1.77 | 39.0 | 0.189 | pass |
-| e_townrailwaystation_4 | r3 | 3 | 2 | 75.9 | 9.7 | 14.4 | 0.0 | 2.14 | 31.3 | 0.109 | pass |
-| e_townrailwaystation_4 | r3 | 3 | 3 | 70.2 | 25.1 | 4.7 | 0.0 | 1.36 | 11.0 | 0.047 | pass |
+| e_townrailwaystation_4 | r1 | 1 | 1 | 31.8 | 48.1 | 20.0 | 0.0 | 1.74 | 50.8 | 0.161 | pass |
+| e_townrailwaystation_4 | r1 | 1 | 2 | 31.8 | 54.9 | 13.1 | 0.2 | 2.09 | 37.7 | 0.119 | pass |
+| e_townrailwaystation_4 | r1 | 1 | 3 | 51.4 | 42.4 | 5.5 | 0.7 | 1.36 | 10.0 | 0.041 | pass |
+| e_townrailwaystation_4 | r2 | 2 | 1 | 4.2 | 61.8 | 33.9 | 0.1 | 0.98 | 3.9 | 0.038 | pass |
+| e_townrailwaystation_4 | r2 | 2 | 2 | 3.8 | 69.9 | 26.0 | 0.4 | 1.03 | 1.6 | 0.008 | pass |
+| e_townrailwaystation_4 | r2 | 2 | 3 | 11.3 | 81.7 | 6.4 | 0.7 | 1.04 | 0.4 | 0.005 | pass |
+| e_townrailwaystation_4 | r3 | 3 | 1 | 67.5 | 17.0 | 15.4 | 0.1 | 1.98 | 51.1 | 0.228 | pass |
+| e_townrailwaystation_4 | r3 | 3 | 2 | 67.5 | 17.4 | 14.9 | 0.2 | 2.40 | 40.5 | 0.154 | sharpness 2.40 outside 0.50..2.20 |
+| e_townrailwaystation_4 | r3 | 3 | 3 | 48.9 | 47.8 | 2.8 | 0.6 | 1.37 | 11.1 | 0.041 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_townrailwaystation_4 | r1 | 0.90 | 0.91 |
-| e_townrailwaystation_4 | r2 | 0.88 | 0.91 |
-| e_townrailwaystation_4 | r3 | 0.86 | 0.91 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_townrailwaystation_4 | r1 | 0.90 | 0.86 | 0.93 | 0.019 | 0.030 | pass | blocks |
+| e_townrailwaystation_4 | r2 | 0.88 | 0.86 | 0.93 | 0.004 | 0.030 | pass | blocks |
+| e_townrailwaystation_4 | r3 | 0.88 | 0.86 | 0.93 | 0.011 | 0.030 | pass | blocks |

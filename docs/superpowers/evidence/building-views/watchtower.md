@@ -6,29 +6,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| watchtower | r1 | 2 | 1 | 37.9 | 58.1 | 0.0 | 4.0 | 1.26 | 2.8 | 0.080 | pass |
-| watchtower | r1 | 2 | 1w | 42.9 | 55.5 | 0.0 | 1.6 | 1.15 | 2.8 | 0.012 | pass |
-| watchtower | r1 | 2 | 2 | 35.0 | 61.6 | 0.0 | 3.4 | 1.38 | 9.0 | 0.049 | pass |
-| watchtower | r1 | 2 | 2w | 42.9 | 55.5 | 0.0 | 1.6 | 1.15 | 2.8 | 0.012 | pass |
-| watchtower | r1 | 2 | 3 | 51.3 | 42.1 | 0.0 | 6.6 | 1.08 | 3.5 | 0.018 | pass |
-| watchtower | r1 | 2 | 3w | 51.3 | 42.1 | 0.0 | 6.6 | 1.07 | 3.3 | 0.015 | pass |
-| watchtower | r2 | 3 | 1 | 9.9 | 85.6 | 0.0 | 4.4 | 0.96 | 15.9 | 0.015 | pass |
-| watchtower | r2 | 3 | 1w | 10.2 | 88.1 | 0.0 | 1.7 | 1.04 | 7.7 | 0.043 | pass |
-| watchtower | r2 | 3 | 2 | 9.2 | 87.5 | 0.0 | 3.3 | 0.99 | 12.6 | 0.007 | pass |
-| watchtower | r2 | 3 | 2w | 10.2 | 88.1 | 0.0 | 1.7 | 1.04 | 7.7 | 0.043 | pass |
-| watchtower | r2 | 3 | 3 | 24.5 | 68.7 | 0.0 | 6.8 | 1.05 | 0.3 | 0.012 | pass |
-| watchtower | r2 | 3 | 3w | 24.5 | 68.7 | 0.0 | 6.8 | 1.04 | 0.5 | 0.013 | pass |
-| watchtower | r3 | 4 | 1 | 56.4 | 38.6 | 0.0 | 4.9 | 1.22 | 6.2 | 0.090 | pass |
-| watchtower | r3 | 4 | 1w | 58.7 | 39.8 | 0.0 | 1.5 | 1.11 | 3.9 | 0.009 | pass |
-| watchtower | r3 | 4 | 2 | 60.8 | 35.5 | 0.0 | 3.7 | 1.32 | 3.5 | 0.051 | pass |
-| watchtower | r3 | 4 | 2w | 58.7 | 39.8 | 0.0 | 1.5 | 1.11 | 3.9 | 0.009 | pass |
-| watchtower | r3 | 4 | 3 | 54.6 | 38.4 | 0.0 | 7.0 | 1.00 | 1.2 | 0.013 | pass |
-| watchtower | r3 | 4 | 3w | 54.6 | 38.4 | 0.0 | 7.0 | 1.00 | 1.2 | 0.021 | pass |
+| watchtower | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| watchtower | r1 | 0.97 | 0.47 |
-| watchtower | r2 | 0.97 | 0.47 |
-| watchtower | r3 | 0.97 | 0.47 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| watchtower | r1 | 0.98 | 0.42 | 0.76 | 1.045 | 0.075 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
+| watchtower | r2 | 0.97 | 0.42 | 0.76 | 1.045 | 0.075 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
+| watchtower | r3 | 0.98 | 0.42 | 0.76 | 1.050 | 0.075 | ground 0.42 outside 0.5..2.0 | 2003 sprite |

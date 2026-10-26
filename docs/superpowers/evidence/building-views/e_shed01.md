@@ -6,43 +6,46 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_shed01_2 | r1 | 3 | 1 | 99.5 | 0.5 | 0.0 | 0.0 | 1.13 | 23.7 | 0.027 | pass |
-| e_shed01_2 | r1 | 3 | 2 | 98.4 | 1.0 | 0.6 | 0.0 | 1.25 | 13.3 | 0.011 | pass |
-| e_shed01_2 | r1 | 3 | 3 | 98.6 | 1.2 | 0.2 | 0.0 | 1.05 | 2.2 | 0.025 | pass |
-| e_shed01_2 | r2 | 4 | 1 | 80.5 | 17.8 | 1.7 | 0.0 | 0.83 | 15.6 | 0.023 | pass |
-| e_shed01_2 | r2 | 4 | 2 | 79.8 | 17.7 | 2.6 | 0.0 | 0.91 | 6.8 | 0.039 | pass |
-| e_shed01_2 | r2 | 4 | 3 | 88.8 | 9.0 | 2.1 | 0.0 | 1.14 | 2.7 | 0.023 | pass |
-| e_shed01_2 | r3 | 1 | 1 | 80.7 | 17.4 | 1.9 | 0.0 | 1.96 | 10.5 | 0.149 | pass |
-| e_shed01_2 | r3 | 1 | 2 | 80.1 | 17.6 | 2.3 | 0.0 | 1.42 | 7.2 | 0.152 | pass |
-| e_shed01_2 | r3 | 1 | 3 | 87.8 | 9.6 | 2.6 | 0.0 | 1.13 | 2.2 | 0.041 | pass |
-| e_shed01_3 | r1 | 4 | 1 | 78.6 | 11.4 | 10.0 | 0.0 | 0.82 | 18.4 | 0.012 | pass |
-| e_shed01_3 | r1 | 4 | 2 | 77.6 | 12.5 | 9.9 | 0.0 | 0.89 | 9.4 | 0.037 | pass |
-| e_shed01_3 | r1 | 4 | 3 | 86.9 | 12.3 | 0.4 | 0.4 | 1.00 | 3.0 | 0.029 | pass |
-| e_shed01_3 | r2 | 1 | 1 | 78.4 | 11.1 | 10.5 | 0.0 | 1.99 | 10.3 | 0.131 | pass |
-| e_shed01_3 | r2 | 1 | 2 | 77.6 | 12.0 | 10.4 | 0.0 | 1.44 | 6.6 | 0.158 | pass |
-| e_shed01_3 | r2 | 1 | 3 | 85.2 | 13.3 | 1.1 | 0.4 | 1.01 | 5.2 | 0.028 | pass |
-| e_shed01_3 | r3 | 2 | 1 | 99.8 | 0.1 | 0.1 | 0.0 | 0.88 | 21.0 | 0.026 | pass |
-| e_shed01_3 | r3 | 2 | 2 | 99.0 | 0.8 | 0.2 | 0.0 | 0.82 | 9.3 | 0.009 | pass |
-| e_shed01_3 | r3 | 2 | 3 | 97.3 | 1.7 | 0.9 | 0.1 | 0.99 | 2.2 | 0.026 | pass |
+| e_shed01_2 | r1 | 3 | 1 | 99.2 | 0.8 | 0.0 | 0.0 | 1.17 | 20.3 | 0.043 | pass |
+| e_shed01_2 | r1 | 3 | 2 | 98.6 | 1.4 | 0.0 | 0.0 | 1.23 | 8.6 | 0.015 | pass |
+| e_shed01_2 | r1 | 3 | 3 | 95.5 | 3.3 | 1.1 | 0.1 | 1.13 | 2.0 | 0.035 | pass |
+| e_shed01_2 | r2 | 4 | 1 | 80.2 | 19.8 | 0.0 | 0.0 | 0.82 | 19.6 | 0.022 | pass |
+| e_shed01_2 | r2 | 4 | 2 | 81.0 | 17.9 | 1.1 | 0.0 | 0.87 | 9.1 | 0.012 | pass |
+| e_shed01_2 | r2 | 4 | 3 | 84.7 | 13.2 | 2.0 | 0.1 | 1.15 | 2.7 | 0.025 | pass |
+| e_shed01_2 | r3 | 1 | 1 | 80.6 | 19.4 | 0.0 | 0.0 | 1.91 | 10.1 | 0.133 | pass |
+| e_shed01_2 | r3 | 1 | 2 | 81.4 | 17.6 | 1.1 | 0.0 | 1.36 | 7.8 | 0.149 | pass |
+| e_shed01_2 | r3 | 1 | 3 | 85.4 | 12.7 | 1.7 | 0.1 | 1.09 | 2.0 | 0.039 | pass |
+| e_shed01_3 | r1 | 4 | 1 | 80.2 | 19.7 | 0.0 | 0.0 | 0.81 | 20.4 | 0.016 | pass |
+| e_shed01_3 | r1 | 4 | 2 | 80.8 | 19.2 | 0.0 | 0.0 | 0.87 | 9.3 | 0.012 | pass |
+| e_shed01_3 | r1 | 4 | 3 | 87.3 | 11.8 | 0.0 | 0.9 | 1.14 | 2.3 | 0.033 | pass |
+| e_shed01_3 | r2 | 1 | 1 | 80.1 | 19.8 | 0.0 | 0.1 | 1.99 | 11.2 | 0.139 | pass |
+| e_shed01_3 | r2 | 1 | 2 | 80.8 | 19.2 | 0.0 | 0.0 | 1.36 | 8.1 | 0.150 | pass |
+| e_shed01_3 | r2 | 1 | 3 | 87.0 | 12.1 | 0.0 | 0.8 | 1.07 | 2.6 | 0.037 | pass |
+| e_shed01_3 | r3 | 2 | 1 | 99.5 | 0.5 | 0.0 | 0.1 | 0.89 | 22.9 | 0.021 | pass |
+| e_shed01_3 | r3 | 2 | 2 | 98.9 | 1.1 | 0.0 | 0.0 | 0.82 | 8.8 | 0.007 | pass |
+| e_shed01_3 | r3 | 2 | 3 | 96.2 | 2.9 | 0.0 | 0.9 | 0.98 | 2.7 | 0.033 | pass |
 
-Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height ratio | Ground ratio |
-|---|---|---|---|
-| e_shed01_2 | r1 | 1.01 | 0.89 |
-| e_shed01_2 | r2 | 1.01 | 0.89 |
-| e_shed01_2 | r3 | 1.01 | 0.89 |
-| e_shed01_3 | r1 | 1.01 | 0.91 |
-| e_shed01_3 | r2 | 1.01 | 0.91 |
-| e_shed01_3 | r3 | 1.01 | 0.91 |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|
+| e_shed01_2 | r1 | 1.01 | 0.82 | 0.95 | 0.004 | 0.001 | pass | blocks |
+| e_shed01_2 | r2 | 1.01 | 0.82 | 0.95 | 0.005 | 0.001 | pass | blocks |
+| e_shed01_2 | r3 | 1.01 | 0.82 | 0.95 | 0.004 | 0.001 | pass | blocks |
+| e_shed01_3 | r1 | 1.02 | 0.86 | 0.93 | 0.005 | 0.001 | pass | blocks |
+| e_shed01_3 | r2 | 1.02 | 0.86 | 0.93 | 0.005 | 0.001 | pass | blocks |
+| e_shed01_3 | r3 | 1.02 | 0.86 | 0.93 | 0.004 | 0.001 | pass | blocks |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| e_shed01_2 | 1 | 0.949 | 1.03 | 36.5 | 0.052 | pass |
-| e_shed01_2 | 2 | 0.855 | 1.32 | 14.0 | 0.036 | pass |
-| e_shed01_2 | 3 | 0.834 | 0.99 | 14.5 | 0.154 | pass |
-| e_shed01_3 | 1 | 0.892 | 0.65 | 48.4 | 0.067 | pass |
-| e_shed01_3 | 2 | 0.866 | 0.60 | 24.2 | 0.032 | pass |
-| e_shed01_3 | 3 | 0.841 | 0.96 | 4.4 | 0.075 | pass |
+| e_shed01_2 | 1 | 0.923 | 0.99 | 35.3 | 0.060 | pass |
+| e_shed01_2 | 2 | 0.878 | 1.36 | 17.0 | 0.031 | pass |
+| e_shed01_2 | 3 | 0.850 | 1.06 | 11.8 | 0.217 | pass |
+| e_shed01_3 | 1 | 0.890 | 0.72 | 48.4 | 0.049 | pass |
+| e_shed01_3 | 2 | 0.860 | 0.61 | 23.3 | 0.038 | pass |
+| e_shed01_3 | 3 | 0.826 | 0.95 | 4.7 | 0.082 | pass |

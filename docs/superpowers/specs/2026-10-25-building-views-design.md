@@ -256,7 +256,8 @@ mirrors (the S02 section above describes what was replaced).
   straight into a scratch mod's `data/buildings/views/`; the mod's `modobjects.xml` registers them as buildings
   (`Views_<variant>`, read by `CObjectsDB::LoadDB` after objects.xml). The 2003 sides keep their objects.xml names.
   Four maps from `river3d.xml` each hold side k of both families, 500 pixels apart: the map is too small for four
-  town houses in one frame. The Game runs from `zig-out/local-test/building-views` with every user path redirected
+  town houses in one frame. The Game runs from `zig-out/local-test/building-views/game` (S06: its own folder, so
+  it no longer deletes the batch's work beside it) with every user path redirected
   and `BK_SCENE_DISABLE` turning every pass but the objects off, so only the buildings and the interface are not
   black.
 - **Placement, measured.** `camera=` takes the AI's coordinates (visual over sqrt 2): camera 512 puts a building
@@ -295,6 +296,74 @@ mirrors (the S02 section above describes what was replaced).
   (hold-out 35 of 43); 59 variants flagged for S06 by the shape: turned sprite height outside 0.7..1.3 of the 2003
   one (20, e.g. the lost chimney stalks), blocks' ground outside 0.5..2 of the footprint (20, mostly open props),
   intact outline IoU under 0.85 (34).
+
+## Fallbacks, chimneys and the shape gate (M005 S06, 2026-10-26)
+
+S05's batch passed 168 of 194 variants, but the gate looked at style and hold-out only: `e_house02_1_r2` passed with
+roof peaks no 2003 side shows, and `conduitbarrel` (a standpipe) became a grey block. S06 measured the shape, made the
+generator prefer fewer, lower blocks, cut chimneys from the outline, turned thin props as their own 2003 sprites, and
+stopped taking pixels from faces seen at a grazing angle.
+
+- **Contact sheets.** `bk-views contact <buildings-dir> <generated-dir> <out-dir>` draws every variant a row, its 2003
+  intact sprite (on blue) and its turns `_r1.._r3` (on grey) at half size, labelled, a family under a yellow line, on
+  pages `contact-<n>.png`. The S05 output is in `zig-out/local-test/building-views/contact-before-*.png`, the S06
+  output in `contact-*.png` (not tracked). The source map folder of each turn also holds `<state>_shape.png`, the
+  blocks lit and tinted per block.
+- **Fewer, lower blocks.** Each block costs 0.03 of the pooled outline IoU: after the descent, the block whose loss
+  costs least is dropped while that is less than its cost, and the rest refit (S05's stray towers were chimneys, its
+  fins gable ends). A block is at least 12 world units each way (a thinner slab shows as a fin turned), its roof no
+  steeper than 1.75 (S05: 2.5; a steep roof on a narrow block is a spike from behind), and, but for a ruin's rubble,
+  its roof stands on walls a third of its height (a roof down to the ground stood in for a facade). Hold-out (the 23
+  variants, [the record](../evidence/building-views/holdout.md)), S03 -> S06: state 1 IoU 0.860 -> 0.868 (worst
+  0.693 -> 0.715), SSIM 0.170 -> 0.190, colour 18.6 -> 16.4, hue 0.123 -> 0.101; states 2 and 3 alike, the worst
+  ruin IoU 0.658 -> 0.613 (floor 0.6). The wall rule for ruins took e_shed01_2's ruin hue to 0.27, over its floor,
+  so ruins are exempt. A volume cost of 0.005 instead of 0.02 joined some single-view wings but took the worst ruin
+  IoU to 0.586: not kept.
+- **Chimneys, towers and spires** (`cutChimneys`). The outline of the variant's own picture above the blocks' outline
+  falls into parts; a part 3 to 48 pixels wide at its foot (the widest row of its lower half) and 5 or more high is
+  a flat-topped square block as wide as that foot seen corner on, up to where it narrows under 0.7 of it, and a
+  pyramid on it up to its top. It stands where its foot meets the top of the roof's outline (a ridge), unless along
+  the eye's line of sight, where it shows the same, the family's other pictures hold more of it. Every state but the
+  intact one is fitted from the intact blocks without them and gets its own. Test: a 6-unit chimney on a gabled
+  house comes back within 4 units of its place and 3 of its height and width.
+- **Grazing faces.** A face a 2003 picture sees at an angle whose cosine is under 0.25 is taken from a picture or a
+  donor face seen squarely first (factoryfloor01's turned roof was stripes smeared from a sliver seen edge on).
+  Seams, measured as the style sharpness of the 864 generated summer and winter intact pictures: mean 1.175 -> 1.137,
+  pictures over 1.3 187 -> 155; transferred pixels 7.5% -> 3.6% of the intact sprites, patch-filled 0.8% -> 0.5%.
+  One source picture per face (each face first from the source that gives it the most pixels) was tried: state 1
+  SSIM 0.195 -> 0.173 and roofs relit too bright (e_frenchshed06): not kept.
+- **Shape gate** (`shapeFailure`, every turn drawn by the blocks): the turned intact sprite's height 0.7..1.3 times
+  the 2003 one's; the blocks' ground 0.5..2 times the footprint's cells; the blocks' outline IoU 0.85 or more against
+  the variant's own 2003 picture (other variants of a family may be other buildings: e_house01_1 and _3 differ in their
+  roofs); and the **protrusion**, what an opening of the top edge 48 pixels wide takes off the outline as a share of
+  its area, at most 1.5 times the 2003 sprite's plus 0.03. Between the 2003 sides of one building the protrusion is at
+  most 1.5 times plus 0.026 (a_h07_3 against _1; tents and busts aside); S05's e_house02_1_r2 had 0.095 against the
+  2003 0.028 (limit 0.072) and fails. Outline-only measures were tried first and dropped: the turned outline against
+  the 2003 sides' (mirrored for an odd turn) and peak counts of the top edge do not separate e_house02_1_r2 from the
+  spread of real 2003 sides (its family's own sides differ by 0.12 to 0.15 in top-edge height), and counting the
+  blocks' pieces failed sound sheds (e_frenchshed01's annex stands 12 units off) while towncornhouse04's pieces stand
+  6 to 9 units apart. Under these measures S05's output would pass about 102 of 194 (its flags as failures, its
+  protrusions measured on its sprites); S06's passes 142.
+- **2003 sprite fallback** (`sameSprite`). A thin object (its 2003 protrusion 0.15 or more: stalks, tanks on legs,
+  statues, wells, fountains, hydrants, which blocks of 12 units cannot draw; houses stay under 0.1) or a small one
+  (4 footprint cells or fewer) whose blocks fail the shape is turned as its 2003 pictures themselves, every state,
+  shadow and ground picture, moved so that it stands on its turned footprint, where the turn keeps the footprint
+  (cell IoU 0.9 or more): 40 variants, e.g. conduitbarrel, the chimney stalks, the water tanks and tower, lenin, the
+  statues' half turns. A mirrored sprite for the odd turns of two-fold props (kiosks, dustbins, cisterns, leaders)
+  was not built: it would light them from the wrong side; those turns stay on blocks or on the hand-fix list.
+- **Blueprints and generative fill: not built.** After the steps above the failures are shape (38 variants by the
+  shape gate, 18 more by eye) and not texture: 14 variants fail on style or the hold-out, and
+  patch fill draws 0.5% of the turned intact pixels. Blitzkrieg 2 blueprint labels place windows and doors and
+  generative fill paints faces; neither addresses a wrong block layout. A Blitzkrieg 2 geometry converter (32 exact
+  family matches) is what the multi-wing hand-fix cases would need; it is left for a later slice.
+- **Result** ([batch](../evidence/building-views/batch.md)): 582 of 582 folders, every pack through the engine check;
+  124 of 194 variants pass the gate (style, hold-out, shape, and not listed by eye); hold-out 34 of 43; the rest are
+  listed in batch.md with their first reason, for hand fixing: 38 by the shape gate (outline 12, ground 11 - open props
+  such as tents and track ends -, protrusion 8, height 7), 14 by style or the hold-out (winter hue of the pillboxes,
+  sharpness of ruins), and 18 that pass the measures but look wrong on the contact sheet, listed with the reason in
+  `gate.json`'s `by_eye` (multi-wing town houses split or jumbled: e_ctownhouse02/03/04, towncornhouse02/04; single-view
+  depth: a_wb; flat roofs grown pitched: a_h04_1; tanks lost: a_cisterns; and church, factoryboiler, house07,
+  housebig, e_house09_1).
 
 ## Open questions
 
