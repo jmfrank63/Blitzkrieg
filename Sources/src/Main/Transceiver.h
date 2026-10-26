@@ -2,6 +2,13 @@
 #define __TRANSCEIVER_H__
 #pragma ONCE
 #include "../Main/iMainClassIDs.h"
+// What ITransceiver::CommandScriptCall's text is (CScriptCallCommand).
+enum EScriptCallKind
+{
+	SCRIPT_CALL						= 0,					// the whole call, e.g. "CallHQ()"
+	SCRIPT_CALL_OBJECTS		= 1,					// a function's name; the objects are its arguments
+	SCRIPT_CALL_CONSOLE		= 2,					// a console script line, under the AI's cheat gate
+};
 interface ITransceiver : public IRefCount
 {
 	enum { tidTypeID = MAIN_TRANSCEIVER };
@@ -16,6 +23,14 @@ interface ITransceiver : public IRefCount
 	virtual int STDCALL CommandUnitCommand( const struct SAIUnitCmd *pCommand ) = 0;
 	virtual void STDCALL CommandShowAreas( int nGroupID, int nAreaType, bool bShow ) = 0;
 	virtual void STDCALL AddCommandToSend( interface IAILogicCommand *pCommand ) = 0;
+	// The player's input that reaches the AI other than as an order, recorded like
+	// the orders (CScriptCallCommand, CClientActionCommand): a call into the
+	// mission script (nKind is an EScriptCallKind), the lock of the
+	// aviation appear point while planes are picked, the war fog cheat.
+	virtual void STDCALL CommandScriptCall( const int nKind, const char *pszCall, IRefCount **pObjects, const int nLen ) = 0;
+	virtual void STDCALL CommandLockAviationAppearPoint( class CVec2 *pvAppearPoint ) = 0;
+	virtual void STDCALL CommandUnlockAviationAppearPoint() = 0;
+	virtual void STDCALL CommandToggleWarFog() = 0;
 	
 	virtual int STDCALL GetNumberOfPlayers() const = 0;
 	

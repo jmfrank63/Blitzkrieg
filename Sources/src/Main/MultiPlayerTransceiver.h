@@ -117,6 +117,10 @@ public:
 	virtual int STDCALL CommandUnitCommand( const struct SAIUnitCmd *pCommand );
 	virtual void STDCALL CommandShowAreas( int nGroupID, int nAreaType, bool bShow );
 	virtual void STDCALL AddCommandToSend( IAILogicCommand *pCommand );
+	virtual void STDCALL CommandScriptCall( const int nKind, const char *pszCall, IRefCount **pObjects, const int nLen );
+	virtual void STDCALL CommandLockAviationAppearPoint( CVec2 *pvAppearPoint );
+	virtual void STDCALL CommandUnlockAviationAppearPoint();
+	virtual void STDCALL CommandToggleWarFog();
 
 	virtual int STDCALL GetNumberOfPlayers() const;
 	

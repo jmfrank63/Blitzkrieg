@@ -751,6 +751,29 @@ void CMultiPlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, boo
 		AddCommandToSend( pAICmd );
 	}
 }
+void CMultiPlayerTransceiver::CommandScriptCall( const int nKind, const char *pszCall, IRefCount **pObjects, const int nLen )
+{
+	// Sent like an order, so every machine runs the call at the same segment;
+	// before the port it ran on the calling machine only.
+	if ( !bHistoryPlaying )
+		AddCommandToSend( new CScriptCallCommand( nKind, pszCall, pObjects, nLen, pAILogic ) );
+}
+// The lock and the war fog cheat stay on this machine, as in the original game:
+// the AI locks the point of its own player (CAILogic::LockAvitaionAppearPoint),
+// which on another machine is another player's, and refuses the cheat in a
+// network game (SCheats::SetTurnOffWarFog).
+void CMultiPlayerTransceiver::CommandLockAviationAppearPoint( CVec2 *pvAppearPoint )
+{
+	*pvAppearPoint = pAILogic->LockAvitaionAppearPoint();
+}
+void CMultiPlayerTransceiver::CommandUnlockAviationAppearPoint()
+{
+	pAILogic->UnlockAviationAppearPoint();
+}
+void CMultiPlayerTransceiver::CommandToggleWarFog()
+{
+	pAILogic->ToggleShow( 0 );
+}
 void CMultiPlayerTransceiver::Done()
 {
 	players.clear();

@@ -105,6 +105,8 @@ public:
 	void Segment();
 
 	void CallScriptFunction( const char *pszCommand );
+	// A line typed into the console after '@': only Password() until the cheats are on.
+	void CallConsoleCommand( const char *pszCommand );
 
 	static int Error_out( struct lua_State *state );
 	

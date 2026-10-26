@@ -800,7 +800,7 @@ bool CWorldClient::ActionAviationAddPoint( const EActionCommand cmdType, const C
 		{
 			if ( !bAviationLocked )
 			{
-				vAviationAppear = pAILogic->LockAvitaionAppearPoint();
+				pTransceiver->CommandLockAviationAppearPoint( &vAviationAppear );
 				bAviationLocked = true;
 			}
 			AddAviationMarker( vAviationAppear );
@@ -865,14 +865,14 @@ bool CWorldClient::ActionAviationCall()
 		pTransceiver->CommandUnregisterGroup( nAIGroup );
 	}
 	aviationPoints.clear();
-	pAILogic->UnlockAviationAppearPoint();
+	pTransceiver->CommandUnlockAviationAppearPoint();
 	bAviationLocked = false;
 
 	return true;
 }
 bool CWorldClient::ActionCallHQMsg( const SGameMessage &msg, bool bForced )
 {
-	pAILogic->CallScriptFunction( "CallHQ()" );
+	pTransceiver->CommandScriptCall( SCRIPT_CALL, "CallHQ()", 0, 0 );
 	return true;
 }
 bool CWorldClient::ActionStopMsg( const SGameMessage &msg, bool bForced )

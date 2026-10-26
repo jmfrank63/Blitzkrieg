@@ -363,16 +363,10 @@ void CScripts::LandSuspendedReiforcements()
 }
 void CScripts::Segment()
 {
-	{
-		bool bOldShowScriptErrors = bShowErrors;
-		bShowErrors = true;
-		while ( const char* pszCommand = pConsole->ReadASCII(CONSOLE_STREAM_SCRIPT) )
-		{
-			if ( theCheats.IsPasswordOk() || strncmp( pszCommand, "Password(", 9 ) == 0 )
-				CallScriptFunction( pszCommand );
-		}
-		bShowErrors = bOldShowScriptErrors;
-	}
+	// The single-player transceiver has read the console before the segment
+	// (a replay holds its lines); a multiplayer game's lines are read here.
+	while ( const char* pszCommand = pConsole->ReadASCII(CONSOLE_STREAM_SCRIPT) )
+		CallConsoleCommand( pszCommand );
 	segmIter = activeScripts.begin();
 	while ( segmIter != activeScripts.end() )
 	{
@@ -430,6 +424,14 @@ void CScripts::CallScriptFunction( const char *pszCommand )
 
 	if ( !szAnswer.empty() )
 			pConsole->WriteASCII( CONSOLE_STREAM_CONSOLE, szAnswer.c_str(), 0xff00ff00 );
+}
+void CScripts::CallConsoleCommand( const char *pszCommand )
+{
+	const bool bOldShowScriptErrors = bShowErrors;
+	bShowErrors = true;
+	if ( theCheats.IsPasswordOk() || strncmp( pszCommand, "Password(", 9 ) == 0 )
+		CallScriptFunction( pszCommand );
+	bShowErrors = bOldShowScriptErrors;
 }
 void CScripts::DelInvalidBegin( const int targetId )
 {

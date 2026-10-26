@@ -77,8 +77,8 @@ test "a replay plays back with the recording's state hashes, and a save goes on 
         return error.NoFight;
     }
     // Call HQ went through the transceiver and changed the world: the script's
-    // squad left party 1, and the selection's answer (the ten soldiers of the
-    // squad sent into house B) was recorded.
+    // squad left party 1, and the selection's answer (the soldiers of the squad
+    // sent into house B still alive) was recorded.
     common.printLines("record: script call", recording.script_calls);
     common.printLines("record: script line", recording.lua);
     const hq = callHqEffect(recording.lua);
@@ -86,7 +86,7 @@ test "a replay plays back with the recording's state hashes, and a save goes on 
         std.debug.print("the recording ran no Call HQ that handed the squad over; its output is in {s}\n", .{recording.log_path});
         failures += 1;
     }
-    if (!hasPrefix(recording.script_calls, "ReturnScriptIDs of 10 objects, 0 unknown")) {
+    if (!hasAnswer(recording.script_calls)) {
         std.debug.print("the recording holds no answer with the selected squad; its output is in {s}\n", .{recording.log_path});
         failures += 1;
     }
@@ -145,6 +145,14 @@ test "a replay plays back with the recording's state hashes, and a save goes on 
 
 fn hasPrefix(lines: []const []const u8, prefix: []const u8) bool {
     for (lines) |line| if (std.mem.startsWith(u8, line, prefix)) return true;
+    return false;
+}
+
+/// The selection's answer with soldiers in it, every one of them known.
+fn hasAnswer(calls: []const []const u8) bool {
+    for (calls) |call| {
+        if (std.mem.startsWith(u8, call, "ReturnScriptIDs of ") and !std.mem.startsWith(u8, call, "ReturnScriptIDs of 0 ") and std.mem.endsWith(u8, call, ", 0 unknown")) return true;
+    }
     return false;
 }
 

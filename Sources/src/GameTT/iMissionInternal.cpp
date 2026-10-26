@@ -2120,7 +2120,8 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			pScene->ToggleShow( SCENE_SHOW_EFFECTS );
 			break;
 		case MC_SHOW_WARFOG:
-			GetSingleton<IAILogic>()->ToggleShow( 0 );
+			// The cheat changes what every side sees, so a replay holds it.
+			GetSingleton<ITransceiver>()->CommandToggleWarFog();
 			break;
 		case MC_SHOW_STATISTICS:
 			ToggleShowStats();
