@@ -83,6 +83,10 @@ const Run = struct {
     recorded: []const u32,
     played: []const u32,
     out_of_sync: usize,
+    /// Each registered group's units that the playback found no unit for, summed.
+    unknown_units: usize,
+    /// The units of every registered group, summed.
+    group_units: usize,
     /// Each `units=` line's text after "total ".
     units: []const []const u8,
 };
@@ -129,13 +133,18 @@ test "a replay plays back with the recording's state hashes, and a save goes on 
     for ([_][]const u8{ "playback-1", "playback-2" }) |name| {
         const playback = try runGame(io, allocator, game, root, name, name, playback_schedule, try std.fmt.allocPrint(allocator, "-lh{s}", .{replay}));
         const compared = compareHashes(recording.hashes, playback.hashes);
-        std.debug.print("{s}: {d} of the recording's {d} state hashes equal, first difference at segment {d}, {d} commands played at {any}, out-of-sync reports {d}, units {s} -> {s}\n", .{ name, compared.equal, recording.hashes.len, compared.first_difference, playback.played.len, playback.played, playback.out_of_sync, first(playback.units), last(playback.units) });
+        std.debug.print("{s}: {d} of the recording's {d} state hashes equal, first difference at segment {d}, {d} commands played at {any}, out-of-sync reports {d}, group units {d} ({d} unknown), units {s} -> {s}\n", .{ name, compared.equal, recording.hashes.len, compared.first_difference, playback.played.len, playback.played, playback.out_of_sync, playback.group_units, playback.unknown_units, first(playback.units), last(playback.units) });
         if (compared.equal != recording.hashes.len) {
             std.debug.print("{s} left the recording; its output is in {s}\n", .{ name, playback.log_path });
             failures += 1;
         }
         if (!std.mem.eql(u32, recording.recorded, playback.played)) {
             std.debug.print("{s} played commands at {any}, the recording has them at {any}\n", .{ name, playback.played, recording.recorded });
+            failures += 1;
+        }
+        // The recorded squad has ten soldiers; a 64-bit Game used to record every second ID as 0.
+        if (playback.group_units < 2 or playback.unknown_units != 0) {
+            std.debug.print("{s} registered groups of {d} units, {d} of them unknown; its output is in {s}\n", .{ name, playback.group_units, playback.unknown_units, playback.log_path });
             failures += 1;
         }
         if (playback.out_of_sync != 0) {
@@ -252,6 +261,8 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
     var played: std.ArrayList(u32) = .empty;
     var units: std.ArrayList([]const u8) = .empty;
     var out_of_sync: usize = 0;
+    var unknown_units: usize = 0;
+    var group_units: usize = 0;
     var lines = std.mem.tokenizeAny(u8, log, "\r\n");
     while (lines.next()) |line| {
         if (std.mem.indexOf(u8, line, "BK_REPLAY_TRACE: state hash at segment ")) |at| {
@@ -263,11 +274,16 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
             try recorded.append(allocator, try std.fmt.parseInt(u32, line[at + "BK_REPLAY_TRACE: recorded command at segment ".len ..], 10));
         } else if (std.mem.indexOf(u8, line, "BK_REPLAY_TRACE: played command at segment ")) |at| {
             try played.append(allocator, try std.fmt.parseInt(u32, line[at + "BK_REPLAY_TRACE: played command at segment ".len ..], 10));
+        } else if (std.mem.indexOf(u8, line, "BK_REPLAY_TRACE: registered a group of ")) |at| {
+            var fields = std.mem.tokenizeAny(u8, line[at + "BK_REPLAY_TRACE: registered a group of ".len ..], " ,");
+            group_units += try std.fmt.parseInt(usize, fields.next() orelse return error.BadTrace, 10);
+            _ = fields.next();
+            unknown_units += try std.fmt.parseInt(usize, fields.next() orelse return error.BadTrace, 10);
         } else if (std.mem.indexOf(u8, line, "BK_REPLAY_TRACE: out of sync")) |_| {
             out_of_sync += 1;
         } else if (std.mem.indexOf(u8, line, "BK_AUTO_UI: units near 0,0 r 1000000: total ")) |at| {
             try units.append(allocator, line[at + "BK_AUTO_UI: units near 0,0 r 1000000: total ".len ..]);
         }
     }
-    return .{ .log = log, .log_path = log_path, .hashes = hashes.items, .recorded = recorded.items, .played = played.items, .out_of_sync = out_of_sync, .units = units.items };
+    return .{ .log = log, .log_path = log_path, .hashes = hashes.items, .recorded = recorded.items, .played = played.items, .out_of_sync = out_of_sync, .unknown_units = unknown_units, .group_units = group_units, .units = units.items };
 }

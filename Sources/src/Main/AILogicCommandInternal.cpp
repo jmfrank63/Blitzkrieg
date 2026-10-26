@@ -1,5 +1,8 @@
 #include "StdAfx.h"
 
+#include <cstdio>
+#include <cstdlib>
+
 #include "AILogicCommandInternal.h"
 #include "iMainCommands.h"
 #include "Transceiver.h"
@@ -9,23 +12,32 @@
 CRegisterGroupCommand::CRegisterGroupCommand( IRefCount **pUnitsBuffer, const int nLen, const WORD _wID, IAILogic *pAILogic )
 : wID( _wID )
 {
-	unitsIDs.insert( unitsIDs.begin(), ((int*)pUnitsBuffer), ((int*)pUnitsBuffer) + nLen );
+	// SubstituteUniqueIDs leaves each ID in a pointer-sized slot; read as ints, a
+	// 64-bit buffer gave every second ID as 0 and dropped the second half.
+	unitsIDs.reserve( nLen );
+	for ( int i = 0; i < nLen; ++i )
+		unitsIDs.push_back( static_cast<int>( reinterpret_cast<intptr_t>( pUnitsBuffer[i] ) ) );
 }
 void CRegisterGroupCommand::Execute( IAILogic *pAILogic )
 {
 	std::vector<IRefCount*> unitsBuffer( unitsIDs.size() );
 	int nLen = 0;
+	int nUnknown = 0;
 	for ( std::vector<int>::const_iterator it = unitsIDs.begin(); it != unitsIDs.end(); ++it )
 	{
-		unitsBuffer[nLen] = pAILogic->GetObjByUniqueID( *it );
+		unitsBuffer[nLen] = *it > 0 ? pAILogic->GetObjByUniqueID( *it ) : 0;
 		if ( unitsBuffer[nLen] == 0 )
 		{
+			++nUnknown;
 			const std::string szMessage = NStr::Format( "Wrong id (%d) passed, execute registergroup command", *it );
 			GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, szMessage.c_str(), 0xffff0000, true );
 		}
 
 		++nLen;
 	}
+	// A replay's group must find every unit it was recorded with.
+	if ( getenv( "BK_REPLAY_TRACE" ) != 0 )
+		fprintf( stderr, "BK_REPLAY_TRACE: registered a group of %d units, %d unknown\n", nLen, nUnknown );
 
 	pAILogic->RegisterGroup( &(unitsBuffer[0]), nLen, wID );
 }
