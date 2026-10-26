@@ -93,6 +93,9 @@ public:
 	CPtr<SMapObject> pBackGirder;
 	CPtr<SMapObject> pFrontGirder;
 	int nIndex;														// span index
+	// Draws the span as the camera sees it at quarter turn nTurn (NCameraTurn,
+	// Remastered only; CMOBridgeSpan).
+	virtual void STDCALL SetCameraTurn( const int nTurn, interface IVisObjBuilder *pVOB ) {  }
 	void SetHP( float _fHP ) { pSlab->SetHP( _fHP ); }
 	float GetHP() const { return pSlab->GetHP(); }
 	float GetMaxHP() const { return pSlab->GetMaxHP(); }

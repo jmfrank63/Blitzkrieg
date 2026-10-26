@@ -7,10 +7,18 @@ class CMOBridgeSpan : public CTRefCount<SBridgeSpanObject>
 	OBJECT_SERVICE_METHODS( CMOBridgeSpan );
 	DECLARE_SERIALIZE;
 	int nSpanType;												// 0 - begin, 1 - center, 2 - end
+	// The Remastered camera turn (Main/CameraTurn.h); saved only while not 0.
+	int nCameraTurn;											// the camera's quarter turn it is drawn for
+	mutable int nOwnSpan;									// the span of its damage state its 2003 pictures show
+	CVec3 vPlacement;											// where the AI put it
+	WORD wPlacementDir;
 	const SBridgeRPGStats::SSpan& GetSpanStats( const int nDamageState = 0 ) const;
 	int GetSpanStatsIndex( const int nDamageState = 0 ) const;
 	void UpdateModelWithHP( const float fNewHP, const NTimer::STime &currTime, IVisObjBuilder *pVOB ) const;
-public:	
+	void ApplyCameraTurn( const NTimer::STime &currTime, IVisObjBuilder *pVOB ) const;
+public:
+	CMOBridgeSpan() : nSpanType( 0 ), nCameraTurn( 0 ), nOwnSpan( 0 ), vPlacement( VNULL3 ), wPlacementDir( 0 ) {  }
+	virtual void STDCALL SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB );
 	virtual bool STDCALL Create( IRefCount *pAIObj, const SGDBObjectDesc *pDesc, int nSeason, int nFrameIndex, float fHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB );
 	virtual void STDCALL SetPlacement( const CVec3 &vPos, const WORD &wDir );
 	virtual void STDCALL GetPlacement( CVec3 *pvPos, WORD *pwDir );

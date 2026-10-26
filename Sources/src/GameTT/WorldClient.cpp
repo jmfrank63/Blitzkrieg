@@ -672,6 +672,7 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 			if ( pMO != 0 )
 				pMO->SetCameraTurn( NCameraTurn::Step(), pVOB );
 		}
+		SetSpansCameraTurn( NCameraTurn::Step() );
 	}
 	while ( const char *pszString = GetSingleton<IConsoleBuffer>()->ReadASCII(CONSOLE_STREAM_WORLD) )
 	{

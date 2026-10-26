@@ -102,6 +102,7 @@ bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal
 	UpdateModelWithHP( fNewHP / pRPG->fMaxHP, pVOB );
 	fHP = fNewHP / pRPG->fMaxHP;
 	FillActions();
+	this->nSeason = nSeason;
 	nCameraTurn = NCameraTurn::Step();
 	nOwnFrame = pDesc->eGameType == SGVOGT_FENCE ? nFrameIndex : -1;
 	ApplyCameraTurn();
@@ -134,6 +135,29 @@ static int TurnedFenceFrame( const SFenceRPGStats *pStats, const int nFrame, con
 	}
 	return nFrame;
 }
+// Whether an object's folder is one side of a prop the 2003 data holds from
+// four sides: `<family>\01` to `04`, side k + 1 being side k turned by
+// (x, y) -> (-y, x) (checked on the pictures in S04: the bench's seat and the
+// columns' leg and lamp turn that way; the France fence's wall is taken to
+// follow the same naming). The box's 01 to 04 are four different things, not
+// one from four sides.
+static bool IsFourSided( const std::string &szPath )
+{
+	static const char *pszFamilies[] = { "\\bench\\0", "\\e_francefence\\0", "\\bigcolumnwithleg\\0", "\\biglightcolumn\\0",
+																			 "\\littlecolumnwithleg\\0", "\\littlelightcolumn\\0" };
+	const int nLength = szPath.size();
+	if ( nLength < 3 || szPath[nLength - 1] < '1' || szPath[nLength - 1] > '4' )
+		return false;
+	std::string szFolder = szPath.substr( 0, nLength - 1 );
+	std::transform( szFolder.begin(), szFolder.end(), szFolder.begin(), ::tolower );
+	for ( int i = 0; i < sizeof( pszFamilies ) / sizeof( pszFamilies[0] ); ++i )
+	{
+		const int nFamily = strlen( pszFamilies[i] );
+		if ( szFolder.size() >= nFamily && szFolder.compare( szFolder.size() - nFamily, nFamily, pszFamilies[i] ) == 0 )
+			return true;
+	}
+	return false;
+}
 // Draws it for the camera step (Remastered, Main/CameraTurn.h), each kind by
 // the shortest path (docs/superpowers/specs/2026-10-26-camera-turn-design.md,
 // S03), with no new pictures:
@@ -158,6 +182,31 @@ void CMOObject::ApplyCameraTurn()
 				pShadowSprite->SetScreenTurn( nCameraTurn, false );
 			break;
 		case SGVOGT_OBJECT:
+			if ( IsFourSided( pDesc->szPath ) )
+			{
+				// A prop the 2003 data shows from four sides as variants `01` to
+				// `04`, each the one before turned by (x, y) -> (-y, x) (bench,
+				// France fence, the wooden columns), draws its variant of
+				// turn DrawnTurn( 0, step ).
+				const int nTurn = NCameraTurn::DrawnTurn( 0, nCameraTurn );
+				if ( nTurn == nShownTurn )
+					break;
+				nShownTurn = nTurn;
+				const int nLength = pDesc->szPath.size();
+				const std::string szSide = pDesc->szPath.substr( 0, nLength - 1 ) + char( '1' + ( pDesc->szPath[nLength - 1] - '1' + nTurn ) % 4 );
+				IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
+				const std::string szName = szSide + ( nSeason == 1 ? "\\1w" : "\\1" );
+				const bool bSeason = pVOB->ChangeObject( pVisObj, szName.c_str(), 0, SGVOT_SPRITE );
+				if ( !bSeason )
+					pVOB->ChangeObject( pVisObj, ( szSide + "\\1" ).c_str(), 0, SGVOT_SPRITE );
+				if ( pShadow )
+					pVOB->ChangeObject( pShadow, ( ( bSeason ? szName : szSide + "\\1" ) + "s" ).c_str(), 0, SGVOT_SPRITE );
+				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
+				pVisObj->Update( currTime, true );
+				if ( pShadow )
+					pShadow->Update( currTime, true );
+			}
+			else
 			{
 				const CArray2D<BYTE> &passability = static_cast_gdb<const SStaticObjectRPGStats*>( pRPG )->GetPassability();
 				const bool bRectangle = passability.GetSizeX() != passability.GetSizeY() && passability.GetSizeX() * passability.GetSizeY() != 0;
@@ -209,6 +258,8 @@ int CMOObject::operator&( IStructureSaver &ss )
 	{
 		saver.Add( 5, &nCameraTurn );
 		saver.Add( 6, &nOwnFrame );
+		saver.Add( 7, &nSeason );
+		saver.Add( 8, &nShownTurn );
 	}
 	if ( saver.IsReading() ) 
 		FillActions();

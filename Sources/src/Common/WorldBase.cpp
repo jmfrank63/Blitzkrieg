@@ -469,6 +469,12 @@ void CWorldBase::RemoveFromWorld( SBridgeSpanObject *pSpan )
 	if ( pSpan->pFrontGirder ) 
 		pSpan->pFrontGirder->pAIObj = 0;
 }
+// Each of a span's three parts maps to it; the span turns once.
+void CWorldBase::SetSpansCameraTurn( const int nTurn )
+{
+	for ( CBridgeSpanObjectsMap::iterator it = visspans.begin(); it != visspans.end(); ++it )
+		it->second->SetCameraTurn( nTurn, pVOB );
+}
 void CWorldBase::RemoveFromScene( SBridgeSpanObject *pSpan )
 {
 	RemoveFromScene( pSpan->pSlab );
