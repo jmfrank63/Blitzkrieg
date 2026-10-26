@@ -3485,6 +3485,19 @@ jobs:
         run: zig build elk-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
+      # D088 measures against hb-view's rasters; these tiers link l10n_measure, whose own tests
+      # need it too. The HarfBuzz release's win64 build ships hb-view.exe (as on win-home).
+      - name: Install hb-view
+        if: matrix.part == 'all'
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\harfbuzz-win64-14.6.0.zip"
+          Invoke-WebRequest -Uri https://github.com/harfbuzz/harfbuzz/releases/download/14.6.0/harfbuzz-win64-14.6.0.zip -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne "a773b8e99aa13f9a387d3d243eaad594d6dc530fba1bb852445282639b40b0b3") { throw "harfbuzz-win64-14.6.0.zip has the wrong checksum" }
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\harfbuzz"
+          Add-Content $env:GITHUB_PATH "$env:RUNNER_TEMP\harfbuzz\harfbuzz-win64"
+          & "$env:RUNNER_TEMP\harfbuzz\harfbuzz-win64\hb-view.exe" --version
+
       - name: The game reads ELK's export
         if: matrix.part == 'all'
         shell: pwsh
@@ -3721,6 +3734,19 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-bk-sprite -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+
+      # D088 measures against hb-view's rasters; these tiers link l10n_measure, whose own tests
+      # need it too. The HarfBuzz release's win64 build ships hb-view.exe (as on win-home).
+      - name: Install hb-view
+        if: matrix.part == 'all'
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\harfbuzz-win64-14.6.0.zip"
+          Invoke-WebRequest -Uri https://github.com/harfbuzz/harfbuzz/releases/download/14.6.0/harfbuzz-win64-14.6.0.zip -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne "a773b8e99aa13f9a387d3d243eaad594d6dc530fba1bb852445282639b40b0b3") { throw "harfbuzz-win64-14.6.0.zip has the wrong checksum" }
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\harfbuzz"
+          Add-Content $env:GITHUB_PATH "$env:RUNNER_TEMP\harfbuzz\harfbuzz-win64"
+          & "$env:RUNNER_TEMP\harfbuzz\harfbuzz-win64\hb-view.exe" --version
 
       - name: The game reads bk-font's font
         if: matrix.part == 'all'
@@ -5530,6 +5556,7 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            /Data/icon.bmp
           sparse-checkout-cone-mode: false
 
 
