@@ -86,15 +86,15 @@ const opaque_alpha = 128;
 /// counts as drawn by the same rule.
 const drawn_level = 24;
 
-fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[]const u8 {
+pub fn envValue(allocator: std.mem.Allocator, key: []const u8) !?[]const u8 {
     var map = try testing.environ.createMap(allocator);
     const value = map.get(key) orelse return null;
     return try allocator.dupe(u8, value);
 }
 
-const Sprite = struct { image: views.Image, anchor: [2]i32 };
+pub const Sprite = struct { image: views.Image, anchor: [2]i32 };
 
-const Score = struct { iou: f64, colour: f64, dx: i32, dy: i32 };
+pub const Score = struct { iou: f64, colour: f64, dx: i32, dy: i32 };
 
 test "the Game draws all four sides of e_ctownhouse01 and of a modder's copy of e_frenchshed01, the generated ones from a mod" {
     const io = testing.io;
@@ -152,7 +152,7 @@ test "the Game draws all four sides of e_ctownhouse01 and of a modder's copy of 
     }
 }
 
-fn copyFolder(io: std.Io, allocator: std.mem.Allocator, from: []const u8, to: []const u8) !void {
+pub fn copyFolder(io: std.Io, allocator: std.mem.Allocator, from: []const u8, to: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
     try cwd.createDirPath(io, to);
     var dir = try cwd.openDir(io, from, .{ .iterate = true });
@@ -165,7 +165,7 @@ fn copyFolder(io: std.Io, allocator: std.mem.Allocator, from: []const u8, to: []
     }
 }
 
-fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, args: []const []const u8) !void {
+pub fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, args: []const []const u8) !void {
     var argv: std.ArrayList([]const u8) = .empty;
     try argv.append(allocator, tool);
     try argv.appendSlice(allocator, args);
@@ -179,7 +179,7 @@ fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, args: []c
 }
 
 /// The intact sprite of a variant folder as its pack holds it, and its zero cross.
-fn decompose(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, folder: []const u8, out: []const u8) !Sprite {
+pub fn decompose(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, folder: []const u8, out: []const u8) !Sprite {
     try runTool(io, allocator, tool, &.{ "decompose", folder, out });
     const cwd = std.Io.Dir.cwd();
     const png = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, "1_0.png" }), allocator, .limited(64 << 20));
@@ -303,7 +303,7 @@ fn scoreAt(frame: []const u8, sprite: Sprite, box: [4]i64, x0: i32, y0: i32) Sco
 }
 
 /// The best of the offsets within 4 pixels of where the building stands.
-fn score(frame: []const u8, sprite: Sprite, screen: [2]i32) Score {
+pub fn score(frame: []const u8, sprite: Sprite, screen: [2]i32) Score {
     var box = [4]i64{ sprite.image.width, sprite.image.height, 0, 0 };
     for (sprite.image.pixels, 0..) |p, i| {
         if (p[3] < opaque_alpha or !drawn(&p)) continue;

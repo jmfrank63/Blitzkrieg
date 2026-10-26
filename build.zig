@@ -3120,6 +3120,50 @@ pub fn build(b: *std.Build) void {
     views_game_step.dependOn(&views_game_tests.step);
     if (test_mode == .run) views_game_step.dependOn(&views_game_run.step);
 
+    // The Game camera's quarter turns (M006 S01,
+    // tools/zig/camera_turn_game_reads_it.zig): bk-views side writes the turned
+    // sides of two 2003 buildings into a scratch mod at their Data paths, the
+    // Game presses the turn key with Remastered on and off, and each shot is
+    // measured against the sprites and the turned ground. Desktop and GPU, so
+    // not part of `test`.
+    const turn_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, turn_game_module, toolchain);
+    }
+    const turn_game_tests = b.addTest(.{ .root_module = turn_game_module, .filters = &.{ "a quarter turn", "the Game camera turns" } });
+    const turn_game_run = b.addRunArtifact(turn_game_tests);
+    turn_game_run.setCwd(b.path("."));
+    turn_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    turn_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    turn_game_run.has_side_effects = true;
+    turn_game_run.step.dependOn(install_game_step);
+    turn_game_run.step.dependOn(bk_views_step);
+    turn_game_run.step.dependOn(bk_sprite.install);
+    const turn_game_step = b.step("camera-turn-game-reads-it", "Make the turned sides of two 2003 buildings with bk-views side into a scratch mod, press the camera turn key on the real Game with Remastered on and off, and measure each building's side and place and the turned ground in the shots of all four steps");
+    turn_game_step.dependOn(&turn_game_tests.step);
+    if (test_mode == .run) turn_game_step.dependOn(&turn_game_run.step);
+
+    // The turned building sides as a mod, to try the camera turn by hand
+    // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
+    // building-views-batch-<region> steps left in zig-out/remastered/Buildings,
+    // copied to zig-out/remastered/mods/remastered_views/data/buildings, where a
+    // Game run with BK_MODS_ROOT=zig-out/remastered/mods -mod=remastered_views
+    // finds each turn by its variant's Data path. Not the install's mods
+    // folder, which is the player's and is packaged.
+    const turn_mod_files = b.addWriteFiles();
+    const turn_mod_xml = turn_mod_files.add("mod.xml", "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Remastered views</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n");
+    const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building sides the building-views-batch-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
+    turn_mod_step.dependOn(&b.addInstallFile(turn_mod_xml, "remastered/mods/remastered_views/data/mod.xml").step);
+    turn_mod_step.dependOn(&b.addInstallDirectory(.{
+        .source_dir = b.path("zig-out/remastered/Buildings"),
+        .install_dir = .prefix,
+        .install_subdir = "remastered/mods/remastered_views/data/buildings",
+    }).step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
