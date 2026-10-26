@@ -61,15 +61,15 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| ukrainehouse03_1 | 1 | 0.876 | 0.96 | 38.8 | 0.141 | pass |
-| ukrainehouse03_1 | 1w | 0.872 | 1.04 | 45.4 | 0.073 | pass |
-| ukrainehouse03_1 | 2 | 0.856 | 0.60 | 35.9 | 0.221 | pass |
-| ukrainehouse03_1 | 2w | 0.856 | 0.60 | 35.9 | 0.221 | pass |
-| ukrainehouse03_1 | 3 | 0.745 | 1.02 | 10.9 | 0.046 | pass |
-| ukrainehouse03_1 | 3w | 0.745 | 1.02 | 10.9 | 0.046 | pass |
-| ukrainehouse03_2 | 1 | 0.872 | 1.27 | 17.8 | 0.087 | pass |
+| ukrainehouse03_1 | 1 | 0.876 | 1.66 | 38.8 | 0.141 | pass |
+| ukrainehouse03_1 | 1w | 0.872 | 1.48 | 45.4 | 0.073 | pass |
+| ukrainehouse03_1 | 2 | 0.856 | 1.38 | 35.9 | 0.221 | pass |
+| ukrainehouse03_1 | 2w | 0.856 | 1.38 | 35.9 | 0.221 | pass |
+| ukrainehouse03_1 | 3 | 0.745 | 1.12 | 10.9 | 0.046 | pass |
+| ukrainehouse03_1 | 3w | 0.745 | 1.12 | 10.9 | 0.046 | pass |
+| ukrainehouse03_2 | 1 | 0.872 | 1.03 | 17.8 | 0.087 | pass |
 | ukrainehouse03_2 | 1w | 0.864 | 1.08 | 14.4 | 0.062 | pass |
-| ukrainehouse03_2 | 2 | 0.830 | 1.61 | 17.3 | 0.116 | pass |
-| ukrainehouse03_2 | 2w | 0.830 | 1.61 | 17.3 | 0.116 | pass |
-| ukrainehouse03_2 | 3 | 0.820 | 1.21 | 11.0 | 0.059 | pass |
-| ukrainehouse03_2 | 3w | 0.820 | 1.21 | 11.0 | 0.059 | pass |
+| ukrainehouse03_2 | 2 | 0.830 | 1.03 | 17.3 | 0.116 | pass |
+| ukrainehouse03_2 | 2w | 0.830 | 1.03 | 17.3 | 0.116 | pass |
+| ukrainehouse03_2 | 3 | 0.820 | 1.11 | 11.0 | 0.059 | pass |
+| ukrainehouse03_2 | 3w | 0.820 | 1.11 | 11.0 | 0.059 | pass |

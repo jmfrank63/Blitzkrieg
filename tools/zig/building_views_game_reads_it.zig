@@ -220,7 +220,10 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_SCENE_DISABLE", "shadows,effects,terrain,noise,warfog,border,haze,grid");
-    try environ.put("BK_AUTO_UI", std.fmt.comptimePrint("g1000:camera={d}x{d},g10:hover=1000x400,g1500:shot,g200:exit", .{ camera, camera }));
+    // The cursor is parked before the camera is set: on the window's edge (where
+    // the system's pointer may leave it) it scrolls the view, and the frame
+    // between the two moved a whole shot about 50 pixels now and then.
+    try environ.put("BK_AUTO_UI", std.fmt.comptimePrint("g1000:hover=1000x400,g10:camera={d}x{d},g1500:shot,g200:exit", .{ camera, camera }));
     const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-windowed", std.fmt.comptimePrint("-mode={d}x{d}", .{ width, height }), "-profile=Views", "-mod=" ++ mod_name, try std.fmt.allocPrint(allocator, "{s}.xml", .{name}) },
         .cwd = .{ .path = user },

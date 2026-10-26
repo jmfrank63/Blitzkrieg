@@ -1508,6 +1508,44 @@ pub fn alignEyes(gpa: std.mem.Allocator, fixed: usize, footprints: []const Grid,
     };
 }
 
+/// The other pictures' zero crosses against a hand shape: from where the hull
+/// put them and from the footprint boxes laid on each other, the shift (steps
+/// of 4 down to half a world unit) whose outline the blocks cover best. The
+/// hull's volume leaves a thin object free along its length: leaders_02's
+/// board stood 27 units off leaders_01's (by their 1.xml points).
+fn alignToBlocks(fixed: usize, footprints: []const Grid, pictures: []const Image, eyes: []Eye, blocks: []const Block) void {
+    for (eyes, footprints, pictures, 0..) |*eye, grid, picture, e| {
+        if (e == fixed) continue;
+        var best_shift = eye.shift;
+        var best: f64 = -1;
+        for ([_][2]f64{ eye.shift, footprintShift(footprints[fixed], grid, eye.turn) }) |start| {
+            eye.shift = start;
+            var iou = blocksIou(blocks, eye.*, picture);
+            for ([_]f64{ 4, 2, 1, 0.5 }) |step| {
+                var moved = true;
+                while (moved) {
+                    moved = false;
+                    const at = eye.shift;
+                    for ([_][2]f64{ .{ -1, 0 }, .{ 1, 0 }, .{ 0, -1 }, .{ 0, 1 } }) |d| {
+                        var moved_eye = eye.*;
+                        moved_eye.shift = .{ at[0] + d[0] * step, at[1] + d[1] * step };
+                        const candidate = blocksIou(blocks, moved_eye, picture);
+                        if (candidate <= iou) continue;
+                        iou = candidate;
+                        eye.shift = moved_eye.shift;
+                        moved = true;
+                    }
+                }
+            }
+            if (iou > best) {
+                best = iou;
+                best_shift = eye.shift;
+            }
+        }
+        eye.shift = best_shift;
+    }
+}
+
 /// A roof over a block: flat, a gable whose ridge runs along x or y, or a hip
 /// (every side sloping alike).
 pub const Roof = enum { flat, gable_x, gable_y, hip };
@@ -2355,11 +2393,26 @@ pub const Means = struct {
     /// `to`; none where the pictures show `to` on a quarter of the pixels
     /// of `from` or fewer: a few porch roofs stand for another material
     /// than the main roof (admhouse's snowed roof turned came out dark).
+    /// Where they show one of the two walls the camera sees on a tenth of
+    /// the other's pixels or fewer (a board seen from one side, its end
+    /// aside: leaders_02 112 against 1916), the 2003 ratio of the lit wall to
+    /// the shaded one relights it (`wall_light`). e_house11_3's ruin (3193
+    /// against 14664) and stubtrack/03 (87 against 381) are lit as they are.
     pub fn gain(means: Means, to: usize, from: usize, c: usize) f64 {
-        if (to == from or means.count[to] < @max(100, means.count[from] / 4) or means.count[from] < 100) return 1;
+        if (to == from or means.count[from] < 100) return 1;
+        if (to < 2 and from < 2 and means.count[to] * 10 <= means.count[from]) return if (to == 0) wall_light else 1 / wall_light;
+        if (means.count[to] < @max(100, means.count[from] / 4)) return 1;
         return (means.sum[to][c] / means.count[to]) / @max(1, means.sum[from][c] / means.count[from]);
     }
 };
+
+/// The brightness of the lit wall (`wall -y`) of a 2003 picture against its
+/// shaded wall (`wall +x`): the median over the intact pictures of
+/// a_h01/02/03/07/08, e_ctownhouse01/03, e_house01/11, e_shed01,
+/// e_townhouse01, ukrainehouse03 and e_frenchshed01 (M005 S08; they spread
+/// 1.51 to 2.28; leaders' boards measure 1.93). One factor for the three
+/// channels: per channel (1.82, 2.03, 2.71) turned leaders' board blue.
+pub const wall_light: f64 = 2.01;
 
 /// Where a pixel of a generated picture comes from: a 2003 picture seeing
 /// its point, one seeing the matching point of a face of the same block
@@ -2748,13 +2801,14 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
     // The intact building's blocks start from the rectangles of its hull's
     // ground slice; every other state's from the intact ones.
     const own = sources.items[fixed];
+    const hand = try handShape(ctx, found.family.name, std.fs.path.basename(own.dir));
+    if (hand) |blocks| alignToBlocks(fixed, footprints, outlines, eyes, blocks);
     var states: std.ArrayList([]const u8) = .empty;
     for (own.names) |state| {
         const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
         if (intact_only and !std.mem.eql(u8, state, "1")) continue;
         if (digits > 0 and (digits == state.len or std.mem.eql(u8, state[digits..], "w"))) try states.append(arena, state);
     }
-    const hand = try handShape(ctx, found.family.name, std.fs.path.basename(own.dir));
     const shapes = try arena.alloc([]const Block, states.items.len);
     var intact: []const Block = hand orelse try baseBlocks(arena, try carve(arena, footprints[fixed], 2, outlines, eyes), footprints[fixed]);
     for (states.items, shapes) |state, *shape| {
@@ -3423,6 +3477,12 @@ pub const Look = struct {
             look.inner += 1;
         };
     }
+
+    /// The mean brightness.
+    pub fn luma(look: Look) f64 {
+        const n = @max(1, look.count);
+        return 0.299 * look.rgb[0] / n + 0.587 * look.rgb[1] / n + 0.114 * look.rgb[2] / n;
+    }
 };
 
 fn opaqueLuma(image: Image, x: i64, y: i64) ?f64 {
@@ -3626,10 +3686,24 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
             @intFromFloat(@round(target.eye.anchor[0] - @as(f64, @floatFromInt(held.anchor[0])) - shift[0])),
             @intFromFloat(@round(target.eye.anchor[1] - @as(f64, @floatFromInt(held.anchor[1])) - shift[1])),
         };
+        const drawn_from = scene.sources[scene.fixed];
         for (turned.drawn) |d| {
             const original = pictureOf(held, d.state) orelse continue;
             const offset = bestOffset(d.sprite.image, original, guess);
-            const score = try scorePicture(arena, d.sprite.image, original, offset);
+            var score = try scorePicture(arena, d.sprite.image, original, offset);
+            // Sharpness is what the drawing adds to the picture it was drawn
+            // from, at the brightness of each: the 2003 sides differ by
+            // themselves (dot_h_01's snowed ruin has 1.32 times the gradient
+            // energy of _02's, leaders_01's lit board 2.29 times _02's shaded
+            // one), and relighting a face scales its gradients with it.
+            if (pictureOf(drawn_from, d.state)) |p| {
+                var a: Look = .{};
+                a.add(d.sprite.image);
+                var b: Look = .{};
+                b.add(p);
+                const ratio = b.luma() / @max(1, a.luma());
+                score.sharpness = compareLooks(a, b).sharpness * ratio * ratio;
+            }
             try writeOut(ctx, pictures, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, try placeOn(arena, d.sprite.image, offset, original.width, original.height)));
             try writeOut(ctx, pictures, try std.fmt.allocPrint(arena, "{s}_2003.png", .{d.state}), try writePng(arena, original));
             try md.writer.print("| {s} | {s} | {s} | {s} | {d:.3} | {d:.3} | {d:.2} | {d:.1} | {d:.3} |\n", .{ found.family.name, name, from, d.state, score.iou, score.ssim, score.sharpness, score.colour, score.hue });
@@ -3656,7 +3730,12 @@ fn styleCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_arg: []const u8,
     const own = try loadSource(ctx, dir, 0);
     const outline = pictureOf(own, "1") orelse return ctx.failKey("views.err.no_san", .{dir});
     var sources: std.ArrayList(Source) = .empty;
-    for (found.family.variants) |variant| {
+    const measured = found.family.variants[found.index].side != null;
+    for (found.family.variants, 0..) |variant, i| {
+        // A variant whose side was not measured is drawn from itself alone
+        // and judged so: dzot_02's ruin has 0.66 times the gradient energy of
+        // its family's others.
+        if (!measured and i != found.index) continue;
         const source = try loadSource(ctx, try std.fs.path.join(arena, &.{ found.root, variant.path }), variant.side orelse 0);
         if (sameColourway(outline, pictureOf(source, "1") orelse continue)) try sources.append(arena, source);
     }

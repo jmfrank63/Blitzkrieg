@@ -55,9 +55,9 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| e_ctownhouse01_2 | 1 | 0.908 | 1.20 | 7.7 | 0.066 | pass |
-| e_ctownhouse01_2 | 2 | 0.842 | 1.09 | 2.6 | 0.099 | pass |
-| e_ctownhouse01_2 | 3 | 0.690 | 0.97 | 3.7 | 0.083 | pass |
-| e_ctownhouse01_4 | 1 | 0.862 | 1.13 | 4.7 | 0.108 | pass |
-| e_ctownhouse01_4 | 2 | 0.818 | 1.45 | 7.1 | 0.070 | pass |
-| e_ctownhouse01_4 | 3 | 0.612 | 1.07 | 6.6 | 0.044 | pass |
+| e_ctownhouse01_2 | 1 | 0.908 | 1.22 | 7.7 | 0.066 | pass |
+| e_ctownhouse01_2 | 2 | 0.842 | 1.08 | 2.6 | 0.099 | pass |
+| e_ctownhouse01_2 | 3 | 0.690 | 1.21 | 3.7 | 0.083 | pass |
+| e_ctownhouse01_4 | 1 | 0.862 | 1.27 | 4.7 | 0.108 | pass |
+| e_ctownhouse01_4 | 2 | 0.818 | 1.27 | 7.1 | 0.070 | pass |
+| e_ctownhouse01_4 | 3 | 0.612 | 0.76 | 6.6 | 0.044 | pass |

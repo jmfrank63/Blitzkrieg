@@ -17,13 +17,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | 01 | r3 | 4 | 3 | 82.6 | 10.7 | 1.8 | 5.0 | 0.94 | 5.9 | 0.037 | pass |
 | 02 | r1 | 2 | 1 | 31.2 | 58.4 | 5.0 | 5.4 | 1.43 | 21.5 | 0.401 | pass |
 | 02 | r1 | 2 | 2 | 31.2 | 58.4 | 5.0 | 5.4 | 1.43 | 21.5 | 0.401 | pass |
-| 02 | r1 | 2 | 3 | 79.6 | 15.6 | 1.4 | 3.4 | 1.00 | 4.3 | 0.013 | pass |
+| 02 | r1 | 2 | 3 | 86.7 | 9.7 | 0.9 | 2.7 | 1.00 | 1.4 | 0.028 | pass |
 | 02 | r2 | 3 | 1 | 2.6 | 84.8 | 5.0 | 7.6 | 1.24 | 12.4 | 0.007 | pass |
 | 02 | r2 | 3 | 2 | 2.6 | 84.8 | 5.0 | 7.6 | 1.24 | 12.4 | 0.007 | pass |
-| 02 | r2 | 3 | 3 | 71.0 | 23.6 | 1.5 | 3.9 | 1.00 | 3.5 | 0.032 | pass |
+| 02 | r2 | 3 | 3 | 73.1 | 20.8 | 2.9 | 3.1 | 1.03 | 0.7 | 0.022 | pass |
 | 02 | r3 | 4 | 1 | 70.0 | 24.4 | 1.3 | 4.3 | 1.24 | 10.8 | 0.418 | pass |
 | 02 | r3 | 4 | 2 | 70.0 | 24.4 | 1.3 | 4.3 | 1.24 | 10.8 | 0.418 | pass |
-| 02 | r3 | 4 | 3 | 83.2 | 12.4 | 1.0 | 3.5 | 1.00 | 2.4 | 0.054 | pass |
+| 02 | r3 | 4 | 3 | 79.3 | 14.3 | 2.9 | 3.4 | 0.97 | 1.2 | 0.052 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

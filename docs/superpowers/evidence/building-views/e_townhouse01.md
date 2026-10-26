@@ -43,9 +43,9 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| e_townhouse01_3 | 1 | 0.895 | 1.01 | 7.9 | 0.082 | pass |
-| e_townhouse01_3 | 2 | 0.828 | 1.51 | 12.0 | 0.081 | pass |
-| e_townhouse01_3 | 3 | 0.800 | 1.14 | 5.2 | 0.005 | pass |
-| e_townhouse01_4 | 1 | 0.945 | 1.65 | 15.5 | 0.202 | pass |
-| e_townhouse01_4 | 2 | 0.919 | 1.37 | 9.9 | 0.098 | pass |
-| e_townhouse01_4 | 3 | 0.845 | 1.06 | 3.1 | 0.024 | pass |
+| e_townhouse01_3 | 1 | 0.895 | 1.11 | 7.9 | 0.082 | pass |
+| e_townhouse01_3 | 2 | 0.828 | 1.14 | 12.0 | 0.081 | pass |
+| e_townhouse01_3 | 3 | 0.800 | 1.04 | 5.2 | 0.005 | pass |
+| e_townhouse01_4 | 1 | 0.945 | 1.78 | 15.5 | 0.202 | pass |
+| e_townhouse01_4 | 2 | 0.919 | 1.75 | 9.9 | 0.098 | pass |
+| e_townhouse01_4 | 3 | 0.845 | 1.00 | 3.1 | 0.024 | pass |

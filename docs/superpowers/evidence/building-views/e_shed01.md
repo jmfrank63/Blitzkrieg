@@ -43,9 +43,9 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| e_shed01_2 | 1 | 0.923 | 0.99 | 35.4 | 0.114 | pass |
-| e_shed01_2 | 2 | 0.878 | 1.36 | 17.0 | 0.034 | pass |
-| e_shed01_2 | 3 | 0.850 | 1.13 | 6.6 | 0.095 | pass |
-| e_shed01_3 | 1 | 0.890 | 0.71 | 46.3 | 0.141 | pass |
-| e_shed01_3 | 2 | 0.860 | 0.66 | 18.9 | 0.038 | pass |
-| e_shed01_3 | 3 | 0.825 | 0.89 | 7.5 | 0.090 | pass |
+| e_shed01_2 | 1 | 0.923 | 0.86 | 35.4 | 0.114 | pass |
+| e_shed01_2 | 2 | 0.878 | 0.94 | 17.0 | 0.034 | pass |
+| e_shed01_2 | 3 | 0.850 | 1.10 | 6.6 | 0.095 | pass |
+| e_shed01_3 | 1 | 0.890 | 0.97 | 46.3 | 0.141 | pass |
+| e_shed01_3 | 2 | 0.860 | 0.99 | 18.9 | 0.038 | pass |
+| e_shed01_3 | 3 | 0.825 | 1.09 | 7.5 | 0.090 | pass |

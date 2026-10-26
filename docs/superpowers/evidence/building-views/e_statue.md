@@ -26,13 +26,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | 02 | r3 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.16 | 3.4 | 0.044 | pass |
 | 04 | r1 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 5.2 | 0.025 | pass |
 | 04 | r1 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 5.2 | 0.025 | pass |
-| 04 | r1 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 04 | r1 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 0.8 | 0.008 | pass |
 | 04 | r2 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 04 | r2 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 04 | r2 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 04 | r3 | 1 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 5.2 | 0.025 | pass |
 | 04 | r3 | 1 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 5.2 | 0.025 | pass |
-| 04 | r3 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 04 | r3 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 0.8 | 0.008 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -55,9 +55,9 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| 01 | 1 | 0.649 | 1.24 | 2.8 | 0.117 | pass |
-| 01 | 2 | 0.649 | 1.24 | 2.8 | 0.117 | pass |
-| 01 | 3 | 0.742 | 1.32 | 6.1 | 0.080 | pass |
-| 02 | 1 | 0.641 | 0.78 | 4.9 | 0.181 | pass |
-| 02 | 2 | 0.641 | 0.78 | 4.5 | 0.130 | pass |
-| 02 | 3 | 0.718 | 0.76 | 6.1 | 0.080 | pass |
+| 01 | 1 | 0.649 | 1.00 | 2.8 | 0.117 | pass |
+| 01 | 2 | 0.649 | 1.00 | 2.8 | 0.117 | pass |
+| 01 | 3 | 0.742 | 1.00 | 6.1 | 0.080 | pass |
+| 02 | 1 | 0.641 | 1.00 | 4.9 | 0.181 | pass |
+| 02 | 2 | 0.641 | 1.00 | 4.5 | 0.130 | pass |
+| 02 | 3 | 0.718 | 1.00 | 6.1 | 0.080 | pass |

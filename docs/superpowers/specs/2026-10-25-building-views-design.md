@@ -410,6 +410,39 @@ buildings the fit cannot model from hand-authored blocks and fixes the style and
   the hold-out, drawing one from the other, has no picture of the target face to relight from; the turns `side`
   makes from both pass style.
 
+## S07's four left over, and a steady Game tier (M005 S08, 2026-10-26)
+
+Each was fixed at its measured cause; no band of gate.json was widened.
+
+- **dzot/02** (ruin sharpness 0.67). Its side is not measured, so `side` draws it from itself alone, but `style`
+  judged it against every dzot picture of its colourway, whose ruins have 1.5 times the gradient energy of its own
+  (2257, 2178, 2254 against 1481 per pixel). `style` now judges such a variant against itself alone, as it is drawn:
+  0.91, 0.96, 0.97 for r1..r3.
+- **dot_h/02** (hold-out 3w sharpness 1.61). The hold-out scored the drawn side against the held 2003 picture, but
+  the 2003 sides differ by themselves: dot_h/01's snowed ruin, which it is drawn from, has 1.32 times the gradient
+  energy of /02's, so a perfect copy scored 1.32. The hold-out's sharpness is now the drawing's against the
+  picture it was drawn from, both at their own brightness (gradient energy over the squared mean brightness, since
+  relighting a face scales its gradients): 0.97. Colour, hue, IoU and SSIM are still against the held picture.
+- **leaders/01, /02** (hold-out sharpness 0.44, colour 110). Three causes. The fitted block of the board was a
+  56 x 22 box with a gable roof, which put its one face on both walls; a hand shape (`shapes/leaders.json`, a slab
+  4 units thick) fixes that, own outline IoU 0.89 and 0.93. The hull aligned the two boards 27 units apart along
+  their length (where the hull's volume does not care; their 1.xml points put them 64 apart): with a hand shape the
+  other pictures' zero crosses now take the shift whose outline the hand blocks cover best (`alignToBlocks`, from
+  the hull's shift and from the footprints'), the other board's IoU 0.40 -> 0.91. And the hold-out has no picture of
+  the target face to relight from: where the pictures show one wall the camera sees on a tenth of the other's
+  pixels or fewer, the gain is the 2003 ratio of the lit wall to the shaded one, `wall_light` = 2.01 (the median of
+  13 houses' intact pictures, spread 1.51..2.28; the boards measure 1.93; one factor, as the per-channel medians
+  1.82, 2.03, 2.71 took the board's hue to 0.81). At a quarter, as for roofs, it also relit e_house11_3's ruin
+  (3193 against 14664 pixels) and stubtrack/03 (87 against 381) over their floors, so a tenth. Hold-out now
+  colour 37.1 / 18.9, sharpness 0.69 / 1.00.
+- **Result** ([batch](../evidence/building-views/batch.md)): 194 of 194 variants pass, hold-out 43 of 43, 56 hand
+  shapes; `test-bk-views` passes. `holdout.md` stays the S03/S06 record.
+- **building-views-game-reads-it.** The flaky run had a whole shot about 50 pixels up. The schedule set the camera
+  and parked the cursor one frame later; in that frame the cursor sat wherever the system's pointer left it, and on
+  the window's edge (within 2 pixels) the mission scrolls the view. Shown on the Game: a cursor held on the bottom
+  edge for a second after `camera=` scrolled both buildings out of the shot. The cursor is now parked first
+  (`g1000:hover=1000x400,g10:camera=...`). Three runs in a row passed (IoU 0.994..1.000, colour 0.00).
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

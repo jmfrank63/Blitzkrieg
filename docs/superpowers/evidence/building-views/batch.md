@@ -10,14 +10,14 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   one's, the blocks' ground 0.5..2.0 times the footprint's cells, their outline IoU 0.85 or more against
   the variant's 2003 picture, its protrusion at most 1.5 times the 2003 one's plus 0.03), the style
   of every generated picture, and the hold-out where the family has another side of the colourway, against
-  the floors of `tools/zig/fixtures/bk-views/gate.json`: 190 of 194 variants pass; hold-out 40 of 43; 0
+  the floors of `tools/zig/fixtures/bk-views/gate.json`: 194 of 194 variants pass; hold-out 43 of 43; 0
   fail on the shape; 0 more pass the measures but look wrong on the contact sheet (`bk-views contact`),
   listed in gate.json's `by_eye`. A failing variant is listed with its first reason, to be fixed by hand.
 - 2003 sprite: 40 variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
   objects (a 2003 protrusion of 0.15 or more) and small ones (4 footprint cells or fewer) whose blocks fail
   the shape, where the turn keeps the footprint (cells IoU 0.9 or more), or mirrored onto it on an odd
   turn of a rectangular footprint.
-- Hand shapes: 54 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
+- Hand shapes: 56 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
 
 | Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
 |---|---|---|---|---|---|---|---|
@@ -48,11 +48,11 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | common | dot | common/summer/dot/03 | 4 | 1, 2, 3 | pass | pass | - |
 | common | dot | common/summer/dot/04 | 4 | 1, 2, 3 | pass | pass | - |
 | common | dot_h | common/summer/dot_h/01 | 1 | 2, 3, 4 | pass | pass | - |
-| common | dot_h | common/summer/dot_h/02 | 2 | 3, 4, 1 | hold-out 3w: sharpness 1.61 outside 0.70..1.55 | 3w: sharpness 1.61 outside 0.70..1.55 | - |
+| common | dot_h | common/summer/dot_h/02 | 2 | 3, 4, 1 | pass | pass | - |
 | common | dot_h | common/summer/dot_h/03 | 3 | 4, 1, 2 | pass | pass | - |
 | common | dot_h | common/summer/dot_h/04 | 4 | 1, 2, 3 | pass | pass | - |
 | common | dzot | common/summer/dzot/01 | 1 | 2, 3, 4 | pass | pass | - |
-| common | dzot | common/summer/dzot/02 | ? | ? (turns 1, 2, 3) | r1 3: sharpness 0.67 outside 0.70..1.55 | - | - |
+| common | dzot | common/summer/dzot/02 | ? | ? (turns 1, 2, 3) | pass | - | - |
 | common | dzot | common/summer/dzot/03 | ? | ? (turns 1, 2, 3) | pass | - | - |
 | common | dzot | common/summer/dzot/04 | 3 | 4, 1, 2 | pass | pass | - |
 | common | tent | common/summer/tent/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
@@ -173,8 +173,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | kiosk | ussr/summer/kiosk/02 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
 | ussr | kiosk | ussr/summer/kiosk/03 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | kiosk | ussr/summer/kiosk/04 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
-| ussr | leaders | ussr/summer/leaders/01 | 1 | 2, 3, 4 | hold-out 1: sharpness 0.44 outside 0.45..3.20 | 1: sharpness 0.44 outside 0.45..3.20 | r1 mirrored, r2, r3 mirrored |
-| ussr | leaders | ussr/summer/leaders/02 | 2 | 3, 4, 1 | hold-out 1: colour 110.3 > 62 | 1: colour 110.3 > 62 | r1 mirrored, r2, r3 mirrored |
+| ussr | leaders | ussr/summer/leaders/01 | 1 | 2, 3, 4 | pass | pass | r1 mirrored, r2, r3 mirrored |
+| ussr | leaders | ussr/summer/leaders/02 | 2 | 3, 4, 1 | pass | pass | r1 mirrored, r2, r3 mirrored |
 | ussr | lenin | ussr/summer/lenin | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | ussr | pigeonloft | ussr/summer/pigeonloft/01 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | pigeonloft | ussr/summer/pigeonloft/02 | 4 | 1, 2, 3 | pass | - | r1, r2, r3 |

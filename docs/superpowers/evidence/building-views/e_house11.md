@@ -55,9 +55,9 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| e_house11_1 | 1 | 0.882 | 0.69 | 10.8 | 0.056 | pass |
-| e_house11_1 | 2 | 0.835 | 0.80 | 11.1 | 0.067 | pass |
-| e_house11_1 | 3 | 0.756 | 0.96 | 18.9 | 0.101 | pass |
-| e_house11_3 | 1 | 0.888 | 1.53 | 14.5 | 0.065 | pass |
-| e_house11_3 | 2 | 0.852 | 1.33 | 9.6 | 0.072 | pass |
-| e_house11_3 | 3 | 0.724 | 0.98 | 27.3 | 0.117 | pass |
+| e_house11_1 | 1 | 0.882 | 1.06 | 10.8 | 0.056 | pass |
+| e_house11_1 | 2 | 0.835 | 1.11 | 11.1 | 0.067 | pass |
+| e_house11_1 | 3 | 0.756 | 1.07 | 17.5 | 0.099 | pass |
+| e_house11_3 | 1 | 0.888 | 0.95 | 14.5 | 0.065 | pass |
+| e_house11_3 | 2 | 0.852 | 1.00 | 9.6 | 0.072 | pass |
+| e_house11_3 | 3 | 0.724 | 1.01 | 27.3 | 0.117 | pass |

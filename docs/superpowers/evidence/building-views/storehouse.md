@@ -28,20 +28,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | storehouse_2 | r1 | 3 | 1w | 34.5 | 65.5 | 0.0 | 0.0 | 0.96 | 15.8 | 0.067 | pass |
 | storehouse_2 | r1 | 3 | 2 | 34.7 | 65.3 | 0.0 | 0.0 | 0.86 | 11.1 | 0.044 | pass |
 | storehouse_2 | r1 | 3 | 2w | 34.7 | 65.3 | 0.0 | 0.0 | 0.85 | 12.9 | 0.032 | pass |
-| storehouse_2 | r1 | 3 | 3 | 77.8 | 11.9 | 0.0 | 10.3 | 0.96 | 0.4 | 0.010 | pass |
-| storehouse_2 | r1 | 3 | 3w | 77.8 | 11.9 | 0.0 | 10.3 | 0.95 | 0.4 | 0.011 | pass |
+| storehouse_2 | r1 | 3 | 3 | 77.8 | 11.9 | 0.0 | 10.3 | 1.08 | 5.6 | 0.012 | pass |
+| storehouse_2 | r1 | 3 | 3w | 77.8 | 11.9 | 0.0 | 10.3 | 1.03 | 7.6 | 0.010 | pass |
 | storehouse_2 | r2 | 4 | 1 | 14.2 | 85.8 | 0.0 | 0.0 | 1.00 | 1.4 | 0.030 | pass |
 | storehouse_2 | r2 | 4 | 1w | 14.0 | 86.0 | 0.0 | 0.0 | 1.10 | 3.5 | 0.026 | pass |
 | storehouse_2 | r2 | 4 | 2 | 14.2 | 85.8 | 0.0 | 0.0 | 1.17 | 3.1 | 0.012 | pass |
 | storehouse_2 | r2 | 4 | 2w | 14.2 | 85.8 | 0.0 | 0.0 | 1.06 | 3.6 | 0.008 | pass |
-| storehouse_2 | r2 | 4 | 3 | 77.1 | 12.5 | 0.0 | 10.4 | 0.99 | 0.8 | 0.019 | pass |
-| storehouse_2 | r2 | 4 | 3w | 77.1 | 12.5 | 0.0 | 10.4 | 0.98 | 0.7 | 0.025 | pass |
+| storehouse_2 | r2 | 4 | 3 | 77.1 | 12.5 | 0.0 | 10.4 | 0.99 | 0.5 | 0.019 | pass |
+| storehouse_2 | r2 | 4 | 3w | 77.1 | 12.5 | 0.0 | 10.4 | 0.99 | 0.9 | 0.024 | pass |
 | storehouse_2 | r3 | 1 | 1 | 63.8 | 36.2 | 0.0 | 0.0 | 0.75 | 10.2 | 0.129 | pass |
 | storehouse_2 | r3 | 1 | 1w | 63.8 | 36.2 | 0.0 | 0.0 | 0.97 | 15.9 | 0.064 | pass |
 | storehouse_2 | r3 | 1 | 2 | 63.9 | 36.1 | 0.0 | 0.0 | 0.86 | 10.8 | 0.034 | pass |
 | storehouse_2 | r3 | 1 | 2w | 63.9 | 36.1 | 0.0 | 0.0 | 0.85 | 12.6 | 0.029 | pass |
-| storehouse_2 | r3 | 1 | 3 | 80.8 | 9.0 | 0.0 | 10.1 | 0.98 | 0.9 | 0.024 | pass |
-| storehouse_2 | r3 | 1 | 3w | 80.8 | 9.0 | 0.0 | 10.1 | 0.98 | 0.6 | 0.024 | pass |
+| storehouse_2 | r3 | 1 | 3 | 80.8 | 9.0 | 0.0 | 10.1 | 1.10 | 6.0 | 0.026 | pass |
+| storehouse_2 | r3 | 1 | 3w | 80.8 | 9.0 | 0.0 | 10.1 | 1.06 | 8.1 | 0.021 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
