@@ -49,7 +49,7 @@ const height = turn.height;
 const centre = turn.centre;
 /// AI units of the map XML per world unit, and road3d's middle in AI units.
 const ai_per_world = std.math.sqrt2;
-const middle = 512.0 * ai_per_world;
+pub const middle = 512.0 * ai_per_world;
 const objects_only = "shadows,effects,terrain,noise,warfog,border,haze,grid";
 
 /// Where an offset (AI units) from the AI point under the screen centre is
@@ -452,7 +452,7 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     try writeMap(io, allocator, data, "hill.xml", hill.items, "");
 }
 
-fn item(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, d: [2]f64, player: i32, direction: u32, frame: i32, link: *u32) !void {
+pub fn item(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, d: [2]f64, player: i32, direction: u32, frame: i32, link: *u32) !void {
     try out.print(allocator, "<item Direction=\"{d}\" Player=\"{d}\" ScriptID=\"-1\" HP=\"1\" FrameIndex=\"{d}\"><Name>{s}</Name>" ++
         "<Position x=\"{d:.0}\" y=\"{d:.0}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ direction, player, frame, name, middle + d[0], middle + d[1], link.* });
     link.* += 1;
@@ -465,12 +465,16 @@ pub fn writeMap(io: std.Io, allocator: std.mem.Allocator, data: []const u8, name
 
 pub const Run = struct { log: []const u8, log_path: []const u8, user: []const u8 };
 
+/// What runScheduleWith may add: the scratch user folder when another run's
+/// (its saves) is wanted, more arguments, and BK_AI_STATE_TRACE.
+pub const RunOptions = struct { user: ?[]const u8 = null, extra: []const []const u8 = &.{}, state_trace: bool = false };
+
 /// Runs the Game in its own scratch user folder under `schedule` (BK_AUTO_UI)
 /// with the mod and the passes `disable` off, on `map` or, when it is empty,
-/// to the main menu, with `extra` arguments; it must exit 0 without a leak.
-pub fn runScheduleWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, mod: []const u8, name: []const u8, map: []const u8, schedule: []const u8, disable: []const u8, extra: []const []const u8, state_trace: bool) !Run {
+/// to the main menu; it must exit 0 without a leak.
+pub fn runScheduleWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, mod: []const u8, name: []const u8, map: []const u8, schedule: []const u8, disable: []const u8, options: RunOptions) !Run {
     const cwd = std.Io.Dir.cwd();
-    const user = try std.fs.path.join(allocator, &.{ root, "user", name });
+    const user = try std.fs.path.join(allocator, &.{ root, "user", options.user orelse name });
     try cwd.createDirPath(io, user);
     const log_path = try std.fmt.allocPrint(allocator, "{s}/{s}.log", .{ root, name });
     var environ = try testing.environ.createMap(allocator);
@@ -486,12 +490,12 @@ pub fn runScheduleWith(io: std.Io, allocator: std.mem.Allocator, game: []const u
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_MAP_TRACE", "1");
-    if (state_trace) try environ.put("BK_AI_STATE_TRACE", "1");
+    if (options.state_trace) try environ.put("BK_AI_STATE_TRACE", "1");
     if (disable.len != 0) try environ.put("BK_SCENE_DISABLE", disable);
     try environ.put("BK_AUTO_UI", schedule);
     var argv: std.ArrayList([]const u8) = .empty;
     try argv.appendSlice(allocator, &.{ game, "-windowed", std.fmt.comptimePrint("-mode={d}x{d}", .{ width, height }), "-profile=Turn", try std.fmt.allocPrint(allocator, "-mod={s}", .{mod}) });
-    try argv.appendSlice(allocator, extra);
+    try argv.appendSlice(allocator, options.extra);
     if (map.len != 0) try argv.append(allocator, map);
     const result = try timed_run.run(allocator, io, .{
         .argv = argv.items,
@@ -510,7 +514,7 @@ pub fn runScheduleWith(io: std.Io, allocator: std.mem.Allocator, game: []const u
 }
 
 pub fn runSchedule(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, mod: []const u8, name: []const u8, map: []const u8, schedule: []const u8, disable: []const u8) !Run {
-    return runScheduleWith(io, allocator, game, root, mod, name, map, schedule, disable, &.{}, false);
+    return runScheduleWith(io, allocator, game, root, mod, name, map, schedule, disable, .{});
 }
 
 /// The shot the schedule entry keyed `key` took, also kept as `<name>.png`.

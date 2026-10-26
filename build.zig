@@ -3217,6 +3217,27 @@ pub fn build(b: *std.Build) void {
     control_game_step.dependOn(&control_game_tests.step);
     if (test_mode == .run) control_game_step.dependOn(&control_game_run.step);
 
+    // The camera step in saves, replays and the multiplayer start (M006 S05,
+    // tools/zig/camera_turn_state_game_reads_it.zig). Desktop and GPU, so not
+    // part of `test`.
+    const state_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_state_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, state_game_module, toolchain);
+    }
+    const state_game_tests = b.addTest(.{ .root_module = state_game_module, .filters = &.{"the camera step in saves"} });
+    const state_game_run = b.addRunArtifact(state_game_tests);
+    state_game_run.setCwd(b.path("."));
+    state_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    state_game_run.has_side_effects = true;
+    state_game_run.step.dependOn(install_game_step);
+    const state_game_step = b.step("camera-turn-state-game-reads-it", "Save and load the real Game at a turned camera step and at step 0, record a replay with the view turned and play it at step 0 and turned (the units' state must not change), and check the multiplayer start step's rule on the player's anchor in each corner");
+    state_game_step.dependOn(&state_game_tests.step);
+    if (test_mode == .run) state_game_step.dependOn(&state_game_run.step);
+
     // The turned building sides as a mod, to try the camera turn by hand
     // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
     // building-views-batch-<region> steps left in zig-out/remastered/Buildings,
