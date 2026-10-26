@@ -135,6 +135,48 @@ far more adversarial testing than anything we would write.
   "must run --resync to recover", that is a state we surface to the player as
   a one-click repair, never something we trigger silently — a resync after
   real divergence can overwrite one side.
+
+  **Changed 2026-10-26 (maintainer decision): lost listings are repaired
+  automatically.** bisync names its listings after the session, and the
+  session after Path1, the short link `<linkRoot>/p<slot>`. When the slot
+  changes — an install moved or copied while the old slot still points at
+  the old copy, a cleared link root, a reclaimed slot — the state record still
+  says paired but no listings exist for the new session, and every run ends in
+  `Bisync critical error: cannot find prior Path1 or Path2 listings, likely due
+  to critical error on prior run` / `Bisync aborted. Must run --resync to
+  recover.` (captured on the maintainer's macbook-air-m1 after the install
+  moved; nothing synced again). There is no divergence to judge in that case,
+  only a session bisync has never seen, so when a paired profile's sync fails
+  with exactly that log text the engine (`engine.syncOnce`, `lostListings`)
+  runs the first pairing's own resync — `resync: true`, `resyncMode: "newer"`,
+  both run-scoped trashes, `recover: true` kept — once per run, and that
+  resync's result is the run's result. A resync deletes nothing: it is a
+  union, and the older of two differing files goes to its own side's trash. A
+  file deleted elsewhere since the last good sync can come back from this
+  side; that is the price of never losing one. The log text is told apart by
+  classification, causes before consequences: an auth or network failure that
+  also reports missing listings stays that failure. A resync after
+  `out_of_sync`, `too_many_deletes` or any other outcome stays a confirmed
+  player decision. Adopting another slot's listings instead was rejected: a
+  copied install's old listings record files this copy never had, and bisync
+  would propagate them as deletions. Measured with v1.75.0: one missing
+  listing of the pair reports the same `cannot find prior Path1 or Path2
+  listings`, so it is repaired the same way; a listing that is present but
+  empty reports `Empty prior Path2 listing` (bisync's guard against syncing to
+  a wiped directory) and stays the player's.
+
+  **The player's repair is a real control (2026-10-26).** The menu's
+  needs_resync and out_of_sync lines say "Repair from Settings > Cloud", and
+  until now nothing there could. The Cloud tab shows **Repair...** in Sync
+  now's place while the last run failed one of those two ways; it opens a
+  confirmation box (`textes/ui/cloudsync/repair_caption` and `repair_message`,
+  in all nine languages) that says nothing is deleted, a file missing on one
+  side is copied there, and of two differing files the newer wins and the
+  older goes to that side's trash. OK runs the first pairing's resync for the
+  active profile (`engine.repair`, the `repair` job kind, `NCloudSync::Repair`)
+  and replaces its pairing record; Cancel runs nothing. `zig build
+  cloud-repair-game-reads-it` drives it on the real Game against a
+  local-filesystem remote.
 - **A resync must carry `resyncMode: "newer"`.** `conflictResolve` does not
   apply during a resync; resync defaults to Path1 winning, and it renames
   nothing. Verified, and it is the sharpest edge in this design: pairing a

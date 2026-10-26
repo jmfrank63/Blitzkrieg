@@ -3043,6 +3043,28 @@ pub fn build(b: *std.Build) void {
     remastered_game_step.dependOn(&remastered_game_tests.step);
     if (test_mode == .run) remastered_game_step.dependOn(&remastered_game_run.step);
 
+    // The Cloud tab's Repair on the real Game (tools/zig/cloud_repair_game_reads_it.zig):
+    // a profile paired against a local-filesystem remote in zig-out/local-test, its
+    // sync broken to needs_resync, Repair clicked, its box cancelled and confirmed,
+    // and the remote-only save measured in the profile. Desktop, so not part of `test`.
+    const cloud_repair_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/cloud_repair_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, cloud_repair_game_module, toolchain);
+    }
+    const cloud_repair_game_tests = b.addTest(.{ .root_module = cloud_repair_game_module });
+    const cloud_repair_game_run = b.addRunArtifact(cloud_repair_game_tests);
+    cloud_repair_game_run.setCwd(b.path("."));
+    cloud_repair_game_run.setEnvironmentVariable("BK_CLOUD_REPAIR_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    cloud_repair_game_run.has_side_effects = true;
+    cloud_repair_game_run.step.dependOn(install_game_step);
+    const cloud_repair_game_step = b.step("cloud-repair-game-reads-it", "On the real Game, break a paired profile's sync against a local-filesystem remote to needs_resync, click Settings > Cloud > Repair, cancel its confirmation and then confirm it, and prove the repair settles paired, a remote-only save arrives and nothing is deleted");
+    cloud_repair_game_step.dependOn(&cloud_repair_game_tests.step);
+    if (test_mode == .run) cloud_repair_game_step.dependOn(&cloud_repair_game_run.step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor

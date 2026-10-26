@@ -71,6 +71,7 @@ static void run_absent()
 	check( !NCloudSync::Available(), "absent: Available is false" );
 	check( NCloudSync::Begin( "hero" ) == -1, "absent: Begin refuses" );
 	check( NCloudSync::LastError()[0] != 0, "absent: and names the reason" );
+	check( NCloudSync::Repair( "hero" ) == -1, "absent: Repair refuses" );
 	check( NCloudSync::Poll( -1 ) == NCloudSync::STATE_FAILED, "absent: Poll of nothing is failed" );
 	check( NCloudSync::Outcome( 0 ) == NCloudSync::OUTCOME_FAILED, "absent: Outcome of nothing is failed" );
 	check( NCloudSync::Error( 0 )[0] != 0, "absent: Error of nothing is readable" );
@@ -127,6 +128,25 @@ static void run_present()
 		check( NCloudSync::Error( nHandle )[0] != 0, "present: with a readable error" );
 		NCloudSync::Release( nHandle );
 		check( NCloudSync::Poll( nHandle ) == NCloudSync::STATE_FAILED, "present: a released handle reports failed" );
+	}
+
+	// The confirmed repair is a job of its own kind the library accepts, and
+	// fails the same clean way without credentials.
+	const int nRepair = NCloudSync::Repair( "hero" );
+	check( nRepair >= 0, "present: Repair hands out a handle" );
+	if ( nRepair >= 0 )
+	{
+		NCloudSync::EState eState = NCloudSync::STATE_IDLE;
+		for ( int i = 0; i < 1200; ++i )
+		{
+			eState = NCloudSync::Poll( nRepair );
+			if ( eState == NCloudSync::STATE_DONE || eState == NCloudSync::STATE_FAILED )
+				break;
+			sleep_ms( 50 );
+		}
+		check( eState == NCloudSync::STATE_FAILED, "present: the credential-less repair fails rather than hangs" );
+		check( NCloudSync::Error( nRepair )[0] != 0, "present: with a readable error" );
+		NCloudSync::Release( nRepair );
 	}
 
 	// The pairing fingerprint honours the required-size contract end to end:

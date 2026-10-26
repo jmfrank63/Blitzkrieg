@@ -31,6 +31,7 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	void RefreshCloudButtons();
 	void RefreshSyncNowButton();
 	void RequestSyncNow();
+	void RequestCloudRepair();
 	IUIElement *CloudButton( int nID );
 
 	std::vector<std::string> divisionNames;	// the tabs' divisions, in tab order

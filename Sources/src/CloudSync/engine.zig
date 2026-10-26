@@ -20,6 +20,12 @@
 //!   divergence overwrites one side, so recovery is an explicit player
 //!   action, never an automatic retry. A changed remote fingerprint is a new
 //!   pairing needing confirmation, not a resumable session.
+//! - The one exception is a paired profile whose listings are gone (a moved
+//!   or copied install got a new short-link slot, and bisync names its
+//!   listings after Path1). There is no divergence to judge then, only a
+//!   session bisync never saw, so `syncOnce` runs the pairing's own resync
+//!   once — a union with both trashes, which deletes nothing — instead of
+//!   leaving the profile unsynced until the player finds the repair button.
 //!
 //! Pairing state lives at `<stateRoot>/state/<profile>.json` — outside Path1,
 //! because inside the profile it would sync to the other machine and
@@ -276,6 +282,8 @@ pub const SyncError = error{
     FingerprintChanged,
     SyncFailed,
     StateUnwritable,
+    /// The lost-listings repair could not write the sentinel it needed.
+    SentinelUnwritable,
     SessionNameTooLong,
 } || rc.RcError || Allocator.Error;
 
@@ -328,6 +336,14 @@ pub const Engine = struct {
     /// until one happens. Transport-level errors never get here; classify
     /// those with `classifyTransport` at the call site.
     last_outcome: Outcome = .unknown,
+    /// Whether the most recent failure was bisync finding no prior listings
+    /// for this session (`lostListings`), read from the raw log before it is
+    /// redacted. The one failure `syncOnce` repairs without asking.
+    last_listings_lost: bool = false,
+    /// True when the most recent `syncOnce` found its listings lost and
+    /// rebuilt them with the pairing's resync. A report for the caller and
+    /// the tests; the run's success or failure is the resync's own.
+    repaired_listings: bool = false,
     /// When set, the provider catalogue is refreshed after a clean sync, and
     /// only then. This is the opportunistic half of the bootstrap the design
     /// requires: the catalogue cannot be fetched at startup, because
@@ -439,7 +455,8 @@ pub const Engine = struct {
     }
 
     /// First pairing for a profile. Refuses when already paired — resync is
-    /// the bootstrap, never the recovery path — and otherwise: remote
+    /// the bootstrap, not a retry for a failed sync (`syncOnce` owns the one
+    /// exception, lost listings) — and otherwise: remote
     /// directories, sentinel decision, filters, one bisync with
     /// `resync: true` + `resyncMode: "newer"`, then the state record.
     pub fn pair(self: *Engine, ctx: RunContext) PairError!PairOutcome {
@@ -454,7 +471,54 @@ pub const Engine = struct {
             // A record that says "not paired" is a previous attempt that
             // never succeeded; pairing again is exactly right.
         }
+        return self.pairResync(ctx);
+    }
 
+    /// The player's confirmed repair, from Settings > Cloud after a
+    /// `needs_resync` or `out_of_sync` failure: the first pairing's resync
+    /// run again on a profile that is already paired, and its record
+    /// replaced with this run's. Unlike `pair` it does not refuse a paired
+    /// profile, because the player has just been told what a resync does
+    /// and said yes: nothing is deleted, a file missing on one side is
+    /// copied, and the older of two differing files goes to its own side's
+    /// trash. The remote it repairs against is the one configured now, so
+    /// the record takes that fingerprint.
+    pub fn repair(self: *Engine, ctx: RunContext) PairError!PairOutcome {
+        return self.pairResync(ctx);
+    }
+
+    /// One pairing resync and its state record, shared by `pair` and
+    /// `repair`.
+    fn pairResync(self: *Engine, ctx: RunContext) PairError!PairOutcome {
+        const sentinel = try self.prepareResync(ctx);
+
+        const run_id = try self.prepareRun(ctx);
+        errdefer self.gpa.free(run_id);
+
+        var params = try plan.bisyncParams(self.gpa, .{
+            .path1 = ctx.path1,
+            .remote = ctx.remote,
+            .profile = ctx.profile,
+            .game_dir = ctx.game_dir,
+            .run_id = run_id,
+            .remote_target = ctx.remote_target,
+            .mode = .pairing,
+        });
+        defer params.deinit();
+
+        try self.runBisync(params.value);
+
+        try self.recordSuccess(ctx);
+        return .{ .run_id = run_id, .sentinel = sentinel };
+    }
+
+    /// What every resync needs before it runs, first pairing and lost
+    /// listings alike: both remote base directories, then the sentinel
+    /// decision. Shared so the repair is exactly the resync pairing runs.
+    fn prepareResync(
+        self: *Engine,
+        ctx: RunContext,
+    ) (rc.RcError || Allocator.Error || error{SentinelUnwritable})!plan.SentinelAction {
         // The remote base directories first: bisync requires both roots to
         // exist and otherwise dies with `error reading source root directory:
         // directory not found` — against a brand-new remote, which is every
@@ -483,6 +547,74 @@ pub const Engine = struct {
             error.SentinelUnwritable => error.SentinelUnwritable,
             error.OutOfMemory => error.OutOfMemory,
         };
+        return sentinel;
+    }
+
+    /// One steady-state sync, blocking until the job finishes. The pairing
+    /// state gates it: never paired means no sync, and a changed fingerprint
+    /// means the player must confirm a new pairing first. The parameters
+    /// carry no `resync` key — `assertNoResyncWhenPaired` in the plan tests
+    /// pins that.
+    ///
+    /// When bisync finds no prior listings for this session, the run is
+    /// repaired in place by `repairLostListings`, once; every other failure,
+    /// `out_of_sync` and `too_many_deletes` above all, is returned for the
+    /// player to decide. The returned id is the run that finished: the
+    /// repair's when there was one, since its trashes are where anything it
+    /// displaced went.
+    pub fn syncOnce(self: *Engine, ctx: RunContext) SyncError![]u8 {
+        self.repaired_listings = false;
+        {
+            var loaded = loadPairingState(self.gpa, self.io, ctx.game_dir, ctx.profile) orelse
+                return error.NotPaired;
+            defer loaded.deinit();
+            if (!loaded.state().paired) return error.NotPaired;
+            if (!std.mem.eql(u8, loaded.state().remote_fingerprint, ctx.remote_fingerprint))
+                return error.FingerprintChanged;
+        }
+
+        var run_id = try self.prepareRun(ctx);
+        errdefer self.gpa.free(run_id);
+
+        {
+            var params = try plan.bisyncParams(self.gpa, .{
+                .path1 = ctx.path1,
+                .remote = ctx.remote,
+                .profile = ctx.profile,
+                .game_dir = ctx.game_dir,
+                .run_id = run_id,
+                .remote_target = ctx.remote_target,
+                .mode = .steady,
+            });
+            defer params.deinit();
+
+            self.runBisync(params.value) catch |err| {
+                if (err != error.SyncFailed or !self.last_listings_lost) return err;
+                const repair_id = try self.repairLostListings(ctx);
+                self.gpa.free(run_id);
+                run_id = repair_id;
+            };
+        }
+
+        try self.recordSuccess(ctx);
+        self.pruneBothTrashes(ctx);
+        self.refreshCatalogue(ctx);
+        return run_id;
+    }
+
+    /// Rebuild the listings of a paired profile whose session bisync has
+    /// never seen, with the first pairing's own resync: `resyncMode:
+    /// "newer"`, both run-scoped trashes, under a fresh run id. Bisync names
+    /// its listings after Path1, the short link, so a moved or copied
+    /// install that got a new slot, a cleared link root or a reclaimed slot
+    /// all land here, with the state record still saying paired. A resync
+    /// is a union and deletes nothing; the older of two differing files goes
+    /// to its own side's trash. Adopting another slot's listings instead
+    /// would be cheaper and wrong: a copied install's old listings record
+    /// files this copy never had, and bisync would propagate them as
+    /// deletes. Runs once — its result, success or failure, is the run's.
+    fn repairLostListings(self: *Engine, ctx: RunContext) SyncError![]u8 {
+        _ = try self.prepareResync(ctx);
 
         const run_id = try self.prepareRun(ctx);
         errdefer self.gpa.free(run_id);
@@ -499,45 +631,7 @@ pub const Engine = struct {
         defer params.deinit();
 
         try self.runBisync(params.value);
-
-        try self.recordSuccess(ctx);
-        return .{ .run_id = run_id, .sentinel = sentinel };
-    }
-
-    /// One steady-state sync, blocking until the job finishes. The pairing
-    /// state gates it: never paired means no sync, and a changed fingerprint
-    /// means the player must confirm a new pairing first. The parameters
-    /// carry no `resync` key — `assertNoResyncWhenPaired` in the plan tests
-    /// pins that.
-    pub fn syncOnce(self: *Engine, ctx: RunContext) SyncError![]u8 {
-        {
-            var loaded = loadPairingState(self.gpa, self.io, ctx.game_dir, ctx.profile) orelse
-                return error.NotPaired;
-            defer loaded.deinit();
-            if (!loaded.state().paired) return error.NotPaired;
-            if (!std.mem.eql(u8, loaded.state().remote_fingerprint, ctx.remote_fingerprint))
-                return error.FingerprintChanged;
-        }
-
-        const run_id = try self.prepareRun(ctx);
-        errdefer self.gpa.free(run_id);
-
-        var params = try plan.bisyncParams(self.gpa, .{
-            .path1 = ctx.path1,
-            .remote = ctx.remote,
-            .profile = ctx.profile,
-            .game_dir = ctx.game_dir,
-            .run_id = run_id,
-            .remote_target = ctx.remote_target,
-            .mode = .steady,
-        });
-        defer params.deinit();
-
-        try self.runBisync(params.value);
-
-        try self.recordSuccess(ctx);
-        self.pruneBothTrashes(ctx);
-        self.refreshCatalogue(ctx);
+        self.repaired_listings = true;
         return run_id;
     }
 
@@ -966,6 +1060,10 @@ pub const Engine = struct {
     fn runBisync(self: *Engine, params: std.json.Value) (rc.RcError || error{ SyncFailed, Cancelled } || Allocator.Error)!void {
         self.clearLastError();
         self.clearRunNote();
+        // A run's classification is its own: a repair that succeeds after a
+        // lost-listings failure must not still read as that failure.
+        self.last_outcome = .unknown;
+        self.last_listings_lost = false;
 
         if (self.cancelled()) return error.Cancelled;
 
@@ -1180,10 +1278,9 @@ pub const Engine = struct {
     /// never kept raw.
     pub fn recordError(self: *Engine, error_text: []const u8, run_log: ?[]const u8) void {
         self.clearLastError();
-        self.last_outcome = classify(
-            .{ .message = error_text, .status = 500 },
-            run_log orelse "",
-        );
+        const failure: rc.RcFailure = .{ .message = error_text, .status = 500 };
+        self.last_outcome = classify(failure, run_log orelse "");
+        self.last_listings_lost = lostListings(failure, run_log orelse "");
         const extra: ExtraRedactions = .{
             .markers = self.extra_markers,
             .values = self.extra_values,
@@ -1614,7 +1711,10 @@ fn systemProcessStartUnix(context: ?*const anyopaque, pid: i64) ?i64 {
 /// What went wrong, in terms a UI can offer a real choice about.
 pub const Outcome = enum {
     /// bisync has no usable prior listings. Recovery is a *confirmed*
-    /// re-pair; resync overwrites one side, so it is never automatic.
+    /// re-pair, with one exception: when the listings are simply missing
+    /// (`lostListings`), `syncOnce` has already run that resync itself, so
+    /// this outcome reaching the player means the repair failed too, or the
+    /// trailer had some other cause.
     needs_resync,
     /// The delete-ratio breaker tripped: a genuine mass-delete event. Never
     /// auto-retried with `force` — silently overriding this guard is the
@@ -1693,6 +1793,20 @@ pub fn classify(failure: rc.RcFailure, log: []const u8) Outcome {
     if (classifyText(log)) |outcome| return outcome;
     if (classifyText(failure.message)) |outcome| return outcome;
     return .unknown;
+}
+
+/// Whether a failed run is bisync finding no prior listings for its session,
+/// and nothing worse: the one `needs_resync` the engine repairs without
+/// asking. Captured on the macbook-air-m1 (2026-10-26) after the
+/// install moved and the profile got a new short-link slot: `Bisync critical
+/// error: cannot find prior Path1 or Path2 listings, likely due to critical
+/// error on prior run`, then the resync trailer. It rides on `classify`, so
+/// the causes still win: an auth or network failure that also reports the
+/// listings missing is that failure, and no resync can cure it.
+pub fn lostListings(failure: rc.RcFailure, log: []const u8) bool {
+    if (classify(failure, log) != .needs_resync) return false;
+    const pattern = "cannot find prior path1 or path2 listings";
+    return containsIgnoreCase(log, pattern) or containsIgnoreCase(failure.message, pattern);
 }
 
 fn classifyText(text: []const u8) ?Outcome {

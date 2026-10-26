@@ -101,7 +101,7 @@ pub const BinarySource = struct {
     resolve: *const fn (context: ?*anyopaque, gpa: Allocator) ?[]u8,
 };
 
-pub const JobKind = enum { pair, sync, test_connection, list_backups, restore_stage, restore_undo, fetch_catalogue, config_create };
+pub const JobKind = enum { pair, repair, sync, test_connection, list_backups, restore_stage, restore_undo, fetch_catalogue, config_create };
 
 /// What `ensureCatalogue` did. `.cached` means the caller may read the cache
 /// now; `.fetching` means a job is running and the answer arrives through
@@ -479,7 +479,7 @@ pub const Worker = struct {
         // path; the budget check still refuses a name past the limit.
         var short_link: ?plan.ShortLink = null;
         defer if (short_link) |*link| link.deinit(self.gpa);
-        if (box.kind == .pair or box.kind == .sync or box.kind == .restore_stage) {
+        if (box.kind == .pair or box.kind == .repair or box.kind == .sync or box.kind == .restore_stage) {
             if (plan.ensureShortLinkIn(self.gpa, self.io, self.link_roots, box.ctx.path1)) |link| {
                 short_link = link;
                 box.ctx.path1 = link.path;
@@ -504,7 +504,7 @@ pub const Worker = struct {
         defer self.readBackConfig(session);
 
         self.publishState(switch (box.kind) {
-            .pair => .pairing,
+            .pair, .repair => .pairing,
             // Transfer-shaped work reads as syncing; probe-shaped fetches
             // share the testing state — nothing a UI needs to distinguish
             // while it spins. The config machine spins the same way
@@ -520,6 +520,16 @@ pub const Worker = struct {
         switch (box.kind) {
             .pair => {
                 var outcome = eng.pair(box.ctx) catch |err| {
+                    self.publishRunFailure(eng, err);
+                    return;
+                };
+                outcome.deinit(self.gpa);
+                self.publishDone(.paired);
+            },
+            // The confirmed repair settles like a pairing: the record it
+            // writes replaces the old one, and the menu reads "paired".
+            .repair => {
+                var outcome = eng.repair(box.ctx) catch |err| {
                     self.publishRunFailure(eng, err);
                     return;
                 };

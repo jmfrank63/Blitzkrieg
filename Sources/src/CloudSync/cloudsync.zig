@@ -1088,7 +1088,7 @@ fn writeOptions(json: *std.json.Stringify, backend: *const catalogue.Backend) !v
 // `bk_cloudsync_begin` takes one NUL-terminated JSON document rather than the
 // bare profile name a caller cannot act on alone:
 //
-//   { "kind": "pair" | "sync", "path1": ..., "remote": ..., "profile": ...,
+//   { "kind": "pair" | "repair" | "sync", "path1": ..., "remote": ..., "profile": ...,
 //     "game_dir": ..., "profile_id": ..., "remote_fingerprint": ... }
 //
 // The credentials packet (P03) and the facade (P06) own producing it; until
@@ -1197,10 +1197,12 @@ pub export fn bk_cloudsync_begin(job_json: [*:0]const u8) callconv(.c) i32 {
 
     const kind: worker.JobKind = if (std.mem.eql(u8, doc.kind, "pair"))
         .pair
+    else if (std.mem.eql(u8, doc.kind, "repair"))
+        .repair
     else if (std.mem.eql(u8, doc.kind, "sync"))
         .sync
     else {
-        setError("cloud sync: job kind must be \"pair\" or \"sync\"");
+        setError("cloud sync: job kind must be \"pair\", \"repair\" or \"sync\"");
         return -1;
     };
 

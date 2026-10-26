@@ -202,7 +202,7 @@ test "the tracked Data/ELK counts" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const statistic = try compute(arena.allocator(), testing.allocator, &database, &tree);
-    try testing.expectEqual(Counts{ .texts = 1127, .words = 20308, .word_symbols = 106470, .symbols = 129642 }, statistic.original[0][0]);
+    try testing.expectEqual(Counts{ .texts = 1130, .words = 20350, .word_symbols = 106667, .symbols = 129878 }, statistic.original[0][0]);
     try testing.expectEqual(Counts{ .texts = 4, .words = 55, .word_symbols = 263, .symbols = 316 }, statistic.translation[0][2]);
-    try testing.expectEqual(@as(i32, 3078), elementTotal(statistic.original[0]).texts);
+    try testing.expectEqual(@as(i32, 3081), elementTotal(statistic.original[0]).texts);
 }

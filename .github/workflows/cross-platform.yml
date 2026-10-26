@@ -1871,6 +1871,12 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build remastered-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: The Cloud tab's Repair, against a local remote
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build cloud-repair-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
 
       - name: Season textures
         if: matrix.part == 'all'

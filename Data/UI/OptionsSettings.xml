@@ -1593,6 +1593,35 @@
 						</item>
 					</States>
 				</item>
+				<item ClassTypeID="0x10001103" ElementID="10016" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+					<ToolTip/>
+					<!--button: Repair..., in Sync now's place - see 10013. Shown by code instead of Sync now while the last run failed needs_resync or out_of_sync; a confirmation box then asks the main loop for the pairing's resync through CloudSync.Repair.-->
+					<WindowPos x="153" y="455"/>
+					<WindowSize x="118" y="46"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="590" y1="957" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="590" y1="888" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xff000000">
+								<Maps x1="590" y1="888" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" TextColor="0xff777777">
+								<Maps x1="590" y1="957" x2="433" y2="66"/>
+								<Texture>ui\IntermissionTextures\back-settings</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>Textes\UI\CloudSync\repair_button</TextKey>
+						</item>
+					</States>
+				</item>
 				<item ClassTypeID="0x10001103" ElementID="10014" PositionFlag="0x0011" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
 					<ToolTip/>
 					<!--button: cloud backup browser (Backups...), the right of the three - see 10013.-->
