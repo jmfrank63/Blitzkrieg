@@ -20,6 +20,76 @@ namespace NCameraTurn
 	{
 		return GetGlobalVar( pszStepVar, 0 ) & 3;
 	}
+	// Whether the player may turn the camera: the player's own Remastered option
+	// (NRemastered::pszOptionVar). Unlike NRemastered::Enabled() it holds in
+	// multiplayer and in a replay of any mode, because the step is local view
+	// state: it never enters the game state, the commands or the network stream.
+	inline bool Allowed()
+	{
+		return GetGlobalVar( "Options.GamePlay.Remastered", 0 ) != 0;
+	}
+	// The ground point under the screen's centre: where the line of sight
+	// through the camera's anchor (the point at height 0 under the centre) and
+	// its eye meets the ground, the first meeting seen from the eye. The camera
+	// turns about it, so raised ground under the centre stays there. pTerrain
+	// is the scene's ITerrain (GetHeight takes world x, y).
+	template <class TTerrain>
+	inline CVec3 GroundUnderCentre( const CVec3 &vAnchor, const CVec3 &vEye, TTerrain *pTerrain )
+	{
+		const CVec3 vBase( vAnchor.x, vAnchor.y, 0 );
+		CVec3 vUp = vEye - vBase;
+		if ( vUp.z <= 0 )
+			return vBase;
+		vUp /= vUp.z;												// the line of sight per unit of height
+		const float fTop = 2048.0f;
+		float fAbove = fTop;
+		float fBelow = -1.0f;
+		for ( float fHeight = fTop; fHeight >= 0; fHeight -= 8.0f )
+		{
+			const CVec3 vOn = vBase + vUp * fHeight;
+			if ( pTerrain->GetHeight( CVec2( vOn.x, vOn.y ) ) >= fHeight )
+			{
+				fBelow = fHeight;
+				break;
+			}
+			fAbove = fHeight;
+		}
+		if ( fBelow < 0 )
+			return vBase;
+		for ( int i = 0; i < 20; ++i )
+		{
+			const float fMiddle = ( fAbove + fBelow ) / 2;
+			const CVec3 vOn = vBase + vUp * fMiddle;
+			if ( pTerrain->GetHeight( CVec2( vOn.x, vOn.y ) ) >= fMiddle )
+				fBelow = fMiddle;
+			else
+				fAbove = fMiddle;
+		}
+		return vBase + vUp * fBelow;
+	}
+	// The step a multiplayer game starts at: the one that puts the player's own
+	// corner (its camera anchor's offset from the map's middle, world units) at
+	// the bottom of the screen. Screen down is world (1, -1) at step 0, and step
+	// k shows an offset where step 0 shows it turned k times by (x, y) -> (-y, x);
+	// the step whose turn points the corner most nearly down wins, step 0 on a tie.
+	inline int StartStep( const float fDX, const float fDY )
+	{
+		int nBest = 0;
+		float fBest = fDX - fDY;
+		float fX = fDX, fY = fDY;
+		for ( int nStep = 1; nStep < 4; ++nStep )
+		{
+			const float fTurned = fX;
+			fX = -fY;
+			fY = fTurned;
+			if ( fX - fY > fBest + 1.0f )
+			{
+				nBest = nStep;
+				fBest = fX - fY;
+			}
+		}
+		return nBest;
+	}
 	// What the step adds to the camera's yaw. A camera turned by -90 degrees
 	// about its anchor sees the world turned by +90 degrees.
 	inline float YawOffset( const int nStep )

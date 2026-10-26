@@ -11,6 +11,7 @@
 #include "../RandomMapGen/Bresenham_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
 #include "../Common/PauseGame.h"
+#include "../Main/CameraTurn.h"
 const char CUIMiniMap::MARKERS_TYPES_FILE_NAME[] = "UI\\MiniMapMarkers";
 const char CUIMiniMap::MARKERS_TEXTURE_NAME[] = "MiniMapMarkersTexture";
 const char CUIMiniMap::MARKERS_TYPES_NAME[] = "MiniMapMarkers";
@@ -364,7 +365,27 @@ void CUIMiniMap::GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool is
 	if ( nFrameWidth > nSize )
 		*pfXZeroPoint += ( nFrameWidth - nSize ) / 2.0f;
 }
+// A map point (cells) turned nTurns quarter turns (x, y) -> (-y, x) about the
+// map's middle: what the Remastered view turned by as many steps shows there.
+// A turned map keeps the diamond's bounding box (its width is x + y cells
+// either way), so it fits the frame as the 2003 picture does.
+void CUIMiniMap::TurnMapPoint( float *pfXPos, float *pfYPos, const int nTurns ) const
+{
+	const float fXMiddle = terrainSize.x / 2.0f, fYMiddle = terrainSize.y / 2.0f;
+	for ( int k = 0; k < ( nTurns & 3 ); ++k )
+	{
+		const float fX = *pfXPos;
+		*pfXPos = fXMiddle - ( *pfYPos - fYMiddle );
+		*pfYPos = fYMiddle + ( fX - fXMiddle );
+	}
+}
 void CUIMiniMap::PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos, bool isLeftTop )
+{
+	TurnMapPoint( &fXPos, &fYPos, nTurn );
+	ProjectMiniMap( fXPos, fYPos, pfXMiniMapPos, pfYMiniMapPos, isLeftTop );
+}
+// The 2003 layout of a map point on the diamond.
+void CUIMiniMap::ProjectMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos, bool isLeftTop )
 {
 	NI_ASSERT_SLOW_T( ( pfXMiniMapPos ) && ( pfYMiniMapPos ),
 										NStr::Format( "Wrong parameters: (%x, %x)", pfXMiniMapPos, pfYMiniMapPos ) );
@@ -428,6 +449,8 @@ void CUIMiniMap::TextureMiniMapToPoint( float fXMiniMapPos, float fYMiniMapPos, 
 		*pfXPos =  ( fXLocalPos / 2.0f - fYLocalPos ) * fAx;
 		*pfYPos =  ( fXLocalPos / 2.0f + fYLocalPos ) * fAy;
 	}
+	// The picture is drawn turned with the view (PointToTextureMiniMap): turned back.
+	TurnMapPoint( pfXPos, pfYPos, 4 - nTurn );
 }
 void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const CTPoint<float> &v1, std::vector<CTPoint<float> > *pvPoints )
 {
@@ -597,6 +620,31 @@ void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const
 		}
 	}
 }
+// The part of the segment v0 v1 on the map (cells), as a line of the frame's
+// line list (Liang-Barsky); nothing where it misses the map.
+void CUIMiniMap::GetClippedEdge( const CTPoint<float> &v0, const CTPoint<float> &v1, std::vector<CTPoint<float> > *pvPoints )
+{
+	const float fDX = v1.x - v0.x, fDY = v1.y - v0.y;
+	const float p[4] = { -fDX, fDX, -fDY, fDY };
+	const float q[4] = { v0.x, terrainSize.x - v0.x, v0.y, terrainSize.y - v0.y };
+	float fT0 = 0.0f, fT1 = 1.0f;
+	for ( int i = 0; i < 4; ++i )
+	{
+		if ( p[i] == 0.0f )
+		{
+			if ( q[i] < 0.0f )
+				return;
+		}
+		else if ( p[i] < 0.0f )
+			fT0 = Max( fT0, q[i] / p[i] );
+		else
+			fT1 = Min( fT1, q[i] / p[i] );
+	}
+	if ( fT0 > fT1 )
+		return;
+	pvPoints->push_back( CTPoint<float>( v0.x + fT0 * fDX, v0.y + fT0 * fDY ) );
+	pvPoints->push_back( CTPoint<float>( v0.x + fT1 * fDX, v0.y + fT1 * fDY ) );
+}
 void CUIMiniMap::GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, IGFX *_pGFX )
 {
 	NI_ASSERT_SLOW_T( pvPoints != 0,
@@ -621,6 +669,16 @@ void CUIMiniMap::GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, 
 	v2 /= fWorldCellSize;
 	v3 /= fWorldCellSize;
 
+	// Turned (NCameraTurn), the screen's edges run along other map directions
+	// than the clipping below expects: each is clipped to the map as it is.
+	if ( nTurn != 0 )
+	{
+		GetClippedEdge( CTPoint<float>( v0.x, v0.y ), CTPoint<float>( v1.x, v1.y ), pvPoints );
+		GetClippedEdge( CTPoint<float>( v1.x, v1.y ), CTPoint<float>( v2.x, v2.y ), pvPoints );
+		GetClippedEdge( CTPoint<float>( v2.x, v2.y ), CTPoint<float>( v3.x, v3.y ), pvPoints );
+		GetClippedEdge( CTPoint<float>( v3.x, v3.y ), CTPoint<float>( v0.x, v0.y ), pvPoints );
+		return;
+	}
 	GetVerticalClippedScreenEdge( CTPoint<float>( v0.x, v0.y ), CTPoint<float>( v1.x, v1.y ), pvPoints );
 	GetHorizontalClippedScreenEdge( CTPoint<float>( v1.x, v1.y ), CTPoint<float>( v2.x, v2.y ), pvPoints );
 	GetVerticalClippedScreenEdge( CTPoint<float>( v3.x, v3.y ), CTPoint<float>( v2.x, v2.y ), pvPoints );
@@ -737,6 +795,16 @@ void CUIMiniMap::AddUnitsData( const SMiniMapUnitInfo *pUnitsBuffer, int nUnitsC
 		{
 			units.push_back( pUnitsBuffer[nUnitIndex] );
 			PointToTextureMiniMap( pUnitsBuffer[nUnitIndex].x - ( units[nUnitIndex].z * fRatio ), pUnitsBuffer[nUnitIndex].y + ( units[nUnitIndex].z * fRatio ), &( miniMapPoint.x ), &( miniMapPoint.y ) );
+			// Turned, a plane's altitude still lifts it up the picture.
+			if ( nTurn != 0 && units[nUnitIndex].z != 0 )
+			{
+				CTPoint<float> vGround( 0.0f, 0.0f ), vLifted( 0.0f, 0.0f );
+				ProjectMiniMap( pUnitsBuffer[nUnitIndex].x, pUnitsBuffer[nUnitIndex].y, &( vGround.x ), &( vGround.y ) );
+				ProjectMiniMap( pUnitsBuffer[nUnitIndex].x - ( units[nUnitIndex].z * fRatio ), pUnitsBuffer[nUnitIndex].y + ( units[nUnitIndex].z * fRatio ), &( vLifted.x ), &( vLifted.y ) );
+				PointToTextureMiniMap( pUnitsBuffer[nUnitIndex].x, pUnitsBuffer[nUnitIndex].y, &( miniMapPoint.x ), &( miniMapPoint.y ) );
+				miniMapPoint.x += vLifted.x - vGround.x;
+				miniMapPoint.y += vLifted.y - vGround.y;
+			}
 			// Off-map projections (e.g. planes at altitude) must wrap like the old x86
 			// float->WORD cast so they keep failing the draw bounds check; a direct
 			// float->WORD conversion of a negative value is UB. Clamp keeps the
@@ -868,12 +936,15 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 				CTPoint<float> additionalPoint( 0.0f, 0.0f );
 
 				PointToTextureMiniMap( area.vCenter3D.x / fWorldCellSize, area.vCenter3D.y / fWorldCellSize, &(miniMapPoint.x), &(miniMapPoint.y) );
-				PointToTextureMiniMap( ( area.vCenter3D.x + ( area.fMaxR / SQRT_2 ) ) / fWorldCellSize,
-															 ( area.vCenter3D.y + ( area.fMaxR / SQRT_2 ) ) / fWorldCellSize,
-															 &(additionalPoint.x), &(additionalPoint.y) );
+				// The radius is measured on the 2003 layout: a circle is the same turned.
+				CTPoint<float> centrePoint( 0.0f, 0.0f );
+				ProjectMiniMap( area.vCenter3D.x / fWorldCellSize, area.vCenter3D.y / fWorldCellSize, &(centrePoint.x), &(centrePoint.y) );
+				ProjectMiniMap( ( area.vCenter3D.x + ( area.fMaxR / SQRT_2 ) ) / fWorldCellSize,
+												( area.vCenter3D.y + ( area.fMaxR / SQRT_2 ) ) / fWorldCellSize,
+												&(additionalPoint.x), &(additionalPoint.y) );
 
 				BresenhamEllipse( static_cast<int>( miniMapPoint.x ), static_cast<int>( miniMapPoint.y ),
-													static_cast<int>( additionalPoint.x - miniMapPoint.x + 1 ),
+													static_cast<int>( additionalPoint.x - centrePoint.x + 1 ),
 													markCircles );
 
 				if ( area.wStartAngle != area.wFinishAngle )
@@ -1023,13 +1094,16 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 																		 it->vCenter.y / fWorldCellSize,
 																		 &( miniMapPoint.x ),
 																		 &( miniMapPoint.y ) );
-							PointToTextureMiniMap( ( it->vCenter.x + fRadius ) / fWorldCellSize,
-																		 ( it->vCenter.y + fRadius ) / fWorldCellSize,
-																		 &( additionalPoint.x ),
-																		 &( additionalPoint.y ) );
+							// The radius on the 2003 layout, as for the fire ranges.
+							CTPoint<float> centrePoint( 0.0f, 0.0f );
+							ProjectMiniMap( it->vCenter.x / fWorldCellSize, it->vCenter.y / fWorldCellSize, &( centrePoint.x ), &( centrePoint.y ) );
+							ProjectMiniMap( ( it->vCenter.x + fRadius ) / fWorldCellSize,
+															( it->vCenter.y + fRadius ) / fWorldCellSize,
+															&( additionalPoint.x ),
+															&( additionalPoint.y ) );
 							BresenhamEllipse( static_cast<int>( miniMapPoint.x ),
 																static_cast<int>( miniMapPoint.y ),
-																static_cast<int>( additionalPoint.x - miniMapPoint.x + 1 ),
+																static_cast<int>( additionalPoint.x - centrePoint.x + 1 ),
 																markCircles );
 						}
 					}
@@ -1157,6 +1231,13 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		const NTimer::STime currentAbsTime = _pGameTimer->GetAbsTime();
 		float zCoord = 0.0f;
 		nSize = FittedMiniMapSize();
+		// The view turned (NCameraTurn): the picture turns with it.
+		if ( nTurn != NCameraTurn::Step() )
+		{
+			nTurn = NCameraTurn::Step();
+			CreateSharpBackground();
+			isInstantObjectsNeedUpdate = true;
+		}
 
 		std::vector<CTPoint<float> > vPoints;
 		vPoints.resize(4);

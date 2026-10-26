@@ -147,6 +147,7 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "zoom_out"						, MC_ZOOM_OUT							},
 	{ "zoom_reset"					, MC_ZOOM_RESET						},
 	{ "camera_turn"					, MC_CAMERA_TURN					},
+	{ "camera_turn_back"		, MC_CAMERA_TURN_BACK			},
 	{ "show_avia_buttons"		,	MC_SHOW_AVIA_BUTTONS		},
 	{ "add_action_on"				,	MC_ADD_ACTION_ON				},
 	{ "add_action_off"			,	MC_ADD_ACTION_OFF				},
@@ -762,9 +763,16 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	saver.Add( 12, &multiplayerScoresSmall );
 	saver.Add( 13, &laggedDialog );
 	saver.Add( 14, &timeoutDialog );
-	
+	// The Remastered camera step (NCameraTurn), a GFX.* var no save carries:
+	// kept here only when the view is turned, so saves at the 2003 view are
+	// written as before, and a load sets it (a save without it, at step 0).
+	int nCameraTurn = saver.IsReading() ? 0 : NCameraTurn::Step();
+	if ( saver.IsReading() || nCameraTurn != 0 )
+		saver.Add( 15, &nCameraTurn );
+
 	if ( saver.IsReading() )
 	{
+		SetGlobalVar( NCameraTurn::pszStepVar, nCameraTurn & 3 );
 		// A mission interface restored from a save means we ARE in a mission,
 		// regardless of whether the save's global vars carried the flag (saves
 		// written by builds with a non-serializing global-var store lack it).
@@ -884,6 +892,19 @@ static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlaye
 // ResetPosition forces the terrain mesh rebuild: the CScene::Draw heuristic
 // keys on screen size/projection-bool/anchor-delta and misses zoom steps whose
 // anchor does not move (zoom at screen center).
+// A Remastered camera turn (NCameraTurn) by nDelta quarter turns about the
+// ground point under the screen centre. The camera turns about its anchor, the
+// point at height 0 on the centre's line of sight, which lies off that ground
+// point on raised ground; the anchor's offset from the ground point is turned
+// with the view, so the point under the centre stays where it was.
+void CInterfaceMission::TurnCamera( int nDelta )
+{
+	const CVec3 vAnchor = pCamera->GetAnchor();
+	const CVec3 vGround = pScene->GetTerrain() != 0 ? NCameraTurn::GroundUnderCentre( vAnchor, pCamera->GetPos(), pScene->GetTerrain() ) : vAnchor;
+	const CVec3 vOffset = CQuat( NCameraTurn::YawOffset( nDelta ), V3_AXIS_Z ).Rotate( CVec3( vAnchor.x - vGround.x, vAnchor.y - vGround.y, 0 ) );
+	SetGlobalVar( NCameraTurn::pszStepVar, ( NCameraTurn::Step() + nDelta ) & 3 );
+	pCamera->SetAnchor( CVec3( vGround.x + vOffset.x, vGround.y + vOffset.y, 0 ) );
+}
 void CInterfaceMission::ApplyZoomStep( int nDelta )
 {
 	const CTRect<float> rcScreen = pGFX->GetScreenRect();
@@ -1503,8 +1524,20 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			vCameraStartPos = GetPlayerUnitsCenter( mapinfo, nUserPlayer );
 			pszCameraSource = "units";
 		}
+		// Multiplayer with the player's Remastered option on (NCameraTurn::Allowed)
+		// starts each player's view turned so that the player's own corner of the
+		// map is at the bottom of the screen; the 2003 game showed every player the
+		// same view. A replay of a multiplayer game does the same for the player it
+		// shows. The step is local view state, so players at different steps play
+		// the same game.
+		const int nStartTurn = NCameraTurn::StartStep( vCameraStartPos.x - mapinfo.terrain.tiles.GetSizeX() * fWorldCellSize / 2,
+		                                               vCameraStartPos.y - mapinfo.terrain.tiles.GetSizeY() * fWorldCellSize / 2 );
+		const bool bStartTurned = GetGlobalVar( "MultiplayerGame", 0 ) != 0 && NCameraTurn::Allowed();
+		if ( bStartTurned )
+			SetGlobalVar( NCameraTurn::pszStepVar, nStartTurn );
 		if ( IsMapTraceOn() )
 		{
+			fprintf( stderr, "BK_MAP_TRACE: start turn %d (%s)\n", nStartTurn, bStartTurned ? "applied" : "single player: 0" );
 			fprintf( stderr, "BK_MAP_TRACE: camera x=%.0f y=%.0f z=%.0f source=%s\n", vCameraStartPos.x, vCameraStartPos.y, vCameraStartPos.z, pszCameraSource );
 			fprintf( stderr, "BK_MAP_TRACE: terrain roads=%d rivers=%d\n", int(mapinfo.terrain.roads3.size()), int(mapinfo.terrain.rivers.size()) );
 			fflush( stderr );
@@ -2143,10 +2176,12 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 				ApplyZoomStep( msg.nEventID == MC_ZOOM_IN ? +1 : -1 );
 			break;
 		case MC_CAMERA_TURN:
-			// A quarter turn about the point at the screen centre (Remastered
-			// only): the camera, the terrain and the buildings read the step.
-			if ( NRemastered::Enabled() && pTimer->GetPauseReason() <= PAUSE_TYPE_NO_CONTROL )
-				SetGlobalVar( NCameraTurn::pszStepVar, ( NCameraTurn::Step() + 1 ) & 3 );
+		case MC_CAMERA_TURN_BACK:
+			// A quarter turn about the point at the screen centre (the player's
+			// Remastered option, also in multiplayer and replays: the step is
+			// view state only): the camera, the terrain and the buildings read it.
+			if ( NCameraTurn::Allowed() && pTimer->GetPauseReason() <= PAUSE_TYPE_NO_CONTROL )
+				TurnCamera( msg.nEventID == MC_CAMERA_TURN ? +1 : -1 );
 			break;
 		case MC_SHOW_AVIA_BUTTONS:
 			GetSingleton<IInput>()->AddMessage( SGameMessage( UI_NEXT_STATE_MESSAGE, 12003 ) );

@@ -75,6 +75,14 @@ bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const CVec2 &point, CVe
 	matTransform.RotateHVector( &relpos, GetPos() );
 	CVec2 vHitPoint = point;
 	NSceneScreenScale::UnscaleGameplaySpritePoint( &vHitPoint.x, &vHitPoint.y, relpos, GetSingleton<IGFX>()->GetScreenRect() );
+	// A mirrored or flat-turned sprite (the Remastered camera turn) is hit where
+	// it is drawn: the point is taken back into the 2003 picture's frame.
+	if ( info.bMirror || info.nFlatTurn != 0 )
+	{
+		float fX = vHitPoint.x - relpos.x, fY = vHitPoint.y - relpos.y;
+		info.UnturnOffset( &fX, &fY );
+		vHitPoint.Set( relpos.x + fX, relpos.y + fY );
+	}
 	const bool bHit = pAnim->IsHit( relpos, vHitPoint, pShift );
 	if ( bHit && pShift )
 	{
@@ -98,6 +106,18 @@ bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const RECT &rect )
 	const CTRect<float> rcScreen = GetSingleton<IGFX>()->GetScreenRect();
 	NSceneScreenScale::UnscaleGameplaySpritePoint( &fLeft, &fTop, relpos, rcScreen );
 	NSceneScreenScale::UnscaleGameplaySpritePoint( &fRight, &fBottom, relpos, rcScreen );
+	// Turned back as the point pick above; a mirror and quarter turns of the
+	// ground keep a rectangle's sides along the screen's axes.
+	if ( info.bMirror || info.nFlatTurn != 0 )
+	{
+		float fX1 = fLeft - relpos.x, fY1 = fTop - relpos.y, fX2 = fRight - relpos.x, fY2 = fBottom - relpos.y;
+		info.UnturnOffset( &fX1, &fY1 );
+		info.UnturnOffset( &fX2, &fY2 );
+		fLeft = relpos.x + Min( fX1, fX2 );
+		fRight = relpos.x + Max( fX1, fX2 );
+		fTop = relpos.y + Min( fY1, fY2 );
+		fBottom = relpos.y + Max( fY1, fY2 );
+	}
 	return pAnim->IsHit( relpos, CTRect<float>( fLeft, fTop, fRight, fBottom ) );
 }
 bool CSpriteVisObj::Draw( IGFX *pGFX )

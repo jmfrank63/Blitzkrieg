@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "SceneInternal.h"
+#include "../Main/CameraTurn.h"
 typedef std::pair<IVisObj*, CVec2> CPickedObject;
 typedef std::list<CPickedObject> CPickedObjectsList;
 class CCheckObjectTypeFunctional
@@ -170,7 +171,27 @@ void CScene::Pick( const CTRect<float> &rcRect, std::pair<IVisObj*, CVec2> **ppO
 	const float fHeight = rcRect.Height() * 2;
 	CVec2 vCameraX( fWidth / FP_SQRT_2, fWidth / FP_SQRT_2 ), vCameraY( -fHeight / FP_SQRT_2, fHeight / FP_SQRT_2 );
 	CPatchesList vispatches;
-	SelectPatches2( vCamera, vCameraX, vCameraY, areaUnits.GetSizeX(), areaUnits.GetSizeY(), AREA_MAP_CELL_SIZE, &vispatches );
+	if ( const int nCameraTurn = NCameraTurn::Step() )
+	{
+		// Turned (NCameraTurn), the screen's axes on the ground turn and
+		// SelectPatches2's 45 degree layout no longer holds: every cell in the
+		// box around the rectangle's four ground corners, a cell more each way,
+		// is tried, and IsHit decides.
+		const CVec3 vX = NCameraTurn::ViewOffset( CVec3( vCameraX.x, vCameraX.y, 0 ), nCameraTurn );
+		const CVec3 vY = NCameraTurn::ViewOffset( CVec3( vCameraY.x, vCameraY.y, 0 ), nCameraTurn );
+		const float fHalfX = fabs( vX.x ) + fabs( vY.x ), fHalfY = fabs( vX.y ) + fabs( vY.y );
+		const int nMinX = Clamp( int( ( vCamera.x - fHalfX ) / AREA_MAP_CELL_SIZE ) - 1, 0, areaUnits.GetSizeX() - 1 );
+		const int nMaxX = Clamp( int( ( vCamera.x + fHalfX ) / AREA_MAP_CELL_SIZE ) + 1, 0, areaUnits.GetSizeX() - 1 );
+		const int nMinY = Clamp( int( ( vCamera.y - fHalfY ) / AREA_MAP_CELL_SIZE ) - 1, 0, areaUnits.GetSizeY() - 1 );
+		const int nMaxY = Clamp( int( ( vCamera.y + fHalfY ) / AREA_MAP_CELL_SIZE ) + 1, 0, areaUnits.GetSizeY() - 1 );
+		for ( int nY = nMinY; nY <= nMaxY; ++nY )
+		{
+			for ( int nX = nMinX; nX <= nMaxX; ++nX )
+				vispatches.push_back( std::pair<int, int>( nX, nY ) );
+		}
+	}
+	else
+		SelectPatches2( vCamera, vCameraX, vCameraY, areaUnits.GetSizeX(), areaUnits.GetSizeY(), AREA_MAP_CELL_SIZE, &vispatches );
 	DWORD time = pTimer->GetGameTime();
 	CPickedObjectsList picked;
 	for ( CPatchesList::const_iterator it = vispatches.begin(); it != vispatches.end(); ++it )

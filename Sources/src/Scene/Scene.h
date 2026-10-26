@@ -136,6 +136,20 @@ struct SBasicSpriteInfo
 			*pfY = -fX / 2.0f;
 		}
 	}
+	// The other way: where a screen offset from the zero cross as drawn lies in
+	// the 2003 picture (turned back, then mirrored), so a turned sprite is picked
+	// by what is drawn.
+	void UnturnOffset( float *pfX, float *pfY ) const
+	{
+		for ( int k = 0; k < nFlatTurn; ++k )
+		{
+			const float fX = *pfX;
+			*pfX = -2.0f * *pfY;
+			*pfY = fX / 2.0f;
+		}
+		if ( bMirror )
+			*pfX = -*pfX;
+	}
 	// A rectangle around the zero cross as drawn: mirrored, then the box around it turned.
 	void TurnRect( CTRect<float> *pRect ) const
 	{
