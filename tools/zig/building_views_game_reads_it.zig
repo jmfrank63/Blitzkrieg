@@ -181,8 +181,13 @@ pub fn runTool(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, args:
 /// The intact sprite of a variant folder as its pack holds it, and its zero cross.
 pub fn decompose(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, folder: []const u8, out: []const u8) !Sprite {
     try runTool(io, allocator, tool, &.{ "decompose", folder, out });
+    return decomposed(io, allocator, out, "1");
+}
+
+/// The sprite of damage state `state` (`1`, `2`, `3`) a decompose left in `out`.
+pub fn decomposed(io: std.Io, allocator: std.mem.Allocator, out: []const u8, state: []const u8) !Sprite {
     const cwd = std.Io.Dir.cwd();
-    const png = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, "1_0.png" }), allocator, .limited(64 << 20));
+    const png = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, try std.fmt.allocPrint(allocator, "{s}_0.png", .{state}) }), allocator, .limited(64 << 20));
     const json = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ out, "building.json" }), allocator, .limited(1 << 20));
     const parsed = try std.json.parseFromSliceLeaky(struct { anchor: [2]i32 }, allocator, json, .{ .ignore_unknown_fields = true });
     return .{ .image = try views.readStoredPng(allocator, png), .anchor = parsed.anchor };
