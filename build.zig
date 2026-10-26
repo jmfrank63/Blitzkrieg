@@ -3193,6 +3193,30 @@ pub fn build(b: *std.Build) void {
     units_game_step.dependOn(&units_game_tests.step);
     if (test_mode == .run) units_game_step.dependOn(&units_game_run.step);
 
+    // The controls at every camera step (M006 S05,
+    // tools/zig/camera_turn_control_game_reads_it.zig): picking, selection,
+    // orders, scrolling, the minimap, the turn's pivot on a hill and draw
+    // order. Desktop and GPU, so not part of `test`.
+    const control_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_control_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, control_game_module, toolchain);
+    }
+    const control_game_tests = b.addTest(.{ .root_module = control_game_module, .filters = &.{ "a ring point and the screen's right", "picking, selection, orders" } });
+    const control_game_run = b.addRunArtifact(control_game_tests);
+    control_game_run.setCwd(b.path("."));
+    control_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    control_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    control_game_run.has_side_effects = true;
+    control_game_run.step.dependOn(install_game_step);
+    control_game_run.step.dependOn(bk_views_step);
+    const control_game_step = b.step("camera-turn-control-game-reads-it", "Press the camera turn keys on the real Game with Remastered on and measure at every step picking, clicking and framing units, an order's target, the arrow key, edge and swipe scrolling, the minimap's picture, frame and click, the turn's pivot on a hill, and draw order against the step-0 shot of the world turned");
+    control_game_step.dependOn(&control_game_tests.step);
+    if (test_mode == .run) control_game_step.dependOn(&control_game_run.step);
+
     // The turned building sides as a mod, to try the camera turn by hand
     // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
     // building-views-batch-<region> steps left in zig-out/remastered/Buildings,

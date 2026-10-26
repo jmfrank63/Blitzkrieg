@@ -1092,6 +1092,30 @@ void CAILogic::Segment()
 			nextCheckSumTime = curTime + periodToCheckSum;
 			UpdateCheckSum( true );
 		}
+		// BK_AI_STATE_TRACE: the net game's checksum terms of every unit (centre,
+		// direction, HP, morale) once a second of game time, so a harness can hold
+		// two plays of one replay against each other: nothing a client only shows,
+		// such as the Remastered camera step, may change them.
+		static const bool bStateTrace = getenv( "BK_AI_STATE_TRACE" ) != 0;
+		if ( bStateTrace && curTime % 1000 < SConsts::AI_SEGMENT_DURATION )
+		{
+			uLong nState = crc32( 0L, Z_NULL, 0 );
+			int nUnits = 0;
+			for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+			{
+				CAIUnit *pUnit = *iter;
+				const CVec2 vCenter = pUnit->GetCenter();
+				const WORD wDir = pUnit->GetFrontDir();
+				const float fHP = pUnit->GetHitPoints();
+				const float fMorale = pUnit->GetMorale();
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &vCenter ), sizeof( vCenter ) );
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &wDir ), sizeof( wDir ) );
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &fHP ), sizeof( fHP ) );
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &fMorale ), sizeof( fMorale ) );
+				++nUnits;
+			}
+			fprintf( stderr, "BK_AI_STATE_TRACE: %u ms units=%d state=%08lx\n", unsigned( curTime ), nUnits, (unsigned long)nState );
+		}
 		bFirstTime = false;
 
 		bSegment = false;

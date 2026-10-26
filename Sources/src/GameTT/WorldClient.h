@@ -305,6 +305,7 @@ class CWorldClient : public CWorldBase
 	virtual void ResetSelection( SMapObject *pMO );
 	void ReconcileSelection();
 	void TraceSelection();
+	void TracePick( const CVec2 &vPos );
 	void TraceContainers();
 	void PickFoF( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &friends, CMapObjectsPtrList &foes, CMapObjectsPtrList &neutrals );
 	void Pick( const CVec2 &vPos, EObjGameType type, CMapObjectsPtrList &objects );
