@@ -1,0 +1,5 @@
+{
+  "factoryfloor03": [
+    {"lo": [-168, 1], "hi": [-2, 248], "wall": 72, "ridge": 95, "roof": "gable_y"}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "e_ctownhouse02_1": [
+    {"lo": [-226, -67], "hi": [-140, 115], "wall": 86, "ridge": 154, "roof": "gable_y"},
+    {"lo": [-145, 3], "hi": [-7, 120], "wall": 89, "ridge": 166, "roof": "gable_x"}
+  ],
+  "e_ctownhouse02_1_2": [
+    {"lo": [-226, -67], "hi": [-140, 115], "wall": 86, "ridge": 154, "roof": "gable_y"},
+    {"lo": [-145, 3], "hi": [-7, 120], "wall": 89, "ridge": 166, "roof": "gable_x"}
+  ],
+  "e_ctownhouse02_4": [
+    {"lo": [-189, 150], "hi": [-9, 237], "wall": 85, "ridge": 154, "roof": "gable_x"},
+    {"lo": [-121, 18], "hi": [-5, 152], "wall": 93, "ridge": 166, "roof": "gable_y"}
+  ]
+}

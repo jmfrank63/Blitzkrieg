@@ -1,0 +1,5 @@
+{
+  "electricsubstation": [
+    {"lo": [-59, 0], "hi": [0, 60], "wall": 34, "ridge": 55, "roof": "gable_x"}
+  ]
+}

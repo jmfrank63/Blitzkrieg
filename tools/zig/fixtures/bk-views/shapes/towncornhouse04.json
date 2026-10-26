@@ -1,0 +1,6 @@
+{
+  "towncornhouse04": [
+    {"lo": [-238, -6], "hi": [-5, 139], "wall": 104, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-300, 67], "hi": [-177, 289], "wall": 104, "ridge": 137, "roof": "gable_y"}
+  ]
+}

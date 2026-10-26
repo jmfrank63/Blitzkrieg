@@ -170,6 +170,9 @@ const tools = [_]Tool{
             &.{ "contact", "buildings", "generated" },
             &.{ "contact", "buildings", "generated", "out", "extra" },
             &.{ "contact", "buildings", "generated", "--force" },
+            &.{"shape"},
+            &.{ "shape", "out" },
+            &.{ "shape", "out", "--force" },
         },
         .failing = &.{ "decompose", "missing", "out" },
         // Backslashes on input, and an output folder that is not there yet.

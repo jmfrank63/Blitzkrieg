@@ -1,0 +1,7 @@
+{
+  "e_cityhall_1": [
+    {"lo": [-369, 8], "hi": [-2, 132], "wall": 106, "ridge": 196, "roof": "gable_x"},
+    {"lo": [-256, -37], "hi": [-217, 26], "wall": 248, "ridge": 298, "roof": "hip"},
+    {"lo": [-232, -109], "hi": [-133, 8], "wall": 9, "ridge": 9, "roof": "flat"}
+  ]
+}

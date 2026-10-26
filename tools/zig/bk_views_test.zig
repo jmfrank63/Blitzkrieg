@@ -757,6 +757,69 @@ test "the drawn sides stay above the quality gate (tools/zig/fixtures/bk-views/g
     if (failures > 0) return error.BelowTheGate;
 }
 
+test "every hand shape reaches the outline floor against the 2003 pictures of its colourway" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = std.testing.io;
+    const options: std.json.ParseOptions = .{ .ignore_unknown_fields = true };
+    const Inventory = struct { families: []const struct { family: []const u8, variants: []const struct { path: []const u8 } } };
+    const inventory = try std.json.parseFromSliceLeaky(Inventory, arena, try read(arena, "tools/zig/fixtures/bk-views/inventory.json"), options);
+    // Every variant a shape file names, by its family's variant folders.
+    var argv: std.ArrayList([]const u8) = .empty;
+    try argv.appendSlice(arena, &.{ bk_views_gate.bk_views_fast, "shape", "zig-out/local-test/bk-views/shapes" });
+    var dir = try std.Io.Dir.cwd().openDir(io, views.shapes_dir, .{ .iterate = true });
+    defer dir.close(io);
+    var iterator = dir.iterate();
+    var named: usize = 0;
+    while (try iterator.next(io)) |entry| {
+        if (!std.mem.endsWith(u8, entry.name, ".json")) continue;
+        const family = entry.name[0 .. entry.name.len - ".json".len];
+        const shapes = try std.json.parseFromSliceLeaky(std.json.ArrayHashMap(std.json.Value), arena, try read(arena, try std.fmt.allocPrint(arena, "{s}/{s}", .{ views.shapes_dir, entry.name })), options);
+        const variants = for (inventory.families) |f| {
+            if (std.mem.eql(u8, f.family, family)) break f.variants;
+        } else return error.NoSuchFamily;
+        for (shapes.map.keys()) |key| {
+            const variant = for (variants) |v| {
+                if (std.mem.eql(u8, std.fs.path.basename(v.path), key)) break v;
+            } else return error.NoSuchVariant;
+            try argv.append(arena, try std.fmt.allocPrint(arena, "Data/Buildings/{s}", .{variant.path}));
+            named += 1;
+        }
+    }
+    try std.testing.expect(named > 0);
+    const result = try std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024) });
+    if (result.term != .exited or result.term.exited != 0) {
+        std.debug.print("bk-views shape failed: {s}\n", .{result.stderr});
+        return error.ShapeFailed;
+    }
+    // Its own picture reaches the shape gate's outline floor. The family's
+    // other pictures of its colourway (those that lend it pixels) reach the
+    // hold-out's mean floor of the intact state: their zero crosses are
+    // aligned to about a world unit and their sides measured on hand-painted
+    // grids (dot/03 and /04 both read as side 4). Other colourways may be
+    // other buildings (e_shed02_4 is an open shed, _5 a closed one).
+    const gate = try std.json.parseFromSliceLeaky(Gate, arena, try read(arena, "tools/zig/fixtures/bk-views/gate.json"), options);
+    const others = gate.floors("1").mean_iou;
+    const Picture = struct { variant: []const u8, own: bool, same: bool, iou: f64 };
+    const report = try std.json.parseFromSliceLeaky(struct { shapes: []const struct { variant: []const u8, hand: bool, pictures: []const Picture } }, arena, try read(arena, "zig-out/local-test/bk-views/shapes/shape.json"), options);
+    try std.testing.expectEqual(named, report.shapes.len);
+    var failures: usize = 0;
+    for (report.shapes) |shape| {
+        if (!shape.hand) {
+            std.debug.print("{s}: its hand shape was not read\n", .{shape.variant});
+            failures += 1;
+        }
+        for (shape.pictures) |picture| {
+            const floor = if (picture.own) views.outline_floor else others;
+            if (!(picture.own or picture.same) or picture.iou >= floor) continue;
+            std.debug.print("{s} against {s}: outline IoU {d:.4} < {d:.2}\n", .{ shape.variant, picture.variant, picture.iou, floor });
+            failures += 1;
+        }
+    }
+    if (failures > 0) return error.BelowTheFloor;
+}
+
 /// Tracked text is checked out with CRLF; the tool writes LF.
 fn withoutCr(gpa: std.mem.Allocator, text: []const u8) ![]u8 {
     var out: std.ArrayList(u8) = .empty;

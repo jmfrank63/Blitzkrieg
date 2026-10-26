@@ -42,6 +42,7 @@ const usage: bk_tool.Usage = .{
     \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
     \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
     \\       bk-views contact <buildings-dir> <generated-dir> <out-dir>
+    \\       bk-views shape <out-dir> <variant-dir>...
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -80,6 +81,11 @@ fn run(ctx: *bk_tool.Context) !void {
         if (ctx.args.len != 5) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return reportCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], ctx.args[4]);
+    }
+    if (std.mem.eql(u8, command, "shape")) {
+        if (ctx.args.len < 3) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return shapeCommand(ctx, ctx.args[1], ctx.args[2..]);
     }
     if (std.mem.eql(u8, command, "contact")) {
         if (ctx.args.len != 4) return error.Usage;
@@ -1861,6 +1867,8 @@ const volume_cost = 0.02;
 const Fit = struct {
     silhouettes: []Silhouette,
     ruin: bool,
+    /// A hand shape is refined with its roofs as drawn (`refineBlocks`).
+    keep_roofs: bool = false,
     both: i64 = 0,
     either: i64 = 0,
     volume: f64 = 0,
@@ -1913,6 +1921,28 @@ const Fit = struct {
 /// of 8 down to 1.
 pub fn fitBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const Image, eyes: []const Eye, ruin: bool) ![]Block {
     const blocks = try gpa.dupe(Block, start);
+    var fit = try newFit(gpa, blocks, pictures, eyes, ruin);
+    for (blocks, 0..) |b, j| bestHeights(&fit, blocks, j, 8, @max(b.wall, b.ridge) + 8, 8);
+    descend(&fit, blocks, &.{ 8, 4, 2, 1 });
+    while (prune(&fit, blocks)) descend(&fit, blocks, &.{ 4, 2, 1 });
+    var kept: std.ArrayList(Block) = .empty;
+    for (blocks) |b| if (b.ridge > 0) try kept.append(gpa, b);
+    return kept.items;
+}
+
+/// A hand shape (`shapes_dir`) moved edge by edge, whole, and up or down
+/// while its outlines meet the pictures' better, every block keeping its
+/// roof and the roof its pitch: what `shape` offers the author to take over.
+pub fn refineBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const Image, eyes: []const Eye) ![]Block {
+    const blocks = try gpa.dupe(Block, start);
+    var fit = try newFit(gpa, blocks, pictures, eyes, false);
+    fit.keep_roofs = true;
+    descend(&fit, blocks, &.{ 4, 2, 1 });
+    return blocks;
+}
+
+fn newFit(gpa: std.mem.Allocator, blocks: []const Block, pictures: []const Image, eyes: []const Eye, ruin: bool) !Fit {
+    if (blocks.len > max_blocks) return error.TooManyBlocks;
     var fit: Fit = .{ .silhouettes = try gpa.alloc(Silhouette, pictures.len), .ruin = ruin };
     for (blocks) |b| fit.volume += blockVolume(b);
     fit.start = @max(1, fit.volume);
@@ -1931,12 +1961,7 @@ pub fn fitBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const
             fit.either += @intFromBool(s.inside[i] or s.hits[i] != 0);
         };
     }
-    for (blocks, 0..) |b, j| bestHeights(&fit, blocks, j, 8, @max(b.wall, b.ridge) + 8, 8);
-    descend(&fit, blocks, &.{ 8, 4, 2, 1 });
-    while (prune(&fit, blocks)) descend(&fit, blocks, &.{ 4, 2, 1 });
-    var kept: std.ArrayList(Block) = .empty;
-    for (blocks) |b| if (b.ridge > 0) try kept.append(gpa, b);
-    return kept.items;
+    return fit;
 }
 
 /// What a fit costs per block: a part the outlines barely need (a slab
@@ -2012,7 +2037,10 @@ fn descend(fit: *Fit, blocks: []Block, steps: []const f64) void {
         while (improved and rounds < 20) : (rounds += 1) {
             improved = false;
             for (blocks, 0..) |*block, j| {
-                for (0..18) |v| {
+                // A hand shape keeps its roofs and their pitch, and moves whole.
+                for (0..22) |v| {
+                    if (fit.keep_roofs and v >= 8 and v < 18 and v != 12 and v != 13) continue;
+                    if (!fit.keep_roofs and v >= 18) break;
                     var c = block.*;
                     switch (v) {
                         0...3 => c.lo[v % 2] += if (v < 2) step else -step,
@@ -2023,10 +2051,15 @@ fn descend(fit: *Fit, blocks: []Block, steps: []const f64) void {
                             c.wall += if (v == 12) step else -step;
                             c.ridge += if (v == 12) step else -step;
                         },
-                        else => c.roof = @fromBackingInt(@intCast(v - 14)),
+                        14...17 => c.roof = @fromBackingInt(@intCast(v - 14)),
+                        else => {
+                            const d = if (v % 2 == 0) step else -step;
+                            c.lo[(v - 18) / 2] += d;
+                            c.hi[(v - 18) / 2] += d;
+                        },
                     }
-                    if (c.roof == block.roof and v >= 14) continue;
-                    if (!plausible(c, fit.ruin)) continue;
+                    if (v >= 14 and v < 18 and c.roof == block.roof) continue;
+                    if (if (fit.keep_roofs) c.hi[0] - c.lo[0] < 4 or c.hi[1] - c.lo[1] < 4 or c.wall < 2 else !plausible(c, fit.ruin)) continue;
                     const counts = fit.trial(block.*, j, c);
                     if (fit.score(counts, fit.volume - blockVolume(block.*) + blockVolume(c)) <= fit.score(.{ fit.both, fit.either }, fit.volume)) continue;
                     fit.take(block.*, j, c, counts);
@@ -2156,6 +2189,13 @@ pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []co
             const under = castRay(blocks, .{ c[0], c[1], z_top + 1000 }, .{ 0, 0, -1 }) orelse continue;
             const roof = z_top + 1000 - under.t;
             if (roof < foot[2] + dz - 1 or roof >= z_top + dz - 2) continue;
+            // Its whole foot on the blocks: a stalk beside a wall shows as a
+            // post from the other sides.
+            const half = @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2 / 2;
+            const on_blocks = for ([_][2]f64{ .{ -1, -1 }, .{ -1, 1 }, .{ 1, -1 }, .{ 1, 1 } }) |corner| {
+                if (castRay(blocks, .{ c[0] + corner[0] * half, c[1] + corner[1] * half, z_top + 1000 }, .{ 0, 0, -1 }) == null) break false;
+            } else true;
+            if (!on_blocks) continue;
             var score: f64 = if (step == 0) 0.5 else 0;
             for (pictures[1..], eyes[1..]) |other, other_eye| for (parts) |part| {
                 score += @floatFromInt(chimneyFit(blocks, part orelse continue, other, other_eye));
@@ -2311,9 +2351,12 @@ pub const Means = struct {
         means.count[class] += 1;
     }
 
-    /// The factor that relights a colour channel from class `from` to class `to`.
+    /// The factor that relights a colour channel from class `from` to class
+    /// `to`; none where the pictures show `to` on a quarter of the pixels
+    /// of `from` or fewer: a few porch roofs stand for another material
+    /// than the main roof (admhouse's snowed roof turned came out dark).
     pub fn gain(means: Means, to: usize, from: usize, c: usize) f64 {
-        if (to == from or means.count[to] < 100 or means.count[from] < 100) return 1;
+        if (to == from or means.count[to] < @max(100, means.count[from] / 4) or means.count[from] < 100) return 1;
         return (means.sum[to][c] / means.count[to]) / @max(1, means.sum[from][c] / means.count[from]);
     }
 };
@@ -2654,11 +2697,27 @@ const Scene = struct {
     outlines: []Image,
     states: []const []const u8,
     shapes: []const []const Block,
+    /// The variant's hand shape (`shapes_dir`): its intact blocks but for
+    /// the chimneys cut from the outline.
+    hand: ?[]const Block,
 };
+
+/// Hand shapes, from the working folder (the build root): `<family>.json`
+/// maps a variant folder's name to its intact blocks in its own frame (world
+/// units from its zero cross, as sources.json lists them), for buildings the
+/// fit cannot draw (wings, domes, open props). `side` and `holdout` take them
+/// instead of the fitted intact blocks; the damage states are fitted from them.
+pub const shapes_dir = "tools/zig/fixtures/bk-views/shapes";
+
+fn handShape(ctx: *bk_tool.Context, family: []const u8, variant: []const u8) !?[]const Block {
+    const path = try std.fmt.allocPrint(ctx.arena, "{s}/{s}.json", .{ shapes_dir, family });
+    const shapes = try readJson(std.json.ArrayHashMap([]const Block), ctx, path) orelse return null;
+    return shapes.map.get(variant);
+}
 
 /// The scene of variant `index` of the family; variants that show side
 /// `skip` are left out, so the hold-out draws that side without them.
-fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !Scene {
+fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, intact_only: bool) !Scene {
     const arena = ctx.arena;
     // Every measured variant gives the shape, those of the variant's own
     // colourway also give pixels. A variant whose side the inventory could
@@ -2692,11 +2751,12 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !S
     var states: std.ArrayList([]const u8) = .empty;
     for (own.names) |state| {
         const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
+        if (intact_only and !std.mem.eql(u8, state, "1")) continue;
         if (digits > 0 and (digits == state.len or std.mem.eql(u8, state[digits..], "w"))) try states.append(arena, state);
     }
-    const base = try baseBlocks(arena, try carve(arena, footprints[fixed], 2, outlines, eyes), footprints[fixed]);
+    const hand = try handShape(ctx, found.family.name, std.fs.path.basename(own.dir));
     const shapes = try arena.alloc([]const Block, states.items.len);
-    var intact: []const Block = base;
+    var intact: []const Block = hand orelse try baseBlocks(arena, try carve(arena, footprints[fixed], 2, outlines, eyes), footprints[fixed]);
     for (states.items, shapes) |state, *shape| {
         var state_eyes: std.ArrayList(Eye) = .empty;
         var state_pictures: std.ArrayList(Image) = .empty;
@@ -2704,6 +2764,14 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !S
             // The variant's own picture first: chimneys are cut from it.
             try state_pictures.insert(arena, if (e == fixed) 0 else state_pictures.items.len, pictureOf(source, state) orelse continue);
             try state_eyes.insert(arena, if (e == fixed) 0 else state_eyes.items.len, eye);
+        }
+        // A hand shape is the intact building, in summer and in winter, its
+        // chimneys and spires drawn by its author.
+        // So is a damage state whose own picture it still covers (a
+        // tarpaulin stack whose damaged picture differs by a few crates).
+        if (hand != null and (std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w") or blocksIou(hand.?, state_eyes.items[0], state_pictures.items[0]) >= outline_floor)) {
+            shape.* = hand.?;
+            continue;
         }
         const fitted = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items, state[0] == '3');
         if (std.mem.eql(u8, state, "1")) intact = fitted;
@@ -2720,6 +2788,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !S
         .outlines = outlines,
         .states = states.items,
         .shapes = shapes,
+        .hand = hand,
     };
 }
 
@@ -2762,7 +2831,7 @@ fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
 /// One damage state of a target: the sprite with the source of each pixel,
 /// its shadow, its ground picture where the variant has one, and how well the
 /// blocks cover each source's outline.
-const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64 };
+const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64, means: Means = .{} };
 
 fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const arena = ctx.arena;
@@ -2813,6 +2882,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             .shadow = shadow,
             .ground = if (has_ground) try projectGround(arena, target.eye, target.size, ground[0..ground_count]) else null,
             .covers = covers.items,
+            .means = means,
         };
     }
     return drawn;
@@ -2833,16 +2903,19 @@ fn keepShadow(sprite: Image, shadow: Image) void {
 }
 
 /// How plausible a turned intact picture's shape is against the variant's
-/// 2003 one: its height over theirs, the blocks' ground over the
+/// 2003 one: its height over that of the 2003 picture of the side it shows
+/// where the family has one (an L-shaped house turned stands lower or
+/// higher), else of the variant's own, the blocks' ground over the
 /// footprint's cells, the IoU of the blocks' outline with the variant's 2003
 /// one (other variants of the family may be other buildings, e_house01_1 and
-/// _3 differ in their roofs), and the protrusions of both pictures.
-const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0 };
+/// _3 differ in their roofs), and the protrusions of both pictures. `hand`:
+/// the blocks are a hand shape.
+const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false };
 
-fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn) !Shape {
+fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn, shown: Image) !Shape {
     const original = pictureOf(own, "1").?;
     return .{
-        .height = @as(f64, @floatFromInt(outlineHeight(d.sprite.image))) / @as(f64, @floatFromInt(@max(1, outlineHeight(original)))),
+        .height = @as(f64, @floatFromInt(outlineHeight(d.sprite.image))) / @as(f64, @floatFromInt(@max(1, outlineHeight(shown)))),
         .ground = groundArea(d.blocks) / footprintArea(own.footprint),
         .cover = d.covers[fixed],
         .protrusion = try protrusion(gpa, d.sprite.image),
@@ -2857,7 +2930,7 @@ const height_range = [2]f64{ 0.7, 1.3 };
 /// The blocks' ground against the footprint's cells, outside this range.
 const ground_ratio = [2]f64{ 0.5, 2.0 };
 /// The intact blocks cover the variant's 2003 outline less than this (IoU).
-const outline_floor = 0.85;
+pub const outline_floor = 0.85;
 /// A turned outline's protrusion may be this many times the 2003 one's plus
 /// the margin. Between the 2003 sides of one building it is at most 1.5
 /// times plus 0.026 (a_h07_3 against _1; props such as tents and leaders'
@@ -2877,10 +2950,13 @@ const thin_object = 0.15;
 /// tanks, statues, huts).
 const small_object = 4;
 
-/// Where a turned intact shape leaves what the 2003 sides make plausible, or null.
+/// Where a turned intact shape leaves what the 2003 sides make plausible, or
+/// null. The height and the ground guard the fit's depth, which one picture
+/// leaves open; a hand shape's depth is drawn by its author, so it answers
+/// to its outline and protrusion only.
 fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
-    if (s.height < height_range[0] or s.height > height_range[1]) return try std.fmt.allocPrint(gpa, "height {d:.2} outside {d:.1}..{d:.1}", .{ s.height, height_range[0], height_range[1] });
-    if (s.ground < ground_ratio[0] or s.ground > ground_ratio[1]) return try std.fmt.allocPrint(gpa, "ground {d:.2} outside {d:.1}..{d:.1}", .{ s.ground, ground_ratio[0], ground_ratio[1] });
+    if (!s.hand and (s.height < height_range[0] or s.height > height_range[1])) return try std.fmt.allocPrint(gpa, "height {d:.2} outside {d:.1}..{d:.1}", .{ s.height, height_range[0], height_range[1] });
+    if (!s.hand and (s.ground < ground_ratio[0] or s.ground > ground_ratio[1])) return try std.fmt.allocPrint(gpa, "ground {d:.2} outside {d:.1}..{d:.1}", .{ s.ground, ground_ratio[0], ground_ratio[1] });
     if (s.cover < outline_floor) return try std.fmt.allocPrint(gpa, "outline {d:.2} < {d:.2}", .{ s.cover, outline_floor });
     const most = protrusion_factor * s.protrusion_2003 + protrusion_margin;
     if (s.protrusion > most) return try std.fmt.allocPrint(gpa, "protrusion {d:.3} > {d:.3}", .{ s.protrusion, most });
@@ -2891,28 +2967,78 @@ fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
 /// ground picture, moved so that the building stands on its turned
 /// footprint: for a thin object, or a small one the blocks cannot draw,
 /// whose footprint the turn keeps, so that it looks alike from that side.
-fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8) !struct { target: Turned, drawn: []Drawn } {
+/// `mirror`: an odd turn of such an object on a rectangle, which a mirror
+/// across the screen's vertical (world (x, y) to (-y, -x)) lays on the
+/// turned footprint, as a building alike under a half turn about its axes
+/// (a board, a row of bins) shows from there; the sprite and ground
+/// pictures are mirrored about the zero cross, the shadow is kept, as a
+/// post's falls alike from every side. The mirrored sprite is relit by the
+/// gain from the shading class each pixel's face shows in the 2003 picture
+/// to the class the mirrored face shows (`by`, the blocks' drawing of the
+/// turn), pooled over the sprite: a lit board turned to the shade darkens.
+fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirror: bool, by: []const Drawn) !struct { target: Turned, drawn: []Drawn } {
     const arena = ctx.arena;
     const own = scene.sources[scene.fixed];
     const c = boxCentre(own.footprint);
     const t = turnPoint(c, k);
-    const from = mfc_camera.project(.{ c[0], c[1], 0 });
+    const from = mfc_camera.project(if (mirror) .{ -c[1], -c[0], 0 } else .{ c[0], c[1], 0 });
     const to = mfc_camera.project(.{ t[0], t[1], 0 });
     const first = pictureOf(own, "1").?;
+    // A mirrored canvas holds the pictures mirrored about the zero cross's
+    // column and the shadow as it was.
+    const ax: i64 = own.anchor[0];
+    const w: i64 = first.width;
+    const lo: i64 = if (mirror) @min(0, 2 * ax - w + 1) else 0;
+    const width: u32 = @intCast(if (mirror) @max(w - 1, 2 * ax) - lo + 1 else w);
     const target: Turned = .{
         .turn = k,
-        .eye = .{ .anchor = .{ @as(f64, @floatFromInt(own.anchor[0])) + @round(from[0] - to[0]), @as(f64, @floatFromInt(own.anchor[1])) + @round(from[1] - to[1]) }, .turn = k },
-        .size = .{ first.width, first.height },
+        .eye = .{ .anchor = .{ @as(f64, @floatFromInt(ax - lo)) + @round(from[0] - to[0]), @as(f64, @floatFromInt(own.anchor[1])) + @round(from[1] - to[1]) }, .turn = k },
+        .size = .{ width, first.height },
         .name = name,
     };
+    const place = struct {
+        fn f(gpa: std.mem.Allocator, image: ?Image, size: [2]u32, shift: i64, flip: ?i64) !Image {
+            const out: Image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, @as(usize, size[0]) * size[1]) };
+            @memset(out.pixels, .{ 0, 0, 0, 0 });
+            const in = image orelse return out;
+            for (0..in.height) |y| for (0..in.width) |x| {
+                const xi: i64 = @intCast(x);
+                const at = (if (flip) |axis| 2 * axis - xi else xi) - shift;
+                out.pixels[y * size[0] + @as(usize, @intCast(at))] = in.pixels[y * in.width + x];
+            };
+            return out;
+        }
+    }.f;
+    const flip: ?i64 = if (mirror) ax else null;
     const drawn = try arena.alloc(Drawn, scene.states.len);
-    for (scene.states, drawn) |state, *d| {
-        const sprite = try asGenerated(arena, pictureOf(own, state).?);
-        const shadow: Image = .{ .width = first.width, .height = first.height, .pixels = try arena.alloc([4]u8, first.pixels.len) };
-        if (pictureOf(own, try std.fmt.allocPrint(arena, "{s}s", .{state}))) |s| @memcpy(shadow.pixels, s.pixels) else @memset(shadow.pixels, .{ 0, 0, 0, 0 });
+    for (scene.states, drawn, by) |state, *d, blocks_drawn| {
+        var picture = pictureOf(own, state).?;
+        if (mirror) {
+            // One factor a channel over the sprite, so that a curved tank
+            // drawn as a few block faces does not take their seams.
+            const eye = scene.eyes[scene.fixed];
+            var sums = [2][3]f64{ .{ 0, 0, 0 }, .{ 0, 0, 0 } };
+            for (0..picture.height) |y| for (0..picture.width) |x| {
+                const pixel = picture.pixels[y * picture.width + x];
+                if (pixel[3] < 128) continue;
+                const hit = castPixel(blocks_drawn.blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+                for (0..3) |ch| {
+                    const value: f64 = @floatFromInt(pixel[ch]);
+                    sums[0][ch] += value;
+                    sums[1][ch] += if (hit) |h| value * blocks_drawn.means.gain(shadeClass(.{ -h.normal[1], -h.normal[0], h.normal[2] }, eye.turn), shadeClass(h.normal, eye.turn), ch) else value;
+                }
+            };
+            const relit: Image = .{ .width = picture.width, .height = picture.height, .pixels = try arena.dupe([4]u8, picture.pixels) };
+            for (relit.pixels) |*pixel| for (0..3) |ch| {
+                pixel[ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * sums[1][ch] / @max(1, sums[0][ch]))));
+            };
+            picture = relit;
+        }
+        const sprite = try asGenerated(arena, try place(arena, picture, target.size, lo, flip));
+        const shadow = try place(arena, pictureOf(own, try std.fmt.allocPrint(arena, "{s}s", .{state})), target.size, lo, null);
         keepShadow(sprite.image, shadow);
         const ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state}));
-        d.* = .{ .state = state, .blocks = &.{}, .sprite = sprite, .shadow = shadow, .ground = if (ground) |g| try asGenerated(arena, g) else null, .covers = &.{} };
+        d.* = .{ .state = state, .blocks = &.{}, .sprite = sprite, .shadow = shadow, .ground = if (ground) |g| try asGenerated(arena, try place(arena, g, target.size, lo, flip)) else null, .covers = &.{} };
     }
     return .{ .target = target, .drawn = drawn };
 }
@@ -2923,6 +3049,42 @@ fn asGenerated(gpa: std.mem.Allocator, image: Image) !Generated {
     for (image.pixels, out.kinds) |p, *kind| kind.* = if (p[3] > 0) .projected else .empty;
     @memset(out.classes, 255);
     return out;
+}
+
+/// A turn drawn: by the blocks, or where the blocks cannot draw a thin or
+/// small object, as its 2003 pictures (`sameSprite`), with the intact
+/// shape's gate values.
+const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool };
+
+fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
+    const arena = ctx.arena;
+    const own = scene.sources[scene.fixed];
+    const new_side = (scene.own_side - 1 + @as(u8, blocks_target.turn)) % 4 + 1;
+    const drawn = try drawTarget(ctx, scene, blocks_target);
+    const shown = for (scene.sources) |source| {
+        if (source.side == new_side) break pictureOf(source, "1").?;
+    } else pictureOf(own, "1").?;
+    // The intact shape against what the 2003 sides make plausible; an
+    // object the blocks cannot draw whose footprint the turn keeps is
+    // turned as its 2003 pictures themselves.
+    var shape: Shape = .{};
+    for (drawn) |d| {
+        if (std.mem.eql(u8, d.state, "1")) {
+            shape = try shapeOf(arena, own, scene.fixed, d, shown);
+            shape.hand = scene.hand != null;
+        }
+    }
+    const failure = try shapeFailure(arena, shape);
+    const thin = shape.protrusion_2003 >= thin_object;
+    const small = footprintArea(own.footprint) <= small_object * tile_size * tile_size;
+    const kept = try footprintIou(arena, own.footprint.rows, own.footprint.rows, blocks_target.turn) >= same_footprint;
+    const box = occupiedBox(own.footprint.rows);
+    const rectangle = footprintArea(own.footprint) == @as(f64, @floatFromInt((box[2] - box[0]) * (box[3] - box[1]))) * tile_size * tile_size;
+    const mirror = !kept and blocks_target.turn % 2 == 1 and rectangle and (thin or (small and failure != null));
+    const fallback = (thin or (small and failure != null)) and kept or mirror;
+    if (!fallback) return .{ .target = blocks_target, .drawn = drawn, .shape = shape, .failure = failure, .fallback = false, .mirror = false };
+    const same = try sameSprite(ctx, scene, blocks_target.turn, blocks_target.name, mirror, drawn);
+    return .{ .target = same.target, .drawn = same.drawn, .shape = shape, .failure = failure, .fallback = true, .mirror = mirror };
 }
 
 fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8, work_arg: []const u8) !void {
@@ -2941,7 +3103,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     }
 
     const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
-    const scene = try loadScene(ctx, found, found.index, null);
+    const scene = try loadScene(ctx, found, found.index, null, false);
     var targets: std.ArrayList(Turned) = .empty;
     for (turns.items) |k| try targets.append(arena, turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, k })));
 
@@ -2962,26 +3124,16 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             try cwd.createDirPath(io, path);
         }
         const new_side = (scene.own_side - 1 + @as(u8, target.turn)) % 4 + 1;
-        var drawn = try drawTarget(ctx, scene, target);
-        // The intact shape against what the 2003 sides make plausible; an
-        // object the blocks cannot draw whose footprint the turn keeps is
-        // turned as its 2003 pictures themselves.
-        var shape: Shape = .{};
-        for (drawn) |d| {
-            if (std.mem.eql(u8, d.state, "1")) shape = try shapeOf(arena, own, scene.fixed, d);
-        }
-        const failure = try shapeFailure(arena, shape);
-        const thin = shape.protrusion_2003 >= thin_object;
-        const small = footprintArea(own.footprint) <= small_object * tile_size * tile_size;
-        const fallback = (thin or (small and failure != null)) and try footprintIou(arena, own.footprint.rows, own.footprint.rows, target.turn) >= same_footprint;
-        if (fallback) {
-            const same = try sameSprite(ctx, scene, target.turn, target.name);
-            target = same.target;
-            drawn = same.drawn;
-        }
+        const turned = try drawTurn(ctx, scene, target);
+        target = turned.target;
+        const drawn = turned.drawn;
+        const shape = turned.shape;
+        const failure = turned.failure;
+        const fallback = turned.fallback;
+        const mirror = turned.mirror;
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -3044,6 +3196,57 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         try cwd.rename(temp, cwd, final, io);
         try ctx.out.print("wrote {s}: side {d} of {s}, {d} damage states\n", .{ final, new_side, scene.family, scene.states.len });
     }
+}
+
+/// `shape`: each variant's intact blocks (its hand shape, or the fit)
+/// against every 2003 picture of its family: the outline IoU each, an
+/// overlay per picture (both grey, the picture alone red, the blocks alone
+/// blue), the blocks seen from the four sides (`r0`..`r3`), and the blocks
+/// refined to the outlines with their roofs kept, for the author of a hand
+/// shape. Writes `<out-dir>/<variant>/` and shape.json.
+fn shapeCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []const u8) !void {
+    const arena = ctx.arena;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    var json: std.Io.Writer.Allocating = .init(arena);
+    const w = &json.writer;
+    try w.writeAll("{\"shapes\":[");
+    for (dir_args, 0..) |dir_arg, v| {
+        const dir = try bk_tool.inputPath(arena, dir_arg);
+        const found = findFamily(arena, ctx.io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+        const label = try variantLabel(arena, found.family, found.index);
+        const pictures_dir = try std.fs.path.join(arena, &.{ out, label });
+        try std.Io.Dir.cwd().createDirPath(ctx.io, pictures_dir);
+        const scene = try loadScene(ctx, found, found.index, null, true);
+        const blocks = scene.shapes[0];
+        const refined = try refineBlocks(arena, scene.hand orelse blocks, scene.outlines, scene.eyes);
+        try w.print("{s}\n{{\"variant\":\"{s}\",\"hand\":{},\"pictures\":[", .{ if (v > 0) "," else "", label, scene.hand != null });
+        for (scene.sources, scene.eyes, scene.outlines, 0..) |source, eye, outline, e| {
+            const name = std.fs.path.basename(source.dir);
+            const iou = blocksIou(blocks, eye, outline);
+            const refined_iou = blocksIou(refined, eye, outline);
+            try w.print("{s}\n{{\"variant\":\"{s}\",\"own\":{},\"same\":{},\"iou\":{d:.4},\"refined_iou\":{d:.4}}}", .{ if (e > 0) "," else "", name, e == scene.fixed, scene.same[e], iou, refined_iou });
+            try ctx.out.print("{s}, {s}: IoU {d:.3}, refined {d:.3}\n", .{ label, name, iou, refined_iou });
+            const overlay: Image = .{ .width = outline.width, .height = outline.height, .pixels = try arena.alloc([4]u8, outline.pixels.len) };
+            for (0..outline.height) |y| for (0..outline.width) |x| {
+                const i = y * outline.width + x;
+                const in_model = castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5) != null;
+                const p = outline.pixels[i];
+                overlay.pixels[i] = if (p[3] >= 128 and in_model) .{ p[0] / 2 + 64, p[1] / 2 + 64, p[2] / 2 + 64, 255 } else if (p[3] >= 128) .{ 255, 0, 0, 255 } else if (in_model) .{ 0, 0, 255, 255 } else .{ 0, 0, 0, 0 };
+            };
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{name}), try writePng(arena, overlay));
+        }
+        for (0..4) |k| {
+            const target = turnTarget(scene, @intCast(k), "");
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "r{d}.png", .{k}), try writePng(arena, try shapePicture(arena, blocks, target)));
+        }
+        for ([_][]const Block{ blocks, refined }, [_][]const u8{ "blocks", "refined" }) |list, key| {
+            try w.print("],\n\"{s}\":[", .{key});
+            for (list, 0..) |b, j| try w.print("{s}\n{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
+        }
+        try w.writeAll("]}");
+    }
+    try w.writeAll("]}\n");
+    try writeOut(ctx, out, "shape.json", json.written());
 }
 
 /// The source map of one generated picture: a PNG (projected green, mirrored
@@ -3229,7 +3432,8 @@ fn opaqueLuma(image: Image, x: i64, y: i64) ?f64 {
 
 /// How a picture's look compares with another's: the ratio of their gradient
 /// energy (below 1 is blurred or flat, above 1 noisier), the distance of
-/// their mean colours (0..255 a channel) and of their hue histograms (L1).
+/// their mean colours (0..255 a channel) and of their hue histograms (L1,
+/// as shares of every opaque pixel).
 pub const Style = struct { sharpness: f64, colour: f64, hue: f64 };
 
 pub fn compareLooks(a: Look, b: Look) Style {
@@ -3239,9 +3443,10 @@ pub fn compareLooks(a: Look, b: Look) Style {
         colour += d * d;
     }
     var hue: f64 = 0;
-    const ha = @reduce(.Add, @as(@Vector(12, f64), a.hues));
-    const hb = @reduce(.Add, @as(@Vector(12, f64), b.hues));
-    for (a.hues, b.hues) |x, y| hue += @abs(x / @max(1, ha) - y / @max(1, hb));
+    // As shares of every opaque pixel: a snowed pillbox has a few coloured
+    // pixels, whose hue alone swung by 1.25 against its 2003 picture at a
+    // colour distance of 10.
+    for (a.hues, b.hues) |x, y| hue += @abs(x / @max(1, a.count) - y / @max(1, b.count));
     const ea = a.energy / @max(1, a.inner);
     const eb = b.energy / @max(1, b.inner);
     return .{ .sharpness = ea / @max(1e-9, eb), .colour = @sqrt(colour), .hue = hue };
@@ -3403,10 +3608,12 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
             try ctx.out.print("{s}: no other side of its colourway\n", .{name});
             continue;
         };
-        const scene = try loadScene(ctx, found, reference, side);
+        const scene = try loadScene(ctx, found, reference, side, false);
         const from = try variantLabel(arena, found.family, reference);
         const k: u2 = @intCast((side + 4 - scene.own_side) % 4);
-        const target = turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_holdout", .{name}));
+        // Drawn the way `side` draws the turn, the 2003-sprite fallback included.
+        const turned = try drawTurn(ctx, scene, turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_holdout", .{name})));
+        const target = turned.target;
         const pictures = try std.fs.path.join(arena, &.{ out, name });
         cwd.deleteTree(io, pictures) catch {};
         try cwd.createDirPath(io, pictures);
@@ -3419,7 +3626,7 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
             @intFromFloat(@round(target.eye.anchor[0] - @as(f64, @floatFromInt(held.anchor[0])) - shift[0])),
             @intFromFloat(@round(target.eye.anchor[1] - @as(f64, @floatFromInt(held.anchor[1])) - shift[1])),
         };
-        for (try drawTarget(ctx, scene, target)) |d| {
+        for (turned.drawn) |d| {
             const original = pictureOf(held, d.state) orelse continue;
             const offset = bestOffset(d.sprite.image, original, guess);
             const score = try scorePicture(arena, d.sprite.image, original, offset);
@@ -3480,8 +3687,15 @@ fn styleCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_arg: []const u8,
             for (sources.items) |source| b.add(pictureOf(source, state) orelse continue);
             if (b.count == 0) continue;
             const s = compareLooks(a, b);
+            // A damage state whose 2003 picture is the intact one (props
+            // that do not break: tarpaulin stacks, tanks) is judged as intact.
+            const intact: []const u8 = if (std.mem.endsWith(u8, state, "w")) "1w" else "1";
+            const judged = if (pictureOf(own, state)) |damaged| if (pictureOf(own, intact)) |whole|
+                if (damaged.width == whole.width and damaged.height == whole.height and std.mem.eql(u8, std.mem.sliceAsBytes(damaged.pixels), std.mem.sliceAsBytes(whole.pixels))) intact else state
+            else
+                state else state;
             try md.writer.print("| {s} | {s} | {d:.2} | {d:.1} | {d:.3} |\n", .{ name, state, s.sharpness, s.colour, s.hue });
-            try json.writer.print("{s}\n{{\"generated\":\"{s}\",\"state\":\"{s}\",\"sharpness\":{d:.4},\"colour\":{d:.2},\"hue\":{d:.4}}}", .{ if (rows > 0) "," else "", name, state, s.sharpness, s.colour, s.hue });
+            try json.writer.print("{s}\n{{\"generated\":\"{s}\",\"state\":\"{s}\",\"judged\":\"{s}\",\"sharpness\":{d:.4},\"colour\":{d:.2},\"hue\":{d:.4}}}", .{ if (rows > 0) "," else "", name, state, judged, s.sharpness, s.colour, s.hue });
             try ctx.out.print("{s}, state {s}: sharpness {d:.2}, colour {d:.1}, hue {d:.3}\n", .{ name, state, s.sharpness, s.colour, s.hue });
             rows += 1;
         }
@@ -3516,13 +3730,14 @@ const SideReport = struct {
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
-const StyleRow = struct { generated: []const u8 = "", variant: []const u8 = "", state: []const u8, iou: ?f64 = null, sharpness: f64, colour: f64, hue: f64 };
+const StyleRow = struct { generated: []const u8 = "", variant: []const u8 = "", state: []const u8, judged: ?[]const u8 = null, iou: ?f64 = null, sharpness: f64, colour: f64, hue: f64 };
 
 /// Where a picture fails the gate's floors of its damage state (winter
 /// counting as summer), or null.
 fn gateFailure(gpa: std.mem.Allocator, floors: GateFloors, row: StyleRow) !?[]const u8 {
-    const digits = std.mem.indexOfNone(u8, row.state, "0123456789") orelse row.state.len;
-    const f = floors.states.map.get(row.state[0..digits]) orelse return null;
+    const state = row.judged orelse row.state;
+    const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
+    const f = floors.states.map.get(state[0..digits]) orelse return null;
     if (row.iou) |iou| if (iou < f.iou) return try std.fmt.allocPrint(gpa, "IoU {d:.3} < {d:.2}", .{ iou, f.iou });
     if (row.sharpness < f.sharpness[0] or row.sharpness > f.sharpness[1]) return try std.fmt.allocPrint(gpa, "sharpness {d:.2} outside {d:.2}..{d:.2}", .{ row.sharpness, f.sharpness[0], f.sharpness[1] });
     if (row.colour > f.colour) return try std.fmt.allocPrint(gpa, "colour {d:.1} > {d:.0}", .{ row.colour, f.colour });

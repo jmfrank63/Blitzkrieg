@@ -1,0 +1,10 @@
+{
+  "e_shed02_4": [
+    {"lo": [-93, 4], "hi": [-5, 117], "wall": 45, "ridge": 55, "roof": "hip"}
+  ],
+  "e_shed02_5": [
+    {"lo": [-76, 0], "hi": [-2, 99], "wall": 32, "ridge": 58, "roof": "gable_y"},
+    {"lo": [-64, 44], "hi": [-1, 102], "wall": 50, "ridge": 60, "roof": "gable_x"},
+    {"lo": [-51, 3], "hi": [-1, 22], "wall": 14, "ridge": 14, "roof": "flat"}
+  ]
+}

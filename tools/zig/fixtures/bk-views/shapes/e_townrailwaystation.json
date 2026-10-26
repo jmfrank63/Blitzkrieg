@@ -1,0 +1,8 @@
+{
+  "e_townrailwaystation_4": [
+    {"lo": [-91, -1], "hi": [-1, 320], "wall": 127, "ridge": 175, "roof": "gable_y"},
+    {"lo": [-78, 66], "hi": [1, 168], "wall": 146, "ridge": 210, "roof": "gable_x"},
+    {"lo": [-78, 116], "hi": [21, 206], "wall": 102, "ridge": 174, "roof": "gable_x"},
+    {"lo": [-70, 140], "hi": [-20, 178], "wall": 200, "ridge": 274, "roof": "hip"}
+  ]
+}

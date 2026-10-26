@@ -1,0 +1,7 @@
+{
+  "housebig": [
+    {"lo": [-158, -1], "hi": [-5, 74], "wall": 26, "ridge": 71, "roof": "gable_x"},
+    {"lo": [-104, 60], "hi": [-34, 143], "wall": 22, "ridge": 67, "roof": "gable_y"},
+    {"lo": [-83, -21], "hi": [-53, -1], "wall": 12, "ridge": 32, "roof": "gable_y"}
+  ]
+}
