@@ -237,8 +237,8 @@ static void DrawSegment( SMapObject *pMO, const SGDBObjectDesc *pDesc, const SBr
 // that shows it turned: at an odd step one of the bridge kind's variant along
 // the other axis (`_01` runs along x, `_02` along y), at the half turn one of
 // its own, the span whose footprint best covers its own turned by the step (a
-// line span exactly; a begin or an end span the other variant's or other end's,
-// which may be a tile longer or narrower). Its back girder, slab and front
+// line span the other variant's line; a begin or an end span the other
+// variant's or other end's; either may be a tile longer or narrower). Its back girder, slab and front
 // girder stand at that span's places turned back by the step, so the girder
 // that is far now is drawn behind the slab. Where no span covers half of it,
 // the span keeps its 2003 pictures at its turned place. At step 0 it is drawn

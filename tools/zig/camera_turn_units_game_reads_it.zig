@@ -82,7 +82,7 @@ const units = blk: {
 const min_iou: f64 = 0.98;
 const max_colour: f64 = 1.0;
 const min_gun_iou: f64 = 0.85;
-const max_gun_colour: f64 = 12.0;
+const max_gun_colour: f64 = 16.0;
 const min_shadow_iou: f64 = 0.95;
 
 fn isGun(unit: Unit) bool {
