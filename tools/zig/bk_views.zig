@@ -2723,6 +2723,50 @@ fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirr
     return .{ .target = target, .drawn = drawn };
 }
 
+/// The family's 2003 variant that shows turn k of the scene's variant in its
+/// colourway and holds every picture the variant holds (each damage state,
+/// shadow, ground and winter picture), or null. M006 S02: a turn the 2003
+/// art already shows is that art, not a drawing of it.
+fn siblingFor(scene: Scene, k: u2) ?usize {
+    const own = scene.sources[scene.fixed];
+    for (scene.sources, scene.eyes, scene.same, 0..) |source, eye, same, e| {
+        if (e == scene.fixed or !same or eye.turn != k) continue;
+        for (own.names) |name| {
+            if (pictureOf(source, name) == null) break;
+        } else return e;
+    }
+    return null;
+}
+
+/// Turn k as the sibling's 2003 pictures themselves, unmoved on their canvas,
+/// with the zero cross moved to where the variant's turned zero cross falls
+/// in them: the sibling's eye sees a point q of the turned frame at
+/// q + shift, so the turn's zero cross is the sibling's plus the shift's
+/// projection, rounded to a whole pixel.
+fn siblingSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, e: usize) !struct { target: Turned, drawn: []Drawn } {
+    const arena = ctx.arena;
+    const sibling = scene.sources[e];
+    const shift = mfc_camera.project(.{ scene.eyes[e].shift[0], scene.eyes[e].shift[1], 0 });
+    const first = pictureOf(sibling, "1").?;
+    const target: Turned = .{
+        .turn = k,
+        .eye = .{ .anchor = .{ @as(f64, @floatFromInt(sibling.anchor[0])) + @round(shift[0]), @as(f64, @floatFromInt(sibling.anchor[1])) + @round(shift[1]) }, .turn = k },
+        .size = .{ first.width, first.height },
+        .name = name,
+    };
+    const drawn = try arena.alloc(Drawn, scene.states.len);
+    for (scene.states, drawn) |state, *d| {
+        const sprite = try asGenerated(arena, pictureOf(sibling, state).?);
+        // A copy: keepShadow may mark a pixel, and the sibling's pictures are shared.
+        const shadow: Image = .{ .width = first.width, .height = first.height, .pixels = try arena.alloc([4]u8, @as(usize, first.width) * first.height) };
+        if (pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}s", .{state}))) |s| @memcpy(shadow.pixels, s.pixels) else @memset(shadow.pixels, .{ 0, 0, 0, 0 });
+        keepShadow(sprite.image, shadow);
+        const ground = pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}g", .{state}));
+        d.* = .{ .state = state, .blocks = &.{}, .sprite = sprite, .shadow = shadow, .ground = if (ground) |g| try asGenerated(arena, g) else null, .covers = &.{} };
+    }
+    return .{ .target = target, .drawn = drawn };
+}
+
 /// A 2003 picture as a generated one, every pixel projected.
 fn asGenerated(gpa: std.mem.Allocator, image: Image) !Generated {
     const out: Generated = .{ .image = image, .kinds = try gpa.alloc(Kind, image.pixels.len), .classes = try gpa.alloc(u8, image.pixels.len) };
@@ -2733,13 +2777,18 @@ fn asGenerated(gpa: std.mem.Allocator, image: Image) !Generated {
 
 /// A turn drawn: by the blocks, or where the blocks cannot draw a thin or
 /// small object, as its 2003 pictures (`sameSprite`), with the intact
-/// shape's gate values.
-const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool };
+/// shape's gate values; a turn a 2003 variant of its colourway shows, as
+/// that variant's pictures (`siblingSprite`, `sibling` names it).
+const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool, sibling: ?[]const u8 = null };
 
 fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
     const arena = ctx.arena;
     const own = scene.sources[scene.fixed];
     const new_side = (scene.own_side - 1 + @as(u8, blocks_target.turn)) % 4 + 1;
+    if (siblingFor(scene, blocks_target.turn)) |e| {
+        const same = try siblingSprite(ctx, scene, blocks_target.turn, blocks_target.name, e);
+        return .{ .target = same.target, .drawn = same.drawn, .shape = .{}, .failure = null, .fallback = true, .mirror = false, .sibling = std.fs.path.basename(scene.sources[e].dir) };
+    }
     const drawn = try drawTarget(ctx, scene, blocks_target);
     const shown = for (scene.sources) |source| {
         if (source.side == new_side) break pictureOf(source, "1").?;
@@ -2813,7 +2862,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const mirror = turned.mirror;
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -3432,6 +3481,7 @@ const SideReport = struct {
     new_side: u8,
     fallback: bool,
     mirror: bool = false,
+    sibling: []const u8 = "",
     hand: bool = false,
     shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
@@ -3515,7 +3565,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                 generated += 1;
                 if (variant.side != null) try new_sides.writer.print("{s}{d}", .{ if (k > 1) ", " else "", side.new_side });
                 hand = hand or side.hand;
-                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "r{d}{s}", .{ k, if (side.mirror) " mirrored" else "" }));
+                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "r{d}{s}{s}", .{ k, if (side.mirror) " mirrored" else if (side.sibling.len > 0) " = " else "", side.sibling }));
                 if (side.shape.failure.len > 0 and !side.fallback and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} shape: {s}", .{ k, side.shape.failure });
                 for (side.pictures) |picture| {
                     if (std.mem.endsWith(u8, picture.picture, "g")) continue;
