@@ -54,7 +54,7 @@ private:
 	WORD wGroup;												// group ID, this command for
 	bool bPlaceInQueue;									// do we need place this command in the group's queue
 public:
-	CGroupCommand() { }
+	CGroupCommand() : nObjId( 0 ), wGroup( 0 ), bPlaceInQueue( false ) { }
 	CGroupCommand( const SAIUnitCmd *pCommand, const WORD wGroup, bool bPlaceInQueue, IAILogic *pAILogic );
 	virtual void Execute( IAILogic *pAILogic );
 	virtual void Store( IDataStream *pStream );
@@ -74,7 +74,7 @@ private:
 	WORD wID;														// group ID - result of this command :)
 	int nPlayer;												// player number
 public:
-	CUnitCommand() { }
+	CUnitCommand() : wID( 0 ), nPlayer( 0 ) { }
 	CUnitCommand( const struct SAIUnitCmd *pCommand, const WORD wID, const int _nPlayer );
 	virtual void Execute( IAILogic *pAILogic );
 	virtual void Store( IDataStream *pStream );
@@ -94,7 +94,7 @@ private:
 	int nAreaType;											// type of the area to show
 	bool bShow;													// show or hide area
 public:
-	CShowAreasCommand() { }
+	CShowAreasCommand() : wGroupID( 0 ), nAreaType( 0 ), bShow( false ) { }
 	CShowAreasCommand( const WORD _wGroupID, const int _nAreaType, const bool _bShow )
 		: wGroupID( _wGroupID ), nAreaType( _nAreaType ), bShow( _bShow ) {  }
 	virtual void Execute( IAILogic *pAILogic );

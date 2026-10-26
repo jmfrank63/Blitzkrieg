@@ -4,6 +4,7 @@
 #include "SinglePlayerTransceiver.h"
 #include "AILogicCommandInternal.h"
 #include "CommandsHistoryInterface.h"
+#include "ReplayCore.h"
 
 #include "../Input/Input.h"
 int CSinglePlayerTransceiver::operator&( IStructureSaver &ss )
@@ -60,9 +61,11 @@ void CSinglePlayerTransceiver::DoSegments()
 	{
 		if ( pAILogic && !pAILogic->IsSuspended() )
 		{
-			pCmdsHistory->ExecuteSegmentCommands( nCommonSegment, this );			
+			pCmdsHistory->ExecuteSegmentCommands( nCommonSegment, this );
 			pAILogic->Segment();
 			++nCommonSegment;
+			if ( NReplay::IsStateHashSegment( nCommonSegment ) )
+				pCmdsHistory->AddStateHash( nCommonSegment, pAILogic->GetStateHash() );
 		}
 	}
 }

@@ -25,5 +25,10 @@ interface ICommandsHistory : public IRefCount
 	
 	virtual const char* STDCALL GetModName() const = 0;
 	virtual const char* STDCALL GetModVersion() const = 0;
+
+	// The AI's state hash after nSegment segments (NReplay::IsStateHashSegment):
+	// kept with the history and, while a replay plays, compared with the one it
+	// recorded at the same segment.
+	virtual void STDCALL AddStateHash( const int nSegment, const unsigned int nHash ) = 0;
 };
 #endif // COMMANDS_HISTORY_INTERFACE_H__

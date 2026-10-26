@@ -193,5 +193,14 @@ interface IAILogic : public IRefCount
 	// asks this every frame: the answer is pure, creates nothing, and
 	// never advances the synced random sequence.
 	virtual bool STDCALL CanBuildLongObjectLine( const bool bEntrenchment, const CVec2 &vFrom, const CVec2 &vTo ) = 0;
+
+	// A CRC of every unit's position, direction, HP and morale and of the
+	// shells in flight, the same data as the multiplayer sync check
+	// (UpdateCheckSum) but taken fresh each call and sent nowhere: a replay
+	// records it every second and its playback compares (Main/ReplayCore.h).
+	virtual unsigned int STDCALL GetStateHash() = 0;
+	// The difficulty the player chose (0 easy .. 2 hard), without a script's
+	// cheat level, which the mission's own script sets again on playback.
+	virtual int STDCALL GetChosenDifficultyLevel() const = 0;
 };
 #endif // __AI_LOGIC_H__

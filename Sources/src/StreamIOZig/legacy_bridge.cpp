@@ -1771,8 +1771,37 @@ public:
         return static_cast<IRandomGenSeed *>(seed);
     }
     unsigned int BK_STDCALL Get() override { return bk_random_get(); }
-    void BK_STDCALL Store(void *) override {}
-    void BK_STDCALL Restore(void *) override {}
+    // The state as four bytes on a stream (the original wrote its whole ISAAC
+    // state here): how CCommandsHistory takes a replay's StartRandomState and
+    // sets it again on playback.
+    void BK_STDCALL Store(void *stream) override
+    {
+        unsigned int state = bk_random_get_state();
+        if (stream) static_cast<IDataStream *>(stream)->Write(&state, sizeof(state));
+    }
+    void BK_STDCALL Restore(void *stream) override
+    {
+        unsigned int state = 0;
+        if (stream && static_cast<IDataStream *>(stream)->Read(&state, sizeof(state)) == int(sizeof(state)))
+            bk_random_set_state(state);
+    }
+    // Chunk 14 of a save (CMainLoop::Serialize): the generator's whole state as
+    // chunk 1, so a loaded game goes on with the random state it was saved
+    // with, as the original's ISAAC did (CRandomGenerator::operator&). Without
+    // it the same save went on differently in every process that loaded it. A
+    // save written before this has an empty chunk 14: the state is left as it
+    // is, which is how such a save has always loaded in the port.
+    int BK_STDCALL operator&(IStructureSaver &ss) override {
+        if (!ss.IsReading()) {
+            unsigned int state = bk_random_get_state();
+            ss.DataChunk('\x01', &state, sizeof(state));
+        } else if (ss.CountChunks('\x01') == 1) {
+            unsigned int state = 0;
+            ss.DataChunk('\x01', &state, sizeof(state));
+            bk_random_set_state(state);
+        }
+        return 0;
+    }
 };
 
 static Singleton *singleton = 0;

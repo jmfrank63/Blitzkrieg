@@ -53,6 +53,7 @@ class CAILogic : public IAILogic
 	void InitStartCommands();
 	void LaunchStartCommand( const SAIStartCommand &startCommand, IRefCount **pUnitsBuffer, const int nSize );
 	void UpdateCheckSum( bool bSend );
+	void AddUnitsToCheckSum( uLong *pCheckSum ) const;
 
 	void LoadAvailableTrucks();
 	bool CanShowVisibilities() const;
@@ -194,5 +195,8 @@ public:
 	
 	virtual void STDCALL GetGridUnitsCoordinates( const int nGroup, const CVec2 &vGridCenter, CVec2 **pCoord, int *pnLen );
 	virtual bool STDCALL CanBuildLongObjectLine( const bool bEntrenchment, const CVec2 &vFrom, const CVec2 &vTo );
+
+	virtual unsigned int STDCALL GetStateHash();
+	virtual int STDCALL GetChosenDifficultyLevel() const;
 };
 #endif // __AI_LOGIC_INTERNAL_H__
