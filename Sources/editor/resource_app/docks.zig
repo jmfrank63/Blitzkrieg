@@ -26,6 +26,7 @@ const lifecycle = @import("lifecycle.zig");
 const il = @import("image_logic.zig");
 const gui_dock = @import("gui_dock.zig");
 const lifecycle_ui = @import("lifecycle_ui.zig");
+const sides_dock = @import("sides_dock.zig");
 
 const ig = imgui.c;
 const l10n = kit.l10n;
@@ -217,9 +218,11 @@ pub const Docks = struct {
     image: ImageFrame = .{},
     /// GUIFrame's canvas, template palette and inspector for a game UI screen.
     gui: gui_dock.GuiDock,
+    /// The Building editor's Sides window (M005 S08).
+    sides: sides_dock.Sides,
 
     pub fn init(gpa: std.mem.Allocator, io: std.Io, real: *c_bridge.RealResBridge) Docks {
-        return .{ .gpa = gpa, .io = io, .real = real, .thumbs = .{ .cache = Cache.init(gpa) }, .gui = gui_dock.GuiDock.init(gpa, io) };
+        return .{ .gpa = gpa, .io = io, .real = real, .thumbs = .{ .cache = Cache.init(gpa) }, .gui = gui_dock.GuiDock.init(gpa, io), .sides = sides_dock.Sides.init(gpa, io) };
     }
 
     /// Before the host stops: the thumbnails' textures and the preview scene
@@ -232,6 +235,7 @@ pub const Docks = struct {
         self.thumbs.cache.deinit();
         self.image.release();
         self.gui.deinit();
+        self.sides.deinit();
     }
 
     /// A mod switch: the pictures may differ under the new mod.
@@ -377,6 +381,8 @@ pub const Docks = struct {
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit, life.is_open and life.active == .effect);
         if (self.show_function) self.drawFunction(life, selected);
         self.drawImageFrame(project_folder, life, selected);
+        if (sides_dock.picked()) |png| self.sides.import(png);
+        if (life.is_open and life.doc.kind == .build) self.sides.draw(self.real, life.doc.pathSlice());
         self.gui.draw(self.real.bridge(), life);
         self.drawPreviewLine();
         self.drawParticleStatus();

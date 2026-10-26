@@ -3116,7 +3116,7 @@ pub fn build(b: *std.Build) void {
     views_game_run.step.dependOn(install_game_step);
     views_game_run.step.dependOn(bk_views_step);
     views_game_run.step.dependOn(bk_sprite.install);
-    const views_game_step = b.step("building-views-game-reads-it", "Make side 3 of e_ctownhouse01 and the other sides of e_frenchshed01 with bk-views side into a scratch mod, draw all eight sides on the real Game, four maps of two buildings, and measure each shot against the sprites");
+    const views_game_step = b.step("building-views-game-reads-it", "Make side 3 of e_ctownhouse01 and, as the Resource Editor's Generate sides does, the other sides of a modder's copy of e_frenchshed01 with bk-views side into a scratch mod, draw all eight sides on the real Game, four maps of two buildings, and measure each shot against the sprites");
     views_game_step.dependOn(&views_game_tests.step);
     if (test_mode == .run) views_game_step.dependOn(&views_game_run.step);
 
@@ -3231,7 +3231,7 @@ pub fn build(b: *std.Build) void {
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
-    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, &.{ bk_views, bk_sprite.tool }, test_mode) else null;
     // Phase 7: ELK, on the editors' platforms and installed beside them, but
     // with no engine (D-01); the package steps do not stage it yet.
     if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_dll_crt_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -4566,10 +4566,14 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "resource_core", .module = resource_core_module },
             .{ .name = "editor_kit", .module = editor_kit_module },
+            // The Building editor's Sides view reads packs as bk-views does (M005 S08).
+            .{ .name = "bk_views_pack", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/bk_views_pack.zig"), .target = target, .optimize = .debug }) },
         },
     });
     const resource_app_logic_tests = b.addTest(.{ .root_module = resource_app_logic_module });
     const resource_app_logic_tests_run = b.addRunArtifact(resource_app_logic_tests);
+    // sides_logic's test reads a tracked building in Data/.
+    resource_app_logic_tests_run.setCwd(b.path("."));
     const resource_app_c_bridge_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
         .target = target,
@@ -11635,6 +11639,8 @@ fn addResourceEditor(
     sdl_include: std.Build.LazyPath,
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
+    /// bk-views and bk-sprite, beside the editor for the Building editor's Sides view (M005 S08).
+    views_tools: []const *std.Build.Step.Compile,
     test_mode: build_support.TestMode,
 ) *std.Build.Step.Compile {
     const engine: MapEditorEngine = .{
@@ -11668,6 +11674,7 @@ fn addResourceEditor(
             .{ .name = "editor_kit", .module = app_kit.kit },
             .{ .name = "resource_core", .module = resource_core_module },
             .{ .name = "resource_bridge_c", .module = resourceBridgeC(b, target, optimize, toolchain) },
+            .{ .name = "bk_views_pack", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/bk_views_pack.zig"), .target = target, .optimize = optimize }) },
         },
     });
     // resource_bridge.h (and the bridge.h it includes), for the app's translation.
@@ -11688,6 +11695,13 @@ fn addResourceEditor(
     // Beside Game and MapEditor: the engine's roots are the installation.
     const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
     install_exe.step.dependOn(install_game_step);
+    // Generate sides runs bk-views beside the editor, which runs bk-sprite beside
+    // itself; there bk-sprite finds the engine libraries on every host.
+    for (views_tools) |tool| {
+        const install_tool = b.addInstallArtifact(tool, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } }, .pdb_dir = .disabled });
+        install_tool.step.dependOn(install_game_step);
+        install_exe.step.dependOn(&install_tool.step);
+    }
     const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
     install_step.dependOn(&install_exe.step);
     // The bundled Noto faces and their licence beside the executable (D078);
@@ -12097,7 +12111,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
     .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
     .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
-    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 399 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 411 },
     .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
     .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
     .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
@@ -12676,7 +12690,24 @@ const resource_auto_bld =
     "393:do=export," ++
     "394:expect=exported," ++
     "397:shot=bld_saved," ++
-    "398:expect=shot_lit:bld_saved,";
+    "398:expect=shot_lit:bld_saved," ++
+    // M005 S08: the Sides window on a scratch copy of a shipped building with winter packs, its three
+    // turns generated by bk-views beside the editor, then one turn's damaged picture imported from a
+    // tracked PNG through bk-sprite compose-pack. Measured on the shots: every cell's picture holds side
+    // pixels (not its ground colour 0x2e3a6e), and the imported picture's 0x10e0a0 is drawn.
+    "399:do=sides_open:ussr/summer/shed01," ++
+    "400:expect=sides_missing:3," ++
+    "401:do=sides_generate," ++
+    "402:expect=sides_missing:0," ++
+    "403:shot=bld_sides," ++
+    "404:expect=shot_sides:bld_sides/400," ++
+    "405:do=sides_look:3ws," ++
+    "406:shot=bld_sides_shadow," ++
+    "407:expect=shot_sides:bld_sides_shadow/40," ++
+    "408:do=sides_look:2," ++
+    "408:do=sides_import:2/{fix}/bld/side-import.png," ++
+    "409:shot=bld_sides_import," ++
+    "410:expect=shot_colour:bld_sides_import/10e0a0/min/2000,";
 
 /// S11 Bridge: span marks, grid and the fire and smoke points.
 const resource_auto_bdg =

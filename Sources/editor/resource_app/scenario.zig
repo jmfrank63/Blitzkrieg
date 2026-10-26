@@ -70,6 +70,14 @@
 //!   do=keyframe:delete/<i>  key i made the active one and Delete pressed (key 0 is protected)
 //!   {dir}, {fix}, {mods} and {data} stand in a path for the scratch folder, the fixtures, the mods folder (BK_MODS_ROOT, else the installation's) and the installation's Data folder
 //!   do=image_open           the Image window drawn over the open mip, chc, cgc or mdc, placed clear of the tree
+//!   do=sides_open:<variant> a copy of the shipped building <variant> (below Data/Buildings) in
+//!                           {dir}/sides/data/buildings, shown by the Building editor's Sides window
+//!   do=sides_generate       its Generate sides, waited for (bk-views side beside the editor)
+//!   do=sides_look:<state>[w][s]   the state, winter and shadow the four cells show
+//!   do=sides_import:<turn>/<png>   Import side picture of the state shown into that turn's cell, waited for
+//!          sides_missing:<n>  the Sides cells drawn as missing in the last frame
+//!          shot_sides:<shot>/<n>  every Sides cell's picture, as drawn in the last frame, holds at least n pixels
+//!          that are not the cell's ground colour (a missing side fails)
 //!   do=image_select         the first objective, mission or chapter made the active item (the tree's selection)
 //!   do=image_click:<x>/<y>  a pointer click on that picture pixel (place mode: the active item goes there)
 //!   do=image_crosses:<on|off>   the Show crosses checkbox clicked
@@ -158,6 +166,7 @@ const docks_mod = @import("docks.zig");
 const terrain = @import("terrain_logic.zig");
 const view_logic = @import("view_logic.zig");
 const game_reads = @import("game_reads_logic.zig");
+const sides_dock = @import("sides_dock.zig");
 
 const c = c_bridge.c;
 const ig = imgui.c;
@@ -972,6 +981,10 @@ const Runner = struct {
         if (eql(u8, name, "game_shot_clear")) return self.gameShotClear();
         if (eql(u8, name, "game_shot")) return self.gameShot(named.arg);
         if (eql(u8, name, "image_open")) return self.imageOpen();
+        if (eql(u8, name, "sides_open")) return self.sidesOpen(named.arg);
+        if (eql(u8, name, "sides_generate")) return self.sidesGenerate();
+        if (eql(u8, name, "sides_look")) return self.sidesLook(named.arg);
+        if (eql(u8, name, "sides_import")) return self.sidesImport(named.arg);
         if (eql(u8, name, "image_select")) return self.imageSelect();
         if (eql(u8, name, "image_click")) return self.imageClick(named.arg);
         if (eql(u8, name, "image_crosses")) return self.imageCrosses(named.arg);
@@ -1686,6 +1699,110 @@ const Runner = struct {
         if (frame.texture == null) return self.fail("image_open: no picture is shown: {s}", .{frame.note[0..frame.note_len]});
         const shown = frame.shown orelse return self.fail("image_open: the picture was not drawn", .{});
         std.debug.print("resource-editor: auto: image window shows a {d}x{d} picture at {d:.0},{d:.0}\n", .{ frame.width, frame.height, shown.x, shown.y });
+        return null;
+    }
+
+    /// The Sides window as the auto tier places it: below the grid tools, wide
+    /// enough for four turns of a shed at full size.
+    const sides_window = docks_mod.Rect{ .x = 300, .y = 300, .w = 760, .h = 330 };
+
+    fn sides(self: *Runner) ?*sides_dock.Sides {
+        if (self.docks) |*d| return &d.sides;
+        _ = self.fail("the Sides window is not open (do=sides_open first)", .{});
+        return null;
+    }
+
+    /// do=sides_open:<variant>: a scratch copy of a shipped building, outside
+    /// any region and season as a modder's export is, shown by the Sides window
+    /// of the open Building project.
+    fn sidesOpen(self: *Runner, variant: []const u8) ?[]const u8 {
+        if (!self.life.is_open or self.life.doc.kind != .build) return self.fail("sides_open: the open project is not a Building", .{});
+        var from_buffer: [logic.path_capacity]u8 = undefined;
+        const from = std.fmt.bufPrint(&from_buffer, "{s}Data{c}Buildings{c}{s}", .{ self.base_root, std.fs.path.sep, std.fs.path.sep, variant }) catch return self.fail("the path is too long", .{});
+        var to_buffer: [logic.path_capacity]u8 = undefined;
+        const to = std.fmt.bufPrint(&to_buffer, "{s}{c}sides{c}data{c}buildings{c}{s}", .{ self.dir, std.fs.path.sep, std.fs.path.sep, std.fs.path.sep, std.fs.path.sep, std.fs.path.basename(variant) }) catch return self.fail("the path is too long", .{});
+        std.Io.Dir.cwd().deleteTree(self.io, std.fs.path.dirname(to).?) catch {};
+        if (self.copyTree(from, to)) |why| return why;
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const s = &self.docks.?.sides;
+        s.override = .{ .x = sides_window.x, .y = sides_window.y, .w = sides_window.w, .h = sides_window.h };
+        // The first frame fills the folder in from the project's export; the copy replaces it.
+        if (self.pumpFrame("sides_open")) |why| return why;
+        s.setVariant(to);
+        var pumped: u32 = 0;
+        while (pumped < 2) : (pumped += 1) if (self.pumpFrame("sides_open")) |why| return why;
+        std.debug.print("resource-editor: auto: sides of {s}: {d} of 4 missing\n", .{ to, s.missing() });
+        return null;
+    }
+
+    /// Waits for the Sides window's tool and draws the pictures it left.
+    fn sidesWait(self: *Runner, what: []const u8, s: *sides_dock.Sides) ?[]const u8 {
+        if (!s.waitJob(300)) return self.fail("{s}: the tool did not end within 300 s", .{what});
+        var pumped: u32 = 0;
+        while (pumped < 2) : (pumped += 1) if (self.pumpFrame(what)) |why| return why;
+        std.debug.print("resource-editor: auto: {s}: {s}\n", .{ what, s.noteText() });
+        if (s.job != null or s.failed) return self.fail("{s}: {s}", .{ what, s.noteText() });
+        return null;
+    }
+
+    fn sidesGenerate(self: *Runner) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        s.generate();
+        return self.sidesWait("sides_generate", s);
+    }
+
+    fn sidesLook(self: *Runner, arg: []const u8) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        if (arg.len == 0 or arg[0] < '1' or arg[0] > '9') return self.fail("sides_look needs <state>[w][s]", .{});
+        s.look = .{ .state = arg[0] - '0', .winter = std.mem.indexOfScalar(u8, arg, 'w') != null, .shadow = std.mem.indexOfScalar(u8, arg, 's') != null };
+        var pumped: u32 = 0;
+        while (pumped < 2) : (pumped += 1) if (self.pumpFrame("sides_look")) |why| return why;
+        return null;
+    }
+
+    fn sidesImport(self: *Runner, arg: []const u8) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("sides_import needs <turn>/<png>", .{});
+        const turn = std.fmt.parseInt(usize, arg[0..slash], 10) catch return self.fail("sides_import needs <turn>/<png>", .{});
+        if (turn >= 4) return self.fail("sides_import: turn {d} is not 0..3", .{turn});
+        var buffer: [logic.path_capacity]u8 = undefined;
+        const png = self.expand(&buffer, arg[slash + 1 ..]) orelse return self.fail("the path is too long", .{});
+        s.selected = turn;
+        s.import(png);
+        return self.sidesWait("sides_import", s);
+    }
+
+    /// `<shot>/<n>`: in each Sides cell's picture rect of the last frame, the
+    /// pixels of the shot that are not the cell's ground colour. Printed per cell.
+    fn shotSides(self: *Runner, arg: []const u8) ?[]const u8 {
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_sides needs <shot>/<n>", .{});
+        const least = std.fmt.parseInt(usize, arg[slash + 1 ..], 10) catch return self.fail("shot_sides needs <shot>/<n>", .{});
+        const s = self.sides() orelse return self.failure;
+        var bytes: []u8 = &.{};
+        const shot = self.loadShot("shot_sides", arg[0..slash], &bytes) orelse return self.failure;
+        defer self.gpa.free(bytes);
+        for (s.shown, 0..) |shown, k| {
+            const rect = shown orelse return self.fail("expect=shot_sides:{s}: turn {d} was drawn as missing", .{ arg, k });
+            const x0: u32 = @intFromFloat(@max(0, @ceil(rect.x * shot.scale)));
+            const y0: u32 = @intFromFloat(@max(0, @ceil(rect.y * shot.scale)));
+            const x1: u32 = @min(shot.tga.width, @as(u32, @intFromFloat(@floor((rect.x + rect.w) * shot.scale))));
+            const y1: u32 = @min(shot.tga.height, @as(u32, @intFromFloat(@floor((rect.y + rect.h) * shot.scale))));
+            var count: usize = 0;
+            var ground: usize = 0;
+            var y = y0;
+            while (y < y1) : (y += 1) {
+                var x = x0;
+                while (x < x1) : (x += 1) {
+                    const p = shot.tga.pixel(x, y);
+                    const is_ground = p[2] == sides_dock.ground_rgb[0] and p[1] == sides_dock.ground_rgb[1] and p[0] == sides_dock.ground_rgb[2];
+                    ground += @intFromBool(is_ground);
+                    count += @intFromBool(!is_ground);
+                }
+            }
+            std.debug.print("resource-editor: auto: {s} turn {d}: {d} side pixels, {d} ground pixels\n", .{ arg[0..slash], k, count, ground });
+            if (ground == 0) return self.fail("expect=shot_sides:{s}: turn {d}'s cell ground is not in the shot", .{ arg, k });
+            if (count < least) return self.fail("expect=shot_sides:{s} was false: turn {d} holds {d} pixels, at least {d} wanted", .{ arg, k, count, least });
+        }
         return null;
     }
 
@@ -2931,6 +3048,13 @@ const Runner = struct {
         if (eql(u8, name, "shot_minimap")) return self.shotMinimap(arg);
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         if (eql(u8, name, "shot_mark_cross")) return self.shotMarkCross(arg);
+        if (eql(u8, name, "shot_sides")) return self.shotSides(arg);
+        if (eql(u8, name, "sides_missing")) {
+            const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("sides_missing needs a count", .{});
+            const view = self.sides() orelse return self.failure;
+            if (view.missing() != want) return self.fail("expect=sides_missing:{s} was false: {d} cells drawn as missing", .{ arg, view.missing() });
+            return null;
+        }
         if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
         if (eql(u8, name, "gui_rect")) return self.guiRect(arg);
         if (eql(u8, name, "gui_same")) return self.guiSame(arg);

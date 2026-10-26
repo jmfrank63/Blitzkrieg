@@ -34,6 +34,7 @@ test {
     _ = @import("grid_logic.zig");
     _ = @import("keyframe_logic.zig");
     _ = @import("terrain_logic.zig");
+    _ = @import("sides_logic.zig");
 }
 
 // --- Editors menu ---------------------------------------------------------
