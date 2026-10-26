@@ -2052,3 +2052,122 @@ test "a tripped delete breaker on a paired profile is never resynced automatical
         try std.testing.expect(fileExists(remote));
     }
 }
+
+test "a confirmed repair resyncs a paired profile whose sync demands it" {
+    // A sync bisync refuses with the resync trailer for some cause other than
+    // lost listings waits for the player, and the repair the player confirms
+    // in Settings > Cloud is the pairing's resync.
+    const gpa = std.testing.allocator;
+
+    var threaded: std.Io.Threaded = .init(gpa, .{});
+    defer threaded.deinit();
+    const tio = threaded.io();
+
+    const binary = liveRclone(gpa, tio) orelse return;
+    defer gpa.free(binary);
+
+    var fixture = try Fixture.init(gpa);
+    defer fixture.deinit();
+    const game_dir = try fixture.makeDir("game");
+    defer gpa.free(game_dir);
+    const cloud = try fixture.makeDir("cloud");
+    defer gpa.free(cloud);
+    const profile_dir = try fixture.makeDir("p1");
+    defer gpa.free(profile_dir);
+    const save = try path.join(gpa, &.{ profile_dir, "quick.sav" });
+    defer gpa.free(save);
+    try fixture.write(save, "v1");
+
+    var d = try daemon.Daemon.spawn(gpa, tio, .{ .binary = binary, .game_dir = game_dir });
+    defer d.shutdown();
+    try d.waitReady(daemon.ready_timeout_ms);
+
+    var client = try rc.Client.init(gpa, tio, d.endpoint());
+    defer client.deinit();
+    try createAliasRemote(gpa, &client, "bkremote", cloud);
+
+    var eng = engine.Engine.init(gpa, tio, &client);
+    defer eng.deinit();
+
+    const ctx: engine.RunContext = .{
+        .path1 = profile_dir,
+        .remote = "bkremote",
+        .profile = "hero",
+        .game_dir = game_dir,
+        .profile_id = "hero-id",
+        .remote_fingerprint = "alias:cloud",
+    };
+    {
+        var outcome = eng.pair(ctx) catch |err| {
+            try std.testing.expectEqualStrings("", eng.lastErrorText());
+            return err;
+        };
+        outcome.deinit(gpa);
+    }
+
+    // Path2's listing loses its entries (measured, v1.75.0: bisync ignores
+    // the bad line, then refuses with `Empty prior Path2 listing`, its guard
+    // against syncing to a wiped directory). A missing listing would not do:
+    // bisync reports even one as `cannot find prior Path1 or Path2
+    // listings`, the case the engine repairs by itself.
+    const workdir = try plan.workdirPath(gpa, game_dir);
+    defer gpa.free(workdir);
+    {
+        var dir = try std.Io.Dir.cwd().openDir(tio, workdir, .{ .iterate = true });
+        defer dir.close(tio);
+        var it = dir.iterate();
+        var emptied = false;
+        while (try it.next(tio)) |entry| {
+            if (std.mem.endsWith(u8, entry.name, ".path2.lst")) {
+                try dir.writeFile(tio, .{ .sub_path = entry.name, .data = "garbage\n" });
+                emptied = true;
+                break;
+            }
+        }
+        try std.testing.expect(emptied);
+    }
+
+    const remote_m2 = try path.join(gpa, &.{ cloud, "profiles", "hero", "m2.sav" });
+    defer gpa.free(remote_m2);
+    try fixture.write(remote_m2, "from-other-machine");
+
+    try std.testing.expectError(error.SyncFailed, eng.syncOnce(ctx));
+    try std.testing.expectEqual(engine.Outcome.needs_resync, eng.lastOutcome());
+    try std.testing.expect(!eng.last_listings_lost);
+    try std.testing.expect(!eng.repaired_listings);
+    const local_m2 = try path.join(gpa, &.{ profile_dir, "m2.sav" });
+    defer gpa.free(local_m2);
+    try std.testing.expect(!fileExists(local_m2));
+    // Pairing still refuses: the repair is its own, confirmed call.
+    try std.testing.expectError(error.AlreadyPaired, eng.pair(ctx));
+
+    {
+        var outcome = eng.repair(ctx) catch |err| {
+            try std.testing.expectEqualStrings("", eng.lastErrorText());
+            return err;
+        };
+        defer outcome.deinit(gpa);
+        try std.testing.expectEqual(plan.SentinelAction.already_present, outcome.sentinel);
+        const local_trash = try path.join(gpa, &.{ profile_dir, plan.local_trash_dir_name, outcome.run_id });
+        defer gpa.free(local_trash);
+        try std.testing.expect(try dirEmptyOrMissing(tio, local_trash));
+        const remote_trash = try path.join(gpa, &.{ cloud, "trash", "hero", outcome.run_id });
+        defer gpa.free(remote_trash);
+        try std.testing.expect(try dirEmptyOrMissing(tio, remote_trash));
+    }
+    try expectFileContent(gpa, &.{ profile_dir, "m2.sav" }, "from-other-machine");
+    try expectFileContent(gpa, &.{ profile_dir, "quick.sav" }, "v1");
+    try expectFileContent(gpa, &.{ cloud, "profiles", "hero", "quick.sav" }, "v1");
+
+    // Repaired: the next run is an ordinary sync again.
+    try fixture.write(save, "v2");
+    {
+        const run_id = eng.syncOnce(ctx) catch |err| {
+            try std.testing.expectEqualStrings("", eng.lastErrorText());
+            return err;
+        };
+        defer gpa.free(run_id);
+        try std.testing.expect(!eng.repaired_listings);
+    }
+    try expectFileContent(gpa, &.{ cloud, "profiles", "hero", "quick.sav" }, "v2");
+}

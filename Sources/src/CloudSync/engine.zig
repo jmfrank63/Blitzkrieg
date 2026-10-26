@@ -471,7 +471,25 @@ pub const Engine = struct {
             // A record that says "not paired" is a previous attempt that
             // never succeeded; pairing again is exactly right.
         }
+        return self.pairResync(ctx);
+    }
 
+    /// The player's confirmed repair, from Settings > Cloud after a
+    /// `needs_resync` or `out_of_sync` failure: the first pairing's resync
+    /// run again on a profile that is already paired, and its record
+    /// replaced with this run's. Unlike `pair` it does not refuse a paired
+    /// profile, because the player has just been told what a resync does
+    /// and said yes: nothing is deleted, a file missing on one side is
+    /// copied, and the older of two differing files goes to its own side's
+    /// trash. The remote it repairs against is the one configured now, so
+    /// the record takes that fingerprint.
+    pub fn repair(self: *Engine, ctx: RunContext) PairError!PairOutcome {
+        return self.pairResync(ctx);
+    }
+
+    /// One pairing resync and its state record, shared by `pair` and
+    /// `repair`.
+    fn pairResync(self: *Engine, ctx: RunContext) PairError!PairOutcome {
         const sentinel = try self.prepareResync(ctx);
 
         const run_id = try self.prepareRun(ctx);

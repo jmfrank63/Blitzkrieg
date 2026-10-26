@@ -228,7 +228,7 @@ Rules:
 slashes) each language overlay must hold. Every line that is not a comment or one of the two directives is a
 seed key; all nine languages hold the seed keys. A language widens its scope with:
 
-- `whole-database <code>`: every text the Game reads (`databaseKeys` in `tools/zig/l10n_check.zig`, 3,544 texts): each
+- `whole-database <code>`: every text the Game reads (`databaseKeys` in `tools/zig/l10n_check.zig`, 3,547 texts): each
   `.elk` original of the database (found case-insensitively), each `.txt` of the database without one, and each text of
   the Game's own text trees (`Data/Textes`, `Data/Scenarios`, `Data/Units`, `Data/Buildings`, `Data/Medals`,
   `Data/Objects`, `Data/movies`) the database lacks, such as the escape menu's save and load captions, the mod screen
@@ -241,7 +241,7 @@ finding, and an overlay text outside the language's scope is `extra` (the detail
 it). The run prints one `l10n-check: scope: <code>: <seed | seed + prefixes ... | whole-database>, <n> keys checked`
 note per language.
 
-Progress per language (M003 S01 to S06, 2026-10-25): all nine languages are `whole-database`, all 3,544 texts translated
+Progress per language (M003 S01 to S06, 2026-10-25): all nine languages are `whole-database`, all 3,547 texts translated
 and passing every rule (completeness, placeholders, glyphs, glossary terms and fit); all are machine translations not
 reviewed by a native speaker. The English source of a key (`readBase` in `tools/zig/l10n_check.zig`) is the text the
 Game shows from its own text trees (`Data/Textes`, `Data/Scenarios`, `Data/Units`, ...), else its ELK original, else

@@ -403,6 +403,16 @@ namespace NCloudSync
 		return nSlot;
 	}
 
+	int Repair( const char *pszProfile, bool bBackupConfig )
+	{
+		// No pair fallback: the repair is itself the pairing's resync, and a
+		// profile that never paired gets the same run from it.
+		const int nLibraryHandle = BeginJob( "repair", pszProfile, bBackupConfig );
+		if ( nLibraryHandle < 0 )
+			return -1;
+		return WrapLibraryHandle( nLibraryHandle );
+	}
+
 	EState Poll( int nHandle )
 	{
 		SJob *pJob = JobAt( nHandle );

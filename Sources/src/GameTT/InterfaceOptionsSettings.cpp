@@ -54,6 +54,10 @@ enum EButtonsInOptionsSettings
 	E_BUTTON_CLOUD_CREDENTIALS	= 10013,
 	E_BUTTON_CLOUD_BACKUPS			= 10014,
 	E_BUTTON_CLOUD_SYNC_NOW		= 10015,
+	// Repair..., in Sync now's place while the last run failed needs_resync
+	// or out_of_sync - the two failures the menu answers with "Repair from
+	// Settings > Cloud".
+	E_BUTTON_CLOUD_REPAIR			= 10016,
 };
 bool CInterfaceOptionsSettings::OpenCurtains()
 {
@@ -304,25 +308,58 @@ void CInterfaceOptionsSettings::RefreshCloudButtons()
 	const int nShow = bShow ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE;
 	if ( IUIElement *pCredentials = CloudButton( E_BUTTON_CLOUD_CREDENTIALS ) )
 		pCredentials->ShowWindow( nShow );
-	if ( IUIElement *pSyncNow = CloudButton( E_BUTTON_CLOUD_SYNC_NOW ) )
-		pSyncNow->ShowWindow( nShow );
 	if ( IUIElement *pBackups = CloudButton( E_BUTTON_CLOUD_BACKUPS ) )
 		pBackups->ShowWindow( nShow );
 	RefreshSyncNowButton();
 }
-// Sync now is greyed while a run holds the main loop's handle - a startup
-// pull, a post-save push, or the one this button began - since a press then
-// would only be refused. CloudSync.State is what the main loop publishes on
-// every poll; the settled states and idle leave the button live.
+// The Repair the menu's needs_resync and out_of_sync lines send the player
+// to. Offered only while the last run settled as one of those two and no run
+// or request is pending; every other failure keeps Sync now, because another
+// run is its answer and a resync is not.
+static bool CloudRepairOffered()
+{
+	if ( GetGlobalVar( "CloudSync.State", 0 ) != NCloudSync::STATE_FAILED )
+		return false;
+	if ( GetGlobalVar( "CloudSync.SyncNow", 0 ) != 0 || GetGlobalVar( "CloudSync.Repair", 0 ) != 0 )
+		return false;
+	const std::string szError = GetGlobalVar( "CloudSync.Error", "" );
+	return szError.compare( 0, 12, "needs_resync" ) == 0 || szError.compare( 0, 11, "out_of_sync" ) == 0;
+}
+// Sync now and Repair share one place: Repair while the last run asks for
+// it, Sync now otherwise. Sync now is greyed while a run holds the main
+// loop's handle - a startup pull, a post-save push, or the one this button
+// began - since a press then would only be refused. CloudSync.State is what
+// the main loop publishes on every poll; the settled states and idle leave
+// the button live. Called per frame, so a run settling under the open screen
+// swaps the two; ShowWindow only on a change.
 void CInterfaceOptionsSettings::RefreshSyncNowButton()
 {
+	const bool bShow = nActive == nCloudDivision && nCloudDivision >= 0 && !IsCloudProviderOff( szCloudProvider );
+	IUIElement *pRepair = CloudButton( E_BUTTON_CLOUD_REPAIR );
+	const bool bRepair = bShow && pRepair != 0 && CloudRepairOffered();
+	if ( pRepair != 0 && pRepair->IsVisible() != bRepair )
+		pRepair->ShowWindow( bRepair ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
 	IUIElement *pSyncNow = CloudButton( E_BUTTON_CLOUD_SYNC_NOW );
 	if ( pSyncNow == 0 )
 		return;
+	const bool bSyncNow = bShow && !bRepair;
+	if ( pSyncNow->IsVisible() != bSyncNow )
+		pSyncNow->ShowWindow( bSyncNow ? UI_SW_SHOW_DONT_MOVE_UP : UI_SW_HIDE );
 	const int nState = GetGlobalVar( "CloudSync.State", 0 );
 	const bool bRunning = nState == NCloudSync::STATE_STARTING || nState == NCloudSync::STATE_PAIRING ||
-		nState == NCloudSync::STATE_SYNCING || GetGlobalVar( "CloudSync.SyncNow", 0 ) != 0;
+		nState == NCloudSync::STATE_SYNCING || GetGlobalVar( "CloudSync.SyncNow", 0 ) != 0 ||
+		GetGlobalVar( "CloudSync.Repair", 0 ) != 0;
 	pSyncNow->EnableWindow( !bRunning );
+}
+// A resync settles every difference itself, so Repair asks first. The box
+// says what it does - nothing is deleted, a file missing on one side is
+// copied, the newer of two differing files wins and the older goes to its
+// side's trash - and its OK sets CloudSync.Repair, which the main loop turns
+// into the run with the same gates as Sync now.
+void CInterfaceOptionsSettings::RequestCloudRepair()
+{
+	GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_MESSAGE_BOX,
+		"Textes\\UI\\CloudSync\\repair_caption;Textes\\UI\\CloudSync\\repair_message;1;CloudSync.Repair" );
 }
 // The handle and the option gates live in the main loop, which owns every
 // other run; the button only asks. A press while the button is greyed never
@@ -596,9 +633,9 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 	if ( msg.nEventID == 7777 && msg.nParam == 7777 &&
 			 nActive == nCloudDivision && nCloudDivision >= 0 && pUIScreen != 0 )
 	{
-		static const int nCloudButtons[] = { E_BUTTON_CLOUD_CREDENTIALS, E_BUTTON_CLOUD_SYNC_NOW, E_BUTTON_CLOUD_BACKUPS };
-		static const int nCloudCommands[] = { MISSION_COMMAND_CLOUD_CREDENTIALS, 0, MISSION_COMMAND_CLOUD_BACKUPS };
-		for ( int i = 0; i < 3; ++i )
+		static const int nCloudButtons[] = { E_BUTTON_CLOUD_CREDENTIALS, E_BUTTON_CLOUD_SYNC_NOW, E_BUTTON_CLOUD_REPAIR, E_BUTTON_CLOUD_BACKUPS };
+		static const int nCloudCommands[] = { MISSION_COMMAND_CLOUD_CREDENTIALS, 0, 0, MISSION_COMMAND_CLOUD_BACKUPS };
+		for ( int i = 0; i < 4; ++i )
 		{
 			IUIElement *pButton = CloudButton( nCloudButtons[i] );
 			if ( pButton == 0 || !pButton->IsVisible() )
@@ -613,6 +650,8 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 					if ( pButton->IsWindowEnabled() )
 						RequestSyncNow();
 				}
+				else if ( nCloudButtons[i] == E_BUTTON_CLOUD_REPAIR )
+					RequestCloudRepair();
 				else
 					GetSingleton<IMainLoop>()->Command( nCloudCommands[i], 0 );
 				return true;
@@ -683,6 +722,13 @@ bool CInterfaceOptionsSettings::ProcessMessage( const SGameMessage &msg )
 
 	case E_BUTTON_CLOUD_SYNC_NOW:
 		RequestSyncNow();
+		return true;
+
+	case E_BUTTON_CLOUD_REPAIR:
+		// Only while the button is offered: an injected id must not open the
+		// box for a profile that has nothing to repair.
+		if ( CloudRepairOffered() )
+			RequestCloudRepair();
 		return true;
 
 	case IMC_CANCEL:

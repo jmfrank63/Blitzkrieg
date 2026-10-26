@@ -352,7 +352,9 @@ static void PublishCloudRequestRefused( const char *pszWho, const char *pszWhy, 
 // written first so a config backup snapshots the settings as they stand.
 // A begun run publishes STARTING at once: the menu's pending-retry latch and
 // the greyed Sync now both clear on the settle, never on a stale state.
-static void BeginRequestedCloudSync( const char *pszWho )
+// bRepair is the Cloud tab's confirmed Repair: the same gates, then the
+// pairing's resync instead of a sync, which settles as "paired".
+static void BeginRequestedCloudSync( const char *pszWho, bool bRepair = false )
 {
 	if ( g_nCloudStartupSync >= 0 )
 	{
@@ -384,10 +386,12 @@ static void BeginRequestedCloudSync( const char *pszWho )
 		return;
 	}
 	SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );
-	g_nCloudStartupSync = NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
+	g_nCloudStartupSync = bRepair ?
+		NCloudSync::Repair( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) ) :
+		NCloudSync::Begin( szProfile.c_str(), CloudSyncOptionOn( "Cloud.Config.Backup" ) );
 	if ( g_nCloudStartupSync < 0 )
 	{
-		PublishCloudRequestRefused( pszWho, "sync refused", NCloudSync::LastError() );
+		PublishCloudRequestRefused( pszWho, bRepair ? "repair refused" : "sync refused", NCloudSync::LastError() );
 		return;
 	}
 	// The run pushes everything, so a post-save push already due is folded
@@ -395,7 +399,7 @@ static void BeginRequestedCloudSync( const char *pszWho )
 	g_nCloudSyncDueMs = 0;
 	SetGlobalVar( "CloudSync.State", (int)NCloudSync::STATE_STARTING );
 	SetGlobalVar( "CloudSync.Error", "" );
-	NStr::DebugTrace( "cloud sync: %s requested, sync begun for \"%s\"\n", pszWho, szProfile.c_str() );
+	NStr::DebugTrace( "cloud sync: %s requested, %s begun for \"%s\"\n", pszWho, bRepair ? "repair" : "sync", szProfile.c_str() );
 }
 int RunGame( const BkGameLaunchInfo &launch )
 {
@@ -1178,6 +1182,12 @@ int RunGame( const BkGameLaunchInfo &launch )
 				// The Cloud tab's Sync now: the same request as Retry.
 				RemoveGlobalVar( "CloudSync.SyncNow" );
 				BeginRequestedCloudSync( "sync now" );
+			}
+			if ( GetGlobalVar( "CloudSync.Repair", 0 ) )
+			{
+				// The Cloud tab's Repair, set by its confirmation box's OK.
+				RemoveGlobalVar( "CloudSync.Repair" );
+				BeginRequestedCloudSync( "repair", true );
 			}
 			if ( GetGlobalVar( "CloudSync.ExitRequested", 0 ) )
 			{

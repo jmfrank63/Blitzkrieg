@@ -72,6 +72,12 @@ namespace NCloudSync
 	// Returns a handle for Poll/Outcome/Error/Release, or -1 with the reason
 	// in LastError().
 	int Begin( const char *pszProfile, bool bBackupConfig = false );
+	// The player's confirmed repair (Settings > Cloud, after a run failed
+	// needs_resync or out_of_sync): the first pairing's resync run again on
+	// the already paired profile, its pairing record replaced. Nothing is
+	// deleted; the older of two differing files goes to its side's trash.
+	// Observed like Begin, and settles OUTCOME_PAIRED.
+	int Repair( const char *pszProfile, bool bBackupConfig = false );
 	EState Poll( int nHandle );
 	EOutcome Outcome( int nHandle );
 	const char *Error( int nHandle );

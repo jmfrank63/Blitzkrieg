@@ -235,6 +235,11 @@ box textes/ui/cloudsync/retry Data/UI/MainMenu.xml 21002
 # sync_now_button: the Sync now button on the Cloud tab, OptionsSettings.xml 10015 (118x46; ModStyles 125x36).
 box textes/ui/cloudsync/sync_now_button Data/UI/OptionsSettings.xml 10015
 box textes/ui/cloudsync/sync_now_button Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 10015
+# repair_button: the Repair button on the Cloud tab, OptionsSettings.xml 10016 in Sync now's place (118x46; ModStyles 125x36); its confirmation is a message box (InterfaceOptionsSettings.cpp sends "repair_caption;repair_message" to MISSION_COMMAND_MESSAGE_BOX): MessageBox.xml 20000 the caption (410x34), 20001 the text (410x137).
+box textes/ui/cloudsync/repair_button Data/UI/OptionsSettings.xml 10016
+box textes/ui/cloudsync/repair_button Data/UI/ModStyles/achtungpanzer2/OptionsSettings.xml 10016
+box textes/ui/cloudsync/repair_caption Data/UI/Popup/MessageBox.xml 20000
+box textes/ui/cloudsync/repair_message Data/UI/Popup/MessageBox.xml 20001
 # playerprofile buttons in Data/UI/PlayerProfile.xml: new 10010, rename 10011, delete 10012 (264x44), the layout TextKeys.
 box textes/ui/intermission/mainmenu/playerprofile/new Data/UI/PlayerProfile.xml 10010
 box textes/ui/intermission/mainmenu/playerprofile/rename Data/UI/PlayerProfile.xml 10011
