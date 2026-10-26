@@ -4167,6 +4167,28 @@ pub fn build(b: *std.Build) void {
     const settings_caption_step = b.step("settings-caption-game-reads-it", "Open the settings screen for a profile named Johannes in English and under lang-ru on the real Game, in the base game's style and with -Dap2-mod the Achtung Panzer 2 one, capture it and measure that the caption's ink starts (base, left aligned) or is centred (the mod's style) within 2 pixels of where its layout puts it");
     settings_caption_step.dependOn(&settings_caption_tests.step);
     if (test_mode == .run) settings_caption_step.dependOn(&settings_caption_run.step);
+    // A live language switch on the settings screen as a user made it, German to Russian, Chinese and
+    // Default through the language row, in the base game and (-Dap2-mod) under Achtung Panzer 2: no
+    // frame of the new choice over the old texts, no missing letter, no stale tooltip
+    // (tools/zig/language_cycle_game_reads_it.zig).
+    const language_cycle_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/language_cycle_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    language_cycle_module.addOptions("ap2_options", ap2_options);
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, language_cycle_module, toolchain);
+    }
+    const language_cycle_tests = b.addTest(.{ .root_module = language_cycle_module });
+    const language_cycle_run = b.addRunArtifact(language_cycle_tests);
+    language_cycle_run.setCwd(b.path("."));
+    language_cycle_run.setEnvironmentVariable("BK_LANGUAGE_CYCLE_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    language_cycle_run.has_side_effects = true;
+    language_cycle_run.step.dependOn(&language_mods_run.step);
+    const language_cycle_step = b.step("language-cycle-game-reads-it", "Start the real Game in German, click the settings screen's language row on to Russian, Chinese and Default without saving, in the base game and with -Dap2-mod under Achtung Panzer 2, and measure that no captured frame shows the new choice beside the old language's labels, no letter is drawn in a font without it and the player name tooltip is the English start's");
+    language_cycle_step.dependOn(&language_cycle_tests.step);
+    if (test_mode == .run) language_cycle_step.dependOn(&language_cycle_run.step);
     // Checks the staged install this build mode writes (stage_root is the debug or release folder, as
     // install-game's). The editor installs are added as its dependencies at the end of build().
     const verify_install_l10n_module = b.createModule(.{
