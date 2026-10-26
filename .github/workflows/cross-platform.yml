@@ -4134,7 +4134,10 @@ jobs:
     # 45; windows-latest was still building when it hit 60 and was cancelled.
     # The debug SafeAllocator's seconds-per-frame previews measured 91 minutes
     # here on run 38119220988, inside the old 90 by seconds.
-    timeout-minutes: 60
+    # A language takes 12 minutes here (5 on Linux), so each five-language part
+    # needs about 70 with the setup; at 60 both were cancelled on every run since
+    # df0cd7f57 (run 40385566927: en to ja passed, hi was cut off).
+    timeout-minutes: 100
 
 
     # Each zig build lists what it could not take from the cache.
