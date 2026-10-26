@@ -757,6 +757,37 @@ test "the drawn sides stay above the quality gate (tools/zig/fixtures/bk-views/g
     if (failures > 0) return error.BelowTheGate;
 }
 
+test "a variant folder of its own is a family of one, drawn on the shape.json beside its packs" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = std.testing.io;
+    const cwd = std.Io.Dir.cwd();
+    // A modder's copy of e_frenchshed01, in no region or season folder.
+    const copy = "zig-out/local-test/bk-views/lone/e_frenchshed01";
+    cwd.deleteTree(io, "zig-out/local-test/bk-views/lone") catch {};
+    try cwd.createDirPath(io, copy);
+    const from = "Data/Buildings/europe/summer/e_frenchshed01";
+    var dir = try cwd.openDir(io, from, .{ .iterate = true });
+    defer dir.close(io);
+    var iterator = dir.iterate();
+    while (try iterator.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        try cwd.writeFile(io, .{ .sub_path = try std.fmt.allocPrint(arena, "{s}/{s}", .{ copy, entry.name }), .data = try read(arena, try std.fmt.allocPrint(arena, "{s}/{s}", .{ from, entry.name })) });
+    }
+    try cwd.writeFile(io, .{ .sub_path = copy ++ "/" ++ views.variant_shape, .data = "[{\"lo\": [-40, -20], \"hi\": [8, 12], \"wall\": 20, \"ridge\": 30, \"roof\": \"gable_x\"}]\r\n" });
+    const result = try std.process.run(arena, io, .{ .argv = &.{ bk_views_gate.bk_views_fast, "shape", "zig-out/local-test/bk-views/lone/shape", copy }, .stdout_limit = .limited(1024 * 1024) });
+    if (result.term != .exited or result.term.exited != 0) {
+        std.debug.print("bk-views shape failed: {s}\n", .{result.stderr});
+        return error.ShapeFailed;
+    }
+    const Shapes = struct { shapes: []const struct { variant: []const u8, hand: bool, blocks: []const views.Block } };
+    const shapes = try std.json.parseFromSliceLeaky(Shapes, arena, try read(arena, "zig-out/local-test/bk-views/lone/shape/shape.json"), .{ .ignore_unknown_fields = true });
+    try std.testing.expectEqual(@as(usize, 1), shapes.shapes.len);
+    try std.testing.expect(shapes.shapes[0].hand);
+    try std.testing.expectEqualSlices(views.Block, &.{.{ .lo = .{ -40, -20 }, .hi = .{ 8, 12 }, .wall = 20, .ridge = 30, .roof = .gable_x }}, shapes.shapes[0].blocks);
+}
+
 test "every hand shape reaches the outline floor against the 2003 pictures of its colourway" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();

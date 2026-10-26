@@ -1,8 +1,10 @@
 //! The Game draws the generated building views (M005 S04,
 //! docs/superpowers/specs/2026-10-25-building-views-design.md). `bk-views side`
-//! makes side 3 of e_ctownhouse01 (from `_2`) and the three other sides of the
-//! single-sprite e_frenchshed01 into a scratch mod, whose modobjects.xml
-//! registers them as buildings. For each side k a mission map written from the
+//! makes side 3 of e_ctownhouse01 (from `_2`) into a scratch mod, and the three
+//! other sides of a modder's building there, a copy of the single-sprite
+//! e_frenchshed01 in the mod's own folder, beside it as the Resource Editor's
+//! Generate sides does (M005 S08); the mod's modobjects.xml registers them as
+//! buildings. For each side k a mission map written from the
 //! shipped `Data/Maps/river3d.xml` holds side k of the town house (the 2003
 //! ones by their own objects.xml names) and side k of the shed, apart, and the
 //! real Game draws it under a BK_AUTO_UI schedule and takes a shot.
@@ -64,7 +66,7 @@ const families = [_][4]Side{
         .{ .name = "E_CTownHouse01_4", .folder = "Data/Buildings/europe/summer/e_ctownhouse01_4", .generated = false },
     },
     .{
-        .{ .name = "E_FrenchShed01", .folder = "Data/Buildings/europe/summer/e_frenchshed01", .generated = false },
+        .{ .name = "Views_E_FrenchShed01", .folder = "e_frenchshed01", .generated = true },
         .{ .name = "Views_E_FrenchShed01_r1", .folder = "e_frenchshed01_r1", .generated = true },
         .{ .name = "Views_E_FrenchShed01_r2", .folder = "e_frenchshed01_r2", .generated = true },
         .{ .name = "Views_E_FrenchShed01_r3", .folder = "e_frenchshed01_r3", .generated = true },
@@ -94,7 +96,7 @@ const Sprite = struct { image: views.Image, anchor: [2]i32 };
 
 const Score = struct { iou: f64, colour: f64, dx: i32, dy: i32 };
 
-test "the Game draws all four sides of e_ctownhouse01 and e_frenchshed01, the generated ones from a mod" {
+test "the Game draws all four sides of e_ctownhouse01 and of a modder's copy of e_frenchshed01, the generated ones from a mod" {
     const io = testing.io;
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
@@ -113,9 +115,13 @@ test "the Game draws all four sides of e_ctownhouse01 and e_frenchshed01, the ge
     try cwd.createDirPath(io, buildings);
     try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
 
-    // The generated sides, straight into the mod.
-    try runTool(io, allocator, tool, &.{ "side", "Data/Buildings/europe/summer/e_ctownhouse01_2", "1", buildings });
-    try runTool(io, allocator, tool, &.{ "side", "Data/Buildings/europe/summer/e_frenchshed01", "1,2,3", buildings });
+    // The generated sides, straight into the mod, their source maps outside it.
+    const work = try std.fs.path.join(allocator, &.{ root, "work" });
+    try runTool(io, allocator, tool, &.{ "side", "Data/Buildings/europe/summer/e_ctownhouse01_2", "1", buildings, work });
+    // The modder's building and its turns beside it, with Generate sides' command line.
+    const shed = try std.fs.path.join(allocator, &.{ buildings, "e_frenchshed01" });
+    try copyFolder(io, allocator, "Data/Buildings/europe/summer/e_frenchshed01", shed);
+    try runTool(io, allocator, tool, &.{ "side", shed, "1,2,3", buildings, work });
     try writeMod(io, allocator, data);
 
     var sprites: [families.len][4]Sprite = undefined;
@@ -143,6 +149,19 @@ test "the Game draws all four sides of e_ctownhouse01 and e_frenchshed01, the ge
     if (failed) {
         std.debug.print("{s}a side is missing or drawn wrong (IoU floor {d}, colour ceiling {d}); the frames are in {s}\n", .{ report.items, min_iou, max_colour, root });
         return error.DrawnWrong;
+    }
+}
+
+fn copyFolder(io: std.Io, allocator: std.mem.Allocator, from: []const u8, to: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    try cwd.createDirPath(io, to);
+    var dir = try cwd.openDir(io, from, .{ .iterate = true });
+    defer dir.close(io);
+    var iterator = dir.iterate();
+    while (try iterator.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const bytes = try cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ from, entry.name }), allocator, .limited(64 << 20));
+        try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ to, entry.name }), .data = bytes });
     }
 }
 
