@@ -2,8 +2,12 @@
 
 Blitzkrieg draws every building, bridge, fence and most objects as a sprite rendered once from the
 game's fixed camera. Vehicles and guns are 3D models (`Data/Units/Technics`: 500 `.mod`) and turn
-freely; infantry has 8 facings. A camera that turns in 4 (N, E, S, W) or 8 steps therefore needs the
-sides of every sprite object that were never drawn. This project fills them, so that the Remastered
+freely; infantry has 8 facings. A camera that turns in 4 steps (N, E, S, W) therefore needs the
+sides of every sprite object that were never drawn. Four, not eight (decided 2026-10-26, Johannes): a
+quarter turn maps the diamond grid of AI tiles onto itself, so footprints, passability, terrain, roads,
+fences, bridges, flora and objects turn with it unchanged; 45 degrees would need re-sampled footprints
+and diagonal terrain, roads, fences, bridges, flora and objects. Eight stays possible later as more
+folders beside the four. This project fills them, so that the Remastered
 option ([remastered option](2026-10-25-remastered-option-design.md)) can offer the rotatable camera.
 The original game (Remastered off) is not touched.
 
@@ -79,7 +83,7 @@ The original game (Remastered off) is not touched.
      Blitzkrieg 1 building sprites per region (OneTrainer or kohya_ss; SD 1.5 fits 8 GB, SDXL is tight).
 8. **Style check** (Zig): each filled face against the building's own 2003 sides - colour statistics, texture
    statistics, edge sharpness, light direction; a face that drifts is rejected.
-9. **Render** (Blender): 4 (or 8) views per building, damage states, shadow layers, seasons, at the solved
+9. **Render** (Blender): 4 views per building, damage states, shadow layers, seasons, at the solved
    camera, lit from the same screen direction as the 2003 sprites.
 10. **Compose** (`bk-sprite compose-pack`, new, C++): renders back into `.san`/`.dds` variants beside the
     originals through the existing `NCompose::ComposeSingleObjectPack`; each orientation keeps (or gets,
@@ -100,7 +104,7 @@ The original game (Remastered off) is not touched.
    for the landmarks the tools cannot do.
 6. **Bridges, fences and objects:** the same pipeline for `Data/Bridges` (104 `.san`), `Data/Fences` (42),
    `Data/Objects` (1,229).
-7. **The camera in the Game** (Remastered only): 4/8 rotation steps, draw order per angle, picking, scrolling,
+7. **The camera in the Game** (Remastered only): 4 rotation steps (N, E, S, W; why not 8: see the top), draw order per angle, picking, scrolling,
    minimap, sprite variant per angle (object orientation plus camera step), save and replay.
 
 ## Verification
@@ -442,6 +446,48 @@ Each was fixed at its measured cause; no band of gate.json was widened.
   the window's edge (within 2 pixels) the mission scrolls the view. Shown on the Game: a cursor held on the bottom
   edge for a second after `camera=` scrolled both buildings out of the shot. The cursor is now parked first
   (`g1000:hover=1000x400,g10:camera=...`). Three runs in a row passed (IoU 0.994..1.000, colour 0.00).
+
+## Four sides in the Resource Editor (M005 S08, 2026-10-26)
+
+- **The layout the Game loads.** Sides 2 to 4 of a building variant are the sibling folders `<variant>_r1`,
+  `_r2`, `_r3` that `bk-views side` writes: side k + 1 is side k turned by (x, y) -> (-y, x) about the zero cross
+  (S01's convention), each a folder like the exported variant (the packs of every damage state with their shadow,
+  ground and winter pictures, `icon.tga`, `name.txt`) with its 1.xml turned (every `Direction` + 90 per turn, the
+  grids and points turned, the `PicturePosition`s projected again). No new format: a turn needs no objects.xml
+  entry of its own, the Game's camera (plan item 7) finds a variant's turns by this path. The game tiers register
+  them under names of their own only to place them on a map while the camera does not turn yet.
+- **bk-views on a modder's folder.** `side` looks for a family only where Data's layout puts one
+  (`<root>/<region>/<summer|winter>/<variant>`); any other variant folder, such as a mod's
+  `data/buildings/<name>`, is a family of one, side 1, drawn from itself (before, the walk up from such a folder
+  listed whatever lay three folders up as regions and seasons). A `shape.json` in the variant's folder, a list
+  of blocks in the format of `tools/zig/fixtures/bk-views/shapes`, is its hand shape and comes before the tracked
+  ones. Test (`test-bk-views`): a copy of e_frenchshed01 outside Data with a shape.json is drawn on that block.
+- **The Sides window** (Building editor; `Sources/editor/resource_app/sides_dock.zig`, its logic in
+  `sides_logic.zig`). The variant folder, filled in from the project's export (`<export dir>/data/buildings/
+  <project folder>`) and editable; damage state 1 to 3, winter and shadow; the variant and its three turns side
+  by side at one scale, each on a #2e3a6e ground, decoded from the packs on disk; a missing turn says so. The pack
+  formats moved from bk_views.zig into `tools/zig/bk_views_pack.zig`, so the editor reads packs as bk-views does
+  without the tools' language tables. **Generate sides** runs `bk-views side <variant> 1,2,3 <its folder> <work>`
+  beside the editor as a child process the frame polls; the work folder `.<name>.views-work` beside the variant is
+  deleted afterwards. **Import side picture** replaces the selected turn's picture of the shown state with a PNG
+  (8-bit RGB or RGBA, decoded in the editor): its zero cross where that picture has it (the canvas `bk-views
+  decompose` writes), laid on one canvas with the state's shadow and ground pictures as they are, and recomposed
+  by `bk-sprite compose-pack` with that turn's footprint (the passability and origin of its turned 1.xml). A state
+  without a shadow pack keeps none; a picture covering all its shadow keeps one shadow pixel below it, as `side`
+  does (compose-pack refuses an empty shadow). bk-views and bk-sprite are installed beside ResourceEditor, where
+  bk-sprite finds the engine libraries on every host (the game's `Tools/` folder does not serve it on Windows).
+  Strings: `resource_app.window.sides` and `resource_app.sides.*` in the ten tables.
+- **Tests.** `test-resource-app-logic`: the folders, pack names, a shipped pack read to its picture and footprint,
+  both command lines, and PNG reading (the stored ones bk-views writes; a zlib PNG with all five row filters).
+  `resource-editor-auto-bld` (frames 399 to 410): a scratch copy of ussr/summer/shed01 (one sprite, winter packs)
+  shown with 3 of 4 turns missing, Generate sides, none missing, every cell's picture measured in the shot (2154 to
+  2265 pixels that are not the ground, intact; 71 to 168 for the shadows of the winter ruin), then the tracked
+  `side-import.png` imported as turn 2's damaged picture: 4800 pixels of its #10e0a0 in the shot.
+  `building-views-game-reads-it`: the shed is now a modder's copy of e_frenchshed01 in the mod's own folder, its
+  turns made with Generate sides' command line; the Game draws all four from the mod (IoU 0.994 to 1.000, colour
+  0.00).
+- **Not done.** The Map Editor (side = object orientation + camera step) belongs to the Game camera's slice. An
+  imported PNG is not checked against the side's style; `bk-views style` can score it.
 
 ## Open questions
 
