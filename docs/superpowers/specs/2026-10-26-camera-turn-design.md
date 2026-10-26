@@ -224,3 +224,154 @@ Run on win-home (Windows x64, debug), one at a time, all exit 0: `test-editor-br
 S02's changes), `test-map-editor-engine` (11.0 minutes, with S02), and `map-editor-host-check map-editor-smoke
 map-editor-game-reads-it-m3` (19.8 minutes in one call, with S02). No regression was found, so nothing was fixed.
 The whole editor-bridge list is longer than one foreground command on this host: run it by shards.
+
+## Ground, roads, rivers, flora and objects turned (S03, 2026-10-27)
+
+### What the rest of the world is made of (found in S03)
+
+- **Terrain tiles** (`CreateTiles`, `Scene/MeshBuilders.cpp`): each tile is four screen-space vertices with the
+  tileset's four mapping points, the top, right, left and bottom corners of a 64 x 32 pixel diamond in
+  `tileset_c.dds` (256 x 512; `tileset.xml`'s `maps0..3`). A picture holds twice the detail along the screen's x as
+  along its y. **Field edges** are crosses: the overlying terrain's tile picture through a crosset mask (another
+  diamond, `crosset.xml`), stored per patch in the map (`BaseCrosses`, `LayerCrosses`). The **noise** layer maps a
+  square texture by world position (isotropic in the world).
+- **Roads and rivers** (`CTerrain::DrawVectorObjects`): world-space meshes through the view matrix. The **border**
+  (`DrawBorder`) and the **grid** (`CreateGrid`) are world-space too. The **war fog** (`CreateWarFog`) and the
+  visibility marker are screen-space meshes on the turned `MAKE_COORD` layout (S01); the **AI passability marker**
+  (`CreateAIMarker`) had its own 45 degree layout.
+- **Objects** (`CMOObject`, `Common/MOObject.cpp`): `Data/Objects` holds sprite folders (`1`, `1s` shadow,
+  `1w`/`1ws` winter): Flora 65, SimpleObjects 248 (game type `object`), TerraObjects 272 (`terraobj`, drawn with the
+  terrain's depth, flat decals: dirt, garbage, ravines, dunes, mounts, coast lines, shell holes). Footprints
+  (`passability` of 1.xml): SimpleObjects 141 square, 97 a longer rectangle, 10 none; Flora 60 square, 5 rectangles.
+- **Fences** (`Data/Fences`, 16 kinds): one sprite-animation pack (`1.san`, not a sprite pack bk-views reads) whose
+  frames are the segments; 1.xml lists four directions, North-east, North-west, South-west and South-east (the
+  Resource Editor's names), each with centre, left-, right- and centre-damaged segments. World +y is the screen's
+  north-east, -x its north-west, so the four directions are quarter turns (x, y) -> (-y, x), M005's side
+  convention. A map stores a fence's direction packed in its FrameIndex (0x10000 + the direction's bit).
+- **Bridges** (`Data/Bridges`, 10 kinds, `01` along x and `02` along y): per span three sprites (back girder, slab,
+  front girder) from begin, line and end segment lists, intact, damaged and destroyed.
+- **Shipped maps** (all 57, `bk-map to-xml`): every static object has map Direction 0 (bridges 200, fences 34 724,
+  flora 52 176, simple objects 6 373, terra objects 27 952, mines 803, flags 79), as the buildings (S02).
+
+### Decisions per kind (S03)
+
+The shortest path per kind, no new pictures; the rule is S02's `NCameraTurn::DrawnTurn(facing, step)` with a static
+object's own facing 0 (the AI drops its map Direction, as for 2003 buildings; all shipped maps have 0) and a fence's
+own facing its direction.
+
+- **Terrain tiles: turn the mapping, not the art.** At an odd step each tile (and each cross's tile picture) is laid
+  with its picture's top on the tile's top corner (`groundTurn.nMaps`, `TILE_MAP`), so the picture keeps the
+  detail it was drawn with; going with the ground it was stretched 2:1 the other way (S01's rough edge). The
+  crosset's masks (the shapes of field edges) and the noise still go with the ground, so fields, roads and their
+  edges turn exactly. At a half turn the 2003 mapping is kept (a half turn of the ground is a half turn of the
+  screen, pixel for pixel). Turned art for tiles was not made: a tile picture is grain, and the random choice among
+  a terrain type's tiles (and their flipped variants) already puts any two side by side.
+- **Roads, rivers, border, grid:** no change; they are world space and turn with the view (measured below; the grid
+  is a key-toggled overlay no scene switch shows, not captured).
+- **War fog (fixed):** `CWorldBase::GetVisibilityRectBounds` built the rectangle (in x + y and x - y) the AI returns
+  visibilities for from the screen's left top and right bottom ground points as at 45 degrees; turned, those are
+  other corners and the rectangle missed the screen, so the turned view was all fog (dessau: block difference 16
+  against 2.0 now). Turned, it bounds all four screen corners (with the 2003 margin of 3 cells), and the fog is
+  asked again when the step changes. The AI marker uses the same rectangle and is laid out with the turned tile
+  steps (`AI_MARK_X/Y`); a debug overlay, not captured.
+- **Flora: its own picture at every step** (M005's 2003 sprite fallback for thin objects: a crown looks alike from
+  every side; its shadow stays as drawn, like M005's light that turns with the camera). A tree on a rectangular
+  footprint (5 of 65) is mirrored at odd steps, as the props.
+- **SimpleObjects: own picture, mirrored at odd steps on a longer rectangle.** On a square footprint or none (151)
+  the own picture, as above. On a longer rectangle (97: benches, boxes, counters, piers, sandbag and fence pieces)
+  the picture mirrored about the zero cross at an odd step, which lays it on the turned footprint (world (x, y) to
+  (-y, -x), M005's mirrored 2003 sprite), its shadow kept as M005 keeps a mirrored sprite's. Done in the sprite
+  pass (`SBasicSpriteInfo::bMirror`), so no data. Not relit (M005 relit its mirrors by the blocks' faces).
+- **TerraObjects: the picture turned as the ground turns** (`SBasicSpriteInfo::nFlatTurn`): every square of the
+  sprite and its shadow is laid on the screen by the quarter turn of the ground about the zero cross,
+  (dx, dy) -> (2 dy, -dx / 2), exactly what the step-0 frame turned shows of a flat decal (a coast line stays on its
+  river).
+- **Fences: the existing directional variants.** A segment draws the segment at the same place in the same list
+  (centre, left, right or centre damaged) of direction `DrawnTurn(direction, step)` (`TurnedFenceFrame`); kept
+  across damage (the AI's frame changes) and saves (chunk 6 only while turned).
+- **Bridges: left for later.** A quarter turn of a bridge along x would be the kind's `02` variant along y, but the
+  two hold different span lists (woodenlittle: spans of 5, 2 and 7 cells against 7, 2 and 7), so the segments do
+  not map one to one, and each span is three sprites whose back and front girders trade places at a half turn. A
+  bridge now draws its 2003 pictures at their turned places. It needs a segment map by span kind and length, or
+  turned art from M005's pipeline.
+- **The mirror and the half turn in the sprite pass** keep the 2003 pixels: along an axis the turn reverses, point
+  sampling picked the texel one further for every pixel (a foreign column at one edge of each square, one dropped
+  at the other: measured on the bench). The mapping goes back one texel there; at an odd step, where a square is
+  stretched 2:1, it is pulled half a texel inside the square. Measured: the mirrored bench is the 2003 picture
+  mirrored with 0 pixels different, the half-turned ravine the 2003 picture turned with 0 of 4 678.
+
+### The tier (S03)
+
+`zig build camera-turn-world-game-reads-it` (`tools/zig/camera_turn_world_game_reads_it.zig`, about 6.5 minutes on
+win-home): the real Game, Remastered on, the turn key between four shots, each measured against the step-0 frame
+turned:
+
+- **Ground** (objects, units, shadows, effects off): the shipped `dessau.bzm` at a spot with a road, field edges,
+  the river with a bridge, trees, fences and objects (found by scanning the 57 maps), and `road3d.xml`, whose whole
+  map and border are on the screen. Mean RGB difference of 9 x 9 pixel blocks (the shapes of the ground without
+  the grain of its pictures) against the step-0 frame turned, not turned, and turned the other way; the camera turns
+  about its anchor at height 0, so raised ground moves by its height on a turn and the measure finds that lift
+  (here 0 to 2 pixels). Ceiling 6, margin 2; steps k and k + 2 over the whole screen, ceiling 6. The grain:
+  ln of the ratio of horizontal to vertical brightness steps against step 0, at most 0.05 on road3d's grass.
+- **Scene:** dessau with everything drawn: turned must be closer than not turned and the other way, ceiling 24 (no
+  margin: its buildings have no turned sides in tracked data and its trees are their own pictures).
+- **Objects** alone on a ring around the centre of a map written from road3d.xml (a quarter turn takes the ring onto
+  itself): `_Lime` and `ShellBox01` (own picture), `Bench01` (1 x 2: mirrored at odd steps), `DirtRavine01` (flat
+  turn), four `VillageFence` segments of the four directions (one segment of each kind per direction). Each is cut
+  from the step-0 frame around its zero cross and scored where the turn puts it: outline IoU and colour at the best
+  offset within 4 pixels, against the wrong picture (not mirrored, not turned, its own direction). Floors IoU 0.9
+  (0.8 flat), colour 8 (16 flat; a soft edge blends with the backdrop, whose shade changes with height).
+- **Remastered off:** the key changes no pixel of any object.
+
+Measured (win-home, Windows x64, debug install):
+
+| Ground | step 1 | step 2 | step 3 | half turns 0-2 / 1-3 |
+|---|---|---|---|---|
+| dessau turned / not / other way | 2.00 / 23.53 / 25.23 | 2.23 / 24.74 / 2.23 | 2.49 / 23.24 / 23.29 | 1.52 / 3.17 |
+| road3d turned / not / other way | 1.47 / 22.55 / 28.43 | 0.20 / 27.86 / 0.20 | 1.43 / 22.72 / 25.38 | 0.18 / 1.54 |
+| grain ln (dessau reported, road3d gated) | -0.075 / -0.006 | 0.015 / -0.001 | -0.090 / -0.004 | |
+| scene turned / not / other way | 20.38 / 23.31 / 33.61 | 19.40 / 36.99 / 19.40 | 17.93 / 28.13 / 34.81 | |
+
+- Before the war fog fix, dessau's turned difference was 16.1 to 16.4 (all fog). The grain of S01's river3d shots
+  (tiles going with the ground) was ln -0.149 at odd steps; S03's river3d shots -0.005 and -0.004.
+- Objects: the four fence segments IoU 1.000, colour 0.00, offset 0,0 at every step, their own direction's picture
+  0.061 to 0.065 at odd steps; the bench 1.000 (mirrored at odd steps; not mirrored 0.251); the box 1.000; the tree
+  1.000 (0.933 at step 1, where its crown reaches the message line, which is left out); the ravine 0.895 / 1.000 /
+  0.894 (colour 9.2, 0.0, 9.3; not turned 0.033 to 0.040).
+- Off: 0 pixels changed by the key.
+
+`camera-turn-game-reads-it` measures its ground the same way now (a tile's grain no longer turns with the ground at
+an odd step, so S01's per-pixel ground fell to a margin of 2.02): blocks 2.91 / 0.13 / 2.83 against 9.67 to 11.40,
+half turns 0.25 and 2.84 (ceiling 4); its buildings unchanged (IoU 0.994 to 1.000).
+
+### Rough edges left (S03)
+
+- **Bridges** draw their 2003 pictures at their turned places (above).
+- **Light:** mirrored props are not relit (the lit side flips at odd steps); own-picture trees and props keep the
+  2003 lit side and shadow, as M005's camera-fixed light; the ground's vertex shade follows the world sun, which
+  only shows on hills. A terra object's painted relief (ravines, dunes, mounts, coasts) turns with it, lit from the
+  turned side, and is stretched 2:1 at an odd step like the ground it lies on.
+- **Tiles at an odd step** show their grain upright, so the grain does not continue across tiles as the ground
+  turns (as at step 0, where neighbouring tiles are random); a feature painted inside one tile picture would turn
+  in place (the tilesets were not searched for one).
+- **2003 sibling variants of props** (box, bench, columns, francefence 01..04 show four sides) are not used yet: the
+  mirror stands in at odd steps and the own picture at the half turn. Turned art for props (bk-views side reads
+  only building 1.xml and sprite packs) is left for later.
+- **Picking** of mirrored and flat-turned sprites still uses the 2003 rectangle (S05).
+- **The turn pivot** is the camera's anchor at height 0: on raised ground the point under the screen centre moves by
+  its height on a turn (1 to 2 pixels at the dessau spot; more on hills). S05 may pivot about the ground point.
+- **A static object's map Direction** is not kept by the AI (only buildings', S02); every shipped map has 0. S06
+  needs it if the Map Editor turns objects.
+- The tier's dessau scene check has no margin (no turned buildings in tracked data).
+
+### Other tiers (S03)
+
+Run on win-home (Windows x64, debug), one at a time, after the last engine change: `camera-turn-world-game-reads-it`
+and `camera-turn-game-reads-it` pass (about 6.5 minutes each); `building-views-game-reads-it` passes (IoU 0.994 to
+1.000, colour 0.00); `remastered-game-reads-it`: the tier's own tests pass, its 4 failures are the `l10n_measure`
+hb-view tests (hb-view is not installed on Windows; as in S01 and S02). The Scene and Common code the Map Editor
+shares changed (its step stays 0, so it takes the 2003 paths): `test-map-editor-engine map-editor-smoke` in one call,
+exit 0 (5.7 minutes). The editor bridge's own code is untouched, so `test-editor-bridge` was not run. Step 0: the four
+`building-views-batch-<region>` steps (44 s, 55 s, 2 min 2 s, 3 min 18 s) and `building-views-batch-report` ran again
+on S02's bk-views, so `zig-out/remastered/Buildings` and `batch.md` hold the 2003 sibling sides (43 variants take one
+or more turns from a sibling); `camera-turn-mod` copies them when it runs next.
