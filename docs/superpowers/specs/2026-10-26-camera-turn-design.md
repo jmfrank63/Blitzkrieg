@@ -375,3 +375,108 @@ exit 0 (5.7 minutes). The editor bridge's own code is untouched, so `test-editor
 `building-views-batch-<region>` steps (44 s, 55 s, 2 min 2 s, 3 min 18 s) and `building-views-batch-report` ran again
 on S02's bk-views, so `zig-out/remastered/Buildings` and `batch.md` hold the 2003 sibling sides (43 variants take one
 or more turns from a sibling); `camera-turn-mod` copies them when it runs next.
+
+## Units at every step, bridges and four-sided props (S04, 2026-10-27)
+
+### What units are made of (found in S04)
+
+- **Infantry** (`Data/Units/Humans`): a sprite animation (`CSpriteAnimation`, `Formats/fmtAnimation.h`) of eight
+  directions per animation; `GetRect` picks the direction from the unit's world direction (0..65535, the AI's
+  convention: 0 faces +y, 16384 faces -x). The pictures were drawn for the 45 degree camera.
+- **Vehicles and guns** (`.mod` meshes, `CMeshVisObj`): drawn through the view matrix, so they turn with it; lit by
+  the scene's sun (`CScene::sunlight`, world space) and shadowed by projecting the mesh along the sun
+  (`DrawShadow`). A gun's crew are infantry sprites.
+- **Effects** (`CEffectVisObj`): sprite sub-effects are `CSpriteVisObj`s set to the effect's direction (facing
+  pictures as infantry's where a sprite has directions); particles and smoke are world-space billboards; tank tracks
+  (`SMechTrace`) and gun traces are world-space quads. All of these turn with the view.
+- **Icons** (HP bars, status icons, passengers' bars, `Scene/Icon*.cpp`): world points at the object's position plus
+  an offset laid out along the 45 degree view's axes (`RepositionIconsLocal`: a row goes along world (1, 1), which
+  is screen right only at 45 degrees; a passenger's bar stands out towards the viewer by (sqrt 2, -sqrt 2) times
+  its depth, `CalcPassangerHPAdd`). Selection only changes the icons' alpha.
+- Two more 45 degree offsets: the ground point a falling plane is followed by (`MOUnitMechanical`, harness only) and
+  a raised sound's 2D point (`CSoundScene::To2DSoundPos`), both "up the screen by the height".
+
+### Decisions (S04)
+
+- **Infantry and directional effects: the facing a quarter turn on.** At step k a unit facing d is seen as the 2003
+  camera sees one facing d + 16384 k (the view shows the world turned by k quarters), so `CSpriteVisObj` asks its
+  animation for `NCameraTurn::ViewDirection(d, k)`: two of infantry's eight pictures per step. The sprite keeps the
+  step it drew (`nViewTurn`, not saved) and takes its picture again when the step changes, also while the game is
+  paused. The unit's own direction (AI, saves, picking) does not change.
+- **Vehicles and guns: the sun turns with the camera.** Meshes already turn with the view; the sun is turned by the
+  camera's yaw offset for the frame (`CScene::Draw`, a local `sun` for mesh light and mesh shadows), so a tank is
+  lit and casts its shadow to the same side of the screen at every step, as the 2003 pictures of infantry, trees
+  and props and M005's turned building sides are (camera-fixed light). The ground's vertex shade still follows the
+  world sun (S03's rough edge).
+- **Icons, the plane camera and sound: `NCameraTurn::ViewOffset`.** An offset laid out along the 45 degree view's
+  axes is turned by the camera's yaw offset, so an icon row stays a row on the screen and a passenger's bar stays in
+  front of its building; each icon applies it when it is placed beside its object every frame (`Reposition`).
+- **Bridges: the 2003 span that shows the span turned** (`CMOBridgeSpan::ApplyCameraTurn`). At an odd step the
+  kind's variant along the other axis (`_01` runs along x, `_02` along y), at the half turn its own; of that
+  variant's spans of the same damage state, the one whose slab footprint best covers the span's own footprint
+  turned by the step (rectangle IoU above 0.5). A line span turns onto the other variant's line (footprint and
+  zero cross line up exactly in the wooden and asphalt kinds; the railway bridge's 8 x 5 line against 6 x 8 is a
+  tile narrower); a begin or end span onto the other variant's begin or end (or, at
+  the half turn, its own other end), which in the shipped kinds is up to a tile longer or narrower (woodenlittle
+  `_01`'s begin is 5 tiles long, `_02`'s 7). The span's three parts (back girder, slab, front girder) take that
+  span's segments and stand at its parts' places turned back by the step (`ViewOffset` of their `RelPos`), so the
+  girder that is far now is the back one and is drawn behind the slab: the half turn trades the girders by place.
+  A part is placed before its picture is taken: a sprite pack keeps the position of its last `Update` and the scene
+  does not update static objects (placed after, the girders stood a turn behind and the line spans scored 0.86 to
+  0.89). Where the target variant has no shadow pack the part's shadow is hidden. A span with no match (a kind
+  without a `_02`, a mod's bridge) keeps its 2003 pictures at its turned place. A bridge object's map FrameIndex is
+  its span type (1 begin, 2 line, 4 end). Saved (chunks 3 to 6 of the span) only while turned. No turned art was
+  made: every shipped span finds a 2003 picture.
+- **Props of four sides: their 2003 variants** (`IsFourSided`, `CMOObject::ApplyCameraTurn`). The bench
+  (`ussr\summer\bench`), the France fence (`europe\summer\e_francefence`) and the wooden columns
+  (`bigcolumnwithleg`, `biglightcolumn`, `littlecolumnwithleg`, `littlelightcolumn`) hold variants `01` to `04`,
+  each the one before turned by (x, y) -> (-y, x), the side convention (read from the pictures: the bench's seat
+  faces +x, +y, -x, -y; the columns' leg and lamp turn the same way; the France fence's wall is taken to follow the
+  same naming). Such a prop draws variant (own - 1 + step) mod 4 + 1, in its season, with its shadow, instead of the
+  mirror. The box's `01` to `04` are four different things (lines and zigzags), not sides: left on the mirror.
+  Bench `02` is brown where `01`, `03` and `04` are green; it is drawn anyway (the 2003 side, another colourway).
+- **Relighting mirrored props: not done.** M005 relit a mirrored sprite by per-class gains from the blocks' shading
+  classes (bk-views); the engine has no classes for a prop's pixels, so it is not short. Mirrored props keep their
+  lit side flipped at odd steps (S03's rough edge).
+
+### The tiers (S04)
+
+`zig build camera-turn-units-game-reads-it` (`tools/zig/camera_turn_units_game_reads_it.zig`, about 4 minutes on
+win-home): a map written from road3d.xml with units of player 0 on rings a quarter turn takes onto themselves, each
+facing along its ring (map Direction = its eighth times 8192): German snipers (one soldier, half health so the bar
+shows) at seven of the eight eighths of an inner ring, T-34s at the even and 5 cm Pak 38s at the odd eighths of an
+outer ring. A quarter turn takes the unit at eighth e to eighth e + 2 and shows it as the 2003 camera shows a unit a
+quarter turn on, which is the unit standing there at step 0: each unit is scored against the step-0 frame at the
+place it moves to. The game is paused (SPACE, `runGameWith`) before the shots: unpaused, idling soldiers scored IoU
+0.5 to 0.73 against any facing. Measured (win-home, Windows x64, debug install):
+
+- snipers: IoU 1.000, colour 0.00 at every step; their facing not shifted 0.518 to 0.668; the inner ring's gap
+  moved with the turn (0 pixels drawn where it went);
+- T-34s: IoU 0.999 to 1.000, colour 0.01 to 0.15 (lit as the step-0 tank of that facing: the sun turns);
+- Pak 38s: IoU 0.875 to 0.996, colour 1.2 to 14.1 over three runs (the gun and its ammunition box match; its
+  crew stand in animations whose phases differ from gun to gun); floors 0.85 and 16;
+- tank shadows (the frame with shadows darker than one without, terrain on): IoU 1.000 against the step-0 shadow
+  at the turned place, 566 to 743 pixels; guns' shadows 0.50 to 0.99, reported only (the crews' poses differ
+  between the two runs);
+- Remastered off: the key changed 0 unit pixels.
+
+`camera-turn-world-game-reads-it` gains one run (now about 7.5 minutes of Game runs plus its compile): benches and
+wooden columns with legs, variants 01 to 04 two eighths apart on the ring, and line spans of the wooden little
+bridge along x and y alternating on an inner ring with eighth 6 empty. Measured: every bench and column IoU 1.000,
+colour 0.00 at every step, its own picture 0.020 to 0.447; bridge spans 1.000 (`_02` turned onto `_01`'s line),
+0.958 (`_01` onto `_02`'s, colour 2.7) and 0.950 at the half turn (colour 2.9: the girders' places round to other
+pixels), against 0.49 for the 2003 picture at the turned place (S03's behaviour); the gap moved with the turn. The
+mirrored prop is now Swing01 (1.000, not mirrored 0.145). The dessau scene's blocks went from 20.4 / 19.4 / 17.9 to
+15.5 / 19.8 / 11.7 (its bridge and its units now turn). Remastered off, fences, props and bridge spans: 0 pixels
+changed.
+
+### Rough edges left (S04)
+
+- Bridge begin and end spans are measured only through the dessau scene: a lone span's turned picture is another
+  variant's or the other end's, a tile longer or narrower in the shipped kinds, of which a ring of lone spans holds
+  no step-0 picture.
+- The guns' crews and their shadows are not held to their pixels (animation phases); passengers' bars, unit status
+  icon rows, directional effect sprites, tracks and gun traces turn by construction but are not captured.
+- Mirrored props are not relit; the France fence's side order is assumed from the other families'.
+- A tier's Game run that asserts waits for its 240 s timeout (an assert dialog), which can push a tier past 10
+  minutes; it then fails, as it should.
