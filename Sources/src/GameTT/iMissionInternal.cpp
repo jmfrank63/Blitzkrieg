@@ -661,8 +661,9 @@ CInterfaceMission::CInterfaceMission()
 	nStartPauseCounter = 0;
 	bCycledLaunch = false;
 	nFPSAveragePeriod = 5000;
+	nLoadedCameraTurn = -1;
 }
-CInterfaceMission::~CInterfaceMission() 
+CInterfaceMission::~CInterfaceMission()
 {
 	pFrameSelection = 0;
 	pWorld = 0;
@@ -765,14 +766,15 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	saver.Add( 14, &timeoutDialog );
 	// The Remastered camera step (NCameraTurn), a GFX.* var no save carries:
 	// kept here only when the view is turned, so saves at the 2003 view are
-	// written as before, and a load sets it (a save without it, at step 0).
+	// written as before; the load sets it when it finishes (CMD_LOAD_FINISHED;
+	// a save without it, at step 0), after the mission's Init put the view at 0.
 	int nCameraTurn = saver.IsReading() ? 0 : NCameraTurn::Step();
 	if ( saver.IsReading() || nCameraTurn != 0 )
 		saver.Add( 15, &nCameraTurn );
 
 	if ( saver.IsReading() )
 	{
-		SetGlobalVar( NCameraTurn::pszStepVar, nCameraTurn & 3 );
+		nLoadedCameraTurn = nCameraTurn & 3;
 		// A mission interface restored from a save means we ARE in a mission,
 		// regardless of whether the save's global vars carried the flag (saves
 		// written by builds with a non-serializing global-var store lack it).
@@ -2252,6 +2254,10 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 				// repositions against it.
 				SetGlobalVar( "GFX.World.ZoomSteps", 0 );
 				SetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
+				// The camera step a load read (the settings screen sends this too, and keeps the step).
+				if ( nLoadedCameraTurn >= 0 )
+					SetGlobalVar( NCameraTurn::pszStepVar, nLoadedCameraTurn );
+				nLoadedCameraTurn = -1;
 				SyncMissionModeFromInterMission();
 				ChangeResolution();
 				CheckResolution();
