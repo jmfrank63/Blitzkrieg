@@ -3485,8 +3485,60 @@ jobs:
         run: zig build elk-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
+      # The reference scene opens a 1024x768 window with a title bar; the runner's
+      # 1024x768 desktop shrank it to 1008x681 and moved the main menu.
+      - name: Desktop large enough for the Game's 1024x768 window
+        if: matrix.part == 'all'
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class BkDisplay {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
+                  public int dmDisplayFlags; public int dmDisplayFrequency;
+                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
+                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
+              }
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
+              // done here, as PowerShell would pass a null string as "").
+              public static DEVMODE Current() {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
+                  return dm;
+              }
+              public static int Change(int width, int height) {
+                  DEVMODE dm = Current();
+                  dm.dmPelsWidth = width;
+                  dm.dmPelsHeight = height;
+                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
+                  return ChangeDisplaySettings(ref dm, 0);
+              }
+          }
+          "@
+          $before = [BkDisplay]::Current()
+          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
+          $result = [BkDisplay]::Change(1920, 1080)
+          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
+          $now = [BkDisplay]::Current()
+          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
+          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
+
       # D088 measures against hb-view's rasters; these tiers link l10n_measure, whose own tests
       # need it too. The HarfBuzz release's win64 build ships hb-view.exe (as on win-home).
+      # The tier's step builds its configuration afresh (--cache-poison=poisoned): the one cached
+      # by the build job holds the PATH without hb-view, and its run step keeps that PATH.
       - name: Install hb-view
         if: matrix.part == 'all'
         shell: pwsh
@@ -3503,7 +3555,7 @@ jobs:
         shell: pwsh
         env:
           BK_REQUIRE_ENGINE: "1"
-        run: zig build elk-game-reads-it -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+        run: zig build elk-game-reads-it -Dtarget=x86_64-windows-msvc -Dtest-mode=run --cache-poison=poisoned "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
 
@@ -3735,8 +3787,60 @@ jobs:
         run: zig build test-bk-sprite -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
+      # The reference scene opens a 1024x768 window with a title bar; the runner's
+      # 1024x768 desktop shrank it to 1008x681 and moved the main menu.
+      - name: Desktop large enough for the Game's 1024x768 window
+        if: matrix.part == 'all'
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class BkDisplay {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
+                  public int dmDisplayFlags; public int dmDisplayFrequency;
+                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
+                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
+              }
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
+              // done here, as PowerShell would pass a null string as "").
+              public static DEVMODE Current() {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
+                  return dm;
+              }
+              public static int Change(int width, int height) {
+                  DEVMODE dm = Current();
+                  dm.dmPelsWidth = width;
+                  dm.dmPelsHeight = height;
+                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
+                  return ChangeDisplaySettings(ref dm, 0);
+              }
+          }
+          "@
+          $before = [BkDisplay]::Current()
+          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
+          $result = [BkDisplay]::Change(1920, 1080)
+          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
+          $now = [BkDisplay]::Current()
+          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
+          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
+
       # D088 measures against hb-view's rasters; these tiers link l10n_measure, whose own tests
       # need it too. The HarfBuzz release's win64 build ships hb-view.exe (as on win-home).
+      # The tier's step builds its configuration afresh (--cache-poison=poisoned): the one cached
+      # by the build job holds the PATH without hb-view, and its run step keeps that PATH.
       - name: Install hb-view
         if: matrix.part == 'all'
         shell: pwsh
@@ -3753,7 +3857,7 @@ jobs:
         shell: pwsh
         env:
           BK_REQUIRE_ENGINE: "1"
-        run: zig build bk-font-game-reads-it -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+        run: zig build bk-font-game-reads-it -Dtarget=x86_64-windows-msvc -Dtest-mode=run --cache-poison=poisoned "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
 
       - name: Season textures
