@@ -2082,6 +2082,9 @@ test "a folder holding two spellings of a name resolves either without a leak" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.createDirPath(io, "Effects");
+    // A case-insensitive volume (APFS on macOS by default) cannot hold both
+    // spellings, so there is no second folder to meet first.
+    if (tmp.dir.access(io, "effects", .{})) |_| return error.SkipZigTest else |_| {}
     try tmp.dir.createDirPath(io, "effects");
     try tmp.dir.writeFile(io, .{ .sub_path = "Effects/1.xml", .data = "<base/>" });
     try tmp.dir.writeFile(io, .{ .sub_path = "effects/1.xml", .data = "<base/>" });
