@@ -3729,8 +3729,10 @@ pub fn build(b: *std.Build) void {
     // The build's PATH entry for BkMemory.dll is relative to the build root and the cwd above is
     // elsewhere, so the loader would not find it: give the run the installed copy by absolute path.
     addPathDir(run_facade_present, rootPath(b, "zig-out/bin"));
-    // The Linux loader finds the installed libBkMemory.so only through LD_LIBRARY_PATH from there.
+    // The Linux and macOS loaders find the installed libBkMemory only through their library path from
+    // there: the test's own rpath entry is relative to the build root, which this cwd is not.
     if (target.result.os.tag == .linux) run_facade_present.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
+    if (target.result.os.tag == .macos) run_facade_present.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     run_facade_present.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const test_cloudsync_facade_step = b.step("test-cloudsync-facade", "Run the CloudSync C++ facade tests");
     test_cloudsync_facade_step.dependOn(&cloudsync_facade_test.step);
