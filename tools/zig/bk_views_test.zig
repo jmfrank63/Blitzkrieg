@@ -406,7 +406,7 @@ test "the hull of a box seen from three sides is the box, and alignment finds a 
     // within 5 units at the box's height.
     const rectangles = try views.baseBlocks(arena, hull, footprint);
     try std.testing.expectEqual(@as(usize, 1), rectangles.len);
-    const box = (try views.fitBlocks(arena, rectangles, &pictures, &eyes))[0];
+    const box = (try views.fitBlocks(arena, rectangles, &pictures, &eyes, false))[0];
     for (0..2) |k| {
         try std.testing.expectApproxEqAbs(@as(f64, 0), box.lo[k], 2);
         try std.testing.expectApproxEqAbs(hi[k], box.hi[k], 5);
@@ -454,7 +454,7 @@ test "a gabled house seen from three sides is fitted back from a rough box" {
         picture.* = try blocksPicture(arena, eye.*, &gabled);
     }
     const start = [_]views.Block{.{ .lo = .{ 5, -6 }, .hi = .{ gabled[0].hi[0] - 4, gabled[0].hi[1] + 5 }, .wall = 22, .ridge = 60 }};
-    const fitted = (try views.fitBlocks(arena, &start, &pictures, &eyes))[0];
+    const fitted = (try views.fitBlocks(arena, &start, &pictures, &eyes, false))[0];
     try std.testing.expectEqual(views.Roof.gable_x, fitted.roof);
     for (0..2) |k| {
         try std.testing.expectApproxEqAbs(gabled[0].lo[k], fitted.lo[k], 2);
@@ -463,6 +463,58 @@ test "a gabled house seen from three sides is fitted back from a rough box" {
     try std.testing.expectApproxEqAbs(gabled[0].wall, fitted.wall, 3);
     try std.testing.expectApproxEqAbs(gabled[0].ridge, fitted.ridge, 3);
     for (eyes, pictures) |eye, picture| try std.testing.expect(views.blocksIou(&.{fitted}, eye, picture) > 0.97);
+}
+
+test "a block the outlines barely need is dropped, and a chimney is cut back from the outline" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const gabled: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 3 * views.tile_size, 2 * views.tile_size }, .wall = 30, .ridge = 55, .roof = .gable_x };
+    // A chimney 6 units square on the ridge, 15 above it.
+    const chimney: views.Block = .{ .lo = .{ 30, 20 }, .hi = .{ 36, 26 }, .wall = 70, .ridge = 70 };
+    var eyes: [3]views.Eye = undefined;
+    var plain: [3]views.Image = undefined;
+    var pictures: [3]views.Image = undefined;
+    for (&eyes, &plain, &pictures, [_]u2{ 0, 1, 3 }) |*eye, *bare, *picture, turn| {
+        eye.* = .{ .anchor = .{ 130, 150 }, .turn = turn };
+        bare.* = try blocksPicture(arena, eye.*, &.{gabled});
+        picture.* = try blocksPicture(arena, eye.*, &.{ gabled, chimney });
+    }
+    // A tower standing a little above the roof (from one side it is what a
+    // chimney looks like) costs more than it adds: the fit drops it.
+    const start = [_]views.Block{
+        .{ .lo = .{ 5, -6 }, .hi = .{ gabled.hi[0] - 4, gabled.hi[1] + 5 }, .wall = 22, .ridge = 60 },
+        .{ .lo = .{ 40, 10 }, .hi = .{ 56, 26 }, .wall = 58, .ridge = 58 },
+    };
+    try std.testing.expectEqual(@as(usize, 1), (try views.fitBlocks(arena, &start, &plain, &eyes, false)).len);
+    // The chimney costs a block too; cut from the first picture's outline it
+    // comes back where it stands, as high and about as wide.
+    const fitted = try views.fitBlocks(arena, &start, &pictures, &eyes, false);
+    try std.testing.expectEqual(@as(usize, 1), fitted.len);
+    const cut = try views.cutChimneys(arena, fitted, &pictures, &eyes);
+    try std.testing.expectEqual(@as(usize, 2), cut.len);
+    const found = cut[1];
+    for (0..2) |k| try std.testing.expectApproxEqAbs((chimney.lo[k] + chimney.hi[k]) / 2, (found.lo[k] + found.hi[k]) / 2, 4);
+    try std.testing.expectApproxEqAbs(@as(f64, 6), found.hi[0] - found.lo[0], 3);
+    try std.testing.expectApproxEqAbs(chimney.ridge, found.ridge, 3);
+    // The outline of what is left over in the other pictures shrinks.
+    for (eyes[1..], pictures[1..]) |eye, picture| try std.testing.expect(views.blocksIou(cut, eye, picture) > views.blocksIou(fitted, eye, picture));
+}
+
+test "an outline's protrusion is the share of it narrower than the window" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A wall 100 x 40 pixels, and the same with a post 8 wide and 30 high on it.
+    const flat: views.Image = .{ .width = 120, .height = 80, .pixels = try arena.alloc([4]u8, 120 * 80) };
+    const post: views.Image = .{ .width = 120, .height = 80, .pixels = try arena.alloc([4]u8, 120 * 80) };
+    for (0..80) |y| for (0..120) |x| {
+        const wall = x >= 10 and x < 110 and y >= 40;
+        flat.pixels[y * 120 + x] = if (wall) .{ 1, 1, 1, 255 } else .{ 0, 0, 0, 0 };
+        post.pixels[y * 120 + x] = if (wall or (x >= 50 and x < 58 and y >= 10)) .{ 1, 1, 1, 255 } else .{ 0, 0, 0, 0 };
+    };
+    try std.testing.expectApproxEqAbs(@as(f64, 0), try views.protrusion(arena, flat), 1e-9);
+    try std.testing.expectApproxEqAbs(@as(f64, 8 * 30) / (100 * 40 + 8 * 30), try views.protrusion(arena, post), 1e-9);
 }
 
 test "a ray meets the first face, an eye sees only what nothing hides, and a hidden wall borrows the opposite one" {

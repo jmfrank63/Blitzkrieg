@@ -41,6 +41,7 @@ const usage: bk_tool.Usage = .{
     \\       bk-views holdout <out-dir> <variant-dir>...
     \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
     \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
+    \\       bk-views contact <buildings-dir> <generated-dir> <out-dir>
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -79,6 +80,11 @@ fn run(ctx: *bk_tool.Context) !void {
         if (ctx.args.len != 5) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return reportCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], ctx.args[4]);
+    }
+    if (std.mem.eql(u8, command, "contact")) {
+        if (ctx.args.len != 4) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return contactCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3]);
     }
     if (std.mem.eql(u8, command, "camera")) {
         var dirs: std.ArrayList([]const u8) = .empty;
@@ -1551,6 +1557,7 @@ fn dot(a: [3]f64, b: [3]f64) f64 {
 }
 
 fn castBlock(b: Block, o: [3]f64, d: [3]f64) ?Hit {
+    if (b.ridge <= 0) return null;
     var buffer: [9]Plane = undefined;
     const planes = blockPlanes(b, &buffer);
     var near = -std.math.inf(f64);
@@ -1747,7 +1754,7 @@ pub fn baseBlocks(gpa: std.mem.Allocator, hull: Hull, footprint: Grid) ![]Block 
                 while (d < depth and free[(y0 + d) * w + x1]) d += 1;
                 depth = d;
                 if (depth == 0) break;
-                if ((x1 + 1 - x0) * depth > best[4] and depth >= 4 and x1 + 1 - x0 >= 4) best = .{ x0, y0, x1 + 1, y0 + depth, (x1 + 1 - x0) * depth };
+                if ((x1 + 1 - x0) * depth > best[4] and depth >= 6 and x1 + 1 - x0 >= 6) best = .{ x0, y0, x1 + 1, y0 + depth, (x1 + 1 - x0) * depth };
             }
         };
         if (best[4] < 25) break;
@@ -1813,11 +1820,14 @@ fn sampleBox(b: Block, s: Silhouette) [4]usize {
     return .{ clamp(lo[0] - 2, s.w), clamp(lo[1] - 2, s.h), clamp(hi[0] + 3, s.w), clamp(hi[1] + 3, s.h) };
 }
 
-/// A block a building may hold: at least 4 world units each way, and a roof
-/// no steeper than 2.5 (68 degrees). Without that limit a thin block with a
-/// knife-edge roof stands in for a wall, and its faces take roof pixels.
-fn plausible(b: Block) bool {
-    if (b.hi[0] - b.lo[0] < 4 or b.hi[1] - b.lo[1] < 4 or b.wall < 2 or b.ridge < b.wall) return false;
+/// A block a building may hold: at least 12 world units each way (a thinner
+/// slab stands in for a gable end or a wall and shows as a fin turned), a
+/// roof no steeper than 1.75 (60 degrees; a steeper one on a narrow block is a
+/// spike from behind), and but for a ruin's rubble a roof on walls at least a
+/// third of its height (a roof down to the ground stands in for a facade).
+fn plausible(b: Block, ruin: bool) bool {
+    if (b.hi[0] - b.lo[0] < min_side or b.hi[1] - b.lo[1] < min_side or b.wall < 2 or b.ridge < b.wall) return false;
+    if (!ruin and b.roof != .flat and b.wall < min_wall * b.ridge) return false;
     const half = [2]f64{ (b.hi[0] - b.lo[0]) / 2, (b.hi[1] - b.lo[1]) / 2 };
     const across = switch (b.roof) {
         .flat => return true,
@@ -1825,8 +1835,12 @@ fn plausible(b: Block) bool {
         .gable_y => half[0],
         .hip => @min(half[0], half[1]),
     };
-    return b.ridge - b.wall <= 2.5 * across;
+    return b.ridge - b.wall <= max_slope * across;
 }
+
+const min_side = 12;
+const max_slope = 1.75;
+const min_wall = 0.33;
 
 /// A block's volume, its roof counted as half the box above the walls.
 fn blockVolume(b: Block) f64 {
@@ -1846,6 +1860,7 @@ const volume_cost = 0.02;
 /// the blocks' volume.
 const Fit = struct {
     silhouettes: []Silhouette,
+    ruin: bool,
     both: i64 = 0,
     either: i64 = 0,
     volume: f64 = 0,
@@ -1896,9 +1911,9 @@ const Fit = struct {
 /// ridge no higher than the start's, which is the hull's); then every edge,
 /// height and roof of every block is moved while the fit improves, in steps
 /// of 8 down to 1.
-pub fn fitBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const Image, eyes: []const Eye) ![]Block {
+pub fn fitBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const Image, eyes: []const Eye, ruin: bool) ![]Block {
     const blocks = try gpa.dupe(Block, start);
-    var fit: Fit = .{ .silhouettes = try gpa.alloc(Silhouette, pictures.len) };
+    var fit: Fit = .{ .silhouettes = try gpa.alloc(Silhouette, pictures.len), .ruin = ruin };
     for (blocks) |b| fit.volume += blockVolume(b);
     fit.start = @max(1, fit.volume);
     for (fit.silhouettes, pictures, eyes) |*s, picture, eye| {
@@ -1918,7 +1933,45 @@ pub fn fitBlocks(gpa: std.mem.Allocator, start: []const Block, pictures: []const
     }
     for (blocks, 0..) |b, j| bestHeights(&fit, blocks, j, 8, @max(b.wall, b.ridge) + 8, 8);
     descend(&fit, blocks, &.{ 8, 4, 2, 1 });
-    return blocks;
+    while (prune(&fit, blocks)) descend(&fit, blocks, &.{ 4, 2, 1 });
+    var kept: std.ArrayList(Block) = .empty;
+    for (blocks) |b| if (b.ridge > 0) try kept.append(gpa, b);
+    return kept.items;
+}
+
+/// What a fit costs per block: a part the outlines barely need (a slab
+/// standing in for a gable end, a tower for a chimney) is dropped, and the
+/// blocks left refit to the outlines alone (the gable roof the slab imitated).
+const block_cost = 0.03;
+
+/// The most blocks a fit holds (a sample's bit mask is a byte).
+const max_blocks = 8;
+
+/// A block taken out of the fit (no ray meets it).
+const absent: Block = .{ .lo = .{ 0, 0 }, .hi = .{ 0, 0 }, .wall = 0, .ridge = 0 };
+
+/// Takes out the block whose loss costs the fit least, if that is less than
+/// a block's cost; one block always stays.
+fn prune(fit: *Fit, blocks: []Block) bool {
+    var count: usize = 0;
+    for (blocks) |b| count += @intFromBool(b.ridge > 0);
+    if (count < 2) return false;
+    var best: ?usize = null;
+    var best_counts: [2]i64 = undefined;
+    var best_score = fit.score(.{ fit.both, fit.either }, fit.volume) - block_cost;
+    for (blocks, 0..) |b, j| {
+        if (b.ridge <= 0) continue;
+        const counts = fit.trial(b, j, absent);
+        const score = fit.score(counts, fit.volume - blockVolume(b));
+        if (score <= best_score) continue;
+        best = j;
+        best_counts = counts;
+        best_score = score;
+    }
+    const j = best orelse return false;
+    fit.take(blocks[j], j, absent, best_counts);
+    blocks[j] = absent;
+    return true;
 }
 
 /// Block j's best roof with wall and ridge heights from `from` to `to` in `step`s.
@@ -1936,7 +1989,7 @@ fn bestHeights(fit: *Fit, blocks: []Block, j: usize, from: f64, to: f64, step: f
                 c.roof = @fromBackingInt(@intCast(roof));
                 c.wall = wall;
                 c.ridge = ridge;
-                if (!plausible(c)) continue;
+                if (!plausible(c, fit.ruin)) continue;
                 const counts = fit.trial(block, j, c);
                 const score = fit.score(counts, fit.volume - blockVolume(block) + blockVolume(c));
                 if (score <= best_score) continue;
@@ -1973,7 +2026,7 @@ fn descend(fit: *Fit, blocks: []Block, steps: []const f64) void {
                         else => c.roof = @fromBackingInt(@intCast(v - 14)),
                     }
                     if (c.roof == block.roof and v >= 14) continue;
-                    if (!plausible(c)) continue;
+                    if (!plausible(c, fit.ruin)) continue;
                     const counts = fit.trial(block.*, j, c);
                     if (fit.score(counts, fit.volume - blockVolume(block.*) + blockVolume(c)) <= fit.score(.{ fit.both, fit.either }, fit.volume)) continue;
                     fit.take(block.*, j, c, counts);
@@ -1983,6 +2036,170 @@ fn descend(fit: *Fit, blocks: []Block, steps: []const f64) void {
             }
         }
     }
+}
+
+/// The blocks with the narrow parts of the first picture's outline that
+/// stand up above the blocks' outline (3 to 48 pixels wide at their foot, 5
+/// or more high): chimneys, towers and spires, which the blocks fitted to
+/// the outlines leave out because each costs a block more than it adds to
+/// the overlap (block_cost). A part is a flat-topped square block as wide as
+/// its foot seen corner on, up to where it narrows below 0.7 of that, and
+/// a pyramid on it up to its top where it narrows on. It stands where its
+/// foot meets the top of the roof's outline below its middle (a ridge),
+/// unless along the first eye's line of sight (where it shows the same) the
+/// other pictures' outlines hold more of it, its foot hidden in the roof.
+pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []const Image, eyes: []const Eye) ![]const Block {
+    const picture = pictures[0];
+    const eye = eyes[0];
+    const w = picture.width;
+    const h = picture.height;
+    // Per column, the first row the blocks cover.
+    const top = try gpa.alloc(usize, w);
+    defer gpa.free(top);
+    for (top, 0..) |*t, x| {
+        t.* = h;
+        for (0..h) |y| {
+            if (castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5) == null) continue;
+            t.* = y;
+            break;
+        }
+    }
+    // The outline above the blocks' top, in runs reaching down to it.
+    const above = try gpa.alloc(bool, @as(usize, w) * h);
+    defer gpa.free(above);
+    @memset(above, false);
+    for (0..w) |x| {
+        if (top[x] == h) continue;
+        var y = top[x];
+        while (y > 0 and picture.pixels[(y - 1) * w + x][3] >= 128) : (y -= 1) above[(y - 1) * w + x] = true;
+    }
+    // Each row's leftmost and rightmost pixel of the part being cut.
+    const spans = try gpa.alloc([2]usize, h);
+    defer gpa.free(spans);
+    const rise = eye.project(.{ 0, 0, 0 })[1] - eye.project(.{ 0, 0, 1 })[1];
+    var out: std.ArrayList(Block) = .empty;
+    try out.appendSlice(gpa, blocks);
+    var stack: std.ArrayList(usize) = .empty;
+    defer stack.deinit(gpa);
+    for (0..above.len) |seed| {
+        if (!above[seed] or out.items.len + 2 > max_blocks) continue;
+        var box = [4]usize{ w, h, 0, 0 };
+        var count: usize = 0;
+        @memset(spans, .{ w, 0 });
+        above[seed] = false;
+        try stack.append(gpa, seed);
+        while (stack.pop()) |i| {
+            const x = i % w;
+            const y = i / w;
+            box = .{ @min(box[0], x), @min(box[1], y), @max(box[2], x + 1), @max(box[3], y + 1) };
+            spans[y] = .{ @min(spans[y][0], x), @max(spans[y][1], x + 1) };
+            count += 1;
+            for ([_][2]i64{ .{ -1, 0 }, .{ 1, 0 }, .{ 0, -1 }, .{ 0, 1 } }) |d| {
+                const nx = @as(i64, @intCast(x)) + d[0];
+                const ny = @as(i64, @intCast(y)) + d[1];
+                if (nx < 0 or ny < 0 or nx >= w or ny >= h) continue;
+                const n: usize = @intCast(ny * w + nx);
+                if (!above[n]) continue;
+                above[n] = false;
+                try stack.append(gpa, n);
+            }
+        }
+        // The foot: the widest row of the lower half (the roof cuts the
+        // lowest rows aslant).
+        const height = box[3] - box[1];
+        var foot_width: usize = 0;
+        var widest = box[3];
+        for (box[1] + height / 2..box[3]) |y| {
+            if (spans[y][1] -| spans[y][0] <= foot_width) continue;
+            foot_width = spans[y][1] - spans[y][0];
+            widest = y;
+        }
+        if (foot_width < 3 or foot_width > 48 or height < 5 or 3 * count < (box[2] - box[0]) * height) continue;
+        // The rows up from it as wide as the foot, then the narrowing rest.
+        var waist = widest;
+        while (waist > box[1] and 10 * (spans[waist - 1][1] -| spans[waist - 1][0]) >= 7 * foot_width) waist -= 1;
+        const xc = (box[0] + box[2]) / 2;
+        if (top[xc] == h) continue;
+        const r = eye.ray(@as(f64, @floatFromInt(xc)) + 0.5, @as(f64, @floatFromInt(top[xc])) + 0.5);
+        const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(xc)) + 0.5, @as(f64, @floatFromInt(top[xc])) + 0.5) orelse continue;
+        const t = hit.t - far_away;
+        const foot = [3]f64{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], r[0][2] + t * r[1][2] };
+        // A row's height over the foot: the screen moves up as it grows.
+        const zOf = struct {
+            fn f(z0: f64, row0: usize, row: usize, per: f64) f64 {
+                return z0 + (@as(f64, @floatFromInt(row0)) - @as(f64, @floatFromInt(row))) / per;
+            }
+        }.f;
+        const z_waist = zOf(foot[2], top[xc], waist, rise);
+        const z_top = zOf(foot[2], top[xc], box[1], rise);
+        const pointed = waist - box[1] >= 4;
+        const spire_width: f64 = if (pointed) @floatFromInt(@max(3, spans[waist - 1][1] -| spans[waist - 1][0])) else 0;
+        const along = [2]f64{ r[1][0], r[1][1] };
+        const length = @sqrt(along[0] * along[0] + along[1] * along[1]);
+        var best: [2]?Block = .{ null, null };
+        var best_score = -std.math.inf(f64);
+        var step: f64 = -48;
+        while (step <= 48) : (step += 2) {
+            // Along the line of sight the part shows the same.
+            const c = [2]f64{ foot[0] + step * along[0] / length, foot[1] + step * along[1] / length };
+            const dz = step * r[1][2] / length;
+            const square = struct {
+                fn f(centre: [2]f64, side: f64, wall: f64, ridge: f64, roof: Roof) Block {
+                    return .{ .lo = .{ centre[0] - side / 2, centre[1] - side / 2 }, .hi = .{ centre[0] + side / 2, centre[1] + side / 2 }, .wall = wall, .ridge = ridge, .roof = roof };
+                }
+            }.f;
+            const parts: [2]?Block = .{
+                if (z_waist > foot[2] + 1) square(c, @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2, z_waist + dz, z_waist + dz, .flat) else null,
+                if (pointed) square(c, spire_width / std.math.sqrt2, @max(z_waist, foot[2]) + dz, z_top + dz, .hip) else null,
+            };
+            // Its foot hidden in the roof, its top above it.
+            const under = castRay(blocks, .{ c[0], c[1], z_top + 1000 }, .{ 0, 0, -1 }) orelse continue;
+            const roof = z_top + 1000 - under.t;
+            if (roof < foot[2] + dz - 1 or roof >= z_top + dz - 2) continue;
+            var score: f64 = if (step == 0) 0.5 else 0;
+            for (pictures[1..], eyes[1..]) |other, other_eye| for (parts) |part| {
+                score += @floatFromInt(chimneyFit(blocks, part orelse continue, other, other_eye));
+            };
+            if (score <= best_score) continue;
+            best = parts;
+            best_score = score;
+        }
+        for (best) |part| try out.append(gpa, part orelse continue);
+    }
+    return out.items;
+}
+
+/// The pixels a chimney adds to the blocks' outline in a picture: inside
+/// its outline less outside.
+fn chimneyFit(blocks: []const Block, chimney: Block, picture: Image, eye: Eye) i64 {
+    var score: i64 = 0;
+    const box = chimneyBox(chimney, eye, picture);
+    for (box[1]..box[3]) |y| for (box[0]..box[2]) |x| {
+        const px = @as(f64, @floatFromInt(x)) + 0.5;
+        const py = @as(f64, @floatFromInt(y)) + 0.5;
+        const r = eye.ray(px, py);
+        if (castBlock(chimney, .{ r[0][0] - far_away * r[1][0], r[0][1] - far_away * r[1][1], r[0][2] - far_away * r[1][2] }, r[1]) == null) continue;
+        if (castPixel(blocks, eye, px, py) != null) continue;
+        score += if (picture.pixels[y * picture.width + x][3] >= 128) 1 else -1;
+    };
+    return score;
+}
+
+/// The pixels of a picture a block's box may cover.
+fn chimneyBox(b: Block, eye: Eye, picture: Image) [4]usize {
+    var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+    var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+    for (0..8) |c| {
+        const q = eye.project(.{ if (c & 1 != 0) b.hi[0] else b.lo[0], if (c & 2 != 0) b.hi[1] else b.lo[1], if (c & 4 != 0) b.ridge else 0 });
+        lo = .{ @min(lo[0], q[0]), @min(lo[1], q[1]) };
+        hi = .{ @max(hi[0], q[0]), @max(hi[1], q[1]) };
+    }
+    const clamp = struct {
+        fn f(v: f64, n: u32) usize {
+            return @intFromFloat(std.math.clamp(v, 0, @as(f64, @floatFromInt(n))));
+        }
+    }.f;
+    return .{ clamp(lo[0] - 1, picture.width), clamp(lo[1] - 1, picture.height), clamp(hi[0] + 2, picture.width), clamp(hi[1] + 2, picture.height) };
 }
 
 /// The overlap of the blocks' outline with a picture's (alpha 128 or more).
@@ -2146,18 +2363,22 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye
         const face: Face = .{ .block = hit.block, .plane = hit.plane };
         const donors = &donor_table[face.block * 9 + face.plane];
         if (donors.* == null) donors.* = try donorsOf(gpa, blocks, face);
-        for (0..donors.*.?.len + 1) |k| {
+        // A face seen at a grazing angle smears its pixels across the
+        // target: one a picture sees more squarely, its own or a donor,
+        // goes first.
+        for ([_]f64{ grazing, -1 }) |least| for (0..donors.*.?.len + 1) |k| {
             if (out.kinds[i] != .filled) break;
             const q = if (k == 0) p else donorPoint(blocks, face, donors.*.?[k - 1], p);
             const nq = if (k == 0) hit.normal else normalOf(blocks, donors.*.?[k - 1]);
             for (projectors) |projector| {
                 const source = projector.picture orelse continue;
+                const facing = -dot(nq, projector.eye.ray(0, 0)[1]);
+                if (facing < least) continue;
                 if (!sees(blocks, projector.eye, q)) continue;
                 const uv = projector.eye.project(q);
                 const pixel = (source.at(@intFromFloat(@floor(uv[0])), @intFromFloat(@floor(uv[1]))) orelse continue).*;
                 if (pixel[3] < 128) continue;
                 const from = shadeClass(nq, projector.eye.turn);
-                const facing = -dot(nq, projector.eye.ray(0, 0)[1]);
                 const score = @as(f64, if (from == class) 2 else 0) + facing;
                 if (score <= best_score) continue;
                 best_score = score;
@@ -2165,10 +2386,14 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye
                 out.image.pixels[i][3] = 255;
                 out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
             }
-        }
+        };
     };
     return out;
 }
+
+/// The cosine of the angle between a face and a picture's line of sight
+/// under which the picture sees the face at a grazing angle.
+const grazing = 0.25;
 
 /// Fills every `filled` pixel from the picture's own projected and borrowed
 /// pixels of the same shading class, PatchMatch-style: pixels are filled from
@@ -2475,12 +2700,14 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8) !S
     for (states.items, shapes) |state, *shape| {
         var state_eyes: std.ArrayList(Eye) = .empty;
         var state_pictures: std.ArrayList(Image) = .empty;
-        for (sources.items, eyes) |source, eye| {
-            try state_pictures.append(arena, pictureOf(source, state) orelse continue);
-            try state_eyes.append(arena, eye);
+        for (sources.items, eyes, 0..) |source, eye, e| {
+            // The variant's own picture first: chimneys are cut from it.
+            try state_pictures.insert(arena, if (e == fixed) 0 else state_pictures.items.len, pictureOf(source, state) orelse continue);
+            try state_eyes.insert(arena, if (e == fixed) 0 else state_eyes.items.len, eye);
         }
-        shape.* = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items);
-        if (std.mem.eql(u8, state, "1")) intact = shape.*;
+        const fitted = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items, state[0] == '3');
+        if (std.mem.eql(u8, state, "1")) intact = fitted;
+        shape.* = try cutChimneys(arena, fitted, state_pictures.items, state_eyes.items);
     }
     return .{
         .family = found.family.name,
@@ -2535,7 +2762,7 @@ fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
 /// One damage state of a target: the sprite with the source of each pixel,
 /// its shadow, its ground picture where the variant has one, and how well the
 /// blocks cover each source's outline.
-const Drawn = struct { state: []const u8, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64 };
+const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64 };
 
 fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const arena = ctx.arena;
@@ -2577,19 +2804,11 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             const g = groundPoint(target.eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
             shadow.pixels[y * shadow.width + x] = if (castRay(blocks, g, l) != null) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
         };
-        // The export packs the shadow outside the sprite only, and an empty
-        // pack fails: a low ruin whose shadow falls all under it keeps one
-        // shadow pixel below its lowest pixel (the canvas has a margin).
-        var lowest: ?usize = null;
-        for (sprite.image.pixels, shadow.pixels, 0..) |p, s, i| {
-            if (s[3] > 0 and p[3] < 128) break;
-            if (p[3] >= 128) lowest = i;
-        } else if (lowest) |i| {
-            shadow.pixels[i + shadow.width] = .{ 0, 0, 0, 255 };
-        }
+        keepShadow(sprite.image, shadow);
         const has_ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state})) != null;
         d.* = .{
             .state = state,
+            .blocks = blocks,
             .sprite = sprite,
             .shadow = shadow,
             .ground = if (has_ground) try projectGround(arena, target.eye, target.size, ground[0..ground_count]) else null,
@@ -2597,6 +2816,113 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
         };
     }
     return drawn;
+}
+
+/// The export packs the shadow outside the sprite only, and an empty pack
+/// fails: a low ruin whose shadow falls all under it keeps one shadow pixel
+/// below its lowest pixel (the canvas has a margin).
+fn keepShadow(sprite: Image, shadow: Image) void {
+    var lowest: ?usize = null;
+    for (sprite.pixels, shadow.pixels, 0..) |p, s, i| {
+        if (s[3] > 0 and p[3] < 128) return;
+        if (p[3] >= 128) lowest = i;
+    }
+    if (lowest) |i| if (i + shadow.width < shadow.pixels.len) {
+        shadow.pixels[i + shadow.width] = .{ 0, 0, 0, 255 };
+    };
+}
+
+/// How plausible a turned intact picture's shape is against the variant's
+/// 2003 one: its height over theirs, the blocks' ground over the
+/// footprint's cells, the IoU of the blocks' outline with the variant's 2003
+/// one (other variants of the family may be other buildings, e_house01_1 and
+/// _3 differ in their roofs), and the protrusions of both pictures.
+const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0 };
+
+fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn) !Shape {
+    const original = pictureOf(own, "1").?;
+    return .{
+        .height = @as(f64, @floatFromInt(outlineHeight(d.sprite.image))) / @as(f64, @floatFromInt(@max(1, outlineHeight(original)))),
+        .ground = groundArea(d.blocks) / footprintArea(own.footprint),
+        .cover = d.covers[fixed],
+        .protrusion = try protrusion(gpa, d.sprite.image),
+        .protrusion_2003 = try protrusion(gpa, original),
+    };
+}
+
+/// A turned intact sprite's height against the 2003 one's, outside this
+/// range: a block stands up that the 2003 side does not show (single-view
+/// depth), or a tall part (a chimney stalk) is lost.
+const height_range = [2]f64{ 0.7, 1.3 };
+/// The blocks' ground against the footprint's cells, outside this range.
+const ground_ratio = [2]f64{ 0.5, 2.0 };
+/// The intact blocks cover the variant's 2003 outline less than this (IoU).
+const outline_floor = 0.85;
+/// A turned outline's protrusion may be this many times the 2003 one's plus
+/// the margin. Between the 2003 sides of one building it is at most 1.5
+/// times plus 0.026 (a_h07_3 against _1; props such as tents and leaders'
+/// busts aside); the S05 e_house02_1_r2, whose roof sprouted peaks no 2003
+/// side shows, was 0.095 against 0.028.
+const protrusion_factor = 1.5;
+const protrusion_margin = 0.03;
+/// A turn keeps a footprint whose cells overlap their turned selves this much (IoU).
+const same_footprint = 0.9;
+/// An object is thin where its 2003 outline protrudes this much: mostly
+/// parts narrower than the protrusion window (stalks, tanks on legs,
+/// statues, wells, fountains, hydrants), which blocks of 12 world units or
+/// more cannot draw. The 2003 houses stay under 0.1, kiosks and pigeon
+/// lofts reach 0.2.
+const thin_object = 0.15;
+/// An object is small on this many footprint cells or fewer (2 x 2: wells,
+/// tanks, statues, huts).
+const small_object = 4;
+
+/// Where a turned intact shape leaves what the 2003 sides make plausible, or null.
+fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
+    if (s.height < height_range[0] or s.height > height_range[1]) return try std.fmt.allocPrint(gpa, "height {d:.2} outside {d:.1}..{d:.1}", .{ s.height, height_range[0], height_range[1] });
+    if (s.ground < ground_ratio[0] or s.ground > ground_ratio[1]) return try std.fmt.allocPrint(gpa, "ground {d:.2} outside {d:.1}..{d:.1}", .{ s.ground, ground_ratio[0], ground_ratio[1] });
+    if (s.cover < outline_floor) return try std.fmt.allocPrint(gpa, "outline {d:.2} < {d:.2}", .{ s.cover, outline_floor });
+    const most = protrusion_factor * s.protrusion_2003 + protrusion_margin;
+    if (s.protrusion > most) return try std.fmt.allocPrint(gpa, "protrusion {d:.3} > {d:.3}", .{ s.protrusion, most });
+    return null;
+}
+
+/// A turn as the variant's 2003 pictures themselves, every state, shadow and
+/// ground picture, moved so that the building stands on its turned
+/// footprint: for a thin object, or a small one the blocks cannot draw,
+/// whose footprint the turn keeps, so that it looks alike from that side.
+fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8) !struct { target: Turned, drawn: []Drawn } {
+    const arena = ctx.arena;
+    const own = scene.sources[scene.fixed];
+    const c = boxCentre(own.footprint);
+    const t = turnPoint(c, k);
+    const from = mfc_camera.project(.{ c[0], c[1], 0 });
+    const to = mfc_camera.project(.{ t[0], t[1], 0 });
+    const first = pictureOf(own, "1").?;
+    const target: Turned = .{
+        .turn = k,
+        .eye = .{ .anchor = .{ @as(f64, @floatFromInt(own.anchor[0])) + @round(from[0] - to[0]), @as(f64, @floatFromInt(own.anchor[1])) + @round(from[1] - to[1]) }, .turn = k },
+        .size = .{ first.width, first.height },
+        .name = name,
+    };
+    const drawn = try arena.alloc(Drawn, scene.states.len);
+    for (scene.states, drawn) |state, *d| {
+        const sprite = try asGenerated(arena, pictureOf(own, state).?);
+        const shadow: Image = .{ .width = first.width, .height = first.height, .pixels = try arena.alloc([4]u8, first.pixels.len) };
+        if (pictureOf(own, try std.fmt.allocPrint(arena, "{s}s", .{state}))) |s| @memcpy(shadow.pixels, s.pixels) else @memset(shadow.pixels, .{ 0, 0, 0, 0 });
+        keepShadow(sprite.image, shadow);
+        const ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state}));
+        d.* = .{ .state = state, .blocks = &.{}, .sprite = sprite, .shadow = shadow, .ground = if (ground) |g| try asGenerated(arena, g) else null, .covers = &.{} };
+    }
+    return .{ .target = target, .drawn = drawn };
+}
+
+/// A 2003 picture as a generated one, every pixel projected.
+fn asGenerated(gpa: std.mem.Allocator, image: Image) !Generated {
+    const out: Generated = .{ .image = image, .kinds = try gpa.alloc(Kind, image.pixels.len), .classes = try gpa.alloc(u8, image.pixels.len) };
+    for (image.pixels, out.kinds) |p, *kind| kind.* = if (p[3] > 0) .projected else .empty;
+    @memset(out.classes, 255);
+    return out;
 }
 
 fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8, work_arg: []const u8) !void {
@@ -2625,7 +2951,8 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const beside = try std.fs.path.join(arena, &.{ exe_dir, if (@import("builtin").os.tag == .windows) "bk-sprite.exe" else "bk-sprite" });
     const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
     const own = scene.sources[scene.fixed];
-    for (targets.items) |target| {
+    for (targets.items) |blocks_target| {
+        var target = blocks_target;
         const pictures_dir = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.work", .{scene.name}), target.name });
         const map_dir = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.map", .{target.name}) });
         const final = try std.fs.path.join(arena, &.{ out, target.name });
@@ -2635,23 +2962,29 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             try cwd.createDirPath(io, path);
         }
         const new_side = (scene.own_side - 1 + @as(u8, target.turn)) % 4 + 1;
-        const drawn = try drawTarget(ctx, scene, target);
-        // How plausible the intact shape is: the turned sprite's height
-        // against the 2003 one's (a stray tall block stands out turned), and
-        // the ground the blocks cover against the footprint's cells.
-        var height_ratio: f64 = 0;
-        var area_ratio: f64 = 0;
-        for (drawn, scene.shapes) |d, shape| {
-            if (!std.mem.eql(u8, d.state, "1")) continue;
-            height_ratio = @as(f64, @floatFromInt(outlineHeight(d.sprite.image))) / @as(f64, @floatFromInt(@max(1, outlineHeight(pictureOf(own, "1").?))));
-            area_ratio = groundArea(shape) / footprintArea(own.footprint);
+        var drawn = try drawTarget(ctx, scene, target);
+        // The intact shape against what the 2003 sides make plausible; an
+        // object the blocks cannot draw whose footprint the turn keeps is
+        // turned as its 2003 pictures themselves.
+        var shape: Shape = .{};
+        for (drawn) |d| {
+            if (std.mem.eql(u8, d.state, "1")) shape = try shapeOf(arena, own, scene.fixed, d);
+        }
+        const failure = try shapeFailure(arena, shape);
+        const thin = shape.protrusion_2003 >= thin_object;
+        const small = footprintArea(own.footprint) <= small_object * tile_size * tile_size;
+        const fallback = (thin or (small and failure != null)) and try footprintIou(arena, own.footprint.rows, own.footprint.rows, target.turn) >= same_footprint;
+        if (fallback) {
+            const same = try sameSprite(ctx, scene, target.turn, target.name);
+            target = same.target;
+            drawn = same.drawn;
         }
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"height_ratio\":{d:.3},\"area_ratio\":{d:.3},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, height_ratio, area_ratio });
-        for (scene.states, scene.shapes, 0..) |state, shape, i| {
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, failure orelse "" });
+        for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
-            for (shape, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
+            for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
             try r.writeAll("]");
         }
         try r.writeAll("},\n\"sources\":[");
@@ -2668,6 +3001,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, d.sprite.image));
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}), try writePng(arena, d.shadow));
             try writePictureReport(ctx, r, map_dir, d.state, d.sprite, d.covers, &first_picture);
+            if (!fallback) try writeOut(ctx, map_dir, try std.fmt.allocPrint(arena, "{s}_shape.png", .{d.state}), try writePng(arena, try shapePicture(arena, d.blocks, target)));
             var argv: std.ArrayList([]const u8) = .empty;
             const grid = try turnGrid(arena, own.footprint, target.turn);
             const locked = lockedCenter(.{ @floatCast(grid.origin[0]), @floatCast(grid.origin[1]) });
@@ -2745,6 +3079,70 @@ fn writePictureReport(ctx: *bk_tool.Context, r: *std.Io.Writer, map_dir: []const
         first_class = false;
     }
     try r.writeAll("]}");
+}
+
+/// The blocks as the target eye sees them, lit by the 2003 light and tinted
+/// per block, for the source map: what shape the pixels were laid on.
+fn shapePicture(gpa: std.mem.Allocator, blocks: []const Block, target: Turned) !Image {
+    const image: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try gpa.alloc([4]u8, @as(usize, target.size[0]) * target.size[1]) };
+    const l = lightFor(light_2003, target.turn);
+    const tints = [_][3]f64{ .{ 1, 1, 1 }, .{ 1, 0.6, 0.6 }, .{ 0.6, 1, 0.6 }, .{ 0.6, 0.6, 1 }, .{ 1, 1, 0.5 }, .{ 1, 0.5, 1 }, .{ 0.5, 1, 1 }, .{ 1, 0.8, 0.5 } };
+    for (0..image.height) |y| for (0..image.width) |x| {
+        const hit = castPixel(blocks, target.eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+        image.pixels[y * image.width + x] = if (hit) |h| blk: {
+            const shade = 60 + 180 * @max(0, dot(h.normal, l));
+            const t = tints[h.block % tints.len];
+            break :blk .{ @intFromFloat(shade * t[0]), @intFromFloat(shade * t[1]), @intFromFloat(shade * t[2]), 255 };
+        } else .{ 0, 0, 0, 0 };
+    };
+    return image;
+}
+
+/// What an opening of a picture's top edge `protrusion_width` pixels wide
+/// takes off its outline (alpha 128 or more), as a share of the outline's
+/// area: what stands up narrower than that (chimneys, spires, stray blocks).
+pub fn protrusion(gpa: std.mem.Allocator, image: Image) !f64 {
+    const w = image.width;
+    const bottom: f64 = @floatFromInt(outlineBottom(image));
+    // The top edge's height over the outline's lowest row, a column each,
+    // empty columns at the ground.
+    const h = try gpa.alloc(f64, w);
+    defer gpa.free(h);
+    const eroded = try gpa.alloc(f64, w);
+    defer gpa.free(eroded);
+    var area: f64 = 0;
+    for (h, 0..) |*v, x| {
+        v.* = 0;
+        for (0..image.height) |y| {
+            if (image.pixels[y * w + x][3] < 128) continue;
+            if (v.* == 0) v.* = bottom - @as(f64, @floatFromInt(y));
+            area += 1;
+        }
+    }
+    const half = protrusion_width / 2;
+    // The opening: the lowest over a window, then the highest of those.
+    for (eroded, 0..) |*e, x| {
+        e.* = std.math.inf(f64);
+        for (x -| half..@min(w, x + half + 1)) |k| e.* = @min(e.*, h[k]);
+    }
+    var removed: f64 = 0;
+    for (h, 0..) |v, x| {
+        var m: f64 = 0;
+        for (x -| half..@min(w, x + half + 1)) |k| m = @max(m, eroded[k]);
+        removed += v - m;
+    }
+    return removed / @max(1, area);
+}
+
+const protrusion_width = 48;
+
+/// The row below a picture's outline (alpha 128 or more).
+fn outlineBottom(image: Image) usize {
+    var bottom: usize = 0;
+    for (0..image.height) |y| for (0..image.width) |x| {
+        if (image.pixels[y * image.width + x][3] >= 128) bottom = y + 1;
+    };
+    return bottom;
 }
 
 /// The height in pixels of a picture's outline (alpha 128 or more).
@@ -3106,25 +3504,19 @@ const Inventory = struct {
 
 const GateFloors = struct {
     states: std.json.ArrayHashMap(struct { iou: f64, sharpness: [2]f64, colour: f64, hue: f64 }),
+    /// Variants that pass the measures but whose turns look wrong on the
+    /// contact sheet, with the reason: listed for hand fixing all the same.
+    by_eye: ?std.json.ArrayHashMap([]const u8) = null,
 };
 
 const SideReport = struct {
     new_side: u8,
-    height_ratio: f64,
-    area_ratio: f64,
+    fallback: bool,
+    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
 const StyleRow = struct { generated: []const u8 = "", variant: []const u8 = "", state: []const u8, iou: ?f64 = null, sharpness: f64, colour: f64, hue: f64 };
-
-/// A turned intact sprite's height against the 2003 one's, outside this
-/// range: a block stands up that the 2003 side does not show (single-view
-/// depth), or a tall part (a chimney stalk) is lost.
-const height_range = [2]f64{ 0.7, 1.3 };
-/// The blocks' ground against the footprint's cells, outside this range.
-const ground_ratio = [2]f64{ 0.5, 2.0 };
-/// The intact blocks cover a 2003 outline less than this (IoU).
-const outline_floor = 0.85;
 
 /// Where a picture fails the gate's floors of its damage state (winter
 /// counting as summer), or null.
@@ -3168,7 +3560,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
 
     var index: std.Io.Writer.Allocating = .init(arena);
     const x = &index.writer;
-    var counts = struct { variants: usize = 0, folders: usize = 0, missing: usize = 0, pass: usize = 0, flagged: usize = 0, held: usize = 0, held_pass: usize = 0 }{};
+    var counts = struct { variants: usize = 0, folders: usize = 0, missing: usize = 0, pass: usize = 0, held: usize = 0, held_pass: usize = 0, same: usize = 0, shape: usize = 0, eye: usize = 0 }{};
     for (inventory.families) |family| {
         var doc: std.Io.Writer.Allocating = .init(arena);
         const d = &doc.writer;
@@ -3191,19 +3583,16 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             const dir = try std.fs.path.join(arena, &.{ work, variant.path });
             const style = try readJson(struct { style: []const StyleRow }, ctx, try std.fs.path.join(arena, &.{ dir, "style", "style.json" }));
             var failure: ?[]const u8 = null;
-            var flags: std.ArrayList([]const u8) = .empty;
             var generated: usize = 0;
-            var heights = [2]f64{ std.math.inf(f64), 0 };
+            var same_turns: std.ArrayList([]const u8) = .empty;
             var new_sides: std.Io.Writer.Allocating = .init(arena);
             for (1..4) |k| {
                 const target = try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k });
                 const side = (try readJson(SideReport, ctx, try std.fs.path.join(arena, &.{ dir, try std.fmt.allocPrint(arena, "{s}.map", .{target}), "sources.json" }))) orelse continue;
                 generated += 1;
                 if (variant.side != null) try new_sides.writer.print("{s}{d}", .{ if (k > 1) ", " else "", side.new_side });
-                heights = .{ @min(heights[0], side.height_ratio), @max(heights[1], side.height_ratio) };
-                if (k == 1) {
-                    if (side.area_ratio < ground_ratio[0] or side.area_ratio > ground_ratio[1]) try flags.append(arena, try std.fmt.allocPrint(arena, "ground {d:.2}", .{side.area_ratio}));
-                }
+                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "r{d}", .{k}));
+                if (side.shape.failure.len > 0 and !side.fallback and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} shape: {s}", .{ k, side.shape.failure });
                 for (side.pictures) |picture| {
                     if (std.mem.endsWith(u8, picture.picture, "g")) continue;
                     const all = picture.projected + picture.mirrored + picture.transferred + picture.filled;
@@ -3217,17 +3606,12 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                         row_gate = if (why) |w| w else "pass";
                         if (why != null and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} {s}: {s}", .{ k, picture.picture, why.? });
                     }
-                    if (std.mem.eql(u8, picture.picture, "1") and k == 1) {
-                        var worst: f64 = 1;
-                        for (picture.model_iou) |m| worst = @min(worst, m);
-                        if (worst < outline_floor) try flags.append(arena, try std.fmt.allocPrint(arena, "outline {d:.2}", .{worst}));
-                    }
                     try d.print("| {s} | r{d} | {d} | {s} | {d:.1} | {d:.1} | {d:.1} | {d:.1} | ", .{ name, k, side.new_side, picture.picture, percent(picture.projected, all), percent(picture.mirrored, all), percent(picture.transferred, all), percent(picture.filled, all) });
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} |\n", .{ name, k, side.height_ratio, side.area_ratio });
+                const sh = side.shape;
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
-            for (heights) |h| if (h < height_range[0] or h > height_range[1]) try flags.append(arena, try std.fmt.allocPrint(arena, "height {d:.2}", .{h}));
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
             if (try readJson(struct { holdout: []const StyleRow }, ctx, try std.fs.path.join(arena, &.{ dir, "holdout", "holdout.json" }))) |h| if (h.holdout.len > 0) {
@@ -3243,11 +3627,16 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                 if (why != null and failure == null) failure = try std.fmt.allocPrint(arena, "hold-out {s}", .{why.?});
             };
             counts.folders += generated;
+            if (failure == null) if (floors.by_eye) |eye| if (eye.map.get(variant.path)) |why| {
+                failure = try std.fmt.allocPrint(arena, "by eye: {s}", .{why});
+                counts.eye += 1;
+            };
             if (generated < 3) {
                 counts.missing += 1;
                 failure = try std.fmt.allocPrint(arena, "not generated: {d} of 3 turns", .{generated});
             } else if (failure == null) counts.pass += 1;
-            if (flags.items.len > 0) counts.flagged += 1;
+            if (same_turns.items.len > 0) counts.same += 1;
+            if (failure != null and std.mem.indexOf(u8, failure.?, "shape") != null) counts.shape += 1;
             try x.print("| {s} | {s} | {s} | {s} | {s} | {s} | {s} | {s} |\n", .{
                 family.region,
                 family.family,
@@ -3256,15 +3645,18 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                 if (variant.side == null) "? (turns 1, 2, 3)" else new_sides.written(),
                 failure orelse "pass",
                 held,
-                if (flags.items.len > 0) try std.mem.join(arena, ", ", flags.items) else "-",
+                if (same_turns.items.len > 0) try std.mem.join(arena, ", ", same_turns.items) else "-",
             });
         }
         try d.print(
             \\
-            \\Shape: the turned intact sprite's height over the 2003 one's, the blocks' ground over the footprint's cells.
+            \\Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
+            \\over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
+            \\of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
+            \\sprite where the turn keeps the footprint.
             \\
-            \\| Variant | Turn | Height ratio | Ground ratio |
-            \\|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(
@@ -3287,17 +3679,187 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\the step failed. Per family: `<family>.md`. Written by `bk-views report`.
         \\
         \\- Variants: {d}; generated folders: {d} of {d}; not generated: {d}.
-        \\- Gate (style of every generated picture, and the hold-out where the family has another side of the
-        \\  colourway, against the floors of `tools/zig/fixtures/bk-views/gate.json`): {d} of {d} variants pass;
-        \\  hold-out {d} of {d}.
-        \\- Flagged for S06: {d} variants. `height`: a turned intact sprite's height outside {d:.1}..{d:.1} times the 2003 one's;
-        \\  `ground`: the blocks' ground outside {d:.1}..{d:.1} times the footprint's cells; `outline`: the intact blocks
-        \\  cover a 2003 outline with IoU under {d:.2}. Missing chimneys and roof seams are not measured here.
+        \\- Gate: the shape of every turn drawn by the blocks (its intact sprite's height {d:.1}..{d:.1} times the 2003
+        \\  one's, the blocks' ground {d:.1}..{d:.1} times the footprint's cells, their outline IoU {d:.2} or more against
+        \\  the variant's 2003 picture, its protrusion at most {d:.1} times the 2003 one's plus {d:.2}), the style
+        \\  of every generated picture, and the hold-out where the family has another side of the colourway, against
+        \\  the floors of `tools/zig/fixtures/bk-views/gate.json`: {d} of {d} variants pass; hold-out {d} of {d}; {d}
+        \\  fail on the shape; {d} more pass the measures but look wrong on the contact sheet (`bk-views contact`),
+        \\  listed in gate.json's `by_eye`. A failing variant is listed with its first reason, to be fixed by hand.
+        \\- 2003 sprite: {d} variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
+        \\  objects (a 2003 protrusion of {d:.2} or more) and small ones ({d} footprint cells or fewer) whose blocks fail
+        \\  the shape, where the turn keeps the footprint (cells IoU {d:.1} or more).
         \\
-        \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | Flags |
+        \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
         \\|---|---|---|---|---|---|---|---|
         \\{s}
-    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, counts.pass, counts.variants, counts.held_pass, counts.held, counts.flagged, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, index.written() });
+    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, index.written() });
     try writeCrlf(ctx, out, "batch.md", md.written());
-    try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} flagged\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.flagged });
+    try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} fail on the shape, {d} by eye, {d} with 2003 sprites\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.shape, counts.eye, counts.same });
+}
+
+// ---------------------------------------------------------------------------
+// contact: the generated sides at a glance
+
+/// 3x5 pixel letters, rows top first, three bits a row (the left pixel high).
+fn glyph(c: u8) u15 {
+    return switch (std.ascii.toLower(c)) {
+        '0' => 0b111_101_101_101_111,
+        '1' => 0b010_110_010_010_111,
+        '2' => 0b111_001_111_100_111,
+        '3' => 0b111_001_111_001_111,
+        '4' => 0b101_101_111_001_001,
+        '5' => 0b111_100_111_001_111,
+        '6' => 0b111_100_111_101_111,
+        '7' => 0b111_001_001_010_010,
+        '8' => 0b111_101_111_101_111,
+        '9' => 0b111_101_111_001_111,
+        'a' => 0b010_101_111_101_101,
+        'b' => 0b110_101_110_101_110,
+        'c' => 0b011_100_100_100_011,
+        'd' => 0b110_101_101_101_110,
+        'e' => 0b111_100_110_100_111,
+        'f' => 0b111_100_110_100_100,
+        'g' => 0b011_100_101_101_011,
+        'h' => 0b101_101_111_101_101,
+        'i' => 0b111_010_010_010_111,
+        'j' => 0b001_001_001_101_010,
+        'k' => 0b101_101_110_101_101,
+        'l' => 0b100_100_100_100_111,
+        'm' => 0b101_111_111_101_101,
+        'n' => 0b110_101_101_101_101,
+        'o' => 0b010_101_101_101_010,
+        'p' => 0b110_101_110_100_100,
+        'q' => 0b010_101_101_110_011,
+        'r' => 0b110_101_110_101_101,
+        's' => 0b011_100_010_001_110,
+        't' => 0b111_010_010_010_010,
+        'u' => 0b101_101_101_101_111,
+        'v' => 0b101_101_101_101_010,
+        'w' => 0b101_101_111_111_101,
+        'x' => 0b101_101_010_101_101,
+        'y' => 0b101_101_010_010_010,
+        'z' => 0b111_001_010_100_111,
+        '_' => 0b000_000_000_000_111,
+        '/' => 0b001_001_010_100_100,
+        '.' => 0b000_000_000_000_010,
+        '-' => 0b000_000_111_000_000,
+        else => 0,
+    };
+}
+
+/// `text` in white letters twice the glyphs' size, top left at (x, y).
+fn drawText(image: Image, x: usize, y: usize, text: []const u8) void {
+    for (text, 0..) |c, i| {
+        const g = glyph(c);
+        for (0..5) |row| for (0..3) |col| {
+            if ((g >> @intCast((4 - row) * 3 + 2 - col)) & 1 == 0) continue;
+            for (0..4) |k| {
+                const p = image.at(@intCast(x + i * 8 + col * 2 + k % 2), @intCast(y + row * 2 + k / 2)) orelse continue;
+                p.* = .{ 255, 255, 255, 255 };
+            }
+        };
+    }
+}
+
+/// A variant folder's intact sprite (`1.san` with `1_h.dds`), cut to its squares.
+fn intactSprite(ctx: *bk_tool.Context, gpa: std.mem.Allocator, dir: []const u8) !?Image {
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const san = cwd.readFileAlloc(io, try std.fs.path.join(gpa, &.{ dir, "1.san" }), gpa, .limited(64 * 1024 * 1024)) catch return null;
+    const dds = cwd.readFileAlloc(io, try std.fs.path.join(gpa, &.{ dir, "1_h.dds" }), gpa, .limited(256 * 1024 * 1024)) catch return null;
+    const pack = decodePack(gpa, san) catch |err| return ctx.failKey("views.err.bad_san", .{ dir, @errorName(err) });
+    const atlas = readDds(gpa, dds) catch |err| return ctx.failKey("views.err.bad_dds", .{ dir, @errorName(err) });
+    if (pack.sprites.len == 0) return null;
+    var bounds: Bounds = .{};
+    for (pack.sprites[0].squares) |square| bounds.add(square);
+    if (bounds.min_x >= bounds.max_x) return null;
+    return try unpack(gpa, pack.sprites[0], atlas, bounds);
+}
+
+/// `image` at half its size laid over `background`, at (x, y) of `page`.
+fn pasteHalf(page: Image, image: Image, x: usize, y: usize, background: [3]u8) void {
+    for (0..image.height / 2) |v| for (0..image.width / 2) |u| {
+        var sum = [3]f64{ 0, 0, 0 };
+        for (0..4) |k| {
+            const p = image.pixels[(v * 2 + k / 2) * image.width + u * 2 + k % 2];
+            const a = @as(f64, @floatFromInt(p[3])) / 255;
+            for (0..3) |c| sum[c] += @as(f64, @floatFromInt(p[c])) * a + @as(f64, @floatFromInt(background[c])) * (1 - a);
+        }
+        const to = page.at(@intCast(x + u), @intCast(y + v)) orelse continue;
+        to.* = .{ @intFromFloat(sum[0] / 4), @intFromFloat(sum[1] / 4), @intFromFloat(sum[2] / 4), 255 };
+    };
+}
+
+/// The height of a contact page in pixels; a row that would reach past it starts the next page.
+const contact_page = 1600;
+
+/// `contact`: every variant of `<buildings-dir>` a row, its 2003 intact sprite
+/// (on blue) and its generated turns `_r1.._r3` from `<generated-dir>` (on
+/// grey) at half size, labelled, a family's variants together under a yellow
+/// line, on pages `contact-<n>.png` in `<out-dir>`.
+fn contactCommand(ctx: *bk_tool.Context, buildings_arg: []const u8, generated_arg: []const u8, out_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const buildings = try bk_tool.inputPath(arena, buildings_arg);
+    const generated = try bk_tool.inputPath(arena, generated_arg);
+    const out = try bk_tool.inputPath(arena, out_arg);
+    try std.Io.Dir.cwd().createDirPath(ctx.io, out);
+    const Row = struct { label: []const u8, first: bool, sprites: [4]?Image };
+    var rows: std.ArrayList(Row) = .empty;
+    // A family's first row shown starts under a line.
+    var last: ?*const Family = null;
+    for (try listFamilies(arena, ctx.io, buildings)) |*family| for (family.variants) |variant| {
+        var row: Row = .{ .label = variant.path, .first = last != family, .sprites = @splat(null) };
+        var loading = std.heap.ArenaAllocator.init(ctx.gpa);
+        defer loading.deinit();
+        const gpa = loading.allocator();
+        for (0..4) |k| {
+            const dir = if (k == 0) try std.fs.path.join(gpa, &.{ buildings, variant.path }) else try std.fmt.allocPrint(gpa, "{s}_r{d}", .{ try std.fs.path.join(gpa, &.{ generated, variant.path }), k });
+            const sprite = try intactSprite(ctx, gpa, dir) orelse continue;
+            row.sprites[k] = .{ .width = sprite.width, .height = sprite.height, .pixels = try arena.dupe([4]u8, sprite.pixels) };
+        }
+        if (row.sprites[1] == null and row.sprites[2] == null and row.sprites[3] == null) continue;
+        try rows.append(arena, row);
+        last = family;
+    };
+    var pages: usize = 0;
+    var start: usize = 0;
+    while (start < rows.items.len) {
+        // The rows that fit the page, and the page's width.
+        var end = start;
+        var height: usize = 0;
+        var width: usize = 400;
+        while (end < rows.items.len) : (end += 1) {
+            var w: usize = 4;
+            var h: usize = 0;
+            for (rows.items[end].sprites) |s| if (s) |sprite| {
+                w += sprite.width / 2 + 6;
+                h = @max(h, sprite.height / 2);
+            };
+            if (end > start and height + h + 20 > contact_page) break;
+            height += h + 20;
+            width = @max(width, w, rows.items[end].label.len * 8 + 8);
+        }
+        const page: Image = .{ .width = @intCast(width), .height = @intCast(height), .pixels = try arena.alloc([4]u8, width * height) };
+        @memset(page.pixels, .{ 40, 40, 40, 255 });
+        var y: usize = 0;
+        for (rows.items[start..end]) |row| {
+            if (row.first) for (0..width) |x| {
+                page.pixels[y * width + x] = .{ 220, 180, 0, 255 };
+            };
+            drawText(page, 4, y + 3, row.label);
+            var x: usize = 4;
+            var h: usize = 0;
+            for (row.sprites, 0..) |s, k| if (s) |sprite| {
+                pasteHalf(page, sprite, x, y + 16, if (k == 0) .{ 60, 80, 110 } else .{ 96, 96, 96 });
+                x += sprite.width / 2 + 6;
+                h = @max(h, sprite.height / 2);
+            };
+            y += h + 20;
+        }
+        pages += 1;
+        try writeOut(ctx, out, try std.fmt.allocPrint(arena, "contact-{d:0>2}.png", .{pages}), try writePng(arena, page));
+        start = end;
+    }
+    try ctx.out.print("{d} variants on {d} pages in {s}\n", .{ rows.items.len, pages, out });
 }

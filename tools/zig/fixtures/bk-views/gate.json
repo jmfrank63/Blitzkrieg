@@ -1,5 +1,5 @@
 {
- "about": "Floors of the building views quality gate (M005 S03). test-bk-views draws the side of each variant again with bk-views holdout and scores its pictures with bk-views style; a picture or a damage state's mean outside these fails. They come from the hold-out of these 23 variants (docs/superpowers/evidence/building-views/holdout.md): per picture 0.05 IoU under the worst, colour 10 and hue 0.1 over the worst, sharpness 0.1 under and 0.25 over the extremes of the hold-out and the style pictures; per state the mean IoU 0.02 and the mean SSIM 0.04 under the measured. Winter states count as their summer state.",
+ "about": "Floors of the building views quality gate (M005 S03). test-bk-views draws the side of each variant again with bk-views holdout and scores its pictures with bk-views style; a picture or a damage state's mean outside these fails. They come from the hold-out of these 23 variants (docs/superpowers/evidence/building-views/holdout.md): per picture 0.05 IoU under the worst, colour 10 and hue 0.1 over the worst, sharpness 0.1 under and 0.25 over the extremes of the hold-out and the style pictures; per state the mean IoU 0.02 and the mean SSIM 0.04 under the measured. Winter states count as their summer state. by_eye (M005 S06) lists variants whose turns pass the measures but look wrong on bk-views contact's sheet, with the reason; bk-views report lists them for hand fixing.",
  "variants": [
   "africa/summer/a_h01_1",
   "africa/summer/a_h01_2",
@@ -25,6 +25,26 @@
   "ussr/summer/ukrainehouse03_1",
   "ussr/summer/ukrainehouse03_2"
  ],
+ "by_eye": {
+  "africa/summer/a_cisterns/01": "the two tanks turned come out as grey slabs",
+  "africa/summer/a_cisterns/02": "the two tanks turned come out as grey slabs",
+  "africa/summer/a_h04_1": "a flat-roofed house turned grows pitched roof pieces",
+  "africa/summer/a_wb/01": "the shed is a low slab with a tall wall at the back (single-view depth)",
+  "africa/summer/a_wb/02": "the shed is a low slab with a tall wall at the back (single-view depth)",
+  "europe/summer/e_ctownhouse02_1": "the wings' roofs meet in a jumble of planes",
+  "europe/summer/e_ctownhouse02_1_2": "the wings' roofs meet in a jumble of planes",
+  "europe/summer/e_ctownhouse02_4": "the wings' roofs meet in a jumble of planes",
+  "europe/summer/e_ctownhouse03_2": "the house falls apart into two separate blocks",
+  "europe/summer/e_ctownhouse04_1": "the gables and roofs turned are a jumble",
+  "europe/summer/e_ctownhouse04_1_2": "the gables and roofs turned are a jumble",
+  "europe/summer/e_house09_1": "the house turned stands as a stack of towers",
+  "ussr/summer/church": "dome and nave break into separate boxes with smeared walls",
+  "ussr/summer/factoryboiler": "stray sheds and a tower stand around the boiler house",
+  "ussr/summer/house07": "the house turned breaks into tilted slabs",
+  "ussr/summer/housebig": "the house turned breaks into tilted slabs",
+  "ussr/summer/towncornhouse02": "the wings stand apart with a dark gap between them",
+  "ussr/summer/towncornhouse04": "the house falls apart into separate blocks and a wall slab"
+ },
  "states": {
   "1": {
    "iou": 0.64,

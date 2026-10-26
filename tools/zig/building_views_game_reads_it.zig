@@ -19,7 +19,7 @@
 //!
 //! The Game runs from a scratch folder with HOME, XDG_*, BK_USER_ROOT,
 //! BK_PROFILES_ROOT and BK_MODS_ROOT there; frames (`side<k>.png`), sprites and
-//! logs stay in zig-out/local-test/building-views. BK_VIEWS_GAME names the
+//! logs stay in zig-out/local-test/building-views/game. BK_VIEWS_GAME names the
 //! installed Game and BK_VIEWS_TOOL bk-views (bk-sprite beside it); `zig build
 //! building-views-game-reads-it` sets both.
 const std = @import("std");
@@ -28,7 +28,8 @@ const timed_run = @import("timed_run.zig");
 const l10n_measure = @import("l10n_measure.zig");
 const testing = std.testing;
 
-const scratch = "zig-out/local-test/building-views";
+/// Its own folder: the batch keeps its work under zig-out/local-test/building-views/batch.
+const scratch = "zig-out/local-test/building-views/game";
 const mod_name = "building_views_test";
 /// Where the generated variants live in the mod's data, and so their objects.xml path.
 const mod_folder = "buildings\\views";
