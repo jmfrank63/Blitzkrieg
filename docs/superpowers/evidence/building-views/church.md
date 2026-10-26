@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| church | r1 | 2 | 1 | 53.7 | 41.8 | 4.3 | 0.2 | 1.62 | 15.4 | 0.078 | pass |
-| church | r1 | 2 | 1w | 55.2 | 40.9 | 3.9 | 0.1 | 1.34 | 12.6 | 0.062 | pass |
-| church | r1 | 2 | 2 | 59.3 | 34.8 | 4.5 | 1.4 | 1.25 | 9.0 | 0.068 | pass |
-| church | r1 | 2 | 2w | 59.3 | 34.8 | 4.5 | 1.4 | 1.23 | 10.0 | 0.088 | pass |
-| church | r1 | 2 | 3 | 69.4 | 23.8 | 6.3 | 0.5 | 1.25 | 1.3 | 0.061 | pass |
-| church | r1 | 2 | 3w | 69.4 | 23.8 | 6.3 | 0.5 | 1.19 | 2.0 | 0.072 | pass |
-| church | r2 | 3 | 1 | 8.1 | 85.3 | 6.4 | 0.2 | 1.21 | 7.7 | 0.155 | pass |
-| church | r2 | 3 | 1w | 9.8 | 85.3 | 4.8 | 0.0 | 1.20 | 16.4 | 0.126 | pass |
-| church | r2 | 3 | 2 | 14.6 | 77.1 | 6.9 | 1.4 | 1.25 | 1.9 | 0.196 | pass |
-| church | r2 | 3 | 2w | 14.6 | 77.1 | 6.9 | 1.4 | 1.23 | 2.6 | 0.177 | pass |
-| church | r2 | 3 | 3 | 39.0 | 51.8 | 8.9 | 0.4 | 1.12 | 4.4 | 0.084 | pass |
-| church | r2 | 3 | 3w | 39.0 | 51.8 | 8.9 | 0.4 | 1.09 | 5.3 | 0.084 | pass |
-| church | r3 | 4 | 1 | 74.4 | 23.3 | 2.2 | 0.1 | 1.46 | 0.3 | 0.016 | pass |
-| church | r3 | 4 | 1w | 73.7 | 23.9 | 2.3 | 0.0 | 1.26 | 1.3 | 0.040 | pass |
-| church | r3 | 4 | 2 | 73.9 | 22.3 | 2.6 | 1.2 | 1.11 | 0.8 | 0.068 | pass |
-| church | r3 | 4 | 2w | 73.9 | 22.3 | 2.6 | 1.2 | 1.10 | 0.9 | 0.074 | pass |
-| church | r3 | 4 | 3 | 76.3 | 18.7 | 4.5 | 0.5 | 1.29 | 1.6 | 0.038 | pass |
-| church | r3 | 4 | 3w | 76.3 | 18.7 | 4.5 | 0.5 | 1.21 | 2.7 | 0.042 | pass |
+| church | r1 | 2 | 1 | 48.3 | 50.6 | 1.1 | 0.0 | 1.14 | 1.0 | 0.047 | pass |
+| church | r1 | 2 | 1w | 48.3 | 50.7 | 1.0 | 0.0 | 0.98 | 10.0 | 0.030 | pass |
+| church | r1 | 2 | 2 | 59.1 | 37.8 | 2.8 | 0.3 | 1.08 | 8.3 | 0.098 | pass |
+| church | r1 | 2 | 2w | 59.1 | 37.8 | 2.8 | 0.3 | 0.98 | 10.2 | 0.155 | pass |
+| church | r1 | 2 | 3 | 59.0 | 38.6 | 0.1 | 2.3 | 1.11 | 0.8 | 0.015 | pass |
+| church | r1 | 2 | 3w | 59.0 | 38.6 | 0.1 | 2.3 | 1.10 | 1.1 | 0.013 | pass |
+| church | r2 | 3 | 1 | 0.7 | 97.4 | 1.9 | 0.0 | 1.12 | 1.1 | 0.024 | pass |
+| church | r2 | 3 | 1w | 0.7 | 97.4 | 1.9 | 0.0 | 1.04 | 0.7 | 0.036 | pass |
+| church | r2 | 3 | 2 | 13.8 | 82.9 | 2.9 | 0.4 | 1.03 | 1.5 | 0.035 | pass |
+| church | r2 | 3 | 2w | 13.8 | 82.9 | 2.9 | 0.4 | 1.02 | 1.5 | 0.025 | pass |
+| church | r2 | 3 | 3 | 8.3 | 89.2 | 0.2 | 2.2 | 1.01 | 1.3 | 0.004 | pass |
+| church | r2 | 3 | 3w | 8.3 | 89.2 | 0.2 | 2.2 | 1.02 | 1.5 | 0.005 | pass |
+| church | r3 | 4 | 1 | 46.3 | 51.9 | 1.8 | 0.0 | 1.16 | 4.0 | 0.050 | pass |
+| church | r3 | 4 | 1w | 46.5 | 51.7 | 1.7 | 0.0 | 0.97 | 13.8 | 0.030 | pass |
+| church | r3 | 4 | 2 | 49.2 | 47.7 | 2.8 | 0.3 | 1.12 | 8.7 | 0.028 | pass |
+| church | r3 | 4 | 2w | 49.2 | 47.7 | 2.8 | 0.3 | 1.00 | 10.8 | 0.085 | pass |
+| church | r3 | 4 | 3 | 33.4 | 64.2 | 0.2 | 2.2 | 1.10 | 0.6 | 0.012 | pass |
+| church | r3 | 4 | 3w | 33.4 | 64.2 | 0.2 | 2.2 | 1.09 | 1.0 | 0.011 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| church | r1 | 0.81 | 0.76 | 0.92 | 0.076 | 0.064 | pass | blocks |
-| church | r2 | 0.74 | 0.76 | 0.92 | 0.100 | 0.064 | pass | blocks |
-| church | r3 | 0.81 | 0.76 | 0.92 | 0.064 | 0.064 | pass | blocks |
+| church | r1 | 0.89 | 0.58 | 0.92 | 0.074 | 0.064 | pass | blocks |
+| church | r2 | 0.87 | 0.58 | 0.92 | 0.075 | 0.064 | pass | blocks |
+| church | r3 | 0.87 | 0.58 | 0.92 | 0.072 | 0.064 | pass | blocks |

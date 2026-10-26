@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| admhouse | r1 | 2 | 1 | 61.0 | 36.2 | 2.9 | 0.0 | 1.07 | 15.6 | 0.044 | pass |
-| admhouse | r1 | 2 | 1w | 61.7 | 36.6 | 1.6 | 0.1 | 0.66 | 75.7 | 0.029 | colour 75.7 > 62 |
-| admhouse | r1 | 2 | 2 | 63.2 | 34.8 | 2.0 | 0.0 | 1.12 | 8.6 | 0.027 | pass |
-| admhouse | r1 | 2 | 2w | 63.2 | 34.8 | 2.0 | 0.0 | 1.07 | 8.8 | 0.030 | pass |
-| admhouse | r1 | 2 | 3 | 78.6 | 13.7 | 7.7 | 0.0 | 1.00 | 1.9 | 0.021 | pass |
-| admhouse | r1 | 2 | 3w | 78.6 | 13.7 | 7.7 | 0.0 | 1.00 | 2.2 | 0.019 | pass |
-| admhouse | r2 | 3 | 1 | 6.0 | 86.5 | 7.5 | 0.0 | 1.09 | 10.3 | 0.029 | pass |
-| admhouse | r2 | 3 | 1w | 5.6 | 89.5 | 4.8 | 0.1 | 1.06 | 13.3 | 0.009 | pass |
-| admhouse | r2 | 3 | 2 | 4.1 | 89.5 | 6.4 | 0.0 | 1.11 | 5.8 | 0.010 | pass |
-| admhouse | r2 | 3 | 2w | 4.1 | 89.5 | 6.4 | 0.0 | 1.11 | 6.6 | 0.012 | pass |
-| admhouse | r2 | 3 | 3 | 59.4 | 31.6 | 8.9 | 0.0 | 1.02 | 3.1 | 0.034 | pass |
-| admhouse | r2 | 3 | 3w | 59.4 | 31.6 | 8.9 | 0.0 | 1.02 | 3.6 | 0.034 | pass |
-| admhouse | r3 | 4 | 1 | 40.8 | 54.3 | 4.9 | 0.0 | 1.08 | 12.5 | 0.051 | pass |
-| admhouse | r3 | 4 | 1w | 39.4 | 56.9 | 3.7 | 0.1 | 0.73 | 69.4 | 0.069 | colour 69.4 > 62 |
-| admhouse | r3 | 4 | 2 | 39.7 | 55.3 | 5.1 | 0.0 | 1.09 | 6.0 | 0.048 | pass |
-| admhouse | r3 | 4 | 2w | 39.7 | 55.3 | 5.1 | 0.0 | 1.03 | 6.0 | 0.054 | pass |
-| admhouse | r3 | 4 | 3 | 70.8 | 22.5 | 6.8 | 0.0 | 0.95 | 5.6 | 0.029 | pass |
-| admhouse | r3 | 4 | 3w | 70.8 | 22.5 | 6.8 | 0.0 | 0.95 | 6.5 | 0.029 | pass |
+| admhouse | r1 | 2 | 1 | 61.1 | 36.2 | 2.6 | 0.1 | 1.06 | 15.7 | 0.032 | pass |
+| admhouse | r1 | 2 | 1w | 61.8 | 36.6 | 1.6 | 0.1 | 1.04 | 14.0 | 0.040 | pass |
+| admhouse | r1 | 2 | 2 | 63.3 | 34.7 | 2.0 | 0.0 | 1.12 | 8.5 | 0.044 | pass |
+| admhouse | r1 | 2 | 2w | 63.3 | 34.7 | 2.0 | 0.0 | 1.07 | 8.8 | 0.031 | pass |
+| admhouse | r1 | 2 | 3 | 79.3 | 15.1 | 5.6 | 0.1 | 1.02 | 2.9 | 0.047 | pass |
+| admhouse | r1 | 2 | 3w | 79.3 | 15.1 | 5.6 | 0.1 | 1.03 | 3.4 | 0.048 | pass |
+| admhouse | r2 | 3 | 1 | 6.0 | 89.5 | 4.4 | 0.1 | 1.08 | 18.5 | 0.047 | pass |
+| admhouse | r2 | 3 | 1w | 5.6 | 92.0 | 2.3 | 0.1 | 1.07 | 17.9 | 0.018 | pass |
+| admhouse | r2 | 3 | 2 | 4.1 | 92.7 | 3.2 | 0.0 | 1.14 | 7.7 | 0.027 | pass |
+| admhouse | r2 | 3 | 2w | 4.1 | 92.7 | 3.2 | 0.0 | 1.14 | 8.9 | 0.022 | pass |
+| admhouse | r2 | 3 | 3 | 61.1 | 32.9 | 6.0 | 0.0 | 1.04 | 1.3 | 0.030 | pass |
+| admhouse | r2 | 3 | 3w | 61.1 | 32.9 | 6.0 | 0.0 | 1.05 | 1.5 | 0.031 | pass |
+| admhouse | r3 | 4 | 1 | 40.3 | 57.4 | 2.2 | 0.1 | 1.08 | 12.5 | 0.029 | pass |
+| admhouse | r3 | 4 | 1w | 39.4 | 59.2 | 1.3 | 0.1 | 1.06 | 12.4 | 0.041 | pass |
+| admhouse | r3 | 4 | 2 | 39.8 | 58.2 | 2.0 | 0.0 | 1.08 | 5.6 | 0.021 | pass |
+| admhouse | r3 | 4 | 2w | 39.8 | 58.2 | 2.0 | 0.0 | 1.02 | 5.4 | 0.029 | pass |
+| admhouse | r3 | 4 | 3 | 71.6 | 22.5 | 5.9 | 0.0 | 0.97 | 1.2 | 0.023 | pass |
+| admhouse | r3 | 4 | 3w | 71.6 | 22.5 | 5.9 | 0.0 | 0.97 | 1.4 | 0.025 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| admhouse | r1 | 0.95 | 0.78 | 0.95 | 0.015 | 0.015 | pass | blocks |
-| admhouse | r2 | 0.95 | 0.78 | 0.95 | 0.010 | 0.015 | pass | blocks |
-| admhouse | r3 | 0.96 | 0.78 | 0.95 | 0.009 | 0.015 | pass | blocks |
+| admhouse | r1 | 0.95 | 0.78 | 0.94 | 0.011 | 0.015 | pass | blocks |
+| admhouse | r2 | 0.95 | 0.78 | 0.94 | 0.010 | 0.015 | pass | blocks |
+| admhouse | r3 | 0.96 | 0.78 | 0.94 | 0.009 | 0.015 | pass | blocks |

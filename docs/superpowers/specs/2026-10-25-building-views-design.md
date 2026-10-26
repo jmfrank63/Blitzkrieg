@@ -365,6 +365,51 @@ stopped taking pixels from faces seen at a grazing angle.
   depth: a_wb; flat roofs grown pitched: a_h04_1; tanks lost: a_cisterns; and church, factoryboiler, house07,
   housebig, e_house09_1).
 
+## Hand shapes (M005 S07, 2026-10-26)
+
+S06 left 70 variants for hand fixing (38 by the shape gate, 14 by style or the hold-out, 18 by eye). S07 draws the
+buildings the fit cannot model from hand-authored blocks and fixes the style and hold-out failures at their cause.
+
+- **Hand shapes.** `tools/zig/fixtures/bk-views/shapes/<family>.json` maps a variant folder's name to its intact
+  blocks in its own frame (world units from its zero cross; the block format of sources.json: rectangle, wall,
+  ridge, roof flat / gable_x / gable_y / hip; a spire is a narrow hip block). `side` and `holdout` take them instead
+  of the fitted intact blocks, in summer and winter and for a damage state whose own picture they still cover
+  (outline IoU 0.85); the other damage states are fitted from them. No chimneys are cut from a hand shape: its author
+  draws them. 54 variants of 38 families have one: the multi-wing town houses (e_ctownhouse02/03/04,
+  towncornhouse02/04), the stations and city hall, church, factoryboiler, e_house09_1, house04/06/07/08, housebig,
+  a_h01, a_h04_1, a_h09_2, a_mosque_01_4, a_wb, a_cisterns, and open props (tents, the wt tarpaulin stacks, track
+  ends, pillboxes, cistern/02, pigeonloft/01, e_statue/04).
+- **Authoring.** `bk-views shape <out-dir> <variant-dir>...` writes, per variant, the outline IoU of its intact
+  blocks (hand shape or fit) against every 2003 picture of the family, an overlay per picture, the blocks seen from
+  the four sides and the blocks refined to the outlines with their roofs and pitches kept (edges, whole moves, up
+  and down), and shape.json. Shapes were started from the footprint grid and the 2003 sides by eye, then refined by
+  that tool or by a scratch maximin search over its IoU; the tracked numbers are the final blocks.
+- **Test.** `test-bk-views` runs `shape` on every hand shape: its own 2003 picture reaches the shape gate's outline
+  floor (0.85), the family's other pictures of its colourway the hold-out's mean floor of the intact state (0.84;
+  their zero crosses are aligned to about a world unit and sides read from hand-painted grids). Other colourways are
+  not held to it (e_shed02_4 is an open shed, _5 a closed one).
+- **Shape gate for hand shapes.** The height and ground ranges guard the fit's depth, which one picture leaves open;
+  a hand shape answers to its outline and protrusion only. For every turn the height is now taken against the 2003
+  picture of the side it shows where the family has one (an L-shaped house turned stands higher or lower).
+- **Mirrored 2003 sprite.** An odd turn of a thin object, or of a small one whose blocks fail, on a rectangular
+  footprint is its 2003 pictures mirrored across the screen's vertical, which lays it on the turned footprint;
+  the mirrored sprite is relit by the per-class gain from the face each pixel shows to the face its mirror shows,
+  pooled over the sprite (per pixel it took the seams of the blocks: cistern/02 sharpness 3.0). 15 variants
+  (tents, kiosks, dustbins, cisterns, leaders, statues, track ends). The hold-out draws a turn the way `side` does,
+  the fallback included.
+- **Style fixes.** The hue distance compares hue bands as shares of every opaque pixel, not of the coloured ones: a
+  snowed pillbox has few coloured pixels, whose hue alone swung by up to 1.25 at a colour distance of 10 (dot,
+  dot_h winter). The relighting gain is not applied where the pictures show the target class on a quarter of the
+  source class's pixels or fewer (admhouse's porch roofs had relit its snowed main roof dark: winter colour 75.6).
+  A damage state whose 2003 picture is the intact one (tarpaulin stacks, tanks) is judged by the intact floors.
+- **Result** ([batch](../evidence/building-views/batch.md)): 190 of 194 variants pass (S06: 124), hold-out 40 of 43
+  (34), 0 by eye (18); 582 of 582 folders through the engine check. Hold-out means, state 1/2/3: IoU 0.883 / 0.827 /
+  0.761, SSIM 0.183 / 0.060 / 0.049. Left, with the measured reason: dzot/02 r1 ruin sharpness 0.67 and dot_h/02
+  hold-out 3w sharpness 1.61, against the band 0.70..1.55 (a flat mound ruin, within 0.05 of the band); leaders/01
+  and /02 hold-out (sharpness 0.44, colour 110): the board has two pictures, of its lit and its shaded face, and
+  the hold-out, drawing one from the other, has no picture of the target face to relight from; the turns `side`
+  makes from both pass style.
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

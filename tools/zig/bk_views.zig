@@ -3726,6 +3726,8 @@ const GateFloors = struct {
 const SideReport = struct {
     new_side: u8,
     fallback: bool,
+    mirror: bool = false,
+    hand: bool = false,
     shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
@@ -3775,7 +3777,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
 
     var index: std.Io.Writer.Allocating = .init(arena);
     const x = &index.writer;
-    var counts = struct { variants: usize = 0, folders: usize = 0, missing: usize = 0, pass: usize = 0, held: usize = 0, held_pass: usize = 0, same: usize = 0, shape: usize = 0, eye: usize = 0 }{};
+    var counts = struct { variants: usize = 0, folders: usize = 0, missing: usize = 0, pass: usize = 0, held: usize = 0, held_pass: usize = 0, same: usize = 0, shape: usize = 0, eye: usize = 0, hand: usize = 0 }{};
     for (inventory.families) |family| {
         var doc: std.Io.Writer.Allocating = .init(arena);
         const d = &doc.writer;
@@ -3800,13 +3802,15 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             var failure: ?[]const u8 = null;
             var generated: usize = 0;
             var same_turns: std.ArrayList([]const u8) = .empty;
+            var hand = false;
             var new_sides: std.Io.Writer.Allocating = .init(arena);
             for (1..4) |k| {
                 const target = try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k });
                 const side = (try readJson(SideReport, ctx, try std.fs.path.join(arena, &.{ dir, try std.fmt.allocPrint(arena, "{s}.map", .{target}), "sources.json" }))) orelse continue;
                 generated += 1;
                 if (variant.side != null) try new_sides.writer.print("{s}{d}", .{ if (k > 1) ", " else "", side.new_side });
-                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "r{d}", .{k}));
+                hand = hand or side.hand;
+                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "r{d}{s}", .{ k, if (side.mirror) " mirrored" else "" }));
                 if (side.shape.failure.len > 0 and !side.fallback and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} shape: {s}", .{ k, side.shape.failure });
                 for (side.pictures) |picture| {
                     if (std.mem.endsWith(u8, picture.picture, "g")) continue;
@@ -3851,6 +3855,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                 failure = try std.fmt.allocPrint(arena, "not generated: {d} of 3 turns", .{generated});
             } else if (failure == null) counts.pass += 1;
             if (same_turns.items.len > 0) counts.same += 1;
+            if (hand) counts.hand += 1;
             if (failure != null and std.mem.indexOf(u8, failure.?, "shape") != null) counts.shape += 1;
             try x.print("| {s} | {s} | {s} | {s} | {s} | {s} | {s} | {s} |\n", .{
                 family.region,
@@ -3903,12 +3908,14 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\  listed in gate.json's `by_eye`. A failing variant is listed with its first reason, to be fixed by hand.
         \\- 2003 sprite: {d} variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
         \\  objects (a 2003 protrusion of {d:.2} or more) and small ones ({d} footprint cells or fewer) whose blocks fail
-        \\  the shape, where the turn keeps the footprint (cells IoU {d:.1} or more).
+        \\  the shape, where the turn keeps the footprint (cells IoU {d:.1} or more), or mirrored onto it on an odd
+        \\  turn of a rectangular footprint.
+        \\- Hand shapes: {d} variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
         \\
         \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
         \\|---|---|---|---|---|---|---|---|
         \\{s}
-    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, index.written() });
+    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
     try writeCrlf(ctx, out, "batch.md", md.written());
     try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} fail on the shape, {d} by eye, {d} with 2003 sprites\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.shape, counts.eye, counts.same });
 }

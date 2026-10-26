@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_railwaystation_1 | r1 | 2 | 1 | 46.1 | 52.3 | 1.7 | 0.0 | 1.00 | 8.4 | 0.068 | pass |
-| e_railwaystation_1 | r1 | 2 | 2 | 61.2 | 36.2 | 2.5 | 0.0 | 0.91 | 7.3 | 0.021 | pass |
-| e_railwaystation_1 | r1 | 2 | 3 | 38.2 | 57.5 | 4.3 | 0.0 | 1.03 | 4.5 | 0.024 | pass |
-| e_railwaystation_1 | r2 | 3 | 1 | 18.5 | 79.8 | 1.7 | 0.0 | 1.06 | 1.3 | 0.079 | pass |
-| e_railwaystation_1 | r2 | 3 | 2 | 27.3 | 67.5 | 5.1 | 0.1 | 1.05 | 0.8 | 0.031 | pass |
-| e_railwaystation_1 | r2 | 3 | 3 | 13.0 | 81.6 | 5.2 | 0.3 | 1.11 | 1.1 | 0.026 | pass |
-| e_railwaystation_1 | r3 | 4 | 1 | 57.2 | 41.4 | 1.4 | 0.0 | 1.12 | 4.7 | 0.133 | pass |
-| e_railwaystation_1 | r3 | 4 | 2 | 57.1 | 38.0 | 4.8 | 0.1 | 0.99 | 6.2 | 0.041 | pass |
-| e_railwaystation_1 | r3 | 4 | 3 | 57.1 | 37.6 | 5.0 | 0.3 | 1.01 | 6.3 | 0.006 | pass |
-| e_railwaystation_2 | r1 | 2 | 1 | 71.0 | 15.8 | 13.1 | 0.0 | 0.60 | 36.4 | 0.103 | pass |
-| e_railwaystation_2 | r1 | 2 | 2 | 79.5 | 15.7 | 4.8 | 0.0 | 0.59 | 33.3 | 0.122 | pass |
-| e_railwaystation_2 | r1 | 2 | 3 | 61.7 | 17.1 | 21.2 | 0.1 | 0.90 | 2.5 | 0.019 | pass |
-| e_railwaystation_2 | r2 | 3 | 1 | 3.0 | 60.9 | 36.1 | 0.0 | 0.88 | 8.1 | 0.041 | pass |
-| e_railwaystation_2 | r2 | 3 | 2 | 1.5 | 78.9 | 19.5 | 0.1 | 1.05 | 1.8 | 0.040 | pass |
-| e_railwaystation_2 | r2 | 3 | 3 | 27.9 | 45.2 | 26.7 | 0.2 | 0.95 | 7.6 | 0.009 | pass |
-| e_railwaystation_2 | r3 | 4 | 1 | 20.6 | 45.6 | 33.8 | 0.0 | 0.59 | 41.5 | 0.164 | pass |
-| e_railwaystation_2 | r3 | 4 | 2 | 18.0 | 63.9 | 18.0 | 0.1 | 0.65 | 33.5 | 0.102 | pass |
-| e_railwaystation_2 | r3 | 4 | 3 | 47.5 | 30.8 | 21.4 | 0.3 | 0.88 | 1.6 | 0.017 | pass |
+| e_railwaystation_1 | r1 | 2 | 1 | 26.4 | 55.1 | 18.2 | 0.2 | 1.20 | 0.9 | 0.045 | pass |
+| e_railwaystation_1 | r1 | 2 | 2 | 60.4 | 36.7 | 1.9 | 1.1 | 1.08 | 3.1 | 0.031 | pass |
+| e_railwaystation_1 | r1 | 2 | 3 | 69.9 | 28.0 | 1.0 | 1.1 | 1.04 | 2.7 | 0.015 | pass |
+| e_railwaystation_1 | r2 | 3 | 1 | 0.0 | 73.2 | 26.6 | 0.2 | 1.16 | 2.5 | 0.056 | pass |
+| e_railwaystation_1 | r2 | 3 | 2 | 23.4 | 73.4 | 2.1 | 1.1 | 1.04 | 2.6 | 0.025 | pass |
+| e_railwaystation_1 | r2 | 3 | 3 | 50.3 | 47.7 | 0.9 | 1.1 | 1.01 | 1.3 | 0.016 | pass |
+| e_railwaystation_1 | r3 | 4 | 1 | 52.5 | 22.6 | 24.7 | 0.2 | 1.19 | 2.0 | 0.064 | pass |
+| e_railwaystation_1 | r3 | 4 | 2 | 50.0 | 46.5 | 2.2 | 1.4 | 1.05 | 1.5 | 0.033 | pass |
+| e_railwaystation_1 | r3 | 4 | 3 | 70.6 | 27.5 | 0.9 | 1.0 | 1.16 | 5.4 | 0.045 | pass |
+| e_railwaystation_2 | r1 | 2 | 1 | 65.8 | 19.5 | 14.7 | 0.0 | 0.63 | 29.8 | 0.044 | pass |
+| e_railwaystation_2 | r1 | 2 | 2 | 63.9 | 19.4 | 16.7 | 0.0 | 0.62 | 31.4 | 0.048 | pass |
+| e_railwaystation_2 | r1 | 2 | 3 | 63.8 | 19.1 | 16.5 | 0.5 | 1.04 | 1.2 | 0.017 | pass |
+| e_railwaystation_2 | r2 | 3 | 1 | 0.0 | 66.9 | 33.1 | 0.0 | 0.87 | 3.5 | 0.022 | pass |
+| e_railwaystation_2 | r2 | 3 | 2 | 0.0 | 64.8 | 35.2 | 0.0 | 0.92 | 10.1 | 0.082 | pass |
+| e_railwaystation_2 | r2 | 3 | 3 | 29.2 | 48.8 | 21.5 | 0.5 | 1.04 | 1.6 | 0.020 | pass |
+| e_railwaystation_2 | r3 | 4 | 1 | 21.4 | 51.6 | 27.0 | 0.0 | 0.63 | 29.8 | 0.067 | pass |
+| e_railwaystation_2 | r3 | 4 | 2 | 20.8 | 50.1 | 29.1 | 0.0 | 0.62 | 37.3 | 0.107 | pass |
+| e_railwaystation_2 | r3 | 4 | 3 | 48.8 | 36.3 | 14.5 | 0.5 | 0.97 | 3.6 | 0.021 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,9 +32,9 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| e_railwaystation_1 | r1 | 1.07 | 0.78 | 0.95 | 0.064 | 0.053 | pass | blocks |
-| e_railwaystation_1 | r2 | 1.41 | 0.78 | 0.95 | 0.070 | 0.053 | height 1.41 outside 0.7..1.3 | blocks |
-| e_railwaystation_1 | r3 | 1.28 | 0.78 | 0.95 | 0.033 | 0.053 | pass | blocks |
-| e_railwaystation_2 | r1 | 1.08 | 0.89 | 0.95 | 0.079 | 0.047 | pass | blocks |
-| e_railwaystation_2 | r2 | 1.21 | 0.89 | 0.95 | 0.124 | 0.047 | protrusion 0.124 > 0.101 | blocks |
-| e_railwaystation_2 | r3 | 1.07 | 0.89 | 0.95 | 0.120 | 0.047 | protrusion 0.120 > 0.101 | blocks |
+| e_railwaystation_1 | r1 | 0.99 | 0.88 | 0.89 | 0.034 | 0.053 | pass | blocks |
+| e_railwaystation_1 | r2 | 1.41 | 0.88 | 0.89 | 0.027 | 0.053 | pass | blocks |
+| e_railwaystation_1 | r3 | 1.29 | 0.88 | 0.89 | 0.031 | 0.053 | pass | blocks |
+| e_railwaystation_2 | r1 | 1.04 | 0.91 | 0.96 | 0.047 | 0.047 | pass | blocks |
+| e_railwaystation_2 | r2 | 1.12 | 0.91 | 0.96 | 0.066 | 0.047 | pass | blocks |
+| e_railwaystation_2 | r3 | 1.03 | 0.91 | 0.96 | 0.049 | 0.047 | pass | blocks |

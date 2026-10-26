@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse01 | r1 | 2 | 1 | 61.0 | 32.6 | 6.4 | 0.0 | 1.01 | 8.5 | 0.114 | pass |
-| towncornhouse01 | r1 | 2 | 1w | 61.8 | 32.3 | 5.9 | 0.0 | 0.95 | 18.4 | 0.059 | pass |
-| towncornhouse01 | r1 | 2 | 2 | 54.8 | 38.9 | 6.3 | 0.0 | 1.16 | 3.7 | 0.217 | pass |
-| towncornhouse01 | r1 | 2 | 2w | 54.8 | 38.9 | 6.3 | 0.0 | 1.15 | 3.8 | 0.181 | pass |
-| towncornhouse01 | r1 | 2 | 3 | 69.4 | 25.1 | 5.4 | 0.1 | 1.07 | 3.1 | 0.120 | pass |
-| towncornhouse01 | r1 | 2 | 3w | 65.2 | 30.6 | 4.2 | 0.0 | 1.06 | 0.9 | 0.083 | pass |
-| towncornhouse01 | r2 | 3 | 1 | 0.3 | 89.4 | 10.3 | 0.0 | 1.10 | 0.6 | 0.062 | pass |
-| towncornhouse01 | r2 | 3 | 1w | 0.3 | 90.7 | 9.0 | 0.0 | 1.15 | 8.8 | 0.045 | pass |
-| towncornhouse01 | r2 | 3 | 2 | 0.3 | 90.0 | 9.7 | 0.0 | 1.12 | 2.5 | 0.045 | pass |
-| towncornhouse01 | r2 | 3 | 2w | 0.3 | 90.2 | 9.5 | 0.0 | 1.12 | 3.1 | 0.050 | pass |
-| towncornhouse01 | r2 | 3 | 3 | 46.0 | 48.7 | 5.3 | 0.0 | 1.09 | 0.4 | 0.013 | pass |
-| towncornhouse01 | r2 | 3 | 3w | 43.9 | 51.2 | 4.9 | 0.0 | 1.05 | 1.1 | 0.031 | pass |
-| towncornhouse01 | r3 | 4 | 1 | 38.6 | 54.4 | 7.1 | 0.0 | 0.96 | 7.6 | 0.012 | pass |
-| towncornhouse01 | r3 | 4 | 1w | 37.1 | 55.5 | 7.4 | 0.0 | 0.86 | 33.0 | 0.128 | pass |
-| towncornhouse01 | r3 | 4 | 2 | 44.7 | 50.4 | 5.0 | 0.0 | 0.91 | 6.1 | 0.135 | pass |
-| towncornhouse01 | r3 | 4 | 2w | 44.7 | 50.5 | 4.8 | 0.0 | 0.89 | 6.8 | 0.096 | pass |
-| towncornhouse01 | r3 | 4 | 3 | 68.8 | 27.7 | 3.4 | 0.1 | 1.02 | 2.8 | 0.129 | pass |
-| towncornhouse01 | r3 | 4 | 3w | 72.0 | 24.1 | 3.9 | 0.0 | 1.04 | 0.5 | 0.093 | pass |
+| towncornhouse01 | r1 | 2 | 1 | 61.0 | 32.6 | 6.4 | 0.0 | 1.12 | 4.4 | 0.089 | pass |
+| towncornhouse01 | r1 | 2 | 1w | 61.8 | 32.3 | 5.9 | 0.0 | 1.22 | 21.0 | 0.046 | pass |
+| towncornhouse01 | r1 | 2 | 2 | 54.8 | 38.9 | 6.3 | 0.0 | 1.39 | 8.4 | 0.033 | pass |
+| towncornhouse01 | r1 | 2 | 2w | 54.8 | 38.9 | 6.3 | 0.0 | 1.34 | 10.0 | 0.031 | pass |
+| towncornhouse01 | r1 | 2 | 3 | 69.6 | 25.5 | 4.9 | 0.1 | 1.19 | 3.4 | 0.027 | pass |
+| towncornhouse01 | r1 | 2 | 3w | 65.2 | 30.6 | 4.2 | 0.0 | 1.06 | 0.9 | 0.072 | pass |
+| towncornhouse01 | r2 | 3 | 1 | 0.3 | 89.4 | 10.3 | 0.0 | 1.10 | 0.6 | 0.057 | pass |
+| towncornhouse01 | r2 | 3 | 1w | 0.3 | 90.7 | 9.0 | 0.0 | 1.16 | 8.8 | 0.037 | pass |
+| towncornhouse01 | r2 | 3 | 2 | 0.3 | 90.0 | 9.7 | 0.0 | 1.12 | 2.5 | 0.037 | pass |
+| towncornhouse01 | r2 | 3 | 2w | 0.3 | 90.2 | 9.5 | 0.0 | 1.12 | 3.1 | 0.041 | pass |
+| towncornhouse01 | r2 | 3 | 3 | 46.2 | 49.0 | 4.7 | 0.0 | 1.09 | 0.6 | 0.005 | pass |
+| towncornhouse01 | r2 | 3 | 3w | 43.9 | 51.2 | 4.9 | 0.0 | 1.05 | 1.1 | 0.026 | pass |
+| towncornhouse01 | r3 | 4 | 1 | 38.6 | 54.4 | 7.1 | 0.0 | 1.06 | 3.8 | 0.026 | pass |
+| towncornhouse01 | r3 | 4 | 1w | 37.1 | 55.5 | 7.4 | 0.0 | 1.10 | 2.8 | 0.027 | pass |
+| towncornhouse01 | r3 | 4 | 2 | 44.7 | 50.4 | 5.0 | 0.0 | 1.12 | 4.4 | 0.032 | pass |
+| towncornhouse01 | r3 | 4 | 2w | 44.7 | 50.5 | 4.8 | 0.0 | 1.05 | 5.1 | 0.031 | pass |
+| towncornhouse01 | r3 | 4 | 3 | 68.7 | 28.0 | 3.3 | 0.1 | 1.14 | 4.0 | 0.027 | pass |
+| towncornhouse01 | r3 | 4 | 3w | 72.0 | 24.1 | 3.9 | 0.0 | 1.04 | 0.5 | 0.080 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

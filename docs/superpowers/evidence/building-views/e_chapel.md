@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_chapel_1 | r1 | 2 | 1 | 33.0 | 62.4 | 4.5 | 0.1 | 1.88 | 28.5 | 0.263 | pass |
-| e_chapel_1 | r1 | 2 | 2 | 33.2 | 60.7 | 5.9 | 0.2 | 1.86 | 21.9 | 0.095 | pass |
-| e_chapel_1 | r1 | 2 | 3 | 59.7 | 24.5 | 14.6 | 1.2 | 1.18 | 1.8 | 0.047 | pass |
-| e_chapel_1 | r2 | 3 | 1 | 0.1 | 86.0 | 13.7 | 0.2 | 1.22 | 9.0 | 0.096 | pass |
-| e_chapel_1 | r2 | 3 | 2 | 0.0 | 89.7 | 10.1 | 0.1 | 1.12 | 12.4 | 0.054 | pass |
-| e_chapel_1 | r2 | 3 | 3 | 27.1 | 38.9 | 32.5 | 1.5 | 1.18 | 9.0 | 0.030 | pass |
-| e_chapel_1 | r3 | 4 | 1 | 68.3 | 18.9 | 12.6 | 0.1 | 2.11 | 32.7 | 0.343 | pass |
-| e_chapel_1 | r3 | 4 | 2 | 61.0 | 27.7 | 11.2 | 0.2 | 1.91 | 21.3 | 0.130 | pass |
-| e_chapel_1 | r3 | 4 | 3 | 57.9 | 17.4 | 23.6 | 1.1 | 1.18 | 1.5 | 0.028 | pass |
+| e_chapel_1 | r1 | 2 | 1 | 33.0 | 62.4 | 4.5 | 0.1 | 1.19 | 4.7 | 0.034 | pass |
+| e_chapel_1 | r1 | 2 | 2 | 33.1 | 60.9 | 5.8 | 0.2 | 1.16 | 2.3 | 0.013 | pass |
+| e_chapel_1 | r1 | 2 | 3 | 60.4 | 25.2 | 13.1 | 1.2 | 1.09 | 10.6 | 0.038 | pass |
+| e_chapel_1 | r2 | 3 | 1 | 0.1 | 86.0 | 13.7 | 0.2 | 1.22 | 9.0 | 0.091 | pass |
+| e_chapel_1 | r2 | 3 | 2 | 0.0 | 89.8 | 10.1 | 0.1 | 1.13 | 11.8 | 0.043 | pass |
+| e_chapel_1 | r2 | 3 | 3 | 31.0 | 39.0 | 28.5 | 1.5 | 1.11 | 1.1 | 0.011 | pass |
+| e_chapel_1 | r3 | 4 | 1 | 68.3 | 18.9 | 12.6 | 0.1 | 1.32 | 2.4 | 0.097 | pass |
+| e_chapel_1 | r3 | 4 | 2 | 61.0 | 28.4 | 10.5 | 0.2 | 1.16 | 4.2 | 0.019 | pass |
+| e_chapel_1 | r3 | 4 | 3 | 59.0 | 16.2 | 23.7 | 1.2 | 1.14 | 5.6 | 0.019 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

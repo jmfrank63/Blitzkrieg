@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| a_mosque_02_1 | r1 | 2 | 1 | 67.3 | 31.9 | 0.8 | 0.0 | 1.03 | 24.1 | 0.010 | pass |
-| a_mosque_02_1 | r1 | 2 | 2 | 61.6 | 37.7 | 0.7 | 0.0 | 0.96 | 16.0 | 0.045 | pass |
-| a_mosque_02_1 | r1 | 2 | 3 | 64.9 | 25.6 | 7.2 | 2.2 | 1.08 | 10.6 | 0.084 | pass |
-| a_mosque_02_1 | r2 | 3 | 1 | 35.7 | 63.6 | 0.7 | 0.0 | 1.07 | 5.0 | 0.004 | pass |
-| a_mosque_02_1 | r2 | 3 | 2 | 37.0 | 62.7 | 0.3 | 0.0 | 0.97 | 8.5 | 0.098 | pass |
-| a_mosque_02_1 | r2 | 3 | 3 | 5.5 | 84.8 | 7.7 | 2.1 | 1.02 | 4.1 | 0.001 | pass |
-| a_mosque_02_1 | r3 | 4 | 1 | 54.2 | 45.5 | 0.3 | 0.0 | 1.06 | 33.7 | 0.010 | pass |
-| a_mosque_02_1 | r3 | 4 | 2 | 70.1 | 29.2 | 0.7 | 0.0 | 1.12 | 14.6 | 0.063 | pass |
-| a_mosque_02_1 | r3 | 4 | 3 | 34.4 | 59.2 | 4.5 | 1.8 | 1.09 | 7.6 | 0.044 | pass |
+| a_mosque_02_1 | r1 | 2 | 1 | 67.3 | 31.9 | 0.8 | 0.0 | 1.02 | 26.6 | 0.038 | pass |
+| a_mosque_02_1 | r1 | 2 | 2 | 61.6 | 37.7 | 0.7 | 0.0 | 0.96 | 16.0 | 0.062 | pass |
+| a_mosque_02_1 | r1 | 2 | 3 | 65.2 | 29.6 | 3.0 | 2.2 | 1.08 | 3.8 | 0.029 | pass |
+| a_mosque_02_1 | r2 | 3 | 1 | 35.7 | 63.6 | 0.7 | 0.0 | 1.07 | 5.0 | 0.019 | pass |
+| a_mosque_02_1 | r2 | 3 | 2 | 37.0 | 62.7 | 0.3 | 0.0 | 0.97 | 8.5 | 0.112 | pass |
+| a_mosque_02_1 | r2 | 3 | 3 | 6.5 | 88.6 | 3.3 | 1.6 | 1.02 | 1.0 | 0.005 | pass |
+| a_mosque_02_1 | r3 | 4 | 1 | 54.2 | 45.5 | 0.3 | 0.0 | 1.07 | 31.6 | 0.046 | pass |
+| a_mosque_02_1 | r3 | 4 | 2 | 70.1 | 29.2 | 0.7 | 0.0 | 1.12 | 14.6 | 0.092 | pass |
+| a_mosque_02_1 | r3 | 4 | 3 | 37.0 | 58.5 | 3.0 | 1.5 | 1.08 | 6.4 | 0.032 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

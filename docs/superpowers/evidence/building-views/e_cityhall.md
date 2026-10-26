@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 2 | 1 | 66.1 | 25.8 | 8.1 | 0.0 | 1.01 | 7.6 | 0.028 | pass |
-| e_cityhall_1 | r1 | 2 | 2 | 65.5 | 25.1 | 9.4 | 0.0 | 1.14 | 2.7 | 0.016 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 52.0 | 37.9 | 10.2 | 0.0 | 1.17 | 0.6 | 0.023 | pass |
-| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 85.0 | 15.0 | 0.0 | 1.11 | 2.7 | 0.061 | pass |
-| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 82.6 | 17.4 | 0.0 | 1.14 | 1.6 | 0.041 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 13.8 | 67.1 | 19.1 | 0.0 | 1.01 | 8.2 | 0.029 | pass |
-| e_cityhall_1 | r3 | 4 | 1 | 27.0 | 63.8 | 9.2 | 0.0 | 1.07 | 11.0 | 0.061 | pass |
-| e_cityhall_1 | r3 | 4 | 2 | 24.4 | 64.3 | 11.3 | 0.0 | 1.04 | 10.3 | 0.057 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 50.1 | 35.7 | 14.2 | 0.0 | 1.07 | 4.5 | 0.017 | pass |
+| e_cityhall_1 | r1 | 2 | 1 | 55.6 | 33.6 | 6.2 | 4.6 | 1.00 | 2.5 | 0.045 | pass |
+| e_cityhall_1 | r1 | 2 | 2 | 55.4 | 32.4 | 7.0 | 5.2 | 0.99 | 2.8 | 0.012 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 77.4 | 13.7 | 8.8 | 0.1 | 1.05 | 0.9 | 0.020 | pass |
+| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 87.2 | 8.1 | 4.7 | 0.98 | 5.9 | 0.029 | pass |
+| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 85.7 | 9.1 | 5.2 | 0.96 | 5.7 | 0.026 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 52.1 | 38.2 | 9.6 | 0.1 | 1.06 | 2.0 | 0.015 | pass |
+| e_cityhall_1 | r3 | 4 | 1 | 23.1 | 64.2 | 8.1 | 4.6 | 0.92 | 13.8 | 0.033 | pass |
+| e_cityhall_1 | r3 | 4 | 2 | 22.2 | 63.7 | 9.0 | 5.1 | 0.91 | 11.6 | 0.030 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 63.5 | 26.9 | 9.5 | 0.1 | 0.97 | 4.3 | 0.022 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -23,6 +23,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 0.93 | 0.70 | 0.95 | 0.025 | 0.026 | pass | blocks |
-| e_cityhall_1 | r2 | 0.96 | 0.70 | 0.95 | 0.092 | 0.026 | protrusion 0.092 > 0.069 | blocks |
-| e_cityhall_1 | r3 | 1.12 | 0.70 | 0.95 | 0.096 | 0.026 | protrusion 0.096 > 0.069 | blocks |
+| e_cityhall_1 | r1 | 0.88 | 0.87 | 0.93 | 0.017 | 0.026 | pass | blocks |
+| e_cityhall_1 | r2 | 0.99 | 0.87 | 0.93 | 0.017 | 0.026 | pass | blocks |
+| e_cityhall_1 | r3 | 1.09 | 0.87 | 0.93 | 0.017 | 0.026 | pass | blocks |

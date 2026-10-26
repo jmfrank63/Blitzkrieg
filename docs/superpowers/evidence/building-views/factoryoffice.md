@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryoffice | r1 | 2 | 1 | 64.8 | 35.0 | 0.1 | 0.1 | 0.97 | 1.8 | 0.049 | pass |
-| factoryoffice | r1 | 2 | 1w | 64.7 | 35.1 | 0.1 | 0.1 | 0.91 | 4.4 | 0.075 | pass |
-| factoryoffice | r1 | 2 | 2 | 64.9 | 35.1 | 0.0 | 0.0 | 0.97 | 0.3 | 0.061 | pass |
-| factoryoffice | r1 | 2 | 2w | 64.9 | 35.1 | 0.0 | 0.0 | 0.91 | 0.9 | 0.075 | pass |
-| factoryoffice | r1 | 2 | 3 | 75.5 | 18.9 | 3.7 | 1.9 | 1.09 | 0.5 | 0.009 | pass |
-| factoryoffice | r1 | 2 | 3w | 75.5 | 18.9 | 3.7 | 1.9 | 1.07 | 0.7 | 0.010 | pass |
-| factoryoffice | r2 | 3 | 1 | 3.9 | 92.0 | 4.0 | 0.1 | 1.07 | 2.3 | 0.054 | pass |
-| factoryoffice | r2 | 3 | 1w | 2.7 | 93.4 | 3.7 | 0.2 | 1.09 | 5.9 | 0.032 | pass |
-| factoryoffice | r2 | 3 | 2 | 3.5 | 96.5 | 0.0 | 0.0 | 0.99 | 0.9 | 0.040 | pass |
-| factoryoffice | r2 | 3 | 2w | 3.5 | 96.5 | 0.0 | 0.0 | 0.99 | 1.1 | 0.043 | pass |
-| factoryoffice | r2 | 3 | 3 | 56.1 | 38.2 | 3.7 | 2.0 | 1.07 | 1.8 | 0.034 | pass |
-| factoryoffice | r2 | 3 | 3w | 56.1 | 38.2 | 3.7 | 2.0 | 1.04 | 1.7 | 0.028 | pass |
-| factoryoffice | r3 | 4 | 1 | 33.2 | 62.8 | 3.9 | 0.1 | 0.98 | 3.1 | 0.090 | pass |
-| factoryoffice | r3 | 4 | 1w | 33.2 | 63.0 | 3.6 | 0.1 | 0.94 | 8.6 | 0.072 | pass |
-| factoryoffice | r3 | 4 | 2 | 32.1 | 67.9 | 0.0 | 0.0 | 0.97 | 0.2 | 0.060 | pass |
-| factoryoffice | r3 | 4 | 2w | 32.1 | 67.9 | 0.0 | 0.0 | 0.92 | 0.7 | 0.075 | pass |
-| factoryoffice | r3 | 4 | 3 | 72.8 | 24.3 | 0.9 | 1.9 | 1.07 | 2.3 | 0.025 | pass |
-| factoryoffice | r3 | 4 | 3w | 72.8 | 24.3 | 0.9 | 1.9 | 1.05 | 2.4 | 0.026 | pass |
+| factoryoffice | r1 | 2 | 1 | 64.9 | 35.0 | 0.1 | 0.1 | 0.96 | 1.8 | 0.047 | pass |
+| factoryoffice | r1 | 2 | 1w | 64.7 | 35.1 | 0.1 | 0.1 | 0.91 | 4.5 | 0.064 | pass |
+| factoryoffice | r1 | 2 | 2 | 64.9 | 35.1 | 0.0 | 0.0 | 0.97 | 0.3 | 0.053 | pass |
+| factoryoffice | r1 | 2 | 2w | 64.9 | 35.1 | 0.0 | 0.0 | 0.91 | 0.9 | 0.065 | pass |
+| factoryoffice | r1 | 2 | 3 | 76.1 | 21.5 | 0.0 | 2.4 | 1.06 | 2.0 | 0.006 | pass |
+| factoryoffice | r1 | 2 | 3w | 76.1 | 21.5 | 0.0 | 2.4 | 1.05 | 2.4 | 0.010 | pass |
+| factoryoffice | r2 | 3 | 1 | 3.9 | 95.8 | 0.3 | 0.1 | 1.08 | 3.4 | 0.041 | pass |
+| factoryoffice | r2 | 3 | 1w | 2.7 | 96.8 | 0.3 | 0.2 | 1.13 | 2.4 | 0.045 | pass |
+| factoryoffice | r2 | 3 | 2 | 3.5 | 96.5 | 0.0 | 0.0 | 1.03 | 1.8 | 0.047 | pass |
+| factoryoffice | r2 | 3 | 2w | 3.5 | 96.5 | 0.0 | 0.0 | 1.03 | 2.1 | 0.048 | pass |
+| factoryoffice | r2 | 3 | 3 | 57.5 | 39.9 | 0.0 | 2.6 | 1.00 | 1.0 | 0.027 | pass |
+| factoryoffice | r2 | 3 | 3w | 57.5 | 39.9 | 0.0 | 2.6 | 0.99 | 1.2 | 0.019 | pass |
+| factoryoffice | r3 | 4 | 1 | 33.3 | 66.5 | 0.2 | 0.1 | 0.97 | 3.5 | 0.078 | pass |
+| factoryoffice | r3 | 4 | 1w | 33.3 | 66.4 | 0.2 | 0.1 | 0.95 | 8.3 | 0.082 | pass |
+| factoryoffice | r3 | 4 | 2 | 32.1 | 67.9 | 0.0 | 0.0 | 0.97 | 0.2 | 0.052 | pass |
+| factoryoffice | r3 | 4 | 2w | 32.1 | 67.9 | 0.0 | 0.0 | 0.92 | 0.7 | 0.065 | pass |
+| factoryoffice | r3 | 4 | 3 | 73.4 | 24.0 | 0.0 | 2.6 | 1.01 | 0.5 | 0.027 | pass |
+| factoryoffice | r3 | 4 | 3w | 73.4 | 24.0 | 0.0 | 2.6 | 1.00 | 0.6 | 0.026 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| factoryoffice | r1 | 0.98 | 0.97 | 0.93 | 0.031 | 0.032 | pass | blocks |
-| factoryoffice | r2 | 0.98 | 0.97 | 0.93 | 0.018 | 0.032 | pass | blocks |
-| factoryoffice | r3 | 0.99 | 0.97 | 0.93 | 0.020 | 0.032 | pass | blocks |
+| factoryoffice | r1 | 0.98 | 0.96 | 0.93 | 0.031 | 0.032 | pass | blocks |
+| factoryoffice | r2 | 0.98 | 0.96 | 0.93 | 0.019 | 0.032 | pass | blocks |
+| factoryoffice | r3 | 0.99 | 0.96 | 0.93 | 0.020 | 0.032 | pass | blocks |

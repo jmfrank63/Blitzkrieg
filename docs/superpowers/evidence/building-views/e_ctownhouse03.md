@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_ctownhouse03_2 | r1 | 3 | 1 | 82.4 | 15.6 | 2.0 | 0.0 | 1.05 | 7.2 | 0.067 | pass |
-| e_ctownhouse03_2 | r1 | 3 | 2 | 88.1 | 11.4 | 0.5 | 0.0 | 0.95 | 8.7 | 0.041 | pass |
-| e_ctownhouse03_2 | r1 | 3 | 3 | 96.8 | 2.0 | 1.2 | 0.0 | 1.07 | 10.8 | 0.028 | pass |
-| e_ctownhouse03_2 | r2 | 4 | 1 | 97.5 | 2.3 | 0.2 | 0.0 | 1.04 | 6.1 | 0.104 | pass |
-| e_ctownhouse03_2 | r2 | 4 | 2 | 96.1 | 3.5 | 0.4 | 0.0 | 0.86 | 0.8 | 0.040 | pass |
-| e_ctownhouse03_2 | r2 | 4 | 3 | 95.2 | 3.5 | 1.3 | 0.0 | 1.07 | 11.4 | 0.025 | pass |
-| e_ctownhouse03_2 | r3 | 1 | 1 | 80.9 | 16.8 | 2.3 | 0.1 | 0.86 | 7.3 | 0.031 | pass |
-| e_ctownhouse03_2 | r3 | 1 | 2 | 88.0 | 11.8 | 0.2 | 0.0 | 1.03 | 4.5 | 0.031 | pass |
-| e_ctownhouse03_2 | r3 | 1 | 3 | 95.0 | 3.6 | 1.4 | 0.0 | 1.10 | 12.9 | 0.042 | pass |
-| e_ctownhouse03_4 | r1 | 1 | 1 | 78.7 | 18.8 | 2.5 | 0.0 | 1.03 | 2.3 | 0.179 | pass |
-| e_ctownhouse03_4 | r1 | 1 | 2 | 76.4 | 18.9 | 4.8 | 0.0 | 1.23 | 8.2 | 0.092 | pass |
-| e_ctownhouse03_4 | r1 | 1 | 3 | 85.8 | 11.5 | 2.7 | 0.0 | 1.26 | 6.3 | 0.025 | pass |
-| e_ctownhouse03_4 | r2 | 2 | 1 | 97.5 | 2.3 | 0.2 | 0.0 | 0.87 | 7.3 | 0.044 | pass |
-| e_ctownhouse03_4 | r2 | 2 | 2 | 96.8 | 3.0 | 0.2 | 0.0 | 0.99 | 5.0 | 0.058 | pass |
-| e_ctownhouse03_4 | r2 | 2 | 3 | 93.4 | 5.7 | 1.0 | 0.0 | 1.05 | 13.1 | 0.047 | pass |
-| e_ctownhouse03_4 | r3 | 3 | 1 | 86.9 | 9.2 | 3.9 | 0.0 | 1.23 | 6.0 | 0.120 | pass |
-| e_ctownhouse03_4 | r3 | 3 | 2 | 83.7 | 10.8 | 5.5 | 0.0 | 1.28 | 3.1 | 0.049 | pass |
-| e_ctownhouse03_4 | r3 | 3 | 3 | 89.8 | 9.3 | 1.0 | 0.0 | 1.21 | 7.8 | 0.008 | pass |
+| e_ctownhouse03_2 | r1 | 3 | 1 | 88.0 | 11.5 | 0.5 | 0.0 | 1.62 | 15.7 | 0.222 | pass |
+| e_ctownhouse03_2 | r1 | 3 | 2 | 79.9 | 20.0 | 0.2 | 0.0 | 0.98 | 11.8 | 0.030 | pass |
+| e_ctownhouse03_2 | r1 | 3 | 3 | 94.9 | 3.6 | 0.6 | 0.9 | 1.07 | 12.2 | 0.052 | pass |
+| e_ctownhouse03_2 | r2 | 4 | 1 | 94.3 | 4.7 | 1.0 | 0.0 | 1.16 | 6.2 | 0.054 | pass |
+| e_ctownhouse03_2 | r2 | 4 | 2 | 95.4 | 4.4 | 0.2 | 0.0 | 0.99 | 3.9 | 0.036 | pass |
+| e_ctownhouse03_2 | r2 | 4 | 3 | 94.7 | 3.7 | 0.7 | 0.9 | 1.07 | 12.3 | 0.046 | pass |
+| e_ctownhouse03_2 | r3 | 1 | 1 | 74.3 | 24.9 | 0.8 | 0.0 | 1.58 | 20.6 | 0.287 | pass |
+| e_ctownhouse03_2 | r3 | 1 | 2 | 80.8 | 19.0 | 0.2 | 0.0 | 1.16 | 3.3 | 0.056 | pass |
+| e_ctownhouse03_2 | r3 | 1 | 3 | 94.7 | 3.6 | 0.8 | 0.9 | 1.06 | 12.7 | 0.045 | pass |
+| e_ctownhouse03_4 | r1 | 1 | 1 | 75.7 | 24.0 | 0.3 | 0.0 | 1.64 | 15.1 | 0.267 | pass |
+| e_ctownhouse03_4 | r1 | 1 | 2 | 74.3 | 25.2 | 0.5 | 0.0 | 1.71 | 15.5 | 0.092 | pass |
+| e_ctownhouse03_4 | r1 | 1 | 3 | 94.0 | 3.9 | 1.4 | 0.7 | 1.12 | 12.5 | 0.051 | pass |
+| e_ctownhouse03_4 | r2 | 2 | 1 | 94.4 | 5.3 | 0.3 | 0.0 | 0.90 | 6.4 | 0.038 | pass |
+| e_ctownhouse03_4 | r2 | 2 | 2 | 93.0 | 6.5 | 0.5 | 0.0 | 1.03 | 5.0 | 0.043 | pass |
+| e_ctownhouse03_4 | r2 | 2 | 3 | 94.8 | 3.2 | 1.3 | 0.7 | 1.10 | 13.2 | 0.051 | pass |
+| e_ctownhouse03_4 | r3 | 3 | 1 | 86.2 | 13.5 | 0.3 | 0.0 | 1.49 | 9.5 | 0.194 | pass |
+| e_ctownhouse03_4 | r3 | 3 | 2 | 86.5 | 13.0 | 0.4 | 0.0 | 1.47 | 5.4 | 0.055 | pass |
+| e_ctownhouse03_4 | r3 | 3 | 3 | 94.1 | 3.9 | 1.2 | 0.8 | 1.11 | 11.7 | 0.042 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,20 +32,20 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| e_ctownhouse03_2 | r1 | 0.73 | 0.58 | 0.94 | 0.031 | 0.026 | pass | blocks |
-| e_ctownhouse03_2 | r2 | 0.95 | 0.58 | 0.94 | 0.009 | 0.026 | pass | blocks |
-| e_ctownhouse03_2 | r3 | 0.73 | 0.58 | 0.94 | 0.022 | 0.026 | pass | blocks |
-| e_ctownhouse03_4 | r1 | 0.86 | 0.46 | 0.93 | 0.028 | 0.028 | ground 0.46 outside 0.5..2.0 | blocks |
-| e_ctownhouse03_4 | r2 | 1.03 | 0.46 | 0.93 | 0.020 | 0.028 | ground 0.46 outside 0.5..2.0 | blocks |
-| e_ctownhouse03_4 | r3 | 0.84 | 0.46 | 0.93 | 0.033 | 0.028 | ground 0.46 outside 0.5..2.0 | blocks |
+| e_ctownhouse03_2 | r1 | 0.79 | 0.85 | 0.89 | 0.024 | 0.026 | pass | blocks |
+| e_ctownhouse03_2 | r2 | 0.98 | 0.85 | 0.89 | 0.026 | 0.026 | pass | blocks |
+| e_ctownhouse03_2 | r3 | 0.85 | 0.85 | 0.89 | 0.012 | 0.026 | pass | blocks |
+| e_ctownhouse03_4 | r1 | 0.93 | 1.01 | 0.90 | 0.013 | 0.028 | pass | blocks |
+| e_ctownhouse03_4 | r2 | 1.00 | 1.01 | 0.90 | 0.015 | 0.028 | pass | blocks |
+| e_ctownhouse03_4 | r3 | 0.87 | 1.01 | 0.90 | 0.023 | 0.028 | pass | blocks |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| e_ctownhouse03_2 | 1 | 0.715 | 1.64 | 24.3 | 0.106 | pass |
-| e_ctownhouse03_2 | 2 | 0.649 | 1.16 | 7.7 | 0.036 | pass |
-| e_ctownhouse03_2 | 3 | 0.758 | 0.85 | 35.0 | 0.124 | pass |
-| e_ctownhouse03_4 | 1 | 0.744 | 0.87 | 16.2 | 0.179 | pass |
-| e_ctownhouse03_4 | 2 | 0.722 | 1.05 | 9.3 | 0.188 | pass |
-| e_ctownhouse03_4 | 3 | 0.676 | 1.23 | 34.9 | 0.106 | pass |
+| e_ctownhouse03_2 | 1 | 0.895 | 1.59 | 19.6 | 0.278 | pass |
+| e_ctownhouse03_2 | 2 | 0.878 | 1.25 | 13.1 | 0.156 | pass |
+| e_ctownhouse03_2 | 3 | 0.767 | 0.86 | 33.1 | 0.156 | pass |
+| e_ctownhouse03_4 | 1 | 0.884 | 0.77 | 10.4 | 0.073 | pass |
+| e_ctownhouse03_4 | 2 | 0.827 | 1.10 | 10.6 | 0.082 | pass |
+| e_ctownhouse03_4 | 3 | 0.683 | 1.20 | 30.8 | 0.137 | pass |

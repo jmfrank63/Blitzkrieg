@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed01 | r1 | 2 | 1 | 64.3 | 28.6 | 6.8 | 0.3 | 0.84 | 22.8 | 0.136 | pass |
-| e_frenchshed01 | r1 | 2 | 2 | 69.3 | 30.2 | 0.0 | 0.6 | 0.86 | 18.6 | 0.046 | pass |
-| e_frenchshed01 | r1 | 2 | 3 | 82.3 | 15.0 | 2.0 | 0.7 | 0.78 | 14.6 | 0.074 | pass |
-| e_frenchshed01 | r2 | 3 | 1 | 1.8 | 90.5 | 7.1 | 0.6 | 1.04 | 2.2 | 0.026 | pass |
-| e_frenchshed01 | r2 | 3 | 2 | 0.1 | 99.3 | 0.0 | 0.6 | 1.00 | 0.9 | 0.018 | pass |
-| e_frenchshed01 | r2 | 3 | 3 | 61.7 | 34.1 | 3.6 | 0.6 | 0.98 | 1.9 | 0.081 | pass |
-| e_frenchshed01 | r3 | 4 | 1 | 29.4 | 65.8 | 4.3 | 0.5 | 0.84 | 20.9 | 0.135 | pass |
-| e_frenchshed01 | r3 | 4 | 2 | 27.6 | 71.9 | 0.0 | 0.5 | 0.85 | 18.9 | 0.053 | pass |
-| e_frenchshed01 | r3 | 4 | 3 | 69.0 | 27.4 | 3.0 | 0.6 | 0.95 | 9.8 | 0.154 | pass |
+| e_frenchshed01 | r1 | 2 | 1 | 64.4 | 29.5 | 5.8 | 0.3 | 0.85 | 22.4 | 0.129 | pass |
+| e_frenchshed01 | r1 | 2 | 2 | 69.3 | 30.2 | 0.0 | 0.6 | 0.86 | 18.6 | 0.041 | pass |
+| e_frenchshed01 | r1 | 2 | 3 | 82.9 | 14.6 | 1.7 | 0.8 | 1.07 | 10.7 | 0.084 | pass |
+| e_frenchshed01 | r2 | 3 | 1 | 2.1 | 91.1 | 6.2 | 0.6 | 1.03 | 2.0 | 0.026 | pass |
+| e_frenchshed01 | r2 | 3 | 2 | 0.1 | 99.3 | 0.0 | 0.6 | 1.00 | 0.9 | 0.016 | pass |
+| e_frenchshed01 | r2 | 3 | 3 | 62.7 | 34.4 | 2.0 | 0.9 | 0.98 | 2.3 | 0.074 | pass |
+| e_frenchshed01 | r3 | 4 | 1 | 29.4 | 65.8 | 4.3 | 0.5 | 0.84 | 21.2 | 0.128 | pass |
+| e_frenchshed01 | r3 | 4 | 2 | 27.6 | 71.9 | 0.0 | 0.5 | 0.85 | 18.9 | 0.047 | pass |
+| e_frenchshed01 | r3 | 4 | 3 | 69.6 | 27.9 | 1.7 | 0.9 | 1.09 | 1.8 | 0.038 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -25,4 +25,4 @@ sprite where the turn keeps the footprint.
 |---|---|---|---|---|---|---|---|---|
 | e_frenchshed01 | r1 | 0.91 | 0.83 | 0.94 | 0.035 | 0.037 | pass | blocks |
 | e_frenchshed01 | r2 | 1.00 | 0.83 | 0.94 | 0.033 | 0.037 | pass | blocks |
-| e_frenchshed01 | r3 | 0.94 | 0.83 | 0.94 | 0.073 | 0.037 | pass | blocks |
+| e_frenchshed01 | r3 | 0.94 | 0.83 | 0.94 | 0.070 | 0.037 | pass | blocks |

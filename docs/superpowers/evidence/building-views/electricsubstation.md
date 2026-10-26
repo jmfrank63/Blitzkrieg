@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| electricsubstation | r1 | 2 | 1 | 61.8 | 33.9 | 4.0 | 0.3 | 1.27 | 4.4 | 0.047 | pass |
-| electricsubstation | r1 | 2 | 1w | 60.9 | 34.5 | 4.1 | 0.4 | 1.32 | 11.4 | 0.108 | pass |
-| electricsubstation | r1 | 2 | 2 | 68.1 | 25.1 | 5.9 | 0.9 | 1.11 | 3.1 | 0.034 | pass |
-| electricsubstation | r1 | 2 | 2w | 68.1 | 25.1 | 5.9 | 0.9 | 1.10 | 3.3 | 0.036 | pass |
-| electricsubstation | r1 | 2 | 3 | 73.7 | 16.5 | 8.4 | 1.5 | 1.13 | 6.1 | 0.034 | pass |
-| electricsubstation | r1 | 2 | 3w | 73.7 | 16.5 | 8.4 | 1.5 | 1.08 | 7.3 | 0.032 | pass |
-| electricsubstation | r2 | 3 | 1 | 31.0 | 64.7 | 4.0 | 0.3 | 1.36 | 11.1 | 0.208 | pass |
-| electricsubstation | r2 | 3 | 1w | 29.9 | 65.7 | 4.1 | 0.3 | 1.40 | 2.2 | 0.043 | pass |
-| electricsubstation | r2 | 3 | 2 | 40.2 | 53.4 | 5.5 | 0.9 | 1.13 | 3.6 | 0.035 | pass |
-| electricsubstation | r2 | 3 | 2w | 40.2 | 53.4 | 5.5 | 0.9 | 1.13 | 4.1 | 0.032 | pass |
-| electricsubstation | r2 | 3 | 3 | 54.7 | 33.0 | 10.8 | 1.4 | 1.08 | 4.4 | 0.037 | pass |
-| electricsubstation | r2 | 3 | 3w | 54.7 | 33.0 | 10.8 | 1.4 | 1.06 | 5.0 | 0.045 | pass |
-| electricsubstation | r3 | 4 | 1 | 64.9 | 33.4 | 1.5 | 0.2 | 1.59 | 3.9 | 0.070 | pass |
-| electricsubstation | r3 | 4 | 1w | 60.2 | 38.4 | 1.3 | 0.2 | 1.17 | 9.8 | 0.119 | pass |
-| electricsubstation | r3 | 4 | 2 | 70.8 | 25.1 | 3.2 | 0.9 | 1.12 | 1.3 | 0.036 | pass |
-| electricsubstation | r3 | 4 | 2w | 70.8 | 25.1 | 3.2 | 0.9 | 1.12 | 1.5 | 0.027 | pass |
-| electricsubstation | r3 | 4 | 3 | 67.4 | 22.3 | 9.2 | 1.1 | 1.07 | 4.6 | 0.008 | pass |
-| electricsubstation | r3 | 4 | 3w | 67.4 | 22.3 | 9.2 | 1.1 | 1.03 | 5.3 | 0.016 | pass |
+| electricsubstation | r1 | 2 | 1 | 59.9 | 39.8 | 0.0 | 0.3 | 1.42 | 11.0 | 0.057 | pass |
+| electricsubstation | r1 | 2 | 1w | 60.2 | 39.6 | 0.0 | 0.2 | 1.20 | 11.8 | 0.110 | pass |
+| electricsubstation | r1 | 2 | 2 | 66.5 | 33.0 | 0.0 | 0.5 | 1.28 | 8.6 | 0.104 | pass |
+| electricsubstation | r1 | 2 | 2w | 66.5 | 33.0 | 0.0 | 0.5 | 1.05 | 10.0 | 0.129 | pass |
+| electricsubstation | r1 | 2 | 3 | 70.8 | 27.2 | 0.1 | 1.9 | 1.18 | 2.9 | 0.006 | pass |
+| electricsubstation | r1 | 2 | 3w | 70.8 | 27.2 | 0.1 | 1.9 | 1.11 | 3.7 | 0.007 | pass |
+| electricsubstation | r2 | 3 | 1 | 2.8 | 96.9 | 0.0 | 0.2 | 1.01 | 1.1 | 0.042 | pass |
+| electricsubstation | r2 | 3 | 1w | 2.8 | 97.0 | 0.0 | 0.2 | 1.06 | 1.2 | 0.033 | pass |
+| electricsubstation | r2 | 3 | 2 | 33.0 | 66.5 | 0.0 | 0.4 | 1.03 | 2.3 | 0.057 | pass |
+| electricsubstation | r2 | 3 | 2w | 33.0 | 66.5 | 0.0 | 0.4 | 1.00 | 2.6 | 0.066 | pass |
+| electricsubstation | r2 | 3 | 3 | 50.2 | 48.1 | 0.1 | 1.6 | 1.03 | 2.6 | 0.013 | pass |
+| electricsubstation | r2 | 3 | 3w | 50.2 | 48.1 | 0.1 | 1.6 | 1.03 | 3.0 | 0.017 | pass |
+| electricsubstation | r3 | 4 | 1 | 33.8 | 66.0 | 0.0 | 0.2 | 1.45 | 11.8 | 0.062 | pass |
+| electricsubstation | r3 | 4 | 1w | 34.0 | 65.8 | 0.0 | 0.2 | 1.18 | 12.8 | 0.112 | pass |
+| electricsubstation | r3 | 4 | 2 | 60.1 | 39.5 | 0.0 | 0.4 | 1.23 | 10.1 | 0.093 | pass |
+| electricsubstation | r3 | 4 | 2w | 60.1 | 39.5 | 0.0 | 0.4 | 0.99 | 11.6 | 0.119 | pass |
+| electricsubstation | r3 | 4 | 3 | 70.2 | 28.3 | 0.1 | 1.4 | 1.20 | 2.0 | 0.013 | pass |
+| electricsubstation | r3 | 4 | 3w | 70.2 | 28.3 | 0.1 | 1.4 | 1.12 | 2.4 | 0.015 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| electricsubstation | r1 | 0.76 | 0.99 | 0.95 | 0.221 | 0.085 | protrusion 0.221 > 0.158 | blocks |
-| electricsubstation | r2 | 0.80 | 0.99 | 0.95 | 0.089 | 0.085 | pass | blocks |
-| electricsubstation | r3 | 0.92 | 0.99 | 0.95 | 0.159 | 0.085 | protrusion 0.159 > 0.158 | blocks |
+| electricsubstation | r1 | 1.01 | 0.77 | 0.91 | 0.084 | 0.085 | pass | blocks |
+| electricsubstation | r2 | 1.01 | 0.77 | 0.91 | 0.082 | 0.085 | pass | blocks |
+| electricsubstation | r3 | 1.01 | 0.77 | 0.91 | 0.091 | 0.085 | pass | blocks |

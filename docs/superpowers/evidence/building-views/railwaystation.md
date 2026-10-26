@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| railwaystation | r1 | 2 | 1 | 52.6 | 35.9 | 11.5 | 0.0 | 1.05 | 1.7 | 0.153 | pass |
-| railwaystation | r1 | 2 | 1w | 53.7 | 38.5 | 7.8 | 0.0 | 1.03 | 1.6 | 0.095 | pass |
-| railwaystation | r1 | 2 | 2 | 53.9 | 37.2 | 8.9 | 0.0 | 1.05 | 1.1 | 0.039 | pass |
-| railwaystation | r1 | 2 | 2w | 53.9 | 37.2 | 8.9 | 0.0 | 1.01 | 1.7 | 0.031 | pass |
-| railwaystation | r1 | 2 | 3 | 58.9 | 22.7 | 17.8 | 0.6 | 1.11 | 2.2 | 0.018 | pass |
-| railwaystation | r1 | 2 | 3w | 58.9 | 22.7 | 17.8 | 0.6 | 0.99 | 1.3 | 0.026 | pass |
-| railwaystation | r2 | 3 | 1 | 19.4 | 66.1 | 14.5 | 0.0 | 1.21 | 4.6 | 0.023 | pass |
-| railwaystation | r2 | 3 | 1w | 18.7 | 71.0 | 10.3 | 0.0 | 1.14 | 5.0 | 0.021 | pass |
-| railwaystation | r2 | 3 | 2 | 25.2 | 64.8 | 9.9 | 0.0 | 1.10 | 3.8 | 0.032 | pass |
-| railwaystation | r2 | 3 | 2w | 25.2 | 64.8 | 9.9 | 0.0 | 1.09 | 4.0 | 0.028 | pass |
-| railwaystation | r2 | 3 | 3 | 36.4 | 45.4 | 17.7 | 0.6 | 0.92 | 6.5 | 0.024 | pass |
-| railwaystation | r2 | 3 | 3w | 36.4 | 45.4 | 17.7 | 0.6 | 0.92 | 7.2 | 0.026 | pass |
-| railwaystation | r3 | 4 | 1 | 48.2 | 44.2 | 7.6 | 0.0 | 0.91 | 4.1 | 0.224 | pass |
-| railwaystation | r3 | 4 | 1w | 47.6 | 46.7 | 5.8 | 0.0 | 1.01 | 5.1 | 0.123 | pass |
-| railwaystation | r3 | 4 | 2 | 52.6 | 42.0 | 5.4 | 0.0 | 0.97 | 2.6 | 0.081 | pass |
-| railwaystation | r3 | 4 | 2w | 52.6 | 42.0 | 5.4 | 0.0 | 0.92 | 3.0 | 0.078 | pass |
-| railwaystation | r3 | 4 | 3 | 61.0 | 28.1 | 10.2 | 0.7 | 1.16 | 2.0 | 0.014 | pass |
-| railwaystation | r3 | 4 | 3w | 61.0 | 28.1 | 10.2 | 0.7 | 1.00 | 1.6 | 0.015 | pass |
+| railwaystation | r1 | 2 | 1 | 55.1 | 29.8 | 14.7 | 0.4 | 0.87 | 28.1 | 0.118 | pass |
+| railwaystation | r1 | 2 | 1w | 55.2 | 29.8 | 14.5 | 0.4 | 0.93 | 28.2 | 0.049 | pass |
+| railwaystation | r1 | 2 | 2 | 55.1 | 28.9 | 15.4 | 0.6 | 0.87 | 17.9 | 0.035 | pass |
+| railwaystation | r1 | 2 | 2w | 55.1 | 28.9 | 15.4 | 0.6 | 0.86 | 20.3 | 0.049 | pass |
+| railwaystation | r1 | 2 | 3 | 58.5 | 33.1 | 8.4 | 0.0 | 1.26 | 9.4 | 0.032 | pass |
+| railwaystation | r1 | 2 | 3w | 58.5 | 33.1 | 8.4 | 0.0 | 1.12 | 10.0 | 0.023 | pass |
+| railwaystation | r2 | 3 | 1 | 0.0 | 84.6 | 14.7 | 0.6 | 1.13 | 1.0 | 0.037 | pass |
+| railwaystation | r2 | 3 | 1w | 0.0 | 84.9 | 14.5 | 0.6 | 1.15 | 0.9 | 0.019 | pass |
+| railwaystation | r2 | 3 | 2 | 0.0 | 83.8 | 15.4 | 0.8 | 1.08 | 1.5 | 0.015 | pass |
+| railwaystation | r2 | 3 | 2w | 0.0 | 83.8 | 15.4 | 0.8 | 1.07 | 1.1 | 0.022 | pass |
+| railwaystation | r2 | 3 | 3 | 37.7 | 53.9 | 8.4 | 0.0 | 1.14 | 6.0 | 0.023 | pass |
+| railwaystation | r2 | 3 | 3w | 37.7 | 53.9 | 8.4 | 0.0 | 1.08 | 6.6 | 0.020 | pass |
+| railwaystation | r3 | 4 | 1 | 38.7 | 53.2 | 7.5 | 0.6 | 0.66 | 20.0 | 0.093 | pass |
+| railwaystation | r3 | 4 | 1w | 38.8 | 53.3 | 7.3 | 0.6 | 0.75 | 21.9 | 0.073 | pass |
+| railwaystation | r3 | 4 | 2 | 37.9 | 53.3 | 8.0 | 0.7 | 0.81 | 13.2 | 0.054 | pass |
+| railwaystation | r3 | 4 | 2w | 37.9 | 53.3 | 8.0 | 0.7 | 0.76 | 15.5 | 0.092 | pass |
+| railwaystation | r3 | 4 | 3 | 60.0 | 35.0 | 5.0 | 0.0 | 1.22 | 2.6 | 0.013 | pass |
+| railwaystation | r3 | 4 | 3w | 60.0 | 35.0 | 5.0 | 0.0 | 1.06 | 2.3 | 0.018 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| railwaystation | r1 | 1.32 | 0.96 | 0.96 | 0.008 | 0.037 | height 1.32 outside 0.7..1.3 | blocks |
-| railwaystation | r2 | 1.39 | 0.96 | 0.96 | 0.005 | 0.037 | height 1.38 outside 0.7..1.3 | blocks |
-| railwaystation | r3 | 0.93 | 0.96 | 0.96 | 0.026 | 0.037 | pass | blocks |
+| railwaystation | r1 | 1.30 | 0.90 | 0.91 | 0.018 | 0.037 | pass | blocks |
+| railwaystation | r2 | 1.28 | 0.90 | 0.91 | 0.018 | 0.037 | pass | blocks |
+| railwaystation | r3 | 1.04 | 0.90 | 0.91 | 0.036 | 0.037 | pass | blocks |

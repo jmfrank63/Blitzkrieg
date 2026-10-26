@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| lenin | r1 | 0.78 | 0.65 | 0.68 | 0.529 | 1.599 | outline 0.68 < 0.85 | 2003 sprite |
-| lenin | r2 | 0.68 | 0.65 | 0.68 | 1.199 | 1.599 | height 0.68 outside 0.7..1.3 | 2003 sprite |
-| lenin | r3 | 0.78 | 0.65 | 0.68 | 0.412 | 1.599 | outline 0.68 < 0.85 | 2003 sprite |
+| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | height 0.70 outside 0.7..1.3 | 2003 sprite |
+| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | height 0.65 outside 0.7..1.3 | 2003 sprite |
+| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | height 0.66 outside 0.7..1.3 | 2003 sprite |

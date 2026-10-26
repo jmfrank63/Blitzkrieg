@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house05_3 | r1 | 4 | 1 | 24.3 | 74.8 | 0.0 | 1.0 | 1.32 | 2.6 | 0.217 | pass |
-| e_house05_3 | r1 | 4 | 2 | 28.0 | 71.8 | 0.0 | 0.2 | 1.27 | 6.0 | 0.159 | pass |
-| e_house05_3 | r1 | 4 | 3 | 30.0 | 58.8 | 5.7 | 5.5 | 1.02 | 5.2 | 0.028 | pass |
-| e_house05_3 | r2 | 1 | 1 | 0.5 | 93.3 | 5.2 | 1.1 | 1.01 | 0.6 | 0.015 | pass |
-| e_house05_3 | r2 | 1 | 2 | 0.0 | 99.7 | 0.0 | 0.3 | 0.92 | 3.9 | 0.030 | pass |
-| e_house05_3 | r2 | 1 | 3 | 0.3 | 78.7 | 14.8 | 6.2 | 0.97 | 1.3 | 0.031 | pass |
-| e_house05_3 | r3 | 2 | 1 | 75.1 | 19.9 | 4.6 | 0.3 | 1.33 | 2.3 | 0.219 | pass |
-| e_house05_3 | r3 | 2 | 2 | 70.2 | 29.6 | 0.0 | 0.2 | 1.26 | 6.7 | 0.165 | pass |
-| e_house05_3 | r3 | 2 | 3 | 51.6 | 27.0 | 14.4 | 7.0 | 1.01 | 4.7 | 0.030 | pass |
+| e_house05_3 | r1 | 4 | 1 | 23.7 | 76.1 | 0.0 | 0.2 | 1.30 | 2.3 | 0.221 | pass |
+| e_house05_3 | r1 | 4 | 2 | 28.0 | 71.8 | 0.0 | 0.2 | 1.27 | 6.0 | 0.150 | pass |
+| e_house05_3 | r1 | 4 | 3 | 33.8 | 55.1 | 3.6 | 7.5 | 1.02 | 8.8 | 0.031 | pass |
+| e_house05_3 | r2 | 1 | 1 | 0.1 | 99.6 | 0.0 | 0.3 | 0.99 | 1.1 | 0.011 | pass |
+| e_house05_3 | r2 | 1 | 2 | 0.0 | 99.7 | 0.0 | 0.3 | 0.92 | 3.9 | 0.026 | pass |
+| e_house05_3 | r2 | 1 | 3 | 0.2 | 88.8 | 3.7 | 7.3 | 0.93 | 3.5 | 0.029 | pass |
+| e_house05_3 | r3 | 2 | 1 | 75.6 | 24.2 | 0.0 | 0.2 | 1.30 | 2.2 | 0.222 | pass |
+| e_house05_3 | r3 | 2 | 2 | 70.2 | 29.6 | 0.0 | 0.2 | 1.26 | 6.7 | 0.153 | pass |
+| e_house05_3 | r3 | 2 | 3 | 52.9 | 36.1 | 3.4 | 7.7 | 1.00 | 9.9 | 0.021 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -23,6 +23,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| e_house05_3 | r1 | 1.01 | 0.99 | 0.97 | 0.048 | 0.051 | pass | blocks |
-| e_house05_3 | r2 | 0.94 | 0.99 | 0.97 | 0.043 | 0.051 | pass | blocks |
-| e_house05_3 | r3 | 0.95 | 0.99 | 0.97 | 0.040 | 0.051 | pass | blocks |
+| e_house05_3 | r1 | 0.95 | 0.99 | 0.96 | 0.035 | 0.051 | pass | blocks |
+| e_house05_3 | r2 | 0.94 | 0.99 | 0.96 | 0.037 | 0.051 | pass | blocks |
+| e_house05_3 | r3 | 0.95 | 0.99 | 0.96 | 0.035 | 0.051 | pass | blocks |

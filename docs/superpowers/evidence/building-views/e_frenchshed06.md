@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed06 | r1 | 2 | 1 | 81.1 | 17.7 | 1.2 | 0.0 | 1.16 | 2.5 | 0.064 | pass |
-| e_frenchshed06 | r1 | 2 | 2 | 84.6 | 12.9 | 2.6 | 0.0 | 1.10 | 0.9 | 0.043 | pass |
-| e_frenchshed06 | r1 | 2 | 3 | 87.4 | 6.8 | 5.7 | 0.1 | 1.01 | 2.7 | 0.018 | pass |
-| e_frenchshed06 | r2 | 3 | 1 | 62.7 | 32.8 | 4.4 | 0.0 | 1.11 | 2.8 | 0.005 | pass |
-| e_frenchshed06 | r2 | 3 | 2 | 68.4 | 25.2 | 6.4 | 0.0 | 1.10 | 1.9 | 0.012 | pass |
-| e_frenchshed06 | r2 | 3 | 3 | 78.3 | 15.4 | 6.2 | 0.1 | 1.03 | 0.6 | 0.005 | pass |
-| e_frenchshed06 | r3 | 4 | 1 | 82.3 | 13.5 | 4.1 | 0.0 | 1.16 | 2.1 | 0.052 | pass |
-| e_frenchshed06 | r3 | 4 | 2 | 80.8 | 12.7 | 6.5 | 0.0 | 1.18 | 2.0 | 0.031 | pass |
-| e_frenchshed06 | r3 | 4 | 3 | 83.0 | 11.1 | 5.8 | 0.1 | 1.03 | 1.6 | 0.009 | pass |
+| e_frenchshed06 | r1 | 2 | 1 | 81.2 | 17.6 | 1.2 | 0.0 | 1.15 | 2.6 | 0.069 | pass |
+| e_frenchshed06 | r1 | 2 | 2 | 84.7 | 12.8 | 2.5 | 0.0 | 1.10 | 1.0 | 0.036 | pass |
+| e_frenchshed06 | r1 | 2 | 3 | 88.6 | 6.5 | 4.8 | 0.0 | 1.00 | 2.0 | 0.017 | pass |
+| e_frenchshed06 | r2 | 3 | 1 | 63.0 | 32.7 | 4.3 | 0.0 | 1.11 | 2.2 | 0.008 | pass |
+| e_frenchshed06 | r2 | 3 | 2 | 68.6 | 25.1 | 6.2 | 0.0 | 1.10 | 1.8 | 0.009 | pass |
+| e_frenchshed06 | r2 | 3 | 3 | 80.0 | 15.3 | 4.7 | 0.0 | 1.02 | 1.0 | 0.005 | pass |
+| e_frenchshed06 | r3 | 4 | 1 | 82.5 | 13.5 | 4.0 | 0.0 | 1.15 | 2.0 | 0.056 | pass |
+| e_frenchshed06 | r3 | 4 | 2 | 80.9 | 12.7 | 6.3 | 0.0 | 1.18 | 2.0 | 0.037 | pass |
+| e_frenchshed06 | r3 | 4 | 3 | 84.0 | 11.1 | 4.9 | 0.0 | 1.01 | 1.5 | 0.011 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -23,6 +23,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| e_frenchshed06 | r1 | 0.94 | 1.02 | 0.99 | 0.027 | 0.020 | pass | blocks |
-| e_frenchshed06 | r2 | 0.84 | 1.02 | 0.99 | 0.018 | 0.020 | pass | blocks |
+| e_frenchshed06 | r1 | 0.94 | 1.02 | 0.99 | 0.024 | 0.020 | pass | blocks |
+| e_frenchshed06 | r2 | 0.84 | 1.02 | 0.99 | 0.015 | 0.020 | pass | blocks |
 | e_frenchshed06 | r3 | 0.81 | 1.02 | 0.99 | 0.012 | 0.020 | pass | blocks |

@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed05 | r1 | 2 | 1 | 78.9 | 20.3 | 0.6 | 0.2 | 0.98 | 15.6 | 0.057 | pass |
-| e_frenchshed05 | r1 | 2 | 2 | 74.3 | 21.9 | 0.0 | 3.9 | 1.02 | 7.8 | 0.058 | pass |
-| e_frenchshed05 | r1 | 2 | 3 | 80.7 | 12.2 | 4.7 | 2.4 | 0.96 | 1.0 | 0.006 | pass |
-| e_frenchshed05 | r2 | 3 | 1 | 0.8 | 98.4 | 0.6 | 0.2 | 0.94 | 1.3 | 0.040 | pass |
-| e_frenchshed05 | r2 | 3 | 2 | 0.0 | 96.1 | 0.0 | 3.9 | 0.96 | 0.7 | 0.030 | pass |
-| e_frenchshed05 | r2 | 3 | 3 | 72.4 | 20.1 | 5.0 | 2.5 | 1.06 | 0.7 | 0.042 | pass |
-| e_frenchshed05 | r3 | 4 | 1 | 18.5 | 80.7 | 0.5 | 0.2 | 1.00 | 16.6 | 0.061 | pass |
-| e_frenchshed05 | r3 | 4 | 2 | 17.6 | 78.6 | 0.0 | 3.8 | 1.02 | 7.6 | 0.054 | pass |
-| e_frenchshed05 | r3 | 4 | 3 | 79.0 | 14.9 | 4.0 | 2.2 | 0.94 | 5.8 | 0.006 | pass |
+| e_frenchshed05 | r1 | 2 | 1 | 78.9 | 20.3 | 0.6 | 0.2 | 0.98 | 15.6 | 0.058 | pass |
+| e_frenchshed05 | r1 | 2 | 2 | 74.3 | 21.9 | 0.0 | 3.9 | 1.02 | 7.8 | 0.055 | pass |
+| e_frenchshed05 | r1 | 2 | 3 | 82.7 | 11.7 | 1.1 | 4.4 | 0.96 | 0.5 | 0.007 | pass |
+| e_frenchshed05 | r2 | 3 | 1 | 0.8 | 98.4 | 0.6 | 0.2 | 0.94 | 1.6 | 0.041 | pass |
+| e_frenchshed05 | r2 | 3 | 2 | 0.0 | 96.1 | 0.0 | 3.9 | 0.96 | 0.7 | 0.029 | pass |
+| e_frenchshed05 | r2 | 3 | 3 | 77.1 | 17.4 | 1.2 | 4.3 | 1.03 | 1.6 | 0.044 | pass |
+| e_frenchshed05 | r3 | 4 | 1 | 18.5 | 80.7 | 0.5 | 0.2 | 1.00 | 16.6 | 0.062 | pass |
+| e_frenchshed05 | r3 | 4 | 2 | 17.6 | 78.6 | 0.0 | 3.8 | 1.02 | 7.6 | 0.052 | pass |
+| e_frenchshed05 | r3 | 4 | 3 | 81.2 | 13.3 | 1.2 | 4.3 | 0.93 | 6.3 | 0.015 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

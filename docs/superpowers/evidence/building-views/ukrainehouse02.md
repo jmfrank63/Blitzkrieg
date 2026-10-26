@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| ukrainehouse02 | r1 | 2 | 1 | 74.8 | 22.6 | 2.5 | 0.1 | 1.17 | 6.7 | 0.083 | pass |
-| ukrainehouse02 | r1 | 2 | 1w | 74.9 | 23.2 | 1.9 | 0.0 | 1.20 | 10.2 | 0.089 | pass |
-| ukrainehouse02 | r1 | 2 | 2 | 73.4 | 20.9 | 4.5 | 1.2 | 1.04 | 5.6 | 0.037 | pass |
-| ukrainehouse02 | r1 | 2 | 2w | 73.4 | 20.9 | 4.5 | 1.2 | 1.04 | 5.6 | 0.037 | pass |
-| ukrainehouse02 | r1 | 2 | 3 | 84.7 | 9.0 | 2.5 | 3.7 | 1.00 | 2.4 | 0.007 | pass |
-| ukrainehouse02 | r1 | 2 | 3w | 84.7 | 9.0 | 2.5 | 3.7 | 1.00 | 2.4 | 0.007 | pass |
-| ukrainehouse02 | r2 | 3 | 1 | 47.1 | 39.9 | 12.9 | 0.1 | 1.52 | 3.6 | 0.005 | pass |
-| ukrainehouse02 | r2 | 3 | 1w | 48.0 | 39.8 | 12.2 | 0.0 | 1.46 | 2.6 | 0.012 | pass |
-| ukrainehouse02 | r2 | 3 | 2 | 53.8 | 36.7 | 8.1 | 1.5 | 0.94 | 7.6 | 0.034 | pass |
-| ukrainehouse02 | r2 | 3 | 2w | 53.8 | 36.7 | 8.1 | 1.5 | 0.94 | 7.6 | 0.034 | pass |
-| ukrainehouse02 | r2 | 3 | 3 | 65.0 | 28.2 | 2.5 | 4.2 | 0.99 | 2.3 | 0.006 | pass |
-| ukrainehouse02 | r2 | 3 | 3w | 65.0 | 28.2 | 2.5 | 4.2 | 0.99 | 2.3 | 0.006 | pass |
-| ukrainehouse02 | r3 | 4 | 1 | 67.4 | 20.1 | 12.4 | 0.0 | 1.16 | 9.7 | 0.037 | pass |
-| ukrainehouse02 | r3 | 4 | 1w | 67.8 | 20.4 | 11.7 | 0.0 | 1.23 | 11.8 | 0.105 | pass |
-| ukrainehouse02 | r3 | 4 | 2 | 67.8 | 25.2 | 5.4 | 1.6 | 1.00 | 7.1 | 0.036 | pass |
-| ukrainehouse02 | r3 | 4 | 2w | 67.8 | 25.2 | 5.4 | 1.6 | 1.00 | 7.1 | 0.036 | pass |
-| ukrainehouse02 | r3 | 4 | 3 | 71.6 | 21.5 | 2.9 | 4.0 | 1.01 | 3.9 | 0.003 | pass |
-| ukrainehouse02 | r3 | 4 | 3w | 71.6 | 21.5 | 2.9 | 4.0 | 1.01 | 3.9 | 0.003 | pass |
+| ukrainehouse02 | r1 | 2 | 1 | 74.8 | 22.6 | 2.5 | 0.1 | 1.17 | 6.7 | 0.076 | pass |
+| ukrainehouse02 | r1 | 2 | 1w | 74.9 | 23.2 | 1.9 | 0.0 | 1.20 | 10.2 | 0.113 | pass |
+| ukrainehouse02 | r1 | 2 | 2 | 73.8 | 21.8 | 3.1 | 1.3 | 1.03 | 6.0 | 0.020 | pass |
+| ukrainehouse02 | r1 | 2 | 2w | 73.8 | 21.8 | 3.1 | 1.3 | 1.03 | 6.0 | 0.020 | pass |
+| ukrainehouse02 | r1 | 2 | 3 | 84.7 | 9.0 | 2.5 | 3.7 | 1.00 | 2.4 | 0.008 | pass |
+| ukrainehouse02 | r1 | 2 | 3w | 84.7 | 9.0 | 2.5 | 3.7 | 1.00 | 2.4 | 0.008 | pass |
+| ukrainehouse02 | r2 | 3 | 1 | 47.1 | 39.9 | 12.9 | 0.1 | 1.52 | 3.6 | 0.006 | pass |
+| ukrainehouse02 | r2 | 3 | 1w | 48.0 | 39.8 | 12.2 | 0.0 | 1.46 | 2.6 | 0.008 | pass |
+| ukrainehouse02 | r2 | 3 | 2 | 54.3 | 38.6 | 5.7 | 1.4 | 0.93 | 7.2 | 0.025 | pass |
+| ukrainehouse02 | r2 | 3 | 2w | 54.3 | 38.6 | 5.7 | 1.4 | 0.93 | 7.2 | 0.025 | pass |
+| ukrainehouse02 | r2 | 3 | 3 | 65.0 | 28.2 | 2.5 | 4.2 | 0.99 | 2.3 | 0.004 | pass |
+| ukrainehouse02 | r2 | 3 | 3w | 65.0 | 28.2 | 2.5 | 4.2 | 0.99 | 2.3 | 0.004 | pass |
+| ukrainehouse02 | r3 | 4 | 1 | 67.4 | 20.1 | 12.4 | 0.0 | 1.16 | 9.7 | 0.033 | pass |
+| ukrainehouse02 | r3 | 4 | 1w | 67.8 | 20.4 | 11.7 | 0.0 | 1.23 | 11.8 | 0.096 | pass |
+| ukrainehouse02 | r3 | 4 | 2 | 67.9 | 25.1 | 5.4 | 1.7 | 0.99 | 7.2 | 0.019 | pass |
+| ukrainehouse02 | r3 | 4 | 2w | 67.9 | 25.1 | 5.4 | 1.7 | 0.99 | 7.2 | 0.019 | pass |
+| ukrainehouse02 | r3 | 4 | 3 | 71.6 | 21.5 | 2.9 | 4.0 | 1.01 | 3.9 | 0.005 | pass |
+| ukrainehouse02 | r3 | 4 | 3w | 71.6 | 21.5 | 2.9 | 4.0 | 1.01 | 3.9 | 0.005 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

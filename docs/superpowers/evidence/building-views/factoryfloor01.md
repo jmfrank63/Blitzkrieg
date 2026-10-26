@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryfloor01 | r1 | 2 | 1 | 73.4 | 24.5 | 1.9 | 0.2 | 1.08 | 6.2 | 0.062 | pass |
-| factoryfloor01 | r1 | 2 | 1w | 73.6 | 24.3 | 1.9 | 0.2 | 1.09 | 9.0 | 0.131 | pass |
-| factoryfloor01 | r1 | 2 | 2 | 71.5 | 26.2 | 2.2 | 0.1 | 1.11 | 6.8 | 0.095 | pass |
-| factoryfloor01 | r1 | 2 | 2w | 71.5 | 26.2 | 2.2 | 0.1 | 1.07 | 7.2 | 0.128 | pass |
-| factoryfloor01 | r1 | 2 | 3 | 84.1 | 6.6 | 8.6 | 0.8 | 0.92 | 2.6 | 0.026 | pass |
-| factoryfloor01 | r1 | 2 | 3w | 84.1 | 6.6 | 8.6 | 0.8 | 0.92 | 3.1 | 0.024 | pass |
-| factoryfloor01 | r2 | 3 | 1 | 0.9 | 96.7 | 2.3 | 0.1 | 1.05 | 3.9 | 0.037 | pass |
-| factoryfloor01 | r2 | 3 | 1w | 0.9 | 96.7 | 2.3 | 0.2 | 1.07 | 8.2 | 0.043 | pass |
-| factoryfloor01 | r2 | 3 | 2 | 4.1 | 93.9 | 1.9 | 0.1 | 1.05 | 5.2 | 0.081 | pass |
-| factoryfloor01 | r2 | 3 | 2w | 4.1 | 93.9 | 1.9 | 0.1 | 1.06 | 6.0 | 0.080 | pass |
-| factoryfloor01 | r2 | 3 | 3 | 75.7 | 14.7 | 8.9 | 0.8 | 0.97 | 2.9 | 0.029 | pass |
-| factoryfloor01 | r2 | 3 | 3w | 75.7 | 14.7 | 8.9 | 0.8 | 0.97 | 3.4 | 0.028 | pass |
-| factoryfloor01 | r3 | 4 | 1 | 29.3 | 70.6 | 0.1 | 0.0 | 1.02 | 1.2 | 0.069 | pass |
-| factoryfloor01 | r3 | 4 | 1w | 29.3 | 70.5 | 0.2 | 0.0 | 1.01 | 0.4 | 0.149 | pass |
-| factoryfloor01 | r3 | 4 | 2 | 30.5 | 68.6 | 0.8 | 0.1 | 1.10 | 1.9 | 0.077 | pass |
-| factoryfloor01 | r3 | 4 | 2w | 30.5 | 68.6 | 0.8 | 0.1 | 1.04 | 1.7 | 0.111 | pass |
-| factoryfloor01 | r3 | 4 | 3 | 82.3 | 9.5 | 7.4 | 0.8 | 0.93 | 2.1 | 0.035 | pass |
-| factoryfloor01 | r3 | 4 | 3w | 82.3 | 9.5 | 7.4 | 0.8 | 0.93 | 2.4 | 0.033 | pass |
+| factoryfloor01 | r1 | 2 | 1 | 73.4 | 26.2 | 0.1 | 0.2 | 1.07 | 6.4 | 0.076 | pass |
+| factoryfloor01 | r1 | 2 | 1w | 73.7 | 26.0 | 0.1 | 0.2 | 1.08 | 9.0 | 0.098 | pass |
+| factoryfloor01 | r1 | 2 | 2 | 71.6 | 27.7 | 0.7 | 0.1 | 1.14 | 7.8 | 0.082 | pass |
+| factoryfloor01 | r1 | 2 | 2w | 71.6 | 27.7 | 0.7 | 0.1 | 1.09 | 8.1 | 0.114 | pass |
+| factoryfloor01 | r1 | 2 | 3 | 85.1 | 7.0 | 7.2 | 0.7 | 0.96 | 0.1 | 0.017 | pass |
+| factoryfloor01 | r1 | 2 | 3w | 85.1 | 7.0 | 7.2 | 0.7 | 0.96 | 0.2 | 0.019 | pass |
+| factoryfloor01 | r2 | 3 | 1 | 0.9 | 98.7 | 0.3 | 0.1 | 1.02 | 3.5 | 0.036 | pass |
+| factoryfloor01 | r2 | 3 | 1w | 0.8 | 98.8 | 0.3 | 0.2 | 1.06 | 7.9 | 0.029 | pass |
+| factoryfloor01 | r2 | 3 | 2 | 4.1 | 95.4 | 0.4 | 0.1 | 1.12 | 7.9 | 0.064 | pass |
+| factoryfloor01 | r2 | 3 | 2w | 4.1 | 95.4 | 0.4 | 0.1 | 1.13 | 8.9 | 0.065 | pass |
+| factoryfloor01 | r2 | 3 | 3 | 77.9 | 14.1 | 7.3 | 0.8 | 1.01 | 0.2 | 0.019 | pass |
+| factoryfloor01 | r2 | 3 | 3w | 77.9 | 14.1 | 7.3 | 0.8 | 1.01 | 0.2 | 0.019 | pass |
+| factoryfloor01 | r3 | 4 | 1 | 29.4 | 70.4 | 0.2 | 0.0 | 1.02 | 1.2 | 0.075 | pass |
+| factoryfloor01 | r3 | 4 | 1w | 29.1 | 70.6 | 0.2 | 0.0 | 1.00 | 0.4 | 0.109 | pass |
+| factoryfloor01 | r3 | 4 | 2 | 30.7 | 68.5 | 0.7 | 0.1 | 1.10 | 2.0 | 0.063 | pass |
+| factoryfloor01 | r3 | 4 | 2w | 30.7 | 68.5 | 0.7 | 0.1 | 1.04 | 1.8 | 0.093 | pass |
+| factoryfloor01 | r3 | 4 | 3 | 83.6 | 8.6 | 7.0 | 0.8 | 0.96 | 0.7 | 0.014 | pass |
+| factoryfloor01 | r3 | 4 | 3w | 83.6 | 8.6 | 7.0 | 0.8 | 0.96 | 0.9 | 0.015 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| factoryfloor01 | r1 | 0.96 | 1.07 | 0.97 | 0.015 | 0.025 | pass | blocks |
-| factoryfloor01 | r2 | 0.96 | 1.07 | 0.97 | 0.019 | 0.025 | pass | blocks |
-| factoryfloor01 | r3 | 1.00 | 1.07 | 0.97 | 0.017 | 0.025 | pass | blocks |
+| factoryfloor01 | r1 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | pass | blocks |
+| factoryfloor01 | r2 | 0.96 | 1.07 | 0.97 | 0.016 | 0.025 | pass | blocks |
+| factoryfloor01 | r3 | 0.96 | 1.07 | 0.97 | 0.015 | 0.025 | pass | blocks |

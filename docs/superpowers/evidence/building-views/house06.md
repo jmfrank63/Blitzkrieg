@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house06 | r1 | 2 | 1 | 54.7 | 44.8 | 0.4 | 0.0 | 1.09 | 5.4 | 0.025 | pass |
-| house06 | r1 | 2 | 1w | 51.4 | 47.7 | 0.9 | 0.0 | 1.09 | 2.7 | 0.034 | pass |
-| house06 | r1 | 2 | 2 | 40.9 | 55.5 | 3.5 | 0.1 | 1.24 | 8.5 | 0.034 | pass |
-| house06 | r1 | 2 | 2w | 40.9 | 55.5 | 3.5 | 0.1 | 1.17 | 9.5 | 0.037 | pass |
-| house06 | r1 | 2 | 3 | 54.1 | 37.8 | 7.6 | 0.5 | 1.02 | 1.0 | 0.032 | pass |
-| house06 | r1 | 2 | 3w | 54.1 | 37.8 | 7.6 | 0.5 | 1.02 | 1.2 | 0.031 | pass |
-| house06 | r2 | 3 | 1 | 20.8 | 76.1 | 3.0 | 0.1 | 1.15 | 5.8 | 0.020 | pass |
-| house06 | r2 | 3 | 1w | 17.7 | 78.3 | 4.1 | 0.0 | 1.09 | 4.5 | 0.012 | pass |
-| house06 | r2 | 3 | 2 | 15.0 | 79.9 | 5.0 | 0.1 | 1.27 | 6.8 | 0.027 | pass |
-| house06 | r2 | 3 | 2w | 15.0 | 79.9 | 5.0 | 0.1 | 1.21 | 7.6 | 0.030 | pass |
-| house06 | r2 | 3 | 3 | 39.3 | 51.0 | 9.0 | 0.7 | 1.04 | 2.7 | 0.050 | pass |
-| house06 | r2 | 3 | 3w | 39.3 | 51.0 | 9.0 | 0.7 | 1.04 | 3.1 | 0.048 | pass |
-| house06 | r3 | 4 | 1 | 48.2 | 48.4 | 3.3 | 0.1 | 0.90 | 6.1 | 0.005 | pass |
-| house06 | r3 | 4 | 1w | 49.5 | 46.8 | 3.6 | 0.0 | 1.04 | 2.3 | 0.021 | pass |
-| house06 | r3 | 4 | 2 | 46.5 | 49.5 | 3.8 | 0.1 | 1.20 | 5.1 | 0.034 | pass |
-| house06 | r3 | 4 | 2w | 46.5 | 49.5 | 3.8 | 0.1 | 1.14 | 5.6 | 0.031 | pass |
-| house06 | r3 | 4 | 3 | 69.2 | 22.5 | 7.7 | 0.6 | 1.01 | 1.5 | 0.055 | pass |
-| house06 | r3 | 4 | 3w | 69.2 | 22.5 | 7.7 | 0.6 | 1.01 | 1.7 | 0.049 | pass |
+| house06 | r1 | 2 | 1 | 41.1 | 58.5 | 0.5 | 0.0 | 1.17 | 6.4 | 0.043 | pass |
+| house06 | r1 | 2 | 1w | 41.3 | 58.4 | 0.3 | 0.0 | 1.10 | 1.0 | 0.087 | pass |
+| house06 | r1 | 2 | 2 | 39.1 | 53.5 | 4.9 | 2.6 | 0.96 | 4.6 | 0.023 | pass |
+| house06 | r1 | 2 | 2w | 39.1 | 53.5 | 4.9 | 2.6 | 1.00 | 5.3 | 0.025 | pass |
+| house06 | r1 | 2 | 3 | 60.2 | 29.6 | 7.5 | 2.7 | 1.07 | 0.9 | 0.023 | pass |
+| house06 | r1 | 2 | 3w | 60.2 | 29.6 | 7.5 | 2.7 | 1.06 | 1.0 | 0.026 | pass |
+| house06 | r2 | 3 | 1 | 6.0 | 93.5 | 0.5 | 0.0 | 1.17 | 4.3 | 0.044 | pass |
+| house06 | r2 | 3 | 1w | 6.1 | 93.9 | 0.0 | 0.0 | 1.09 | 2.7 | 0.080 | pass |
+| house06 | r2 | 3 | 2 | 6.4 | 86.0 | 5.1 | 2.6 | 1.07 | 6.2 | 0.049 | pass |
+| house06 | r2 | 3 | 2w | 6.4 | 86.0 | 5.1 | 2.6 | 1.08 | 7.2 | 0.049 | pass |
+| house06 | r2 | 3 | 3 | 41.7 | 48.1 | 8.1 | 2.1 | 1.01 | 2.9 | 0.037 | pass |
+| house06 | r2 | 3 | 3w | 41.7 | 48.1 | 8.1 | 2.1 | 1.01 | 3.4 | 0.038 | pass |
+| house06 | r3 | 4 | 1 | 63.0 | 36.4 | 0.5 | 0.0 | 0.89 | 3.5 | 0.011 | pass |
+| house06 | r3 | 4 | 1w | 63.4 | 36.4 | 0.2 | 0.0 | 0.98 | 8.9 | 0.036 | pass |
+| house06 | r3 | 4 | 2 | 63.9 | 32.0 | 1.9 | 2.2 | 0.89 | 6.8 | 0.057 | pass |
+| house06 | r3 | 4 | 2w | 63.9 | 32.0 | 1.9 | 2.2 | 0.92 | 7.6 | 0.054 | pass |
+| house06 | r3 | 4 | 3 | 64.7 | 27.0 | 6.6 | 1.8 | 1.03 | 1.8 | 0.002 | pass |
+| house06 | r3 | 4 | 3w | 64.7 | 27.0 | 6.6 | 1.8 | 1.02 | 2.1 | 0.004 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| house06 | r1 | 1.31 | 0.77 | 0.96 | 0.198 | 0.061 | height 1.31 outside 0.7..1.3 | blocks |
-| house06 | r2 | 1.45 | 0.77 | 0.96 | 0.189 | 0.061 | height 1.45 outside 0.7..1.3 | blocks |
-| house06 | r3 | 1.20 | 0.77 | 0.96 | 0.133 | 0.061 | protrusion 0.133 > 0.122 | blocks |
+| house06 | r1 | 0.98 | 0.70 | 0.97 | 0.041 | 0.061 | pass | blocks |
+| house06 | r2 | 0.98 | 0.70 | 0.97 | 0.064 | 0.061 | pass | blocks |
+| house06 | r3 | 1.07 | 0.70 | 0.97 | 0.062 | 0.061 | pass | blocks |

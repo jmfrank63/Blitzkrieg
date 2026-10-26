@@ -32,6 +32,6 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| watertanklittle | r1 | 0.92 | 0.41 | 0.77 | 1.079 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r2 | 0.93 | 0.41 | 0.77 | 1.089 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r3 | 0.92 | 0.41 | 0.77 | 1.086 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
