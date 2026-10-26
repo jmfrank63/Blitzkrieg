@@ -3171,6 +3171,28 @@ pub fn build(b: *std.Build) void {
     world_game_step.dependOn(&world_game_tests.step);
     if (test_mode == .run) world_game_step.dependOn(&world_game_run.step);
 
+    // Units at every camera step (M006 S04,
+    // tools/zig/camera_turn_units_game_reads_it.zig): snipers, tanks and guns
+    // on rings, their shadows, and the key with Remastered off. Desktop and
+    // GPU, so not part of `test`.
+    const units_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_units_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, units_game_module, toolchain);
+    }
+    const units_game_tests = b.addTest(.{ .root_module = units_game_module, .filters = &.{ "a quarter turn takes each ring", "units turn with the camera" } });
+    const units_game_run = b.addRunArtifact(units_game_tests);
+    units_game_run.setCwd(b.path("."));
+    units_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    units_game_run.has_side_effects = true;
+    units_game_run.step.dependOn(install_game_step);
+    const units_game_step = b.step("camera-turn-units-game-reads-it", "Press the camera turn key on the real Game with Remastered on over snipers, tanks and guns on rings and measure each unit, its facing and its shadow where the turn puts it; with it off the key changes nothing");
+    units_game_step.dependOn(&units_game_tests.step);
+    if (test_mode == .run) units_game_step.dependOn(&units_game_run.step);
+
     // The turned building sides as a mod, to try the camera turn by hand
     // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
     // building-views-batch-<region> steps left in zig-out/remastered/Buildings,

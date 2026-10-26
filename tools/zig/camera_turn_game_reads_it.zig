@@ -335,6 +335,12 @@ fn comparePictures(a: game_views.Sprite, b: game_views.Sprite) struct { iou: f64
 /// between them and returns them (RGBA), also kept as `<name>-<k>.png`; it must
 /// exit 0 without a leak.
 pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize) ![shots][]u8 {
+    return runGameWith(io, allocator, game, root, name, map, look, remastered, disable, shots, false);
+}
+
+/// runGame, with the game paused before the first shot when `paused`, so
+/// units' animations stand still while the key turns the view.
+pub fn runGameWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize, paused: bool) ![shots][]u8 {
     const cwd = std.Io.Dir.cwd();
     const user = try std.fs.path.join(allocator, &.{ root, "user", name });
     try cwd.createDirPath(io, user);
@@ -357,11 +363,14 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
     // each shot has its own wait so that its file name is its own.
     var schedule: std.ArrayList(u8) = .empty;
     try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d},g10:set=GamePlay.Remastered={s}", .{ look[0], look[1], remastered });
+    // Paused (SPACE), the game time stands still, so the waits count the timer's absolute time.
+    const wait = if (paused) "t" else "g";
+    if (paused) try schedule.appendSlice(allocator, ",g10:key=SPACE");
     for (0..shots) |k| {
-        if (k != 0) try schedule.appendSlice(allocator, ",g10:key=.");
-        try schedule.print(allocator, ",g{d}:shot", .{1500 + k});
+        if (k != 0) try schedule.print(allocator, ",{s}10:key=.", .{wait});
+        try schedule.print(allocator, ",{s}{d}:shot", .{ wait, 1500 + k });
     }
-    try schedule.appendSlice(allocator, ",g200:exit");
+    try schedule.print(allocator, ",{s}200:exit", .{wait});
     try environ.put("BK_AUTO_UI", schedule.items);
     const result = try timed_run.run(allocator, io, .{
         .argv = &.{ game, "-windowed", std.fmt.comptimePrint("-mode={d}x{d}", .{ width, height }), "-profile=Turn", "-mod=" ++ mod_name, map },
@@ -378,7 +387,7 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
     try l10n_measure.expectNoLeak(log, log_path);
     var frames: [shots][]u8 = undefined;
     for (&frames, 0..) |*frame, k| {
-        const shot_name = try std.fmt.allocPrint(allocator, "autoshot_g{d}_{d}x{d}.rgba", .{ 1500 + k, width, height });
+        const shot_name = try std.fmt.allocPrint(allocator, "autoshot_{s}{d}_{d}x{d}.rgba", .{ wait, 1500 + k, width, height });
         frame.* = cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ user, shot_name }), allocator, .limited(64 << 20)) catch |err| {
             std.debug.print("no shot {s} from the Game ({s}); its output is in {s}\n", .{ shot_name, name, log_path });
             return err;
