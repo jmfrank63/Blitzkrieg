@@ -26,14 +26,22 @@
 //!   centre (a quarter turn takes the ring onto itself), each scored where the
 //!   turn puts it against what its kind must show, cut from the step-0 frame:
 //!   a tree (_Lime, square footprint) and a box (ShellBox01, none) their own
-//!   picture; a bench (Bench01, 1 x 2) its own picture at even steps and the
+//!   picture; a swing (Swing01, 1 x 2) its own picture at even steps and the
 //!   picture mirrored about its zero cross at odd steps, better than not
 //!   mirrored; a dirt ravine (DirtRavine01, a terra object flat on the ground)
 //!   its picture turned as the ground turns, better than not turned; four
 //!   VillageFence segments (one segment of each kind per direction), one of
 //!   each direction, each the picture of the segment whose direction is its
 //!   own plus the step, better than its own at an odd step.
-//! - Remastered off, every object: the key changes no pixel.
+//! - S04: the four 2003 sides of the bench and the wooden column with a leg
+//!   (variants 01 to 04, two eighths apart, so each place must show the
+//!   variant that stood there at step 0, better than the own picture); line
+//!   spans of the wooden little bridge along x and y, alternating, one place
+//!   empty (at an odd step the other axis's span, at the half turn its own
+//!   with the girders traded, so each place shows the span that stood there;
+//!   the empty place must have moved with the turn).
+//! - Remastered off, the fences, props and bridge spans: the key changes no
+//!   pixel.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/world with every user
 //! path redirected (camera_turn_game_reads_it.runGame); frames, logs and
@@ -71,11 +79,16 @@ const Kind = enum {
     flat,
     /// The picture of the segment whose direction is its own plus the step.
     fence,
+    /// A prop of four sides (variants 01 to 04): the variant of its own plus the step.
+    sides,
+    /// A bridge span: at an odd step the span of the variant along the other
+    /// axis, at the half turn its own with its girders traded.
+    bridge,
 };
 /// An object of the test maps: its objects.xml name, its map FrameIndex (a
 /// fence's direction packed as the map holds it: normal type 0x10000 plus the
 /// direction's bit) and where it stands on the ring, in eighths of a turn.
-const Placed = struct { name: []const u8, kind: Kind, eighth: u32, frame: i64 = -1 };
+const Placed = struct { name: []const u8, kind: Kind, eighth: u32, frame: i64 = -1, ring: f64 = ring, reach: [4]i32 = default_reach };
 const fences = [_]Placed{
     .{ .name = "VillageFence", .kind = .fence, .eighth = 0, .frame = 0x10001 },
     .{ .name = "VillageFence", .kind = .fence, .eighth = 2, .frame = 0x10002 },
@@ -84,15 +97,39 @@ const fences = [_]Placed{
 };
 const props = [_]Placed{
     .{ .name = "_Lime", .kind = .own, .eighth = 1 },
-    .{ .name = "Bench01", .kind = .mirrored, .eighth = 3 },
+    .{ .name = "Swing01", .kind = .mirrored, .eighth = 3 },
     .{ .name = "DirtRavine01", .kind = .flat, .eighth = 5 },
     .{ .name = "ShellBox01", .kind = .own, .eighth = 7 },
 };
+/// Benches and wooden columns on the ring, each variant 01 to 04 two eighths
+/// on from the one before, so a quarter turn must show at each place the
+/// variant that stood there; inside it, on a smaller ring, line spans (a
+/// bridge object's map FrameIndex is its span type: 1 begin, 2 line, 4 end)
+/// of the wooden little bridge along x (`_01`) and along y (`_02`), the
+/// variant changing every quarter turn, so each place must show the span that
+/// stood there, eighth 6 empty so the turn is seen to move the gap.
+const sides = [_]Placed{
+    .{ .name = "Bench01", .kind = .sides, .eighth = 0, .reach = side_reach },
+    .{ .name = "BigColumnWithLeg_01", .kind = .sides, .eighth = 1, .reach = side_reach },
+    .{ .name = "Bench02", .kind = .sides, .eighth = 2, .reach = side_reach },
+    .{ .name = "BigColumnWithLeg_02", .kind = .sides, .eighth = 3, .reach = side_reach },
+    .{ .name = "Bench03", .kind = .sides, .eighth = 4, .reach = side_reach },
+    .{ .name = "BigColumnWithLeg_03", .kind = .sides, .eighth = 5, .reach = side_reach },
+    .{ .name = "Bench04", .kind = .sides, .eighth = 6, .reach = side_reach },
+    .{ .name = "BigColumnWithLeg_04", .kind = .sides, .eighth = 7, .reach = side_reach },
+    .{ .name = "WoodenLittle_01", .kind = .bridge, .eighth = 0, .frame = 2, .ring = bridge_ring, .reach = bridge_reach },
+    .{ .name = "WoodenLittle_02", .kind = .bridge, .eighth = 2, .frame = 2, .ring = bridge_ring, .reach = bridge_reach },
+    .{ .name = "WoodenLittle_01", .kind = .bridge, .eighth = 4, .frame = 2, .ring = bridge_ring, .reach = bridge_reach },
+};
+const side_reach = [4]i32{ -60, -110, 60, 30 };
+const bridge_ring = 240.0;
+const bridge_reach = [4]i32{ -90, -60, 90, 50 };
+const bridge_gap = 6;
 /// The ring's radius in AI units: on the screen 368 by 184 pixels, so a
 /// tall tree stays clear of the interface and of its neighbours.
 const ring = 520.0;
 /// The pixels around an object's zero cross that are its picture.
-const reach = [4]i32{ -150, -230, 150, 70 };
+const default_reach = [4]i32{ -150, -230, 150, 70 };
 
 /// Floors: the Game draws the 2003 pixels (own, mirrored, another segment)
 /// or resamples them (flat). The colour allows for a sprite's soft edge,
@@ -170,15 +207,18 @@ test "the ground, roads, rivers, flora, fences and objects turn with the camera"
 
     // The objects, each where the turn puts it.
     try report.appendSlice(allocator, "objects: step name kind: IoU / colour (offset); IoU of the wrong picture\n");
-    for ([_]struct { []const u8, []const Placed }{ .{ "fences", &fences }, .{ "props", &props } }) |entry| {
+    for ([_]struct { []const u8, []const Placed }{ .{ "fences", &fences }, .{ "props", &props }, .{ "sides", &sides } }) |entry| {
         const name, const placed = entry;
         const frames = try turn.runGame(io, allocator, game, root, try std.fmt.allocPrint(allocator, "objects-{s}", .{name}), try std.fmt.allocPrint(allocator, "{s}.xml", .{name}), road3d_look, "ON", objects_only, 4);
         for (1..4) |k| for (placed, 0..) |object, i| {
+            // A bridge span moved to the gap's place has no step-0 picture to be scored against.
+            if (object.kind == .bridge and (object.eighth + 2 * k) % 8 == bridge_gap) continue;
             const own = scoreObject(frames[0], frames[k], placed, i, k, true);
             const wrong: ?Score = switch (object.kind) {
                 .own => null,
-                .mirrored, .fence => if (k % 2 == 1) scoreObject(frames[0], frames[k], placed, i, k, false) else null,
+                .mirrored, .fence, .bridge => if (k % 2 == 1) scoreObject(frames[0], frames[k], placed, i, k, false) else null,
                 .flat => scoreObject(frames[0], frames[k], placed, i, k, false),
+                .sides => scoreObject(frames[0], frames[k], placed, i, k, false),
             };
             try report.print(allocator, "{d} {s} {s}: {d:.3} / {d:.2} ({d},{d})", .{ k, object.name, @tagName(object.kind), own.iou, own.colour, own.dx, own.dy });
             if (wrong) |w| try report.print(allocator, "; {d:.3}\n", .{w.iou}) else try report.appendSlice(allocator, "\n");
@@ -187,6 +227,20 @@ test "the ground, roads, rivers, flora, fences and objects turn with the camera"
             if (wrong) |w| if (w.iou >= own.iou) {
                 failed = true;
             };
+        };
+        if (placed[placed.len - 1].kind == .bridge) for (1..4) |k| {
+            // The gap moved with the turn: nothing is drawn where it went.
+            const at = turn.turnScreen(screenOf(bridge_ring, bridge_gap), k);
+            var pixels: usize = 0;
+            var y = at[1] - 60;
+            while (y <= at[1] + 40) : (y += 1) {
+                var x = at[0] - 80;
+                while (x <= at[0] + 80) : (x += 1) {
+                    if (drawn(rgb(frames[k], x, y))) pixels += 1;
+                }
+            }
+            try report.print(allocator, "{d} bridge gap at its turned place: {d} pixels drawn\n", .{ k, pixels });
+            if (pixels > 20) failed = true;
         };
     }
 
@@ -206,7 +260,9 @@ test "the ground, roads, rivers, flora, fences and objects turn with the camera"
     }
 }
 
-/// mod.xml and the object maps, written from road3d.xml: fences.xml, props.xml and all.xml (both).
+/// mod.xml and the object maps, written from road3d.xml: fences.xml,
+/// props.xml, sides.xml and all.xml (the fences, the props and the bridge
+/// spans).
 fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
     try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
@@ -216,13 +272,13 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     });
     const map = try cwd.readFileAlloc(io, "Data/Maps/road3d.xml", allocator, .limited(4 << 20));
     try testing.expectEqual(@as(usize, 1), std.mem.count(u8, map, "<Objects/>"));
-    const both = fences ++ props;
-    for ([_]struct { []const u8, []const Placed }{ .{ "fences.xml", &fences }, .{ "props.xml", &props }, .{ "all.xml", &both } }) |entry| {
+    const all = fences ++ props ++ sides[8..].*;
+    for ([_]struct { []const u8, []const Placed }{ .{ "fences.xml", &fences }, .{ "props.xml", &props }, .{ "sides.xml", &sides }, .{ "all.xml", &all } }) |entry| {
         const name, const placed = entry;
         var items: std.ArrayList(u8) = .empty;
         try items.appendSlice(allocator, "<Objects>");
         for (placed, 1..) |object, link| {
-            const at = ringPoint(object.eighth);
+            const at = ringPoint(object.ring, object.eighth);
             try items.print(allocator, "<item Direction=\"0\" Player=\"-1\" ScriptID=\"-1\" HP=\"1\" FrameIndex=\"{d}\"><Name>{s}</Name>" ++
                 "<Position x=\"{d:.0}\" y=\"{d:.0}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ object.frame, object.name, at[0], at[1], link });
         }
@@ -235,18 +291,18 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
 }
 
 /// A ring point in AI units around the AI point under the screen centre.
-fn ringPoint(eighth: u32) [2]f64 {
+fn ringPoint(radius: f64, eighth: u32) [2]f64 {
     const middle = @as(f64, @floatFromInt(road3d_look[0])) * ai_per_world;
     const angle = @as(f64, @floatFromInt(eighth)) * std.math.pi / 4.0;
-    return .{ middle + ring * @cos(angle), middle + ring * @sin(angle) };
+    return .{ middle + radius * @cos(angle), middle + radius * @sin(angle) };
 }
 
 /// Where the 2003 camera puts an AI point at step 0: AI x half a pixel right
 /// and a quarter down, AI y half right and a quarter up (the map XML's
 /// Position; building-views-game-reads-it's places fit it to the pixel).
-fn screenOf(eighth: u32) [2]i32 {
+fn screenOf(radius: f64, eighth: u32) [2]i32 {
     const middle = @as(f64, @floatFromInt(road3d_look[0])) * ai_per_world;
-    const at = ringPoint(eighth);
+    const at = ringPoint(radius, eighth);
     const dx = at[0] - middle;
     const dy = at[1] - middle;
     return .{ centre[0] + @as(i32, @intFromFloat(@round((dx + dy) / 2))), centre[1] + @as(i32, @intFromFloat(@round((dx - dy) / 4))) };
@@ -271,9 +327,12 @@ const Score = struct { iou: f64, colour: f64, dx: i32, dy: i32 };
 /// offset within 4 pixels.
 fn scoreObject(before: []const u8, after: []const u8, placed: []const Placed, i: usize, k: usize, right: bool) Score {
     const object = placed[i];
-    const from_eighth = if (object.kind == .fence and right) placed[(i + k) % placed.len].eighth else object.eighth;
-    const p0 = screenOf(from_eighth);
-    const pk = turn.turnScreen(screenOf(object.eighth), k);
+    // A fence segment, a side of a prop and a bridge span show what stood
+    // at the place they move to.
+    const from_eighth = if (right and (object.kind == .fence or object.kind == .sides or object.kind == .bridge)) @as(u32, @intCast((object.eighth + 2 * k) % 8)) else object.eighth;
+    const p0 = screenOf(object.ring, from_eighth);
+    const pk = turn.turnScreen(screenOf(object.ring, object.eighth), k);
+    const reach = object.reach;
     const flat = object.kind == .flat and right;
     const mirror = object.kind == .mirrored and right and k % 2 == 1;
     // The box on the turned screen that holds the expected picture.
@@ -354,7 +413,7 @@ fn luma(frame: []const u8, x: i32, y: i32) f64 {
 
 test "a ring point lands where the 2003 camera puts it, and a quarter turn takes the ring onto itself" {
     // AI x is half a pixel right and a quarter down.
-    try testing.expectEqual([2]i32{ centre[0] + 260, centre[1] + 130 }, screenOf(0));
-    try testing.expectEqual(turn.turnScreen(screenOf(0), 1), screenOf(2));
+    try testing.expectEqual([2]i32{ centre[0] + 260, centre[1] + 130 }, screenOf(ring, 0));
+    try testing.expectEqual(turn.turnScreen(screenOf(ring, 0), 1), screenOf(ring, 2));
     try testing.expectEqual([2]f64{ 3, 5 }, turn.unturn(turn.turnOffset(.{ 3, 5 }, 3), 3));
 }
