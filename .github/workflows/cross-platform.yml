@@ -590,6 +590,10 @@ jobs:
         if: matrix.part == 'platform'
         run: zig build test-remastered -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: The replay core's random state and state hashes
+        if: matrix.part == 'platform'
+        run: zig build test-replay-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
 
 
       - name: Mission data tier
@@ -1876,6 +1880,12 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build cloud-repair-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: A replay plays back the recorded battle
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build replay-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
 
       - name: Season textures
