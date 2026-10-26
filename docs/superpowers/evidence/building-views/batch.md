@@ -13,7 +13,7 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   the floors of `tools/zig/fixtures/bk-views/gate.json`: 194 of 194 variants pass; hold-out 43 of 43; 0
   fail on the shape; 0 more pass the measures but look wrong on the contact sheet (`bk-views contact`),
   listed in gate.json's `by_eye`. A failing variant is listed with its first reason, to be fixed by hand.
-- 2003 sprite: 40 variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
+- 2003 sprite: 76 variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
   objects (a 2003 protrusion of 0.15 or more) and small ones (4 footprint cells or fewer) whose blocks fail
   the shape, where the turn keeps the footprint (cells IoU 0.9 or more), or mirrored onto it on an odd
   turn of a rectangular footprint.
@@ -23,18 +23,18 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 |---|---|---|---|---|---|---|---|
 | africa | a_cisterns | africa/summer/a_cisterns/01 | 1 | 2, 3, 4 | pass | - | - |
 | africa | a_cisterns | africa/summer/a_cisterns/02 | 1 | 2, 3, 4 | pass | - | - |
-| africa | a_h01 | africa/summer/a_h01_1 | 1 | 2, 3, 4 | pass | pass | - |
-| africa | a_h01 | africa/summer/a_h01_2 | 2 | 3, 4, 1 | pass | pass | - |
-| africa | a_h02 | africa/summer/a_h02_2 | 2 | 3, 4, 1 | pass | pass | - |
-| africa | a_h02 | africa/summer/a_h02_4 | 4 | 1, 2, 3 | pass | pass | - |
-| africa | a_h03 | africa/summer/a_h03_2 | 2 | 3, 4, 1 | pass | pass | - |
-| africa | a_h03 | africa/summer/a_h03_3 | 3 | 4, 1, 2 | pass | pass | - |
+| africa | a_h01 | africa/summer/a_h01_1 | 1 | 2, 3, 4 | pass | pass | r1 = a_h01_2 |
+| africa | a_h01 | africa/summer/a_h01_2 | 2 | 3, 4, 1 | pass | pass | r3 = a_h01_1 |
+| africa | a_h02 | africa/summer/a_h02_2 | 2 | 3, 4, 1 | pass | pass | r2 = a_h02_4 |
+| africa | a_h02 | africa/summer/a_h02_4 | 4 | 1, 2, 3 | pass | pass | r2 = a_h02_2 |
+| africa | a_h03 | africa/summer/a_h03_2 | 2 | 3, 4, 1 | pass | pass | r1 = a_h03_3 |
+| africa | a_h03 | africa/summer/a_h03_3 | 3 | 4, 1, 2 | pass | pass | r3 = a_h03_2 |
 | africa | a_h04 | africa/summer/a_h04_1 | 1 | 2, 3, 4 | pass | - | - |
-| africa | a_h07 | africa/summer/a_h07_1 | 1 | 2, 3, 4 | pass | pass | - |
-| africa | a_h07 | africa/summer/a_h07_2 | 2 | 3, 4, 1 | pass | pass | - |
-| africa | a_h07 | africa/summer/a_h07_3 | 3 | 4, 1, 2 | pass | pass | - |
-| africa | a_h08 | africa/summer/a_h08_1 | 1 | 2, 3, 4 | pass | pass | - |
-| africa | a_h08 | africa/summer/a_h08_4 | 4 | 1, 2, 3 | pass | pass | - |
+| africa | a_h07 | africa/summer/a_h07_1 | 1 | 2, 3, 4 | pass | pass | r1 = a_h07_2, r2 = a_h07_3 |
+| africa | a_h07 | africa/summer/a_h07_2 | 2 | 3, 4, 1 | pass | pass | r1 = a_h07_3, r3 = a_h07_1 |
+| africa | a_h07 | africa/summer/a_h07_3 | 3 | 4, 1, 2 | pass | pass | r2 = a_h07_1, r3 = a_h07_2 |
+| africa | a_h08 | africa/summer/a_h08_1 | 1 | 2, 3, 4 | pass | pass | r3 = a_h08_4 |
+| africa | a_h08 | africa/summer/a_h08_4 | 4 | 1, 2, 3 | pass | pass | r1 = a_h08_1 |
 | africa | a_h09 | africa/summer/a_h09_2 | 2 | 3, 4, 1 | pass | - | - |
 | africa | a_mosque_01 | africa/summer/a_mosque_01_4 | 4 | 1, 2, 3 | pass | - | - |
 | africa | a_mosque_02 | africa/summer/a_mosque_02_1 | 1 | 2, 3, 4 | pass | - | - |
@@ -43,18 +43,18 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | africa | a_wt | africa/summer/a_wt/01 | 1 | 2, 3, 4 | pass | - | - |
 | africa | a_wt | africa/summer/a_wt/02 | 4 | 1, 2, 3 | pass | - | - |
 | common | conduitbarrel | common/summer/conduitbarrel | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
-| common | dot | common/summer/dot/01 | 1 | 2, 3, 4 | pass | pass | - |
-| common | dot | common/summer/dot/02 | 3 | 4, 1, 2 | pass | pass | - |
-| common | dot | common/summer/dot/03 | 4 | 1, 2, 3 | pass | pass | - |
-| common | dot | common/summer/dot/04 | 4 | 1, 2, 3 | pass | pass | - |
-| common | dot_h | common/summer/dot_h/01 | 1 | 2, 3, 4 | pass | pass | - |
-| common | dot_h | common/summer/dot_h/02 | 2 | 3, 4, 1 | pass | pass | - |
-| common | dot_h | common/summer/dot_h/03 | 3 | 4, 1, 2 | pass | pass | - |
-| common | dot_h | common/summer/dot_h/04 | 4 | 1, 2, 3 | pass | pass | - |
-| common | dzot | common/summer/dzot/01 | 1 | 2, 3, 4 | pass | pass | - |
+| common | dot | common/summer/dot/01 | 1 | 2, 3, 4 | pass | pass | r2 = 02, r3 = 03 |
+| common | dot | common/summer/dot/02 | 3 | 4, 1, 2 | pass | pass | r1 = 03, r2 = 01 |
+| common | dot | common/summer/dot/03 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r3 = 02 |
+| common | dot | common/summer/dot/04 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r3 = 02 |
+| common | dot_h | common/summer/dot_h/01 | 1 | 2, 3, 4 | pass | pass | r1 = 02, r2 = 03, r3 = 04 |
+| common | dot_h | common/summer/dot_h/02 | 2 | 3, 4, 1 | pass | pass | r1 = 03, r2 = 04, r3 = 01 |
+| common | dot_h | common/summer/dot_h/03 | 3 | 4, 1, 2 | pass | pass | r1 = 04, r2 = 01, r3 = 02 |
+| common | dot_h | common/summer/dot_h/04 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r2 = 02, r3 = 03 |
+| common | dzot | common/summer/dzot/01 | 1 | 2, 3, 4 | pass | pass | r2 = 04 |
 | common | dzot | common/summer/dzot/02 | ? | ? (turns 1, 2, 3) | pass | - | - |
 | common | dzot | common/summer/dzot/03 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| common | dzot | common/summer/dzot/04 | 3 | 4, 1, 2 | pass | pass | - |
+| common | dzot | common/summer/dzot/04 | 3 | 4, 1, 2 | pass | pass | r2 = 01 |
 | common | tent | common/summer/tent/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
 | common | tent | common/summer/tent/02 | 2 | 3, 4, 1 | pass | - | - |
 | common | watchtower | common/summer/watchtower | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
@@ -63,13 +63,13 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_chapel | europe/summer/e_chapel_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_cityhall | europe/summer/e_cityhall_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_ctownhouse01 | europe/summer/e_ctownhouse01_1 | 1 | 2, 3, 4 | pass | - | - |
-| europe | e_ctownhouse01 | europe/summer/e_ctownhouse01_2 | 2 | 3, 4, 1 | pass | pass | - |
-| europe | e_ctownhouse01 | europe/summer/e_ctownhouse01_4 | 4 | 1, 2, 3 | pass | pass | - |
+| europe | e_ctownhouse01 | europe/summer/e_ctownhouse01_2 | 2 | 3, 4, 1 | pass | pass | r2 = e_ctownhouse01_4 |
+| europe | e_ctownhouse01 | europe/summer/e_ctownhouse01_4 | 4 | 1, 2, 3 | pass | pass | r2 = e_ctownhouse01_2 |
 | europe | e_ctownhouse02 | europe/summer/e_ctownhouse02_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_ctownhouse02 | europe/summer/e_ctownhouse02_1_2 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_ctownhouse02 | europe/summer/e_ctownhouse02_4 | 4 | 1, 2, 3 | pass | - | - |
-| europe | e_ctownhouse03 | europe/summer/e_ctownhouse03_2 | 2 | 3, 4, 1 | pass | pass | - |
-| europe | e_ctownhouse03 | europe/summer/e_ctownhouse03_4 | 4 | 1, 2, 3 | pass | pass | - |
+| europe | e_ctownhouse03 | europe/summer/e_ctownhouse03_2 | 2 | 3, 4, 1 | pass | pass | r2 = e_ctownhouse03_4 |
+| europe | e_ctownhouse03 | europe/summer/e_ctownhouse03_4 | 4 | 1, 2, 3 | pass | pass | r2 = e_ctownhouse03_2 |
 | europe | e_ctownhouse04 | europe/summer/e_ctownhouse04_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_ctownhouse04 | europe/summer/e_ctownhouse04_1_2 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_frenchshed01 | europe/summer/e_frenchshed01 | 1 | 2, 3, 4 | pass | - | - |
@@ -94,8 +94,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_house08 | europe/summer/e_house08_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_house09 | europe/summer/e_house09_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_house10 | europe/summer/e_house10_2 | 2 | 3, 4, 1 | pass | - | - |
-| europe | e_house11 | europe/summer/e_house11_1 | 1 | 2, 3, 4 | pass | pass | - |
-| europe | e_house11 | europe/summer/e_house11_3 | 3 | 4, 1, 2 | pass | pass | - |
+| europe | e_house11 | europe/summer/e_house11_1 | 1 | 2, 3, 4 | pass | pass | r2 = e_house11_3 |
+| europe | e_house11 | europe/summer/e_house11_3 | 3 | 4, 1, 2 | pass | pass | r2 = e_house11_1 |
 | europe | e_house11 | europe/summer/e_house11_4 | 4 | 1, 2, 3 | pass | - | - |
 | europe | e_house12 | europe/summer/e_house12_3 | 3 | 4, 1, 2 | pass | - | - |
 | europe | e_jettybuilding | europe/summer/e_jettybuilding_1 | 1 | 2, 3, 4 | pass | - | - |
@@ -103,14 +103,14 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_monument | europe/summer/e_monument | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | europe | e_railwaystation | europe/summer/e_railwaystation_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_railwaystation | europe/summer/e_railwaystation_2 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| europe | e_shed01 | europe/summer/e_shed01_2 | 2 | 3, 4, 1 | pass | pass | - |
-| europe | e_shed01 | europe/summer/e_shed01_3 | 3 | 4, 1, 2 | pass | pass | - |
+| europe | e_shed01 | europe/summer/e_shed01_2 | 2 | 3, 4, 1 | pass | pass | r1 = e_shed01_3 |
+| europe | e_shed01 | europe/summer/e_shed01_3 | 3 | 4, 1, 2 | pass | pass | r3 = e_shed01_2 |
 | europe | e_shed02 | europe/summer/e_shed02_2 | 2 | 3, 4, 1 | pass | - | - |
 | europe | e_shed02 | europe/summer/e_shed02_3 | ? | ? (turns 1, 2, 3) | pass | - | - |
 | europe | e_shed02 | europe/summer/e_shed02_4 | 4 | 1, 2, 3 | pass | - | - |
 | europe | e_shed02 | europe/summer/e_shed02_5 | 2 | 3, 4, 1 | pass | - | - |
-| europe | e_statue | europe/summer/e_statue/01 | 1 | 2, 3, 4 | pass | pass | r1 mirrored, r2, r3 mirrored |
-| europe | e_statue | europe/summer/e_statue/02 | 2 | 3, 4, 1 | pass | pass | r1, r2, r3 |
+| europe | e_statue | europe/summer/e_statue/01 | 1 | 2, 3, 4 | pass | pass | r1 = 02, r2, r3 mirrored |
+| europe | e_statue | europe/summer/e_statue/02 | 2 | 3, 4, 1 | pass | pass | r1, r2, r3 = 01 |
 | europe | e_statue | europe/summer/e_statue/04 | 2 | 3, 4, 1 | pass | - | r1 mirrored, r2, r3 mirrored |
 | europe | e_stella | europe/summer/e_stella/01 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | europe | e_stella | europe/summer/e_stella/02 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
@@ -118,8 +118,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_stubtrack | europe/summer/e_stubtrack/02 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_stubtrack | europe/summer/e_stubtrack/03 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_stubtrack | europe/summer/e_stubtrack/04 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
-| europe | e_townhouse01 | europe/summer/e_townhouse01_3 | 3 | 4, 1, 2 | pass | pass | - |
-| europe | e_townhouse01 | europe/summer/e_townhouse01_4 | 4 | 1, 2, 3 | pass | pass | - |
+| europe | e_townhouse01 | europe/summer/e_townhouse01_3 | 3 | 4, 1, 2 | pass | pass | r1 = e_townhouse01_4 |
+| europe | e_townhouse01 | europe/summer/e_townhouse01_4 | 4 | 1, 2, 3 | pass | pass | r3 = e_townhouse01_3 |
 | europe | e_townhouse02 | europe/summer/e_townhouse02_2 | 2 | 3, 4, 1 | pass | - | - |
 | europe | e_townhouse02 | europe/summer/e_townhouse02_3 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_townhouse03 | europe/summer/e_townhouse03_1 | 1 | 2, 3, 4 | pass | - | - |
@@ -131,10 +131,10 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_waterset | europe/summer/e_waterset/02 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_waterset | europe/summer/e_waterset/03 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_waterset | europe/summer/e_waterset/04 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
-| europe | e_wb | europe/summer/e_wb/01 | 1 | 2, 3, 4 | pass | pass | - |
-| europe | e_wb | europe/summer/e_wb/02 | 4 | 1, 2, 3 | pass | pass | - |
-| europe | e_wellbig | europe/summer/e_wellbig/01 | 1 | 2, 3, 4 | pass | pass | r1, r2, r3 |
-| europe | e_wellbig | europe/summer/e_wellbig/03 | 3 | 4, 1, 2 | pass | pass | r1, r2, r3 |
+| europe | e_wb | europe/summer/e_wb/01 | 1 | 2, 3, 4 | pass | pass | r3 = 02 |
+| europe | e_wb | europe/summer/e_wb/02 | 4 | 1, 2, 3 | pass | pass | r1 = 01 |
+| europe | e_wellbig | europe/summer/e_wellbig/01 | 1 | 2, 3, 4 | pass | pass | r1, r2 = 03, r3 |
+| europe | e_wellbig | europe/summer/e_wellbig/03 | 3 | 4, 1, 2 | pass | pass | r1, r2 = 01, r3 |
 | europe | e_welllittle | europe/summer/e_welllittle/01 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | europe | e_welllittle | europe/summer/e_welllittle/02 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | europe | e_wt | europe/summer/e_wt/01 | 1 | 2, 3, 4 | pass | - | - |
@@ -147,8 +147,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | church | ussr/summer/church | 1 | 2, 3, 4 | pass | - | - |
 | ussr | cistern | ussr/summer/cistern/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
 | ussr | cistern | ussr/summer/cistern/02 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
-| ussr | dustbin | ussr/summer/dustbin/01 | 1 | 2, 3, 4 | pass | pass | - |
-| ussr | dustbin | ussr/summer/dustbin/02 | 4 | 1, 2, 3 | pass | pass | r1 mirrored, r2, r3 mirrored |
+| ussr | dustbin | ussr/summer/dustbin/01 | 1 | 2, 3, 4 | pass | pass | r3 = 02 |
+| ussr | dustbin | ussr/summer/dustbin/02 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r2, r3 mirrored |
 | ussr | dustbin | ussr/summer/dustbin/03 | 3 | 4, 1, 2 | pass | - | r1 mirrored, r2, r3 mirrored |
 | ussr | electricsubstation | ussr/summer/electricsubstation | 1 | 2, 3, 4 | pass | - | - |
 | ussr | factoryboiler | ussr/summer/factoryboiler | 1 | 2, 3, 4 | pass | - | - |
@@ -173,8 +173,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | kiosk | ussr/summer/kiosk/02 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
 | ussr | kiosk | ussr/summer/kiosk/03 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | kiosk | ussr/summer/kiosk/04 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
-| ussr | leaders | ussr/summer/leaders/01 | 1 | 2, 3, 4 | pass | pass | r1 mirrored, r2, r3 mirrored |
-| ussr | leaders | ussr/summer/leaders/02 | 2 | 3, 4, 1 | pass | pass | r1 mirrored, r2, r3 mirrored |
+| ussr | leaders | ussr/summer/leaders/01 | 1 | 2, 3, 4 | pass | pass | r1 = 02, r2, r3 mirrored |
+| ussr | leaders | ussr/summer/leaders/02 | 2 | 3, 4, 1 | pass | pass | r1 mirrored, r2, r3 = 01 |
 | ussr | lenin | ussr/summer/lenin | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | ussr | pigeonloft | ussr/summer/pigeonloft/01 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | pigeonloft | ussr/summer/pigeonloft/02 | 4 | 1, 2, 3 | pass | - | r1, r2, r3 |
@@ -207,8 +207,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | ukrainehouse01 | ussr/summer/ukrainehouse01_1 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | ukrainehouse01 | ussr/summer/ukrainehouse01_2 | 2 | 3, 4, 1 | pass | - | - |
 | ussr | ukrainehouse02 | ussr/summer/ukrainehouse02 | 1 | 2, 3, 4 | pass | - | - |
-| ussr | ukrainehouse03 | ussr/summer/ukrainehouse03_1 | 1 | 2, 3, 4 | pass | pass | - |
-| ussr | ukrainehouse03 | ussr/summer/ukrainehouse03_2 | 2 | 3, 4, 1 | pass | pass | - |
+| ussr | ukrainehouse03 | ussr/summer/ukrainehouse03_1 | 1 | 2, 3, 4 | pass | pass | r1 = ukrainehouse03_2 |
+| ussr | ukrainehouse03 | ussr/summer/ukrainehouse03_2 | 2 | 3, 4, 1 | pass | pass | r3 = ukrainehouse03_1 |
 | ussr | warehouse | ussr/summer/warehouse | 1 | 2, 3, 4 | pass | - | - |
 | ussr | watertower | ussr/summer/watertower | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | ussr | wb | ussr/summer/wb/01 | 1 | 2, 3, 4 | pass | - | - |

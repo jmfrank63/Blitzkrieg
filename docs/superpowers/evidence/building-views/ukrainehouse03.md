@@ -6,12 +6,12 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| ukrainehouse03_1 | r1 | 2 | 1 | 99.8 | 0.2 | 0.0 | 0.0 | 0.85 | 13.8 | 0.018 | pass |
-| ukrainehouse03_1 | r1 | 2 | 1w | 99.8 | 0.2 | 0.0 | 0.0 | 0.91 | 19.5 | 0.032 | pass |
-| ukrainehouse03_1 | r1 | 2 | 2 | 98.8 | 1.2 | 0.0 | 0.0 | 0.72 | 16.5 | 0.062 | pass |
-| ukrainehouse03_1 | r1 | 2 | 2w | 98.8 | 1.2 | 0.0 | 0.0 | 0.72 | 16.5 | 0.062 | pass |
-| ukrainehouse03_1 | r1 | 2 | 3 | 94.3 | 4.2 | 0.0 | 1.5 | 1.11 | 1.0 | 0.025 | pass |
-| ukrainehouse03_1 | r1 | 2 | 3w | 94.3 | 4.2 | 0.0 | 1.5 | 1.11 | 1.0 | 0.025 | pass |
+| ukrainehouse03_1 | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.85 | 12.3 | 0.014 | pass |
+| ukrainehouse03_1 | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.95 | 12.5 | 0.024 | pass |
+| ukrainehouse03_1 | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.77 | 9.1 | 0.047 | pass |
+| ukrainehouse03_1 | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.77 | 9.1 | 0.047 | pass |
+| ukrainehouse03_1 | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.94 | 4.4 | 0.025 | pass |
+| ukrainehouse03_1 | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.94 | 4.4 | 0.025 | pass |
 | ukrainehouse03_1 | r2 | 3 | 1 | 63.7 | 36.3 | 0.0 | 0.0 | 1.19 | 13.7 | 0.050 | pass |
 | ukrainehouse03_1 | r2 | 3 | 1w | 65.9 | 34.1 | 0.0 | 0.0 | 1.13 | 12.5 | 0.103 | pass |
 | ukrainehouse03_1 | r2 | 3 | 2 | 68.6 | 31.4 | 0.0 | 0.0 | 1.26 | 9.6 | 0.049 | pass |
@@ -36,12 +36,12 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | ukrainehouse03_2 | r2 | 4 | 2w | 67.9 | 32.1 | 0.0 | 0.1 | 1.01 | 16.4 | 0.137 | pass |
 | ukrainehouse03_2 | r2 | 4 | 3 | 91.5 | 7.3 | 0.0 | 1.2 | 1.13 | 0.8 | 0.026 | pass |
 | ukrainehouse03_2 | r2 | 4 | 3w | 91.5 | 7.3 | 0.0 | 1.2 | 1.13 | 0.8 | 0.026 | pass |
-| ukrainehouse03_2 | r3 | 1 | 1 | 99.4 | 0.6 | 0.0 | 0.0 | 1.16 | 14.5 | 0.032 | pass |
-| ukrainehouse03_2 | r3 | 1 | 1w | 98.6 | 1.4 | 0.0 | 0.0 | 1.07 | 11.2 | 0.013 | pass |
-| ukrainehouse03_2 | r3 | 1 | 2 | 96.5 | 3.4 | 0.0 | 0.1 | 1.27 | 11.2 | 0.059 | pass |
-| ukrainehouse03_2 | r3 | 1 | 2w | 96.5 | 3.4 | 0.0 | 0.1 | 1.27 | 11.2 | 0.059 | pass |
-| ukrainehouse03_2 | r3 | 1 | 3 | 94.4 | 4.5 | 0.0 | 1.1 | 1.07 | 0.9 | 0.025 | pass |
-| ukrainehouse03_2 | r3 | 1 | 3w | 94.4 | 4.5 | 0.0 | 1.1 | 1.07 | 0.9 | 0.025 | pass |
+| ukrainehouse03_2 | r3 | 1 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.16 | 13.0 | 0.015 | pass |
+| ukrainehouse03_2 | r3 | 1 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 13.1 | 0.025 | pass |
+| ukrainehouse03_2 | r3 | 1 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.24 | 9.8 | 0.051 | pass |
+| ukrainehouse03_2 | r3 | 1 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.24 | 9.8 | 0.051 | pass |
+| ukrainehouse03_2 | r3 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 4.3 | 0.024 | pass |
+| ukrainehouse03_2 | r3 | 1 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 4.3 | 0.024 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -50,12 +50,12 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| ukrainehouse03_1 | r1 | 0.94 | 0.91 | 0.91 | 0.029 | 0.044 | pass | blocks |
+| ukrainehouse03_1 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | pass | 2003 sprite |
 | ukrainehouse03_1 | r2 | 0.96 | 0.91 | 0.91 | 0.029 | 0.044 | pass | blocks |
 | ukrainehouse03_1 | r3 | 0.96 | 0.91 | 0.91 | 0.026 | 0.044 | pass | blocks |
 | ukrainehouse03_2 | r1 | 0.92 | 0.77 | 0.89 | 0.025 | 0.032 | pass | blocks |
 | ukrainehouse03_2 | r2 | 0.92 | 0.77 | 0.89 | 0.026 | 0.032 | pass | blocks |
-| ukrainehouse03_2 | r3 | 0.95 | 0.77 | 0.89 | 0.024 | 0.032 | pass | blocks |
+| ukrainehouse03_2 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | pass | 2003 sprite |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 

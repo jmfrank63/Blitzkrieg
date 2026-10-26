@@ -6,9 +6,9 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse01_3 | r1 | 4 | 1 | 98.6 | 1.1 | 0.1 | 0.2 | 1.00 | 5.2 | 0.011 | pass |
-| e_townhouse01_3 | r1 | 4 | 2 | 99.0 | 0.8 | 0.1 | 0.0 | 1.05 | 3.8 | 0.033 | pass |
-| e_townhouse01_3 | r1 | 4 | 3 | 92.9 | 5.5 | 0.5 | 1.1 | 1.02 | 1.9 | 0.006 | pass |
+| e_townhouse01_3 | r1 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 5.1 | 0.012 | pass |
+| e_townhouse01_3 | r1 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.08 | 3.4 | 0.031 | pass |
+| e_townhouse01_3 | r1 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.04 | 2.1 | 0.005 | pass |
 | e_townhouse01_3 | r2 | 1 | 1 | 65.0 | 34.6 | 0.1 | 0.3 | 0.61 | 5.1 | 0.079 | pass |
 | e_townhouse01_3 | r2 | 1 | 2 | 65.0 | 34.5 | 0.2 | 0.3 | 0.67 | 2.7 | 0.044 | pass |
 | e_townhouse01_3 | r2 | 1 | 3 | 68.7 | 29.7 | 0.5 | 1.2 | 0.99 | 2.7 | 0.065 | pass |
@@ -21,9 +21,9 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_townhouse01_4 | r2 | 2 | 1 | 67.2 | 32.7 | 0.0 | 0.1 | 2.06 | 5.6 | 0.106 | pass |
 | e_townhouse01_4 | r2 | 2 | 2 | 67.2 | 32.7 | 0.0 | 0.1 | 1.96 | 4.9 | 0.039 | pass |
 | e_townhouse01_4 | r2 | 2 | 3 | 66.7 | 30.6 | 1.3 | 1.4 | 1.01 | 2.9 | 0.063 | pass |
-| e_townhouse01_4 | r3 | 3 | 1 | 99.5 | 0.4 | 0.0 | 0.1 | 1.02 | 3.6 | 0.028 | pass |
-| e_townhouse01_4 | r3 | 3 | 2 | 99.5 | 0.4 | 0.0 | 0.1 | 0.90 | 2.8 | 0.033 | pass |
-| e_townhouse01_4 | r3 | 3 | 3 | 90.7 | 6.7 | 1.2 | 1.4 | 0.93 | 2.4 | 0.013 | pass |
+| e_townhouse01_4 | r3 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 5.0 | 0.011 | pass |
+| e_townhouse01_4 | r3 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 3.4 | 0.031 | pass |
+| e_townhouse01_4 | r3 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.96 | 2.2 | 0.006 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,12 +32,12 @@ sprite where the turn keeps the footprint.
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|
-| e_townhouse01_3 | r1 | 0.99 | 1.03 | 0.96 | 0.024 | 0.025 | pass | blocks |
+| e_townhouse01_3 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | pass | 2003 sprite |
 | e_townhouse01_3 | r2 | 1.06 | 1.03 | 0.96 | 0.040 | 0.025 | pass | blocks |
 | e_townhouse01_3 | r3 | 1.06 | 1.03 | 0.96 | 0.040 | 0.025 | pass | blocks |
 | e_townhouse01_4 | r1 | 1.06 | 0.99 | 0.94 | 0.038 | 0.026 | pass | blocks |
 | e_townhouse01_4 | r2 | 1.06 | 0.99 | 0.94 | 0.040 | 0.026 | pass | blocks |
-| e_townhouse01_4 | r3 | 0.97 | 0.99 | 0.94 | 0.030 | 0.026 | pass | blocks |
+| e_townhouse01_4 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | pass | 2003 sprite |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
