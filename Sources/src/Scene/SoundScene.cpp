@@ -8,6 +8,7 @@
 #include "../Main/RPGStats.h"
 #include "../Misc/FreeIDs.h"
 #include "../GFX/GFXTypes.h"
+#include "../Main/CameraTurn.h"
 BASIC_REGISTER_CLASS( CSoundScene );
 // BK_SOUND_TRACE=1: print every looped/ID sound add/remove and, every few
 // seconds, every sound still resident in the scene cells (name, id, position,
@@ -1169,9 +1170,9 @@ void CSoundScene::Clear()
 }
 void CSoundScene::To2DSoundPos( const CVec3 &vPos, CVec3 *v2DPos )
 {
-	v2DPos->x = vPos.x - vPos.z * FP_SQRT_2;
-	v2DPos->y = vPos.y + vPos.z * FP_SQRT_2;
-	v2DPos->z = 0;
+	// The ground point it is drawn over: shifted up the screen by its height,
+	// turned with the camera (NCameraTurn).
+	*v2DPos = CVec3( vPos.x, vPos.y, 0 ) + NCameraTurn::ViewOffset( CVec3( -vPos.z * FP_SQRT_2, vPos.z * FP_SQRT_2, 0 ), NCameraTurn::Step() );
 }
 void CSoundScene::MuteTerrain( const bool bMute )
 {

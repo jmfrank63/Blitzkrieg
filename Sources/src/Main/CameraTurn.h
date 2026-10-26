@@ -26,6 +26,21 @@ namespace NCameraTurn
 	{
 		return -float( nStep ) * FP_PI2;
 	}
+	// The direction (0..65535, a quarter is 16384) whose 2003 picture shows a
+	// unit or effect facing nDirection at the step: the view shows the world
+	// turned by step quarters, so infantry's eight facings shift by two a step.
+	inline int ViewDirection( const int nDirection, const int nStep )
+	{
+		return ( nDirection + nStep * 16384 ) & 0xffff;
+	}
+	// A ground offset the 2003 code lays out along the 45 degree view's screen
+	// axes (right is (1, 1), towards the viewer (1, -1); an icon row, the
+	// depth a passenger's bar stands out by) turned with the camera, so it
+	// keeps its place on the screen.
+	inline CVec3 ViewOffset( const CVec3 &vOffset, const int nStep )
+	{
+		return nStep == 0 ? vOffset : CQuat( YawOffset( nStep ), V3_AXIS_Z ).Rotate( vOffset );
+	}
 	// A map object's own facing in quarter turns: its map Direction (0..65535,
 	// the AI's: 0 faces +y, 16384 -x, as a variant's 1.xml Direction 0 and 90)
 	// to the nearest quarter. The 2003 game ignored it for buildings (their AI

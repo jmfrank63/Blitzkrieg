@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "IconText.h"
+#include "../Main/CameraTurn.h"
 int CIconText::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -20,4 +21,9 @@ void CIconText::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	if ( bEnable )
 		pVisitor->VisitText( vAbsPos, szText.c_str(), pFont, color );
+}
+// See CIconBar::Reposition.
+void CIconText::Reposition( const CVec3 &vWorldPos )
+{
+	vAbsPos = vWorldPos + NCameraTurn::ViewOffset( vPos, NCameraTurn::Step() );
 }

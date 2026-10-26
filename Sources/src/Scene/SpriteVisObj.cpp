@@ -8,6 +8,7 @@ DWORD CSpriteVisObj::dwIdleData = 0;
 CSpriteVisObj::CSpriteVisObj() 
 { 
 	bComplexSprite = false;
+	nViewTurn = 0;
 	info.color = 0xffffffff; 
 	info.specular = 0xff000000; 
 	info2.color = 0xffffffff; 
@@ -26,6 +27,7 @@ bool CSpriteVisObj::Init( IGFXTexture *_pTexture, ISpriteAnimation *_pAnimation 
 static CExtractAnimVisitor animVisitor;
 void CSpriteVisObj::RetrieveSpriteInfo()
 {
+	pAnim->SetDirection( NCameraTurn::ViewDirection( GetDir(), nViewTurn ) );
 	pAnim->Visit( &animVisitor );
 	if ( const SSpriteRect *pSprite = animVisitor.GetSpriteRect() ) 
 	{
@@ -47,8 +49,13 @@ void CSpriteVisObj::RetrieveSpriteInfo()
 }
 bool CSpriteVisObj::Update( const NTimer::STime &time, bool bForced )
 {
-	if ( dwLastUpdateTime != time || bForced )
+	// A camera turn (Remastered) draws the facing that shows the unit or
+	// effect as the turned view sees it (NCameraTurn::ViewDirection), at once
+	// even while the game time stands still.
+	const int nCameraTurn = NCameraTurn::Step();
+	if ( dwLastUpdateTime != time || bForced || nCameraTurn != nViewTurn )
 	{
+		nViewTurn = nCameraTurn;
 		pAnim->SetTime( time );
 		RetrieveSpriteInfo();
 		dwLastUpdateTime = time;

@@ -16,7 +16,7 @@ public:
 	virtual bool STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( ISceneVisitor *pVisitor, int nType = -1 );
 	virtual void STDCALL SetPosition( const CVec3 &_vPos ) { vPos = _vPos; }
-	virtual void STDCALL Reposition( const CVec3 &vWorldPos ) { vAbsPos = vWorldPos + vPos; }
+	virtual void STDCALL Reposition( const CVec3 &vWorldPos );
 	virtual const CVec2 STDCALL GetSize() { return pFont == 0 ? VNULL2 : CVec2(pFont->GetTextWidth(szText.c_str()), pFont->GetHeight()); }
 	virtual void STDCALL SetColor( DWORD _color ) { color = (color & 0xff000000) | (_color & 0x00ffffff); }
 	virtual void STDCALL SetAlpha( BYTE alpha ) { color = (color & 0x00ffffff) | (DWORD(alpha) << 24); }

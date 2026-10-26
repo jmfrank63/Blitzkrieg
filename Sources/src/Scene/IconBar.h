@@ -27,7 +27,7 @@ public:
 	virtual void STDCALL SetSize( const CVec2 &_vSize, bool bHorizontal = true );
 	virtual void STDCALL SetLength( float _fPercentage );
 	virtual const CVec2 STDCALL GetSize() { return vSize; }
-	virtual void STDCALL Reposition( const CVec3 &vParentPos ) { info.pos = vParentPos + vPos; }
+	virtual void STDCALL Reposition( const CVec3 &vParentPos );
 	virtual void STDCALL Enable( bool _bEnable ) { bEnable = _bEnable; }
 };
 #endif // __ICONBAR_H__
