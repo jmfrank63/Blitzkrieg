@@ -26,5 +26,34 @@ namespace NCameraTurn
 	{
 		return -float( nStep ) * FP_PI2;
 	}
+	// A map object's own facing in quarter turns: its map Direction (0..65535,
+	// the AI's: 0 faces +y, 16384 -x, as a variant's 1.xml Direction 0 and 90)
+	// to the nearest quarter. The 2003 game ignored it for buildings (their AI
+	// object never turns), and every building in the shipped maps has 0.
+	inline int Facing( const int nDirection )
+	{
+		return ( ( nDirection + 0x2000 ) >> 14 ) & 3;
+	}
+	// The turn of its variant a building is drawn with (Game and Map Editor):
+	// its own facing plus the camera step. Turn k of a variant that shows side
+	// s is side (s - 1 + k) mod 4 + 1, M005's convention.
+	inline int DrawnTurn( const int nFacing, const int nStep )
+	{
+		return ( nFacing + nStep ) & 3;
+	}
+	// The folder of a variant's turn k: the variant itself at 0, else M005's
+	// `<variant>_r<k>` where the data holds it (bk-views side writes it, from
+	// the family's 2003 variant where one of the variant's colourway shows that
+	// side), else the variant itself. The caller brings IDataStorage in.
+	inline std::string ModelPath( const std::string &szVariant, const int nTurn )
+	{
+		if ( nTurn != 0 )
+		{
+			const std::string szTurned = NStr::Format( "%s_r%d", szVariant.c_str(), nTurn );
+			if ( GetSingleton<IDataStorage>()->IsStreamExist( (szTurned + "\\1.san").c_str() ) )
+				return szTurned;
+		}
+		return szVariant;
+	}
 };
 #endif // __CAMERA_TURN_H__

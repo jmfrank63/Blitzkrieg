@@ -78,6 +78,11 @@ const BYTE CBuildingStorage::GetPlayer() const
 		return nPlayer;
 	return res;
 }
+void CBuilding::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
+{
+	CGivenPassabilityStObject::GetNewUnitInfo( pNewUnitInfo );
+	pNewUnitInfo->dir = wMapDirection;
+}
 void CBuildingStorage::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 {
 	CBuilding::GetNewUnitInfo( pNewUnitInfo );
@@ -183,7 +188,7 @@ CBuilding::CBuilding( const SBuildingRPGStats *_pStats, const CVec2 &center, con
 	nextSegmTime( curTime ), lastDistibution( 0 ), nLastFreeFireSoldierChoice( 0 ),
 	firePlace2Soldier( _pStats->slots.size() ),
 	nLastPlayer( theDipl.GetNeutralPlayer() ), nScriptID( -1 ), bShouldEscape( false ), bEscaped( false ), timeOfDeath( 0 ),
-	lastLeave( theDipl.GetNPlayers(), 0 )
+	lastLeave( theDipl.GetNPlayers(), 0 ), wMapDirection( 0 )
 {
 	Init();
 	

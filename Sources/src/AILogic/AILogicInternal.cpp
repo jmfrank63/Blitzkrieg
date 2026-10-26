@@ -49,6 +49,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "Trigonometry.h"
 #include "GridCreation.h"
 #include "Bridge.h"
+#include "Building.h"
 #include "Artillery.h"
 #include "Technics.h"
 #include "Formation.h"
@@ -330,6 +331,10 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 						scripts.AddObjToScriptGroup( pResult, object.nScriptID );
 						break;
 				}
+				// The camera turn (Remastered) draws a building's side by its map
+				// Direction; the 2003 game dropped it (0 in every shipped map).
+				if ( CBuilding *pBuilding = dynamic_cast<CBuilding*>( pResult ) )
+					pBuilding->SetMapDirection( object.nDir );
 			}
 			break;
 		}

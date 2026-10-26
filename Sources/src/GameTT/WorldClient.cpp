@@ -659,15 +659,18 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 		bReconcileSelection = false;
 		ReconcileSelection();
 	}
-	// The camera turned (NCameraTurn): every building shows the side it sees now.
-	if ( nCameraTurn != NCameraTurn::Step() )
+	// The camera turned (NCameraTurn) or the Remastered option, which decides
+	// whether a building's own facing counts, changed: every building shows the
+	// side it sees now. 4 marks the option off.
+	const int nView = NCameraTurn::Step() + ( NRemastered::Enabled() ? 0 : 4 );
+	if ( nCameraTurn != nView )
 	{
-		nCameraTurn = NCameraTurn::Step();
+		nCameraTurn = nView;
 		for ( iterator it = begin(); it != end(); ++it )
 		{
 			SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
 			if ( pMO != 0 )
-				pMO->SetCameraTurn( nCameraTurn, pVOB );
+				pMO->SetCameraTurn( NCameraTurn::Step(), pVOB );
 		}
 	}
 	while ( const char *pszString = GetSingleton<IConsoleBuffer>()->ReadASCII(CONSOLE_STREAM_WORLD) )

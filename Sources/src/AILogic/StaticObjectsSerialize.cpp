@@ -97,6 +97,8 @@ int CBuilding::operator&( IStructureSaver &ss )
 	saver.Add( 38, &bEscaped );
 	saver.Add( 39, &timeOfDeath );
 	saver.Add( 40, &lastLeave );
+	if ( saver.IsReading() || wMapDirection != 0 )
+		saver.Add( 41, &wMapDirection );
 
 	if ( lastLeave.empty() )
 		lastLeave.resize( 16, 0 );

@@ -63,6 +63,10 @@ class CBuilding : public CGivenPassabilityStObject, public ILoadableObject, publ
 	NTimer::STime timeOfDeath;
 	
 	std::vector<NTimer::STime> lastLeave;
+	// Its map Direction, kept only to pass on to the client, which draws its
+	// side by it with Remastered on (NCameraTurn::Facing); the building itself,
+	// its passability and its sides for armour, never turns (GetDir is 0).
+	WORD wMapDirection;
 
 	bool IsIllInFire();
 	bool IsIllInRest();
@@ -120,7 +124,7 @@ protected:
 	virtual void DelSoldier( class CSoldier *pUnit, const bool bFillEmptyFireplace );
 	void SoldierDamaged( class CSoldier *pUnit );
 
-	CBuilding() : pLockingUnit( 0 ), nextSegmTime ( 0 ), nScriptID( -1 ) { }
+	CBuilding() : pLockingUnit( 0 ), nextSegmTime ( 0 ), nScriptID( -1 ), wMapDirection( 0 ) { }
 	CBuilding( const SBuildingRPGStats *pStats, const CVec2 &center, const int dbID, const float fHP, const int nFrameIndex );
 public:
 	const int GetNFreePlaces() const;
@@ -180,6 +184,8 @@ public:
 	class CSoldier* GetSoldierInFireplace( const int nFireplace) const;
 	
 	virtual void SetScriptID( const int _nScriptID ) { nScriptID = _nScriptID; }
+	void SetMapDirection( const WORD wDirection ) { wMapDirection = wDirection; }
+	virtual void GetNewUnitInfo( struct SNewUnitInfo *pNewUnitInfo );
 
 	const NTimer::STime& GetLastLeaveTime( const int nPlayer ) const { return lastLeave[nPlayer]; }
 	void SetLastLeaveTime( const int nPlayer );
