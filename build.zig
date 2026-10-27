@@ -3264,6 +3264,18 @@ pub fn build(b: *std.Build) void {
     const village_game_step = b.step("camera-turn-village-game-reads-it", "Turn four houses of Poland's village with bk-views side into a scratch mod, press the camera turn key on the real Game in windows of 1024x768, 1280x1024 and 1920x1080, and measure each house's side and its place at all four steps");
     village_game_step.dependOn(&village_game_tests.step);
     if (test_mode == .run) village_game_step.dependOn(&village_game_run.step);
+    // The same map's ground alone at the three window sizes (S07): a half
+    // turn must lay it with no offset. Its own step, so each stays under ten
+    // minutes.
+    const ground_game_tests = b.addTest(.{ .root_module = village_game_module, .filters = &.{"the ground stands where the turn puts it"} });
+    const ground_game_run = b.addRunArtifact(ground_game_tests);
+    ground_game_run.setCwd(b.path("."));
+    ground_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    ground_game_run.has_side_effects = true;
+    ground_game_run.step.dependOn(install_game_step);
+    const ground_game_step = b.step("camera-turn-ground-game-reads-it", "Press the camera turn key on the real Game over river3d's ground alone in windows of 1024x768, 1280x1024 and 1920x1080 and measure that a half turn lays the ground with no offset");
+    ground_game_step.dependOn(&ground_game_tests.step);
+    if (test_mode == .run) ground_game_step.dependOn(&ground_game_run.step);
 
     // The rest of the world at every camera step (M006 S03,
     // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and

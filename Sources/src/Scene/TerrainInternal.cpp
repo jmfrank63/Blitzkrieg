@@ -235,6 +235,23 @@ void CTerrain::SetWarFog( SAIVisInfo *vises, int nNumVises )
 	MoveWarFog();
 }
 SGroundTurn groundTurn = { false, 0, 0, 0, 0, { 0, 1, 2, 3 } };
+// The pixel a turned view lays the map's corner on, the patches being laid
+// from it. The 2003 view cuts the corner's place to its pixel (int), whose
+// float error falls either side of the whole pixel the snapped camera puts it
+// on. A half turn reflects the screen about its middle (the corner's places
+// at steps 0 and 2 add up to the screen's size), so its pixel is the one the
+// 2003 view's cut gives, reflected: nScreen - 1 less that cut, which the same
+// place reflected back reproduces, error and all. Cut on its own, the ground
+// stood a pixel off its objects at some window sizes and not others (S07:
+// 1024 x 768 at the half turn, measured by camera-turn-ground-game-reads-it).
+// A quarter turn keeps the cut: its tiles show their pictures drawn for the
+// screen, and no offset of a pixel measured better there.
+static int GroundPixel( const float fPlace, const int nScreen )
+{
+	if ( NCameraTurn::Step() != 2 )
+		return int( fPlace );
+	return nScreen - 1 - int( nScreen - fPlace );
+}
 void UpdateGroundTurn( const SHMatrix &matTransform, const CVec3 &vO, const CVec3 &vScreenO )
 {
 	groundTurn.bTurned = NCameraTurn::Step() != 0;
@@ -286,14 +303,16 @@ void CTerrain::MovePatches()
 	const int nPatchHalfAxisX = fCellSizeX * STerrainPatchInfo::nSizeX;
 	const int nPatchHalfAxisY = fCellSizeY * STerrainPatchInfo::nSizeY;
 	UpdateGroundTurn( matTransform, vO, vScreenO );
+	const RECT rcScreen = pGFX->GetScreenRect();
+	const int nScreenX = rcScreen.right - rcScreen.left, nScreenY = rcScreen.bottom - rcScreen.top;
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
 		int nX = int( vScreenO.x ) + (it->nX - it->nY)*nPatchHalfAxisX;
 		int nY = int( vScreenO.y ) + (it->nX + it->nY)*nPatchHalfAxisY;
 		if ( groundTurn.bTurned )
 		{
-			nX = int( vScreenO.x ) + int( ( it->nX*groundTurn.fColX + it->nY*groundTurn.fRowX ) * STerrainPatchInfo::nSizeX );
-			nY = int( vScreenO.y ) + int( ( it->nX*groundTurn.fColY + it->nY*groundTurn.fRowY ) * STerrainPatchInfo::nSizeY );
+			nX = GroundPixel( vScreenO.x, nScreenX ) + int( ( it->nX*groundTurn.fColX + it->nY*groundTurn.fRowX ) * STerrainPatchInfo::nSizeX );
+			nY = GroundPixel( vScreenO.y, nScreenY ) + int( ( it->nX*groundTurn.fColY + it->nY*groundTurn.fRowY ) * STerrainPatchInfo::nSizeY );
 		}
 		MovePatch( nX, nY, terrainInfo.patches[it->nY][it->nX], &(*it) );
 	}
@@ -312,14 +331,16 @@ void CTerrain::MoveWarFog()
 	const int nPatchHalfAxisX = fCellSizeX * STerrainPatchInfo::nSizeX;
 	const int nPatchHalfAxisY = fCellSizeY * STerrainPatchInfo::nSizeY;
 	UpdateGroundTurn( matTransform, vO, vScreenO );
+	const RECT rcScreen = pGFX->GetScreenRect();
+	const int nScreenX = rcScreen.right - rcScreen.left, nScreenY = rcScreen.bottom - rcScreen.top;
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
 		int nX = int( vScreenO.x ) + (it->nX - it->nY)*nPatchHalfAxisX;
 		int nY = int( vScreenO.y ) + (it->nX + it->nY)*nPatchHalfAxisY;
 		if ( groundTurn.bTurned )
 		{
-			nX = int( vScreenO.x ) + int( ( it->nX*groundTurn.fColX + it->nY*groundTurn.fRowX ) * STerrainPatchInfo::nSizeX );
-			nY = int( vScreenO.y ) + int( ( it->nX*groundTurn.fColY + it->nY*groundTurn.fRowY ) * STerrainPatchInfo::nSizeY );
+			nX = GroundPixel( vScreenO.x, nScreenX ) + int( ( it->nX*groundTurn.fColX + it->nY*groundTurn.fRowX ) * STerrainPatchInfo::nSizeX );
+			nY = GroundPixel( vScreenO.y, nScreenY ) + int( ( it->nX*groundTurn.fColY + it->nY*groundTurn.fRowY ) * STerrainPatchInfo::nSizeY );
 		}
 		MoveWarFogPatch( nX, nY, &(*it) );
 	}
