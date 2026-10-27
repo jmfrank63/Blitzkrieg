@@ -94,7 +94,10 @@ class CScripts
 	
 	void SendShowReinoforcementPlacementFeedback( std::list<CVec2> *pCenters );
 public:
-	CScripts() : nNextScriptOrder( 0 ) { }
+	// reinforcsIter is set by Init; a save outside a mission (an intermission's)
+	// walks the list up to it, and MSVC's debug library aborts on comparing a
+	// default-constructed iterator with the list's.
+	CScripts() : nNextScriptOrder( 0 ) { reinforcsIter = suspendedReinforcs.end(); }
 	~CScripts();
 
 	int GetScriptID( IUpdatableObj *pObj ) const;
