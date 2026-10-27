@@ -6,61 +6,62 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_shed02_2 | r1 | 3 | 1 | 61.6 | 28.6 | 9.8 | 0.0 | 1.61 | 5.5 | 0.121 | pass |
-| e_shed02_2 | r1 | 3 | 2 | 54.1 | 18.3 | 27.6 | 0.0 | 1.02 | 4.2 | 0.182 | pass |
-| e_shed02_2 | r1 | 3 | 3 | 72.9 | 10.3 | 16.7 | 0.1 | 0.91 | 6.4 | 0.023 | pass |
-| e_shed02_2 | r2 | 4 | 1 | 38.9 | 46.4 | 14.7 | 0.0 | 1.40 | 2.4 | 0.145 | pass |
-| e_shed02_2 | r2 | 4 | 2 | 32.3 | 29.4 | 38.4 | 0.0 | 0.91 | 9.2 | 0.036 | pass |
-| e_shed02_2 | r2 | 4 | 3 | 71.0 | 11.7 | 17.3 | 0.1 | 0.92 | 6.2 | 0.043 | pass |
-| e_shed02_2 | r3 | 1 | 1 | 68.7 | 22.6 | 8.7 | 0.0 | 1.45 | 6.1 | 0.098 | pass |
-| e_shed02_2 | r3 | 1 | 2 | 63.5 | 17.7 | 18.8 | 0.0 | 1.04 | 2.2 | 0.202 | pass |
-| e_shed02_2 | r3 | 1 | 3 | 86.6 | 3.8 | 9.6 | 0.1 | 0.93 | 7.7 | 0.063 | pass |
+| e_shed02_2 | r1 | 3 | 1 | 61.6 | 28.6 | 2.7 | 7.1 | 1.41 | 5.5 | 0.041 | pass |
+| e_shed02_2 | r1 | 3 | 2 | 54.1 | 18.3 | 13.4 | 14.2 | 1.05 | 1.5 | 0.156 | pass |
+| e_shed02_2 | r1 | 3 | 3 | 72.9 | 10.3 | 6.1 | 10.7 | 0.99 | 3.3 | 0.014 | pass |
+| e_shed02_2 | r2 | 4 | 1 | 38.9 | 46.4 | 3.5 | 11.2 | 1.20 | 3.8 | 0.131 | pass |
+| e_shed02_2 | r2 | 4 | 2 | 32.3 | 29.4 | 18.7 | 19.7 | 1.06 | 6.5 | 0.007 | pass |
+| e_shed02_2 | r2 | 4 | 3 | 71.0 | 11.7 | 5.9 | 11.5 | 0.95 | 3.4 | 0.034 | pass |
+| e_shed02_2 | r3 | 1 | 1 | 68.7 | 22.6 | 2.0 | 6.7 | 1.34 | 5.0 | 0.032 | pass |
+| e_shed02_2 | r3 | 1 | 2 | 63.5 | 17.7 | 9.9 | 8.9 | 1.07 | 3.8 | 0.199 | pass |
+| e_shed02_2 | r3 | 1 | 3 | 86.6 | 3.8 | 5.2 | 4.4 | 0.96 | 6.7 | 0.054 | pass |
 | e_shed02_3 | r1 | 2 | 1 | 67.0 | 33.0 | 0.0 | 0.0 | 1.38 | 1.7 | 0.086 | pass |
-| e_shed02_3 | r1 | 2 | 2 | 58.1 | 41.4 | 0.5 | 0.0 | 1.23 | 3.1 | 0.031 | pass |
-| e_shed02_3 | r1 | 2 | 3 | 73.2 | 25.6 | 1.0 | 0.2 | 1.22 | 1.6 | 0.073 | pass |
+| e_shed02_3 | r1 | 2 | 2 | 58.1 | 41.4 | 0.4 | 0.1 | 1.23 | 3.1 | 0.031 | pass |
+| e_shed02_3 | r1 | 2 | 3 | 73.2 | 25.6 | 0.8 | 0.4 | 1.22 | 1.6 | 0.073 | pass |
 | e_shed02_3 | r2 | 3 | 1 | 38.1 | 61.9 | 0.0 | 0.0 | 1.03 | 4.5 | 0.284 | pass |
-| e_shed02_3 | r2 | 3 | 2 | 10.6 | 88.7 | 0.6 | 0.0 | 1.08 | 5.9 | 0.014 | pass |
-| e_shed02_3 | r2 | 3 | 3 | 54.5 | 44.2 | 1.1 | 0.2 | 1.05 | 0.6 | 0.012 | pass |
+| e_shed02_3 | r2 | 3 | 2 | 10.6 | 88.7 | 0.4 | 0.2 | 1.08 | 5.9 | 0.014 | pass |
+| e_shed02_3 | r2 | 3 | 3 | 54.5 | 44.2 | 0.9 | 0.4 | 1.05 | 0.5 | 0.012 | pass |
 | e_shed02_3 | r3 | 4 | 1 | 66.8 | 33.2 | 0.0 | 0.0 | 1.34 | 4.5 | 0.157 | pass |
-| e_shed02_3 | r3 | 4 | 2 | 38.7 | 60.7 | 0.6 | 0.0 | 1.19 | 1.3 | 0.031 | pass |
-| e_shed02_3 | r3 | 4 | 3 | 69.9 | 28.8 | 1.1 | 0.2 | 1.21 | 2.6 | 0.056 | pass |
+| e_shed02_3 | r3 | 4 | 2 | 38.7 | 60.7 | 0.4 | 0.2 | 1.19 | 1.3 | 0.031 | pass |
+| e_shed02_3 | r3 | 4 | 3 | 69.9 | 28.8 | 0.9 | 0.4 | 1.21 | 2.6 | 0.056 | pass |
 | e_shed02_4 | r1 | 1 | 1 | 69.0 | 31.0 | 0.0 | 0.0 | 0.88 | 2.6 | 0.455 | pass |
-| e_shed02_4 | r1 | 1 | 2 | 66.3 | 28.5 | 5.2 | 0.0 | 1.07 | 2.7 | 0.045 | pass |
-| e_shed02_4 | r1 | 1 | 3 | 84.3 | 4.6 | 11.0 | 0.0 | 1.00 | 1.9 | 0.013 | pass |
+| e_shed02_4 | r1 | 1 | 2 | 66.3 | 28.5 | 2.9 | 2.4 | 1.07 | 2.0 | 0.058 | pass |
+| e_shed02_4 | r1 | 1 | 3 | 84.3 | 4.4 | 7.1 | 4.1 | 1.00 | 0.9 | 0.011 | pass |
 | e_shed02_4 | r2 | 2 | 1 | 46.5 | 53.5 | 0.0 | 0.0 | 0.98 | 3.7 | 0.522 | pass |
-| e_shed02_4 | r2 | 2 | 2 | 44.4 | 49.1 | 6.5 | 0.0 | 0.98 | 2.7 | 0.024 | pass |
-| e_shed02_4 | r2 | 2 | 3 | 80.0 | 6.6 | 13.4 | 0.0 | 1.01 | 0.6 | 0.006 | pass |
+| e_shed02_4 | r2 | 2 | 2 | 44.4 | 49.1 | 3.2 | 3.3 | 0.97 | 3.6 | 0.046 | pass |
+| e_shed02_4 | r2 | 2 | 3 | 80.0 | 6.6 | 9.4 | 4.0 | 1.00 | 0.7 | 0.005 | pass |
 | e_shed02_4 | r3 | 3 | 1 | 69.0 | 31.0 | 0.0 | 0.0 | 0.92 | 2.6 | 0.253 | pass |
-| e_shed02_4 | r3 | 3 | 2 | 67.6 | 27.6 | 4.8 | 0.0 | 1.02 | 2.1 | 0.025 | pass |
-| e_shed02_4 | r3 | 3 | 3 | 84.9 | 4.8 | 10.3 | 0.0 | 1.01 | 0.4 | 0.015 | pass |
-| e_shed02_5 | r1 | 3 | 1 | 42.9 | 38.8 | 18.1 | 0.2 | 1.14 | 10.7 | 0.204 | pass |
-| e_shed02_5 | r1 | 3 | 2 | 45.1 | 52.1 | 2.8 | 0.0 | 1.19 | 4.8 | 0.016 | pass |
-| e_shed02_5 | r1 | 3 | 3 | 52.3 | 27.0 | 20.7 | 0.0 | 0.88 | 10.5 | 0.069 | pass |
-| e_shed02_5 | r2 | 4 | 1 | 19.0 | 63.6 | 17.3 | 0.2 | 1.23 | 5.0 | 0.152 | pass |
-| e_shed02_5 | r2 | 4 | 2 | 21.2 | 74.7 | 4.1 | 0.0 | 0.91 | 3.9 | 0.090 | pass |
-| e_shed02_5 | r2 | 4 | 3 | 37.2 | 40.3 | 22.5 | 0.0 | 0.93 | 12.3 | 0.071 | pass |
+| e_shed02_4 | r3 | 3 | 2 | 67.6 | 27.6 | 2.5 | 2.3 | 1.01 | 1.4 | 0.043 | pass |
+| e_shed02_4 | r3 | 3 | 3 | 84.9 | 4.8 | 6.4 | 3.9 | 1.02 | 0.4 | 0.018 | pass |
+| e_shed02_5 | r1 | 3 | 1 | 42.6 | 38.8 | 6.9 | 11.7 | 1.16 | 9.1 | 0.147 | pass |
+| e_shed02_5 | r1 | 3 | 2 | 45.1 | 52.1 | 2.4 | 0.4 | 1.19 | 4.9 | 0.015 | pass |
+| e_shed02_5 | r1 | 3 | 3 | 52.3 | 27.0 | 3.4 | 17.3 | 1.03 | 2.7 | 0.014 | pass |
+| e_shed02_5 | r2 | 4 | 1 | 18.7 | 63.6 | 6.3 | 11.4 | 1.24 | 4.4 | 0.084 | pass |
+| e_shed02_5 | r2 | 4 | 2 | 21.2 | 74.7 | 3.7 | 0.3 | 0.91 | 3.9 | 0.088 | pass |
+| e_shed02_5 | r2 | 4 | 3 | 37.2 | 40.3 | 4.3 | 18.1 | 1.03 | 2.2 | 0.037 | pass |
 | e_shed02_5 | r3 | 1 | 1 | 70.6 | 27.8 | 1.6 | 0.0 | 1.46 | 6.4 | 0.151 | pass |
-| e_shed02_5 | r3 | 1 | 2 | 56.6 | 39.4 | 4.0 | 0.0 | 1.13 | 4.1 | 0.029 | pass |
-| e_shed02_5 | r3 | 1 | 3 | 63.1 | 22.9 | 14.0 | 0.0 | 0.99 | 8.9 | 0.073 | pass |
+| e_shed02_5 | r3 | 1 | 2 | 56.6 | 39.4 | 3.6 | 0.4 | 1.13 | 4.2 | 0.028 | pass |
+| e_shed02_5 | r3 | 1 | 3 | 63.1 | 22.9 | 4.2 | 9.8 | 1.08 | 1.3 | 0.009 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_shed02_2 | r1 | 0.95 | 1.32 | 0.93 | 0.025 | 0.034 | 99 | 99 | 0 | 0 | pass | blocks |
-| e_shed02_2 | r2 | 1.02 | 1.32 | 0.93 | 0.023 | 0.034 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_2 | r3 | 0.97 | 1.32 | 0.93 | 0.026 | 0.034 | 11 | 11 | 0 | 0 | pass | blocks |
-| e_shed02_3 | r1 | 0.98 | 0.77 | 0.94 | 0.026 | 0.026 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_3 | r2 | 0.98 | 0.77 | 0.94 | 0.022 | 0.026 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_3 | r3 | 0.98 | 0.77 | 0.94 | 0.022 | 0.026 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_4 | r1 | 0.99 | 0.97 | 0.88 | 0.030 | 0.025 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_4 | r2 | 1.03 | 0.97 | 0.88 | 0.026 | 0.025 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_4 | r3 | 0.99 | 0.97 | 0.88 | 0.029 | 0.025 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_5 | r1 | 0.98 | 0.93 | 0.87 | 0.033 | 0.047 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_5 | r2 | 0.89 | 0.93 | 0.87 | 0.069 | 0.047 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed02_5 | r3 | 0.93 | 0.93 | 0.87 | 0.054 | 0.047 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_shed02_2 | r1 | 0.95 | 1.32 | 0.93 | 0.025 | 0.034 | 99 | 99 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_2 | r2 | 1.02 | 1.32 | 0.93 | 0.023 | 0.034 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_2 | r3 | 0.97 | 1.32 | 0.93 | 0.026 | 0.034 | 11 | 11 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_3 | r1 | 0.98 | 0.77 | 0.94 | 0.026 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_3 | r2 | 0.98 | 0.77 | 0.94 | 0.022 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_3 | r3 | 0.98 | 0.77 | 0.94 | 0.022 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_4 | r1 | 0.99 | 0.97 | 0.88 | 0.030 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_4 | r2 | 1.03 | 0.97 | 0.88 | 0.026 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_4 | r3 | 0.99 | 0.97 | 0.88 | 0.029 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_5 | r1 | 0.98 | 0.93 | 0.87 | 0.033 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_5 | r2 | 0.89 | 0.93 | 0.87 | 0.069 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_shed02_5 | r3 | 0.93 | 0.93 | 0.87 | 0.054 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |

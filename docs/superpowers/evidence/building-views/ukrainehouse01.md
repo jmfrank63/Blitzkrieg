@@ -6,55 +6,56 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| ukrainehouse01_1 | r1 | 2 | 1 | 58.9 | 30.3 | 9.3 | 1.6 | 1.16 | 11.3 | 0.014 | pass |
-| ukrainehouse01_1 | r1 | 2 | 1w | 57.0 | 31.0 | 11.9 | 0.1 | 1.24 | 9.1 | 0.028 | pass |
-| ukrainehouse01_1 | r1 | 2 | 2 | 48.8 | 45.7 | 4.3 | 1.1 | 1.05 | 0.8 | 0.012 | pass |
-| ukrainehouse01_1 | r1 | 2 | 2w | 48.8 | 45.7 | 4.3 | 1.1 | 1.05 | 0.8 | 0.012 | pass |
-| ukrainehouse01_1 | r1 | 2 | 3 | 70.9 | 9.5 | 16.0 | 3.6 | 1.02 | 3.9 | 0.007 | pass |
-| ukrainehouse01_1 | r1 | 2 | 3w | 70.9 | 9.5 | 16.0 | 3.6 | 1.02 | 3.9 | 0.007 | pass |
-| ukrainehouse01_1 | r2 | 3 | 1 | 9.2 | 71.7 | 17.5 | 1.6 | 1.33 | 3.3 | 0.011 | pass |
-| ukrainehouse01_1 | r2 | 3 | 1w | 8.3 | 72.9 | 18.7 | 0.1 | 1.38 | 1.3 | 0.009 | pass |
-| ukrainehouse01_1 | r2 | 3 | 2 | 0.9 | 89.3 | 8.6 | 1.2 | 1.02 | 1.6 | 0.011 | pass |
-| ukrainehouse01_1 | r2 | 3 | 2w | 0.9 | 89.3 | 8.6 | 1.2 | 1.02 | 1.6 | 0.011 | pass |
-| ukrainehouse01_1 | r2 | 3 | 3 | 66.4 | 14.7 | 15.3 | 3.6 | 1.03 | 3.1 | 0.012 | pass |
-| ukrainehouse01_1 | r2 | 3 | 3w | 66.4 | 14.7 | 15.3 | 3.6 | 1.03 | 3.1 | 0.012 | pass |
-| ukrainehouse01_1 | r3 | 4 | 1 | 39.6 | 49.1 | 9.9 | 1.4 | 1.06 | 13.0 | 0.027 | pass |
-| ukrainehouse01_1 | r3 | 4 | 1w | 39.2 | 50.5 | 10.4 | 0.0 | 1.16 | 13.4 | 0.023 | pass |
-| ukrainehouse01_1 | r3 | 4 | 2 | 32.9 | 56.6 | 9.2 | 1.3 | 0.98 | 2.4 | 0.057 | pass |
-| ukrainehouse01_1 | r3 | 4 | 2w | 32.9 | 56.6 | 9.2 | 1.3 | 0.98 | 2.4 | 0.057 | pass |
-| ukrainehouse01_1 | r3 | 4 | 3 | 72.2 | 11.8 | 12.3 | 3.8 | 1.01 | 3.1 | 0.010 | pass |
-| ukrainehouse01_1 | r3 | 4 | 3w | 72.2 | 11.8 | 12.3 | 3.8 | 1.01 | 3.1 | 0.010 | pass |
-| ukrainehouse01_2 | r1 | 3 | 1 | 32.4 | 57.8 | 9.6 | 0.2 | 1.48 | 16.3 | 0.049 | pass |
-| ukrainehouse01_2 | r1 | 3 | 1w | 37.7 | 48.1 | 13.8 | 0.4 | 1.34 | 11.7 | 0.036 | pass |
-| ukrainehouse01_2 | r1 | 3 | 2 | 35.6 | 54.3 | 8.6 | 1.5 | 1.39 | 10.8 | 0.033 | pass |
-| ukrainehouse01_2 | r1 | 3 | 2w | 35.6 | 54.3 | 8.6 | 1.5 | 1.39 | 10.8 | 0.033 | pass |
-| ukrainehouse01_2 | r1 | 3 | 3 | 69.8 | 27.2 | 3.0 | 0.0 | 1.12 | 2.4 | 0.013 | pass |
-| ukrainehouse01_2 | r1 | 3 | 3w | 69.8 | 27.2 | 3.0 | 0.0 | 1.12 | 2.4 | 0.013 | pass |
-| ukrainehouse01_2 | r2 | 4 | 1 | 0.2 | 87.3 | 12.3 | 0.2 | 1.12 | 8.8 | 0.094 | pass |
-| ukrainehouse01_2 | r2 | 4 | 1w | 0.1 | 82.6 | 17.0 | 0.3 | 1.11 | 3.7 | 0.035 | pass |
-| ukrainehouse01_2 | r2 | 4 | 2 | 0.6 | 88.1 | 9.7 | 1.6 | 1.05 | 2.9 | 0.013 | pass |
-| ukrainehouse01_2 | r2 | 4 | 2w | 0.6 | 88.1 | 9.7 | 1.6 | 1.05 | 2.9 | 0.013 | pass |
-| ukrainehouse01_2 | r2 | 4 | 3 | 26.4 | 69.8 | 3.8 | 0.0 | 1.04 | 0.9 | 0.010 | pass |
-| ukrainehouse01_2 | r2 | 4 | 3w | 26.4 | 69.8 | 3.8 | 0.0 | 1.04 | 0.9 | 0.010 | pass |
-| ukrainehouse01_2 | r3 | 1 | 1 | 60.6 | 34.2 | 5.0 | 0.1 | 1.30 | 2.5 | 0.078 | pass |
-| ukrainehouse01_2 | r3 | 1 | 1w | 52.6 | 41.9 | 5.4 | 0.2 | 1.14 | 5.3 | 0.029 | pass |
-| ukrainehouse01_2 | r3 | 1 | 2 | 54.4 | 40.7 | 3.6 | 1.2 | 1.49 | 9.4 | 0.037 | pass |
-| ukrainehouse01_2 | r3 | 1 | 2w | 54.4 | 40.7 | 3.6 | 1.2 | 1.49 | 9.4 | 0.037 | pass |
-| ukrainehouse01_2 | r3 | 1 | 3 | 43.6 | 53.2 | 3.1 | 0.0 | 1.12 | 1.1 | 0.021 | pass |
-| ukrainehouse01_2 | r3 | 1 | 3w | 43.6 | 53.2 | 3.1 | 0.0 | 1.12 | 1.1 | 0.021 | pass |
+| ukrainehouse01_1 | r1 | 2 | 1 | 58.9 | 29.3 | 9.3 | 2.6 | 1.16 | 10.7 | 0.029 | pass |
+| ukrainehouse01_1 | r1 | 2 | 1w | 57.0 | 29.6 | 10.4 | 3.0 | 1.19 | 9.3 | 0.035 | pass |
+| ukrainehouse01_1 | r1 | 2 | 2 | 48.8 | 44.7 | 2.5 | 4.0 | 1.03 | 1.1 | 0.027 | pass |
+| ukrainehouse01_1 | r1 | 2 | 2w | 48.8 | 44.7 | 2.5 | 4.0 | 1.03 | 1.1 | 0.027 | pass |
+| ukrainehouse01_1 | r1 | 2 | 3 | 70.9 | 9.4 | 11.6 | 8.1 | 1.03 | 4.3 | 0.005 | pass |
+| ukrainehouse01_1 | r1 | 2 | 3w | 70.9 | 9.4 | 11.6 | 8.1 | 1.03 | 4.3 | 0.005 | pass |
+| ukrainehouse01_1 | r2 | 3 | 1 | 9.2 | 66.2 | 17.5 | 7.0 | 1.45 | 1.5 | 0.026 | pass |
+| ukrainehouse01_1 | r2 | 3 | 1w | 8.3 | 66.4 | 16.8 | 8.5 | 1.38 | 1.8 | 0.022 | pass |
+| ukrainehouse01_1 | r2 | 3 | 2 | 0.8 | 83.8 | 6.7 | 8.6 | 1.03 | 0.5 | 0.020 | pass |
+| ukrainehouse01_1 | r2 | 3 | 2w | 0.8 | 83.8 | 6.7 | 8.6 | 1.03 | 0.5 | 0.020 | pass |
+| ukrainehouse01_1 | r2 | 3 | 3 | 66.4 | 13.3 | 11.2 | 9.1 | 1.00 | 3.8 | 0.014 | pass |
+| ukrainehouse01_1 | r2 | 3 | 3w | 66.4 | 13.3 | 11.2 | 9.1 | 1.00 | 3.8 | 0.014 | pass |
+| ukrainehouse01_1 | r3 | 4 | 1 | 39.6 | 43.7 | 9.9 | 6.9 | 1.07 | 10.9 | 0.016 | pass |
+| ukrainehouse01_1 | r3 | 4 | 1w | 39.2 | 43.9 | 9.3 | 7.7 | 1.14 | 11.5 | 0.032 | pass |
+| ukrainehouse01_1 | r3 | 4 | 2 | 32.9 | 50.7 | 7.2 | 9.2 | 0.98 | 1.7 | 0.020 | pass |
+| ukrainehouse01_1 | r3 | 4 | 2w | 32.9 | 50.7 | 7.2 | 9.2 | 0.98 | 1.7 | 0.020 | pass |
+| ukrainehouse01_1 | r3 | 4 | 3 | 72.2 | 10.1 | 8.2 | 9.6 | 0.99 | 3.5 | 0.011 | pass |
+| ukrainehouse01_1 | r3 | 4 | 3w | 72.2 | 10.1 | 8.2 | 9.6 | 0.99 | 3.5 | 0.011 | pass |
+| ukrainehouse01_2 | r1 | 3 | 1 | 32.4 | 54.4 | 9.4 | 3.8 | 1.49 | 16.9 | 0.024 | pass |
+| ukrainehouse01_2 | r1 | 3 | 1w | 37.7 | 47.1 | 13.7 | 1.4 | 1.34 | 11.7 | 0.035 | pass |
+| ukrainehouse01_2 | r1 | 3 | 2 | 35.6 | 51.4 | 7.7 | 5.3 | 1.38 | 10.4 | 0.033 | pass |
+| ukrainehouse01_2 | r1 | 3 | 2w | 35.6 | 51.4 | 7.7 | 5.3 | 1.38 | 10.4 | 0.033 | pass |
+| ukrainehouse01_2 | r1 | 3 | 3 | 69.8 | 27.2 | 2.7 | 0.4 | 1.12 | 2.5 | 0.012 | pass |
+| ukrainehouse01_2 | r1 | 3 | 3w | 69.8 | 27.2 | 2.7 | 0.4 | 1.12 | 2.5 | 0.012 | pass |
+| ukrainehouse01_2 | r2 | 4 | 1 | 0.2 | 83.9 | 12.1 | 3.8 | 1.11 | 8.3 | 0.065 | pass |
+| ukrainehouse01_2 | r2 | 4 | 1w | 0.1 | 81.6 | 16.9 | 1.4 | 1.12 | 3.8 | 0.035 | pass |
+| ukrainehouse01_2 | r2 | 4 | 2 | 0.6 | 84.8 | 8.3 | 6.4 | 1.05 | 3.7 | 0.026 | pass |
+| ukrainehouse01_2 | r2 | 4 | 2w | 0.6 | 84.8 | 8.3 | 6.4 | 1.05 | 3.7 | 0.026 | pass |
+| ukrainehouse01_2 | r2 | 4 | 3 | 26.4 | 69.8 | 3.5 | 0.4 | 1.05 | 0.8 | 0.006 | pass |
+| ukrainehouse01_2 | r2 | 4 | 3w | 26.4 | 69.8 | 3.5 | 0.4 | 1.05 | 0.8 | 0.006 | pass |
+| ukrainehouse01_2 | r3 | 1 | 1 | 60.6 | 34.0 | 4.9 | 0.5 | 1.30 | 2.5 | 0.078 | pass |
+| ukrainehouse01_2 | r3 | 1 | 1w | 52.6 | 41.9 | 5.3 | 0.2 | 1.13 | 5.3 | 0.029 | pass |
+| ukrainehouse01_2 | r3 | 1 | 2 | 54.4 | 40.6 | 2.6 | 2.4 | 1.48 | 8.8 | 0.036 | pass |
+| ukrainehouse01_2 | r3 | 1 | 2w | 54.4 | 40.6 | 2.6 | 2.4 | 1.48 | 8.8 | 0.036 | pass |
+| ukrainehouse01_2 | r3 | 1 | 3 | 43.6 | 53.2 | 2.8 | 0.4 | 1.12 | 1.2 | 0.017 | pass |
+| ukrainehouse01_2 | r3 | 1 | 3w | 43.6 | 53.2 | 2.8 | 0.4 | 1.12 | 1.2 | 0.017 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ukrainehouse01_1 | r1 | 0.91 | 0.92 | 0.94 | 0.036 | 0.043 | 0 | 0 | 0 | 0 | pass | blocks |
-| ukrainehouse01_1 | r2 | 0.99 | 0.92 | 0.94 | 0.050 | 0.043 | 0 | 0 | 0 | 0 | pass | blocks |
-| ukrainehouse01_1 | r3 | 0.90 | 0.92 | 0.94 | 0.046 | 0.043 | 0 | 0 | 0 | 0 | pass | blocks |
-| ukrainehouse01_2 | r1 | 1.06 | 0.83 | 0.93 | 0.053 | 0.041 | 0 | 0 | 0 | 0 | pass | blocks |
-| ukrainehouse01_2 | r2 | 0.99 | 0.83 | 0.93 | 0.043 | 0.041 | 0 | 0 | 0 | 0 | pass | blocks |
-| ukrainehouse01_2 | r3 | 0.96 | 0.83 | 0.93 | 0.040 | 0.041 | 478 | 478 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ukrainehouse01_1 | r1 | 0.91 | 0.92 | 0.94 | 0.036 | 0.043 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| ukrainehouse01_1 | r2 | 0.99 | 0.92 | 0.94 | 0.050 | 0.043 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| ukrainehouse01_1 | r3 | 0.90 | 0.92 | 0.94 | 0.046 | 0.043 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| ukrainehouse01_2 | r1 | 1.06 | 0.83 | 0.93 | 0.053 | 0.041 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| ukrainehouse01_2 | r2 | 0.99 | 0.83 | 0.93 | 0.043 | 0.041 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| ukrainehouse01_2 | r3 | 0.96 | 0.83 | 0.93 | 0.040 | 0.041 | 478 | 478 | 0 | 0 | 0.000 | pass | blocks |

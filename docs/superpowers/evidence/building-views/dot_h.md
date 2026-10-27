@@ -83,49 +83,50 @@ Shape of the turned intact sprite drawn by the blocks: its height over the 2003 
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 01 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 01 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 03 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 03 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 03 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 04 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 04 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 04 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 01 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 01 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 02 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 02 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 02 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 03 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 03 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 03 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 04 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 04 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 04 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
 | Variant | State | IoU | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|
-| 01 | 1 | 0.912 | 1.30 | 5.2 | 0.035 | pass |
-| 01 | 1w | 0.854 | 1.39 | 48.3 | 0.097 | pass |
-| 01 | 2 | 0.875 | 1.36 | 6.5 | 0.093 | pass |
-| 01 | 2w | 0.872 | 1.46 | 42.7 | 0.001 | pass |
-| 01 | 3 | 0.880 | 1.27 | 3.3 | 0.090 | pass |
-| 01 | 3w | 0.872 | 1.45 | 25.6 | 0.000 | pass |
-| 02 | 1 | 0.877 | 1.33 | 3.2 | 0.053 | pass |
-| 02 | 1w | 0.760 | 1.01 | 16.6 | 0.067 | pass |
-| 02 | 2 | 0.870 | 1.26 | 6.0 | 0.057 | pass |
-| 02 | 2w | 0.872 | 1.00 | 13.5 | 0.002 | pass |
-| 02 | 3 | 0.880 | 0.95 | 1.9 | 0.066 | pass |
-| 02 | 3w | 0.872 | 1.00 | 8.0 | 0.000 | pass |
-| 03 | 1 | 0.828 | 1.13 | 3.0 | 0.042 | pass |
-| 03 | 1w | 0.851 | 1.14 | 33.2 | 0.038 | pass |
-| 03 | 2 | 0.842 | 1.24 | 7.7 | 0.047 | pass |
-| 03 | 2w | 0.850 | 1.11 | 30.3 | 0.002 | pass |
-| 03 | 3 | 0.850 | 0.89 | 2.4 | 0.033 | pass |
-| 03 | 3w | 0.850 | 1.11 | 18.1 | 0.000 | pass |
-| 04 | 1 | 0.896 | 1.07 | 4.8 | 0.026 | pass |
-| 04 | 1w | 0.886 | 1.04 | 25.1 | 0.025 | pass |
-| 04 | 2 | 0.842 | 1.18 | 10.4 | 0.048 | pass |
-| 04 | 2w | 0.898 | 1.00 | 8.8 | 0.002 | pass |
-| 04 | 3 | 0.852 | 0.97 | 2.6 | 0.046 | pass |
-| 04 | 3w | 0.898 | 0.99 | 5.3 | 0.000 | pass |
+| 01 | 1 | 0.827 | 1.00 | 5.7 | 0.038 | pass |
+| 01 | 1w | 0.759 | 1.00 | 49.1 | 0.099 | pass |
+| 01 | 2 | 0.855 | 1.00 | 5.2 | 0.041 | pass |
+| 01 | 2w | 0.874 | 1.00 | 45.6 | 0.001 | pass |
+| 01 | 3 | 0.858 | 1.00 | 3.3 | 0.025 | pass |
+| 01 | 3w | 0.874 | 1.00 | 27.3 | 0.000 | pass |
+| 02 | 1 | 0.889 | 1.00 | 4.9 | 0.043 | pass |
+| 02 | 1w | 0.768 | 1.00 | 45.1 | 0.101 | pass |
+| 02 | 2 | 0.884 | 1.00 | 6.1 | 0.042 | pass |
+| 02 | 2w | 0.886 | 1.00 | 40.3 | 0.001 | pass |
+| 02 | 3 | 0.880 | 0.99 | 2.8 | 0.014 | pass |
+| 02 | 3w | 0.886 | 1.00 | 24.2 | 0.000 | pass |
+| 03 | 1 | 0.842 | 1.00 | 5.5 | 0.048 | pass |
+| 03 | 1w | 0.835 | 1.00 | 52.4 | 0.072 | pass |
+| 03 | 2 | 0.882 | 1.00 | 9.9 | 0.104 | pass |
+| 03 | 2w | 0.867 | 1.00 | 43.1 | 0.000 | pass |
+| 03 | 3 | 0.874 | 1.00 | 3.7 | 0.075 | pass |
+| 03 | 3w | 0.867 | 1.00 | 25.8 | 0.000 | pass |
+| 04 | 1 | 0.942 | 1.00 | 4.2 | 0.031 | pass |
+| 04 | 1w | 0.909 | 1.00 | 30.1 | 0.029 | pass |
+| 04 | 2 | 0.899 | 1.00 | 10.8 | 0.118 | pass |
+| 04 | 2w | 0.909 | 1.00 | 14.4 | 0.001 | pass |
+| 04 | 3 | 0.895 | 1.00 | 2.5 | 0.102 | pass |
+| 04 | 3w | 0.909 | 1.00 | 8.6 | 0.000 | pass |
