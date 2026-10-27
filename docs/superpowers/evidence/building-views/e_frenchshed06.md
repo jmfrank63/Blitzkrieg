@@ -6,25 +6,26 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed06 | r1 | 2 | 1 | 81.2 | 17.6 | 1.2 | 0.0 | 1.15 | 2.6 | 0.069 | pass |
-| e_frenchshed06 | r1 | 2 | 2 | 84.5 | 12.3 | 3.2 | 0.0 | 1.10 | 0.7 | 0.031 | pass |
-| e_frenchshed06 | r1 | 2 | 3 | 88.3 | 6.7 | 5.0 | 0.0 | 1.00 | 2.1 | 0.015 | pass |
-| e_frenchshed06 | r2 | 3 | 1 | 63.0 | 32.7 | 4.3 | 0.0 | 1.11 | 2.2 | 0.008 | pass |
-| e_frenchshed06 | r2 | 3 | 2 | 68.7 | 24.3 | 7.0 | 0.0 | 1.13 | 1.5 | 0.015 | pass |
-| e_frenchshed06 | r2 | 3 | 3 | 80.0 | 15.1 | 4.9 | 0.0 | 1.01 | 1.5 | 0.006 | pass |
-| e_frenchshed06 | r3 | 4 | 1 | 82.5 | 13.5 | 4.0 | 0.0 | 1.15 | 2.0 | 0.056 | pass |
-| e_frenchshed06 | r3 | 4 | 2 | 80.6 | 12.8 | 6.6 | 0.0 | 1.20 | 1.5 | 0.037 | pass |
-| e_frenchshed06 | r3 | 4 | 3 | 83.9 | 11.0 | 5.1 | 0.0 | 1.01 | 2.0 | 0.012 | pass |
+| e_frenchshed06 | r1 | 2 | 1 | 81.2 | 17.6 | 0.7 | 0.5 | 1.15 | 2.4 | 0.063 | pass |
+| e_frenchshed06 | r1 | 2 | 2 | 84.4 | 12.3 | 2.6 | 0.7 | 1.10 | 0.8 | 0.031 | pass |
+| e_frenchshed06 | r1 | 2 | 3 | 88.3 | 6.7 | 2.8 | 2.2 | 0.99 | 2.5 | 0.015 | pass |
+| e_frenchshed06 | r2 | 3 | 1 | 63.0 | 32.7 | 3.5 | 0.8 | 1.10 | 3.0 | 0.010 | pass |
+| e_frenchshed06 | r2 | 3 | 2 | 68.7 | 23.0 | 5.8 | 2.5 | 1.07 | 3.1 | 0.011 | pass |
+| e_frenchshed06 | r2 | 3 | 3 | 80.0 | 15.1 | 2.5 | 2.4 | 1.01 | 2.2 | 0.003 | pass |
+| e_frenchshed06 | r3 | 4 | 1 | 82.5 | 13.5 | 3.6 | 0.4 | 1.14 | 2.1 | 0.053 | pass |
+| e_frenchshed06 | r3 | 4 | 2 | 80.6 | 11.3 | 5.9 | 2.2 | 1.18 | 2.5 | 0.034 | pass |
+| e_frenchshed06 | r3 | 4 | 3 | 83.9 | 11.0 | 2.7 | 2.4 | 1.01 | 2.2 | 0.010 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed06 | r1 | 0.94 | 1.02 | 0.99 | 0.024 | 0.020 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r2 | 0.84 | 1.02 | 0.99 | 0.015 | 0.020 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r3 | 0.81 | 1.02 | 0.99 | 0.012 | 0.020 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_frenchshed06 | r1 | 0.94 | 1.02 | 0.99 | 0.024 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_frenchshed06 | r2 | 0.84 | 1.02 | 0.99 | 0.015 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_frenchshed06 | r3 | 0.81 | 1.02 | 0.99 | 0.012 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |

@@ -6,34 +6,35 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| shed01 | r1 | 2 | 1 | 66.4 | 21.6 | 12.0 | 0.0 | 1.04 | 13.2 | 0.028 | pass |
-| shed01 | r1 | 2 | 1w | 60.8 | 32.7 | 5.8 | 0.8 | 0.98 | 9.7 | 0.012 | pass |
-| shed01 | r1 | 2 | 2 | 65.1 | 23.2 | 11.3 | 0.3 | 1.02 | 3.1 | 0.023 | pass |
-| shed01 | r1 | 2 | 2w | 65.1 | 23.2 | 11.3 | 0.3 | 1.00 | 3.6 | 0.033 | pass |
-| shed01 | r1 | 2 | 3 | 66.9 | 24.5 | 7.5 | 1.1 | 0.95 | 3.3 | 0.029 | pass |
-| shed01 | r1 | 2 | 3w | 66.9 | 24.5 | 7.5 | 1.1 | 0.95 | 3.8 | 0.020 | pass |
-| shed01 | r2 | 3 | 1 | 44.6 | 42.6 | 12.8 | 0.0 | 0.98 | 3.6 | 0.020 | pass |
-| shed01 | r2 | 3 | 1w | 35.5 | 57.8 | 5.9 | 0.7 | 1.02 | 10.0 | 0.010 | pass |
-| shed01 | r2 | 3 | 2 | 38.5 | 49.2 | 11.8 | 0.5 | 1.09 | 0.5 | 0.008 | pass |
-| shed01 | r2 | 3 | 2w | 38.5 | 49.2 | 11.8 | 0.5 | 1.09 | 0.5 | 0.007 | pass |
-| shed01 | r2 | 3 | 3 | 44.0 | 48.0 | 7.3 | 0.7 | 1.00 | 1.9 | 0.015 | pass |
-| shed01 | r2 | 3 | 3w | 44.0 | 48.0 | 7.3 | 0.7 | 1.00 | 2.2 | 0.014 | pass |
-| shed01 | r3 | 4 | 1 | 63.2 | 26.3 | 10.5 | 0.0 | 0.95 | 13.7 | 0.082 | pass |
-| shed01 | r3 | 4 | 1w | 63.8 | 30.0 | 5.5 | 0.7 | 0.96 | 10.0 | 0.016 | pass |
-| shed01 | r3 | 4 | 2 | 57.7 | 32.0 | 9.8 | 0.5 | 0.99 | 4.9 | 0.034 | pass |
-| shed01 | r3 | 4 | 2w | 57.7 | 32.0 | 9.8 | 0.5 | 0.98 | 5.7 | 0.037 | pass |
-| shed01 | r3 | 4 | 3 | 64.7 | 27.4 | 6.9 | 1.0 | 0.99 | 1.0 | 0.024 | pass |
-| shed01 | r3 | 4 | 3w | 64.7 | 27.4 | 6.9 | 1.0 | 0.99 | 1.3 | 0.013 | pass |
+| shed01 | r1 | 2 | 1 | 66.4 | 21.6 | 11.9 | 0.1 | 1.04 | 13.3 | 0.028 | pass |
+| shed01 | r1 | 2 | 1w | 60.8 | 32.7 | 5.2 | 1.3 | 0.98 | 9.9 | 0.013 | pass |
+| shed01 | r1 | 2 | 2 | 65.1 | 23.2 | 10.7 | 0.9 | 1.03 | 2.8 | 0.024 | pass |
+| shed01 | r1 | 2 | 2w | 65.1 | 23.2 | 10.7 | 0.9 | 1.01 | 3.4 | 0.036 | pass |
+| shed01 | r1 | 2 | 3 | 66.9 | 24.5 | 5.7 | 2.9 | 0.95 | 2.0 | 0.024 | pass |
+| shed01 | r1 | 2 | 3w | 66.9 | 24.5 | 5.7 | 2.9 | 0.95 | 2.3 | 0.014 | pass |
+| shed01 | r2 | 3 | 1 | 44.6 | 42.6 | 12.7 | 0.1 | 0.98 | 3.7 | 0.021 | pass |
+| shed01 | r2 | 3 | 1w | 35.5 | 57.8 | 5.3 | 1.4 | 1.01 | 9.9 | 0.016 | pass |
+| shed01 | r2 | 3 | 2 | 38.5 | 49.2 | 11.2 | 1.1 | 1.09 | 0.2 | 0.009 | pass |
+| shed01 | r2 | 3 | 2w | 38.5 | 49.2 | 11.2 | 1.1 | 1.09 | 0.2 | 0.008 | pass |
+| shed01 | r2 | 3 | 3 | 44.0 | 48.0 | 5.8 | 2.2 | 1.00 | 1.0 | 0.014 | pass |
+| shed01 | r2 | 3 | 3w | 44.0 | 48.0 | 5.8 | 2.2 | 1.00 | 1.2 | 0.013 | pass |
+| shed01 | r3 | 4 | 1 | 63.2 | 26.3 | 10.4 | 0.1 | 0.95 | 13.8 | 0.083 | pass |
+| shed01 | r3 | 4 | 1w | 63.8 | 30.0 | 4.9 | 1.3 | 0.96 | 9.7 | 0.015 | pass |
+| shed01 | r3 | 4 | 2 | 57.7 | 32.0 | 9.2 | 1.1 | 0.99 | 4.7 | 0.033 | pass |
+| shed01 | r3 | 4 | 2w | 57.7 | 32.0 | 9.2 | 1.1 | 0.99 | 5.5 | 0.036 | pass |
+| shed01 | r3 | 4 | 3 | 64.7 | 27.4 | 5.1 | 2.8 | 0.99 | 0.7 | 0.023 | pass |
+| shed01 | r3 | 4 | 3w | 64.7 | 27.4 | 5.1 | 2.8 | 0.99 | 0.9 | 0.012 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| shed01 | r1 | 0.83 | 1.09 | 0.93 | 0.129 | 0.170 | 129 | 129 | 0 | 0 | pass | blocks |
-| shed01 | r2 | 1.06 | 1.09 | 0.93 | 0.134 | 0.170 | 0 | 0 | 0 | 0 | pass | blocks |
-| shed01 | r3 | 0.82 | 1.09 | 0.93 | 0.123 | 0.170 | 75 | 75 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| shed01 | r1 | 0.83 | 1.09 | 0.93 | 0.129 | 0.170 | 129 | 129 | 0 | 0 | 0.000 | pass | blocks |
+| shed01 | r2 | 1.06 | 1.09 | 0.93 | 0.134 | 0.170 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| shed01 | r3 | 0.82 | 1.09 | 0.93 | 0.123 | 0.170 | 75 | 75 | 0 | 0 | 0.000 | pass | blocks |

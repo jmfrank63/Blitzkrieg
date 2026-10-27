@@ -933,3 +933,63 @@ fn withoutCr(gpa: std.mem.Allocator, text: []const u8) ![]u8 {
     for (text) |c| if (c != '\r') try out.append(gpa, c);
     return out.items;
 }
+
+test "a source pixel spread over four target pixels is stretched, left to the patch fill, and fails the gate kept" {
+    const gpa = std.testing.allocator;
+    // A 6 x 6 picture: its left half takes one source pixel per target
+    // pixel, its right half a ninth of one (a third of a pixel each way).
+    var uvs: [36][2]f64 = undefined;
+    var ids: [36]usize = undefined;
+    for (0..6) |y| for (0..6) |x| {
+        const fx: f64 = @floatFromInt(x);
+        const fy: f64 = @floatFromInt(y);
+        uvs[y * 6 + x] = if (x < 3) .{ fx, fy } else .{ 10 + fx / 3, fy / 3 };
+        ids[y * 6 + x] = if (x < 3) 1 else 2;
+    };
+    const stretched = try views.stretchedPixels(gpa, .{ 6, 6 }, &uvs, &ids);
+    defer gpa.free(stretched);
+    // The right half but its last column and row, whose neighbours are off
+    // the picture; the left half none, nor the seam (other ids).
+    for (0..6) |y| for (0..6) |x| try std.testing.expectEqual(x >= 3 and x < 5 and y < 5, stretched[y * 6 + x]);
+    var kinds: [36]views.Kind = @splat(.projected);
+    var pixels: [36][4]u8 = @splat(.{ 0, 0, 0, 255 });
+    var classes: [36]u8 = @splat(0);
+    const drawn: views.Generated = .{ .image = .{ .width = 6, .height = 6, .pixels = &pixels }, .kinds = &kinds, .classes = &classes, .stretched = stretched };
+    // 10 of 36 drawn pixels are stretched: over the gate's share.
+    try std.testing.expectApproxEqAbs(10.0 / 36.0, views.stretchShare(drawn), 1e-9);
+    try std.testing.expect(views.stretchShare(drawn) > views.stretch_most);
+    // Left to the patch fill, they no longer count.
+    for (&kinds, stretched) |*kind, s| {
+        if (s) kind.* = .filled;
+    }
+    try std.testing.expectEqual(@as(f64, 0), views.stretchShare(drawn));
+}
+
+test "a heap turns as its 2003 pictures on every turn, mirrored on an odd one, and every heap is a family" {
+    const building: views.TurnObject = .{ .thin = false, .small = false, .failed = false, .kept = false, .rectangle = true, .odd = true, .heap = false };
+    // A house stays on its blocks, failing or not.
+    try std.testing.expect(!views.spriteTurn(building).sprite);
+    try std.testing.expect(!views.spriteTurn(.{ .thin = false, .small = false, .failed = true, .kept = true, .rectangle = true, .odd = false, .heap = false }).sprite);
+    // A depot (e_wt/02: 5 x 6 cells, two corners free) on each turn.
+    for ([_]bool{ true, false }) |odd| {
+        const how = views.spriteTurn(.{ .thin = false, .small = false, .failed = false, .kept = false, .rectangle = false, .odd = odd, .heap = true });
+        try std.testing.expect(how.sprite);
+        try std.testing.expectEqual(odd, how.mirror);
+    }
+    // A heap whose footprint the turn keeps is not mirrored.
+    try std.testing.expect(!views.spriteTurn(.{ .thin = false, .small = false, .failed = false, .kept = true, .rectangle = true, .odd = true, .heap = true }).mirror);
+    // Every heap names a family of the inventory.
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const options: std.json.ParseOptions = .{ .ignore_unknown_fields = true };
+    const Inventory = struct { families: []const struct { family: []const u8 } };
+    const inventory = try std.json.parseFromSliceLeaky(Inventory, arena, try read(arena, "tools/zig/fixtures/bk-views/inventory.json"), options);
+    const props = try std.json.parseFromSliceLeaky(std.json.ArrayHashMap([]const u8), arena, try read(arena, views.props_file), options);
+    try std.testing.expect(props.map.count() > 0);
+    for (props.map.keys()) |family| {
+        for (inventory.families) |f| {
+            if (std.mem.eql(u8, f.family, family)) break;
+        } else return error.NoSuchFamily;
+    }
+}

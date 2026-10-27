@@ -11,16 +11,17 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   the variant's 2003 picture, its protrusion at most 1.5 times the 2003 one's plus 0.03, and it holds
   0.8 of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
   porches, where they show more than 40, and draws as walls as much of the walls of the roof parts
-  in `tools/zig/fixtures/bk-views/roof-parts`), the style
+  in `tools/zig/fixtures/bk-views/roof-parts`, and at most 0.04 of its pixels still stretched), the style
   of every generated picture, and the hold-out where the family has another side of the colourway, against
   the floors of `tools/zig/fixtures/bk-views/gate.json`: 194 of 194 variants pass; hold-out 43 of 43; 0
   fail on the shape; 0 more pass the measures but look wrong on the contact sheet (`bk-views contact`),
   listed in gate.json's `by_eye`. A failing variant is listed with its first reason, to be fixed by hand.
-- 2003 sprite: 76 variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
+- 2003 sprite: 84 variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
   objects (a 2003 protrusion of 0.15 or more) and small ones (4 footprint cells or fewer) whose blocks fail
   the shape, where the turn keeps the footprint (cells IoU 0.9 or more), or mirrored onto it on an odd
-  turn of a rectangular footprint.
-- Hand shapes: 56 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
+  turn of a rectangular footprint; and the heaps (supply depots, earth pillboxes) on every turn, mirrored on
+  an odd one.
+- Hand shapes: 57 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
 
 | Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
 |---|---|---|---|---|---|---|---|
@@ -43,21 +44,21 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | africa | a_mosque_02 | africa/summer/a_mosque_02_1 | 1 | 2, 3, 4 | pass | - | - |
 | africa | a_wb | africa/summer/a_wb/01 | 1 | 2, 3, 4 | pass | - | - |
 | africa | a_wb | africa/summer/a_wb/02 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| africa | a_wt | africa/summer/a_wt/01 | 1 | 2, 3, 4 | pass | - | - |
-| africa | a_wt | africa/summer/a_wt/02 | 4 | 1, 2, 3 | pass | - | - |
+| africa | a_wt | africa/summer/a_wt/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
+| africa | a_wt | africa/summer/a_wt/02 | 4 | 1, 2, 3 | pass | - | r1 mirrored, r2, r3 mirrored |
 | common | conduitbarrel | common/summer/conduitbarrel | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
-| common | dot | common/summer/dot/01 | 1 | 2, 3, 4 | pass | pass | r2 = 02, r3 = 03 |
-| common | dot | common/summer/dot/02 | 3 | 4, 1, 2 | pass | pass | r1 = 03, r2 = 01 |
-| common | dot | common/summer/dot/03 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r3 = 02 |
-| common | dot | common/summer/dot/04 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r3 = 02 |
+| common | dot | common/summer/dot/01 | 1 | 2, 3, 4 | pass | pass | r1 mirrored, r2 = 02, r3 = 03 |
+| common | dot | common/summer/dot/02 | 3 | 4, 1, 2 | pass | pass | r1 = 03, r2 = 01, r3 mirrored |
+| common | dot | common/summer/dot/03 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r2, r3 = 02 |
+| common | dot | common/summer/dot/04 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r2, r3 = 02 |
 | common | dot_h | common/summer/dot_h/01 | 1 | 2, 3, 4 | pass | pass | r1 = 02, r2 = 03, r3 = 04 |
 | common | dot_h | common/summer/dot_h/02 | 2 | 3, 4, 1 | pass | pass | r1 = 03, r2 = 04, r3 = 01 |
 | common | dot_h | common/summer/dot_h/03 | 3 | 4, 1, 2 | pass | pass | r1 = 04, r2 = 01, r3 = 02 |
 | common | dot_h | common/summer/dot_h/04 | 4 | 1, 2, 3 | pass | pass | r1 = 01, r2 = 02, r3 = 03 |
-| common | dzot | common/summer/dzot/01 | 1 | 2, 3, 4 | pass | pass | r2 = 04 |
-| common | dzot | common/summer/dzot/02 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| common | dzot | common/summer/dzot/03 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| common | dzot | common/summer/dzot/04 | 3 | 4, 1, 2 | pass | pass | r2 = 01 |
+| common | dzot | common/summer/dzot/01 | 1 | 2, 3, 4 | pass | pass | r1 mirrored, r2 = 04, r3 mirrored |
+| common | dzot | common/summer/dzot/02 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
+| common | dzot | common/summer/dzot/03 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
+| common | dzot | common/summer/dzot/04 | 3 | 4, 1, 2 | pass | pass | r1 mirrored, r2 = 01, r3 mirrored |
 | common | tent | common/summer/tent/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
 | common | tent | common/summer/tent/02 | 2 | 3, 4, 1 | pass | - | - |
 | common | watchtower | common/summer/watchtower | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
@@ -140,8 +141,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_wellbig | europe/summer/e_wellbig/03 | 3 | 4, 1, 2 | pass | pass | r1, r2 = 01, r3 |
 | europe | e_welllittle | europe/summer/e_welllittle/01 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | europe | e_welllittle | europe/summer/e_welllittle/02 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
-| europe | e_wt | europe/summer/e_wt/01 | 1 | 2, 3, 4 | pass | - | - |
-| europe | e_wt | europe/summer/e_wt/02 | 3 | 4, 1, 2 | pass | - | - |
+| europe | e_wt | europe/summer/e_wt/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
+| europe | e_wt | europe/summer/e_wt/02 | 3 | 4, 1, 2 | pass | - | r1 mirrored, r2, r3 mirrored |
 | ussr | admhouse | ussr/summer/admhouse | 1 | 2, 3, 4 | pass | - | - |
 | ussr | barracks | ussr/summer/barracks | 1 | 2, 3, 4 | pass | - | - |
 | ussr | barracks | ussr/summer/barracks_2 | ? | ? (turns 1, 2, 3) | pass | - | - |
@@ -216,5 +217,5 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | watertower | ussr/summer/watertower | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | ussr | wb | ussr/summer/wb/01 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | wb | ussr/summer/wb/02 | 4 | 1, 2, 3 | pass | - | - |
-| ussr | wt | ussr/summer/wt/01 | 1 | 2, 3, 4 | pass | - | - |
-| ussr | wt | ussr/summer/wt/02 | 2 | 3, 4, 1 | pass | - | - |
+| ussr | wt | ussr/summer/wt/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
+| ussr | wt | ussr/summer/wt/02 | 2 | 3, 4, 1 | pass | - | r1, r2, r3 |

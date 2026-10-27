@@ -6,34 +6,35 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| warehouse | r1 | 2 | 1 | 77.2 | 20.6 | 2.2 | 0.0 | 1.29 | 6.3 | 0.037 | pass |
-| warehouse | r1 | 2 | 1w | 76.6 | 20.3 | 3.0 | 0.0 | 1.34 | 7.4 | 0.032 | pass |
-| warehouse | r1 | 2 | 2 | 77.0 | 19.9 | 2.7 | 0.3 | 1.12 | 1.6 | 0.050 | pass |
-| warehouse | r1 | 2 | 2w | 77.0 | 19.9 | 2.7 | 0.3 | 1.16 | 1.9 | 0.026 | pass |
-| warehouse | r1 | 2 | 3 | 79.8 | 12.8 | 7.4 | 0.0 | 1.13 | 3.5 | 0.019 | pass |
-| warehouse | r1 | 2 | 3w | 79.8 | 12.8 | 7.4 | 0.0 | 1.10 | 3.7 | 0.024 | pass |
-| warehouse | r2 | 3 | 1 | 66.0 | 25.3 | 8.7 | 0.0 | 1.24 | 2.7 | 0.045 | pass |
-| warehouse | r2 | 3 | 1w | 66.1 | 24.5 | 9.3 | 0.0 | 1.27 | 3.0 | 0.036 | pass |
-| warehouse | r2 | 3 | 2 | 65.0 | 26.2 | 8.6 | 0.2 | 1.12 | 1.8 | 0.008 | pass |
-| warehouse | r2 | 3 | 2w | 65.0 | 26.2 | 8.6 | 0.2 | 1.12 | 1.9 | 0.008 | pass |
-| warehouse | r2 | 3 | 3 | 71.8 | 20.3 | 7.9 | 0.0 | 1.01 | 0.9 | 0.004 | pass |
-| warehouse | r2 | 3 | 3w | 71.8 | 20.3 | 7.9 | 0.0 | 1.01 | 0.9 | 0.005 | pass |
-| warehouse | r3 | 4 | 1 | 83.0 | 8.5 | 8.5 | 0.0 | 1.35 | 4.5 | 0.038 | pass |
-| warehouse | r3 | 4 | 1w | 83.0 | 8.2 | 8.7 | 0.1 | 1.43 | 3.0 | 0.033 | pass |
-| warehouse | r3 | 4 | 2 | 81.7 | 9.6 | 8.4 | 0.2 | 1.09 | 1.7 | 0.039 | pass |
-| warehouse | r3 | 4 | 2w | 81.7 | 9.6 | 8.4 | 0.2 | 1.15 | 2.0 | 0.025 | pass |
-| warehouse | r3 | 4 | 3 | 83.0 | 9.9 | 7.1 | 0.0 | 1.08 | 1.5 | 0.009 | pass |
-| warehouse | r3 | 4 | 3w | 83.0 | 9.9 | 7.1 | 0.0 | 1.05 | 1.5 | 0.010 | pass |
+| warehouse | r1 | 2 | 1 | 77.2 | 20.6 | 1.9 | 0.3 | 1.29 | 6.3 | 0.037 | pass |
+| warehouse | r1 | 2 | 1w | 76.6 | 20.3 | 2.6 | 0.5 | 1.33 | 7.1 | 0.035 | pass |
+| warehouse | r1 | 2 | 2 | 77.0 | 19.9 | 2.6 | 0.4 | 1.12 | 1.5 | 0.050 | pass |
+| warehouse | r1 | 2 | 2w | 77.0 | 19.9 | 2.6 | 0.4 | 1.16 | 1.8 | 0.026 | pass |
+| warehouse | r1 | 2 | 3 | 79.8 | 12.8 | 2.6 | 4.8 | 1.13 | 1.3 | 0.012 | pass |
+| warehouse | r1 | 2 | 3w | 79.8 | 12.8 | 2.6 | 4.8 | 1.10 | 1.4 | 0.016 | pass |
+| warehouse | r2 | 3 | 1 | 66.0 | 23.7 | 8.5 | 1.8 | 1.19 | 1.0 | 0.041 | pass |
+| warehouse | r2 | 3 | 1w | 66.1 | 23.0 | 8.9 | 2.1 | 1.25 | 1.1 | 0.032 | pass |
+| warehouse | r2 | 3 | 2 | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.6 | 0.006 | pass |
+| warehouse | r2 | 3 | 2w | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.8 | 0.014 | pass |
+| warehouse | r2 | 3 | 3 | 71.8 | 20.3 | 2.3 | 5.6 | 1.00 | 1.6 | 0.011 | pass |
+| warehouse | r2 | 3 | 3w | 71.8 | 20.3 | 2.3 | 5.6 | 1.00 | 1.6 | 0.008 | pass |
+| warehouse | r3 | 4 | 1 | 83.0 | 6.9 | 8.3 | 1.8 | 1.32 | 3.1 | 0.041 | pass |
+| warehouse | r3 | 4 | 1w | 83.0 | 6.5 | 8.3 | 2.1 | 1.40 | 1.3 | 0.038 | pass |
+| warehouse | r3 | 4 | 2 | 81.7 | 8.4 | 8.3 | 1.6 | 1.09 | 1.4 | 0.043 | pass |
+| warehouse | r3 | 4 | 2w | 81.7 | 8.4 | 8.3 | 1.6 | 1.14 | 1.7 | 0.028 | pass |
+| warehouse | r3 | 4 | 3 | 83.0 | 9.9 | 2.4 | 4.6 | 1.07 | 0.5 | 0.006 | pass |
+| warehouse | r3 | 4 | 3w | 83.0 | 9.9 | 2.4 | 4.6 | 1.04 | 0.8 | 0.007 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| warehouse | r1 | 0.91 | 1.04 | 0.95 | 0.021 | 0.018 | 110 | 110 | 0 | 0 | pass | blocks |
-| warehouse | r2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | 0 | 0 | 0 | 0 | pass | blocks |
-| warehouse | r3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| warehouse | r1 | 0.91 | 1.04 | 0.95 | 0.021 | 0.018 | 110 | 110 | 0 | 0 | 0.000 | pass | blocks |
+| warehouse | r2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| warehouse | r3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |

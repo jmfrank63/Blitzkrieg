@@ -38,20 +38,21 @@ Shape of the turned intact sprite drawn by the blocks: its height over the 2003 
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 01 | r2 | 0.99 | 0.63 | 0.83 | 0.266 | 0.289 | 0 | 0 | 0 | 0 | outline 0.83 < 0.85 | 2003 sprite |
-| 01 | r3 | 0.99 | 0.63 | 0.83 | 0.263 | 0.289 | 185 | 185 | 0 | 0 | outline 0.83 < 0.85 | 2003 sprite |
-| 02 | r1 | 0.95 | 0.84 | 0.73 | 0.219 | 0.350 | 0 | 0 | 0 | 0 | outline 0.73 < 0.85 | 2003 sprite |
-| 02 | r2 | 1.01 | 0.84 | 0.73 | 0.228 | 0.350 | 169 | 169 | 0 | 0 | outline 0.73 < 0.85 | 2003 sprite |
-| 02 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 04 | r1 | 1.00 | 0.79 | 0.88 | 0.180 | 0.271 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 04 | r2 | 0.97 | 0.79 | 0.88 | 0.305 | 0.271 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 04 | r3 | 0.90 | 0.79 | 0.88 | 0.274 | 0.271 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 01 | r2 | 0.99 | 0.63 | 0.83 | 0.266 | 0.289 | 0 | 0 | 0 | 0 | 0.000 | outline 0.83 < 0.85 | 2003 sprite |
+| 01 | r3 | 0.99 | 0.63 | 0.83 | 0.263 | 0.289 | 185 | 185 | 0 | 0 | 0.000 | outline 0.83 < 0.85 | 2003 sprite |
+| 02 | r1 | 0.95 | 0.84 | 0.73 | 0.219 | 0.350 | 0 | 0 | 0 | 0 | 0.000 | outline 0.73 < 0.85 | 2003 sprite |
+| 02 | r2 | 1.01 | 0.84 | 0.73 | 0.228 | 0.350 | 169 | 169 | 0 | 0 | 0.000 | outline 0.73 < 0.85 | 2003 sprite |
+| 02 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 04 | r1 | 1.00 | 0.79 | 0.88 | 0.180 | 0.271 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 04 | r2 | 0.97 | 0.79 | 0.88 | 0.305 | 0.271 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| 04 | r3 | 0.90 | 0.79 | 0.88 | 0.274 | 0.271 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 

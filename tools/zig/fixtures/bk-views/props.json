@@ -1,0 +1,8 @@
+{
+  "a_wt": "supply depot: a tent on poles over crates and barrels (BuildingType 2)",
+  "e_wt": "supply depot: crates and barrels under a camouflage net (BuildingType 2)",
+  "wt": "supply depot: crates and barrels under a tarpaulin (BuildingType 2)",
+  "dot": "earth-covered pillbox: a round mound with a log embrasure (BuildingType 3)",
+  "dot_h": "earth-covered pillbox: a round mound with a log embrasure (BuildingType 3)",
+  "dzot": "dug-in pillbox: a low earth mound over a log roof (BuildingType 3)"
+}

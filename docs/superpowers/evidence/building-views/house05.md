@@ -6,34 +6,35 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house05 | r1 | 2 | 1 | 58.9 | 40.4 | 0.4 | 0.2 | 1.59 | 9.7 | 0.059 | pass |
-| house05 | r1 | 2 | 1w | 62.1 | 36.3 | 0.8 | 0.8 | 1.20 | 4.1 | 0.035 | pass |
-| house05 | r1 | 2 | 2 | 53.4 | 45.2 | 1.1 | 0.3 | 1.19 | 11.0 | 0.033 | pass |
-| house05 | r1 | 2 | 2w | 53.4 | 45.2 | 1.1 | 0.3 | 1.08 | 12.5 | 0.029 | pass |
-| house05 | r1 | 2 | 3 | 62.5 | 34.0 | 3.3 | 0.3 | 1.11 | 3.1 | 0.023 | pass |
-| house05 | r1 | 2 | 3w | 62.5 | 34.0 | 3.3 | 0.3 | 1.04 | 3.3 | 0.021 | pass |
-| house05 | r2 | 3 | 1 | 2.1 | 97.0 | 0.6 | 0.3 | 1.07 | 1.1 | 0.005 | pass |
-| house05 | r2 | 3 | 1w | 1.6 | 96.3 | 1.2 | 0.9 | 1.06 | 7.1 | 0.014 | pass |
-| house05 | r2 | 3 | 2 | 3.3 | 95.2 | 1.2 | 0.3 | 1.13 | 2.9 | 0.013 | pass |
-| house05 | r2 | 3 | 2w | 3.3 | 95.2 | 1.2 | 0.3 | 1.09 | 3.0 | 0.013 | pass |
-| house05 | r2 | 3 | 3 | 44.1 | 52.2 | 3.4 | 0.3 | 1.00 | 1.6 | 0.007 | pass |
-| house05 | r2 | 3 | 3w | 44.1 | 52.2 | 3.4 | 0.3 | 0.98 | 2.0 | 0.007 | pass |
+| house05 | r1 | 2 | 1 | 58.9 | 40.4 | 0.4 | 0.2 | 1.58 | 9.7 | 0.059 | pass |
+| house05 | r1 | 2 | 1w | 62.1 | 36.3 | 0.7 | 0.8 | 1.20 | 4.2 | 0.035 | pass |
+| house05 | r1 | 2 | 2 | 53.4 | 45.2 | 1.0 | 0.4 | 1.19 | 11.0 | 0.032 | pass |
+| house05 | r1 | 2 | 2w | 53.4 | 45.2 | 1.0 | 0.4 | 1.08 | 12.5 | 0.030 | pass |
+| house05 | r1 | 2 | 3 | 62.5 | 33.9 | 1.9 | 1.7 | 1.11 | 3.2 | 0.021 | pass |
+| house05 | r1 | 2 | 3w | 62.5 | 33.9 | 1.9 | 1.7 | 1.04 | 3.2 | 0.019 | pass |
+| house05 | r2 | 3 | 1 | 2.1 | 97.0 | 0.5 | 0.4 | 1.07 | 1.2 | 0.007 | pass |
+| house05 | r2 | 3 | 1w | 1.6 | 96.3 | 1.0 | 1.1 | 1.06 | 7.3 | 0.015 | pass |
+| house05 | r2 | 3 | 2 | 3.3 | 95.2 | 1.0 | 0.6 | 1.13 | 2.9 | 0.013 | pass |
+| house05 | r2 | 3 | 2w | 3.3 | 95.2 | 1.0 | 0.6 | 1.09 | 3.0 | 0.013 | pass |
+| house05 | r2 | 3 | 3 | 44.1 | 52.2 | 2.0 | 1.7 | 1.01 | 1.5 | 0.008 | pass |
+| house05 | r2 | 3 | 3w | 44.1 | 52.2 | 2.0 | 1.7 | 0.99 | 1.8 | 0.009 | pass |
 | house05 | r3 | 4 | 1 | 38.9 | 60.2 | 0.6 | 0.3 | 1.61 | 7.8 | 0.054 | pass |
-| house05 | r3 | 4 | 1w | 36.4 | 62.0 | 0.9 | 0.7 | 1.21 | 1.5 | 0.043 | pass |
-| house05 | r3 | 4 | 2 | 41.8 | 56.8 | 1.1 | 0.3 | 1.20 | 10.5 | 0.035 | pass |
-| house05 | r3 | 4 | 2w | 41.8 | 56.8 | 1.1 | 0.3 | 1.09 | 11.9 | 0.043 | pass |
-| house05 | r3 | 4 | 3 | 67.5 | 28.7 | 3.5 | 0.3 | 1.10 | 2.8 | 0.019 | pass |
-| house05 | r3 | 4 | 3w | 67.5 | 28.7 | 3.5 | 0.3 | 1.02 | 2.9 | 0.016 | pass |
+| house05 | r3 | 4 | 1w | 36.4 | 62.0 | 0.7 | 0.9 | 1.20 | 1.6 | 0.044 | pass |
+| house05 | r3 | 4 | 2 | 41.8 | 56.8 | 1.0 | 0.4 | 1.20 | 10.4 | 0.036 | pass |
+| house05 | r3 | 4 | 2w | 41.8 | 56.8 | 1.0 | 0.4 | 1.09 | 11.8 | 0.044 | pass |
+| house05 | r3 | 4 | 3 | 67.5 | 28.7 | 2.0 | 1.8 | 1.10 | 3.0 | 0.019 | pass |
+| house05 | r3 | 4 | 3w | 67.5 | 28.7 | 2.0 | 1.8 | 1.02 | 3.2 | 0.017 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| house05 | r1 | 0.98 | 0.83 | 0.96 | 0.068 | 0.075 | 0 | 0 | 0 | 0 | pass | blocks |
-| house05 | r2 | 0.97 | 0.83 | 0.96 | 0.055 | 0.075 | 0 | 0 | 0 | 0 | pass | blocks |
-| house05 | r3 | 0.98 | 0.83 | 0.96 | 0.061 | 0.075 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| house05 | r1 | 0.98 | 0.83 | 0.96 | 0.068 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| house05 | r2 | 0.97 | 0.83 | 0.96 | 0.055 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| house05 | r3 | 0.98 | 0.83 | 0.96 | 0.061 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |

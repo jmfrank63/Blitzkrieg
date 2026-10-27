@@ -543,6 +543,74 @@ a turn. Hand shapes had none either.
 - **Left.** The town houses' dormers (e_ctownhouse02/03/04, e_townhouse*, ussr town houses) stay painted on their
   roof planes, where they read as roof windows; they can be added to the roof-parts fixture the same way.
 
+## Heaps, a planked gable and stretched pixels (M006 S07c, 2026-10-28)
+
+The maintainer's hand test (camera turned, Remastered on) found three more turns that do not read as the 2003
+object: the supply depot is a plain box with its net and crates smeared over the walls, the dug-in pillbox a flat
+smeared slab, and a half-timbered house's planked gable and lean-to come out with mismatched walls.
+
+- **Which variants.** The supply depots are the `BuildingType` 2 variants (temporary storage): `a_wt/01, /02`,
+  `e_wt/01, /02`, `wt/01, /02`. Type 1 (main storage) is the barns `a_wb`, `e_wb`, `wb`, drawn well since S07b;
+  type 3 the pillboxes `dot`, `dot_h`, `dzot`. No other variant is a heap of crates or earth (storehouse_1/2 and
+  warehouse are houses). The house is `e_house04_4`.
+- **Cause, depots and pillboxes.** A heap has no walls: a depot is crates and barrels under a net, tarpaulin or tent
+  on poles, a pillbox a mound. Their hand shapes (S07) are one to five boxes fitted to the outline, so a turn paints
+  the crates and earth the 2003 picture shows on the boxes' walls. A turn a sibling shows was already its sibling's
+  picture; `dot` has no 2003 side 2 (`/03` and `/04` both show side 4) and `dzot/02`, `/03` have no measured side, so
+  those turns were blocks: 32 turns of 14 variants (every depot turn, `dzot/02` and `/03` whole, `dzot/01` and `/04`
+  r1 and r3, one turn of each `dot`).
+- **Fix: heaps** (`tools/zig/fixtures/bk-views/props.json`, family to reason; `Scene.prop`, `spriteTurn`). A heap
+  turns as its 2003 pictures on every turn (`sameSprite`), mirrored on an odd turn that does not keep the footprint,
+  so that it spans the turned footprint's box; S06's rule for thin and small objects is unchanged. A crate may stand
+  a cell off a depot's free footprint corner (e_wt's 5 x 6 footprint has two). The heaps' hand shapes stay: they
+  still give the relighting classes of the mirror. A sibling's picture still comes first (`dot_h`, most `dot`).
+- **No pixel measure found the heaps.** A detail-loss share (8 x 8 cells of the turned intact picture whose gradient
+  energy over brightness falls below the 2003 picture's tenth percentile) spread 0.03 to 0.15 on the depots' block
+  turns but up to 0.27 on real 2003 sides (dot_h/03 r3 is dot_h/01's picture), and the stretch below measured 0.001
+  to 0.002 on them: the box is drawn from pixels seen squarely, only from the wrong object. So heaps are a list, as
+  hand shapes are, decided from the pictures and `BuildingType`; test: `spriteTurn` draws a depot's every turn as
+  its sprite, mirrored on the odd ones, keeps a house on its blocks, and every family of props.json is one of the
+  inventory.
+- **Cause, e_house04_4.** The fit gave the planked gable a separate slab 12 units deep and 74 high (`-184..-172`),
+  whose sides the 2003 picture sees edge on, and the lean-to a flat roof. A slab's side drawn in a turn spreads each
+  2003 pixel over many: 6.3% of r1's and r2's pixels. **Fix:** a hand shape (`shapes/e_house04.json`: the house a
+  gable_x block -184..-42 x -23..78, walls 49, ridge 113, the lean-to -36..-5 x 4..60, walls 51, ridge 67,
+  refined by `bk-views shape`; own outline IoU 0.949). The gable is now the house's own planked end wall.
+- **Stretch measure and gate** (`stretchedPixels`, `stretchShare`, `stretch_most`). Per pixel of a picture
+  `projectPicture` draws, the source pixel's position is kept; where a pixel and its right and lower neighbours
+  take one face of one 2003 picture, the area of one target pixel in the source (the map's Jacobian) under 1/4 means
+  one 2003 pixel spread over 4 or more. The gate fails a turn whose intact picture keeps more than 0.04 of its pixels
+  stretched. Measured before the fix below (with the heaps and the hand shape above): 21 turns of 9 variants over
+  0.04, up to 0.141 (e_railwaystation_2 r2/r3 0.14, e_shed02_5 r1/r2 0.11, e_shed02_2 0.07 to 0.11, towncornhouse01
+  r1/r2 0.09/0.10, e_jettybuilding_1/_4 to 0.08, e_cityhall_1 0.06 to 0.08, ukrainehouse01_1 r2/r3 0.05; and
+  e_house04_4 r1/r2 0.063 on the fit); the turns that read well 0.03 or less. sources.json carries `stretch`, the
+  family reports a "Stretched" column. The first pass of the projection (S06's grazing rule) already keeps pictures
+  seen under a cosine of 0.25 back where another sees the face; these are faces no picture sees better, and donor
+  faces (`donorPoint`) smaller than the face they paint.
+- **Fix: stretched pixels go to the patch fill.** `projectPicture` leaves every stretched pixel to `patchFill`, like
+  one no picture sees: the railway station's roof, towncornhouse01's gable and e_shed02's roofs lose their streaks.
+  After: 0 stretched pixels left in every turn. Tried and dropped: the smaller singular value of the Jacobian (a
+  stretch along one direction) flagged walls seen at a quarter of the target's cosine (e_townrailwaystation_4 r2
+  0.289), and its patch fill drew those walls as mush, worse than the stretch; and skipping a source by the ratio of
+  the two cosines changed nothing (the streaks came from donors, not from grazing pictures). Test: a 6 x 6 picture
+  half drawn a ninth of a source pixel per pixel has 10 of 36 stretched, over the gate, and none once filled.
+- **Result** ([batch](../evidence/building-views/batch.md)): 194 of 194 variants pass, hold-out 43 of 43, 582
+  folders through the engine check; 84 variants have turns drawn as 2003 sprites (76 before), 57 hand shapes (56).
+- **The systematic pass** (contact sheets of all 194 before and after, `zig-out/local-test/s07c/contact-before` and
+  `contact-after`, not tracked). Fixed here: the six depots, `dzot/01..04`, `dot/01..04`'s block turn, e_house04_4,
+  and the stretched turns above. Still not reading as the 2003 object, by eye, left for the next slices with their
+  kind (no measure separates them yet):
+  - roof parts painted on roof planes (S07b's open item): dormers and chimneys of the ussr town houses
+    (townhouse03_1/_2, 04_1/_2, 05_1/_2/_3, towncornhouse03/04), e_ctownhouse02/03/04, e_townhouse*; fix: roof-parts
+    fixture entries;
+  - a wall or roof taking another material: blue-green walls on e_ctownhouse03_2/_4 r1 and r3 and e_house05_3 r1/r3,
+    greenish walls on e_townhouse04_3, red roof stripes on the walls of e_townhouse01_3/_4 and e_chapel_1 r2/r3;
+    fix: a source choice by colour against the face's own 2003 pixels;
+  - bleached patches where a roof plane is relit from a few pixels: e_frenchshed06's hip ends, e_ctownhouse01_1 r1/r3,
+    e_ctownhouse02_1 r3, e_house11_1 r3, a_h03_2/_3 r2/r3;
+  - jumbled multi-wing roofs: e_cityhall_1 r2/r3, e_jettybuilding_1/_4; and a_h04_1 r1/r3's streaked arcade;
+  - porch slabs that take roof texture: e_house03_3/_4 r1.
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

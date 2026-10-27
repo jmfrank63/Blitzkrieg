@@ -6,25 +6,26 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 2 | 1 | 55.6 | 33.6 | 6.2 | 4.6 | 1.00 | 2.5 | 0.045 | pass |
-| e_cityhall_1 | r1 | 2 | 2 | 55.5 | 31.7 | 7.7 | 5.2 | 1.00 | 2.5 | 0.013 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 77.4 | 13.7 | 8.9 | 0.0 | 1.04 | 1.0 | 0.020 | pass |
-| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 87.2 | 8.1 | 4.7 | 0.98 | 5.9 | 0.029 | pass |
-| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 84.3 | 10.5 | 5.2 | 0.96 | 5.8 | 0.033 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 52.1 | 38.0 | 9.8 | 0.0 | 1.06 | 1.9 | 0.015 | pass |
-| e_cityhall_1 | r3 | 4 | 1 | 23.1 | 64.2 | 8.1 | 4.6 | 0.92 | 13.8 | 0.033 | pass |
-| e_cityhall_1 | r3 | 4 | 2 | 22.7 | 62.2 | 10.0 | 5.1 | 0.91 | 11.5 | 0.031 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 63.5 | 26.8 | 9.7 | 0.0 | 0.96 | 4.5 | 0.023 | pass |
+| e_cityhall_1 | r1 | 2 | 1 | 55.6 | 33.6 | 0.7 | 10.1 | 1.05 | 2.4 | 0.039 | pass |
+| e_cityhall_1 | r1 | 2 | 2 | 55.5 | 31.7 | 1.2 | 11.7 | 1.07 | 2.2 | 0.009 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 77.4 | 13.7 | 2.0 | 6.9 | 1.00 | 5.8 | 0.018 | pass |
+| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 87.2 | 0.6 | 12.2 | 1.01 | 8.7 | 0.025 | pass |
+| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 84.3 | 1.6 | 14.2 | 1.00 | 7.0 | 0.028 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 52.1 | 38.0 | 2.3 | 7.6 | 1.01 | 2.7 | 0.008 | pass |
+| e_cityhall_1 | r3 | 4 | 1 | 23.1 | 64.2 | 0.6 | 12.1 | 0.97 | 13.9 | 0.041 | pass |
+| e_cityhall_1 | r3 | 4 | 2 | 22.7 | 62.2 | 1.2 | 13.9 | 0.96 | 12.7 | 0.036 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 63.5 | 26.8 | 2.1 | 7.6 | 0.92 | 10.1 | 0.021 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
-parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
-drawn as its 2003 sprite where the turn keeps the footprint.
+parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
+pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 0.88 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r2 | 0.99 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r3 | 1.09 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_cityhall_1 | r1 | 0.88 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_cityhall_1 | r2 | 0.99 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| e_cityhall_1 | r3 | 1.09 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
