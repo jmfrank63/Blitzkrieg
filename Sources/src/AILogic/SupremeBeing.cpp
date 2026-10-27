@@ -86,6 +86,15 @@ void CSupremeBeing::AddReinforcement( class CAIUnit *pUnit )
 	if ( generals.find( pUnit->GetPlayer() ) != generals.end() )
 		generals[pUnit->GetPlayer()]->Give( pUnit );
 }
+void CSupremeBeing::TraceStateHashDetail( const int nSegment )
+{
+	std::vector<int> parties;
+	for ( Generals::iterator it = generals.begin(); it != generals.end(); ++it )
+		parties.push_back( it->first );
+	std::sort( parties.begin(), parties.end() );
+	for ( int i = 0; i < parties.size(); ++i )
+		generals[parties[i]]->TraceStateHashDetail( nSegment );
+}
 void CSupremeBeing::Segment()
 {
 	if ( !GetGlobalVar( "nogeneral_script", 0 ) )

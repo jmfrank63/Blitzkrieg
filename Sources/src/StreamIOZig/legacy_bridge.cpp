@@ -278,6 +278,7 @@ struct IRandomGen : public IRefCount {
     virtual void BK_STDCALL EnterSimulation() = 0;
     virtual void BK_STDCALL LeaveSimulation() = 0;
     virtual void BK_STDCALL ArmAudit(bool) = 0;
+    virtual void BK_STDCALL SetTraceSegment(int) = 0;
 };
 
 struct IDataStorage : public IRefCount {
@@ -1789,10 +1790,19 @@ class RandomGen final : public IRandomGen {
     unsigned long long callers_[MAX_CALLERS] = {};
     int num_callers_ = 0;
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
-    void ReportDraw()
+    // BK_RNG_TRACE's window, read once; trace_segment_ is the segment running.
+    int trace_from_ = -1;
+    int trace_to_ = -1;
+    int trace_segment_ = -1;
+    int trace_draw_ = 0;
+    void TraceDraw(unsigned int value)
     {
-        ++draws_outside_;
         char tag[1024];
+        CallerTag(tag, sizeof(tag));
+        std::fprintf(stderr, "BK_RNG_TRACE: segment %d draw %d %08x: %s\n", trace_segment_, ++trace_draw_, value, tag[0] ? tag : "(no stack on this platform)");
+    }
+    static void CallerTag(char *tag, size_t size)
+    {
         tag[0] = 0;
 #if defined(__linux__) || defined(__APPLE__)
         void *frames[24];
@@ -1805,12 +1815,20 @@ class RandomGen final : public IRandomGen {
             if (IsRandomFrame(symbols[i])) first = i + 1;
         size_t length = 0;
         for (int i = first; symbols && i < num_frames && i < first + 6; ++i) {
-            const int written = std::snprintf(tag + length, sizeof(tag) - length, "%s%s", i == first ? "" : " < ", symbols[i]);
-            if (written < 0 || size_t(written) >= sizeof(tag) - length) break;
+            const int written = std::snprintf(tag + length, size - length, "%s%s", i == first ? "" : " < ", symbols[i]);
+            if (written < 0 || size_t(written) >= size - length) break;
             length += size_t(written);
         }
         std::free(symbols);
+#else
+        (void)size;
 #endif
+    }
+    void ReportDraw()
+    {
+        ++draws_outside_;
+        char tag[1024];
+        CallerTag(tag, sizeof(tag));
         unsigned long long hash = 14695981039346656037ull;
         for (const char *c = tag; *c; ++c) hash = (hash ^ (unsigned char)*c) * 1099511628211ull;
         for (int i = 0; i < num_callers_; ++i)
@@ -1846,8 +1864,25 @@ public:
             if (simulation_depth_ > 0) ++draws_inside_;
             else ReportDraw();
         }
+        if (trace_segment_ >= trace_from_ && trace_segment_ <= trace_to_ && trace_from_ >= 0) {
+            const unsigned int value = bk_random_get();
+            TraceDraw(value);
+            return value;
+        }
 #endif
         return bk_random_get();
+    }
+    void BK_STDCALL SetTraceSegment(int segment) override
+    {
+#if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
+        static const char *window = std::getenv("BK_RNG_TRACE");
+        if (window && trace_from_ < 0 && std::sscanf(window, "%d-%d", &trace_from_, &trace_to_) != 2)
+            trace_from_ = trace_to_ = -1;
+        trace_segment_ = segment;
+        trace_draw_ = 0;
+#else
+        (void)segment;
+#endif
     }
     void BK_STDCALL EnterSimulation() override { ++simulation_depth_; }
     void BK_STDCALL LeaveSimulation() override { if (simulation_depth_ > 0) --simulation_depth_; }

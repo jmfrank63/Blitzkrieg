@@ -25,6 +25,8 @@ class CSupremeBeing
 public:
 	void Segment();
 	void Clear();
+	// BK_STATE_HASH_DETAIL (IAILogic::TraceStateHashDetail): each general, by party.
+	void TraceStateHashDetail( const int nSegment );
 
 	void SetUnitVisible( class CAIUnit *pUnit, const int nGeneralParty, const bool bVisible );
 	

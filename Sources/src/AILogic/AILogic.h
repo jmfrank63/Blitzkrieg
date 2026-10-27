@@ -206,5 +206,11 @@ interface IAILogic : public IRefCount
 	// applies to it: the single-player transceiver reads the console itself and
 	// sends each line here as a recorded command (CScriptCallCommand).
 	virtual void STDCALL CallConsoleScriptFunction( const char *pszCommand ) = 0;
+	// The state hash broken into its parts, for finding what a loaded world
+	// does differently from the run that saved it: the AI's time and random
+	// state, then every unit (in the order the AI visits them), formation,
+	// shell and active script, one stderr line each, tagged with nSegment.
+	// The single-player transceiver calls it with BK_STATE_HASH_DETAIL=1.
+	virtual void STDCALL TraceStateHashDetail( const int nSegment ) = 0;
 };
 #endif // __AI_LOGIC_H__

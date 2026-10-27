@@ -397,6 +397,36 @@ void CScripts::Segment()
 
 	LandSuspendedReiforcements();
 }
+void CScripts::TraceStateHashDetail( const int nSegment )
+{
+	for ( std::unordered_map<int, SScriptInfo>::iterator it = activeScripts.begin(); it != activeScripts.end(); ++it )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d script %s period %u last %u repetitions %d\n", nSegment, it->second.szName.c_str(), (unsigned)it->second.period, (unsigned)it->second.lastUpdate, it->second.nRepetitions );
+	// Lua's globals table is hashed by string address, so its values are sorted by name.
+	lua_State *pState = script.GetState();
+	if ( pState == 0 )
+		return;
+	const int nTop = lua_gettop( pState );
+	lua_getglobals( pState );
+	const int nGlobals = lua_gettop( pState );
+	std::vector<std::string> values;
+	lua_pushnil( pState );
+	while ( lua_next( pState, nGlobals ) != 0 )
+	{
+		if ( lua_type( pState, -2 ) == LUA_TSTRING )
+		{
+			const char *pszName = lua_tostring( pState, -2 );
+			if ( lua_type( pState, -1 ) == LUA_TNUMBER )
+				values.push_back( NStr::Format( "%s=%.17g", pszName, (double)lua_tonumber( pState, -1 ) ) );
+			else if ( lua_type( pState, -1 ) == LUA_TSTRING )
+				values.push_back( NStr::Format( "%s='%s'", pszName, lua_tostring( pState, -1 ) ) );
+		}
+		lua_pop( pState, 1 );
+	}
+	lua_settop( pState, nTop );
+	std::sort( values.begin(), values.end() );
+	for ( int i = 0; i < values.size(); ++i )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d lua %s\n", nSegment, values[i].c_str() );
+}
 void CScripts::CallScriptFunction( const char *pszCommand )
 {
 	const int oldtop = script.GetTop();

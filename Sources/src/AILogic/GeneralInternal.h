@@ -84,6 +84,8 @@ public:
 	void Give( CCommonUnit *pWorker );
 
 	void Segment();
+	// BK_STATE_HASH_DETAIL: the general's timers, the enemies it remembers and its resistance cells.
+	void TraceStateHashDetail( const int nSegment );
 
 	virtual void CancelRequest( int nRequestID, enum EForceType eType  );
 	virtual int /*request ID*/RequestForSupport( const CVec2 &vSupportCenter, enum EForceType eType );

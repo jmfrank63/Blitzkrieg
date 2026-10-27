@@ -103,6 +103,9 @@ public:
 	void Load( const std::string &szScriptFile );
 
 	void Segment();
+	// BK_STATE_HASH_DETAIL (IAILogic::TraceStateHashDetail): the active scripts
+	// in the order Segment runs them, and the script's number and string globals.
+	void TraceStateHashDetail( const int nSegment );
 
 	void CallScriptFunction( const char *pszCommand );
 	// A line typed into the console after '@': only Password() until the cheats are on.

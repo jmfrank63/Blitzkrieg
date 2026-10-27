@@ -199,5 +199,6 @@ public:
 	virtual unsigned int STDCALL GetStateHash();
 	virtual int STDCALL GetChosenDifficultyLevel() const;
 	virtual void STDCALL CallConsoleScriptFunction( const char *pszCommand );
+	virtual void STDCALL TraceStateHashDetail( const int nSegment );
 };
 #endif // __AI_LOGIC_INTERNAL_H__

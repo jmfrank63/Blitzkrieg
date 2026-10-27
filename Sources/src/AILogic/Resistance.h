@@ -81,6 +81,8 @@ public:
 	CResistancesContainer() { }
 
 	void Clear() { resistances.clear(); cellsWeights.clear(); }
+	// BK_STATE_HASH_DETAIL: the cells by weight, then every cell in the order the map holds them.
+	void TraceStateHashDetail( const int nSegment, const int nParty );
 
 	void UpdateEnemyUnitInfo( class CAIUnitInfoForGeneral *pInfo,
 			const NTimer::STime lastVisibleTimeDelta, const CVec2 &vLastVisiblePos,

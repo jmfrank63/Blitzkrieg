@@ -74,6 +74,8 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "VTuneAPI.h"
 #endif // _PROFILER
 #include "../Main/Remastered.h"
+#include "../StreamIO/StreamIOTypes.h"
+#include "../StreamIO/RandomGen.h"
 extern CWeather theWeather;
 extern CSupremeBeing theSupremeBeing;
 extern CCombatEstimator theCombatEstimator;
@@ -1026,6 +1028,46 @@ unsigned int CAILogic::GetStateHash()
 	AddUnitsToCheckSum( &hash );
 	theShellsStore.UpdateCheckSum( &hash );
 	return (unsigned int)hash;
+}
+// Each line names one part, so the first line two runs print differently at a
+// segment names what went apart first (replay_load_transparency.zig compares them).
+void CAILogic::TraceStateHashDetail( const int nSegment )
+{
+	unsigned int nRandomState = 0;
+	{
+		CPtr<IDataStream> pStream = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
+		GetSingleton<IRandomGen>()->Store( pStream );
+		pStream->Seek( 0, STREAM_SEEK_SET );
+		pStream->Read( &nRandomState, sizeof( nRandomState ) );
+	}
+	fprintf( stderr, "BK_STATE_HASH_DETAIL: %d time %u random %08x\n", nSegment, (unsigned)curTime, nRandomState );
+	for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+	{
+		CAIUnit *pUnit = *iter;
+		const CVec2 vCenter = pUnit->GetCenter();
+		const CVec2 vSpeed = pUnit->GetSpeed();
+		IUnitState *pState = pUnit->GetState();
+		CAICommand *pCmd = pUnit->GetCurCmd();
+		IUnitAttackingState *pAttacking = dynamic_cast<IUnitAttackingState*>( pState );
+		CAIUnit *pTarget = pAttacking != 0 ? pAttacking->GetTargetUnit() : 0;
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d unit %d player %d at %a %a z %a dir %u speed %a %a hp %a morale %a state %d cmd %d target %d formation %d\n",
+			nSegment, pUnit->GetUniqueId(), int( pUnit->GetPlayer() ), vCenter.x, vCenter.y, pUnit->GetZ(), unsigned( pUnit->GetFrontDir() ), vSpeed.x, vSpeed.y,
+			pUnit->GetHitPoints(), pUnit->GetMorale(), pState != 0 ? int( pState->GetName() ) : -1, pCmd != 0 ? int( pCmd->ToUnitCmd().cmdType ) : -1,
+			pTarget != 0 ? pTarget->GetUniqueId() : 0, pUnit->GetFormation() != 0 ? pUnit->GetFormation()->GetUniqueId() : 0 );
+		if ( CFormation *pFormation = pUnit->GetFormation() )
+		{
+			IUnitState *pFormationState = pFormation->GetState();
+			CAICommand *pFormationCmd = pFormation->GetCurCmd();
+			fprintf( stderr, "BK_STATE_HASH_DETAIL: %d formation %d of unit %d at %a %a state %d cmd %d\n",
+				nSegment, pFormation->GetUniqueId(), pUnit->GetUniqueId(), pFormation->GetCenter().x, pFormation->GetCenter().y,
+				pFormationState != 0 ? int( pFormationState->GetName() ) : -1, pFormationCmd != 0 ? int( pFormationCmd->ToUnitCmd().cmdType ) : -1 );
+		}
+	}
+	uLong shells = crc32( 0L, Z_NULL, 0 );
+	theShellsStore.UpdateCheckSum( &shells );
+	fprintf( stderr, "BK_STATE_HASH_DETAIL: %d shells %08x\n", nSegment, (unsigned int)shells );
+	scripts.TraceStateHashDetail( nSegment );
+	theSupremeBeing.TraceStateHashDetail( nSegment );
 }
 int CAILogic::GetChosenDifficultyLevel() const
 {

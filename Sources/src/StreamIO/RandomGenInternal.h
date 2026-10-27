@@ -58,6 +58,7 @@ public:
 	virtual void STDCALL EnterSimulation() { }
 	virtual void STDCALL LeaveSimulation() { }
 	virtual void STDCALL ArmAudit( const bool bArm ) { }
+	virtual void STDCALL SetTraceSegment( const int nSegment ) { }
 
 	unsigned _int32 Get( unsigned _int32 nMax ) { return Get() % ( nMax + 1 ); }
 	unsigned _int32 Get( unsigned _int32 nMin, unsigned _int32 nMax )	{ return Get( nMax - nMin ) + nMin; }

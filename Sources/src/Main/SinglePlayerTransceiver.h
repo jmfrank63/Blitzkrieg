@@ -16,6 +16,7 @@ class CSinglePlayerTransceiver : public CTRefCount<ITransceiver>
 
 	// Runs a command now, inside the simulation's bracket, and records it at this segment.
 	void RecordAndExecute( interface IAILogicCommand *pCommand );
+	void TraceDenseStateHash();
 public:
 	virtual void STDCALL Init( ISingleton *pSingleton, const int nMultiplayerType );
 	virtual void STDCALL Done() { }

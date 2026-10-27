@@ -225,6 +225,13 @@ bool CResistancesContainer::IsInResistanceCircle( const CVec2 &vCenter ) const
 
 	return iter != excluded.end();
 }
+void CResistancesContainer::TraceStateHashDetail( const int nSegment, const int nParty )
+{
+	for ( CResistance::iterator it = resistances.begin(); it != resistances.end(); ++it )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d general %d resistance %d weight %.2f\n", nSegment, nParty, it->GetCellNumber(), it->GetWeight() );
+	for ( CCellsWeights::iterator it = cellsWeights.begin(); it != cellsWeights.end(); ++it )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d general %d cell %d weight %a in use %d shoot %d\n", nSegment, nParty, it->first, it->second.fCellWeight, int( it->second.bInUse ), int( it->second.bAllowShoot ) );
+}
 int CResistancesContainer::operator&( IStructureSaver &ss )
 { 
 	CSaverAccessor saver = &ss; 
