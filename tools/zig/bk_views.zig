@@ -3336,9 +3336,11 @@ fn shapeCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []
         const pictures_dir = try std.fs.path.join(arena, &.{ out, label });
         try std.Io.Dir.cwd().createDirPath(ctx.io, pictures_dir);
         const scene = try loadScene(ctx, found, found.index, null, true);
-        // The authored or fitted blocks, without the low parts side adds.
-        const blocks = scene.body;
-        const refined = try refineBlocks(arena, blocks, scene.outlines, scene.eyes);
+        // The authored or fitted blocks and the authored roof parts,
+        // without the low parts side adds.
+        const blocks = try std.mem.concat(arena, Block, &.{ scene.body, scene.roof });
+        // The fit refines at most max_blocks: the body alone.
+        const refined = try refineBlocks(arena, scene.body, scene.outlines, scene.eyes);
         try w.print("{s}\n{{\"variant\":\"{s}\",\"hand\":{},\"pictures\":[", .{ if (v > 0) "," else "", label, scene.hand != null });
         for (scene.sources, scene.eyes, scene.outlines, 0..) |source, eye, outline, e| {
             const name = std.fs.path.basename(source.dir);

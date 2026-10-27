@@ -601,9 +601,9 @@ test "a back roof copied from the front leaves the front's chimney out, and a co
     const arena = arena_state.allocator();
     // A gabled house and a chimney on its front roof plane (towards -y),
     // which the 2003 eye sees and its half turn does not.
-    const house: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 4 * views.tile_size, 3 * views.tile_size }, .wall = 30, .ridge = 60, .roof = .gable_x };
+    const gabled: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 4 * views.tile_size, 3 * views.tile_size }, .wall = 30, .ridge = 60, .roof = .gable_x };
     const chimney: views.Block = .{ .lo = .{ 25, 8 }, .hi = .{ 37, 20 }, .wall = 75, .ridge = 75 };
-    const blocks = [_]views.Block{ house, chimney };
+    const blocks = [_]views.Block{ gabled, chimney };
     const eye: views.Eye = .{ .anchor = .{ 130, 170 } };
     const picture = try blocksPicture(arena, eye, &blocks);
     const back: views.Eye = .{ .anchor = .{ 130, 170 }, .turn = 2 };
