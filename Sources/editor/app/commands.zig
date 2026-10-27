@@ -127,6 +127,7 @@ pub const command_table = [_]Entry{
     .{ .name = "camera_neutral", .handler = cameraNeutral },
     .{ .name = "camera_clear", .handler = cameraClear },
     .{ .name = "camera_goto", .handler = cameraGoto },
+    .{ .name = "camera_at", .handler = cameraAt },
     .{ .name = "map_new", .handler = mapNew },
     .{ .name = "brush_size", .handler = brushSize },
     .{ .name = "map_update", .handler = mapUpdate },
@@ -472,6 +473,18 @@ fn cameraClear(state: *State, arg: []const u8) Outcome {
 fn cameraGoto(state: *State, arg: []const u8) Outcome {
     const slot = parseSlot(arg) orelse return .bad_arg;
     return gotoAnchor(state, slot);
+}
+
+/// `do=camera_at:<x>:<y>`: the view centred on the world point (x, y), as a
+/// camera anchor's Go to centres it - a scripted look at one object (M006
+/// S06's capture of the sides the editor draws).
+fn cameraAt(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const x = std.fmt.parseFloat(f32, arg[0..colon]) catch return .bad_arg;
+    const y = std.fmt.parseFloat(f32, arg[colon + 1 ..]) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    state.view.centreOn(state.real, x, y);
+    return .ok;
 }
 
 // ---------------------------------------------------------------------------

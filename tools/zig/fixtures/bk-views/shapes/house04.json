@@ -1,0 +1,6 @@
+{
+  "house04": [
+    {"lo": [-92, 5], "hi": [-21, 75], "wall": 35, "ridge": 67, "roof": "gable_y"},
+    {"lo": [-21, 4], "hi": [-2, 41], "wall": 20, "ridge": 30, "roof": "gable_x"}
+  ]
+}

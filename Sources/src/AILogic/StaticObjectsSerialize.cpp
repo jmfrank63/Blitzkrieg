@@ -38,6 +38,10 @@ int CGivenPassabilityStObject::operator&( IStructureSaver &ss )
 	saver.Add( 6, &bPartially );
 	saver.Add( 7, &bTransparencySet );
 	saver.Add( 8, &canSetTransparency );
+	// Remastered (NStatsTurn): written only when not 0, so a 2003 object is
+	// saved as before.
+	if ( saver.IsReading() || wMapDirection != 0 )
+		saver.Add( 9, &wMapDirection );
 
 	return 0;
 }
@@ -56,6 +60,13 @@ int CSimpleStaticObject::operator&( IStructureSaver &ss )
 
 	saver.AddTypedSuper( 1, static_cast<CCommonStaticObject*>(this) );
 	saver.Add( 2, &pStats );
+	// A prop standing turned (NStatsTurn) writes the database's stats by name
+	// and its turn, and turns them again when it is read.
+	int nStandingTurn = NStatsTurn::TurnOfStats( pStats );
+	if ( saver.IsReading() || nStandingTurn != 0 )
+		saver.Add( 5, &nStandingTurn );
+	if ( saver.IsReading() && nStandingTurn != 0 )
+		pStats = NStatsTurn::Turned( dynamic_cast<const SObjectBaseRPGStats*>( pStats.GetPtr() ), nStandingTurn );
 	saver.Add( 3, &nPlayer );
 	saver.Add( 4, &bDelayedUpdate );
 	return 0;
@@ -66,6 +77,13 @@ int CBuilding::operator&( IStructureSaver &ss )
 
 	saver.AddTypedSuper( 1, static_cast<CGivenPassabilityStObject*>(this) ); 
 	saver.Add( 2, &pStats );
+	// A building standing turned (NStatsTurn) writes the database's stats by
+	// name and its turn, and turns them again when it is read.
+	int nStandingTurn = NStatsTurn::TurnOfStats( pStats );
+	if ( saver.IsReading() || nStandingTurn != 0 )
+		saver.Add( 41, &nStandingTurn );
+	if ( saver.IsReading() && nStandingTurn != 0 )
+		pStats = static_cast<const SBuildingRPGStats*>( NStatsTurn::Turned( pStats, nStandingTurn ) );
 	saver.Add( 6, &medical );
 	saver.Add( 7, &fire );
 	saver.Add( 8, &rest );

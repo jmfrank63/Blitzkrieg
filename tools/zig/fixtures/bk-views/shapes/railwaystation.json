@@ -1,0 +1,6 @@
+{
+  "railwaystation": [
+    {"lo": [-256, 5], "hi": [-66, 100], "wall": 31, "ridge": 76, "roof": "gable_x"},
+    {"lo": [-70, 1], "hi": [-4, 115], "wall": 75, "ridge": 120, "roof": "gable_y"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "e_jettybuilding_1": [
+    {"lo": [-142, -20], "hi": [-21, 77], "wall": 52, "ridge": 112, "roof": "gable_x"},
+    {"lo": [-219, -11], "hi": [-134, 64], "wall": 42, "ridge": 102, "roof": "gable_y"},
+    {"lo": [-134, 5], "hi": [-104, 34], "wall": 144, "ridge": 184, "roof": "hip"},
+    {"lo": [-102, -24], "hi": [-60, 10], "wall": 52, "ridge": 100, "roof": "gable_y"}
+  ]
+}

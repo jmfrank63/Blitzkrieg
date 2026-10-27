@@ -1,0 +1,10 @@
+{
+  "e_ctownhouse04_1": [
+    {"lo": [-140, -16], "hi": [11, 60], "wall": 104, "ridge": 154, "roof": "gable_x"},
+    {"lo": [-40, 43], "hi": [34, 110], "wall": 110, "ridge": 170, "roof": "gable_x"}
+  ],
+  "e_ctownhouse04_1_2": [
+    {"lo": [-140, -16], "hi": [11, 60], "wall": 104, "ridge": 154, "roof": "gable_x"},
+    {"lo": [-40, 43], "hi": [34, 110], "wall": 110, "ridge": 170, "roof": "gable_x"}
+  ]
+}

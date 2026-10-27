@@ -2,6 +2,7 @@
 #define __SPRITEVISOBJ_H__
 #pragma ONCE
 #include "ObjVisObj.h"
+#include "../Main/CameraTurn.h"
 inline DWORD SetOpacity( DWORD original, BYTE opacity ) { return ( DWORD( opacity ) << 24 )  | (original & 0x00ffffff); }
 inline DWORD SetColor( DWORD original, DWORD color ) { return ( color & 0x00ffffff ) | ( original & 0xff000000 ); }
 class CSpriteVisObj : public CTObjVisObj< CTRefCount<ISpriteVisObj> >
@@ -15,6 +16,7 @@ class CSpriteVisObj : public CTObjVisObj< CTRefCount<ISpriteVisObj> >
 	SSpriteInfo info;											// temp sprite info
 	SComplexSpriteInfo info2;							// temp complex sprite info
 	bool bComplexSprite;
+	int nViewTurn;												// the camera step its facing is drawn for (not saved)
 	virtual void RepositionIcons();
 	void RepositionIconsLocal( DWORD placement );
 	void RetrieveSpriteInfo();
@@ -27,7 +29,7 @@ public:
 	virtual void STDCALL SetDirection( const int _nDirection )
 	{
 		SetDir( _nDirection );
-		pAnim->SetDirection( GetDir() );
+		pAnim->SetDirection( NCameraTurn::ViewDirection( GetDir(), nViewTurn ) );
 	}
 	virtual void STDCALL SetPosition( const CVec3 &_pos ) { SetPos( _pos ); info.pos = _pos; }
 	virtual void STDCALL SetPlacement( const CVec3 &pos, const int nDir ) { SetPosition( pos ); SetDirection( nDir ); }
@@ -57,5 +59,10 @@ public:
 	virtual void STDCALL Visit( ISceneVisitor *pVisitor, int nType = -1 );
 	virtual const SSpriteInfo* STDCALL GetSpriteInfo() const { return &info; }
 	virtual IGFXTexture* STDCALL GetTexture() const { return pTexture; }
+	virtual void STDCALL SetScreenTurn( const int nFlatTurn, const bool bMirror )
+	{
+		info.nFlatTurn = info2.nFlatTurn = BYTE( nFlatTurn & 3 );
+		info.bMirror = info2.bMirror = bMirror;
+	}
 };
 #endif // __SPRITEVISOBJ_H__

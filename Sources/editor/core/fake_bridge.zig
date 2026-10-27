@@ -1302,6 +1302,7 @@ pub const FakeBridge = struct {
         .setLayerShow = setLayerShow,
         .setFireRangeMode = setFireRangeMode,
         .snapToGrid = snapToGrid,
+        .turnStep = turnStep,
         .vsoDescriptors = vsoDescriptors,
         .vsoCount = vsoCount,
         .readVso = readVso,
@@ -2071,6 +2072,16 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         out_x.* = x;
         out_y.* = y;
+        return .ok;
+    }
+
+    /// BkEditorTurnStep (M006 S06): the fake's database has one kind that
+    /// shows the side it faces, buildings named `Building_*`; the rest turn
+    /// by sixteenths, as the real bridge's units and props do.
+    fn turnStep(ptr: *anyopaque, name: [*:0]const u8, out_step: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        out_step.* = if (std.mem.startsWith(u8, std.mem.span(name), "Building_")) 16384 else 4096;
         return .ok;
     }
 

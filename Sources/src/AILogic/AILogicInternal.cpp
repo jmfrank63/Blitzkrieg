@@ -52,6 +52,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "Trigonometry.h"
 #include "GridCreation.h"
 #include "Bridge.h"
+#include "Building.h"
 #include "Artillery.h"
 #include "Technics.h"
 #include "Formation.h"
@@ -319,6 +320,9 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 					NStr::DebugTrace( "Building object \"%s\" has invalid RPG stats\n", object.szName.c_str() );
 					NI_ASSERT_TF( false, "building object has invalid RPG stats", break );
 				}
+				// Remastered and the Map Editor: a building whose map Direction
+				// turns its picture stands turned with it (NStatsTurn).
+				pStats = static_cast<const SBuildingRPGStats*>( NStatsTurn::Turned( pStats, NStatsTurn::TurnOf( pDesc, object.nDir ) ) );
 
 				switch ( pStats->eType )
 				{
@@ -335,6 +339,10 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 						scripts.AddObjToScriptGroup( pResult, object.nScriptID );
 						break;
 				}
+				// The camera turn (Remastered) draws a building's side by its map
+				// Direction; the 2003 game dropped it (0 in every shipped map).
+				if ( CBuilding *pBuilding = dynamic_cast<CBuilding*>( pResult ) )
+					pBuilding->SetMapDirection( object.nDir );
 			}
 			break;
 		}
@@ -437,9 +445,19 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 				CGDBPtr<SObjectBaseRPGStats> pObjDesc = static_cast<const SObjectBaseRPGStats*>( pPassedStats );
 				if ( pObjDesc == 0 )
 					pObjDesc = static_cast<const SObjectBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
+				// A prop of four sides stands turned by its map Direction, as a
+				// building does (Remastered and the Map Editor).
+				pObjDesc = NStatsTurn::Turned( pObjDesc, NStatsTurn::TurnOf( pDesc, object.nDir ) );
 
 				pResult = theStatObjs.AddNewStaticObject( pObjDesc, object.fHP, nDBIndex, CVec2(object.vPos.x, object.vPos.y), object.nFrameIndex, bInitialization );
 				scripts.AddObjToScriptGroup( pResult, object.nScriptID );
+				// The AI keeps a prop's map Direction for the client, which draws a
+				// prop of four sides' side by it; the 2003 AI dropped it.
+				if ( pDesc->eGameType == SGVOGT_OBJECT )
+				{
+					if ( CGivenPassabilityStObject *pObject = dynamic_cast<CGivenPassabilityStObject*>( pResult ) )
+						pObject->SetMapDirection( object.nDir );
+				}
 			}
 
 			break;
@@ -1161,6 +1179,30 @@ void CAILogic::Segment()
 		{
 			nextCheckSumTime = curTime + periodToCheckSum;
 			UpdateCheckSum( true );
+		}
+		// BK_AI_STATE_TRACE: the net game's checksum terms of every unit (centre,
+		// direction, HP, morale) once a second of game time, so a harness can hold
+		// two plays of one replay against each other: nothing a client only shows,
+		// such as the Remastered camera step, may change them.
+		static const bool bStateTrace = getenv( "BK_AI_STATE_TRACE" ) != 0;
+		if ( bStateTrace && curTime % 1000 < SConsts::AI_SEGMENT_DURATION )
+		{
+			uLong nState = crc32( 0L, Z_NULL, 0 );
+			int nUnits = 0;
+			for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+			{
+				CAIUnit *pUnit = *iter;
+				const CVec2 vCenter = pUnit->GetCenter();
+				const WORD wDir = pUnit->GetFrontDir();
+				const float fHP = pUnit->GetHitPoints();
+				const float fMorale = pUnit->GetMorale();
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &vCenter ), sizeof( vCenter ) );
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &wDir ), sizeof( wDir ) );
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &fHP ), sizeof( fHP ) );
+				nState = crc32( nState, reinterpret_cast<const Bytef*>( &fMorale ), sizeof( fMorale ) );
+				++nUnits;
+			}
+			fprintf( stderr, "BK_AI_STATE_TRACE: %u ms units=%d state=%08lx\n", unsigned( curTime ), nUnits, (unsigned long)nState );
 		}
 		bFirstTime = false;
 

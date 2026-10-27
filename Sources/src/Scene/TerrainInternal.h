@@ -6,6 +6,31 @@
 #include "TerrainWater.h"
 #include "TerrainRoad.h"
 #include "TerrainBuilder.h"
+// The screen step of one tile along the map's columns (j, world +x) and rows
+// (i, world -y) while the Remastered camera is turned (NCameraTurn): the 2003
+// builders lay tiles out with the fixed offsets of the 45 degree view, which a
+// quarter turn permutes. bTurned false keeps those offsets exactly. Set by
+// CTerrain::MovePatches, MoveWarFog and DrawMarker from the view, read by the
+// MAKE_COORD macros of MeshBuilders.cpp.
+//
+// nMaps: the corner of a tile's picture (the tileset's maps: top, right, left,
+// bottom of the 45 degree diamond) each tile corner (column, row) (0, 0),
+// (1, 0), (0, 1), (1, 1) shows. A picture holds twice the detail along the
+// screen's x as along its y, so at an odd step, where the ground's two
+// diagonals trade places on the screen, the picture goes with the screen
+// (its top to the tile's top corner) instead of with the ground, which
+// stretched it 2:1 the other way. The crosset's masks, the shapes of field
+// edges, go with the ground.
+struct SGroundTurn
+{
+	bool bTurned;
+	float fColX, fColY, fRowX, fRowY;
+	int nMaps[4];
+};
+extern SGroundTurn groundTurn;
+// Sets groundTurn from the view's transform, given the map's corner vO and
+// where it lands on the screen, vScreenO.
+void UpdateGroundTurn( const SHMatrix &matTransform, const CVec3 &vO, const CVec3 &vScreenO );
 struct STerrainPatch
 {
 #ifdef _USE_HWTL	

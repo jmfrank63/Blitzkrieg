@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "IconHPBar.h"
+#include "../Main/CameraTurn.h"
 // BK_COLOR_TRACE: every write to an HP bar's colors, and the restored state,
 // to pin down where a passenger bar's fill color comes from after a load.
 static bool ColorTraceOn()
@@ -143,8 +144,9 @@ void CIconHPBar::SetLength( float _fPercentage )
 }
 void CIconHPBar::Reposition( const CVec3 &vParentPos ) 
 { 
-	infoMain.pos = vParentPos + vPos; 
-	infoBar.pos = vParentPos + vPos; 
+	const CVec3 vTurned = vParentPos + NCameraTurn::ViewOffset( vPos, NCameraTurn::Step() ); // see CIconBar::Reposition
+	infoMain.pos = vTurned;
+	infoBar.pos = vTurned;
 }
 bool CIconHPBar::Draw( IGFX *pGFX )
 {

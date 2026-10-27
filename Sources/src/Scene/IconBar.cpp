@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "IconBar.h"
+#include "../Main/CameraTurn.h"
 CIconBar::CIconBar() 
 : vSize( 20, 5 ), vPos( 0, 0, 20 ), fPercentage( 1 ), bEnable( true ), bHorizontal( true )
 { 
@@ -56,4 +57,10 @@ void CIconBar::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	if ( bEnable )
 		pVisitor->VisitSprite( &info, SGVOGT_ICON, 0 );
+}
+// An icon keeps its place beside its object on the screen at every camera
+// step (Remastered): its offset is laid out along the 2003 view's axes.
+void CIconBar::Reposition( const CVec3 &vParentPos )
+{
+	info.pos = vParentPos + NCameraTurn::ViewOffset( vPos, NCameraTurn::Step() );
 }

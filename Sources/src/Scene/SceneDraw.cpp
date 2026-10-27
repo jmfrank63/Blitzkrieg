@@ -15,6 +15,7 @@
 #include "../Platform/Clock.h"
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
+#include "../Main/CameraTurn.h"
 #define MESH_SHADOW_DENSITY 0.5f
 // The terra-object shadow pass (effect 111) draws pre-baked shadow sprites
 // whose alpha carries per-texel detail (frond gaps, dither). At a fractional
@@ -270,14 +271,19 @@ void CScene::Draw( ICamera *pCamera )
 	// changes made outside that path (resolution+zoom combinations, future
 	// wheel/script zoom), so stale meshes cannot survive either way.
 	const float fPlayerZoom = NSceneScreenScale::GetPlayerZoom( rcGameplayScreen );
+	// A camera turn (NCameraTurn) lays the terrain's patches out anew as well.
+	static int nLastCameraTurn = 0;
+	const int nCameraTurn = NCameraTurn::Step();
 	if ( pTerrain && ( nLastGameplayScreenWidth != rcScreenRect.Width() || nLastGameplayScreenHeight != rcScreenRect.Height() ||
-		                 bLastScaleGameplayProjection != bScaleGameplayProjection || fabsf( fPlayerZoom - fLastPlayerZoom ) > 0.001f ) )
+		                 bLastScaleGameplayProjection != bScaleGameplayProjection || fabsf( fPlayerZoom - fLastPlayerZoom ) > 0.001f ||
+		                 nLastCameraTurn != nCameraTurn ) )
 	{
 		pTerrain->ResetPosition();
 		nLastGameplayScreenWidth = rcScreenRect.Width();
 		nLastGameplayScreenHeight = rcScreenRect.Height();
 		bLastScaleGameplayProjection = bScaleGameplayProjection;
 		fLastPlayerZoom = fPlayerZoom;
+		nLastCameraTurn = nCameraTurn;
 	}
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
@@ -286,8 +292,19 @@ void CScene::Draw( ICamera *pCamera )
 	matTransform.RotateHVector( &vecZ1, CVec3(0, 0, 0) );
 	matTransform.RotateHVector( &vecZ2, CVec3(0, 0, 2.0f/FP_SQRT_3) );
 	fZBias = vecZ2.z - vecZ1.z;
-	matTransform.RotateHVector( &vecZ2, CVec3(-FP_SQRT_2, FP_SQRT_2, 0) );
+	// The ground step that goes up the screen, turned with the camera: a
+	// sprite's depth offsets are measured along it.
+	CVec3 vScreenUp( -FP_SQRT_2, FP_SQRT_2, 0 );
+	if ( nCameraTurn != 0 )
+		vScreenUp = CQuat( NCameraTurn::YawOffset( nCameraTurn ), V3_AXIS_Z ).Rotate( vScreenUp );
+	matTransform.RotateHVector( &vecZ2, vScreenUp );
 	fZBias2 = vecZ2.z - vecZ1.z;
+	// The sun turns with the camera as well (Remastered): a mesh is lit and casts
+	// its shadow to the same side of the screen at every step, as the 2003
+	// pictures of infantry, trees and props and M005's turned sides are.
+	SGFXLightDirectional sun = sunlight;
+	if ( nCameraTurn != 0 )
+		sun.vDir = CQuat( NCameraTurn::YawOffset( nCameraTurn ), V3_AXIS_Z ).Rotate( sunlight.vDir );
 	if ( bEnableDepthComplexity )
 		pGFX->SetShadingEffect( 300 );
 	if ( bEnableTerrain && pTerrain )
@@ -405,8 +422,8 @@ void CScene::Draw( ICamera *pCamera )
 				pGFX->SetShadingEffect( 112 );
 				SHMatrix matShadow;
 				Identity( &matShadow );
-				matShadow._13 = -sunlight.vDir.x / sunlight.vDir.z;
-				matShadow._23 = -sunlight.vDir.y / sunlight.vDir.z;
+				matShadow._13 = -sun.vDir.x / sun.vDir.z;
+				matShadow._23 = -sun.vDir.y / sun.vDir.z;
 				matShadow._33 = 0;
 				pGFX->EnableSpecular( false );
 				pGFX->EnableLighting( true );
@@ -420,7 +437,7 @@ void CScene::Draw( ICamera *pCamera )
 				{
 					CVisObjDescMap::const_iterator pos = objdescs.find( *it );
 					if ( (pos->second.gametype != SGVOGT_ENTRENCHMENT) && (pos->second.gametype != SGVOGT_TANK_PIT) )
-						(*it)->DrawShadow( pGFX, 0, sunlight.vDir );
+						(*it)->DrawShadow( pGFX, 0, sun.vDir );
 				}
 				pGFX->EnableLighting( false );
 			}
@@ -437,7 +454,7 @@ void CScene::Draw( ICamera *pCamera )
 			DrawSprites( pDrawVisitor->spriteUnits );
 			RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 		}
-		DrawMeshes( pDrawVisitor->meshes, pGFX, bEnableBBs, sunlight );
+		DrawMeshes( pDrawVisitor->meshes, pGFX, bEnableBBs, sun );
 	}
 	if ( bEnableObjects )
 	{
@@ -481,8 +498,8 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetShadingEffect( 112 );
 			SHMatrix matShadow;
 			Identity( &matShadow );
-			matShadow._13 = -sunlight.vDir.x / sunlight.vDir.z;
-			matShadow._23 = -sunlight.vDir.y / sunlight.vDir.z;
+			matShadow._13 = -sun.vDir.x / sun.vDir.z;
+			matShadow._23 = -sun.vDir.y / sun.vDir.z;
 			matShadow._33 = 0;
 			pGFX->EnableSpecular( false );
 			pGFX->EnableLighting( true );
@@ -493,7 +510,7 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetMaterial( material );
 			pGFX->SetTexture( 0, 0 );
 			for ( CMeshVisList::iterator it = pDrawVisitor->aviation.begin(); it != pDrawVisitor->aviation.end(); ++it )
-				(*it)->DrawShadow( pGFX, &matShadow, sunlight.vDir );
+				(*it)->DrawShadow( pGFX, &matShadow, sun.vDir );
 			pGFX->EnableLighting( false );
 		}
 		pGFX->SetShadingEffect( 113 );
@@ -625,7 +642,7 @@ void CScene::Draw( ICamera *pCamera )
 	if ( bEnableWarFog && pTerrain )
 		pTerrain->DrawWarFog();
 	if ( bEnableUnits )
-		DrawMeshesChecked( pDrawVisitor->aviation, pGFX, bEnableBBs, sunlight, &(vViewVolumePlanes[0]) );
+		DrawMeshesChecked( pDrawVisitor->aviation, pGFX, bEnableBBs, sun, &(vViewVolumePlanes[0]) );
 	if ( bScaleGameplayProjection )
 		pGFX->SetProjectionTransform( matScreenProjection );
 	pGFX->SetupDirectTransform();
@@ -896,6 +913,62 @@ inline const DWORD CheckForRect( const CTRect<float> &rect, const float x, const
 {
 	return GetFlags( rect.x1, rect.y1, rect.x2, rect.y2, x, y );
 }
+// The Remastered camera turn (SBasicSpriteInfo's bMirror and nFlatTurn)
+// moves a square's four vertices, set up as the 2003 view draws them (0 and 1
+// on the left, 2 and 3 on the right). Mirrored about the zero cross's column
+// (as bk-views mirrors a 2003 picture), the left and right vertices trade
+// places, so the square keeps its winding and each vertex its depth; then the
+// corners turn as flat ground about the zero cross. Along an axis the turn
+// reverses (a mirror, a half turn) point sampling picks the texel one further
+// along the square for every pixel, which leaves a foreign column at one edge
+// and drops one at the other: the mapping goes back one texel there (twice the
+// half-texel shift; measured on a mirrored bench, pixel for pixel the 2003
+// picture mirrored). At an odd step, where the square is stretched 2:1, the
+// mapping is pulled half a texel inside the square instead.
+inline void TurnSquare( SSpriteVertex *pVertices, const SBasicSpriteInfo *pInfo, const float fScrDiff,
+												const float fTexDiffX, const float fTexDiffY )
+{
+	bool bReverseX = false, bReverseY = false;
+	if ( pInfo->bMirror )
+	{
+		std::swap( pVertices[0], pVertices[2] );
+		std::swap( pVertices[1], pVertices[3] );
+		for ( int i = 0; i < 4; ++i )
+			pVertices[i].x = 2.0f * ( pInfo->relpos.x + fScrDiff ) + 1.0f - pVertices[i].x;
+		bReverseX = true;
+	}
+	for ( int i = 0; i < 4 && pInfo->nFlatTurn != 0; ++i )
+	{
+		float fX = pVertices[i].x - fScrDiff - pInfo->relpos.x - 0.5f;
+		float fY = pVertices[i].y - fScrDiff - pInfo->relpos.y - 0.5f;
+		pInfo->TurnOffset( &fX, &fY );
+		pVertices[i].x = pInfo->relpos.x + 0.5f + fX + fScrDiff;
+		pVertices[i].y = pInfo->relpos.y + 0.5f + fY + fScrDiff;
+	}
+	if ( pInfo->nFlatTurn == 2 )
+	{
+		bReverseX = !bReverseX;
+		bReverseY = true;
+	}
+	if ( ( pInfo->nFlatTurn & 1 ) == 0 )
+	{
+		for ( int i = 0; i < 4; ++i )
+		{
+			if ( bReverseX )
+				pVertices[i].tu += 2.0f * fTexDiffX;
+			if ( bReverseY )
+				pVertices[i].tv += 2.0f * fTexDiffY;
+		}
+		return;
+	}
+	const float fMinU = Min( pVertices[0].tu, pVertices[2].tu ), fMaxU = Max( pVertices[0].tu, pVertices[2].tu );
+	const float fMinV = Min( pVertices[0].tv, pVertices[1].tv ), fMaxV = Max( pVertices[0].tv, pVertices[1].tv );
+	for ( int i = 0; i < 4; ++i )
+	{
+		pVertices[i].tu = pVertices[i].tu == fMinU ? fMinU - 2.0f * fTexDiffX : fMaxU;
+		pVertices[i].tv = pVertices[i].tv == fMinV ? fMinV - 2.0f * fTexDiffY : fMaxV;
+	}
+}
 template <class TDepthCalculator>
 int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
@@ -906,7 +979,7 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	const float fX2 = MINT( pInfo->relpos.x + ( square.vLeftTop.x + square.fSize ) * fSpriteScale ) + fScrDiff;
 	const float fY1 = MINT( pInfo->relpos.y + square.vLeftTop.y * fSpriteScale ) + fScrDiff;
 	const float fY2 = MINT( pInfo->relpos.y + ( square.vLeftTop.y + square.fSize ) * fSpriteScale ) + fScrDiff;
-	if ( pInfo->dwCheckFlags & 1 ) 
+	if ( (pInfo->dwCheckFlags & 1) && !pInfo->bMirror && pInfo->nFlatTurn == 0 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
 		const DWORD dwPoint2 = CheckForRect( rcScreen, fX1, fY1 );
@@ -936,6 +1009,8 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	++pVertices;
 	pVertices->Setup( fX2, fY1, fZ4, 1, pInfo->color, pInfo->specular, fMapX2, fMapY1 );
 	++pVertices;
+	if ( pInfo->bMirror || pInfo->nFlatTurn != 0 )
+		TurnSquare( pVertices - 4, pInfo, fScrDiff, fTexDiffX, fTexDiffY );
 	WORD *pIndices = Resize2Fit( drawindices, 6 );
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 1;
@@ -955,7 +1030,7 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	const float fX2 = MINT( pInfo->relpos.x + pInfo->rect.x2 * fSpriteScale ) + fScrDiff;
 	const float fY1 = MINT( pInfo->relpos.y + pInfo->rect.y1 * fSpriteScale ) + fScrDiff;
 	const float fY2 = MINT( pInfo->relpos.y + pInfo->rect.y2 * fSpriteScale ) + fScrDiff;
-	if ( pInfo->dwCheckFlags & 1 ) 
+	if ( (pInfo->dwCheckFlags & 1) && !pInfo->bMirror && pInfo->nFlatTurn == 0 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
 		const DWORD dwPoint2 = CheckForRect( rcScreen, fX1, fY1 );
@@ -983,6 +1058,8 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	++pVertices;
 	pVertices->Setup( fX2, fY1, fZ4, 1, pInfo->color, pInfo->specular, fMapX2, fMapY1 );
 	++pVertices;
+	if ( pInfo->bMirror || pInfo->nFlatTurn != 0 )
+		TurnSquare( pVertices - 4, pInfo, fScrDiff, fTexDiffX, fTexDiffY );
 	WORD *pIndices = Resize2Fit( drawindices, 6 );
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 1;
@@ -1902,6 +1979,23 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		rcL0Rect.maxy = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesY ) );
 	}
 	rcL0Rect.Normalize();
+	if ( NCameraTurn::Step() != 0 )
+	{
+		// Turned, the screen's corners land elsewhere on the ground: every patch
+		// of the square around the anchor that holds the screen at every quarter
+		// turn (the sprites outside the screen are dropped when they are drawn).
+		const float fReach = ( fWidth + fHeight ) / FP_SQRT_2;
+		const int nMinX = int( Clamp( (vCameraO.x - fReach) / fPatchSize, 0.0f, fPatchesX ) );
+		const int nMinY = int( Clamp( (vCameraO.y - fReach) / fPatchSize, 0.0f, fPatchesY ) );
+		const int nMaxX = Clamp( int( Clamp( (vCameraO.x + fReach) / fPatchSize, 0.0f, fPatchesX ) ) + 3, 0, int(fPatchesX) );
+		const int nMaxY = Clamp( int( Clamp( (vCameraO.y + fReach) / fPatchSize, 0.0f, fPatchesY ) ) + 3, 0, int(fPatchesY) );
+		for ( int j = nMinY; j < nMaxY; ++j )
+		{
+			for ( int i = nMinX; i < nMaxX; ++i )
+				pPatches->push_back( std::pair<int, int>( i, j ) );
+		}
+		return;
+	}
 	CTRect<int> rcL1Rect;								// level 1 of roughness rect
 	const CVec3 vTerraOX( 0, 0, 0 );
 	const CVec3 vTerraOY( 0, fPatchesY * fPatchSize, 0 );

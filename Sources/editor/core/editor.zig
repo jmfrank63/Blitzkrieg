@@ -599,6 +599,20 @@ pub const Editor = struct {
         return .{ .x = out_x, .y = out_y };
     }
 
+    /// The step Q and E turn an object of type `name` by (M006 S06): a
+    /// quarter turn for a building or a prop of four sides, which show the
+    /// side they face, so one press is one side; `fallback` (the tools'
+    /// sixteenth) for the rest, and when the bridge cannot say.
+    pub fn turnStep(self: *Editor, name: []const u8, fallback: i32) i32 {
+        var name_z: [bridge_mod.name_capacity:0]u8 = undefined;
+        const len = @min(name.len, bridge_mod.name_capacity);
+        @memcpy(name_z[0..len], name[0..len]);
+        name_z[len] = 0;
+        var step: i32 = fallback;
+        if (self.bridge.turnStep(@ptrCast(&name_z), &step) != .ok) return fallback;
+        return step;
+    }
+
     pub fn addObject(self: *Editor, name: []const u8, x: f32, y: f32, dir: i32, player: i32) EditError!i32 {
         try self.history.reserve(self.allocator);
         try self.document.objects.ensureUnusedCapacity(self.allocator, 1);

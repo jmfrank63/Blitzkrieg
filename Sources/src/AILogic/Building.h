@@ -130,6 +130,7 @@ public:
 	void UpdateOwner( const bool bForce = false );
 
 	virtual const SHPObjectRPGStats* GetStats() const { return pStats; }
+	virtual bool SetStats( const SObjectBaseRPGStats *_pStats ) { pStats = static_cast<const SBuildingRPGStats*>( _pStats ); return true; }
 	virtual void SetHitPoints( const float fNewHP );
 	virtual void TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit );
 	virtual void Die( const float fDamage );

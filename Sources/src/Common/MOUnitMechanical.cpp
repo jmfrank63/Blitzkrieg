@@ -10,6 +10,7 @@
 #include "../Common/World.h"
 #include "../GameTT/iMission.h"
 #include "../Common/Icons.h"
+#include "../Main/CameraTurn.h"
 #include "../AILogic/AILogic.h"
 #include "../Formats/fmtTerrain.h"
 #include "MOProjectile.h"
@@ -413,7 +414,7 @@ void CMOUnitMechanical::AIUpdatePlacement( const SAINotifyPlacement &placement, 
 		// scene uses), so anchor there rather than on the ground position.
 		const CVec3 vPos = pVisObj->GetPosition();
 		if ( ICamera *pCamera = GetSingleton<ICamera>() )
-			pCamera->SetAnchor( CVec3( vPos.x - vPos.z * FP_SQRT_2, vPos.y + vPos.z * FP_SQRT_2, 0 ) );
+			pCamera->SetAnchor( CVec3( vPos.x, vPos.y, 0 ) + NCameraTurn::ViewOffset( CVec3( -vPos.z * FP_SQRT_2, vPos.z * FP_SQRT_2, 0 ), NCameraTurn::Step() ) );
 	}
 	UpdateAttachedEffects( currTime, pScene );
 	IMeshAnimation *pAnim = GetAnim();

@@ -292,13 +292,14 @@ test "parse rejects a duplicate key, bad UTF-8, a BOM, a bad escape and a line w
 
 /// The key prefixes of the tools' tables: the Zig tools' own, `cxx` for what the three C++ tools
 /// share, and `tool` for what every tool does.
-const key_prefixes = [_][]const u8{ "tool", "pak", "image", "table", "video", "cxx", "sprite", "font", "map", "obj2mod" };
+const key_prefixes = [_][]const u8{ "tool", "pak", "image", "views", "table", "video", "cxx", "sprite", "font", "map", "obj2mod" };
 
 /// The sources that ask for a key, as the build sees them.
 const tool_sources = [_][]const u8{
     @embedFile("bk_tool.zig"),
     @embedFile("bk_pak.zig"),
     @embedFile("bk_image.zig"),
+    @embedFile("bk_views.zig"),
     @embedFile("bk_table.zig"),
     @embedFile("bk_table_xml.zig"),
     @embedFile("bk_video.zig"),

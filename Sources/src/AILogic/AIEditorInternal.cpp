@@ -4,6 +4,7 @@
 #include "AILogicInternal.h"
 #include "AIUnit.h"
 #include "StaticObjects.h"
+#include "Building.h"
 #include "Entrenchment.h"
 #include "UnitsIterators2.h"
 #include "UnitsIterators.h"
@@ -155,6 +156,10 @@ bool CAIEditor::TurnObject( IRefCount *pObject, const WORD wDir )
 				pUnit->UpdateDirectionForEditor( GetVectorByDirection( wDir ) );
 		}
 	}
+	// A building or a prop turns by quarter turns where its picture does
+	// (NCameraTurn::StandingTurn): its footprint with it.
+	else if ( dynamic_cast<CBuilding*>( pObject ) != 0 || dynamic_cast<CSimpleStaticObject*>( pObject ) != 0 )
+		static_cast<CGivenPassabilityStObject*>( dynamic_cast<CExistingObject*>( pObject ) )->TurnForEditor( wDir );
 	else if ( CExistingObject *pStObject = dynamic_cast<CExistingObject*>( pObject ) )
 		pStObject->SetNewPlacement( pStObject->GetCenter(), wDir );
 

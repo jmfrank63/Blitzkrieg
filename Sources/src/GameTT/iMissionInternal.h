@@ -215,6 +215,7 @@ private:
 	bool bEnableStatistics;								// enable statistics drawing
 	int nDirection;												// rotation direction
 	CVec3 vLastAnchor;										// last camera anchor for sync
+	int nLoadedCameraTurn;								// the camera step a load read, set when the load finishes (-1: none)
 	int nFPSAveragePeriod;
 	virtual bool OpenCurtains();
 	void BeginSelection( const CVec2 &vPos );
@@ -237,6 +238,7 @@ private:
 	void GetPos3( CVec3 *pPos, const CVec2 &pos );
 	void GetPos3( CVec3 *pPos, float x, float y );
 	void ApplyZoomStep( int nDelta );
+	void TurnCamera( int nDelta );
 	void VisualizeFeedback( const int nFeedBack, const int nParam );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL ProcessMessageLocal( const SGameMessage &msg );

@@ -110,6 +110,10 @@ const tools = [_]Tool{
             &.{ "compose", "desc", "out", "extra" },
             &.{ "compose", "desc", "out", "--modules" },
             &.{ "compose", "desc", "out", "--data", "Data" },
+            &.{ "compose-pack", "a.png", "b.png" },
+            &.{ "compose-pack", "a.png", "b.png", "out" },
+            &.{ "compose-pack", "a.png", "b.png", "out", "--zero", "1" },
+            &.{ "compose-pack", "a.png", "b.png", "out", "--zero", "1,2", "--pass", "01" },
         },
         .failing = &.{ "compose", "missing", "out" },
         // Backslashes on input, and an output folder that is not there yet.
@@ -130,6 +134,50 @@ const tools = [_]Tool{
         .failing = &.{ "offset-romb", "missing.tga" },
         .succeeding = &.{ "offset-romb", "mod\\tile.tga", "--out", "mod\\out\\tile.tga" },
         .setup = setupImage,
+    },
+    .{
+        .name = "bk-views",
+        .path = bk_tools.bk_views,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"decompose"},
+            &.{ "decompose", "house" },
+            &.{ "decompose", "house", "out", "extra" },
+            &.{ "decompose", "house", "--force" },
+            &.{"camera"},
+            &.{ "camera", "house", "--out" },
+            &.{"inventory"},
+            &.{ "inventory", "buildings" },
+            &.{ "inventory", "buildings", "out", "extra" },
+            &.{ "side", "house", "1" },
+            &.{ "side", "house", "1", "out", "work", "extra" },
+            &.{ "side", "house", "1", "out", "--force" },
+            &.{ "side", "house", "0", "out" },
+            &.{ "side", "house", "4", "out" },
+            &.{ "side", "house", "1,x", "out" },
+            &.{ "side", "house", "--force", "out" },
+            &.{"holdout"},
+            &.{ "holdout", "out" },
+            &.{ "holdout", "out", "--force" },
+            &.{ "style", "out", "house" },
+            &.{ "style", "out", "house", "--force" },
+            &.{"report"},
+            &.{ "report", "inventory.json", "gate.json", "work" },
+            &.{ "report", "inventory.json", "gate.json", "work", "out", "extra" },
+            &.{ "report", "inventory.json", "gate.json", "work", "--force" },
+            &.{"contact"},
+            &.{ "contact", "buildings", "generated" },
+            &.{ "contact", "buildings", "generated", "out", "extra" },
+            &.{ "contact", "buildings", "generated", "--force" },
+            &.{"shape"},
+            &.{ "shape", "out" },
+            &.{ "shape", "out", "--force" },
+        },
+        .failing = &.{ "decompose", "missing", "out" },
+        // Backslashes on input, and an output folder that is not there yet.
+        .succeeding = &.{ "decompose", "mod\\house", "mod\\out\\house" },
+        .setup = setupViews,
     },
     .{
         .name = "bk-video",
@@ -174,6 +222,18 @@ fn setupSprite(io: std.Io, dir: std.Io.Dir) !void {
 fn setupImage(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "mod");
     try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/small-tools/offset-romb/tile16.tga", dir, "mod/tile.tga", io, .{});
+}
+
+/// One damage state of a tracked building: its pack, atlas and stats.
+fn setupViews(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod/house");
+    for ([_][]const u8{ "1.san", "1_h.dds", "1.xml" }) |name| {
+        var from_buffer: [128]u8 = undefined;
+        var to_buffer: [64]u8 = undefined;
+        const from = try std.fmt.bufPrint(&from_buffer, "Data/Buildings/europe/summer/e_ctownhouse01_1/{s}", .{name});
+        const to = try std.fmt.bufPrint(&to_buffer, "mod/house/{s}", .{name});
+        try std.Io.Dir.copyFile(std.Io.Dir.cwd(), from, dir, to, io, .{});
+    }
 }
 
 /// An empty movie folder.

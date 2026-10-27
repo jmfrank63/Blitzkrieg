@@ -2082,6 +2082,57 @@ pub fn build(b: *std.Build) void {
     bk_image_test_step.dependOn(&bk_image_tests.step);
     bk_image_test_step.dependOn(bk_tools_test_step);
     if (test_mode == .run) bk_image_test_step.dependOn(&bk_image_tests_run.step);
+    // `bk-views`: the building views pipeline (docs/superpowers/specs/
+    // 2026-10-25-building-views-design.md), std-only Zig built like bk-image.
+    // Its tests read tracked buildings in Data/ and the camera fixture; the
+    // round trip through the engine is bk-views-roundtrip (addBkSprite).
+    const bk_views = b.addExecutable(.{
+        .name = "bk-views",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_views.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_views_step = b.step("bk-views", "Build and install the bk-views building views tool");
+    bk_views_step.dependOn(&b.addInstallArtifact(bk_views, .{}).step);
+    const bk_views_host = b.addExecutable(.{
+        .name = "bk-views",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_views.zig"),
+            .target = portable_host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_views", bk_views_host.getEmittedBin());
+    const bk_views_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_views_test.zig"),
+        .target = portable_host,
+        .optimize = .debug,
+    });
+    bk_views_test_module.addOptions("bk_tools", bk_tools_options);
+    // The quality gate draws 23 sides again with `bk-views holdout`: under a
+    // minute in ReleaseFast, over ten in Debug.
+    const bk_views_fast = b.addExecutable(.{
+        .name = "bk-views-fast",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_views.zig"),
+            .target = portable_host,
+            .optimize = .ReleaseFast,
+        }),
+    });
+    const bk_views_gate_options = b.addOptions();
+    bk_views_gate_options.addOptionPath("bk_views_fast", bk_views_fast.getEmittedBin());
+    bk_views_test_module.addOptions("bk_views_gate", bk_views_gate_options);
+    const bk_views_tests = b.addTest(.{ .root_module = bk_views_test_module });
+    const bk_views_tests_run = b.addRunArtifact(bk_views_tests);
+    bk_views_tests_run.setCwd(b.path("."));
+    // The tests read Data/ and the camera fixture by plain path.
+    bk_views_tests_run.has_side_effects = true;
+    const bk_views_test_step = b.step("test-bk-views", "Run the bk-views decoder, picture, camera, inventory, quarter-turn and side tests, the quality gate (hold-out and style against tools/zig/fixtures/bk-views/gate.json) and the bk-* convention test");
+    bk_views_test_step.dependOn(&bk_views_tests.step);
+    bk_views_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_views_test_step.dependOn(&bk_views_tests_run.step);
     // `bk-video` (D-22): convert_bik_to_ogv.ps1 as a std-only Zig wrapper over
     // ffmpeg/ffprobe on PATH, built and staged like bk-image. Its tests convert
     // tracked Bink movies; the ones that need ffmpeg skip, saying so, without it.
@@ -2124,7 +2175,7 @@ pub fn build(b: *std.Build) void {
 
     // The bk-* tools and their tests ask macOS for the user's languages through CoreFoundation
     // (bk_l10n.OsLocales), so each module that compiles bk_l10n.zig names the framework.
-    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
+    for ([_]*std.Build.Module{ bk_pak.root_module, bk_pak_host.root_module, bk_tools_test_module, bk_tool_tests.root_module, bk_pak_tests.root_module, bk_l10n_tests.root_module, bk_table.root_module, bk_table_host.root_module, bk_table_tests.root_module, bk_image.root_module, bk_image_host.root_module, bk_image_test_module, bk_views.root_module, bk_views_host.root_module, bk_views_fast.root_module, bk_views_test_module, bk_video.root_module, bk_video_host.root_module, bk_video_test_module }) |module| linkOsLocale(module);
 
     // ResourceEditor fixture generator. See
     // tools/zig/resource_editor_fixtures.zig for the design rationale and
@@ -2493,10 +2544,11 @@ pub fn build(b: *std.Build) void {
     bk_tools_tests_run.step.dependOn(bk_map.install);
     bk_tools_tests_run.addFileInput(bk_map.tool.getEmittedBin());
     // bk-sprite, the same way.
-    const bk_sprite = addBkSprite(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    const bk_sprite = addBkSprite(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, randommapgen, bk_views, test_mode);
     bk_tools_options.addOption([]const u8, "bk_sprite", if (target.result.os.tag == .windows) "zig-out/bin/bk-sprite.exe" else "zig-out/bin/bk-sprite");
     bk_tools_tests_run.step.dependOn(bk_sprite.install);
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
+    addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -3134,6 +3186,194 @@ pub fn build(b: *std.Build) void {
     cloud_repair_game_step.dependOn(&cloud_repair_game_tests.step);
     if (test_mode == .run) cloud_repair_game_step.dependOn(&cloud_repair_game_run.step);
 
+    // The generated building views on the real Game (M005 S04,
+    // tools/zig/building_views_game_reads_it.zig): bk-views side writes them
+    // into a scratch mod, side k of both families stands on map k, and each
+    // shot is measured against the sprites. Desktop and GPU, so not part of `test`.
+    const views_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/building_views_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, views_game_module, toolchain);
+    }
+    const views_game_tests = b.addTest(.{ .root_module = views_game_module, .filters = &.{"the Game draws all four sides"} });
+    const views_game_run = b.addRunArtifact(views_game_tests);
+    views_game_run.setCwd(b.path("."));
+    views_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    views_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    views_game_run.has_side_effects = true;
+    views_game_run.step.dependOn(install_game_step);
+    views_game_run.step.dependOn(bk_views_step);
+    views_game_run.step.dependOn(bk_sprite.install);
+    const views_game_step = b.step("building-views-game-reads-it", "Make side 3 of e_ctownhouse01 and, as the Resource Editor's Generate sides does, the other sides of a modder's copy of e_frenchshed01 with bk-views side into a scratch mod, draw all eight sides on the real Game, four maps of two buildings, and measure each shot against the sprites");
+    views_game_step.dependOn(&views_game_tests.step);
+    if (test_mode == .run) views_game_step.dependOn(&views_game_run.step);
+
+    // The Game camera's quarter turns (M006 S01,
+    // tools/zig/camera_turn_game_reads_it.zig): bk-views side writes the turned
+    // sides of two 2003 buildings into a scratch mod at their Data paths, the
+    // Game presses the turn key with Remastered on and off, and each shot is
+    // measured against the sprites and the turned ground. Desktop and GPU, so
+    // not part of `test`.
+    const turn_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, turn_game_module, toolchain);
+    }
+    const turn_game_tests = b.addTest(.{ .root_module = turn_game_module, .filters = &.{ "a quarter turn", "the Game camera turns" } });
+    const turn_game_run = b.addRunArtifact(turn_game_tests);
+    turn_game_run.setCwd(b.path("."));
+    turn_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    turn_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    turn_game_run.has_side_effects = true;
+    turn_game_run.step.dependOn(install_game_step);
+    turn_game_run.step.dependOn(bk_views_step);
+    turn_game_run.step.dependOn(bk_sprite.install);
+    const turn_game_step = b.step("camera-turn-game-reads-it", "Make the turned sides of two 2003 buildings with bk-views side into a scratch mod, press the camera turn key on the real Game with Remastered on and off, and measure each building's side and place and the turned ground in the shots of all four steps");
+    turn_game_step.dependOn(&turn_game_tests.step);
+    if (test_mode == .run) turn_game_step.dependOn(&turn_game_run.step);
+
+    // The rest of the world at every camera step (M006 S03,
+    // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and
+    // road3d, the dessau scene, and objects of each kind on a ring, each shot
+    // measured against the step-0 frame turned. Desktop and GPU, so not part
+    // of `test`.
+    const world_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_world_game_reads_it.zig"),
+        .target = target,
+        // The block and object scores walk every pixel of a dozen shots.
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, world_game_module, toolchain);
+    }
+    const world_game_tests = b.addTest(.{ .root_module = world_game_module, .filters = &.{ "a ring point", "the ground, roads" } });
+    const world_game_run = b.addRunArtifact(world_game_tests);
+    world_game_run.setCwd(b.path("."));
+    world_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    world_game_run.has_side_effects = true;
+    world_game_run.step.dependOn(install_game_step);
+    const world_game_step = b.step("camera-turn-world-game-reads-it", "Press the camera turn key on the real Game with Remastered on over dessau's and road3d's ground, the dessau scene and objects of every kind, and measure each shot against the step-0 frame turned; with it off the key changes nothing");
+    world_game_step.dependOn(&world_game_tests.step);
+    if (test_mode == .run) world_game_step.dependOn(&world_game_run.step);
+
+    // Units at every camera step (M006 S04,
+    // tools/zig/camera_turn_units_game_reads_it.zig): snipers, tanks and guns
+    // on rings, their shadows, and the key with Remastered off. Desktop and
+    // GPU, so not part of `test`.
+    const units_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_units_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, units_game_module, toolchain);
+    }
+    const units_game_tests = b.addTest(.{ .root_module = units_game_module, .filters = &.{ "a quarter turn takes each ring", "units turn with the camera" } });
+    const units_game_run = b.addRunArtifact(units_game_tests);
+    units_game_run.setCwd(b.path("."));
+    units_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    units_game_run.has_side_effects = true;
+    units_game_run.step.dependOn(install_game_step);
+    const units_game_step = b.step("camera-turn-units-game-reads-it", "Press the camera turn key on the real Game with Remastered on over snipers, tanks and guns on rings and measure each unit, its facing and its shadow where the turn puts it; with it off the key changes nothing");
+    units_game_step.dependOn(&units_game_tests.step);
+    if (test_mode == .run) units_game_step.dependOn(&units_game_run.step);
+
+    // The controls at every camera step (M006 S05,
+    // tools/zig/camera_turn_control_game_reads_it.zig): picking, selection,
+    // orders, scrolling, the minimap, the turn's pivot on a hill and draw
+    // order. Desktop and GPU, so not part of `test`.
+    const control_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_control_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, control_game_module, toolchain);
+    }
+    const control_game_tests = b.addTest(.{ .root_module = control_game_module, .filters = &.{ "a ring point and the screen's right", "picking, selection, orders" } });
+    const control_game_run = b.addRunArtifact(control_game_tests);
+    control_game_run.setCwd(b.path("."));
+    control_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    control_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    control_game_run.has_side_effects = true;
+    control_game_run.step.dependOn(install_game_step);
+    control_game_run.step.dependOn(bk_views_step);
+    const control_game_step = b.step("camera-turn-control-game-reads-it", "Press the camera turn keys on the real Game with Remastered on and measure at every step picking, clicking and framing units, an order's target, the arrow key, edge and swipe scrolling, the minimap's picture, frame and click, the turn's pivot on a hill, and draw order against the step-0 shot of the world turned");
+    control_game_step.dependOn(&control_game_tests.step);
+    if (test_mode == .run) control_game_step.dependOn(&control_game_run.step);
+
+    // The camera step in saves, replays and the multiplayer start (M006 S05,
+    // tools/zig/camera_turn_state_game_reads_it.zig). Desktop and GPU, so not
+    // part of `test`.
+    const state_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_state_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, state_game_module, toolchain);
+    }
+    const state_game_tests = b.addTest(.{ .root_module = state_game_module, .filters = &.{"the camera step in saves"} });
+    const state_game_run = b.addRunArtifact(state_game_tests);
+    state_game_run.setCwd(b.path("."));
+    state_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    state_game_run.has_side_effects = true;
+    state_game_run.step.dependOn(install_game_step);
+    const state_game_step = b.step("camera-turn-state-game-reads-it", "Save and load the real Game at a turned camera step and at step 0, record a replay with the view turned and play it at step 0 and turned (the units' state must not change), and check the multiplayer start step's rule on the player's anchor in each corner");
+    state_game_step.dependOn(&state_game_tests.step);
+    if (test_mode == .run) state_game_step.dependOn(&state_game_run.step);
+
+    // The Map Editor turns buildings by the Game's rule (M006 S06,
+    // tools/zig/camera_turn_editor_game_reads_it.zig): the installed editor
+    // turns two town houses, a shed and a bench with Q and E and saves the
+    // map; the Game draws them at every camera step and stands the shed turned
+    // for a sniper's walk and entry. The editor install is wired in at the end
+    // of build(), where install-map-editor exists. Desktop and GPU, so not
+    // part of `test`.
+    const editor_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_editor_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, editor_game_module, toolchain);
+    }
+    const editor_game_tests = b.addTest(.{ .root_module = editor_game_module, .filters = &.{ "a turn of an AI point", "the Map Editor turns buildings" } });
+    const editor_game_run = b.addRunArtifact(editor_game_tests);
+    editor_game_run.setCwd(b.path("."));
+    editor_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    editor_game_run.setEnvironmentVariable("BK_VIEWS_EDITOR", rootPath(b, b.fmt("{s}/MapEditor{s}", .{ stage_root, target.result.exeFileExt() })));
+    editor_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    editor_game_run.has_side_effects = true;
+    editor_game_run.step.dependOn(install_game_step);
+    editor_game_run.step.dependOn(bk_views_step);
+    const editor_game_step = b.step("camera-turn-editor-game-reads-it", "Turn two town houses, a shed and a bench with Q and E in the installed Map Editor and save the map, measure the sides the editor draws, then the real Game's at every camera step with Remastered on and off, and a sniper's walk past and into the turned shed");
+    editor_game_step.dependOn(&editor_game_tests.step);
+    if (test_mode == .run) editor_game_step.dependOn(&editor_game_run.step);
+
+    // The turned building sides as a mod, to try the camera turn by hand
+    // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
+    // building-views-batch-<region> steps left in zig-out/remastered/Buildings,
+    // copied to zig-out/remastered/mods/remastered_views/data/buildings, where a
+    // Game run with BK_MODS_ROOT=zig-out/remastered/mods -mod=remastered_views
+    // finds each turn by its variant's Data path. Not the install's mods
+    // folder, which is the player's and is packaged.
+    const turn_mod_files = b.addWriteFiles();
+    const turn_mod_xml = turn_mod_files.add("mod.xml", "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Remastered views</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n");
+    const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building sides the building-views-batch-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
+    turn_mod_step.dependOn(&b.addInstallFile(turn_mod_xml, "remastered/mods/remastered_views/data/mod.xml").step);
+    turn_mod_step.dependOn(&b.addInstallDirectory(.{
+        .source_dir = b.path("zig-out/remastered/Buildings"),
+        .install_dir = .prefix,
+        .install_subdir = "remastered/mods/remastered_views/data/buildings",
+    }).step);
+
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
     // -mod=EditorTestMod run below - never a dependency of install-map-editor
@@ -3245,7 +3485,7 @@ pub fn build(b: *std.Build) void {
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
-    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_dll_crt_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, &.{ bk_views, bk_sprite.tool }, test_mode) else null;
     // Phase 7: ELK, on the editors' platforms and installed beside them, but
     // with no engine (D-01); the package steps do not stage it yet.
     if (map_editor_platform) addElk(b, target, optimize, toolchain, editor_imgui_dll_crt_module, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -4649,10 +4889,14 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "resource_core", .module = resource_core_module },
             .{ .name = "editor_kit", .module = editor_kit_module },
+            // The Building editor's Sides view reads packs as bk-views does (M005 S08).
+            .{ .name = "bk_views_pack", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/bk_views_pack.zig"), .target = target, .optimize = .debug }) },
         },
     });
     const resource_app_logic_tests = b.addTest(.{ .root_module = resource_app_logic_module });
     const resource_app_logic_tests_run = b.addRunArtifact(resource_app_logic_tests);
+    // sides_logic's test reads a tracked building in Data/.
+    resource_app_logic_tests_run.setCwd(b.path("."));
     const resource_app_c_bridge_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
         .target = target,
@@ -4750,6 +4994,7 @@ pub fn build(b: *std.Build) void {
     for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
         if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
     }
+    if (b.top_level_steps.get("install-map-editor")) |install| editor_game_run.step.dependOn(&install.step);
 
     // install-all: every install step this host has, in one command. Looked up by name because the
     // editor installs only exist where the editors build.
@@ -8979,6 +9224,9 @@ const BkSprite = struct {
     /// Installs bk-sprite and every engine library it loads at run time.
     install: *std.Build.Step,
     tool: *std.Build.Step.Compile,
+    /// bk-views-check and the bk-views-roundtrip runner, for the building views batch.
+    check: *std.Build.Step.Compile,
+    roundtrip: *std.Build.Step.Compile,
 };
 
 fn addBkSprite(
@@ -8993,6 +9241,8 @@ fn addBkSprite(
     streamio_zig: *std.Build.Step.Compile,
     options_bridge: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    bk_views: *std.Build.Step.Compile,
     test_mode: build_support.TestMode,
 ) BkSprite {
     // bk-sprite (Phase 8, D-20): spcomp's sprite composer, a C++ console
@@ -9003,9 +9253,15 @@ fn addBkSprite(
     const l10n_c = addBkL10nC(b, target, optimize);
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
-    const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    // bk-views-check (the building views round trip): the engine's reading of
+    // a sprite pack against what bk-views decompose wrote.
+    const check_module = b.createModule(.{ .target = target, .optimize = optimize });
+    // compose-pack is the Resource Editor's building composer (compose.cpp,
+    // image_export.cpp) over RandomMapGen's sprite pack builder.
+    const tool_files = &.{ "tools/zig/bk_sprite.cpp", "Sources/src/ResourceModel/anim_names.cpp", "Sources/src/ResourceModel/compose.cpp", "Sources/src/ResourceModel/image_export.cpp", "Sources/src/ResourceModel/grid_projection.cpp", "Sources/src/ResourceModel/items/ai_tiles.cpp", "Sources/src/ResourceModel/mfc_value.cpp", "Sources/src/ResourceModel/xml.cpp", "Sources/src/ResourceModel/variant.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
     const test_files = &.{ "tools/zig/bk_sprite_test.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
-    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const []const u8{ tool_files, test_files }) |module, files| {
+    const check_files = &.{ "tools/zig/bk_views_check.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    for ([_]*std.Build.Module{ tool_module, test_module, check_module }, [_][]const []const u8{ tool_files, test_files, check_files }) |module, files| {
         linkEngineCxxRuntimeEngine(b, module, optimize);
         addProjectIncludePaths(b, module);
         module.addIncludePath(b.path("Sources/src/Image"));
@@ -9018,6 +9274,7 @@ fn addBkSprite(
         module.linkLibrary(formats);
         module.linkLibrary(misc);
         module.linkLibrary(platform_runtime);
+        module.linkLibrary(randommapgen);
         // Misc's System.cpp reaches SDL; nothing here opens a window.
         linkSdlImport(module, target, sdl_dynamic);
     }
@@ -9032,7 +9289,8 @@ fn addBkSprite(
     }
     const tool = b.addExecutable(.{ .name = "bk-sprite", .root_module = tool_module });
     const test_exe = b.addExecutable(.{ .name = "bk-sprite-test", .root_module = test_module });
-    for ([_]*std.Build.Step.Compile{ tool, test_exe }) |exe| {
+    const check_exe = b.addExecutable(.{ .name = "bk-views-check", .root_module = check_module });
+    for ([_]*std.Build.Step.Compile{ tool, test_exe, check_exe }) |exe| {
         exe.subsystem = .console;
         if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
         // The engine modules it loads resolve RTTI and the host globals from
@@ -9065,6 +9323,9 @@ fn addBkSprite(
         .{ .args = &.{ "compose", bad ++ "/unknown", work ++ "/bad" }, .stderr = "bk-sprite: animation \"walk\" is not an animation slot of the sprite format\n" },
         .{ .args = &.{ "compose", bad ++ "/range", work ++ "/bad" }, .stderr = "bk-sprite: frame 2 of dir 0 of animation \"idle\" is not one of its frames 0..1\n" },
         .{ .args = &.{ "compose", bad ++ "/missing", work ++ "/bad" }, .stderr = b.fmt("bk-sprite: cannot open image {s}\n", .{hostPath(b, bad ++ "/missing/death/000.tga")}) },
+        // compose-pack refuses a ragged passability grid, and names a missing picture with / on every host.
+        .{ .args = &.{ "compose-pack", fixture ++ "/1.tga", fixture ++ "/1.tga", work ++ "/bad", "--zero", "0,0", "--pass", "0101/01", "--locked", "0,0" }, .stderr = "bk-sprite: --pass 0101/01: not rows of hex bytes of one length\n" },
+        .{ .args = &.{ "compose-pack", bad ++ "/none.png", bad ++ "/none.png", work ++ "/bad", "--zero", "0,0" }, .stderr = "bk-sprite: composing the pack failed: cannot read the picture " ++ bad ++ "/none.png: the file is missing\n" },
     };
     const check = b.addRunArtifact(test_exe);
     setLeakReportStrict(check);
@@ -9095,11 +9356,169 @@ fn addBkSprite(
         run.has_side_effects = true;
         check.step.dependOn(&run.step);
     }
+    // The building views round trip (docs/superpowers/plans/
+    // 2026-10-25-building-views-01-decompose-camera.md): tracked buildings
+    // decomposed by bk-views, checked by the engine's reader, composed back
+    // by compose-pack and compared byte for byte with the shipped files.
+    const roundtrip = b.addExecutable(.{ .name = "bk-views-roundtrip", .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_views_roundtrip.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    }) });
+    const roundtrip_run = b.addRunArtifact(roundtrip);
+    setLeakReportStrict(roundtrip_run);
+    setUserRootsForTest(roundtrip_run, "bk-views-user");
+    roundtrip_run.setCwd(b.path("."));
+    roundtrip_run.addArtifactArg(bk_views);
+    roundtrip_run.addArtifactArg(tool);
+    roundtrip_run.addArtifactArg(check_exe);
+    roundtrip_run.addArgs(&.{ module_root, "zig-out/local-test/bk-views/roundtrip" });
+    for ([_][]const u8{ "e_ctownhouse01_1", "e_ctownhouse01_2", "e_ctownhouse01_4", "e_house01_1", "e_house01_2", "e_house01_3" }) |variant|
+        roundtrip_run.addArg(b.fmt("Data/Buildings/europe/summer/{s}", .{variant}));
+    roundtrip_run.step.dependOn(install);
+    addPathDir(roundtrip_run, rootPath(b, "zig-out/bin"));
+    // It reads Data/ by plain path.
+    roundtrip_run.has_side_effects = true;
+    const roundtrip_step = b.step("bk-views-roundtrip", "Decompose tracked buildings with bk-views, check them with the engine's reader, compose them back with bk-sprite compose-pack and compare");
+    roundtrip_step.dependOn(&roundtrip.step);
+    roundtrip_step.dependOn(&check_exe.step);
+    roundtrip_step.dependOn(install);
+    if (test_mode == .run) roundtrip_step.dependOn(&roundtrip_run.step);
+    // The first generated building views (M005 S02, S03): `bk-views side` makes
+    // the three other quarter turns of e_ctownhouse01_2 (its side 3 is the view
+    // no 2003 picture shows), and the round trip checks every generated pack:
+    // the engine's reader, compose-pack again byte for byte, decompose back.
+    const side_run = b.addRunArtifact(bk_views);
+    setUserRootsForTest(side_run, "bk-views-user");
+    side_run.setCwd(b.path("."));
+    side_run.addArgs(&.{ "side", "Data/Buildings/europe/summer/e_ctownhouse01_2", "1,2,3", "zig-out/local-test/bk-views/side" });
+    _ = side_run.captureStdOut(.{});
+    side_run.step.dependOn(install);
+    addPathDir(side_run, rootPath(b, "zig-out/bin"));
+    // It reads Data/ by plain path.
+    side_run.has_side_effects = true;
+    const side_check = b.addRunArtifact(roundtrip);
+    setLeakReportStrict(side_check);
+    setUserRootsForTest(side_check, "bk-views-user");
+    side_check.setCwd(b.path("."));
+    side_check.addArtifactArg(bk_views);
+    side_check.addArtifactArg(tool);
+    side_check.addArtifactArg(check_exe);
+    side_check.addArgs(&.{ module_root, "zig-out/local-test/bk-views/side-check" });
+    for ([_][]const u8{ "1", "2", "3" }) |k| side_check.addArg(b.fmt("zig-out/local-test/bk-views/side/e_ctownhouse01_2_r{s}", .{k}));
+    side_check.step.dependOn(&side_run.step);
+    addPathDir(side_check, rootPath(b, "zig-out/bin"));
+    side_check.has_side_effects = true;
+    const side_step = b.step("bk-views-side", "Make the missing side of e_ctownhouse01 and the other turns of e_ctownhouse01_2 with bk-views side and check every pack with the engine's reader, compose-pack and decompose");
+    side_step.dependOn(&roundtrip.step);
+    side_step.dependOn(&check_exe.step);
+    side_step.dependOn(install);
+    if (test_mode == .run) side_step.dependOn(&side_check.step);
+
     const step = b.step("test-bk-sprite", "Compose the fixture sprite with bk-sprite and judge it with the engine's readers");
     step.dependOn(&test_exe.step);
     step.dependOn(install);
     if (test_mode == .run) step.dependOn(&check.step);
-    return .{ .install = install, .tool = tool };
+    return .{ .install = install, .tool = tool, .check = check_exe, .roundtrip = roundtrip };
+}
+
+/// The building views batch (M005 S05, docs/superpowers/evidence/building-views/batch.md): every
+/// variant of the inventory (tools/zig/fixtures/bk-views/inventory.json) turned by one, two and
+/// three quarter turns with `bk-views side` into zig-out/remastered/Buildings/<region>/summer/
+/// <variant>_r<k> (a numbered subfolder dot/01 gives dot/01_r1), every pack through the round trip
+/// (bk-views-check, compose-pack again, decompose back), the generated pictures through
+/// `bk-views style` and, where the family has another measured side, the variant through
+/// `bk-views holdout`; the work goes to zig-out/local-test/building-views/batch/<variant path>.
+/// One step per region, each variant its own runs so they spread over the cores; the report step
+/// writes the tracked evidence from whatever the groups left there.
+fn addBuildingViewsBatch(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) void {
+    const inventory_path = "tools/zig/fixtures/bk-views/inventory.json";
+    b.dependOnFileContents(b.path(inventory_path));
+    const bytes = b.root.root_dir.handle.readFileAlloc(b.graph.io, inventory_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const Inventory = struct { families: []const struct { region: []const u8, variants: []const struct { path: []const u8, side: ?u8 = null } } };
+    const inventory = std.json.parseFromSliceLeaky(Inventory, b.allocator, bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    // Silent runs judged by their exit code, stderr reported on failure: a run that inherits
+    // stderr holds the build's stderr lock, and one that pipes stdout and stderr both reads them
+    // through one multi-reader; either way the variants went one at a time on Windows.
+    const quiet = struct {
+        fn f(run: *std.Build.Step.Run) void {
+            run.expectExitCode(0);
+            run.has_side_effects = true;
+        }
+    }.f;
+    const module_root = if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin") else rootPath(b, "zig-out/lib");
+    const work_root = "zig-out/local-test/building-views/batch";
+    const aggregate = b.step("building-views-batch", "Run every building-views-batch-<region> step (longer than one ten-minute foreground command: run the groups one by one) and the report");
+    const report_args = [_][]const u8{ "report", inventory_path, "tools/zig/fixtures/bk-views/gate.json", work_root, "docs/superpowers/evidence/building-views" };
+    const aggregate_report = b.addRunArtifact(views);
+    aggregate_report.setCwd(b.path("."));
+    aggregate_report.addArgs(&report_args);
+    quiet(aggregate_report);
+    for ([_][]const u8{ "africa", "common", "europe", "ussr" }) |region| {
+        const group = b.step(b.fmt("building-views-batch-{s}", .{region}), b.fmt("Make the three other quarter turns of every {s} building variant into zig-out/remastered/Buildings with bk-views side, check every pack with the engine's reader, compose-pack and decompose, and score them with bk-views style and holdout", .{region}));
+        aggregate.dependOn(group);
+        aggregate_report.step.dependOn(group);
+        for (inventory.families) |family| {
+            if (!std.mem.eql(u8, family.region, region)) continue;
+            var sides: usize = 0;
+            for (family.variants, 0..) |variant, i| {
+                const side = variant.side orelse continue;
+                sides += @intFromBool(for (family.variants[0..i]) |other| {
+                    if (other.side == side) break false;
+                } else true);
+            }
+            for (family.variants) |variant| {
+                const name = std.fs.path.basename(variant.path);
+                const data = b.fmt("Data/Buildings/{s}", .{variant.path});
+                const out = b.fmt("zig-out/remastered/Buildings/{s}", .{std.fs.path.dirname(variant.path).?});
+                const work = b.fmt("{s}/{s}", .{ work_root, variant.path });
+                const side = b.addRunArtifact(views);
+                side.setCwd(b.path("."));
+                setUserRootsForTest(side, "bk-views-user");
+                side.addArgs(&.{ "side", data, "1,2,3", out, work });
+                side.step.dependOn(sprite.install);
+                addPathDir(side, rootPath(b, "zig-out/bin"));
+                quiet(side);
+                const check = b.addRunArtifact(sprite.roundtrip);
+                check.setCwd(b.path("."));
+                setLeakReportStrict(check);
+                setUserRootsForTest(check, "bk-views-user");
+                check.addArtifactArg(views);
+                check.addArtifactArg(sprite.tool);
+                check.addArtifactArg(sprite.check);
+                check.addArgs(&.{ module_root, b.fmt("{s}/check", .{work}) });
+                const style = b.addRunArtifact(views);
+                style.setCwd(b.path("."));
+                setUserRootsForTest(style, "bk-views-user");
+                style.addArgs(&.{ "style", b.fmt("{s}/style", .{work}), data });
+                for (1..4) |k| {
+                    check.addArg(b.fmt("{s}/{s}_r{d}", .{ out, name, k }));
+                    style.addArg(b.fmt("{s}/{s}.work/{s}_r{d}", .{ work, name, name, k }));
+                }
+                check.step.dependOn(&side.step);
+                addPathDir(check, rootPath(b, "zig-out/bin"));
+                quiet(check);
+                style.step.dependOn(&side.step);
+                quiet(style);
+                group.dependOn(&check.step);
+                group.dependOn(&style.step);
+                // The hold-out where the family shows the building from another measured side.
+                if (variant.side == null or sides < 2) continue;
+                const holdout = b.addRunArtifact(views);
+                holdout.setCwd(b.path("."));
+                setUserRootsForTest(holdout, "bk-views-user");
+                holdout.addArgs(&.{ "holdout", b.fmt("{s}/holdout", .{work}), data });
+                quiet(holdout);
+                group.dependOn(&holdout.step);
+            }
+        }
+    }
+    aggregate.dependOn(&aggregate_report.step);
+    const report = b.addRunArtifact(views);
+    report.setCwd(b.path("."));
+    report.addArgs(&report_args);
+    quiet(report);
+    b.step("building-views-batch-report", "Write docs/superpowers/evidence/building-views/batch.md and <family>.md with bk-views report from what the building-views-batch-<region> steps left in zig-out/local-test/building-views/batch").dependOn(&report.step);
 }
 
 /// A build-root-relative path with the host's separators, as a tool prints it.
@@ -11572,6 +11991,8 @@ fn addResourceEditor(
     sdl_include: std.Build.LazyPath,
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
+    /// bk-views and bk-sprite, beside the editor for the Building editor's Sides view (M005 S08).
+    views_tools: []const *std.Build.Step.Compile,
     test_mode: build_support.TestMode,
 ) *std.Build.Step.Compile {
     const engine: MapEditorEngine = .{
@@ -11605,6 +12026,7 @@ fn addResourceEditor(
             .{ .name = "editor_kit", .module = app_kit.kit },
             .{ .name = "resource_core", .module = resource_core_module },
             .{ .name = "resource_bridge_c", .module = resourceBridgeC(b, target, optimize, toolchain) },
+            .{ .name = "bk_views_pack", .module = b.createModule(.{ .root_source_file = b.path("tools/zig/bk_views_pack.zig"), .target = target, .optimize = optimize }) },
         },
     });
     // resource_bridge.h (and the bridge.h it includes), for the app's translation.
@@ -11625,6 +12047,13 @@ fn addResourceEditor(
     // Beside Game and MapEditor: the engine's roots are the installation.
     const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
     install_exe.step.dependOn(install_game_step);
+    // Generate sides runs bk-views beside the editor, which runs bk-sprite beside
+    // itself; there bk-sprite finds the engine libraries on every host.
+    for (views_tools) |tool| {
+        const install_tool = b.addInstallArtifact(tool, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } }, .pdb_dir = .disabled });
+        install_tool.step.dependOn(install_game_step);
+        install_exe.step.dependOn(&install_tool.step);
+    }
     const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
     install_step.dependOn(&install_exe.step);
     // The bundled Noto faces and their licence beside the executable (D078);
@@ -12034,7 +12463,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
     .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
     .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
-    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 399 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 411 },
     .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
     .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
     .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
@@ -12613,7 +13042,24 @@ const resource_auto_bld =
     "393:do=export," ++
     "394:expect=exported," ++
     "397:shot=bld_saved," ++
-    "398:expect=shot_lit:bld_saved,";
+    "398:expect=shot_lit:bld_saved," ++
+    // M005 S08: the Sides window on a scratch copy of a shipped building with winter packs, its three
+    // turns generated by bk-views beside the editor, then one turn's damaged picture imported from a
+    // tracked PNG through bk-sprite compose-pack. Measured on the shots: every cell's picture holds side
+    // pixels (not its ground colour 0x2e3a6e), and the imported picture's 0x10e0a0 is drawn.
+    "399:do=sides_open:ussr/summer/shed01," ++
+    "400:expect=sides_missing:3," ++
+    "401:do=sides_generate," ++
+    "402:expect=sides_missing:0," ++
+    "403:shot=bld_sides," ++
+    "404:expect=shot_sides:bld_sides/400," ++
+    "405:do=sides_look:3ws," ++
+    "406:shot=bld_sides_shadow," ++
+    "407:expect=shot_sides:bld_sides_shadow/40," ++
+    "408:do=sides_look:2," ++
+    "408:do=sides_import:2/{fix}/bld/side-import.png," ++
+    "409:shot=bld_sides_import," ++
+    "410:expect=shot_colour:bld_sides_import/10e0a0/min/2000,";
 
 /// S11 Bridge: span marks, grid and the fire and smoke points.
 const resource_auto_bdg =

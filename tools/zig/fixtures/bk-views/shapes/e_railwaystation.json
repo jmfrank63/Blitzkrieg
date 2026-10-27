@@ -1,0 +1,14 @@
+{
+  "e_railwaystation_1": [
+    {"lo": [-109, -1], "hi": [4, 56], "wall": 82, "ridge": 152, "roof": "gable_y"},
+    {"lo": [-117, 50], "hi": [-34, 112], "wall": 58, "ridge": 118, "roof": "gable_x"},
+    {"lo": [-129, 108], "hi": [-34, 242], "wall": 49, "ridge": 94, "roof": "gable_y"},
+    {"lo": [-58, 9], "hi": [-40, 28], "wall": 139, "ridge": 184, "roof": "hip"}
+  ],
+  "e_railwaystation_2": [
+    {"lo": [-341, 4], "hi": [-68, 68], "wall": 50, "ridge": 104, "roof": "gable_x"},
+    {"lo": [-194, -22], "hi": [-104, 72], "wall": 68, "ridge": 128, "roof": "gable_y"},
+    {"lo": [-70, 1], "hi": [-2, 56], "wall": 39, "ridge": 74, "roof": "gable_x"},
+    {"lo": [-162, 2], "hi": [-140, 24], "wall": 138, "ridge": 188, "roof": "hip"}
+  ]
+}

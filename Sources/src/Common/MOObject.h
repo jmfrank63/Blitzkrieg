@@ -16,6 +16,14 @@ class CMOObject : public CTRefCount<SMapObject>
 	void FillActions();
 	bool AddAction( int nAction );
 	void UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB );
+	// The Remastered camera turn (Main/CameraTurn.h): the step it is drawn for,
+	// and a fence segment's frame as the 2003 view draws it (-1: its sprite's).
+	int nCameraTurn;
+	int nOwnFrame;
+	int nSeason;												// its season (a prop of four sides draws the season's picture of a side)
+	int nShownTurn;											// the turn of a prop of four sides it shows (0: its own)
+	int nFacing;												// its own facing in quarter turns (a prop of four sides draws by it)
+	void ApplyCameraTurn();
 	IText* GetLocalName() const
 	{
 		if ( pLocalName == 0 )
@@ -23,6 +31,7 @@ class CMOObject : public CTRefCount<SMapObject>
 		return pLocalName;
 	}
 public:
+	CMOObject() : nCameraTurn( 0 ), nOwnFrame( -1 ), nSeason( 0 ), nShownTurn( 0 ), nFacing( 0 ) {  }
 	virtual bool STDCALL Create( IRefCount *pAIObj, const SGDBObjectDesc *pDesc, int nSeason, int nFrameIndex, float fHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB );
 	virtual void STDCALL SetPlacement( const CVec3 &vPos, const WORD &wDir );
 	virtual void STDCALL GetPlacement( CVec3 *pvPos, WORD *pwDir );
@@ -37,5 +46,6 @@ public:
 	virtual int STDCALL AIUpdateActions( const struct SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager );
 	virtual void STDCALL AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB );
 	virtual void STDCALL Visit( IMapObjVisitor *pVisitor );
+	virtual void STDCALL SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB );
 };
 #endif // __MOOBJECT_H__

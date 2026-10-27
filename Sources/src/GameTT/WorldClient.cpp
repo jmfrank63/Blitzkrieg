@@ -19,6 +19,7 @@
 #include "../Common/PauseGame.h"
 #include "../Main/iMainCommands.h"
 #include "../Main/Remastered.h"
+#include "../Main/CameraTurn.h"
 
 #include "SelectorVisitors.h"
 #include "../Main/ScenarioTrackerTypes.h"
@@ -501,6 +502,7 @@ int CWorldClient::operator&( IStructureSaver &ss )
 		ResetPreSelection();
 		statusObject.Clear();
 		bReconcileSelection = true;
+		nCameraTurn = -1;
 	}
 	saver.Add( 18, &aviationCircles );
 	saver.Add( 19, &availCrossActions );
@@ -521,6 +523,7 @@ CWorldClient::CWorldClient()
 	bActionModifierForcedAttack = false;
 	bCheckDiplomacy = true;
 	bReconcileSelection = false;
+	nCameraTurn = 0;
 	nLastAvailableActionsSet = 0;
 	timeLastPick = 0;
 	vLastPickPos = VNULL2;
@@ -656,6 +659,21 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 		bReconcileSelection = false;
 		ReconcileSelection();
 	}
+	// The camera turned (NCameraTurn) or the Remastered option, which decides
+	// whether a building's own facing counts, changed: every building shows the
+	// side it sees now. 4 marks the option off.
+	const int nView = NCameraTurn::Step() + ( NRemastered::Enabled() ? 0 : 4 );
+	if ( nCameraTurn != nView )
+	{
+		nCameraTurn = nView;
+		for ( iterator it = begin(); it != end(); ++it )
+		{
+			SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
+			if ( pMO != 0 )
+				pMO->SetCameraTurn( NCameraTurn::Step(), pVOB );
+		}
+		SetSpansCameraTurn( NCameraTurn::Step() );
+	}
 	while ( const char *pszString = GetSingleton<IConsoleBuffer>()->ReadASCII(CONSOLE_STREAM_WORLD) )
 	{
 		NStr::DebugTrace( "Got command: %s\n", pszString );
@@ -753,6 +771,17 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 		}
 		else if ( szParts[0].compare( "TraceSelection" ) == 0 )
 			TraceSelection();
+		else if ( szParts[0].compare( "TracePick" ) == 0 && szOperands.size() >= 2 )
+			TracePick( CVec2( NStr::ToFloat( szOperands[0] ), NStr::ToFloat( szOperands[1] ) ) );
+		else if ( szParts[0].compare( "TraceGround" ) == 0 && szOperands.size() >= 2 )
+		{
+			// The ground point an order clicked at a screen point goes to
+			// (GetPos3, world units; on the terrain since M006 S06).
+			const CVec2 vScreen( NStr::ToFloat( szOperands[0] ), NStr::ToFloat( szOperands[1] ) );
+			CVec3 vGround;
+			GetPos3( &vGround, vScreen );
+			fprintf( stderr, "BK_GROUND_TRACE: %.0f,%.0f: %.1f,%.1f,%.1f\n", vScreen.x, vScreen.y, vGround.x, vGround.y, vGround.z );
+		}
 		else if ( szParts[0].compare( "TraceContainers" ) == 0 )
 			TraceContainers();
 		else
@@ -1050,6 +1079,35 @@ void CWorldClient::TraceSelection()
 	fprintf( stderr, "BK_SELECTION_TRACE: units=%d buildings=%d inside=%d containers=%d strip=%d strip_cells=%d\n",
 	         selunits.size(), selbuildings.size(), nInside, int( containers.size() ),
 	         strip.pStripContainer != 0 ? strip.pStripContainer->GetPassangers( 0 ) : 0, strip.GetStripElementCount() );
+	// Then each selected unit and building by name and place (the AI's
+	// coordinates, as TraceContainers), so a harness can tell which were hit.
+	for ( int nList = 0; nList < 2; ++nList )
+	{
+		const CMapObjectsList &objects = ( nList == 0 ? selunits : selbuildings ).GetObjects();
+		for ( CMapObjectsList::const_iterator it = objects.begin(); it != objects.end(); ++it )
+		{
+			CVec3 vPos;
+			WORD wDir = 0;
+			(*it)->GetPlacement( &vPos, &wDir );
+			fprintf( stderr, "BK_SELECTED: \"%s\" at %.0f,%.0f\n", (*it)->pDesc->szKey.c_str(), vPos.x, vPos.y );
+		}
+	}
+}
+// The TracePick world command (BK_AUTO_UI pick=<x>x<y>): every object the
+// cursor at a screen point picks, by name and place, nearest first as a click
+// takes them, each line led by the point.
+void CWorldClient::TracePick( const CVec2 &vPos )
+{
+	UpdatePick( vPos, pTimer->GetGameTime(), true, false, false );
+	std::string szLine = NStr::Format( "BK_PICK_TRACE: %.0f,%.0f:", vPos.x, vPos.y );
+	for ( CMapObjectsPtrList::const_iterator it = framePick.begin(); it != framePick.end(); ++it )
+	{
+		CVec3 vPlace;
+		WORD wDir = 0;
+		(*it)->GetPlacement( &vPlace, &wDir );
+		szLine += NStr::Format( " \"%s\" at %.0f,%.0f;", (*it)->pDesc->szKey.c_str(), vPlace.x, vPlace.y );
+	}
+	fprintf( stderr, "%s\n", szLine.c_str() );
 }
 // The TraceContainers world command: every building and vehicle with
 // someone inside, with how many of them the player can select.

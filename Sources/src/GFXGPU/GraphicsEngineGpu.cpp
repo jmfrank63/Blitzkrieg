@@ -839,7 +839,28 @@ const SHMatrix & STDCALL GraphicsEngineGpu::GetViewportMatrix() const { return v
 // orientation does not carry over unexamined; it needs the clip convention
 // checked against this renderer's view_proj before it can be turned on.
 void STDCALL GraphicsEngineGpu::GetViewVolume( SPlane * ) const {}
-void STDCALL GraphicsEngineGpu::GetViewVolumeCrosses( const CVec2 &, CVec3 *, CVec3 * ) {}
+// The line of sight through a screen point, as the points where it crosses
+// the view volume's near and far planes (world space): CGraphicsEngine's pick
+// matrix, the inverse of viewport * projection * view, taken now, so it holds
+// the projection a caller set just before (CScene::GetPos3's gameplay one).
+// Empty until M006 S06, which left every screen point on the plane at height 0
+// (orders and picks on hills landed off the clicked ground, at every step).
+void STDCALL GraphicsEngineGpu::GetViewVolumeCrosses( const CVec2 &vPoint, CVec3 *pvNear, CVec3 *pvFar )
+{
+    SHMatrix matProjectionView, matScreen, matPick;
+    Multiply( &matProjectionView, projection_matrix_, GetViewMatrix() );
+    Multiply( &matScreen, viewport_matrix_, matProjectionView );
+    if ( !Invert( &matPick, matScreen ) )
+    {
+        *pvNear = *pvFar = VNULL3;
+        return;
+    }
+    CVec4 vNear4, vFar4;
+    matPick.RotateHVector( &vNear4, CVec3( vPoint.x, vPoint.y, 0 ) );
+    matPick.RotateHVector( &vFar4, CVec3( vPoint.x, vPoint.y, 1 ) );
+    pvNear->Set( vNear4.x / vNear4.w, vNear4.y / vNear4.w, vNear4.z / vNear4.w );
+    pvFar->Set( vFar4.x / vFar4.w, vFar4.y / vFar4.w, vFar4.z / vFar4.w );
+}
 void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightDirectional &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 1, &light, sizeof( light ), "set_directional_light" ); }
 void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightPoint &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 2, &light, sizeof( light ), "set_point_light" ); }
 void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightSpot &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 3, &light, sizeof( light ), "set_spot_light" ); }

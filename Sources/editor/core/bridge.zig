@@ -1051,6 +1051,10 @@ pub const Bridge = struct {
         /// fit flag decides; the kinds the rule does not fit answer the
         /// input. A read: nothing is edited, nothing is recorded.
         snapToGrid: *const fn (ptr: *anyopaque, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status,
+        /// BkEditorTurnStep (M006 S06): the step Q and E turn an object of
+        /// this type by - a quarter turn for a building or a prop of four
+        /// sides, which show the side they face, a sixteenth otherwise. A read.
+        turnStep: *const fn (ptr: *anyopaque, name: [*:0]const u8, out_step: *i32) Status,
         /// BkEditorVsoDescriptors: the season's road or river types, bare
         /// names, sorted. `total` is always the full count (two-pass, like
         /// `sounds`).
@@ -1312,6 +1316,7 @@ pub const Bridge = struct {
     pub fn setLayerShow(self: Bridge, layer: u32, shown: bool) Status { return self.vtable.setLayerShow(self.ptr, layer, shown); }
     pub fn setFireRangeMode(self: Bridge, mode: u32, filter: []const u8, link_ids: []const i32) Status { return self.vtable.setFireRangeMode(self.ptr, mode, filter, link_ids); }
     pub fn snapToGrid(self: Bridge, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status { return self.vtable.snapToGrid(self.ptr, name, x, y, out_x, out_y); }
+    pub fn turnStep(self: Bridge, name: [*:0]const u8, out_step: *i32) Status { return self.vtable.turnStep(self.ptr, name, out_step); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }

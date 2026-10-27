@@ -8,6 +8,7 @@
 #include "../AILogic/AITypes.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
+#include "../Main/CameraTurn.h"
 struct SLoadTerrain
 {
 	STerrainInfo info;
@@ -233,6 +234,44 @@ void CTerrain::SetWarFog( SAIVisInfo *vises, int nNumVises )
 	*/
 	MoveWarFog();
 }
+SGroundTurn groundTurn = { false, 0, 0, 0, 0, { 0, 1, 2, 3 } };
+void UpdateGroundTurn( const SHMatrix &matTransform, const CVec3 &vO, const CVec3 &vScreenO )
+{
+	groundTurn.bTurned = NCameraTurn::Step() != 0;
+	for ( int i = 0; i < 4; ++i )
+		groundTurn.nMaps[i] = i;
+	if ( !groundTurn.bTurned )
+		return;
+	// A quarter turn maps the tile grid onto itself, so a tile's steps are whole
+	// pixels as at 45 degrees; rounding keeps the float error of the turned view
+	// from opening seams between tiles.
+	CVec3 vCol, vRow;
+	matTransform.RotateHVector( &vCol, vO + CVec3( fWorldCellSize, 0, 0 ) );
+	matTransform.RotateHVector( &vRow, vO + CVec3( 0, -fWorldCellSize, 0 ) );
+	groundTurn.fColX = floor( vCol.x - vScreenO.x + 0.5f );
+	groundTurn.fColY = floor( vCol.y - vScreenO.y + 0.5f );
+	groundTurn.fRowX = floor( vRow.x - vScreenO.x + 0.5f );
+	groundTurn.fRowY = floor( vRow.y - vScreenO.y + 0.5f );
+	if ( ( NCameraTurn::Step() & 1 ) == 0 )
+		return;
+	// The tile corners at the screen's top, right, left and bottom show the
+	// picture's (a half turn keeps the ground's mapping: it turns the screen alike).
+	float fX[4], fY[4];
+	for ( int c = 0; c < 4; ++c )
+	{
+		fX[c] = ( c & 1 ) * groundTurn.fColX + ( c >> 1 ) * groundTurn.fRowX;
+		fY[c] = ( c & 1 ) * groundTurn.fColY + ( c >> 1 ) * groundTurn.fRowY;
+	}
+	for ( int c = 0; c < 4; ++c )
+	{
+		if ( fY[c] <= Min( Min( fY[0], fY[1] ), Min( fY[2], fY[3] ) ) )
+			groundTurn.nMaps[c] = 0;
+		else if ( fY[c] >= Max( Max( fY[0], fY[1] ), Max( fY[2], fY[3] ) ) )
+			groundTurn.nMaps[c] = 3;
+		else
+			groundTurn.nMaps[c] = fX[c] > ( fX[0] + fX[1] + fX[2] + fX[3] ) / 4 ? 1 : 2;
+	}
+}
 static CMatrixStack<4> mstack;
 void CTerrain::MovePatches()
 {
@@ -246,10 +285,16 @@ void CTerrain::MovePatches()
 	matTransform.RotateHVector( &vScreenO, vO );
 	const int nPatchHalfAxisX = fCellSizeX * STerrainPatchInfo::nSizeX;
 	const int nPatchHalfAxisY = fCellSizeY * STerrainPatchInfo::nSizeY;
+	UpdateGroundTurn( matTransform, vO, vScreenO );
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
 		int nX = int( vScreenO.x ) + (it->nX - it->nY)*nPatchHalfAxisX;
 		int nY = int( vScreenO.y ) + (it->nX + it->nY)*nPatchHalfAxisY;
+		if ( groundTurn.bTurned )
+		{
+			nX = int( vScreenO.x ) + int( ( it->nX*groundTurn.fColX + it->nY*groundTurn.fRowX ) * STerrainPatchInfo::nSizeX );
+			nY = int( vScreenO.y ) + int( ( it->nX*groundTurn.fColY + it->nY*groundTurn.fRowY ) * STerrainPatchInfo::nSizeY );
+		}
 		MovePatch( nX, nY, terrainInfo.patches[it->nY][it->nX], &(*it) );
 	}
 	ReBuildMeshes();
@@ -266,10 +311,16 @@ void CTerrain::MoveWarFog()
 	matTransform.RotateHVector( &vScreenO, vO );
 	const int nPatchHalfAxisX = fCellSizeX * STerrainPatchInfo::nSizeX;
 	const int nPatchHalfAxisY = fCellSizeY * STerrainPatchInfo::nSizeY;
+	UpdateGroundTurn( matTransform, vO, vScreenO );
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
 		int nX = int( vScreenO.x ) + (it->nX - it->nY)*nPatchHalfAxisX;
 		int nY = int( vScreenO.y ) + (it->nX + it->nY)*nPatchHalfAxisY;
+		if ( groundTurn.bTurned )
+		{
+			nX = int( vScreenO.x ) + int( ( it->nX*groundTurn.fColX + it->nY*groundTurn.fRowX ) * STerrainPatchInfo::nSizeX );
+			nY = int( vScreenO.y ) + int( ( it->nX*groundTurn.fColY + it->nY*groundTurn.fRowY ) * STerrainPatchInfo::nSizeY );
+		}
 		MoveWarFogPatch( nX, nY, &(*it) );
 	}
 }
@@ -335,10 +386,20 @@ void AddVertices( const std::vector<TVertex> &src, std::vector<TVertex> &dst,
 		const TVertex &vDraw2 = v2;
 		const TVertex &vDraw3 = v3;
 #endif
-		const DWORD dwPoint0 = CheckForRect( rcScreen, vDraw2.x, vDraw0.y );
-		const DWORD dwPoint1 = CheckForRect( rcScreen, vDraw1.x, vDraw0.y );
-		const DWORD dwPoint2 = CheckForRect( rcScreen, vDraw2.x, vDraw3.y );
-		const DWORD dwPoint3 = CheckForRect( rcScreen, vDraw1.x, vDraw3.y );
+		// The tile's box: its left, right, top and bottom corners are vertices
+		// 2, 1, 0 and 3 at 45 degrees; a quarter turn of the camera permutes them.
+		float fLeft = vDraw2.x, fRight = vDraw1.x, fTop = vDraw0.y, fBottom = vDraw3.y;
+		if ( groundTurn.bTurned )
+		{
+			fLeft = Min( Min( vDraw0.x, vDraw1.x ), Min( vDraw2.x, vDraw3.x ) );
+			fRight = Max( Max( vDraw0.x, vDraw1.x ), Max( vDraw2.x, vDraw3.x ) );
+			fTop = Min( Min( vDraw0.y, vDraw1.y ), Min( vDraw2.y, vDraw3.y ) );
+			fBottom = Max( Max( vDraw0.y, vDraw1.y ), Max( vDraw2.y, vDraw3.y ) );
+		}
+		const DWORD dwPoint0 = CheckForRect( rcScreen, fLeft, fTop );
+		const DWORD dwPoint1 = CheckForRect( rcScreen, fRight, fTop );
+		const DWORD dwPoint2 = CheckForRect( rcScreen, fLeft, fBottom );
+		const DWORD dwPoint3 = CheckForRect( rcScreen, fRight, fBottom );
 		if ( (dwPoint0 & dwPoint1 & dwPoint2 & dwPoint3) != 0 ) 
 			continue;
 		const int nNumVertices = dst.size();

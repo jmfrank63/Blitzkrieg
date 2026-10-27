@@ -1,0 +1,310 @@
+{"families":[
+{"family":"a_cisterns","region":"africa","missing":[2,3,4],"variants":[
+ {"path":"africa/summer/a_cisterns/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_cisterns/02","suffix":null,"colourway":null,"side":1,"how":"same view","view_of":"africa/summer/a_cisterns/01","winter":false}]},
+{"family":"a_h01","region":"africa","missing":[3,4],"variants":[
+ {"path":"africa/summer/a_h01_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_h01_2","suffix":2,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"a_h02","region":"africa","missing":[1,3],"variants":[
+ {"path":"africa/summer/a_h02_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_h02_4","suffix":4,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"a_h03","region":"africa","missing":[1,4],"variants":[
+ {"path":"africa/summer/a_h03_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_h03_3","suffix":3,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"a_h04","region":"africa","missing":[2,3,4],"variants":[
+ {"path":"africa/summer/a_h04_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"a_h07","region":"africa","missing":[4],"variants":[
+ {"path":"africa/summer/a_h07_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_h07_2","suffix":2,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":false},
+ {"path":"africa/summer/a_h07_3","suffix":3,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"a_h08","region":"africa","missing":[2,3],"variants":[
+ {"path":"africa/summer/a_h08_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_h08_4","suffix":4,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":false}]},
+{"family":"a_h09","region":"africa","missing":[1,3,4],"variants":[
+ {"path":"africa/summer/a_h09_2","suffix":2,"colourway":null,"side":2,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"a_mosque_01","region":"africa","missing":[1,2,3],"variants":[
+ {"path":"africa/summer/a_mosque_01_4","suffix":4,"colourway":null,"side":4,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"a_mosque_02","region":"africa","missing":[2,3,4],"variants":[
+ {"path":"africa/summer/a_mosque_02_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"a_wb","region":"africa","missing":[2,3,4],"variants":[
+ {"path":"africa/summer/a_wb/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_wb/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false}]},
+{"family":"a_wt","region":"africa","missing":[2,3],"variants":[
+ {"path":"africa/summer/a_wt/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"africa/summer/a_wt/02","suffix":null,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"conduitbarrel","region":"common","missing":[2,3,4],"variants":[
+ {"path":"common/summer/conduitbarrel","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"dot","region":"common","missing":[2],"variants":[
+ {"path":"common/summer/dot/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"common/summer/dot/02","suffix":null,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":true},
+ {"path":"common/summer/dot/03","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":true},
+ {"path":"common/summer/dot/04","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":true}]},
+{"family":"dot_h","region":"common","missing":[],"variants":[
+ {"path":"common/summer/dot_h/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"common/summer/dot_h/02","suffix":null,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":true},
+ {"path":"common/summer/dot_h/03","suffix":null,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":true},
+ {"path":"common/summer/dot_h/04","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":true}]},
+{"family":"dzot","region":"common","missing":[2,4],"variants":[
+ {"path":"common/summer/dzot/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"common/summer/dzot/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true},
+ {"path":"common/summer/dzot/03","suffix":null,"colourway":null,"side":null,"how":"same view","view_of":"common/summer/dzot/02","winter":true},
+ {"path":"common/summer/dzot/04","suffix":null,"colourway":null,"side":3,"how":"outline","view_of":null,"winter":true}]},
+{"family":"tent","region":"common","missing":[3,4],"variants":[
+ {"path":"common/summer/tent/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"common/summer/tent/02","suffix":null,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":true}]},
+{"family":"watchtower","region":"common","missing":[2,3,4],"variants":[
+ {"path":"common/summer/watchtower","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"watertankbig","region":"common","missing":[2,3,4],"variants":[
+ {"path":"common/summer/watertankbig","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"watertanklittle","region":"common","missing":[2,3,4],"variants":[
+ {"path":"common/summer/watertanklittle","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"e_chapel","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_chapel_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_cityhall","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_cityhall_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_ctownhouse01","region":"europe","missing":[3],"variants":[
+ {"path":"europe/summer/e_ctownhouse01_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_ctownhouse01_2","suffix":2,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":false},
+ {"path":"europe/summer/e_ctownhouse01_4","suffix":4,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"e_ctownhouse02","region":"europe","missing":[2,3],"variants":[
+ {"path":"europe/summer/e_ctownhouse02_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_ctownhouse02_1_2","suffix":1,"colourway":2,"side":1,"how":"same view","view_of":"europe/summer/e_ctownhouse02_1","winter":false},
+ {"path":"europe/summer/e_ctownhouse02_4","suffix":4,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"e_ctownhouse03","region":"europe","missing":[1,3],"variants":[
+ {"path":"europe/summer/e_ctownhouse03_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_ctownhouse03_4","suffix":4,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"e_ctownhouse04","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_ctownhouse04_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_ctownhouse04_1_2","suffix":1,"colourway":2,"side":1,"how":"same view","view_of":"europe/summer/e_ctownhouse04_1","winter":false}]},
+{"family":"e_frenchshed01","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_frenchshed01","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_frenchshed02","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_frenchshed02","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_frenchshed03","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_frenchshed03","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_frenchshed04","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_frenchshed04","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_frenchshed05","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_frenchshed05","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_frenchshed06","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_frenchshed06","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_house01","region":"europe","missing":[2,4],"variants":[
+ {"path":"europe/summer/e_house01_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house01_2","suffix":2,"colourway":null,"side":3,"how":"outline","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house01_3","suffix":3,"colourway":null,"side":1,"how":"same view","view_of":"europe/summer/e_house01_1","winter":false}]},
+{"family":"e_house02","region":"europe","missing":[2,3],"variants":[
+ {"path":"europe/summer/e_house02_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house02_2","suffix":2,"colourway":null,"side":1,"how":"same view","view_of":"europe/summer/e_house02_1","winter":false},
+ {"path":"europe/summer/e_house02_4","suffix":4,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":false}]},
+{"family":"e_house03","region":"europe","missing":[1,3],"variants":[
+ {"path":"europe/summer/e_house03_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house03_3","suffix":3,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house03_4","suffix":4,"colourway":null,"side":4,"how":"same view","view_of":"europe/summer/e_house03_3","winter":false}]},
+{"family":"e_house04","region":"europe","missing":[1,2,3],"variants":[
+ {"path":"europe/summer/e_house04_4","suffix":4,"colourway":null,"side":4,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house05","region":"europe","missing":[1,2,4],"variants":[
+ {"path":"europe/summer/e_house05_3","suffix":3,"colourway":null,"side":3,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house06","region":"europe","missing":[1,2,3],"variants":[
+ {"path":"europe/summer/e_house06_4","suffix":4,"colourway":null,"side":4,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house07","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_house07_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house08","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_house08_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house09","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_house09_1","suffix":1,"colourway":null,"side":1,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house10","region":"europe","missing":[1,3,4],"variants":[
+ {"path":"europe/summer/e_house10_2","suffix":2,"colourway":null,"side":2,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_house11","region":"europe","missing":[2],"variants":[
+ {"path":"europe/summer/e_house11_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house11_3","suffix":3,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":false},
+ {"path":"europe/summer/e_house11_4","suffix":4,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"e_house12","region":"europe","missing":[1,2,4],"variants":[
+ {"path":"europe/summer/e_house12_3","suffix":3,"colourway":null,"side":3,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_jettybuilding","region":"europe","missing":[3,4],"variants":[
+ {"path":"europe/summer/e_jettybuilding_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_jettybuilding_4","suffix":4,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"e_monument","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_monument","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":false}]},
+{"family":"e_railwaystation","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_railwaystation_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_railwaystation_2","suffix":2,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false}]},
+{"family":"e_shed01","region":"europe","missing":[1,4],"variants":[
+ {"path":"europe/summer/e_shed01_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_shed01_3","suffix":3,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"e_shed02","region":"europe","missing":[1,3],"variants":[
+ {"path":"europe/summer/e_shed02_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_shed02_3","suffix":3,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false},
+ {"path":"europe/summer/e_shed02_4","suffix":4,"colourway":null,"side":4,"how":"footprint","view_of":null,"winter":false},
+ {"path":"europe/summer/e_shed02_5","suffix":5,"colourway":null,"side":2,"how":"same view","view_of":"europe/summer/e_shed02_2","winter":false}]},
+{"family":"e_statue","region":"europe","missing":[3,4],"variants":[
+ {"path":"europe/summer/e_statue/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_statue/02","suffix":null,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":false},
+ {"path":"europe/summer/e_statue/04","suffix":null,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":false}]},
+{"family":"e_stella","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_stella/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_stella/02","suffix":null,"colourway":null,"side":1,"how":"same view","view_of":"europe/summer/e_stella/01","winter":false}]},
+{"family":"e_stubtrack","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_stubtrack/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_stubtrack/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false},
+ {"path":"europe/summer/e_stubtrack/03","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false},
+ {"path":"europe/summer/e_stubtrack/04","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false}]},
+{"family":"e_townhouse01","region":"europe","missing":[1,2],"variants":[
+ {"path":"europe/summer/e_townhouse01_3","suffix":3,"colourway":null,"side":3,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_townhouse01_4","suffix":4,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":false}]},
+{"family":"e_townhouse02","region":"europe","missing":[3,4],"variants":[
+ {"path":"europe/summer/e_townhouse02_2","suffix":2,"colourway":null,"side":2,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_townhouse02_3","suffix":3,"colourway":null,"side":1,"how":"walls","view_of":null,"winter":false}]},
+{"family":"e_townhouse03","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_townhouse03_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_townhouse03_4","suffix":4,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false}]},
+{"family":"e_townhouse04","region":"europe","missing":[1,2],"variants":[
+ {"path":"europe/summer/e_townhouse04_3","suffix":3,"colourway":null,"side":3,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_townhouse04_4","suffix":4,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":false}]},
+{"family":"e_townrailwaystation","region":"europe","missing":[1,2,3],"variants":[
+ {"path":"europe/summer/e_townrailwaystation_4","suffix":4,"colourway":null,"side":4,"how":"suffix","view_of":null,"winter":false}]},
+{"family":"e_waterset","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_waterset/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_waterset/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false},
+ {"path":"europe/summer/e_waterset/03","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false},
+ {"path":"europe/summer/e_waterset/04","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":false}]},
+{"family":"e_wb","region":"europe","missing":[2,3],"variants":[
+ {"path":"europe/summer/e_wb/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_wb/02","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":false}]},
+{"family":"e_wellbig","region":"europe","missing":[2,4],"variants":[
+ {"path":"europe/summer/e_wellbig/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_wellbig/03","suffix":null,"colourway":null,"side":3,"how":"outline","view_of":null,"winter":false}]},
+{"family":"e_welllittle","region":"europe","missing":[2,3,4],"variants":[
+ {"path":"europe/summer/e_welllittle/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_welllittle/02","suffix":null,"colourway":null,"side":1,"how":"same view","view_of":"europe/summer/e_welllittle/01","winter":false}]},
+{"family":"e_wt","region":"europe","missing":[2,4],"variants":[
+ {"path":"europe/summer/e_wt/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":false},
+ {"path":"europe/summer/e_wt/02","suffix":null,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":false}]},
+{"family":"admhouse","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/admhouse","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"barracks","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/barracks","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/barracks_2","suffix":2,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true}]},
+{"family":"chimneystalkbig","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/chimneystalkbig","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"chimneystalklittle","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/chimneystalklittle","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"church","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/church","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"cistern","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/cistern/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/cistern/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true}]},
+{"family":"dustbin","region":"ussr","missing":[2],"variants":[
+ {"path":"ussr/summer/dustbin/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/dustbin/02","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":true},
+ {"path":"ussr/summer/dustbin/03","suffix":null,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":true}]},
+{"family":"electricsubstation","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/electricsubstation","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"factoryboiler","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/factoryboiler","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"factoryfloor01","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/factoryfloor01","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"factoryfloor02","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/factoryfloor02","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"factoryfloor03","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/factoryfloor03","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"factoryoffice","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/factoryoffice","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house01","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house01","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house02","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house02","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house03","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house03","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house04","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house04","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house05","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house05","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house06","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house06","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house07","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house07","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house08","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house08","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house09","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house09","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house10","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house10","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house11","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house11","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"house12","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/house12","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"housebig","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/housebig","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"kiosk","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/kiosk/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/kiosk/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true},
+ {"path":"ussr/summer/kiosk/03","suffix":null,"colourway":null,"side":1,"how":"same view","view_of":"ussr/summer/kiosk/01","winter":true},
+ {"path":"ussr/summer/kiosk/04","suffix":null,"colourway":null,"side":null,"how":"same view","view_of":"ussr/summer/kiosk/02","winter":true}]},
+{"family":"leaders","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/leaders/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/leaders/02","suffix":null,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":true}]},
+{"family":"lenin","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/lenin","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"pigeonloft","region":"ussr","missing":[2,3],"variants":[
+ {"path":"ussr/summer/pigeonloft/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/pigeonloft/02","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":true}]},
+{"family":"railroadbighouse","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/railroadbighouse","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"railroadlittlehouse","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/railroadlittlehouse","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"railwaystation","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/railwaystation","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"shed01","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/shed01","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"shed02","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/shed02","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"storehouse","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/storehouse_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/storehouse_2","suffix":2,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":true}]},
+{"family":"stubtrack","region":"ussr","missing":[2,4],"variants":[
+ {"path":"ussr/summer/stubtrack/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/stubtrack/02","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true},
+ {"path":"ussr/summer/stubtrack/03","suffix":null,"colourway":null,"side":3,"how":"footprint","view_of":null,"winter":true},
+ {"path":"ussr/summer/stubtrack/04","suffix":null,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true}]},
+{"family":"towncornhouse01","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/towncornhouse01","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"towncornhouse02","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/towncornhouse02","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"towncornhouse03","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/towncornhouse03","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"towncornhouse04","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/towncornhouse04","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"townhouse01","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/townhouse01_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/townhouse01_2","suffix":2,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true}]},
+{"family":"townhouse02","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/townhouse02_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/townhouse02_2","suffix":2,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":true}]},
+{"family":"townhouse03","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/townhouse03_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/townhouse03_2","suffix":2,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":true}]},
+{"family":"townhouse04","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/townhouse04_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/townhouse04_2","suffix":2,"colourway":null,"side":null,"how":"unresolved","view_of":null,"winter":true}]},
+{"family":"townhouse05","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/townhouse05_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/townhouse05_2","suffix":2,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":true},
+ {"path":"ussr/summer/townhouse05_3","suffix":3,"colourway":null,"side":2,"how":"same view","view_of":"ussr/summer/townhouse05_2","winter":true}]},
+{"family":"ukrainehouse01","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/ukrainehouse01_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/ukrainehouse01_2","suffix":2,"colourway":null,"side":2,"how":"walls","view_of":null,"winter":true}]},
+{"family":"ukrainehouse02","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/ukrainehouse02","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"ukrainehouse03","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/ukrainehouse03_1","suffix":1,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/ukrainehouse03_2","suffix":2,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":true}]},
+{"family":"warehouse","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/warehouse","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"watertower","region":"ussr","missing":[2,3,4],"variants":[
+ {"path":"ussr/summer/watertower","suffix":null,"colourway":null,"side":1,"how":"single","view_of":null,"winter":true}]},
+{"family":"wb","region":"ussr","missing":[2,3],"variants":[
+ {"path":"ussr/summer/wb/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/wb/02","suffix":null,"colourway":null,"side":4,"how":"walls","view_of":null,"winter":true}]},
+{"family":"wt","region":"ussr","missing":[3,4],"variants":[
+ {"path":"ussr/summer/wt/01","suffix":null,"colourway":null,"side":1,"how":"reference","view_of":null,"winter":true},
+ {"path":"ussr/summer/wt/02","suffix":null,"colourway":null,"side":2,"how":"footprint","view_of":null,"winter":true}]}]}

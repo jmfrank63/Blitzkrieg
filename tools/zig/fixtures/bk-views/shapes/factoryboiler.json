@@ -1,0 +1,7 @@
+{
+  "factoryboiler": [
+    {"lo": [-171, 1], "hi": [-1, 118], "wall": 41, "ridge": 80, "roof": "gable_x"},
+    {"lo": [-76, 47], "hi": [-25, 75], "wall": 89, "ridge": 104, "roof": "gable_x"},
+    {"lo": [-136, -54], "hi": [-76, -1], "wall": 14, "ridge": 29, "roof": "gable_y"}
+  ]
+}

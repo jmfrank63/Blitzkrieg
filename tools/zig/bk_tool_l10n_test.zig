@@ -21,6 +21,7 @@ const tools = [_]Tool{
     .{ .name = "bk-pak", .path = bk_tools.bk_pak, .body_key = "pak.usage.body" },
     .{ .name = "bk-table", .path = bk_tools.bk_table, .body_key = "table.usage.body" },
     .{ .name = "bk-image", .path = bk_tools.bk_image, .body_key = "image.usage.body" },
+    .{ .name = "bk-views", .path = bk_tools.bk_views, .body_key = "views.usage.body" },
     .{ .name = "bk-video", .path = bk_tools.bk_video, .body_key = "video.usage.body" },
     .{ .name = "bk-font", .path = bk_tools.bk_font, .body_key = "font.usage.intro" },
     .{ .name = "bk-map", .path = bk_tools.bk_map, .body_key = "map.usage.commands" },

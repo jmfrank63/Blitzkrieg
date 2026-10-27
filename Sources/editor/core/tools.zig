@@ -167,11 +167,15 @@ pub const Placer = struct {
             },
             // Q and E turn the object about to be placed, the step the Selector
             // turns a selected one by (PARITY O7: the ghost follows them, and so
-            // does the wheel, which sets `dir` itself).
-            .key => |key| switch (key) {
-                .rotate_left => self.dir = @mod(self.dir - rotate_step, full_turn),
-                .rotate_right => self.dir = @mod(self.dir + rotate_step, full_turn),
-                .delete, .enter, .insert, .escape, .space => {},
+            // does the wheel, which sets `dir` itself) - a quarter for a type
+            // that shows the side it faces (M006 S06).
+            .key => |key| {
+                const step = editor.turnStep(self.name, rotate_step);
+                switch (key) {
+                    .rotate_left => self.dir = @mod(self.dir - step, full_turn),
+                    .rotate_right => self.dir = @mod(self.dir + step, full_turn),
+                    .delete, .enter, .insert, .escape, .space => {},
+                }
             },
             .drag, .release, .right_press, .right_drag, .right_release, .double_click => {},
         }
@@ -368,7 +372,10 @@ pub const Selector = struct {
                     },
                     .rotate_left, .rotate_right => {
                         const object = editor.document.find(link_id) orelse return;
-                        const step: i32 = if (key == .rotate_left) -rotate_step else rotate_step;
+                        // A building or a prop of four sides turns by quarters,
+                        // one side a press (M006 S06; the bridge takes the nearest).
+                        const turn_step = editor.turnStep(object.nameSlice(), rotate_step);
+                        const step: i32 = if (key == .rotate_left) -turn_step else turn_step;
                         try editor.place(link_id, .{
                             .x = object.x,
                             .y = object.y,
@@ -719,6 +726,32 @@ test "rotate on an object whose stored direction is near maxInt(i32) wraps inste
     try editor.rotateSelection(&.{41}, 90, 0);
     const quarter = editor.document.find(41).?.dir;
     try testing.expect(quarter >= 0 and quarter < full_turn);
+}
+
+test "Q and E turn a building by quarter turns, one side a press, selected or about to be placed (M006 S06)" {
+    const ObjectRecord = bridge_mod.ObjectRecord;
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var house: ObjectRecord = .{ .link_id = 40, .x = 60, .y = 120, .dir = 0, .player = -1 };
+    house.setName("Building_House");
+    try fake.addFixture(house, false);
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var selector: Selector = .{};
+    defer selector.deinit(testing.allocator);
+    editor.selectOnly(40);
+    try selector.handle(&editor, .{ .key = .rotate_right });
+    try testing.expectEqual(@as(i32, 16384), editor.document.find(40).?.dir);
+    try selector.handle(&editor, .{ .key = .rotate_left });
+    try selector.handle(&editor, .{ .key = .rotate_left });
+    try testing.expectEqual(@as(i32, 49152), editor.document.find(40).?.dir);
+    var placer: Placer = .{ .name = "Building_House" };
+    try placer.handle(&editor, .{ .key = .rotate_right });
+    try testing.expectEqual(@as(i32, 16384), placer.dir);
+    // A unit keeps the sixteenth.
+    var tank: Placer = .{ .name = "T34" };
+    try tank.handle(&editor, .{ .key = .rotate_left });
+    try testing.expectEqual(full_turn - rotate_step, tank.dir);
 }
 
 test "a press on nothing clears the selection" {

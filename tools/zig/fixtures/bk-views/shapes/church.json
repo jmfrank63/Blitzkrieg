@@ -1,0 +1,7 @@
+{
+  "church": [
+    {"lo": [-125, 2], "hi": [-3, 112], "wall": 80, "ridge": 120, "roof": "hip"},
+    {"lo": [-81, 40], "hi": [-51, 90], "wall": 134, "ridge": 204, "roof": "hip"},
+    {"lo": [0, 48], "hi": [30, 76], "wall": 10, "ridge": 35, "roof": "gable_x"}
+  ]
+}

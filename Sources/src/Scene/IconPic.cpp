@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "IconPic.h"
+#include "../Main/CameraTurn.h"
 CIconPic::CIconPic()
 : bEnable( true )
 {
@@ -29,4 +30,9 @@ void CIconPic::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	if ( bEnable || (nType == 0x80000000) )
 		pVisitor->VisitSprite( &info, SGVOGT_ICON, 0 );
+}
+// See CIconBar::Reposition.
+void CIconPic::Reposition( const CVec3 &vParentPos )
+{
+	info.pos = vParentPos + NCameraTurn::ViewOffset( vPos, NCameraTurn::Step() );
 }

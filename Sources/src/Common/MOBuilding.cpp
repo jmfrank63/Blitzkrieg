@@ -13,6 +13,8 @@
 #include "../Input/Input.h"
 #include "PlayEffect.h"
 #include "../Misc/Win32Random.h"
+#include "../Main/CameraTurn.h"
+#include "../Main/Remastered.h"
 CMOBuilding::~CMOBuilding()
 {
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
@@ -23,6 +25,8 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 {
 	nSeason = _nSeason;
 	pDesc = pDescLocal;
+	nCameraTurn = NCameraTurn::Step();
+	nDrawnTurn = GetDrawnTurn();
 	pRPG = NGDB::GetRPGStats<SHPObjectRPGStats>( pGDB, pDesc );
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for building \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
@@ -40,6 +44,7 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 		pAnim = static_cast<ISpriteAnimation*>( static_cast<IObjVisObj*>( pShadow.GetPtr() )->GetAnimation() );
 		pAnim->SetFrameIndex( nFrameIndex );
 	}
+	this->nFrameIndex = nFrameIndex;
 	pAIObj = pAIObjLocal;
 	fHP = fNewHP / pRPG->fMaxHP;
 	ISceneIconBar *pBar;
@@ -72,6 +77,16 @@ int CMOBuilding::operator&( IStructureSaver &ss )
 	saver.Add( 3, &pLocalName );
 	saver.Add( 4, &pGarbage );
 	saver.Add( 5, &nSeason );
+	// The side it is drawn with, so a save made with the camera turned (Remastered)
+	// loads knowing it; at the 2003 view nothing is written, as before.
+	if ( saver.IsReading() || nCameraTurn != 0 )
+		saver.Add( 6, &nCameraTurn );
+	if ( saver.IsReading() || nFacing != 0 )
+		saver.Add( 7, &nFacing );
+	if ( saver.IsReading() || nDrawnTurn != 0 )
+		saver.Add( 8, &nFrameIndex );
+	if ( saver.IsReading() )
+		nDrawnTurn = GetDrawnTurn();
 	return 0;
 }
 bool CMOBuilding::CanEnterOrBoard() const
@@ -115,11 +130,9 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 {
 	if ( bEnter )
 	{
-		const CVec3 vAdd = CalcPassangerHPAdd( GetAnim()->GetRect().fDepthLeft + 1 );
-		if ( GetGlobalVar("MultiplayerGame", 0) == 1 )
-			AddPassanger( passangers, this, pMO, GetVisObj(), vAdd, CVec3(0, 0, 4), ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL );
-		else
-			AddPassanger( passangers, this, pMO, GetVisObj(), vAdd, CVec3(0, 0, 2), ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL );
+		CVec3 vAdd, vStep;
+		GetPassangerIconPlacement( &vAdd, &vStep );
+		AddPassanger( passangers, this, pMO, GetVisObj(), vAdd, vStep, ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL );
 		// static_cast, the way every other ICON_HP_BAR access reads that slot
 		// (MOUnit.cpp, MOUnitInfantry.cpp, WorldBase.cpp): the icon is created
 		// in Scene, and a dynamic_cast on it crosses the module boundary. The
@@ -143,6 +156,12 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 	GetSingleton<IInput>()->AddMessage( SGameMessage(MC_UPDATE_WHO_IN_CONTAINER, reinterpret_cast<std::intptr_t>( static_cast<IMOContainer*>(this) )) );
 	UpdatePassangers();
 	return true;
+}
+// Where the passengers' HP bars stand: above the sprite's nearest depth.
+void CMOBuilding::GetPassangerIconPlacement( CVec3 *pvAdd, CVec3 *pvStep )
+{
+	*pvAdd = CalcPassangerHPAdd( GetAnim()->GetRect().fDepthLeft + 1 );
+	*pvStep = CVec3( 0, 0, GetGlobalVar("MultiplayerGame", 0) == 1 ? 4 : 2 );
 }
 void CMOBuilding::UpdatePassangers()
 {
@@ -189,13 +208,21 @@ int CMOBuilding::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) c
 		return passangers.size();
 	}
 }
+// wDir is the building's map Direction, which the AI passes on
+// (CBuilding::SetMapDirection; the 2003 AI passed 0). With Remastered on it is
+// the facing the side is drawn by (NCameraTurn::Facing); the sprites stay at
+// direction 0, as the 2003 game had them: the side is in the picture.
 void CMOBuilding::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
-	pVisObj->SetPlacement( vPos, wDir );
+	nFacing = NCameraTurn::Facing( wDir );
+	// The world places a new object before it adds it to the scene.
+	if ( GetDrawnTurn() != nDrawnTurn )
+		Redraw( GetSingleton<IVisObjBuilder>(), false );
+	pVisObj->SetPlacement( vPos, 0 );
 	if ( pShadow )
-		pShadow->SetPlacement( vPos, wDir );
+		pShadow->SetPlacement( vPos, 0 );
 	if ( pGarbage ) 
-		pGarbage->SetPlacement( vPos, wDir );
+		pGarbage->SetPlacement( vPos, 0 );
 }
 void CMOBuilding::GetPlacement( CVec3 *pvPos, WORD *pwDir )
 {
@@ -233,11 +260,16 @@ void CMOBuilding::GetStatus( struct SMissionStatusObject *pStatus ) const
 		NPlatform::CopyWideToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), szName.c_str() );
 	}
 }
+// placement.dir is the map Direction, as for SetPlacement: the Map Editor's
+// turn (CGivenPassabilityStObject::TurnForEditor) redraws the side here.
 void CMOBuilding::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
+	nFacing = NCameraTurn::Facing( placement.dir );
+	if ( GetDrawnTurn() != nDrawnTurn )
+		Redraw( GetSingleton<IVisObjBuilder>(), true );
 	CVec3 vPos;
 	AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
-	pVisObj->SetDirection( placement.dir );
+	pVisObj->SetDirection( 0 );
 	pScene->MoveObject( pVisObj, vPos );
 	pVisObj->Update( currTime, true );
 	if ( pShadow )
@@ -286,7 +318,7 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 	const int nNewState = GetBuildingDamageState( fNewHP );
 	if ( (nNewState != nOldState) || bForced )
 	{
-		const std::string szBaseModelName = NStr::Format( "%s\\%d", pDesc->szPath.c_str(), nNewState + 1 );
+		const std::string szBaseModelName = NStr::Format( "%s\\%d", GetModelPath().c_str(), nNewState + 1 );
 		CPtr<IVisObj> pTempVO = UpdateVisObj( pVisObj, szBaseModelName, GetSeasonApp(nSeason), "", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pVisObj );
@@ -302,6 +334,63 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 		return true;
 	}
 	return false;
+}
+// The turn of its variant it is drawn with: its own facing (Remastered and
+// the Map Editor only; the 2003 game ignored it) plus the camera's step
+// (NCameraTurn::DrawnTurn, the rule the Map Editor shares).
+int CMOBuilding::GetDrawnTurn() const
+{
+	return NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nCameraTurn );
+}
+std::string CMOBuilding::GetModelPath() const
+{
+	return NCameraTurn::ModelPath( pDesc->szPath, nDrawnTurn );
+}
+void CMOBuilding::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
+{
+	nCameraTurn = nTurn;
+	if ( GetDrawnTurn() != nDrawnTurn )
+		Redraw( pVOB, true );
+}
+// Draws it again from GetModelPath. The pictures change in place, so the scene
+// keeps the objects it holds; a shadow or ground picture the other side has
+// and this one had not is new (added to the scene if it is in it). Its frame
+// and its passengers' HP bars, which stand on the sprite's depth, are set
+// again for the new pictures.
+void CMOBuilding::Redraw( IVisObjBuilder *pVOB, const bool bInScene )
+{
+	if ( pVisObj == 0 )
+		return;
+	const bool bHadShadow = pShadow != 0, bHadGarbage = pGarbage != 0;
+	nDrawnTurn = GetDrawnTurn();
+	UpdateModelWithHP( fHP, pVOB, true );
+	if ( pVisObj == 0 )
+		return;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pShadow != 0 && !bHadShadow && bInScene )
+	{
+		pShadow->SetPosition( pVisObj->GetPosition() );
+		pScene->AddObject( pShadow, SGVOGT_SHADOW );
+	}
+	if ( pGarbage != 0 && !bHadGarbage && bInScene )
+	{
+		pGarbage->SetPosition( pVisObj->GetPosition() );
+		pScene->AddObject( pGarbage, SGVOGT_TERRAOBJ );
+	}
+	if ( nFrameIndex >= 0 )
+	{
+		GetAnim()->SetFrameIndex( nFrameIndex );
+		if ( pShadow )
+			static_cast<ISpriteAnimation*>( static_cast<IObjVisObj*>( pShadow.GetPtr() )->GetAnimation() )->SetFrameIndex( nFrameIndex );
+	}
+	CVec3 vAdd, vStep;
+	GetPassangerIconPlacement( &vAdd, &vStep );
+	for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
+	{
+		if ( ISceneIcon *pIcon = GetVisObj()->GetIcon( it->nHPIconID ) )
+			GetVisObj()->AddIcon( pIcon, it->nHPIconID, vAdd, vStep, 0, ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL, false );
+	}
+	GetVisObj()->AddIcon( 0, 0, VNULL3, VNULL3, 0, 0 );
 }
 IVisObj* AddDirEffect( const std::string &szEffect, const CVec3 &vPos, const float fHDir, const float fVDir, 
 											const NTimer::STime &timeEffect, const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene )

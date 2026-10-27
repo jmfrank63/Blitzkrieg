@@ -182,11 +182,19 @@ class CUIMiniMap : public CSimpleWindow
 	std::string szBackgroundImageName;
 	CPtr<IImage> pBackgroundImage;
 	CPtr<IGFXTexture> pSharpBackground;
+	// The Remastered camera step (NCameraTurn) the picture is drawn at: the
+	// minimap turns with the view, so the player's view and its frame keep the
+	// same up. Every map point goes through PointToTextureMiniMap and every
+	// click through TextureMiniMapToPoint, which turn it about the map's middle;
+	// not saved, Draw takes the step again.
+	int nTurn;
 
 
 	void CreateMiniMapTextures();
 	void CreateSharpBackground();
   void GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool isTopLeft = true );
+	void TurnMapPoint( float *pfXPos, float *pfYPos, const int nTurns ) const;
+	void ProjectMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos , bool isLeftTop = true );
   void PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos , bool isLeftTop = true );
 	void TextureMiniMapToPoint( float fXMiniMapPos, float fYMiniMapPos, float *pfXPos, float *pfYPos , bool isLeftTop = true );
 	float GetYByX( float fX, float fX0, float fY0, float fX1, float fY1 )
@@ -204,6 +212,7 @@ class CUIMiniMap : public CSimpleWindow
 	}
 	void GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const CTPoint<float> &v1, std::vector<CTPoint<float> > *pvPoints );
 	void GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const CTPoint<float> &v2, std::vector<CTPoint<float> > *pvPoints );
+	void GetClippedEdge( const CTPoint<float> &v0, const CTPoint<float> &v1, std::vector<CTPoint<float> > *pvPoints );
 	void GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, IGFX *pGFX );
 
 	bool IsInitialized()
@@ -223,7 +232,7 @@ class CUIMiniMap : public CSimpleWindow
 	void DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock );
 public:
 	CUIMiniMap( )
-		: nSize( 0 ), nUnitCrossSize( 1 ), terrainSize( 0, 0 ), nFiledVISTiles( 0 ),  dwScreenFrameColor( 0xFFAFAFAF ), dwScreenFrameColorShadow( 0xFF4F4F4F ), isWarFogNeedUpdate( false ), isInstantObjectsNeedUpdate( false ), nPlayersCount( 2 )
+		: nSize( 0 ), nUnitCrossSize( 1 ), terrainSize( 0, 0 ), nFiledVISTiles( 0 ),  dwScreenFrameColor( 0xFFAFAFAF ), dwScreenFrameColorShadow( 0xFF4F4F4F ), isWarFogNeedUpdate( false ), isInstantObjectsNeedUpdate( false ), nPlayersCount( 2 ), nTurn( 0 )
 	{
 		for ( int nFogValue = 0; nFogValue <= SAIConsts::VIS_POWER; ++nFogValue )
 		{

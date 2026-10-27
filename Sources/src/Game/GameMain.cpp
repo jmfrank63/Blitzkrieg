@@ -22,6 +22,8 @@
 #include "../Input/Input.h"
 #include "../Input/InputTypes.h"
 #include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
+#include "../Main/CameraTurn.h"
 #include "../GameTT/iMission.h"
 #include "../Misc/FileUtils.h"
 
@@ -1274,7 +1276,7 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// cancel | shot (raw RGBA dump of the frame) | exit | msg=<id> |
 			// cmd=<id> | click=<x>x<y> | hover=<x>x<y> (park the cursor there and
 			// hold it, which is what a tooltip waits for) |
-			// key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE>
+			// key=<UP|DOWN|LEFT|RIGHT|TAB|ENTER|ESC|SPACE|.|COMMA>
 			// (a real key press through the bind chain) | clip=<utf8> (set the
 			// clipboard) | paste (press the real Cmd+V chord) | text=<utf8> (typed into
 			// the focused edit box through the platform text path; no commas or
@@ -1626,6 +1628,58 @@ int RunGame( const BkGameLaunchInfo &launch )
 							vAutoUIReleasePos[0] = nClickX; vAutoUIReleasePos[1] = nClickY;
 						}
 					}
+					else if ( szAction.compare( 0, 5, "drag=" ) == 0 )
+					{
+						// drag=<x1>x<y1>x<x2>x<y2>: the left button pressed at the first
+						// point, the cursor held at the second and released there ten
+						// frames later, which is a frame selection on the map.
+						int nX1 = 0, nY1 = 0, nX2 = 0, nY2 = 0;
+						if ( sscanf( szAction.c_str() + 5, "%dx%dx%dx%d", &nX1, &nY1, &nX2, &nY2 ) == 4 )
+						{
+							const int nPacked = ( nX1 & 0x7fff ) | ( ( nY1 & 0x7fff ) << 15 ) | 0x40000000;
+							GetSingleton<ICursor>()->SetPos( nX1, nY1 );
+							pInput->AddMessage( SGameMessage( 0x00100021 /*CMD_BEGIN_ACTION1*/, nPacked ) );
+							nAutoUIRelease = nAutoUIFrame + 10;
+							vAutoUIReleasePos[0] = nX2; vAutoUIReleasePos[1] = nY2;
+						}
+					}
+					else if ( szAction.compare( 0, 7, "ground=" ) == 0 )
+					{
+						// ground=<x>x<y>: the ground point at a screen point
+						// (CWorldClient's TraceGround).
+						int nX = 0, nY = 0;
+						if ( sscanf( szAction.c_str() + 7, "%dx%d", &nX, &nY ) == 2 )
+							GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, NStr::Format( "TraceGround(%d,%d)", nX, nY ) );
+					}
+					else if ( szAction.compare( 0, 5, "pick=" ) == 0 )
+					{
+						// pick=<x>x<y>[x<step>x<n>]: what the cursor there picks
+						// (CWorldClient::TracePick), or at each point of the n x n grid
+						// that starts there, step pixels apart.
+						int nX = 0, nY = 0, nStep = 1, nCount = 1;
+						if ( sscanf( szAction.c_str() + 5, "%dx%dx%dx%d", &nX, &nY, &nStep, &nCount ) >= 2 )
+						{
+							for ( int nRow = 0; nRow < nCount; ++nRow )
+							{
+								for ( int nColumn = 0; nColumn < nCount; ++nColumn )
+									GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, NStr::Format( "TracePick(%d,%d)", nX + nColumn * nStep, nY + nRow * nStep ) );
+							}
+						}
+					}
+					else if ( szAction == "anchor" )
+					{
+						// The camera's anchor and the ground point under the screen's
+						// centre (world units, NCameraTurn::GroundUnderCentre), and the
+						// Remastered camera step.
+						ICamera *pCamera = GetSingleton<ICamera>();
+						if ( pCamera != 0 && GetSingleton<IScene>()->GetTerrain() != 0 )
+						{
+							const CVec3 vAnchor = pCamera->GetAnchor();
+							const CVec3 vGround = NCameraTurn::GroundUnderCentre( vAnchor, pCamera->GetPos(), GetSingleton<IScene>()->GetTerrain() );
+							fprintf( stderr, "BK_AUTO_UI: anchor %.1f,%.1f ground %.1f,%.1f,%.1f step %d\n",
+								vAnchor.x, vAnchor.y, vGround.x, vGround.y, vGround.z, NCameraTurn::Step() );
+						}
+					}
 					else if ( szAction.compare( 0, 6, "hover=" ) == 0 )
 					{
 						int nHoverX = 0, nHoverY = 0;
@@ -1696,14 +1750,23 @@ int RunGame( const BkGameLaunchInfo &launch )
 						{
 							{ "UP", 0xc8 }, { "DOWN", 0xd0 }, { "LEFT", 0xcb }, { "RIGHT", 0xcd },
 							{ "TAB", 0x0f }, { "ENTER", 0x1c }, { "ESC", 0x01 }, { "SPACE", 0x39 },
+							{ ".", 0x34 }, { "COMMA", 0x33 },		// a comma separates the schedule's entries
 						};
-						const std::string szKey = szAction.substr( 4 );
+						// key=<name>*<frames> holds the key down that many frames (2 without).
+						std::string szKey = szAction.substr( 4 );
+						int nHoldFrames = 2;
+						const size_t nStar = szKey.find( '*' );
+						if ( nStar != std::string::npos )
+						{
+							nHoldFrames = Max( 2, atoi( szKey.c_str() + nStar + 1 ) );
+							szKey = szKey.substr( 0, nStar );
+						}
 						for ( int nKey = 0; nKey < int( sizeof(autoUIKeys) / sizeof(autoUIKeys[0]) ); ++nKey )
 						{
 							if ( szKey == autoUIKeys[nKey].pszName )
 							{
 								pInput->EmulateInput( DEVICE_TYPE_KEYBOARD, autoUIKeys[nKey].nCode, 0x80, DWORD( NPlatform::MonotonicMilliseconds() ), 0 );
-								autoUIKeyReleases.push_back( std::make_pair( autoUIKeys[nKey].nCode, nAutoUIFrame + 2 ) );
+								autoUIKeyReleases.push_back( std::make_pair( autoUIKeys[nKey].nCode, nAutoUIFrame + nHoldFrames ) );
 								break;
 							}
 						}

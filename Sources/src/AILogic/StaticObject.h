@@ -131,6 +131,10 @@ class CGivenPassabilityStObject : public CExistingObject
 	bool bTransparencySet;
 	
 	CArray2D<BYTE> canSetTransparency;
+	// Its map Direction, passed on to the client, which draws a building's or a
+	// prop of four sides' side by it (Remastered and the Map Editor,
+	// NCameraTurn::Facing); 0 for every 2003 map object.
+	WORD wMapDirection;
 	
 	const int GetVisDownX() const;
 	const int GetVisUpX() const;
@@ -139,15 +143,27 @@ class CGivenPassabilityStObject : public CExistingObject
 protected:
 	virtual void SetNewPlaceWithoutMapUpdate( const CVec2 &_center, const WORD dir = 0 ) { center = _center; }
 	void InitTransparenciesPossibility();
+	// Takes stats turned by NStatsTurn instead of its own (a subclass that
+	// holds its stats); false where it holds none to turn.
+	virtual bool SetStats( const struct SObjectBaseRPGStats *pStats ) { return false; }
 
 public:
-	CGivenPassabilityStObject() : bTransparencySet( false ) { }
+	CGivenPassabilityStObject() : bTransparencySet( false ), wMapDirection( 0 ) { }
 	CGivenPassabilityStObject( const CVec2 &center, const int dbID, const float fHP, const int nFrameIndex );
 	virtual void Init();
 
 	virtual const CVec2& GetCenter() const { return center; }
 	virtual const CVec2 GetAttackCenter( const CVec2 &vPoint ) const;
-	virtual const WORD GetDir() const { return 0; }
+	// 0 as in 2003, unless it stands turned (NStatsTurn): then its turn, so a
+	// hit's side is taken from its turned front.
+	virtual const WORD GetDir() const;
+	void SetMapDirection( const WORD wDirection ) { wMapDirection = wDirection; }
+	// The Map Editor's turn (CAIEditor::TurnObject): the object takes the map
+	// Direction and stands turned as NCameraTurn::StandingTurn says, its tiles
+	// laid again; refused (nothing changes) where the turned footprint leaves
+	// the map.
+	void TurnForEditor( const WORD wDirection );
+	virtual void GetPlacement( struct SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff );
 
 	virtual void GetRPGStats( struct SAINotifyRPGStats *pStats );
 
@@ -211,6 +227,7 @@ public:
 	}
 
 	virtual const SHPObjectRPGStats* GetStats() const { return pStats; }
+	virtual bool SetStats( const SObjectBaseRPGStats *_pStats ) { pStats = _pStats; return true; }
 	virtual bool CanUnitGoThrough( const EAIClass &eClass ) const;
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const;
 };
@@ -233,5 +250,23 @@ public:
 
 	virtual void SetNewPlacement( const CVec2 &center, const WORD dir );
 	virtual void GetPlacement( struct SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff );
+};
+// Remastered and the Map Editor (Main/CameraTurn.h): a map object stands
+// turned by its facing - its footprint, visibility, entrances and fire slots
+// turned by (x, y) -> (-y, x) as its picture is, M005's side convention and
+// bk-views' turnXml. The turned stats are copies the database's own stats
+// make and hold (SObjectBaseRPGStats::GetTurned).
+namespace NStatsTurn
+{
+	// The quarter turns a map object of this description and map Direction
+	// stands turned by (NCameraTurn::StandingTurn).
+	int TurnOf( const struct SGDBObjectDesc *pDesc, const int nDirection );
+	// pStats turned nTurn times (pStats itself at 0, and for stats of kinds
+	// other than a building's or a prop's).
+	const struct SObjectBaseRPGStats* Turned( const struct SObjectBaseRPGStats *pStats, const int nTurn );
+	// The turn of stats Turned made (0 for the database's own) and the stats
+	// it was made from.
+	int TurnOfStats( const struct SHPObjectRPGStats *pStats );
+	const struct SObjectBaseRPGStats* Original( const struct SHPObjectRPGStats *pStats );
 };
 #endif // __STATIC_OBJECT_H__

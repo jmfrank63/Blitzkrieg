@@ -110,6 +110,8 @@ class CWorldBase
 	std::list<SGameMessage> messages;
 protected:
 	typedef CWorldObjectsIterator iterator;
+	// Every bridge span in the scene draws itself for the camera step (NCameraTurn).
+	void SetSpansCameraTurn( const int nTurn );
 	CPtr<IScene> pScene;									// shortcut to scene
 	CPtr<IClientAckManager> pAckManager;	// -~- to client's acknowledgements manager
 	CPtr<ICursor> pCursor;								// -~- to cursor
