@@ -416,16 +416,35 @@ IVisObj* AddDirEffect( const std::string &szEffect, const CVec3 &vPos, const flo
 	}
 	return 0;
 }
+// The quarter turns it stands turned by, its footprint and points with its
+// picture (NCameraTurn::StandingTurn, as the AI turns it): 0 but for a
+// facing other than 0 with Remastered on, or in the Map Editor.
+int CMOBuilding::GetStandingTurn() const
+{
+	return NCameraTurn::StandingTurn( pDesc->szPath, true, nFacing * 16384 );
+}
+// A point of its 1.xml (fire, smoke, a slot; world units from its place) as
+// it stands: turned by its standing turn, (x, y) -> (-y, x) each. The camera
+// step needs nothing: the points are 3D, so the turned view draws them where
+// its turned picture shows that part of the building.
+CVec3 CMOBuilding::TurnPoint( const CVec3 &vPoint ) const
+{
+	CVec3 v = vPoint;
+	for ( int i = GetStandingTurn(); i > 0; --i )
+		v = CVec3( -v.y, v.x, v.z );
+	return v;
+}
 void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer::STime &timeEffect, 
 																					  const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	const SBuildingRPGStats *pRPGStats = GetRPGStats();
 	const CVec3 vPos = pVisObj->GetPosition();
+	const float fTurn = 90.0f * GetStandingTurn();			// the points' directions are degrees
 	if ( !pRPGStats->szSmokeEffect.empty() && !pRPGStats->smokePoints.empty() ) 
 	{
 		for ( std::vector<SBuildingRPGStats::SFirePoint>::const_iterator it = pRPGStats->smokePoints.begin(); it != pRPGStats->smokePoints.end(); ++it )
 		{
-			AddDirEffect( pRPGStats->szSmokeEffect, vPos + it->vWorldPosition, it->fDirection, 
+			AddDirEffect( pRPGStats->szSmokeEffect, vPos + TurnPoint( it->vWorldPosition ), it->fDirection + fTurn, 
 				            it->fVerticalAngle, timeEffect, timePassed, pVOB, pScene );
 		}
 	}
@@ -435,7 +454,7 @@ void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer
 		{
 			if ( !it->szFireEffect.empty() ) 
 			{
-				AddDirEffect( it->szFireEffect, vPos + it->vWorldPosition, it->fDirection, 
+				AddDirEffect( it->szFireEffect, vPos + TurnPoint( it->vWorldPosition ), it->fDirection + fTurn, 
 					            it->fVerticalAngle, timeEffect, timePassed, pVOB, pScene );
 			}
 		}
@@ -567,26 +586,31 @@ void CMOBuilding::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTi
 		if ( (shot.nSlot >= 0) && (shot.nSlot < pRPGStats->slots.size()) ) 
 		{
 			const SBuildingRPGStats::SSlot &slot = pRPGStats->slots[shot.nSlot];
+			const CVec3 vSlot = TurnPoint( slot.vWorldPosition );
+			// The slot's direction as the view sees it: turned with the building
+			// and by the camera step (NCameraTurn::ViewDirection), so a flash
+			// facing away from the screen is heard only, as in 2003.
+			const WORD wSlotDir = NCameraTurn::ViewDirection( slot.wDirection + GetStandingTurn() * 16384, nCameraTurn );
 			if ( !shell.szEffectGunFire.empty() )
 			{
-				if ( (slot.wDirection >= 57344) || (slot.wDirection <= 24576) )	// only sound effect
+				if ( (wSlotDir >= 57344) || (wSlotDir <= 24576) )	// only sound effect
 				{
 					if ( const char *pszSoundName = pVOB->GetEffectSound(shell.szEffectGunFire) ) 
 					{
-						pScene->AddSound( pszSoundName, vPos + slot.vWorldPosition, 
+						pScene->AddSound( pszSoundName, vPos + vSlot, 
 															SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT, 1, 100, timePassed );
 					}
 				}
 				else														// visual + sound effect
 				{
-					PlayEffect( shell.szEffectGunFire, vPos + slot.vWorldPosition, timeEffect, false, pScene, pVOB, timePassed,
+					PlayEffect( shell.szEffectGunFire, vPos + vSlot, timeEffect, false, pScene, pVOB, timePassed,
 											SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT );
 				}
 			}
 			if ( shell.trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE && NWin32Random::Random( 100 ) + 1 <= shell.fTraceProbability  * fTraceProbabilityCoeff * 100.0f )
 			{
 				pVisObj->Update( currTime );
-				const CVec3 vStart = vPos + slot.vWorldPosition;
+				const CVec3 vStart = vPos + vSlot;
 				CVec3 vEnd;
 				AI2Vis( &vEnd, shot.vDestPos );
 				UpdateGunTraces( vStart, vEnd, AI2VisX(shell.fSpeed) * shell.fTraceSpeedCoeff * fTraceSpeedCoeff, shot.time, pScene );

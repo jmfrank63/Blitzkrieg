@@ -32,7 +32,11 @@
 //!   its picture turned as the ground turns, better than not turned; four
 //!   VillageFence segments (one segment of each kind per direction), one of
 //!   each direction, each the picture of the segment whose direction is its
-//!   own plus the step, better than its own at an odd step.
+//!   own plus the step, standing on its own footprint turned (S07: a 2003
+//!   segment's zero cross is at one end of its footprint, so that picture
+//!   moves by what puts its footprint's middle on the own one's, `fenceShift`),
+//!   better than its own at an odd step and than the turned picture left at
+//!   the zero cross (S03's drawing, off its footprint at two of four steps).
 //! - S04: the four 2003 sides of the bench and the wooden column with a leg
 //!   (variants 01 to 04, two eighths apart, so each place must show the
 //!   variant that stood there at step 0, better than the own picture); line
@@ -213,12 +217,13 @@ test "the ground, roads, rivers, flora, fences and objects turn with the camera"
         for (1..4) |k| for (placed, 0..) |object, i| {
             // A bridge span moved to the gap's place has no step-0 picture to be scored against.
             if (object.kind == .bridge and (object.eighth + 2 * k) % 8 == bridge_gap) continue;
-            const own = scoreObject(frames[0], frames[k], placed, i, k, true);
+            const own = scoreObject(frames[0], frames[k], placed, i, k, true, true);
             const wrong: ?Score = switch (object.kind) {
                 .own => null,
-                .mirrored, .fence, .bridge => if (k % 2 == 1) scoreObject(frames[0], frames[k], placed, i, k, false) else null,
-                .flat => scoreObject(frames[0], frames[k], placed, i, k, false),
-                .sides => scoreObject(frames[0], frames[k], placed, i, k, false),
+                .fence => if (!std.meta.eql(fenceShift(object.eighth / 2, k), .{ 0, 0 })) scoreObject(frames[0], frames[k], placed, i, k, true, false) else if (k % 2 == 1) scoreObject(frames[0], frames[k], placed, i, k, false, false) else null,
+                .mirrored, .bridge => if (k % 2 == 1) scoreObject(frames[0], frames[k], placed, i, k, false, false) else null,
+                .flat => scoreObject(frames[0], frames[k], placed, i, k, false, false),
+                .sides => scoreObject(frames[0], frames[k], placed, i, k, false, false),
             };
             try report.print(allocator, "{d} {s} {s}: {d:.3} / {d:.2} ({d},{d})", .{ k, object.name, @tagName(object.kind), own.iou, own.colour, own.dx, own.dy });
             if (wrong) |w| try report.print(allocator, "; {d:.3}\n", .{w.iou}) else try report.appendSlice(allocator, "\n");
@@ -290,6 +295,39 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     }
 }
 
+/// The middle of a VillageFence segment's footprint from its zero cross (AI
+/// units), per direction, from Data/Fences/ussr/summer/villagefence/1.xml:
+/// the centre segments of directions 0 and 2 are 1 x 3 cells with origin
+/// (16, 16), of 1 and 3 3 x 1 with origin (80, 16) (the XML's origins are
+/// world units, AI2Vis of these); a footprint starts at the zero cross less
+/// the origin.
+const fence_middle = [4][2]f64{ .{ 0, 32 }, .{ -32, 0 }, .{ 0, 32 }, .{ -32, 0 } };
+
+/// Where the picture of the segment a fence of direction d shows at step k
+/// (direction d + k) stands from where the turn puts its zero cross, on the
+/// screen: on the own footprint turned, R^k m(d) - m(d + k) in the turned
+/// view's AI frame, R being (x, y) -> (-y, x); at step 0 nothing.
+fn fenceShift(d: u32, k: usize) [2]i32 {
+    var m = fence_middle[d % 4];
+    for (0..k) |_| {
+        const was = m;
+        m = .{ -was[1], was[0] };
+    }
+    const to = fence_middle[(d + @as(u32, @intCast(k))) % 4];
+    const dx = m[0] - to[0];
+    const dy = m[1] - to[1];
+    return .{ @intFromFloat(@round((dx + dy) / 2)), @intFromFloat(@round((dx - dy) / 4)) };
+}
+
+test "a turned fence segment stands on its own footprint turned" {
+    // Direction 0's footprint runs along AI y from its zero cross; turned
+    // twice it runs the other way, 64 units (32 pixels left, 16 down) on.
+    try testing.expectEqual([2]i32{ 0, 0 }, fenceShift(0, 0));
+    try testing.expectEqual([2]i32{ 0, 0 }, fenceShift(0, 1));
+    try testing.expectEqual([2]i32{ -32, 16 }, fenceShift(0, 2));
+    try testing.expectEqual([2]i32{ 32, 16 }, fenceShift(0, 3));
+}
+
 /// A ring point in AI units around the AI point under the screen centre.
 fn ringPoint(radius: f64, eighth: u32) [2]f64 {
     const middle = @as(f64, @floatFromInt(road3d_look[0])) * ai_per_world;
@@ -325,13 +363,17 @@ const Score = struct { iou: f64, colour: f64, dx: i32, dy: i32 };
 /// (`right`) or the picture that would be wrong (its own, not mirrored, not
 /// turned), both cut from the step-0 frame around a zero cross; the best
 /// offset within 4 pixels.
-fn scoreObject(before: []const u8, after: []const u8, placed: []const Placed, i: usize, k: usize, right: bool) Score {
+fn scoreObject(before: []const u8, after: []const u8, placed: []const Placed, i: usize, k: usize, right: bool, on_footprint: bool) Score {
     const object = placed[i];
     // A fence segment, a side of a prop and a bridge span show what stood
     // at the place they move to.
     const from_eighth = if (right and (object.kind == .fence or object.kind == .sides or object.kind == .bridge)) @as(u32, @intCast((object.eighth + 2 * k) % 8)) else object.eighth;
     const p0 = screenOf(object.ring, from_eighth);
-    const pk = turn.turnScreen(screenOf(object.ring, object.eighth), k);
+    var pk = turn.turnScreen(screenOf(object.ring, object.eighth), k);
+    if (object.kind == .fence and right and on_footprint) {
+        const shift = fenceShift(object.eighth / 2, k);
+        pk = .{ pk[0] + shift[0], pk[1] + shift[1] };
+    }
     const reach = object.reach;
     const flat = object.kind == .flat and right;
     const mirror = object.kind == .mirrored and right and k % 2 == 1;

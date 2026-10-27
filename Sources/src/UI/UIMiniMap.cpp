@@ -1214,6 +1214,61 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 	}
 	return true;
 }
+// The north mark of the frame (M006 S07): `S -> N`, painted on the plate of
+// the frame's upper left bar in ui\missionpanels, its arrow along that bar
+// towards the map's north (world +y, up and right on the 2003 screen). The
+// minimap turns with the camera (Remastered), so at step k north is world +y
+// turned k times (x, y) -> (-y, x) on the screen; the mark goes to the bar
+// that runs that way, drawn so its arrow points there:
+// - step 1: north is up and left: on the upper right bar, mirrored (N <- S);
+// - step 2: down and left: on the upper left bar, turned half round;
+// - step 3: down and right: on the upper right bar, upside down.
+// Where it leaves the plate, the plate's letters are painted over in its
+// yellow. Step 0 draws nothing: the 2003 frame.
+//
+// The letters lie in the band of the texture between (52, 26)-(52, 35) and
+// (86, 9)-(86, 18), along the bar; the upper right bar is the upper left one
+// mirrored about x = 135 (the minimap's middle: its window stands at (6, 3) of
+// the panel, whose top left is the texture's).
+void CUIMiniMap::DrawNorthMark( IGFX *pGFX )
+{
+	IGFXTexture *pPanels = GetSingleton<ITextureManager>()->GetTexture( "ui\\missionpanels" );
+	if ( pPanels == 0 )
+		return;
+	const float fLeft = wndRect.left - 6.0f, fTop = wndRect.top - 3.0f;
+	const float fSizeX = pPanels->GetSizeX( 0 ), fSizeY = pPanels->GetSizeY( 0 );
+	// The band's corners, bottom left, bottom right, top right, top left.
+	const float bandX[4] = { 52, 86, 86, 52 }, bandY[4] = { 35, 18, 9, 26 };
+	const bool bRight = ( nTurn & 1 ) != 0;
+	const bool bHalf = nTurn >= 2;
+	if ( bRight )
+	{
+		// The letters left behind: the plate's yellow over them.
+		CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
+		CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
+		for ( int i = 0; i < 4; ++i )
+			vertices[i].Setup( fLeft + bandX[i], fTop + bandY[i], 0.0f, 1.0f, 0xFFF7C211, 0xFF000000, 0, 0 );
+		indices[0] = 0; indices[1] = 1; indices[2] = 2; indices[3] = 0; indices[4] = 2; indices[5] = 3;
+		pGFX->SetTexture( 0, 0 );
+		pGFX->DrawTemp();
+	}
+	CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
+	CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
+	for ( int i = 0; i < 4; ++i )
+	{
+		// Mirrored onto the right bar the corners keep their texels (step 1);
+		// a half turn more gives each corner the texels of the opposite one.
+		const int nFrom = bHalf ? ( i + 2 ) % 4 : i;
+		const float fX = bRight ? 270.0f - bandX[i] : bandX[i];
+		vertices[i].Setup( fLeft + fX, fTop + bandY[i], 0.0f, 1.0f, 0xFFFFFFFF, 0xFF000000, bandX[nFrom] / fSizeX, bandY[nFrom] / fSizeY );
+	}
+	// Mirrored, the corners run the other way round: the same winding kept.
+	const WORD order[6] = { 0, WORD( bRight ? 2 : 1 ), WORD( bRight ? 1 : 2 ), 0, WORD( bRight ? 3 : 2 ), WORD( bRight ? 2 : 3 ) };
+	for ( int i = 0; i < 6; ++i )
+		indices[i] = order[i];
+	pGFX->SetTexture( 0, pPanels );
+	pGFX->DrawTemp();
+}
 void CUIMiniMap::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( IsInitialized() )
@@ -1409,6 +1464,8 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 			_pGFX->DrawTemp();
 		}
 		/**/
+		if ( nTurn != 0 )
+			DrawNorthMark( _pGFX );
 		_pGFX->SetTexture( 0, 0 );
 
 		vPoints.clear();
