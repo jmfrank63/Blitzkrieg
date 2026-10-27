@@ -544,8 +544,10 @@ pub fn writeMap(io: std.Io, allocator: std.mem.Allocator, data: []const u8, name
 pub const Run = struct { log: []const u8, log_path: []const u8, user: []const u8 };
 
 /// What runScheduleWith may add: the scratch user folder when another run's
-/// (its saves) is wanted, more arguments, and BK_AI_STATE_TRACE.
-pub const RunOptions = struct { user: ?[]const u8 = null, extra: []const []const u8 = &.{}, state_trace: bool = false };
+/// (its saves) is wanted, more arguments, BK_AI_STATE_TRACE, more environment
+/// variables, a longer timeout, and no mod (a multiplayer room created under
+/// a mod switches the Game's mode).
+pub const RunOptions = struct { user: ?[]const u8 = null, extra: []const []const u8 = &.{}, state_trace: bool = false, env: []const [2][]const u8 = &.{}, timeout_s: i64 = 240, mod: bool = true };
 
 /// Runs the Game in its own scratch user folder under `schedule` (BK_AUTO_UI)
 /// with the mod and the passes `disable` off, on `map` or, when it is empty,
@@ -569,17 +571,19 @@ pub fn runScheduleWith(io: std.Io, allocator: std.mem.Allocator, game: []const u
     try environ.put("BK_NO_HELP", "1");
     try environ.put("BK_MAP_TRACE", "1");
     if (options.state_trace) try environ.put("BK_AI_STATE_TRACE", "1");
+    for (options.env) |pair| try environ.put(pair[0], pair[1]);
     if (disable.len != 0) try environ.put("BK_SCENE_DISABLE", disable);
     try environ.put("BK_AUTO_UI", schedule);
     var argv: std.ArrayList([]const u8) = .empty;
-    try argv.appendSlice(allocator, &.{ game, "-windowed", std.fmt.comptimePrint("-mode={d}x{d}", .{ width, height }), "-profile=Turn", try std.fmt.allocPrint(allocator, "-mod={s}", .{mod}) });
+    try argv.appendSlice(allocator, &.{ game, "-windowed", std.fmt.comptimePrint("-mode={d}x{d}", .{ width, height }), "-profile=Turn" });
+    if (options.mod) try argv.append(allocator, try std.fmt.allocPrint(allocator, "-mod={s}", .{mod}));
     try argv.appendSlice(allocator, options.extra);
     if (map.len != 0) try argv.append(allocator, map);
     const result = try timed_run.run(allocator, io, .{
         .argv = argv.items,
         .cwd = .{ .path = user },
         .environ_map = &environ,
-        .timeout = .{ .duration = .{ .raw = .fromSeconds(240), .clock = .awake } },
+        .timeout = .{ .duration = .{ .raw = .fromSeconds(options.timeout_s), .clock = .awake } },
     });
     const log = try std.mem.concat(allocator, u8, &.{ result.stdout, result.stderr });
     try cwd.writeFile(io, .{ .sub_path = log_path, .data = log });

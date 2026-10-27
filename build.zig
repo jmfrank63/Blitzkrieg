@@ -3291,6 +3291,40 @@ pub fn build(b: *std.Build) void {
     poland_game_step.dependOn(&poland_game_tests.step);
     if (test_mode == .run) poland_game_step.dependOn(&poland_game_run.step);
 
+    // What the first hand test left open (M006 S08,
+    // tools/zig/camera_turn_open_game_reads_it.zig): a storage placed for no
+    // player loads; a building standing turned fires from its turned slots,
+    // is hit on its turned sides and flashes at its windows; two players at
+    // different camera steps play the same game. Desktop and GPU, so not part
+    // of `test`; each its own step, under ten minutes.
+    const open_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_open_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, open_game_module, toolchain);
+    }
+    const open_steps = [_]struct { name: []const u8, filter: []const u8, about: []const u8 }{
+        .{ .name = "camera-turn-storage-game-reads-it", .filter = "a storage placed for no player", .about = "Load a map holding the barn E_WB_01, a storage, placed for no player on the real Game and find it drawn" },
+        .{ .name = "camera-turn-fire-game-reads-it", .filter = "a building standing turned fires", .about = "Stand E_FrenchShed01 turned by its own facing with soldiers inside and attackers turned with it on the real Game, and hold the traced fire slots, armour sides and flashes to its 1.xml turned" },
+        .{ .name = "camera-turn-multiplayer-game-reads-it", .filter = "two players at different camera steps", .about = "Run a host and a client Game on loopback, the client turning its view while they play, and hold every second of their game state equal for a minute" },
+    };
+    for (open_steps) |open| {
+        const open_tests = b.addTest(.{ .root_module = open_game_module, .filters = &.{ open.filter, "the AI's direction convention" } });
+        const open_run = b.addRunArtifact(open_tests);
+        open_run.setCwd(b.path("."));
+        open_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+        open_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+        open_run.has_side_effects = true;
+        open_run.step.dependOn(install_game_step);
+        open_run.step.dependOn(bk_views_step);
+        open_run.step.dependOn(bk_sprite.install);
+        const open_step = b.step(open.name, open.about);
+        open_step.dependOn(&open_tests.step);
+        if (test_mode == .run) open_step.dependOn(&open_run.step);
+    }
+
     // The rest of the world at every camera step (M006 S03,
     // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and
     // road3d, the dessau scene, and objects of each kind on a ring, each shot
