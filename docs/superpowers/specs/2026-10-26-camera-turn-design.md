@@ -1,5 +1,29 @@
 # The Game camera turns in four steps (Remastered)
 
+## How to try it
+
+You need the Game, the Map Editor and the turned building pictures. From the repository root (Windows PowerShell
+shown; one `zig build` at a time):
+
+1. Build and install: `zig build install-game install-map-editor`.
+2. Make the turned pictures of every shipped building, once (about 6 minutes in all):
+   `zig build building-views-batch-africa`, then `-common`, `-europe`, `-ussr`.
+3. Put them into a mod: `zig build camera-turn-mod`. It writes `zig-out\remastered\mods\remastered_views`
+   (outside the install's own `mods` folder).
+4. Start the Game with that mod:
+   `$env:BK_MODS_ROOT = "$PWD\zig-out\remastered\mods"; & zig-out\game\windows\x86_64\debug\Game.exe -mod=remastered_views`
+   (`release` instead of `debug` for an optimized build; on Linux
+   `BK_MODS_ROOT=$PWD/zig-out/remastered/mods zig-out/game/linux/x86_64/release/Game -mod=remastered_views`).
+5. In the main menu: Options > Settings > Gameplay > **Remastered: On**. Start any mission or custom map.
+6. Press `.` (period) to turn the view a quarter turn one way and `,` (comma) to turn it back. Four presses come back
+   to the 2003 view. Buildings show the side that faces the camera, the ground, units, props, bridges and the minimap
+   turn with the view; picking, orders and scrolling follow it. With Remastered off the keys do nothing.
+7. The Map Editor turns buildings too: start `zig-out\game\windows\x86_64\debug\MapEditor.exe -mod=remastered_views`
+   with the same `BK_MODS_ROOT`, open a map, select a building with the Select tool and press `Q` or `E`: it turns by a
+   quarter, shows that side and stands on its turned footprint. Save the map; the Game (Remastered on) draws and plays
+   the building turned. The four-sided props (benches, the France fence, the wooden columns) turn the same way. A
+   building without turned pictures does not turn (the status line says so).
+
 M006 puts M005's building views ([building views](2026-10-25-building-views-design.md)) on the screen: with the
 Remastered option on ([Remastered option](2026-10-25-remastered-option-design.md)) the player turns the Game camera
 by quarter turns. Four steps, not eight (decided 2026-10-26, Johannes): a quarter turn maps the diamond grid of
@@ -632,3 +656,140 @@ after the load fix with the same numbers. The editor bridge's own code is untouc
 - The minimap's resampled picture is made again on each turn (not timed); a turned frame is clipped by the new segment
   clipping, the 2003 one still at step 0.
 - A replay records no turns made while it was recorded; a single player replay starts at step 0.
+
+## The Map Editor turns buildings by the same rule (S06, 2026-10-27)
+
+### What was found (S06)
+
+- **The Map Editor draws with the Game's own objects.** Its bridge runs the AI (`CAIEditor`) and a `CWorldBase`, so a
+  placed building is a `CMOBuilding` and a prop a `CMOObject`, drawn by the same code as in the Game. Its camera step
+  stays 0. Before S06 its Q and E turned a selected object by a sixteenth (`rotate_step`); on a building or a prop the
+  turn was refused ("the engine would not take that placement"), because the AI's `CGivenPassabilityStObject::GetDir`
+  is 0 whatever it is told.
+- **The AI's stats belong to the database's module.** The stats are polymorphic and their virtual functions live in
+  `Main` (`RPGStats.cpp`), so another module cannot copy them (the copy's vtable is missing at link time).
+- **Static placements** reach the client through `AIUpdatePlacement`, not `SetPlacement`, and carried `GetDir()`.
+- **Every click in the Game landed on the plane at height 0** (S05): `GFXGPU`'s `GetViewVolumeCrosses` was empty.
+
+### Decisions (S06)
+
+- **One rule, shared.** `NCameraTurn` (`Main/CameraTurn.h`) gains `FacingCounts()` (Remastered on, or the Map Editor:
+  the `editor` var its bridge sets), `IsFourSided` and `FourSidedPath` (moved from `MOObject.cpp`), and
+  `StandingTurn(path, building, direction)`: the quarter turns an object stands turned by, its facing where facings
+  count and its picture turns with it. The Game's drawing, the AI and the editor bridge all call these.
+- **Where turned art must exist:** a building turns only to a side its variant has pictures for (`<variant>_r<k>\1.san`,
+  `ModelPath`'s own test); the editor refuses any other turn with `"<name>" has no pictures of that side (the Resource
+  Editor's Generate sides makes them)`, so it never shows a footprint its picture does not match. Facing 0 always
+  exists. A map that holds such a facing anyway (written by hand) draws and lays the building as in 2003 (its picture
+  falls back, and `StandingTurn` is 0). A prop of four sides always has its four variants.
+- **The map stores the facing as the object's `Direction`**, a multiple of 16384 (0 faces +y, a quarter is
+  `(x, y) -> (-y, x)`, the side convention). Q and E step by a quarter on a building or a prop of four sides
+  (`BkEditorTurnStep`, asked by the Selector and the Placer), a sixteenth on everything else; the bridge takes the
+  nearest quarter of any turn of such an object (the direction wheel, the Properties angle). The Place tool's ghost
+  shows the side the placer's direction gives (`SetGhostInSession`). An object placed with a direction between
+  quarters keeps that number in the map and is drawn and laid at the nearest quarter (`Facing`).
+- **The footprint and points turn with the picture (S02's rough edge): turned at load, by bk-views' rule.** Rather
+  than reading the `_r<k>` folder's turned `1.xml` (a second stats object per variant that the database does not
+  know), `SObjectBaseRPGStats::GetTurned(k)` (overridden for buildings and props in `RPGStats.cpp`, where the stats'
+  vtables live) makes a copy turned k times: the passability and visibility grids with their origins (`turnGrid`'s
+  formula: cell (x, y) is cell (y, h - 1 - x), origin (h * TILE - oy, ox)), each entrance's and fire slot's position
+  turned, each slot's direction plus 16384. The copies are owned by the stats they come from (`SStandingTurns`), so
+  they live and die with the database. `CAILogic::AddObject` builds a building or a prop with
+  `NStatsTurn::Turned(stats, NStatsTurn::TurnOf(desc, Direction))`; `CGivenPassabilityStObject::Init` turns the
+  armour's front (`boundRect`'s axis) with it and `GetDir` answers the turn (16384 k), so a hit's side is taken from
+  the turned front. Fire points, smoke points and direction explosions are the client's (effects) and are not turned.
+- **When the AI turns:** when the map loads with Remastered on (the option is on the main menu only, so a mission runs
+  in one mode), never in multiplayer (`NRemastered::Enabled()` is off there), a replay in its recorded mode. The
+  drawing follows the option live (S02); a change of the option during a mission (the game's menus offer none) would
+  change the picture and not the footprint.
+- **Saves:** a building or prop standing turned writes the database's stats by name and its turn (chunk 41 of
+  `CBuilding`, 5 of `CSimpleStaticObject`, only when not 0) and turns them again when read; the map Direction is chunk
+  9 of `CGivenPassabilityStObject` (only when not 0). S02's chunk 41 of `CBuilding` (the map Direction) moved there.
+- **The AI keeps a prop's map Direction (S03's rough edge)** for `SGVOGT_OBJECT` props, as for buildings; the client
+  hears it through `GetPlacement` (new objects and placement updates alike) and a prop of four sides draws variant
+  (own - 1 + facing + step) mod 4 + 1. Every prop's and building's sprite stays at direction 0, as 2003 had them.
+  Fences keep their direction in their FrameIndex (the Fence tool sets it), as before.
+- **The Map Editor's turn** (`CAIEditor::TurnObject` -> `CGivenPassabilityStObject::TurnForEditor`) unlocks the old
+  tiles, swaps the stats for the turned ones, lays them again and tells the client (`ACTION_NOTIFY_ST_OBJ_PLACEMENT`;
+  `CMOBuilding` and `CMOObject::AIUpdatePlacement` now redraw the side from the Direction). A turned footprint that
+  would leave the map is refused, as a move is.
+- **Clicks on hills (S05's rough edge):** `GraphicsEngineGpu::GetViewVolumeCrosses` is `CGraphicsEngine`'s: the
+  inverse of viewport * projection * view at the time of the call, so `CScene::GetPos3` meets the terrain through
+  `IAILogic::GetIntersectionWithTerrain` as in 2003, at every step, step 0 included. The Map Editor keeps its picks on
+  the plane at height 0 (`ScreenToWorld` asks `GetPos3` with `bOnZero`), as it always did: its brush outline and
+  `WorldToScreen` are drawn at z = 0.
+- **Harness:** BK_AUTO_UI `ground=<x>x<y>` (`TraceGround`, the ground point a click there finds); the editor's
+  `do=camera_at:<x>:<y>` (the view centred on a world point).
+
+### The tiers (S06)
+
+`zig build camera-turn-editor-game-reads-it` (`tools/zig/camera_turn_editor_game_reads_it.zig`, about 7 minutes on
+win-home): bk-views makes the turns of e_ctownhouse01_2 and e_frenchshed01 into a scratch mod; a map from road3d.xml
+holds two town houses, the shed and Bench01 at facing 0, each 300 AI units along both axes from the middle (no picture
+comes near another at any step). The installed Map Editor (hidden, BK_EDITOR_AUTO, the mod loaded) selects each
+(`band_select`), turns it with Q and E (the town houses to facings 2 and 3, the shed and the bench to 1, `expect=angle`
+after each), places E_House01_1 (no turned pictures), presses E and must refuse ("pictures" on the status line, angle
+0), deletes it, takes the frame around each object and saves the map as XML (Check Map clean: the objects belong to
+the neutral player 2). The Game then plays the saved map:
+
+- **editor:** each object's side is found in the editor's frame (the window with its panels and the ground) by its
+  colours: mean colour difference 0.00, 0.14, 0.00, 0.00 for the two town houses, the shed and the bench; any other
+  side at the same place 34 to 58. The saved map holds Direction 32768, 49152, 16384 and 16384.
+- **on** (Remastered on, the camera on each object, steps 0 to 3): every object shows turn (facing + step) mod 4: the
+  town houses IoU 0.998 to 1.000, colour 0.00 to 0.18; the shed 0.994 to 1.000, 0.00; the bench (its family's variant
+  of that turn) 0.946 to 0.995, 0.00 (floor 0.9 for a prop, whose outline is a few pixels of edge); the best other turn
+  0.16 to 0.47.
+- **off** (Remastered off): every object shows its 2003 picture (IoU 0.954 to 0.998, offset within a pixel) and the
+  turn key changes 0 pixels between the message line and the panels.
+- **ai** (a sniper added to a copy of the saved map; the option set before the map loads, by the drawing run of that
+  mode in the same profile): ordered along a line 50 AI units in front of the shed, which crosses the shed's 2003
+  footprint and misses its turned one, then into the shed:
+
+  | | largest distance from the line | samples in the 2003 / turned footprint | entered at, from the nearest turned / 2003 entrance |
+  |---|---|---|---|
+  | on | 10.2 | 15 to 17 / 0 | 0.9 to 30.5 / 72.8 to 93.4 |
+  | off | 71.0 to 72.4 (it walks around) | 0 / 9 to 10 | 93.0 to 116.7 / 0.8 to 31.4 |
+
+  The footprints are the AI tiles the shed locks (its 1.xml origin in AI units on 32-unit tiles: 2003 x -224..0,
+  y -8..120 from its place; turned x -128..0, y -232..-8). A soldier goes in within a tile of the entrance it walked
+  to (floors: 40 to its own side's, 60 from the other side's). The values are the spread over five runs; the last,
+with another checkout's Game tiers running on the same machine, took 17 minutes instead of 7.
+
+`camera-turn-control-game-reads-it`'s hill run gains clicks: with each anchor trace, the ground at the screen's centre
+and at a point on the slope (611, 333). Measured: the centre's ground 1.9 to 2.7 world units from S05's
+`GroundUnderCentre` (the AI meets the terrain in its own height steps); the slope's ground drawn by the turned 2003
+camera within 1.1 to 1.8 pixels of the click, at height 63.6, 55.6, 12.1 and 3.6 at steps 0 to 3 (the plane answered
+0 at every point). At step 0 a sniper ordered to the slope point walked to 3.6 to 6.8 world units from the clicked
+ground, 103 to 105 from the point at height 0 the port answered before.
+
+### Other tiers (S06)
+
+Run on win-home (Windows x64, debug), one at a time, after the last engine change but the save fix (which only skips
+re-turning stats saved at turn 0): `camera-turn-game-reads-it` (391 s), `camera-turn-world-game-reads-it` (448 s),
+`camera-turn-units-game-reads-it` (320 s), `camera-turn-state-game-reads-it` (454 s) and `building-views-game-reads-it`
+(295 s) pass. `remastered-game-reads-it`: 13 of 17, the 4 failures the known hb-view `l10n_measure` tests; its first
+run (before the save fix) hung in the `save-off` Game, whose game time stood at 50 ms from the mission's start (the
+main thread drawing, no load and no assert), and was killed after 25 minutes; the run after the fix passed in 7 minutes.
+Map Editor: `test-editor-core`, `test-map-editor-view`, `-panels`, `-auto`, `test-map-editor-engine` (351 s),
+`map-editor-host-check` (219 s), `map-editor-smoke` (109 s), `map-editor-auto` (158 s), `map-editor-m3-auto` (1436 s,
+with the M1 and M2 scenarios it waits for) and `map-editor-game-reads-it-m3` (1303 s, with its siblings) all exit 0.
+RPGStats.h changed for every module: `install-resource-editor` builds, `resource-editor-smoke` passes (64 s).
+`resource-editor-auto-bdg` passes (95 s). `test-editor-bridge` in its five CI shards (the bridge changed): 841, 1421,
+1046, 501 and 1456 s, all exit 0 (each longer than one 10-minute foreground command, so run in the background and
+waited for, one at a time).
+The editor's UI text did not change (the refusal is the bridge's message, which the lang files do not hold), so the
+ten lang files and the l10n tiers were not touched.
+
+### Rough edges left (S06)
+
+- **Armour sides and fire slots** turn by construction (`boundRect`'s axis, the slots' positions and directions) and
+  are not measured in a capture; the observation places a building computes from its slots follow them.
+- **A building's client-side points** (fire, smoke and direction explosions, a slot's gun flash, drawn from the
+  database's stats) stay where the variant's own 1.xml puts them, at every camera step (as in S01 to S05).
+- **The Map Editor's turned buildings in the editor itself:** the AI's turrets and observation places of a building the
+  editor turns are not rebuilt (nobody fires in the editor; the Game builds them turned when it loads the map).
+- **Mid-mission option changes** (no game menu offers one) would turn a building's picture and not its footprint.
+- **The editor's picks stay at height 0** (its own convention); only the Game's clicks meet the terrain.
+- A soldier enters a building within a tile of its entrance (0.8 to 31.4 AI units measured), so the tier's entrance
+  floors are a tile wide.
+- `remastered-game-reads-it` hung once (above), not seen again; nothing in S06 is known to cause it.
