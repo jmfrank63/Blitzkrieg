@@ -2216,19 +2216,29 @@ pub const wall_light: f64 = 2.01;
 /// in the light turned e_ctownhouse03_2's walls blue-green, roof pixels in a
 /// wall's class turned them grey, and a class seen on a few pixels bleached
 /// whole roof planes).
-pub fn shading(n: [3]f64, turn: u2) f64 {
-    return 1 + light_diffuse * @max(0, dot(n, lightFor(light_2003, turn)));
+/// Per channel (`wall_light_rgb`): the sun is yellower than the sky that
+/// lights the shade, so a shaded wall relit by one factor came out a
+/// saturated orange beside the 2003 lit walls' cream (a_h02_2).
+pub fn shading(n: [3]f64, turn: u2) [3]f64 {
+    const direct = @max(0, dot(n, lightFor(light_2003, turn)));
+    var out: [3]f64 = undefined;
+    for (&out, wall_light_rgb) |*o, w| o.* = 1 + (w - 1) / -light_2003[1] * direct;
+    return out;
 }
 
-const light_diffuse = (wall_light - 1) / -light_2003[1];
+/// The lit wall against the shaded one per channel: the medians of the 13
+/// houses `wall_light` was measured on (M005 S08).
+pub const wall_light_rgb = [3]f64{ 1.82, 2.03, 2.71 };
 
-/// A pixel relit by `gain`, its hue kept where a channel would clip: a
-/// clipped channel turned bright red roofs yellow.
-pub fn relight(pixel: [4]u8, gain: f64) [4]u8 {
-    const top: f64 = @floatFromInt(@max(pixel[0], pixel[1], pixel[2]));
-    const g = @min(gain, 255 / @max(1, top));
+/// A pixel relit from a surface lit `from` to one lit `to` (`shading`), its
+/// hue kept where a channel would clip: a clipped channel turned bright red
+/// roofs yellow.
+pub fn relight(pixel: [4]u8, to: [3]f64, from: [3]f64) [4]u8 {
+    var v: [3]f64 = undefined;
+    for (&v, 0..) |*c, ch| c.* = @as(f64, @floatFromInt(pixel[ch])) * to[ch] / from[ch];
+    const scale = @min(1, 255 / @max(1, @max(v[0], v[1], v[2])));
     var out = pixel;
-    for (0..3) |ch| out[ch] = @intFromFloat(@round(@as(f64, @floatFromInt(pixel[ch])) * g));
+    for (0..3) |ch| out[ch] = @intFromFloat(@round(v[ch] * scale));
     return out;
 }
 
@@ -2339,7 +2349,7 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize
                 best_score = score;
                 if (means) |m| {
                     for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * m.gain(class, from, ch))));
-                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn) / shading(nq, projector.eye.turn));
+                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn), shading(nq, projector.eye.turn));
                 out.image.pixels[i][3] = 255;
                 out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
                 uvs[i] = uv;
