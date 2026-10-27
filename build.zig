@@ -3238,6 +3238,34 @@ pub fn build(b: *std.Build) void {
     state_game_step.dependOn(&state_game_tests.step);
     if (test_mode == .run) state_game_step.dependOn(&state_game_run.step);
 
+    // The Map Editor turns buildings by the Game's rule (M006 S06,
+    // tools/zig/camera_turn_editor_game_reads_it.zig): the installed editor
+    // turns two town houses, a shed and a bench with Q and E and saves the
+    // map; the Game draws them at every camera step and stands the shed turned
+    // for a sniper's walk and entry. The editor install is wired in at the end
+    // of build(), where install-map-editor exists. Desktop and GPU, so not
+    // part of `test`.
+    const editor_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_editor_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, editor_game_module, toolchain);
+    }
+    const editor_game_tests = b.addTest(.{ .root_module = editor_game_module, .filters = &.{ "a turn of an AI point", "the Map Editor turns buildings" } });
+    const editor_game_run = b.addRunArtifact(editor_game_tests);
+    editor_game_run.setCwd(b.path("."));
+    editor_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    editor_game_run.setEnvironmentVariable("BK_VIEWS_EDITOR", rootPath(b, b.fmt("{s}/MapEditor{s}", .{ stage_root, target.result.exeFileExt() })));
+    editor_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    editor_game_run.has_side_effects = true;
+    editor_game_run.step.dependOn(install_game_step);
+    editor_game_run.step.dependOn(bk_views_step);
+    const editor_game_step = b.step("camera-turn-editor-game-reads-it", "Turn two town houses, a shed and a bench with Q and E in the installed Map Editor and save the map, measure the sides the editor draws, then the real Game's at every camera step with Remastered on and off, and a sniper's walk past and into the turned shed");
+    editor_game_step.dependOn(&editor_game_tests.step);
+    if (test_mode == .run) editor_game_step.dependOn(&editor_game_run.step);
+
     // The turned building sides as a mod, to try the camera turn by hand
     // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
     // building-views-batch-<region> steps left in zig-out/remastered/Buildings,
@@ -4806,6 +4834,7 @@ pub fn build(b: *std.Build) void {
     for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
         if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
     }
+    if (b.top_level_steps.get("install-map-editor")) |install| editor_game_run.step.dependOn(&install.step);
 
     // install-all: every install step this host has, in one command. Looked up by name because the
     // editor installs only exist where the editors build.

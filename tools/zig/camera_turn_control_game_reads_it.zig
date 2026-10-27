@@ -24,6 +24,11 @@
 //! - hill: a map with a hill; the ground point under the screen's centre must
 //!   stay where it was through three turns and one back (`,`), where the 2003
 //!   pivot (the anchor at height 0) moves it.
+//!   S06: at every step a click finds the ground there (`ground=`,
+//!   CScene::GetPos3 through GFXGPU's GetViewVolumeCrosses): at the centre the
+//!   pivot's own ground, on the slope a point of the hill the 2003 camera draws
+//!   at the clicked pixel; at step 0 a sniper ordered there walks to it, not
+//!   to the point at height 0 the port answered before.
 //! - draw order: four clusters of a shed, four snipers in front of and behind
 //!   it and four trees; the one in the middle is shot at the four steps, the
 //!   others, the middle one turned 1, 2 and 3 times (places, unit facings and
@@ -290,10 +295,17 @@ test "picking, selection, orders, scrolling, the minimap, the pivot and draw ord
 
     // hill: the ground under the screen's centre through the turns.
     {
-        const run = try runSchedule(io, allocator, game, root, mod_name, "hill", "hill.xml", "g1000:hover=1000x400,g10:camera=382x512,g10:set=GamePlay.Remastered=ON,g500:anchor,g10:key=.,g300:anchor,g10:key=.,g300:anchor,g10:key=.,g300:anchor,g10:key=COMMA,g300:anchor,g300:exit", objects_only);
+        // With each anchor the ground at the centre and at a point on the
+        // slope (S06: GetViewVolumeCrosses); back at step 0 the sniper is
+        // framed and ordered to the slope point.
+        const ground_trace = ",g10:ground=511x383,g10:ground=" ++ std.fmt.comptimePrint("{d}x{d}", .{ slope_click[0], slope_click[1] });
+        const run = try runSchedule(io, allocator, game, root, mod_name, "hill", "hill.xml", "g1000:hover=1000x400,g10:camera=382x512,g10:set=GamePlay.Remastered=ON,g500:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++ ",g10:key=COMMA,g300:anchor" ++ ground_trace ++
+            ",g10:key=COMMA,g300:key=COMMA,g300:anchor" ++ ground_trace ++ ",g10:drag=40x100x1000x590,g500:rclick=" ++ std.fmt.comptimePrint("{d}x{d}", .{ slope_click[0], slope_click[1] }) ++ ",g12000:world=TraceSelection(0),g300:exit", objects_only);
         const anchors = try parseAnchors(allocator, run.log);
-        if (anchors.len != 5) return error.MissingTrace;
-        const steps = [_]i32{ 0, 1, 2, 3, 2 };
+        const grounds = try parseGrounds(allocator, run.log);
+        const selections = try parseSelections(allocator, run.log);
+        if (anchors.len != 6 or grounds.len != 12 or selections.len != 1 or selections[0].places.len != 1) return error.MissingTrace;
+        const steps = [_]i32{ 0, 1, 2, 3, 2, 0 };
         const g0 = anchors[0].ground;
         const drift = std.math.sqrt2 * std.math.hypot(anchors[0].anchor[0] - g0[0], anchors[0].anchor[1] - g0[1]);
         try report.print(allocator, "hill: ground under the centre {d:.1},{d:.1} at height {d:.1}; the 2003 pivot would move it {d:.1} a turn\n", .{ g0[0], g0[1], g0[2], drift });
@@ -303,6 +315,31 @@ test "picking, selection, orders, scrolling, the minimap, the pivot and draw ord
             try report.print(allocator, "  step {d}: anchor {d:.1},{d:.1}, ground {d:.1},{d:.1},{d:.1}, {d:.1} from step 0's\n", .{ a.step, a.anchor[0], a.anchor[1], a.ground[0], a.ground[1], a.ground[2], shift });
             if (a.step != step or shift > max_ground_shift) failed = true;
         }
+        // The ground a click finds (CScene::GetPos3): at the centre the point
+        // GroundUnderCentre finds by its own walk down the line of sight (to the
+        // AI's height steps); on the slope a point above the plane at height 0
+        // (where the plane answered before) that the turned 2003 camera draws at
+        // the clicked pixel.
+        try report.appendSlice(allocator, "hill clicks: step: the centre's ground from GroundUnderCentre's; the slope's ground x,y,z, drawn at (pixels from the click)\n");
+        for (anchors, 0..) |a, i| {
+            const at_centre = grounds[2 * i];
+            const slope = grounds[2 * i + 1];
+            const off = std.math.hypot(at_centre[0] - a.ground[0], at_centre[1] - a.ground[1]);
+            const drawn_at = projectGround(slope, a.anchor, @intCast(a.step));
+            const miss = std.math.hypot(drawn_at[0] - @as(f64, @floatFromInt(slope_click[0])), drawn_at[1] - @as(f64, @floatFromInt(slope_click[1])));
+            try report.print(allocator, "  {d}: {d:.1}; {d:.1},{d:.1},{d:.1} ({d:.1})\n", .{ a.step, off, slope[0], slope[1], slope[2], miss });
+            if (off > 3 or slope[2] < 1 or miss > 2) failed = true;
+        }
+        // Step 0, the 2003 view: the sniper ordered to the slope point walks to
+        // the ground there, not to where the line of sight meets height 0.
+        const target = grounds[grounds.len - 1];
+        const a0 = anchors[anchors.len - 1];
+        const plane = planeGround(a0.anchor);
+        const walked = selections[0].places[0];
+        const to_target = std.math.hypot(walked[0] - target[0], walked[1] - target[1]);
+        const to_plane = std.math.hypot(walked[0] - plane[0], walked[1] - plane[1]);
+        try report.print(allocator, "hill order at step {d}: the sniper at {d:.0},{d:.0}, {d:.1} from the clicked ground, {d:.1} from the plane point {d:.0},{d:.0}\n", .{ a0.step, walked[0], walked[1], to_target, to_plane, plane[0], plane[1] });
+        if (a0.step != 0 or to_target > 15 or to_plane < 40) failed = true;
     }
 
     // draw order: the middle cluster at steps 0..3, then the others at step 0.
@@ -401,6 +438,44 @@ const cluster = blk: {
     break :blk list;
 };
 
+/// A point on the hill's slope the hill run clicks, and the sniper it orders there.
+const slope_click = [2]i32{ 611, 333 };
+const hill_sniper = [2]f64{ -104, 80 };
+
+/// The `ground=` action's lines: "<x>,<y>: <x>,<y>,<z>".
+fn parseGrounds(allocator: std.mem.Allocator, log: []const u8) ![]const [3]f64 {
+    var out: std.ArrayList([3]f64) = .empty;
+    for (try lines(allocator, log, "BK_GROUND_TRACE: ")) |line| {
+        const colon = std.mem.indexOf(u8, line, ": ") orelse return error.BadTrace;
+        var it = std.mem.tokenizeScalar(u8, line[colon + 2 ..], ',');
+        var g: [3]f64 = undefined;
+        for (&g) |*v| v.* = try std.fmt.parseFloat(f64, std.mem.trim(u8, it.next() orelse return error.BadTrace, " "));
+        try out.append(allocator, g);
+    }
+    return out.items;
+}
+
+/// Where the 2003 camera turned `step` times draws a world point: the anchor
+/// (at height 0) at the screen's centre, world x one pixel right and half
+/// down, y one right and half up, height 0.866 up a unit
+/// (tools/zig/fixtures/bk-views/camera-2003.json), the offset turned first.
+fn projectGround(g: [3]f64, anchor: [2]f64, step: usize) [2]f64 {
+    var d = [2]f64{ g[0] - anchor[0], g[1] - anchor[1] };
+    for (0..step) |_| {
+        const x = d[0];
+        d = .{ -d[1], x };
+    }
+    return .{ @as(f64, @floatFromInt(centre[0])) + std.math.sqrt1_2 * (d[0] + d[1]), @as(f64, @floatFromInt(centre[1])) + std.math.sqrt1_2 / 2.0 * (d[0] - d[1]) - 0.866025 * g[2] };
+}
+
+/// The point at height 0 the slope click's line of sight meets at step 0: the
+/// ground the 2003 port answered on every hill before S06.
+fn planeGround(anchor: [2]f64) [2]f64 {
+    const sum = @as(f64, @floatFromInt(slope_click[0] - centre[0])) / std.math.sqrt1_2;
+    const diff = @as(f64, @floatFromInt(slope_click[1] - centre[1])) / (std.math.sqrt1_2 / 2.0);
+    return .{ anchor[0] + (sum + diff) / 2, anchor[1] + (sum - diff) / 2 };
+}
+
 /// mod.xml, control.xml, hill.xml and clusters.xml, written from road3d.xml.
 fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
@@ -449,7 +524,10 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
         try hill.print(allocator, "<item Height=\"{d:.0}\" Shade=\"208\"/>", .{120 * (@cos(r * std.math.pi) + 1) / 2});
     };
     try hill.appendSlice(allocator, map[end..]);
-    try writeMap(io, allocator, data, "hill.xml", hill.items, "");
+    var hill_items: std.ArrayList(u8) = .empty;
+    link = 1;
+    try item(allocator, &hill_items, "German_sniper", hill_sniper, 0, 0, 0, &link);
+    try writeMap(io, allocator, data, "hill.xml", hill.items, hill_items.items);
 }
 
 pub fn item(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, d: [2]f64, player: i32, direction: u32, frame: i32, link: *u32) !void {
@@ -560,10 +638,10 @@ pub fn parseAnchors(allocator: std.mem.Allocator, log: []const u8) ![]const Anch
     return out.items;
 }
 
-const Selection = struct { summary: []const u8, places: []const [2]f64 };
+pub const Selection = struct { summary: []const u8, places: []const [2]f64 };
 
 /// Each TraceSelection: its summary line and the places of what it selected.
-fn parseSelections(allocator: std.mem.Allocator, log: []const u8) ![]const Selection {
+pub fn parseSelections(allocator: std.mem.Allocator, log: []const u8) ![]const Selection {
     var out: std.ArrayList(Selection) = .empty;
     var places: std.ArrayList([2]f64) = .empty;
     var it = std.mem.tokenizeAny(u8, log, "\r\n");
