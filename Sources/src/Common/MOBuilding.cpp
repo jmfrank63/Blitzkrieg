@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 #include "../Platform/LegacyText.h"
 
 #include "MOBuilding.h"
@@ -342,9 +343,20 @@ int CMOBuilding::GetDrawnTurn() const
 {
 	return NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nCameraTurn );
 }
+// A turn the data holds no pictures of is drawn as its own side, and the log
+// says so once per variant and turn (the camera turn mod missing or not made
+// for this variant would otherwise look like a building that does not turn).
 std::string CMOBuilding::GetModelPath() const
 {
-	return NCameraTurn::ModelPath( pDesc->szPath, nDrawnTurn );
+	const std::string szPath = NCameraTurn::ModelPath( pDesc->szPath, nDrawnTurn );
+	if ( nDrawnTurn != 0 && szPath == pDesc->szPath )
+	{
+		static std::set<std::string> told;
+		const std::string szTold = NStr::Format( "%s_r%d", pDesc->szPath.c_str(), nDrawnTurn );
+		if ( told.insert( szTold ).second )
+			fprintf( stderr, "camera turn: no pictures of %s (its turn %d); drawn as its own side\n", szTold.c_str(), nDrawnTurn );
+	}
+	return szPath;
 }
 void CMOBuilding::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {

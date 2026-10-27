@@ -3238,6 +3238,33 @@ pub fn build(b: *std.Build) void {
     turn_game_step.dependOn(&turn_game_tests.step);
     if (test_mode == .run) turn_game_step.dependOn(&turn_game_run.step);
 
+    // The village of the maintainer's hand test (M006 S07,
+    // tools/zig/camera_turn_village_game_reads_it.zig): four of Poland's
+    // village houses turned by bk-views side into a scratch mod, shot at all
+    // four steps in three window sizes, each house measured for its side and
+    // its place. Desktop and GPU, so not part of `test`.
+    const village_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_village_game_reads_it.zig"),
+        .target = target,
+        // The place search walks a house's box 169 times in 48 house shots.
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, village_game_module, toolchain);
+    }
+    const village_game_tests = b.addTest(.{ .root_module = village_game_module, .filters = &.{ "the village ring", "the village's houses" } });
+    const village_game_run = b.addRunArtifact(village_game_tests);
+    village_game_run.setCwd(b.path("."));
+    village_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    village_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    village_game_run.has_side_effects = true;
+    village_game_run.step.dependOn(install_game_step);
+    village_game_run.step.dependOn(bk_views_step);
+    village_game_run.step.dependOn(bk_sprite.install);
+    const village_game_step = b.step("camera-turn-village-game-reads-it", "Turn four houses of Poland's village with bk-views side into a scratch mod, press the camera turn key on the real Game in windows of 1024x768, 1280x1024 and 1920x1080, and measure each house's side and its place at all four steps");
+    village_game_step.dependOn(&village_game_tests.step);
+    if (test_mode == .run) village_game_step.dependOn(&village_game_run.step);
+
     // The rest of the world at every camera step (M006 S03,
     // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and
     // road3d, the dessau scene, and objects of each kind on a ring, each shot

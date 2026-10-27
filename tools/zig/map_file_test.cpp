@@ -19,6 +19,7 @@
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/Formats/fmtMapScriptPath.h"
+#include "../../Sources/src/Main/CameraTurn.h"
 
 static int g_nFailures = 0;
 
@@ -3641,6 +3642,28 @@ static void TestScriptPathForms()
 	Check( nAbsolute == 2 && nWindowsDrive == 2, "exactly the two intro maps hold an absolute script path, both a Windows drive path (shipped data changed?)" );
 }
 
+// The Remastered camera turn (Main/CameraTurn.h, M006 S07): a building finds
+// its turned pictures `<variant>_r<k>` in a mod whatever the case of the mod's
+// folders. objects.xml spells the variant buildings\Europe\Summer\E_Test_1;
+// the fixture mod holds Buildings/Europe/Summer/E_Test_1_r1 (a mod made by
+// hand) and .../e_test_1_r2 (lower case, as `zig build camera-turn-mod`
+// writes), no turn 3. On Linux the file system compares names exactly, so
+// this is the lookup a case-sensitive Mac or Linux install makes.
+static void TestCameraTurnModelPath()
+{
+	CPtr<IDataStorage> pMod = OpenStorage( "tools\\zig\\fixtures\\camera-turn-paths\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+	if ( !Check( pMod != 0, "the camera turn fixture mod opens" ) )
+		return;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	pStorage->AddStorage( pMod, "MOD" );
+	const std::string szVariant = "buildings\\Europe\\Summer\\E_Test_1";
+	Check( NCameraTurn::ModelPath( szVariant, 0 ) == szVariant, "turn 0 is the variant itself" );
+	Check( NCameraTurn::ModelPath( szVariant, 1 ) == szVariant + "_r1", "turn 1 is found in the mod's mixed-case folders" );
+	Check( NCameraTurn::ModelPath( szVariant, 2 ) == szVariant + "_r2", "turn 2 is found in a lower-case folder" );
+	Check( NCameraTurn::ModelPath( szVariant, 3 ) == szVariant, "a turn the mod does not hold is the variant itself" );
+	pStorage->RemoveStorage( "MOD" );
+}
+
 static int Run( int argc, char **argv )
 {
 	Note( "map-file: sizeof(SLoadMapInfo)=%lu\n", NMapFile::LoadMapInfoSize() );
@@ -3650,6 +3673,7 @@ static int Run( int argc, char **argv )
 	TestRejectsAFileThatIsNotAMap();
 	TestComparatorSeesADifference();
 	TestRoundTripIsEquivalent();
+	TestCameraTurnModelPath();
 	bool bAll = false;
 	bool bM2Sweep = false;
 	for ( int i = 1; i < argc; ++i )

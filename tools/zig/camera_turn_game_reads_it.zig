@@ -341,6 +341,11 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
 /// runGame, with the game paused before the first shot when `paused`, so
 /// units' animations stand still while the key turns the view.
 pub fn runGameWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize, paused: bool) ![shots][]u8 {
+    return runGameSized(io, allocator, game, root, name, map, look, remastered, disable, shots, paused, .{ width, height });
+}
+
+/// runGameWith in a window of `size` pixels (the shots are that size).
+pub fn runGameSized(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize, paused: bool, size: [2]u32) ![shots][]u8 {
     const cwd = std.Io.Dir.cwd();
     const user = try std.fs.path.join(allocator, &.{ root, "user", name });
     try cwd.createDirPath(io, user);
@@ -373,7 +378,7 @@ pub fn runGameWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, r
     try schedule.print(allocator, ",{s}200:exit", .{wait});
     try environ.put("BK_AUTO_UI", schedule.items);
     const result = try timed_run.run(allocator, io, .{
-        .argv = &.{ game, "-windowed", std.fmt.comptimePrint("-mode={d}x{d}", .{ width, height }), "-profile=Turn", "-mod=" ++ mod_name, map },
+        .argv = &.{ game, "-windowed", try std.fmt.allocPrint(allocator, "-mode={d}x{d}", .{ size[0], size[1] }), "-profile=Turn", "-mod=" ++ mod_name, map },
         .cwd = .{ .path = user },
         .environ_map = &environ,
         .timeout = .{ .duration = .{ .raw = .fromSeconds(240), .clock = .awake } },
@@ -387,13 +392,13 @@ pub fn runGameWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, r
     try l10n_measure.expectNoLeak(log, log_path);
     var frames: [shots][]u8 = undefined;
     for (&frames, 0..) |*frame, k| {
-        const shot_name = try std.fmt.allocPrint(allocator, "autoshot_{s}{d}_{d}x{d}.rgba", .{ wait, 1500 + k, width, height });
+        const shot_name = try std.fmt.allocPrint(allocator, "autoshot_{s}{d}_{d}x{d}.rgba", .{ wait, 1500 + k, size[0], size[1] });
         frame.* = cwd.readFileAlloc(io, try std.fs.path.join(allocator, &.{ user, shot_name }), allocator, .limited(64 << 20)) catch |err| {
             std.debug.print("no shot {s} from the Game ({s}); its output is in {s}\n", .{ shot_name, name, log_path });
             return err;
         };
-        try testing.expectEqual(@as(usize, width * height * 4), frame.len);
-        const image: views.Image = .{ .width = width, .height = height, .pixels = std.mem.bytesAsSlice([4]u8, frame.*) };
+        try testing.expectEqual(@as(usize, size[0] * size[1] * 4), frame.len);
+        const image: views.Image = .{ .width = size[0], .height = size[1], .pixels = std.mem.bytesAsSlice([4]u8, frame.*) };
         try cwd.writeFile(io, .{ .sub_path = try std.fmt.allocPrint(allocator, "{s}/{s}-{d}.png", .{ root, name, k }), .data = try views.writePng(allocator, image) });
     }
     return frames;
