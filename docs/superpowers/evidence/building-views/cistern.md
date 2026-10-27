@@ -6,9 +6,9 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 4.8 | 0.080 | pass |
+| 01 | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 3.9 | 0.076 | pass |
 | 01 | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.5 | 0.019 | pass |
-| 01 | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 4.6 | 0.058 | pass |
+| 01 | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 4.3 | 0.058 | pass |
 | 01 | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.5 | 0.019 | pass |
 | 01 | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.07 | 5.2 | 0.008 | pass |
 | 01 | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.04 | 5.5 | 0.007 | pass |
@@ -18,9 +18,9 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | 01 | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| 01 | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 4.8 | 0.080 | pass |
+| 01 | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 3.9 | 0.076 | pass |
 | 01 | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.5 | 0.019 | pass |
-| 01 | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 4.6 | 0.058 | pass |
+| 01 | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 4.3 | 0.058 | pass |
 | 01 | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.5 | 0.019 | pass |
 | 01 | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.07 | 5.2 | 0.008 | pass |
 | 01 | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.04 | 5.5 | 0.007 | pass |
@@ -28,8 +28,8 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | 02 | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 35.2 | 0.125 | pass |
 | 02 | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.24 | 19.9 | 0.055 | pass |
 | 02 | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 35.2 | 0.125 | pass |
-| 02 | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 1.6 | 0.009 | pass |
-| 02 | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 1.8 | 0.008 | pass |
+| 02 | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 1.8 | 0.006 | pass |
+| 02 | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 2.1 | 0.009 | pass |
 | 02 | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
@@ -40,19 +40,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | 02 | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 35.2 | 0.125 | pass |
 | 02 | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.24 | 19.9 | 0.055 | pass |
 | 02 | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 35.2 | 0.125 | pass |
-| 02 | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 1.6 | 0.009 | pass |
-| 02 | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 1.8 | 0.008 | pass |
+| 02 | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 1.8 | 0.006 | pass |
+| 02 | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 2.1 | 0.009 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.89 | 0.71 | 0.86 | 0.157 | 0.171 | pass | 2003 sprite |
-| 01 | r2 | 0.88 | 0.71 | 0.86 | 0.174 | 0.171 | pass | 2003 sprite |
-| 01 | r3 | 0.89 | 0.71 | 0.86 | 0.172 | 0.171 | pass | 2003 sprite |
-| 02 | r1 | 0.89 | 0.87 | 0.88 | 0.172 | 0.169 | pass | 2003 sprite |
-| 02 | r2 | 0.89 | 0.87 | 0.88 | 0.166 | 0.169 | pass | 2003 sprite |
-| 02 | r3 | 0.89 | 0.87 | 0.88 | 0.158 | 0.169 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.89 | 0.74 | 0.87 | 0.153 | 0.171 | 64 | 64 | pass | 2003 sprite |
+| 01 | r2 | 0.88 | 0.74 | 0.87 | 0.174 | 0.171 | 0 | 0 | pass | 2003 sprite |
+| 01 | r3 | 0.89 | 0.74 | 0.87 | 0.170 | 0.171 | 25 | 25 | pass | 2003 sprite |
+| 02 | r1 | 0.89 | 0.87 | 0.88 | 0.172 | 0.169 | 0 | 0 | pass | 2003 sprite |
+| 02 | r2 | 0.89 | 0.87 | 0.88 | 0.166 | 0.169 | 0 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.89 | 0.87 | 0.88 | 0.158 | 0.169 | 0 | 0 | pass | 2003 sprite |

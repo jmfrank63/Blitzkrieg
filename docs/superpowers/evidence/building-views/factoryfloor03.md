@@ -7,31 +7,32 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | factoryfloor03 | r1 | 2 | 1 | 69.9 | 30.1 | 0.0 | 0.1 | 1.36 | 7.7 | 0.037 | pass |
-| factoryfloor03 | r1 | 2 | 1w | 69.9 | 30.0 | 0.0 | 0.1 | 1.17 | 11.4 | 0.049 | pass |
-| factoryfloor03 | r1 | 2 | 2 | 69.1 | 30.9 | 0.0 | 0.0 | 1.42 | 18.3 | 0.052 | pass |
-| factoryfloor03 | r1 | 2 | 2w | 69.1 | 30.9 | 0.0 | 0.0 | 1.14 | 21.4 | 0.034 | pass |
-| factoryfloor03 | r1 | 2 | 3 | 29.2 | 64.8 | 4.1 | 1.8 | 1.09 | 1.4 | 0.038 | pass |
-| factoryfloor03 | r1 | 2 | 3w | 29.2 | 64.8 | 4.1 | 1.8 | 1.08 | 1.8 | 0.039 | pass |
+| factoryfloor03 | r1 | 2 | 1w | 69.9 | 29.8 | 0.3 | 0.0 | 1.18 | 11.4 | 0.042 | pass |
+| factoryfloor03 | r1 | 2 | 2 | 68.9 | 29.6 | 1.5 | 0.0 | 1.19 | 8.2 | 0.211 | pass |
+| factoryfloor03 | r1 | 2 | 2w | 68.9 | 29.6 | 1.5 | 0.0 | 0.99 | 9.3 | 0.227 | pass |
+| factoryfloor03 | r1 | 2 | 3 | 30.3 | 62.7 | 7.0 | 0.0 | 1.10 | 2.6 | 0.026 | pass |
+| factoryfloor03 | r1 | 2 | 3w | 30.3 | 62.7 | 7.0 | 0.0 | 1.09 | 3.0 | 0.033 | pass |
 | factoryfloor03 | r2 | 3 | 1 | 51.0 | 49.0 | 0.0 | 0.1 | 1.12 | 1.6 | 0.024 | pass |
-| factoryfloor03 | r2 | 3 | 1w | 50.9 | 49.0 | 0.0 | 0.1 | 1.01 | 4.8 | 0.010 | pass |
-| factoryfloor03 | r2 | 3 | 2 | 50.1 | 49.8 | 0.0 | 0.0 | 1.35 | 1.5 | 0.093 | pass |
-| factoryfloor03 | r2 | 3 | 2w | 50.1 | 49.8 | 0.0 | 0.0 | 1.12 | 2.6 | 0.071 | pass |
-| factoryfloor03 | r2 | 3 | 3 | 18.4 | 75.5 | 4.2 | 1.9 | 1.08 | 1.3 | 0.033 | pass |
-| factoryfloor03 | r2 | 3 | 3w | 18.4 | 75.5 | 4.2 | 1.9 | 1.08 | 1.3 | 0.034 | pass |
+| factoryfloor03 | r2 | 3 | 1w | 50.9 | 48.6 | 0.4 | 0.0 | 1.01 | 4.5 | 0.013 | pass |
+| factoryfloor03 | r2 | 3 | 2 | 50.1 | 47.5 | 2.3 | 0.0 | 1.33 | 1.6 | 0.094 | pass |
+| factoryfloor03 | r2 | 3 | 2w | 50.1 | 47.5 | 2.3 | 0.0 | 1.10 | 3.4 | 0.069 | pass |
+| factoryfloor03 | r2 | 3 | 3 | 19.4 | 73.1 | 7.5 | 0.0 | 1.08 | 1.8 | 0.020 | pass |
+| factoryfloor03 | r2 | 3 | 3w | 19.4 | 73.1 | 7.5 | 0.0 | 1.09 | 2.1 | 0.026 | pass |
 | factoryfloor03 | r3 | 4 | 1 | 77.6 | 22.3 | 0.0 | 0.0 | 1.36 | 5.9 | 0.011 | pass |
-| factoryfloor03 | r3 | 4 | 1w | 77.7 | 22.3 | 0.0 | 0.0 | 1.11 | 5.3 | 0.050 | pass |
-| factoryfloor03 | r3 | 4 | 2 | 77.2 | 22.8 | 0.0 | 0.0 | 1.42 | 6.1 | 0.071 | pass |
-| factoryfloor03 | r3 | 4 | 2w | 77.2 | 22.8 | 0.0 | 0.0 | 1.15 | 6.9 | 0.053 | pass |
-| factoryfloor03 | r3 | 4 | 3 | 63.8 | 30.3 | 4.1 | 1.8 | 1.10 | 1.0 | 0.043 | pass |
-| factoryfloor03 | r3 | 4 | 3w | 63.8 | 30.3 | 4.1 | 1.8 | 1.09 | 1.1 | 0.045 | pass |
+| factoryfloor03 | r3 | 4 | 1w | 77.8 | 21.9 | 0.3 | 0.0 | 1.16 | 4.0 | 0.043 | pass |
+| factoryfloor03 | r3 | 4 | 2 | 77.3 | 21.5 | 1.2 | 0.0 | 1.33 | 3.1 | 0.053 | pass |
+| factoryfloor03 | r3 | 4 | 2w | 77.3 | 21.5 | 1.2 | 0.0 | 1.12 | 3.5 | 0.037 | pass |
+| factoryfloor03 | r3 | 4 | 3 | 64.2 | 29.0 | 6.7 | 0.0 | 1.12 | 2.6 | 0.019 | pass |
+| factoryfloor03 | r3 | 4 | 3w | 64.2 | 29.0 | 6.7 | 0.0 | 1.10 | 3.1 | 0.027 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| factoryfloor03 | r1 | 0.98 | 1.04 | 0.94 | 0.004 | 0.006 | pass | blocks |
-| factoryfloor03 | r2 | 0.98 | 1.04 | 0.94 | 0.004 | 0.006 | pass | blocks |
-| factoryfloor03 | r3 | 0.98 | 1.04 | 0.94 | 0.004 | 0.006 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| factoryfloor03 | r1 | 0.98 | 1.04 | 0.94 | 0.004 | 0.006 | 0 | 0 | pass | blocks |
+| factoryfloor03 | r2 | 0.98 | 1.04 | 0.94 | 0.004 | 0.006 | 0 | 0 | pass | blocks |
+| factoryfloor03 | r3 | 0.98 | 1.04 | 0.94 | 0.004 | 0.006 | 0 | 0 | pass | blocks |

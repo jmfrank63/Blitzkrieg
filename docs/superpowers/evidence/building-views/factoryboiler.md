@@ -6,32 +6,33 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryboiler | r1 | 2 | 1 | 64.5 | 34.2 | 1.2 | 0.0 | 1.67 | 11.2 | 0.097 | pass |
-| factoryboiler | r1 | 2 | 1w | 61.8 | 34.3 | 3.9 | 0.0 | 1.27 | 10.8 | 0.028 | pass |
-| factoryboiler | r1 | 2 | 2 | 64.3 | 33.9 | 1.8 | 0.0 | 1.35 | 7.5 | 0.095 | pass |
-| factoryboiler | r1 | 2 | 2w | 61.8 | 34.3 | 3.9 | 0.0 | 1.19 | 5.9 | 0.078 | pass |
-| factoryboiler | r1 | 2 | 3 | 82.4 | 13.3 | 0.6 | 3.8 | 0.92 | 1.9 | 0.015 | pass |
-| factoryboiler | r1 | 2 | 3w | 84.8 | 11.0 | 0.5 | 3.8 | 0.97 | 0.5 | 0.016 | pass |
-| factoryboiler | r2 | 3 | 1 | 4.0 | 92.5 | 3.5 | 0.0 | 1.13 | 6.1 | 0.045 | pass |
-| factoryboiler | r2 | 3 | 1w | 4.0 | 92.1 | 3.9 | 0.0 | 1.15 | 2.6 | 0.024 | pass |
-| factoryboiler | r2 | 3 | 2 | 4.0 | 91.6 | 4.3 | 0.0 | 1.12 | 5.7 | 0.053 | pass |
-| factoryboiler | r2 | 3 | 2w | 4.0 | 91.6 | 4.4 | 0.0 | 1.05 | 1.2 | 0.030 | pass |
-| factoryboiler | r2 | 3 | 3 | 70.5 | 25.6 | 0.5 | 3.4 | 0.96 | 0.7 | 0.020 | pass |
-| factoryboiler | r2 | 3 | 3w | 69.3 | 27.2 | 0.5 | 3.0 | 1.00 | 3.7 | 0.014 | pass |
-| factoryboiler | r3 | 4 | 1 | 29.2 | 67.2 | 3.5 | 0.0 | 1.40 | 6.9 | 0.089 | pass |
-| factoryboiler | r3 | 4 | 1w | 29.0 | 66.7 | 4.3 | 0.0 | 1.17 | 6.2 | 0.031 | pass |
-| factoryboiler | r3 | 4 | 2 | 29.3 | 66.4 | 4.3 | 0.0 | 1.16 | 4.2 | 0.063 | pass |
-| factoryboiler | r3 | 4 | 2w | 29.1 | 66.2 | 4.6 | 0.0 | 1.03 | 1.7 | 0.044 | pass |
-| factoryboiler | r3 | 4 | 3 | 78.5 | 17.6 | 0.5 | 3.5 | 0.92 | 0.6 | 0.009 | pass |
-| factoryboiler | r3 | 4 | 3w | 77.3 | 19.0 | 0.6 | 3.1 | 0.95 | 4.9 | 0.017 | pass |
+| factoryboiler | r1 | 2 | 1 | 64.5 | 33.8 | 1.6 | 0.0 | 1.65 | 11.0 | 0.096 | pass |
+| factoryboiler | r1 | 2 | 1w | 61.8 | 33.9 | 4.3 | 0.0 | 1.25 | 10.4 | 0.039 | pass |
+| factoryboiler | r1 | 2 | 2 | 64.3 | 32.8 | 3.0 | 0.0 | 1.34 | 7.0 | 0.084 | pass |
+| factoryboiler | r1 | 2 | 2w | 61.8 | 33.1 | 5.0 | 0.0 | 1.17 | 5.6 | 0.070 | pass |
+| factoryboiler | r1 | 2 | 3 | 82.4 | 13.0 | 3.7 | 0.9 | 0.92 | 2.4 | 0.021 | pass |
+| factoryboiler | r1 | 2 | 3w | 84.7 | 10.8 | 3.6 | 0.9 | 0.97 | 0.4 | 0.014 | pass |
+| factoryboiler | r2 | 3 | 1 | 4.0 | 91.6 | 4.3 | 0.0 | 1.12 | 6.2 | 0.038 | pass |
+| factoryboiler | r2 | 3 | 1w | 4.0 | 91.0 | 5.1 | 0.0 | 1.14 | 2.5 | 0.026 | pass |
+| factoryboiler | r2 | 3 | 2 | 4.0 | 89.3 | 6.7 | 0.0 | 1.12 | 5.6 | 0.038 | pass |
+| factoryboiler | r2 | 3 | 2w | 4.0 | 89.3 | 6.7 | 0.1 | 1.07 | 1.3 | 0.022 | pass |
+| factoryboiler | r2 | 3 | 3 | 70.5 | 24.8 | 4.3 | 0.4 | 0.96 | 0.3 | 0.015 | pass |
+| factoryboiler | r2 | 3 | 3w | 69.3 | 26.6 | 4.1 | 0.0 | 1.00 | 3.3 | 0.008 | pass |
+| factoryboiler | r3 | 4 | 1 | 29.8 | 66.2 | 4.0 | 0.0 | 1.41 | 5.6 | 0.086 | pass |
+| factoryboiler | r3 | 4 | 1w | 29.5 | 65.5 | 5.0 | 0.0 | 1.17 | 4.5 | 0.037 | pass |
+| factoryboiler | r3 | 4 | 2 | 30.4 | 64.0 | 5.7 | 0.0 | 1.16 | 3.3 | 0.047 | pass |
+| factoryboiler | r3 | 4 | 2w | 30.2 | 63.8 | 5.9 | 0.0 | 1.03 | 1.9 | 0.034 | pass |
+| factoryboiler | r3 | 4 | 3 | 78.2 | 17.2 | 4.3 | 0.4 | 0.91 | 1.5 | 0.005 | pass |
+| factoryboiler | r3 | 4 | 3w | 77.0 | 18.8 | 4.1 | 0.0 | 0.94 | 5.8 | 0.013 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| factoryboiler | r1 | 1.14 | 0.98 | 0.94 | 0.015 | 0.018 | pass | blocks |
-| factoryboiler | r2 | 1.10 | 0.98 | 0.94 | 0.028 | 0.018 | pass | blocks |
-| factoryboiler | r3 | 1.01 | 0.98 | 0.94 | 0.024 | 0.018 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| factoryboiler | r1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | pass | blocks |
+| factoryboiler | r2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | pass | blocks |
+| factoryboiler | r3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | pass | blocks |

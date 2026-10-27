@@ -6,47 +6,48 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house01_1 | r1 | 2 | 1 | 33.7 | 65.4 | 0.4 | 0.5 | 0.89 | 10.8 | 0.040 | pass |
-| e_house01_1 | r1 | 2 | 2 | 33.1 | 66.2 | 0.0 | 0.7 | 0.86 | 7.3 | 0.089 | pass |
-| e_house01_1 | r1 | 2 | 3 | 91.3 | 1.5 | 0.0 | 7.1 | 0.83 | 12.2 | 0.046 | pass |
-| e_house01_1 | r2 | 3 | 1 | 0.3 | 98.6 | 0.4 | 0.6 | 0.99 | 6.0 | 0.050 | pass |
-| e_house01_1 | r2 | 3 | 2 | 0.0 | 99.4 | 0.0 | 0.6 | 0.94 | 3.0 | 0.077 | pass |
-| e_house01_1 | r2 | 3 | 3 | 90.2 | 2.8 | 0.0 | 7.0 | 0.85 | 11.8 | 0.052 | pass |
-| e_house01_1 | r3 | 4 | 1 | 63.8 | 35.6 | 0.1 | 0.5 | 0.88 | 10.5 | 0.041 | pass |
-| e_house01_1 | r3 | 4 | 2 | 64.5 | 34.9 | 0.0 | 0.6 | 0.87 | 6.7 | 0.089 | pass |
-| e_house01_1 | r3 | 4 | 3 | 91.0 | 2.0 | 0.0 | 7.0 | 0.82 | 10.1 | 0.058 | pass |
+| e_house01_1 | r1 | 2 | 1 | 33.7 | 65.1 | 0.7 | 0.5 | 0.90 | 11.0 | 0.052 | pass |
+| e_house01_1 | r1 | 2 | 2 | 35.7 | 61.2 | 2.6 | 0.4 | 0.91 | 5.4 | 0.050 | pass |
+| e_house01_1 | r1 | 2 | 3 | 88.7 | 2.0 | 9.4 | 0.0 | 0.81 | 10.4 | 0.070 | pass |
+| e_house01_1 | r2 | 3 | 1 | 0.3 | 98.4 | 0.7 | 0.6 | 0.99 | 5.8 | 0.050 | pass |
+| e_house01_1 | r2 | 3 | 2 | 0.1 | 95.0 | 4.4 | 0.5 | 0.95 | 3.1 | 0.083 | pass |
+| e_house01_1 | r2 | 3 | 3 | 84.7 | 4.0 | 11.3 | 0.0 | 0.86 | 9.6 | 0.071 | pass |
+| e_house01_1 | r3 | 4 | 1 | 64.0 | 35.1 | 0.5 | 0.4 | 0.88 | 11.2 | 0.050 | pass |
+| e_house01_1 | r3 | 4 | 2 | 65.5 | 31.7 | 2.4 | 0.4 | 0.87 | 8.1 | 0.073 | pass |
+| e_house01_1 | r3 | 4 | 3 | 87.5 | 2.5 | 10.0 | 0.0 | 0.81 | 9.3 | 0.066 | pass |
 | e_house01_2 | r1 | 4 | 1 | 36.3 | 54.0 | 0.0 | 9.7 | 1.09 | 7.1 | 0.237 | pass |
-| e_house01_2 | r1 | 4 | 2 | 35.7 | 54.4 | 0.0 | 10.0 | 1.08 | 6.7 | 0.043 | pass |
-| e_house01_2 | r1 | 4 | 3 | 74.1 | 16.9 | 0.0 | 9.0 | 0.95 | 1.5 | 0.018 | pass |
+| e_house01_2 | r1 | 4 | 2 | 37.0 | 52.9 | 3.3 | 6.9 | 1.10 | 4.1 | 0.004 | pass |
+| e_house01_2 | r1 | 4 | 3 | 73.8 | 15.5 | 9.0 | 1.8 | 0.98 | 1.5 | 0.042 | pass |
 | e_house01_2 | r2 | 1 | 1 | 0.1 | 90.6 | 0.0 | 9.3 | 0.97 | 1.6 | 0.013 | pass |
-| e_house01_2 | r2 | 1 | 2 | 0.1 | 89.9 | 0.0 | 10.1 | 1.01 | 1.6 | 0.041 | pass |
-| e_house01_2 | r2 | 1 | 3 | 67.4 | 23.5 | 0.0 | 9.1 | 0.96 | 1.0 | 0.005 | pass |
+| e_house01_2 | r2 | 1 | 2 | 0.0 | 89.1 | 3.8 | 7.1 | 1.02 | 0.8 | 0.022 | pass |
+| e_house01_2 | r2 | 1 | 3 | 67.5 | 20.4 | 10.3 | 1.8 | 0.98 | 2.1 | 0.032 | pass |
 | e_house01_2 | r3 | 2 | 1 | 52.4 | 38.0 | 0.0 | 9.6 | 1.08 | 7.1 | 0.238 | pass |
-| e_house01_2 | r3 | 2 | 2 | 52.5 | 37.4 | 0.0 | 10.1 | 1.11 | 5.2 | 0.030 | pass |
-| e_house01_2 | r3 | 2 | 3 | 73.2 | 17.9 | 0.0 | 9.0 | 0.95 | 1.4 | 0.007 | pass |
+| e_house01_2 | r3 | 2 | 2 | 52.8 | 36.5 | 3.8 | 7.0 | 1.11 | 6.3 | 0.028 | pass |
+| e_house01_2 | r3 | 2 | 3 | 73.3 | 14.9 | 9.9 | 1.9 | 0.97 | 1.5 | 0.033 | pass |
 | e_house01_3 | r1 | 2 | 1 | 37.2 | 62.5 | 0.0 | 0.3 | 0.85 | 13.1 | 0.034 | pass |
-| e_house01_3 | r1 | 2 | 2 | 34.3 | 64.4 | 0.7 | 0.5 | 0.87 | 7.2 | 0.085 | pass |
-| e_house01_3 | r1 | 2 | 3 | 90.0 | 8.9 | 0.0 | 1.1 | 0.87 | 11.8 | 0.054 | pass |
+| e_house01_3 | r1 | 2 | 2 | 36.3 | 60.2 | 3.0 | 0.5 | 0.91 | 5.3 | 0.052 | pass |
+| e_house01_3 | r1 | 2 | 3 | 87.7 | 8.1 | 2.8 | 1.4 | 0.87 | 11.5 | 0.058 | pass |
 | e_house01_3 | r2 | 3 | 1 | 0.1 | 99.6 | 0.0 | 0.3 | 0.97 | 5.1 | 0.050 | pass |
-| e_house01_3 | r2 | 3 | 2 | 0.4 | 98.2 | 0.9 | 0.5 | 0.95 | 2.9 | 0.072 | pass |
-| e_house01_3 | r2 | 3 | 3 | 89.1 | 9.7 | 0.0 | 1.1 | 0.88 | 10.2 | 0.050 | pass |
+| e_house01_3 | r2 | 3 | 2 | 0.4 | 94.0 | 5.1 | 0.5 | 0.95 | 2.8 | 0.078 | pass |
+| e_house01_3 | r2 | 3 | 3 | 83.5 | 10.9 | 3.6 | 2.0 | 0.91 | 9.0 | 0.044 | pass |
 | e_house01_3 | r3 | 4 | 1 | 60.9 | 38.8 | 0.0 | 0.3 | 0.85 | 12.8 | 0.032 | pass |
-| e_house01_3 | r3 | 4 | 2 | 63.1 | 36.0 | 0.3 | 0.6 | 0.86 | 7.0 | 0.079 | pass |
-| e_house01_3 | r3 | 4 | 3 | 91.5 | 7.5 | 0.0 | 1.0 | 0.85 | 12.5 | 0.049 | pass |
+| e_house01_3 | r3 | 4 | 2 | 64.2 | 32.8 | 2.5 | 0.5 | 0.87 | 8.1 | 0.061 | pass |
+| e_house01_3 | r3 | 4 | 3 | 87.4 | 8.5 | 2.2 | 2.0 | 0.87 | 11.6 | 0.046 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| e_house01_1 | r1 | 0.99 | 1.17 | 0.93 | 0.032 | 0.033 | pass | blocks |
-| e_house01_1 | r2 | 1.06 | 1.17 | 0.93 | 0.036 | 0.033 | pass | blocks |
-| e_house01_1 | r3 | 0.99 | 1.17 | 0.93 | 0.039 | 0.033 | pass | blocks |
-| e_house01_2 | r1 | 1.06 | 1.03 | 0.85 | 0.031 | 0.036 | pass | blocks |
-| e_house01_2 | r2 | 0.99 | 1.03 | 0.85 | 0.030 | 0.036 | pass | blocks |
-| e_house01_2 | r3 | 1.07 | 1.03 | 0.85 | 0.031 | 0.036 | pass | blocks |
-| e_house01_3 | r1 | 0.99 | 1.11 | 0.93 | 0.030 | 0.033 | pass | blocks |
-| e_house01_3 | r2 | 1.06 | 1.11 | 0.93 | 0.030 | 0.033 | pass | blocks |
-| e_house01_3 | r3 | 1.00 | 1.11 | 0.93 | 0.032 | 0.033 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| e_house01_1 | r1 | 0.99 | 1.23 | 0.94 | 0.032 | 0.033 | 10 | 10 | pass | blocks |
+| e_house01_1 | r2 | 1.06 | 1.23 | 0.94 | 0.036 | 0.033 | 0 | 0 | pass | blocks |
+| e_house01_1 | r3 | 0.99 | 1.23 | 0.94 | 0.038 | 0.033 | 230 | 230 | pass | blocks |
+| e_house01_2 | r1 | 1.06 | 1.03 | 0.85 | 0.031 | 0.036 | 0 | 0 | pass | blocks |
+| e_house01_2 | r2 | 0.99 | 1.03 | 0.85 | 0.030 | 0.036 | 0 | 0 | pass | blocks |
+| e_house01_2 | r3 | 1.07 | 1.03 | 0.85 | 0.031 | 0.036 | 0 | 0 | pass | blocks |
+| e_house01_3 | r1 | 0.99 | 1.11 | 0.93 | 0.030 | 0.033 | 0 | 0 | pass | blocks |
+| e_house01_3 | r2 | 1.06 | 1.11 | 0.93 | 0.030 | 0.033 | 0 | 0 | pass | blocks |
+| e_house01_3 | r3 | 1.00 | 1.11 | 0.93 | 0.032 | 0.033 | 0 | 0 | pass | blocks |

@@ -7,34 +7,35 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 01 | r1 | 2 | 1 | 71.7 | 28.0 | 0.0 | 0.3 | 0.98 | 13.7 | 0.035 | pass |
-| 01 | r1 | 2 | 2 | 71.7 | 28.0 | 0.0 | 0.2 | 1.05 | 19.4 | 0.061 | pass |
-| 01 | r1 | 2 | 3 | 83.9 | 9.7 | 0.0 | 6.4 | 0.96 | 2.0 | 0.041 | pass |
+| 01 | r1 | 2 | 2 | 71.2 | 28.1 | 0.7 | 0.0 | 1.08 | 19.9 | 0.058 | pass |
+| 01 | r1 | 2 | 3 | 83.8 | 9.1 | 7.1 | 0.0 | 0.96 | 4.1 | 0.057 | pass |
 | 01 | r2 | 3 | 1 | 6.7 | 93.2 | 0.0 | 0.1 | 1.02 | 17.4 | 0.021 | pass |
-| 01 | r2 | 3 | 2 | 6.7 | 93.2 | 0.0 | 0.2 | 1.11 | 21.0 | 0.026 | pass |
-| 01 | r2 | 3 | 3 | 80.6 | 13.0 | 0.0 | 6.4 | 1.00 | 2.0 | 0.057 | pass |
+| 01 | r2 | 3 | 2 | 6.7 | 92.4 | 0.9 | 0.0 | 1.12 | 20.7 | 0.024 | pass |
+| 01 | r2 | 3 | 3 | 80.7 | 11.8 | 7.5 | 0.0 | 1.01 | 4.2 | 0.062 | pass |
 | 01 | r3 | 4 | 1 | 27.1 | 72.6 | 0.0 | 0.3 | 0.97 | 14.0 | 0.037 | pass |
-| 01 | r3 | 4 | 2 | 27.0 | 72.8 | 0.0 | 0.2 | 1.06 | 19.7 | 0.059 | pass |
-| 01 | r3 | 4 | 3 | 83.5 | 10.3 | 0.0 | 6.2 | 0.94 | 1.6 | 0.038 | pass |
+| 01 | r3 | 4 | 2 | 27.3 | 71.9 | 0.7 | 0.0 | 1.07 | 17.9 | 0.055 | pass |
+| 01 | r3 | 4 | 3 | 83.4 | 9.7 | 6.9 | 0.0 | 0.94 | 4.0 | 0.050 | pass |
 | 02 | r1 | 2 | 1 | 29.0 | 70.9 | 0.0 | 0.1 | 1.07 | 3.6 | 0.010 | pass |
-| 02 | r1 | 2 | 2 | 30.8 | 69.1 | 0.0 | 0.1 | 1.16 | 4.4 | 0.009 | pass |
-| 02 | r1 | 2 | 3 | 77.0 | 21.4 | 0.0 | 1.6 | 0.99 | 1.9 | 0.010 | pass |
+| 02 | r1 | 2 | 2 | 30.8 | 68.5 | 0.6 | 0.1 | 1.11 | 1.6 | 0.014 | pass |
+| 02 | r1 | 2 | 3 | 76.7 | 21.0 | 2.2 | 0.1 | 1.00 | 0.9 | 0.005 | pass |
 | 02 | r2 | 3 | 1 | 7.0 | 92.9 | 0.0 | 0.1 | 1.04 | 0.1 | 0.004 | pass |
-| 02 | r2 | 3 | 2 | 8.8 | 91.1 | 0.0 | 0.1 | 1.08 | 4.2 | 0.018 | pass |
-| 02 | r2 | 3 | 3 | 68.1 | 30.5 | 0.0 | 1.5 | 1.01 | 1.2 | 0.010 | pass |
+| 02 | r2 | 3 | 2 | 8.8 | 90.3 | 0.9 | 0.1 | 1.09 | 4.4 | 0.018 | pass |
+| 02 | r2 | 3 | 3 | 68.1 | 29.7 | 2.2 | 0.0 | 1.01 | 0.2 | 0.004 | pass |
 | 02 | r3 | 4 | 1 | 70.1 | 29.7 | 0.0 | 0.2 | 1.06 | 4.9 | 0.009 | pass |
-| 02 | r3 | 4 | 2 | 68.2 | 31.6 | 0.0 | 0.2 | 1.15 | 3.2 | 0.010 | pass |
-| 02 | r3 | 4 | 3 | 80.1 | 18.5 | 0.0 | 1.3 | 0.96 | 0.9 | 0.011 | pass |
+| 02 | r3 | 4 | 2 | 68.2 | 30.9 | 0.8 | 0.1 | 1.11 | 4.0 | 0.023 | pass |
+| 02 | r3 | 4 | 3 | 80.1 | 18.0 | 1.9 | 0.0 | 0.96 | 0.2 | 0.007 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 1.09 | 0.80 | 0.95 | 0.022 | 0.004 | pass | blocks |
-| 01 | r2 | 1.09 | 0.80 | 0.95 | 0.022 | 0.004 | pass | blocks |
-| 01 | r3 | 1.09 | 0.80 | 0.95 | 0.025 | 0.004 | pass | blocks |
-| 02 | r1 | 1.10 | 0.89 | 0.94 | 0.023 | 0.004 | pass | blocks |
-| 02 | r2 | 1.10 | 0.89 | 0.94 | 0.024 | 0.004 | pass | blocks |
-| 02 | r3 | 1.10 | 0.89 | 0.94 | 0.023 | 0.004 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 1.09 | 0.80 | 0.95 | 0.022 | 0.004 | 0 | 0 | pass | blocks |
+| 01 | r2 | 1.09 | 0.80 | 0.95 | 0.022 | 0.004 | 0 | 0 | pass | blocks |
+| 01 | r3 | 1.09 | 0.80 | 0.95 | 0.025 | 0.004 | 0 | 0 | pass | blocks |
+| 02 | r1 | 1.10 | 0.89 | 0.94 | 0.023 | 0.004 | 0 | 0 | pass | blocks |
+| 02 | r2 | 1.10 | 0.89 | 0.94 | 0.024 | 0.004 | 0 | 0 | pass | blocks |
+| 02 | r3 | 1.10 | 0.89 | 0.94 | 0.023 | 0.004 | 0 | 0 | pass | blocks |

@@ -27,14 +27,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.76 | 0.66 | 0.81 | 0.316 | 1.148 | outline 0.81 < 0.85 | 2003 sprite |
-| 01 | r2 | 0.76 | 0.66 | 0.81 | 0.317 | 1.148 | outline 0.81 < 0.85 | 2003 sprite |
-| 01 | r3 | 0.76 | 0.66 | 0.81 | 0.306 | 1.148 | outline 0.81 < 0.85 | 2003 sprite |
-| 02 | r1 | 0.87 | 0.58 | 0.80 | 0.266 | 1.122 | outline 0.80 < 0.85 | 2003 sprite |
-| 02 | r2 | 0.76 | 0.58 | 0.80 | 0.280 | 1.122 | outline 0.80 < 0.85 | 2003 sprite |
-| 02 | r3 | 0.78 | 0.58 | 0.80 | 0.279 | 1.122 | outline 0.80 < 0.85 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.76 | 0.68 | 0.80 | 0.312 | 1.148 | 18 | 18 | outline 0.80 < 0.85 | 2003 sprite |
+| 01 | r2 | 0.76 | 0.68 | 0.80 | 0.317 | 1.148 | 0 | 0 | outline 0.80 < 0.85 | 2003 sprite |
+| 01 | r3 | 0.76 | 0.68 | 0.80 | 0.306 | 1.148 | 0 | 0 | outline 0.80 < 0.85 | 2003 sprite |
+| 02 | r1 | 0.87 | 0.65 | 0.85 | 0.256 | 1.122 | 47 | 47 | pass | 2003 sprite |
+| 02 | r2 | 0.76 | 0.65 | 0.85 | 0.280 | 1.122 | 0 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.78 | 0.65 | 0.85 | 0.272 | 1.122 | 33 | 33 | pass | 2003 sprite |

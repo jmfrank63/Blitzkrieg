@@ -1906,6 +1906,136 @@ fn chimneyBox(b: Block, eye: Eye, picture: Image) [4]usize {
     return .{ clamp(lo[0] - 1, picture.width), clamp(lo[1] - 1, picture.height), clamp(hi[0] + 2, picture.width), clamp(hi[1] + 2, picture.height) };
 }
 
+/// The low parts built on to the walls of the blocks that the picture shows
+/// below them: ramps, steps, porches and platforms, which blocks of 12
+/// world units or more and the block cost leave out, so that a turn showing
+/// that wall from another side keeps them. A run of columns whose outline
+/// goes on `step_rows` rows or more below the same wall (`columnFoot`) is a
+/// flat block on the ground against that wall, as wide as the lowest pixels
+/// of the run reach along the wall where they meet the ground (they are the
+/// part's foot; not round the wall's corners), as deep as the median column
+/// reaches out (a ladder leaning on the wall reaches further in a few), and
+/// half as high as it is deep, 2 to 8 units (what stands up behind its front
+/// is hidden by the wall it covers). It is kept where `step_fill` of what it
+/// adds to the blocks' outline is the picture's.
+pub fn lowParts(gpa: std.mem.Allocator, blocks: []const Block, picture: Image, eye: Eye) ![]Block {
+    var out: std.ArrayList(Block) = .empty;
+    const depths = try gpa.alloc(f64, picture.width);
+    defer gpa.free(depths);
+    var x: usize = 0;
+    while (x < picture.width) {
+        const first = columnFoot(blocks, eye, picture, x) orelse {
+            x += 1;
+            continue;
+        };
+        if (first.rows < step_rows) {
+            x += 1;
+            continue;
+        }
+        var buffer: [9]Plane = undefined;
+        const plane = blockPlanes(blocks[first.block], &buffer)[first.plane];
+        const a: usize = if (plane.n[0] != 0) 0 else 1;
+        const sign = plane.n[a];
+        const wall = plane.d / sign;
+        var along = [2]f64{ std.math.inf(f64), -std.math.inf(f64) };
+        var end = x;
+        while (end < picture.width) : (end += 1) {
+            const foot = columnFoot(blocks, eye, picture, end) orelse break;
+            if (foot.rows < step_rows or foot.block != first.block or foot.plane != first.plane) break;
+            const g = groundPoint(eye, @as(f64, @floatFromInt(end)) + 0.5, @as(f64, @floatFromInt(foot.row + foot.rows)) + 1);
+            along = .{ @min(along[0], g[1 - a]), @max(along[1], g[1 - a]) };
+            depths[end - x] = (g[a] - wall) * sign;
+        }
+        const columns = end - x;
+        x = end;
+        std.mem.sort(f64, depths[0..columns], {}, std.sort.asc(f64));
+        const depth = depths[columns / 2];
+        const b = blocks[first.block];
+        along = .{ @max(along[0], b.lo[1 - a]), @min(along[1], b.hi[1 - a]) };
+        if (columns < 4 or along[1] - along[0] < 6 or depth < 3 or depth > step_depth) continue;
+        const height = std.math.clamp(depth / 2, 2, 8);
+        var step: Block = .{ .lo = undefined, .hi = undefined, .wall = height, .ridge = height };
+        step.lo[1 - a] = along[0];
+        step.hi[1 - a] = along[1];
+        step.lo[a] = @min(wall, wall + sign * depth);
+        step.hi[a] = @max(wall, wall + sign * depth);
+        // What it adds to the outline, inside the picture's or out.
+        var inside: f64 = 0;
+        var added: f64 = 0;
+        const box = chimneyBox(step, eye, picture);
+        for (box[1]..box[3]) |y| for (box[0]..box[2]) |px| {
+            const fx = @as(f64, @floatFromInt(px)) + 0.5;
+            const fy = @as(f64, @floatFromInt(y)) + 0.5;
+            if (castPixel(&.{step}, eye, fx, fy) == null or castPixel(blocks, eye, fx, fy) != null) continue;
+            added += 1;
+            inside += @floatFromInt(@intFromBool(picture.pixels[y * picture.width + px][3] >= 128));
+        };
+        if (inside < step_fill * added) continue;
+        try out.append(gpa, step);
+    }
+    return out.items;
+}
+
+/// A low part shows this many rows below its wall or more.
+const step_rows = 3;
+/// A low part reaches this far out from its wall at most (world units); a
+/// deeper run is a wall the blocks missed.
+const step_depth = 32;
+/// The share of what a low part adds to the outline that the picture must hold.
+const step_fill = 0.7;
+
+/// Below the blocks in one column of a picture: the wall whose foot is the
+/// lowest point the blocks cover there, that row, and how many rows below
+/// it the picture's outline (alpha 128 or more) runs down to, where it starts
+/// within `foot_gap` rows of it. Null where the blocks cover nothing there or
+/// end on a roof.
+const ColumnFoot = struct { block: usize, plane: usize, row: usize, rows: usize };
+
+const foot_gap = 12;
+
+fn columnFoot(blocks: []const Block, eye: Eye, picture: Image, x: usize) ?ColumnFoot {
+    const px = @as(f64, @floatFromInt(x)) + 0.5;
+    var y = picture.height;
+    const hit = while (y > 0) {
+        y -= 1;
+        if (castPixel(blocks, eye, px, @as(f64, @floatFromInt(y)) + 0.5)) |h| break h;
+    } else return null;
+    if (hit.normal[2] != 0) return null;
+    // The ground between a wall and a part's corner shows through.
+    var below = y + 1;
+    while (below < picture.height and below <= y + foot_gap and picture.pixels[below * picture.width + x][3] < 128) below += 1;
+    if (below > y + foot_gap) return .{ .block = hit.block, .plane = hit.plane, .row = y, .rows = 0 };
+    while (below < picture.height and picture.pixels[below * picture.width + x][3] >= 128) below += 1;
+    const rows = below - 1 - y;
+    return .{ .block = hit.block, .plane = hit.plane, .row = y, .rows = rows };
+}
+
+/// How a picture keeps given low parts (`lowParts` of other pictures):
+/// the pixels they add to the outline of `blocks` (the building without
+/// them) under its eye, and how many of those its outline (alpha 128 or
+/// more) holds. A turn that drops a ramp a 2003 side shows keeps few.
+pub fn lowKept(blocks: []const Block, parts: []const Block, eye: Eye, picture: Image) [2]f64 {
+    var seen: f64 = 0;
+    var kept: f64 = 0;
+    for (0..picture.height) |y| for (0..picture.width) |x| {
+        const px = @as(f64, @floatFromInt(x)) + 0.5;
+        const py = @as(f64, @floatFromInt(y)) + 0.5;
+        if (castPixel(parts, eye, px, py) == null or castPixel(blocks, eye, px, py) != null) continue;
+        seen += 1;
+        kept += @floatFromInt(@intFromBool(picture.pixels[y * picture.width + x][3] >= 128));
+    };
+    return .{ seen, kept };
+}
+
+/// A turn fails where the low parts the 2003 sides show cover more than
+/// `low_margin` pixels of it and it holds less than `low_share` of them.
+pub fn lowFails(seen: f64, kept: f64) bool {
+    return seen > low_margin and kept < low_share * seen;
+}
+
+const low_margin = 40;
+const low_share = 0.8;
+
 /// The overlap of the blocks' outline with a picture's (alpha 128 or more).
 pub fn blocksIou(blocks: []const Block, eye: Eye, picture: Image) f64 {
     var both: f64 = 0;
@@ -2389,6 +2519,9 @@ const Scene = struct {
     /// The variant's hand shape (`shapes_dir`): its intact blocks but for
     /// the chimneys cut from the outline.
     hand: ?[]const Block,
+    /// The intact blocks without the low parts (`lowParts`), which the gate
+    /// finds below them.
+    body: []const Block,
 };
 
 /// Hand shapes, from the working folder (the build root): `<family>.json`
@@ -2451,6 +2584,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
     }
     const shapes = try arena.alloc([]const Block, states.items.len);
     var intact: []const Block = hand orelse try baseBlocks(arena, try carve(arena, footprints[fixed], 2, outlines, eyes), footprints[fixed]);
+    var body: []const Block = intact;
     for (states.items, shapes) |state, *shape| {
         var state_eyes: std.ArrayList(Eye) = .empty;
         var state_pictures: std.ArrayList(Image) = .empty;
@@ -2465,11 +2599,22 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         // tarpaulin stack whose damaged picture differs by a few crates).
         if (hand != null and (std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w") or blocksIou(hand.?, state_eyes.items[0], state_pictures.items[0]) >= outline_floor)) {
             shape.* = hand.?;
-            continue;
+        } else {
+            const fitted = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items, state[0] == '3');
+            shape.* = try cutChimneys(arena, fitted, state_pictures.items, state_eyes.items);
+            if (std.mem.eql(u8, state, "1")) {
+                intact = fitted;
+                body = shape.*;
+            }
         }
-        const fitted = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items, state[0] == '3');
-        if (std.mem.eql(u8, state, "1")) intact = fitted;
-        shape.* = try cutChimneys(arena, fitted, state_pictures.items, state_eyes.items);
+        // The low parts the pictures of the colourway show: a ramp one side
+        // shows stays on every turn.
+        var parts: std.ArrayList(Block) = .empty;
+        try parts.appendSlice(arena, shape.*);
+        for (sources.items, eyes, same) |source, eye, s| {
+            if (s) try parts.appendSlice(arena, try lowParts(arena, shape.*, pictureOf(source, state) orelse continue, eye));
+        }
+        shape.* = parts.items;
     }
     return .{
         .family = found.family.name,
@@ -2483,6 +2628,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         .states = states.items,
         .shapes = shapes,
         .hand = hand,
+        .body = body,
     };
 }
 
@@ -2589,8 +2735,9 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
 /// footprint's cells, the IoU of the blocks' outline with the variant's 2003
 /// one (other variants of the family may be other buildings, e_house01_1 and
 /// _3 differ in their roofs), and the protrusions of both pictures. `hand`:
-/// the blocks are a hand shape.
-const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false };
+/// the blocks are a hand shape. `low` and `low_kept`: the pixels the low
+/// parts of the 2003 sides show in the turn and those it holds (`turnLowParts`).
+const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0 };
 
 fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn, shown: Image) !Shape {
     const original = pictureOf(own, "1").?;
@@ -2640,7 +2787,19 @@ fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
     if (s.cover < outline_floor) return try std.fmt.allocPrint(gpa, "outline {d:.2} < {d:.2}", .{ s.cover, outline_floor });
     const most = protrusion_factor * s.protrusion_2003 + protrusion_margin;
     if (s.protrusion > most) return try std.fmt.allocPrint(gpa, "protrusion {d:.3} > {d:.3}", .{ s.protrusion, most });
+    if (lowFails(s.low, s.low_kept)) return try std.fmt.allocPrint(gpa, "low parts {d:.0} of {d:.0} pixels", .{ s.low_kept, s.low });
     return null;
+}
+
+/// The low parts the 2003 intact pictures of the colourway show below the
+/// scene's body (`lowParts`), as a turn's picture keeps them (`lowKept`):
+/// the pixels its eye sees of them and how many of those it holds.
+fn turnLowParts(gpa: std.mem.Allocator, scene: Scene, picture: Image, eye: Eye) ![2]f64 {
+    var parts: std.ArrayList(Block) = .empty;
+    for (scene.sources, scene.eyes, scene.same) |source, source_eye, same| {
+        if (same) try parts.appendSlice(gpa, try lowParts(gpa, scene.body, pictureOf(source, "1").?, source_eye));
+    }
+    return lowKept(scene.body, parts.items, eye, picture);
 }
 
 /// A turn as the variant's 2003 pictures themselves, every state, shadow and
@@ -2801,6 +2960,9 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
         if (std.mem.eql(u8, d.state, "1")) {
             shape = try shapeOf(arena, own, scene.fixed, d, shown);
             shape.hand = scene.hand != null;
+            const low = try turnLowParts(arena, scene, d.sprite.image, blocks_target.eye);
+            shape.low = low[0];
+            shape.low_kept = low[1];
         }
     }
     const failure = try shapeFailure(arena, shape);
@@ -2862,7 +3024,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const mirror = turned.mirror;
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -2946,8 +3108,9 @@ fn shapeCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []
         const pictures_dir = try std.fs.path.join(arena, &.{ out, label });
         try std.Io.Dir.cwd().createDirPath(ctx.io, pictures_dir);
         const scene = try loadScene(ctx, found, found.index, null, true);
-        const blocks = scene.shapes[0];
-        const refined = try refineBlocks(arena, scene.hand orelse blocks, scene.outlines, scene.eyes);
+        // The authored or fitted blocks, without the low parts side adds.
+        const blocks = scene.body;
+        const refined = try refineBlocks(arena, blocks, scene.outlines, scene.eyes);
         try w.print("{s}\n{{\"variant\":\"{s}\",\"hand\":{},\"pictures\":[", .{ if (v > 0) "," else "", label, scene.hand != null });
         for (scene.sources, scene.eyes, scene.outlines, 0..) |source, eye, outline, e| {
             const name = std.fs.path.basename(source.dir);
@@ -3483,7 +3646,7 @@ const SideReport = struct {
     mirror: bool = false,
     sibling: []const u8 = "",
     hand: bool = false,
-    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, failure: []const u8 },
+    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
@@ -3584,7 +3747,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
@@ -3627,11 +3790,12 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             \\
             \\Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
             \\over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-            \\of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-            \\sprite where the turn keeps the footprint.
+            \\of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+            \\the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+            \\fails, is drawn as its 2003 sprite where the turn keeps the footprint.
             \\
-            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-            \\|---|---|---|---|---|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(
@@ -3656,7 +3820,9 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\- Variants: {d}; generated folders: {d} of {d}; not generated: {d}.
         \\- Gate: the shape of every turn drawn by the blocks (its intact sprite's height {d:.1}..{d:.1} times the 2003
         \\  one's, the blocks' ground {d:.1}..{d:.1} times the footprint's cells, their outline IoU {d:.2} or more against
-        \\  the variant's 2003 picture, its protrusion at most {d:.1} times the 2003 one's plus {d:.2}), the style
+        \\  the variant's 2003 picture, its protrusion at most {d:.1} times the 2003 one's plus {d:.2}, and it holds
+        \\  {d:.1} of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
+        \\  porches, where they show more than {d:.0}), the style
         \\  of every generated picture, and the hold-out where the family has another side of the colourway, against
         \\  the floors of `tools/zig/fixtures/bk-views/gate.json`: {d} of {d} variants pass; hold-out {d} of {d}; {d}
         \\  fail on the shape; {d} more pass the measures but look wrong on the contact sheet (`bk-views contact`),
@@ -3670,7 +3836,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
         \\|---|---|---|---|---|---|---|---|
         \\{s}
-    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
+    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, low_share, @as(f64, low_margin), counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
     try writeCrlf(ctx, out, "batch.md", md.written());
     try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} fail on the shape, {d} by eye, {d} with 2003 sprites\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.shape, counts.eye, counts.same });
 }

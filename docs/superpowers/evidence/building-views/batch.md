@@ -8,7 +8,9 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 - Variants: 194; generated folders: 582 of 582; not generated: 0.
 - Gate: the shape of every turn drawn by the blocks (its intact sprite's height 0.7..1.3 times the 2003
   one's, the blocks' ground 0.5..2.0 times the footprint's cells, their outline IoU 0.85 or more against
-  the variant's 2003 picture, its protrusion at most 1.5 times the 2003 one's plus 0.03), the style
+  the variant's 2003 picture, its protrusion at most 1.5 times the 2003 one's plus 0.03, and it holds
+  0.8 of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
+  porches, where they show more than 40), the style
   of every generated picture, and the hold-out where the family has another side of the colourway, against
   the floors of `tools/zig/fixtures/bk-views/gate.json`: 194 of 194 variants pass; hold-out 43 of 43; 0
   fail on the shape; 0 more pass the measures but look wrong on the contact sheet (`bk-views contact`),

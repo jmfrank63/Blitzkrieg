@@ -501,6 +501,38 @@ test "a block the outlines barely need is dropped, and a chimney is cut back fro
     for (eyes[1..], pictures[1..]) |eye, picture| try std.testing.expect(views.blocksIou(cut, eye, picture) > views.blocksIou(fitted, eye, picture));
 }
 
+test "a ramp below a wall is cut as a low part, and a turn that drops it fails the gate" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const shed: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 3 * views.tile_size, 2 * views.tile_size }, .wall = 30, .ridge = 55, .roof = .gable_x };
+    // A ramp 30 units wide and 12 deep against the wall the first eye sees on its left.
+    const ramp: views.Block = .{ .lo = .{ 20, -12 }, .hi = .{ 50, 0 }, .wall = 5, .ridge = 5 };
+    const eyes = [3]views.Eye{ .{ .anchor = .{ 130, 150 } }, .{ .anchor = .{ 130, 150 }, .turn = 1 }, .{ .anchor = .{ 130, 150 }, .turn = 2 } };
+    const picture = try blocksPicture(arena, eyes[0], &.{ shed, ramp });
+    // Its foot meets the ground where the ramp's does; its height follows its depth.
+    const parts = try views.lowParts(arena, &.{shed}, picture, eyes[0]);
+    try std.testing.expectEqual(@as(usize, 1), parts.len);
+    for (0..2) |k| {
+        try std.testing.expectApproxEqAbs(ramp.lo[k], parts[0].lo[k], 3);
+        try std.testing.expectApproxEqAbs(ramp.hi[k], parts[0].hi[k], 3);
+    }
+    try std.testing.expectApproxEqAbs(ramp.ridge, parts[0].ridge, 2);
+    // The shed alone shows nothing below its walls.
+    try std.testing.expectEqual(@as(usize, 0), (try views.lowParts(arena, &.{shed}, try blocksPicture(arena, eyes[0], &.{shed}), eyes[0])).len);
+    // The next side shows the ramp's wall on its right: drawn without the
+    // ramp it keeps none of it and fails, drawn with it it keeps all.
+    const dropped = views.lowKept(&.{shed}, parts, eyes[1], try blocksPicture(arena, eyes[1], &.{shed}));
+    try std.testing.expect(dropped[0] > 100);
+    try std.testing.expectEqual(@as(f64, 0), dropped[1]);
+    try std.testing.expect(views.lowFails(dropped[0], dropped[1]));
+    const kept = views.lowKept(&.{shed}, parts, eyes[1], try blocksPicture(arena, eyes[1], &.{ shed, parts[0] }));
+    try std.testing.expectEqual(kept[0], kept[1]);
+    try std.testing.expect(!views.lowFails(kept[0], kept[1]));
+    // From behind the shed hides it: nothing to keep.
+    try std.testing.expectEqual(@as(f64, 0), views.lowKept(&.{shed}, parts, eyes[2], try blocksPicture(arena, eyes[2], &.{shed}))[0]);
+}
+
 test "an outline's protrusion is the share of it narrower than the window" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();

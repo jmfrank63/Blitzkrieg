@@ -7,22 +7,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_cityhall_1 | r1 | 2 | 1 | 55.6 | 33.6 | 6.2 | 4.6 | 1.00 | 2.5 | 0.045 | pass |
-| e_cityhall_1 | r1 | 2 | 2 | 55.4 | 32.4 | 7.0 | 5.2 | 0.99 | 2.8 | 0.012 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 77.4 | 13.7 | 8.8 | 0.1 | 1.05 | 0.9 | 0.020 | pass |
+| e_cityhall_1 | r1 | 2 | 2 | 55.5 | 31.7 | 7.7 | 5.2 | 1.00 | 2.5 | 0.013 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 77.4 | 13.7 | 8.9 | 0.0 | 1.04 | 1.0 | 0.020 | pass |
 | e_cityhall_1 | r2 | 3 | 1 | 0.0 | 87.2 | 8.1 | 4.7 | 0.98 | 5.9 | 0.029 | pass |
-| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 85.7 | 9.1 | 5.2 | 0.96 | 5.7 | 0.026 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 52.1 | 38.2 | 9.6 | 0.1 | 1.06 | 2.0 | 0.015 | pass |
+| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 84.3 | 10.5 | 5.2 | 0.96 | 5.8 | 0.033 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 52.1 | 38.0 | 9.8 | 0.0 | 1.06 | 1.9 | 0.015 | pass |
 | e_cityhall_1 | r3 | 4 | 1 | 23.1 | 64.2 | 8.1 | 4.6 | 0.92 | 13.8 | 0.033 | pass |
-| e_cityhall_1 | r3 | 4 | 2 | 22.2 | 63.7 | 9.0 | 5.1 | 0.91 | 11.6 | 0.030 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 63.5 | 26.9 | 9.5 | 0.1 | 0.97 | 4.3 | 0.022 | pass |
+| e_cityhall_1 | r3 | 4 | 2 | 22.7 | 62.2 | 10.0 | 5.1 | 0.91 | 11.5 | 0.031 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 63.5 | 26.8 | 9.7 | 0.0 | 0.96 | 4.5 | 0.023 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 0.88 | 0.87 | 0.93 | 0.017 | 0.026 | pass | blocks |
-| e_cityhall_1 | r2 | 0.99 | 0.87 | 0.93 | 0.017 | 0.026 | pass | blocks |
-| e_cityhall_1 | r3 | 1.09 | 0.87 | 0.93 | 0.017 | 0.026 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| e_cityhall_1 | r1 | 0.88 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | pass | blocks |
+| e_cityhall_1 | r2 | 0.99 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | pass | blocks |
+| e_cityhall_1 | r3 | 1.09 | 0.87 | 0.93 | 0.017 | 0.026 | 0 | 0 | pass | blocks |
