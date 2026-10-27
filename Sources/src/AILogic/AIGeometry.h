@@ -395,6 +395,12 @@ public:
 	const void IterateForward( SForwardIter *pIter );
 	
 	void DumpState() const;
+	// BK_STATE_HASH_DETAIL: the spline's whole state, every float exact.
+	void TraceStateHashDetail( const int nSegment, const int nUnit ) const
+	{
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d spline of unit %d x %a %a dx %a %a d2x %a %a d3x %a %a fw %a %a %a %a %a %a t %a %a cnt %d\n",
+			nSegment, nUnit, x.x, x.y, dx.x, dx.y, d2x.x, d2x.y, d3x.x, d3x.y, fw_dx.x, fw_dx.y, fw_d2x.x, fw_d2x.y, fw_d3x.x, fw_d3x.y, t, tForward, int( cntToForward ) );
+	}
 };
 const WORD GetDirectionByVector( CVec2 vec );
 const WORD GetDirectionByVector( float x, float y );

@@ -35,6 +35,9 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "AIWarFog.h"
 #include "AckManager.h"
 #include "PathUnit.h"
+#include "Collision.h"
+#include "Path.h"
+#include "StandartSmoothSoldierPath.h"
 #include "SuspendedUpdates.h"
 #include "CombatEstimator.h"
 #include "Statistics.h"
@@ -1054,6 +1057,18 @@ void CAILogic::TraceStateHashDetail( const int nSegment )
 			nSegment, pUnit->GetUniqueId(), int( pUnit->GetPlayer() ), vCenter.x, vCenter.y, pUnit->GetZ(), unsigned( pUnit->GetFrontDir() ), vSpeed.x, vSpeed.y,
 			pUnit->GetHitPoints(), pUnit->GetMorale(), pState != 0 ? int( pState->GetName() ) : -1, pCmd != 0 ? int( pCmd->ToUnitCmd().cmdType ) : -1,
 			pTarget != 0 ? pTarget->GetUniqueId() : 0, pUnit->GetFormation() != 0 ? pUnit->GetFormation()->GetUniqueId() : 0 );
+		if ( CPathUnit *pPath = pUnit->GetPathUnit() )
+		{
+			ISmoothPath *pSmooth = pPath->GetSmoothPath();
+			ICollision *pCollision = pPath->GetCollision();
+			fprintf( stderr, "BK_STATE_HASH_DETAIL: %d path of unit %d finished %d to %a %a speed %a collision %d %d collisions %d stay %u locking %d idle %d desirable %a\n",
+				nSegment, pUnit->GetUniqueId(), pSmooth != 0 ? int( pSmooth->IsFinished() ) : -1,
+				pSmooth != 0 ? pSmooth->GetFinishPoint().x : 0.0f, pSmooth != 0 ? pSmooth->GetFinishPoint().y : 0.0f, pSmooth != 0 ? pSmooth->GetSpeedLen() : 0.0f,
+				pCollision != 0 ? int( pCollision->GetName() ) : -1, pCollision != 0 ? pCollision->GetPriority() : -1, pPath->GetNCollisions(),
+				(unsigned)pPath->GetStayTime(), int( pPath->IsLockingTiles() ), int( pPath->IsIdle() ), pUnit->GetDesirableSpeed() );
+			if ( const CStandartSmoothSoldierPath *pSoldierPath = dynamic_cast<const CStandartSmoothSoldierPath*>( pSmooth ) )
+				pSoldierPath->TraceStateHashDetail( nSegment, pUnit->GetUniqueId() );
+		}
 		if ( CFormation *pFormation = pUnit->GetFormation() )
 		{
 			IUnitState *pFormationState = pFormation->GetState();

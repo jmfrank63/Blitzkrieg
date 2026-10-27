@@ -14,7 +14,7 @@
 //!
 //! The missions: the replay tiers' fight with its script and orders (a squad
 //! sent into a house, Call HQ) before the save; the same fight without a
-//! script; a fight of tanks and guns; and the shipped German campaign's Poland
+//! script; a fight of tanks and guns, twice; and the shipped German campaign's Poland
 //! mission (read from Data, its many active scripts and its AI both sides),
 //! each must also show that its world changed (units fell, or the hash moved).
 //! The Game runs in scratch profiles under zig-out/local-test/replay-load-transparency.
@@ -65,6 +65,9 @@ const missions = [_]Mission{
     },
     .{ .name = "noscript", .map = "lt_noscript.xml", .orders = "g1000:" ++ count_units ++ ",", .before_ms = 5000, .after_ms = 9000, .expect_fight = true },
     .{ .name = "armour", .map = "lt_armour.xml", .orders = "g1000:" ++ count_units ++ ",", .before_ms = 7000, .after_ms = 12000, .expect_fight = true },
+    // Again, in two more processes: what a save leaves out may show only in some of
+    // them (a loaded unit's timeOfReveal held whatever its memory held, on Windows).
+    .{ .name = "armour-2", .map = "lt_armour.xml", .orders = "g1000:" ++ count_units ++ ",", .before_ms = 7000, .after_ms = 12000, .expect_fight = true },
     .{ .name = "poland", .map = "scenarios/scenariomissions/german/poland/1.xml", .orders = "g1000:" ++ count_units ++ ",", .before_ms = 7000, .after_ms = 9000, .expect_fight = false },
 };
 

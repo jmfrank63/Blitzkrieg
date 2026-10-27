@@ -37,6 +37,14 @@ class CStandartSmoothSoldierPath : public ISmoothPath
 	bool CheckTurn( const WORD wNewDir );
 public:
 	CStandartSmoothSoldierPath();
+	// BK_STATE_HASH_DETAIL (IAILogic::TraceStateHashDetail): the path's own state.
+	void TraceStateHashDetail( const int nSegment, const int nUnit ) const
+	{
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d soldier path of unit %d speed %a flags %d%d%d%d%d%d p %a %a %a %a %a %a %a %a pred %a %a iter %a remain %a points %d formation %d\n",
+			nSegment, nUnit, speed, int( bFinished ), int( bNotified ), int( bMinSlowed ), int( bMaxSlowed ), int( bStopped ), int( bWithFormation ),
+			p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, predPoint.x, predPoint.y, nIter, fRemain, nPoints, pFormation != 0 ? 1 : 0 );
+		spline.TraceStateHashDetail( nSegment, nUnit );
+	}
 	virtual bool Init( interface IBasePathUnit *pUnit, IPath *pPath, bool bSmoothTurn, bool bCheckTurn = true );
 	virtual bool InitByFormationPath( class CFormation *pFormation, interface IBasePathUnit *pUnit );
 	virtual bool Init( interface IMemento *pMemento, interface IBasePathUnit *pUnit );
