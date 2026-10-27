@@ -535,6 +535,33 @@ diagnostics with the engine of slice 2, the leak fix kept so Poland ends cleanly
 `replay-game-reads-it`'s load against the run that saved it, reported since slice 1 (5 or 6 of 9 or 10 after
 slice 2), is 9 of 9 and now asserted. `replay-rng-audit` stays at 0 draws outside the simulation.
 
+**Second round: what only some processes showed.** On win-home (MSVC debug) `armour` failed in one run of
+two: 19 of 120 hashes, and at segment 198 every part was equal but the random state, so the two processes had
+drawn a different number of times with the same units. Linux showed the same family once the armour case ran
+many times (`armour_loop`: one save, two fresh loads each; and a recording with a save played back without
+it, which matched the recording every time, so saving itself changes nothing): 4 of 16 loads went apart, a
+soldier of the German squad walking another way or a draw more. What it was:
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| `CStandartPathFinder::GetAdditionalPathLength`, the probe `LookForFakePathBegin` makes for a unit standing on a blocked tile, ran `CalculatePath` without `EraseCycles`: the tiles it walked stayed marked in the static `mapBuf`, and every later search in the process went round them as visited. A loaded process had made no probes | the new `soldier path` and `spline` lines: at segment 324 soldier 33's new path to its formation slot runs straight in the saving run and round two tiles in the load, all other parts equal | the probe takes its marks off; a load clears `mapBuf` too (a quickload in the same process) |
+| `CAIUnit::timeOfReveal` was neither saved nor initialised; `CheckForReveal` keeps a unit revealed, and draws, only while it is recent, so a loaded unit drew or not by what its memory held | Windows: one draw more with all parts equal | saved (chunk 53), 0 at `Init` |
+| More members the simulation reads that no serializer named (`unsaved.py`, a scan of every class's members against its `operator&`): the turret's all-round attack flag, a soldier's spy-glass sight radius and forming-up flag, a car's last heal, a swarm's and a rocket launcher's turn direction, the anti-aircraft soldier's aim point and burst timers, an attack-in-building state's damage updater, a plane's defensive-fire damage updater, a resupply cell's danger time, a storage-defence task's request, a mine-laying transport's sent flag, and the scans `CScanLimiter` counted since its reset | the scan | each in a new chunk |
+| `CShootEstimatorLighAA::AddUnit` kept `timeToShoot` in a function `static`: the first target a process saw set it for every target after | reading | an ordinary local |
+
+**Found on the way.** A load aborted a debug Game in `CWorldClient::ReconcileSelection`: `CEffectVisObj`
+saved its selection state without ever setting it, so a save holding a fire (a burning tank) stored garbage
+and the load handed it back as an invalid enum (UBSan: "load of value 3734654376"). It starts unselected
+now, and a load takes anything outside the enum as unselected.
+
+**The tier** runs `armour` twice (`armour` and `armour-2`, each a save and a load in their own processes),
+since one pair can miss what shows in some processes only; `BK_STATE_HASH_DETAIL` also prints each unit's
+path state, a soldier's smooth path and its spline.
+
+**Measured** (Linux x64 debug, the armour case): before the second round 4 of 16 loads went apart; with the members
+alone 3 of 22 still did (the path finder's marks) and 2 aborted on the fire's selection state; with all of
+it 16 of 16 (eight saves, two loads each) are equal in hash and parts.
+
 **Left open.**
 
 - Lua tables and functions a script makes at run time are not saved (only numbers and strings); a mission
