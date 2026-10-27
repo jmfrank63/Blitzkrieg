@@ -226,6 +226,9 @@ struct SEditorSession
 	// reference search. Null when no ghost is shown.
 	CPtr<IRefCount> pGhost;
 	std::string szGhostName;
+	// The side the ghost shows (M006 S06): the facing it was built for, for a
+	// type that turns by quarter turns (TurnsByQuarters).
+	int nGhostTurn = 0;
 	// The resource editor's preview (resource_bridge.cpp, BkResPreviewPlayback):
 	// while its playback runs, DrawSessionFrame calls this before the scene
 	// draws so the game timer and the preview object advance with every frame,
@@ -404,6 +407,12 @@ bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int 
 // object's name and names a squad to place instead where the database has one.
 // Only an add asks this - a lone soldier a map already holds is kept as read.
 std::string WhyNotPlacedAlone( IObjectsDB *pObjectsDB, const SGDBObjectDesc &rDesc );
+
+// Whether objects of this type turn by quarter turns (M006 S06,
+// docs/superpowers/specs/2026-10-26-camera-turn-design.md): a building and a
+// prop of four sides show the side they face (Main/CameraTurn.h), so a turn
+// takes the nearest quarter and Q and E step by quarters.
+bool TurnsByQuarters( const SGDBObjectDesc *pDesc );
 
 // Runs one world update, so the scene holds a visual for every engine object
 // the last edit made, moved or removed, and rebuilds linkByAI from byLinkID.

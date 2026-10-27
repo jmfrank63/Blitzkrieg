@@ -231,6 +231,13 @@ BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id,
    pointer may be null. */
 BkEditorStatus BkEditorSnapToGrid( BkEditorSession *session, const char *name, float x, float y, float *out_x, float *out_y );
 
+/* The step Q and E turn an object of the type `name` by (M006 S06,
+   docs/superpowers/specs/2026-10-26-camera-turn-design.md): a quarter turn
+   (16384) for a building or a prop of four sides, which show the side they
+   face, a sixteenth (4096) for everything else. A read: nothing is edited.
+   BK_EDITOR_REFUSED when the database does not know the name. */
+BkEditorStatus BkEditorTurnStep( BkEditorSession *session, const char *name, int *out_step );
+
 /* The Place tool's ghost (PARITY O7, 05-11): the real engine visual of the
    palette entry `name` - a unit's mesh, a building, a squad's first soldier -
    half opaque (the MFC's SetOpacity( 128 ), ObjectPlacerState.cpp:290) at the

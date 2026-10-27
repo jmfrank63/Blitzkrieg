@@ -23,6 +23,7 @@
 #include "../Formats/fmtTerrain.h"
 #include "../Formats/fmtMapScriptPath.h"
 #include "../RandomMapGen/VA_Types.h"
+#include "../Main/CameraTurn.h"
 
 // A sound and a tank pit are in the object database, and so in the catalogue,
 // but neither is a map object. A map keeps its sounds in CMapInfo::soundsList
@@ -1030,6 +1031,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	return true;
 }
 
+bool TurnsByQuarters( const SGDBObjectDesc *pDesc )
+{
+	return pDesc != 0 && ( pDesc->eGameType == SGVOGT_BUILDING || ( pDesc->eGameType == SGVOGT_OBJECT && NCameraTurn::IsFourSided( pDesc->szPath ) ) );
+}
+
 bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPosIn, int nDir, int nPlayer, bool *pbRefused )
 {
 	if ( pbRefused )
@@ -1064,6 +1070,25 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 		return false;
 	}
 
+	// A building or a prop of four sides faces one of four sides, the one its
+	// picture shows (M006 S06): a turn takes the nearest quarter, and only a
+	// side its pictures exist for (NCameraTurn::StandingTurn; facing 0 always
+	// does). A building without turned pictures keeps its 2003 one, so the
+	// editor never shows a footprint its picture does not match.
+	if ( nDir != pObject->nDir && nDir >= 0 && nDir <= 65535 )
+	{
+		const SGDBObjectDesc *pDesc = GetSingleton<IObjectsDB>()->GetDesc( pObject->szName.c_str() );
+		if ( TurnsByQuarters( pDesc ) )
+		{
+			nDir = NCameraTurn::Facing( nDir ) * 16384;
+			if ( nDir != 0 && NCameraTurn::StandingTurn( pDesc->szPath, pDesc->eGameType == SGVOGT_BUILDING, nDir ) == 0 )
+			{
+				pSession->szMessage = "\"" + pObject->szName + "\" has no pictures of that side (the Resource Editor's Generate sides makes them)";
+				if ( pbRefused ) *pbRefused = true;
+				return false;
+			}
+		}
+	}
 	const SMapObjectInfo before = *pObject;
 	// What the engine cannot hold is refused here, before the map takes it: the engine stores a
 	// direction as a WORD and a position as a short, the readback converts the request the same
@@ -3306,9 +3331,12 @@ bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, fl
 	}
 	// GetPos3 answers against the terrain the camera is looking at, so it needs
 	// a camera that has been updated - which SetSessionCamera and
-	// DrawSessionFrame both do.
+	// DrawSessionFrame both do. On the plane at height 0 (bOnZero), as the
+	// editor has always picked (see WorldToScreen): since M006 S06 the GPU
+	// backend answers GetViewVolumeCrosses, so the game's own picks hit the
+	// terrain, which here would put a click off the outline drawn at z=0.
 	CVec3 vWorld( VNULL3 );
-	pScene->GetPos3( &vWorld, CVec2( sx, sy ) );
+	pScene->GetPos3( &vWorld, CVec2( sx, sy ), true );
 	*pwx = vWorld.x;
 	*pwy = vWorld.y;
 	return true;
@@ -3377,8 +3405,10 @@ void SetGhostAnimation( IVisObj *pVisObj, const SGDBObjectDesc *pDesc )
 }
 
 // The visual the MFC's AddObject builds: "<path>\\1" of the entry, or of its first
-// member for a squad (a squad has no visual of its own).
-IVisObj* BuildGhostVisual( const SGDBObjectDesc *pDesc )
+// member for a squad (a squad has no visual of its own). A building or a prop
+// of four sides shows the side of nTurn, as the placed object will
+// (NCameraTurn::ModelPath, FourSidedPath).
+IVisObj* BuildGhostVisual( const SGDBObjectDesc *pDesc, const int nTurn )
 {
 	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
@@ -3394,7 +3424,12 @@ IVisObj* BuildGhostVisual( const SGDBObjectDesc *pDesc )
 		if ( pShown == 0 )
 			return 0;
 	}
-	return pVOB->BuildObject( ( pShown->szPath + "\\1" ).c_str(), 0, pShown->eVisType );
+	std::string szPath = pShown->szPath;
+	if ( nTurn != 0 && pShown->eGameType == SGVOGT_BUILDING )
+		szPath = NCameraTurn::ModelPath( szPath, nTurn );
+	else if ( nTurn != 0 )
+		szPath = NCameraTurn::FourSidedPath( szPath, nTurn );
+	return pVOB->BuildObject( ( szPath + "\\1" ).c_str(), 0, pShown->eVisType );
 }
 
 } // namespace
@@ -3438,7 +3473,8 @@ bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWo
 		pSession->szMessage = "the palette cannot place that, so there is no ghost of it";
 		return false;
 	}
-	if ( pSession->pGhost.GetPtr() != 0 && pSession->szGhostName != pszName )
+	const int nGhostTurn = TurnsByQuarters( pDesc ) ? NCameraTurn::Facing( nDir & 0xFFFF ) : 0;
+	if ( pSession->pGhost.GetPtr() != 0 && ( pSession->szGhostName != pszName || pSession->nGhostTurn != nGhostTurn ) )
 		ClearGhostInSession( pSession );
 	float fZ = 0.0f;
 	if ( ITerrain *pTerrain = pScene->GetTerrain() )
@@ -3447,7 +3483,7 @@ bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWo
 	const int nDirection = nDir & 0xFFFF;
 	if ( pSession->pGhost.GetPtr() == 0 )
 	{
-		IVisObj *pVisObj = BuildGhostVisual( pDesc );
+		IVisObj *pVisObj = BuildGhostVisual( pDesc, nGhostTurn );
 		if ( pVisObj == 0 )
 		{
 			pSession->szMessage = "the engine has no visual for that entry";
@@ -3459,6 +3495,7 @@ bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWo
 		pScene->AddObject( pVisObj, pDesc->eGameType, pDesc );
 		pSession->pGhost = pVisObj;
 		pSession->szGhostName = pszName;
+		pSession->nGhostTurn = nGhostTurn;
 	}
 	else
 	{

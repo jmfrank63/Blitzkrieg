@@ -269,6 +269,7 @@ pub const RealBridge = struct {
         .setLayerShow = vtableSetLayerShow,
         .setFireRangeMode = vtableSetFireRangeMode,
         .snapToGrid = vtableSnapToGrid,
+        .turnStep = vtableTurnStep,
         .vsoDescriptors = vtableVsoDescriptors,
         .vsoCount = vtableVsoCount,
         .readVso = vtableReadVso,
@@ -1690,6 +1691,14 @@ pub const RealBridge = struct {
     /// BkEditorSnapToGrid.
     fn vtableSnapToGrid(ptr: *anyopaque, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status {
         return status(c.BkEditorSnapToGrid(from(ptr).session, name, x, y, out_x, out_y));
+    }
+
+    /// BkEditorTurnStep.
+    fn vtableTurnStep(ptr: *anyopaque, name: [*:0]const u8, out_step: *i32) Status {
+        var step: c_int = 0;
+        const result = status(c.BkEditorTurnStep(from(ptr).session, name, &step));
+        out_step.* = step;
+        return result;
     }
 
     fn kindInt(kind: VsoKind) c_int {

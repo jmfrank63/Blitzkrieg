@@ -740,6 +740,24 @@ BkEditorStatus BkEditorSnapToGrid( BkEditorSession *pSession, const char *pszNam
 	} );
 }
 
+BkEditorStatus BkEditorTurnStep( BkEditorSession *pSession, const char *pszName, int *pnOutStep )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pnOutStep == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+		const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( pszName ) : 0;
+		if ( pDesc == 0 )
+		{
+			pSession->szMessage = "the object database does not know that type";
+			return BK_EDITOR_REFUSED;
+		}
+		*pnOutStep = TurnsByQuarters( pDesc ) ? 16384 : 4096;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorObjects( BkEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )
