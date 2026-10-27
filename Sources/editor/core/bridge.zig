@@ -1126,6 +1126,11 @@ pub const Bridge = struct {
         /// (`token`). Refused, changing nothing, for the plan's refusals and
         /// a fence the engine will not place.
         drawFences: *const fn (ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status,
+        /// BkEditorTurnFence (M006 S08): the fence `link_id` turned by
+        /// `quarters` quarter turns about its footprint's middle (1 is E, -1
+        /// Q), same link ID; one edit (`token`). Refused, changing nothing, for
+        /// an object that is not a fence and a fence the engine will not place.
+        turnFence: *const fn (ptr: *anyopaque, link_id: i32, quarters: i32, token: *i32) Status,
         /// BkEditorPlanEntrenchment (04-08): the pieces the clicks (WORLD
         /// units) would commit, changing nothing; `total` is always the
         /// planned count. Refused naming why (shorter than a piece, off the
@@ -1338,6 +1343,7 @@ pub const Bridge = struct {
     pub fn fenceDescriptors(self: Bridge, out: []FenceDescriptor, total: *usize) Status { return self.vtable.fenceDescriptors(self.ptr, out, total); }
     pub fn planFences(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, out: []PlannedPiece, total: *usize) Status { return self.vtable.planFences(self.ptr, desc, wx0, wy0, wx1, wy1, ctrl, out, total); }
     pub fn drawFences(self: Bridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, ctrl: bool, token: *i32) Status { return self.vtable.drawFences(self.ptr, desc, wx0, wy0, wx1, wy1, ctrl, token); }
+    pub fn turnFence(self: Bridge, link_id: i32, quarters: i32, token: *i32) Status { return self.vtable.turnFence(self.ptr, link_id, quarters, token); }
     pub fn planEntrenchment(self: Bridge, points: []const records.Vec3, out: []PlannedPiece, total: *usize) Status { return self.vtable.planEntrenchment(self.ptr, points, out, total); }
     pub fn drawEntrenchment(self: Bridge, points: []const records.Vec3, player: i32, token: *i32, index: *i32) Status { return self.vtable.drawEntrenchment(self.ptr, points, player, token, index); }
     pub fn entrenchments(self: Bridge, out: []EntrenchmentInfo, total: *usize) Status { return self.vtable.entrenchments(self.ptr, out, total); }

@@ -1952,6 +1952,16 @@ BkEditorStatus BkEditorPlanFences( BkEditorSession *session, const char *desc, f
    object, off the map): a refusal changes nothing. */
 BkEditorStatus BkEditorDrawFences( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1, int ctrl,
                                    int *out_token );
+/* M006 S08: the Map Editor's Q and E on a fence. The fence link_id turned by
+   quarters quarter turns ((x, y) -> (-y, x) each, so 1 is E and -1 is Q): the
+   centre segment of its direction turned, laid so the middle of its footprint
+   stays where it was (the Game's rule for a fence it draws turned); the file
+   gets the packed type of the new direction and the new position (MAP units).
+   The fence keeps its link ID, owner, HP and script ID; one edit, out_token
+   names it (may be null; -1 after a refusal). BK_EDITOR_REFUSED, changing
+   nothing, for an object that is not a fence (or no object) and a fence the
+   engine will not place there. */
+BkEditorStatus BkEditorTurnFence( BkEditorSession *session, int link_id, int quarters, int *out_token );
 
 /* Entrenchments (04-08, D-13): the MFC trench builder. A trench is one entry
    of the map's entrenchments list - sections, each the link IDs of its

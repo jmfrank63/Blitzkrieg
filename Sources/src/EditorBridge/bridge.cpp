@@ -4804,6 +4804,25 @@ BkEditorStatus BkEditorDrawFences( BkEditorSession *pSession, const char *pszDes
 	} );
 }
 
+BkEditorStatus BkEditorTurnFence( BkEditorSession *pSession, int nLinkID, int nQuarters, int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		int nToken = -1;
+		bool bRefused = false;
+		if ( !TurnFenceInSession( pSession, nLinkID, nQuarters, &nToken, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
 namespace {
 // The clicks of a trench, or false for a bad argument: null points with a
 // count, a count outside 0..256, a non-finite coordinate.

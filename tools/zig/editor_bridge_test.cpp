@@ -347,6 +347,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorFenceDescriptors", [&] { return BkEditorFenceDescriptors( 0, &fenceDescriptor, 1, &nInt ); } },
 		{ "BkEditorPlanFences", [&] { return BkEditorPlanFences( 0, "x", 0, 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawFences", [&] { return BkEditorDrawFences( 0, "x", 0, 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorTurnFence", [&] { return BkEditorTurnFence( 0, 0, 1, &nInt ); } },
 		{ "BkEditorPlanEntrenchment", [&] { return BkEditorPlanEntrenchment( 0, trenchPoints, 2, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawEntrenchment", [&] { return BkEditorDrawEntrenchment( 0, trenchPoints, 2, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorEntrenchments", [&] { return BkEditorEntrenchments( 0, &trenchInfo, 1, &nInt ); } },
@@ -435,6 +436,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorFenceDescriptors", [&] { return BkEditorFenceDescriptors( pSession, &fenceDescriptor, 1, &nInt ); } },
 		{ "BkEditorPlanFences", [&] { return BkEditorPlanFences( pSession, "x", 0, 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawFences", [&] { return BkEditorDrawFences( pSession, "x", 0, 0, 0, 0, 0, &nInt ); } },
+		{ "BkEditorTurnFence", [&] { return BkEditorTurnFence( pSession, 0, 1, &nInt ); } },
 		{ "BkEditorPlanEntrenchment", [&] { return BkEditorPlanEntrenchment( pSession, trenchPoints, 2, &plannedPiece, 1, &nInt ); } },
 		{ "BkEditorDrawEntrenchment", [&] { return BkEditorDrawEntrenchment( pSession, trenchPoints, 2, 0, &nInt, &nInt2 ); } },
 		{ "BkEditorEntrenchments", [&] { return BkEditorEntrenchments( pSession, &trenchInfo, 1, &nInt ); } },
@@ -9397,6 +9399,54 @@ static void TestM2Fences( BkEditorSession *pSession, const std::string &szScratc
 			const std::string szBack = szScratch + "\\fences-back.bzm";
 			if ( Check( BkEditorSaveMap( pSession, szBack.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 				Check( SameBytes( szUnedited, szBack ), NStr::Format( "%s undone saves the unedited bytes (%d fences)", runs[i].pszWhat, int( runPlan.size() ) ) );
+			remove( OsPath( szBack ).c_str() );
+		}
+	}
+
+	// M006 S08: Q and E on a fence. A single fence turned by quarters takes the
+	// packed type of its direction turned and keeps its link ID; four quarters
+	// bring it back to its place, every turn is an engine object where the map
+	// says, and undoing the turns and the fence saves the unedited bytes.
+	{
+		int nSingleToken = -1;
+		if ( Check( BkEditorDrawFences( pSession, FACTORY_FENCE, fMiddleX + 60.0f, fMiddleY + 200.0f, fMiddleX + 60.0f, fMiddleY + 200.0f, 0, &nSingleToken ) == BK_EDITOR_OK,
+		            BkEditorLastMessage( pSession ) ) )
+		{
+			const BkEditorObjectRecord single = ReadObjectRecords( pSession ).back();
+			const auto Now = [&]() -> BkEditorObjectRecord
+			{
+				const std::vector<BkEditorObjectRecord> records = ReadObjectRecords( pSession );
+				for ( size_t i = 0; i < records.size(); ++i )
+					if ( records[i].link_id == single.link_id )
+						return records[i];
+				return BkEditorObjectRecord();
+			};
+			std::vector<int> turnTokens;
+			const int quarters[] = { 1, 1, -1, 1, 1, 1 };
+			int nDir = 0;
+			for ( size_t i = 0; i < sizeof quarters / sizeof quarters[0]; ++i )
+			{
+				int nTurnToken = -1;
+				if ( !Check( BkEditorTurnFence( pSession, single.link_id, quarters[i], &nTurnToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+					break;
+				turnTokens.push_back( nTurnToken );
+				nDir = ( nDir + quarters[i] + 4 ) & 3;
+				const BkEditorObjectRecord now = Now();
+				Check( now.link_id == single.link_id && now.frame_index == ( ( 1 << nDir ) | 0x00010000 ),
+				       NStr::Format( "turned to direction %d, the fence keeps its link ID and takes that packed type (0x%x at %g,%g)", nDir, now.frame_index, now.x, now.y ) );
+				WorldAgrees( pSession, "after a fence was turned" );
+			}
+			const BkEditorObjectRecord back = Now();
+			Check( back.x == single.x && back.y == single.y && back.frame_index == single.frame_index, "four quarters on, the fence is back at its place" );
+			int nIgnored = 7;
+			Check( BkEditorTurnFence( pSession, -5, 1, &nIgnored ) == BK_EDITOR_REFUSED && nIgnored == -1, "a link ID no object has is refused" );
+			for ( size_t i = turnTokens.size(); i-- > 0; )
+				Check( BkEditorUndoEdit( pSession, turnTokens[i] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			Check( BkEditorUndoEdit( pSession, nSingleToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			WorldAgrees( pSession, "after the fence's turns were undone" );
+			const std::string szBack = szScratch + "\\fences-turned-back.bzm";
+			if ( Check( BkEditorSaveMap( pSession, szBack.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szUnedited, szBack ), "a fence turned and undone saves the unedited bytes" );
 			remove( OsPath( szBack ).c_str() );
 		}
 	}

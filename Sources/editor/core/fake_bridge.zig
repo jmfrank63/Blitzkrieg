@@ -1325,6 +1325,7 @@ pub const FakeBridge = struct {
         .fenceDescriptors = fenceDescriptors,
         .planFences = planFences,
         .drawFences = drawFences,
+        .turnFence = turnFence,
         .planEntrenchment = planEntrenchment,
         .drawEntrenchment = drawEntrenchment,
         .entrenchments = entrenchments,
@@ -2676,6 +2677,35 @@ pub const FakeBridge = struct {
         }
         group.entry.count = plan.count;
         return self.logBridgeEdit(.{ .before = null, .after = group }, token);
+    }
+
+    /// The real turn's rules the core can see, without its geometry: only a
+    /// fence type's object turns; it keeps its link ID and place and takes the
+    /// packed type of its direction `quarters` on, one edit.
+    fn turnFence(ptr: *anyopaque, link_id: i32, quarters: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const place = self.indexOf(link_id) orelse {
+            self.say("no object has link ID {d}", .{link_id});
+            return .refused;
+        };
+        var fence = self.objects_list.items[place];
+        for (self.fence_types.items) |*kind| {
+            if (std.mem.eql(u8, std.mem.sliceTo(&kind.name, 0), fence.nameSlice())) break;
+        } else {
+            self.say("\"{s}\" is not a fence type", .{fence.nameSlice()});
+            return .refused;
+        }
+        const dir: i32 = if (fence.frame_index & 0xf == 0) 0 else @ctz(fence.frame_index & 0xf);
+        fence.frame_index = (@as(i32, 1) << @intCast(@mod(dir + quarters, 4))) | 0x10000;
+        var before: FakeBridgeGroup = .{ .entryless = true, .count = 1 };
+        before.entry.links[0] = link_id;
+        before.entry.count = 1;
+        var after = before;
+        after.spans[0] = fence;
+        after.places[0] = std.math.maxInt(usize); // appended
+        return self.logBridgeEdit(.{ .before = before, .after = after }, token);
     }
 
     /// The drawn entrenchment naming the piece, else a fixture piece's
