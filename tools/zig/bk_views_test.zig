@@ -611,9 +611,9 @@ test "a back roof copied from the front leaves the front's chimney out, and a co
     const projectors = [_]views.Projector{.{ .eye = eye, .picture = picture }};
     // Told which block is a part, the back roof plane borrows nothing
     // near it; told none, it copies the chimney's foot and fails.
-    const drawn = try views.projectPicture(arena, &blocks, 1, back, size, &projectors);
+    const drawn = try views.projectPicture(arena, &blocks, 1, null, back, size, &projectors);
     try std.testing.expectEqual(@as(f64, 0), views.copiedParts(&blocks, 1, back, drawn));
-    const copied = try views.projectPicture(arena, &blocks, blocks.len, back, size, &projectors);
+    const copied = try views.projectPicture(arena, &blocks, blocks.len, null, back, size, &projectors);
     try std.testing.expect(views.copiedParts(&blocks, 1, back, copied) > 40);
     // The back roof is still drawn, from the rest of the front one.
     var mirrored: usize = 0;

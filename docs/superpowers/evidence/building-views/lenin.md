@@ -30,11 +30,12 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | height 0.70 outside 0.7..1.3 | 2003 sprite |
-| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | height 0.65 outside 0.7..1.3 | 2003 sprite |
-| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | height 0.66 outside 0.7..1.3 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | height 0.70 outside 0.7..1.3 | 2003 sprite |
+| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | height 0.65 outside 0.7..1.3 | 2003 sprite |
+| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | height 0.66 outside 0.7..1.3 | 2003 sprite |

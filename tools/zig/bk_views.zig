@@ -2164,6 +2164,37 @@ pub fn shadeClass(n: [3]f64, turn: u2) usize {
     return best + @as(usize, if (n[2] > 0.5) 4 else 0);
 }
 
+/// The mean colour of each shading class over the 2003 pictures of a damage
+/// state, so a face taken from a picture where it was lit as one class can be
+/// lit as another. The intact building is relit by the light (`shading`);
+/// a ruin's fitted blocks stand for rubble, and relit by the light their
+/// faces took seams (e_house07_1's ruin sharpness 1.13 to 2.53, M006 S07d).
+pub const Means = struct {
+    sum: [8][3]f64 = std.mem.zeroes([8][3]f64),
+    count: [8]f64 = std.mem.zeroes([8]f64),
+
+    pub fn add(means: *Means, class: usize, pixel: [4]u8) void {
+        for (0..3) |c| means.sum[class][c] += @floatFromInt(pixel[c]);
+        means.count[class] += 1;
+    }
+
+    /// The factor that relights a colour channel from class `from` to class
+    /// `to`; none where the pictures show `to` on a quarter of the pixels
+    /// of `from` or fewer: a few porch roofs stand for another material
+    /// than the main roof (admhouse's snowed roof turned came out dark).
+    /// Where they show one of the two walls the camera sees on a tenth of
+    /// the other's pixels or fewer (a board seen from one side, its end
+    /// aside: leaders_02 112 against 1916), the 2003 ratio of the lit wall to
+    /// the shaded one relights it (`wall_light`). e_house11_3's ruin (3193
+    /// against 14664) and stubtrack/03 (87 against 381) are lit as they are.
+    pub fn gain(means: Means, to: usize, from: usize, c: usize) f64 {
+        if (to == from or means.count[from] < 100) return 1;
+        if (to < 2 and from < 2 and means.count[to] * 10 <= means.count[from]) return if (to == 0) wall_light else 1 / wall_light;
+        if (means.count[to] < @max(100, means.count[from] / 4)) return 1;
+        return (means.sum[to][c] / means.count[to]) / @max(1, means.sum[from][c] / means.count[from]);
+    }
+};
+
 /// The brightness of the lit wall (`wall -y`) of a 2003 picture against its
 /// shaded wall (`wall +x`): the median over the intact pictures of
 /// a_h01/02/03/07/08, e_ctownhouse01/03, e_house01/11, e_shed01,
@@ -2256,7 +2287,7 @@ pub fn copiedParts(blocks: []const Block, body: usize, eye: Eye, drawn: Generate
 /// borrows no point near one (`nearPart`), so a house's back does not repeat
 /// the chimney, dormers and door steps of its front. Pixels none sees either
 /// way are left for `patchFill`.
-pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, target: Eye, size: [2]u32, projectors: []const Projector) !Generated {
+pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, means: ?Means, target: Eye, size: [2]u32, projectors: []const Projector) !Generated {
     const count = @as(usize, size[0]) * size[1];
     const uvs = try gpa.alloc([2]f64, count);
     const sources = try gpa.alloc([3]f64, count);
@@ -2306,7 +2337,9 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize
                 const score = @as(f64, if (from == class) 2 else 0) + facing;
                 if (score <= best_score) continue;
                 best_score = score;
-                out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn) / shading(nq, projector.eye.turn));
+                if (means) |m| {
+                    for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * m.gain(class, from, ch))));
+                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn) / shading(nq, projector.eye.turn));
                 out.image.pixels[i][3] = 255;
                 out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
                 uvs[i] = uv;
@@ -2841,7 +2874,7 @@ fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
 /// One damage state of a target: the sprite with the source of each pixel,
 /// its shadow, its ground picture where the variant has one, and how well the
 /// blocks cover each source's outline.
-const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64 };
+const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64, means: Means = .{} };
 
 fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const arena = ctx.arena;
@@ -2849,6 +2882,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const own = scene.sources[scene.fixed];
     const drawn = try arena.alloc(Drawn, scene.states.len);
     for (scene.states, scene.shapes, scene.bodies, drawn) |state, blocks, body, *d| {
+        var means: Means = .{};
         const projectors = try arena.alloc(Projector, n);
         const ground = try arena.alloc(Projector, n);
         var ground_count: usize = 0;
@@ -2864,6 +2898,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
                 const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
                 both += @floatFromInt(@intFromBool(hit != null and pixel[3] >= 128));
                 either += @floatFromInt(@intFromBool(hit != null or pixel[3] >= 128));
+                if (s and hit != null and pixel[3] >= 128) means.add(shadeClass(hit.?.normal, eye.turn), pixel);
             };
             try covers.append(arena, if (either == 0) 0 else both / either);
             if (!s) continue;
@@ -2873,7 +2908,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             if (e == scene.fixed) std.mem.swap(Projector, &ground[0], &ground[ground_count]);
             ground_count += 1;
         }
-        const sprite = try projectPicture(arena, blocks, body, target.eye, target.size, projectors);
+        const sprite = try projectPicture(arena, blocks, if (state[0] == '1') body else blocks.len, if (state[0] == '1') null else means, target.eye, target.size, projectors);
         try patchFill(arena, sprite);
         const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, sprite.kinds.len) };
         const l = lightFor(light_2003, target.turn);
@@ -2890,6 +2925,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             .shadow = shadow,
             .ground = if (has_ground) try projectGround(arena, target.eye, target.size, ground[0..ground_count]) else null,
             .covers = covers.items,
+            .means = means,
         };
     }
     return drawn;
@@ -3031,22 +3067,27 @@ fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirr
     for (scene.states, drawn, by) |state, *d, blocks_drawn| {
         var picture = pictureOf(own, state).?;
         if (mirror and !scene.prop) {
-            // One factor over the sprite, so that a curved tank drawn as a
-            // few block faces does not take their seams. A heap is not
-            // relit: its boxes stand for crates and earth alike from every
-            // side, and their walls turned the mirrored e_wt depots 5%
-            // darker than the 2003 picture.
+            // One factor a channel over the sprite, so that a curved tank
+            // drawn as a few block faces does not take their seams. A heap
+            // is not relit: its boxes stand for crates and earth alike from
+            // every side, and their walls turned the mirrored e_wt depots 5%
+            // darker than the 2003 picture (M006 S07d).
             const eye = scene.eyes[scene.fixed];
-            var sums = [2]f64{ 0, 0 };
+            var sums = [2][3]f64{ .{ 0, 0, 0 }, .{ 0, 0, 0 } };
             for (0..picture.height) |y| for (0..picture.width) |x| {
                 const pixel = picture.pixels[y * picture.width + x];
                 if (pixel[3] < 128) continue;
                 const hit = castPixel(blocks_drawn.blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
-                sums[0] += luma(pixel);
-                sums[1] += if (hit) |h| luma(pixel) * shading(.{ -h.normal[1], -h.normal[0], h.normal[2] }, eye.turn) / shading(h.normal, eye.turn) else luma(pixel);
+                for (0..3) |ch| {
+                    const value: f64 = @floatFromInt(pixel[ch]);
+                    sums[0][ch] += value;
+                    sums[1][ch] += if (hit) |h| value * blocks_drawn.means.gain(shadeClass(.{ -h.normal[1], -h.normal[0], h.normal[2] }, eye.turn), shadeClass(h.normal, eye.turn), ch) else value;
+                }
             };
             const relit: Image = .{ .width = picture.width, .height = picture.height, .pixels = try arena.dupe([4]u8, picture.pixels) };
-            for (relit.pixels) |*pixel| pixel.* = relight(pixel.*, sums[1] / @max(1, sums[0]));
+            for (relit.pixels) |*pixel| for (0..3) |ch| {
+                pixel[ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * sums[1][ch] / @max(1, sums[0][ch]))));
+            };
             picture = relit;
         }
         const sprite = try asGenerated(arena, try place(arena, picture, target.size, lo, flip));
@@ -3977,7 +4018,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
@@ -4023,11 +4064,12 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             \\of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
             \\the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
             \\parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-            \\pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+            \\pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+            \\another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
             \\sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
             \\
-            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(
@@ -4055,7 +4097,8 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\  the variant's 2003 picture, its protrusion at most {d:.1} times the 2003 one's plus {d:.2}, and it holds
         \\  {d:.1} of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
         \\  porches, where they show more than {d:.0}, and draws as walls as much of the walls of the roof parts
-        \\  in `tools/zig/fixtures/bk-views/roof-parts`, and at most {d:.2} of its pixels still stretched), the style
+        \\  in `tools/zig/fixtures/bk-views/roof-parts`, at most {d:.2} of its pixels still stretched, and no more than
+        \\  {d:.0} pixels of the body copied from beside a part, a chimney, dormer or door step of another side), the style
         \\  of every generated picture, and the hold-out where the family has another side of the colourway, against
         \\  the floors of `tools/zig/fixtures/bk-views/gate.json`: {d} of {d} variants pass; hold-out {d} of {d}; {d}
         \\  fail on the shape; {d} more pass the measures but look wrong on the contact sheet (`bk-views contact`),
@@ -4070,7 +4113,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
         \\|---|---|---|---|---|---|---|---|
         \\{s}
-    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, low_share, @as(f64, low_margin), stretch_most, counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
+    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, low_share, @as(f64, low_margin), stretch_most, @as(f64, low_margin), counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
     try writeCrlf(ctx, out, "batch.md", md.written());
     try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} fail on the shape, {d} by eye, {d} with 2003 sprites\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.shape, counts.eye, counts.same });
 }

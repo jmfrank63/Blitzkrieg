@@ -6,26 +6,27 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house12_3 | r1 | 4 | 1 | 30.4 | 58.5 | 10.7 | 0.4 | 1.27 | 9.7 | 0.156 | pass |
-| e_house12_3 | r1 | 4 | 2 | 32.4 | 60.1 | 6.9 | 0.7 | 1.06 | 3.4 | 0.032 | pass |
-| e_house12_3 | r1 | 4 | 3 | 66.2 | 20.9 | 6.4 | 6.4 | 1.10 | 0.5 | 0.013 | pass |
-| e_house12_3 | r2 | 1 | 1 | 4.5 | 76.3 | 18.7 | 0.5 | 0.97 | 6.1 | 0.022 | pass |
-| e_house12_3 | r2 | 1 | 2 | 1.8 | 90.1 | 7.4 | 0.7 | 1.04 | 5.1 | 0.044 | pass |
-| e_house12_3 | r2 | 1 | 3 | 34.4 | 49.4 | 9.5 | 6.7 | 1.04 | 0.7 | 0.010 | pass |
-| e_house12_3 | r3 | 2 | 1 | 66.8 | 24.6 | 8.4 | 0.1 | 1.26 | 7.7 | 0.147 | pass |
-| e_house12_3 | r3 | 2 | 2 | 56.6 | 37.8 | 5.1 | 0.5 | 1.08 | 3.3 | 0.034 | pass |
-| e_house12_3 | r3 | 2 | 3 | 43.9 | 46.8 | 6.9 | 2.4 | 1.12 | 2.1 | 0.019 | pass |
+| e_house12_3 | r1 | 4 | 1 | 30.4 | 58.5 | 10.7 | 0.5 | 1.26 | 23.2 | 0.029 | pass |
+| e_house12_3 | r1 | 4 | 2 | 32.4 | 59.9 | 7.1 | 0.7 | 1.30 | 15.1 | 0.009 | pass |
+| e_house12_3 | r1 | 4 | 3 | 66.2 | 20.5 | 6.5 | 6.8 | 1.05 | 7.0 | 0.026 | pass |
+| e_house12_3 | r2 | 1 | 1 | 4.5 | 76.3 | 18.6 | 0.6 | 0.96 | 6.7 | 0.023 | pass |
+| e_house12_3 | r2 | 1 | 2 | 1.8 | 89.7 | 7.8 | 0.7 | 1.02 | 4.9 | 0.037 | pass |
+| e_house12_3 | r2 | 1 | 3 | 34.4 | 49.0 | 9.4 | 7.2 | 0.97 | 6.5 | 0.023 | pass |
+| e_house12_3 | r3 | 2 | 1 | 66.8 | 24.6 | 8.5 | 0.1 | 1.23 | 21.7 | 0.010 | pass |
+| e_house12_3 | r3 | 2 | 2 | 56.6 | 37.5 | 5.5 | 0.5 | 1.36 | 15.8 | 0.011 | pass |
+| e_house12_3 | r3 | 2 | 3 | 43.9 | 46.4 | 6.8 | 2.9 | 1.14 | 4.1 | 0.035 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house12_3 | r1 | 0.94 | 1.09 | 0.97 | 0.042 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house12_3 | r2 | 0.99 | 1.09 | 0.97 | 0.054 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house12_3 | r3 | 1.02 | 1.09 | 0.97 | 0.047 | 0.046 | 45 | 45 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house12_3 | r1 | 0.94 | 1.09 | 0.97 | 0.042 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house12_3 | r2 | 0.99 | 1.09 | 0.97 | 0.054 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house12_3 | r3 | 1.02 | 1.09 | 0.97 | 0.047 | 0.046 | 45 | 45 | 0 | 0 | 0.000 | 0 | pass | blocks |

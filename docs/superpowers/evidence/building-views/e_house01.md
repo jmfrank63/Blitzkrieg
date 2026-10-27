@@ -6,50 +6,51 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house01_1 | r1 | 2 | 1 | 33.7 | 65.1 | 0.6 | 0.6 | 0.90 | 11.0 | 0.052 | pass |
-| e_house01_1 | r1 | 2 | 2 | 35.7 | 61.2 | 1.3 | 1.7 | 0.91 | 5.7 | 0.053 | pass |
-| e_house01_1 | r1 | 2 | 3 | 88.7 | 1.9 | 4.7 | 4.8 | 0.84 | 11.1 | 0.060 | pass |
-| e_house01_1 | r2 | 3 | 1 | 0.3 | 98.4 | 0.6 | 0.7 | 0.99 | 5.8 | 0.050 | pass |
-| e_house01_1 | r2 | 3 | 2 | 0.1 | 95.0 | 1.7 | 3.2 | 0.95 | 3.3 | 0.094 | pass |
-| e_house01_1 | r2 | 3 | 3 | 84.7 | 3.9 | 5.8 | 5.7 | 0.88 | 10.8 | 0.058 | pass |
-| e_house01_1 | r3 | 4 | 1 | 64.0 | 35.1 | 0.5 | 0.5 | 0.88 | 11.2 | 0.050 | pass |
-| e_house01_1 | r3 | 4 | 2 | 65.5 | 31.6 | 1.0 | 1.8 | 0.87 | 8.2 | 0.076 | pass |
-| e_house01_1 | r3 | 4 | 3 | 87.5 | 2.4 | 4.9 | 5.2 | 0.83 | 10.0 | 0.059 | pass |
-| e_house01_2 | r1 | 4 | 1 | 36.3 | 54.0 | 0.0 | 9.7 | 1.09 | 7.1 | 0.237 | pass |
-| e_house01_2 | r1 | 4 | 2 | 37.0 | 52.9 | 0.7 | 9.4 | 1.10 | 4.1 | 0.007 | pass |
-| e_house01_2 | r1 | 4 | 3 | 73.8 | 15.4 | 5.1 | 5.7 | 0.98 | 1.1 | 0.034 | pass |
-| e_house01_2 | r2 | 1 | 1 | 0.1 | 90.6 | 0.0 | 9.3 | 0.97 | 1.6 | 0.013 | pass |
-| e_house01_2 | r2 | 1 | 2 | 0.0 | 89.1 | 0.9 | 10.0 | 1.01 | 2.1 | 0.035 | pass |
-| e_house01_2 | r2 | 1 | 3 | 67.5 | 20.4 | 5.2 | 6.9 | 0.96 | 1.5 | 0.019 | pass |
-| e_house01_2 | r3 | 2 | 1 | 52.4 | 38.0 | 0.0 | 9.6 | 1.08 | 7.1 | 0.238 | pass |
-| e_house01_2 | r3 | 2 | 2 | 52.8 | 36.5 | 0.9 | 9.8 | 1.12 | 5.2 | 0.021 | pass |
-| e_house01_2 | r3 | 2 | 3 | 73.3 | 14.9 | 5.4 | 6.5 | 0.97 | 1.1 | 0.028 | pass |
-| e_house01_3 | r1 | 2 | 1 | 37.2 | 62.5 | 0.0 | 0.3 | 0.85 | 13.1 | 0.034 | pass |
-| e_house01_3 | r1 | 2 | 2 | 36.3 | 60.2 | 1.9 | 1.6 | 0.91 | 5.7 | 0.057 | pass |
-| e_house01_3 | r1 | 2 | 3 | 87.7 | 8.0 | 2.6 | 1.7 | 0.87 | 11.3 | 0.057 | pass |
-| e_house01_3 | r2 | 3 | 1 | 0.1 | 99.6 | 0.0 | 0.3 | 0.97 | 5.1 | 0.050 | pass |
-| e_house01_3 | r2 | 3 | 2 | 0.4 | 94.0 | 2.5 | 3.1 | 0.95 | 2.9 | 0.085 | pass |
-| e_house01_3 | r2 | 3 | 3 | 83.5 | 10.9 | 3.3 | 2.4 | 0.91 | 9.3 | 0.043 | pass |
-| e_house01_3 | r3 | 4 | 1 | 60.9 | 38.8 | 0.0 | 0.3 | 0.85 | 12.8 | 0.032 | pass |
-| e_house01_3 | r3 | 4 | 2 | 64.2 | 32.8 | 1.2 | 1.8 | 0.87 | 8.2 | 0.065 | pass |
-| e_house01_3 | r3 | 4 | 3 | 87.4 | 8.4 | 2.2 | 2.1 | 0.87 | 11.7 | 0.045 | pass |
+| e_house01_1 | r1 | 2 | 1 | 33.7 | 61.6 | 0.4 | 4.3 | 1.35 | 27.2 | 0.080 | pass |
+| e_house01_1 | r1 | 2 | 2 | 35.7 | 44.2 | 0.2 | 19.8 | 1.37 | 24.1 | 0.015 | pass |
+| e_house01_1 | r1 | 2 | 3 | 88.7 | 1.8 | 0.3 | 9.2 | 0.88 | 11.7 | 0.049 | pass |
+| e_house01_1 | r2 | 3 | 1 | 0.3 | 93.8 | 0.4 | 5.5 | 0.98 | 6.1 | 0.059 | pass |
+| e_house01_1 | r2 | 3 | 2 | 0.1 | 62.9 | 0.0 | 37.0 | 0.87 | 8.7 | 0.084 | pass |
+| e_house01_1 | r2 | 3 | 3 | 84.9 | 3.7 | 0.2 | 11.2 | 0.88 | 10.9 | 0.052 | pass |
+| e_house01_1 | r3 | 4 | 1 | 64.0 | 32.4 | 0.4 | 3.3 | 1.20 | 22.1 | 0.024 | pass |
+| e_house01_1 | r3 | 4 | 2 | 65.6 | 16.5 | 0.1 | 17.8 | 1.17 | 10.8 | 0.126 | pass |
+| e_house01_1 | r3 | 4 | 3 | 87.7 | 2.4 | 0.4 | 9.5 | 0.87 | 9.1 | 0.053 | pass |
+| e_house01_2 | r1 | 4 | 1 | 36.3 | 54.0 | 0.0 | 9.7 | 1.17 | 9.8 | 0.021 | pass |
+| e_house01_2 | r1 | 4 | 2 | 37.0 | 48.6 | 0.1 | 14.4 | 1.44 | 8.5 | 0.019 | pass |
+| e_house01_2 | r1 | 4 | 3 | 73.8 | 12.7 | 0.6 | 12.9 | 1.04 | 5.0 | 0.015 | pass |
+| e_house01_2 | r2 | 1 | 1 | 0.1 | 90.6 | 0.0 | 9.3 | 0.97 | 1.8 | 0.013 | pass |
+| e_house01_2 | r2 | 1 | 2 | 0.1 | 79.5 | 0.0 | 20.4 | 1.07 | 4.3 | 0.073 | pass |
+| e_house01_2 | r2 | 1 | 3 | 67.5 | 15.7 | 0.1 | 16.7 | 1.06 | 8.2 | 0.013 | pass |
+| e_house01_2 | r3 | 2 | 1 | 52.4 | 38.0 | 0.0 | 9.6 | 1.15 | 10.2 | 0.011 | pass |
+| e_house01_2 | r3 | 2 | 2 | 52.9 | 30.9 | 0.1 | 16.2 | 1.49 | 8.1 | 0.061 | pass |
+| e_house01_2 | r3 | 2 | 3 | 73.3 | 10.3 | 0.1 | 16.4 | 1.05 | 8.1 | 0.010 | pass |
+| e_house01_3 | r1 | 2 | 1 | 37.2 | 62.5 | 0.0 | 0.3 | 1.07 | 16.3 | 0.025 | pass |
+| e_house01_3 | r1 | 2 | 2 | 36.3 | 44.0 | 0.9 | 18.8 | 1.32 | 23.0 | 0.014 | pass |
+| e_house01_3 | r1 | 2 | 3 | 87.8 | 7.9 | 0.6 | 3.7 | 0.92 | 10.9 | 0.056 | pass |
+| e_house01_3 | r2 | 3 | 1 | 0.1 | 99.6 | 0.0 | 0.3 | 0.96 | 5.4 | 0.052 | pass |
+| e_house01_3 | r2 | 3 | 2 | 0.4 | 63.6 | 0.9 | 35.1 | 0.80 | 12.4 | 0.176 | pass |
+| e_house01_3 | r2 | 3 | 3 | 83.7 | 10.7 | 0.7 | 4.8 | 0.90 | 11.4 | 0.049 | pass |
+| e_house01_3 | r3 | 4 | 1 | 60.9 | 38.8 | 0.0 | 0.3 | 1.06 | 16.8 | 0.020 | pass |
+| e_house01_3 | r3 | 4 | 2 | 64.3 | 18.0 | 0.4 | 17.2 | 1.13 | 9.6 | 0.127 | pass |
+| e_house01_3 | r3 | 4 | 3 | 87.5 | 8.4 | 0.6 | 3.5 | 0.91 | 10.9 | 0.039 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house01_1 | r1 | 0.99 | 1.23 | 0.94 | 0.032 | 0.033 | 10 | 10 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_1 | r2 | 1.06 | 1.23 | 0.94 | 0.036 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_1 | r3 | 0.99 | 1.23 | 0.94 | 0.038 | 0.033 | 230 | 230 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_2 | r1 | 1.06 | 1.03 | 0.85 | 0.031 | 0.036 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_2 | r2 | 0.99 | 1.03 | 0.85 | 0.030 | 0.036 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_2 | r3 | 1.07 | 1.03 | 0.85 | 0.031 | 0.036 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_3 | r1 | 0.99 | 1.11 | 0.93 | 0.030 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_3 | r2 | 1.06 | 1.11 | 0.93 | 0.030 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house01_3 | r3 | 1.00 | 1.11 | 0.93 | 0.032 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house01_1 | r1 | 0.99 | 1.23 | 0.94 | 0.032 | 0.033 | 10 | 10 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_1 | r2 | 1.06 | 1.23 | 0.94 | 0.036 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_1 | r3 | 0.99 | 1.23 | 0.94 | 0.038 | 0.033 | 230 | 230 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_2 | r1 | 1.06 | 1.03 | 0.85 | 0.031 | 0.036 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_2 | r2 | 0.99 | 1.03 | 0.85 | 0.030 | 0.036 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_2 | r3 | 1.07 | 1.03 | 0.85 | 0.031 | 0.036 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_3 | r1 | 0.99 | 1.11 | 0.93 | 0.030 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_3 | r2 | 1.06 | 1.11 | 0.93 | 0.030 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house01_3 | r3 | 1.00 | 1.11 | 0.93 | 0.032 | 0.033 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |

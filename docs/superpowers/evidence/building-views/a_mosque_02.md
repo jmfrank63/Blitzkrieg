@@ -6,26 +6,27 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| a_mosque_02_1 | r1 | 2 | 1 | 67.1 | 31.8 | 1.0 | 0.0 | 1.04 | 25.8 | 0.039 | pass |
-| a_mosque_02_1 | r1 | 2 | 2 | 61.6 | 37.6 | 0.8 | 0.0 | 0.97 | 15.5 | 0.062 | pass |
-| a_mosque_02_1 | r1 | 2 | 3 | 64.9 | 29.5 | 3.6 | 1.9 | 1.08 | 4.4 | 0.028 | pass |
-| a_mosque_02_1 | r2 | 3 | 1 | 35.7 | 63.1 | 1.2 | 0.0 | 1.09 | 4.8 | 0.018 | pass |
-| a_mosque_02_1 | r2 | 3 | 2 | 36.9 | 62.7 | 0.4 | 0.0 | 0.97 | 8.6 | 0.118 | pass |
-| a_mosque_02_1 | r2 | 3 | 3 | 6.5 | 88.1 | 4.0 | 1.4 | 1.02 | 1.4 | 0.005 | pass |
-| a_mosque_02_1 | r3 | 4 | 1 | 54.2 | 45.1 | 0.7 | 0.0 | 1.07 | 31.5 | 0.046 | pass |
-| a_mosque_02_1 | r3 | 4 | 2 | 70.1 | 29.1 | 0.7 | 0.0 | 1.13 | 14.5 | 0.091 | pass |
-| a_mosque_02_1 | r3 | 4 | 3 | 37.1 | 58.2 | 3.5 | 1.2 | 1.09 | 6.3 | 0.031 | pass |
+| a_mosque_02_1 | r1 | 2 | 1 | 67.1 | 29.4 | 3.4 | 0.0 | 1.01 | 13.4 | 0.007 | pass |
+| a_mosque_02_1 | r1 | 2 | 2 | 61.6 | 37.6 | 0.8 | 0.0 | 0.96 | 4.0 | 0.011 | pass |
+| a_mosque_02_1 | r1 | 2 | 3 | 64.9 | 27.7 | 5.0 | 2.3 | 0.83 | 5.8 | 0.007 | pass |
+| a_mosque_02_1 | r2 | 3 | 1 | 35.7 | 58.5 | 5.9 | 0.0 | 1.09 | 6.9 | 0.012 | pass |
+| a_mosque_02_1 | r2 | 3 | 2 | 36.9 | 62.7 | 0.4 | 0.0 | 1.04 | 9.5 | 0.030 | pass |
+| a_mosque_02_1 | r2 | 3 | 3 | 6.5 | 82.7 | 7.6 | 3.2 | 1.05 | 1.3 | 0.008 | pass |
+| a_mosque_02_1 | r3 | 4 | 1 | 54.2 | 40.7 | 5.1 | 0.0 | 1.12 | 24.5 | 0.009 | pass |
+| a_mosque_02_1 | r3 | 4 | 2 | 70.1 | 29.1 | 0.7 | 0.0 | 1.13 | 9.6 | 0.015 | pass |
+| a_mosque_02_1 | r3 | 4 | 3 | 37.1 | 54.4 | 5.6 | 2.9 | 0.83 | 2.4 | 0.008 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| a_mosque_02_1 | r1 | 0.95 | 0.74 | 0.97 | 0.033 | 0.025 | 70 | 70 | 0 | 0 | 0.000 | pass | blocks |
-| a_mosque_02_1 | r2 | 0.96 | 0.74 | 0.97 | 0.034 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| a_mosque_02_1 | r3 | 0.96 | 0.74 | 0.97 | 0.020 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| a_mosque_02_1 | r1 | 0.95 | 0.74 | 0.97 | 0.033 | 0.025 | 70 | 70 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| a_mosque_02_1 | r2 | 0.96 | 0.74 | 0.97 | 0.034 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| a_mosque_02_1 | r3 | 0.96 | 0.74 | 0.97 | 0.020 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |

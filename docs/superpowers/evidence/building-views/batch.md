@@ -11,9 +11,10 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   the variant's 2003 picture, its protrusion at most 1.5 times the 2003 one's plus 0.03, and it holds
   0.8 of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
   porches, where they show more than 40, and draws as walls as much of the walls of the roof parts
-  in `tools/zig/fixtures/bk-views/roof-parts`, and at most 0.04 of its pixels still stretched), the style
+  in `tools/zig/fixtures/bk-views/roof-parts`, at most 0.04 of its pixels still stretched, and no more than
+  40 pixels of the body copied from beside a part, a chimney, dormer or door step of another side), the style
   of every generated picture, and the hold-out where the family has another side of the colourway, against
-  the floors of `tools/zig/fixtures/bk-views/gate.json`: 194 of 194 variants pass; hold-out 43 of 43; 0
+  the floors of `tools/zig/fixtures/bk-views/gate.json`: 182 of 194 variants pass; hold-out 43 of 43; 0
   fail on the shape; 0 more pass the measures but look wrong on the contact sheet (`bk-views contact`),
   listed in gate.json's `by_eye`. A failing variant is listed with its first reason, to be fixed by hand.
 - 2003 sprite: 84 variants have turns drawn as their 2003 sprites, moved onto the turned footprint: thin
@@ -21,7 +22,7 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   the shape, where the turn keeps the footprint (cells IoU 0.9 or more), or mirrored onto it on an odd
   turn of a rectangular footprint; and the heaps (supply depots, earth pillboxes) on every turn, mirrored on
   an odd one.
-- Hand shapes: 57 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
+- Hand shapes: 73 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
 
 | Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
 |---|---|---|---|---|---|---|---|
@@ -94,7 +95,7 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_house04 | europe/summer/e_house04_4 | 4 | 1, 2, 3 | pass | - | - |
 | europe | e_house05 | europe/summer/e_house05_3 | 3 | 4, 1, 2 | pass | - | - |
 | europe | e_house06 | europe/summer/e_house06_4 | 4 | 1, 2, 3 | pass | - | - |
-| europe | e_house07 | europe/summer/e_house07_1 | 1 | 2, 3, 4 | pass | - | - |
+| europe | e_house07 | europe/summer/e_house07_1 | 1 | 2, 3, 4 | r1 3: sharpness 2.53 outside 0.70..1.55 | - | - |
 | europe | e_house08 | europe/summer/e_house08_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_house09 | europe/summer/e_house09_1 | 1 | 2, 3, 4 | pass | - | - |
 | europe | e_house10 | europe/summer/e_house10_2 | 2 | 3, 4, 1 | pass | - | - |
@@ -109,7 +110,7 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_railwaystation | europe/summer/e_railwaystation_2 | ? | ? (turns 1, 2, 3) | pass | - | - |
 | europe | e_shed01 | europe/summer/e_shed01_2 | 2 | 3, 4, 1 | pass | pass | r1 = e_shed01_3 |
 | europe | e_shed01 | europe/summer/e_shed01_3 | 3 | 4, 1, 2 | pass | pass | r3 = e_shed01_2 |
-| europe | e_shed02 | europe/summer/e_shed02_2 | 2 | 3, 4, 1 | pass | - | - |
+| europe | e_shed02 | europe/summer/e_shed02_2 | 2 | 3, 4, 1 | r1 2: hue 0.342 > 0.29 | - | - |
 | europe | e_shed02 | europe/summer/e_shed02_3 | ? | ? (turns 1, 2, 3) | pass | - | - |
 | europe | e_shed02 | europe/summer/e_shed02_4 | 4 | 1, 2, 3 | pass | - | - |
 | europe | e_shed02 | europe/summer/e_shed02_5 | 2 | 3, 4, 1 | pass | - | - |
@@ -122,15 +123,15 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | europe | e_stubtrack | europe/summer/e_stubtrack/02 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_stubtrack | europe/summer/e_stubtrack/03 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_stubtrack | europe/summer/e_stubtrack/04 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
-| europe | e_townhouse01 | europe/summer/e_townhouse01_3 | 3 | 4, 1, 2 | pass | pass | r1 = e_townhouse01_4 |
-| europe | e_townhouse01 | europe/summer/e_townhouse01_4 | 4 | 1, 2, 3 | pass | pass | r3 = e_townhouse01_3 |
+| europe | e_townhouse01 | europe/summer/e_townhouse01_3 | 3 | 4, 1, 2 | r3 3: sharpness 1.59 outside 0.70..1.55 | pass | r1 = e_townhouse01_4 |
+| europe | e_townhouse01 | europe/summer/e_townhouse01_4 | 4 | 1, 2, 3 | r2 3: sharpness 1.60 outside 0.70..1.55 | pass | r3 = e_townhouse01_3 |
 | europe | e_townhouse02 | europe/summer/e_townhouse02_2 | 2 | 3, 4, 1 | pass | - | - |
 | europe | e_townhouse02 | europe/summer/e_townhouse02_3 | 1 | 2, 3, 4 | pass | - | - |
-| europe | e_townhouse03 | europe/summer/e_townhouse03_1 | 1 | 2, 3, 4 | pass | - | - |
+| europe | e_townhouse03 | europe/summer/e_townhouse03_1 | 1 | 2, 3, 4 | r3 3: sharpness 1.57 outside 0.70..1.55 | - | - |
 | europe | e_townhouse03 | europe/summer/e_townhouse03_4 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| europe | e_townhouse04 | europe/summer/e_townhouse04_3 | 3 | 4, 1, 2 | pass | - | - |
+| europe | e_townhouse04 | europe/summer/e_townhouse04_3 | 3 | 4, 1, 2 | r1 3: sharpness 1.76 outside 0.70..1.55 | - | - |
 | europe | e_townhouse04 | europe/summer/e_townhouse04_4 | 4 | 1, 2, 3 | pass | - | - |
-| europe | e_townrailwaystation | europe/summer/e_townrailwaystation_4 | 4 | 1, 2, 3 | pass | - | - |
+| europe | e_townrailwaystation | europe/summer/e_townrailwaystation_4 | 4 | 1, 2, 3 | r3 3: sharpness 1.65 outside 0.70..1.55 | - | - |
 | europe | e_waterset | europe/summer/e_waterset/01 | 1 | 2, 3, 4 | pass | - | r1, r2, r3 |
 | europe | e_waterset | europe/summer/e_waterset/02 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
 | europe | e_waterset | europe/summer/e_waterset/03 | ? | ? (turns 1, 2, 3) | pass | - | r1, r2, r3 |
@@ -190,8 +191,8 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | storehouse | ussr/summer/storehouse_1 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | storehouse | ussr/summer/storehouse_2 | 2 | 3, 4, 1 | pass | - | - |
 | ussr | stubtrack | ussr/summer/stubtrack/01 | 1 | 2, 3, 4 | pass | - | r1 mirrored, r2, r3 mirrored |
-| ussr | stubtrack | ussr/summer/stubtrack/02 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
-| ussr | stubtrack | ussr/summer/stubtrack/03 | 3 | 4, 1, 2 | pass | - | r1 mirrored, r2, r3 mirrored |
+| ussr | stubtrack | ussr/summer/stubtrack/02 | ? | ? (turns 1, 2, 3) | r1 1w: colour 67.1 > 62 | - | r1 mirrored, r2, r3 mirrored |
+| ussr | stubtrack | ussr/summer/stubtrack/03 | 3 | 4, 1, 2 | r1 1w: colour 63.0 > 62 | - | r1 mirrored, r2, r3 mirrored |
 | ussr | stubtrack | ussr/summer/stubtrack/04 | ? | ? (turns 1, 2, 3) | pass | - | r1 mirrored, r2, r3 mirrored |
 | ussr | towncornhouse01 | ussr/summer/towncornhouse01 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | towncornhouse02 | ussr/summer/towncornhouse02 | 1 | 2, 3, 4 | pass | - | - |
@@ -199,15 +200,15 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
 | ussr | towncornhouse04 | ussr/summer/towncornhouse04 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | townhouse01 | ussr/summer/townhouse01_1 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | townhouse01 | ussr/summer/townhouse01_2 | ? | ? (turns 1, 2, 3) | pass | - | - |
-| ussr | townhouse02 | ussr/summer/townhouse02_1 | 1 | 2, 3, 4 | pass | - | - |
+| ussr | townhouse02 | ussr/summer/townhouse02_1 | 1 | 2, 3, 4 | r2 2: hue 0.329 > 0.29 | - | - |
 | ussr | townhouse02 | ussr/summer/townhouse02_2 | 2 | 3, 4, 1 | pass | - | - |
 | ussr | townhouse03 | ussr/summer/townhouse03_1 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | townhouse03 | ussr/summer/townhouse03_2 | 2 | 3, 4, 1 | pass | - | - |
 | ussr | townhouse04 | ussr/summer/townhouse04_1 | 1 | 2, 3, 4 | pass | - | - |
-| ussr | townhouse04 | ussr/summer/townhouse04_2 | ? | ? (turns 1, 2, 3) | pass | - | - |
+| ussr | townhouse04 | ussr/summer/townhouse04_2 | ? | ? (turns 1, 2, 3) | r1 3: sharpness 1.74 outside 0.70..1.55 | - | - |
 | ussr | townhouse05 | ussr/summer/townhouse05_1 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | townhouse05 | ussr/summer/townhouse05_2 | 2 | 3, 4, 1 | pass | - | - |
-| ussr | townhouse05 | ussr/summer/townhouse05_3 | 2 | 3, 4, 1 | pass | - | - |
+| ussr | townhouse05 | ussr/summer/townhouse05_3 | 2 | 3, 4, 1 | r1 3: sharpness 1.75 outside 0.70..1.55 | - | - |
 | ussr | ukrainehouse01 | ussr/summer/ukrainehouse01_1 | 1 | 2, 3, 4 | pass | - | - |
 | ussr | ukrainehouse01 | ussr/summer/ukrainehouse01_2 | 2 | 3, 4, 1 | pass | - | - |
 | ussr | ukrainehouse02 | ussr/summer/ukrainehouse02 | 1 | 2, 3, 4 | pass | - | - |
