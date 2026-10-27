@@ -46,14 +46,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
-the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
-fails, is drawn as its 2003 sprite where the turn keeps the footprint.
+the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
+parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
+drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|
-| townhouse03_1 | r1 | 0.98 | 1.05 | 0.98 | 0.004 | 0.006 | 394 | 394 | pass | blocks |
-| townhouse03_1 | r2 | 0.97 | 1.05 | 0.98 | 0.004 | 0.006 | 0 | 0 | pass | blocks |
-| townhouse03_1 | r3 | 0.97 | 1.05 | 0.98 | 0.003 | 0.006 | 899 | 899 | pass | blocks |
-| townhouse03_2 | r1 | 0.98 | 1.04 | 0.98 | 0.004 | 0.005 | 815 | 815 | pass | blocks |
-| townhouse03_2 | r2 | 0.98 | 1.04 | 0.98 | 0.004 | 0.005 | 0 | 0 | pass | blocks |
-| townhouse03_2 | r3 | 0.97 | 1.04 | 0.98 | 0.005 | 0.005 | 399 | 399 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| townhouse03_1 | r1 | 0.98 | 1.05 | 0.98 | 0.004 | 0.006 | 394 | 394 | 0 | 0 | pass | blocks |
+| townhouse03_1 | r2 | 0.97 | 1.05 | 0.98 | 0.004 | 0.006 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse03_1 | r3 | 0.97 | 1.05 | 0.98 | 0.003 | 0.006 | 899 | 899 | 0 | 0 | pass | blocks |
+| townhouse03_2 | r1 | 0.98 | 1.04 | 0.98 | 0.004 | 0.005 | 815 | 815 | 0 | 0 | pass | blocks |
+| townhouse03_2 | r2 | 0.98 | 1.04 | 0.98 | 0.004 | 0.005 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse03_2 | r3 | 0.97 | 1.04 | 0.98 | 0.005 | 0.005 | 399 | 399 | 0 | 0 | pass | blocks |

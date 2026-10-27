@@ -46,14 +46,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
-the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
-fails, is drawn as its 2003 sprite where the turn keeps the footprint.
+the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
+parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
+drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|
-| ukrainehouse01_1 | r1 | 0.91 | 0.92 | 0.94 | 0.036 | 0.043 | 0 | 0 | pass | blocks |
-| ukrainehouse01_1 | r2 | 0.99 | 0.92 | 0.94 | 0.050 | 0.043 | 0 | 0 | pass | blocks |
-| ukrainehouse01_1 | r3 | 0.90 | 0.92 | 0.94 | 0.046 | 0.043 | 0 | 0 | pass | blocks |
-| ukrainehouse01_2 | r1 | 1.06 | 0.83 | 0.93 | 0.053 | 0.041 | 0 | 0 | pass | blocks |
-| ukrainehouse01_2 | r2 | 0.99 | 0.83 | 0.93 | 0.043 | 0.041 | 0 | 0 | pass | blocks |
-| ukrainehouse01_2 | r3 | 0.96 | 0.83 | 0.93 | 0.040 | 0.041 | 478 | 478 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ukrainehouse01_1 | r1 | 0.91 | 0.92 | 0.94 | 0.036 | 0.043 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse01_1 | r2 | 0.99 | 0.92 | 0.94 | 0.050 | 0.043 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse01_1 | r3 | 0.90 | 0.92 | 0.94 | 0.046 | 0.043 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse01_2 | r1 | 1.06 | 0.83 | 0.93 | 0.053 | 0.041 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse01_2 | r2 | 0.99 | 0.83 | 0.93 | 0.043 | 0.041 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse01_2 | r3 | 0.96 | 0.83 | 0.93 | 0.040 | 0.041 | 478 | 478 | 0 | 0 | pass | blocks |

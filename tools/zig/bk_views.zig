@@ -2036,6 +2036,26 @@ pub fn lowFails(seen: f64, kept: f64) bool {
 const low_margin = 40;
 const low_share = 0.8;
 
+/// How a drawn picture keeps roof parts (`roof_parts_dir`): the pixels where
+/// its eye sees a part's wall, the blocks without the parts (`blocks`)
+/// behind it, and how many of those it drew as that wall (its shading
+/// class). A turn that paints a vent on the roof plane keeps none.
+pub fn roofKept(blocks: []const Block, parts: []const Block, eye: Eye, drawn: Generated) [2]f64 {
+    var seen: f64 = 0;
+    var kept: f64 = 0;
+    const w = drawn.image.width;
+    for (0..drawn.image.height) |y| for (0..w) |x| {
+        const px = @as(f64, @floatFromInt(x)) + 0.5;
+        const py = @as(f64, @floatFromInt(y)) + 0.5;
+        const part = castPixel(parts, eye, px, py) orelse continue;
+        if (part.normal[2] != 0) continue;
+        if (castPixel(blocks, eye, px, py)) |behind| if (behind.t < part.t) continue;
+        seen += 1;
+        kept += @floatFromInt(@intFromBool(drawn.classes[y * w + x] == shadeClass(part.normal, eye.turn)));
+    };
+    return .{ seen, kept };
+}
+
 /// The overlap of the blocks' outline with a picture's (alpha 128 or more).
 pub fn blocksIou(blocks: []const Block, eye: Eye, picture: Image) f64 {
     var both: f64 = 0;
@@ -2522,6 +2542,9 @@ const Scene = struct {
     /// The intact blocks without the low parts (`lowParts`), which the gate
     /// finds below them.
     body: []const Block,
+    /// The roof parts the 2003 variants of the colourway show (`roof_parts_dir`),
+    /// in the variant's frame.
+    roof: []const Block,
 };
 
 /// Hand shapes, from the working folder (the build root): `<family>.json`
@@ -2533,6 +2556,32 @@ pub const shapes_dir = "tools/zig/fixtures/bk-views/shapes";
 
 /// A modder's hand shape: the blocks alone, in the variant's own folder.
 pub const variant_shape = "shape.json";
+
+/// Roof parts, from the working folder: `<family>.json` maps a variant
+/// folder's name to the vents, dormers and roof turrets its 2003 pictures
+/// show, as blocks in its own frame (the format of `shapes_dir`). Their
+/// outline hardly leaves the roof's (e_wb/01's ridge vents rise 0 to 2
+/// pixels above the fitted ridge) and the fit takes them into the roof, so
+/// they are drawn by hand; every variant of the colourway takes them, turned
+/// into its frame (`intoFrame`), on its intact blocks.
+pub const roof_parts_dir = "tools/zig/fixtures/bk-views/roof-parts";
+
+/// A block of the frame of the picture seen by `eye` in the frame the eye
+/// is aligned to: the inverse of `Eye.project`'s turn and shift.
+pub fn intoFrame(b: Block, eye: Eye) Block {
+    const back: u2 = 0 -% eye.turn;
+    const p = turnPoint(.{ b.lo[0] - eye.shift[0], b.lo[1] - eye.shift[1] }, back);
+    const q = turnPoint(.{ b.hi[0] - eye.shift[0], b.hi[1] - eye.shift[1] }, back);
+    var out = b;
+    out.lo = .{ @min(p[0], q[0]), @min(p[1], q[1]) };
+    out.hi = .{ @max(p[0], q[0]), @max(p[1], q[1]) };
+    if (eye.turn % 2 == 1) out.roof = switch (b.roof) {
+        .gable_x => .gable_y,
+        .gable_y => .gable_x,
+        else => b.roof,
+    };
+    return out;
+}
 
 fn handShape(ctx: *bk_tool.Context, dir: []const u8, family: []const u8, variant: []const u8) !?[]const Block {
     if (try readJson([]const Block, ctx, try std.fs.path.join(ctx.arena, &.{ dir, variant_shape }))) |blocks| return blocks;
@@ -2576,6 +2625,15 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
     const own = sources.items[fixed];
     const hand = try handShape(ctx, own.dir, found.family.name, std.fs.path.basename(own.dir));
     if (hand) |blocks| alignToBlocks(fixed, footprints, outlines, eyes, blocks);
+    // The roof parts of every variant of the colourway, in this one's frame.
+    var roof: std.ArrayList(Block) = .empty;
+    const roof_path = try std.fmt.allocPrint(arena, "{s}/{s}.json", .{ roof_parts_dir, found.family.name });
+    if (try readJson(std.json.ArrayHashMap([]const Block), ctx, roof_path)) |parts| {
+        for (sources.items, eyes, same) |source, eye, s| {
+            if (!s) continue;
+            for (parts.map.get(std.fs.path.basename(source.dir)) orelse continue) |b| try roof.append(arena, intoFrame(b, eye));
+        }
+    }
     var states: std.ArrayList([]const u8) = .empty;
     for (own.names) |state| {
         const digits = std.mem.indexOfNone(u8, state, "0123456789") orelse state.len;
@@ -2614,6 +2672,8 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         for (sources.items, eyes, same) |source, eye, s| {
             if (s) try parts.appendSlice(arena, try lowParts(arena, shape.*, pictureOf(source, state) orelse continue, eye));
         }
+        // The intact building's roof parts.
+        if (std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w")) try parts.appendSlice(arena, roof.items);
         shape.* = parts.items;
     }
     return .{
@@ -2629,6 +2689,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         .shapes = shapes,
         .hand = hand,
         .body = body,
+        .roof = roof.items,
     };
 }
 
@@ -2736,8 +2797,9 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
 /// one (other variants of the family may be other buildings, e_house01_1 and
 /// _3 differ in their roofs), and the protrusions of both pictures. `hand`:
 /// the blocks are a hand shape. `low` and `low_kept`: the pixels the low
-/// parts of the 2003 sides show in the turn and those it holds (`turnLowParts`).
-const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0 };
+/// parts of the 2003 sides show in the turn and those it holds (`turnLowParts`);
+/// `roof` and `roof_kept` likewise for the walls of the roof parts (`roofKept`).
+const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0 };
 
 fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn, shown: Image) !Shape {
     const original = pictureOf(own, "1").?;
@@ -2788,6 +2850,7 @@ fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
     const most = protrusion_factor * s.protrusion_2003 + protrusion_margin;
     if (s.protrusion > most) return try std.fmt.allocPrint(gpa, "protrusion {d:.3} > {d:.3}", .{ s.protrusion, most });
     if (lowFails(s.low, s.low_kept)) return try std.fmt.allocPrint(gpa, "low parts {d:.0} of {d:.0} pixels", .{ s.low_kept, s.low });
+    if (lowFails(s.roof, s.roof_kept)) return try std.fmt.allocPrint(gpa, "roof parts {d:.0} of {d:.0} pixels", .{ s.roof_kept, s.roof });
     return null;
 }
 
@@ -2963,6 +3026,9 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
             const low = try turnLowParts(arena, scene, d.sprite.image, blocks_target.eye);
             shape.low = low[0];
             shape.low_kept = low[1];
+            const roof = roofKept(scene.body, scene.roof, blocks_target.eye, d.sprite);
+            shape.roof = roof[0];
+            shape.roof_kept = roof[1];
         }
     }
     const failure = try shapeFailure(arena, shape);
@@ -3024,7 +3090,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const mirror = turned.mirror;
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -3646,7 +3712,7 @@ const SideReport = struct {
     mirror: bool = false,
     sibling: []const u8 = "",
     hand: bool = false,
-    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, failure: []const u8 },
+    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
@@ -3747,7 +3813,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
@@ -3791,11 +3857,12 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             \\Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
             \\over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
             \\of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
-            \\the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
-            \\fails, is drawn as its 2003 sprite where the turn keeps the footprint.
+            \\the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
+            \\parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
+            \\drawn as its 2003 sprite where the turn keeps the footprint.
             \\
-            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
-            \\|---|---|---|---|---|---|---|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(
@@ -3822,7 +3889,8 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\  one's, the blocks' ground {d:.1}..{d:.1} times the footprint's cells, their outline IoU {d:.2} or more against
         \\  the variant's 2003 picture, its protrusion at most {d:.1} times the 2003 one's plus {d:.2}, and it holds
         \\  {d:.1} of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
-        \\  porches, where they show more than {d:.0}), the style
+        \\  porches, where they show more than {d:.0}, and draws as walls as much of the walls of the roof parts
+        \\  in `tools/zig/fixtures/bk-views/roof-parts`), the style
         \\  of every generated picture, and the hold-out where the family has another side of the colourway, against
         \\  the floors of `tools/zig/fixtures/bk-views/gate.json`: {d} of {d} variants pass; hold-out {d} of {d}; {d}
         \\  fail on the shape; {d} more pass the measures but look wrong on the contact sheet (`bk-views contact`),

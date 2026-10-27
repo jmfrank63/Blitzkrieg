@@ -82,20 +82,21 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
-the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
-fails, is drawn as its 2003 sprite where the turn keeps the footprint.
+the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
+parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
+drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.93 | 0.39 | 0.86 | 0.388 | 0.484 | 0 | 0 | pass | 2003 sprite |
-| 01 | r2 | 1.08 | 0.39 | 0.86 | 0.374 | 0.484 | 0 | 0 | pass | 2003 sprite |
-| 01 | r3 | 0.95 | 0.39 | 0.86 | 0.376 | 0.484 | 0 | 0 | pass | 2003 sprite |
-| 02 | r1 | 0.93 | 0.45 | 0.86 | 0.308 | 0.520 | 0 | 0 | pass | 2003 sprite |
-| 02 | r2 | 1.02 | 0.45 | 0.86 | 0.366 | 0.520 | 0 | 0 | pass | 2003 sprite |
-| 02 | r3 | 0.96 | 0.45 | 0.86 | 0.309 | 0.520 | 0 | 0 | pass | 2003 sprite |
-| 03 | r1 | 1.00 | 0.46 | 0.87 | 0.368 | 0.405 | 0 | 0 | pass | 2003 sprite |
-| 03 | r2 | 0.83 | 0.46 | 0.87 | 0.319 | 0.405 | 0 | 0 | pass | 2003 sprite |
-| 03 | r3 | 1.00 | 0.46 | 0.87 | 0.333 | 0.405 | 0 | 0 | pass | 2003 sprite |
-| 04 | r1 | 0.94 | 0.52 | 0.88 | 0.235 | 0.274 | 0 | 0 | pass | 2003 sprite |
-| 04 | r2 | 1.00 | 0.52 | 0.88 | 0.373 | 0.274 | 0 | 0 | pass | 2003 sprite |
-| 04 | r3 | 1.00 | 0.52 | 0.88 | 0.332 | 0.274 | 0 | 0 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.93 | 0.39 | 0.86 | 0.388 | 0.484 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 01 | r2 | 1.08 | 0.39 | 0.86 | 0.374 | 0.484 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 01 | r3 | 0.95 | 0.39 | 0.86 | 0.376 | 0.484 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 02 | r1 | 0.93 | 0.45 | 0.86 | 0.308 | 0.520 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 02 | r2 | 1.02 | 0.45 | 0.86 | 0.366 | 0.520 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.96 | 0.45 | 0.86 | 0.309 | 0.520 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 03 | r1 | 1.00 | 0.46 | 0.87 | 0.368 | 0.405 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 03 | r2 | 0.83 | 0.46 | 0.87 | 0.319 | 0.405 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 03 | r3 | 1.00 | 0.46 | 0.87 | 0.333 | 0.405 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 04 | r1 | 0.94 | 0.52 | 0.88 | 0.235 | 0.274 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 04 | r2 | 1.00 | 0.52 | 0.88 | 0.373 | 0.274 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| 04 | r3 | 1.00 | 0.52 | 0.88 | 0.332 | 0.274 | 0 | 0 | 0 | 0 | pass | 2003 sprite |

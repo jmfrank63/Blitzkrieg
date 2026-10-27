@@ -28,17 +28,18 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
-the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
-fails, is drawn as its 2003 sprite where the turn keeps the footprint.
+the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
+parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
+drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|
-| e_ctownhouse03_2 | r1 | 0.79 | 0.96 | 0.90 | 0.023 | 0.026 | 513 | 513 | pass | blocks |
-| e_ctownhouse03_2 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | pass | 2003 sprite |
-| e_ctownhouse03_2 | r3 | 0.85 | 0.96 | 0.90 | 0.012 | 0.026 | 1660 | 1660 | pass | blocks |
-| e_ctownhouse03_4 | r1 | 0.93 | 1.09 | 0.91 | 0.013 | 0.028 | 1086 | 1086 | pass | blocks |
-| e_ctownhouse03_4 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | pass | 2003 sprite |
-| e_ctownhouse03_4 | r3 | 0.87 | 1.09 | 0.91 | 0.023 | 0.028 | 53 | 53 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_ctownhouse03_2 | r1 | 0.79 | 0.96 | 0.90 | 0.023 | 0.026 | 513 | 513 | 0 | 0 | pass | blocks |
+| e_ctownhouse03_2 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| e_ctownhouse03_2 | r3 | 0.85 | 0.96 | 0.90 | 0.012 | 0.026 | 1660 | 1660 | 0 | 0 | pass | blocks |
+| e_ctownhouse03_4 | r1 | 0.93 | 1.09 | 0.91 | 0.013 | 0.028 | 1086 | 1086 | 0 | 0 | pass | blocks |
+| e_ctownhouse03_4 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| e_ctownhouse03_4 | r3 | 0.87 | 1.09 | 0.91 | 0.023 | 0.028 | 53 | 53 | 0 | 0 | pass | blocks |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 

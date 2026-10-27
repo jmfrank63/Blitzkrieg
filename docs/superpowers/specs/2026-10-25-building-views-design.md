@@ -489,7 +489,7 @@ Each was fixed at its measured cause; no band of gate.json was widened.
 - **Not done.** The Map Editor (side = object orientation + camera step) belongs to the Game camera's slice. An
   imported PNG is not checked against the side's style; `bk-views style` can score it.
 
-## Low parts: ramps, steps and porches (M006 S07b, 2026-10-27)
+## Low parts and roof parts: ramps, steps, porches, vents (M006 S07b, 2026-10-27)
 
 The maintainer's hand test: the barn `europe/summer/e_wb/01` (corrugated roof, three vents) shows two loading ramps
 on its long side; its turn that shows that wall from the other side (`01_r1`) had none, nor had e_shed01_3's r1
@@ -521,7 +521,27 @@ a turn. Hand shapes had none either.
   `test-bk-views` (with a test: a ramp on a gabled house is cut back within 3 units, a turn drawn without it keeps 0
   of its pixels and fails, with it keeps all, from behind it shows none), `bk-views-side`, `bk-views-roundtrip`.
 - **Not done.** A part no 2003 side shows is not invented (the barn's far gable shows its door ramp painted on the
-  wall, mirrored from the near one, as before). Roof vents and other small parts on a roof are still flattened.
+  wall, mirrored from the near one, as before).
+- **Roof parts** (the follow-up). The barn's two ridge vents were painted flat on the roof planes in every turn.
+  Cause: the fit takes them into the roof. e_wb/01's fitted ridge (69) already reaches their tops: per column its
+  outline stands 0 to 2 pixels above the blocks' (measured along the whole ridge), so neither `cutChimneys` (5 pixels
+  or more) nor any outline measure sees them; a mask of roof pixels coloured like the walls (vent faces are wood)
+  marked rust on the barn and whole red tile roofs on the town houses, so colour does not find them either. They
+  are drawn by hand: `tools/zig/fixtures/bk-views/roof-parts/<family>.json` maps a variant folder to its roof
+  parts in its own frame (the hand-shape block format), measured from its 2003 picture (the vents' foot on the roof
+  plane, from the pixels where their lit faces meet it: e_wb/01 x -160..-120 and -77..-34, 12 units either side of
+  the ridge, flat tops at 71). Every variant of the colourway takes them, turned into its frame (`intoFrame`, the
+  inverse of its eye's turn and shift), on its intact blocks (states 1 and 1w), fitted or hand-shaped: authored once
+  on e_wb/01 and e_shed01_3, they stand on e_wb/02 and e_shed01_2 too.
+- **Roof gate** (`roofKept`, in the shape gate): of the pixels where the turn's eye sees a wall of a roof part (the
+  blocks without them behind it), 0.8 or more must be drawn as that wall (its shading class in the source map)
+  wherever there are more than 40. Before (parts in the fixture, not added): 190 of 194 pass, the four barn
+  variants fail keeping 0 pixels (e_wb/01 r1 0 of 438, e_wb/02 r2 0 of 504, e_shed01_3 r1 0 of 447, e_shed01_2 r2 0
+  of 499); after: 194 of 194, hold-out 43 of 43. Test: a ridge vent given in the frame of a picture one turn on with
+  its zero cross elsewhere comes back where it stands, and on each of the four turns the walls drawn with it are all
+  kept and painted on the roof none.
+- **Left.** The town houses' dormers (e_ctownhouse02/03/04, e_townhouse*, ussr town houses) stay painted on their
+  roof planes, where they read as roof windows; they can be added to the roof-parts fixture the same way.
 
 ## Open questions
 

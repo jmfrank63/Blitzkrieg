@@ -533,6 +533,50 @@ test "a ramp below a wall is cut as a low part, and a turn that drops it fails t
     try std.testing.expectEqual(@as(f64, 0), views.lowKept(&.{shed}, parts, eyes[2], try blocksPicture(arena, eyes[2], &.{shed}))[0]);
 }
 
+/// A picture of blocks as drawn, with each pixel's shading class.
+fn blocksDrawn(gpa: std.mem.Allocator, eye: views.Eye, blocks: []const views.Block) !views.Generated {
+    const image = try blocksPicture(gpa, eye, blocks);
+    const drawn: views.Generated = .{ .image = image, .kinds = try gpa.alloc(views.Kind, image.pixels.len), .classes = try gpa.alloc(u8, image.pixels.len) };
+    for (0..image.height) |y| for (0..image.width) |x| {
+        const hit = views.castPixel(blocks, eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+        drawn.kinds[y * image.width + x] = if (hit != null) .projected else .empty;
+        drawn.classes[y * image.width + x] = if (hit) |h| @intCast(views.shadeClass(h.normal, eye.turn)) else 255;
+    };
+    return drawn;
+}
+
+test "a roof part turns into the frame of another side, and a turn that paints it on the roof fails the gate" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const shed: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 3 * views.tile_size, 2 * views.tile_size }, .wall = 30, .ridge = 55, .roof = .gable_x };
+    // A ridge vent 20 units long standing 4 above the ridge.
+    const vent: views.Block = .{ .lo = .{ 20, 12 }, .hi = .{ 40, 33 }, .wall = 59, .ridge = 59 };
+    // Seen by a picture one turn on whose zero cross sits elsewhere, the
+    // vent is given in that picture's frame and comes back where it stands.
+    const eye: views.Eye = .{ .anchor = .{ 130, 150 }, .turn = 1, .shift = .{ 7, -3 } };
+    const a = views.turnPoint(vent.lo, 1);
+    const b = views.turnPoint(vent.hi, 1);
+    const given: views.Block = .{ .lo = .{ @min(a[0], b[0]) + 7, @min(a[1], b[1]) - 3 }, .hi = .{ @max(a[0], b[0]) + 7, @max(a[1], b[1]) - 3 }, .wall = 59, .ridge = 59, .roof = .gable_y };
+    const back = views.intoFrame(given, eye);
+    for (0..2) |k| {
+        try std.testing.expectApproxEqAbs(vent.lo[k], back.lo[k], 1e-9);
+        try std.testing.expectApproxEqAbs(vent.hi[k], back.hi[k], 1e-9);
+    }
+    try std.testing.expectEqual(views.Roof.gable_x, back.roof);
+    // Every side drawn with the vent keeps its walls; drawn without it,
+    // with the vent's pixels on the roof planes, keeps none and fails.
+    for ([_]u2{ 0, 1, 2, 3 }) |turn| {
+        const turned: views.Eye = .{ .anchor = .{ 130, 150 }, .turn = turn };
+        const kept = views.roofKept(&.{shed}, &.{vent}, turned, try blocksDrawn(arena, turned, &.{ shed, vent }));
+        try std.testing.expect(kept[0] > 40);
+        try std.testing.expectEqual(kept[0], kept[1]);
+        const flat = views.roofKept(&.{shed}, &.{vent}, turned, try blocksDrawn(arena, turned, &.{shed}));
+        try std.testing.expectEqual(@as(f64, 0), flat[1]);
+        try std.testing.expect(views.lowFails(flat[0], flat[1]));
+    }
+}
+
 test "an outline's protrusion is the share of it narrower than the window" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
