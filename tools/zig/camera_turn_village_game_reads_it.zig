@@ -30,6 +30,12 @@
 //! upright for the screen (so a half turn between them does not reflect the
 //! grain, and no offset stands out), are reported. Before S07 the ground stood
 //! a pixel low at the half turn in 1024 x 768 and not in the other sizes.
+//! In the same 1024 x 768 shots the minimap frame's north mark (`S -> N` on
+//! its upper left bar) must point where the map's north is: at step 1 on the
+//! upper right bar mirrored, at step 2 on the left one turned half round, at
+//! step 3 on the right one upside down, its band's pixels where that puts
+//! them (mean RGB difference to step 0's), and at odd steps the left plate's
+//! letters gone.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/village with every user
 //! path redirected (camera_turn_game_reads_it.runGameSized); frames, logs and
@@ -176,6 +182,14 @@ test "the ground stands where the turn puts it at every resolution" {
             try report.print(allocator, "{d}x{d} {d} -> {d}: {d},{d} ({d:.2}), {d:.2}\n", .{ size[0], size[1], from, to, found.dx, found.dy, found.best, found.still });
             if (from == 0 and to == 2 and (found.dx != 0 or found.dy != 0)) failed = true;
         }
+        // The north mark, in the window whose interface is not scaled.
+        if (size[0] == 1024) {
+            for (1..4) |k| {
+                const mark = northMark(frames[0], frames[k], k);
+                try report.print(allocator, "north mark, step {d}: {d:.1} where the turn puts it, {d:.1} as at step 0; dark pixels left on the left plate {d} of {d} at step 0\n", .{ k, mark.turned, mark.still, mark.dark, mark.dark_0 });
+                if (mark.turned > max_mark or mark.still < 2 * mark.turned or (k % 2 == 1 and mark.dark * 4 > mark.dark_0)) failed = true;
+            }
+        }
     }
     try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
     if (failed) {
@@ -214,6 +228,63 @@ fn blockMean(sums: []const f64, size: [2]u32, x: i64, y: i64) ?f64 {
 }
 
 const GroundFit = struct { dx: i32, dy: i32, best: f64, still: f64 };
+
+/// The north mark's band on the frame's upper left bar (ui\missionpanels,
+/// whose top left is the panel's, at (0, h - 155) in 1024 x 768): pixels
+/// between (52, 26)-(52, 35) and (86, 9)-(86, 18), inside its edges.
+const panel_top = 768 - 155;
+const max_mark = 30.0;
+
+fn inBand(x: i32, y: i32) bool {
+    if (x <= 52 or x >= 85) return false;
+    const top = 26.0 - @as(f64, @floatFromInt(x - 52)) / 2;
+    const yf: f64 = @floatFromInt(y);
+    return yf > top + 1 and yf < top + 8;
+}
+
+/// A band pixel at step k: on the upper right bar (mirrored about x = 135)
+/// at odd steps, turned half round about the band's middle at steps 2 and 3,
+/// so its arrow points where the map's north is (MiniMap's DrawNorthMark).
+fn markPlace(p: [2]i32, k: usize) [2]i32 {
+    var q = p;
+    if (k >= 2) q = .{ 137 - q[0], 43 - q[1] };
+    if (k % 2 == 1) q = .{ 269 - q[0], q[1] };
+    return q;
+}
+
+fn panelPixel(frame: []const u8, p: [2]i32) [3]f64 {
+    const i: usize = @intCast(((panel_top + p[1]) * 1024 + p[0]) * 4);
+    return .{ @floatFromInt(frame[i]), @floatFromInt(frame[i + 1]), @floatFromInt(frame[i + 2]) };
+}
+
+/// Step k's frame against step 0's: the mean RGB difference of the band's
+/// pixels where the turn puts them and where they stood, and how many of the
+/// left band's pixels are dark (the letters) at step k and at step 0.
+fn northMark(before: []const u8, after: []const u8, k: usize) struct { turned: f64, still: f64, dark: usize, dark_0: usize } {
+    var turned: f64 = 0;
+    var still: f64 = 0;
+    var n: f64 = 0;
+    var dark: usize = 0;
+    var dark_0: usize = 0;
+    var y: i32 = 0;
+    while (y < 40) : (y += 1) {
+        var x: i32 = 40;
+        while (x < 100) : (x += 1) {
+            if (!inBand(x, y)) continue;
+            const was = panelPixel(before, .{ x, y });
+            const now = panelPixel(after, markPlace(.{ x, y }, k));
+            const same = panelPixel(after, .{ x, y });
+            for (0..3) |c| {
+                turned += @abs(was[c] - now[c]);
+                still += @abs(was[c] - same[c]);
+            }
+            n += 3;
+            if (was[0] + was[1] + was[2] < 300) dark_0 += 1;
+            if (same[0] + same[1] + same[2] < 300) dark += 1;
+        }
+    }
+    return .{ .turned = turned / n, .still = still / n, .dark = dark, .dark_0 = dark_0 };
+}
 
 /// The offset within 3 pixels that best lays `after` on `before` turned k
 /// times about the centre (w / 2 - 1, h / 2 - 1), the mean block difference
