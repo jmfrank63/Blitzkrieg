@@ -6,23 +6,23 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.9 | 0.129 | pass |
-| 01 | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.9 | 0.129 | pass |
-| 01 | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 0.9 | 0.010 | pass |
+| 01 | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 01 | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 01 | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| 01 | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.9 | 0.129 | pass |
-| 01 | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.02 | 3.9 | 0.129 | pass |
-| 01 | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 0.9 | 0.010 | pass |
-| 02 | r1 | 1 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 1.8 | 0.048 | pass |
-| 02 | r1 | 1 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 1.8 | 0.048 | pass |
+| 01 | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 01 | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 01 | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 02 | r1 | 1 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 02 | r1 | 1 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r1 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r2 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r2 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r2 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| 02 | r3 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 1.8 | 0.048 | pass |
-| 02 | r3 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 1.8 | 0.048 | pass |
+| 02 | r3 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| 02 | r3 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 02 | r3 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
@@ -30,14 +30,15 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.76 | 0.46 | 0.87 | 0.089 | 0.107 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 01 | r2 | 0.77 | 0.46 | 0.87 | 0.091 | 0.107 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 01 | r3 | 0.78 | 0.46 | 0.87 | 0.070 | 0.107 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r1 | 0.82 | 0.56 | 0.90 | 0.121 | 0.122 | 48 | 48 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r2 | 1.06 | 0.56 | 0.90 | 0.102 | 0.122 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r3 | 0.97 | 0.56 | 0.90 | 0.145 | 0.122 | 105 | 105 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.76 | 0.46 | 0.87 | 0.089 | 0.107 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 01 | r2 | 0.77 | 0.46 | 0.87 | 0.091 | 0.107 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 01 | r3 | 0.78 | 0.46 | 0.87 | 0.070 | 0.107 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r1 | 0.82 | 0.56 | 0.90 | 0.121 | 0.122 | 48 | 48 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r2 | 1.06 | 0.56 | 0.90 | 0.102 | 0.122 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.97 | 0.56 | 0.90 | 0.145 | 0.122 | 105 | 105 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |

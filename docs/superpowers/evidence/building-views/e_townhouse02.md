@@ -6,22 +6,22 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse02_2 | r1 | 3 | 1 | 66.6 | 31.5 | 0.7 | 1.2 | 1.06 | 1.9 | 0.023 | pass |
+| e_townhouse02_2 | r1 | 3 | 1 | 62.0 | 29.4 | 1.9 | 6.7 | 0.81 | 17.0 | 0.057 | pass |
 | e_townhouse02_2 | r1 | 3 | 2 | 66.6 | 30.9 | 0.9 | 1.6 | 1.15 | 1.6 | 0.030 | pass |
 | e_townhouse02_2 | r1 | 3 | 3 | 72.6 | 18.2 | 2.9 | 6.3 | 1.01 | 0.6 | 0.024 | pass |
-| e_townhouse02_2 | r2 | 4 | 1 | 0.3 | 97.5 | 0.9 | 1.3 | 1.03 | 0.5 | 0.003 | pass |
+| e_townhouse02_2 | r2 | 4 | 1 | 0.3 | 74.4 | 2.3 | 23.0 | 0.90 | 2.0 | 0.076 | pass |
 | e_townhouse02_2 | r2 | 4 | 2 | 0.2 | 96.4 | 1.6 | 1.8 | 1.00 | 0.5 | 0.014 | pass |
 | e_townhouse02_2 | r2 | 4 | 3 | 1.6 | 86.3 | 3.9 | 8.2 | 0.97 | 2.4 | 0.028 | pass |
-| e_townhouse02_2 | r3 | 1 | 1 | 30.7 | 67.3 | 0.9 | 1.1 | 1.06 | 0.8 | 0.027 | pass |
+| e_townhouse02_2 | r3 | 1 | 1 | 30.3 | 48.2 | 1.7 | 19.8 | 0.69 | 22.8 | 0.072 | pass |
 | e_townhouse02_2 | r3 | 1 | 2 | 30.5 | 66.6 | 1.2 | 1.7 | 1.15 | 0.7 | 0.034 | pass |
 | e_townhouse02_2 | r3 | 1 | 3 | 20.0 | 68.2 | 3.6 | 8.2 | 0.99 | 1.5 | 0.027 | pass |
-| e_townhouse02_3 | r1 | 2 | 1 | 30.1 | 65.3 | 1.0 | 3.6 | 1.45 | 1.9 | 0.073 | pass |
+| e_townhouse02_3 | r1 | 2 | 1 | 27.1 | 48.0 | 7.1 | 17.8 | 1.49 | 21.0 | 0.129 | pass |
 | e_townhouse02_3 | r1 | 2 | 2 | 27.2 | 68.9 | 0.8 | 3.1 | 1.53 | 3.5 | 0.023 | pass |
 | e_townhouse02_3 | r1 | 2 | 3 | 56.1 | 26.4 | 2.4 | 15.1 | 1.25 | 7.8 | 0.011 | pass |
-| e_townhouse02_3 | r2 | 3 | 1 | 0.1 | 94.5 | 1.3 | 4.1 | 1.02 | 1.1 | 0.040 | pass |
+| e_townhouse02_3 | r2 | 3 | 1 | 0.1 | 65.3 | 6.4 | 28.2 | 1.18 | 5.5 | 0.019 | pass |
 | e_townhouse02_3 | r2 | 3 | 2 | 0.2 | 95.6 | 0.8 | 3.5 | 1.08 | 3.1 | 0.011 | pass |
 | e_townhouse02_3 | r2 | 3 | 3 | 39.6 | 42.3 | 2.2 | 15.9 | 1.02 | 5.2 | 0.020 | pass |
-| e_townhouse02_3 | r3 | 4 | 1 | 66.9 | 29.2 | 0.6 | 3.4 | 1.45 | 0.6 | 0.073 | pass |
+| e_townhouse02_3 | r3 | 4 | 1 | 65.8 | 19.0 | 1.1 | 14.1 | 1.48 | 13.8 | 0.160 | pass |
 | e_townhouse02_3 | r3 | 4 | 2 | 69.0 | 27.5 | 0.7 | 2.9 | 1.57 | 1.6 | 0.023 | pass |
 | e_townhouse02_3 | r3 | 4 | 3 | 60.7 | 21.5 | 2.4 | 15.4 | 1.22 | 7.5 | 0.009 | pass |
 
@@ -30,14 +30,15 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse02_2 | r1 | 1.03 | 1.14 | 0.94 | 0.023 | 0.022 | 63 | 63 | 0 | 0 | 0.000 | pass | blocks |
-| e_townhouse02_2 | r2 | 1.01 | 1.14 | 0.94 | 0.007 | 0.022 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_townhouse02_2 | r3 | 1.03 | 1.14 | 0.94 | 0.017 | 0.022 | 482 | 482 | 0 | 0 | 0.000 | pass | blocks |
-| e_townhouse02_3 | r1 | 1.00 | 1.08 | 0.94 | 0.017 | 0.031 | 490 | 490 | 0 | 0 | 0.000 | pass | blocks |
-| e_townhouse02_3 | r2 | 1.01 | 1.08 | 0.94 | 0.018 | 0.031 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_townhouse02_3 | r3 | 1.01 | 1.08 | 0.94 | 0.017 | 0.031 | 602 | 602 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_townhouse02_2 | r1 | 1.03 | 1.14 | 0.94 | 0.023 | 0.022 | 63 | 63 | 1159 | 1159 | 0.000 | 0 | pass | blocks |
+| e_townhouse02_2 | r2 | 1.01 | 1.14 | 0.94 | 0.011 | 0.022 | 0 | 0 | 3 | 3 | 0.000 | 0 | pass | blocks |
+| e_townhouse02_2 | r3 | 1.03 | 1.14 | 0.94 | 0.021 | 0.022 | 482 | 482 | 1394 | 1357 | 0.000 | 0 | pass | blocks |
+| e_townhouse02_3 | r1 | 1.00 | 1.08 | 0.93 | 0.017 | 0.031 | 490 | 490 | 3281 | 3253 | 0.000 | 0 | pass | blocks |
+| e_townhouse02_3 | r2 | 1.01 | 1.08 | 0.93 | 0.018 | 0.031 | 0 | 0 | 1541 | 1541 | 0.000 | 0 | pass | blocks |
+| e_townhouse02_3 | r3 | 1.01 | 1.08 | 0.93 | 0.020 | 0.031 | 602 | 602 | 3 | 3 | 0.000 | 0 | pass | blocks |

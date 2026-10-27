@@ -6,13 +6,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house06_4 | r1 | 1 | 1 | 77.1 | 22.6 | 0.1 | 0.2 | 0.83 | 28.6 | 0.097 | pass |
+| e_house06_4 | r1 | 1 | 1 | 77.1 | 22.6 | 0.1 | 0.2 | 0.81 | 25.2 | 0.122 | pass |
 | e_house06_4 | r1 | 1 | 2 | 75.0 | 24.0 | 0.4 | 0.5 | 0.91 | 6.4 | 0.052 | pass |
 | e_house06_4 | r1 | 1 | 3 | 61.0 | 32.6 | 2.3 | 4.1 | 1.02 | 1.5 | 0.011 | pass |
-| e_house06_4 | r2 | 2 | 1 | 33.9 | 65.8 | 0.1 | 0.2 | 0.96 | 4.2 | 0.011 | pass |
+| e_house06_4 | r2 | 2 | 1 | 33.9 | 65.8 | 0.0 | 0.2 | 0.98 | 8.2 | 0.132 | pass |
 | e_house06_4 | r2 | 2 | 2 | 39.8 | 59.3 | 0.5 | 0.5 | 0.98 | 4.7 | 0.051 | pass |
 | e_house06_4 | r2 | 2 | 3 | 0.2 | 91.9 | 2.5 | 5.4 | 1.01 | 0.9 | 0.007 | pass |
-| e_house06_4 | r3 | 3 | 1 | 53.6 | 46.1 | 0.1 | 0.2 | 0.79 | 32.9 | 0.090 | pass |
+| e_house06_4 | r3 | 3 | 1 | 53.6 | 46.1 | 0.0 | 0.2 | 0.82 | 28.8 | 0.160 | pass |
 | e_house06_4 | r3 | 3 | 2 | 55.9 | 43.3 | 0.4 | 0.4 | 0.89 | 16.1 | 0.020 | pass |
 | e_house06_4 | r3 | 3 | 3 | 29.8 | 62.6 | 2.4 | 5.2 | 1.00 | 3.2 | 0.007 | pass |
 
@@ -21,11 +21,12 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house06_4 | r1 | 0.82 | 1.03 | 0.90 | 0.004 | 0.055 | 240 | 240 | 0 | 0 | 0.000 | pass | blocks |
-| e_house06_4 | r2 | 0.81 | 1.03 | 0.90 | 0.005 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| e_house06_4 | r3 | 0.81 | 1.03 | 0.90 | 0.004 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house06_4 | r1 | 0.82 | 1.03 | 0.90 | 0.004 | 0.055 | 240 | 240 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house06_4 | r2 | 0.81 | 1.03 | 0.90 | 0.005 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house06_4 | r3 | 0.81 | 1.03 | 0.90 | 0.004 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |

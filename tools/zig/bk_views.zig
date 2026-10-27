@@ -2164,8 +2164,11 @@ pub fn shadeClass(n: [3]f64, turn: u2) usize {
     return best + @as(usize, if (n[2] > 0.5) 4 else 0);
 }
 
-/// The mean colour of each shading class over the 2003 pictures, so a face
-/// taken from a picture where it was lit as one class can be lit as another.
+/// The mean colour of each shading class over the 2003 pictures of a damage
+/// state, so a face taken from a picture where it was lit as one class can be
+/// lit as another. The intact building is relit by the light (`shading`);
+/// a ruin's fitted blocks stand for rubble, and relit by the light their
+/// faces took seams (e_house07_1's ruin sharpness 1.13 to 2.53, M006 S07d).
 pub const Means = struct {
     sum: [8][3]f64 = std.mem.zeroes([8][3]f64),
     count: [8]f64 = std.mem.zeroes([8]f64),
@@ -2200,6 +2203,45 @@ pub const Means = struct {
 /// channels: per channel (1.82, 2.03, 2.71) turned leaders' board blue.
 pub const wall_light: f64 = 2.01;
 
+/// How bright the 2003 light makes a surface with normal `n` (in the
+/// variant's frame) in a picture whose eye is turned `turn`, for one
+/// material: an ambient part and a diffuse part towards `light_2003`, their
+/// ratio set by `wall_light` (the shaded wall gets no direct light). It
+/// predicts the 2003 roofs too: the roof facing -y against the one facing +x
+/// measures 1.26 to 1.42 on e_ctownhouse02_1, e_house02_1, e_house10_2 and
+/// e_house11_1 (model 1.40 at a pitch of 1), against the one facing +y 1.76
+/// to 2.18 on factoryoffice, storehouse_1 and townhouse02_1 (1.65). M006
+/// S07d: the ratio of the shading classes' mean colours, which it replaces,
+/// took the materials along (a stone wall in the shade and a plastered one
+/// in the light turned e_ctownhouse03_2's walls blue-green, roof pixels in a
+/// wall's class turned them grey, and a class seen on a few pixels bleached
+/// whole roof planes).
+/// Per channel (`wall_light_rgb`): the sun is yellower than the sky that
+/// lights the shade, so a shaded wall relit by one factor came out a
+/// saturated orange beside the 2003 lit walls' cream (a_h02_2).
+pub fn shading(n: [3]f64, turn: u2) [3]f64 {
+    const direct = @max(0, dot(n, lightFor(light_2003, turn)));
+    var out: [3]f64 = undefined;
+    for (&out, wall_light_rgb) |*o, w| o.* = 1 + (w - 1) / -light_2003[1] * direct;
+    return out;
+}
+
+/// The lit wall against the shaded one per channel: the medians of the 13
+/// houses `wall_light` was measured on (M005 S08).
+pub const wall_light_rgb = [3]f64{ 1.82, 2.03, 2.71 };
+
+/// A pixel relit from a surface lit `from` to one lit `to` (`shading`), its
+/// hue kept where a channel would clip: a clipped channel turned bright red
+/// roofs yellow.
+pub fn relight(pixel: [4]u8, to: [3]f64, from: [3]f64) [4]u8 {
+    var v: [3]f64 = undefined;
+    for (&v, 0..) |*c, ch| c.* = @as(f64, @floatFromInt(pixel[ch])) * to[ch] / from[ch];
+    const scale = @min(1, 255 / @max(1, @max(v[0], v[1], v[2])));
+    var out = pixel;
+    for (0..3) |ch| out[ch] = @intFromFloat(@round(v[ch] * scale));
+    return out;
+}
+
 /// Where a pixel of a generated picture comes from: a 2003 picture seeing
 /// its point, one seeing the matching point of a face of the same block
 /// (mirrored: the opposite wall, the other roof plane), of a face of another
@@ -2214,7 +2256,36 @@ pub const Projector = struct { eye: Eye, picture: ?Image };
 /// `stretched`: the pixels `projectPicture` drew from a source pixel spread
 /// over `stretch_pixels` or more of them (`stretchedPixels`); empty for
 /// pictures it did not draw.
-pub const Generated = struct { image: Image, kinds: []Kind, classes: []u8, stretched: []const bool = &.{} };
+pub const Generated = struct { image: Image, kinds: []Kind, classes: []u8, stretched: []const bool = &.{}, sources: []const [3]f64 = &.{} };
+
+/// Whether point q of a face lies on or by a low or roof part: within
+/// `part_margin` of its rectangle and no higher than `part_reach` above its
+/// top (a door over its step, a dormer's flashing).
+pub fn nearPart(parts: []const Block, q: [3]f64) bool {
+    for (parts) |b| {
+        if (q[0] >= b.lo[0] - part_margin and q[0] <= b.hi[0] + part_margin and q[1] >= b.lo[1] - part_margin and q[1] <= b.hi[1] + part_margin and q[2] <= @max(b.wall, b.ridge) + part_reach) return true;
+    }
+    return false;
+}
+
+const part_margin = 6;
+const part_reach = 40;
+
+/// The pixels of a picture `projectPicture` drew on a face of the body
+/// (`blocks[..body]`) from a donor point near a part (`nearPart`): a back
+/// wall or roof plane that repeats the chimney, dormers or door of the face
+/// it copies.
+pub fn copiedParts(blocks: []const Block, body: usize, eye: Eye, drawn: Generated) f64 {
+    var n: f64 = 0;
+    if (drawn.sources.len == 0) return 0;
+    const w = drawn.image.width;
+    for (drawn.kinds, drawn.sources, 0..) |kind, q, i| {
+        if (kind != .mirrored and kind != .transferred) continue;
+        const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(i % w)) + 0.5, @as(f64, @floatFromInt(i / w)) + 0.5) orelse continue;
+        if (hit.block < body and nearPart(blocks[body..], q)) n += 1;
+    }
+    return n;
+}
 
 /// The target's picture: every pixel the blocks cover takes the colour of a
 /// 2003 picture that sees its point, relit to the target's shading class. A
@@ -2222,16 +2293,21 @@ pub const Generated = struct { image: Image, kinds: []Kind, classes: []u8, stret
 /// whose matching point one sees: the opposite wall, the other roof plane.
 /// Of the pictures that see it, one that lit the face as the same class
 /// beats one that did not, then the one facing the surface most squarely
-/// wins. Pixels none sees either way are left for `patchFill`.
-pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye, size: [2]u32, projectors: []const Projector, means: Means) !Generated {
+/// wins. `blocks[body..]` are the low and roof parts: a face of the body
+/// borrows no point near one (`nearPart`), so a house's back does not repeat
+/// the chimney, dormers and door steps of its front. Pixels none sees either
+/// way are left for `patchFill`.
+pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, means: ?Means, target: Eye, size: [2]u32, projectors: []const Projector) !Generated {
     const count = @as(usize, size[0]) * size[1];
     const uvs = try gpa.alloc([2]f64, count);
+    const sources = try gpa.alloc([3]f64, count);
     const ids = try gpa.alloc(usize, count);
     @memset(ids, 0);
     var out: Generated = .{
         .image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, count) },
         .kinds = try gpa.alloc(Kind, count),
         .classes = try gpa.alloc(u8, count),
+        .sources = sources,
     };
     @memset(out.image.pixels, .{ 0, 0, 0, 0 });
     @memset(out.kinds, .empty);
@@ -2257,6 +2333,7 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye
         for ([_]f64{ grazing, -1 }) |least| for (0..donors.*.?.len + 1) |k| {
             if (out.kinds[i] != .filled) break;
             const q = if (k == 0) p else donorPoint(blocks, face, donors.*.?[k - 1], p);
+            if (k > 0 and face.block < body and nearPart(blocks[body..], q)) continue;
             const nq = if (k == 0) hit.normal else normalOf(blocks, donors.*.?[k - 1]);
             for (projectors, 0..) |projector, e| {
                 const source = projector.picture orelse continue;
@@ -2270,10 +2347,13 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, target: Eye
                 const score = @as(f64, if (from == class) 2 else 0) + facing;
                 if (score <= best_score) continue;
                 best_score = score;
-                for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * means.gain(class, from, ch))));
+                if (means) |m| {
+                    for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * m.gain(class, from, ch))));
+                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn), shading(nq, projector.eye.turn));
                 out.image.pixels[i][3] = 255;
                 out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
                 uvs[i] = uv;
+                sources[i] = q;
                 const source_face = if (k == 0) face else donors.*.?[k - 1];
                 ids[i] = 1 + (e * blocks.len + source_face.block) * 9 + source_face.plane;
             }
@@ -2592,6 +2672,9 @@ const Scene = struct {
     outlines: []Image,
     states: []const []const u8,
     shapes: []const []const Block,
+    /// How many of each state's blocks are the building's; the low and roof
+    /// parts follow them.
+    bodies: []const usize,
     /// The variant's hand shape (`shapes_dir`): its intact blocks but for
     /// the chimneys cut from the outline.
     hand: ?[]const Block,
@@ -2706,9 +2789,10 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         if (digits > 0 and (digits == state.len or std.mem.eql(u8, state[digits..], "w"))) try states.append(arena, state);
     }
     const shapes = try arena.alloc([]const Block, states.items.len);
+    const bodies = try arena.alloc(usize, states.items.len);
     var intact: []const Block = hand orelse try baseBlocks(arena, try carve(arena, footprints[fixed], 2, outlines, eyes), footprints[fixed]);
     var body: []const Block = intact;
-    for (states.items, shapes) |state, *shape| {
+    for (states.items, shapes, bodies) |state, *shape, *body_count| {
         var state_eyes: std.ArrayList(Eye) = .empty;
         var state_pictures: std.ArrayList(Image) = .empty;
         for (sources.items, eyes, 0..) |source, eye, e| {
@@ -2734,6 +2818,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         // shows stays on every turn.
         var parts: std.ArrayList(Block) = .empty;
         try parts.appendSlice(arena, shape.*);
+        body_count.* = shape.len;
         for (sources.items, eyes, same) |source, eye, s| {
             if (s) try parts.appendSlice(arena, try lowParts(arena, shape.*, pictureOf(source, state) orelse continue, eye));
         }
@@ -2752,6 +2837,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         .outlines = outlines,
         .states = states.items,
         .shapes = shapes,
+        .bodies = bodies,
         .hand = hand,
         .body = body,
         .roof = roof.items,
@@ -2805,7 +2891,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const n = scene.sources.len;
     const own = scene.sources[scene.fixed];
     const drawn = try arena.alloc(Drawn, scene.states.len);
-    for (scene.states, scene.shapes, drawn) |state, blocks, *d| {
+    for (scene.states, scene.shapes, scene.bodies, drawn) |state, blocks, body, *d| {
         var means: Means = .{};
         const projectors = try arena.alloc(Projector, n);
         const ground = try arena.alloc(Projector, n);
@@ -2832,7 +2918,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             if (e == scene.fixed) std.mem.swap(Projector, &ground[0], &ground[ground_count]);
             ground_count += 1;
         }
-        const sprite = try projectPicture(arena, blocks, target.eye, target.size, projectors, means);
+        const sprite = try projectPicture(arena, blocks, if (state[0] == '1') body else blocks.len, if (state[0] == '1') null else means, target.eye, target.size, projectors);
         try patchFill(arena, sprite);
         const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, sprite.kinds.len) };
         const l = lightFor(light_2003, target.turn);
@@ -2865,7 +2951,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
 /// the blocks are a hand shape. `low` and `low_kept`: the pixels the low
 /// parts of the 2003 sides show in the turn and those it holds (`turnLowParts`);
 /// `roof` and `roof_kept` likewise for the walls of the roof parts (`roofKept`).
-const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0 };
+const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0 };
 
 fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn, shown: Image) !Shape {
     const original = pictureOf(own, "1").?;
@@ -2918,6 +3004,7 @@ fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
     if (lowFails(s.low, s.low_kept)) return try std.fmt.allocPrint(gpa, "low parts {d:.0} of {d:.0} pixels", .{ s.low_kept, s.low });
     if (lowFails(s.roof, s.roof_kept)) return try std.fmt.allocPrint(gpa, "roof parts {d:.0} of {d:.0} pixels", .{ s.roof_kept, s.roof });
     if (s.stretch > stretch_most) return try std.fmt.allocPrint(gpa, "stretched {d:.3} > {d:.2}", .{ s.stretch, stretch_most });
+    if (s.copied > low_margin) return try std.fmt.allocPrint(gpa, "parts copied {d:.0} pixels", .{s.copied});
     return null;
 }
 
@@ -2989,9 +3076,12 @@ fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirr
     const drawn = try arena.alloc(Drawn, scene.states.len);
     for (scene.states, drawn, by) |state, *d, blocks_drawn| {
         var picture = pictureOf(own, state).?;
-        if (mirror) {
+        if (mirror and !scene.prop) {
             // One factor a channel over the sprite, so that a curved tank
-            // drawn as a few block faces does not take their seams.
+            // drawn as a few block faces does not take their seams. A heap
+            // is not relit: its boxes stand for crates and earth alike from
+            // every side, and their walls turned the mirrored e_wt depots 5%
+            // darker than the 2003 picture (M006 S07d).
             const eye = scene.eyes[scene.fixed];
             var sums = [2][3]f64{ .{ 0, 0, 0 }, .{ 0, 0, 0 } };
             for (0..picture.height) |y| for (0..picture.width) |x| {
@@ -3093,7 +3183,7 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
     // object the blocks cannot draw whose footprint the turn keeps is
     // turned as its 2003 pictures themselves.
     var shape: Shape = .{};
-    for (drawn) |d| {
+    for (drawn, scene.bodies) |d, body| {
         if (std.mem.eql(u8, d.state, "1")) {
             shape = try shapeOf(arena, own, scene.fixed, d, shown);
             shape.hand = scene.hand != null;
@@ -3104,6 +3194,7 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
             shape.roof = roof[0];
             shape.roof_kept = roof[1];
             shape.stretch = stretchShare(d.sprite);
+            shape.copied = copiedParts(d.blocks, body, blocks_target.eye, d.sprite);
         }
     }
     const failure = try shapeFailure(arena, shape);
@@ -3212,7 +3303,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const zero = if (fallback) target.eye.anchor else footprintZero(scene, target);
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -3296,9 +3387,11 @@ fn shapeCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []
         const pictures_dir = try std.fs.path.join(arena, &.{ out, label });
         try std.Io.Dir.cwd().createDirPath(ctx.io, pictures_dir);
         const scene = try loadScene(ctx, found, found.index, null, true);
-        // The authored or fitted blocks, without the low parts side adds.
-        const blocks = scene.body;
-        const refined = try refineBlocks(arena, blocks, scene.outlines, scene.eyes);
+        // The authored or fitted blocks and the authored roof parts,
+        // without the low parts side adds.
+        const blocks = try std.mem.concat(arena, Block, &.{ scene.body, scene.roof });
+        // The fit refines at most max_blocks: the body alone.
+        const refined = try refineBlocks(arena, scene.body, scene.outlines, scene.eyes);
         try w.print("{s}\n{{\"variant\":\"{s}\",\"hand\":{},\"pictures\":[", .{ if (v > 0) "," else "", label, scene.hand != null });
         for (scene.sources, scene.eyes, scene.outlines, 0..) |source, eye, outline, e| {
             const name = std.fs.path.basename(source.dir);
@@ -3834,7 +3927,7 @@ const SideReport = struct {
     mirror: bool = false,
     sibling: []const u8 = "",
     hand: bool = false,
-    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, failure: []const u8 },
+    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
@@ -3935,7 +4028,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
@@ -3981,11 +4074,12 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             \\of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
             \\the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
             \\parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-            \\pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+            \\pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+            \\another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
             \\sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
             \\
-            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(
@@ -4013,7 +4107,8 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\  the variant's 2003 picture, its protrusion at most {d:.1} times the 2003 one's plus {d:.2}, and it holds
         \\  {d:.1} of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
         \\  porches, where they show more than {d:.0}, and draws as walls as much of the walls of the roof parts
-        \\  in `tools/zig/fixtures/bk-views/roof-parts`, and at most {d:.2} of its pixels still stretched), the style
+        \\  in `tools/zig/fixtures/bk-views/roof-parts`, at most {d:.2} of its pixels still stretched, and no more than
+        \\  {d:.0} pixels of the body copied from beside a part, a chimney, dormer or door step of another side), the style
         \\  of every generated picture, and the hold-out where the family has another side of the colourway, against
         \\  the floors of `tools/zig/fixtures/bk-views/gate.json`: {d} of {d} variants pass; hold-out {d} of {d}; {d}
         \\  fail on the shape; {d} more pass the measures but look wrong on the contact sheet (`bk-views contact`),
@@ -4028,7 +4123,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
         \\|---|---|---|---|---|---|---|---|
         \\{s}
-    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, low_share, @as(f64, low_margin), stretch_most, counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
+    , .{ counts.variants, counts.folders, 3 * counts.variants, counts.missing, height_range[0], height_range[1], ground_ratio[0], ground_ratio[1], outline_floor, protrusion_factor, protrusion_margin, low_share, @as(f64, low_margin), stretch_most, @as(f64, low_margin), counts.pass, counts.variants, counts.held_pass, counts.held, counts.shape, counts.eye, counts.same, thin_object, small_object, same_footprint, counts.hand, index.written() });
     try writeCrlf(ctx, out, "batch.md", md.written());
     try ctx.out.print("{d} variants, {d} folders, {d} not generated, {d} pass the gate, {d} fail on the shape, {d} by eye, {d} with 2003 sprites\n", .{ counts.variants, counts.folders, counts.missing, counts.pass, counts.shape, counts.eye, counts.same });
 }

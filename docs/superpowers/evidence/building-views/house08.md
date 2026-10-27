@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house08 | r1 | 2 | 1 | 51.1 | 40.2 | 8.7 | 0.0 | 1.32 | 1.0 | 0.032 | pass |
-| house08 | r1 | 2 | 1w | 51.9 | 38.7 | 9.4 | 0.1 | 1.19 | 5.7 | 0.026 | pass |
+| house08 | r1 | 2 | 1 | 51.1 | 36.6 | 11.5 | 0.8 | 1.26 | 5.5 | 0.131 | pass |
+| house08 | r1 | 2 | 1w | 51.9 | 20.6 | 10.0 | 17.5 | 0.83 | 21.2 | 0.099 | pass |
 | house08 | r1 | 2 | 2 | 45.6 | 40.1 | 13.8 | 0.5 | 1.15 | 7.0 | 0.069 | pass |
 | house08 | r1 | 2 | 2w | 45.6 | 40.1 | 13.8 | 0.5 | 1.08 | 7.2 | 0.069 | pass |
 | house08 | r1 | 2 | 3 | 86.6 | 8.3 | 4.1 | 1.0 | 0.92 | 2.3 | 0.040 | pass |
 | house08 | r1 | 2 | 3w | 86.6 | 8.3 | 4.1 | 1.0 | 0.92 | 2.6 | 0.037 | pass |
-| house08 | r2 | 3 | 1 | 0.0 | 89.7 | 10.3 | 0.0 | 1.16 | 4.2 | 0.046 | pass |
-| house08 | r2 | 3 | 1w | 0.0 | 88.4 | 11.5 | 0.1 | 1.14 | 4.1 | 0.016 | pass |
+| house08 | r2 | 3 | 1 | 0.0 | 87.0 | 11.1 | 1.9 | 1.16 | 5.1 | 0.076 | pass |
+| house08 | r2 | 3 | 1w | 0.0 | 64.3 | 11.7 | 23.9 | 0.97 | 9.1 | 0.082 | pass |
 | house08 | r2 | 3 | 2 | 0.1 | 84.5 | 15.0 | 0.4 | 1.11 | 2.1 | 0.031 | pass |
 | house08 | r2 | 3 | 2w | 0.1 | 84.5 | 15.0 | 0.4 | 1.08 | 2.4 | 0.028 | pass |
 | house08 | r2 | 3 | 3 | 79.7 | 14.2 | 4.6 | 1.5 | 0.97 | 1.8 | 0.036 | pass |
 | house08 | r2 | 3 | 3w | 79.7 | 14.2 | 4.6 | 1.5 | 0.98 | 1.9 | 0.035 | pass |
-| house08 | r3 | 4 | 1 | 37.6 | 56.9 | 5.5 | 0.1 | 1.26 | 5.7 | 0.062 | pass |
-| house08 | r3 | 4 | 1w | 38.4 | 55.9 | 5.6 | 0.1 | 1.15 | 2.0 | 0.026 | pass |
+| house08 | r3 | 4 | 1 | 37.6 | 56.9 | 4.2 | 1.3 | 1.23 | 9.1 | 0.212 | pass |
+| house08 | r3 | 4 | 1w | 38.4 | 47.6 | 2.2 | 11.9 | 0.85 | 22.1 | 0.158 | pass |
 | house08 | r3 | 4 | 2 | 37.8 | 51.2 | 10.6 | 0.4 | 1.10 | 1.0 | 0.053 | pass |
 | house08 | r3 | 4 | 2w | 37.8 | 51.2 | 10.6 | 0.4 | 1.02 | 2.4 | 0.078 | pass |
 | house08 | r3 | 4 | 3 | 85.3 | 9.4 | 3.9 | 1.5 | 0.94 | 1.2 | 0.026 | pass |
@@ -30,11 +30,12 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| house08 | r1 | 1.19 | 1.03 | 0.94 | 0.046 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| house08 | r2 | 1.02 | 1.03 | 0.94 | 0.088 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| house08 | r3 | 1.11 | 1.03 | 0.94 | 0.071 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| house08 | r1 | 1.19 | 1.03 | 0.94 | 0.046 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| house08 | r2 | 1.02 | 1.03 | 0.94 | 0.088 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| house08 | r3 | 1.11 | 1.03 | 0.94 | 0.071 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |

@@ -6,14 +6,14 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 2 | 1 | 82.2 | 17.7 | 0.2 | 0.0 | 1.07 | 1.6 | 0.062 | pass |
-| 01 | r1 | 2 | 1w | 81.8 | 18.1 | 0.1 | 0.0 | 1.01 | 5.7 | 0.028 | pass |
+| 01 | r1 | 2 | 1 | 82.2 | 17.7 | 0.2 | 0.0 | 1.05 | 7.2 | 0.043 | pass |
+| 01 | r1 | 2 | 1w | 81.8 | 16.6 | 0.1 | 1.5 | 1.05 | 17.4 | 0.266 | pass |
 | 01 | r1 | 2 | 2 | 82.2 | 17.7 | 0.2 | 0.0 | 1.07 | 1.6 | 0.062 | pass |
 | 01 | r1 | 2 | 2w | 82.2 | 17.7 | 0.2 | 0.0 | 1.02 | 3.4 | 0.071 | pass |
 | 01 | r1 | 2 | 3 | 93.4 | 3.9 | 2.5 | 0.1 | 1.04 | 3.2 | 0.038 | pass |
 | 01 | r1 | 2 | 3w | 93.4 | 3.9 | 2.5 | 0.1 | 1.06 | 3.2 | 0.037 | pass |
-| 01 | r2 | 3 | 1 | 83.3 | 15.7 | 0.8 | 0.1 | 1.33 | 7.4 | 0.173 | pass |
-| 01 | r2 | 3 | 1w | 81.9 | 16.6 | 1.5 | 0.0 | 1.22 | 2.7 | 0.085 | pass |
+| 01 | r2 | 3 | 1 | 83.3 | 15.6 | 0.8 | 0.2 | 1.37 | 21.8 | 0.164 | pass |
+| 01 | r2 | 3 | 1w | 81.9 | 15.3 | 1.5 | 1.3 | 1.16 | 16.5 | 0.218 | pass |
 | 01 | r2 | 3 | 2 | 83.3 | 15.7 | 0.8 | 0.1 | 1.33 | 7.4 | 0.173 | pass |
 | 01 | r2 | 3 | 2w | 83.3 | 15.7 | 0.8 | 0.1 | 1.25 | 6.9 | 0.171 | pass |
 | 01 | r2 | 3 | 3 | 90.2 | 6.1 | 3.3 | 0.4 | 0.97 | 3.0 | 0.039 | pass |
@@ -66,20 +66,21 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.92 | 0.77 | 0.88 | 0.141 | 0.116 | 32 | 32 | 0 | 0 | 0.000 | pass | blocks |
-| 01 | r2 | 0.87 | 0.77 | 0.88 | 0.143 | 0.116 | 102 | 102 | 0 | 0 | 0.000 | pass | blocks |
-| 01 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r2 | 0.90 | 0.70 | 0.87 | 0.182 | 0.188 | 35 | 35 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r3 | 0.87 | 0.70 | 0.87 | 0.161 | 0.188 | 65 | 65 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 03 | r1 | 0.90 | 0.71 | 0.81 | 0.128 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r2 | 0.92 | 0.71 | 0.81 | 0.128 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r3 | 0.87 | 0.71 | 0.81 | 0.146 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | outline 0.81 < 0.85 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.92 | 0.77 | 0.88 | 0.141 | 0.116 | 32 | 32 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| 01 | r2 | 0.87 | 0.77 | 0.88 | 0.143 | 0.116 | 102 | 102 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| 01 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r2 | 0.90 | 0.70 | 0.87 | 0.182 | 0.188 | 35 | 35 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.87 | 0.70 | 0.87 | 0.161 | 0.188 | 65 | 65 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 03 | r1 | 0.90 | 0.71 | 0.81 | 0.128 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | outline 0.81 < 0.85 | 2003 sprite |
+| 03 | r2 | 0.92 | 0.71 | 0.81 | 0.128 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | outline 0.81 < 0.85 | 2003 sprite |
+| 03 | r3 | 0.87 | 0.71 | 0.81 | 0.146 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | outline 0.81 < 0.85 | 2003 sprite |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
@@ -91,8 +92,8 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 | 01 | 2w | 0.850 | 0.95 | 13.6 | 0.081 | pass |
 | 01 | 3 | 0.680 | 1.00 | 2.1 | 0.027 | pass |
 | 01 | 3w | 0.680 | 1.00 | 2.3 | 0.021 | pass |
-| 02 | 1 | 0.826 | 1.01 | 4.0 | 0.104 | pass |
-| 02 | 1w | 0.826 | 1.26 | 13.1 | 0.095 | pass |
+| 02 | 1 | 0.826 | 1.00 | 5.4 | 0.060 | pass |
+| 02 | 1w | 0.826 | 1.11 | 11.0 | 0.130 | pass |
 | 02 | 2 | 0.823 | 1.20 | 8.6 | 0.119 | pass |
 | 02 | 2w | 0.823 | 1.20 | 9.8 | 0.120 | pass |
 | 02 | 3 | 0.725 | 0.99 | 2.7 | 0.078 | pass |

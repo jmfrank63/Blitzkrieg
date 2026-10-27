@@ -1,0 +1,24 @@
+{
+  "townhouse04_1": [
+    {"lo": [-207, 20], "hi": [-174, 53], "wall": 120, "ridge": 139, "roof": "gable_y"},
+    {"lo": [-136, 20], "hi": [-104, 53], "wall": 120, "ridge": 139, "roof": "gable_y"},
+    {"lo": [-68, 20], "hi": [-35, 52], "wall": 119, "ridge": 139, "roof": "gable_y"},
+    {"lo": [-173, 66], "hi": [-156, 82], "wall": 169, "ridge": 169, "roof": "flat"},
+    {"lo": [-96, 67], "hi": [-78, 85], "wall": 170, "ridge": 170, "roof": "flat"},
+    {"lo": [-86, 42], "hi": [-77, 51], "wall": 160, "ridge": 160, "roof": "flat"},
+    {"lo": [-207, 96], "hi": [-174, 129], "wall": 120, "ridge": 139, "roof": "gable_y"},
+    {"lo": [-136, 96], "hi": [-104, 129], "wall": 120, "ridge": 139, "roof": "gable_y"},
+    {"lo": [-68, 97], "hi": [-35, 129], "wall": 119, "ridge": 139, "roof": "gable_y"}
+  ],
+  "townhouse04_2": [
+    {"lo": [-54, 40], "hi": [-21, 73], "wall": 120, "ridge": 139, "roof": "gable_x"},
+    {"lo": [-54, 111], "hi": [-21, 143], "wall": 120, "ridge": 139, "roof": "gable_x"},
+    {"lo": [-53, 179], "hi": [-21, 212], "wall": 119, "ridge": 139, "roof": "gable_x"},
+    {"lo": [-83, 74], "hi": [-67, 91], "wall": 169, "ridge": 169, "roof": "flat"},
+    {"lo": [-86, 151], "hi": [-68, 169], "wall": 170, "ridge": 170, "roof": "flat"},
+    {"lo": [-52, 161], "hi": [-43, 170], "wall": 160, "ridge": 160, "roof": "flat"},
+    {"lo": [-130, 40], "hi": [-97, 73], "wall": 120, "ridge": 139, "roof": "gable_x"},
+    {"lo": [-130, 111], "hi": [-97, 143], "wall": 120, "ridge": 139, "roof": "gable_x"},
+    {"lo": [-130, 179], "hi": [-98, 212], "wall": 119, "ridge": 139, "roof": "gable_x"}
+  ]
+}

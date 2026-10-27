@@ -1,0 +1,12 @@
+{
+  "e_house03_3": [
+    {"lo": [-172, -1], "hi": [-23, 99], "wall": 59, "ridge": 111, "roof": "gable_x"},
+    {"lo": [-18, 0], "hi": [0, 78], "wall": 71, "ridge": 98, "roof": "gable_x"},
+    {"lo": [-132, -40], "hi": [-48, 0], "wall": 45, "ridge": 85, "roof": "gable_x"}
+  ],
+  "e_house03_4": [
+    {"lo": [-155, 28], "hi": [-6, 128], "wall": 59, "ridge": 111, "roof": "gable_x"},
+    {"lo": [-1, 29], "hi": [17, 107], "wall": 71, "ridge": 98, "roof": "gable_x"},
+    {"lo": [-115, -11], "hi": [-31, 29], "wall": 45, "ridge": 85, "roof": "gable_x"}
+  ]
+}

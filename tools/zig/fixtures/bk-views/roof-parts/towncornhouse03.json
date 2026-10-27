@@ -1,0 +1,12 @@
+{
+  "towncornhouse03": [
+    {"lo": [-200, 160], "hi": [-183, 184], "wall": 127, "ridge": 137, "roof": "gable_y"},
+    {"lo": [-84, 14], "hi": [-66, 35], "wall": 119, "ridge": 127, "roof": "gable_y"},
+    {"lo": [-44, 88], "hi": [-23, 106], "wall": 123, "ridge": 132, "roof": "gable_x"},
+    {"lo": [-58, 177], "hi": [-31, 196], "wall": 117, "ridge": 128, "roof": "gable_x"},
+    {"lo": [-165, 209], "hi": [-149, 226], "wall": 170, "ridge": 170, "roof": "flat"},
+    {"lo": [-105, 198], "hi": [-99, 204], "wall": 169, "ridge": 169, "roof": "flat"},
+    {"lo": [-56, 100], "hi": [-37, 118], "wall": 187, "ridge": 187, "roof": "flat"},
+    {"lo": [-101, 21], "hi": [-94, 28], "wall": 137, "ridge": 137, "roof": "flat"}
+  ]
+}

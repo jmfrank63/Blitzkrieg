@@ -24,20 +24,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | 01 | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | 01 | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| 02 | r1 | 3 | 1 | 65.9 | 33.8 | 0.0 | 0.4 | 0.94 | 6.8 | 0.012 | pass |
-| 02 | r1 | 3 | 1w | 66.4 | 33.5 | 0.0 | 0.1 | 1.00 | 11.1 | 0.091 | pass |
+| 02 | r1 | 3 | 1 | 65.9 | 33.8 | 0.0 | 0.4 | 0.76 | 8.4 | 0.249 | pass |
+| 02 | r1 | 3 | 1w | 66.4 | 33.5 | 0.0 | 0.1 | 0.77 | 9.0 | 0.426 | pass |
 | 02 | r1 | 3 | 2 | 65.9 | 33.8 | 0.0 | 0.4 | 0.94 | 6.8 | 0.012 | pass |
 | 02 | r1 | 3 | 2w | 66.4 | 33.5 | 0.0 | 0.1 | 1.00 | 11.1 | 0.091 | pass |
 | 02 | r1 | 3 | 3 | 74.2 | 3.5 | 8.0 | 14.3 | 0.89 | 3.6 | 0.020 | pass |
 | 02 | r1 | 3 | 3w | 74.2 | 3.5 | 8.0 | 14.3 | 0.89 | 4.0 | 0.021 | pass |
-| 02 | r2 | 4 | 1 | 8.6 | 91.2 | 0.0 | 0.3 | 0.94 | 7.7 | 0.031 | pass |
-| 02 | r2 | 4 | 1w | 8.5 | 91.4 | 0.0 | 0.1 | 1.07 | 12.6 | 0.020 | pass |
+| 02 | r2 | 4 | 1 | 8.6 | 91.2 | 0.0 | 0.3 | 0.94 | 3.6 | 0.023 | pass |
+| 02 | r2 | 4 | 1w | 8.5 | 91.4 | 0.0 | 0.1 | 1.01 | 6.5 | 0.020 | pass |
 | 02 | r2 | 4 | 2 | 8.6 | 91.2 | 0.0 | 0.3 | 0.94 | 7.7 | 0.031 | pass |
 | 02 | r2 | 4 | 2w | 8.5 | 91.4 | 0.0 | 0.1 | 1.07 | 12.6 | 0.020 | pass |
 | 02 | r2 | 4 | 3 | 71.3 | 6.1 | 8.7 | 13.9 | 0.91 | 3.6 | 0.008 | pass |
 | 02 | r2 | 4 | 3w | 71.3 | 6.1 | 8.7 | 13.9 | 0.93 | 3.6 | 0.003 | pass |
-| 02 | r3 | 1 | 1 | 31.8 | 67.7 | 0.0 | 0.5 | 0.94 | 7.1 | 0.013 | pass |
-| 02 | r3 | 1 | 1w | 31.9 | 68.0 | 0.0 | 0.1 | 1.03 | 12.1 | 0.084 | pass |
+| 02 | r3 | 1 | 1 | 31.8 | 67.7 | 0.0 | 0.5 | 0.76 | 8.1 | 0.242 | pass |
+| 02 | r3 | 1 | 1w | 31.9 | 68.0 | 0.0 | 0.1 | 0.79 | 8.4 | 0.428 | pass |
 | 02 | r3 | 1 | 2 | 31.8 | 67.7 | 0.0 | 0.5 | 0.94 | 7.1 | 0.013 | pass |
 | 02 | r3 | 1 | 2w | 31.9 | 68.0 | 0.0 | 0.1 | 1.03 | 12.1 | 0.084 | pass |
 | 02 | r3 | 1 | 3 | 74.0 | 3.6 | 7.9 | 14.5 | 0.85 | 3.2 | 0.017 | pass |
@@ -48,14 +48,15 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.86 | 0.35 | 0.93 | 0.053 | 0.402 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 01 | r2 | 0.85 | 0.35 | 0.93 | 0.054 | 0.402 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 01 | r3 | 0.85 | 0.35 | 0.93 | 0.059 | 0.402 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r1 | 0.85 | 0.43 | 0.92 | 0.052 | 0.106 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| 02 | r2 | 0.84 | 0.43 | 0.92 | 0.056 | 0.106 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| 02 | r3 | 0.84 | 0.43 | 0.92 | 0.054 | 0.106 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.86 | 0.35 | 0.93 | 0.053 | 0.402 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 01 | r2 | 0.85 | 0.35 | 0.93 | 0.054 | 0.402 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 01 | r3 | 0.85 | 0.35 | 0.93 | 0.059 | 0.402 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r1 | 0.85 | 0.43 | 0.92 | 0.052 | 0.106 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| 02 | r2 | 0.84 | 0.43 | 0.92 | 0.056 | 0.106 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| 02 | r3 | 0.84 | 0.43 | 0.92 | 0.054 | 0.106 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |

@@ -48,14 +48,15 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.89 | 0.74 | 0.87 | 0.153 | 0.171 | 64 | 64 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 01 | r2 | 0.88 | 0.74 | 0.87 | 0.174 | 0.171 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 01 | r3 | 0.89 | 0.74 | 0.87 | 0.170 | 0.171 | 25 | 25 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r1 | 0.89 | 0.87 | 0.88 | 0.172 | 0.169 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r2 | 0.89 | 0.87 | 0.88 | 0.166 | 0.169 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
-| 02 | r3 | 0.89 | 0.87 | 0.88 | 0.158 | 0.169 | 0 | 0 | 0 | 0 | 0.000 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.89 | 0.74 | 0.87 | 0.153 | 0.171 | 64 | 64 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 01 | r2 | 0.88 | 0.74 | 0.87 | 0.174 | 0.171 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 01 | r3 | 0.89 | 0.74 | 0.87 | 0.170 | 0.171 | 25 | 25 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r1 | 0.89 | 0.87 | 0.88 | 0.172 | 0.169 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r2 | 0.89 | 0.87 | 0.88 | 0.166 | 0.169 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.89 | 0.87 | 0.88 | 0.158 | 0.169 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | 2003 sprite |

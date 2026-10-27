@@ -30,11 +30,12 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| watertanklittle | r1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| watertanklittle | r1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |

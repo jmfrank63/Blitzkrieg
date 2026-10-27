@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| railwaystation | r1 | 2 | 1 | 55.1 | 29.8 | 14.7 | 0.5 | 0.87 | 28.3 | 0.120 | pass |
-| railwaystation | r1 | 2 | 1w | 55.2 | 29.7 | 14.6 | 0.4 | 0.94 | 27.0 | 0.060 | pass |
+| railwaystation | r1 | 2 | 1 | 55.1 | 29.5 | 14.5 | 1.0 | 0.88 | 23.2 | 0.027 | pass |
+| railwaystation | r1 | 2 | 1w | 55.2 | 29.7 | 14.4 | 0.6 | 0.87 | 31.8 | 0.222 | pass |
 | railwaystation | r1 | 2 | 2 | 55.3 | 28.3 | 15.8 | 0.6 | 0.88 | 17.4 | 0.030 | pass |
 | railwaystation | r1 | 2 | 2w | 55.3 | 28.3 | 15.8 | 0.6 | 0.87 | 19.7 | 0.045 | pass |
 | railwaystation | r1 | 2 | 3 | 58.6 | 32.5 | 7.8 | 1.1 | 1.32 | 11.7 | 0.035 | pass |
 | railwaystation | r1 | 2 | 3w | 58.6 | 32.5 | 7.8 | 1.1 | 1.15 | 12.4 | 0.024 | pass |
-| railwaystation | r2 | 3 | 1 | 0.0 | 84.6 | 14.7 | 0.6 | 1.13 | 1.0 | 0.037 | pass |
-| railwaystation | r2 | 3 | 1w | 0.0 | 84.7 | 14.7 | 0.5 | 1.15 | 0.6 | 0.023 | pass |
+| railwaystation | r2 | 3 | 1 | 0.0 | 84.3 | 14.5 | 1.2 | 1.07 | 0.8 | 0.040 | pass |
+| railwaystation | r2 | 3 | 1w | 0.0 | 84.7 | 14.5 | 0.8 | 1.16 | 2.0 | 0.058 | pass |
 | railwaystation | r2 | 3 | 2 | 0.0 | 82.5 | 16.8 | 0.7 | 1.09 | 1.3 | 0.015 | pass |
 | railwaystation | r2 | 3 | 2w | 0.0 | 82.5 | 16.8 | 0.7 | 1.07 | 1.0 | 0.020 | pass |
 | railwaystation | r2 | 3 | 3 | 37.7 | 52.9 | 8.3 | 1.1 | 1.15 | 5.8 | 0.021 | pass |
 | railwaystation | r2 | 3 | 3w | 37.7 | 52.9 | 8.3 | 1.1 | 1.09 | 6.5 | 0.018 | pass |
-| railwaystation | r3 | 4 | 1 | 38.7 | 53.2 | 7.5 | 0.6 | 0.66 | 19.9 | 0.094 | pass |
-| railwaystation | r3 | 4 | 1w | 39.5 | 52.6 | 7.4 | 0.6 | 0.79 | 22.4 | 0.068 | pass |
+| railwaystation | r3 | 4 | 1 | 38.7 | 52.8 | 7.2 | 1.3 | 0.66 | 13.4 | 0.169 | pass |
+| railwaystation | r3 | 4 | 1w | 39.5 | 52.6 | 7.2 | 0.7 | 0.70 | 21.3 | 0.207 | pass |
 | railwaystation | r3 | 4 | 2 | 37.9 | 52.4 | 9.0 | 0.7 | 0.80 | 13.2 | 0.048 | pass |
 | railwaystation | r3 | 4 | 2w | 37.9 | 52.4 | 9.0 | 0.7 | 0.76 | 15.5 | 0.086 | pass |
 | railwaystation | r3 | 4 | 3 | 60.0 | 34.3 | 5.7 | 0.0 | 1.23 | 2.0 | 0.017 | pass |
@@ -30,11 +30,12 @@ over the footprint's cells, the outline IoU of the blocks against the variant's 
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
-pixel over four or more (stretched); a thin object, or a small one whose shape fails, is drawn as its 2003
+pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
+another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| railwaystation | r1 | 1.30 | 0.90 | 0.91 | 0.018 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | pass | blocks |
-| railwaystation | r2 | 1.28 | 0.90 | 0.91 | 0.018 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | pass | blocks |
-| railwaystation | r3 | 1.04 | 0.90 | 0.91 | 0.036 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| railwaystation | r1 | 1.30 | 0.90 | 0.91 | 0.018 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| railwaystation | r2 | 1.28 | 0.90 | 0.91 | 0.018 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| railwaystation | r3 | 1.04 | 0.90 | 0.91 | 0.036 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | pass | blocks |
