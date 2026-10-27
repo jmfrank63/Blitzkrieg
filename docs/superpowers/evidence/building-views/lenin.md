@@ -27,11 +27,12 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | height 0.70 outside 0.7..1.3 | 2003 sprite |
-| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | height 0.65 outside 0.7..1.3 | 2003 sprite |
-| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | height 0.66 outside 0.7..1.3 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | height 0.70 outside 0.7..1.3 | 2003 sprite |
+| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | height 0.65 outside 0.7..1.3 | 2003 sprite |
+| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | height 0.66 outside 0.7..1.3 | 2003 sprite |

@@ -27,14 +27,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.85 | 0.40 | 0.79 | 1.053 | 1.276 | ground 0.40 outside 0.5..2.0 | 2003 sprite |
-| 01 | r2 | 0.83 | 0.40 | 0.79 | 1.053 | 1.276 | ground 0.40 outside 0.5..2.0 | 2003 sprite |
-| 01 | r3 | 0.83 | 0.40 | 0.79 | 1.039 | 1.276 | ground 0.40 outside 0.5..2.0 | 2003 sprite |
-| 02 | r1 | 0.82 | 0.44 | 0.80 | 1.040 | 1.252 | ground 0.44 outside 0.5..2.0 | 2003 sprite |
-| 02 | r2 | 0.83 | 0.44 | 0.80 | 1.044 | 1.252 | ground 0.44 outside 0.5..2.0 | 2003 sprite |
-| 02 | r3 | 0.83 | 0.44 | 0.80 | 1.050 | 1.252 | ground 0.44 outside 0.5..2.0 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.85 | 0.58 | 0.83 | 1.052 | 1.276 | 41 | 41 | outline 0.83 < 0.85 | 2003 sprite |
+| 01 | r2 | 0.83 | 0.58 | 0.83 | 1.053 | 1.276 | 0 | 0 | outline 0.83 < 0.85 | 2003 sprite |
+| 01 | r3 | 0.83 | 0.58 | 0.83 | 1.025 | 1.276 | 49 | 49 | outline 0.83 < 0.85 | 2003 sprite |
+| 02 | r1 | 0.82 | 0.64 | 0.85 | 1.029 | 1.252 | 72 | 72 | pass | 2003 sprite |
+| 02 | r2 | 0.83 | 0.64 | 0.85 | 1.044 | 1.252 | 0 | 0 | pass | 2003 sprite |
+| 02 | r3 | 0.83 | 0.64 | 0.85 | 1.050 | 1.252 | 68 | 68 | pass | 2003 sprite |

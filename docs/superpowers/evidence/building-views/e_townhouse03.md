@@ -6,35 +6,36 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse03_1 | r1 | 2 | 1 | 31.9 | 66.2 | 0.0 | 1.9 | 1.25 | 3.3 | 0.051 | pass |
-| e_townhouse03_1 | r1 | 2 | 2 | 34.6 | 63.2 | 0.8 | 1.4 | 1.16 | 6.5 | 0.023 | pass |
-| e_townhouse03_1 | r1 | 2 | 3 | 61.8 | 32.7 | 1.9 | 3.6 | 1.24 | 6.8 | 0.010 | pass |
-| e_townhouse03_1 | r2 | 3 | 1 | 0.2 | 97.9 | 0.0 | 1.9 | 1.02 | 2.0 | 0.007 | pass |
-| e_townhouse03_1 | r2 | 3 | 2 | 0.1 | 97.6 | 0.8 | 1.4 | 1.01 | 0.3 | 0.006 | pass |
-| e_townhouse03_1 | r2 | 3 | 3 | 0.1 | 94.3 | 2.0 | 3.6 | 0.96 | 1.1 | 0.006 | pass |
-| e_townhouse03_1 | r3 | 4 | 1 | 65.9 | 32.9 | 0.0 | 1.1 | 1.26 | 3.0 | 0.039 | pass |
-| e_townhouse03_1 | r3 | 4 | 2 | 62.6 | 35.5 | 0.8 | 1.1 | 1.16 | 6.3 | 0.023 | pass |
-| e_townhouse03_1 | r3 | 4 | 3 | 31.5 | 63.1 | 1.9 | 3.5 | 1.23 | 7.1 | 0.011 | pass |
-| e_townhouse03_4 | r1 | 2 | 1 | 66.3 | 33.0 | 0.1 | 0.6 | 1.00 | 1.4 | 0.013 | pass |
-| e_townhouse03_4 | r1 | 2 | 2 | 67.9 | 32.0 | 0.0 | 0.1 | 1.13 | 3.0 | 0.023 | pass |
-| e_townhouse03_4 | r1 | 2 | 3 | 38.9 | 54.7 | 0.0 | 6.5 | 1.13 | 1.1 | 0.034 | pass |
-| e_townhouse03_4 | r2 | 3 | 1 | 0.1 | 99.2 | 0.0 | 0.6 | 1.01 | 3.2 | 0.006 | pass |
-| e_townhouse03_4 | r2 | 3 | 2 | 0.1 | 99.8 | 0.0 | 0.1 | 0.99 | 0.2 | 0.010 | pass |
-| e_townhouse03_4 | r2 | 3 | 3 | 8.7 | 84.9 | 0.0 | 6.4 | 1.03 | 0.7 | 0.005 | pass |
-| e_townhouse03_4 | r3 | 4 | 1 | 32.3 | 67.0 | 0.0 | 0.6 | 1.00 | 1.4 | 0.014 | pass |
-| e_townhouse03_4 | r3 | 4 | 2 | 31.0 | 68.9 | 0.0 | 0.1 | 1.13 | 3.1 | 0.022 | pass |
-| e_townhouse03_4 | r3 | 4 | 3 | 51.7 | 41.9 | 0.0 | 6.4 | 1.13 | 1.0 | 0.035 | pass |
+| e_townhouse03_1 | r1 | 2 | 1 | 31.9 | 66.2 | 0.5 | 1.4 | 1.24 | 4.4 | 0.050 | pass |
+| e_townhouse03_1 | r1 | 2 | 2 | 34.7 | 62.8 | 1.4 | 1.1 | 1.16 | 6.4 | 0.022 | pass |
+| e_townhouse03_1 | r1 | 2 | 3 | 61.8 | 32.4 | 2.6 | 3.2 | 1.25 | 7.3 | 0.011 | pass |
+| e_townhouse03_1 | r2 | 3 | 1 | 0.2 | 97.9 | 0.6 | 1.3 | 1.01 | 1.5 | 0.008 | pass |
+| e_townhouse03_1 | r2 | 3 | 2 | 0.1 | 97.2 | 1.6 | 1.1 | 1.00 | 0.3 | 0.002 | pass |
+| e_townhouse03_1 | r2 | 3 | 3 | 0.1 | 93.9 | 2.8 | 3.2 | 0.96 | 1.2 | 0.007 | pass |
+| e_townhouse03_1 | r3 | 4 | 1 | 65.9 | 32.9 | 0.6 | 0.6 | 1.25 | 4.5 | 0.035 | pass |
+| e_townhouse03_1 | r3 | 4 | 2 | 62.7 | 35.1 | 1.4 | 0.8 | 1.16 | 6.3 | 0.028 | pass |
+| e_townhouse03_1 | r3 | 4 | 3 | 31.7 | 62.6 | 2.6 | 3.1 | 1.24 | 7.2 | 0.014 | pass |
+| e_townhouse03_4 | r1 | 2 | 1 | 66.3 | 32.9 | 0.1 | 0.6 | 1.00 | 1.3 | 0.013 | pass |
+| e_townhouse03_4 | r1 | 2 | 2 | 67.7 | 31.7 | 0.4 | 0.1 | 1.15 | 2.6 | 0.025 | pass |
+| e_townhouse03_4 | r1 | 2 | 3 | 38.9 | 54.5 | 0.8 | 5.8 | 1.13 | 1.3 | 0.034 | pass |
+| e_townhouse03_4 | r2 | 3 | 1 | 0.1 | 99.2 | 0.1 | 0.6 | 1.01 | 3.3 | 0.005 | pass |
+| e_townhouse03_4 | r2 | 3 | 2 | 0.1 | 99.4 | 0.5 | 0.1 | 1.01 | 1.0 | 0.006 | pass |
+| e_townhouse03_4 | r2 | 3 | 3 | 8.7 | 84.7 | 0.7 | 5.9 | 1.03 | 0.6 | 0.008 | pass |
+| e_townhouse03_4 | r3 | 4 | 1 | 32.3 | 67.0 | 0.1 | 0.6 | 1.00 | 1.4 | 0.014 | pass |
+| e_townhouse03_4 | r3 | 4 | 2 | 31.0 | 68.5 | 0.4 | 0.1 | 1.15 | 2.7 | 0.023 | pass |
+| e_townhouse03_4 | r3 | 4 | 3 | 51.7 | 41.7 | 0.8 | 5.7 | 1.14 | 1.0 | 0.036 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| e_townhouse03_1 | r1 | 1.00 | 0.91 | 0.95 | 0.032 | 0.022 | pass | blocks |
-| e_townhouse03_1 | r2 | 1.08 | 0.91 | 0.95 | 0.036 | 0.022 | pass | blocks |
-| e_townhouse03_1 | r3 | 1.08 | 0.91 | 0.95 | 0.038 | 0.022 | pass | blocks |
-| e_townhouse03_4 | r1 | 1.01 | 0.87 | 0.96 | 0.015 | 0.019 | pass | blocks |
-| e_townhouse03_4 | r2 | 1.01 | 0.87 | 0.96 | 0.016 | 0.019 | pass | blocks |
-| e_townhouse03_4 | r3 | 1.02 | 0.87 | 0.96 | 0.015 | 0.019 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| e_townhouse03_1 | r1 | 1.00 | 0.94 | 0.96 | 0.032 | 0.022 | 0 | 0 | pass | blocks |
+| e_townhouse03_1 | r2 | 1.08 | 0.94 | 0.96 | 0.036 | 0.022 | 0 | 0 | pass | blocks |
+| e_townhouse03_1 | r3 | 1.08 | 0.94 | 0.96 | 0.038 | 0.022 | 376 | 376 | pass | blocks |
+| e_townhouse03_4 | r1 | 1.01 | 0.88 | 0.96 | 0.015 | 0.019 | 82 | 82 | pass | blocks |
+| e_townhouse03_4 | r2 | 1.01 | 0.88 | 0.96 | 0.016 | 0.019 | 0 | 0 | pass | blocks |
+| e_townhouse03_4 | r3 | 1.02 | 0.88 | 0.96 | 0.015 | 0.019 | 0 | 0 | pass | blocks |

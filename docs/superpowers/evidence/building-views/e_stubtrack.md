@@ -45,20 +45,21 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 1.04 | 0.33 | 0.93 | 1.287 | 1.337 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
-| 01 | r2 | 1.04 | 0.33 | 0.93 | 1.291 | 1.337 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
-| 01 | r3 | 1.04 | 0.33 | 0.93 | 1.261 | 1.337 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
-| 02 | r1 | 1.04 | 0.33 | 0.92 | 1.277 | 1.322 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
-| 02 | r2 | 1.04 | 0.33 | 0.92 | 1.274 | 1.322 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
-| 02 | r3 | 1.04 | 0.33 | 0.92 | 1.262 | 1.322 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
-| 03 | r1 | 0.78 | 0.47 | 0.93 | 1.321 | 1.290 | ground 0.47 outside 0.5..2.0 | 2003 sprite |
-| 03 | r2 | 0.94 | 0.47 | 0.93 | 1.330 | 1.290 | ground 0.47 outside 0.5..2.0 | 2003 sprite |
-| 03 | r3 | 0.78 | 0.47 | 0.93 | 1.213 | 1.290 | ground 0.47 outside 0.5..2.0 | 2003 sprite |
-| 04 | r1 | 0.81 | 0.52 | 0.92 | 0.362 | 1.259 | pass | 2003 sprite |
-| 04 | r2 | 1.06 | 0.52 | 0.92 | 1.356 | 1.259 | pass | 2003 sprite |
-| 04 | r3 | 0.81 | 0.52 | 0.92 | 0.255 | 1.259 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 1.04 | 0.33 | 0.93 | 1.287 | 1.337 | 0 | 0 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| 01 | r2 | 1.04 | 0.33 | 0.93 | 1.291 | 1.337 | 0 | 0 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| 01 | r3 | 1.04 | 0.33 | 0.93 | 1.261 | 1.337 | 0 | 0 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| 02 | r1 | 1.04 | 0.33 | 0.92 | 1.277 | 1.322 | 0 | 0 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| 02 | r2 | 1.04 | 0.33 | 0.92 | 1.274 | 1.322 | 0 | 0 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| 02 | r3 | 1.04 | 0.33 | 0.92 | 1.262 | 1.322 | 0 | 0 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| 03 | r1 | 0.78 | 0.47 | 0.93 | 1.321 | 1.290 | 0 | 0 | ground 0.47 outside 0.5..2.0 | 2003 sprite |
+| 03 | r2 | 0.94 | 0.47 | 0.93 | 1.330 | 1.290 | 0 | 0 | ground 0.47 outside 0.5..2.0 | 2003 sprite |
+| 03 | r3 | 0.78 | 0.47 | 0.93 | 1.213 | 1.290 | 0 | 0 | ground 0.47 outside 0.5..2.0 | 2003 sprite |
+| 04 | r1 | 0.81 | 0.52 | 0.92 | 0.362 | 1.259 | 0 | 0 | pass | 2003 sprite |
+| 04 | r2 | 1.06 | 0.52 | 0.92 | 1.356 | 1.259 | 0 | 0 | pass | 2003 sprite |
+| 04 | r3 | 0.81 | 0.52 | 0.92 | 0.255 | 1.259 | 0 | 0 | pass | 2003 sprite |

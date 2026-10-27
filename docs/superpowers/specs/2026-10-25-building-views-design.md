@@ -489,6 +489,40 @@ Each was fixed at its measured cause; no band of gate.json was widened.
 - **Not done.** The Map Editor (side = object orientation + camera step) belongs to the Game camera's slice. An
   imported PNG is not checked against the side's style; `bk-views style` can score it.
 
+## Low parts: ramps, steps and porches (M006 S07b, 2026-10-27)
+
+The maintainer's hand test: the barn `europe/summer/e_wb/01` (corrugated roof, three vents) shows two loading ramps
+on its long side; its turn that shows that wall from the other side (`01_r1`) had none, nor had e_shed01_3's r1
+(the same barn with a tiled roof). Cause: a block is at least 12 world units each way and costs 0.03 of the outline
+IoU, so the fit never kept a ramp 13 units deep and 7 high; the 2003 pixels of the ramps had no surface to land on in
+a turn. Hand shapes had none either.
+
+- **Low parts** (`lowParts`). Per column of a 2003 picture, the lowest point the building's blocks cover is a wall's
+  foot; where the outline runs on 3 or more rows below it (after up to 12 rows of ground, seen between the wall and a
+  part's corner), a run of such columns under one wall is a flat block on the ground against that wall: as wide as
+  the run's lowest pixels reach along the wall where they meet the ground (not round its corners), as deep as the
+  median column reaches out (a ladder leaning on house07's wall reached 21 units in a few columns; the maximum made it
+  a slab), half as high as deep (2 to 8 units), and only where 0.7 of what it adds to the outline is the picture's
+  and it is 3 to 32 units deep (deeper is a wall the blocks missed). Every damage state, fitted or hand-shaped, takes
+  the low parts of every picture of its colourway, each against the blocks without low parts: a ramp only a sibling
+  shows (e_shed01_3's for e_shed01_2) stays on every turn. `shape` measures the blocks without them (the authored
+  hand shape: with the pillbox's earth slabs counted, dot/03 against /02 fell below the floor 0.84, to 0.839).
+- **Gate** (`lowKept`, in the shape gate): the low parts the 2003 intact pictures of the colourway show, seen from
+  the turn's eye where they add to the outline of the blocks without them, must be 0.8 or more opaque in the turned
+  intact picture wherever they cover more than 40 pixels. sources.json and the family reports carry both counts
+  (`low`, `low_kept`). Tried first and dropped: the pixels below the walls on the picture's left of one side against
+  those on the right of the next (a quarter turn mirrors a wall's foot). It holds for a box, but on L-shaped houses
+  another wing hides the part in one of the two views: e_ctownhouse02_1_2 r3 measured 0 against 927 with the part
+  drawn.
+- **Measured** (`zig build building-views-batch-<region>`, then `bk-views report`). With the gate and the generator
+  as before: 95 of 194 variants pass, 99 fail by the low parts, every one keeping 0 pixels (41 to 1399 shown; the
+  barn e_wb/01 r1 0 of 844, e_wb/02 r2 0 of 913, e_shed01_3 r1 0 of 844, town houses with door steps, the dot
+  pillboxes' earth). With the low parts: 194 of 194 pass, hold-out 43 of 43, every pack through the engine check;
+  `test-bk-views` (with a test: a ramp on a gabled house is cut back within 3 units, a turn drawn without it keeps 0
+  of its pixels and fails, with it keeps all, from behind it shows none), `bk-views-side`, `bk-views-roundtrip`.
+- **Not done.** A part no 2003 side shows is not invented (the barn's far gable shows its door ramp painted on the
+  wall, mirrored from the near one, as before). Roof vents and other small parts on a roof are still flattened.
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

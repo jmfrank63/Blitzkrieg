@@ -8,33 +8,34 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 01 | r1 | 2 | 1 | 69.2 | 23.6 | 3.5 | 3.7 | 1.08 | 2.2 | 0.070 | pass |
 | 01 | r1 | 2 | 2 | 69.2 | 23.6 | 3.5 | 3.7 | 1.08 | 2.2 | 0.070 | pass |
-| 01 | r1 | 2 | 3 | 85.3 | 8.5 | 2.2 | 4.0 | 1.01 | 5.0 | 0.072 | pass |
+| 01 | r1 | 2 | 3 | 85.3 | 8.3 | 5.4 | 1.0 | 1.01 | 2.5 | 0.070 | pass |
 | 01 | r2 | 3 | 1 | 2.5 | 84.2 | 7.8 | 5.6 | 0.83 | 13.6 | 0.056 | pass |
 | 01 | r2 | 3 | 2 | 2.5 | 84.2 | 7.8 | 5.6 | 0.83 | 13.6 | 0.056 | pass |
-| 01 | r2 | 3 | 3 | 78.2 | 15.0 | 2.2 | 4.5 | 1.05 | 3.0 | 0.053 | pass |
+| 01 | r2 | 3 | 3 | 78.2 | 15.0 | 5.7 | 1.1 | 1.05 | 1.1 | 0.056 | pass |
 | 01 | r3 | 4 | 1 | 30.8 | 58.6 | 8.1 | 2.4 | 0.99 | 6.0 | 0.068 | pass |
 | 01 | r3 | 4 | 2 | 30.8 | 58.6 | 8.1 | 2.4 | 0.99 | 6.0 | 0.068 | pass |
-| 01 | r3 | 4 | 3 | 82.6 | 10.7 | 1.8 | 5.0 | 0.94 | 5.9 | 0.037 | pass |
+| 01 | r3 | 4 | 3 | 82.5 | 10.6 | 5.6 | 1.2 | 0.97 | 2.3 | 0.040 | pass |
 | 02 | r1 | 2 | 1 | 31.2 | 58.4 | 5.0 | 5.4 | 1.43 | 21.5 | 0.401 | pass |
 | 02 | r1 | 2 | 2 | 31.2 | 58.4 | 5.0 | 5.4 | 1.43 | 21.5 | 0.401 | pass |
-| 02 | r1 | 2 | 3 | 86.7 | 9.7 | 0.9 | 2.7 | 1.00 | 1.4 | 0.028 | pass |
+| 02 | r1 | 2 | 3 | 85.7 | 10.0 | 4.3 | 0.0 | 1.01 | 0.6 | 0.039 | pass |
 | 02 | r2 | 3 | 1 | 2.6 | 84.8 | 5.0 | 7.6 | 1.24 | 12.4 | 0.007 | pass |
 | 02 | r2 | 3 | 2 | 2.6 | 84.8 | 5.0 | 7.6 | 1.24 | 12.4 | 0.007 | pass |
-| 02 | r2 | 3 | 3 | 73.1 | 20.8 | 2.9 | 3.1 | 1.03 | 0.7 | 0.022 | pass |
+| 02 | r2 | 3 | 3 | 73.1 | 19.7 | 7.2 | 0.0 | 1.04 | 1.3 | 0.026 | pass |
 | 02 | r3 | 4 | 1 | 70.0 | 24.4 | 1.3 | 4.3 | 1.24 | 10.8 | 0.418 | pass |
 | 02 | r3 | 4 | 2 | 70.0 | 24.4 | 1.3 | 4.3 | 1.24 | 10.8 | 0.418 | pass |
-| 02 | r3 | 4 | 3 | 79.3 | 14.3 | 2.9 | 3.4 | 0.97 | 1.2 | 0.052 | pass |
+| 02 | r3 | 4 | 3 | 79.4 | 13.4 | 7.2 | 0.0 | 0.98 | 1.2 | 0.052 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 1.00 | 1.03 | 0.93 | 0.083 | 0.059 | pass | blocks |
-| 01 | r2 | 0.97 | 1.03 | 0.93 | 0.091 | 0.059 | pass | blocks |
-| 01 | r3 | 0.99 | 1.03 | 0.93 | 0.086 | 0.059 | pass | blocks |
-| 02 | r1 | 1.01 | 1.01 | 0.93 | 0.080 | 0.064 | pass | blocks |
-| 02 | r2 | 0.98 | 1.01 | 0.93 | 0.088 | 0.064 | pass | blocks |
-| 02 | r3 | 1.00 | 1.01 | 0.93 | 0.083 | 0.064 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 1.00 | 1.03 | 0.93 | 0.083 | 0.059 | 0 | 0 | pass | blocks |
+| 01 | r2 | 0.97 | 1.03 | 0.93 | 0.091 | 0.059 | 0 | 0 | pass | blocks |
+| 01 | r3 | 0.99 | 1.03 | 0.93 | 0.086 | 0.059 | 0 | 0 | pass | blocks |
+| 02 | r1 | 1.01 | 1.01 | 0.93 | 0.080 | 0.064 | 0 | 0 | pass | blocks |
+| 02 | r2 | 0.98 | 1.01 | 0.93 | 0.088 | 0.064 | 0 | 0 | pass | blocks |
+| 02 | r3 | 1.00 | 1.01 | 0.93 | 0.083 | 0.064 | 0 | 0 | pass | blocks |

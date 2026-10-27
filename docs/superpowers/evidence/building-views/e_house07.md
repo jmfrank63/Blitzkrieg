@@ -6,23 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house07_1 | r1 | 2 | 1 | 70.9 | 26.5 | 2.6 | 0.0 | 0.94 | 3.0 | 0.103 | pass |
-| e_house07_1 | r1 | 2 | 2 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 5.2 | 0.016 | pass |
-| e_house07_1 | r1 | 2 | 3 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 3.1 | 0.000 | pass |
-| e_house07_1 | r2 | 3 | 1 | 46.7 | 39.5 | 13.8 | 0.1 | 1.05 | 0.9 | 0.015 | pass |
-| e_house07_1 | r2 | 3 | 2 | 47.9 | 38.4 | 13.7 | 0.0 | 1.45 | 0.5 | 0.001 | pass |
-| e_house07_1 | r2 | 3 | 3 | 47.9 | 38.4 | 13.7 | 0.0 | 1.46 | 0.2 | 0.000 | pass |
-| e_house07_1 | r3 | 4 | 1 | 69.7 | 16.7 | 13.4 | 0.1 | 0.96 | 2.5 | 0.090 | pass |
-| e_house07_1 | r3 | 4 | 2 | 70.2 | 16.6 | 13.2 | 0.1 | 1.23 | 3.7 | 0.015 | pass |
-| e_house07_1 | r3 | 4 | 3 | 70.2 | 16.6 | 13.2 | 0.1 | 1.24 | 2.2 | 0.000 | pass |
+| e_house07_1 | r1 | 2 | 1 | 70.9 | 26.4 | 2.7 | 0.0 | 0.94 | 3.1 | 0.099 | pass |
+| e_house07_1 | r1 | 2 | 2 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 5.0 | 0.016 | pass |
+| e_house07_1 | r1 | 2 | 3 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 2.9 | 0.000 | pass |
+| e_house07_1 | r2 | 3 | 1 | 46.7 | 39.4 | 13.9 | 0.0 | 1.05 | 0.8 | 0.016 | pass |
+| e_house07_1 | r2 | 3 | 2 | 47.9 | 38.4 | 13.7 | 0.0 | 1.44 | 0.2 | 0.001 | pass |
+| e_house07_1 | r2 | 3 | 3 | 47.9 | 38.4 | 13.7 | 0.0 | 1.46 | 0.1 | 0.000 | pass |
+| e_house07_1 | r3 | 4 | 1 | 69.7 | 16.8 | 13.5 | 0.0 | 0.96 | 2.7 | 0.089 | pass |
+| e_house07_1 | r3 | 4 | 2 | 70.2 | 16.6 | 13.2 | 0.0 | 1.25 | 4.0 | 0.015 | pass |
+| e_house07_1 | r3 | 4 | 3 | 70.2 | 16.6 | 13.2 | 0.0 | 1.26 | 2.3 | 0.000 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
-of the turned and of the 2003 outline; a thin object, or a small one whose shape fails, is drawn as its 2003
-sprite where the turn keeps the footprint.
+of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
+the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
+fails, is drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|
-| e_house07_1 | r1 | 1.01 | 0.93 | 0.96 | 0.016 | 0.000 | pass | blocks |
-| e_house07_1 | r2 | 1.06 | 0.93 | 0.96 | 0.011 | 0.000 | pass | blocks |
-| e_house07_1 | r3 | 1.02 | 0.93 | 0.96 | 0.010 | 0.000 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|
+| e_house07_1 | r1 | 1.01 | 0.94 | 0.97 | 0.016 | 0.000 | 15 | 15 | pass | blocks |
+| e_house07_1 | r2 | 1.06 | 0.94 | 0.97 | 0.011 | 0.000 | 0 | 0 | pass | blocks |
+| e_house07_1 | r3 | 1.02 | 0.94 | 0.97 | 0.010 | 0.000 | 175 | 175 | pass | blocks |
