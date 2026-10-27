@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_jettybuilding_1 | r1 | 2 | 1 | 50.0 | 20.9 | 17.1 | 12.0 | 0.84 | 21.7 | 0.067 | pass |
-| e_jettybuilding_1 | r1 | 2 | 2 | 56.9 | 19.8 | 20.8 | 2.5 | 0.85 | 16.7 | 0.058 | pass |
-| e_jettybuilding_1 | r1 | 2 | 3 | 78.1 | 9.4 | 11.3 | 1.2 | 1.03 | 3.9 | 0.041 | pass |
-| e_jettybuilding_1 | r2 | 3 | 1 | 0.1 | 49.4 | 21.8 | 28.7 | 0.85 | 15.7 | 0.086 | pass |
-| e_jettybuilding_1 | r2 | 3 | 2 | 0.7 | 70.1 | 25.6 | 3.6 | 1.01 | 2.4 | 0.025 | pass |
-| e_jettybuilding_1 | r2 | 3 | 3 | 58.8 | 22.9 | 14.9 | 3.4 | 1.07 | 1.4 | 0.015 | pass |
-| e_jettybuilding_1 | r3 | 4 | 1 | 31.7 | 32.6 | 14.4 | 21.3 | 0.68 | 22.6 | 0.068 | pass |
-| e_jettybuilding_1 | r3 | 4 | 2 | 28.7 | 55.9 | 12.6 | 2.7 | 0.79 | 16.0 | 0.060 | pass |
-| e_jettybuilding_1 | r3 | 4 | 3 | 73.9 | 17.4 | 5.8 | 3.0 | 1.09 | 3.0 | 0.038 | pass |
-| e_jettybuilding_4 | r1 | 3 | 1 | 31.4 | 37.8 | 25.2 | 5.5 | 1.14 | 4.5 | 0.069 | pass |
-| e_jettybuilding_4 | r1 | 3 | 2 | 29.4 | 51.2 | 14.9 | 4.4 | 1.49 | 25.3 | 0.019 | pass |
-| e_jettybuilding_4 | r1 | 3 | 3 | 60.6 | 18.4 | 3.3 | 17.7 | 1.08 | 1.4 | 0.017 | pass |
-| e_jettybuilding_4 | r2 | 4 | 1 | 0.1 | 58.3 | 35.2 | 6.5 | 0.95 | 19.3 | 0.106 | pass |
-| e_jettybuilding_4 | r2 | 4 | 2 | 0.2 | 65.9 | 26.5 | 7.3 | 1.02 | 3.9 | 0.035 | pass |
-| e_jettybuilding_4 | r2 | 4 | 3 | 44.7 | 30.5 | 3.9 | 20.9 | 1.00 | 8.2 | 0.019 | pass |
-| e_jettybuilding_4 | r3 | 1 | 1 | 54.1 | 24.4 | 17.7 | 3.8 | 1.34 | 11.7 | 0.135 | pass |
-| e_jettybuilding_4 | r3 | 1 | 2 | 65.5 | 15.5 | 16.0 | 3.0 | 1.69 | 32.6 | 0.031 | pass |
-| e_jettybuilding_4 | r3 | 1 | 3 | 59.4 | 19.1 | 3.3 | 18.3 | 1.08 | 5.4 | 0.024 | pass |
+| e_jettybuilding_1 | r1 | 2 | 1 | 50.0 | 20.9 | 17.1 | 12.0 | 0.86 | 21.3 | 0.080 | pass |
+| e_jettybuilding_1 | r1 | 2 | 2 | 56.9 | 23.3 | 18.8 | 1.0 | 0.96 | 5.5 | 0.031 | pass |
+| e_jettybuilding_1 | r1 | 2 | 3 | 78.1 | 11.4 | 9.6 | 0.9 | 1.01 | 1.2 | 0.012 | pass |
+| e_jettybuilding_1 | r2 | 3 | 1 | 0.1 | 49.4 | 21.8 | 28.7 | 0.87 | 13.4 | 0.085 | pass |
+| e_jettybuilding_1 | r2 | 3 | 2 | 0.7 | 77.9 | 20.4 | 1.1 | 1.09 | 5.3 | 0.008 | pass |
+| e_jettybuilding_1 | r2 | 3 | 3 | 58.8 | 27.4 | 12.4 | 1.4 | 1.02 | 1.3 | 0.012 | pass |
+| e_jettybuilding_1 | r3 | 4 | 1 | 31.7 | 32.6 | 14.4 | 21.3 | 0.70 | 21.0 | 0.070 | pass |
+| e_jettybuilding_1 | r3 | 4 | 2 | 28.7 | 61.0 | 9.3 | 1.0 | 0.91 | 7.8 | 0.037 | pass |
+| e_jettybuilding_1 | r3 | 4 | 3 | 73.9 | 19.6 | 5.4 | 1.2 | 1.13 | 0.8 | 0.026 | pass |
+| e_jettybuilding_4 | r1 | 3 | 1 | 31.4 | 37.8 | 25.2 | 5.5 | 1.16 | 4.7 | 0.166 | pass |
+| e_jettybuilding_4 | r1 | 3 | 2 | 29.4 | 61.2 | 8.3 | 1.2 | 0.97 | 4.7 | 0.003 | pass |
+| e_jettybuilding_4 | r1 | 3 | 3 | 60.2 | 19.0 | 6.1 | 14.7 | 1.10 | 0.5 | 0.020 | pass |
+| e_jettybuilding_4 | r2 | 4 | 1 | 0.1 | 58.3 | 35.2 | 6.5 | 0.96 | 18.9 | 0.148 | pass |
+| e_jettybuilding_4 | r2 | 4 | 2 | 0.2 | 84.0 | 13.7 | 2.1 | 0.97 | 9.2 | 0.020 | pass |
+| e_jettybuilding_4 | r2 | 4 | 3 | 43.7 | 31.8 | 6.6 | 17.9 | 1.01 | 7.6 | 0.025 | pass |
+| e_jettybuilding_4 | r3 | 1 | 1 | 54.1 | 24.4 | 17.7 | 3.8 | 1.37 | 13.8 | 0.274 | pass |
+| e_jettybuilding_4 | r3 | 1 | 2 | 65.5 | 22.1 | 11.3 | 1.2 | 0.96 | 9.3 | 0.031 | pass |
+| e_jettybuilding_4 | r3 | 1 | 3 | 58.4 | 20.3 | 5.9 | 15.4 | 1.10 | 3.3 | 0.030 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

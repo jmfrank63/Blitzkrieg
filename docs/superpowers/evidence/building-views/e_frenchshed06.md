@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed06 | r1 | 2 | 1 | 20.6 | 78.7 | 0.0 | 0.7 | 1.27 | 15.7 | 0.014 | pass |
-| e_frenchshed06 | r1 | 2 | 2 | 22.6 | 65.3 | 0.0 | 12.1 | 1.25 | 23.5 | 0.019 | pass |
-| e_frenchshed06 | r1 | 2 | 3 | 76.5 | 20.1 | 0.2 | 3.2 | 1.21 | 6.4 | 0.002 | pass |
-| e_frenchshed06 | r2 | 3 | 1 | 3.6 | 95.7 | 0.0 | 0.7 | 1.05 | 0.8 | 0.003 | pass |
-| e_frenchshed06 | r2 | 3 | 2 | 4.8 | 78.1 | 0.0 | 17.0 | 0.95 | 4.8 | 0.016 | pass |
-| e_frenchshed06 | r2 | 3 | 3 | 72.6 | 23.6 | 0.1 | 3.6 | 1.04 | 1.5 | 0.019 | pass |
-| e_frenchshed06 | r3 | 4 | 1 | 77.5 | 21.8 | 0.0 | 0.7 | 1.26 | 16.8 | 0.006 | pass |
-| e_frenchshed06 | r3 | 4 | 2 | 76.5 | 16.1 | 0.7 | 6.8 | 1.29 | 12.2 | 0.005 | pass |
-| e_frenchshed06 | r3 | 4 | 3 | 88.4 | 8.5 | 0.1 | 2.9 | 1.23 | 9.2 | 0.016 | pass |
+| e_frenchshed06 | r1 | 2 | 1 | 20.6 | 78.7 | 0.0 | 0.7 | 1.28 | 14.7 | 0.060 | pass |
+| e_frenchshed06 | r1 | 2 | 2 | 22.3 | 75.3 | 0.9 | 1.5 | 0.98 | 4.8 | 0.019 | pass |
+| e_frenchshed06 | r1 | 2 | 3 | 76.5 | 21.7 | 1.3 | 0.5 | 1.02 | 3.4 | 0.007 | pass |
+| e_frenchshed06 | r2 | 3 | 1 | 3.6 | 95.7 | 0.0 | 0.7 | 1.05 | 0.9 | 0.002 | pass |
+| e_frenchshed06 | r2 | 3 | 2 | 4.5 | 92.7 | 0.9 | 1.9 | 0.98 | 0.4 | 0.014 | pass |
+| e_frenchshed06 | r2 | 3 | 3 | 72.6 | 25.4 | 1.3 | 0.7 | 0.99 | 2.9 | 0.013 | pass |
+| e_frenchshed06 | r3 | 4 | 1 | 77.5 | 21.8 | 0.0 | 0.7 | 1.27 | 15.9 | 0.051 | pass |
+| e_frenchshed06 | r3 | 4 | 2 | 76.4 | 21.2 | 1.1 | 1.3 | 1.02 | 7.6 | 0.023 | pass |
+| e_frenchshed06 | r3 | 4 | 3 | 88.4 | 9.4 | 1.6 | 0.6 | 1.01 | 4.4 | 0.010 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

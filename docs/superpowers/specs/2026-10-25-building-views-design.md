@@ -611,6 +611,72 @@ smeared slab, and a half-timbered house's planked gable and lean-to come out wit
   - jumbled multi-wing roofs: e_cityhall_1 r2/r3, e_jettybuilding_1/_4; and a_h04_1 r1/r3's streaked arcade;
   - porch slabs that take roof texture: e_house03_3/_4 r1.
 
+## S07c's list, light and copied parts (M006 S07d, 2026-10-28)
+
+S07c left six kinds of turns that do not read as the 2003 object; the maintainer added a seventh: a face no 2003
+picture shows is copied from the opposite one, so a house's back repeats its front's chimney, dormers and door ("the
+buildings do not turn").
+
+- **Light** (`shading`, `relight`; rows: walls in the wrong material, bleached patches). Cause: a face drawn for
+  another side was relit by the ratio of the mean colours of the two shading classes over the 2003 pictures (`Means`).
+  Those means took the materials along: e_ctownhouse03_2's shaded wall is stone and its lit wall plaster, so the stone
+  turned to the light came out blue-green (class means (74, 49, 26) against (135, 111, 72)); roof pixels that a box
+  model puts in a wall's class turned walls grey or red; a class seen on a few hundred pixels set the gain of a whole
+  roof plane (the bleached hip ends). Fix: the intact pictures are relit by the 2003 light itself, an ambient and a
+  diffuse part towards `light_2003`, per channel with the ratio of the lit wall to the shaded one measured in S08
+  (`wall_light_rgb` 1.82, 2.03, 2.71: the sun is yellower than the sky that lights the shade; one factor turned
+  a_h02_2's shaded cream walls a saturated orange in the light). The model predicts the 2003 roofs: the roof towards -y
+  against the one towards +x measures 1.26 to 1.42 on e_ctownhouse02_1, e_house02_1, e_house10_2 and e_house11_1
+  (model 1.40 at a pitch of 1). A relit pixel keeps its hue where a channel would clip. Damage states keep the class
+  gains (S07): a ruin's fitted blocks stand for rubble, and relit by the light their faces took seams (e_house07_1's
+  ruin sharpness 1.13 to 2.53 against the band's 1.55). A mirrored heap is not relit (row 7: the mirrored e_wt depots
+  were 5% darker than the 2003 picture, now 1.000 of its mean brightness); other mirrored props keep S07's relighting.
+- **Tried and dropped: a gate measure on wall colour.** The chromaticity of each wall face of a turn against the hull
+  of those the 2003 pictures show (per class and per face). It did not separate the rows: before the light fix the
+  listed walls measured 0.003 to 0.056 and sound turns up to 0.078 (barracks_2 r3), the material of a single
+  building's walls spreads as far as a wrong source's. A source choice by colour (a pixel coloured like the other
+  material of its picture passed over) was tried too: it turned red roofs and rust grey (e_townhouse01_3's red
+  stripes are 2003 roof pixels, (195, 0, 0), but so are factoryfloor02's rusty roof's); dropped. The light model
+  removes the cause instead; the rows that are geometry (roof pixels on a wall that a box puts there) are hand shapes
+  and roof parts below.
+- **Copied parts** (`nearPart`, `copiedParts`; the maintainer's row). A face of the body does not borrow a donor point
+  within 6 units of a low or roof part's rectangle and up to 40 above its top (a door over its step, a dormer's
+  flashing); the patch fill or the face's next donor stands in. Gate measure `copied`: the pixels of the body a turn
+  draws from such a point; a turn fails above 40 (as the low parts). With the exclusion off, 225 turns of 90 variants
+  copy more than 40 (up to 9208, townhouse03_1 r2); with it, 0. Intact states only: without their steps' surroundings
+  the ruins of e_shed02_2 and townhouse02_1 lost their hue (0.466 and 0.332 against 0.29). sources.json carries
+  `copied`, the family reports a "Copied" column. Test: a gabled house with a chimney on its front roof seen from
+  behind copies none of the chimney's surroundings with the chimney a part and more than 40 without, and still draws
+  over 1000 pixels of its back roof from the front.
+- **Roof parts and hand shapes** (rows 1 and 4 to 6). Measured on the 2003 pictures with a scratch helper (the roof
+  plane under a picture pixel from the blocks, the heights from the pixel rows, as S07b): dormers (gabled blocks
+  whose ridge runs down the roof) and chimneys (flat blocks from the ground) in `roof-parts/` for townhouse03/04/05,
+  towncornhouse03/04, e_ctownhouse02/03/04, e_townhouse01/02/04, e_house03, a_h04 and e_jettybuilding; on a building
+  symmetric about its ridge (the ussr town houses) the dormers are mirrored to the far roof plane, which the 2003
+  picture hides. New hand shapes: townhouse03/04/05 (hipped or gabled main block that the fit had cut flat),
+  towncornhouse03 (two hipped wings), e_townhouse04 (one steep gable), e_ctownhouse03_2 (a cross gable over the
+  front), e_cityhall_1 (cross wings at both ends: the jumbled roof was the tower's and the gables' pixels on the main
+  roof), e_jettybuilding (its tower and clock gable moved to roof parts, so the copied roof no longer repeats them;
+  _4 takes _1's shape turned), e_house03 (the porch a gabled block instead of a flat slab that took the roof: row 6),
+  e_frenchshed06 (one gable instead of a flat box with a gabled end: its bleached hip ends), a_h03 (stepped flat
+  roofs instead of a hip), a_h04 (a notch with three steps for the outside stair: row 5). `shape` and the hand shape
+  test now measure the hand shape with its roof parts (a tower or gable moved there still counts).
+- **Result** ([batch](../evidence/building-views/batch.md)): 194 of 194 variants pass, hold-out 43 of 43, 582 folders
+  through the engine check, 73 hand shapes (57), roof parts on 85 turns of 31 variants with 150523 of 150830 wall
+  pixels kept, 0 copied part pixels. Contact sheets before and after: `zig-out/local-test/s07d/contact-before`,
+  `contact-after` (not tracked).
+- **Not done.** Row 7's crate: a mirror across the screen's vertical maps the footprint (x, y) to (-y, -x), the turn to
+  (-y, x); e_wt's 5 x 6 footprint has free corners that the two put in different cells, and no shift of the mirrored
+  picture lays it on the turned one. Writing the mirrored footprint into the turned 1.xml would move the depot's
+  passability off the 2003 object's, so it is left as a known offset of one cell.
+- **Still not reading as the 2003 object** (the pass over all 194 after the fix): a_h04_1 r1/r3 (the gallery's and
+  terrace's railings land on the flat roofs as stripes; a railing is no block), e_jettybuilding_1/_4 (patch-filled
+  roof planes, a building of five roofs from one side), e_townhouse02_2/_3 (its large dormers are only partly in
+  the fixture; the roof between them is patch fill), e_house07_1 (the roof's eaves on the gable walls, whiter in the
+  light), e_house01_1/_3 (a thatch roof seen from the shaded side relit bright, as before), e_townhouse01_3/_4 r2/r3
+  (the porch roof stands as a red slab), e_house11_1 r3 (its lean-to's roof lit pale), a_wb/01 r1/r3 (planked gables
+  pale in the light).
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

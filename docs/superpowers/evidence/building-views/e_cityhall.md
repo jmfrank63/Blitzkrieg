@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.05 | 2.5 | 0.030 | pass |
-| e_cityhall_1 | r1 | 2 | 2 | 45.9 | 24.6 | 28.3 | 1.1 | 1.11 | 0.8 | 0.046 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 56.3 | 34.4 | 8.2 | 1.1 | 1.17 | 0.9 | 0.073 | pass |
-| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 1.16 | 7.4 | 0.030 | pass |
-| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 54.4 | 44.3 | 1.3 | 1.10 | 6.7 | 0.017 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 25.0 | 64.3 | 9.8 | 0.9 | 1.00 | 4.1 | 0.016 | pass |
-| e_cityhall_1 | r3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.95 | 16.2 | 0.067 | pass |
-| e_cityhall_1 | r3 | 4 | 2 | 29.2 | 36.4 | 33.3 | 1.2 | 0.97 | 11.9 | 0.062 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 47.4 | 39.0 | 13.3 | 0.3 | 1.02 | 6.5 | 0.074 | pass |
+| e_cityhall_1 | r1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.06 | 2.0 | 0.046 | pass |
+| e_cityhall_1 | r1 | 2 | 2 | 45.9 | 26.5 | 26.5 | 1.1 | 0.98 | 6.0 | 0.083 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 56.3 | 34.8 | 7.9 | 1.0 | 1.10 | 3.1 | 0.003 | pass |
+| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 1.17 | 7.5 | 0.041 | pass |
+| e_cityhall_1 | r2 | 3 | 2 | 0.0 | 59.7 | 39.0 | 1.3 | 1.05 | 2.4 | 0.019 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 25.0 | 65.0 | 9.4 | 0.6 | 1.00 | 3.6 | 0.011 | pass |
+| e_cityhall_1 | r3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.96 | 15.4 | 0.083 | pass |
+| e_cityhall_1 | r3 | 4 | 2 | 29.2 | 39.5 | 30.2 | 1.2 | 0.81 | 20.2 | 0.097 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 47.4 | 39.5 | 12.9 | 0.2 | 0.92 | 10.3 | 0.006 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house04_4 | r1 | 1 | 1 | 70.1 | 27.3 | 1.1 | 1.5 | 0.58 | 19.7 | 0.051 | pass |
-| e_house04_4 | r1 | 1 | 2 | 59.6 | 30.7 | 6.0 | 3.7 | 1.01 | 4.2 | 0.034 | pass |
-| e_house04_4 | r1 | 1 | 3 | 66.5 | 26.9 | 3.2 | 3.4 | 1.11 | 5.8 | 0.036 | pass |
-| e_house04_4 | r2 | 2 | 1 | 0.1 | 97.4 | 0.9 | 1.5 | 0.95 | 1.6 | 0.045 | pass |
-| e_house04_4 | r2 | 2 | 2 | 0.0 | 85.1 | 9.5 | 5.3 | 1.05 | 1.1 | 0.020 | pass |
-| e_house04_4 | r2 | 2 | 3 | 4.0 | 87.0 | 4.2 | 4.7 | 1.13 | 4.9 | 0.011 | pass |
-| e_house04_4 | r3 | 3 | 1 | 19.9 | 78.1 | 0.9 | 1.1 | 0.66 | 27.2 | 0.071 | pass |
-| e_house04_4 | r3 | 3 | 2 | 39.7 | 51.0 | 6.4 | 2.9 | 1.19 | 2.4 | 0.062 | pass |
-| e_house04_4 | r3 | 3 | 3 | 31.3 | 61.8 | 2.6 | 4.2 | 1.18 | 3.2 | 0.040 | pass |
+| e_house04_4 | r1 | 1 | 1 | 70.1 | 27.3 | 1.1 | 1.5 | 0.59 | 19.2 | 0.039 | pass |
+| e_house04_4 | r1 | 1 | 2 | 59.6 | 37.0 | 2.6 | 0.7 | 1.10 | 1.4 | 0.068 | pass |
+| e_house04_4 | r1 | 1 | 3 | 66.5 | 27.4 | 2.9 | 3.3 | 1.14 | 4.0 | 0.017 | pass |
+| e_house04_4 | r2 | 2 | 1 | 0.1 | 97.4 | 0.9 | 1.5 | 0.95 | 1.5 | 0.056 | pass |
+| e_house04_4 | r2 | 2 | 2 | 0.0 | 96.3 | 2.9 | 0.8 | 1.02 | 1.7 | 0.024 | pass |
+| e_house04_4 | r2 | 2 | 3 | 3.9 | 89.4 | 3.3 | 3.4 | 1.05 | 2.8 | 0.021 | pass |
+| e_house04_4 | r3 | 3 | 1 | 19.9 | 78.1 | 0.9 | 1.1 | 0.70 | 26.5 | 0.067 | pass |
+| e_house04_4 | r3 | 3 | 2 | 39.7 | 57.5 | 2.1 | 0.7 | 1.18 | 2.3 | 0.095 | pass |
+| e_house04_4 | r3 | 3 | 3 | 31.2 | 63.6 | 2.2 | 3.0 | 1.16 | 3.1 | 0.009 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

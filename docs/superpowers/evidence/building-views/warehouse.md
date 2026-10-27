@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| warehouse | r1 | 2 | 1 | 77.2 | 20.6 | 1.9 | 0.3 | 1.31 | 7.3 | 0.038 | pass |
-| warehouse | r1 | 2 | 1w | 76.6 | 20.3 | 2.4 | 0.7 | 1.33 | 7.2 | 0.040 | pass |
-| warehouse | r1 | 2 | 2 | 77.0 | 19.9 | 2.6 | 0.4 | 1.16 | 3.0 | 0.051 | pass |
-| warehouse | r1 | 2 | 2w | 77.0 | 19.9 | 2.6 | 0.4 | 1.20 | 3.1 | 0.019 | pass |
-| warehouse | r1 | 2 | 3 | 79.8 | 10.8 | 0.1 | 9.3 | 1.11 | 1.0 | 0.029 | pass |
-| warehouse | r1 | 2 | 3w | 79.8 | 10.8 | 0.1 | 9.3 | 1.07 | 1.2 | 0.029 | pass |
-| warehouse | r2 | 3 | 1 | 66.0 | 23.6 | 8.5 | 1.8 | 1.19 | 1.3 | 0.044 | pass |
-| warehouse | r2 | 3 | 1w | 66.1 | 23.0 | 8.7 | 2.3 | 1.26 | 0.9 | 0.034 | pass |
-| warehouse | r2 | 3 | 2 | 65.0 | 25.0 | 8.5 | 1.6 | 1.12 | 1.7 | 0.012 | pass |
-| warehouse | r2 | 3 | 2w | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.7 | 0.009 | pass |
-| warehouse | r2 | 3 | 3 | 71.8 | 16.8 | 0.0 | 11.3 | 0.95 | 3.5 | 0.021 | pass |
-| warehouse | r2 | 3 | 3w | 71.8 | 16.8 | 0.0 | 11.3 | 0.95 | 3.4 | 0.020 | pass |
-| warehouse | r3 | 4 | 1 | 83.0 | 6.8 | 8.3 | 1.8 | 1.35 | 3.9 | 0.030 | pass |
-| warehouse | r3 | 4 | 1w | 83.0 | 6.5 | 8.2 | 2.2 | 1.40 | 1.7 | 0.038 | pass |
-| warehouse | r3 | 4 | 2 | 81.7 | 8.4 | 8.3 | 1.6 | 1.13 | 3.0 | 0.052 | pass |
-| warehouse | r3 | 4 | 2w | 81.7 | 8.4 | 8.3 | 1.6 | 1.19 | 3.1 | 0.016 | pass |
-| warehouse | r3 | 4 | 3 | 83.0 | 8.3 | 0.2 | 8.4 | 1.12 | 0.8 | 0.054 | pass |
-| warehouse | r3 | 4 | 3w | 83.0 | 8.3 | 0.2 | 8.4 | 1.08 | 1.7 | 0.054 | pass |
+| warehouse | r1 | 2 | 1 | 77.2 | 20.6 | 1.9 | 0.3 | 1.33 | 8.8 | 0.080 | pass |
+| warehouse | r1 | 2 | 1w | 76.6 | 20.3 | 2.4 | 0.7 | 1.24 | 7.5 | 0.067 | pass |
+| warehouse | r1 | 2 | 2 | 77.0 | 19.9 | 2.6 | 0.4 | 1.12 | 1.5 | 0.050 | pass |
+| warehouse | r1 | 2 | 2w | 77.0 | 19.9 | 2.6 | 0.4 | 1.16 | 1.8 | 0.026 | pass |
+| warehouse | r1 | 2 | 3 | 79.8 | 12.8 | 2.6 | 4.8 | 1.13 | 1.3 | 0.012 | pass |
+| warehouse | r1 | 2 | 3w | 79.8 | 12.8 | 2.6 | 4.8 | 1.10 | 1.4 | 0.016 | pass |
+| warehouse | r2 | 3 | 1 | 66.0 | 23.6 | 8.5 | 1.8 | 1.19 | 2.2 | 0.058 | pass |
+| warehouse | r2 | 3 | 1w | 66.1 | 23.0 | 8.7 | 2.3 | 1.24 | 1.6 | 0.037 | pass |
+| warehouse | r2 | 3 | 2 | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.6 | 0.006 | pass |
+| warehouse | r2 | 3 | 2w | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.8 | 0.014 | pass |
+| warehouse | r2 | 3 | 3 | 71.8 | 20.3 | 2.3 | 5.6 | 1.00 | 1.6 | 0.011 | pass |
+| warehouse | r2 | 3 | 3w | 71.8 | 20.3 | 2.3 | 5.6 | 1.00 | 1.6 | 0.008 | pass |
+| warehouse | r3 | 4 | 1 | 83.0 | 6.8 | 8.3 | 1.8 | 1.39 | 6.0 | 0.121 | pass |
+| warehouse | r3 | 4 | 1w | 83.0 | 6.5 | 8.2 | 2.2 | 1.30 | 3.2 | 0.098 | pass |
+| warehouse | r3 | 4 | 2 | 81.7 | 8.4 | 8.3 | 1.6 | 1.09 | 1.4 | 0.043 | pass |
+| warehouse | r3 | 4 | 2w | 81.7 | 8.4 | 8.3 | 1.6 | 1.14 | 1.7 | 0.028 | pass |
+| warehouse | r3 | 4 | 3 | 83.0 | 9.9 | 2.4 | 4.6 | 1.07 | 0.5 | 0.006 | pass |
+| warehouse | r3 | 4 | 3w | 83.0 | 9.9 | 2.4 | 4.6 | 1.04 | 0.8 | 0.007 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed05 | r1 | 2 | 1 | 78.6 | 16.8 | 0.3 | 4.3 | 0.74 | 37.6 | 0.028 | pass |
-| e_frenchshed05 | r1 | 2 | 2 | 74.4 | 14.9 | 0.1 | 10.6 | 0.74 | 22.3 | 0.043 | pass |
-| e_frenchshed05 | r1 | 2 | 3 | 82.1 | 7.8 | 2.0 | 8.1 | 0.94 | 0.7 | 0.021 | pass |
-| e_frenchshed05 | r2 | 3 | 1 | 0.8 | 86.1 | 0.3 | 12.7 | 1.02 | 5.5 | 0.026 | pass |
-| e_frenchshed05 | r2 | 3 | 2 | 0.0 | 77.0 | 0.0 | 23.0 | 0.91 | 9.9 | 0.068 | pass |
-| e_frenchshed05 | r2 | 3 | 3 | 77.0 | 10.5 | 2.2 | 10.4 | 0.92 | 5.6 | 0.015 | pass |
-| e_frenchshed05 | r3 | 4 | 1 | 18.9 | 72.0 | 0.4 | 8.8 | 0.72 | 42.1 | 0.028 | pass |
-| e_frenchshed05 | r3 | 4 | 2 | 18.8 | 63.0 | 0.1 | 18.1 | 0.71 | 30.1 | 0.064 | pass |
-| e_frenchshed05 | r3 | 4 | 3 | 80.7 | 9.7 | 1.6 | 8.0 | 0.93 | 6.2 | 0.019 | pass |
+| e_frenchshed05 | r1 | 2 | 1 | 78.6 | 16.8 | 0.3 | 4.3 | 0.74 | 36.3 | 0.106 | pass |
+| e_frenchshed05 | r1 | 2 | 2 | 74.4 | 20.6 | 1.4 | 3.7 | 1.04 | 7.0 | 0.037 | pass |
+| e_frenchshed05 | r1 | 2 | 3 | 82.1 | 10.8 | 3.0 | 4.1 | 0.96 | 0.4 | 0.011 | pass |
+| e_frenchshed05 | r2 | 3 | 1 | 0.8 | 86.1 | 0.3 | 12.7 | 1.02 | 5.3 | 0.053 | pass |
+| e_frenchshed05 | r2 | 3 | 2 | 0.0 | 94.0 | 1.5 | 4.5 | 0.95 | 1.1 | 0.030 | pass |
+| e_frenchshed05 | r2 | 3 | 3 | 77.0 | 15.3 | 3.4 | 4.3 | 1.02 | 1.7 | 0.042 | pass |
+| e_frenchshed05 | r3 | 4 | 1 | 18.9 | 72.0 | 0.4 | 8.8 | 0.72 | 40.7 | 0.093 | pass |
+| e_frenchshed05 | r3 | 4 | 2 | 18.8 | 75.9 | 1.3 | 4.0 | 1.04 | 7.8 | 0.039 | pass |
+| e_frenchshed05 | r3 | 4 | 3 | 80.6 | 12.2 | 2.8 | 4.3 | 0.91 | 6.3 | 0.013 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

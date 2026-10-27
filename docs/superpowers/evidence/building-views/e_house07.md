@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house07_1 | r1 | 2 | 1 | 70.9 | 24.8 | 2.2 | 2.1 | 0.98 | 0.8 | 0.044 | pass |
-| e_house07_1 | r1 | 2 | 2 | 71.8 | 23.8 | 2.5 | 1.9 | 2.14 | 2.1 | 0.013 | pass |
-| e_house07_1 | r1 | 2 | 3 | 71.8 | 23.8 | 2.5 | 1.9 | 2.53 | 1.6 | 0.000 | sharpness 2.53 outside 0.70..1.55 |
-| e_house07_1 | r2 | 3 | 1 | 46.8 | 36.7 | 13.1 | 3.3 | 1.07 | 2.0 | 0.026 | pass |
-| e_house07_1 | r2 | 3 | 2 | 47.9 | 36.0 | 13.0 | 3.1 | 2.02 | 0.9 | 0.004 | pass |
-| e_house07_1 | r2 | 3 | 3 | 47.9 | 36.0 | 13.0 | 3.1 | 2.11 | 0.5 | 0.000 | sharpness 2.11 outside 0.70..1.55 |
-| e_house07_1 | r3 | 4 | 1 | 69.7 | 14.9 | 12.8 | 2.6 | 1.05 | 2.0 | 0.050 | pass |
-| e_house07_1 | r3 | 4 | 2 | 70.2 | 14.8 | 12.6 | 2.4 | 2.42 | 6.1 | 0.023 | sharpness 2.42 outside 0.50..2.20 |
-| e_house07_1 | r3 | 4 | 3 | 70.2 | 14.8 | 12.6 | 2.4 | 2.83 | 4.0 | 0.000 | sharpness 2.83 outside 0.70..1.55 |
+| e_house07_1 | r1 | 2 | 1 | 70.9 | 24.8 | 2.2 | 2.1 | 1.02 | 4.8 | 0.143 | pass |
+| e_house07_1 | r1 | 2 | 2 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 5.0 | 0.016 | pass |
+| e_house07_1 | r1 | 2 | 3 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 2.9 | 0.000 | pass |
+| e_house07_1 | r2 | 3 | 1 | 46.8 | 36.7 | 13.1 | 3.3 | 1.08 | 1.7 | 0.021 | pass |
+| e_house07_1 | r2 | 3 | 2 | 47.9 | 37.6 | 13.6 | 0.9 | 1.45 | 0.5 | 0.001 | pass |
+| e_house07_1 | r2 | 3 | 3 | 47.9 | 37.6 | 13.6 | 0.9 | 1.46 | 0.3 | 0.000 | pass |
+| e_house07_1 | r3 | 4 | 1 | 69.7 | 14.9 | 12.8 | 2.6 | 1.10 | 7.0 | 0.154 | pass |
+| e_house07_1 | r3 | 4 | 2 | 70.2 | 15.6 | 13.2 | 1.0 | 1.25 | 4.2 | 0.015 | pass |
+| e_house07_1 | r3 | 4 | 3 | 70.2 | 15.6 | 13.2 | 1.0 | 1.26 | 2.5 | 0.000 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion

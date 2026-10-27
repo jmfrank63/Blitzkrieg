@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed02 | r1 | 2 | 1 | 34.2 | 65.1 | 0.5 | 0.2 | 1.53 | 8.1 | 0.006 | pass |
-| e_frenchshed02 | r1 | 2 | 2 | 32.5 | 45.4 | 15.4 | 6.7 | 1.46 | 27.9 | 0.050 | pass |
-| e_frenchshed02 | r1 | 2 | 3 | 40.4 | 50.0 | 2.6 | 7.0 | 1.25 | 16.0 | 0.042 | pass |
-| e_frenchshed02 | r2 | 3 | 1 | 0.0 | 99.5 | 0.3 | 0.2 | 1.13 | 14.6 | 0.038 | pass |
-| e_frenchshed02 | r2 | 3 | 2 | 7.6 | 62.9 | 22.1 | 7.4 | 1.25 | 14.6 | 0.024 | pass |
-| e_frenchshed02 | r2 | 3 | 3 | 8.9 | 81.0 | 2.0 | 8.1 | 0.98 | 1.5 | 0.016 | pass |
-| e_frenchshed02 | r3 | 4 | 1 | 68.7 | 30.6 | 0.5 | 0.2 | 1.47 | 14.4 | 0.033 | pass |
-| e_frenchshed02 | r3 | 4 | 2 | 68.3 | 19.6 | 10.0 | 2.1 | 1.39 | 15.9 | 0.009 | pass |
-| e_frenchshed02 | r3 | 4 | 3 | 68.8 | 23.8 | 2.3 | 5.1 | 1.29 | 20.4 | 0.039 | pass |
+| e_frenchshed02 | r1 | 2 | 1 | 34.2 | 65.1 | 0.5 | 0.2 | 1.53 | 8.2 | 0.034 | pass |
+| e_frenchshed02 | r1 | 2 | 2 | 32.5 | 62.1 | 4.8 | 0.5 | 1.52 | 16.2 | 0.209 | pass |
+| e_frenchshed02 | r1 | 2 | 3 | 40.4 | 52.1 | 2.8 | 4.7 | 1.12 | 6.6 | 0.041 | pass |
+| e_frenchshed02 | r2 | 3 | 1 | 0.0 | 99.5 | 0.3 | 0.2 | 1.14 | 14.6 | 0.050 | pass |
+| e_frenchshed02 | r2 | 3 | 2 | 7.6 | 85.7 | 6.0 | 0.7 | 1.04 | 3.6 | 0.010 | pass |
+| e_frenchshed02 | r2 | 3 | 3 | 8.9 | 83.4 | 2.0 | 5.7 | 0.95 | 1.0 | 0.012 | pass |
+| e_frenchshed02 | r3 | 4 | 1 | 68.7 | 30.6 | 0.5 | 0.2 | 1.47 | 14.6 | 0.062 | pass |
+| e_frenchshed02 | r3 | 4 | 2 | 68.3 | 27.4 | 3.7 | 0.6 | 1.42 | 11.9 | 0.197 | pass |
+| e_frenchshed02 | r3 | 4 | 3 | 68.8 | 23.8 | 2.4 | 5.0 | 1.11 | 7.1 | 0.040 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
