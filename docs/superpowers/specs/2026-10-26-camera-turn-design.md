@@ -480,3 +480,155 @@ changed.
 - Mirrored props are not relit; the France fence's side order is assumed from the other families'.
 - A tier's Game run that asserts waits for its 240 s timeout (an assert dialog), which can push a tier past 10
   minutes; it then fails, as it should.
+
+## Draw order, picking, scrolling, the minimap, saves and replays (S05, 2026-10-27)
+
+### What was found (S05)
+
+- **Draw order** needed no change: a sprite's depth comes from the turned view matrix (`relpos.z`) and S01's turned
+  `fZBias2`, and the z-buffer sorts the rest. Measured below.
+- **Scrolling** needed no change: the arrow keys and the screen's edges move the anchor along the turned yaw's axes
+  (S01), and the trackpad pan goes through `GetPos3`, which projects through the turned view. Measured below.
+- **Picking a sprite** (`CSpriteVisObj::IsHit`) tested the 2003 picture's rectangle at the zero cross, so a mirrored
+  prop (S03) was picked by its unmirrored outline. A flat-turned terra object has the same test, but the game never
+  picks terra objects (`CWorldClient::UpdatePick` stops at fences).
+- **A frame selection** (`CScene::Pick` by rectangle) chose the cells to look in with `SelectPatches2`, whose
+  rectangle is built from the 45 degree view's screen axes: turned, it looked in the wrong cells.
+- **The minimap** drew the 2003 picture with the view frame of the turned view on it (the screen's corners on the
+  ground, a turned shape); its frame clipping (`GetVerticalClippedScreenEdge` and the horizontal one) assumes which map
+  edge each screen edge can cross at 45 degrees.
+- **Ground under the screen's centre.** `CScene::GetPos3` asks the AI for the line of sight's meeting with the
+  terrain, through `IGFX::GetViewVolumeCrosses`, which the GPU backend leaves empty (`GraphicsEngineGpu.cpp`); so
+  every screen point is taken on the plane at height 0 (orders, the minimap frame), at every step including step 0.
+  Not changed here (the 2003 behaviour on hills needs that stub filled; outside this slice).
+- **Saves.** The step is a `GFX.*` var, which no save carries. A load reads the mission interface back and then
+  runs its `Init`, which puts every mission at step 0.
+- **Replays.** `-sh<file>` records the commands, `-lh<file>` plays them (a file name ending in `.xml` is taken for
+  the map). Every `-lh` play stopped with a UBSan panic before its first segment: the XML reader takes each field's
+  present value first (`CTreeAccessor::AddIntData`), and `CGroupCommand::bPlaceInQueue` was indeterminate (fixed,
+  with `CShowAreasCommand::bShow`). The history holds commands only; nothing of the view.
+- **Multiplayer.** `NRemastered::Enabled()` is false in multiplayer (gameplay rules must match on every machine),
+  so the turn key did nothing there. `playersCameraAnchors` are world units (a tile is 32 sqrt 2), and the shipped
+  multiplayer maps put each player's anchor near the player's own corner or edge.
+- **The controls screen** lists no keys (no text names the zoom or turn keys), so only `defconf.cfg` changes.
+
+### Decisions (S05)
+
+- **Turning back: `,`**, the command `camera_turn_back` in `game_mission` (`MC_CAMERA_TURN_BACK`), a quarter turn
+  the other way (step - 1 mod 4). BK_AUTO_UI names it `COMMA` (a comma separates the schedule's entries).
+- **Who may turn: the player's own Remastered option** (`NCameraTurn::Allowed`, the option var itself), also in
+  multiplayer and in a replay of either mode: the step is local view state. Gameplay rules stay behind
+  `NRemastered::Enabled()`.
+- **The pivot is the ground under the screen's centre** (`NCameraTurn::GroundUnderCentre`): walking the centre's line
+  of sight down from the eye against `ITerrain::GetHeight` (the heights units stand on), the first ground it meets.
+  `CInterfaceMission::TurnCamera` turns the anchor's offset from that point with the view, so the point stays under
+  the centre; on flat ground it is the anchor, as before. It does not use `GetPos3` (above). Where a hill hides the
+  point from the turned eye, the point under the centre is the hill: a turn shows what is in front.
+- **Picking what is drawn:** `SBasicSpriteInfo::UnturnOffset` takes a screen offset from the zero cross back into the
+  2003 picture (the flat turn undone, then the mirror), for the point pick and the rectangle pick of a sprite. A
+  frame selection turned looks in every cell of the box around its rectangle's ground corners (as wide as
+  `SelectPatches2`'s), and `IsHit` decides.
+- **The minimap turns with the view** (chosen over a fixed picture with a turned frame: the minimap then shows the
+  map as the view does, the frame keeps the screen's upright shape, and a player's own corner is at the bottom of
+  both). `CUIMiniMap::PointToTextureMiniMap` turns every map point about the map's middle by the step before the
+  2003 layout (`ProjectMiniMap`), and `TextureMiniMapToPoint` turns a click back, so the picture, the war fog, the
+  units, the markers, fire ranges, circles, the frame and the clicks all follow one rule. A turned map keeps the
+  diamond's bounding box (its width is x + y cells either way), so it fits the frame. Radii of circles are measured on
+  the 2003 layout (a circle is the same turned); a plane's altitude still lifts it up the picture; turned, the frame's
+  edges are clipped to the map as segments (`GetClippedEdge`, Liang-Barsky); the resampled picture is made again when
+  the step changes (`Draw`).
+- **Saves:** the mission interface writes the step as chunk 15 only when it is not 0, so a save at the 2003 view is
+  written as before; a load keeps the chunk's step (0 without it) and sets it on `CMD_LOAD_FINISHED`, once (the
+  settings screen sends that command too and must keep the step).
+- **The multiplayer start step** (`NCameraTurn::StartStep`): with the option on, a multiplayer game starts each
+  player's view at the step that puts the player's corner, its camera anchor's offset from the map's middle, at the
+  bottom of the screen. Screen down is world (1, -1) at step 0 and step k shows an offset where step 0 shows it turned
+  k times by (x, y) -> (-y, x); the step that points the corner most nearly down wins, step 0 on a tie (no anchor,
+  or one on the middle). A replay of a multiplayer game loads as one (`MultiplayerGame` from the history), so it
+  starts at the step of the player it shows; turns made while playing are not recorded (view state). A single player
+  mission starts at step 0, as in S01 (its anchor is where the designer put the opening view). `BK_MAP_TRACE` prints
+  the rule's step for every mission (`start turn <k> (applied | single player: 0)`).
+- **The step stays out of the game state:** nothing the AI runs reads it (the AI's war fog rectangle and the
+  visibility queries the client makes read, S03). The proof is a replay played at two steps (below).
+  `BK_AI_STATE_TRACE` prints the multiplayer checksum's terms of every unit (centre, direction, HP, morale) as a CRC
+  once a second of game time.
+- **Harness:** BK_AUTO_UI gains `pick=<x>x<y>[x<step>x<n>]` (`TracePick`: what the cursor picks there, or on a grid),
+  `drag=<x1>x<y1>x<x2>x<y2>` (a frame selection), `anchor` (the anchor, the ground under the centre and the step),
+  `key=<name>*<frames>` (a key held) and `COMMA`; `TraceSelection` lists each selected unit or building by name and
+  place (`BK_SELECTED:`).
+
+### The tiers (S05)
+
+`zig build camera-turn-control-game-reads-it` (`tools/zig/camera_turn_control_game_reads_it.zig`, about 5 minutes on
+win-home):
+
+- **control** (road3d, objects only; snipers of player 0 at eighths 0, 2, 4 of a ring, Swing01, E_House01_1): at every
+  step, every point of a grid well inside each drawn picture must pick it; a click where sniper 0 is drawn must select
+  it alone; a frame drawn around where snipers 0 and 2 are drawn must select exactly those; the arrow key, the right
+  screen edge and a trackpad swipe must move the view along the screen's right as the turn lays it on the ground; at
+  step 3 sniper 0 is ordered to a point clicked where the turn draws it.
+- **minimap** (the shipped coldwinter, large enough that the frame lies inside the map): with the view on the map's
+  middle the frame must keep its step-0 shape, the picture must be the step-0 picture turned about the minimap's
+  middle, and a minimap click must bring the frame to the clicked point.
+- **hill** (road3d with a hill of height 120): the ground under the centre through three turns and one back.
+- **draw order**: four clusters (a shed, four snipers in front of and behind it, four trees); the middle one at steps 0
+  to 3 against the others, the middle one turned 1, 2, 3 times (places, unit facings, the shed's own facing) at step
+  0, paused, the pause line left out.
+
+Measured (win-home, Windows x64, debug install):
+
+| | step 0 | step 1 | step 2 | step 3 |
+|---|---|---|---|---|
+| picks inside Swing01 / E_House01_1 / sniper (recall) | 17/17, 339/341, 15/15 | 17/17, 341/342, 21/21 | 17/17, 339/341, 19/19 | 17/17, 246/248, 18/18 |
+| of the swing's, off its 2003 outline | 0 | 9 | 0 | 9 |
+| click / frame selection | sniper 0 / 0 and 2 | same | same | same |
+| key, edge, swipe: cos to the screen's right | 1.000, 1.000, 1.000 | 1.000, 1.000, 0.999 | 1.000 each | 1.000, 1.000, 0.999 |
+| minimap frame IoU on the middle; picture turned / not | 1.000 | 1.000; 12.4 / 29.3 | 1.000; 14.4 / 40.8 | 1.000; 12.8 / 30.5 |
+| minimap click -> frame's middle | 173,686 -> 172,685 | 149,658 -> 148,657 | 93,670 -> 92,669 | 117,698 -> 116,697 |
+| hill: ground under the centre, from step 0's | 0.0 | 1.2 | 1.0 | 1.7 (2.0 back at 2) |
+| draw order: pixels differing / drawn (against step 0's shot) | | 0 / 28 667 (0.52) | 0 / 22 681 (0.47) | 0 / 27 861 (0.52) |
+
+The order at step 3, clicked at 776,441: the sniper walked to 1.7 world units from the clicked ground. The house's
+two or three missed points of three hundred lie on its picture's ragged edge (a complex sprite is picked by its
+squares). On the hill (37.7 high under the centre) the 2003 pivot would move the point 92 world units a turn. The house
+at step 3 stands partly under the message line, where no point is counted. A minimap click lands 140 to 200 world
+units from step 0's click at the other steps: the click is a whole pixel and the minimap's middle is known to a
+pixel, and the turn doubles an error along x; the frame lands on the clicked pixel at every step.
+
+`zig build camera-turn-state-game-reads-it` (`tools/zig/camera_turn_state_game_reads_it.zig`, about 7 minutes with a
+Game rebuild):
+
+- **save and load:** a mission saved at step 2 and again at step 0; the first loads at step 2 at the saved anchor with
+  0.0046 of the view's pixels differing from the shot before the save; turned once more (step 3), the second loads at
+  step 0.
+- **replay:** recorded at step 1 (the sniper clicked and ordered where the turn draws them; it walked to 2.2 world
+  units from the clicked ground) under a T-34's fire; played at step 0 and turned back and forth with the view moved
+  away: 17 of 17 seconds the same units' state (17 distinct states, units 12 down to 7), while the recording run itself
+  (another random seed) matched for 1 second only.
+- **multiplayer start step:** the player's anchor in each corner of road3d: (+, -) step 0, (-, -) 1, (-, +) 2, (+, +) 3,
+  each as expected; every single player mission started at step 0.
+
+### Other tiers (S05)
+
+Run on win-home (Windows x64, debug), one at a time, after the last engine change: `camera-turn-game-reads-it` (buildings
+IoU 0.993 to 1.000, terrain blocks 2.91 / 0.13 / 2.84), `camera-turn-world-game-reads-it` (dessau ground 1.99 / 2.23 /
+2.44, lifts 1, 1, 2; scene 15.5 / 19.8 / 11.6), `camera-turn-units-game-reads-it` and `building-views-game-reads-it` pass;
+`remastered-game-reads-it`, `mod-compat-game-reads-it` and `mod-language-game-reads-it`: 13 of 17, the 4 failures the
+known hb-view `l10n_measure` tests (`mod-language-game-reads-it` takes about 18 minutes with its language mods, so it was
+run in the background and waited for). Scene and UI code the Map Editor shares changed (its step stays 0):
+`test-map-editor-engine map-editor-smoke` in one call, exit 0 (6.5 minutes). `camera-turn-control-game-reads-it` ran again
+after the load fix with the same numbers. The editor bridge's own code is untouched, so `test-editor-bridge` was not run.
+
+### Rough edges left (S05)
+
+- **The multiplayer start step is applied by code only:** no tier runs a multiplayer game (no harness for two Games);
+  the rule is measured through `BK_MAP_TRACE` on single player maps, and a multiplayer replay's view of each player is
+  not run either. That the step never reaches the network rests on the replay proof (the step is in no command, and
+  the multiplayer stream carries commands and checksums only).
+- **Ground on hills** is the plane at height 0 for every screen point (`GetViewVolumeCrosses` is empty on the GPU
+  backend): orders and the minimap frame on raised ground land off the clicked ground at every step, step 0 included.
+- **Draw order** is measured with infantry, trees and a building; bridges are not in the clusters (their spans are other
+  variants' pictures, S04).
+- The minimap's resampled picture is made again on each turn (not timed); a turned frame is clipped by the new segment
+  clipping, the 2003 one still at step 0.
+- A replay records no turns made while it was recorded; a single player replay starts at step 0.
