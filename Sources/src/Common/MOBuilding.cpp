@@ -434,17 +434,37 @@ CVec3 CMOBuilding::TurnPoint( const CVec3 &vPoint ) const
 		v = CVec3( -v.y, v.x, v.z );
 	return v;
 }
+// Where a point of its 1.xml (a slot, fire, smoke or explosion point) is on
+// the building, as it stands. 1.xml holds two places per point: `Position`,
+// the ground place (AI units after ToAIUnits), and `WorldPosition`, the
+// picture point taken back to some depth on the 2003 camera's line of sight,
+// a median 43 world units from the ground place (all shipped buildings). Only
+// the 2003 view draws that one where the picture shows it; so with the
+// Remastered option, whose camera turns, the point is the one on the same
+// line of sight above the ground place: the 2003 camera puts world (x, y, z)
+// at picture y (x - y) / (2 sqrt 2) - z sqrt 3 / 2, so moving the point to
+// x, y raises it by the change of x - y over sqrt 6. Without the option the
+// 2003 point, as before.
+CVec3 CMOBuilding::PointOf( const CVec3 &vAIPos, const CVec3 &vWorldPos ) const
+{
+	if ( !NCameraTurn::Allowed() )
+		return TurnPoint( vWorldPos );
+	CVec3 vGround;
+	AI2Vis( &vGround, vAIPos );
+	const float fRise = ( ( vGround.x - vGround.y ) - ( vWorldPos.x - vWorldPos.y ) ) / sqrtf( 6.0f );
+	return TurnPoint( CVec3( vGround.x, vGround.y, vWorldPos.z + fRise ) );
+}
 void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer::STime &timeEffect, 
 																					  const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	const SBuildingRPGStats *pRPGStats = GetRPGStats();
 	const CVec3 vPos = pVisObj->GetPosition();
-	const float fTurn = 90.0f * GetStandingTurn();			// the points' directions are degrees
+	const float fTurn = FP_PI2 * GetStandingTurn();			// the points' directions are radians (ToAIUnits)
 	if ( !pRPGStats->szSmokeEffect.empty() && !pRPGStats->smokePoints.empty() ) 
 	{
 		for ( std::vector<SBuildingRPGStats::SFirePoint>::const_iterator it = pRPGStats->smokePoints.begin(); it != pRPGStats->smokePoints.end(); ++it )
 		{
-			AddDirEffect( pRPGStats->szSmokeEffect, vPos + TurnPoint( it->vWorldPosition ), it->fDirection + fTurn, 
+			AddDirEffect( pRPGStats->szSmokeEffect, vPos + PointOf( it->vPos, it->vWorldPosition ), it->fDirection + fTurn, 
 				            it->fVerticalAngle, timeEffect, timePassed, pVOB, pScene );
 		}
 	}
@@ -454,7 +474,7 @@ void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer
 		{
 			if ( !it->szFireEffect.empty() ) 
 			{
-				AddDirEffect( it->szFireEffect, vPos + TurnPoint( it->vWorldPosition ), it->fDirection + fTurn, 
+				AddDirEffect( it->szFireEffect, vPos + PointOf( it->vPos, it->vWorldPosition ), it->fDirection + fTurn, 
 					            it->fVerticalAngle, timeEffect, timePassed, pVOB, pScene );
 			}
 		}
@@ -548,11 +568,14 @@ void CMOBuilding::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer:
 	if ( hit.pWeapon->shells[hit.wShell].fArea == 0 )
 		return;
 	const float fAngle = float( hit.wDir ) / 65535.0f * FP_2PI;
+	// A building standing turned has its explosion points turned with it.
+	const float fTurn = FP_PI2 * GetStandingTurn();
 	float fMinDiff = 1e5f;
 	const SBuildingRPGStats::SDirectionExplosion *pDir = 0;
 	for ( std::vector<SBuildingRPGStats::SDirectionExplosion>::const_iterator it = GetRPGStats()->dirExplosions.begin(); it != GetRPGStats()->dirExplosions.end(); ++it )
 	{
-		const float fDiff = fabsf( it->fDirection - fAngle );
+		const float fDirection = fTurn == 0 ? it->fDirection : fmodf( it->fDirection + fTurn, FP_2PI );
+		const float fDiff = fabsf( fDirection - fAngle );
 		if ( fDiff < fMinDiff ) 
 		{
 			fMinDiff = fDiff;
@@ -561,8 +584,8 @@ void CMOBuilding::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer:
 	}
 	if ( pDir ) 
 	{
-		AddDirEffect( GetRPGStats()->szDirExplosionEffect, pVisObj->GetPosition() + pDir->vWorldPosition, 
-		              pDir->fDirection, pDir->fVerticalAngle, currTime, 0, pVOB, pScene );
+		AddDirEffect( GetRPGStats()->szDirExplosionEffect, pVisObj->GetPosition() + PointOf( pDir->vPos, pDir->vWorldPosition ),
+		              pDir->fDirection + fTurn, pDir->fVerticalAngle, currTime, 0, pVOB, pScene );
 	}
 }
 void CMOBuilding::Select( ISelector *pSelector, bool bSelect, bool bSelectSuper )
@@ -586,7 +609,10 @@ void CMOBuilding::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTi
 		if ( (shot.nSlot >= 0) && (shot.nSlot < pRPGStats->slots.size()) ) 
 		{
 			const SBuildingRPGStats::SSlot &slot = pRPGStats->slots[shot.nSlot];
-			const CVec3 vSlot = TurnPoint( slot.vWorldPosition );
+			const CVec3 vSlot = PointOf( slot.vPos, slot.vWorldPosition );
+			static const bool bFireTrace = getenv( "BK_FIRE_TRACE" ) != 0;
+			if ( bFireTrace )
+				fprintf( stderr, "BK_FIRE_TRACE: flash slot %d at %.2f,%.2f,%.2f\n", shot.nSlot, vPos.x + vSlot.x, vPos.y + vSlot.y, vPos.z + vSlot.z );
 			// The slot's direction as the view sees it: turned with the building
 			// and by the camera step (NCameraTurn::ViewDirection), so a flash
 			// facing away from the screen is heard only, as in 2003.

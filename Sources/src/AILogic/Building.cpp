@@ -331,6 +331,12 @@ void CBuilding::SetFiringUnitProperties( CSoldier *pUnit, const int nSlot, const
 	pUnit->SetSightMultiplier( pStats->slots[nSlot].fSightMultiplier );
 
 	pUnit->SetNewCoordinates( CVec3( GetCenter(), 0 ) + pStats->slots[nSlot].vPos );
+	// BK_FIRE_TRACE: where a soldier fires from (the camera turn tier holds
+	// a building standing turned to its 1.xml's slots turned).
+	static const bool bFireTrace = getenv( "BK_FIRE_TRACE" ) != 0;
+	if ( bFireTrace )
+		fprintf( stderr, "BK_FIRE_TRACE: slot %d building %.2f,%.2f turn %d soldier %.2f,%.2f dir %u\n", nSlot, GetCenter().x, GetCenter().y,
+						 NStatsTurn::TurnOfStats( pStats ), pUnit->GetCenter().x, pUnit->GetCenter().y, unsigned( pStats->slots[nSlot].wDirection ) );
 
 	guns[nSlot]->SetOwner( pUnit );
 

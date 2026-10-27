@@ -134,6 +134,12 @@ const int CExistingObject::GetRandArmorByDir( const int nArmorDir, const WORD wA
 			{
 				SRect boundRect;
 				GetBoundRect( &boundRect );
+				// BK_FIRE_TRACE: the side a shot hits (the camera turn tier holds a
+				// building standing turned to its armour turned with it).
+				static const bool bFireTrace = getenv( "BK_FIRE_TRACE" ) != 0;
+				if ( bFireTrace )
+					fprintf( stderr, "BK_FIRE_TRACE: hit building %.2f,%.2f turn %d attack %u side %d\n", GetCenter().x, GetCenter().y,
+									 NStatsTurn::TurnOfStats( GetStats() ), unsigned( wAttackDir ), boundRect.GetSide( wAttackDir ) );
 				return GetStats()->GetRandomArmor( boundRect.GetSide( wAttackDir ) );
 			}
 		case 1: return GetStats()->GetRandomArmor( RPG_BOTTOM );
