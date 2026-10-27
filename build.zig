@@ -3063,7 +3063,7 @@ pub fn build(b: *std.Build) void {
     replay_game_run.setEnvironmentVariable("BK_REPLAY_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
     replay_game_run.has_side_effects = true;
     replay_game_run.step.dependOn(install_game_step);
-    const replay_game_step = b.step("replay-game-reads-it", "Record a mission where two sides fight with an order and Call HQ on the real Game, play the replay back twice and prove every state hash and script call equals the recording's; then load a save written mid-mission in two fresh processes and prove they go on with identical hashes");
+    const replay_game_step = b.step("replay-game-reads-it", "Record a mission where two sides fight with an order and Call HQ on the real Game, play the replay back twice and prove every state hash and script call equals the recording's; then load a save written mid-mission in two fresh processes and prove they go on with identical hashes, equal to the saving run's");
     replay_game_step.dependOn(&replay_game_tests.step);
     if (test_mode == .run) replay_game_step.dependOn(&replay_game_run.step);
 
