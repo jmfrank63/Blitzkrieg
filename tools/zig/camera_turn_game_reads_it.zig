@@ -346,6 +346,11 @@ pub fn runGameWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, r
 
 /// runGameWith in a window of `size` pixels (the shots are that size).
 pub fn runGameSized(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize, paused: bool, size: [2]u32) ![shots][]u8 {
+    return runGameTurning(io, allocator, game, root, name, map, look, remastered, disable, shots, paused, size, ".");
+}
+
+/// runGameSized with `key` (`.` or `COMMA`, the other way) pressed between the shots.
+pub fn runGameTurning(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize, paused: bool, size: [2]u32, key: []const u8) ![shots][]u8 {
     const cwd = std.Io.Dir.cwd();
     const user = try std.fs.path.join(allocator, &.{ root, "user", name });
     try cwd.createDirPath(io, user);
@@ -372,7 +377,7 @@ pub fn runGameSized(io: std.Io, allocator: std.mem.Allocator, game: []const u8, 
     const wait = if (paused) "t" else "g";
     if (paused) try schedule.appendSlice(allocator, ",g10:key=SPACE");
     for (0..shots) |k| {
-        if (k != 0) try schedule.print(allocator, ",{s}10:key=.", .{wait});
+        if (k != 0) try schedule.print(allocator, ",{s}10:key={s}", .{ wait, key });
         try schedule.print(allocator, ",{s}{d}:shot", .{ wait, 1500 + k });
     }
     try schedule.print(allocator, ",{s}200:exit", .{wait});

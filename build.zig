@@ -3276,6 +3276,20 @@ pub fn build(b: *std.Build) void {
     const ground_game_step = b.step("camera-turn-ground-game-reads-it", "Press the camera turn key on the real Game over river3d's ground alone in windows of 1024x768, 1280x1024 and 1920x1080 and measure that a half turn lays the ground with no offset");
     ground_game_step.dependOn(&ground_game_tests.step);
     if (test_mode == .run) ground_game_step.dependOn(&ground_game_run.step);
+    // Poland's whole village (S07): every building's turned picture at its
+    // turned map place, turned with `.` and with `,`, in two window sizes.
+    const poland_game_tests = b.addTest(.{ .root_module = village_game_module, .filters = &.{"Poland's village"} });
+    const poland_game_run = b.addRunArtifact(poland_game_tests);
+    poland_game_run.setCwd(b.path("."));
+    poland_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    poland_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    poland_game_run.has_side_effects = true;
+    poland_game_run.step.dependOn(install_game_step);
+    poland_game_run.step.dependOn(bk_views_step);
+    poland_game_run.step.dependOn(bk_sprite.install);
+    const poland_game_step = b.step("camera-turn-poland-game-reads-it", "Turn every building of Poland's village with bk-views side, lay the village on river3d as Poland holds it, turn the camera with the period and the comma key in windows of 1024x768 and 1920x1080, and find each building's picture at its map place turned");
+    poland_game_step.dependOn(&poland_game_tests.step);
+    if (test_mode == .run) poland_game_step.dependOn(&poland_game_run.step);
 
     // The rest of the world at every camera step (M006 S03,
     // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and

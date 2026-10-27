@@ -229,6 +229,196 @@ fn blockMean(sums: []const f64, size: [2]u32, x: i64, y: i64) ?f64 {
 
 const GroundFit = struct { dx: i32, dy: i32, best: f64, still: f64 };
 
+/// Poland's village (Data/Maps/German/Poland/Poland.bzm, the map of the
+/// maintainer's hand test): its buildings around the church and the barn, AI
+/// units from the screen's middle in the hand test as the map holds them
+/// (bk-map to-xml), and the folder each draws. The row of three houses 470 to
+/// 560 units further north is left out: with them the village does not fit
+/// on road3d with room for its footprints.
+const PolandBuilding = struct { name: []const u8, dir: []const u8, variant: []const u8, at: [2]f64 };
+const poland = [_]PolandBuilding{
+    .{ .name = "E_Stella_02", .dir = "e_stella/02", .variant = "02", .at = .{ 424, 18 } },
+    .{ .name = "E_House09_1", .dir = "e_house09_1", .variant = "e_house09_1", .at = .{ 74, 27 } },
+    .{ .name = "E_JettyBuilding_4", .dir = "e_jettybuilding_4", .variant = "e_jettybuilding_4", .at = .{ 286, 16 } },
+    .{ .name = "E_House03_4", .dir = "e_house03_4", .variant = "e_house03_4", .at = .{ 21, 428 } },
+    .{ .name = "E_House02_1", .dir = "e_house02_1", .variant = "e_house02_1", .at = .{ -112, 17 } },
+    .{ .name = "E_House02_2", .dir = "e_house02_2", .variant = "e_house02_2", .at = .{ -240, 17 } },
+    .{ .name = "E_WB_01", .dir = "e_wb/01", .variant = "01", .at = .{ 462, 419 } },
+};
+/// The village's middle, so the map (road3d, 1448 AI units across) holds it
+/// around its own middle.
+const poland_middle = [2]f64{ 111, 222 };
+/// A map place lands between pixels, which the prediction and the Game round
+/// apart by a pixel at most (also at step 0, the 2003 drawing): a place within
+/// a pixel of the turned one is where the turn puts it. A picture whose best
+/// place still differs from the frame by more than `hidden` (mean RGB) is
+/// behind a neighbour (the wayside cross behind the church at the half turn:
+/// 57.3); the ones found differ by 0 to 19.4.
+const hidden = 40.0;
+
+fn polandOffset(b: PolandBuilding) [2]f64 {
+    const dx = @round(middle + b.at[0] - poland_middle[0]) - middle;
+    const dy = @round(middle + b.at[1] - poland_middle[1]) - middle;
+    return .{ (dx + dy) / 2, (dx - dy) / 4 };
+}
+
+test "Poland's village: every building's turned picture stands at its map place turned, both ways, at two sizes" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-poland-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const cwd = std.Io.Dir.cwd();
+    const poland_scratch = scratch ++ "-poland";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), poland_scratch });
+    cwd.deleteTree(io, poland_scratch) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const work = try std.fs.path.join(allocator, &.{ root, "work" });
+
+    // Each variant's sides, all at once, into its folder's parent in the mod.
+    var children: [poland.len]?std.process.Child = undefined;
+    for (poland, &children, 0..) |b, *child, i| {
+        child.* = null;
+        for (poland[0..i]) |o| {
+            if (std.mem.eql(u8, o.dir, b.dir)) break;
+        } else {
+            const out = try std.fs.path.join(allocator, &.{ data, mod_buildings, std.fs.path.dirname(b.dir) orelse "" });
+            try cwd.createDirPath(io, out);
+            child.* = try std.process.spawn(io, .{
+                .argv = &.{ tool, "side", try std.fmt.allocPrint(allocator, "Data/Buildings/europe/summer/{s}", .{b.dir}), "1,2,3", out, work },
+                .stdin = .ignore,
+                .stdout = .ignore,
+                .stderr = .ignore,
+            });
+        }
+    }
+    for (&children, poland) |*child, b| if (child.*) |*c| {
+        const term = try c.wait(io);
+        if (!term.success()) {
+            std.debug.print("bk-views side {s} ended {any}\n", .{ b.dir, term });
+            return error.ToolFailed;
+        }
+    };
+    try writeMapOf(io, allocator, data);
+
+    var sprites: [poland.len][4]game_views.Sprite = undefined;
+    for (poland, 0..) |b, i| for (0..4) |k| {
+        const folder = if (k == 0) try std.fmt.allocPrint(allocator, "Data/Buildings/europe/summer/{s}", .{b.dir}) else try std.fmt.allocPrint(allocator, "{s}/{s}/{s}_r{d}", .{ data, mod_buildings, b.dir, k });
+        sprites[i][k] = try game_views.decompose(io, allocator, tool, folder, try std.fmt.allocPrint(allocator, "{s}/sprites/{d}_{d}", .{ root, i, k }));
+    };
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "key size shot step building: mean colour difference at the turned place (offset of the best place within 8 pixels)\n");
+    const objects_only = "shadows,effects,terrain,noise,warfog,border,haze,grid";
+    const runs = [_]struct { []const u8, [2]u32 }{ .{ ".", .{ 1024, 768 } }, .{ "COMMA", .{ 1024, 768 } }, .{ ".", .{ 1920, 1080 } }, .{ "COMMA", .{ 1920, 1080 } } };
+    for (runs) |run| {
+        const key, const size = run;
+        const name = try std.fmt.allocPrint(allocator, "poland-{s}-{d}x{d}", .{ if (key[0] == '.') "period" else "comma", size[0], size[1] });
+        const frames = try turn.runGameTurning(io, allocator, game, root, name, "poland.xml", .{ look, look }, "ON", objects_only, 4, false, size, key);
+        const centre = [2]f64{ @floatFromInt(size[0] / 2 - 1), @floatFromInt(size[1] / 2 - 1) };
+        for (frames, 0..) |frame, shot| {
+            // `.` turns one step on, `,` one back.
+            const step = if (key[0] == '.') shot else (4 - shot) % 4;
+            for (poland, 0..) |b, i| {
+                const d = turn.turnOffset(polandOffset(b), step);
+                const at = [2]i32{ @intFromFloat(@round(centre[0] + d[0])), @intFromFloat(@round(centre[1] + d[1])) };
+                const found = placeOf(frame, size, sprites[i][step], at, hidden) orelse {
+                    try report.print(allocator, "{s} {d}x{d} {d} {d} {s}: off the clear screen or hidden behind a neighbour\n", .{ key, size[0], size[1], shot, step, b.name });
+                    continue;
+                };
+                try report.print(allocator, "{s} {d}x{d} {d} {d} {s}: {d:.1} ({d},{d})\n", .{ key, size[0], size[1], shot, step, b.name, found.colour, found.dx, found.dy });
+                if (@abs(found.dx) > 1 or @abs(found.dy) > 1) failed = true;
+            }
+        }
+    }
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}a building of Poland's village stands off its turned place; the frames are in {s}\n", .{ report.items, root });
+        return error.DrawnWrong;
+    }
+}
+
+/// mod.xml and maps/poland.xml: road3d (dry and flat) with Poland's village
+/// around its middle, owned by player 0 as in Poland (E_WB_01, a storage,
+/// traps the debug Game at load when it belongs to nobody).
+fn writeMapOf(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
+    try cwd.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "mod.xml" }),
+        .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Camera turn Poland test</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n",
+    });
+    const map = try cwd.readFileAlloc(io, "Data/Maps/road3d.xml", allocator, .limited(4 << 20));
+    var items: std.ArrayList(u8) = .empty;
+    try items.appendSlice(allocator, "<Objects>");
+    for (poland, 1..) |b, link| {
+        try items.print(allocator, "<item Direction=\"0\" Player=\"0\" ScriptID=\"-1\" HP=\"1\" FrameIndex=\"-1\"><Name>{s}</Name>" ++
+            "<Position x=\"{d:.0}\" y=\"{d:.0}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ b.name, middle + b.at[0] - poland_middle[0], middle + b.at[1] - poland_middle[1], link });
+    }
+    try items.appendSlice(allocator, "</Objects>");
+    try cwd.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", "poland.xml" }),
+        .data = try std.mem.replaceOwned(u8, allocator, map, "<Objects/>", items.items),
+    });
+}
+
+/// Where a building's picture is in a crowded frame: the place within 8 pixels
+/// of `at` where its opaque pixels differ least from the frame (a neighbour in
+/// front hides some of them alike at every place); null when the picture is
+/// not wholly between the message lines and the panels, or nowhere differs
+/// from the frame by less than `ceiling`.
+fn placeOf(frame: []const u8, size: [2]u32, sprite: game_views.Sprite, at: [2]i32, ceiling: f64) ?struct { colour: f64, dx: i32, dy: i32 } {
+    const w: i32 = @intCast(size[0]);
+    const h: i32 = @intCast(size[1]);
+    var lo = [2]i32{ std.math.maxInt(i32), std.math.maxInt(i32) };
+    var hi = [2]i32{ 0, 0 };
+    for (sprite.image.pixels, 0..) |p, i| if (p[3] == 255) {
+        const x: i32 = @intCast(i % sprite.image.width);
+        const y: i32 = @intCast(i / sprite.image.width);
+        lo = .{ @min(lo[0], x), @min(lo[1], y) };
+        hi = .{ @max(hi[0], x), @max(hi[1], y) };
+    };
+    const reach8 = 8;
+    if (at[0] + lo[0] - sprite.anchor[0] - reach8 < 0 or at[0] + hi[0] - sprite.anchor[0] + reach8 >= w) return null;
+    if (at[1] + lo[1] - sprite.anchor[1] - reach8 < top_rows or at[1] + hi[1] - sprite.anchor[1] + reach8 >= h - bottom_rows) return null;
+    var best: f64 = std.math.floatMax(f64);
+    var best_at = [2]i32{ 0, 0 };
+    var oy: i32 = -reach8;
+    while (oy <= reach8) : (oy += 1) {
+        var ox: i32 = -reach8;
+        while (ox <= reach8) : (ox += 1) {
+            var sum: f64 = 0;
+            var n: f64 = 0;
+            var y = lo[1];
+            while (y <= hi[1]) : (y += 2) {
+                var x = lo[0];
+                while (x <= hi[0]) : (x += 2) {
+                    const p = sprite.image.pixels[@intCast(y * @as(i32, @intCast(sprite.image.width)) + x)];
+                    if (p[3] != 255) continue;
+                    const sx = at[0] + ox + x - sprite.anchor[0];
+                    const sy = at[1] + oy + y - sprite.anchor[1];
+                    const f = frame[@intCast((sy * w + sx) * 4)..][0..3];
+                    for (0..3) |c| sum += @abs(@as(f64, @floatFromInt(f[c])) - @as(f64, @floatFromInt(p[c])));
+                    n += 3;
+                }
+            }
+            const mean = if (n == 0) 255 else sum / n;
+            if (mean < best or (mean == best and ox == 0 and oy == 0)) {
+                best = mean;
+                best_at = .{ ox, oy };
+            }
+        }
+    }
+    if (best > ceiling) return null;
+    return .{ .colour = best, .dx = best_at[0], .dy = best_at[1] };
+}
+
 /// The north mark's band on the frame's upper left bar (ui\missionpanels,
 /// whose top left is the panel's, at (0, h - 155) in 1024 x 768): pixels
 /// between (52, 26)-(52, 35) and (86, 9)-(86, 18), inside its edges.
