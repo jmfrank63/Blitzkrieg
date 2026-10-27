@@ -37,20 +37,21 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
 of the turned and of the 2003 outline, the pixels the turn shows of the low parts the 2003 sides show below
-the walls (ramps, steps, porches) and of those the turn holds; a thin object, or a small one whose shape
-fails, is drawn as its 2003 sprite where the turn keeps the footprint.
+the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
+parts (vents, dormers) and of those it draws as walls; a thin object, or a small one whose shape fails, is
+drawn as its 2003 sprite where the turn keeps the footprint.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|
-| e_house11_1 | r1 | 0.97 | 1.11 | 0.89 | 0.025 | 0.036 | 614 | 614 | pass | blocks |
-| e_house11_1 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | pass | 2003 sprite |
-| e_house11_1 | r3 | 0.93 | 1.11 | 0.89 | 0.019 | 0.036 | 441 | 441 | pass | blocks |
-| e_house11_3 | r1 | 1.03 | 0.92 | 0.92 | 0.021 | 0.029 | 312 | 312 | pass | blocks |
-| e_house11_3 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | pass | 2003 sprite |
-| e_house11_3 | r3 | 0.92 | 0.92 | 0.92 | 0.015 | 0.029 | 162 | 162 | pass | blocks |
-| e_house11_4 | r1 | 0.93 | 0.89 | 0.89 | 0.014 | 0.024 | 0 | 0 | pass | blocks |
-| e_house11_4 | r2 | 0.89 | 0.89 | 0.89 | 0.016 | 0.024 | 0 | 0 | pass | blocks |
-| e_house11_4 | r3 | 0.94 | 0.89 | 0.89 | 0.014 | 0.024 | 97 | 97 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house11_1 | r1 | 0.97 | 1.11 | 0.89 | 0.025 | 0.036 | 614 | 614 | 0 | 0 | pass | blocks |
+| e_house11_1 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| e_house11_1 | r3 | 0.93 | 1.11 | 0.89 | 0.019 | 0.036 | 441 | 441 | 0 | 0 | pass | blocks |
+| e_house11_3 | r1 | 1.03 | 0.92 | 0.92 | 0.021 | 0.029 | 312 | 312 | 0 | 0 | pass | blocks |
+| e_house11_3 | r2 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| e_house11_3 | r3 | 0.92 | 0.92 | 0.92 | 0.015 | 0.029 | 162 | 162 | 0 | 0 | pass | blocks |
+| e_house11_4 | r1 | 0.93 | 0.89 | 0.89 | 0.014 | 0.024 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house11_4 | r2 | 0.89 | 0.89 | 0.89 | 0.016 | 0.024 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house11_4 | r3 | 0.94 | 0.89 | 0.89 | 0.014 | 0.024 | 97 | 97 | 0 | 0 | pass | blocks |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
