@@ -215,6 +215,8 @@ int CResupplyCellInfo::operator&( IStructureSaver &ss )
 	saver.Add( 14, &fCount );
 	saver.Add( 15, &resupplyInfo );
 	saver.Add( 16, &vCell );
+	// Until when a cell where a truck was lost counts as dangerous.
+	saver.Add( 17, &timeLastDanger );
 
 	return 0;
 }
@@ -252,6 +254,8 @@ int CGeneralTaskToDefendStorage::operator&( IStructureSaver &ss )
 	saver.Add( 4, &pStorage );
 	saver.Add( 5, &nParty );
 	saver.Add( 8, &eState );
+	// The recapture request this task made, which it cancels when it is done.
+	saver.Add( 9, &wRequestID );
 	return 0;
 }
 int CGeneralTaskToSwarmToPoint::operator&( IStructureSaver &ss )

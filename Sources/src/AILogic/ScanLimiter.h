@@ -12,5 +12,8 @@ public:
 
 	bool CanScan() const;
 	const int GetNScannedUnits() const { return nScannedUnits; }
+	// The count runs from the middle of one segment to the middle of the next,
+	// so a save between two segments holds it (CGlobalSerializer).
+	void SetNScannedUnits( const int n ) { nScannedUnits = n; }
 };
 #endif //__SCAN_LIMITER_H__

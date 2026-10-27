@@ -210,6 +210,7 @@ void CAIUnit::Init( const CVec2 &center, const int z, const float fHP, const WOR
 	bQueredToReveal = false;
 	nextRevealCheck = 0;
 	vPlaceOfReveal = VNULL2;
+	timeOfReveal = 0;
 
 	pPathUnit = GetStats()->IsTrain() ?
 							CreateObject<CPathUnit>( AI_CARRIAGE_PATH_UNIT ) : CreateObject<CPathUnit>( AI_SIMPLE_PATH_UNIT );

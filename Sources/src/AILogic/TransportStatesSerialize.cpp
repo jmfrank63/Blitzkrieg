@@ -144,6 +144,7 @@ int CTransportPlaceMineState::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 1, static_cast<CTransportBuildState*>(this) );
 	saver.Add( 2, &nNumber );
 	saver.Add( 3, &bWorkDone );
+	saver.Add( 4, &bTransportSent );
 	return 0;
 }
 int CTransportPlaceAntitankState::operator&( IStructureSaver &ss )

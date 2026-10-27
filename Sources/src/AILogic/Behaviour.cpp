@@ -65,7 +65,9 @@ void CShootEstimatorLighAA::AddUnit( CAIUnit *pTarget )
 		
 		if ( pChosenGun != 0 )
 		{
-			static NTimer::STime timeToShoot = DirsDifference( GetDirectionByVector( pTarget->GetCenter() - pUnit->GetCenter() ), pChosenGun->GetGlobalDir() );
+			// Was static: the turn of the first target a process saw stood for every target after it, so a
+			// loaded game, which sees another first, chose other targets than the run that saved it.
+			const NTimer::STime timeToShoot = DirsDifference( GetDirectionByVector( pTarget->GetCenter() - pUnit->GetCenter() ), pChosenGun->GetGlobalDir() );
 			const bool bCanShoot = pChosenGun->CanShootToUnit( pTarget );
 			if ( pResult == 0 )
 			{

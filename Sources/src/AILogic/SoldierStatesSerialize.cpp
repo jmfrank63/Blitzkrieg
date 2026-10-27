@@ -194,6 +194,8 @@ int CSoldierAttackInBuildingState::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bFinish );
 	saver.Add( 5, &bAim );
 	saver.Add( 6, &nEnemyParty );
+	// The damage this soldier is known to deal its enemy, as the other attack states save it.
+	saver.Add( 7, &damageToEnemyUpdater );
 
 	return 0;
 }
@@ -269,6 +271,10 @@ int CSoldierAttackAviationState::operator&( IStructureSaver &ss )
 	saver.Add( 2, &eState );
 	saver.Add( 3, &pPlane );
 	saver.Add( 4, &bAttacking );
+	// The predicted aim point and the burst's timers (SPredict is plain data).
+	saver.Add( 5, &aimPoint );
+	saver.Add( 6, &timeOfStartBurst );
+	saver.Add( 7, &timeLastAimUpdate );
 	
 	return 0;
 }
