@@ -329,7 +329,11 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 					case SBuildingRPGStats::TYPE_MAIN_RU_STORAGE:
 					case SBuildingRPGStats::TYPE_TEMP_RU_STORAGE:
 						{
+							// A storage placed for no player (Player -1) is the neutral
+							// player's: the diplomacy's tables hold players 0..n only.
 							int nPlayer = object.nPlayer;
+							if ( nPlayer < 0 || nPlayer >= theDipl.GetNPlayers() )
+								nPlayer = theDipl.GetNeutralPlayer();
 							pResult = theStatObjs.AddNewStorage( pStats, object.fHP, nDBIndex, CVec2(object.vPos.x, object.vPos.y), object.nFrameIndex, nPlayer, bInitialization );
 							scripts.AddObjToScriptGroup( pResult, object.nScriptID );
 						}
