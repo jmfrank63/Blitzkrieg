@@ -10,7 +10,11 @@ int CEffectVisObj::operator&( IStructureSaver &ss )
 	saver.Add( 4, &dwDuration );
 	saver.Add( 5, &vPos );
 	saver.Add( 6, &nDirection );
-	saver.Add( 7, &selectionState );
+	// Through an int, so a save from before the state was initialised loads as unselected.
+	int nSelectionState = saver.IsReading() ? int( SGVOSS_UNSELECTED ) : int( selectionState );
+	saver.Add( 7, &nSelectionState );
+	if ( saver.IsReading() )
+		selectionState = ( nSelectionState >= SGVOSS_UNSELECTED && nSelectionState <= SGVOSS_SELECTED ) ? EVisObjSelectionState( nSelectionState ) : SGVOSS_UNSELECTED;
 	saver.Add( 9, &szSoundName );
 	saver.Add( 10, &bStopped );
 	saver.Add( 11, &bSuspended );

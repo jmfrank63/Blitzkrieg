@@ -39,8 +39,10 @@ class CEffectVisObj : public IEffectVisObj
 	bool bStopped;												// is effect stopped?
 	bool bSuspended;
 public:
-	CEffectVisObj() : dwStartTime( 0 ), dwDuration( 0 ), bStopped( false ), bSuspended( false ) {  }
-	CEffectVisObj( const std::string &_szSoundName ) : szSoundName( _szSoundName ), dwStartTime( 0 ), dwDuration( 0 ), bStopped( false ), bSuspended( false ) {  }
+	// The selection state started unset and is saved: an effect nobody selected (a burning
+	// tank's fire) went into a save as garbage, which a load handed back as an invalid enum.
+	CEffectVisObj() : dwStartTime( 0 ), dwDuration( 0 ), nDirection( 0 ), selectionState( SGVOSS_UNSELECTED ), bStopped( false ), bSuspended( false ) {  }
+	CEffectVisObj( const std::string &_szSoundName ) : szSoundName( _szSoundName ), dwStartTime( 0 ), dwDuration( 0 ), nDirection( 0 ), selectionState( SGVOSS_UNSELECTED ), bStopped( false ), bSuspended( false ) {  }
 	virtual bool STDCALL Update( const NTimer::STime &time, bool bForced = false );
 	virtual void STDCALL SetDirection( const int nDir );
 	virtual void STDCALL SetPosition( const CVec3 &pos ) { vPos = pos; }
