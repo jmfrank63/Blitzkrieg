@@ -570,7 +570,9 @@ it 16 of 16 (eight saves, two loads each) are equal in hash and parts.
   two trucks with the same towing force are picked by address. Not met here.
 - The state hash and its parts cover units, formations, shells, scripts and the generals, not buildings,
   entrenchments, mines or the commanders' tasks; a difference there shows only once it moves a unit.
-- macOS and Windows are not run here; the MSVC branch of the order rule (front to back) is proved by CI only.
+- Run on win-home (MSVC debug) and the Mac (arm64) at `c32470de5`: `replay-load-transparency` (every mission,
+  both armour runs, equal in hash and parts on Windows), `replay-game-reads-it`, `replay-rng-audit`,
+  `test-streamio` and `text-engine-game-reads-it` pass on both. The Intel Mac was not run.
 - `test-random-missions` takes more than 10 minutes on this machine: 32 cases ran cleanly before the cap, the
   full run is left to the maintainer's sweep.
 
