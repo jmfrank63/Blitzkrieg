@@ -1,0 +1,20 @@
+{
+  "e_ctownhouse02_1": [
+    {"lo": [-169, 19], "hi": [-158, 31], "wall": 169, "ridge": 169, "roof": "flat"},
+    {"lo": [-143, 53], "hi": [-129, 67], "wall": 187, "ridge": 187, "roof": "flat"},
+    {"lo": [-114, 43], "hi": [-107, 50], "wall": 168, "ridge": 168, "roof": "flat"},
+    {"lo": [-38, 50], "hi": [-25, 63], "wall": 180, "ridge": 180, "roof": "flat"}
+  ],
+  "e_ctownhouse02_1_2": [
+    {"lo": [-167, 14], "hi": [-156, 26], "wall": 169, "ridge": 169, "roof": "flat"},
+    {"lo": [-141, 48], "hi": [-127, 62], "wall": 187, "ridge": 187, "roof": "flat"},
+    {"lo": [-112, 38], "hi": [-105, 45], "wall": 168, "ridge": 168, "roof": "flat"},
+    {"lo": [-36, 45], "hi": [-23, 58], "wall": 180, "ridge": 180, "roof": "flat"}
+  ],
+  "e_ctownhouse02_4": [
+    {"lo": [-99, 162], "hi": [-87, 173], "wall": 169, "ridge": 169, "roof": "flat"},
+    {"lo": [-65, 133], "hi": [-51, 147], "wall": 187, "ridge": 187, "roof": "flat"},
+    {"lo": [-75, 111], "hi": [-68, 118], "wall": 168, "ridge": 168, "roof": "flat"},
+    {"lo": [-68, 29], "hi": [-55, 42], "wall": 180, "ridge": 180, "roof": "flat"}
+  ]
+}

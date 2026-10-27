@@ -1,0 +1,8 @@
+{
+  "e_townhouse04_3": [
+    {"lo": [-127, 4], "hi": [-5, 195], "wall": 121, "ridge": 212, "roof": "gable_y"}
+  ],
+  "e_townhouse04_4": [
+    {"lo": [-187, -1], "hi": [4, 121], "wall": 121, "ridge": 212, "roof": "gable_x"}
+  ]
+}

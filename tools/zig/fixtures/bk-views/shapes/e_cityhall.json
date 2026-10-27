@@ -1,7 +1,9 @@
 {
   "e_cityhall_1": [
-    {"lo": [-369, 8], "hi": [-2, 132], "wall": 106, "ridge": 196, "roof": "gable_x"},
-    {"lo": [-256, -37], "hi": [-217, 26], "wall": 248, "ridge": 298, "roof": "hip"},
-    {"lo": [-232, -109], "hi": [-133, 8], "wall": 9, "ridge": 9, "roof": "flat"}
+    {"lo": [-373, 20], "hi": [-64, 122], "wall": 96, "ridge": 186, "roof": "gable_x"},
+    {"lo": [-255, -38], "hi": [-214, 30], "wall": 248, "ridge": 298, "roof": "hip"},
+    {"lo": [-232, -109], "hi": [-133, 8], "wall": 9, "ridge": 9, "roof": "flat"},
+    {"lo": [-376, 5], "hi": [-266, 150], "wall": 92, "ridge": 176, "roof": "gable_y"},
+    {"lo": [-125, 16], "hi": [-2, 132], "wall": 92, "ridge": 176, "roof": "gable_y"}
   ]
 }

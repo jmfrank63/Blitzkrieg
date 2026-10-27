@@ -1,0 +1,9 @@
+{
+  "e_townhouse01_3": [
+    {"lo": [-67, 7], "hi": [-6, 81], "wall": 86, "ridge": 158, "roof": "gable_x"},
+    {"lo": [-6, 6], "hi": [10, 100], "wall": 55, "ridge": 55, "roof": "flat"},
+    {"lo": [-42, 18], "hi": [-22, 32], "wall": 114, "ridge": 126, "roof": "gable_x"},
+    {"lo": [-42, 116], "hi": [-22, 127], "wall": 115, "ridge": 126, "roof": "gable_x"},
+    {"lo": [-41, 138], "hi": [-21, 150], "wall": 115, "ridge": 125, "roof": "gable_x"}
+  ]
+}

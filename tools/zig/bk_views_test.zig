@@ -577,6 +577,50 @@ test "a roof part turns into the frame of another side, and a turn that paints i
     }
 }
 
+test "a face turned to another side is relit by the 2003 light, not by the colours of the walls" {
+    // The lit wall against the shaded one is `wall_light`, on every turn.
+    const lit = [3]f64{ 0, -1, 0 };
+    const shaded = [3]f64{ 1, 0, 0 };
+    try std.testing.expectApproxEqAbs(views.wall_light, views.shading(lit, 0) / views.shading(shaded, 0), 1e-9);
+    try std.testing.expectApproxEqAbs(views.wall_light, views.shading(.{ -1, 0, 0 }, 1) / views.shading(lit, 1), 1e-9);
+    // A roof is lit from above more than either wall; a wall turned away
+    // from the light keeps the ambient light, as the shaded one.
+    const roof = [3]f64{ 0, -std.math.sqrt1_2, std.math.sqrt1_2 };
+    try std.testing.expect(views.shading(roof, 0) > views.shading(shaded, 0));
+    try std.testing.expectEqual(views.shading(shaded, 0), views.shading(.{ 0, 1, 0 }, 0));
+    // A relit pixel keeps its hue where a channel would clip: a bright red
+    // tile stays red rather than turning orange.
+    const tile = views.relight(.{ 200, 80, 40, 255 }, 2);
+    try std.testing.expectEqual([4]u8{ 255, 102, 51, 255 }, tile);
+    try std.testing.expectEqual([4]u8{ 100, 40, 20, 255 }, views.relight(.{ 200, 80, 40, 255 }, 0.5));
+}
+
+test "a back roof copied from the front leaves the front's chimney out, and a copy that keeps it fails the gate" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A gabled house and a chimney on its front roof plane (towards -y),
+    // which the 2003 eye sees and its half turn does not.
+    const house: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 4 * views.tile_size, 3 * views.tile_size }, .wall = 30, .ridge = 60, .roof = .gable_x };
+    const chimney: views.Block = .{ .lo = .{ 25, 8 }, .hi = .{ 37, 20 }, .wall = 75, .ridge = 75 };
+    const blocks = [_]views.Block{ house, chimney };
+    const eye: views.Eye = .{ .anchor = .{ 130, 170 } };
+    const picture = try blocksPicture(arena, eye, &blocks);
+    const back: views.Eye = .{ .anchor = .{ 130, 170 }, .turn = 2 };
+    const size = [2]u32{ picture.width, picture.height };
+    const projectors = [_]views.Projector{.{ .eye = eye, .picture = picture }};
+    // Told which block is a part, the back roof plane borrows nothing
+    // near it; told none, it copies the chimney's foot and fails.
+    const drawn = try views.projectPicture(arena, &blocks, 1, back, size, &projectors);
+    try std.testing.expectEqual(@as(f64, 0), views.copiedParts(&blocks, 1, back, drawn));
+    const copied = try views.projectPicture(arena, &blocks, blocks.len, back, size, &projectors);
+    try std.testing.expect(views.copiedParts(&blocks, 1, back, copied) > 40);
+    // The back roof is still drawn, from the rest of the front one.
+    var mirrored: usize = 0;
+    for (drawn.kinds) |kind| mirrored += @intFromBool(kind == .mirrored);
+    try std.testing.expect(mirrored > 1000);
+}
+
 test "an outline's protrusion is the share of it narrower than the window" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();

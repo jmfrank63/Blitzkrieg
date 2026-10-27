@@ -1,0 +1,11 @@
+{
+  "townhouse05_1": [
+    {"lo": [-248, 4], "hi": [-1, 134], "wall": 120, "ridge": 153, "roof": "hip"}
+  ],
+  "townhouse05_2": [
+    {"lo": [-134, -1], "hi": [-4, 246], "wall": 120, "ridge": 153, "roof": "hip"}
+  ],
+  "townhouse05_3": [
+    {"lo": [-132, 0], "hi": [-2, 247], "wall": 120, "ridge": 153, "roof": "hip"}
+  ]
+}

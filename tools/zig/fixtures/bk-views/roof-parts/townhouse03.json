@@ -1,0 +1,30 @@
+{
+  "townhouse03_1": [
+    {"lo": [-210, 22], "hi": [-189, 62], "wall": 125, "ridge": 140, "roof": "gable_y"},
+    {"lo": [-139, 22], "hi": [-118, 62], "wall": 125, "ridge": 140, "roof": "gable_y"},
+    {"lo": [-65, 22], "hi": [-44, 62], "wall": 124, "ridge": 140, "roof": "gable_y"},
+    {"lo": [-55, 71], "hi": [-30, 99], "wall": 122, "ridge": 130, "roof": "gable_x"},
+    {"lo": [-189, 74], "hi": [-167, 96], "wall": 161, "ridge": 161, "roof": "flat"},
+    {"lo": [-160, 76], "hi": [-146, 90], "wall": 158, "ridge": 158, "roof": "flat"},
+    {"lo": [-109, 76], "hi": [-84, 100], "wall": 161, "ridge": 161, "roof": "flat"},
+    {"lo": [-107, 41], "hi": [-97, 51], "wall": 151, "ridge": 151, "roof": "flat"},
+    {"lo": [-210, 83], "hi": [-189, 123], "wall": 125, "ridge": 140, "roof": "gable_y"},
+    {"lo": [-139, 83], "hi": [-118, 123], "wall": 125, "ridge": 140, "roof": "gable_y"},
+    {"lo": [-65, 83], "hi": [-44, 123], "wall": 124, "ridge": 140, "roof": "gable_y"},
+    {"lo": [-229, 71], "hi": [-204, 99], "wall": 122, "ridge": 130, "roof": "gable_x"}
+  ],
+  "townhouse03_2": [
+    {"lo": [-62, 48], "hi": [-22, 69], "wall": 125, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-62, 119], "hi": [-22, 140], "wall": 125, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-62, 193], "hi": [-22, 214], "wall": 124, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-99, 203], "hi": [-71, 228], "wall": 122, "ridge": 130, "roof": "gable_y"},
+    {"lo": [-96, 69], "hi": [-74, 91], "wall": 161, "ridge": 161, "roof": "flat"},
+    {"lo": [-90, 98], "hi": [-76, 112], "wall": 158, "ridge": 158, "roof": "flat"},
+    {"lo": [-100, 149], "hi": [-76, 174], "wall": 161, "ridge": 161, "roof": "flat"},
+    {"lo": [-51, 151], "hi": [-41, 161], "wall": 151, "ridge": 151, "roof": "flat"},
+    {"lo": [-123, 48], "hi": [-83, 69], "wall": 125, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-123, 119], "hi": [-83, 140], "wall": 125, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-123, 193], "hi": [-83, 214], "wall": 124, "ridge": 140, "roof": "gable_x"},
+    {"lo": [-99, 29], "hi": [-71, 54], "wall": 122, "ridge": 130, "roof": "gable_y"}
+  ]
+}

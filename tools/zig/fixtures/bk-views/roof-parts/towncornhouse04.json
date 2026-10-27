@@ -1,0 +1,15 @@
+{
+  "towncornhouse04": [
+    {"lo": [-256, 74], "hi": [-249, 81], "wall": 143, "ridge": 143, "roof": "flat"},
+    {"lo": [-237, 100], "hi": [-221, 117], "wall": 157, "ridge": 157, "roof": "flat"},
+    {"lo": [-221, 128], "hi": [-212, 138], "wall": 148, "ridge": 148, "roof": "flat"},
+    {"lo": [-238, 173], "hi": [-223, 189], "wall": 158, "ridge": 158, "roof": "flat"},
+    {"lo": [-271, 230], "hi": [-263, 238], "wall": 137, "ridge": 137, "roof": "flat"},
+    {"lo": [-166, 102], "hi": [-149, 119], "wall": 143, "ridge": 143, "roof": "flat"},
+    {"lo": [-135, 114], "hi": [-126, 124], "wall": 136, "ridge": 136, "roof": "flat"},
+    {"lo": [-50, 39], "hi": [-45, 44], "wall": 145, "ridge": 145, "roof": "flat"},
+    {"lo": [-175, 29], "hi": [-153, 51], "wall": 125, "ridge": 131, "roof": "gable_y"},
+    {"lo": [-97, 26], "hi": [-69, 63], "wall": 123, "ridge": 137, "roof": "gable_y"},
+    {"lo": [-222, 214], "hi": [-188, 233], "wall": 113, "ridge": 127, "roof": "gable_x"}
+  ]
+}
