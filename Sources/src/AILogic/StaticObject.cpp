@@ -9,6 +9,7 @@
 #include "Shell.h"
 #include "Cheats.h"
 #include "AIWarFog.h"
+#include "../Main/CameraTurn.h"
 extern CGlobalWarFog theWarFog;
 extern CUpdater updater;
 extern CStaticMap theStaticMap;
@@ -193,7 +194,7 @@ void CExistingObject::WasHit()
 	}
 }
 CGivenPassabilityStObject::CGivenPassabilityStObject( const CVec2 &_center, const int dbID, const float _fHP, const int nFrameIndex )
-: CExistingObject( nFrameIndex, dbID, _fHP ), center( _center ), bTransparencySet( false )
+: CExistingObject( nFrameIndex, dbID, _fHP ), center( _center ), bTransparencySet( false ), wMapDirection( 0 )
 { 
 }
 void CGivenPassabilityStObject::Init()
@@ -202,9 +203,57 @@ void CGivenPassabilityStObject::Init()
 	const float fLength = 0.5f * ( GetUpX() - GetDownX() );
 	const float fWidth = 0.5f * ( GetUpY() - GetDownY() );
 
-	boundRect.InitRect( rectCenter, CVec2( 1, 0 ), fLength, fWidth );
+	// Its front (the armour's) faces +x, turned with the object where it stands
+	// turned (NStatsTurn); a quarter turn lays the front along the y extent.
+	const int nTurn = NStatsTurn::TurnOfStats( GetStats() );
+	static const CVec2 fronts[4] = { CVec2( 1, 0 ), CVec2( 0, 1 ), CVec2( -1, 0 ), CVec2( 0, -1 ) };
+	if ( ( nTurn & 1 ) == 0 )
+		boundRect.InitRect( rectCenter, fronts[nTurn], fLength, fWidth );
+	else
+		boundRect.InitRect( rectCenter, fronts[nTurn], fWidth, fLength );
 
 	InitTransparenciesPossibility();
+}
+const WORD CGivenPassabilityStObject::GetDir() const
+{
+	return WORD( NStatsTurn::TurnOfStats( GetStats() ) * 16384 );
+}
+// The client hears the map Direction (0 for every 2003 object): it draws a
+// building's or a prop of four sides' side by it.
+void CGivenPassabilityStObject::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff )
+{
+	CExistingObject::GetPlacement( pPlacement, timeDiff );
+	if ( wMapDirection != 0 )
+		pPlacement->dir = wMapDirection;
+}
+void CGivenPassabilityStObject::TurnForEditor( const WORD wDirection )
+{
+	const SGDBObjectDesc *pDesc = GetSingleton<IObjectsDB>()->GetDesc( GetDBID() );
+	const SObjectBaseRPGStats *pOwn = NStatsTurn::Original( GetStats() );
+	if ( pDesc == 0 || pOwn == 0 )
+		return;
+	const SObjectBaseRPGStats *pBefore = static_cast<const SObjectBaseRPGStats*>( GetStats() );
+	const SObjectBaseRPGStats *pAfter = NStatsTurn::Turned( pOwn, NStatsTurn::TurnOf( pDesc, wDirection ) );
+	if ( pAfter != pBefore )
+	{
+		if ( !SetStats( pAfter ) )
+			return;
+		const bool bInside = CanBeMovedTo( GetCenter() );
+		SetStats( pBefore );
+		if ( !bInside )
+			return;
+		const bool bTransparent = bTransparencySet;
+		UnlockTiles();
+		if ( bTransparent )
+			RemoveTransparencies();
+		SetStats( pAfter );
+		Init();
+		LockTiles();
+		if ( bTransparent )
+			SetTransparencies();
+	}
+	wMapDirection = wDirection;
+	updater.Update( ACTION_NOTIFY_ST_OBJ_PLACEMENT, this );
 }
 void CGivenPassabilityStObject::InitTransparenciesPossibility()
 {
@@ -598,4 +647,27 @@ void CTerraMeshStaticObject::GetPlacement( SAINotifyPlacement *pPlacement, const
 {
 	CCommonStaticObject::GetPlacement( pPlacement, timeDiff );
 	pPlacement->dir = GetDir();
+}
+// ---------------------------------------------------------------------------
+// NStatsTurn
+// ---------------------------------------------------------------------------
+int NStatsTurn::TurnOf( const SGDBObjectDesc *pDesc, const int nDirection )
+{
+	if ( pDesc == 0 || ( pDesc->eGameType != SGVOGT_BUILDING && pDesc->eGameType != SGVOGT_OBJECT ) )
+		return 0;
+	return NCameraTurn::StandingTurn( pDesc->szPath, pDesc->eGameType == SGVOGT_BUILDING, nDirection );
+}
+const SObjectBaseRPGStats* NStatsTurn::Turned( const SObjectBaseRPGStats *pStats, const int nTurn )
+{
+	return pStats != 0 ? pStats->GetTurned( nTurn ) : 0;
+}
+int NStatsTurn::TurnOfStats( const SHPObjectRPGStats *pStats )
+{
+	const SObjectBaseRPGStats *pBase = dynamic_cast<const SObjectBaseRPGStats*>( pStats );
+	return pBase != 0 ? pBase->standing.nTurn : 0;
+}
+const SObjectBaseRPGStats* NStatsTurn::Original( const SHPObjectRPGStats *pStats )
+{
+	const SObjectBaseRPGStats *pBase = dynamic_cast<const SObjectBaseRPGStats*>( pStats );
+	return pBase != 0 && pBase->standing.pOwn != 0 ? pBase->standing.pOwn : pBase;
 }

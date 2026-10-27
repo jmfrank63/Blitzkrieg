@@ -315,6 +315,9 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 					NStr::DebugTrace( "Building object \"%s\" has invalid RPG stats\n", object.szName.c_str() );
 					NI_ASSERT_TF( false, "building object has invalid RPG stats", break );
 				}
+				// Remastered and the Map Editor: a building whose map Direction
+				// turns its picture stands turned with it (NStatsTurn).
+				pStats = static_cast<const SBuildingRPGStats*>( NStatsTurn::Turned( pStats, NStatsTurn::TurnOf( pDesc, object.nDir ) ) );
 
 				switch ( pStats->eType )
 				{
@@ -437,9 +440,19 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 				CGDBPtr<SObjectBaseRPGStats> pObjDesc = static_cast<const SObjectBaseRPGStats*>( pPassedStats );
 				if ( pObjDesc == 0 )
 					pObjDesc = static_cast<const SObjectBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
+				// A prop of four sides stands turned by its map Direction, as a
+				// building does (Remastered and the Map Editor).
+				pObjDesc = NStatsTurn::Turned( pObjDesc, NStatsTurn::TurnOf( pDesc, object.nDir ) );
 
 				pResult = theStatObjs.AddNewStaticObject( pObjDesc, object.fHP, nDBIndex, CVec2(object.vPos.x, object.vPos.y), object.nFrameIndex, bInitialization );
 				scripts.AddObjToScriptGroup( pResult, object.nScriptID );
+				// The AI keeps a prop's map Direction for the client, which draws a
+				// prop of four sides' side by it; the 2003 AI dropped it.
+				if ( pDesc->eGameType == SGVOGT_OBJECT )
+				{
+					if ( CGivenPassabilityStObject *pObject = dynamic_cast<CGivenPassabilityStObject*>( pResult ) )
+						pObject->SetMapDirection( object.nDir );
+				}
 			}
 
 			break;

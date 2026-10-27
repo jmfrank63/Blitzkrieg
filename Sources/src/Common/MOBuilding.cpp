@@ -260,11 +260,16 @@ void CMOBuilding::GetStatus( struct SMissionStatusObject *pStatus ) const
 		NPlatform::CopyWideToWide( pStatus->pszName, sizeof(pStatus->pszName) / sizeof(pStatus->pszName[0]), szName.c_str() );
 	}
 }
+// placement.dir is the map Direction, as for SetPlacement: the Map Editor's
+// turn (CGivenPassabilityStObject::TurnForEditor) redraws the side here.
 void CMOBuilding::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
+	nFacing = NCameraTurn::Facing( placement.dir );
+	if ( GetDrawnTurn() != nDrawnTurn )
+		Redraw( GetSingleton<IVisObjBuilder>(), true );
 	CVec3 vPos;
 	AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
-	pVisObj->SetDirection( placement.dir );
+	pVisObj->SetDirection( 0 );
 	pScene->MoveObject( pVisObj, vPos );
 	pVisObj->Update( currTime, true );
 	if ( pShadow )
@@ -330,12 +335,12 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 	}
 	return false;
 }
-// The turn of its variant it is drawn with: its own facing (Remastered only;
-// the 2003 game ignored it) plus the camera's step (NCameraTurn::DrawnTurn,
-// the rule the Map Editor shares).
+// The turn of its variant it is drawn with: its own facing (Remastered and
+// the Map Editor only; the 2003 game ignored it) plus the camera's step
+// (NCameraTurn::DrawnTurn, the rule the Map Editor shares).
 int CMOBuilding::GetDrawnTurn() const
 {
-	return NCameraTurn::DrawnTurn( NRemastered::Enabled() ? nFacing : 0, nCameraTurn );
+	return NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nCameraTurn );
 }
 std::string CMOBuilding::GetModelPath() const
 {

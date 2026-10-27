@@ -303,8 +303,23 @@ struct SBaseGunRPGStats
 
 	virtual const uLong STDCALL CalculateCheckSum() const;
 };
+// The copies of a map object's stats turned by quarter turns (Remastered and
+// the Map Editor, M006 S06, AILogic's NStatsTurn): owned by the stats they
+// were made from, so they go with them. A copy of the holder is empty: a copy
+// of the stats owns no turns and stands at turn 0 until told otherwise.
+struct SStandingTurns
+{
+	mutable struct SObjectBaseRPGStats *pTurned[3];	// these stats turned 1, 2 and 3 times, made when first asked for
+	int nTurn;																			// the turn these stats stand at (0: the database's own)
+	const struct SObjectBaseRPGStats *pOwn;					// the stats they were turned from (0: the database's own)
+	SStandingTurns() : nTurn( 0 ), pOwn( 0 ) { pTurned[0] = pTurned[1] = pTurned[2] = 0; }
+	SStandingTurns( const SStandingTurns & ) : nTurn( 0 ), pOwn( 0 ) { pTurned[0] = pTurned[1] = pTurned[2] = 0; }
+	SStandingTurns& operator=( const SStandingTurns & ) { return *this; }
+	~SStandingTurns();
+};
 struct SObjectBaseRPGStats : public SStaticObjectRPGStats
 {
+	SStandingTurns standing;
 	CArray2D<BYTE> passability;						// ������������ AI ������ ����� �������
 	CVec2 vOrigin;												// ������� ����� ������� ��� passability
 	CArray2D<BYTE> visibility;						// ������� ���������� ���� �������
@@ -323,6 +338,12 @@ struct SObjectBaseRPGStats : public SStaticObjectRPGStats
 	virtual int STDCALL operator&( IDataTree &ss );
 
 	virtual const uLong STDCALL CalculateCheckSum() const;
+	// These stats turned nTurn quarter turns by (x, y) -> (-y, x), M005's side
+	// convention and bk-views' turnXml: the passability and visibility grids
+	// with their origins, and a building's entrances and fire slots. Made once
+	// and owned by these stats (standing); these stats themselves at turn 0
+	// and for a kind that does not turn.
+	virtual const SObjectBaseRPGStats* STDCALL GetTurned( const int nTurn ) const { return this; }
 };
 struct STerraObjSetRPGStats : public SStaticObjectRPGStats
 {
@@ -357,6 +378,7 @@ struct SObjectRPGStats : public SObjectBaseRPGStats
 	SObjectRPGStats() : SObjectBaseRPGStats( "ObjDesc" ) {  }
 	virtual ~SObjectRPGStats() {  }
 	virtual int STDCALL operator&( IDataTree &ss );
+	virtual const SObjectBaseRPGStats* STDCALL GetTurned( const int nTurn ) const;
 };
 struct SBuildingRPGStats : public SObjectBaseRPGStats
 {
@@ -449,6 +471,7 @@ struct SBuildingRPGStats : public SObjectBaseRPGStats
 	std::string szDirExplosionEffect;			// direction explosion effect, ���� �� ����
 	SBuildingRPGStats();
 	virtual ~SBuildingRPGStats() {  }
+	virtual const SObjectBaseRPGStats* STDCALL GetTurned( const int nTurn ) const;
 	virtual void STDCALL ToAIUnits();
 	virtual bool STDCALL Validate();
 	virtual void STDCALL RetrieveShortcuts( IObjectsDB *pGDB );

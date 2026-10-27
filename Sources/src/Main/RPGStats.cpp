@@ -444,6 +444,72 @@ void SObjectBaseRPGStats::ToAIUnits()
 	Vis2AI( &vOrigin );
 	Vis2AI( &vVisOrigin );
 }
+SStandingTurns::~SStandingTurns()
+{
+	for ( int i = 0; i < 3; ++i )
+		delete pTurned[i];
+}
+namespace
+{
+	// A grid of cells (x, y) covering [x, x + 1] * TILE_SIZE - origin (AI
+	// units, after ToAIUnits) turned once: cell (x, y) of the turned grid is
+	// cell (y, h - 1 - x) of the grid, and the origin keeps every cell under
+	// the same part of the object (bk-views' turnGrid).
+	void TurnGrid( CArray2D<BYTE> *pGrid, CVec2 *pvOrigin )
+	{
+		const CArray2D<BYTE> grid = *pGrid;
+		const int nW = grid.GetSizeX(), nH = grid.GetSizeY();
+		pGrid->SetSizes( nH, nW );
+		for ( int y = 0; y < nW; ++y )
+		{
+			for ( int x = 0; x < nH; ++x )
+				(*pGrid)[y][x] = grid[nH - 1 - x][y];
+		}
+		*pvOrigin = CVec2( nH * float( SAIConsts::TILE_SIZE ) - pvOrigin->y, pvOrigin->x );
+	}
+	CVec3 TurnPoint( const CVec3 &v ) { return CVec3( -v.y, v.x, v.z ); }
+	void TurnOnce( SObjectBaseRPGStats *pStats )
+	{
+		TurnGrid( &pStats->passability, &pStats->vOrigin );
+		TurnGrid( &pStats->visibility, &pStats->vVisOrigin );
+	}
+	void TurnOnce( SBuildingRPGStats *pStats )
+	{
+		TurnOnce( static_cast<SObjectBaseRPGStats*>( pStats ) );
+		for ( SBuildingRPGStats::SEntrance &entrance : pStats->entrances )
+			entrance.vPos = TurnPoint( entrance.vPos );
+		for ( SBuildingRPGStats::SSlot &slot : pStats->slots )
+		{
+			slot.vPos = TurnPoint( slot.vPos );
+			slot.wDirection += 16384;
+		}
+	}
+	template <class TStats>
+	const SObjectBaseRPGStats* TurnedCopy( const TStats *pStats, const int nTurn )
+	{
+		const int nIndex = ( nTurn & 3 ) - 1;
+		if ( nIndex < 0 || pStats->standing.pOwn != 0 )
+			return pStats;
+		if ( pStats->standing.pTurned[nIndex] == 0 )
+		{
+			TStats *pCopy = new TStats( *pStats );
+			for ( int i = 0; i <= nIndex; ++i )
+				TurnOnce( pCopy );
+			pCopy->standing.nTurn = nIndex + 1;
+			pCopy->standing.pOwn = pStats;
+			pStats->standing.pTurned[nIndex] = pCopy;
+		}
+		return pStats->standing.pTurned[nIndex];
+	}
+}
+const SObjectBaseRPGStats* SObjectRPGStats::GetTurned( const int nTurn ) const
+{
+	return TurnedCopy( this, nTurn );
+}
+const SObjectBaseRPGStats* SBuildingRPGStats::GetTurned( const int nTurn ) const
+{
+	return TurnedCopy( this, nTurn );
+}
 int SObjectRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;

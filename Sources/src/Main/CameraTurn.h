@@ -12,6 +12,7 @@
 //
 // The header reads global vars through GetGlobalVar, which each module's
 // StdAfx.h brings in (StreamIO/Globals.h).
+#include "Remastered.h"
 namespace NCameraTurn
 {
 	const char * const pszStepVar = "GFX.World.CameraTurn";
@@ -126,6 +127,44 @@ namespace NCameraTurn
 	{
 		return ( nFacing + nStep ) & 3;
 	}
+	// Whether a map object's own facing counts: with Remastered on, and always
+	// in the Map Editor (the "editor" var its bridge sets), where facings are
+	// made. Off, every object is drawn and laid as in 2003, whatever its map
+	// Direction.
+	inline bool FacingCounts()
+	{
+		return NRemastered::Enabled() || GetGlobalVar( "editor", 0 ) != 0;
+	}
+	// Whether an object's folder is one side of a prop the 2003 data holds from
+	// four sides: `<family>\01` to `04`, side k + 1 being side k turned by
+	// (x, y) -> (-y, x) (checked on the pictures in S04: the bench's seat and the
+	// columns' leg and lamp turn that way; the France fence's wall is taken to
+	// follow the same naming). The box's 01 to 04 are four different things, not
+	// one from four sides.
+	inline bool IsFourSided( const std::string &szPath )
+	{
+		static const char *pszFamilies[] = { "\\bench\\0", "\\e_francefence\\0", "\\bigcolumnwithleg\\0", "\\biglightcolumn\\0",
+																				 "\\littlecolumnwithleg\\0", "\\littlelightcolumn\\0" };
+		const int nLength = szPath.size();
+		if ( nLength < 3 || szPath[nLength - 1] < '1' || szPath[nLength - 1] > '4' )
+			return false;
+		std::string szFolder = szPath.substr( 0, nLength - 1 );
+		std::transform( szFolder.begin(), szFolder.end(), szFolder.begin(), ::tolower );
+		for ( int i = 0; i < int( sizeof( pszFamilies ) / sizeof( pszFamilies[0] ) ); ++i )
+		{
+			const int nFamily = strlen( pszFamilies[i] );
+			if ( int( szFolder.size() ) >= nFamily && szFolder.compare( szFolder.size() - nFamily, nFamily, pszFamilies[i] ) == 0 )
+				return true;
+		}
+		return false;
+	}
+	// The folder of the side a prop of four sides shows at turn k: its family's
+	// variant k further on.
+	inline std::string FourSidedPath( const std::string &szPath, const int nTurn )
+	{
+		const int nLength = szPath.size();
+		return szPath.substr( 0, nLength - 1 ) + char( '1' + ( szPath[nLength - 1] - '1' + nTurn ) % 4 );
+	}
 	// The folder of a variant's turn k: the variant itself at 0, else M005's
 	// `<variant>_r<k>` where the data holds it (bk-views side writes it, from
 	// the family's 2003 variant where one of the variant's colourway shows that
@@ -139,6 +178,20 @@ namespace NCameraTurn
 				return szTurned;
 		}
 		return szVariant;
+	}
+	// The quarter turns a map object stands turned by, its footprint, entrances
+	// and fire slots with its picture (AI and Map Editor alike): its facing
+	// where facings count and its picture turns with it - a building whose
+	// variant has that turn's pictures (a variant without them keeps its 2003
+	// picture and footprint), a prop of four sides. 0 for everything else.
+	inline int StandingTurn( const std::string &szPath, const bool bBuilding, const int nDirection )
+	{
+		const int nFacing = Facing( nDirection );
+		if ( nFacing == 0 || !FacingCounts() )
+			return 0;
+		if ( bBuilding )
+			return ModelPath( szPath, nFacing ) != szPath ? nFacing : 0;
+		return IsFourSided( szPath ) ? nFacing : 0;
 	}
 };
 #endif // __CAMERA_TURN_H__
