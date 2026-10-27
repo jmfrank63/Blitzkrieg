@@ -793,3 +793,192 @@ ten lang files and the l10n tiers were not touched.
 - A soldier enters a building within a tile of its entrance (0.8 to 31.4 AI units measured), so the tier's entrance
   floors are a tile wide.
 - `remastered-game-reads-it` hung once (above), not seen again; nothing in S06 is known to cause it.
+
+## The maintainer's first hand test (S07, 2026-10-27)
+
+Branch `fix/camera-turn-hand-test`, made from main right after `feat/building-views` was merged (94a6b6d70). The
+maintainer played the build (Remastered on, the camera-turn mod) and reported four problems with screenshots, plus six
+known rough edges. Brief item 4 (the barn's ramps, bk-views' generator and its gate) went to another agent in its own
+worktree; it is not in this section.
+
+### Step 0: the merged tree (S07)
+
+On win-home (Windows x64, debug install), one at a time: `install-game install-map-editor install-resource-editor` and
+`l10n-check` build. `test-l10n-check`: 81 of 82; `fit_font_missing` expects `no-fonts/SHA256SUMS` and bk_text names
+it with Windows' separator (`std.fs.path.join`). The test and `BkText` are byte for byte main's (the merge took them
+unchanged; CI runs this tier on Linux only), so it is not merge breakage; left as found. `camera-turn-game-reads-it`
+(389 s), `building-views-game-reads-it` (290 s) and `replay-game-reads-it` (455 s) pass. `remastered-game-reads-it`
+with hb-view on PATH: the first run 16 of 17 (the `load-on` Game's click on the truck after loading an OFF save
+selected nothing), the rerun 17 of 17, the four `l10n_measure` tests passing for the first time on this machine. No
+`fix(merge)` commit was needed.
+
+### Item 1: "buildings do not turn" (S07)
+
+- **Where the screenshots come from.** The village (a church with a clock and a tower, red half-timbered houses on a
+  bending road) is Poland's (the first German mission; tutorial1 has the same map) at the half turn: Poland's village
+  at step 2 is that picture, house for house. The camp with barbed wire, watch towers and tents is the multiplayer map
+  deathzone. Found with `bk-map to-xml Data/Maps` and the objects.xml names of the buildings on the contact sheet.
+- **What the Game does.** Every one of the village's buildings draws its `_r<k>` pictures at every step on Windows:
+  `camera-turn-village-game-reads-it` turns four of them (e_jettybuilding_4, the church; e_house02_2, e_house01_2,
+  e_house09_1) with `bk-views side` into a scratch mod and finds each one's own turn at every step, better than any
+  other turn of it, at its turned place (below). The lookup is case-safe: the mod storage is a common file system
+  that lowercases every name it enumerates and every name it is asked for, so `buildings\Europe\Summer\E_House02_2_r2`
+  finds `buildings/europe/summer/e_house02_2_r2` and any other spelling. `test-map-files` now proves it under an exact
+  comparison: a fixture mod (`tools/zig/fixtures/camera-turn-paths`) holds `Buildings/Europe/Summer/E_Test_1_r1` and
+  `.../e_test_1_r2`, and `NCameraTurn::ModelPath` finds turns 1 and 2 and falls back at turn 3 (CI's Linux file system
+  compares names exactly).
+- **What remains is the pictures.** What reads as "the same side at every step" is how M005's generated sides look:
+  a wall or roof plane no 2003 picture sees borrows the seen opposite one, so the back of a house shows its front's
+  chimney, dormers and gable again, and e_jettybuilding_4's half turn shows the clock gable where its cross wing should
+  come towards the viewer. Their outlines do differ (another turn's IoU at the same place 0.19 to 0.40), so the engine
+  is not showing one picture. That is bk-views' generator, the other agent's scope (with item 4).
+- **Fixed in the engine:** a turn the data holds no pictures of was drawn as the building's own side without a word,
+  which looks exactly like a mod not loaded or a batch not run. `CMOBuilding::GetModelPath` now writes
+  `camera turn: no pictures of <variant>_r<k> (its turn k); drawn as its own side` to the log, once per variant and
+  turn.
+
+### Item 2: "positions off, differently per resolution" (S07)
+
+- **The buildings are exact.** `camera-turn-village-game-reads-it` measures each house's zero cross against the turn
+  of the 2003 camera (an offset (dx, dy) from the centre (w / 2 - 1, h / 2 - 1) goes to (2 dy, -dx / 2) per step) in
+  windows of 1024 x 768, 1280 x 1024 and 1920 x 1080: the best place within 6 pixels is the predicted one, offset 0,0,
+  for all four houses at all four steps at all three sizes (IoU 0.993 to 1.000, colour 0.00 to 2.08).
+- **The ground was not.** Its patches are laid from the map corner's projection cut to a pixel (`int`), and with the
+  camera snapped that place is a whole pixel plus a float error either side (traced in 1024 x 768: 812.0003, -128.0001
+  at step 0; 211.9998, 896.0002 at step 2; the two add up to the screen's size, a half turn being the reflection about
+  (w / 2, h / 2)). At the half turn the cut fell on the other side of the pixel at some sizes: the ground stood a pixel
+  low in 1024 x 768 and right in 1280 x 1024 and 1920 x 1080 (9 x 9 block difference to step 0 reflected 0.97 at no
+  offset, 0.11 one pixel down; 0.08 at no offset in the other sizes). So houses stood a pixel off their ground, at some
+  window sizes only.
+- **Fix:** at the half turn the corner is laid on the 2003 cut's pixel reflected, `nScreen - 1 - int( nScreen - place )`
+  (`GroundPixel`, `Scene/TerrainInternal.cpp`, for the patches and the war fog), which reproduces the 2003 cut's error
+  instead of making its own. Rounding to the nearest pixel was tried first and measured worse (a pixel off at every
+  size), and so was `ceil( place - 0.001 ) - 1` (1920 x 1080 a pixel high): the error is real float error up to a few
+  thousandths at these magnitudes, and only the reflected cut agrees with it everywhere.
+- **Tier:** `camera-turn-ground-game-reads-it` (new step, same file) shoots river3d's ground alone at the three sizes:
+  step 2 against step 0 reflected, best offset 0,0 with 0.08 to 0.09 at all three. The odd steps are reported only:
+  their tiles show pictures drawn upright for the screen, so a reflection between steps 1 and 3 does not reflect the
+  grain and no offset stands out (2.5 to 2.8 everywhere, within 0.15 of each other).
+
+### Item 3: "fences hang over in the opposite view" (S07)
+
+- **Cause.** A 2003 fence segment's zero cross is at one end of its footprint, not its middle: every shipped fence's
+  centre segments are 1 x 3 cells with origin 16, 16 (directions 0 and 2) or 3 x 1 with origin 80, 16 (1 and 3), AI
+  units, so the footprint's middle is (0, 32) or (-32, 0) from the zero cross (the two hedges and the metal net are
+  half a cell off that). S03 drew the segment of direction d + k at the own segment's zero cross; at steps where the
+  turned own middle and the drawn segment's middle differ (the half turn for every direction, and one odd step) the
+  picture ran from the zero cross the other way from the footprint: a whole segment off its line.
+- **Fix:** the drawn picture moves by R^-k of (R^k m(d) - m(d + k)) (`CMOObject::ShiftPicture`, the footprint middles
+  from the segment's passability and origin), so its footprint's middle lies on the own one's turned; placement,
+  `GetPlacement` and a damaged segment's new frame keep the shift (saved as chunk 10 while turned).
+- **Tier:** `camera-turn-world-game-reads-it` now expects each VillageFence segment's picture on its own footprint
+  turned (the shift from the fence's 1.xml, `fenceShift`, unit-tested): IoU 1.000, colour 0.00, offset 0,0 at every
+  step; the S03 placement, where the shift is not 0, scores 0.061 to 0.097. The ends of a segment are on the turned
+  line because its footprint, which is the line, is laid on the turned footprint.
+
+### Items 5 to 10 (S07)
+
+- **5, fire, smoke and flashes.** A building's points (1.xml `WorldPosition`) are 3D places on the building, so the
+  camera step needs nothing: the turned view draws them where the turned picture shows that part. What was wrong is a
+  building standing turned by its own facing (the Map Editor's Q and E): its points stood at the variant's unturned
+  places. They are now turned by its standing turn (`NCameraTurn::StandingTurn`, as the AI turns its footprint and
+  slots), their directions with them, and a slot's flash-or-sound choice reads the slot's direction as the view sees
+  it. Not captured (an effect's particles are not placed by a tier yet).
+- **8, bridge begin and end spans.** Tried: lay the drawn span's footprint middle on the own span's turned, as for
+  fences. Dropped: a shipped bridge is a begin and an end span at the same point (dessau's AsphaltBridge_01 and _02:
+  frame 1 and frame 4 at one place), so the spans meet at that point in the river, and S04's choice (the drawn span
+  from the shared point) keeps that junction exact and leaves the length difference of the 2003 variants (up to a
+  tile) at the outer end, on the bank. Centring splits that difference between the junction and the bank, and in
+  the dessau scene at the half turn the near railing of the bridge across the river then lost half its run; with
+  S04's placement back it is whole (`camera-turn-world-game-reads-it`'s line spans unchanged either way: 0.950 to
+  1.000). Open: only spans of the right length (generated ones) make both ends fit.
+- **6, armour sides and firing positions:** not measured in this slice (open). The measure planned: a trace of a
+  turned building's turned slots, entrances and armour axis as the AI builds them, compared with `bk-views`' `turnXml`
+  of the variant's 1.xml (an independent implementation of the same turn).
+- **7, relighting mirrored props and terra objects:** open. The engine has no light information for a sprite to
+  relight it with, and bk-views makes sides from building 1.xml and packs only; either is a slice of its own.
+- **9, the Map Editor's Q and E on fences:** open. A fence's direction is its FrameIndex, which the bridge has no call
+  to change in place (the Fence tool deletes and lays fences); it needs a bridge call and the Selector's key.
+- **10, multiplayer:** open. The Game has `-host` and `-connect` (GameSpy staging room), but a two-Game harness would
+  have to drive the staging room's screens through BK_AUTO_UI; not done here. The proof stays the replay one (S05):
+  the step is in no command and the network stream carries only commands and checksums, so two players at different
+  steps run the same commands.
+
+### Item 2, second report: the turned village crowds (S07)
+
+The maintainer's second screenshot (current main, one turn of Poland's village with `.`) shows the church over the
+barn and houses crowding, while trees, fences, wells and the road look right.
+
+- **The engine places every picture right.** `camera-turn-poland-game-reads-it` lays seven of the village's buildings
+  (the church e_jettybuilding_4, the barn e_wb/01, e_house09_1, e_house03_4, e_house02_1, e_house02_2 and the
+  wayside cross e_stella/02) on road3d as Poland holds them, turns each with `bk-views side`, and turns the camera
+  with `.` and with `,` in 1024 x 768 and 1920 x 1080: every picture's best place within 8 pixels is its map place
+  turned (results below). Poland's three houses 470 to 560 units further north are left out (the village would not
+  fit on road3d with room for its footprints).
+- **The pictures stood off their footprints.** The 2003 camera cannot tell a building moved along its line of sight
+  on the ground (world (1, -1)) and lifted by as much: both draw the same picture. bk-views' fit (and the hand shapes
+  made from it) leaves the blocks anywhere on that line; turned, that error is no longer along the line of sight. The
+  church's blocks stand (-20, +16) world units off its footprint's middle, 18.2 along that line: invisible at step 0
+  (2.5 pixels across, the rest reads as height), 25 pixels sideways after a quarter turn, into the barn.
+- **Fix (bk-views):** a turn drawn by the blocks gets its zero cross where the blocks would stand moved along that
+  line by what puts their ground box's middle nearest the footprint's middle (`footprintZero`); the rest of the
+  offset is the 2003 picture's own and kept. 2003 sprites, mirrored sprites and 2003 siblings keep their zero cross.
+  Measured on the europe batch: the church's zero cross moves 26 pixels at odd turns and 13 at the half turn, the
+  barn's 12 and 6, the houses' 0 to 8; in the Game the church at step 1 now stands clear of the barn.
+- **Keys:** `.` turns the view so the world turns counter-clockwise on the screen (a step k shows (x, y) -> (-y, x)
+  k times: the camera goes round clockwise); `,` turns it the other way. The Poland tier presses each and finds every
+  building where that direction puts it.
+- Seen on the way: E_WB_01 (a storage) placed for no player (Player -1) traps the debug Game at load (illegal
+  instruction, a UBSan trap) on a map of its own; Poland's are player 0 or 1. Not chased (not the camera turn).
+
+### The minimap's north mark (S07)
+
+The frame's `S -> N` on its upper left bar (painted in `ui\missionpanels`) points at the map's north, world +y (up and
+right at step 0). The minimap turns with the view, so north on the screen is +y turned k times: up and left at step
+1, down and left at 2, down and right at 3. `CUIMiniMap::DrawNorthMark` draws the mark's band from the texture (Remastered
+steps only; step 0 draws nothing, the 2003 frame):
+
+| Step | North on the screen | The mark |
+|---|---|---|
+| 0 | up, right | the 2003 frame |
+| 1 | up, left | on the upper right bar, mirrored (N <- S); the left plate's letters painted over in its yellow |
+| 2 | down, left | on the upper left bar, turned half round |
+| 3 | down, right | on the upper right bar, upside down; the left plate painted over |
+
+The band runs between (52, 26)-(52, 35) and (86, 9)-(86, 18) of the texture; the right bar is the left one mirrored
+about x = 135 (the minimap window stands at (6, 3) of the panel, whose top left is the texture's). Measured by
+`camera-turn-ground-game-reads-it` in its 1024 x 768 shots (the interface is scaled in the larger windows): the band
+where the turn puts it differs from step 0's by 14.1, 14.9 and 15.0 (mean RGB, the texels resampled) against 36.3 to
+42.3 left where it was, and at odd steps none of the 77 dark letter pixels stays on the left plate.
+
+### Tiers run (S07)
+
+On win-home (Windows x64, debug install), one at a time, after the last engine change but the north mark (UI only),
+another worktree's bk-views tiers sharing the machine at times:
+
+| Tier | Result |
+|---|---|
+| `camera-turn-world-game-reads-it` | pass (450 s; fences at their footprints, bridges as in S04) |
+| `camera-turn-village-game-reads-it` (new) | pass (250 s) |
+| `camera-turn-ground-game-reads-it` (new) | pass (195 to 227 s, with the north mark) |
+| `camera-turn-game-reads-it` | pass (391 s) |
+| `camera-turn-units-game-reads-it` | pass (246 s) |
+| `camera-turn-control-game-reads-it` | pass (311 s) |
+| `camera-turn-state-game-reads-it` | pass (442 s) |
+| `camera-turn-editor-game-reads-it` | pass (473 s) |
+| `building-views-game-reads-it` | pass (438 s) |
+| `remastered-game-reads-it` | pass, 17 of 17 (485 s) |
+| `test-map-editor-engine map-editor-smoke` | pass (299 s) |
+| `test-map-files` | pass (with the case test) |
+| after the bk-views zero cross: `test-bk-views bk-views-side` | pass (338 s) |
+| after it: `building-views-game-reads-it`, `camera-turn-village-game-reads-it`, `camera-turn-game-reads-it` | pass (297, 257, 394 s) |
+
+`camera-turn-poland-game-reads-it` (new, 1118 s with the machine shared): pass. Of 112 pictures (seven buildings,
+four shots, `.` and `,`, 1024 x 768 and 1920 x 1080) 108 are found: 84 at the turned place to the pixel, 24 a pixel
+off (12 at step 0 too, where the Game draws 2003's: the map place lands between pixels and the prediction rounds it
+the other way), colour difference 0.0 to 19.4 (neighbours in front); the wayside cross is hidden behind the church
+at the half turn (4 shots). `.` and `,` give the same picture for the same step.
+
+The full sweep is left to the maintainer; Linux and macOS to CI. The batch output in `zig-out/remastered/Buildings`
+was regenerated for europe only (`building-views-batch-europe`, then `camera-turn-mod`); run the other three regions'
+batches and `camera-turn-mod` again before playing.

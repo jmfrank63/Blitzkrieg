@@ -3137,6 +3137,34 @@ pub fn spriteTurn(o: TurnObject) struct { sprite: bool, mirror: bool } {
     return .{ .sprite = prop and o.kept or o.heap or mirror, .mirror = mirror };
 }
 
+/// The zero cross of a turn drawn by the blocks, where the blocks stand on the
+/// variant's footprint (M006 S07). The 2003 camera cannot tell a building
+/// moved along its line of sight on the ground, world (1, -1), and lifted by
+/// as much from where it stands: the fit leaves the blocks anywhere on that
+/// line, and turned, that error is no longer along the line of sight. Poland's
+/// church (e_jettybuilding_4) stood 18 world units each way off its footprint
+/// and, a quarter turned, 25 pixels to the side of it, over its neighbours. The
+/// turned picture is laid as if its blocks were moved along that line by what
+/// puts their ground box's middle nearest the footprint's middle; the rest of
+/// that offset is the 2003 picture's own, seen from the 2003 camera, and kept.
+fn footprintZero(scene: Scene, target: Turned) [2]f64 {
+    const blocks = for (scene.states, scene.shapes) |state, shape| {
+        if (std.mem.eql(u8, state, "1")) break shape;
+    } else return target.eye.anchor;
+    if (blocks.len == 0) return target.eye.anchor;
+    var lo = blocks[0].lo;
+    var hi = blocks[0].hi;
+    for (blocks) |b| {
+        lo = .{ @min(lo[0], b.lo[0]), @min(lo[1], b.lo[1]) };
+        hi = .{ @max(hi[0], b.hi[0]), @max(hi[1], b.hi[1]) };
+    }
+    const foot = boxCentre(scene.sources[scene.fixed].footprint);
+    const along = ((foot[0] - (lo[0] + hi[0]) / 2) - (foot[1] - (lo[1] + hi[1]) / 2)) / 2;
+    const moved = target.eye.project(.{ along, -along, 0 });
+    const still = target.eye.project(.{ 0, 0, 0 });
+    return .{ target.eye.anchor[0] - @round(moved[0] - still[0]), target.eye.anchor[1] - @round(moved[1] - still[1]) };
+}
+
 fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8, work_arg: []const u8) !void {
     const arena = ctx.arena;
     const io = ctx.io;
@@ -3181,6 +3209,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const failure = turned.failure;
         const fallback = turned.fallback;
         const mirror = turned.mirror;
+        const zero = if (fallback) target.eye.anchor else footprintZero(scene, target);
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
         try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, failure orelse "" });
@@ -3214,7 +3243,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
                 try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}) }),
                 try std.fs.path.join(arena, &.{ temp, d.state }),
                 "--zero",
-                try std.fmt.allocPrint(arena, "{d},{d}", .{ target.eye.anchor[0], target.eye.anchor[1] }),
+                try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }),
                 "--pass",
                 try std.mem.join(arena, "/", grid.rows),
                 "--locked",

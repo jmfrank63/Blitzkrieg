@@ -230,6 +230,7 @@ class CUIMiniMap : public CSimpleWindow
 	}
 
 	void DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock );
+	void DrawNorthMark( IGFX *pGFX );
 public:
 	CUIMiniMap( )
 		: nSize( 0 ), nUnitCrossSize( 1 ), terrainSize( 0, 0 ), nFiledVISTiles( 0 ),  dwScreenFrameColor( 0xFFAFAFAF ), dwScreenFrameColorShadow( 0xFF4F4F4F ), isWarFogNeedUpdate( false ), isInstantObjectsNeedUpdate( false ), nPlayersCount( 2 ), nTurn( 0 )
