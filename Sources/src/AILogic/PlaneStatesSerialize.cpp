@@ -19,6 +19,7 @@ int CPlaneDeffensiveFire::operator&( IStructureSaver &ss )
 	SerializeOwner( 1, &pOwner, &saver );
 	saver.Add( 4, &timeLastBSUUpdate );
 	saver.Add( 5, &pShootEstimator );
+	saver.Add( 6, &damageUpdater );
 	return 0;
 }
 int CPlanePatrolState::operator&( IStructureSaver &ss )

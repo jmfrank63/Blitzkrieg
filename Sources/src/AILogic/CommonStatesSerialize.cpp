@@ -55,6 +55,8 @@ int CCommonSwarmState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &point );
 	saver.Add( 4, &startTime );
 	saver.Add( 5, &bContinue );
+	// The direction the unit turns to before it swarms on.
+	saver.Add( 6, &wDirToPoint );
 
 	return 0;
 }

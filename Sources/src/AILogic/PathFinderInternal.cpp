@@ -379,6 +379,13 @@ const int CStandartPathFinder::GetAdditionalPathLength( const SVector &pointFrom
 			else
 				nPathLength = GetPathLength();
 		}
+		// CalculatePath marks every tile it puts on the path in mapBuf, and only
+		// EraseCycles (CalculatePathWOCycles) takes the marks off again: this
+		// probe left them, so every later search in the process took those tiles
+		// for visited ones and went round them. A loaded game, whose process had
+		// not made the probes, found other paths than the run that saved it.
+		for ( int i = 0; i < nLength; ++i )
+			mapBuf[stopPoints[i].x][stopPoints[i].y] = 0;
 
 		startPoint = oldStart;
 		finishPoint = oldFinish;

@@ -16,7 +16,8 @@
 //!   the script's lines with the same unit counts.
 //! - Save and load: a run saves the mission after 6 s of game time and goes on;
 //!   two fresh processes load that save and go on for 9 s. Their hashes after
-//!   the load must be equal: the save holds the random generator's state.
+//!   the load must be equal (the save holds the random generator's state), and
+//!   equal to the saving run's at the same segments (slice 3, load transparency).
 //!
 //! The Game runs from a scratch folder with HOME, XDG_*, BK_USER_ROOT,
 //! BK_PROFILES_ROOT and BK_MODS_ROOT there, so the user's data is never
@@ -133,11 +134,17 @@ test "a replay plays back with the recording's state hashes, and a save goes on 
     };
     const loaded = compareHashes(loads[0].hashes, loads[1].hashes);
     std.debug.print("load-1: {d} state hashes after the load, load-2: {d}; {d} equal, first difference at segment {d}; units {s} and {s}\n", .{ loads[0].hashes.len, loads[1].hashes.len, loaded.equal, loaded.first_difference, last(loads[0].units), last(loads[1].units) });
-    // For slice 3 (load transparency), reported, not asserted: does a loaded world go on like the run that saved it?
+    // Slice 3: a loaded world goes on exactly like the run that saved it, at
+    // every hash both took (replay_load_transparency.zig names what differs).
     const transparent = compareHashes(loads[0].hashes, saved.hashes);
-    std.debug.print("load-1 against the saving run going on: {d} of {d} equal, first difference at segment {d}\n", .{ transparent.equal, loads[0].hashes.len, transparent.first_difference });
+    const both = common.commonSegments(loads[0].hashes, saved.hashes);
+    std.debug.print("load-1 against the saving run going on: {d} of the {d} hashes both took equal, first difference at segment {d}\n", .{ transparent.equal, both, transparent.first_difference });
     if (loads[0].hashes.len < 5 or loads[1].hashes.len < 5 or loaded.equal < 5 or loaded.first_difference != 0) {
         std.debug.print("the two loads of one save went on differently; their output is in {s} and {s}\n", .{ loads[0].log_path, loads[1].log_path });
+        failures += 1;
+    }
+    if (both < 5 or transparent.equal != both) {
+        std.debug.print("the load went on differently from the run that saved it; their output is in {s} and {s}\n", .{ saved.log_path, loads[0].log_path });
         failures += 1;
     }
     try testing.expectEqual(@as(usize, 0), failures);

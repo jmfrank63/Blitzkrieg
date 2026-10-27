@@ -52,7 +52,7 @@ protected:
 
 	virtual bool CalculateUnitVisibility4Party( const BYTE cParty ) const;
 public:
-	CSoldier() : pFormation( 0 ), pObjInside( 0 ), cFormSlot( 0 ), eInsideType( EOIO_NONE ), wMinAngle( 0 ), wMaxAngle( 0 ), bInFirePlace( false ), bInSolidPlace( false ), fOwnSightRadius( -1 ) { }
+	CSoldier() : pFormation( 0 ), pObjInside( 0 ), cFormSlot( 0 ), eInsideType( EOIO_NONE ), wMinAngle( 0 ), wMaxAngle( 0 ), bInFirePlace( false ), bInSolidPlace( false ), fOwnSightRadius( -1 ), bWait2Form( false ) { }
 
 	virtual void Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID );
 	

@@ -57,12 +57,14 @@ class CGeneral : public CCommander, public IEnemyContainer
 
 	void EraseLastSeen();
 public:
+	// cBombardmentType and bSendReserves were left uninitialised and are saved:
+	// a debug build saved 0x55, and two machines could start a mission apart.
 	CGeneral() 
-		: lastBombardmentCheck( 0 ), timeNextUpdate( 0 ) 
+		: lastBombardmentCheck( 0 ), cBombardmentType( 0 ), bSendReserves( false ), timeNextUpdate( 0 ) 
 	{ 
 		curProcessed = enemys.end();
 	}
-	CGeneral( const int nParty ) : nParty( nParty ), lastBombardmentCheck( 0 ), timeNextUpdate( 0 ) { }
+	CGeneral( const int nParty ) : nParty( nParty ), lastBombardmentCheck( 0 ), cBombardmentType( 0 ), bSendReserves( false ), timeNextUpdate( 0 ) { curProcessed = enemys.end(); }
 
 	void Init( const struct SAIGeneralSideInfo &mapInfo );
 	void Init();
@@ -84,6 +86,8 @@ public:
 	void Give( CCommonUnit *pWorker );
 
 	void Segment();
+	// BK_STATE_HASH_DETAIL: the general's timers, the enemies it remembers and its resistance cells.
+	void TraceStateHashDetail( const int nSegment );
 
 	virtual void CancelRequest( int nRequestID, enum EForceType eType  );
 	virtual int /*request ID*/RequestForSupport( const CVec2 &vSupportCenter, enum EForceType eType );

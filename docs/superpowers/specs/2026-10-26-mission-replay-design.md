@@ -143,9 +143,9 @@ with periodic CRC checks), so the AI was written for it. What holds and what doe
 | One random stream for the AI | Holds: `Random()` (`Sources/src/StreamIO/RandomGen.h:23-35`) is the global generator; visual randomness uses the separate `NWin32Random` (`Sources/src/Misc/Win32Random.h`) in `Scene` and `Common`, and `rand()` in a few visual spots (`Common/MOUnitMechanical.cpp:897`, `978`, `Common/MOUnitInfantry.cpp:244`) | grep |
 | Start seed | Broken for single player: entropy at launch (`686fe5b84`), not stored, zero on playback. Fixed in slice 1: `StartRandomState` | above |
 | Random state across a load | Broken in the port: not saved. Fixed in slice 1: chunk 14 holds it again | `legacy_bridge.cpp:1752-1776`, `iMainInternal.cpp:312-313` |
-| Load transparency | Unproved: the replay plays the world through the save's moment without loading; the recording continued from a loaded world | - |
+| Load transparency | Unproved: the replay plays the world through the save's moment without loading; the recording continued from a loaded world. Holds since slice 3 on the four missions of `replay-load-transparency`; see "Slice 3 as built" | `replay-load-transparency` |
 | AI state changed outside the transceiver | Gaps: "Call HQ" runs a script function directly (`Sources/src/GameTT/WorldClientActions.cpp:873-877`), the difficulty is set by the options (`Sources/src/StreamIO/OptionSystemInternal.cpp:113-135`) and is not in the replay. Fixed in slice 2: Call HQ, the selection a script asks for, console script lines, the aviation lock and the war fog cheat are recorded commands; see "Slice 2 as built" | grep, `replay-rng-audit` |
-| Pointer-ordered containers in the AI | Risk: `std::set< CObj<CFormation> >` (`Sources/src/AILogic/Units.h:25`), pointer hashes (`AILogicInternal.h:44`, `RailroadGraph.h:197`, `Graveyard.h:64`). Iterating them follows heap addresses, which differ between a recorded run and its playback | grep |
+| Pointer-ordered containers in the AI | Risk: `std::set< CObj<CFormation> >` (`Sources/src/AILogic/Units.h:25`), pointer hashes (`AILogicInternal.h:44`, `RailroadGraph.h:197`, `Graveyard.h:64`). Iterating them follows heap addresses, which differ between a recorded run and its playback. Slice 3: the simulation never iterates the formations set or the railroad and graveyard hashes (insert, erase, find); it iterates the trucks set, where only a tie in towing force picks by address (left open, "Slice 3 as built") | grep |
 | Same build, same platform | Holds in the experiment below (two playbacks identical); the pointer-ordered containers can still break it on other maps | experiment |
 | Across platforms | Does not hold today: three standard libraries (MSVC STL, libstdc++, libc++) differ in `unordered_map` bucket order (117 uses in `AILogic`) and in `std::sort` order for equal keys (`Commander.cpp:45`, `69`, `GeneralIntendant.cpp:642` sort by ratings); libm `sin`/`cos`/`atan2` differ in the last bit between glibc, Apple and UCRT; clang contracts `a*b+c` into FMA by default on arm64 (the build sets no `-ffp-contract`, `build.zig:21-41`), and not on baseline x86_64 | grep, `build.zig` |
 | GPU renderer, text engine, Linux/macOS windowing | No effect: they do not call `Random()` and do not change AI state; the frame rate they give changes only how many segments run per frame | grep |
@@ -475,6 +475,106 @@ match 5 or 6 of 9 or 10 (slice 1 measured 9 of 9 without a script): a mission sc
 **Left open.** The replay does not record whether the cheats were on (`-cheats`): a console line or the
 war fog cheat recorded with them plays back refused without them (slice 5's header). Multiplayer keeps the
 aviation lock local and reads console lines inside the segment, as the original did.
+
+### Slice 3 as built (2026-10-27, Linux x64)
+
+**The tier.** `replay-load-transparency` (`tools/zig/replay_load_transparency.zig`, the scratch profile and
+mod of `replay_game_common.zig`) runs four missions: the replay tiers' fight with its script, the squad
+order and Call HQ before the save (`fight`); the same fight without a script (`noscript`, `lt_noscript.xml`);
+two Pz IV, a 10.5 cm LeFH 18 and a rifle squad against two T-34, a ZiS-3 and a squad (`armour`,
+`lt_armour.xml`); and the German campaign's Poland mission from shipped `Data`
+(`scenarios/scenariomissions/german/poland/1.xml`: eleven active scripts, both sides' AI, the scripted
+paradrop). Each is saved after 6 to 7 s of game time and goes on for 9 s (12 s for `armour`); a fresh
+process loads the save and runs as long. Both trace the state hash every second segment, and the tier
+requires every segment both traced to be equal in the hash and in its parts, the world to have changed
+(units fell, or for Poland the hash moved) and at least three quarters of the segments to be compared.
+Aviation is in only through Poland's paradrop: a test map gets no aircraft without a unit-creation set-up.
+
+**The diagnostics**, off unless asked for:
+
+- `BK_STATE_HASH_EVERY=<n>`: the single-player transceiver prints `BK_STATE_HASH: segment <n> <hash>` after
+  every n-th segment, apart from the replay's own hashes.
+- `BK_STATE_HASH_DETAIL=1`: also the hash's parts, `IAILogic::TraceStateHashDetail`, one line each: the AI's
+  time and random state; every unit in the order `CGlobalIter` visits them (position, height, direction,
+  speed, HP, morale, state, command, target, formation, all floats in `%a`); its formation's state and
+  command; the shells; the active scripts in run order and the script's number and string globals; each
+  general's timers, remembered enemies (in map order) and resistance cells. The tier prints the first
+  differing lines of the first differing segment.
+- `BK_RNG_TRACE=<from>-<to>` (non-final builds): every draw the AI makes in those segments, its value and
+  its caller (`IRandomGen::SetTraceSegment`, the stack as the slice 2 trap prints it). Two runs compared draw
+  by draw name the first decision that went another way.
+
+**What it found, and the fixes.** Each new piece of state is a new chunk; a save written before reads as it
+always did.
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| An unordered container's iteration order is not in the save: the elements were written in iteration order and inserted front to back on load, and libstdc++ (like libc++) puts a new element first in its bucket, so the loaded map iterated in another order (Poland's eleven scripts came back exactly reversed) | the general's remembered enemies in another order right after the load (`fight`, `noscript`) | `StreamIO/SSHelper.h`: the bucket count is saved beside the elements (chunk 3 of a map, chunk 2 of a set); a load rebuilds the container with it and inserts the keys back to front, which gives the saved order back with libstdc++ and libc++, and front to back where it did not (the MSVC library appends; Windows is proved by CI only). The order is checked; a container hashed by pointer keeps whatever order it gets |
+| `CGeneral::curProcessed`, the general's sweep through the enemies it remembers (`EraseLastSeen`, ten per update), started at the first enemy again after a load ("cannot be saved, so there will be some tricks") | detail: `processed -1` against `processed 29`; `BK_RNG_TRACE`: the load drew once more in `CGeneral::BombardmentSegment` at segment 244, the first draw that differed | `GeneralSerialize.cpp` chunk 27: the enemy it stands at |
+| `CAIUnitInfoForGeneral::fWeight` was not saved: the weight a resistance cell holds for a unit, which the cell gives back when the unit moves on. A loaded unit gave back 0, every cell it left stayed heavier, and the general bombarded and swarmed elsewhere | after the first two fixes: resistance cell 0 weighs 52.53 in the saving run, 54.06 in the load, on all three test maps | `AIUnitInfoForGeneral.cpp` chunk 9 |
+| The mission script's active scripts ran in `activeScripts`' order, which follows the Lua references; a load makes new references | Poland: the scripts in reverse order from the first segment after the load | `SScriptInfo::nOrder` (chunk 5) and `CScripts::nNextScriptOrder` (chunk 18): `CScripts::Segment` runs the active scripts in the order they were started. A script another one kills in the same segment is skipped, one another starts runs from the next segment (the old loop held an iterator a `RunScript` could invalidate by rehashing). A save without the order keeps the order it was written in |
+| The script's own globals: a load runs the file again, which sets them back to their first values; mission scripts count in them (`vitebsk.lua`'s `total_tanks`) | survey of `Data/Maps/**/*.lua` | `ScriptsSerialize.cpp` chunks 19 to 22: every number and string global, set again after the file ran |
+| `CScripts::reinforcsIter`, the suspended reinforcements' cursor, went back to the first one on load | reading | `ScriptsSerialize.cpp` chunk 17: its position |
+| `CGeneral`'s `cBombardmentType` and `bSendReserves` were uninitialised and saved | detail: `type 85` (0x55, the debug fill) | start at 0 and false |
+
+**Found on the way.** `CFormation::UnitCommand` never freed a `PARADE` command it does not keep: one leaked
+block per paradrop, which failed the leak check on Poland after about 15 s (`CUnitCreation::CreateParatroopers`,
+found with `-Dbk-mem-stack-frames=24` and `addr2line`). It now frees it as `CQueueUnit` frees a command it
+refuses.
+
+**Measured** (Linux x64, debug build; hashes every second segment after the load; before = the tier and the
+diagnostics with the engine of slice 2, the leak fix kept so Poland ends cleanly):
+
+| Mission | Before: hashes equal | Before: first difference | After (two runs) |
+| --- | --- | --- | --- |
+| `fight` | 11 of 90 | segment 144 (the load at 122) | 90 of 90, hash and parts |
+| `noscript` | 61 of 90 | segment 242 (120) | 90 of 90, hash and parts |
+| `armour` | 24 of 121 | segment 208 (160) | 120 of 120, hash and parts |
+| Poland | 90 of 90 (the hash holds units and shells only) | parts from the first segment: script order, the general's enemies | 90 of 90, hash and parts |
+
+`replay-game-reads-it`'s load against the run that saved it, reported since slice 1 (5 or 6 of 9 or 10 after
+slice 2), is 9 of 9 and now asserted. `replay-rng-audit` stays at 0 draws outside the simulation.
+
+**Second round: what only some processes showed.** On win-home (MSVC debug) `armour` failed in one run of
+two: 19 of 120 hashes, and at segment 198 every part was equal but the random state, so the two processes had
+drawn a different number of times with the same units. Linux showed the same family once the armour case ran
+many times (`armour_loop`: one save, two fresh loads each; and a recording with a save played back without
+it, which matched the recording every time, so saving itself changes nothing): 4 of 16 loads went apart, a
+soldier of the German squad walking another way or a draw more. What it was:
+
+| Cause | Evidence | Fix |
+| --- | --- | --- |
+| `CStandartPathFinder::GetAdditionalPathLength`, the probe `LookForFakePathBegin` makes for a unit standing on a blocked tile, ran `CalculatePath` without `EraseCycles`: the tiles it walked stayed marked in the static `mapBuf`, and every later search in the process went round them as visited. A loaded process had made no probes | the new `soldier path` and `spline` lines: at segment 324 soldier 33's new path to its formation slot runs straight in the saving run and round two tiles in the load, all other parts equal | the probe takes its marks off; a load clears `mapBuf` too (a quickload in the same process) |
+| `CAIUnit::timeOfReveal` was neither saved nor initialised; `CheckForReveal` keeps a unit revealed, and draws, only while it is recent, so a loaded unit drew or not by what its memory held | Windows: one draw more with all parts equal | saved (chunk 53), 0 at `Init` |
+| More members the simulation reads that no serializer named (`unsaved.py`, a scan of every class's members against its `operator&`): the turret's all-round attack flag, a soldier's spy-glass sight radius and forming-up flag, a car's last heal, a swarm's and a rocket launcher's turn direction, the anti-aircraft soldier's aim point and burst timers, an attack-in-building state's damage updater, a plane's defensive-fire damage updater, a resupply cell's danger time, a storage-defence task's request, a mine-laying transport's sent flag, and the scans `CScanLimiter` counted since its reset | the scan | each in a new chunk |
+| `CShootEstimatorLighAA::AddUnit` kept `timeToShoot` in a function `static`: the first target a process saw set it for every target after | reading | an ordinary local |
+
+**Found on the way.** A load aborted a debug Game in `CWorldClient::ReconcileSelection`: `CEffectVisObj`
+saved its selection state without ever setting it, so a save holding a fire (a burning tank) stored garbage
+and the load handed it back as an invalid enum (UBSan: "load of value 3734654376"). It starts unselected
+now, and a load takes anything outside the enum as unselected.
+
+**The tier** runs `armour` twice (`armour` and `armour-2`, each a save and a load in their own processes),
+since one pair can miss what shows in some processes only; `BK_STATE_HASH_DETAIL` also prints each unit's
+path state, a soldier's smooth path and its spline.
+
+**Measured** (Linux x64 debug, the armour case): before the second round 4 of 16 loads went apart; with the members
+alone 3 of 22 still did (the path finder's marks) and 2 aborted on the fire's selection state; with all of
+it 16 of 16 (eight saves, two loads each) are equal in hash and parts.
+
+**Left open.**
+
+- Lua tables and functions a script makes at run time are not saved (only numbers and strings); a mission
+  that keeps state in a table still loads with the file's table. None of the four missions does.
+- The trucks set (`CAILogic::availableTrucks`, hashed by stats pointer) is iterated when a gun is hooked up:
+  two trucks with the same towing force are picked by address. Not met here.
+- The state hash and its parts cover units, formations, shells, scripts and the generals, not buildings,
+  entrenchments, mines or the commanders' tasks; a difference there shows only once it moves a unit.
+- Run on win-home (MSVC debug) and the Mac (arm64) at `c32470de5`: `replay-load-transparency` (every mission,
+  both armour runs, equal in hash and parts on Windows), `replay-game-reads-it`, `replay-rng-audit`,
+  `test-streamio` and `text-engine-game-reads-it` pass on both. The Intel Mac was not run.
+- `test-random-missions` takes more than 10 minutes on this machine: 32 cases ran cleanly before the cap, the
+  full run is left to the maintainer's sweep.
 
 ## Risks
 

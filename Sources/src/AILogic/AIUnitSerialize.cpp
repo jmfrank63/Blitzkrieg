@@ -74,6 +74,10 @@ int CAIUnit::operator&( IStructureSaver &ss )
 		visible4Party.resize( 3 );
 	
 	saver.Add( 52, &nVisIndexInUnits );
+	// When the unit was revealed: CheckForReveal keeps it revealed (and draws)
+	// only while it is recent. Unsaved, a loaded unit had whatever its memory
+	// held, so a load drew a different number of times from the run that saved.
+	saver.Add( 53, &timeOfReveal );
 
 	return 0;
 }
@@ -111,6 +115,10 @@ int CSoldier::operator&( IStructureSaver &ss )
 	saver.Add( 28, &timeBWSegments );
 	saver.Add( 29, &nextPathSegmTime );
 	saver.Add( 31, &nextLogicSegmTime );
+	// A spy glass's sight radius and the forming-up flag, which a load set back
+	// to none and false.
+	saver.Add( 32, &fOwnSightRadius );
+	saver.Add( 33, &bWait2Form );
 	
 	return 0;
 }
@@ -253,6 +261,8 @@ int CMilitaryCar::operator&( IStructureSaver &ss )
 	saver.Add( 6, &pLockingUnit );
 	saver.Add( 7, &fDispersionBonus );
 	saver.Add( 8, &lastResupplyMorale );
+	// When the car last healed the soldiers around it (Technics.cpp).
+	saver.Add( 9, &timeLastHeal );
 
 	return 0;
 }

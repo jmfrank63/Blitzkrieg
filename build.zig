@@ -3063,7 +3063,7 @@ pub fn build(b: *std.Build) void {
     replay_game_run.setEnvironmentVariable("BK_REPLAY_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
     replay_game_run.has_side_effects = true;
     replay_game_run.step.dependOn(install_game_step);
-    const replay_game_step = b.step("replay-game-reads-it", "Record a mission where two sides fight with an order and Call HQ on the real Game, play the replay back twice and prove every state hash and script call equals the recording's; then load a save written mid-mission in two fresh processes and prove they go on with identical hashes");
+    const replay_game_step = b.step("replay-game-reads-it", "Record a mission where two sides fight with an order and Call HQ on the real Game, play the replay back twice and prove every state hash and script call equals the recording's; then load a save written mid-mission in two fresh processes and prove they go on with identical hashes, equal to the saving run's");
     replay_game_step.dependOn(&replay_game_tests.step);
     if (test_mode == .run) replay_game_step.dependOn(&replay_game_run.step);
 
@@ -3089,6 +3089,28 @@ pub fn build(b: *std.Build) void {
     const replay_rng_audit_step = b.step("replay-rng-audit", "Play a mission with orders, Call HQ and a save on the real debug Game, record it and play it back, and prove that neither run draws from the AI's random generator outside the simulation (BK_RNG_AUDIT names any caller that does)");
     replay_rng_audit_step.dependOn(&replay_rng_audit_tests.step);
     if (test_mode == .run) replay_rng_audit_step.dependOn(&replay_rng_audit_run.step);
+
+    // Load transparency on the real Game (tools/zig/replay_load_transparency.zig):
+    // test missions and a campaign mission, each saved mid-mission and loaded in
+    // a fresh process, whose state hashes after the load must equal the saving
+    // run's at every segment traced. Desktop and GPU, so not part of `test`.
+    const replay_load_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/replay_load_transparency.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, replay_load_module, toolchain);
+    }
+    const replay_load_tests = b.addTest(.{ .root_module = replay_load_module });
+    const replay_load_run = b.addRunArtifact(replay_load_tests);
+    replay_load_run.setCwd(b.path("."));
+    replay_load_run.setEnvironmentVariable("BK_REPLAY_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    replay_load_run.has_side_effects = true;
+    replay_load_run.step.dependOn(install_game_step);
+    const replay_load_step = b.step("replay-load-transparency", "Save several missions (test maps with and without a script, tanks and guns, a campaign mission) mid-mission on the real Game, load each save in a fresh process and prove every state hash after the load equals the saving run's at the same segment; BK_STATE_HASH_DETAIL names what differs first");
+    replay_load_step.dependOn(&replay_load_tests.step);
+    if (test_mode == .run) replay_load_step.dependOn(&replay_load_run.step);
 
     // The Cloud tab's Repair on the real Game (tools/zig/cloud_repair_game_reads_it.zig):
     // a profile paired against a local-filesystem remote in zig-out/local-test, its

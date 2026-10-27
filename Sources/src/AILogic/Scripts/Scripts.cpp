@@ -88,6 +88,7 @@ void CScripts::Init( const SLoadMapInfo &mapInfo )
 	pConsole = GetSingleton<IConsoleBuffer>();
 
 	activeScripts.clear();
+	nNextScriptOrder = 0;
 	groups.clear();
 	groupUnits.clear();
 	reinforcs.clear();
@@ -167,9 +168,6 @@ int CScripts::KillActiveScript( const std::string szName )
 	
 	std::unordered_map<int, SScriptInfo>::iterator killIter = activeScripts.find( nRef );
 	NI_ASSERT_T(  killIter != activeScripts.end(), "Wrong script reference to kill" );
-
-	if ( segmIter == killIter )
-		++segmIter;
 
 	script.Unref( killIter->first );
 	name2script.erase( szName );
@@ -367,35 +365,78 @@ void CScripts::Segment()
 	// (a replay holds its lines); a multiplayer game's lines are read here.
 	while ( const char* pszCommand = pConsole->ReadASCII(CONSOLE_STREAM_SCRIPT) )
 		CallConsoleCommand( pszCommand );
-	segmIter = activeScripts.begin();
-	while ( segmIter != activeScripts.end() )
+	// The active scripts run in the order they were started. They ran in the
+	// map's order, which follows the Lua references: a load makes new ones, so
+	// a loaded mission ran its scripts in another order than the run that saved
+	// it (Poland's eleven came back reversed). A script one of them kills is
+	// skipped, one it starts runs from the next segment on.
+	std::vector< std::pair<int, int> > order;
+	order.reserve( activeScripts.size() );
+	for ( std::unordered_map<int, SScriptInfo>::iterator it = activeScripts.begin(); it != activeScripts.end(); ++it )
+		order.push_back( std::make_pair( it->second.nOrder, it->first ) );
+	std::sort( order.begin(), order.end() );
+	for ( int i = 0; i < order.size(); ++i )
 	{
-		if ( curTime - segmIter->second.lastUpdate >= segmIter->second.period )
+		const int nRef = order[i].second;
+		std::unordered_map<int, SScriptInfo>::iterator pos = activeScripts.find( nRef );
+		if ( pos == activeScripts.end() || pos->second.nOrder != order[i].first )
+			continue;
+		if ( curTime - pos->second.lastUpdate >= pos->second.period )
 		{
-			segmIter->second.lastUpdate = curTime;
+			pos->second.lastUpdate = curTime;
 
-			int &nRepetitions = segmIter->second.nRepetitions;
+			int &nRepetitions = pos->second.nRepetitions;
 			bKill = ( nRepetitions == 1 );
 			if ( nRepetitions != -1 )
 				--nRepetitions;
 
-			const std::string name = segmIter->second.szName;
-			
-			const int nRef = segmIter->first;
-			++segmIter;
+			const std::string name = pos->second.szName;
 
 			script.GetRef( nRef );
-			
+
 			script.Call( 0, 0 );
 
 			if ( bKill && name2script.find( name ) != name2script.end() )
 				KillActiveScript( name );
 		}
-		else
-			++segmIter;
 	}
 
 	LandSuspendedReiforcements();
+}
+void CScripts::TraceStateHashDetail( const int nSegment )
+{
+	std::vector< std::pair<int, const SScriptInfo*> > order;
+	for ( std::unordered_map<int, SScriptInfo>::iterator it = activeScripts.begin(); it != activeScripts.end(); ++it )
+		order.push_back( std::make_pair( it->second.nOrder, &it->second ) );
+	std::sort( order.begin(), order.end() );
+	for ( int i = 0; i < order.size(); ++i )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d script %d %s period %u last %u repetitions %d\n", nSegment, order[i].first, order[i].second->szName.c_str(), (unsigned)order[i].second->period, (unsigned)order[i].second->lastUpdate, order[i].second->nRepetitions );
+	fprintf( stderr, "BK_STATE_HASH_DETAIL: %d scripts next %d\n", nSegment, nNextScriptOrder );
+	// Lua's globals table is hashed by string address, so its values are sorted by name.
+	lua_State *pState = script.GetState();
+	if ( pState == 0 )
+		return;
+	const int nTop = lua_gettop( pState );
+	lua_getglobals( pState );
+	const int nGlobals = lua_gettop( pState );
+	std::vector<std::string> values;
+	lua_pushnil( pState );
+	while ( lua_next( pState, nGlobals ) != 0 )
+	{
+		if ( lua_type( pState, -2 ) == LUA_TSTRING )
+		{
+			const char *pszName = lua_tostring( pState, -2 );
+			if ( lua_type( pState, -1 ) == LUA_TNUMBER )
+				values.push_back( NStr::Format( "%s=%.17g", pszName, (double)lua_tonumber( pState, -1 ) ) );
+			else if ( lua_type( pState, -1 ) == LUA_TSTRING )
+				values.push_back( NStr::Format( "%s='%s'", pszName, lua_tostring( pState, -1 ) ) );
+		}
+		lua_pop( pState, 1 );
+	}
+	lua_settop( pState, nTop );
+	std::sort( values.begin(), values.end() );
+	for ( int i = 0; i < values.size(); ++i )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d lua %s\n", nSegment, values[i].c_str() );
 }
 void CScripts::CallScriptFunction( const char *pszCommand )
 {
@@ -674,6 +715,7 @@ int CScripts::RunScript( struct lua_State *state )
 	pScripts->activeScripts[nScriptRef].period = nPeriod;
 	pScripts->activeScripts[nScriptRef].szName = szName;
 	pScripts->activeScripts[nScriptRef].nRepetitions = nRepetitions;
+	pScripts->activeScripts[nScriptRef].nOrder = pScripts->nNextScriptOrder++;
 
 	return 0;
 }

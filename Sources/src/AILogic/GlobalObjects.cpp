@@ -29,7 +29,9 @@
 #include "Graveyard.h"
 #include "MultiplayerInfo.h"
 #include "AAFeedBacks.h"
+#include "ScanLimiter.h"
 extern CAAFeedBacks theAAFeedBacks;
+extern CScanLimiter theScanLimiter;
 extern CSupremeBeing theSupremeBeing;
 extern CCombatEstimator theCombatEstimator;
 extern CSuspendedUpdates theSuspendedUpdates;
@@ -128,6 +130,12 @@ int CGlobalSerializer::operator&( IStructureSaver &ss )
 	saver.Add( 25, &theDifficultyLevel );
 	saver.Add( 26, &theGraveyard );
 	saver.Add( 27, &theAAFeedBacks );
+	// The target scans counted since CGroupLogic::Segment reset them, which
+	// limit the scans of the next segment: a load started them at 0.
+	int nScannedUnits = theScanLimiter.GetNScannedUnits();
+	saver.Add( 28, &nScannedUnits );
+	if ( saver.IsReading() )
+		theScanLimiter.SetNScannedUnits( nScannedUnits );
 
 	return 0;
 }

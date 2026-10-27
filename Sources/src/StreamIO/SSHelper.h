@@ -142,22 +142,41 @@ class CSaverAccessor
 			DoMap( *pData );
 			pSS->FinishChunk();
 		}
+	// Written as a list of the elements (chunk 1 each), and since the port the
+	// bucket count (chunk 2, which older builds skip): see InsertInSavedOrder.
 	template <class T, class T1, class T2, class T3, class T4>
-		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::unordered_set<T1, T2, T3, T4> *pData ) 
+		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::unordered_set<T1, T2, T3, T4> *pData )
 		{
-			std::list<T1> elements;
-			if ( !IsReading() )
-			{
-				for ( typename std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
-					elements.push_back( *it );
-			}
-			Add( idChunk, &elements );
+			if ( !pSS->StartChunk( idChunk ) )
+				return;
 			if ( IsReading() )
 			{
-				pData->clear();
-				for ( typename std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
-					pData->insert( *it );
+				std::vector<T1> elements( pSS->CountChunks( 1 ) );
+				for ( int i = 0; i < elements.size(); ++i )
+				{
+					pSS->SetChunkCounter( i + 1 );
+					Add( 1, &elements[i] );
+				}
+				int nBuckets = 0;
+				pSS->SetChunkCounter( 1 );
+				Add( 2, &nBuckets );
+				InsertInSavedOrder( *pData, elements, nBuckets,
+					[pData]( const T1 &key ) { pData->insert( key ); },
+					[]( const T1 &key ) -> const T1& { return key; } );
 			}
+			else
+			{
+				int i = 1;
+				for ( typename std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it, ++i )
+				{
+					pSS->SetChunkCounter( i );
+					T1 element = *it;
+					Add( 1, &element );
+				}
+				int nBuckets = int( pData->bucket_count() );
+				Add( 2, &nBuckets );
+			}
+			pSS->FinishChunk();
 		}
 	template <class T, class T1, class T2, class T3>
 		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::set<T1, T2, T3> *pData ) 
@@ -280,6 +299,12 @@ class CSaverAccessor
 					pSS->SetChunkCounter( i + 1 );
 					Add( 1, &indices[i] );
 				}
+				int nBuckets = 0;
+				pSS->SetChunkCounter( 1 );
+				Add( 3, &nBuckets );
+				InsertInSavedOrder( data, indices, nBuckets,
+					[&data]( const T1 &key ) { data[key]; },
+					[]( const std::pair<const T1, T2> &value ) -> const T1& { return value.first; } );
 				for ( i = 0; i < nSize; ++i )
 				{
 					pSS->SetChunkCounter( i + 1 );
@@ -294,7 +319,57 @@ class CSaverAccessor
 					Add( 1, &idx );
 					Add( 2, &pos->second );
 				}
+				// Since the port (InsertInSavedOrder); older builds skip it.
+				int nBuckets = int( data.bucket_count() );
+				Add( 3, &nBuckets );
 			}
+		}
+	// An unordered container iterates in an order its elements do not hold: it
+	// follows the bucket count and the order they went in. The simulation walks
+	// several (a general's enemies, a script's groups, a cell's units), so a world
+	// loaded from a save, its containers filled in the saved order, went on
+	// differently from the run that saved it. So the bucket count is saved
+	// beside the elements and a load rebuilds the container with it, inserting
+	// the keys back to front: libstdc++ and libc++ put a new element first in its
+	// bucket, and an element of an empty bucket first in the container, which
+	// gives the saved order back. The MSVC library puts both last, so if the
+	// order did not come back the keys go in front to back. A container hashed
+	// by pointer (the addresses differ in the loading process) gets neither; a
+	// save without the count (an older one) is filled front to back, as it was.
+	template <class TContainer, class TKey, class TInsert, class TKeyOf>
+		static void InsertInSavedOrder( TContainer &data, const std::vector<TKey> &keys, const int nBuckets, TInsert insert, TKeyOf keyOf )
+		{
+			for ( int nPass = ( nBuckets > 0 ? 0 : 1 ); nPass < 2; ++nPass )
+			{
+				TContainer().swap( data );
+				if ( nBuckets > 1 )
+					data.rehash( nBuckets );
+				if ( nPass == 0 )
+				{
+					for ( int i = int( keys.size() ) - 1; i >= 0; --i )
+						insert( keys[i] );
+				}
+				else
+				{
+					for ( int i = 0; i < keys.size(); ++i )
+						insert( keys[i] );
+				}
+				if ( nBuckets <= 0 || IsInSavedOrder( data, keys, keyOf ) )
+					return;
+			}
+		}
+	template <class TContainer, class TKey, class TKeyOf>
+		static bool IsInSavedOrder( const TContainer &data, const std::vector<TKey> &keys, TKeyOf keyOf )
+		{
+			if ( data.size() != keys.size() )
+				return false;
+			int i = 0;
+			for ( typename TContainer::const_iterator it = data.begin(); it != data.end(); ++it, ++i )
+			{
+				if ( !( keyOf( *it ) == keys[i] ) )
+					return false;
+			}
+			return true;
 		}
 	template <class T1, class T2, class T3, class T4> 
 		void DoMap( std::map<T1, T2, T3, T4> &data )

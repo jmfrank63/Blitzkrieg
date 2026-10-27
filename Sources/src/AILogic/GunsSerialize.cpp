@@ -116,6 +116,8 @@ int CTurretGun::operator&( IStructureSaver &ss )
 	saver.Add( 3, &pTurret );
 	saver.Add( 4, &bTurnByBestWay );
 	saver.Add( 5, &lastCheckTurnTime );
+	// Whether the turret may attack all round (SetCircularAttack), which a load set back to false.
+	saver.Add( 6, &bCircularAttack );
 
 	return 0;
 }

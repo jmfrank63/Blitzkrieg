@@ -245,6 +245,15 @@ void CGeneral::Segment()
 		GetSingleton<IScene>()->GetStatSystem()->UpdateEntry( "General: antiartillery circles", "" );
 	}
 }
+void CGeneral::TraceStateHashDetail( const int nSegment )
+{
+	fprintf( stderr, "BK_STATE_HASH_DETAIL: %d general %d next update %u bombardment %u type %d reserves %d enemies %d processed %d\n",
+		nSegment, nParty, (unsigned)timeNextUpdate, (unsigned)lastBombardmentCheck, int( cBombardmentType ), int( bSendReserves ), int( enemys.size() ),
+		curProcessed == enemys.end() ? -1 : curProcessed->first );
+	for ( CEnemyVisibility::iterator it = enemys.begin(); it != enemys.end(); ++it )
+		fprintf( stderr, "BK_STATE_HASH_DETAIL: %d general %d enemy %d seen %d\n", nSegment, nParty, it->first, int( it->second.second ) );
+	resContainer.TraceStateHashDetail( nSegment, nParty );
+}
 void CGeneral::GiveCommandToBombardment()
 {
 	if ( 2 == cBombardmentType ) return;

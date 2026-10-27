@@ -27,6 +27,11 @@ interface IRandomGen : public IRefCount
 	virtual void STDCALL EnterSimulation() = 0;
 	virtual void STDCALL LeaveSimulation() = 0;
 	virtual void STDCALL ArmAudit( const bool bArm ) = 0;
+	// BK_RNG_TRACE=<from>-<to> (non-final builds): every draw the AI makes in
+	// those segments is printed with its caller, so two runs that part at one
+	// segment can be compared draw by draw. The single-player transceiver tells
+	// the generator which segment runs.
+	virtual void STDCALL SetTraceSegment( const int nSegment ) = 0;
 };
 extern IRandomGen *g_pGlobalRandomGen;
 // One bracket of the simulation for the trap above, for the scope it lives in.

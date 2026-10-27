@@ -42,7 +42,11 @@ const objects =
     obj("USSR_rifle_41", 380, 360, 1, 100, 5, 0, 0) ++
     obj("USSR_rifle_41", 440, 360, 1, -1, 6, 0, 0);
 
-fn obj(comptime name: []const u8, comptime x: u32, comptime y: u32, comptime player: i32, comptime script_id: i32, comptime link: u32, comptime link_with: u32, comptime frame: i32) []const u8 {
+/// The fight's objects (houses and squads), for a map of the same fight without the script.
+pub const fight_objects = objects;
+
+/// One map object in the map XML's form; `link` must be unique on the map.
+pub fn obj(comptime name: []const u8, comptime x: u32, comptime y: u32, comptime player: i32, comptime script_id: i32, comptime link: u32, comptime link_with: u32, comptime frame: i32) []const u8 {
     return std.fmt.comptimePrint(
         "<item Direction=\"0\" Player=\"{d}\" ScriptID=\"{d}\" HP=\"1\" FrameIndex=\"{d}\"><Name>{s}</Name>" ++
             "<Position x=\"{d}\" y=\"{d}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"{d}\"/></item>",
@@ -85,6 +89,8 @@ pub const Run = struct {
     log: []const u8,
     log_path: []const u8,
     hashes: []const Hash,
+    /// The load-transparency trace (`BK_STATE_HASH: segment`), every BK_STATE_HASH_EVERY segments.
+    dense: []const Hash,
     recorded: []const u32,
     played: []const u32,
     out_of_sync: usize,
@@ -107,6 +113,10 @@ pub const Run = struct {
 pub const Options = struct {
     /// Runs the Game with BK_RNG_AUDIT=1 (a debug build reports every draw outside the simulation).
     rng_audit: bool = false,
+    /// The map argument: a map in the mod's or Data's maps folder, or a mission's stats XML.
+    map: []const u8 = map_name,
+    /// More environment variables, e.g. BK_STATE_HASH_EVERY and BK_STATE_HASH_DETAIL.
+    env: []const [2][]const u8 = &.{},
 };
 
 pub fn first(lines: []const []const u8) []const u8 {
@@ -135,6 +145,20 @@ pub fn compareHashes(expected: []const Hash, actual: []const Hash) struct { equa
     return .{ .equal = equal, .first_difference = first_difference };
 }
 
+/// How many segments both `a` and `b` hold a hash for.
+pub fn commonSegments(a: []const Hash, b: []const Hash) usize {
+    var both: usize = 0;
+    for (a) |x| {
+        for (b) |y| {
+            if (x.segment == y.segment) {
+                both += 1;
+                break;
+            }
+        }
+    }
+    return both;
+}
+
 pub fn printLines(label: []const u8, lines: []const []const u8) void {
     if (lines.len == 0) std.debug.print("{s}: (none)\n", .{label});
     for (lines) |line| std.debug.print("{s}: {s}\n", .{ label, line });
@@ -151,19 +175,30 @@ pub fn sameLines(a: []const []const u8, b: []const []const u8) bool {
 pub fn writeMod(io: std.Io, allocator: std.mem.Allocator, root: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
     const data = try std.fs.path.join(allocator, &.{ root, "mods", mod_name, "data" });
-    const maps = try std.fs.path.join(allocator, &.{ data, "maps" });
-    try cwd.createDirPath(io, maps);
+    try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
     try cwd.writeFile(io, .{
         .sub_path = try std.fs.path.join(allocator, &.{ data, "mod.xml" }),
         .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Replay test</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n",
     });
+    try writeMap(io, allocator, root, map_name, objects, "replay_fight");
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", "replay_fight.lua" }), .data = script });
+}
+
+/// Another mission in the mod writeMod writes: river3d.xml with `map_objects`
+/// and, unless `script_name` is null, that script's name (its .lua is the caller's).
+pub fn writeMap(io: std.Io, allocator: std.mem.Allocator, root: []const u8, file_name: []const u8, map_objects: []const u8, script_name: ?[]const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    const maps = try std.fs.path.join(allocator, &.{ root, "mods", mod_name, "data", "maps" });
+    try cwd.createDirPath(io, maps);
     const map = try cwd.readFileAlloc(io, "Data/Maps/river3d.xml", allocator, .limited(4 << 20));
     try testing.expectEqual(@as(usize, 1), std.mem.count(u8, map, "<Objects/>"));
     try testing.expectEqual(@as(usize, 1), std.mem.count(u8, map, "<Scripts></Scripts>"));
-    const with_objects = try std.mem.replaceOwned(u8, allocator, map, "<Objects/>", "<Objects>" ++ objects ++ "</Objects>");
-    const with_script = try std.mem.replaceOwned(u8, allocator, with_objects, "<Scripts></Scripts>", "<Scripts>replay_fight</Scripts>");
-    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ maps, map_name }), .data = with_script });
-    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ maps, "replay_fight.lua" }), .data = script });
+    const with_objects = try std.mem.replaceOwned(u8, allocator, map, "<Objects/>", try std.mem.concat(allocator, u8, &.{ "<Objects>", map_objects, "</Objects>" }));
+    const with_script = if (script_name) |name|
+        try std.mem.replaceOwned(u8, allocator, with_objects, "<Scripts></Scripts>", try std.mem.concat(allocator, u8, &.{ "<Scripts>", name, "</Scripts>" }))
+    else
+        with_objects;
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ maps, file_name }), .data = with_script });
 }
 
 /// Runs the Game in the scratch profile `user_name` under `schedule`: on the
@@ -190,13 +225,14 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
     try environ.put("BK_REPLAY_TRACE", "1");
     try environ.put("BK_MAP_TRACE", "1");
     if (options.rng_audit) try environ.put("BK_RNG_AUDIT", "1");
+    for (options.env) |pair| try environ.put(pair[0], pair[1]);
     try environ.put("BK_AUTO_UI", schedule);
     const mod_argument = "-mod=" ++ mod_name;
     var argv: std.ArrayList([]const u8) = .empty;
     try argv.appendSlice(allocator, &.{ game, "-windowed", "-mode=1024x768", "-profile=Replay", mod_argument });
     const is_load = std.mem.indexOf(u8, schedule, load_command) != null and std.mem.startsWith(u8, schedule, "60:");
     if (history) |argument| try argv.append(allocator, argument);
-    if (!is_load) try argv.append(allocator, map_name);
+    if (!is_load) try argv.append(allocator, options.map);
     const result = try timed_run.run(allocator, io, .{
         .argv = argv.items,
         .cwd = .{ .path = user },
@@ -212,6 +248,7 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
     try l10n_measure.expectNoLeak(log, log_path);
 
     var hashes: std.ArrayList(Hash) = .empty;
+    var dense: std.ArrayList(Hash) = .empty;
     var recorded: std.ArrayList(u32) = .empty;
     var played: std.ArrayList(u32) = .empty;
     var units: std.ArrayList([]const u8) = .empty;
@@ -230,6 +267,11 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
             const segment = try std.fmt.parseInt(u32, fields.next() orelse return error.BadTrace, 10);
             const value = try std.fmt.parseInt(u32, fields.next() orelse return error.BadTrace, 16);
             try hashes.append(allocator, .{ .segment = segment, .value = value });
+        } else if (std.mem.indexOf(u8, line, "BK_STATE_HASH: segment ")) |at| {
+            var fields = std.mem.tokenizeScalar(u8, line[at + "BK_STATE_HASH: segment ".len ..], ' ');
+            const segment = try std.fmt.parseInt(u32, fields.next() orelse return error.BadTrace, 10);
+            const value = try std.fmt.parseInt(u32, fields.next() orelse return error.BadTrace, 16);
+            try dense.append(allocator, .{ .segment = segment, .value = value });
         } else if (std.mem.indexOf(u8, line, "BK_REPLAY_TRACE: recorded command at segment ")) |at| {
             try recorded.append(allocator, try std.fmt.parseInt(u32, line[at + "BK_REPLAY_TRACE: recorded command at segment ".len ..], 10));
         } else if (std.mem.indexOf(u8, line, "BK_REPLAY_TRACE: played command at segment ")) |at| {
@@ -259,6 +301,7 @@ pub fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root:
         .log = log,
         .log_path = log_path,
         .hashes = hashes.items,
+        .dense = dense.items,
         .recorded = recorded.items,
         .played = played.items,
         .out_of_sync = out_of_sync,

@@ -46,6 +46,22 @@ void CSinglePlayerTransceiver::LoadAllGameParameters()
 { 
 	bHistoryPlaying = GetGlobalVar( "History.Playing", 0 ) != 0;
 }
+// The load-transparency tier's trace, apart from the replay's own hashes:
+// BK_STATE_HASH_EVERY=<n> prints the state hash after every n-th segment, and
+// BK_STATE_HASH_DETAIL=1 its parts too (every 20th segment if no n is given),
+// so the first segment where a loaded world leaves the saving run is pinned.
+void CSinglePlayerTransceiver::TraceDenseStateHash()
+{
+	static const char *pszEvery = getenv( "BK_STATE_HASH_EVERY" );
+	static const char *pszDetail = getenv( "BK_STATE_HASH_DETAIL" );
+	static const bool bDetail = pszDetail != 0 && pszDetail[0] == '1';
+	static const int nEvery = pszEvery != 0 && atoi( pszEvery ) > 0 ? atoi( pszEvery ) : ( bDetail ? NReplay::STATE_HASH_PERIOD : 0 );
+	if ( nEvery == 0 || nCommonSegment % nEvery != 0 )
+		return;
+	fprintf( stderr, "BK_STATE_HASH: segment %ld %08x\n", nCommonSegment, pAILogic->GetStateHash() );
+	if ( bDetail )
+		pAILogic->TraceStateHashDetail( nCommonSegment );
+}
 void CSinglePlayerTransceiver::DoSegments()
 {
 	IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
@@ -63,6 +79,8 @@ void CSinglePlayerTransceiver::DoSegments()
 		if ( pAILogic && !pAILogic->IsSuspended() )
 		{
 			CSimulationRandomScope simulation( GetSingleton<IRandomGen>() );
+			// Numbered as the state hash after it is (BK_RNG_TRACE).
+			GetSingleton<IRandomGen>()->SetTraceSegment( nCommonSegment + 1 );
 			// The console's script lines, which the AI read inside its Segment:
 			// read here they become commands a replay holds. A playback drops the
 			// viewer's, as it ignores the viewer's orders.
@@ -76,6 +94,7 @@ void CSinglePlayerTransceiver::DoSegments()
 			++nCommonSegment;
 			if ( NReplay::IsStateHashSegment( nCommonSegment ) )
 				pCmdsHistory->AddStateHash( nCommonSegment, pAILogic->GetStateHash() );
+			TraceDenseStateHash();
 		}
 	}
 }
