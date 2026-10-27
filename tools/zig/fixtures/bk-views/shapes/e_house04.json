@@ -1,0 +1,6 @@
+{
+  "e_house04_4": [
+    {"lo": [-184, -23], "hi": [-42, 78], "wall": 49, "ridge": 113, "roof": "gable_x"},
+    {"lo": [-36, 4], "hi": [-5, 60], "wall": 51, "ridge": 67, "roof": "gable_x"}
+  ]
+}
