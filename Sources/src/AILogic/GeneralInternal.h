@@ -57,12 +57,14 @@ class CGeneral : public CCommander, public IEnemyContainer
 
 	void EraseLastSeen();
 public:
+	// cBombardmentType and bSendReserves were left uninitialised and are saved:
+	// a debug build saved 0x55, and two machines could start a mission apart.
 	CGeneral() 
-		: lastBombardmentCheck( 0 ), timeNextUpdate( 0 ) 
+		: lastBombardmentCheck( 0 ), cBombardmentType( 0 ), bSendReserves( false ), timeNextUpdate( 0 ) 
 	{ 
 		curProcessed = enemys.end();
 	}
-	CGeneral( const int nParty ) : nParty( nParty ), lastBombardmentCheck( 0 ), timeNextUpdate( 0 ) { }
+	CGeneral( const int nParty ) : nParty( nParty ), lastBombardmentCheck( 0 ), cBombardmentType( 0 ), bSendReserves( false ), timeNextUpdate( 0 ) { curProcessed = enemys.end(); }
 
 	void Init( const struct SAIGeneralSideInfo &mapInfo );
 	void Init();

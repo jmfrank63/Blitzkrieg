@@ -1074,7 +1074,12 @@ void CFormation::UnitCommand( CAICommand *pCommand, bool bPlaceInQueue, bool bOn
 	FreezeByState( false );
 
 	if ( pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_PARADE )
+	{
+		// The parade takes the number, not the command: freed here, as CQueueUnit frees a
+		// command it refuses (a paratroopers' squad leaked one per paradrop).
+		CPtr<CAICommand> pGarbage = pCommand;
 		CPtr<IUnitState> pParadeState = CFormationParadeState::Instance( this, pCommand->ToUnitCmd().fNumber );
+	}
 	else
 	{
 		if ( !bOnlyThisUnitCommand )

@@ -52,6 +52,15 @@ int CGeneral::operator&( IStructureSaver &ss )
 	saver.Add( 24, &antiAviation );
 	saver.Add( 25, &bSendReserves );
 
+	// EraseLastSeen goes through the enemies ten at a time from curProcessed: a
+	// load that started it again at the first one forgot other enemies at other
+	// times than the run that saved. The enemy it stands at (-1 for none) since
+	// the port; a save without it starts at the first, as it always did.
+	int nProcessed = -1;
+	if ( !saver.IsReading() && curProcessed != enemys.end() )
+		nProcessed = curProcessed->first;
+	saver.Add( 27, &nProcessed );
+
 	if ( saver.IsReading() )
 	{
 		for ( Tasks::iterator it = tasks.begin(); it != tasks.end(); ++it )
@@ -60,7 +69,7 @@ int CGeneral::operator&( IStructureSaver &ss )
 		pAirForce->SetEnemyContainer( this );
 		pGeneralArtillery->SetEnemyContainer( this );
 
-		curProcessed = enemys.begin();
+		curProcessed = saver->CountChunks( 27 ) == 0 ? enemys.begin() : enemys.find( nProcessed );
 	}
 
 	saver.Add( 26, &resContainer );

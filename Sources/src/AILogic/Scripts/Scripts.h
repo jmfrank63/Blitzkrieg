@@ -20,10 +20,13 @@ class CScripts
 			NTimer::STime period;
 			NTimer::STime lastUpdate;
 			int nRepetitions;
+			// When the script was started, among all the mission's: Segment runs
+			// the active scripts in this order (see Segment).
+			int nOrder;
 
 			std::string szName;
 
-			SScriptInfo() : period( 0 ), lastUpdate( 0 ), nRepetitions( -1 ), szName( "" ) {}
+			SScriptInfo() : period( 0 ), lastUpdate( 0 ), nRepetitions( -1 ), nOrder( 0 ), szName( "" ) {}
 	};
 
 	Script script;
@@ -32,6 +35,8 @@ class CScripts
 	
 	std::unordered_map<int, SScriptInfo> activeScripts;
 	std::unordered_map<std::string, int> name2script;
+	// The next script's SScriptInfo::nOrder.
+	int nNextScriptOrder;
 
 	std::unordered_map<int, std::list<CPtr<IUpdatableObj> > > groups;
 	struct SReinforcementObject
@@ -55,8 +60,6 @@ class CScripts
 	std::unordered_map<int, int> reservePositions;
 
 	std::unordered_map< int, int> groupUnits;
-	
-	std::unordered_map<int, SScriptInfo>::iterator segmIter;
 
 	std::unordered_map<std::string, SScriptArea> areas;
 
@@ -91,6 +94,7 @@ class CScripts
 	
 	void SendShowReinoforcementPlacementFeedback( std::list<CVec2> *pCenters );
 public:
+	CScripts() : nNextScriptOrder( 0 ) { }
 	~CScripts();
 
 	int GetScriptID( IUpdatableObj *pObj ) const;

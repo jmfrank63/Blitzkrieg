@@ -67,6 +67,10 @@ int CAIUnitInfoForGeneral::operator&( IStructureSaver &ss )
 	saver.Add( 6, &fDistToLastVisibleAntiArt );
 	saver.Add( 7, &nextTimeToReportGeneral );
 	saver.Add( 8, &vLastRegisteredGeneralPos );
+	// The weight the general's resistance cell holds for this unit, which it
+	// takes off again when the unit moves on: unsaved, a loaded unit took off
+	// nothing and every cell it left stayed heavier than in the run that saved.
+	saver.Add( 9, &fWeight );
 
 	return 0;
 }
