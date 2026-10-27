@@ -118,7 +118,7 @@ void CStatistics::SetFlagPoints( const int nParty, const float fPoints )
 {
 	if ( pScenarioTracker )
 	{
-		for ( IPlayerScenarioInfoIterator *pIter = pScenarioTracker->CreatePlayerScenarioInfoIterator(); !pIter->IsEnd(); pIter->Next() )
+		for ( CPtr<IPlayerScenarioInfoIterator> pIter = pScenarioTracker->CreatePlayerScenarioInfoIterator(); !pIter->IsEnd(); pIter->Next() )
 		{
 			IPlayerScenarioInfo *pInfo = pIter->Get();
 			if ( pInfo->GetDiplomacySide() == nParty )
@@ -130,7 +130,7 @@ void CStatistics::SetCapturedFlags( const int nParty, const int nFlags )
 {
 	if ( pScenarioTracker )
 	{
-		for ( IPlayerScenarioInfoIterator *pIter = pScenarioTracker->CreatePlayerScenarioInfoIterator(); !pIter->IsEnd(); pIter->Next() )
+		for ( CPtr<IPlayerScenarioInfoIterator> pIter = pScenarioTracker->CreatePlayerScenarioInfoIterator(); !pIter->IsEnd(); pIter->Next() )
 		{
 			IPlayerScenarioInfo *pInfo = pIter->Get();
 			if ( pInfo->GetDiplomacySide() == nParty )

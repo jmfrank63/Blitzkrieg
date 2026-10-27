@@ -20,13 +20,16 @@ public:
 	void Wait() { event.Wait(); }
 	bool IsSet() { return event.IsSet(); }
 };
+// Recursive, as the Win32 critical section it stands for: the net driver locks
+// it again from inside a locked call (CNetDriver::StartGameInfoSend), which a
+// plain std::mutex answers with resource_deadlock_would_occur.
 class CCriticalSection
 {
-	NPlatform::Mutex sect;
+	std::recursive_mutex sect;
 	CCriticalSection( const CCriticalSection & ) = delete;
 	CCriticalSection& operator=( const CCriticalSection & ) = delete;
-	void Enter() { sect.Lock(); }
-	void Leave() { sect.Unlock(); }
+	void Enter() { sect.lock(); }
+	void Leave() { sect.unlock(); }
 public:
 	CCriticalSection() = default;
 	~CCriticalSection() = default;
