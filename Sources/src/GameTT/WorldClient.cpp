@@ -775,6 +775,15 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 			TraceSelection();
 		else if ( szParts[0].compare( "TracePick" ) == 0 && szOperands.size() >= 2 )
 			TracePick( CVec2( NStr::ToFloat( szOperands[0] ), NStr::ToFloat( szOperands[1] ) ) );
+		else if ( szParts[0].compare( "TraceGround" ) == 0 && szOperands.size() >= 2 )
+		{
+			// The ground point an order clicked at a screen point goes to
+			// (GetPos3, world units; on the terrain since M006 S06).
+			const CVec2 vScreen( NStr::ToFloat( szOperands[0] ), NStr::ToFloat( szOperands[1] ) );
+			CVec3 vGround;
+			GetPos3( &vGround, vScreen );
+			fprintf( stderr, "BK_GROUND_TRACE: %.0f,%.0f: %.1f,%.1f,%.1f\n", vScreen.x, vScreen.y, vGround.x, vGround.y, vGround.z );
+		}
 		else if ( szParts[0].compare( "TraceContainers" ) == 0 )
 			TraceContainers();
 		else

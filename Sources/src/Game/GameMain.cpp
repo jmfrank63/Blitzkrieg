@@ -1633,6 +1633,14 @@ int RunGame( const BkGameLaunchInfo &launch )
 							vAutoUIReleasePos[0] = nX2; vAutoUIReleasePos[1] = nY2;
 						}
 					}
+					else if ( szAction.compare( 0, 7, "ground=" ) == 0 )
+					{
+						// ground=<x>x<y>: the ground point at a screen point
+						// (CWorldClient's TraceGround).
+						int nX = 0, nY = 0;
+						if ( sscanf( szAction.c_str() + 7, "%dx%d", &nX, &nY ) == 2 )
+							GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, NStr::Format( "TraceGround(%d,%d)", nX, nY ) );
+					}
 					else if ( szAction.compare( 0, 5, "pick=" ) == 0 )
 					{
 						// pick=<x>x<y>[x<step>x<n>]: what the cursor there picks
