@@ -3279,7 +3279,7 @@ pub fn build(b: *std.Build) void {
     if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, world_game_module, toolchain);
     }
-    const world_game_tests = b.addTest(.{ .root_module = world_game_module, .filters = &.{ "a ring point", "the ground, roads" } });
+    const world_game_tests = b.addTest(.{ .root_module = world_game_module, .filters = &.{ "a ring point", "a turned fence segment", "the ground, roads" } });
     const world_game_run = b.addRunArtifact(world_game_tests);
     world_game_run.setCwd(b.path("."));
     world_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));

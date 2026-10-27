@@ -11,6 +11,7 @@
 #include "../Main/ScenarioTracker.h"
 #include "../UI/UI.h"
 #include "../Main/CameraTurn.h"
+#include "../AILogic/aiconsts.h"
 int CMOObject::nLastMarkerID = 0;
 bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int nSeason, int nFrameIndex, 
 											  float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
@@ -135,6 +136,34 @@ static int TurnedFenceFrame( const SFenceRPGStats *pStats, const int nFrame, con
 	}
 	return nFrame;
 }
+// The middle of the footprint of a fence's segment (sprite index nFrame) from
+// its zero cross, AI units: the footprint starts at the zero cross less its
+// origin, as the AI lays it (StaticObject.cpp).
+static CVec2 FenceFootprintMiddle( const SFenceRPGStats *pStats, const int nFrame )
+{
+	for ( int i = 0; i < pStats->stats.size(); ++i )
+	{
+		const SFenceRPGStats::SSegmentRPGStats &segment = pStats->stats[i];
+		if ( segment.nIndex == nFrame )
+			return CVec2( segment.passability.GetSizeX() * SAIConsts::TILE_SIZE / 2.0f - segment.vOrigin.x,
+										segment.passability.GetSizeY() * SAIConsts::TILE_SIZE / 2.0f - segment.vOrigin.y );
+	}
+	return VNULL2;
+}
+// Moves its pictures to stand vShift (world units) from its place, the shift
+// before taken off; an object not in the scene yet is only placed.
+void CMOObject::ShiftPicture( const CVec3 &vShift )
+{
+	if ( vShift == vTurnShift )
+		return;
+	const CVec3 vPos = pVisObj->GetPosition() - vTurnShift + vShift;
+	vTurnShift = vShift;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( !pScene->MoveObject( pVisObj, vPos ) )
+		pVisObj->SetPosition( vPos );
+	if ( pShadow && !pScene->MoveObject( pShadow, vPos ) )
+		pShadow->SetPosition( vPos );
+}
 // Draws it for the camera step (Remastered, Main/CameraTurn.h), each kind by
 // the shortest path (docs/superpowers/specs/2026-10-26-camera-turn-design.md,
 // S03), with no new pictures:
@@ -194,7 +223,22 @@ void CMOObject::ApplyCameraTurn()
 				ISpriteAnimation *pAnim = static_cast<ISpriteAnimation*>( static_cast<IObjVisObj*>( pSprite )->GetAnimation() );
 				if ( nOwnFrame < 0 )
 					nOwnFrame = pAnim->GetFrameIndex();
-				const int nFrame = TurnedFenceFrame( static_cast_gdb<const SFenceRPGStats*>( pRPG ), nOwnFrame, nCameraTurn );
+				const SFenceRPGStats *pStats = static_cast_gdb<const SFenceRPGStats*>( pRPG );
+				const int nFrame = TurnedFenceFrame( pStats, nOwnFrame, nCameraTurn );
+				// The segment drawn stands on its own footprint seen turned: a
+				// 2003 segment's zero cross lies at one end of its footprint (the
+				// first cell), so the picture of the turned direction is moved by
+				// what puts its footprint's middle on the own one's.
+				CVec3 vShift( VNULL3 );
+				if ( nCameraTurn != 0 )
+				{
+					const CVec2 vOwn = FenceFootprintMiddle( pStats, nOwnFrame );
+					CVec2 vDrawn = FenceFootprintMiddle( pStats, nFrame );
+					for ( int i = 0; i < nCameraTurn; ++i )
+						vDrawn = CVec2( vDrawn.y, -vDrawn.x );					// turned back, (x, y) -> (y, -x)
+					AI2Vis( &vShift, vOwn.x - vDrawn.x, vOwn.y - vDrawn.y, 0 );
+				}
+				ShiftPicture( vShift );
 				if ( nFrame == pAnim->GetFrameIndex() )
 					break;
 				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
@@ -237,6 +281,7 @@ int CMOObject::operator&( IStructureSaver &ss )
 		saver.Add( 7, &nSeason );
 		saver.Add( 8, &nShownTurn );
 		saver.Add( 9, &nFacing );
+		saver.Add( 10, &vTurnShift );
 	}
 	if ( saver.IsReading() ) 
 		FillActions();
@@ -261,9 +306,9 @@ void CMOObject::FillActions()
 void CMOObject::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
 	const WORD wSpriteDir = pDesc->eGameType == SGVOGT_OBJECT ? 0 : wDir;
-	pVisObj->SetPlacement( vPos, wSpriteDir );
+	pVisObj->SetPlacement( vPos + vTurnShift, wSpriteDir );
 	if ( pShadow )
-		pShadow->SetPlacement( vPos, wSpriteDir );
+		pShadow->SetPlacement( vPos + vTurnShift, wSpriteDir );
 	if ( pDesc->eGameType == SGVOGT_OBJECT && NCameraTurn::Facing( wDir ) != nFacing )
 	{
 		nFacing = NCameraTurn::Facing( wDir );
@@ -283,7 +328,7 @@ void CMOObject::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 }
 void CMOObject::GetPlacement( CVec3 *pvPos, WORD *pwDir )
 {
-	*pvPos = pVisObj->GetPosition();
+	*pvPos = pVisObj->GetPosition() - vTurnShift;
 	*pwDir = pVisObj->GetDirection();
 }
 void CMOObject::GetStatus( struct SMissionStatusObject *pStatus ) const
@@ -341,11 +386,11 @@ void CMOObject::AIUpdatePlacement( const SAINotifyPlacement &placement, const NT
 	}
 	else
 		pVisObj->SetDirection( placement.dir );
-	pScene->MoveObject( pVisObj, vPos );
+	pScene->MoveObject( pVisObj, vPos + vTurnShift );
 	pVisObj->Update( currTime, true );
 	if ( pShadow )
 	{
-		pScene->MoveObject( pShadow, vPos );
+		pScene->MoveObject( pShadow, vPos + vTurnShift );
 		pShadow->Update( currTime, true );
 	}
 }
@@ -439,12 +484,13 @@ int CMOObject::AIUpdateActions( const struct SAINotifyAction &action, const NTim
 		case ACTION_NOTIFY_CHANGE_FRAME_INDEX:
 			{
 				// A fence's new segment (it was damaged) as the camera step shows it.
-				int nFrame = action.nParam;
 				if ( pDesc->eGameType == SGVOGT_FENCE )
 				{
-					nOwnFrame = nFrame;
-					nFrame = TurnedFenceFrame( static_cast_gdb<const SFenceRPGStats*>( pRPG ), nOwnFrame, nCameraTurn );
+					nOwnFrame = action.nParam;
+					ApplyCameraTurn();
+					break;
 				}
+				const int nFrame = action.nParam;
 				static_cast<ISpriteAnimation*>(static_cast_ptr<IObjVisObj*>(pVisObj)->GetAnimation())->SetFrameIndex( nFrame );
 				pVisObj->Update( currTime, true );
 				if ( pShadow ) 
