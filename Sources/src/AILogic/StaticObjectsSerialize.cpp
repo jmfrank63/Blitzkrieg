@@ -65,7 +65,7 @@ int CSimpleStaticObject::operator&( IStructureSaver &ss )
 	int nStandingTurn = NStatsTurn::TurnOfStats( pStats );
 	if ( saver.IsReading() || nStandingTurn != 0 )
 		saver.Add( 5, &nStandingTurn );
-	if ( saver.IsReading() && pStats != 0 )
+	if ( saver.IsReading() && nStandingTurn != 0 )
 		pStats = NStatsTurn::Turned( dynamic_cast<const SObjectBaseRPGStats*>( pStats.GetPtr() ), nStandingTurn );
 	saver.Add( 3, &nPlayer );
 	saver.Add( 4, &bDelayedUpdate );
@@ -82,7 +82,7 @@ int CBuilding::operator&( IStructureSaver &ss )
 	int nStandingTurn = NStatsTurn::TurnOfStats( pStats );
 	if ( saver.IsReading() || nStandingTurn != 0 )
 		saver.Add( 41, &nStandingTurn );
-	if ( saver.IsReading() )
+	if ( saver.IsReading() && nStandingTurn != 0 )
 		pStats = static_cast<const SBuildingRPGStats*>( NStatsTurn::Turned( pStats, nStandingTurn ) );
 	saver.Add( 6, &medical );
 	saver.Add( 7, &fire );
