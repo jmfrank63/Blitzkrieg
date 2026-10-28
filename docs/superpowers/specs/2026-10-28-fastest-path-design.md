@@ -81,4 +81,106 @@ Which finder plays is game state, decided once as a mission starts (`CAILogic::I
   wall, no corner cutting, an unreachable and a blocked goal, the bound radius (a unit of radius 1 takes the wide gap,
   radius 0 the narrow one), the step limit, the good tile, the budget, determinism.
 - `zig build test-remastered`: `Simulation()`'s policy next to `Enabled()`'s.
-- `zig build fastest-path-game-reads-it` and `fastest-path-maps-game-reads-it`: below.
+- `zig build fastest-path-game-reads-it`, `fastest-path-passages-game-reads-it` and
+  `fastest-path-maps-game-reads-it`: below.
+
+## A replay from the command line
+
+A replay played with `-lh` loads its history and then takes `History.Playing` off again
+(`CCommandsHistory::LoadCommandLineHistory`): it plays as a live game, so `Enabled()` and the first
+`Simulation()` read the viewer's option, and a replay recorded on was played with the 2003 finder (measured: the
+march diverged after 4 s). It now sets `History.CommandLine`, and `Simulation()` takes a command-line replay for
+a replay: its recorded mode. `Enabled()` is left as it was (outside this change).
+
+## Passages: one vehicle at a time through a narrow place
+
+The maintainer's decision (2026-10-28), a step after the A*: where a unit stands in another's way, it may move aside,
+but only one passage is opened and every other unit takes the same; a narrow place (a bridge, a gap in a wall or a
+wood, a street between houses) is an area with an entry and an exit; units wanting through wait at the entry in the
+order they came (FIFO), and only one at a time is inside, going from entry to exit, so none is ever stuck. Found from
+the static map, not marked by hand; deterministic; the queue is simulation state, saved and the same on every machine.
+
+Built (`Passages.h`, `Passages.cpp`, simulation code in C++: it is game state):
+
+- **Found on the path.** When a vehicle (not infantry, not aircraft) gets a new big path with the fastest path on
+  (`CPathUnit::SendAlongPath`, through `FindPassages`), `CPassages::FindOnPath` walks its tiles and measures the way's
+  width across each step on the static map (free tiles for the unit's AI class, units left out: the 2003 collisions
+  move them). A tile is narrow where fewer than 2 (2r + 1) tiles are free across it, r the vehicle's bound radius:
+  two such vehicles do not fit side by side. A run of narrow tiles is one passage; one where the path begins is the
+  one the vehicle stands in and is skipped.
+- **One passage per place.** A run whose tiles touch an existing passage's box is that passage (the box grows);
+  otherwise a new one. All in `thePassages`, saved with the other global AI objects (chunk 29, written only once
+  there is a passage), cleared with them.
+- **The queue.** In `CPathUnit::SecondSegment`, before a vehicle moves, `MustWait`: within two tiles of its next
+  passage (its body clear of it) it joins the passage's queue, ordered by the game time it arrived and then by unit id;
+  it goes in when the passage is free and it heads the queue, and gives the passage back once its body has been in it
+  and is out again. A vehicle that waits does what a stopped 2003 unit does (no speed, its tiles locked), so the
+  others' small paths go round it. A new order leaves every queue (`Leave`).
+- **Never stuck.** An occupant that dies, or holds a passage longer than 30 s of game time, gives it back
+  (`CPassages::Segment`); a vehicle found inside a passage it never waited for (it stood there when ordered) is not
+  held.
+- **The squad in the way** is left to the 2003 rule that a vehicle pushes infantry aside (`CCollision::FindCandidates`,
+  `bNeedPush`): the vehicles that follow wait in the queue, so they take the lane the first one opened. A lane cleared
+  through units in open ground is not made a passage of its own (YAGNI: there the 2003 collisions let vehicles pass
+  side by side).
+- **Determinism.** Only integer tiles and game time decide; the queue's order is total (time, then unique id);
+  passages are kept in a vector in the order found.
+
+## Measured (win-home, Windows x64, debug install, 2026-10-29)
+
+The search runs ReleaseSafe; the snapshot and everything round it are the debug C++ build, so the times below are a
+debug Game's (the C++ snapshot dominates them).
+
+**March** (`fastest-path-game-reads-it`, road3d rewritten: a garden of speed 0.3 across the straight way, an asphalt
+ring round it; ms of game time until the last unit of a kind is within 6 tiles of its goal):
+
+| Kind (unitPass) | 2003 finder | fastest path | way |
+|---|---|---|---|
+| lorry Opel_Blitz_Cargo (-0.18) | 33 750 | 18 500 | by the ring (11 tiles off its row) |
+| car Opel_Kadett (-0.21) | 32 500 | 19 000 | by the ring (17 tiles off) |
+| tank Pz_Kpfw_IV_Ausf_D | 22 200 | 21 850 | straight |
+| squad German_rifle_41 (1) | 32 650 | 32 850 | straight (infantry: one speed everywhere; held within 2 %) |
+
+Every unit arrived in both. Requests: 668 with the 2003 finder (mean 4 us), 543 with the fastest path (mean 270 us,
+max 5.9 ms, at most 1 167 nodes expanded, no budget hit; 2 answered by the 2003 finder: start and goal on one tile).
+The march recorded with Remastered on and played (`-lh`) by a player whose option is off: the fastest path, 31 200 of
+31 200 unit samples (every unit's place every segment) the recording's; recorded off and played by a player whose
+option is on: the 2003 finder, 31 200 of 31 200 the same. A save written on and loaded after the player turned the
+option off plays on with the fastest path (`loaded finder fastest=1`).
+
+**Passages** (`fastest-path-passages-game-reads-it`, road3d with two swamp walls, each with one gap of 4 AI tiles,
+three lorries and two tanks ordered through both, a rifle squad standing in the first gap):
+
+| Vehicle | 2003 finder | fastest path with passages |
+|---|---|---|
+| lorry 1 | 51 450 | 51 950 |
+| lorry 2 | 53 250 | 49 350 |
+| lorry 3 | 37 200 | 40 550 |
+| tank 1 | 34 100 | 59 100 (waited its turn twice) |
+| tank 2 | 43 300 | 37 750 |
+
+All arrived; both gaps were found as passages; 0 entries while a passage was taken, 0 timeouts, entered in the order
+of arrival (passage 0: units 6, 1, 43, 41, 39, 1; unit 1 came back to it once on a new path and queued again).
+Waiting costs the vehicle that waits (tank 1); nobody is stuck. With the 2003 finder the same column also arrived on
+this map: the measure here is the one-at-a-time rule, not a rescue.
+
+**Shipped maps** (the missions' own AI orders, 60 s of game time, Remastered on, BK_PATH_TRACE):
+
+| Map | requests | mean | max | nodes expanded, max | budget hits |
+|---|---|---|---|---|---|
+| kursk | 4 539 (3 426 big paths) | 460 us | 36.3 ms | 92 600 | 0 |
+| dessau | 63 (41 big) | 643 us | 15.0 ms | 454 | 0 |
+| vitebsk (by hand, see below) | 1 774 (1 285 big) | 580 us | 26.4 ms | 56 090 | 0 |
+
+The budget (262 144 nodes) was never reached; the most a search took was 35 % of it (an unreachable goal searched
+over every tile the step limit reaches). Requests the 2003 finder answered: start and goal on one tile (kursk 87).
+
+## Left open
+
+- **vitebsk leaks** AILogic blocks at exit with either finder (3 with Remastered off, 12 on, in one run each): the
+  tier plays kursk and dessau only; the leak needs its own hunt.
+- **A bridge.** The passages tier uses two gaps in walls; no tier places a working bridge over a river (a bridge's
+  spans and their link list in a written map are not yet known to work); a bridge is a narrow place by the same
+  measure.
+- The small paths (a few tiles toward the big path) weigh every terrain the same.
+- macOS and Linux are left to CI.

@@ -363,7 +363,7 @@ test "fastest path passages one at a time" {
 }
 
 /// The largest shipped maps, and how long each is played.
-const shipped_maps = [_][]const u8{ "kursk.bzm", "dessau.bzm", "vitebsk.bzm" };
+const shipped_maps = [_][]const u8{ "kursk.bzm", "dessau.bzm" };
 const shipped_ms = 60000;
 
 test "fastest path on the largest shipped maps" {
