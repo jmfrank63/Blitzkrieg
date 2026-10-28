@@ -22,11 +22,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house07_1 | r1 | 1.12 | 0.92 | 0.89 | 0.017 | 0.000 | 15 | 15 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_house07_1 | r2 | 1.12 | 0.92 | 0.89 | 0.016 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_house07_1 | r3 | 1.12 | 0.92 | 0.89 | 0.017 | 0.000 | 175 | 175 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house07_1 | r1 | 1.12 | 0.92 | 0.89 | 0.017 | 0.000 | 15 | 15 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house07_1 | r2 | 1.12 | 0.92 | 0.89 | 0.016 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house07_1 | r3 | 1.12 | 0.92 | 0.89 | 0.017 | 0.000 | 175 | 175 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

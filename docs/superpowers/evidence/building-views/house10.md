@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house10 | r1 | 2 | 1 | 68.3 | 30.9 | 0.7 | 0.1 | 0.94 | 23.1 | 0.100 | pass |
-| house10 | r1 | 2 | 1w | 67.8 | 31.0 | 0.9 | 0.2 | 0.90 | 33.5 | 0.056 | pass |
-| house10 | r1 | 2 | 2 | 68.5 | 30.4 | 0.8 | 0.3 | 1.06 | 0.9 | 0.062 | pass |
-| house10 | r1 | 2 | 2w | 68.5 | 30.4 | 0.8 | 0.3 | 1.01 | 1.2 | 0.028 | pass |
-| house10 | r1 | 2 | 3 | 80.0 | 10.7 | 5.2 | 4.1 | 0.96 | 2.2 | 0.008 | pass |
-| house10 | r1 | 2 | 3w | 81.1 | 9.3 | 5.7 | 3.9 | 0.98 | 1.2 | 0.014 | pass |
-| house10 | r2 | 3 | 1 | 3.3 | 95.5 | 0.9 | 0.2 | 0.96 | 5.7 | 0.017 | pass |
-| house10 | r2 | 3 | 1w | 3.9 | 94.5 | 1.2 | 0.4 | 0.97 | 3.9 | 0.023 | pass |
-| house10 | r2 | 3 | 2 | 3.4 | 95.4 | 0.7 | 0.4 | 0.99 | 2.7 | 0.039 | pass |
-| house10 | r2 | 3 | 2w | 3.4 | 95.4 | 0.7 | 0.4 | 0.99 | 3.1 | 0.038 | pass |
-| house10 | r2 | 3 | 3 | 69.2 | 21.2 | 5.4 | 4.2 | 1.03 | 2.3 | 0.014 | pass |
-| house10 | r2 | 3 | 3w | 71.3 | 18.7 | 6.2 | 3.8 | 1.04 | 3.9 | 0.017 | pass |
-| house10 | r3 | 4 | 1 | 31.2 | 67.4 | 1.3 | 0.1 | 0.84 | 28.0 | 0.124 | pass |
-| house10 | r3 | 4 | 1w | 32.9 | 65.7 | 1.0 | 0.4 | 0.82 | 34.2 | 0.093 | pass |
-| house10 | r3 | 4 | 2 | 32.5 | 66.4 | 0.7 | 0.4 | 1.02 | 1.2 | 0.092 | pass |
-| house10 | r3 | 4 | 2w | 32.5 | 66.4 | 0.7 | 0.4 | 0.96 | 1.4 | 0.043 | pass |
-| house10 | r3 | 4 | 3 | 76.0 | 14.7 | 5.2 | 4.1 | 0.97 | 1.1 | 0.019 | pass |
-| house10 | r3 | 4 | 3w | 77.4 | 12.6 | 5.8 | 4.2 | 0.97 | 2.9 | 0.013 | pass |
+| house10 | r1 | 2 | 1 | 68.4 | 30.8 | 0.6 | 0.2 | 0.96 | 23.5 | 0.098 | pass |
+| house10 | r1 | 2 | 1w | 67.8 | 31.1 | 1.0 | 0.1 | 0.90 | 33.5 | 0.058 | pass |
+| house10 | r1 | 2 | 2 | 68.3 | 30.4 | 1.0 | 0.3 | 1.06 | 0.9 | 0.062 | pass |
+| house10 | r1 | 2 | 2w | 68.3 | 30.4 | 1.0 | 0.3 | 1.01 | 1.2 | 0.027 | pass |
+| house10 | r1 | 2 | 3 | 79.3 | 11.2 | 5.4 | 4.1 | 0.96 | 0.9 | 0.004 | pass |
+| house10 | r1 | 2 | 3w | 80.8 | 9.5 | 5.8 | 3.9 | 0.97 | 0.9 | 0.006 | pass |
+| house10 | r2 | 3 | 1 | 3.5 | 95.3 | 0.9 | 0.3 | 0.95 | 6.0 | 0.020 | pass |
+| house10 | r2 | 3 | 1w | 4.1 | 91.4 | 4.2 | 0.2 | 0.98 | 7.9 | 0.013 | pass |
+| house10 | r2 | 3 | 2 | 3.3 | 95.2 | 1.1 | 0.4 | 0.99 | 2.7 | 0.042 | pass |
+| house10 | r2 | 3 | 2w | 3.3 | 95.2 | 1.1 | 0.4 | 0.99 | 3.1 | 0.041 | pass |
+| house10 | r2 | 3 | 3 | 68.6 | 21.8 | 5.4 | 4.2 | 1.04 | 1.7 | 0.010 | pass |
+| house10 | r2 | 3 | 3w | 70.7 | 19.2 | 6.3 | 3.8 | 1.04 | 2.1 | 0.015 | pass |
+| house10 | r3 | 4 | 1 | 31.5 | 67.2 | 1.2 | 0.1 | 0.86 | 28.2 | 0.125 | pass |
+| house10 | r3 | 4 | 1w | 32.9 | 62.7 | 4.2 | 0.2 | 0.86 | 34.9 | 0.090 | pass |
+| house10 | r3 | 4 | 2 | 32.4 | 66.1 | 1.1 | 0.4 | 1.02 | 1.2 | 0.093 | pass |
+| house10 | r3 | 4 | 2w | 32.4 | 66.1 | 1.1 | 0.4 | 0.97 | 1.4 | 0.043 | pass |
+| house10 | r3 | 4 | 3 | 75.5 | 15.2 | 5.2 | 4.1 | 0.96 | 0.3 | 0.020 | pass |
+| house10 | r3 | 4 | 3w | 77.3 | 12.6 | 6.0 | 4.1 | 0.97 | 3.1 | 0.010 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| house10 | r1 | 1.02 | 0.87 | 0.95 | 0.055 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| house10 | r2 | 0.97 | 0.87 | 0.95 | 0.043 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| house10 | r3 | 0.97 | 0.87 | 0.95 | 0.045 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| house10 | r1 | 1.02 | 0.87 | 0.95 | 0.054 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | 120 | 120 | 0 | pass | blocks |
+| house10 | r2 | 0.97 | 0.87 | 0.95 | 0.043 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | 120 | 120 | 0 | pass | blocks |
+| house10 | r3 | 0.97 | 0.87 | 0.95 | 0.045 | 0.055 | 0 | 0 | 0 | 0 | 0.000 | 0 | 120 | 120 | 0 | pass | blocks |

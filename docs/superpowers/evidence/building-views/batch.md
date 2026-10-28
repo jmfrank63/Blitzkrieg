@@ -12,7 +12,9 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   0.8 of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
   porches, where they show more than 40, and draws as walls as much of the walls of the roof parts
   in `tools/zig/fixtures/bk-views/roof-parts`, at most 0.04 of its pixels still stretched, and no more than
-  40 pixels of the body copied from beside a part, a chimney, dormer or door step of another side), the style
+  40 pixels of the body copied from beside a part, a chimney, dormer or door step of another side, nor
+  drawn on a roof from where a 2003 side of the colourway sees a chimney, and its blocks cover half or
+  more of the chimneys the variant's 2003 picture shows above its roofs), the style
   of every generated picture, and the hold-out where the family has another side of the colourway, against
   the floors of `tools/zig/fixtures/bk-views/gate.json`: 194 of 194 variants pass; hold-out 43 of 43; 0
   fail on the shape; 0 more pass the measures but look wrong on the contact sheet (`bk-views contact`),
@@ -22,7 +24,7 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   the shape, where the turn keeps the footprint (cells IoU 0.9 or more), or mirrored onto it on an odd
   turn of a rectangular footprint; and the heaps (supply depots, earth pillboxes) on every turn, mirrored on
   an odd one.
-- Hand shapes: 74 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
+- Hand shapes: 77 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
 
 | Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
 |---|---|---|---|---|---|---|---|

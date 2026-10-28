@@ -10,20 +10,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | railroadbighouse | r1 | 2 | 1w | 38.7 | 61.3 | 0.0 | 0.0 | 0.90 | 18.8 | 0.419 | pass |
 | railroadbighouse | r1 | 2 | 2 | 40.1 | 58.7 | 0.0 | 1.2 | 1.07 | 5.7 | 0.040 | pass |
 | railroadbighouse | r1 | 2 | 2w | 40.1 | 58.7 | 0.0 | 1.2 | 0.97 | 6.5 | 0.053 | pass |
-| railroadbighouse | r1 | 2 | 3 | 67.8 | 30.1 | 0.9 | 1.2 | 1.02 | 1.8 | 0.022 | pass |
-| railroadbighouse | r1 | 2 | 3w | 67.8 | 30.1 | 0.9 | 1.2 | 0.94 | 2.0 | 0.017 | pass |
+| railroadbighouse | r1 | 2 | 3 | 68.6 | 29.4 | 0.8 | 1.2 | 1.02 | 0.3 | 0.025 | pass |
+| railroadbighouse | r1 | 2 | 3w | 68.6 | 29.4 | 0.8 | 1.2 | 0.94 | 0.4 | 0.023 | pass |
 | railroadbighouse | r2 | 3 | 1 | 1.9 | 98.1 | 0.0 | 0.0 | 1.01 | 0.7 | 0.012 | pass |
 | railroadbighouse | r2 | 3 | 1w | 2.3 | 97.7 | 0.0 | 0.0 | 1.00 | 2.0 | 0.128 | pass |
 | railroadbighouse | r2 | 3 | 2 | 1.0 | 97.7 | 0.0 | 1.2 | 0.97 | 2.4 | 0.034 | pass |
 | railroadbighouse | r2 | 3 | 2w | 1.0 | 97.7 | 0.0 | 1.2 | 0.98 | 2.7 | 0.036 | pass |
-| railroadbighouse | r2 | 3 | 3 | 50.4 | 47.5 | 0.9 | 1.2 | 0.98 | 1.4 | 0.013 | pass |
-| railroadbighouse | r2 | 3 | 3w | 50.4 | 47.5 | 0.9 | 1.2 | 0.96 | 1.7 | 0.014 | pass |
+| railroadbighouse | r2 | 3 | 3 | 50.0 | 48.2 | 0.9 | 0.9 | 0.96 | 3.0 | 0.011 | pass |
+| railroadbighouse | r2 | 3 | 3w | 50.0 | 48.2 | 0.9 | 0.9 | 0.95 | 3.3 | 0.011 | pass |
 | railroadbighouse | r3 | 4 | 1 | 58.5 | 41.5 | 0.0 | 0.0 | 0.89 | 5.0 | 0.099 | pass |
 | railroadbighouse | r3 | 4 | 1w | 60.0 | 40.0 | 0.0 | 0.0 | 0.83 | 17.4 | 0.424 | pass |
 | railroadbighouse | r3 | 4 | 2 | 58.3 | 40.4 | 0.1 | 1.2 | 1.06 | 7.6 | 0.025 | pass |
 | railroadbighouse | r3 | 4 | 2w | 58.3 | 40.4 | 0.1 | 1.2 | 0.96 | 8.9 | 0.025 | pass |
-| railroadbighouse | r3 | 4 | 3 | 73.3 | 24.8 | 1.1 | 0.8 | 1.00 | 2.0 | 0.008 | pass |
-| railroadbighouse | r3 | 4 | 3w | 73.3 | 24.8 | 1.1 | 0.8 | 0.92 | 1.9 | 0.009 | pass |
+| railroadbighouse | r3 | 4 | 3 | 73.0 | 25.4 | 1.0 | 0.7 | 0.99 | 0.8 | 0.011 | pass |
+| railroadbighouse | r3 | 4 | 3w | 73.0 | 25.4 | 1.0 | 0.7 | 0.91 | 1.0 | 0.006 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| railroadbighouse | r1 | 0.98 | 0.60 | 0.94 | 0.088 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| railroadbighouse | r2 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| railroadbighouse | r3 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| railroadbighouse | r1 | 0.98 | 0.60 | 0.94 | 0.088 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadbighouse | r2 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadbighouse | r3 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

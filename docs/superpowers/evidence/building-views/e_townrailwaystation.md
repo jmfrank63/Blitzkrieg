@@ -8,13 +8,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_townrailwaystation_4 | r1 | 1 | 1 | 24.9 | 65.8 | 5.3 | 4.0 | 1.42 | 46.0 | 0.059 | pass |
 | e_townrailwaystation_4 | r1 | 1 | 2 | 24.3 | 65.6 | 6.1 | 4.0 | 1.68 | 36.4 | 0.079 | pass |
-| e_townrailwaystation_4 | r1 | 1 | 3 | 47.5 | 49.5 | 2.3 | 0.6 | 1.35 | 7.2 | 0.015 | pass |
+| e_townrailwaystation_4 | r1 | 1 | 3 | 47.5 | 49.3 | 2.6 | 0.6 | 1.34 | 8.1 | 0.016 | pass |
 | e_townrailwaystation_4 | r2 | 2 | 1 | 0.0 | 87.4 | 8.4 | 4.2 | 0.89 | 6.6 | 0.068 | pass |
 | e_townrailwaystation_4 | r2 | 2 | 2 | 0.0 | 87.3 | 8.5 | 4.2 | 0.90 | 3.5 | 0.054 | pass |
-| e_townrailwaystation_4 | r2 | 2 | 3 | 29.1 | 67.2 | 3.0 | 0.7 | 0.97 | 4.5 | 0.015 | pass |
+| e_townrailwaystation_4 | r2 | 2 | 3 | 28.4 | 66.8 | 4.2 | 0.6 | 0.96 | 5.1 | 0.014 | pass |
 | e_townrailwaystation_4 | r3 | 3 | 1 | 65.7 | 27.3 | 6.0 | 1.1 | 1.46 | 30.9 | 0.057 | pass |
 | e_townrailwaystation_4 | r3 | 3 | 2 | 65.3 | 27.0 | 6.8 | 1.0 | 1.84 | 26.2 | 0.038 | pass |
-| e_townrailwaystation_4 | r3 | 3 | 3 | 71.6 | 25.7 | 2.2 | 0.5 | 1.39 | 9.5 | 0.037 | pass |
+| e_townrailwaystation_4 | r3 | 3 | 3 | 70.9 | 25.0 | 3.5 | 0.5 | 1.38 | 9.0 | 0.036 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -22,11 +22,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townrailwaystation_4 | r1 | 1.00 | 0.93 | 0.97 | 0.038 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r2 | 1.00 | 0.93 | 0.97 | 0.027 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r3 | 1.00 | 0.93 | 0.97 | 0.026 | 0.030 | 260 | 260 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_townrailwaystation_4 | r1 | 1.00 | 0.93 | 0.97 | 0.038 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townrailwaystation_4 | r2 | 1.00 | 0.93 | 0.97 | 0.027 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townrailwaystation_4 | r3 | 1.00 | 0.93 | 0.97 | 0.026 | 0.030 | 260 | 260 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

@@ -10,20 +10,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | towncornhouse04 | r1 | 2 | 1w | 43.6 | 34.2 | 22.0 | 0.1 | 1.20 | 7.3 | 0.023 | pass |
 | towncornhouse04 | r1 | 2 | 2 | 45.5 | 34.9 | 19.5 | 0.1 | 1.17 | 0.9 | 0.023 | pass |
 | towncornhouse04 | r1 | 2 | 2w | 45.5 | 34.9 | 19.5 | 0.1 | 1.07 | 1.0 | 0.012 | pass |
-| towncornhouse04 | r1 | 2 | 3 | 82.5 | 9.0 | 2.0 | 6.4 | 1.05 | 1.2 | 0.004 | pass |
-| towncornhouse04 | r1 | 2 | 3w | 82.5 | 9.0 | 2.0 | 6.4 | 1.05 | 1.4 | 0.005 | pass |
+| towncornhouse04 | r1 | 2 | 3 | 82.1 | 8.9 | 2.4 | 6.6 | 1.06 | 3.1 | 0.044 | pass |
+| towncornhouse04 | r1 | 2 | 3w | 82.1 | 8.9 | 2.4 | 6.6 | 1.06 | 3.3 | 0.041 | pass |
 | towncornhouse04 | r2 | 3 | 1 | 7.6 | 64.0 | 28.3 | 0.1 | 1.07 | 7.4 | 0.134 | pass |
 | towncornhouse04 | r2 | 3 | 1w | 7.4 | 63.8 | 28.6 | 0.2 | 1.27 | 3.8 | 0.077 | pass |
 | towncornhouse04 | r2 | 3 | 2 | 8.7 | 66.2 | 24.9 | 0.1 | 1.21 | 1.3 | 0.113 | pass |
 | towncornhouse04 | r2 | 3 | 2w | 8.7 | 66.2 | 24.9 | 0.1 | 1.10 | 1.2 | 0.107 | pass |
-| towncornhouse04 | r2 | 3 | 3 | 57.9 | 33.0 | 2.4 | 6.7 | 1.03 | 1.8 | 0.005 | pass |
-| towncornhouse04 | r2 | 3 | 3w | 57.9 | 33.0 | 2.4 | 6.7 | 1.01 | 1.7 | 0.002 | pass |
+| towncornhouse04 | r2 | 3 | 3 | 56.9 | 33.5 | 2.7 | 6.9 | 1.04 | 1.4 | 0.005 | pass |
+| towncornhouse04 | r2 | 3 | 3w | 56.9 | 33.5 | 2.7 | 6.9 | 1.02 | 1.6 | 0.004 | pass |
 | towncornhouse04 | r3 | 4 | 1 | 42.0 | 40.9 | 17.0 | 0.1 | 1.12 | 14.9 | 0.047 | pass |
 | towncornhouse04 | r3 | 4 | 1w | 41.8 | 40.8 | 17.3 | 0.1 | 1.27 | 20.1 | 0.016 | pass |
 | towncornhouse04 | r3 | 4 | 2 | 43.2 | 41.9 | 14.7 | 0.2 | 1.20 | 4.2 | 0.067 | pass |
 | towncornhouse04 | r3 | 4 | 2w | 43.2 | 41.9 | 14.7 | 0.2 | 1.01 | 4.3 | 0.043 | pass |
-| towncornhouse04 | r3 | 4 | 3 | 64.2 | 26.8 | 2.2 | 6.8 | 1.16 | 3.2 | 0.014 | pass |
-| towncornhouse04 | r3 | 4 | 3w | 64.2 | 26.8 | 2.2 | 6.8 | 1.14 | 3.2 | 0.012 | pass |
+| towncornhouse04 | r3 | 4 | 3 | 64.0 | 27.1 | 2.2 | 6.8 | 1.18 | 4.5 | 0.048 | pass |
+| towncornhouse04 | r3 | 4 | 3w | 64.0 | 27.1 | 2.2 | 6.8 | 1.14 | 3.4 | 0.049 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse04 | r1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 2293 | 0.000 | 0 | pass | blocks |
-| towncornhouse04 | r2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 2401 | 0.000 | 0 | pass | blocks |
-| towncornhouse04 | r3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 2523 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| towncornhouse04 | r1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 2293 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
+| towncornhouse04 | r2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 2401 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
+| towncornhouse04 | r3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 2523 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |

@@ -10,56 +10,56 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | townhouse05_1 | r1 | 2 | 1w | 63.0 | 27.4 | 4.1 | 5.6 | 1.03 | 34.1 | 0.028 | pass |
 | townhouse05_1 | r1 | 2 | 2 | 65.3 | 34.7 | 0.0 | 0.0 | 0.95 | 22.4 | 0.058 | pass |
 | townhouse05_1 | r1 | 2 | 2w | 65.3 | 34.7 | 0.0 | 0.0 | 0.85 | 25.7 | 0.046 | pass |
-| townhouse05_1 | r1 | 2 | 3 | 66.2 | 31.9 | 1.1 | 0.8 | 1.07 | 2.8 | 0.006 | pass |
-| townhouse05_1 | r1 | 2 | 3w | 68.7 | 28.5 | 1.1 | 1.7 | 1.05 | 0.8 | 0.008 | pass |
+| townhouse05_1 | r1 | 2 | 3 | 66.7 | 32.0 | 0.7 | 0.6 | 1.07 | 2.4 | 0.010 | pass |
+| townhouse05_1 | r1 | 2 | 3w | 70.0 | 27.5 | 1.1 | 1.4 | 1.03 | 0.3 | 0.004 | pass |
 | townhouse05_1 | r2 | 3 | 1 | 4.5 | 87.5 | 6.5 | 1.5 | 1.01 | 3.1 | 0.090 | pass |
 | townhouse05_1 | r2 | 3 | 1w | 4.5 | 72.4 | 6.5 | 16.6 | 1.10 | 3.9 | 0.053 | pass |
 | townhouse05_1 | r2 | 3 | 2 | 6.9 | 93.0 | 0.1 | 0.0 | 1.02 | 1.1 | 0.031 | pass |
 | townhouse05_1 | r2 | 3 | 2w | 6.9 | 93.0 | 0.1 | 0.0 | 1.02 | 1.0 | 0.029 | pass |
-| townhouse05_1 | r2 | 3 | 3 | 1.0 | 94.5 | 1.0 | 3.5 | 0.99 | 0.6 | 0.013 | pass |
-| townhouse05_1 | r2 | 3 | 3w | 0.9 | 91.6 | 1.9 | 5.6 | 0.98 | 2.1 | 0.011 | pass |
+| townhouse05_1 | r2 | 3 | 3 | 0.7 | 97.1 | 0.8 | 1.4 | 0.99 | 0.7 | 0.016 | pass |
+| townhouse05_1 | r2 | 3 | 3w | 0.8 | 94.1 | 1.5 | 3.7 | 0.96 | 2.7 | 0.014 | pass |
 | townhouse05_1 | r3 | 4 | 1 | 36.1 | 58.3 | 4.3 | 1.3 | 0.94 | 27.2 | 0.095 | pass |
 | townhouse05_1 | r3 | 4 | 1w | 36.5 | 48.0 | 4.3 | 11.2 | 0.97 | 32.8 | 0.038 | pass |
 | townhouse05_1 | r3 | 4 | 2 | 34.1 | 65.9 | 0.1 | 0.0 | 0.92 | 23.4 | 0.055 | pass |
 | townhouse05_1 | r3 | 4 | 2w | 34.0 | 65.9 | 0.1 | 0.0 | 0.82 | 26.9 | 0.045 | pass |
-| townhouse05_1 | r3 | 4 | 3 | 29.9 | 65.6 | 0.8 | 3.7 | 1.05 | 3.9 | 0.009 | pass |
-| townhouse05_1 | r3 | 4 | 3w | 30.1 | 63.2 | 1.5 | 5.2 | 1.04 | 0.8 | 0.009 | pass |
+| townhouse05_1 | r3 | 4 | 3 | 30.1 | 67.8 | 0.7 | 1.4 | 1.04 | 2.1 | 0.018 | pass |
+| townhouse05_1 | r3 | 4 | 3w | 30.6 | 65.5 | 1.0 | 2.9 | 1.02 | 1.0 | 0.007 | pass |
 | townhouse05_2 | r1 | 3 | 1 | 36.8 | 58.3 | 3.7 | 1.2 | 1.37 | 17.2 | 0.060 | pass |
 | townhouse05_2 | r1 | 3 | 1w | 37.4 | 49.1 | 3.5 | 10.0 | 1.25 | 26.5 | 0.046 | pass |
 | townhouse05_2 | r1 | 3 | 2 | 34.4 | 65.4 | 0.2 | 0.0 | 1.91 | 24.0 | 0.092 | pass |
 | townhouse05_2 | r1 | 3 | 2w | 35.0 | 64.6 | 0.2 | 0.2 | 1.44 | 28.0 | 0.048 | pass |
-| townhouse05_2 | r1 | 3 | 3 | 27.3 | 60.8 | 1.3 | 10.6 | 1.49 | 21.9 | 0.036 | pass |
-| townhouse05_2 | r1 | 3 | 3w | 27.6 | 62.3 | 0.4 | 9.8 | 1.23 | 23.4 | 0.039 | pass |
+| townhouse05_2 | r1 | 3 | 3 | 27.4 | 60.5 | 1.6 | 10.5 | 1.48 | 22.4 | 0.030 | pass |
+| townhouse05_2 | r1 | 3 | 3w | 27.7 | 62.0 | 0.6 | 9.7 | 1.22 | 24.1 | 0.037 | pass |
 | townhouse05_2 | r2 | 4 | 1 | 4.5 | 88.2 | 6.2 | 1.1 | 1.11 | 4.0 | 0.022 | pass |
 | townhouse05_2 | r2 | 4 | 1w | 4.5 | 74.7 | 6.1 | 14.7 | 1.02 | 1.9 | 0.054 | pass |
 | townhouse05_2 | r2 | 4 | 2 | 6.9 | 92.8 | 0.3 | 0.0 | 1.03 | 1.9 | 0.023 | pass |
 | townhouse05_2 | r2 | 4 | 2w | 6.9 | 92.6 | 0.2 | 0.3 | 0.99 | 2.1 | 0.035 | pass |
-| townhouse05_2 | r2 | 4 | 3 | 0.2 | 87.8 | 1.2 | 10.7 | 1.01 | 2.6 | 0.016 | pass |
-| townhouse05_2 | r2 | 4 | 3w | 0.2 | 89.5 | 0.4 | 9.9 | 1.02 | 3.5 | 0.019 | pass |
+| townhouse05_2 | r2 | 4 | 3 | 0.4 | 87.4 | 1.6 | 10.6 | 1.02 | 2.6 | 0.014 | pass |
+| townhouse05_2 | r2 | 4 | 3w | 0.4 | 89.1 | 0.8 | 9.8 | 1.03 | 3.1 | 0.014 | pass |
 | townhouse05_2 | r3 | 1 | 1 | 63.0 | 33.2 | 3.6 | 0.2 | 1.54 | 12.7 | 0.106 | pass |
 | townhouse05_2 | r3 | 1 | 1w | 63.3 | 28.3 | 3.5 | 4.9 | 1.41 | 24.8 | 0.043 | pass |
 | townhouse05_2 | r3 | 1 | 2 | 65.5 | 34.4 | 0.1 | 0.0 | 1.97 | 24.1 | 0.089 | pass |
 | townhouse05_2 | r3 | 1 | 2w | 65.5 | 34.3 | 0.1 | 0.1 | 1.46 | 27.0 | 0.051 | pass |
-| townhouse05_2 | r3 | 1 | 3 | 54.1 | 34.1 | 1.1 | 10.7 | 1.50 | 21.2 | 0.045 | pass |
-| townhouse05_2 | r3 | 1 | 3w | 56.1 | 33.9 | 0.2 | 9.8 | 1.19 | 23.2 | 0.037 | pass |
+| townhouse05_2 | r3 | 1 | 3 | 53.8 | 34.2 | 1.4 | 10.6 | 1.48 | 21.3 | 0.046 | pass |
+| townhouse05_2 | r3 | 1 | 3w | 55.8 | 34.1 | 0.3 | 9.8 | 1.20 | 24.3 | 0.032 | pass |
 | townhouse05_3 | r1 | 3 | 1 | 37.1 | 58.3 | 3.7 | 0.9 | 1.55 | 17.2 | 0.119 | pass |
 | townhouse05_3 | r1 | 3 | 1w | 37.4 | 52.7 | 3.5 | 6.5 | 1.25 | 21.4 | 0.075 | pass |
 | townhouse05_3 | r1 | 3 | 2 | 34.8 | 64.3 | 0.4 | 0.4 | 1.61 | 20.7 | 0.075 | pass |
 | townhouse05_3 | r1 | 3 | 2w | 34.7 | 65.3 | 0.0 | 0.0 | 1.38 | 24.4 | 0.052 | pass |
-| townhouse05_3 | r1 | 3 | 3 | 28.0 | 66.5 | 1.8 | 3.6 | 1.32 | 8.4 | 0.032 | pass |
-| townhouse05_3 | r1 | 3 | 3w | 28.4 | 68.6 | 0.5 | 2.5 | 1.23 | 10.7 | 0.026 | pass |
+| townhouse05_3 | r1 | 3 | 3 | 30.7 | 64.5 | 1.6 | 3.2 | 1.27 | 5.7 | 0.024 | pass |
+| townhouse05_3 | r1 | 3 | 3w | 28.2 | 68.2 | 0.8 | 2.8 | 1.23 | 9.5 | 0.018 | pass |
 | townhouse05_3 | r2 | 4 | 1 | 4.5 | 88.4 | 6.1 | 0.9 | 1.09 | 3.5 | 0.060 | pass |
 | townhouse05_3 | r2 | 4 | 1w | 4.6 | 80.2 | 6.0 | 9.2 | 1.01 | 1.2 | 0.045 | pass |
 | townhouse05_3 | r2 | 4 | 2 | 7.0 | 91.9 | 0.4 | 0.7 | 0.98 | 1.4 | 0.018 | pass |
 | townhouse05_3 | r2 | 4 | 2w | 7.0 | 93.0 | 0.0 | 0.0 | 1.02 | 2.7 | 0.022 | pass |
-| townhouse05_3 | r2 | 4 | 3 | 0.3 | 93.7 | 1.9 | 4.2 | 1.03 | 1.1 | 0.013 | pass |
-| townhouse05_3 | r2 | 4 | 3w | 0.3 | 96.5 | 0.6 | 2.7 | 1.04 | 0.8 | 0.014 | pass |
+| townhouse05_3 | r2 | 4 | 3 | 0.6 | 92.8 | 2.6 | 3.9 | 1.02 | 0.5 | 0.015 | pass |
+| townhouse05_3 | r2 | 4 | 3w | 0.5 | 94.5 | 1.8 | 3.1 | 1.02 | 0.2 | 0.015 | pass |
 | townhouse05_3 | r3 | 1 | 1 | 63.0 | 33.3 | 3.6 | 0.2 | 1.64 | 14.0 | 0.137 | pass |
 | townhouse05_3 | r3 | 1 | 1w | 63.2 | 30.2 | 3.5 | 3.0 | 1.37 | 22.1 | 0.063 | pass |
 | townhouse05_3 | r3 | 1 | 2 | 65.3 | 34.3 | 0.3 | 0.2 | 1.61 | 19.0 | 0.080 | pass |
 | townhouse05_3 | r3 | 1 | 2w | 65.3 | 34.7 | 0.0 | 0.0 | 1.40 | 24.2 | 0.050 | pass |
-| townhouse05_3 | r3 | 1 | 3 | 63.4 | 31.9 | 1.6 | 3.1 | 1.30 | 6.0 | 0.023 | pass |
-| townhouse05_3 | r3 | 1 | 3w | 63.1 | 34.2 | 0.4 | 2.3 | 1.22 | 8.6 | 0.025 | pass |
+| townhouse05_3 | r3 | 1 | 3 | 62.4 | 32.5 | 2.3 | 2.8 | 1.26 | 3.9 | 0.013 | pass |
+| townhouse05_3 | r3 | 1 | 3w | 64.1 | 31.9 | 1.6 | 2.4 | 1.20 | 7.8 | 0.014 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -67,17 +67,19 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| townhouse05_1 | r1 | 1.00 | 0.97 | 0.97 | 0.007 | 0.005 | 387 | 387 | 1618 | 1618 | 0.000 | 0 | pass | blocks |
-| townhouse05_1 | r2 | 1.01 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1815 | 1815 | 0.000 | 0 | pass | blocks |
-| townhouse05_1 | r3 | 1.01 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1836 | 1836 | 0.000 | 0 | pass | blocks |
-| townhouse05_2 | r1 | 1.00 | 0.98 | 0.97 | 0.009 | 0.004 | 9 | 9 | 1829 | 1829 | 0.000 | 0 | pass | blocks |
-| townhouse05_2 | r2 | 1.00 | 0.98 | 0.97 | 0.009 | 0.004 | 0 | 0 | 1813 | 1813 | 0.000 | 0 | pass | blocks |
-| townhouse05_2 | r3 | 1.01 | 0.98 | 0.97 | 0.007 | 0.004 | 543 | 543 | 1644 | 1644 | 0.000 | 0 | pass | blocks |
-| townhouse05_3 | r1 | 1.00 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1810 | 1810 | 0.000 | 0 | pass | blocks |
-| townhouse05_3 | r2 | 0.99 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1832 | 1832 | 0.000 | 0 | pass | blocks |
-| townhouse05_3 | r3 | 1.01 | 0.97 | 0.97 | 0.007 | 0.005 | 370 | 370 | 1632 | 1632 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| townhouse05_1 | r1 | 1.00 | 0.97 | 0.97 | 0.007 | 0.005 | 387 | 387 | 1618 | 1618 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_1 | r2 | 1.01 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1815 | 1815 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_1 | r3 | 1.01 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1836 | 1836 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_2 | r1 | 1.00 | 0.98 | 0.97 | 0.009 | 0.004 | 9 | 9 | 1829 | 1829 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_2 | r2 | 1.00 | 0.98 | 0.97 | 0.009 | 0.004 | 0 | 0 | 1813 | 1813 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_2 | r3 | 1.01 | 0.98 | 0.97 | 0.007 | 0.004 | 543 | 543 | 1644 | 1644 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_3 | r1 | 1.00 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1810 | 1810 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_3 | r2 | 0.99 | 0.97 | 0.97 | 0.009 | 0.005 | 0 | 0 | 1832 | 1832 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse05_3 | r3 | 1.01 | 0.97 | 0.97 | 0.007 | 0.005 | 370 | 370 | 1632 | 1632 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
