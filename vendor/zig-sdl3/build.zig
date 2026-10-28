@@ -186,9 +186,7 @@ pub fn prepareSdl(
                 lib.root_module.addSystemIncludePath(val);
             b.installArtifact(lib);
             translate_c.addIncludePath(sdl_dep.path("include"));
-            // On macOS link the dylib by path: linkLibrary also adds an absolute -rpath into the
-            // build cache, where dyld then finds a second libSDL3 beside the installed one.
-            if (target.result.os.tag == .macos) sdl3.addObjectFile(lib.getEmittedBin()) else sdl3.linkLibrary(lib);
+            sdl3.linkLibrary(lib);
             sdl_dep_lib = lib;
         }
     }
