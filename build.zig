@@ -3443,6 +3443,27 @@ pub fn build(b: *std.Build) void {
     control_game_step.dependOn(&control_game_tests.step);
     if (test_mode == .run) control_game_step.dependOn(&control_game_run.step);
 
+    // A repair truck ordered onto a damaged bridge at every camera step (M006
+    // round 2, tools/zig/camera_turn_bridge_game_reads_it.zig). Desktop and
+    // GPU, so not part of `test`.
+    const bridge_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_bridge_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, bridge_game_module, toolchain);
+    }
+    const bridge_game_tests = b.addTest(.{ .root_module = bridge_game_module, .filters = &.{"a repair truck repairs a damaged bridge"} });
+    const bridge_game_run = b.addRunArtifact(bridge_game_tests);
+    bridge_game_run.setCwd(b.path("."));
+    bridge_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    bridge_game_run.has_side_effects = true;
+    bridge_game_run.step.dependOn(install_game_step);
+    const bridge_game_step = b.step("camera-turn-bridge-game-reads-it", "Order an engineering truck onto a damaged bridge clicked where each camera step draws it on the real Game with Remastered on, and on it with Remastered off, and hold the bridge's HP to rise back to whole");
+    bridge_game_step.dependOn(&bridge_game_tests.step);
+    if (test_mode == .run) bridge_game_step.dependOn(&bridge_game_run.step);
+
     // The camera step in saves, replays and the multiplayer start (M006 S05,
     // tools/zig/camera_turn_state_game_reads_it.zig). Desktop and GPU, so not
     // part of `test`.
