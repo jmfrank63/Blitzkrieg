@@ -2267,6 +2267,162 @@ pub fn blocksIou(blocks: []const Block, eye: Eye, picture: Image) f64 {
     return if (either == 0) 0 else both / either;
 }
 
+/// How a turn's intact picture stands to the variant's shape turned (M006
+/// round 3: a turn is a rotation, never a mirror). A mirror flips handedness:
+/// an L-shaped house's wing, a lean-to, a ramp or a chimney ends up on the
+/// other side, and it equals the rotation only where the shape and its parts
+/// are symmetric for that turn. `turned`: the outline IoU of the picture with
+/// the turned shape's projection, at the best shift within `mirror_reach`
+/// pixels (a 2003 sprite is laid by its footprint, and a shape and its
+/// footprint's middle differ by a few units); `mirrored`: with that
+/// projection mirrored across the screen's vertical; `symmetric`: the turned
+/// projection with its own mirror; `parts`: the pixels the parts (chimneys,
+/// low and roof parts) add to the outline beyond the body and its mirror,
+/// `parts_kept` those the picture holds, `parts_mirrored` and
+/// `parts_mirrored_kept` likewise for the parts mirrored; `own`: the IoU of
+/// the variant's 2003 picture with the shape unturned, what the shape can
+/// reach at all.
+pub const Handed = struct { turned: f64 = 1, mirrored: f64 = 0, symmetric: f64 = 1, own: f64 = 1, parts: f64 = 0, parts_kept: f64 = 0, parts_mirrored: f64 = 0, parts_mirrored_kept: f64 = 0 };
+
+/// The turned shape `blocks` (its first `body` the body, the rest parts) seen
+/// by `eye`, against `picture` on that eye's canvas; the mirror's axis is the
+/// screen column `axis` (the turned footprint's middle).
+pub fn handedness(gpa: std.mem.Allocator, blocks: []const Block, body: usize, eye: Eye, axis: f64, picture: Image) !Handed {
+    const w: i64 = picture.width;
+    const h: i64 = picture.height;
+    const reach: i64 = mirror_reach;
+    // Twice the axis, whole: pixel x mirrors to fold - 1 - x.
+    const fold: i64 = @intFromFloat(@round(2 * axis));
+    // The turned shape on a canvas wide enough for its mirror and every shift.
+    const pad = 2 * reach + 4;
+    const lo = [2]i64{ @min(-pad, fold - w - pad), -pad };
+    const hi = [2]i64{ @max(w, fold) + pad + 1, h + pad };
+    const span = [2]usize{ @intCast(hi[0] - lo[0]), @intCast(hi[1] - lo[1]) };
+    // Per pixel: 0 nothing, 1 body, 2 a part where no body stands (what the
+    // part adds to the outline).
+    const turned = try gpa.alloc(u8, span[0] * span[1]);
+    defer gpa.free(turned);
+    for (0..span[1]) |j| for (0..span[0]) |i| {
+        const px = @as(f64, @floatFromInt(@as(i64, @intCast(i)) + lo[0])) + 0.5;
+        const py = @as(f64, @floatFromInt(@as(i64, @intCast(j)) + lo[1])) + 0.5;
+        turned[j * span[0] + i] = if (castPixel(blocks[0..body], eye, px, py) != null) 1 else if (castPixel(blocks, eye, px, py) != null) 2 else 0;
+    };
+    const mirrored = try gpa.alloc(u8, span[0] * span[1]);
+    defer gpa.free(mirrored);
+    const Canvas = struct {
+        m: []const u8,
+        lo: [2]i64,
+        span: [2]usize,
+        fn get(c: @This(), x: i64, y: i64) u8 {
+            const i = x - c.lo[0];
+            const j = y - c.lo[1];
+            if (i < 0 or j < 0 or i >= c.span[0] or j >= c.span[1]) return 0;
+            return c.m[@as(usize, @intCast(j)) * c.span[0] + @as(usize, @intCast(i))];
+        }
+    };
+    const t: Canvas = .{ .m = turned, .lo = lo, .span = span };
+    for (0..span[1]) |j| for (0..span[0]) |i| {
+        const x = @as(i64, @intCast(i)) + lo[0];
+        mirrored[j * span[0] + i] = t.get(fold - 1 - x, @as(i64, @intCast(j)) + lo[1]);
+    };
+    const opaque_at = struct {
+        fn f(p: Image, x: i64, y: i64) bool {
+            return if (p.at(x, y)) |px| px[3] >= 128 else false;
+        }
+    }.f;
+    const m: Canvas = .{ .m = mirrored, .lo = lo, .span = span };
+    // The best overlap of a over b moved by (dx, dy) within the reach; b
+    // null is the picture.
+    const Best = struct { iou: f64 = 0, shift: [2]i64 = .{ 0, 0 } };
+    const best = struct {
+        fn f(a: Canvas, b: ?Canvas, p: Image, r: i64, area: [2][2]i64) Best {
+            // Every fourth shift, then every shift about the best.
+            const coarse = search(a, b, p, .{ 0, 0 }, @divTrunc(r, 4), 4, area);
+            return search(a, b, p, coarse.shift, 3, 1, area);
+        }
+        fn search(a: Canvas, b: ?Canvas, p: Image, at: [2]i64, r: i64, step: i64, area: [2][2]i64) Best {
+            var out: Best = .{};
+            var j: i64 = -r;
+            while (j <= r) : (j += 1) {
+                var i: i64 = -r;
+                while (i <= r) : (i += 1) {
+                    const dx = at[0] + i * step;
+                    const dy = at[1] + j * step;
+                    var both: f64 = 0;
+                    var either: f64 = 0;
+                    var y = area[0][1];
+                    while (y < area[1][1]) : (y += 1) {
+                        var x = area[0][0];
+                        while (x < area[1][0]) : (x += 1) {
+                            const in_a = a.get(x - dx, y - dy) != 0;
+                            const in_b = if (b) |c| c.get(x, y) != 0 else opaque_at(p, x, y);
+                            both += @floatFromInt(@intFromBool(in_a and in_b));
+                            either += @floatFromInt(@intFromBool(in_a or in_b));
+                        }
+                    }
+                    const iou = if (either == 0) 0 else both / either;
+                    if (iou > out.iou) out = .{ .iou = iou, .shift = .{ dx, dy } };
+                }
+            }
+            return out;
+        }
+    }.f;
+    const whole = [2][2]i64{ lo, hi };
+    const on_picture = [2][2]i64{ .{ -reach, -reach }, .{ w + reach, h + reach } };
+    const fit = best(t, null, picture, reach, on_picture);
+    const sym = best(m, t, picture, 2 * reach, whole);
+    const flipped = best(m, null, picture, 2 * reach, on_picture);
+    var out: Handed = .{ .turned = fit.iou, .mirrored = flipped.iou, .symmetric = sym.iou };
+    // The parts as the turned shape lies on the picture, and their mirror
+    // laid on that shape as well as it lies.
+    var y: i64 = -reach;
+    while (y < h + reach) : (y += 1) {
+        var x: i64 = -reach;
+        while (x < w + reach) : (x += 1) {
+            const a = t.get(x - fit.shift[0], y - fit.shift[1]);
+            const b = m.get(x - fit.shift[0] - sym.shift[0], y - fit.shift[1] - sym.shift[1]);
+            const p = opaque_at(picture, x, y);
+            // A part's pixel counts where neither the body nor its mirror
+            // stands: there the two hands differ by the part alone.
+            if (a == 2 and b != 1) {
+                out.parts += 1;
+                out.parts_kept += @floatFromInt(@intFromBool(p));
+            }
+            if (b == 2 and a != 1) {
+                out.parts_mirrored += 1;
+                out.parts_mirrored_kept += @floatFromInt(@intFromBool(p));
+            }
+        }
+    }
+    return out;
+}
+
+/// How far (pixels) the turned shape is moved to lie on a turn's picture
+/// best, which is laid by its footprint (a shape and its footprint's middle
+/// differ by a few units); its mirror, laid on the turned shape, twice as
+/// far.
+const mirror_reach = 16;
+
+/// Where a turn's picture is not the variant's shape turned, or null: its
+/// outline leaves the turned shape by more than the 2003 picture leaves the
+/// shape unturned (`outline_slack`), its outline is the mirror's rather than
+/// the turned shape's where the two differ (`symmetric_floor`), or it drops
+/// the parts the turned shape shows (more than `low_margin` pixels, less
+/// than `low_share` held) while it holds their mirror.
+pub fn handedFailure(gpa: std.mem.Allocator, h: Handed) !?[]const u8 {
+    if (h.turned < h.own - outline_slack) return try std.fmt.allocPrint(gpa, "turned outline {d:.3} < {d:.3}", .{ h.turned, h.own - outline_slack });
+    if (h.symmetric < symmetric_floor and h.mirrored > h.turned) return try std.fmt.allocPrint(gpa, "mirrored: outline {d:.3} turned, {d:.3} mirrored", .{ h.turned, h.mirrored });
+    if (lowFails(h.parts, h.parts_kept) and h.parts_mirrored_kept >= low_share * h.parts_mirrored) return try std.fmt.allocPrint(gpa, "parts on the mirrored side: {d:.0} of {d:.0} pixels", .{ h.parts_kept, h.parts });
+    return null;
+}
+
+/// A turn's outline may stand this far (IoU) under the 2003 picture's with
+/// the shape unturned.
+const outline_slack = 0.05;
+/// A turned shape whose mirror covers it this well (IoU) is symmetric for
+/// that turn: a mirror of its picture shows it as well as the turn.
+const symmetric_floor = 0.95;
+
 /// Where grid b's zero cross sits in b's frame when b shows grid a's building
 /// turned `turn` times, their occupied boxes laid centre on centre.
 fn footprintShift(a: Grid, b: Grid, turn: u2) [2]f64 {
@@ -3631,9 +3787,29 @@ fn asGenerated(gpa: std.mem.Allocator, image: Image) !Generated {
 /// small object, as its 2003 pictures (`sameSprite`), with the intact
 /// shape's gate values; a turn a 2003 variant of its colourway shows, as
 /// that variant's pictures (`siblingSprite`, `sibling` names it).
-const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool, sibling: ?[]const u8 = null };
+const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool, sibling: ?[]const u8 = null, handed: Handed = .{}, handed_failure: ?[]const u8 = null };
+
+/// The handedness of a turn's intact picture (`handedness`) against the
+/// scene's intact shape turned as `target` sees it.
+fn turnHanded(gpa: std.mem.Allocator, scene: Scene, target: Turned, drawn: []const Drawn) !Handed {
+    const i = for (scene.states, 0..) |state, i| {
+        if (std.mem.eql(u8, state, "1")) break i;
+    } else return .{};
+    const own = scene.sources[scene.fixed];
+    const c = boxCentre(own.footprint);
+    var h = try handedness(gpa, scene.shapes[i], scene.bodies[i], target.eye, target.eye.project(.{ c[0], c[1], 0 })[0], drawn[i].sprite.image);
+    h.own = blocksIou(scene.shapes[i], scene.eyes[scene.fixed], pictureOf(own, "1").?);
+    return h;
+}
 
 fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
+    var turned = try drawTurnAs(ctx, scene, blocks_target);
+    turned.handed = try turnHanded(ctx.arena, scene, turned.target, turned.drawn);
+    turned.handed_failure = try handedFailure(ctx.arena, turned.handed);
+    return turned;
+}
+
+fn drawTurnAs(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
     const arena = ctx.arena;
     const own = scene.sources[scene.fixed];
     const new_side = (scene.own_side - 1 + @as(u8, blocks_target.turn)) % 4 + 1;
@@ -3785,7 +3961,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const zero = if (fallback) target.eye.anchor else footprintZero(scene, target);
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n\"handed\":{{\"turned\":{d:.4},\"mirrored\":{d:.4},\"symmetric\":{d:.4},\"own\":{d:.4},\"parts\":{d:.0},\"parts_kept\":{d:.0},\"parts_mirrored\":{d:.0},\"parts_mirrored_kept\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "", turned.handed.turned, turned.handed.mirrored, turned.handed.symmetric, turned.handed.own, turned.handed.parts, turned.handed.parts_kept, turned.handed.parts_mirrored, turned.handed.parts_mirrored_kept, turned.handed_failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -4410,6 +4586,7 @@ const SideReport = struct {
     sibling: []const u8 = "",
     hand: bool = false,
     shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0, chimney: f64 = 0, chimney_kept: f64 = 0, painted: f64 = 0, failure: []const u8 },
+    handed: struct { turned: f64 = 1, mirrored: f64 = 0, symmetric: f64 = 1, own: f64 = 1, failure: []const u8 = "" } = .{},
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
@@ -4498,6 +4675,8 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                 hand = hand or side.hand;
                 if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "{s}{s}{s}", .{ label, if (side.mirror) " mirrored" else if (side.sibling.len > 0) " = " else "", side.sibling }));
                 if (side.shape.failure.len > 0 and !side.fallback and failure == null) failure = try std.fmt.allocPrint(arena, "{s} shape: {s}", .{ label, side.shape.failure });
+                // Every turn, however drawn, is the shape turned (M006 round 3).
+                if (side.handed.failure.len > 0 and failure == null) failure = try std.fmt.allocPrint(arena, "{s} turn: {s}", .{ label, side.handed.failure });
                 for (side.pictures) |picture| {
                     if (std.mem.endsWith(u8, picture.picture, "g")) continue;
                     const all = picture.projected + picture.mirrored + picture.transferred + picture.filled;
@@ -4515,7 +4694,8 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | {s} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {s} | {s} |\n", .{ name, label, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, sh.chimney, sh.chimney_kept, sh.painted, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                const ha = side.handed;
+                try shapes.writer.print("| {s} | {s} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {s} | {d:.3} | {d:.3} | {d:.3} | {d:.3} | {s} | {s} |\n", .{ name, label, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, sh.chimney, sh.chimney_kept, sh.painted, if (sh.failure.len > 0) sh.failure else "pass", ha.turned, ha.mirrored, ha.symmetric, ha.own, if (ha.failure.len > 0) ha.failure else "pass", if (side.sibling.len > 0) "2003 sibling" else if (side.mirror) "2003 sprite mirrored" else if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
@@ -4566,9 +4746,12 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             \\of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
             \\sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
             \\sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+            \\The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+            \\with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+            \\(symmetric), and of the 2003 picture with the shape unturned (own).
             \\
-            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(

@@ -1221,3 +1221,52 @@ test "a heap turns as its 2003 pictures on every turn, mirrored on an odd one, a
         } else return error.NoSuchFamily;
     }
 }
+
+/// A picture mirrored across the screen's vertical through point `from` and
+/// moved so that `from` lands on `to`, as a mirrored sprite is laid on its
+/// turned footprint.
+fn mirrorPicture(gpa: std.mem.Allocator, image: views.Image, from: [2]f64, to: [2]f64) !views.Image {
+    const out: views.Image = .{ .width = image.width, .height = image.height, .pixels = try gpa.alloc([4]u8, image.pixels.len) };
+    const fold: i64 = @intFromFloat(@round(2 * from[0]));
+    const dx: i64 = @intFromFloat(@round(to[0] - from[0]));
+    const dy: i64 = @intFromFloat(@round(to[1] - from[1]));
+    for (0..image.height) |y| for (0..image.width) |x| {
+        const at = fold - 1 - (@as(i64, @intCast(x)) - dx);
+        out.pixels[y * image.width + x] = if (image.at(at, @as(i64, @intCast(y)) - dy)) |p| p.* else .{ 0, 0, 0, 0 };
+    };
+    return out;
+}
+
+test "a turn is the shape turned: an L-shaped house mirrored or left as it was fails, a box mirrored passes" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A house with a wing at one end of its front and a chimney at the
+    // other end of its ridge: no mirror shows it turned.
+    const winged = [_]views.Block{
+        .{ .lo = .{ 0, 0 }, .hi = .{ 90, 40 }, .wall = 30, .ridge = 55, .roof = .gable_x },
+        .{ .lo = .{ 0, -40 }, .hi = .{ 30, 0 }, .wall = 30, .ridge = 50, .roof = .gable_y },
+        .{ .lo = .{ 70, 16 }, .hi = .{ 78, 24 }, .wall = 70, .ridge = 70 },
+    };
+    const eyes = [2]views.Eye{ .{ .anchor = .{ 130, 150 } }, .{ .anchor = .{ 130, 150 }, .turn = 1 } };
+    const axis = eyes[1].project(.{ 45, 0, 0 })[0];
+    // Drawn turned it is its own turned shape.
+    const turned = try views.handedness(arena, &winged, 2, eyes[1], axis, try blocksPicture(arena, eyes[1], &winged));
+    try std.testing.expect(turned.turned > 0.99);
+    try std.testing.expect(turned.symmetric < 0.95);
+    try std.testing.expectEqual(@as(?[]const u8, null), try views.handedFailure(arena, turned));
+    // The 2003 picture mirrored lays it on the turned footprint, the wing and
+    // the chimney on the other hand.
+    const mirrored = try views.handedness(arena, &winged, 2, eyes[1], axis, try mirrorPicture(arena, try blocksPicture(arena, eyes[0], &winged), eyes[0].project(.{ 45, 0, 0 }), eyes[1].project(.{ 45, 0, 0 })));
+    try std.testing.expect(mirrored.turned < 0.9);
+    try std.testing.expect(try views.handedFailure(arena, mirrored) != null);
+    // The 2003 picture as it was, at a half turn.
+    const half: views.Eye = .{ .anchor = .{ 130, 150 }, .turn = 2 };
+    const same = try views.handedness(arena, &winged, 2, half, half.project(.{ 45, 0, 0 })[0], try blocksPicture(arena, eyes[0], &winged));
+    try std.testing.expect(try views.handedFailure(arena, same) != null);
+    // A box's 2003 picture mirrored is the box turned, and passes.
+    const box = [_]views.Block{.{ .lo = .{ 0, 0 }, .hi = .{ 90, 40 }, .wall = 30, .ridge = 30 }};
+    const plain = try views.handedness(arena, &box, 1, eyes[1], eyes[1].project(.{ 45, 20, 0 })[0], try mirrorPicture(arena, try blocksPicture(arena, eyes[0], &box), eyes[0].project(.{ 45, 20, 0 }), eyes[1].project(.{ 45, 20, 0 })));
+    try std.testing.expect(plain.turned > 0.97);
+    try std.testing.expectEqual(@as(?[]const u8, null), try views.handedFailure(arena, plain));
+}
