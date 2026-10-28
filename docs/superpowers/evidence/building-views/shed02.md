@@ -10,38 +10,38 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | shed02 | r1 | 2 | 1w | 29.6 | 67.9 | 1.2 | 1.3 | 0.86 | 4.9 | 0.270 | pass |
 | shed02 | r1 | 2 | 2 | 38.4 | 53.3 | 7.5 | 0.8 | 1.06 | 1.6 | 0.090 | pass |
 | shed02 | r1 | 2 | 2w | 38.4 | 53.3 | 7.5 | 0.8 | 1.00 | 2.2 | 0.092 | pass |
-| shed02 | r1 | 2 | 3 | 63.0 | 33.9 | 2.4 | 0.8 | 1.28 | 0.6 | 0.059 | pass |
-| shed02 | r1 | 2 | 3w | 63.0 | 33.9 | 2.4 | 0.8 | 1.18 | 0.4 | 0.082 | pass |
+| shed02 | r1 | 2 | 3 | 62.4 | 34.4 | 2.2 | 1.0 | 1.30 | 0.6 | 0.070 | pass |
+| shed02 | r1 | 2 | 3w | 62.4 | 34.4 | 2.2 | 1.0 | 1.20 | 0.5 | 0.092 | pass |
 | shed02 | r2 | 3 | 1 | 4.5 | 90.6 | 3.7 | 1.1 | 1.01 | 3.9 | 0.034 | pass |
 | shed02 | r2 | 3 | 1w | 5.0 | 87.9 | 5.3 | 1.8 | 1.00 | 14.8 | 0.094 | pass |
 | shed02 | r2 | 3 | 2 | 0.0 | 91.1 | 8.0 | 0.8 | 1.12 | 2.5 | 0.010 | pass |
 | shed02 | r2 | 3 | 2w | 0.0 | 91.1 | 8.0 | 0.8 | 1.08 | 2.2 | 0.012 | pass |
-| shed02 | r2 | 3 | 3 | 2.4 | 89.6 | 7.1 | 0.8 | 1.18 | 5.1 | 0.017 | pass |
-| shed02 | r2 | 3 | 3w | 2.4 | 89.6 | 7.1 | 0.8 | 1.12 | 5.0 | 0.037 | pass |
+| shed02 | r2 | 3 | 3 | 2.3 | 89.8 | 7.0 | 1.0 | 1.14 | 5.1 | 0.016 | pass |
+| shed02 | r2 | 3 | 3w | 2.3 | 89.8 | 7.0 | 1.0 | 1.08 | 5.2 | 0.034 | pass |
 | shed02 | r3 | 4 | 1 | 60.5 | 35.3 | 3.1 | 1.1 | 1.47 | 10.7 | 0.127 | pass |
 | shed02 | r3 | 4 | 1w | 62.9 | 30.8 | 4.7 | 1.5 | 1.03 | 8.3 | 0.257 | pass |
 | shed02 | r3 | 4 | 2 | 50.6 | 39.7 | 8.9 | 0.8 | 1.01 | 7.2 | 0.075 | pass |
 | shed02 | r3 | 4 | 2w | 50.6 | 39.7 | 8.9 | 0.8 | 0.95 | 8.6 | 0.074 | pass |
-| shed02 | r3 | 4 | 3 | 32.1 | 59.3 | 7.7 | 0.9 | 1.49 | 5.9 | 0.049 | pass |
-| shed02 | r3 | 4 | 3w | 32.1 | 59.3 | 7.7 | 0.9 | 1.34 | 5.9 | 0.076 | pass |
+| shed02 | r3 | 4 | 3 | 31.4 | 59.8 | 7.6 | 1.1 | 1.44 | 5.2 | 0.064 | pass |
+| shed02 | r3 | 4 | 3w | 31.4 | 59.8 | 7.6 | 1.1 | 1.30 | 5.1 | 0.086 | pass |
 | shed02 | r1l1 | 2 | 1 | 28.8 | 67.4 | 2.7 | 1.1 | 1.25 | 33.7 | 0.064 | pass |
 | shed02 | r1l1 | 2 | 1w | 29.6 | 67.9 | 1.2 | 1.3 | 1.00 | 25.8 | 0.238 | pass |
 | shed02 | r1l1 | 2 | 2 | 38.4 | 53.3 | 7.5 | 0.8 | 1.36 | 10.1 | 0.016 | pass |
 | shed02 | r1l1 | 2 | 2w | 38.4 | 53.3 | 7.5 | 0.8 | 1.26 | 10.3 | 0.029 | pass |
-| shed02 | r1l1 | 2 | 3 | 63.0 | 33.9 | 2.4 | 0.8 | 1.15 | 3.8 | 0.021 | pass |
-| shed02 | r1l1 | 2 | 3w | 63.0 | 33.9 | 2.4 | 0.8 | 1.14 | 4.3 | 0.019 | pass |
+| shed02 | r1l1 | 2 | 3 | 62.4 | 34.4 | 2.2 | 1.0 | 1.18 | 3.5 | 0.011 | pass |
+| shed02 | r1l1 | 2 | 3w | 62.4 | 34.4 | 2.2 | 1.0 | 1.17 | 4.0 | 0.008 | pass |
 | shed02 | r2l2 | 3 | 1 | 4.5 | 90.6 | 3.7 | 1.1 | 0.97 | 3.7 | 0.072 | pass |
 | shed02 | r2l2 | 3 | 1w | 5.0 | 87.9 | 5.3 | 1.8 | 0.91 | 22.0 | 0.176 | pass |
 | shed02 | r2l2 | 3 | 2 | 0.0 | 91.1 | 8.0 | 0.8 | 1.03 | 1.3 | 0.008 | pass |
 | shed02 | r2l2 | 3 | 2w | 0.0 | 91.1 | 8.0 | 0.8 | 1.03 | 1.5 | 0.007 | pass |
-| shed02 | r2l2 | 3 | 3 | 2.4 | 89.6 | 7.1 | 0.8 | 1.03 | 1.3 | 0.014 | pass |
-| shed02 | r2l2 | 3 | 3w | 2.4 | 89.6 | 7.1 | 0.8 | 1.03 | 1.3 | 0.022 | pass |
+| shed02 | r2l2 | 3 | 3 | 2.3 | 89.8 | 7.0 | 1.0 | 1.00 | 1.3 | 0.014 | pass |
+| shed02 | r2l2 | 3 | 3w | 2.3 | 89.8 | 7.0 | 1.0 | 1.00 | 1.3 | 0.021 | pass |
 | shed02 | r3l3 | 4 | 1 | 60.5 | 35.3 | 3.1 | 1.1 | 0.77 | 29.9 | 0.031 | pass |
 | shed02 | r3l3 | 4 | 1w | 62.9 | 30.8 | 4.7 | 1.5 | 0.95 | 40.6 | 0.027 | pass |
 | shed02 | r3l3 | 4 | 2 | 50.6 | 39.7 | 8.9 | 0.8 | 1.03 | 4.7 | 0.031 | pass |
 | shed02 | r3l3 | 4 | 2w | 50.6 | 39.7 | 8.9 | 0.8 | 1.03 | 5.5 | 0.027 | pass |
-| shed02 | r3l3 | 4 | 3 | 32.1 | 59.3 | 7.7 | 0.9 | 1.17 | 4.4 | 0.048 | pass |
-| shed02 | r3l3 | 4 | 3w | 32.1 | 59.3 | 7.7 | 0.9 | 1.17 | 4.9 | 0.052 | pass |
+| shed02 | r3l3 | 4 | 3 | 31.4 | 59.8 | 7.6 | 1.1 | 1.14 | 5.3 | 0.056 | pass |
+| shed02 | r3l3 | 4 | 3w | 31.4 | 59.8 | 7.6 | 1.1 | 1.14 | 6.0 | 0.056 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| shed02 | r1 | 0.98 | 0.72 | 0.90 | 0.098 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| shed02 | r2 | 1.14 | 0.72 | 0.90 | 0.176 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| shed02 | r3 | 1.10 | 0.72 | 0.90 | 0.249 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| shed02 | r1l1 | 0.98 | 0.72 | 0.90 | 0.098 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| shed02 | r2l2 | 1.14 | 0.72 | 0.90 | 0.176 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| shed02 | r3l3 | 1.10 | 0.72 | 0.90 | 0.249 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| shed02 | r1 | 0.98 | 0.72 | 0.90 | 0.098 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.645 | 0.645 | 0.901 | pass | blocks |
+| shed02 | r2 | 1.14 | 0.72 | 0.90 | 0.176 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.581 | 0.581 | 0.901 | pass | blocks |
+| shed02 | r3 | 1.10 | 0.72 | 0.90 | 0.249 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.562 | 0.562 | 0.901 | pass | blocks |
+| shed02 | r1l1 | 0.98 | 0.72 | 0.90 | 0.098 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.645 | 0.645 | 0.901 | pass | blocks |
+| shed02 | r2l2 | 1.14 | 0.72 | 0.90 | 0.176 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.581 | 0.581 | 0.901 | pass | blocks |
+| shed02 | r3l3 | 1.10 | 0.72 | 0.90 | 0.249 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.562 | 0.562 | 0.901 | pass | blocks |

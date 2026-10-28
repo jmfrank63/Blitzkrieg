@@ -53,18 +53,21 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 1.00 | 1.03 | 0.93 | 0.083 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r2 | 0.97 | 1.03 | 0.93 | 0.091 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r3 | 0.99 | 1.03 | 0.93 | 0.086 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r1l1 | 1.00 | 1.03 | 0.93 | 0.083 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r2l2 | 0.97 | 1.03 | 0.93 | 0.091 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r3l3 | 0.99 | 1.03 | 0.93 | 0.086 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 02 | r1 | 1.01 | 1.01 | 0.93 | 0.080 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 02 | r2 | 0.98 | 1.01 | 0.93 | 0.088 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 02 | r3 | 1.00 | 1.01 | 0.93 | 0.083 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 02 | r1l1 | 1.01 | 1.01 | 0.93 | 0.080 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 02 | r2l2 | 0.98 | 1.01 | 0.93 | 0.088 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 02 | r3l3 | 1.00 | 1.01 | 0.93 | 0.083 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 1.00 | 1.03 | 0.93 | 0.083 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.880 | 0.880 | 0.926 | pass | blocks |
+| 01 | r2 | 0.97 | 1.03 | 0.93 | 0.091 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.880 | 0.880 | 0.926 | pass | blocks |
+| 01 | r3 | 0.99 | 1.03 | 0.93 | 0.086 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.793 | 0.793 | 0.926 | pass | blocks |
+| 01 | r1l1 | 1.00 | 1.03 | 0.93 | 0.083 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.880 | 0.880 | 0.926 | pass | blocks |
+| 01 | r2l2 | 0.97 | 1.03 | 0.93 | 0.091 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.880 | 0.880 | 0.926 | pass | blocks |
+| 01 | r3l3 | 0.99 | 1.03 | 0.93 | 0.086 | 0.059 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.793 | 0.793 | 0.926 | pass | blocks |
+| 02 | r1 | 1.01 | 1.01 | 0.93 | 0.080 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.790 | 0.790 | 0.931 | pass | blocks |
+| 02 | r2 | 0.98 | 1.01 | 0.93 | 0.088 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.900 | 0.900 | 0.931 | pass | blocks |
+| 02 | r3 | 1.00 | 1.01 | 0.93 | 0.083 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.903 | 0.903 | 0.931 | pass | blocks |
+| 02 | r1l1 | 1.01 | 1.01 | 0.93 | 0.080 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.790 | 0.790 | 0.931 | pass | blocks |
+| 02 | r2l2 | 0.98 | 1.01 | 0.93 | 0.088 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.900 | 0.900 | 0.931 | pass | blocks |
+| 02 | r3l3 | 1.00 | 1.01 | 0.93 | 0.083 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.903 | 0.903 | 0.931 | pass | blocks |

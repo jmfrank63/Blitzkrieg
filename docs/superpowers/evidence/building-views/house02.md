@@ -6,40 +6,40 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| house02 | r1 | 2 | 1 | 62.3 | 34.0 | 3.0 | 0.7 | 1.06 | 2.8 | 0.023 | pass |
-| house02 | r1 | 2 | 1w | 63.2 | 30.3 | 5.7 | 0.8 | 1.03 | 6.9 | 0.182 | pass |
-| house02 | r1 | 2 | 2 | 62.3 | 37.2 | 0.5 | 0.0 | 1.23 | 5.8 | 0.051 | pass |
-| house02 | r1 | 2 | 2w | 62.3 | 37.2 | 0.5 | 0.0 | 1.15 | 6.9 | 0.049 | pass |
+| house02 | r1 | 2 | 1 | 60.3 | 38.8 | 0.3 | 0.7 | 1.08 | 3.0 | 0.039 | pass |
+| house02 | r1 | 2 | 1w | 60.9 | 35.1 | 3.0 | 1.0 | 1.03 | 8.1 | 0.207 | pass |
+| house02 | r1 | 2 | 2 | 61.4 | 38.2 | 0.4 | 0.0 | 1.26 | 7.2 | 0.057 | pass |
+| house02 | r1 | 2 | 2w | 61.4 | 38.2 | 0.4 | 0.0 | 1.18 | 8.4 | 0.047 | pass |
 | house02 | r1 | 2 | 3 | 76.4 | 18.5 | 3.0 | 2.1 | 0.95 | 1.1 | 0.030 | pass |
 | house02 | r1 | 2 | 3w | 76.4 | 18.5 | 3.0 | 2.1 | 0.96 | 1.2 | 0.031 | pass |
-| house02 | r2 | 3 | 1 | 12.7 | 83.3 | 3.4 | 0.7 | 1.05 | 2.3 | 0.005 | pass |
-| house02 | r2 | 3 | 1w | 14.1 | 65.3 | 19.2 | 1.4 | 1.08 | 9.0 | 0.084 | pass |
-| house02 | r2 | 3 | 2 | 12.5 | 86.8 | 0.6 | 0.0 | 1.08 | 1.8 | 0.015 | pass |
-| house02 | r2 | 3 | 2w | 12.5 | 86.8 | 0.6 | 0.0 | 1.03 | 1.3 | 0.012 | pass |
+| house02 | r2 | 3 | 1 | 12.1 | 86.9 | 0.4 | 0.6 | 1.07 | 1.7 | 0.010 | pass |
+| house02 | r2 | 3 | 1w | 13.3 | 70.3 | 15.1 | 1.4 | 1.09 | 8.5 | 0.083 | pass |
+| house02 | r2 | 3 | 2 | 12.1 | 87.3 | 0.6 | 0.0 | 1.09 | 2.4 | 0.015 | pass |
+| house02 | r2 | 3 | 2w | 12.1 | 87.3 | 0.6 | 0.0 | 1.04 | 2.1 | 0.009 | pass |
 | house02 | r2 | 3 | 3 | 19.8 | 74.1 | 3.9 | 2.1 | 1.00 | 2.5 | 0.019 | pass |
 | house02 | r2 | 3 | 3w | 19.8 | 74.1 | 3.9 | 2.1 | 0.99 | 2.7 | 0.020 | pass |
-| house02 | r3 | 4 | 1 | 48.9 | 49.8 | 0.7 | 0.6 | 1.13 | 4.6 | 0.046 | pass |
-| house02 | r3 | 4 | 1w | 49.7 | 38.9 | 10.1 | 1.3 | 1.15 | 8.4 | 0.264 | pass |
-| house02 | r3 | 4 | 2 | 49.5 | 49.8 | 0.6 | 0.0 | 1.29 | 9.7 | 0.045 | pass |
-| house02 | r3 | 4 | 2w | 49.5 | 49.8 | 0.6 | 0.0 | 1.17 | 10.8 | 0.036 | pass |
+| house02 | r3 | 4 | 1 | 48.3 | 50.7 | 0.4 | 0.6 | 1.17 | 4.8 | 0.042 | pass |
+| house02 | r3 | 4 | 1w | 49.1 | 39.8 | 9.8 | 1.3 | 1.16 | 8.6 | 0.261 | pass |
+| house02 | r3 | 4 | 2 | 49.1 | 50.2 | 0.6 | 0.1 | 1.30 | 10.7 | 0.048 | pass |
+| house02 | r3 | 4 | 2w | 49.1 | 50.2 | 0.6 | 0.1 | 1.19 | 11.9 | 0.031 | pass |
 | house02 | r3 | 4 | 3 | 34.7 | 59.1 | 3.9 | 2.2 | 1.01 | 3.2 | 0.032 | pass |
 | house02 | r3 | 4 | 3w | 34.7 | 59.1 | 3.9 | 2.2 | 1.00 | 3.6 | 0.039 | pass |
-| house02 | r1l1 | 2 | 1 | 62.3 | 34.0 | 3.0 | 0.7 | 1.20 | 15.7 | 0.025 | pass |
-| house02 | r1l1 | 2 | 1w | 63.2 | 30.3 | 5.7 | 0.8 | 1.23 | 24.3 | 0.177 | pass |
-| house02 | r1l1 | 2 | 2 | 62.3 | 37.2 | 0.5 | 0.0 | 1.11 | 1.0 | 0.024 | pass |
-| house02 | r1l1 | 2 | 2w | 62.3 | 37.2 | 0.5 | 0.0 | 1.10 | 1.2 | 0.026 | pass |
+| house02 | r1l1 | 2 | 1 | 60.3 | 38.8 | 0.3 | 0.7 | 1.22 | 15.5 | 0.027 | pass |
+| house02 | r1l1 | 2 | 1w | 60.9 | 35.1 | 3.0 | 1.0 | 1.25 | 23.0 | 0.196 | pass |
+| house02 | r1l1 | 2 | 2 | 61.4 | 38.2 | 0.4 | 0.0 | 1.13 | 1.8 | 0.018 | pass |
+| house02 | r1l1 | 2 | 2w | 61.4 | 38.2 | 0.4 | 0.0 | 1.12 | 2.1 | 0.021 | pass |
 | house02 | r1l1 | 2 | 3 | 76.4 | 18.5 | 3.0 | 2.1 | 0.99 | 3.1 | 0.018 | pass |
 | house02 | r1l1 | 2 | 3w | 76.4 | 18.5 | 3.0 | 2.1 | 0.99 | 3.6 | 0.020 | pass |
-| house02 | r2l2 | 3 | 1 | 12.7 | 83.3 | 3.4 | 0.7 | 0.82 | 24.7 | 0.032 | pass |
-| house02 | r2l2 | 3 | 1w | 14.1 | 65.3 | 19.2 | 1.4 | 0.96 | 34.8 | 0.167 | pass |
-| house02 | r2l2 | 3 | 2 | 12.5 | 86.8 | 0.6 | 0.0 | 0.98 | 3.4 | 0.010 | pass |
-| house02 | r2l2 | 3 | 2w | 12.5 | 86.8 | 0.6 | 0.0 | 0.99 | 3.8 | 0.015 | pass |
+| house02 | r2l2 | 3 | 1 | 12.1 | 86.9 | 0.4 | 0.6 | 0.83 | 25.0 | 0.041 | pass |
+| house02 | r2l2 | 3 | 1w | 13.3 | 70.3 | 15.1 | 1.4 | 0.97 | 35.1 | 0.173 | pass |
+| house02 | r2l2 | 3 | 2 | 12.1 | 87.3 | 0.6 | 0.0 | 1.00 | 2.6 | 0.009 | pass |
+| house02 | r2l2 | 3 | 2w | 12.1 | 87.3 | 0.6 | 0.0 | 1.00 | 3.0 | 0.014 | pass |
 | house02 | r2l2 | 3 | 3 | 19.8 | 74.1 | 3.9 | 2.1 | 1.00 | 2.7 | 0.020 | pass |
 | house02 | r2l2 | 3 | 3w | 19.8 | 74.1 | 3.9 | 2.1 | 1.00 | 3.1 | 0.019 | pass |
-| house02 | r3l3 | 4 | 1 | 48.9 | 49.8 | 0.7 | 0.6 | 0.69 | 30.0 | 0.045 | pass |
-| house02 | r3l3 | 4 | 1w | 49.7 | 38.9 | 10.1 | 1.3 | 0.86 | 45.8 | 0.018 | pass |
-| house02 | r3l3 | 4 | 2 | 49.5 | 49.8 | 0.6 | 0.0 | 1.02 | 2.9 | 0.017 | pass |
-| house02 | r3l3 | 4 | 2w | 49.5 | 49.8 | 0.6 | 0.0 | 1.02 | 3.3 | 0.013 | pass |
+| house02 | r3l3 | 4 | 1 | 48.3 | 50.7 | 0.4 | 0.6 | 0.72 | 30.5 | 0.046 | pass |
+| house02 | r3l3 | 4 | 1w | 49.1 | 39.8 | 9.8 | 1.3 | 0.87 | 47.3 | 0.010 | pass |
+| house02 | r3l3 | 4 | 2 | 49.1 | 50.2 | 0.6 | 0.1 | 1.03 | 1.8 | 0.014 | pass |
+| house02 | r3l3 | 4 | 2w | 49.1 | 50.2 | 0.6 | 0.1 | 1.03 | 2.1 | 0.010 | pass |
 | house02 | r3l3 | 4 | 3 | 34.7 | 59.1 | 3.9 | 2.2 | 1.01 | 3.3 | 0.018 | pass |
 | house02 | r3l3 | 4 | 3w | 34.7 | 59.1 | 3.9 | 2.2 | 1.00 | 3.9 | 0.016 | pass |
 
@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| house02 | r1 | 1.08 | 0.90 | 0.96 | 0.039 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | blocks |
-| house02 | r2 | 0.97 | 0.90 | 0.96 | 0.054 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | blocks |
-| house02 | r3 | 1.15 | 0.90 | 0.96 | 0.050 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | blocks |
-| house02 | r1l1 | 1.08 | 0.90 | 0.96 | 0.039 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | blocks |
-| house02 | r2l2 | 0.97 | 0.90 | 0.96 | 0.054 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | blocks |
-| house02 | r3l3 | 1.15 | 0.90 | 0.96 | 0.050 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| house02 | r1 | 1.08 | 0.89 | 0.96 | 0.040 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | 1.000 | 0.813 | 0.813 | 0.956 | pass | blocks |
+| house02 | r2 | 1.04 | 0.89 | 0.96 | 0.072 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | 1.000 | 0.797 | 0.797 | 0.956 | pass | blocks |
+| house02 | r3 | 1.21 | 0.89 | 0.96 | 0.068 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | 1.000 | 0.727 | 0.727 | 0.956 | pass | blocks |
+| house02 | r1l1 | 1.08 | 0.89 | 0.96 | 0.040 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | 1.000 | 0.813 | 0.813 | 0.956 | pass | blocks |
+| house02 | r2l2 | 1.04 | 0.89 | 0.96 | 0.072 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | 1.000 | 0.797 | 0.797 | 0.956 | pass | blocks |
+| house02 | r3l3 | 1.21 | 0.89 | 0.96 | 0.068 | 0.073 | 0 | 0 | 0 | 0 | 0.000 | 0 | 127 | 126 | 0 | pass | 1.000 | 0.727 | 0.727 | 0.956 | pass | blocks |

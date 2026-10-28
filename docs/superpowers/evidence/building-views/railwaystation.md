@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| railwaystation | r1 | 1.30 | 0.90 | 0.92 | 0.023 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
-| railwaystation | r2 | 1.29 | 0.90 | 0.92 | 0.017 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
-| railwaystation | r3 | 1.04 | 0.90 | 0.92 | 0.035 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
-| railwaystation | r1l1 | 1.30 | 0.90 | 0.92 | 0.023 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
-| railwaystation | r2l2 | 1.29 | 0.90 | 0.92 | 0.017 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
-| railwaystation | r3l3 | 1.04 | 0.90 | 0.92 | 0.035 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| railwaystation | r1 | 1.30 | 0.90 | 0.92 | 0.023 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | 1.000 | 0.340 | 0.340 | 0.923 | pass | blocks |
+| railwaystation | r2 | 1.29 | 0.90 | 0.92 | 0.017 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | 1.000 | 0.327 | 0.325 | 0.923 | pass | blocks |
+| railwaystation | r3 | 1.04 | 0.90 | 0.92 | 0.035 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | 1.000 | 0.563 | 0.563 | 0.923 | pass | blocks |
+| railwaystation | r1l1 | 1.30 | 0.90 | 0.92 | 0.023 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | 1.000 | 0.340 | 0.340 | 0.923 | pass | blocks |
+| railwaystation | r2l2 | 1.29 | 0.90 | 0.92 | 0.017 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | 1.000 | 0.325 | 0.325 | 0.923 | pass | blocks |
+| railwaystation | r3l3 | 1.04 | 0.90 | 0.92 | 0.035 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | 1.000 | 0.563 | 0.563 | 0.923 | pass | blocks |

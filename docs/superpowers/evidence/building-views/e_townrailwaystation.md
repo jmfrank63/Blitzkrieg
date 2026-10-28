@@ -8,22 +8,22 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_townrailwaystation_4 | r1 | 1 | 1 | 24.9 | 65.8 | 5.3 | 4.0 | 1.42 | 46.0 | 0.059 | pass |
 | e_townrailwaystation_4 | r1 | 1 | 2 | 24.3 | 65.6 | 6.1 | 4.0 | 1.68 | 36.4 | 0.079 | pass |
-| e_townrailwaystation_4 | r1 | 1 | 3 | 47.5 | 49.3 | 2.6 | 0.6 | 1.34 | 8.1 | 0.016 | pass |
+| e_townrailwaystation_4 | r1 | 1 | 3 | 47.1 | 48.5 | 3.1 | 1.3 | 1.34 | 7.7 | 0.017 | pass |
 | e_townrailwaystation_4 | r2 | 2 | 1 | 0.0 | 87.4 | 8.4 | 4.2 | 0.89 | 6.6 | 0.068 | pass |
 | e_townrailwaystation_4 | r2 | 2 | 2 | 0.0 | 87.3 | 8.5 | 4.2 | 0.90 | 3.5 | 0.054 | pass |
-| e_townrailwaystation_4 | r2 | 2 | 3 | 28.4 | 66.8 | 4.2 | 0.6 | 0.96 | 5.1 | 0.014 | pass |
+| e_townrailwaystation_4 | r2 | 2 | 3 | 27.7 | 66.4 | 4.6 | 1.4 | 0.95 | 5.5 | 0.010 | pass |
 | e_townrailwaystation_4 | r3 | 3 | 1 | 65.7 | 27.3 | 6.0 | 1.1 | 1.46 | 30.9 | 0.057 | pass |
 | e_townrailwaystation_4 | r3 | 3 | 2 | 65.3 | 27.0 | 6.8 | 1.0 | 1.84 | 26.2 | 0.038 | pass |
-| e_townrailwaystation_4 | r3 | 3 | 3 | 70.9 | 25.0 | 3.5 | 0.5 | 1.38 | 9.0 | 0.036 | pass |
+| e_townrailwaystation_4 | r3 | 3 | 3 | 70.9 | 25.0 | 3.5 | 0.5 | 1.39 | 9.4 | 0.036 | pass |
 | e_townrailwaystation_4 | r1l1 | 1 | 1 | 24.9 | 65.8 | 5.3 | 4.0 | 1.27 | 37.6 | 0.067 | pass |
 | e_townrailwaystation_4 | r1l1 | 1 | 2 | 24.3 | 65.6 | 6.1 | 4.0 | 1.15 | 25.6 | 0.073 | pass |
-| e_townrailwaystation_4 | r1l1 | 1 | 3 | 47.5 | 49.3 | 2.6 | 0.6 | 1.04 | 2.4 | 0.006 | pass |
+| e_townrailwaystation_4 | r1l1 | 1 | 3 | 47.1 | 48.5 | 3.1 | 1.3 | 1.03 | 3.0 | 0.005 | pass |
 | e_townrailwaystation_4 | r2l2 | 2 | 1 | 0.0 | 87.4 | 8.4 | 4.2 | 1.04 | 14.3 | 0.084 | pass |
 | e_townrailwaystation_4 | r2l2 | 2 | 2 | 0.0 | 87.3 | 8.5 | 4.2 | 1.12 | 25.8 | 0.077 | pass |
-| e_townrailwaystation_4 | r2l2 | 2 | 3 | 28.4 | 66.8 | 4.2 | 0.6 | 1.07 | 1.7 | 0.042 | pass |
+| e_townrailwaystation_4 | r2l2 | 2 | 3 | 27.7 | 66.4 | 4.6 | 1.4 | 1.06 | 1.6 | 0.040 | pass |
 | e_townrailwaystation_4 | r3l3 | 3 | 1 | 65.7 | 27.3 | 6.0 | 1.1 | 0.57 | 25.4 | 0.033 | pass |
 | e_townrailwaystation_4 | r3l3 | 3 | 2 | 65.3 | 27.0 | 6.8 | 1.0 | 0.94 | 1.5 | 0.008 | pass |
-| e_townrailwaystation_4 | r3l3 | 3 | 3 | 70.9 | 25.0 | 3.5 | 0.5 | 1.08 | 1.6 | 0.040 | pass |
+| e_townrailwaystation_4 | r3l3 | 3 | 3 | 70.9 | 25.0 | 3.5 | 0.5 | 1.08 | 1.6 | 0.041 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townrailwaystation_4 | r1 | 1.00 | 0.93 | 0.97 | 0.038 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r2 | 1.00 | 0.93 | 0.97 | 0.027 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r3 | 1.00 | 0.93 | 0.97 | 0.026 | 0.030 | 260 | 260 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r1l1 | 1.00 | 0.93 | 0.97 | 0.038 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r2l2 | 1.00 | 0.93 | 0.97 | 0.027 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_townrailwaystation_4 | r3l3 | 1.00 | 0.93 | 0.97 | 0.026 | 0.030 | 260 | 260 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_townrailwaystation_4 | r1 | 1.00 | 0.93 | 0.97 | 0.038 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.578 | 0.578 | 0.967 | pass | blocks |
+| e_townrailwaystation_4 | r2 | 1.00 | 0.93 | 0.97 | 0.027 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.530 | 0.530 | 0.967 | pass | blocks |
+| e_townrailwaystation_4 | r3 | 1.00 | 0.93 | 0.97 | 0.026 | 0.030 | 260 | 260 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.534 | 0.534 | 0.967 | pass | blocks |
+| e_townrailwaystation_4 | r1l1 | 1.00 | 0.93 | 0.97 | 0.038 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.578 | 0.578 | 0.967 | pass | blocks |
+| e_townrailwaystation_4 | r2l2 | 1.00 | 0.93 | 0.97 | 0.027 | 0.030 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.530 | 0.530 | 0.967 | pass | blocks |
+| e_townrailwaystation_4 | r3l3 | 1.00 | 0.93 | 0.97 | 0.026 | 0.030 | 260 | 260 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.534 | 0.534 | 0.967 | pass | blocks |

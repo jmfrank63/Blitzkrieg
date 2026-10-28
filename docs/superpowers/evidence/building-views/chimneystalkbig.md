@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| chimneystalkbig | r1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
-| chimneystalkbig | r2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
-| chimneystalkbig | r3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
-| chimneystalkbig | r1l1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
-| chimneystalkbig | r2l2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
-| chimneystalkbig | r3l3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| chimneystalkbig | r1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 0.715 | 0.716 | 0.950 | 0.713 | pass | 2003 sprite |
+| chimneystalkbig | r2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 0.712 | 0.712 | 0.972 | 0.713 | pass | 2003 sprite |
+| chimneystalkbig | r3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 0.718 | 0.717 | 0.954 | 0.713 | pass | 2003 sprite |
+| chimneystalkbig | r1l1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 0.715 | 0.716 | 0.950 | 0.713 | pass | 2003 sprite |
+| chimneystalkbig | r2l2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 0.712 | 0.712 | 0.972 | 0.713 | pass | 2003 sprite |
+| chimneystalkbig | r3l3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 0.718 | 0.717 | 0.954 | 0.713 | pass | 2003 sprite |

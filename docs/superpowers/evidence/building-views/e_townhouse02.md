@@ -6,42 +6,42 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse02_2 | r1 | 3 | 1 | 58.2 | 26.6 | 0.8 | 14.4 | 0.92 | 5.4 | 0.061 | pass |
+| e_townhouse02_2 | r1 | 3 | 1 | 58.2 | 26.6 | 0.8 | 14.4 | 0.90 | 6.8 | 0.060 | pass |
 | e_townhouse02_2 | r1 | 3 | 2 | 65.6 | 32.1 | 1.1 | 1.2 | 1.21 | 2.0 | 0.036 | pass |
-| e_townhouse02_2 | r1 | 3 | 3 | 68.4 | 25.1 | 2.2 | 4.3 | 1.06 | 2.2 | 0.026 | pass |
-| e_townhouse02_2 | r2 | 4 | 1 | 1.3 | 72.6 | 1.3 | 24.8 | 0.94 | 2.5 | 0.088 | pass |
+| e_townhouse02_2 | r1 | 3 | 3 | 68.6 | 25.0 | 2.1 | 4.3 | 1.05 | 2.5 | 0.026 | pass |
+| e_townhouse02_2 | r2 | 4 | 1 | 1.2 | 72.7 | 1.3 | 24.8 | 0.96 | 1.4 | 0.083 | pass |
 | e_townhouse02_2 | r2 | 4 | 2 | 0.2 | 96.1 | 1.6 | 2.1 | 1.02 | 1.5 | 0.016 | pass |
-| e_townhouse02_2 | r2 | 4 | 3 | 5.3 | 83.9 | 4.6 | 6.2 | 0.95 | 5.4 | 0.028 | pass |
-| e_townhouse02_2 | r3 | 1 | 1 | 33.5 | 50.6 | 0.7 | 15.2 | 0.85 | 15.2 | 0.060 | pass |
+| e_townhouse02_2 | r2 | 4 | 3 | 5.3 | 85.1 | 3.6 | 6.0 | 0.95 | 4.8 | 0.027 | pass |
+| e_townhouse02_2 | r3 | 1 | 1 | 33.5 | 50.6 | 0.7 | 15.2 | 0.85 | 15.5 | 0.058 | pass |
 | e_townhouse02_2 | r3 | 1 | 2 | 34.0 | 63.3 | 1.0 | 1.6 | 1.20 | 0.5 | 0.038 | pass |
-| e_townhouse02_2 | r3 | 1 | 3 | 25.8 | 63.8 | 4.4 | 6.1 | 1.03 | 3.2 | 0.033 | pass |
-| e_townhouse02_2 | r1l1 | 3 | 1 | 58.2 | 26.6 | 0.8 | 14.4 | 1.15 | 18.0 | 0.035 | pass |
+| e_townhouse02_2 | r3 | 1 | 3 | 26.0 | 64.8 | 3.4 | 5.8 | 1.02 | 3.7 | 0.028 | pass |
+| e_townhouse02_2 | r1l1 | 3 | 1 | 58.2 | 26.6 | 0.8 | 14.4 | 1.14 | 17.1 | 0.033 | pass |
 | e_townhouse02_2 | r1l1 | 3 | 2 | 65.6 | 32.1 | 1.1 | 1.2 | 1.07 | 3.2 | 0.012 | pass |
-| e_townhouse02_2 | r1l1 | 3 | 3 | 68.4 | 25.1 | 2.2 | 4.3 | 1.04 | 3.4 | 0.013 | pass |
-| e_townhouse02_2 | r2l2 | 4 | 1 | 1.3 | 72.6 | 1.3 | 24.8 | 0.75 | 23.6 | 0.101 | pass |
+| e_townhouse02_2 | r1l1 | 3 | 3 | 68.6 | 25.0 | 2.1 | 4.3 | 1.04 | 3.1 | 0.012 | pass |
+| e_townhouse02_2 | r2l2 | 4 | 1 | 1.2 | 72.7 | 1.3 | 24.8 | 0.74 | 22.3 | 0.108 | pass |
 | e_townhouse02_2 | r2l2 | 4 | 2 | 0.2 | 96.1 | 1.6 | 2.1 | 1.01 | 2.1 | 0.017 | pass |
-| e_townhouse02_2 | r2l2 | 4 | 3 | 5.3 | 83.9 | 4.6 | 6.2 | 0.95 | 4.7 | 0.021 | pass |
-| e_townhouse02_2 | r3l3 | 1 | 1 | 33.5 | 50.6 | 0.7 | 15.2 | 0.51 | 42.2 | 0.094 | pass |
+| e_townhouse02_2 | r2l2 | 4 | 3 | 5.3 | 85.1 | 3.6 | 6.0 | 0.95 | 4.7 | 0.019 | pass |
+| e_townhouse02_2 | r3l3 | 1 | 1 | 33.5 | 50.6 | 0.7 | 15.2 | 0.52 | 41.8 | 0.093 | pass |
 | e_townhouse02_2 | r3l3 | 1 | 2 | 34.0 | 63.3 | 1.0 | 1.6 | 0.99 | 0.5 | 0.012 | pass |
-| e_townhouse02_2 | r3l3 | 1 | 3 | 25.8 | 63.8 | 4.4 | 6.1 | 1.00 | 4.0 | 0.028 | pass |
-| e_townhouse02_3 | r1 | 2 | 1 | 29.1 | 53.0 | 7.9 | 10.0 | 1.52 | 13.3 | 0.013 | pass |
-| e_townhouse02_3 | r1 | 2 | 2 | 29.6 | 66.3 | 1.2 | 2.8 | 1.47 | 1.0 | 0.013 | pass |
-| e_townhouse02_3 | r1 | 2 | 3 | 29.9 | 62.8 | 1.3 | 5.9 | 1.13 | 6.2 | 0.018 | pass |
-| e_townhouse02_3 | r2 | 3 | 1 | 0.3 | 76.1 | 8.2 | 15.5 | 1.19 | 2.7 | 0.028 | pass |
-| e_townhouse02_3 | r2 | 3 | 2 | 0.2 | 95.2 | 1.5 | 3.0 | 1.04 | 0.8 | 0.013 | pass |
-| e_townhouse02_3 | r2 | 3 | 3 | 10.3 | 82.1 | 1.4 | 6.3 | 1.01 | 3.5 | 0.008 | pass |
-| e_townhouse02_3 | r3 | 4 | 1 | 60.6 | 25.4 | 2.8 | 11.2 | 1.52 | 9.9 | 0.071 | pass |
-| e_townhouse02_3 | r3 | 4 | 2 | 66.4 | 30.0 | 0.9 | 2.6 | 1.51 | 2.1 | 0.023 | pass |
-| e_townhouse02_3 | r3 | 4 | 3 | 59.8 | 32.6 | 1.4 | 6.2 | 1.10 | 6.8 | 0.016 | pass |
-| e_townhouse02_3 | r1l1 | 2 | 1 | 29.1 | 53.0 | 7.9 | 10.0 | 1.50 | 29.4 | 0.021 | pass |
-| e_townhouse02_3 | r1l1 | 2 | 2 | 29.6 | 66.3 | 1.2 | 2.8 | 1.11 | 3.1 | 0.009 | pass |
-| e_townhouse02_3 | r1l1 | 2 | 3 | 29.9 | 62.8 | 1.3 | 5.9 | 1.14 | 1.2 | 0.005 | pass |
-| e_townhouse02_3 | r2l2 | 3 | 1 | 0.3 | 76.1 | 8.2 | 15.5 | 1.09 | 17.4 | 0.040 | pass |
-| e_townhouse02_3 | r2l2 | 3 | 2 | 0.2 | 95.2 | 1.5 | 3.0 | 1.05 | 0.9 | 0.009 | pass |
-| e_townhouse02_3 | r2l2 | 3 | 3 | 10.3 | 82.1 | 1.4 | 6.3 | 1.01 | 2.8 | 0.004 | pass |
-| e_townhouse02_3 | r3l3 | 4 | 1 | 60.6 | 25.4 | 2.8 | 11.2 | 0.62 | 44.1 | 0.042 | pass |
-| e_townhouse02_3 | r3l3 | 4 | 2 | 66.4 | 30.0 | 0.9 | 2.6 | 1.02 | 2.0 | 0.012 | pass |
-| e_townhouse02_3 | r3l3 | 4 | 3 | 59.8 | 32.6 | 1.4 | 6.2 | 1.05 | 5.1 | 0.008 | pass |
+| e_townhouse02_2 | r3l3 | 1 | 3 | 26.0 | 64.8 | 3.4 | 5.8 | 0.99 | 4.4 | 0.023 | pass |
+| e_townhouse02_3 | r1 | 2 | 1 | 29.1 | 53.0 | 7.9 | 10.0 | 1.54 | 13.6 | 0.013 | pass |
+| e_townhouse02_3 | r1 | 2 | 2 | 29.6 | 66.3 | 1.3 | 2.9 | 1.47 | 1.0 | 0.013 | pass |
+| e_townhouse02_3 | r1 | 2 | 3 | 29.8 | 61.1 | 2.4 | 6.7 | 1.16 | 3.7 | 0.014 | pass |
+| e_townhouse02_3 | r2 | 3 | 1 | 0.3 | 76.1 | 8.2 | 15.5 | 1.17 | 4.3 | 0.047 | pass |
+| e_townhouse02_3 | r2 | 3 | 2 | 0.2 | 95.2 | 1.6 | 3.1 | 1.03 | 0.6 | 0.010 | pass |
+| e_townhouse02_3 | r2 | 3 | 3 | 9.6 | 80.9 | 2.4 | 7.1 | 1.04 | 2.3 | 0.006 | pass |
+| e_townhouse02_3 | r3 | 4 | 1 | 60.5 | 25.5 | 2.8 | 11.2 | 1.51 | 10.1 | 0.065 | pass |
+| e_townhouse02_3 | r3 | 4 | 2 | 66.4 | 30.0 | 0.9 | 2.6 | 1.52 | 2.1 | 0.023 | pass |
+| e_townhouse02_3 | r3 | 4 | 3 | 57.0 | 33.6 | 2.5 | 7.0 | 1.13 | 4.2 | 0.014 | pass |
+| e_townhouse02_3 | r1l1 | 2 | 1 | 29.1 | 53.0 | 7.9 | 10.0 | 1.49 | 28.9 | 0.021 | pass |
+| e_townhouse02_3 | r1l1 | 2 | 2 | 29.6 | 66.3 | 1.3 | 2.9 | 1.10 | 3.0 | 0.010 | pass |
+| e_townhouse02_3 | r1l1 | 2 | 3 | 29.8 | 61.1 | 2.4 | 6.7 | 1.14 | 0.6 | 0.009 | pass |
+| e_townhouse02_3 | r2l2 | 3 | 1 | 0.3 | 76.1 | 8.2 | 15.5 | 1.08 | 17.4 | 0.046 | pass |
+| e_townhouse02_3 | r2l2 | 3 | 2 | 0.2 | 95.2 | 1.6 | 3.1 | 1.05 | 0.6 | 0.008 | pass |
+| e_townhouse02_3 | r2l2 | 3 | 3 | 9.6 | 80.9 | 2.4 | 7.1 | 1.03 | 1.4 | 0.012 | pass |
+| e_townhouse02_3 | r3l3 | 4 | 1 | 60.5 | 25.5 | 2.8 | 11.2 | 0.62 | 44.7 | 0.045 | pass |
+| e_townhouse02_3 | r3l3 | 4 | 2 | 66.4 | 30.0 | 0.9 | 2.6 | 1.02 | 2.1 | 0.012 | pass |
+| e_townhouse02_3 | r3l3 | 4 | 3 | 57.0 | 33.6 | 2.5 | 7.0 | 1.08 | 2.8 | 0.008 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -53,18 +53,21 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse02_2 | r1 | 0.96 | 1.13 | 0.96 | 0.019 | 0.022 | 191 | 191 | 839 | 839 | 0.000 | 0 | 272 | 259 | 0 | pass | blocks |
-| e_townhouse02_2 | r2 | 0.99 | 1.13 | 0.96 | 0.018 | 0.022 | 0 | 0 | 17 | 17 | 0.000 | 0 | 272 | 259 | 0 | pass | blocks |
-| e_townhouse02_2 | r3 | 0.98 | 1.13 | 0.96 | 0.024 | 0.022 | 969 | 969 | 2133 | 2042 | 0.000 | 0 | 272 | 259 | 0 | pass | blocks |
-| e_townhouse02_2 | r1l1 | 0.96 | 1.13 | 0.96 | 0.019 | 0.022 | 191 | 191 | 839 | 0 | 0.000 | 0 | 272 | 259 | 0 | roof parts 0 of 839 pixels | blocks |
-| e_townhouse02_2 | r2l2 | 0.99 | 1.13 | 0.96 | 0.018 | 0.022 | 0 | 0 | 17 | 0 | 0.000 | 0 | 272 | 259 | 0 | pass | blocks |
-| e_townhouse02_2 | r3l3 | 0.98 | 1.13 | 0.96 | 0.024 | 0.022 | 969 | 969 | 2133 | 6 | 0.000 | 0 | 272 | 259 | 0 | roof parts 6 of 2133 pixels | blocks |
-| e_townhouse02_3 | r1 | 1.00 | 1.11 | 0.93 | 0.022 | 0.031 | 255 | 255 | 3046 | 3027 | 0.000 | 0 | 161 | 160 | 0 | pass | blocks |
-| e_townhouse02_3 | r2 | 1.02 | 1.11 | 0.93 | 0.022 | 0.031 | 0 | 0 | 1590 | 1590 | 0.000 | 0 | 161 | 160 | 1 | pass | blocks |
-| e_townhouse02_3 | r3 | 1.02 | 1.11 | 0.93 | 0.021 | 0.031 | 315 | 315 | 757 | 757 | 0.000 | 0 | 161 | 160 | 2 | pass | blocks |
-| e_townhouse02_3 | r1l1 | 1.00 | 1.11 | 0.93 | 0.022 | 0.031 | 255 | 255 | 3046 | 1 | 0.000 | 0 | 161 | 160 | 0 | roof parts 1 of 3046 pixels | blocks |
-| e_townhouse02_3 | r2l2 | 1.02 | 1.11 | 0.93 | 0.022 | 0.031 | 0 | 0 | 1590 | 0 | 0.000 | 0 | 161 | 160 | 1 | roof parts 0 of 1590 pixels | blocks |
-| e_townhouse02_3 | r3l3 | 1.02 | 1.11 | 0.93 | 0.021 | 0.031 | 315 | 315 | 757 | 0 | 0.000 | 0 | 161 | 160 | 2 | roof parts 0 of 757 pixels | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_townhouse02_2 | r1 | 0.96 | 1.13 | 0.96 | 0.018 | 0.022 | 191 | 191 | 839 | 839 | 0.000 | 0 | 272 | 259 | 0 | pass | 1.000 | 0.793 | 0.793 | 0.957 | pass | blocks |
+| e_townhouse02_2 | r2 | 0.99 | 1.13 | 0.96 | 0.018 | 0.022 | 0 | 0 | 17 | 17 | 0.000 | 0 | 272 | 259 | 0 | pass | 1.000 | 0.797 | 0.797 | 0.957 | pass | blocks |
+| e_townhouse02_2 | r3 | 0.98 | 1.13 | 0.96 | 0.024 | 0.022 | 969 | 969 | 2133 | 2042 | 0.000 | 0 | 272 | 259 | 0 | pass | 1.000 | 0.783 | 0.783 | 0.957 | pass | blocks |
+| e_townhouse02_2 | r1l1 | 0.96 | 1.13 | 0.96 | 0.018 | 0.022 | 191 | 191 | 839 | 839 | 0.000 | 0 | 272 | 259 | 0 | pass | 1.000 | 0.793 | 0.793 | 0.957 | pass | blocks |
+| e_townhouse02_2 | r2l2 | 0.99 | 1.13 | 0.96 | 0.018 | 0.022 | 0 | 0 | 17 | 17 | 0.000 | 0 | 272 | 259 | 0 | pass | 1.000 | 0.797 | 0.797 | 0.957 | pass | blocks |
+| e_townhouse02_2 | r3l3 | 0.98 | 1.13 | 0.96 | 0.024 | 0.022 | 969 | 969 | 2133 | 2042 | 0.000 | 0 | 272 | 259 | 0 | pass | 1.000 | 0.783 | 0.783 | 0.957 | pass | blocks |
+| e_townhouse02_3 | r1 | 1.00 | 1.11 | 0.93 | 0.022 | 0.031 | 255 | 255 | 3046 | 3027 | 0.000 | 0 | 161 | 160 | 0 | pass | 1.000 | 0.734 | 0.734 | 0.931 | pass | blocks |
+| e_townhouse02_3 | r2 | 1.02 | 1.11 | 0.93 | 0.022 | 0.031 | 0 | 0 | 1590 | 1590 | 0.000 | 0 | 161 | 160 | 0 | pass | 1.000 | 0.748 | 0.748 | 0.931 | pass | blocks |
+| e_townhouse02_3 | r3 | 1.02 | 1.11 | 0.93 | 0.022 | 0.031 | 315 | 315 | 757 | 757 | 0.000 | 0 | 161 | 160 | 1 | pass | 1.000 | 0.768 | 0.768 | 0.931 | pass | blocks |
+| e_townhouse02_3 | r1l1 | 1.00 | 1.11 | 0.93 | 0.022 | 0.031 | 255 | 255 | 3046 | 3027 | 0.000 | 0 | 161 | 160 | 0 | pass | 1.000 | 0.734 | 0.734 | 0.931 | pass | blocks |
+| e_townhouse02_3 | r2l2 | 1.02 | 1.11 | 0.93 | 0.022 | 0.031 | 0 | 0 | 1590 | 1590 | 0.000 | 0 | 161 | 160 | 0 | pass | 1.000 | 0.748 | 0.748 | 0.931 | pass | blocks |
+| e_townhouse02_3 | r3l3 | 1.02 | 1.11 | 0.93 | 0.022 | 0.031 | 315 | 315 | 757 | 757 | 0.000 | 0 | 161 | 160 | 1 | pass | 1.000 | 0.768 | 0.768 | 0.931 | pass | blocks |

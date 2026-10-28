@@ -11,19 +11,19 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_shed01_2 | r1 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 2.3 | 0.045 | pass |
 | e_shed01_2 | r2 | 4 | 1 | 79.0 | 20.8 | 0.1 | 0.0 | 0.88 | 3.1 | 0.066 | pass |
 | e_shed01_2 | r2 | 4 | 2 | 81.0 | 17.6 | 0.8 | 0.6 | 0.91 | 3.8 | 0.018 | pass |
-| e_shed01_2 | r2 | 4 | 3 | 88.9 | 8.2 | 2.1 | 0.9 | 1.14 | 2.3 | 0.017 | pass |
+| e_shed01_2 | r2 | 4 | 3 | 87.8 | 9.2 | 2.6 | 0.4 | 1.13 | 2.4 | 0.017 | pass |
 | e_shed01_2 | r3 | 1 | 1 | 79.5 | 20.4 | 0.0 | 0.0 | 1.10 | 15.2 | 0.074 | pass |
 | e_shed01_2 | r3 | 1 | 2 | 81.2 | 17.6 | 0.5 | 0.7 | 1.28 | 4.2 | 0.103 | pass |
-| e_shed01_2 | r3 | 1 | 3 | 88.4 | 8.5 | 2.2 | 0.9 | 1.13 | 2.1 | 0.045 | pass |
+| e_shed01_2 | r3 | 1 | 3 | 87.6 | 9.3 | 2.6 | 0.5 | 1.12 | 2.4 | 0.042 | pass |
 | e_shed01_2 | r1l1 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.10 | 24.2 | 0.061 | pass |
 | e_shed01_2 | r1l1 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.33 | 17.7 | 0.017 | pass |
-| e_shed01_2 | r1l1 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.14 | 5.9 | 0.012 | pass |
+| e_shed01_2 | r1l1 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.14 | 6.0 | 0.012 | pass |
 | e_shed01_2 | r2l2 | 4 | 1 | 79.0 | 20.8 | 0.1 | 0.0 | 0.81 | 3.5 | 0.055 | pass |
 | e_shed01_2 | r2l2 | 4 | 2 | 81.0 | 17.6 | 0.8 | 0.6 | 1.05 | 19.1 | 0.051 | pass |
-| e_shed01_2 | r2l2 | 4 | 3 | 88.9 | 8.2 | 2.1 | 0.9 | 0.94 | 6.1 | 0.076 | pass |
+| e_shed01_2 | r2l2 | 4 | 3 | 87.8 | 9.2 | 2.6 | 0.4 | 0.94 | 5.8 | 0.079 | pass |
 | e_shed01_2 | r3l3 | 1 | 1 | 79.5 | 20.4 | 0.0 | 0.0 | 0.68 | 41.3 | 0.075 | pass |
 | e_shed01_2 | r3l3 | 1 | 2 | 81.2 | 17.6 | 0.5 | 0.7 | 0.80 | 10.0 | 0.016 | pass |
-| e_shed01_2 | r3l3 | 1 | 3 | 88.4 | 8.5 | 2.2 | 0.9 | 1.04 | 2.9 | 0.041 | pass |
+| e_shed01_2 | r3l3 | 1 | 3 | 87.6 | 9.3 | 2.6 | 0.5 | 1.03 | 3.2 | 0.046 | pass |
 | e_shed01_3 | r1 | 4 | 1 | 79.3 | 20.5 | 0.1 | 0.2 | 0.82 | 3.2 | 0.067 | pass |
 | e_shed01_3 | r1 | 4 | 2 | 80.6 | 18.3 | 0.6 | 0.4 | 0.91 | 5.5 | 0.030 | pass |
 | e_shed01_3 | r1 | 4 | 3 | 89.2 | 9.0 | 1.1 | 0.7 | 1.12 | 2.2 | 0.012 | pass |
@@ -53,21 +53,24 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_shed01_2 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| e_shed01_2 | r2 | 1.01 | 0.91 | 0.97 | 0.005 | 0.001 | 928 | 928 | 499 | 499 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed01_2 | r3 | 1.01 | 0.91 | 0.97 | 0.004 | 0.001 | 0 | 0 | 498 | 498 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed01_2 | r1l1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| e_shed01_2 | r2l2 | 1.01 | 0.91 | 0.97 | 0.005 | 0.001 | 928 | 928 | 499 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 499 pixels | blocks |
-| e_shed01_2 | r3l3 | 1.01 | 0.91 | 0.97 | 0.004 | 0.001 | 0 | 0 | 498 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 498 pixels | blocks |
-| e_shed01_3 | r1 | 1.02 | 0.94 | 0.98 | 0.004 | 0.001 | 844 | 844 | 447 | 447 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed01_3 | r2 | 1.02 | 0.94 | 0.98 | 0.005 | 0.001 | 0 | 0 | 447 | 447 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_shed01_3 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| e_shed01_3 | r1l1 | 1.02 | 0.94 | 0.98 | 0.004 | 0.001 | 844 | 844 | 447 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 447 pixels | blocks |
-| e_shed01_3 | r2l2 | 1.02 | 0.94 | 0.98 | 0.005 | 0.001 | 0 | 0 | 447 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 447 pixels | blocks |
-| e_shed01_3 | r3l3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_shed01_2 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.982 | 0.590 | 0.590 | 0.966 | pass | 2003 sibling |
+| e_shed01_2 | r2 | 1.01 | 0.91 | 0.97 | 0.005 | 0.001 | 928 | 928 | 499 | 499 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.614 | 0.614 | 0.966 | pass | blocks |
+| e_shed01_2 | r3 | 1.01 | 0.91 | 0.97 | 0.004 | 0.001 | 0 | 0 | 498 | 498 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.551 | 0.551 | 0.966 | pass | blocks |
+| e_shed01_2 | r1l1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.982 | 0.590 | 0.590 | 0.966 | pass | 2003 sibling |
+| e_shed01_2 | r2l2 | 1.01 | 0.91 | 0.97 | 0.005 | 0.001 | 928 | 928 | 499 | 499 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.614 | 0.614 | 0.966 | pass | blocks |
+| e_shed01_2 | r3l3 | 1.01 | 0.91 | 0.97 | 0.004 | 0.001 | 0 | 0 | 498 | 498 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.551 | 0.551 | 0.966 | pass | blocks |
+| e_shed01_3 | r1 | 1.02 | 0.94 | 0.98 | 0.004 | 0.001 | 844 | 844 | 447 | 447 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.609 | 0.609 | 0.979 | pass | blocks |
+| e_shed01_3 | r2 | 1.02 | 0.94 | 0.98 | 0.005 | 0.001 | 0 | 0 | 447 | 447 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.553 | 0.553 | 0.979 | pass | blocks |
+| e_shed01_3 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.976 | 0.535 | 0.535 | 0.979 | pass | 2003 sibling |
+| e_shed01_3 | r1l1 | 1.02 | 0.94 | 0.98 | 0.004 | 0.001 | 844 | 844 | 447 | 447 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.609 | 0.609 | 0.979 | pass | blocks |
+| e_shed01_3 | r2l2 | 1.02 | 0.94 | 0.98 | 0.005 | 0.001 | 0 | 0 | 447 | 447 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.553 | 0.553 | 0.979 | pass | blocks |
+| e_shed01_3 | r3l3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.976 | 0.535 | 0.535 | 0.979 | pass | 2003 sibling |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 
@@ -78,4 +81,4 @@ Hold-out: the variant's own side drawn without it, against the 2003 picture.
 | e_shed01_2 | 3 | 0.850 | 1.10 | 6.8 | 0.100 | pass |
 | e_shed01_3 | 1 | 0.888 | 0.92 | 47.7 | 0.139 | pass |
 | e_shed01_3 | 2 | 0.859 | 1.00 | 18.5 | 0.037 | pass |
-| e_shed01_3 | 3 | 0.834 | 1.08 | 6.1 | 0.086 | pass |
+| e_shed01_3 | 3 | 0.832 | 1.07 | 6.2 | 0.086 | pass |

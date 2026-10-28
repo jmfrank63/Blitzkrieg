@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| a_mosque_01_4 | r1 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| a_mosque_01_4 | r2 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| a_mosque_01_4 | r3 | 0.98 | 0.84 | 0.92 | 0.029 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| a_mosque_01_4 | r1l1 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| a_mosque_01_4 | r2l2 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| a_mosque_01_4 | r3l3 | 0.98 | 0.84 | 0.92 | 0.029 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| a_mosque_01_4 | r1 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.993 | 0.993 | 0.919 | pass | blocks |
+| a_mosque_01_4 | r2 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.987 | 0.987 | 0.919 | pass | blocks |
+| a_mosque_01_4 | r3 | 0.98 | 0.84 | 0.92 | 0.029 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.993 | 0.993 | 0.919 | pass | blocks |
+| a_mosque_01_4 | r1l1 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.993 | 0.993 | 0.919 | pass | blocks |
+| a_mosque_01_4 | r2l2 | 0.98 | 0.84 | 0.92 | 0.028 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.987 | 0.987 | 0.919 | pass | blocks |
+| a_mosque_01_4 | r3l3 | 0.98 | 0.84 | 0.92 | 0.029 | 0.048 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.993 | 0.993 | 0.919 | pass | blocks |

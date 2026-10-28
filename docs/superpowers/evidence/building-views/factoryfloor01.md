@@ -6,38 +6,38 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryfloor01 | r1 | 2 | 1 | 73.4 | 26.0 | 0.2 | 0.4 | 0.88 | 17.6 | 0.035 | pass |
-| factoryfloor01 | r1 | 2 | 1w | 73.5 | 25.9 | 0.2 | 0.4 | 0.75 | 30.4 | 0.161 | pass |
+| factoryfloor01 | r1 | 2 | 1 | 73.3 | 26.1 | 0.2 | 0.4 | 0.87 | 17.6 | 0.036 | pass |
+| factoryfloor01 | r1 | 2 | 1w | 73.3 | 26.0 | 0.2 | 0.5 | 0.75 | 30.3 | 0.161 | pass |
 | factoryfloor01 | r1 | 2 | 2 | 71.5 | 25.0 | 3.1 | 0.4 | 1.16 | 8.0 | 0.077 | pass |
 | factoryfloor01 | r1 | 2 | 2w | 71.5 | 25.0 | 3.1 | 0.4 | 1.11 | 8.4 | 0.105 | pass |
 | factoryfloor01 | r1 | 2 | 3 | 84.6 | 7.4 | 3.4 | 4.6 | 0.98 | 1.3 | 0.020 | pass |
 | factoryfloor01 | r1 | 2 | 3w | 84.6 | 7.4 | 3.4 | 4.6 | 0.98 | 1.3 | 0.021 | pass |
-| factoryfloor01 | r2 | 3 | 1 | 0.3 | 98.2 | 0.5 | 0.9 | 0.99 | 2.4 | 0.043 | pass |
-| factoryfloor01 | r2 | 3 | 1w | 0.3 | 98.2 | 0.5 | 0.9 | 1.04 | 5.4 | 0.046 | pass |
+| factoryfloor01 | r2 | 3 | 1 | 0.4 | 98.2 | 0.5 | 0.9 | 0.99 | 2.6 | 0.045 | pass |
+| factoryfloor01 | r2 | 3 | 1w | 0.4 | 98.2 | 0.5 | 0.9 | 1.04 | 5.3 | 0.047 | pass |
 | factoryfloor01 | r2 | 3 | 2 | 4.5 | 91.1 | 3.9 | 0.5 | 1.13 | 7.9 | 0.068 | pass |
 | factoryfloor01 | r2 | 3 | 2w | 4.5 | 91.1 | 3.9 | 0.5 | 1.13 | 9.1 | 0.070 | pass |
 | factoryfloor01 | r2 | 3 | 3 | 77.2 | 14.1 | 3.9 | 4.8 | 1.02 | 0.3 | 0.009 | pass |
 | factoryfloor01 | r2 | 3 | 3w | 77.2 | 14.1 | 3.9 | 4.8 | 1.01 | 0.3 | 0.009 | pass |
-| factoryfloor01 | r3 | 4 | 1 | 28.6 | 70.3 | 0.5 | 0.6 | 0.85 | 20.8 | 0.012 | pass |
-| factoryfloor01 | r3 | 4 | 1w | 28.6 | 70.1 | 0.6 | 0.7 | 0.70 | 32.8 | 0.244 | pass |
+| factoryfloor01 | r3 | 4 | 1 | 28.6 | 70.3 | 0.5 | 0.6 | 0.85 | 20.7 | 0.012 | pass |
+| factoryfloor01 | r3 | 4 | 1w | 28.6 | 70.1 | 0.6 | 0.7 | 0.71 | 32.9 | 0.245 | pass |
 | factoryfloor01 | r3 | 4 | 2 | 30.9 | 67.0 | 1.7 | 0.5 | 1.10 | 1.5 | 0.058 | pass |
 | factoryfloor01 | r3 | 4 | 2w | 30.9 | 67.0 | 1.7 | 0.5 | 1.04 | 1.3 | 0.087 | pass |
 | factoryfloor01 | r3 | 4 | 3 | 84.1 | 8.4 | 3.1 | 4.3 | 0.96 | 1.0 | 0.006 | pass |
 | factoryfloor01 | r3 | 4 | 3w | 84.1 | 8.4 | 3.1 | 4.3 | 0.96 | 1.3 | 0.005 | pass |
-| factoryfloor01 | r1l1 | 2 | 1 | 73.4 | 26.0 | 0.2 | 0.4 | 1.19 | 14.5 | 0.040 | pass |
-| factoryfloor01 | r1l1 | 2 | 1w | 73.5 | 25.9 | 0.2 | 0.4 | 1.15 | 20.9 | 0.126 | pass |
+| factoryfloor01 | r1l1 | 2 | 1 | 73.3 | 26.1 | 0.2 | 0.4 | 1.19 | 14.5 | 0.040 | pass |
+| factoryfloor01 | r1l1 | 2 | 1w | 73.3 | 26.0 | 0.2 | 0.5 | 1.15 | 21.0 | 0.126 | pass |
 | factoryfloor01 | r1l1 | 2 | 2 | 71.5 | 25.0 | 3.1 | 0.4 | 1.20 | 11.1 | 0.050 | pass |
 | factoryfloor01 | r1l1 | 2 | 2w | 71.5 | 25.0 | 3.1 | 0.4 | 1.19 | 12.6 | 0.048 | pass |
 | factoryfloor01 | r1l1 | 2 | 3 | 84.6 | 7.4 | 3.4 | 4.6 | 0.99 | 1.6 | 0.021 | pass |
 | factoryfloor01 | r1l1 | 2 | 3w | 84.6 | 7.4 | 3.4 | 4.6 | 0.99 | 1.7 | 0.022 | pass |
-| factoryfloor01 | r2l2 | 3 | 1 | 0.3 | 98.2 | 0.5 | 0.9 | 0.71 | 37.3 | 0.036 | pass |
-| factoryfloor01 | r2l2 | 3 | 1w | 0.3 | 98.2 | 0.5 | 0.9 | 0.62 | 59.1 | 0.098 | pass |
+| factoryfloor01 | r2l2 | 3 | 1 | 0.4 | 98.2 | 0.5 | 0.9 | 0.71 | 37.3 | 0.036 | pass |
+| factoryfloor01 | r2l2 | 3 | 1w | 0.4 | 98.2 | 0.5 | 0.9 | 0.62 | 59.1 | 0.095 | pass |
 | factoryfloor01 | r2l2 | 3 | 2 | 4.5 | 91.1 | 3.9 | 0.5 | 1.19 | 11.2 | 0.079 | pass |
 | factoryfloor01 | r2l2 | 3 | 2w | 4.5 | 91.1 | 3.9 | 0.5 | 1.19 | 12.9 | 0.079 | pass |
 | factoryfloor01 | r2l2 | 3 | 3 | 77.2 | 14.1 | 3.9 | 4.8 | 1.01 | 0.3 | 0.009 | pass |
 | factoryfloor01 | r2l2 | 3 | 3w | 77.2 | 14.1 | 3.9 | 4.8 | 1.01 | 0.3 | 0.009 | pass |
-| factoryfloor01 | r3l3 | 4 | 1 | 28.6 | 70.3 | 0.5 | 0.6 | 0.55 | 50.2 | 0.022 | pass |
-| factoryfloor01 | r3l3 | 4 | 1w | 28.6 | 70.1 | 0.6 | 0.7 | 0.51 | 78.2 | 0.047 | colour 78.2 > 62 |
+| factoryfloor01 | r3l3 | 4 | 1 | 28.6 | 70.3 | 0.5 | 0.6 | 0.55 | 50.0 | 0.021 | pass |
+| factoryfloor01 | r3l3 | 4 | 1w | 28.6 | 70.1 | 0.6 | 0.7 | 0.50 | 78.4 | 0.048 | colour 78.4 > 62 |
 | factoryfloor01 | r3l3 | 4 | 2 | 30.9 | 67.0 | 1.7 | 0.5 | 1.05 | 0.2 | 0.017 | pass |
 | factoryfloor01 | r3l3 | 4 | 2w | 30.9 | 67.0 | 1.7 | 0.5 | 1.05 | 0.2 | 0.020 | pass |
 | factoryfloor01 | r3l3 | 4 | 3 | 84.1 | 8.4 | 3.1 | 4.3 | 0.96 | 1.0 | 0.007 | pass |
@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryfloor01 | r1 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | blocks |
-| factoryfloor01 | r2 | 0.96 | 1.07 | 0.97 | 0.017 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | blocks |
-| factoryfloor01 | r3 | 0.96 | 1.07 | 0.97 | 0.015 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | blocks |
-| factoryfloor01 | r1l1 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | blocks |
-| factoryfloor01 | r2l2 | 0.96 | 1.07 | 0.97 | 0.017 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | blocks |
-| factoryfloor01 | r3l3 | 0.96 | 1.07 | 0.97 | 0.015 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| factoryfloor01 | r1 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | 1.000 | 0.610 | 0.610 | 0.969 | pass | blocks |
+| factoryfloor01 | r2 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | 1.000 | 0.617 | 0.617 | 0.969 | pass | blocks |
+| factoryfloor01 | r3 | 0.96 | 1.07 | 0.97 | 0.016 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | 1.000 | 0.553 | 0.553 | 0.969 | pass | blocks |
+| factoryfloor01 | r1l1 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | 1.000 | 0.610 | 0.610 | 0.969 | pass | blocks |
+| factoryfloor01 | r2l2 | 0.96 | 1.07 | 0.97 | 0.018 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | 1.000 | 0.617 | 0.617 | 0.969 | pass | blocks |
+| factoryfloor01 | r3l3 | 0.96 | 1.07 | 0.97 | 0.016 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 220 | 217 | 0 | pass | 1.000 | 0.553 | 0.553 | 0.969 | pass | blocks |

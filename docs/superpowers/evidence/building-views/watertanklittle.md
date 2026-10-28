@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| watertanklittle | r1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r1l1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r2l2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
-| watertanklittle | r3l3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| watertanklittle | r1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 0.770 | 0.763 | 0.882 | 0.763 | pass | 2003 sprite |
+| watertanklittle | r2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 0.766 | 0.770 | 0.905 | 0.763 | pass | 2003 sprite |
+| watertanklittle | r3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 0.772 | 0.767 | 0.916 | 0.763 | pass | 2003 sprite |
+| watertanklittle | r1l1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 0.770 | 0.763 | 0.882 | 0.763 | pass | 2003 sprite |
+| watertanklittle | r2l2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 0.766 | 0.770 | 0.905 | 0.763 | pass | 2003 sprite |
+| watertanklittle | r3l3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 0.772 | 0.767 | 0.916 | 0.763 | pass | 2003 sprite |

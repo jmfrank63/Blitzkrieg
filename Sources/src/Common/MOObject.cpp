@@ -172,6 +172,8 @@ void CMOObject::ShiftPicture( const CVec3 &vShift )
 //   none) is its own picture, as M005 turns thin and small buildings; on a
 //   longer rectangle its picture is mirrored at an odd step, which lays it on
 //   the turned footprint (its shadow kept, as M005's mirrored sprites keep it);
+// - a prop whose turns bk-views drew (`<folder>_r<k>`) shows its shape turned,
+//   not mirrored (M006 round 3);
 // - a fence segment shows the segment of its direction turned by the step.
 // The sun stays in the world (M006 round 2): the shadow an object casts is the
 // one it casts at step 0 (its own picture's, its own segment's), at its place,
@@ -217,6 +219,18 @@ void CMOObject::ApplyCameraTurn()
 				pVisObj->Update( currTime, true );
 				if ( pShadow )
 					pShadow->Update( currTime, true );
+			}
+			else if ( nCameraTurn != 0 && NCameraTurn::ModelPath( pDesc->szPath, nCameraTurn ) != pDesc->szPath )
+			{
+				// A prop whose turns bk-views drew (`<folder>_r<k>`, the training
+				// camp's sand pile): its shape turned, never its picture mirrored
+				// (M006 round 3), lit by the world's sun where `_r<k>_l<k>` is there.
+				pSprite->SetScreenTurn( 0, false );
+				if ( nCameraTurn == nShownTurn && nCameraTurn == nShownLight )
+					break;
+				nShownTurn = nCameraTurn;
+				ShowPicture( NCameraTurn::LitModelPath( pDesc->szPath, nCameraTurn, nCameraTurn ) );
+				pVisObj->Update( GetSingleton<IGameTimer>()->GetGameTime(), true );
 			}
 			else
 			{

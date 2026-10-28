@@ -1,0 +1,11 @@
+{
+  "03": [
+    {"lo": [-41, -2], "hi": [0, 38], "wall": 12, "ridge": 17, "roof": "gable_x"},
+    {"lo": [-67, 51], "hi": [-17, 56], "wall": 2, "ridge": 2, "roof": "flat"}
+  ],
+  "04": [
+    {"lo": [-41, -1], "hi": [2, 44], "wall": 12, "ridge": 16, "roof": "gable_x"},
+    {"lo": [-55, 45], "hi": [-46, 57], "wall": 38, "ridge": 54, "roof": "gable_y"},
+    {"lo": [2, 15], "hi": [7, 30], "wall": 2, "ridge": 2, "roof": "flat"}
+  ]
+}

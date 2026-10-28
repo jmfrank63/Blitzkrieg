@@ -4,7 +4,7 @@
     {"lo": [-219, -11], "hi": [-134, 64], "wall": 42, "ridge": 102, "roof": "gable_y"}
   ],
   "e_jettybuilding_4": [
-    {"lo": [-83, 91], "hi": [14, 212], "wall": 52, "ridge": 112, "roof": "gable_y"},
-    {"lo": [-70, 14], "hi": [5, 99], "wall": 42, "ridge": 102, "roof": "gable_x"}
+    {"lo": [-57, 2], "hi": [-2, 134], "wall": 63, "ridge": 118, "roof": "gable_y"},
+    {"lo": [-82, 134], "hi": [42, 186], "wall": 56, "ridge": 116, "roof": "gable_x"}
   ]
 }

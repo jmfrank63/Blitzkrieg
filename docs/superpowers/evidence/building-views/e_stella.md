@@ -53,18 +53,21 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.76 | 0.54 | 0.77 | 1.037 | 1.276 | 40 | 40 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 2003 sprite |
-| 01 | r2 | 0.76 | 0.54 | 0.77 | 1.049 | 1.276 | 0 | 0 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 2003 sprite |
-| 01 | r3 | 0.76 | 0.54 | 0.77 | 1.055 | 1.276 | 12 | 12 | 0 | 0 | 0.000 | 0 | 106 | 0 | 0 | outline 0.77 < 0.85 | 2003 sprite |
-| 01 | r1l1 | 0.76 | 0.54 | 0.77 | 1.037 | 1.276 | 40 | 40 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 2003 sprite |
-| 01 | r2l2 | 0.76 | 0.54 | 0.77 | 1.049 | 1.276 | 0 | 0 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 2003 sprite |
-| 01 | r3l3 | 0.76 | 0.54 | 0.77 | 1.055 | 1.276 | 12 | 12 | 0 | 0 | 0.000 | 0 | 106 | 0 | 0 | outline 0.77 < 0.85 | 2003 sprite |
-| 02 | r1 | 0.86 | 0.38 | 0.83 | 1.047 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 2003 sprite |
-| 02 | r2 | 0.85 | 0.38 | 0.83 | 1.050 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 4 | ground 0.38 outside 0.5..2.0 | 2003 sprite |
-| 02 | r3 | 0.85 | 0.38 | 0.83 | 1.038 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 2003 sprite |
-| 02 | r1l1 | 0.86 | 0.38 | 0.83 | 1.047 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 2003 sprite |
-| 02 | r2l2 | 0.85 | 0.38 | 0.83 | 1.050 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 4 | ground 0.38 outside 0.5..2.0 | 2003 sprite |
-| 02 | r3l3 | 0.85 | 0.38 | 0.83 | 1.038 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.76 | 0.54 | 0.77 | 1.037 | 1.276 | 40 | 40 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 0.772 | 0.772 | 0.947 | 0.772 | pass | 2003 sprite |
+| 01 | r2 | 0.76 | 0.54 | 0.77 | 1.049 | 1.276 | 0 | 0 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 0.745 | 0.745 | 0.958 | 0.772 | pass | 2003 sprite |
+| 01 | r3 | 0.76 | 0.54 | 0.77 | 1.055 | 1.276 | 12 | 12 | 0 | 0 | 0.000 | 0 | 106 | 0 | 0 | outline 0.77 < 0.85 | 0.755 | 0.755 | 0.943 | 0.772 | pass | 2003 sprite |
+| 01 | r1l1 | 0.76 | 0.54 | 0.77 | 1.037 | 1.276 | 40 | 40 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 0.772 | 0.772 | 0.947 | 0.772 | pass | 2003 sprite |
+| 01 | r2l2 | 0.76 | 0.54 | 0.77 | 1.049 | 1.276 | 0 | 0 | 0 | 0 | 0.000 | 0 | 106 | 0 | 1 | outline 0.77 < 0.85 | 0.745 | 0.745 | 0.958 | 0.772 | pass | 2003 sprite |
+| 01 | r3l3 | 0.76 | 0.54 | 0.77 | 1.055 | 1.276 | 12 | 12 | 0 | 0 | 0.000 | 0 | 106 | 0 | 0 | outline 0.77 < 0.85 | 0.755 | 0.755 | 0.943 | 0.772 | pass | 2003 sprite |
+| 02 | r1 | 0.86 | 0.38 | 0.83 | 1.047 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 0.805 | 0.805 | 1.000 | 0.833 | pass | 2003 sprite |
+| 02 | r2 | 0.85 | 0.38 | 0.83 | 1.050 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 4 | ground 0.38 outside 0.5..2.0 | 0.840 | 0.840 | 0.991 | 0.833 | pass | 2003 sprite |
+| 02 | r3 | 0.85 | 0.38 | 0.83 | 1.038 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 0.798 | 0.798 | 1.000 | 0.833 | pass | 2003 sprite |
+| 02 | r1l1 | 0.86 | 0.38 | 0.83 | 1.047 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 0.805 | 0.805 | 1.000 | 0.833 | pass | 2003 sprite |
+| 02 | r2l2 | 0.85 | 0.38 | 0.83 | 1.050 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 4 | ground 0.38 outside 0.5..2.0 | 0.840 | 0.840 | 0.991 | 0.833 | pass | 2003 sprite |
+| 02 | r3l3 | 0.85 | 0.38 | 0.83 | 1.038 | 1.252 | 0 | 0 | 0 | 0 | 0.000 | 0 | 97 | 8 | 6 | ground 0.38 outside 0.5..2.0 | 0.798 | 0.798 | 1.000 | 0.833 | pass | 2003 sprite |

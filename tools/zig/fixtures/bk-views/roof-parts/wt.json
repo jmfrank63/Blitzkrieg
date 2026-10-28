@@ -1,0 +1,10 @@
+{
+  "01": [
+    {"lo": [-36, -17], "hi": [-19, 0], "wall": 18, "ridge": 18, "roof": "flat"},
+    {"lo": [-18, 2], "hi": [-3, 18], "wall": 14, "ridge": 14, "roof": "flat"},
+    {"lo": [3, 23], "hi": [15, 37], "wall": 7, "ridge": 7, "roof": "flat"},
+    {"lo": [-18, 70], "hi": [-2, 88], "wall": 22, "ridge": 22, "roof": "flat"},
+    {"lo": [-72, 16], "hi": [-56, 40], "wall": 30, "ridge": 30, "roof": "flat"},
+    {"lo": [-66, 52], "hi": [-52, 66], "wall": 38, "ridge": 38, "roof": "flat"}
+  ]
+}

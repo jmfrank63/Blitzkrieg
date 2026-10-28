@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house10_2 | r1 | 3 | 1 | 65.3 | 33.3 | 0.1 | 1.4 | 0.72 | 33.7 | 0.045 | pass |
-| e_house10_2 | r1 | 3 | 2 | 73.5 | 25.1 | 1.0 | 0.4 | 0.84 | 16.2 | 0.090 | pass |
-| e_house10_2 | r1 | 3 | 3 | 62.7 | 33.2 | 2.1 | 2.1 | 1.06 | 2.5 | 0.020 | pass |
-| e_house10_2 | r2 | 4 | 1 | 0.2 | 98.4 | 0.1 | 1.3 | 0.98 | 1.4 | 0.016 | pass |
-| e_house10_2 | r2 | 4 | 2 | 32.6 | 61.6 | 5.4 | 0.3 | 1.04 | 2.9 | 0.050 | pass |
-| e_house10_2 | r2 | 4 | 3 | 0.5 | 94.5 | 2.2 | 2.8 | 1.03 | 0.8 | 0.007 | pass |
-| e_house10_2 | r3 | 1 | 1 | 30.3 | 68.2 | 0.1 | 1.4 | 0.71 | 32.9 | 0.042 | pass |
-| e_house10_2 | r3 | 1 | 2 | 52.8 | 42.0 | 4.7 | 0.5 | 0.85 | 18.2 | 0.045 | pass |
-| e_house10_2 | r3 | 1 | 3 | 30.1 | 65.1 | 2.1 | 2.7 | 1.04 | 1.3 | 0.012 | pass |
-| e_house10_2 | r1l1 | 3 | 1 | 65.3 | 33.3 | 0.1 | 1.4 | 1.13 | 14.7 | 0.011 | pass |
-| e_house10_2 | r1l1 | 3 | 2 | 73.5 | 25.1 | 1.0 | 0.4 | 1.06 | 8.4 | 0.070 | pass |
-| e_house10_2 | r1l1 | 3 | 3 | 62.7 | 33.2 | 2.1 | 2.1 | 1.03 | 0.6 | 0.020 | pass |
-| e_house10_2 | r2l2 | 4 | 1 | 0.2 | 98.4 | 0.1 | 1.3 | 0.53 | 53.7 | 0.042 | pass |
-| e_house10_2 | r2l2 | 4 | 2 | 32.6 | 61.6 | 5.4 | 0.3 | 1.03 | 6.7 | 0.063 | pass |
-| e_house10_2 | r2l2 | 4 | 3 | 0.5 | 94.5 | 2.2 | 2.8 | 1.01 | 1.1 | 0.009 | pass |
-| e_house10_2 | r3l3 | 1 | 1 | 30.3 | 68.2 | 0.1 | 1.4 | 0.37 | 68.1 | 0.050 | sharpness 0.37 outside 0.45..3.20 |
-| e_house10_2 | r3l3 | 1 | 2 | 52.8 | 42.0 | 4.7 | 0.5 | 0.98 | 0.3 | 0.006 | pass |
-| e_house10_2 | r3l3 | 1 | 3 | 30.1 | 65.1 | 2.1 | 2.7 | 1.00 | 1.2 | 0.007 | pass |
+| e_house10_2 | r1 | 3 | 1 | 65.1 | 33.3 | 0.1 | 1.5 | 0.72 | 33.7 | 0.043 | pass |
+| e_house10_2 | r1 | 3 | 2 | 72.7 | 25.8 | 1.1 | 0.4 | 0.84 | 16.6 | 0.075 | pass |
+| e_house10_2 | r1 | 3 | 3 | 62.6 | 33.2 | 2.1 | 2.1 | 1.07 | 1.7 | 0.021 | pass |
+| e_house10_2 | r2 | 4 | 1 | 0.2 | 98.2 | 0.1 | 1.4 | 0.97 | 1.6 | 0.019 | pass |
+| e_house10_2 | r2 | 4 | 2 | 29.1 | 64.9 | 5.7 | 0.3 | 1.03 | 2.4 | 0.044 | pass |
+| e_house10_2 | r2 | 4 | 3 | 0.5 | 94.5 | 2.2 | 2.8 | 1.02 | 0.5 | 0.008 | pass |
+| e_house10_2 | r3 | 1 | 1 | 30.4 | 68.1 | 0.0 | 1.5 | 0.71 | 32.6 | 0.044 | pass |
+| e_house10_2 | r3 | 1 | 2 | 52.3 | 42.6 | 4.7 | 0.4 | 0.86 | 18.7 | 0.040 | pass |
+| e_house10_2 | r3 | 1 | 3 | 30.1 | 65.1 | 2.1 | 2.7 | 1.04 | 1.8 | 0.011 | pass |
+| e_house10_2 | r1l1 | 3 | 1 | 65.1 | 33.3 | 0.1 | 1.5 | 1.12 | 14.4 | 0.016 | pass |
+| e_house10_2 | r1l1 | 3 | 2 | 72.7 | 25.8 | 1.1 | 0.4 | 1.06 | 7.6 | 0.058 | pass |
+| e_house10_2 | r1l1 | 3 | 3 | 62.6 | 33.2 | 2.1 | 2.1 | 1.04 | 0.6 | 0.021 | pass |
+| e_house10_2 | r2l2 | 4 | 1 | 0.2 | 98.2 | 0.1 | 1.4 | 0.52 | 53.5 | 0.044 | pass |
+| e_house10_2 | r2l2 | 4 | 2 | 29.1 | 64.9 | 5.7 | 0.3 | 1.02 | 5.7 | 0.048 | pass |
+| e_house10_2 | r2l2 | 4 | 3 | 0.5 | 94.5 | 2.2 | 2.8 | 1.00 | 1.2 | 0.010 | pass |
+| e_house10_2 | r3l3 | 1 | 1 | 30.4 | 68.1 | 0.0 | 1.5 | 0.36 | 68.0 | 0.053 | sharpness 0.36 outside 0.45..3.20 |
+| e_house10_2 | r3l3 | 1 | 2 | 52.3 | 42.6 | 4.7 | 0.4 | 0.99 | 1.2 | 0.003 | pass |
+| e_house10_2 | r3l3 | 1 | 3 | 30.1 | 65.1 | 2.1 | 2.7 | 0.99 | 1.1 | 0.006 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house10_2 | r1 | 0.91 | 0.81 | 0.93 | 0.027 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | blocks |
-| e_house10_2 | r2 | 0.91 | 0.81 | 0.93 | 0.031 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | blocks |
-| e_house10_2 | r3 | 1.01 | 0.81 | 0.93 | 0.037 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | blocks |
-| e_house10_2 | r1l1 | 0.91 | 0.81 | 0.93 | 0.027 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | blocks |
-| e_house10_2 | r2l2 | 0.91 | 0.81 | 0.93 | 0.031 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | blocks |
-| e_house10_2 | r3l3 | 1.01 | 0.81 | 0.93 | 0.037 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house10_2 | r1 | 0.91 | 0.81 | 0.93 | 0.026 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | 1.000 | 0.668 | 0.668 | 0.931 | pass | blocks |
+| e_house10_2 | r2 | 0.91 | 0.81 | 0.93 | 0.033 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | 1.000 | 0.677 | 0.677 | 0.931 | pass | blocks |
+| e_house10_2 | r3 | 1.02 | 0.81 | 0.93 | 0.038 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | 1.000 | 0.627 | 0.627 | 0.931 | pass | blocks |
+| e_house10_2 | r1l1 | 0.91 | 0.81 | 0.93 | 0.026 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | 1.000 | 0.668 | 0.668 | 0.931 | pass | blocks |
+| e_house10_2 | r2l2 | 0.91 | 0.81 | 0.93 | 0.033 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | 1.000 | 0.677 | 0.677 | 0.931 | pass | blocks |
+| e_house10_2 | r3l3 | 1.02 | 0.81 | 0.93 | 0.038 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 239 | 237 | 0 | pass | 1.000 | 0.627 | 0.627 | 0.931 | pass | blocks |
