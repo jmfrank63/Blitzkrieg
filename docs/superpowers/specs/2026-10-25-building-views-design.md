@@ -770,3 +770,29 @@ variants) that are not tracked.
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r
   (variant (k + r) mod 4), including the families whose variants differ in colourway.
+
+## Two libSDL3 on macOS (fix/sdl-dup)
+
+The macOS Game printed "Class SDL3Window is implemented in both .zig-cache/o/.../libSDL3.0.4.18.dylib and
+zig-out/.../libSDL3.dylib". Cause: every dylib carries the install name `@rpath/libSDL3.dylib`, but Zig's
+`linkLibrary` of a dynamic library also adds an absolute `-rpath` into that artifact's cache directory. There are two
+builds of SDL there: `sdl_dynamic` (build.zig) and the one zig-sdl3 builds for itself (reached through gfx_gpu_zig
+into GFXGPU). Each image therefore resolved `@rpath/libSDL3.dylib` through a different cache directory, or through the
+installed `@loader_path`, and dyld loaded distinct files.
+
+Fix: on macOS SDL3 is linked by path (`addObjectFile(getEmittedBin())` plus the headers' include tree) in
+`linkSdlImport`, in the two modules that used `linkLibrary(sdl)` directly (options bridge, StreamIO) and in
+`vendor/zig-sdl3/build.zig`, so no SDL cache rpath remains and `@rpath/libSDL3.dylib` can only be found beside the
+binary. Linux and Windows are unchanged (Linux still has cache rpaths to SDL; ELF interposition hides the duplicate, no
+warning seen there, left open). `tools/zig/check-installed-sdl.sh <dir>` (macOS, otool) fails if an installed Mach-O
+names SDL3 other than as `@rpath/libSDL3.dylib` or has an `-rpath` into a directory holding a libSDL3; the macOS build
+job runs it on every `zig-out/game/macos/*/*/`. Checked here: the script against a stub otool (pass and fail), and on
+Windows `install-game`, `test-platform-system`, `test-platform-modules`, `test-stage` build and pass (`test-sfx-module`
+fails to find SDL3/SDL.h on main as well). Not seen: any macOS result; CI must show the check step green and the
+warning gone. Other engine dylibs still carry cache rpaths to their own single build; only SDL had two.
+
+Follow-up (fix/sdl-link): with zig-sdl3's link by path, the static gfx_gpu_zig no longer carried SDL3 into the macOS
+GFXGPU (73 undefined SDL symbols on the maintainer's arm64 build: a dylib given as an object file to a static library
+is not passed on). The modules that took only SDL's headers on macOS because gfx_gpu_zig brought the library (GFXGPU,
+its factory and ABI tests, text-measure-draw, mod-font-fallback, game-bootstrap-smoke) now link the one installed
+SDL3 themselves on every platform.
