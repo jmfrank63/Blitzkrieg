@@ -1,0 +1,8 @@
+{
+"05": {"id": 394, "path": "Objects/SimpleObjects/ussr/summer/wickerfence/05", "how": "fit, refined", "fit": 0.536, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-16.2, 12.0], "hi": [-14.6, 18.7], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]},
+"06": {"id": 395, "path": "Objects/SimpleObjects/ussr/summer/wickerfence/06", "how": "poles", "fit": 0.481, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-4.7, 2.4, 0.0], "to": [-15.5, 14.9, 28.6], "radius": 2.0}}]},
+"07": {"id": 396, "path": "Objects/SimpleObjects/ussr/summer/wickerfence/07", "how": "fit, refined", "fit": 0.340, "footprint": ["0001", "0001", "0100"], "parts": [
+  {"kind": "body", "block": {"lo": [-11.5, 8.1], "hi": [-9.2, 44.0], "wall": 13.0, "ridge": 13.0, "roof": "flat"}}]}
+}

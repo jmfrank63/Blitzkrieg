@@ -1,0 +1,18 @@
+{
+"01": {"id": 117, "path": "Buildings/europe/summer/e_wt/01", "how": "hand shape", "fit": 0.861, "footprint": ["0101010100", "0101010101", "0101010101", "0101010101", "0101010101", "0101010000"], "parts": [
+  {"kind": "body", "block": {"lo": [-113.2, 26.8], "hi": [-15.2, 47.8], "wall": 24.0, "ridge": 24.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-104.2, 41.8], "hi": [-41.2, 96.8], "wall": 30.0, "ridge": 45.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-65.2, 0.8], "hi": [-28.2, 21.8], "wall": 17.0, "ridge": 17.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-110.2, 94.8], "hi": [-104.2, 124.8], "wall": 20.0, "ridge": 29.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-103.2, 8.8], "hi": [-67.2, 24.8], "wall": 20.0, "ridge": 28.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-96.5, 1.8], "hi": [-90.2, 8.8], "wall": 3.5, "ridge": 3.5, "roof": "flat"}}]},
+"02": {"id": 118, "path": "Buildings/europe/summer/e_wt/02", "how": "hand shape", "fit": 0.895, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101", "01010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-78.0, 18.0], "hi": [-11.0, 106.0], "wall": 32.0, "ridge": 40.0, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-66.8, 12.4], "hi": [-49.9, 18.0], "wall": 2.8, "ridge": 2.8, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-19.4, 1.1], "hi": [-11.0, 18.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-11.0, 66.8], "hi": [-2.5, 83.1], "wall": 4.3, "ridge": 4.3, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [48.0, 18.0], "hi": [52.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [37.0, 1.0], "hi": [41.0, 6.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [59.0, 15.0], "hi": [64.0, 20.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [60.0, 20.0], "hi": [76.0, 32.0]}}]}
+}

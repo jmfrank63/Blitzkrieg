@@ -1280,3 +1280,37 @@ test "a turn is the shape turned: an L-shaped house mirrored or left as it was f
     try std.testing.expect(plain.turned > 0.97);
     try std.testing.expectEqual(@as(?[]const u8, null), try views.handedFailure(arena, plain));
 }
+
+test {
+    // The review document's PDF writer.
+    _ = @import("bk_pdf.zig");
+}
+
+test "a shape model drawn at turn 0 is its own outline, and a stake in a picture is lifted to a pole standing on the ground" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const eye: views.Eye = .{ .anchor = .{ 130, 150 } };
+    // A gabled house with a chimney: the model's faces cover what the
+    // blocks' rays meet.
+    const gabled = [_]views.Block{
+        .{ .lo = .{ 0, 0 }, .hi = .{ 90, 40 }, .wall = 30, .ridge = 55, .roof = .gable_x },
+        .{ .lo = .{ 70, 16 }, .hi = .{ 78, 24 }, .wall = 70, .ridge = 70 },
+    };
+    const parts = [_]views.Part{ .{ .kind = .body, .block = gabled[0] }, .{ .kind = .chimney, .block = gabled[1] } };
+    try std.testing.expect(try views.modelIou(arena, &parts, eye, try blocksPicture(arena, eye, &gabled)) > 0.97);
+    // A stake 40 units long leaning in the picture's plane: one pole, its
+    // foot on the ground under the stake's lower end.
+    const picture: views.Image = .{ .width = 260, .height = 240, .pixels = try arena.alloc([4]u8, 260 * 240) };
+    @memset(picture.pixels, .{ 0, 0, 0, 0 });
+    for (0..40) |i| for (0..3) |w| {
+        picture.pixels[(150 - i) * 260 + 120 + i / 2 + w] = .{ 90, 70, 50, 255 };
+    };
+    const poles = try views.fitPoles(arena, picture, eye);
+    try std.testing.expectEqual(@as(usize, 1), poles.len);
+    const pole = poles[0].pole.?;
+    try std.testing.expectApproxEqAbs(@as(f64, 0), pole.from[2], 0.01);
+    try std.testing.expect(pole.to[2] > 30);
+    const foot = eye.project(pole.from);
+    try std.testing.expect(@abs(foot[1] - 150) < 3 and @abs(foot[0] - 121.5) < 3);
+}

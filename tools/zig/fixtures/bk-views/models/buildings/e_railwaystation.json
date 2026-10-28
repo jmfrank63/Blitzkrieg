@@ -1,0 +1,23 @@
+{
+"e_railwaystation_1": {"id": 81, "path": "Buildings/europe/summer/e_railwaystation_1", "how": "hand shape", "fit": 0.900, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101", "0101010100", "0101010100", "0101010100", "0101010100", "0101010100", "0101010100", "0101010100", "0101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-109.0, -1.0], "hi": [4.0, 56.0], "wall": 82.0, "ridge": 152.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-117.0, 50.0], "hi": [-34.0, 112.0], "wall": 58.0, "ridge": 118.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-129.0, 108.0], "hi": [-34.0, 242.0], "wall": 49.0, "ridge": 94.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-58.0, 9.0], "hi": [-40.0, 28.0], "wall": 139.0, "ridge": 184.0, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-59.0, -13.8], "hi": [-49.1, -1.0], "wall": 6.4, "ridge": 6.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [4.0, 36.4], "hi": [8.8, 49.1], "wall": 2.4, "ridge": 2.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-34.0, 61.2], "hi": [-22.3, 93.0], "wall": 5.9, "ridge": 5.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-34.0, 197.6], "hi": [-22.3, 217.4], "wall": 5.9, "ridge": 5.9, "roof": "flat"}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall -y", "lo": [107.0, 0.0], "hi": [113.0, 10.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [4.0, 71.0], "hi": [8.0, 76.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [66.0, 24.0], "hi": [70.0, 29.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [113.0, 37.0], "hi": [117.0, 42.0]}}]},
+"e_railwaystation_2": {"id": 82, "path": "Buildings/europe/summer/e_railwaystation_2", "how": "hand shape", "fit": 0.961, "footprint": ["000000000000010101000000000000", "010101010101010101010101010101", "010101010101010101010101010101", "010101010101010101010101010101", "000000000000010101000000000000"], "parts": [
+  {"kind": "body", "block": {"lo": [-341.0, 4.0], "hi": [-68.0, 68.0], "wall": 50.0, "ridge": 104.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-194.0, -22.0], "hi": [-104.0, 72.0], "wall": 68.0, "ridge": 128.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-70.0, 1.0], "hi": [-2.0, 56.0], "wall": 39.0, "ridge": 74.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-162.0, 2.0], "hi": [-140.0, 24.0], "wall": 138.0, "ridge": 188.0, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-57.6, -9.5], "hi": [-37.8, 1.0], "wall": 5.3, "ridge": 5.3, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [14.0, 8.0], "hi": [18.0, 13.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [1.0, 25.0], "hi": [8.0, 30.0]}}]}
+}

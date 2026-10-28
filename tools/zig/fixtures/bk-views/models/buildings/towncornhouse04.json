@@ -1,0 +1,23 @@
+{
+"towncornhouse04": {"id": 172, "path": "Buildings/ussr/summer/towncornhouse04", "how": "hand shape", "fit": 0.966, "footprint": ["00000101010101010101010101", "00010101010101010101010101", "01010101010101010101010101", "01010101010101010101010101", "01010101010101010101010101", "01010101010101010101010101", "01010101010101010101010101", "01010101010100000000000000", "01010101010100000000000000", "01010101010100000000000000", "01010101010100000000000000", "01010101010100000000000000", "01010101010100000000000000"], "parts": [
+  {"kind": "body", "block": {"lo": [-238.0, -6.0], "hi": [-5.0, 139.0], "wall": 104.0, "ridge": 140.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-300.0, 67.0], "hi": [-177.0, 289.0], "wall": 104.0, "ridge": 137.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-209.0, -10.3], "hi": [-182.1, -6.0], "wall": 2.1, "ridge": 2.1, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-140.4, -10.3], "hi": [-119.9, -6.0], "wall": 2.1, "ridge": 2.1, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-106.4, -10.3], "hi": [-85.9, -6.0], "wall": 2.1, "ridge": 2.1, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-256.0, 74.0], "hi": [-249.0, 81.0], "wall": 143.0, "ridge": 143.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-237.0, 100.0], "hi": [-221.0, 117.0], "wall": 157.0, "ridge": 157.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-221.0, 128.0], "hi": [-212.0, 138.0], "wall": 148.0, "ridge": 148.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-238.0, 173.0], "hi": [-223.0, 189.0], "wall": 158.0, "ridge": 158.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-271.0, 230.0], "hi": [-263.0, 238.0], "wall": 137.0, "ridge": 137.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-166.0, 102.0], "hi": [-149.0, 119.0], "wall": 143.0, "ridge": 143.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-135.0, 114.0], "hi": [-126.0, 124.0], "wall": 136.0, "ridge": 136.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-50.0, 39.0], "hi": [-45.0, 44.0], "wall": 145.0, "ridge": 145.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-175.0, 29.0], "hi": [-153.0, 51.0], "wall": 125.0, "ridge": 131.0, "roof": "gable_y"}},
+  {"kind": "roof_part", "block": {"lo": [-97.0, 26.0], "hi": [-69.0, 63.0], "wall": 123.0, "ridge": 137.0, "roof": "gable_y"}},
+  {"kind": "roof_part", "block": {"lo": [-222.0, 214.0], "hi": [-188.0, 233.0], "wall": 113.0, "ridge": 127.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [193.0, 19.0], "hi": [197.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [105.0, 44.0], "hi": [118.0, 59.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [144.0, 51.0], "hi": [148.0, 59.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [210.0, 13.0], "hi": [217.0, 21.0]}}]}
+}

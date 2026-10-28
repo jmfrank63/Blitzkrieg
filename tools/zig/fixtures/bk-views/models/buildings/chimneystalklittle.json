@@ -1,0 +1,7 @@
+{
+"chimneystalklittle": {"id": 123, "path": "Buildings/ussr/summer/chimneystalklittle", "how": "fit", "fit": 0.748, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-39.2, 0.1], "hi": [0.8, 40.1], "wall": 54.0, "ridge": 88.0, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-26.0, 12.6], "hi": [-10.5, 28.1], "wall": 155.7, "ridge": 155.7, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-23.6, 15.1], "hi": [-12.9, 25.7], "wall": 155.7, "ridge": 195.0, "roof": "hip"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [9.0, 49.0], "hi": [16.0, 54.0]}}]}
+}

@@ -1,0 +1,16 @@
+{
+"a_h04_1": {"id": 9, "path": "Buildings/africa/summer/a_h04_1", "how": "hand shape", "fit": 0.898, "footprint": ["01000100010000010100", "01010000000001010100", "01010101010101010100", "01010101010101010101", "01010101010101010101", "01010101010101010101", "01010101010101010101", "01010101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-215.0, -10.0], "hi": [-30.0, 159.0], "wall": 44.0, "ridge": 44.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-4.0, -10.0], "hi": [16.0, 159.0], "wall": 44.0, "ridge": 44.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-30.0, 42.0], "hi": [-4.0, 159.0], "wall": 44.0, "ridge": 44.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-215.0, -10.0], "hi": [-62.0, 140.0], "wall": 74.0, "ridge": 74.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-195.5, -27.9], "hi": [-186.3, -10.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-146.0, -23.7], "hi": [-135.4, -10.0], "wall": 6.8, "ridge": 6.8, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-37.1, -24.4], "hi": [-30.0, -10.0], "wall": 7.2, "ridge": 7.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-30.0, -10.0], "hi": [-13.1, -1.8], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-30.0, -10.0], "hi": [-4.0, 7.0], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-30.0, 7.0], "hi": [-4.0, 24.0], "wall": 32.0, "ridge": 32.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-30.0, 24.0], "hi": [-4.0, 42.0], "wall": 48.0, "ridge": 48.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [141.0, 26.0], "hi": [151.0, 37.0]}},
+  {"kind": "window", "rect": {"on": 3, "face": "wall +x", "lo": [113.0, 53.0], "hi": [117.0, 58.0]}}]}
+}

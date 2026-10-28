@@ -1,0 +1,18 @@
+{
+"a_h08_1": {"id": 13, "path": "Buildings/africa/summer/a_h08_1", "how": "fit", "fit": 0.922, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-80.7, 4.2], "hi": [2.3, 129.2], "wall": 45.0, "ridge": 47.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [2.3, 71.1], "hi": [6.7, 80.3], "wall": 2.2, "ridge": 2.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [2.3, 102.2], "hi": [8.8, 116.3], "wall": 3.3, "ridge": 3.3, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [2.3, 114.1], "hi": [12.5, 123.3], "wall": 5.1, "ridge": 5.1, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-35.6, 129.2], "hi": [-29.2, 133.2], "wall": 2.0, "ridge": 2.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [80.0, 25.0], "hi": [87.0, 37.0]}}]},
+"a_h08_4": {"id": 14, "path": "Buildings/africa/summer/a_h08_4", "how": "fit", "fit": 0.950, "footprint": ["010101010101", "010101010101", "010101010101", "010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-128.0, -0.4], "hi": [-10.0, 80.6], "wall": 44.0, "ridge": 51.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-134.2, 0.1], "hi": [-128.0, 70.8], "wall": 3.1, "ridge": 3.1, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-100.9, -4.9], "hi": [-90.3, -0.4], "wall": 2.2, "ridge": 2.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-74.1, -6.3], "hi": [-62.8, -0.4], "wall": 2.9, "ridge": 2.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-61.3, -8.4], "hi": [-18.9, -0.4], "wall": 4.0, "ridge": 4.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-19.4, -12.4], "hi": [-11.0, -0.4], "wall": 6.0, "ridge": 6.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-10.0, -0.4], "hi": [-1.8, 71.8], "wall": 4.1, "ridge": 4.1, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [63.0, 24.0], "hi": [69.0, 35.0]}}]}
+}

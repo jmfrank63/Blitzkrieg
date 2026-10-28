@@ -1,0 +1,16 @@
+{
+"01": {"id": 127, "path": "Buildings/ussr/summer/dustbin/01", "how": "fit", "fit": 0.878, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-67.1, 3.5], "hi": [-1.1, 35.5], "wall": 14.0, "ridge": 16.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-60.5, -3.2], "hi": [-54.1, 3.5], "wall": 3.3, "ridge": 3.3, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-58.9, 35.5], "hi": [-29.2, 41.8], "wall": 3.1, "ridge": 3.1, "roof": "flat"}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall -y", "lo": [6.0, 3.0], "hi": [11.0, 14.0]}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall -y", "lo": [54.0, 3.0], "hi": [60.0, 14.0]}}]},
+"02": {"id": 128, "path": "Buildings/ussr/summer/dustbin/02", "how": "fit", "fit": 0.867, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-41.6, 0.7], "hi": [-9.6, 63.7], "wall": 15.0, "ridge": 15.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-48.1, 45.9], "hi": [-41.6, 53.7], "wall": 3.3, "ridge": 3.3, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-9.6, 27.9], "hi": [-1.8, 35.0], "wall": 3.9, "ridge": 3.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-9.6, 50.6], "hi": [-5.3, 57.6], "wall": 2.1, "ridge": 2.1, "roof": "flat"}}]},
+"03": {"id": 129, "path": "Buildings/ussr/summer/dustbin/03", "how": "fit", "fit": 0.810, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-65.5, 2.4], "hi": [-2.5, 33.4], "wall": 14.8, "ridge": 15.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [7.0, 7.0], "hi": [20.0, 14.0]}}]}
+}

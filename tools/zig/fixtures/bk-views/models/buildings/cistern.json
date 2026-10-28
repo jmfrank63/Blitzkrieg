@@ -1,0 +1,11 @@
+{
+"01": {"id": 125, "path": "Buildings/ussr/summer/cistern/01", "how": "fit", "fit": 0.868, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-75.9, 13.7], "hi": [-5.9, 44.7], "wall": 24.0, "ridge": 33.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-53.2, 38.3], "hi": [-47.5, 44.0], "wall": 31.4, "ridge": 31.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-21.6, 7.4], "hi": [-5.9, 13.7], "wall": 3.1, "ridge": 3.1, "roof": "flat"}}]},
+"02": {"id": 126, "path": "Buildings/ussr/summer/cistern/02", "how": "hand shape", "fit": 0.883, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-49.6, 13.1], "hi": [-19.6, 82.1], "wall": 24.0, "ridge": 33.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-38.0, 10.0], "hi": [-9.0, 61.0], "wall": 2.0, "ridge": 2.0, "roof": "flat"}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall -y", "lo": [18.0, 2.0], "hi": [30.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [45.0, 0.0], "hi": [53.0, 5.0]}}]}
+}

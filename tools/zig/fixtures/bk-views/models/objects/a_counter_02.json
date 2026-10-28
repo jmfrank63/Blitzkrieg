@@ -1,0 +1,34 @@
+{
+"01": {"id": 200, "path": "Objects/SimpleObjects/africa/summer/a_counter_02/01", "how": "fit, refined", "fit": 0.798, "footprint": ["01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-77.6, 30.8], "hi": [-35.6, 44.8], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-72.6, -4.2], "hi": [-42.6, 25.8], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-94.6, 26.8], "hi": [-68.6, 28.8], "wall": 17.4, "ridge": 17.4, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-33.6, 10.8], "hi": [-7.6, 41.8], "wall": 10.4, "ridge": 30.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-73.8, 29.8], "hi": [-70.1, 43.5], "wall": 31.6, "ridge": 31.6, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-88.7, 31.9], "hi": [-52.2, 42.4], "wall": 14.6, "ridge": 14.6, "roof": "flat"}}]},
+"02": {"id": 201, "path": "Objects/SimpleObjects/africa/summer/a_counter_02/02", "how": "fit, refined", "fit": 0.844, "footprint": ["010100", "000101", "000101", "000101"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.2, 7.5], "hi": [-17.2, 41.5], "wall": 8.0, "ridge": 24.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-25.2, 39.5], "hi": [-3.2, 84.5], "wall": 10.0, "ridge": 15.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-58.2, 64.5], "hi": [-38.2, 106.5], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-63.2, 37.5], "hi": [-41.2, 53.5], "wall": 10.4, "ridge": 15.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-31.2, 87.5], "hi": [-27.2, 99.5], "wall": 18.0, "ridge": 18.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-54.2, 84.2], "hi": [-50.4, 88.9], "wall": 29.9, "ridge": 29.9, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-53.1, 78.3], "hi": [-48.6, 94.8], "wall": 10.9, "ridge": 37.2, "roof": "gable_x"}}]},
+"03": {"id": 202, "path": "Objects/SimpleObjects/africa/summer/a_counter_02/03", "how": "fit, refined", "fit": 0.758, "footprint": ["01010100", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-44.4, 7.6], "hi": [-6.4, 43.6], "wall": 4.0, "ridge": 28.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-77.4, 40.6], "hi": [-41.4, 46.6], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-67.4, 0.6], "hi": [-47.4, 18.6], "wall": 39.0, "ridge": 48.0, "roof": "gable_x"}}]},
+"04": {"id": 203, "path": "Objects/SimpleObjects/africa/summer/a_counter_02/04", "how": "fit, refined", "fit": 0.800, "footprint": ["0101", "0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-39.9, 8.2], "hi": [-7.9, 82.2], "wall": 2.0, "ridge": 28.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-51.9, 18.2], "hi": [-33.9, 38.2], "wall": 2.0, "ridge": 2.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-59.9, 60.2], "hi": [-36.9, 100.2], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-67.5, 94.2], "hi": [-56.7, 96.9], "wall": 11.9, "ridge": 11.9, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-67.0, 88.7], "hi": [-59.2, 96.5], "wall": 1.9, "ridge": 29.5, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-15.7, 72.0], "hi": [-12.8, 79.8], "wall": 32.4, "ridge": 32.4, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-51.3, 21.1], "hi": [-45.1, 30.4], "wall": 10.9, "ridge": 10.9, "roof": "flat"}}]},
+"05": {"id": 204, "path": "Objects/SimpleObjects/africa/summer/a_counter_02/05", "how": "fit, refined", "fit": 0.899, "footprint": ["01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-91.0, 36.2], "hi": [-28.0, 60.2], "wall": 18.0, "ridge": 18.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-24.0, 8.2], "hi": [-9.0, 47.2], "wall": 7.0, "ridge": 30.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-73.0, 22.2], "hi": [-37.0, 25.2], "wall": 4.0, "ridge": 4.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-92.0, 22.2], "hi": [-80.0, 38.2], "wall": 17.8, "ridge": 19.0, "roof": "gable_x"}}]}
+}

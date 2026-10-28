@@ -1,0 +1,4 @@
+{
+"well": {"id": 393, "path": "Objects/SimpleObjects/ussr/summer/well", "how": "fit, refined", "fit": 0.928, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-19.6, 0.4], "hi": [-0.6, 18.4], "wall": 25.0, "ridge": 32.0, "roof": "gable_x"}}]}
+}

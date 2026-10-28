@@ -1,0 +1,6 @@
+{
+"01": {"id": 311, "path": "Objects/SimpleObjects/europe/summer/e_milestone/01", "how": "fit, refined", "fit": 0.916, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.2, 0.2], "hi": [-3.6, 9.8], "wall": 15.0, "ridge": 15.0, "roof": "flat"}}]},
+"02": {"id": 312, "path": "Objects/SimpleObjects/europe/summer/e_milestone/02", "how": "fit, refined", "fit": 0.810, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.9, 6.2], "hi": [-5.3, 16.8], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]}
+}

@@ -1,0 +1,13 @@
+{
+"ukrainehouse03_1": {"id": 187, "path": "Buildings/ussr/summer/ukrainehouse03_1", "how": "hand shape", "fit": 0.913, "footprint": ["01010101010100", "01010101010100", "01010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-128.0, 3.0], "hi": [0.0, 77.0], "wall": 35.0, "ridge": 75.0, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-46.7, 36.1], "hi": [-42.4, 40.3], "wall": 78.8, "ridge": 78.8, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-23.8, 54.9], "hi": [-20.3, 58.5], "wall": 68.9, "ridge": 68.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-120.6, -1.8], "hi": [-106.4, 3.0], "wall": 2.4, "ridge": 2.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-125.0, -6.6], "hi": [-109.4, 3.0], "wall": 4.8, "ridge": 4.8, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-24.6, -1.6], "hi": [-17.5, 3.0], "wall": 2.3, "ridge": 2.3, "roof": "flat"}}]},
+"ukrainehouse03_2": {"id": 188, "path": "Buildings/ussr/summer/ukrainehouse03_2", "how": "fit", "fit": 0.900, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-77.0, 3.5], "hi": [-1.0, 128.5], "wall": 38.0, "ridge": 45.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-1.0, 11.3], "hi": [3.8, 25.5], "wall": 2.4, "ridge": 2.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-1.0, 3.9], "hi": [8.1, 19.4], "wall": 4.5, "ridge": 4.5, "roof": "flat"}}]}
+}

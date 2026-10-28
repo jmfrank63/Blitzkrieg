@@ -1,0 +1,4 @@
+{
+"sheaf": {"id": 267, "path": "Objects/SimpleObjects/common/summer/sheaf", "how": "fit, refined", "fit": 0.707, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-20.4, 3.7], "hi": [-0.4, 18.7], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]}
+}

@@ -1,0 +1,24 @@
+{
+"01": {"id": 250, "path": "Objects/SimpleObjects/common/summer/logs/01", "how": "poles", "fit": 0.487, "footprint": ["0001", "0100"], "parts": [
+  {"kind": "pole", "pole": {"from": [-5.3, 4.1, 0.0], "to": [-17.5, 11.2, 23.7], "radius": 2.0}}]},
+"02": {"id": 251, "path": "Objects/SimpleObjects/common/summer/logs/02", "how": "poles", "fit": 0.769, "footprint": ["0001", "0100"], "parts": [
+  {"kind": "pole", "pole": {"from": [-2.2, 3.5, 0.0], "to": [-17.4, 0.4, 14.8], "radius": 1.3}},
+  {"kind": "pole", "pole": {"from": [-24.8, 25.8, 0.0], "to": [-40.0, 22.8, 14.8], "radius": 1.4}}]},
+"03": {"id": 252, "path": "Objects/SimpleObjects/common/summer/logs/03", "how": "poles", "fit": 0.809, "footprint": ["0100", "0001"], "parts": [
+  {"kind": "pole", "pole": {"from": [-19.4, -6.7, 0.0], "to": [-16.6, 4.7, 10.5], "radius": 1.3}},
+  {"kind": "pole", "pole": {"from": [3.5, 15.9, 0.0], "to": [5.4, 26.8, 11.2], "radius": 1.2}}]},
+"04": {"id": 253, "path": "Objects/SimpleObjects/common/summer/logs/04", "how": "poles", "fit": 0.333, "footprint": ["0100", "0001"], "parts": [
+  {"kind": "pole", "pole": {"from": [3.9, 16.6, 0.0], "to": [0.0, 20.5, 9.5], "radius": 0.8}},
+  {"kind": "pole", "pole": {"from": [-18.7, -6.0, 0.0], "to": [-22.6, -2.1, 9.5], "radius": 0.8}}]},
+"05": {"id": 254, "path": "Objects/SimpleObjects/common/summer/logs/05", "how": "poles", "fit": 0.495, "footprint": ["0001", "0100"], "parts": [
+  {"kind": "pole", "pole": {"from": [-3.3, 3.4, 0.0], "to": [-13.2, 18.3, 30.5], "radius": 2.0}}]},
+"06": {"id": 255, "path": "Objects/SimpleObjects/common/summer/logs/06", "how": "poles", "fit": 0.760, "footprint": ["0001", "0100"], "parts": [
+  {"kind": "pole", "pole": {"from": [-28.9, 26.6, 0.0], "to": [-25.6, 40.9, 13.5], "radius": 1.2}},
+  {"kind": "pole", "pole": {"from": [-6.0, 3.9, 0.0], "to": [-2.7, 18.2, 13.5], "radius": 1.2}}]},
+"07": {"id": 256, "path": "Objects/SimpleObjects/common/summer/logs/07", "how": "poles", "fit": 0.728, "footprint": ["0100", "0001"], "parts": [
+  {"kind": "pole", "pole": {"from": [5.3, 18.0, 0.0], "to": [-7.4, 18.0, 15.6], "radius": 1.1}},
+  {"kind": "pole", "pole": {"from": [-17.3, -4.6, 0.0], "to": [-29.5, -4.6, 14.9], "radius": 1.1}}]},
+"08": {"id": 257, "path": "Objects/SimpleObjects/common/summer/logs/08", "how": "poles", "fit": 0.867, "footprint": ["0100", "0001"], "parts": [
+  {"kind": "pole", "pole": {"from": [-18.7, -6.1, 0.0], "to": [-25.8, 2.4, 19.1], "radius": 1.6}},
+  {"kind": "pole", "pole": {"from": [3.9, 16.5, 0.0], "to": [-3.1, 25.1, 19.1], "radius": 1.7}}]}
+}

@@ -1,0 +1,12 @@
+{
+"townhouse01_1": {"id": 173, "path": "Buildings/ussr/summer/townhouse01_1", "how": "fit", "fit": 0.969, "footprint": ["0101010101010101", "0101010101010101", "0101010101010101", "0101010101010101", "0101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-173.1, 0.1], "hi": [-5.1, 106.1], "wall": 48.0, "ridge": 56.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-145.8, 102.7], "hi": [-143.0, 105.5], "wall": 52.7, "ridge": 52.7, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-72.6, 102.3], "hi": [-69.1, 105.9], "wall": 52.7, "ridge": 52.7, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-103.6, -12.4], "hi": [-71.1, 0.1], "wall": 6.2, "ridge": 6.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-5.1, 83.8], "hi": [-1.1, 97.9], "wall": 2.0, "ridge": 2.0, "roof": "flat"}}]},
+"townhouse01_2": {"id": 174, "path": "Buildings/ussr/summer/townhouse01_2", "how": "fit", "fit": 0.975, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-97.7, 0.9], "hi": [-1.7, 172.9], "wall": 54.0, "ridge": 54.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-1.7, 69.7], "hi": [11.0, 107.8], "wall": 6.3, "ridge": 6.3, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [111.0, 15.0], "hi": [115.0, 20.0]}}]}
+}

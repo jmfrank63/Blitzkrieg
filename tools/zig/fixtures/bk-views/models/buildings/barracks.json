@@ -1,0 +1,15 @@
+{
+"barracks": {"id": 120, "path": "Buildings/ussr/summer/barracks", "how": "fit", "fit": 0.966, "footprint": ["01010101010101", "01010101010101", "01010101010101", "01010101010101", "01010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-153.5, 0.2], "hi": [-20.5, 120.2], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-41.5, -3.8], "hi": [1.5, 98.2], "wall": 18.0, "ridge": 18.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-170.5, 15.2], "hi": [-149.5, 105.2], "wall": 23.0, "ridge": 41.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [1.5, 19.4], "hi": [7.4, 59.8], "wall": 2.9, "ridge": 2.9, "roof": "flat"}}]},
+"barracks_2": {"id": 121, "path": "Buildings/ussr/summer/barracks_2", "how": "fit", "fit": 0.980, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-119.7, 16.9], "hi": [-3.7, 154.9], "wall": 20.0, "ridge": 20.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-107.7, 0.9], "hi": [-3.7, 14.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-107.7, 151.9], "hi": [-19.7, 168.9], "wall": 24.0, "ridge": 41.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-3.7, 116.3], "hi": [2.5, 135.4], "wall": 3.1, "ridge": 3.1, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [9.0, 14.0], "hi": [15.0, 20.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [35.0, 14.0], "hi": [40.0, 20.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [79.0, 15.0], "hi": [86.0, 20.0]}}]}
+}

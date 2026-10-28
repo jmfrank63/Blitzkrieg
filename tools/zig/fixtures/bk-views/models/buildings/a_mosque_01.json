@@ -1,0 +1,5 @@
+{
+"a_mosque_01_4": {"id": 16, "path": "Buildings/africa/summer/a_mosque_01_4", "how": "hand shape", "fit": 0.919, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-104.0, 2.0], "hi": [-1.0, 106.0], "wall": 43.0, "ridge": 43.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [39.0, 28.0], "hi": [48.0, 40.0]}}]}
+}

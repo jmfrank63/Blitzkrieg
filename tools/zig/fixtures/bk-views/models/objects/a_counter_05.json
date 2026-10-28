@@ -1,0 +1,13 @@
+{
+"01": {"id": 209, "path": "Objects/SimpleObjects/africa/summer/a_counter_05/01", "how": "fit, refined", "fit": 0.804, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-76.4, 17.2], "hi": [-37.4, 54.2], "wall": 24.0, "ridge": 24.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-71.4, 12.2], "hi": [-15.4, 25.2], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]},
+"02": {"id": 210, "path": "Objects/SimpleObjects/africa/summer/a_counter_05/02", "how": "fit, refined", "fit": 0.790, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-40.2, 21.3], "hi": [-13.2, 69.3], "wall": 31.0, "ridge": 38.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-33.1, 46.5], "hi": [-30.4, 56.3], "wall": 43.7, "ridge": 43.7, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-32.4, 52.3], "hi": [-28.1, 58.5], "wall": 43.7, "ridge": 48.3, "roof": "hip"}}]},
+"03": {"id": 211, "path": "Objects/SimpleObjects/africa/summer/a_counter_05/03", "how": "fit, refined", "fit": 0.688, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-88.5, 16.9], "hi": [-25.5, 28.9], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]},
+"04": {"id": 212, "path": "Objects/SimpleObjects/africa/summer/a_counter_05/04", "how": "fit, refined", "fit": 0.699, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-30.3, 22.8], "hi": [-13.3, 93.8], "wall": 16.0, "ridge": 16.0, "roof": "gable_y"}}]}
+}

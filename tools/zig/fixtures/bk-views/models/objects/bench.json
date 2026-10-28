@@ -1,0 +1,10 @@
+{
+"01": {"id": 315, "path": "Objects/SimpleObjects/ussr/summer/bench/01", "how": "fit, refined", "fit": 0.741, "footprint": ["01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-18.5, 8.0], "hi": [-12.8, 38.3], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]},
+"02": {"id": 316, "path": "Objects/SimpleObjects/ussr/summer/bench/02", "how": "fit, refined", "fit": 0.767, "footprint": ["0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-43.4, 10.6], "hi": [-7.2, 14.3], "wall": 5.0, "ridge": 5.0, "roof": "flat"}}]},
+"03": {"id": 317, "path": "Objects/SimpleObjects/ussr/summer/bench/03", "how": "fit, refined", "fit": 0.754, "footprint": ["01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-10.5, 4.7], "hi": [-8.9, 42.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]},
+"04": {"id": 318, "path": "Objects/SimpleObjects/ussr/summer/bench/04", "how": "fit, refined", "fit": 0.792, "footprint": ["0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-38.4, 9.5], "hi": [-9.2, 19.1], "wall": 9.0, "ridge": 9.0, "roof": "flat"}}]}
+}

@@ -1,0 +1,6 @@
+{
+"01": {"id": 221, "path": "Objects/SimpleObjects/common/summer/barrel/01", "how": "fit, refined", "fit": 0.912, "footprint": [], "parts": [
+  {"kind": "body", "block": {"lo": [-14.2, 0.8], "hi": [-3.2, 13.8], "wall": 17.0, "ridge": 17.0, "roof": "flat"}}]},
+"02": {"id": 222, "path": "Objects/SimpleObjects/common/summer/barrel/02", "how": "fit, refined", "fit": 0.871, "footprint": [], "parts": [
+  {"kind": "body", "block": {"lo": [-11.3, -0.4], "hi": [-2.3, 10.6], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]}
+}

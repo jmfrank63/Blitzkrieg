@@ -1,0 +1,10 @@
+{
+"church": {"id": 124, "path": "Buildings/ussr/summer/church", "how": "hand shape", "fit": 0.934, "footprint": ["000101010101010100", "010101010101010100", "010101010101010101", "010101010101010101", "010101010101010100", "000101010101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-125.0, 2.0], "hi": [-3.0, 112.0], "wall": 80.0, "ridge": 120.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [0.0, 48.0], "hi": [30.0, 76.0], "wall": 10.0, "ridge": 35.0, "roof": "gable_x"}},
+  {"kind": "roof_part", "block": {"lo": [-73.0, 45.0], "hi": [-45.0, 73.0], "wall": 150.0, "ridge": 150.0, "roof": "flat"}},
+  {"kind": "tower", "block": {"lo": [-79.0, 39.0], "hi": [-39.0, 79.0], "wall": 161.0, "ridge": 211.0, "roof": "hip"}},
+  {"kind": "roof_part", "block": {"lo": [-57.0, 55.0], "hi": [-53.0, 59.0], "wall": 237.0, "ridge": 237.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [1.0, 72.0], "hi": [5.0, 80.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [83.0, 72.0], "hi": [100.0, 80.0]}}]}
+}

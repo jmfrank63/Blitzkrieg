@@ -1,0 +1,11 @@
+{
+"housebig": {"id": 148, "path": "Buildings/ussr/summer/housebig", "how": "hand shape", "fit": 0.939, "footprint": ["00000001010000", "01010101010101", "01010101010101", "01010101010101", "01010101010101", "00010101010100", "00010101010100", "00010101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-158.0, -1.0], "hi": [-5.0, 74.0], "wall": 26.0, "ridge": 71.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-104.0, 60.0], "hi": [-34.0, 143.0], "wall": 22.0, "ridge": 67.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-83.0, -21.0], "hi": [-53.0, -1.0], "wall": 12.0, "ridge": 32.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-88.9, 31.7], "hi": [-80.4, 40.1], "wall": 92.2, "ridge": 92.2, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [5.0, 0.0], "hi": [15.0, 5.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [22.0, 19.0], "hi": [26.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [51.0, 19.0], "hi": [55.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall -y", "lo": [22.0, 0.0], "hi": [30.0, 8.0]}}]}
+}

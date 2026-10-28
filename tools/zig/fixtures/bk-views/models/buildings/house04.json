@@ -1,0 +1,8 @@
+{
+"house04": {"id": 139, "path": "Buildings/ussr/summer/house04", "how": "hand shape", "fit": 0.927, "footprint": ["01010101", "01010101", "01010100", "01010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-92.0, 5.0], "hi": [-21.0, 75.0], "wall": 35.0, "ridge": 67.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-21.0, 4.0], "hi": [-2.0, 41.0], "wall": 20.0, "ridge": 30.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [46.0, 13.0], "hi": [54.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [33.0, 20.0], "hi": [37.0, 25.0]}},
+  {"kind": "door", "rect": {"on": 1, "face": "wall +x", "lo": [21.0, 1.0], "hi": [26.0, 11.0]}}]}
+}

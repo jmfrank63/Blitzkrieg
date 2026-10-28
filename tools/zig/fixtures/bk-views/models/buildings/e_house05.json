@@ -1,0 +1,8 @@
+{
+"e_house05_3": {"id": 68, "path": "Buildings/europe/summer/e_house05_3", "how": "fit", "fit": 0.967, "footprint": ["010101", "010101", "010101", "010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-75.7, 1.5], "hi": [-0.7, 131.5], "wall": 48.0, "ridge": 100.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-43.3, 119.0], "hi": [-30.6, 131.7], "wall": 109.9, "ridge": 109.9, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-41.3, 1.0], "hi": [-30.0, 12.3], "wall": 111.5, "ridge": 111.5, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [92.0, 27.0], "hi": [98.0, 33.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [82.0, 30.0], "hi": [88.0, 35.0]}}]}
+}

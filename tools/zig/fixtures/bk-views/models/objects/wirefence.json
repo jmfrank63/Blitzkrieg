@@ -1,0 +1,6 @@
+{
+"03": {"id": 276, "path": "Objects/SimpleObjects/common/summer/wirefence/03", "how": "fit, refined", "fit": 0.510, "footprint": ["0100", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-23.0, -11.8], "hi": [12.3, 21.4], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]},
+"04": {"id": 277, "path": "Objects/SimpleObjects/common/summer/wirefence/04", "how": "fit, refined", "fit": 0.538, "footprint": ["0001", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.2, -5.1], "hi": [-0.9, 9.2], "wall": 24.0, "ridge": 24.0, "roof": "flat"}}]}
+}

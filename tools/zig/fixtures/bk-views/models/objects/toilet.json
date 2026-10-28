@@ -1,0 +1,4 @@
+{
+"02": {"id": 380, "path": "Objects/SimpleObjects/ussr/summer/toilet/02", "how": "fit", "fit": 0.872, "footprint": ["01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.7, 4.6], "hi": [-2.7, 24.6], "wall": 29.0, "ridge": 35.0, "roof": "gable_x"}}]}
+}

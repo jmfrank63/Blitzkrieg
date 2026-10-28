@@ -1,0 +1,22 @@
+{
+"e_jettybuilding_1": {"id": 78, "path": "Buildings/europe/summer/e_jettybuilding_1", "how": "hand shape", "fit": 0.891, "footprint": ["010101000000000000", "010101010101010101", "010101010101010101", "010101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-142.0, -20.0], "hi": [-21.0, 77.0], "wall": 52.0, "ridge": 112.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-219.0, -11.0], "hi": [-134.0, 64.0], "wall": 42.0, "ridge": 102.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-197.6, -22.3], "hi": [-141.1, -11.0], "wall": 5.6, "ridge": 5.6, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-21.0, -0.4], "hi": [-1.1, 53.4], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "tower", "block": {"lo": [-134.0, 5.0], "hi": [-104.0, 34.0], "wall": 144.0, "ridge": 184.0, "roof": "hip"}},
+  {"kind": "roof_part", "block": {"lo": [-102.0, -24.0], "hi": [-60.0, 10.0], "wall": 52.0, "ridge": 100.0, "roof": "gable_y"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [79.0, 9.0], "hi": [86.0, 14.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [59.0, 22.0], "hi": [65.0, 28.0]}}]},
+"e_jettybuilding_4": {"id": 79, "path": "Buildings/europe/summer/e_jettybuilding_4", "how": "hand shape", "fit": 0.960, "footprint": ["01010100", "01010100", "01010100", "01010100", "01010100", "01010100", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.0, 2.0], "hi": [-2.0, 134.0], "wall": 63.0, "ridge": 118.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-82.0, 134.0], "hi": [42.0, 186.0], "wall": 56.0, "ridge": 116.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-2.0, 103.6], "hi": [7.4, 120.6], "wall": 4.7, "ridge": 4.7, "roof": "flat"}},
+  {"kind": "tower", "block": {"lo": [14.0, 133.0], "hi": [39.0, 152.0], "wall": 146.0, "ridge": 186.0, "roof": "hip"}},
+  {"kind": "roof_part", "block": {"lo": [-30.0, 44.0], "hi": [2.0, 94.0], "wall": 70.0, "ridge": 105.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [20.0, 24.0], "hi": [31.0, 42.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [37.0, 56.0], "hi": [41.0, 63.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [33.0, 57.0], "hi": [37.0, 63.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [96.0, 0.0], "hi": [102.0, 6.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [16.0, 47.0], "hi": [20.0, 52.0]}}]}
+}

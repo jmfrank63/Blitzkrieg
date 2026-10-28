@@ -1,0 +1,6 @@
+{
+"01": {"id": 372, "path": "Objects/SimpleObjects/ussr/summer/posterpedestal/01", "how": "fit, refined", "fit": 0.914, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-12.6, 1.5], "hi": [-1.6, 13.5], "wall": 36.0, "ridge": 36.0, "roof": "flat"}}]},
+"02": {"id": 373, "path": "Objects/SimpleObjects/ussr/summer/posterpedestal/02", "how": "fit, refined", "fit": 0.906, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-13.0, -0.1], "hi": [-2.0, 13.9], "wall": 35.0, "ridge": 38.0, "roof": "gable_x"}}]}
+}

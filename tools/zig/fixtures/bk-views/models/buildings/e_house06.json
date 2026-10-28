@@ -1,0 +1,10 @@
+{
+"e_house06_4": {"id": 69, "path": "Buildings/europe/summer/e_house06_4", "how": "hand shape", "fit": 0.974, "footprint": ["01010101010101", "01010101010101", "01010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-112.0, -2.0], "hi": [0.0, 71.0], "wall": 50.0, "ridge": 102.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-155.0, -2.0], "hi": [-113.0, 63.0], "wall": 28.0, "ridge": 52.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-109.6, 27.5], "hi": [-96.1, 41.0], "wall": 115.5, "ridge": 115.5, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-107.4, 29.7], "hi": [-98.2, 38.8], "wall": 115.5, "ridge": 120.1, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-9.9, 28.2], "hi": [2.2, 40.3], "wall": 110.9, "ridge": 110.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-127.6, -13.8], "hi": [-113.0, -2.0], "wall": 5.9, "ridge": 5.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-61.9, -13.8], "hi": [-44.9, -2.0], "wall": 5.9, "ridge": 5.9, "roof": "flat"}}]}
+}

@@ -2549,6 +2549,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_tests_run.step.dependOn(bk_sprite.install);
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
     addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
+    addShapesReview(b, bk_views_fast);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -3462,6 +3463,8 @@ pub fn build(b: *std.Build) void {
     control_game_run.has_side_effects = true;
     control_game_run.step.dependOn(install_game_step);
     control_game_run.step.dependOn(bk_views_step);
+    // bk-views side composes the shed's turns with the bk-sprite beside it.
+    control_game_run.step.dependOn(bk_sprite.install);
     const control_game_step = b.step("camera-turn-control-game-reads-it", "Press the camera turn keys on the real Game with Remastered on and measure at every step picking, clicking and framing units, an order's target, the arrow key, edge and swipe scrolling, the minimap's picture, frame and click, the turn's pivot on a hill, and draw order against the step-0 shot of the world turned");
     control_game_step.dependOn(&control_game_tests.step);
     if (test_mode == .run) control_game_step.dependOn(&control_game_run.step);
@@ -9716,6 +9719,88 @@ fn addBuildingViewsBatch(b: *std.Build, target: std.Build.ResolvedTarget, views:
     report.addArgs(&report_args);
     quiet(report);
     b.step("building-views-batch-report", "Write docs/superpowers/evidence/building-views/batch.md and <family>.md with bk-views report from what the building-views-batch-<region> steps left in zig-out/local-test/building-views/batch").dependOn(&report.step);
+}
+
+/// The shape models for review (M006 round 4, docs/superpowers/specs/2026-10-25-building-views-design.md):
+/// `shapes-models` numbers every object that turns (tools/zig/fixtures/bk-views/shape-ids.json, kept
+/// across runs) and writes the vector model of every building variant and simple object, one run per
+/// family, to tools/zig/fixtures/bk-views/models; `shapes-review` draws the tracked models, turned to
+/// the four sides, into zig-out/review/shapes.pdf.
+fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
+    const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
+    const models_path = "tools/zig/fixtures/bk-views/models";
+    const ids = b.addRunArtifact(views);
+    ids.setCwd(b.path("."));
+    ids.addArgs(&.{ "ids", ids_path, "Data/Buildings", "Data/Objects/SimpleObjects" });
+    ids.expectExitCode(0);
+    ids.has_side_effects = true;
+    const models_step = b.step("shapes-models", "Number every building variant and simple object in tools/zig/fixtures/bk-views/shape-ids.json and write its vector shape model (named parts: walls, roof sides, chimneys, dormers, towers, low parts, windows, doors, poles) to tools/zig/fixtures/bk-views/models");
+    // Every family's variant folders, each family one run: the buildings by
+    // the inventory, the simple objects by their folders.
+    const io = b.graph.io;
+    var families: std.ArrayList([]const []const u8) = .empty;
+    const Inventory = struct { families: []const struct { variants: []const struct { path: []const u8 } } };
+    b.dependOnFileContents(b.path("tools/zig/fixtures/bk-views/inventory.json"));
+    const bytes = b.root.root_dir.handle.readFileAlloc(io, "tools/zig/fixtures/bk-views/inventory.json", b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const inventory = std.json.parseFromSliceLeaky(Inventory, b.allocator, bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    for (inventory.families) |family| {
+        var dirs: std.ArrayList([]const u8) = .empty;
+        for (family.variants) |v| dirs.append(b.allocator, b.fmt("Data/Buildings/{s}", .{v.path})) catch @panic("OOM");
+        families.append(b.allocator, dirs.items) catch @panic("OOM");
+    }
+    const sorted = struct {
+        fn f(bb: *std.Build, path: []const u8) []const []const u8 {
+            var dir = bb.root.root_dir.handle.openDir(bb.graph.io, path, .{ .iterate = true }) catch return &.{};
+            defer dir.close(bb.graph.io);
+            var names: std.ArrayList([]const u8) = .empty;
+            var it = dir.iterate();
+            while (it.next(bb.graph.io) catch null) |entry| {
+                if (entry.kind == .directory) names.append(bb.allocator, bb.allocator.dupe(u8, entry.name) catch @panic("OOM")) catch @panic("OOM");
+            }
+            std.mem.sort([]const u8, names.items, {}, struct {
+                fn less(_: void, x: []const u8, y: []const u8) bool {
+                    return std.mem.lessThan(u8, x, y);
+                }
+            }.less);
+            return names.items;
+        }
+    }.f;
+    const has = struct {
+        fn f(bb: *std.Build, path: []const u8) bool {
+            bb.root.root_dir.handle.access(bb.graph.io, path, .{}) catch return false;
+            return true;
+        }
+    }.f;
+    const objects_root = "Data/Objects/SimpleObjects";
+    for (sorted(b, objects_root)) |region| for (sorted(b, b.fmt("{s}/{s}", .{ objects_root, region }))) |season| {
+        for (sorted(b, b.fmt("{s}/{s}/{s}", .{ objects_root, region, season }))) |family| {
+            const family_path = b.fmt("{s}/{s}/{s}/{s}", .{ objects_root, region, season, family });
+            var dirs: std.ArrayList([]const u8) = .empty;
+            if (has(b, b.fmt("{s}/1.san", .{family_path}))) {
+                dirs.append(b.allocator, family_path) catch @panic("OOM");
+            } else for (sorted(b, family_path)) |sub| {
+                if (has(b, b.fmt("{s}/{s}/1.san", .{ family_path, sub }))) dirs.append(b.allocator, b.fmt("{s}/{s}", .{ family_path, sub })) catch @panic("OOM");
+            }
+            if (dirs.items.len > 0) families.append(b.allocator, dirs.items) catch @panic("OOM");
+        }
+    };
+    for (families.items) |dirs| {
+        const run = b.addRunArtifact(views);
+        run.setCwd(b.path("."));
+        setUserRootsForTest(run, "bk-views-user");
+        run.addArgs(&.{ "models", models_path, ids_path });
+        run.addArgs(dirs);
+        run.expectExitCode(0);
+        run.has_side_effects = true;
+        run.step.dependOn(&ids.step);
+        models_step.dependOn(&run.step);
+    }
+    const review = b.addRunArtifact(views);
+    review.setCwd(b.path("."));
+    review.addArgs(&.{ "review", "zig-out/review/shapes.pdf", ids_path, models_path, "Data/Buildings", objects_root });
+    review.expectExitCode(0);
+    review.has_side_effects = true;
+    b.step("shapes-review", "Draw every tracked shape model (tools/zig/fixtures/bk-views/models) with its 2003 picture and turned to the four sides, labelled <number>.N, .E, .S, .W, into zig-out/review/shapes.pdf").dependOn(&review.step);
 }
 
 /// A build-root-relative path with the host's separators, as a tool prints it.

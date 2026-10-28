@@ -1,0 +1,11 @@
+{
+"01": {"id": 272, "path": "Objects/SimpleObjects/common/summer/watchbox/01", "how": "fit, refined", "fit": 0.960, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-19.6, 2.4], "hi": [-1.6, 21.4], "wall": 31.0, "ridge": 38.0, "roof": "gable_y"}}]},
+"02": {"id": 273, "path": "Objects/SimpleObjects/common/summer/watchbox/02", "how": "fit, refined", "fit": 0.960, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-21.0, 2.8], "hi": [-1.0, 18.8], "wall": 32.0, "ridge": 38.0, "roof": "gable_x"}}]},
+"03": {"id": 274, "path": "Objects/SimpleObjects/common/summer/watchbox/03", "how": "fit, refined", "fit": 0.918, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-18.2, 0.7], "hi": [-0.6, 22.3], "wall": 30.0, "ridge": 30.0, "roof": "flat"}}]},
+"04": {"id": 275, "path": "Objects/SimpleObjects/common/summer/watchbox/04", "how": "fit, refined", "fit": 0.979, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-18.6, -0.6], "hi": [-0.6, 17.4], "wall": 26.0, "ridge": 28.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-30.6, 11.4], "hi": [-6.6, 23.4], "wall": 25.0, "ridge": 31.0, "roof": "gable_x"}}]}
+}

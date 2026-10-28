@@ -1,0 +1,8 @@
+{
+"house08": {"id": 143, "path": "Buildings/ussr/summer/house08", "how": "hand shape", "fit": 0.938, "footprint": ["01010000", "01010000", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-99.0, 2.0], "hi": [-4.0, 88.0], "wall": 26.0, "ridge": 66.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-111.0, -38.0], "hi": [-61.0, 26.0], "wall": 14.0, "ridge": 49.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-61.0, -21.6], "hi": [-50.6, -10.3], "wall": 5.2, "ridge": 5.2, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [49.0, 18.0], "hi": [53.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [0.0, 2.0], "hi": [13.0, 8.0]}}]}
+}

@@ -1,0 +1,7 @@
+{
+"01": {"id": 261, "path": "Objects/SimpleObjects/common/summer/railroadswitch/01", "how": "fit, refined", "fit": 0.576, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-25.3, 2.5], "hi": [-6.7, 7.1], "wall": 15.0, "ridge": 15.0, "roof": "flat"}}]},
+"02": {"id": 262, "path": "Objects/SimpleObjects/common/summer/railroadswitch/02", "how": "poles", "fit": 0.721, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-3.5, 1.0, 0.0], "to": [-6.0, 13.4, 18.2], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-11.3, 2.8, 0.0], "to": [-0.4, 18.2, 5.4], "radius": 1.8}}]}
+}

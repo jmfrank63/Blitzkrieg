@@ -1,0 +1,12 @@
+{
+"01": {"id": 35, "path": "Buildings/common/summer/tent/01", "how": "hand shape", "fit": 0.916, "footprint": ["01010101010101", "01010101010101", "01010101010101", "01010101010101", "01010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-114.0, 3.8], "hi": [-46.0, 94.8], "wall": 27.0, "ridge": 47.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-115.2, 50.2], "hi": [-107.5, 58.0], "wall": 35.8, "ridge": 35.8, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-113.5, 3.9], "hi": [-106.4, 10.9], "wall": 38.1, "ridge": 38.1, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [20.0, 18.0], "hi": [28.0, 26.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [48.0, 19.0], "hi": [55.0, 26.0]}}]},
+"02": {"id": 36, "path": "Buildings/common/summer/tent/02", "how": "hand shape", "fit": 0.923, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-96.5, 44.9], "hi": [-4.5, 111.9], "wall": 28.0, "ridge": 46.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [11.0, 20.0], "hi": [23.0, 28.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [40.0, 20.0], "hi": [50.0, 27.0]}}]}
+}

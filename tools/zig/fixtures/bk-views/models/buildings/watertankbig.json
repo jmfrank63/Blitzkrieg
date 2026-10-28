@@ -1,0 +1,7 @@
+{
+"watertankbig": {"id": 38, "path": "Buildings/common/summer/watertankbig", "how": "hand shape", "fit": 0.926, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-39.0, 1.0], "hi": [-1.0, 40.0], "wall": 6.0, "ridge": 6.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-55.0, 27.0], "hi": [-44.0, 47.0], "wall": 45.0, "ridge": 45.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-44.0, 48.0], "hi": [-27.0, 52.0], "wall": 47.0, "ridge": 47.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [0.0, 0.0], "hi": [4.0, 9.0]}}]}
+}

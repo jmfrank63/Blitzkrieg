@@ -1,0 +1,13 @@
+{
+"01": {"id": 94, "path": "Buildings/europe/summer/e_stubtrack/01", "how": "hand shape", "fit": 0.920, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-27.0, 2.0], "hi": [-3.0, 30.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]},
+"02": {"id": 95, "path": "Buildings/europe/summer/e_stubtrack/02", "how": "hand shape", "fit": 0.922, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-28.0, -2.0], "hi": [1.0, 23.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [20.0, 0.0], "hi": [24.0, 8.0]}}]},
+"03": {"id": 96, "path": "Buildings/europe/summer/e_stubtrack/03", "how": "hand shape", "fit": 0.912, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-28.0, 0.0], "hi": [-1.0, 28.0], "wall": 7.0, "ridge": 7.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-31.0, 23.0], "hi": [-13.0, 37.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]},
+"04": {"id": 97, "path": "Buildings/europe/summer/e_stubtrack/04", "how": "fit", "fit": 0.923, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-29.4, 0.2], "hi": [0.6, 26.2], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-42.4, 16.2], "hi": [-25.4, 35.2], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]}
+}

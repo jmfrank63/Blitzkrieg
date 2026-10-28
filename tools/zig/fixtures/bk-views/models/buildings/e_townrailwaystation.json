@@ -1,0 +1,25 @@
+{
+"e_townrailwaystation_4": {"id": 106, "path": "Buildings/europe/summer/e_townrailwaystation_4", "how": "hand shape", "fit": 0.967, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010100", "0101010100", "0101010100", "0101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-91.0, -1.0], "hi": [-1.0, 320.0], "wall": 127.0, "ridge": 175.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-78.0, 66.0], "hi": [1.0, 168.0], "wall": 146.0, "ridge": 210.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-78.0, 116.0], "hi": [21.0, 206.0], "wall": 102.0, "ridge": 174.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-70.0, 140.0], "hi": [-20.0, 178.0], "wall": 200.0, "ridge": 274.0, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-1.0, 19.4], "hi": [3.9, 52.0], "wall": 2.4, "ridge": 2.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [21.0, 142.5], "hi": [29.3, 181.4], "wall": 4.2, "ridge": 4.2, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [18.0, 20.0], "hi": [27.0, 30.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [2.0, 2.0], "hi": [12.0, 8.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [242.0, 19.0], "hi": [254.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [261.0, 28.0], "hi": [267.0, 34.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [229.0, 29.0], "hi": [234.0, 34.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [27.0, 65.0], "hi": [36.0, 82.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [56.0, 67.0], "hi": [63.0, 82.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [60.0, 113.0], "hi": [67.0, 118.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [18.0, 44.0], "hi": [25.0, 50.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [12.0, 66.0], "hi": [19.0, 83.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [42.0, 139.0], "hi": [46.0, 144.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall -y", "lo": [95.0, 90.0], "hi": [99.0, 98.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [0.0, 3.0], "hi": [4.0, 8.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [54.0, 62.0], "hi": [62.0, 82.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [25.0, 64.0], "hi": [33.0, 82.0]}},
+  {"kind": "window", "rect": {"on": 3, "face": "wall -y", "lo": [43.0, 191.0], "hi": [50.0, 200.0]}}]}
+}

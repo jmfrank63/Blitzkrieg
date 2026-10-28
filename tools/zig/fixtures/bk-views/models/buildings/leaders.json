@@ -1,0 +1,8 @@
+{
+"01": {"id": 153, "path": "Buildings/ussr/summer/leaders/01", "how": "hand shape", "fit": 0.890, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-69.0, -3.0], "hi": [2.0, 1.0], "wall": 45.0, "ridge": 45.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [0.0, 34.0], "hi": [14.0, 45.0]}}]},
+"02": {"id": 154, "path": "Buildings/ussr/summer/leaders/02", "how": "hand shape", "fit": 0.929, "footprint": ["01", "01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-1.0, -5.0], "hi": [3.0, 68.0], "wall": 44.0, "ridge": 44.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [2.0, 33.0], "hi": [15.0, 44.0]}}]}
+}

@@ -1,0 +1,20 @@
+{
+"01": {"id": 207, "path": "Objects/SimpleObjects/africa/summer/a_counter_04/01", "how": "fit", "fit": 0.753, "footprint": ["01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-58.0, 8.2], "hi": [-35.0, 44.2], "wall": 14.0, "ridge": 27.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-36.0, 15.2], "hi": [-18.0, 52.2], "wall": 9.0, "ridge": 24.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-81.0, 2.2], "hi": [-61.0, 14.2], "wall": 16.0, "ridge": 16.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-84.0, 18.2], "hi": [-59.0, 30.2], "wall": 32.0, "ridge": 37.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-75.9, 5.2], "hi": [-72.3, 8.7], "wall": 44.9, "ridge": 44.9, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-75.2, 5.9], "hi": [-73.0, 8.0], "wall": 44.9, "ridge": 51.8, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-32.7, 35.5], "hi": [-20.7, 47.5], "wall": 27.0, "ridge": 27.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-30.6, 37.6], "hi": [-22.8, 45.4], "wall": 27.0, "ridge": 44.3, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-18.0, 26.5], "hi": [-9.5, 36.4], "wall": 4.2, "ridge": 4.2, "roof": "flat"}}]},
+"05": {"id": 208, "path": "Objects/SimpleObjects/africa/summer/a_counter_04/05", "how": "fit, refined", "fit": 0.819, "footprint": ["0101", "0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-44.1, 31.6], "hi": [-6.1, 59.6], "wall": 8.0, "ridge": 22.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-57.1, 57.6], "hi": [-40.1, 97.6], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-39.1, 7.6], "hi": [-5.1, 19.6], "wall": 18.0, "ridge": 18.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-18.1, 47.6], "hi": [-4.1, 79.6], "wall": 8.0, "ridge": 8.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-35.1, 79.6], "hi": [-28.1, 93.6], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-54.1, 84.8], "hi": [-47.3, 87.6], "wall": 17.2, "ridge": 17.2, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-49.6, 71.3], "hi": [-41.8, 79.1], "wall": 13.2, "ridge": 41.9, "roof": "hip"}}]}
+}

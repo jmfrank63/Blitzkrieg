@@ -1,0 +1,8 @@
+{
+"warehouse": {"id": 189, "path": "Buildings/ussr/summer/warehouse", "how": "fit", "fit": 0.946, "footprint": ["010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-139.2, 2.5], "hi": [-6.2, 190.5], "wall": 32.0, "ridge": 32.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-4.2, 68.5], "hi": [10.8, 150.5], "wall": 11.0, "ridge": 11.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-136.2, 194.5], "hi": [-35.2, 218.5], "wall": 31.2, "ridge": 32.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-119.9, -8.1], "hi": [-105.0, 2.5], "wall": 5.3, "ridge": 5.3, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [71.0, 1.0], "hi": [82.0, 6.0]}}]}
+}

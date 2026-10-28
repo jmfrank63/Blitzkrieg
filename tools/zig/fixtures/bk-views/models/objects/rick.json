@@ -1,0 +1,5 @@
+{
+"rick": {"id": 263, "path": "Objects/SimpleObjects/common/summer/rick", "how": "fit, refined", "fit": 0.906, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-30.4, -3.3], "hi": [6.6, 32.7], "wall": 14.0, "ridge": 26.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-50.4, 26.7], "hi": [-21.4, 50.7], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]}
+}

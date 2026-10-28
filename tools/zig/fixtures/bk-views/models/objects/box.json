@@ -1,0 +1,18 @@
+{
+"00": {"id": 223, "path": "Objects/SimpleObjects/common/summer/box/00", "how": "fit, refined", "fit": 0.561, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-47.0, -0.4], "hi": [-0.7, 45.8], "wall": 14.0, "ridge": 14.0, "roof": "flat"}}]},
+"01": {"id": 224, "path": "Objects/SimpleObjects/common/summer/box/01", "how": "fit, refined", "fit": 0.457, "footprint": ["0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-44.1, 4.7], "hi": [-2.8, 6.3], "wall": 1.0, "ridge": 1.0, "roof": "flat"}}]},
+"02": {"id": 225, "path": "Objects/SimpleObjects/common/summer/box/02", "how": "poles", "fit": 0.479, "footprint": ["01", "01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-18.7, 11.5, 0.0], "to": [1.0, 44.4, 16.1], "radius": 0.7}}]},
+"03": {"id": 226, "path": "Objects/SimpleObjects/common/summer/box/03", "how": "poles", "fit": 0.303, "footprint": ["0101"], "parts": [
+  {"kind": "pole", "pole": {"from": [-34.9, -0.3, 0.0], "to": [-23.4, 21.0, 12.1], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-11.3, -1.2, 0.0], "to": [-1.1, 19.2, 12.5], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-39.0, 4.6, 0.0], "to": [-41.7, 15.4, 16.5], "radius": 0.6}},
+  {"kind": "pole", "pole": {"from": [-17.0, 4.5, 0.0], "to": [-18.6, 12.8, 12.2], "radius": 0.8}}]},
+"04": {"id": 227, "path": "Objects/SimpleObjects/common/summer/box/04", "how": "poles", "fit": 0.304, "footprint": ["01", "01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-3.9, 28.6, 0.0], "to": [-25.4, 17.9, 13.2], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-3.7, 5.6, 0.0], "to": [-24.6, -4.9, 12.8], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-10.5, 32.8, 0.0], "to": [-20.7, 36.2, 16.7], "radius": 0.6}},
+  {"kind": "pole", "pole": {"from": [-10.2, 11.3, 0.0], "to": [-19.0, 13.1, 13.0], "radius": 0.8}}]}
+}

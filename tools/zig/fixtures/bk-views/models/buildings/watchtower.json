@@ -1,0 +1,6 @@
+{
+"watchtower": {"id": 37, "path": "Buildings/common/summer/watchtower", "how": "fit", "fit": 0.764, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-31.6, 2.5], "hi": [-6.4, 34.7], "wall": 107.0, "ridge": 111.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [0.0, 24.0], "hi": [11.0, 48.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [17.0, 30.0], "hi": [21.0, 36.0]}}]}
+}

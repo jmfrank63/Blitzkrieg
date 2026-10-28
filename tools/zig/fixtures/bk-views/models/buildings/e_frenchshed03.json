@@ -1,0 +1,9 @@
+{
+"e_frenchshed03": {"id": 54, "path": "Buildings/europe/summer/e_frenchshed03", "how": "fit", "fit": 0.981, "footprint": ["010101", "010101", "010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-75.5, 22.8], "hi": [0.5, 106.8], "wall": 24.0, "ridge": 24.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-54.5, 0.8], "hi": [-0.5, 19.8], "wall": 12.0, "ridge": 22.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-71.5, 106.8], "hi": [-18.5, 122.8], "wall": 26.0, "ridge": 48.0, "roof": "gable_y"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [22.0, 14.0], "hi": [26.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [38.0, 16.0], "hi": [42.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [13.0, 17.0], "hi": [18.0, 24.0]}}]}
+}

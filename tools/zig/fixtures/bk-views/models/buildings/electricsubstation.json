@@ -1,0 +1,4 @@
+{
+"electricsubstation": {"id": 130, "path": "Buildings/ussr/summer/electricsubstation", "how": "hand shape", "fit": 0.913, "footprint": ["010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-59.0, 0.0], "hi": [0.0, 60.0], "wall": 34.0, "ridge": 55.0, "roof": "gable_x"}}]}
+}

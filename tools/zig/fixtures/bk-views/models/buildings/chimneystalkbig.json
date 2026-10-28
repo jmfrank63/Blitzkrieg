@@ -1,0 +1,7 @@
+{
+"chimneystalkbig": {"id": 122, "path": "Buildings/ussr/summer/chimneystalkbig", "how": "fit", "fit": 0.713, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-46.6, -4.3], "hi": [2.4, 42.7], "wall": 104.0, "ridge": 144.0, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-29.5, 10.4], "hi": [-12.6, 27.4], "wall": 238.3, "ridge": 238.3, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-26.7, 13.3], "hi": [-15.4, 24.6], "wall": 238.3, "ridge": 275.2, "roof": "hip"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [8.0, 0.0], "hi": [17.0, 5.0]}}]}
+}

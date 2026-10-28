@@ -1,0 +1,13 @@
+{
+"01": {"id": 149, "path": "Buildings/ussr/summer/kiosk/01", "how": "fit", "fit": 0.940, "footprint": ["0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-46.5, 0.6], "hi": [-0.5, 27.6], "wall": 39.0, "ridge": 39.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [18.0, 16.0], "hi": [27.0, 21.0]}}]},
+"02": {"id": 150, "path": "Buildings/ussr/summer/kiosk/02", "how": "fit", "fit": 0.929, "footprint": ["01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-32.0, 3.7], "hi": [1.0, 43.7], "wall": 33.0, "ridge": 37.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-26.5, -1.1], "hi": [-0.4, 3.7], "wall": 2.4, "ridge": 2.4, "roof": "flat"}}]},
+"03": {"id": 151, "path": "Buildings/ussr/summer/kiosk/03", "how": "fit", "fit": 0.882, "footprint": ["0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-45.9, 0.2], "hi": [-0.9, 28.2], "wall": 38.0, "ridge": 40.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [32.0, 33.0], "hi": [36.0, 38.0]}}]},
+"04": {"id": 152, "path": "Buildings/ussr/summer/kiosk/04", "how": "fit", "fit": 0.910, "footprint": ["01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-30.5, 3.1], "hi": [1.5, 44.1], "wall": 40.0, "ridge": 40.0, "roof": "flat"}}]}
+}
