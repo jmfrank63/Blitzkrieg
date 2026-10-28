@@ -3439,6 +3439,8 @@ pub fn build(b: *std.Build) void {
     control_game_run.has_side_effects = true;
     control_game_run.step.dependOn(install_game_step);
     control_game_run.step.dependOn(bk_views_step);
+    // bk-views side composes the shed's turns with the bk-sprite beside it.
+    control_game_run.step.dependOn(bk_sprite.install);
     const control_game_step = b.step("camera-turn-control-game-reads-it", "Press the camera turn keys on the real Game with Remastered on and measure at every step picking, clicking and framing units, an order's target, the arrow key, edge and swipe scrolling, the minimap's picture, frame and click, the turn's pivot on a hill, and draw order against the step-0 shot of the world turned");
     control_game_step.dependOn(&control_game_tests.step);
     if (test_mode == .run) control_game_step.dependOn(&control_game_run.step);

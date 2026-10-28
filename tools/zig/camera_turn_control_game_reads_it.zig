@@ -406,7 +406,10 @@ fn controlSchedule(allocator: std.mem.Allocator) ![]const u8 {
             try s.print(allocator, ",g300:pick={d}x{d}x{d}x{d}", .{ o[0], o[1], grid.pitch, gridCount(grid) });
         }
         // The game time those frames take passes here, not between a click and what follows it.
-        try s.appendSlice(allocator, ",g500:hover=512x200");
+        // The cursor waits where nothing is drawn at any step: at 512x200 it
+        // stood in the swing's pick grid at step 2, and the grid counted its
+        // pixels as the swing's (18 of 41 picked, the swing's own 17 all).
+        try s.appendSlice(allocator, ",g500:hover=1000x60");
         if (k != 3) try s.appendSlice(allocator, ",g300:key=.");
     }
     const s0 = screenAt(ringOffset(0), 3);
