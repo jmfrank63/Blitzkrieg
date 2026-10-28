@@ -26,7 +26,10 @@
 //!   pictures, not by the shadow pass: reported, not held.
 //! - Objects only: the shed at step k must be its world-lit turn's sprite
 //!   (outline IoU and colour, as building-views-game-reads-it), closer in
-//!   colour than its turn lit by the camera's light.
+//!   colour than its turn lit by the camera's light; the tree its picture
+//!   relit for step k (`bk-views relight`, `1_l<k>`), closer than its 2003
+//!   picture, and its lit side must follow the sun: the left half of the
+//!   crown brighter than the right at step 0, the right brighter at step 2.
 //! - Remastered off: the key changes no pixel of the shots with shadows.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/sun with every user path
@@ -53,6 +56,8 @@ const without_shadows = "shadows,effects,noise,warfog,haze,grid";
 const shed = "E_FrenchShed01";
 const shed_folder = "Data/Buildings/europe/summer/e_frenchshed01";
 const mod_buildings = "buildings/europe/summer";
+const tree_folder = "Data/Objects/Flora/USSR/summer/_NEW/_Lime";
+const mod_tree = "objects/flora/USSR/summer/_NEW/_Lime";
 
 /// An object of the map: its objects.xml name, its player (-1 for none), the
 /// ring and eighth it stands at, and the pixels around its place its shadow
@@ -76,6 +81,9 @@ const min_shadow_pixels = 100;
 /// building-views-game-reads-it's floors: the Game draws the packs' pixels unchanged.
 const min_iou = 0.95;
 const max_colour = 2.0;
+/// A crown's soft edge blends with the black backdrop: the Game draws the
+/// 2003 tree at 3.09 from its decomposed picture.
+const max_tree_colour = 4.0;
 
 test "the sun stays in the world: shadows of a building, a tank, a tree and a soldier turn with the ground, the building is lit as it stands" {
     const io = testing.io;
@@ -95,6 +103,8 @@ test "the sun stays in the world: shadows of a building, a tank, a tree and a so
     const turned = try std.fs.path.join(allocator, &.{ data, mod_buildings });
     try cwd.createDirPath(io, turned);
     try game_views.runTool(io, allocator, tool, &.{ "side", shed_folder, "1,2,3,1l1,2l2,3l3", turned, try std.fs.path.join(allocator, &.{ root, "work" }) });
+    const relit = try std.fs.path.join(allocator, &.{ data, mod_tree });
+    try game_views.runTool(io, allocator, tool, &.{ "relight", tree_folder, relit });
     try writeMod(io, allocator, data);
 
     var failed = false;
@@ -117,6 +127,23 @@ test "the sun stays in the world: shadows of a building, a tank, a tree and a so
         try report.print(allocator, "{d}: {d:.3} / {d:.2} ({d},{d}); {d:.3} / {d:.2}\n", .{ k, own.iou, own.colour, own.dx, own.dy, other.iou, other.colour });
         if (own.iou < min_iou or own.colour > max_colour or (k != 0 and other.colour <= own.colour)) failed = true;
     }
+
+    // The tree: step k draws its picture relit for step k, its lit side on the sun's side.
+    var tree: [4]game_views.Sprite = undefined;
+    tree[0] = try game_views.decompose(io, allocator, tool, tree_folder, try std.fmt.allocPrint(allocator, "{s}/sprites/tree", .{root}));
+    try game_views.runTool(io, allocator, tool, &.{ "decompose", relit, try std.fmt.allocPrint(allocator, "{s}/sprites/tree-lit", .{root}) });
+    for (1..4) |k| tree[k] = try game_views.decomposed(io, allocator, try std.fmt.allocPrint(allocator, "{s}/sprites/tree-lit", .{root}), try std.fmt.allocPrint(allocator, "1_l{d}", .{k}));
+    try report.appendSlice(allocator, "tree: step: relit IoU / colour (offset); 2003 picture IoU / colour; crown left against right\n");
+    var sides: [4]f64 = undefined;
+    for (objects, 0..) |frame, k| {
+        const at = screenOf(placed[2].ring, (placed[2].eighth + 2 * @as(u32, @intCast(k))) % 8);
+        const own = game_views.score(frame, tree[k], at);
+        const old = game_views.score(frame, tree[0], at);
+        sides[k] = leftAgainstRight(frame, tree[k], .{ at[0] + own.dx, at[1] + own.dy });
+        try report.print(allocator, "{d}: {d:.3} / {d:.2} ({d},{d}); {d:.3} / {d:.2}; {d:.3}\n", .{ k, own.iou, own.colour, own.dx, own.dy, old.iou, old.colour, sides[k] });
+        if (own.iou < min_iou or own.colour > max_tree_colour or (k != 0 and old.colour <= own.colour)) failed = true;
+    }
+    if (sides[0] <= 1 or sides[2] >= 1) failed = true;
 
     // Shadows: where the frame with shadows is darker than the one without.
     try report.appendSlice(allocator, "shadows: step name: IoU against its own step-0 shadow turned / not turned; centroids apart (degrees); pixels\n");
@@ -156,6 +183,27 @@ test "the sun stays in the world: shadows of a building, a tank, a tree and a so
         std.debug.print("{s}the light or a shadow does not stay with the world's sun; the frames are in {s}\n", .{ report.items, root });
         return error.DrawnWrong;
     }
+}
+
+/// The mean brightness of the frame over the sprite's left half against its
+/// right half (split at its zero cross's column), the sprite's zero cross at
+/// `at`.
+fn leftAgainstRight(frame: []const u8, sprite: game_views.Sprite, at: [2]i32) f64 {
+    var sums = [2]f64{ 0, 0 };
+    var counts = [2]f64{ 0, 0 };
+    for (sprite.image.pixels, 0..) |p, i| {
+        if (p[3] < 128) continue;
+        const sx: i32 = @intCast(i % sprite.image.width);
+        const sy: i32 = @intCast(i / sprite.image.width);
+        const x = at[0] + sx - sprite.anchor[0];
+        const y = at[1] + sy - sprite.anchor[1];
+        if (x < 0 or y < 0 or x >= turn.width or y >= turn.height) continue;
+        const q = turn.pixel(frame, x, y);
+        const side: usize = @intFromBool(sx >= sprite.anchor[0]);
+        sums[side] += q[0] + q[1] + q[2];
+        counts[side] += 1;
+    }
+    return (sums[0] / @max(1, counts[0])) / @max(1, sums[1] / @max(1, counts[1]));
 }
 
 /// mod.xml and maps/sun.xml, written from road3d.xml.

@@ -43,6 +43,7 @@ const usage: bk_tool.Usage = .{
     \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
     \\       bk-views contact <buildings-dir> <generated-dir> <out-dir>
     \\       bk-views shape <out-dir> <variant-dir>...
+    \\       bk-views relight <objects-dir> <out-dir>
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -59,6 +60,11 @@ fn run(ctx: *bk_tool.Context) !void {
         if (ctx.args.len != 3) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return decomposeCommand(ctx, ctx.args[1], ctx.args[2]);
+    }
+    if (std.mem.eql(u8, command, "relight")) {
+        if (ctx.args.len != 3) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return relightCommand(ctx, ctx.args[1], ctx.args[2]);
     }
     if (std.mem.eql(u8, command, "inventory")) {
         if (ctx.args.len != 3) return error.Usage;
@@ -248,6 +254,185 @@ fn writeOut(ctx: *bk_tool.Context, dir: []const u8, name: []const u8, data: []co
     const path = try std.fs.path.join(ctx.arena, &.{ dir, name });
     std.Io.Dir.cwd().writeFile(ctx.io, .{ .sub_path = path, .data = data }) catch |err|
         return ctx.failKey("views.err.read", .{ path, @errorName(err) });
+}
+
+// ---------------------------------------------------------------------------
+// relight
+
+/// The surface normal of each opaque pixel (alpha 128 or more) of a 2003
+/// object picture in the variant's frame, guessed from its outline as a
+/// body of revolution standing upright: across a row the surface turns from
+/// the screen's left (world (-1, -1)) through the viewer (world (1, -1)) to
+/// its right, and the upper half of each column's run leans up, to 0.7 at its
+/// top (a crown, a lamp's cap). A tree, a post or a box drawn from the 2003
+/// camera has no faces to fit blocks to; this is the shape the eye reads its
+/// light on. Null for the rest.
+pub fn spriteNormals(gpa: std.mem.Allocator, image: Image) ![]?[3]f64 {
+    const w = image.width;
+    const h = image.height;
+    const out = try gpa.alloc(?[3]f64, @as(usize, w) * h);
+    @memset(out, null);
+    const rows = try gpa.alloc([2]f64, h);
+    const columns = try gpa.alloc([2]f64, w);
+    @memset(rows, .{ std.math.inf(f64), -std.math.inf(f64) });
+    @memset(columns, .{ std.math.inf(f64), -std.math.inf(f64) });
+    for (0..h) |y| for (0..w) |x| {
+        if (image.pixels[y * w + x][3] < 128) continue;
+        const fx: f64 = @floatFromInt(x);
+        const fy: f64 = @floatFromInt(y);
+        rows[y] = .{ @min(rows[y][0], fx), @max(rows[y][1], fx + 1) };
+        columns[x] = .{ @min(columns[x][0], fy), @max(columns[x][1], fy + 1) };
+    };
+    const right = [2]f64{ std.math.sqrt1_2, std.math.sqrt1_2 };
+    const viewer = [2]f64{ std.math.sqrt1_2, -std.math.sqrt1_2 };
+    for (0..h) |y| for (0..w) |x| {
+        if (image.pixels[y * w + x][3] < 128) continue;
+        const half = @max(0.5, (rows[y][1] - rows[y][0]) / 2);
+        const u = std.math.clamp((@as(f64, @floatFromInt(x)) + 0.5 - (rows[y][0] + rows[y][1]) / 2) / half, -1, 1);
+        const tall = @max(1, columns[x][1] - columns[x][0]);
+        const up = 0.7 * @max(0, 1 - 2 * (@as(f64, @floatFromInt(y)) + 0.5 - columns[x][0]) / tall);
+        const side = @sqrt(1 - up * up);
+        const front = @sqrt(1 - u * u);
+        out[y * w + x] = .{ side * (u * right[0] + front * viewer[0]), side * (u * right[1] + front * viewer[1]), up };
+    };
+    return out;
+}
+
+/// An object's own lit side against its shaded side per channel: the mean
+/// colours of the pixels the 2003 light (`shading`) lights most (direct light
+/// 0.7 of the most or more) and of those it does not light, each channel held
+/// between none and `wall_light_rgb`'s; with fewer than `object_pixels` of
+/// either, the median. A crown that shows little of the light is relit
+/// little.
+pub fn objectLight(image: Image, normals: []const ?[3]f64) [3]f64 {
+    const l = lightFor(light_2003, 0);
+    var most: f64 = 0;
+    for (normals) |n| if (n) |v| {
+        most = @max(most, dot(v, l));
+    };
+    var means: Means = .{};
+    for (image.pixels, normals) |p, n| if (n) |v| {
+        const direct = dot(v, l);
+        if (direct >= 0.7 * most) means.add(0, p) else if (direct <= 0) means.add(1, p);
+    };
+    if (means.count[0] < object_pixels or means.count[1] < object_pixels) return wall_light_rgb;
+    var out: [3]f64 = undefined;
+    for (&out, 0..) |*o, c| o.* = std.math.clamp((means.sum[0][c] / means.count[0]) / @max(1, means.sum[1][c] / means.count[1]), 1, wall_light_rgb[c]);
+    return out;
+}
+
+/// Each side of an object seen on this many pixels or more gives it its own light.
+pub const object_pixels = 50;
+
+/// A 2003 object picture as camera step k shows it under the sun fixed in
+/// the world (M006 round 2): each pixel relit from the 2003 light to the
+/// light of turn -k (`shading`; the eye's frame turns by k, the sun does
+/// not). `mirror`: the Game mirrors the picture at this step (a prop on a
+/// longer rectangle at an odd step), so a pixel shows the face mirrored
+/// across the screen's vertical (world (x, y) to (-y, -x)).
+pub fn relightSprite(gpa: std.mem.Allocator, image: Image, normals: []const ?[3]f64, wall: [3]f64, k: u2, mirror: bool) !Image {
+    const out: Image = .{ .width = image.width, .height = image.height, .pixels = try gpa.dupe([4]u8, image.pixels) };
+    for (out.pixels, normals) |*p, n| if (n) |v| {
+        const shown = if (mirror) [3]f64{ -v[1], -v[0], v[2] } else v;
+        p.* = relight(p.*, shading(shown, 0 -% k, wall), shading(v, 0, wall));
+    };
+    return out;
+}
+
+/// `relight`: every object folder under objects-dir (one holding a `1.san`)
+/// relit (`relightFolder`) into the same folder under out-dir, where the Game
+/// finds it by the object's Data path once the folders lie in a mod.
+fn relightCommand(ctx: *bk_tool.Context, dir_arg: []const u8, out_arg: []const u8) !void {
+    const dir = try bk_tool.inputPath(ctx.arena, dir_arg);
+    const out = try bk_tool.inputPath(ctx.arena, out_arg);
+    const made = try relightTree(ctx, dir, out);
+    try ctx.out.print("wrote {s}: {d} relit packs\n", .{ out, made });
+}
+
+fn relightTree(ctx: *bk_tool.Context, dir: []const u8, out: []const u8) !usize {
+    var made: usize = 0;
+    // A folder relight cannot read (a mine's animation pack) is noted on stderr
+    // and keeps its 2003 picture.
+    if (hasName(try entries(ctx.arena, ctx.io, dir, .file), "1.san")) made += relightFolder(ctx, dir, out) catch |err| switch (err) {
+        error.Failed => 0,
+        else => return err,
+    };
+    for (try entries(ctx.arena, ctx.io, dir, .directory)) |sub| {
+        made += try relightTree(ctx, try std.fs.path.join(ctx.arena, &.{ dir, sub }), try std.fs.path.join(ctx.arena, &.{ out, sub }));
+    }
+    return made;
+}
+
+/// An object's pictures (flora, props: every one-sprite pack but shadows and
+/// ground pictures) as each camera step shows them under the sun fixed in
+/// the world, `<pack>_l<k>` for k 1 to 3 in out (CMOObject::ShowPicture).
+/// The packs carry no shadow: the Game lays the object's own shadow turned
+/// with the ground.
+fn relightFolder(ctx: *bk_tool.Context, dir: []const u8, out: []const u8) !usize {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const packs = try readPacks(ctx, dir);
+    const stats = if (cwd.readFileAlloc(io, try std.fs.path.join(arena, &.{ dir, "1.xml" }), arena, .limited(64 * 1024 * 1024))) |xml| try readStats(arena, xml) else |_| Stats{};
+    // The Game mirrors a prop on a longer rectangle at an odd step (CMOObject::ApplyCameraTurn).
+    const rows = stats.passability.len;
+    const columns = if (rows > 0) stats.passability[0].len / 2 else 0;
+    const rectangle = rows != columns and rows * columns != 0;
+    const exe_dir = try std.process.executableDirPathAlloc(io, arena);
+    const beside = try std.fs.path.join(arena, &.{ exe_dir, if (@import("builtin").os.tag == .windows) "bk-sprite.exe" else "bk-sprite" });
+    const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
+    const work = try std.fs.path.join(arena, &.{ out, ".relight" });
+    try cwd.createDirPath(io, work);
+    const anchor = [2]i32{ -packs.bounds.min_x, -packs.bounds.min_y };
+    const locked = lockedCenter(stats.origin);
+    var made: usize = 0;
+    for (packs.files) |file| {
+        const last = file.name[file.name.len - 1];
+        if (last == 's' or last == 'g' or file.pack.sprites.len != 1) continue;
+        const image = try unpack(arena, file.pack.sprites[0], file.atlas, packs.bounds);
+        const normals = try spriteNormals(arena, image);
+        const wall = objectLight(image, normals);
+        // compose-pack packs a shadow, dropped after: the object's own, else one
+        // pixel the picture leaves free (an empty one does not compose).
+        const shadow: Image = .{ .width = image.width, .height = image.height, .pixels = try arena.alloc([4]u8, image.pixels.len) };
+        @memset(shadow.pixels, .{ 0, 0, 0, 0 });
+        for (packs.files) |s| {
+            if (s.name.len == file.name.len + 1 and std.mem.startsWith(u8, s.name, file.name) and s.name[file.name.len] == 's' and s.pack.sprites.len == 1)
+                @memcpy(shadow.pixels, (try unpack(arena, s.pack.sprites[0], s.atlas, packs.bounds)).pixels);
+        }
+        var seen = false;
+        for (shadow.pixels, image.pixels) |s, p| seen = seen or (s[3] > 0 and p[3] < 128);
+        if (!seen) for (shadow.pixels, image.pixels) |*s, p| {
+            if (p[3] < 128) {
+                s.* = .{ 0, 0, 0, 255 };
+                break;
+            }
+        };
+        const shadow_png = try std.fs.path.join(arena, &.{ work, "shadow.png" });
+        try writeOut(ctx, work, "shadow.png", try writePng(arena, shadow));
+        for ([_]u2{ 1, 2, 3 }) |k| {
+            const name = try std.fmt.allocPrint(arena, "{s}_l{d}", .{ file.name, k });
+            try writeOut(ctx, work, try std.fmt.allocPrint(arena, "{s}.png", .{name}), try writePng(arena, try relightSprite(arena, image, normals, wall, k, rectangle and k % 2 == 1)));
+            var argv: std.ArrayList([]const u8) = .empty;
+            try argv.appendSlice(arena, &.{
+                sprite_tool,                                                                    "compose-pack",
+                try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.png", .{name}) }), shadow_png,
+                try std.fs.path.join(arena, &.{ out, name }),                                     "--zero",
+                try std.fmt.allocPrint(arena, "{d},{d}", .{ anchor[0], anchor[1] }),               "--force",
+            });
+            if (rows > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", stats.passability), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
+            const target = try std.fs.path.join(arena, &.{ out, name });
+            const result = std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
+                return ctx.failKey("views.err.compose", .{ target, @errorName(err) });
+            if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ target, result.stderr });
+            for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
+                cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}s{s}", .{ try std.fs.path.join(arena, &.{ out, name }), suffix })) catch {};
+            }
+            made += 1;
+        }
+    }
+    cwd.deleteTree(io, work) catch {};
+    return made;
 }
 
 // ---------------------------------------------------------------------------

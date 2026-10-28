@@ -683,6 +683,51 @@ test "a turn lit by the sun fixed in the world keeps each face lit as the 2003 l
     try std.testing.expect(sums[1][1] > sums[0][1]);
 }
 
+test "an object picture relit for a camera step turns its lit side with the world's sun" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A round crown 60 pixels wide, painted as the 2003 light lights the shape
+    // spriteNormals reads into it.
+    const crown: views.Image = .{ .width = 80, .height = 80, .pixels = try arena.alloc([4]u8, 80 * 80) };
+    for (0..80) |y| for (0..80) |x| {
+        const dx = @as(f64, @floatFromInt(x)) + 0.5 - 40;
+        const dy = @as(f64, @floatFromInt(y)) + 0.5 - 40;
+        crown.pixels[y * 80 + x] = if (dx * dx + dy * dy < 900) .{ 60, 60, 60, 255 } else .{ 0, 0, 0, 0 };
+    };
+    const normals = try views.spriteNormals(arena, crown);
+    // Its left edge faces the screen's left (world (-1, -1)), its right edge
+    // the screen's right, its middle the viewer (world (1, -1)).
+    const left = normals[40 * 80 + 11].?;
+    const right = normals[40 * 80 + 68].?;
+    const middle = normals[60 * 80 + 40].?;
+    try std.testing.expect((-left[0] - left[1]) * std.math.sqrt1_2 > 0.9);
+    try std.testing.expect((right[0] + right[1]) * std.math.sqrt1_2 > 0.9);
+    try std.testing.expect((middle[0] - middle[1]) * std.math.sqrt1_2 > 0.95);
+    for (crown.pixels, normals) |*p, n| if (n) |v| {
+        const s = views.shading(v, 0, views.wall_light_rgb);
+        p.* = .{ @intFromFloat(@round(40 * s[0])), @intFromFloat(@round(40 * s[1])), @intFromFloat(@round(40 * s[2])), 255 };
+    };
+    // Lit from the screen's left at step 0; the half turn shows it from the
+    // other side, where the sun stands on the screen's right.
+    const half = try views.relightSprite(arena, crown, normals, views.wall_light_rgb, 2, false);
+    var sides = [2][2]f64{ .{ 0, 0 }, .{ 0, 0 } };
+    for (crown.pixels, half.pixels, 0..) |a, b, i| {
+        if (a[3] == 0) continue;
+        // The 2003 grey was rounded, and the relight scales that rounding.
+        const s = views.shading(normals[i].?, 2, views.wall_light_rgb);
+        try std.testing.expectApproxEqAbs(40 * s[1], @as(f64, @floatFromInt(b[1])), 3);
+        const on_right: usize = @intFromBool(i % 80 >= 40);
+        sides[0][on_right] += @floatFromInt(a[1]);
+        sides[1][on_right] += @floatFromInt(b[1]);
+    }
+    try std.testing.expect(sides[0][0] > sides[0][1]);
+    try std.testing.expect(sides[1][1] > sides[1][0]);
+    // A crown shows its own light: lit against shaded within the median's.
+    const own = views.objectLight(crown, normals);
+    for (0..3) |c| try std.testing.expect(own[c] >= 1 and own[c] <= views.wall_light_rgb[c]);
+}
+
 test "a back roof copied from the front leaves the front's chimney out, and a copy that keeps it fails the gate" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();

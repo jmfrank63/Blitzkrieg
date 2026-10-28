@@ -3480,6 +3480,28 @@ pub fn build(b: *std.Build) void {
     const turn_mod_xml = turn_mod_files.add("mod.xml", "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Remastered views</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n");
     const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building sides the building-views-batch-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
     turn_mod_step.dependOn(&b.addInstallFile(turn_mod_xml, "remastered/mods/remastered_views/data/mod.xml").step);
+    // Flora and props lit by the sun fixed in the world at each camera step
+    // (M006 round 2, bk-views relight): <pack>_l<k> beside each object's
+    // 2003 packs, at its Data path.
+    const relight_step = b.step("objects-relight", "Relight every flora and prop picture with bk-views relight for camera steps 1 to 3 under the sun fixed in the world, into zig-out/remastered/Objects");
+    for ([_][]const u8{ "Flora", "SimpleObjects" }) |group| {
+        const relight = b.addRunArtifact(bk_views);
+        relight.setCwd(b.path("."));
+        setUserRootsForTest(relight, "bk-views-user");
+        relight.addArgs(&.{ "relight", b.fmt("Data/Objects/{s}", .{group}), b.fmt("zig-out/remastered/Objects/{s}", .{group}) });
+        relight.step.dependOn(bk_sprite.install);
+        addPathDir(relight, rootPath(b, "zig-out/bin"));
+        relight.expectExitCode(0);
+        relight.has_side_effects = true;
+        relight_step.dependOn(&relight.step);
+    }
+    const relit_objects = b.addInstallDirectory(.{
+        .source_dir = b.path("zig-out/remastered/Objects"),
+        .install_dir = .prefix,
+        .install_subdir = "remastered/mods/remastered_views/data/objects",
+    });
+    relit_objects.step.dependOn(relight_step);
+    turn_mod_step.dependOn(&relit_objects.step);
     turn_mod_step.dependOn(&b.addInstallDirectory(.{
         .source_dir = b.path("zig-out/remastered/Buildings"),
         .install_dir = .prefix,
