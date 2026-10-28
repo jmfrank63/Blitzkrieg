@@ -1,0 +1,21 @@
+{
+"01": {"id": 20, "path": "Buildings/africa/summer/a_wt/01", "how": "hand shape", "fit": 0.867, "footprint": ["0000010000", "0101010101", "0001010101", "0001010101", "0001010101", "0001010100", "0001000000"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.8, 6.9], "hi": [-3.8, 88.9], "wall": 17.0, "ridge": 33.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-38.8, -8.1], "hi": [-19.8, 1.9], "wall": 23.0, "ridge": 25.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-14.8, 40.9], "hi": [14.2, 71.9], "wall": 9.0, "ridge": 9.0, "roof": "hip"}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall +x", "lo": [20.0, 0.0], "hi": [34.0, 14.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [0.0, 4.0], "hi": [4.0, 9.0]}},
+  {"kind": "door", "rect": {"on": 1, "face": "wall +x", "lo": [2.0, 0.0], "hi": [10.0, 10.0]}}]},
+"02": {"id": 21, "path": "Buildings/africa/summer/a_wt/02", "how": "hand shape", "fit": 0.904, "footprint": ["000101010100", "010101010101", "010101010100", "010101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-93.6, 19.0], "hi": [-30.6, 81.0], "wall": 8.0, "ridge": 8.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-76.6, 11.0], "hi": [-24.6, 30.0], "wall": 47.0, "ridge": 56.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-106.6, 28.0], "hi": [-85.6, 55.0], "wall": 24.0, "ridge": 24.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-46.6, -3.0], "hi": [-35.6, 19.0], "wall": 40.0, "ridge": 48.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-32.6, 19.0], "hi": [-12.6, 59.0], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-12.6, 20.9], "hi": [-1.8, 34.3], "wall": 5.4, "ridge": 5.4, "roof": "flat"}},
+  {"kind": "door", "rect": {"on": 1, "face": "wall -y", "lo": [0.0, 0.0], "hi": [16.0, 20.0]}},
+  {"kind": "door", "rect": {"on": 1, "face": "wall -y", "lo": [41.0, 0.0], "hi": [51.0, 17.0]}},
+  {"kind": "door", "rect": {"on": 1, "face": "wall +x", "lo": [0.0, 0.0], "hi": [8.0, 10.0]}},
+  {"kind": "window", "rect": {"on": 3, "face": "wall -y", "lo": [0.0, 17.0], "hi": [11.0, 30.0]}},
+  {"kind": "door", "rect": {"on": 3, "face": "wall +x", "lo": [0.0, 0.0], "hi": [14.0, 18.0]}}]}
+}

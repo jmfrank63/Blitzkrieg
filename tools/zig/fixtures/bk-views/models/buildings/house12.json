@@ -1,0 +1,7 @@
+{
+"house12": {"id": 147, "path": "Buildings/ussr/summer/house12", "how": "fit", "fit": 0.929, "footprint": ["01010100", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-77.8, 2.4], "hi": [-10.8, 104.4], "wall": 36.0, "ridge": 64.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-10.8, 30.4], "hi": [21.2, 97.4], "wall": 12.0, "ridge": 12.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-10.8, 2.4], "hi": [-1.8, 20.9], "wall": 4.5, "ridge": 4.5, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [20.0, 6.0], "hi": [28.0, 11.0]}}]}
+}

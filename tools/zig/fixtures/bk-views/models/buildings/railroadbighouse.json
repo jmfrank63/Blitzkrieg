@@ -1,0 +1,4 @@
+{
+"railroadbighouse": {"id": 158, "path": "Buildings/ussr/summer/railroadbighouse", "how": "fit", "fit": 0.941, "footprint": ["010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.1, 10.2], "hi": [-5.1, 63.2], "wall": 50.0, "ridge": 68.0, "roof": "gable_y"}}]}
+}

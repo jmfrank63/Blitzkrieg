@@ -1,0 +1,12 @@
+{
+"01": {"id": 287, "path": "Objects/SimpleObjects/europe/summer/e_directionsignwood/01", "how": "poles", "fit": 0.690, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-2.0, 2.2, 0.0], "to": [-21.2, 19.0, 44.1], "radius": 2.0}},
+  {"kind": "pole", "pole": {"from": [-64.7, 45.9, 0.0], "to": [-51.9, 68.1, 11.7], "radius": 2.0}}]},
+"02": {"id": 288, "path": "Objects/SimpleObjects/europe/summer/e_directionsignwood/02", "how": "fit, refined", "fit": 0.641, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-5.8, 0.6], "hi": [-3.2, 3.3], "wall": 56.0, "ridge": 58.0, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-4.8, 3.0], "hi": [-3.5, 4.3], "wall": 55.5, "ridge": 55.5, "roof": "flat"}}]},
+"03": {"id": 289, "path": "Objects/SimpleObjects/europe/summer/e_directionsignwood/03", "how": "fit, refined", "fit": 0.510, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-15.3, 10.5], "hi": [-10.7, 14.1], "wall": 48.0, "ridge": 48.0, "roof": "gable_y"}}]},
+"04": {"id": 290, "path": "Objects/SimpleObjects/europe/summer/e_directionsignwood/04", "how": "fit, refined", "fit": 0.586, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-9.0, 4.6], "hi": [-6.4, 9.3], "wall": 53.0, "ridge": 56.0, "roof": "hip"}}]}
+}

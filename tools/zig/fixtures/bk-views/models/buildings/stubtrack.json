@@ -1,0 +1,12 @@
+{
+"01": {"id": 165, "path": "Buildings/ussr/summer/stubtrack/01", "how": "hand shape", "fit": 0.864, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-21.4, -5.3], "hi": [-4.4, 65.7], "wall": 9.4, "ridge": 17.0, "roof": "gable_x"}}]},
+"02": {"id": 166, "path": "Buildings/ussr/summer/stubtrack/02", "how": "hand shape", "fit": 0.861, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-64.3, 1.5], "hi": [6.7, 15.5], "wall": 8.0, "ridge": 19.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-59.3, 19.5], "hi": [-27.3, 31.5], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]},
+"03": {"id": 167, "path": "Buildings/ussr/summer/stubtrack/03", "how": "hand shape", "fit": 0.872, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-25.8, 0.8], "hi": [-3.8, 64.8], "wall": 6.0, "ridge": 15.0, "roof": "gable_x"}}]},
+"04": {"id": 168, "path": "Buildings/ussr/summer/stubtrack/04", "how": "fit", "fit": 0.879, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-60.2, 7.0], "hi": [-9.2, 33.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-17.2, 3.0], "hi": [1.8, 26.0], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]}
+}

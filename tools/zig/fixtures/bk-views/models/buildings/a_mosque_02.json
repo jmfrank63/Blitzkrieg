@@ -1,0 +1,6 @@
+{
+"a_mosque_02_1": {"id": 17, "path": "Buildings/africa/summer/a_mosque_02_1", "how": "fit", "fit": 0.965, "footprint": ["01010101010000", "01010101010101", "01010101010101", "01010101010101", "01010101010000"], "parts": [
+  {"kind": "body", "block": {"lo": [-143.1, -22.3], "hi": [-45.1, 79.7], "wall": 68.0, "ridge": 69.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-41.1, -1.3], "hi": [-0.1, 40.7], "wall": 53.0, "ridge": 62.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-54.8, -32.9], "hi": [-47.7, -22.3], "wall": 5.3, "ridge": 5.3, "roof": "flat"}}]}
+}

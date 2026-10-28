@@ -1,0 +1,6 @@
+{
+"01": {"id": 382, "path": "Objects/SimpleObjects/ussr/summer/ukrainewell/01", "how": "fit, refined", "fit": 0.649, "footprint": ["0100", "0001"], "parts": [
+  {"kind": "body", "block": {"lo": [-35.1, -9.5], "hi": [-16.1, 12.5], "wall": 14.0, "ridge": 19.0, "roof": "gable_y"}}]},
+"02": {"id": 383, "path": "Objects/SimpleObjects/ussr/summer/ukrainewell/02", "how": "fit, refined", "fit": 0.622, "footprint": ["0100", "0001"], "parts": [
+  {"kind": "body", "block": {"lo": [-13.8, 16.6], "hi": [8.2, 37.6], "wall": 13.0, "ridge": 20.0, "roof": "gable_x"}}]}
+}

@@ -1,0 +1,11 @@
+{
+"01": {"id": 92, "path": "Buildings/europe/summer/e_stella/01", "how": "fit", "fit": 0.774, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-20.0, 5.5], "hi": [-2.0, 17.5], "wall": 52.0, "ridge": 55.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-13.8, 0.4], "hi": [-2.0, 5.5], "wall": 2.6, "ridge": 2.6, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-13.8, 0.4], "hi": [-2.0, 5.5], "wall": 2.6, "ridge": 2.6, "roof": "flat"}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall -y", "lo": [14.0, 2.0], "hi": [18.0, 12.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [4.0, 0.0], "hi": [9.0, 5.0]}}]},
+"02": {"id": 93, "path": "Buildings/europe/summer/e_stella/02", "how": "fit", "fit": 0.833, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-9.0, -4.0], "hi": [5.0, 10.0], "wall": 58.0, "ridge": 58.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [2.0, 41.0], "hi": [8.0, 48.0]}}]}
+}

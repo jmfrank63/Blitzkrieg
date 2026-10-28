@@ -1,0 +1,11 @@
+{
+"factoryfloor01": {"id": 132, "path": "Buildings/ussr/summer/factoryfloor01", "how": "fit", "fit": 0.970, "footprint": ["0101010101010101010101", "0101010101010101010101", "0101010101010101010101", "0101010101010101010101", "0101010101010101010101", "0101010101010101010101", "0101010101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-249.0, -1.8], "hi": [-23.0, 172.2], "wall": 49.0, "ridge": 120.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-18.0, -1.8], "hi": [0.0, 149.2], "wall": 16.0, "ridge": 16.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-186.0, 77.1], "hi": [-174.0, 89.2], "wall": 131.0, "ridge": 131.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-183.2, 80.0], "hi": [-176.8, 86.3], "wall": 131.0, "ridge": 136.8, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-33.2, 160.5], "hi": [-21.2, 172.5], "wall": 63.5, "ridge": 63.5, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-30.0, 163.7], "hi": [-24.4, 169.3], "wall": 63.5, "ridge": 68.1, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-239.1, 82.8], "hi": [-234.8, 87.0], "wall": 124.4, "ridge": 124.4, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [151.0, 25.0], "hi": [160.0, 31.0]}}]}
+}

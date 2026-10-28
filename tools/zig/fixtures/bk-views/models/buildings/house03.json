@@ -1,0 +1,11 @@
+{
+"house03": {"id": 138, "path": "Buildings/ussr/summer/house03", "how": "fit", "fit": 0.949, "footprint": ["010101", "010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-70.7, 0.8], "hi": [-1.7, 76.8], "wall": 36.0, "ridge": 72.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-37.5, 33.2], "hi": [-28.3, 42.4], "wall": 89.5, "ridge": 89.5, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [6.0, 0.0], "hi": [10.0, 7.0]}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall -y", "lo": [22.0, 0.0], "hi": [26.0, 10.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [49.0, 17.0], "hi": [53.0, 22.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [18.0, 18.0], "hi": [22.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [49.0, 24.0], "hi": [53.0, 29.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [18.0, 26.0], "hi": [22.0, 31.0]}}]}
+}

@@ -1,0 +1,14 @@
+{
+"01": {"id": 217, "path": "Objects/SimpleObjects/common/summer/antitank/01", "how": "poles", "fit": 0.674, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-3.2, -1.8, 0.0], "to": [-4.1, 10.1, 15.7], "radius": 2.0}},
+  {"kind": "pole", "pole": {"from": [-1.1, 13.7, 0.0], "to": [-18.1, 4.4, 9.4], "radius": 1.7}}]},
+"02": {"id": 218, "path": "Objects/SimpleObjects/common/summer/antitank/02", "how": "poles", "fit": 0.500, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [0.6, 3.2, 0.0], "to": [-12.1, 5.7, 18.7], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-19.9, 3.1, 0.0], "to": [-10.4, 20.4, 9.6], "radius": 1.8}}]},
+"03": {"id": 219, "path": "Objects/SimpleObjects/common/summer/antitank/03", "how": "poles", "fit": 0.674, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [0.4, 1.8, 0.0], "to": [-11.8, 4.2, 17.9], "radius": 1.8}},
+  {"kind": "pole", "pole": {"from": [-18.0, 3.2, 0.0], "to": [-9.1, 19.4, 9.0], "radius": 1.7}}]},
+"04": {"id": 220, "path": "Objects/SimpleObjects/common/summer/antitank/04", "how": "poles", "fit": 0.579, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-0.4, 6.7, 0.0], "to": [-14.9, 7.8, 19.2], "radius": 2.0}},
+  {"kind": "pole", "pole": {"from": [-20.9, 3.2, 0.0], "to": [-9.6, 22.6, 10.0], "radius": 2.0}}]}
+}

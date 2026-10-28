@@ -1,0 +1,5 @@
+{
+"house05": {"id": 140, "path": "Buildings/ussr/summer/house05", "how": "fit", "fit": 0.957, "footprint": ["010101", "010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-72.9, 5.1], "hi": [-5.9, 81.1], "wall": 41.0, "ridge": 69.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-39.8, 37.0], "hi": [-32.0, 44.8], "wall": 82.4, "ridge": 82.4, "roof": "flat"}}]}
+}

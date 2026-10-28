@@ -1,0 +1,10 @@
+{
+"01": {"id": 268, "path": "Objects/SimpleObjects/common/summer/shellbox/01", "how": "fit, refined", "fit": 0.950, "footprint": [], "parts": [
+  {"kind": "body", "block": {"lo": [0.1, -10.6], "hi": [8.1, 2.4], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]},
+"02": {"id": 269, "path": "Objects/SimpleObjects/common/summer/shellbox/02", "how": "fit, refined", "fit": 0.950, "footprint": [], "parts": [
+  {"kind": "body", "block": {"lo": [-5.9, -5.9], "hi": [7.1, 2.1], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]},
+"03": {"id": 270, "path": "Objects/SimpleObjects/common/summer/shellbox/03", "how": "fit, refined", "fit": 0.897, "footprint": [], "parts": [
+  {"kind": "body", "block": {"lo": [-3.2, -7.4], "hi": [3.8, 7.6], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]},
+"04": {"id": 271, "path": "Objects/SimpleObjects/common/summer/shellbox/04", "how": "fit, refined", "fit": 0.868, "footprint": [], "parts": [
+  {"kind": "body", "block": {"lo": [-7.9, -5.9], "hi": [8.1, 1.1], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]}
+}

@@ -1,0 +1,7 @@
+{
+"shed02": {"id": 162, "path": "Buildings/ussr/summer/shed02", "how": "fit", "fit": 0.901, "footprint": ["0100", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-38.5, 2.6], "hi": [-4.5, 41.6], "wall": 16.0, "ridge": 34.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-9.5, 22.6], "hi": [12.5, 40.6], "wall": 9.0, "ridge": 16.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-35.5, 53.6], "hi": [-18.5, 65.6], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [9.0, 4.0], "hi": [15.0, 9.0]}}]}
+}

@@ -1,0 +1,18 @@
+{
+"01": {"id": 31, "path": "Buildings/common/summer/dzot/01", "how": "hand shape", "fit": 0.883, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-62.9, -12.7], "hi": [17.1, 66.3], "wall": 17.0, "ridge": 17.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-40.0, -19.4], "hi": [0.4, -12.7], "wall": 3.4, "ridge": 3.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-68.9, 23.4], "hi": [-62.9, 49.5], "wall": 3.0, "ridge": 3.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-67.5, 12.1], "hi": [-62.9, 22.0], "wall": 2.3, "ridge": 2.3, "roof": "flat"}}]},
+"02": {"id": 32, "path": "Buildings/common/summer/dzot/02", "how": "hand shape", "fit": 0.854, "footprint": ["010101", "010101", "000101"], "parts": [
+  {"kind": "body", "block": {"lo": [-89.0, -5.0], "hi": [-1.0, 92.0], "wall": 8.0, "ridge": 22.0, "roof": "hip"}}]},
+"03": {"id": 33, "path": "Buildings/common/summer/dzot/03", "how": "fit", "fit": 0.894, "footprint": ["010101", "010101", "000101"], "parts": [
+  {"kind": "body", "block": {"lo": [-87.4, 0.5], "hi": [5.6, 64.5], "wall": 14.0, "ridge": 14.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-73.4, 76.5], "hi": [-14.4, 89.5], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-50.6, -7.4], "hi": [-26.5, 0.5], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]},
+"04": {"id": 34, "path": "Buildings/common/summer/dzot/04", "how": "fit", "fit": 0.904, "footprint": ["010101", "010101", "010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-78.8, -14.7], "hi": [-12.8, 67.3], "wall": 16.0, "ridge": 22.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-10.8, -6.7], "hi": [1.2, 55.3], "wall": 13.0, "ridge": 18.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [1.2, 3.2], "hi": [6.0, 22.3], "wall": 2.4, "ridge": 2.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [1.2, 22.3], "hi": [8.1, 29.3], "wall": 3.5, "ridge": 3.5, "roof": "flat"}}]}
+}

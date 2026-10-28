@@ -1,0 +1,9 @@
+{
+"railwaystation": {"id": 160, "path": "Buildings/ussr/summer/railwaystation", "how": "hand shape", "fit": 0.923, "footprint": ["0101010101010101010101", "0101010101010101010101", "0101010101010101010101", "0101010101010101010101", "0101010101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-256.0, 5.0], "hi": [-66.0, 100.0], "wall": 31.0, "ridge": 76.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-70.0, 1.0], "hi": [-4.0, 115.0], "wall": 75.0, "ridge": 120.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-42.8, 47.1], "hi": [-30.8, 59.1], "wall": 138.2, "ridge": 138.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-20.2, -6.0], "hi": [-11.0, 1.0], "wall": 3.5, "ridge": 3.5, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [23.0, 7.0], "hi": [37.0, 31.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [176.0, 18.0], "hi": [180.0, 28.0]}}]}
+}

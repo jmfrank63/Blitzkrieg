@@ -1,0 +1,4 @@
+{
+"mine": {"id": 258, "path": "Objects/SimpleObjects/common/summer/mine", "how": "poles", "fit": 0.650, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-7.4, 5.9, 0.0], "to": [-8.4, 10.8, 7.3], "radius": 1.8}}]}
+}

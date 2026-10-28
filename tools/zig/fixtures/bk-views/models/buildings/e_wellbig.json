@@ -1,0 +1,6 @@
+{
+"01": {"id": 113, "path": "Buildings/europe/summer/e_wellbig/01", "how": "fit", "fit": 0.853, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-42.7, 0.2], "hi": [-0.7, 42.2], "wall": 8.0, "ridge": 10.0, "roof": "gable_x"}}]},
+"03": {"id": 114, "path": "Buildings/europe/summer/e_wellbig/03", "how": "fit", "fit": 0.869, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-34.3, -3.7], "hi": [5.7, 38.3], "wall": 9.0, "ridge": 9.0, "roof": "flat"}}]}
+}

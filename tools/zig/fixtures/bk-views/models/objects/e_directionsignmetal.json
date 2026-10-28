@@ -1,0 +1,13 @@
+{
+"01": {"id": 283, "path": "Objects/SimpleObjects/europe/summer/e_directionsignmetal/01", "how": "poles", "fit": 0.734, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-2.1, 2.2, 0.0], "to": [-24.1, 22.0, 51.1], "radius": 2.0}},
+  {"kind": "pole", "pole": {"from": [-77.7, 57.7, 0.0], "to": [-64.5, 81.3, 12.7], "radius": 2.0}},
+  {"kind": "pole", "pole": {"from": [-54.3, 71.3, 0.0], "to": [-64.3, 65.9, 5.7], "radius": 1.9}}]},
+"02": {"id": 284, "path": "Objects/SimpleObjects/europe/summer/e_directionsignmetal/02", "how": "poles", "fit": 0.639, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-1.1, 0.4, 0.0], "to": [-21.2, 20.5, 49.4], "radius": 1.6}},
+  {"kind": "pole", "pole": {"from": [-62.8, 45.4, 0.0], "to": [-53.1, 68.1, 15.9], "radius": 2.0}}]},
+"03": {"id": 285, "path": "Objects/SimpleObjects/europe/summer/e_directionsignmetal/03", "how": "fit, refined", "fit": 0.453, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-4.0, -0.2], "hi": [-0.4, 2.4], "wall": 66.0, "ridge": 66.0, "roof": "flat"}}]},
+"04": {"id": 286, "path": "Objects/SimpleObjects/europe/summer/e_directionsignmetal/04", "how": "poles", "fit": 0.418, "footprint": ["01"], "parts": [
+  {"kind": "pole", "pole": {"from": [-1.1, 0.4, 0.0], "to": [-21.6, 20.9, 50.2], "radius": 1.6}}]}
+}

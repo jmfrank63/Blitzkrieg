@@ -1,0 +1,18 @@
+{
+"ukrainehouse01_1": {"id": 184, "path": "Buildings/ussr/summer/ukrainehouse01_1", "how": "fit", "fit": 0.944, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-105.3, 5.9], "hi": [-6.3, 78.9], "wall": 24.0, "ridge": 72.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-107.3, 88.9], "hi": [-28.3, 100.9], "wall": 29.0, "ridge": 29.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-129.3, 24.9], "hi": [-109.3, 86.9], "wall": 36.0, "ridge": 36.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-87.8, 36.2], "hi": [-77.9, 46.1], "wall": 78.2, "ridge": 78.2, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-66.0, 96.4], "hi": [-63.1, 99.2], "wall": 38.2, "ridge": 38.2, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-31.7, 43.0], "hi": [-28.2, 46.5], "wall": 77.5, "ridge": 77.5, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-83.0, 36.0], "hi": [-73.0, 46.0], "wall": 77.0, "ridge": 77.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-34.0, 36.0], "hi": [-26.0, 46.0], "wall": 74.0, "ridge": 74.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [44.0, 0.0], "hi": [51.0, 5.0]}}]},
+"ukrainehouse01_2": {"id": 185, "path": "Buildings/ussr/summer/ukrainehouse01_2", "how": "hand shape", "fit": 0.930, "footprint": ["0101010100", "0101010100", "0101010101", "0101010101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-68.5, 18.5], "hi": [0.5, 119.5], "wall": 27.0, "ridge": 80.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-98.5, 22.5], "hi": [-84.5, 97.5], "wall": 20.0, "ridge": 32.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-76.5, 3.5], "hi": [-14.5, 29.5], "wall": 27.0, "ridge": 49.0, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-39.0, 70.1], "hi": [-31.2, 77.9], "wall": 81.9, "ridge": 81.9, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [0.5, 52.7], "hi": [17.3, 102.2], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]}
+}

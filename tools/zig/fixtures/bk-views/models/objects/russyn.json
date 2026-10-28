@@ -1,0 +1,4 @@
+{
+"russyn": {"id": 374, "path": "Objects/SimpleObjects/ussr/summer/russyn", "how": "fit, refined", "fit": 0.729, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-17.1, 12.2], "hi": [-14.5, 20.8], "wall": 18.0, "ridge": 25.0, "roof": "gable_y"}}]}
+}

@@ -1,0 +1,7 @@
+{
+"ukrainehouse02": {"id": 186, "path": "Buildings/ussr/summer/ukrainehouse02", "how": "fit", "fit": 0.964, "footprint": ["01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-96.7, 1.9], "hi": [-3.7, 82.9], "wall": 28.0, "ridge": 28.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-95.7, 88.9], "hi": [-21.7, 100.9], "wall": 32.0, "ridge": 48.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-3.7, 32.2], "hi": [5.3, 50.6], "wall": 4.5, "ridge": 4.5, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [57.0, 16.0], "hi": [65.0, 24.0]}}]}
+}

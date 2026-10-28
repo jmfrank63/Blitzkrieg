@@ -1,0 +1,22 @@
+{
+"01": {"id": 291, "path": "Objects/SimpleObjects/europe/summer/e_fence_bush/01", "how": "fit, refined", "fit": 0.909, "footprint": ["0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-43.3, 0.8], "hi": [-1.3, 25.8], "wall": 17.0, "ridge": 26.0, "roof": "gable_x"}}]},
+"02": {"id": 292, "path": "Objects/SimpleObjects/europe/summer/e_fence_bush/02", "how": "fit, refined", "fit": 0.929, "footprint": ["01", "01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-28.5, 4.1], "hi": [-3.5, 45.1], "wall": 17.0, "ridge": 33.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-34.5, 42.1], "hi": [-24.5, 64.1], "wall": 12.4, "ridge": 16.0, "roof": "gable_x"}}]},
+"03": {"id": 293, "path": "Objects/SimpleObjects/europe/summer/e_fence_bush/03", "how": "fit, refined", "fit": 0.938, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-49.2, 6.5], "hi": [-10.2, 35.5], "wall": 10.0, "ridge": 14.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-63.2, 19.5], "hi": [-37.2, 37.5], "wall": 15.0, "ridge": 15.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-22.2, 1.5], "hi": [-2.5, 21.9], "wall": 6.4, "ridge": 6.4, "roof": "flat"}}]},
+"04": {"id": 294, "path": "Objects/SimpleObjects/europe/summer/e_fence_bush/04", "how": "fit, refined", "fit": 0.909, "footprint": ["01", "01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-34.0, 10.5], "hi": [-9.0, 50.5], "wall": 17.0, "ridge": 17.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-21.0, 2.5], "hi": [-2.0, 37.5], "wall": 14.0, "ridge": 14.0, "roof": "flat"}}]},
+"05": {"id": 295, "path": "Objects/SimpleObjects/europe/summer/e_fence_bush/05", "how": "fit, refined", "fit": 0.945, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-55.5, 12.2], "hi": [-12.5, 36.2], "wall": 12.0, "ridge": 28.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-69.5, 26.2], "hi": [-57.5, 41.2], "wall": 12.4, "ridge": 12.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-35.8, 5.3], "hi": [-11.5, 12.2], "wall": 11.4, "ridge": 11.4, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-6.5, 3.2], "hi": [-5.3, 25.1], "wall": 10.6, "ridge": 10.6, "roof": "flat"}}]},
+"06": {"id": 296, "path": "Objects/SimpleObjects/europe/summer/e_fence_bush/06", "how": "fit, refined", "fit": 0.914, "footprint": ["01", "01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-31.7, 8.8], "hi": [-2.7, 44.8], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-35.7, 49.8], "hi": [-22.7, 64.8], "wall": 12.0, "ridge": 13.0, "roof": "gable_x"}}]}
+}

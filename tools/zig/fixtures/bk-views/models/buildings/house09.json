@@ -1,0 +1,7 @@
+{
+"house09": {"id": 144, "path": "Buildings/ussr/summer/house09", "how": "fit", "fit": 0.922, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-100.4, 4.4], "hi": [-3.4, 114.4], "wall": 25.0, "ridge": 52.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [43.0, 16.0], "hi": [47.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [49.0, 17.0], "hi": [53.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [22.0, 18.0], "hi": [26.0, 25.0]}}]}
+}

@@ -1,0 +1,4 @@
+{
+"roadpost": {"id": 264, "path": "Objects/SimpleObjects/common/summer/roadpost", "how": "fit, refined", "fit": 0.949, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-7.7, 1.9], "hi": [-3.1, 4.5], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]}
+}

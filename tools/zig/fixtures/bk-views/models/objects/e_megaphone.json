@@ -1,0 +1,4 @@
+{
+"e_megaphone": {"id": 278, "path": "Objects/SimpleObjects/europe/summer/e_column/e_megaphone", "how": "fit, refined", "fit": 0.357, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-7.7, 2.9], "hi": [-5.1, 6.5], "wall": 66.0, "ridge": 66.0, "roof": "flat"}}]}
+}

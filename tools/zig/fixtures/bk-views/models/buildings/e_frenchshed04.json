@@ -1,0 +1,16 @@
+{
+"e_frenchshed04": {"id": 55, "path": "Buildings/europe/summer/e_frenchshed04", "how": "fit", "fit": 0.971, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-87.7, 7.2], "hi": [0.3, 241.2], "wall": 31.0, "ridge": 88.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-78.7, -1.8], "hi": [-12.7, 43.2], "wall": 44.0, "ridge": 88.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-46.7, 48.1], "hi": [-44.6, 50.2], "wall": 86.6, "ridge": 86.6, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-44.2, -11.0], "hi": [-23.7, -1.8], "wall": 4.6, "ridge": 4.6, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [0.3, 80.3], "hi": [12.4, 103.6], "wall": 6.0, "ridge": 6.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [0.3, 138.9], "hi": [10.3, 151.7], "wall": 5.0, "ridge": 5.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [79.0, 0.0], "hi": [88.0, 7.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [0.0, 12.0], "hi": [7.0, 19.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [44.0, 7.0], "hi": [55.0, 15.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [58.0, 31.0], "hi": [62.0, 36.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [11.0, 35.0], "hi": [17.0, 44.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [30.0, 36.0], "hi": [35.0, 44.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [0.0, 33.0], "hi": [5.0, 44.0]}}]}
+}

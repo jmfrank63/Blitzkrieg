@@ -1,0 +1,126 @@
+{
+"01": {"id": 319, "path": "Objects/SimpleObjects/ussr/summer/container/01", "how": "fit, refined", "fit": 0.986, "footprint": ["000101", "010101", "010101", "000100"], "parts": [
+  {"kind": "body", "block": {"lo": [-62.5, 32.7], "hi": [-18.5, 79.7], "wall": 9.0, "ridge": 21.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-40.5, 0.7], "hi": [-2.5, 31.7], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-14.5, 27.7], "hi": [-2.5, 57.7], "wall": 12.0, "ridge": 12.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-62.5, 56.7], "hi": [-44.5, 92.7], "wall": 12.0, "ridge": 12.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-52.5, 12.7], "hi": [-44.5, 32.7], "wall": 20.0, "ridge": 24.0, "roof": "hip"}}]},
+"02": {"id": 320, "path": "Objects/SimpleObjects/ussr/summer/container/02", "how": "fit, refined", "fit": 0.957, "footprint": ["00000100", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-79.3, 2.6], "hi": [-23.3, 57.6], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-22.3, 4.6], "hi": [-7.3, 41.6], "wall": 8.0, "ridge": 24.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-93.3, 18.6], "hi": [-81.3, 41.6], "wall": 14.0, "ridge": 18.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-44.3, -12.4], "hi": [-26.3, 8.6], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]},
+"03": {"id": 321, "path": "Objects/SimpleObjects/ussr/summer/container/03", "how": "fit, refined", "fit": 0.945, "footprint": ["000100", "010100", "010101", "010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.4, 28.3], "hi": [-7.4, 77.3], "wall": 18.0, "ridge": 31.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-21.4, 3.3], "hi": [-4.4, 43.3], "wall": 10.0, "ridge": 10.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-4.4, 38.3], "hi": [9.6, 57.3], "wall": 14.0, "ridge": 14.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-41.4, 16.3], "hi": [-24.4, 31.3], "wall": 26.0, "ridge": 29.0, "roof": "gable_x"}}]},
+"04": {"id": 322, "path": "Objects/SimpleObjects/ussr/summer/container/04", "how": "fit, refined", "fit": 0.970, "footprint": ["01010100", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-59.8, 2.4], "hi": [-3.8, 55.4], "wall": 18.0, "ridge": 25.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-77.8, 20.4], "hi": [-62.8, 57.4], "wall": 15.0, "ridge": 15.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-3.8, 23.4], "hi": [12.2, 38.4], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]},
+"05": {"id": 323, "path": "Objects/SimpleObjects/ussr/summer/container/05", "how": "fit, refined", "fit": 0.973, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-13.3, 23.1], "hi": [-2.3, 59.1], "wall": 1.0, "ridge": 32.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-55.3, 54.1], "hi": [-43.3, 72.1], "wall": 4.0, "ridge": 4.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-21.3, 3.1], "hi": [-3.3, 23.1], "wall": 32.0, "ridge": 32.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-40.3, 53.1], "hi": [-22.3, 79.1], "wall": 14.0, "ridge": 14.0, "roof": "flat"}}]},
+"06": {"id": 324, "path": "Objects/SimpleObjects/ussr/summer/container/06", "how": "fit, refined", "fit": 0.967, "footprint": ["010100", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-56.9, -14.1], "hi": [-19.9, 7.9], "wall": 16.0, "ridge": 18.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-60.9, 2.9], "hi": [-2.9, 21.9], "wall": 28.6, "ridge": 29.0, "roof": "gable_y"}}]},
+"07": {"id": 325, "path": "Objects/SimpleObjects/ussr/summer/container/07", "how": "fit, refined", "fit": 0.977, "footprint": ["0101", "0101", "0100"], "parts": [
+  {"kind": "body", "block": {"lo": [-46.6, 6.8], "hi": [-5.6, 41.8], "wall": 26.0, "ridge": 40.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-51.6, 55.8], "hi": [-33.6, 67.8], "wall": 21.0, "ridge": 22.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-40.7, 1.8], "hi": [-23.7, 4.8], "wall": 10.5, "ridge": 10.5, "roof": "flat"}}]},
+"08": {"id": 326, "path": "Objects/SimpleObjects/ussr/summer/container/08", "how": "fit, refined", "fit": 0.924, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-56.1, 2.1], "hi": [-5.1, 45.1], "wall": 10.0, "ridge": 12.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-75.1, 21.1], "hi": [-55.1, 47.1], "wall": 8.0, "ridge": 17.0, "roof": "gable_x"}}]},
+"09": {"id": 327, "path": "Objects/SimpleObjects/ussr/summer/container/09", "how": "fit, refined", "fit": 0.950, "footprint": ["010101", "010101", "010101", "010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-63.8, 24.3], "hi": [-18.8, 67.3], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-41.8, 0.3], "hi": [-8.8, 19.3], "wall": 32.0, "ridge": 32.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-52.8, 61.3], "hi": [-33.8, 82.3], "wall": 10.0, "ridge": 10.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-13.8, 27.3], "hi": [5.2, 43.3], "wall": 16.0, "ridge": 25.0, "roof": "gable_y"}}]},
+"10": {"id": 328, "path": "Objects/SimpleObjects/ussr/summer/container/10", "how": "fit, refined", "fit": 0.922, "footprint": ["010100", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-59.9, 16.5], "hi": [-9.9, 58.5], "wall": 8.0, "ridge": 34.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-32.9, -6.5], "hi": [-14.9, 24.5], "wall": 30.0, "ridge": 30.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-9.9, 16.5], "hi": [4.1, 44.5], "wall": 11.0, "ridge": 11.0, "roof": "flat"}}]},
+"11": {"id": 329, "path": "Objects/SimpleObjects/ussr/summer/container/11", "how": "fit, refined", "fit": 0.963, "footprint": ["010100", "010101", "010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-65.3, 6.9], "hi": [-23.3, 49.9], "wall": 10.0, "ridge": 15.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-13.3, 13.9], "hi": [-0.3, 32.9], "wall": 9.0, "ridge": 39.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-67.3, 43.9], "hi": [-35.3, 61.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-39.3, -5.1], "hi": [-14.3, 13.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-47.3, -9.1], "hi": [-34.3, 9.9], "wall": 33.0, "ridge": 33.0, "roof": "flat"}}]},
+"12": {"id": 330, "path": "Objects/SimpleObjects/ussr/summer/container/12", "how": "fit, refined", "fit": 0.958, "footprint": ["010101", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-53.8, 1.0], "hi": [-9.8, 50.0], "wall": 14.0, "ridge": 20.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-4.8, 1.0], "hi": [3.2, 38.0], "wall": 15.0, "ridge": 15.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-42.8, 50.0], "hi": [-23.8, 62.0], "wall": 10.0, "ridge": 10.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-26.8, -11.0], "hi": [-8.8, -0.0], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]},
+"13": {"id": 331, "path": "Objects/SimpleObjects/ussr/summer/container/13", "how": "fit, refined", "fit": 0.960, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-48.8, 7.9], "hi": [-8.8, 46.9], "wall": 22.0, "ridge": 22.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-37.8, -0.1], "hi": [0.2, 34.9], "wall": 6.0, "ridge": 6.0, "roof": "flat"}}]},
+"14": {"id": 332, "path": "Objects/SimpleObjects/ussr/summer/container/14", "how": "fit, refined", "fit": 0.947, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-43.0, 4.2], "hi": [-5.0, 45.2], "wall": 28.0, "ridge": 28.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-56.0, 14.2], "hi": [-44.0, 54.2], "wall": 18.0, "ridge": 24.0, "roof": "hip"}}]},
+"15": {"id": 333, "path": "Objects/SimpleObjects/ussr/summer/container/15", "how": "fit, refined", "fit": 0.964, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-42.0, 4.2], "hi": [-5.0, 42.2], "wall": 12.0, "ridge": 12.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-61.0, 49.2], "hi": [-22.0, 61.2], "wall": 14.0, "ridge": 14.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-60.0, 19.2], "hi": [-42.0, 48.2], "wall": 15.0, "ridge": 24.0, "roof": "gable_y"}}]},
+"16": {"id": 334, "path": "Objects/SimpleObjects/ussr/summer/container/16", "how": "fit, refined", "fit": 0.950, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-43.2, 2.4], "hi": [-3.2, 39.4], "wall": 27.0, "ridge": 28.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-60.2, 46.4], "hi": [-16.2, 59.4], "wall": 14.0, "ridge": 14.0, "roof": "flat"}}]},
+"17": {"id": 335, "path": "Objects/SimpleObjects/ussr/summer/container/17", "how": "fit, refined", "fit": 0.931, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-42.6, 3.8], "hi": [-4.6, 41.8], "wall": 35.0, "ridge": 35.0, "roof": "gable_x"}}]},
+"18": {"id": 336, "path": "Objects/SimpleObjects/ussr/summer/container/18", "how": "fit", "fit": 0.953, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-39.9, 4.5], "hi": [-1.9, 42.5], "wall": 34.0, "ridge": 37.0, "roof": "gable_x"}}]},
+"19": {"id": 337, "path": "Objects/SimpleObjects/ussr/summer/container/19", "how": "fit, refined", "fit": 0.946, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-41.6, 3.8], "hi": [-3.6, 41.8], "wall": 35.0, "ridge": 35.0, "roof": "flat"}}]},
+"20": {"id": 338, "path": "Objects/SimpleObjects/ussr/summer/container/20", "how": "fit, refined", "fit": 0.952, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-39.8, 2.9], "hi": [-0.8, 36.9], "wall": 32.0, "ridge": 32.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-57.8, 17.9], "hi": [-19.8, 57.9], "wall": 20.4, "ridge": 21.0, "roof": "gable_y"}}]},
+"21": {"id": 339, "path": "Objects/SimpleObjects/ussr/summer/container/21", "how": "fit, refined", "fit": 0.958, "footprint": ["010101", "010101", "010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-70.8, 48.4], "hi": [-43.8, 57.4], "wall": 8.0, "ridge": 16.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-25.8, 8.4], "hi": [-5.8, 25.4], "wall": 41.0, "ridge": 41.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-61.8, 2.4], "hi": [-24.8, 16.4], "wall": 36.0, "ridge": 39.0, "roof": "gable_y"}}]},
+"22": {"id": 340, "path": "Objects/SimpleObjects/ussr/summer/container/22", "how": "fit, refined", "fit": 0.970, "footprint": ["0101", "0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-42.3, 2.1], "hi": [-10.3, 57.1], "wall": 16.0, "ridge": 30.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-48.3, 59.1], "hi": [-29.3, 76.1], "wall": 14.0, "ridge": 14.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-20.3, 1.1], "hi": [-4.3, 18.1], "wall": 47.0, "ridge": 47.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-11.3, 21.4], "hi": [-5.3, 39.2], "wall": 11.0, "ridge": 11.0, "roof": "flat"}}]},
+"23": {"id": 341, "path": "Objects/SimpleObjects/ussr/summer/container/23", "how": "fit, refined", "fit": 0.971, "footprint": ["010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-59.2, 15.8], "hi": [-21.2, 56.8], "wall": 22.0, "ridge": 36.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-18.2, 1.8], "hi": [-4.2, 39.8], "wall": 32.0, "ridge": 42.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-42.2, 3.8], "hi": [-19.2, 15.8], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-73.2, 28.8], "hi": [-61.2, 48.8], "wall": 17.8, "ridge": 19.0, "roof": "gable_x"}}]},
+"24": {"id": 342, "path": "Objects/SimpleObjects/ussr/summer/container/24", "how": "fit, refined", "fit": 0.974, "footprint": ["010100", "010101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-61.5, 27.6], "hi": [-25.5, 61.6], "wall": 16.0, "ridge": 33.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-15.5, 13.6], "hi": [-3.5, 51.6], "wall": 19.0, "ridge": 19.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-35.5, -3.4], "hi": [-16.5, 22.6], "wall": 28.0, "ridge": 28.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-45.5, 47.6], "hi": [-23.0, 58.1], "wall": 30.8, "ridge": 30.8, "roof": "flat"}}]},
+"25": {"id": 343, "path": "Objects/SimpleObjects/ussr/summer/container/25", "how": "fit, refined", "fit": 0.971, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-39.2, 0.4], "hi": [-2.2, 39.4], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-55.2, 17.4], "hi": [-34.2, 38.4], "wall": 18.0, "ridge": 23.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-43.2, 40.4], "hi": [-29.2, 59.4], "wall": 17.0, "ridge": 20.0, "roof": "gable_x"}}]},
+"26": {"id": 344, "path": "Objects/SimpleObjects/ussr/summer/container/26", "how": "fit, refined", "fit": 0.940, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-35.6, 3.8], "hi": [-3.6, 40.8], "wall": 15.0, "ridge": 44.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-41.6, 47.8], "hi": [-22.6, 59.8], "wall": 18.0, "ridge": 18.0, "roof": "flat"}}]},
+"27": {"id": 345, "path": "Objects/SimpleObjects/ussr/summer/container/27", "how": "fit, refined", "fit": 0.938, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-42.6, 4.8], "hi": [-4.6, 41.8], "wall": 33.0, "ridge": 33.0, "roof": "flat"}}]},
+"28": {"id": 346, "path": "Objects/SimpleObjects/ussr/summer/container/28", "how": "fit, refined", "fit": 0.906, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-38.2, -0.4], "hi": [-1.9, 35.8], "wall": 34.0, "ridge": 34.0, "roof": "flat"}}]},
+"29": {"id": 347, "path": "Objects/SimpleObjects/ussr/summer/container/29", "how": "fit, refined", "fit": 0.970, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-36.5, 1.1], "hi": [-2.5, 32.1], "wall": 20.0, "ridge": 20.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-54.5, 19.1], "hi": [-34.5, 35.1], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-42.5, 33.1], "hi": [-25.5, 55.1], "wall": 15.0, "ridge": 15.0, "roof": "flat"}}]},
+"30": {"id": 348, "path": "Objects/SimpleObjects/ussr/summer/container/30", "how": "fit, refined", "fit": 0.992, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-38.2, 15.4], "hi": [-8.2, 44.4], "wall": 15.0, "ridge": 32.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-39.2, 46.4], "hi": [-22.2, 58.4], "wall": 12.0, "ridge": 13.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-19.2, 2.4], "hi": [-1.2, 38.4], "wall": 14.0, "ridge": 14.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-49.2, 26.4], "hi": [-37.2, 44.4], "wall": 20.0, "ridge": 20.0, "roof": "hip"}}]},
+"31": {"id": 349, "path": "Objects/SimpleObjects/ussr/summer/container/31", "how": "fit, refined", "fit": 0.978, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-43.2, 30.0], "hi": [-11.2, 44.0], "wall": 19.0, "ridge": 19.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-7.2, 13.0], "hi": [4.8, 29.0], "wall": 30.0, "ridge": 30.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-26.2, -5.0], "hi": [-8.2, 24.0], "wall": 27.8, "ridge": 41.0, "roof": "hip"}}]},
+"32": {"id": 350, "path": "Objects/SimpleObjects/ussr/summer/container/32", "how": "fit, refined", "fit": 0.978, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-41.2, 6.4], "hi": [-17.2, 37.4], "wall": 26.0, "ridge": 32.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-21.2, 7.4], "hi": [-0.2, 23.4], "wall": 30.0, "ridge": 30.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-37.1, 2.5], "hi": [-20.2, 6.4], "wall": 10.0, "ridge": 10.0, "roof": "flat"}}]}
+}

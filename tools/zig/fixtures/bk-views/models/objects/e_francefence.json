@@ -1,0 +1,10 @@
+{
+"01": {"id": 297, "path": "Objects/SimpleObjects/europe/summer/e_francefence/01", "how": "fit, refined", "fit": 0.800, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-40.5, -0.2], "hi": [-9.5, 12.8], "wall": 9.0, "ridge": 9.0, "roof": "flat"}}]},
+"02": {"id": 298, "path": "Objects/SimpleObjects/europe/summer/e_francefence/02", "how": "fit, refined", "fit": 0.823, "footprint": ["01", "01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-5.9, 3.2], "hi": [-2.9, 46.2], "wall": 18.0, "ridge": 18.0, "roof": "flat"}}]},
+"03": {"id": 299, "path": "Objects/SimpleObjects/europe/summer/e_francefence/03", "how": "fit, refined", "fit": 0.798, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-47.7, -0.3], "hi": [-8.8, 6.3], "wall": 17.0, "ridge": 17.0, "roof": "flat"}}]},
+"04": {"id": 300, "path": "Objects/SimpleObjects/europe/summer/e_francefence/04", "how": "fit, refined", "fit": 0.781, "footprint": ["01", "01", "01"], "parts": [
+  {"kind": "body", "block": {"lo": [-20.3, 8.5], "hi": [-3.3, 39.5], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]}
+}

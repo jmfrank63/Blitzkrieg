@@ -1,0 +1,20 @@
+{
+"01": {"id": 111, "path": "Buildings/europe/summer/e_wb/01", "how": "fit", "fit": 0.976, "footprint": ["010101010101010101", "010101010101010101", "010101010101010101", "010101010101010101", "010101010101010101", "010101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-201.1, 1.2], "hi": [-2.1, 119.2], "wall": 49.0, "ridge": 69.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-169.4, -13.1], "hi": [-117.7, 1.2], "wall": 7.2, "ridge": 7.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-83.8, -13.1], "hi": [-30.8, 1.2], "wall": 7.2, "ridge": 7.2, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-2.1, 34.3], "hi": [11.0, 89.4], "wall": 6.5, "ridge": 6.5, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-2.1, 31.6], "hi": [13.5, 87.4], "wall": 7.8, "ridge": 7.8, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-160.0, 48.0], "hi": [-120.0, 72.0], "wall": 71.0, "ridge": 71.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-77.0, 48.0], "hi": [-34.0, 72.0], "wall": 71.0, "ridge": 71.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [15.0, 1.0], "hi": [27.0, 9.0]}}]},
+"02": {"id": 112, "path": "Buildings/europe/summer/e_wb/02", "how": "fit", "fit": 0.964, "footprint": ["000001010000", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-117.5, -5.7], "hi": [-1.5, 194.3], "wall": 48.0, "ridge": 69.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-134.8, 107.5], "hi": [-117.5, 152.8], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-134.8, 22.7], "hi": [-117.5, 67.2], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-87.4, -19.0], "hi": [-32.2, -5.7], "wall": 6.7, "ridge": 6.7, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-86.6, -18.7], "hi": [-30.8, -5.7], "wall": 6.5, "ridge": 6.5, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-73.7, 111.9], "hi": [-49.7, 151.9], "wall": 71.0, "ridge": 71.0, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-73.7, 25.9], "hi": [-49.7, 68.9], "wall": 71.0, "ridge": 71.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [156.0, 9.0], "hi": [163.0, 14.0]}}]}
+}

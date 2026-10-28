@@ -1,0 +1,31 @@
+{
+"e_shed02_2": {"id": 85, "path": "Buildings/europe/summer/e_shed02_2", "how": "fit", "fit": 0.923, "footprint": ["01010100", "01010100", "01010100", "01010101", "01010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-76.3, 4.4], "hi": [-2.3, 103.4], "wall": 46.0, "ridge": 52.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-94.3, 24.4], "hi": [-24.3, 125.4], "wall": 7.0, "ridge": 7.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-64.9, 97.5], "hi": [-55.7, 106.7], "wall": 54.4, "ridge": 54.4, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [0.0, 0.0], "hi": [4.0, 5.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [51.0, 17.0], "hi": [55.0, 23.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [51.0, 24.0], "hi": [63.0, 32.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [65.0, 24.0], "hi": [69.0, 30.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [37.0, 26.0], "hi": [49.0, 33.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [27.0, 28.0], "hi": [35.0, 35.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [3.0, 31.0], "hi": [8.0, 38.0]}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall +x", "lo": [50.0, 0.0], "hi": [55.0, 11.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [60.0, 0.0], "hi": [64.0, 5.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [15.0, 17.0], "hi": [21.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [67.0, 17.0], "hi": [73.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [74.0, 17.0], "hi": [79.0, 25.0]}}]},
+"e_shed02_3": {"id": 86, "path": "Buildings/europe/summer/e_shed02_3", "how": "fit", "fit": 0.935, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-99.8, 0.8], "hi": [-1.8, 80.8], "wall": 52.0, "ridge": 65.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [5.0, 41.0], "hi": [13.0, 52.0]}}]},
+"e_shed02_4": {"id": 87, "path": "Buildings/europe/summer/e_shed02_4", "how": "hand shape", "fit": 0.879, "footprint": ["01010101", "01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-93.0, 4.0], "hi": [-5.0, 117.0], "wall": 45.0, "ridge": 55.0, "roof": "hip"}}]},
+"e_shed02_5": {"id": 88, "path": "Buildings/europe/summer/e_shed02_5", "how": "hand shape", "fit": 0.870, "footprint": ["01010100", "01010101", "01010100", "01010100", "01010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-76.0, 0.0], "hi": [-2.0, 99.0], "wall": 32.0, "ridge": 58.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-64.0, 44.0], "hi": [-1.0, 102.0], "wall": 50.0, "ridge": 60.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-51.0, 3.0], "hi": [-1.0, 22.0], "wall": 14.0, "ridge": 14.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [53.0, 19.0], "hi": [58.0, 25.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [18.0, 18.0], "hi": [23.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [26.0, 17.0], "hi": [33.0, 24.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [35.0, 17.0], "hi": [39.0, 23.0]}}]}
+}

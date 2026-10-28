@@ -1,0 +1,9 @@
+{
+"factoryboiler": {"id": 131, "path": "Buildings/ussr/summer/factoryboiler", "how": "hand shape", "fit": 0.950, "footprint": ["01010101000000", "01010101010101", "01010101010101", "01010101010101", "01010101010101", "01010101010101", "01010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-171.0, 1.0], "hi": [-1.0, 118.0], "wall": 41.0, "ridge": 80.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-76.0, 47.0], "hi": [-25.0, 75.0], "wall": 89.0, "ridge": 104.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-136.0, -54.0], "hi": [-76.0, -1.0], "wall": 14.0, "ridge": 29.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-134.1, -42.7], "hi": [-132.0, -40.6], "wall": 16.4, "ridge": 18.7, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-1.0, 40.7], "hi": [8.1, 86.6], "wall": 4.6, "ridge": 4.6, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [93.0, 7.0], "hi": [98.0, 12.0]}}]}
+}

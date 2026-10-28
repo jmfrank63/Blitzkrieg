@@ -1,0 +1,9 @@
+{
+"storehouse_1": {"id": 163, "path": "Buildings/ussr/summer/storehouse_1", "how": "fit", "fit": 0.968, "footprint": ["010101010101010101", "010101010101010101", "010101010101010101", "010101010101010101", "010101010101010101", "010101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-206.3, 1.4], "hi": [-4.3, 138.4], "wall": 48.0, "ridge": 78.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-4.3, 37.8], "hi": [1.8, 44.9], "wall": 3.0, "ridge": 3.0, "roof": "flat"}}]},
+"storehouse_2": {"id": 164, "path": "Buildings/ussr/summer/storehouse_2", "how": "fit", "fit": 0.975, "footprint": ["010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-136.6, 5.8], "hi": [0.4, 204.8], "wall": 48.0, "ridge": 76.0, "roof": "gable_y"}},
+  {"kind": "low", "block": {"lo": [-124.8, -1.8], "hi": [0.4, 5.8], "wall": 3.8, "ridge": 3.8, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [56.0, 32.0], "hi": [76.0, 41.0]}}]}
+}

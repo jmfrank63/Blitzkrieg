@@ -1,0 +1,25 @@
+{
+"e_house03_2": {"id": 64, "path": "Buildings/europe/summer/e_house03_2", "how": "fit", "fit": 0.930, "footprint": ["01010101010101", "01010101010101", "01010101010101", "01010101010101", "00000000000101"], "parts": [
+  {"kind": "body", "block": {"lo": [-158.2, 4.4], "hi": [1.8, 85.4], "wall": 74.0, "ridge": 117.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-111.2, 88.4], "hi": [-2.2, 121.4], "wall": 3.0, "ridge": 3.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-80.1, 46.1], "hi": [-69.5, 56.7], "wall": 122.3, "ridge": 122.3, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-78.3, 47.9], "hi": [-71.2, 55.0], "wall": 122.3, "ridge": 126.9, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-73.7, 46.1], "hi": [-68.0, 51.8], "wall": 118.0, "ridge": 118.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [100.0, 24.0], "hi": [109.0, 34.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [124.0, 24.0], "hi": [130.0, 35.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [49.0, 25.0], "hi": [58.0, 35.0]}}]},
+"e_house03_3": {"id": 65, "path": "Buildings/europe/summer/e_house03_3", "how": "hand shape", "fit": 0.940, "footprint": ["00000101010000", "01010101010000", "01010101010101", "01010101010101", "01010101010101", "01010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-172.0, -1.0], "hi": [-23.0, 99.0], "wall": 59.0, "ridge": 111.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-18.0, 0.0], "hi": [0.0, 78.0], "wall": 71.0, "ridge": 98.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-132.0, -40.0], "hi": [-48.0, 0.0], "wall": 45.0, "ridge": 85.0, "roof": "gable_x"}},
+  {"kind": "roof_part", "block": {"lo": [-138.0, 19.0], "hi": [-125.0, 32.0], "wall": 120.0, "ridge": 120.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [0.0, 38.0], "hi": [18.0, 59.0]}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall -y", "lo": [1.0, 12.0], "hi": [11.0, 19.0]}}]},
+"e_house03_4": {"id": 66, "path": "Buildings/europe/summer/e_house03_4", "how": "hand shape", "fit": 0.940, "footprint": ["00000101010000", "01010101010000", "01010101010101", "01010101010101", "01010101010101", "01010101010101", "00000101010000"], "parts": [
+  {"kind": "body", "block": {"lo": [-155.0, 28.0], "hi": [-6.0, 128.0], "wall": 59.0, "ridge": 111.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-1.0, 29.0], "hi": [17.0, 107.0], "wall": 71.0, "ridge": 98.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-115.0, -11.0], "hi": [-31.0, 29.0], "wall": 45.0, "ridge": 85.0, "roof": "gable_x"}},
+  {"kind": "roof_part", "block": {"lo": [-121.0, 48.0], "hi": [-108.0, 61.0], "wall": 120.0, "ridge": 120.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [0.0, 38.0], "hi": [18.0, 60.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [69.0, 0.0], "hi": [78.0, 5.0]}}]}
+}

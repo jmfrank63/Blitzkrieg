@@ -1,0 +1,4 @@
+{
+"conduitbarrel": {"id": 22, "path": "Buildings/common/summer/conduitbarrel", "how": "fit", "fit": 0.417, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-10.7, 4.5], "hi": [1.9, 17.1], "wall": 70.0, "ridge": 73.0, "roof": "gable_x"}}]}
+}

@@ -1,0 +1,22 @@
+{
+"01": {"id": 360, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/01", "how": "fit, refined", "fit": 0.843, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.5, 4.4], "hi": [-7.9, 15.0], "wall": 13.0, "ridge": 16.0, "roof": "gable_x"}}]},
+"02": {"id": 361, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/02", "how": "fit, refined", "fit": 0.885, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-15.5, 5.6], "hi": [-6.9, 14.2], "wall": 15.0, "ridge": 15.0, "roof": "flat"}}]},
+"03": {"id": 362, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/03", "how": "fit, refined", "fit": 0.821, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-24.3, 2.7], "hi": [-3.3, 17.7], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]},
+"04": {"id": 363, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/04", "how": "fit, refined", "fit": 0.926, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.2, 0.9], "hi": [-5.2, 17.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]},
+"05": {"id": 364, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/05", "how": "fit, refined", "fit": 0.840, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-15.4, -0.4], "hi": [-2.7, 10.2], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]},
+"06": {"id": 365, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/06", "how": "fit, refined", "fit": 0.884, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-14.6, 2.3], "hi": [-7.0, 12.9], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]},
+"07": {"id": 366, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/07", "how": "fit, refined", "fit": 0.901, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-10.4, 0.9], "hi": [-1.8, 10.5], "wall": 16.0, "ridge": 16.0, "roof": "flat"}}]},
+"08": {"id": 367, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/08", "how": "fit, refined", "fit": 0.927, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-20.6, 2.4], "hi": [-3.6, 12.4], "wall": 9.0, "ridge": 9.0, "roof": "flat"}}]},
+"09": {"id": 368, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/09", "how": "fit, refined", "fit": 0.944, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-13.8, 1.8], "hi": [-5.1, 20.4], "wall": 10.0, "ridge": 10.0, "roof": "flat"}}]},
+"10": {"id": 369, "path": "Objects/SimpleObjects/ussr/summer/metalbarrel/10", "how": "fit, refined", "fit": 0.863, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-12.4, 1.4], "hi": [-4.7, 17.0], "wall": 12.0, "ridge": 12.0, "roof": "flat"}}]}
+}

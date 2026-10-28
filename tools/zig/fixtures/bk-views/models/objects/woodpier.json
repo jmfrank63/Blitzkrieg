@@ -1,0 +1,99 @@
+{
+"01": {"id": 397, "path": "Objects/SimpleObjects/ussr/summer/woodpier/01", "how": "fit, refined", "fit": 0.702, "footprint": ["01010101", "01010101", "01010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-79.7, 16.9], "hi": [-56.7, 50.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-58.7, 43.9], "hi": [-27.7, 54.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-101.7, 22.9], "hi": [-84.7, 43.9], "wall": 4.0, "ridge": 4.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-48.7, 10.9], "hi": [-22.7, 23.9], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-15.7, 3.9], "hi": [8.3, 17.9], "wall": 8.0, "ridge": 8.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-107.3, 24.7], "hi": [-95.7, 28.3], "wall": 8.6, "ridge": 8.6, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-93.1, 38.9], "hi": [-80.0, 41.1], "wall": 8.6, "ridge": 8.7, "roof": "hip"}}]},
+"02": {"id": 398, "path": "Objects/SimpleObjects/ussr/summer/woodpier/02", "how": "fit, refined", "fit": 0.758, "footprint": ["010101", "010101", "010101", "010101", "010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-24.6, -4.1], "hi": [4.4, 64.9], "wall": 4.0, "ridge": 10.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-31.6, 44.9], "hi": [-20.6, 79.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-38.6, 81.9], "hi": [-21.6, 112.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-32.2, 51.3], "hi": [-29.1, 53.4], "wall": 10.5, "ridge": 10.5, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-31.2, 55.3], "hi": [-30.1, 57.4], "wall": 15.5, "ridge": 18.4, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-25.3, 22.4], "hi": [-23.7, 24.0], "wall": 17.1, "ridge": 17.1, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-26.6, 23.1], "hi": [-24.4, 25.3], "wall": 17.1, "ridge": 17.1, "roof": "flat"}}]},
+"03": {"id": 399, "path": "Objects/SimpleObjects/ussr/summer/woodpier/03", "how": "fit, refined", "fit": 0.775, "footprint": ["000001010101", "000101010101", "010101010101", "010101010000"], "parts": [
+  {"kind": "body", "block": {"lo": [-56.1, 6.0], "hi": [-6.1, 30.0], "wall": 8.0, "ridge": 20.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-112.1, 27.0], "hi": [-71.1, 40.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-73.1, -4.0], "hi": [-44.1, 41.0], "wall": 4.0, "ridge": 6.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-89.3, 34.4], "hi": [-88.0, 35.7], "wall": 35.3, "ridge": 35.3, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-114.6, 42.2], "hi": [-85.8, 43.9], "wall": 9.3, "ridge": 9.3, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-68.0, 37.2], "hi": [-66.2, 40.1], "wall": 33.9, "ridge": 33.9, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-21.8, 17.0], "hi": [-19.7, 19.1], "wall": 43.3, "ridge": 43.3, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-19.8, 15.0], "hi": [-17.7, 19.1], "wall": 34.3, "ridge": 44.4, "roof": "gable_x"}}]},
+"04": {"id": 400, "path": "Objects/SimpleObjects/ussr/summer/woodpier/04", "how": "fit, refined", "fit": 0.647, "footprint": ["01010101", "01010101", "01010101", "01010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-28.6, 35.1], "hi": [-4.6, 84.1], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-41.6, 3.1], "hi": [-27.6, 28.1], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-1.6, -6.9], "hi": [6.4, 7.1], "wall": 7.0, "ridge": 60.0, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-0.8, 13.4], "hi": [9.5, 18.7], "wall": 48.3, "ridge": 48.3, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [1.4, 15.5], "hi": [6.4, 23.6], "wall": 49.3, "ridge": 49.5, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-12.6, 29.1], "hi": [-0.4, 55.7], "wall": 10.1, "ridge": 10.1, "roof": "flat"}}]},
+"05": {"id": 401, "path": "Objects/SimpleObjects/ussr/summer/woodpier/05", "how": "fit, refined", "fit": 0.909, "footprint": ["010001", "010001", "010001", "010001", "010001", "010001"], "parts": [
+  {"kind": "body", "block": {"lo": [-35.4, -3.0], "hi": [-8.4, 98.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-17.4, -20.0], "hi": [-4.4, 43.0], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-28.4, -20.0], "hi": [-17.4, -10.0], "wall": 15.0, "ridge": 15.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-9.4, 68.1], "hi": [-0.1, 73.4], "wall": 12.1, "ridge": 12.1, "roof": "flat"}}]},
+"06": {"id": 402, "path": "Objects/SimpleObjects/ussr/summer/woodpier/06", "how": "fit, refined", "fit": 0.915, "footprint": ["010101010101", "000000000000", "010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-99.6, 4.5], "hi": [9.4, 37.5], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-46.6, 4.5], "hi": [21.4, 24.5], "wall": 6.0, "ridge": 6.0, "roof": "flat"}}]},
+"07": {"id": 403, "path": "Objects/SimpleObjects/ussr/summer/woodpier/07", "how": "fit, refined", "fit": 0.914, "footprint": ["0101010101", "0000000000", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-97.6, -10.1], "hi": [8.4, 21.9], "wall": 7.0, "ridge": 7.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-111.6, 1.9], "hi": [-99.6, 22.9], "wall": 7.0, "ridge": 7.0, "roof": "flat"}}]},
+"08": {"id": 404, "path": "Objects/SimpleObjects/ussr/summer/woodpier/08", "how": "fit, refined", "fit": 0.926, "footprint": ["010001", "010001", "010001", "010001", "010001"], "parts": [
+  {"kind": "body", "block": {"lo": [-21.4, 11.8], "hi": [9.6, 102.8], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-12.4, -11.2], "hi": [9.6, 15.8], "wall": 4.0, "ridge": 4.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-12.4, 90.8], "hi": [9.6, 102.8], "wall": 12.0, "ridge": 13.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-29.4, 2.8], "hi": [-17.4, 29.8], "wall": 3.0, "ridge": 3.0, "roof": "flat"}}]},
+"09": {"id": 405, "path": "Objects/SimpleObjects/ussr/summer/woodpier/09", "how": "fit, refined", "fit": 0.879, "footprint": ["0100000001", "0100000001", "0100000001", "0100000001"], "parts": [
+  {"kind": "body", "block": {"lo": [-58.2, 2.5], "hi": [-6.2, 66.5], "wall": 23.0, "ridge": 23.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-26.5, 63.2], "hi": [-24.3, 65.4], "wall": 79.4, "ridge": 79.4, "roof": "flat"}}]},
+"10": {"id": 406, "path": "Objects/SimpleObjects/ussr/summer/woodpier/10", "how": "fit, refined", "fit": 0.934, "footprint": ["0101010001", "0101000001", "0100000001", "0100000001"], "parts": [
+  {"kind": "body", "block": {"lo": [-60.9, -1.3], "hi": [1.1, 40.7], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-33.9, 14.7], "hi": [2.1, 75.7], "wall": 16.0, "ridge": 41.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-70.9, 40.7], "hi": [-59.9, 72.7], "wall": 8.0, "ridge": 10.0, "roof": "gable_y"}}]},
+"11": {"id": 407, "path": "Objects/SimpleObjects/ussr/summer/woodpier/11", "how": "fit, refined", "fit": 0.901, "footprint": ["01010101", "00000000", "01000000", "00000000", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-93.1, 2.7], "hi": [-71.1, 34.7], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-51.1, -3.3], "hi": [-5.1, 27.7], "wall": 40.0, "ridge": 40.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-83.1, -4.3], "hi": [-51.1, 6.7], "wall": 3.0, "ridge": 12.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-45.1, 22.7], "hi": [-6.1, 64.7], "wall": 9.2, "ridge": 10.0, "roof": "gable_y"}}]},
+"12": {"id": 408, "path": "Objects/SimpleObjects/ussr/summer/woodpier/12", "how": "fit, refined", "fit": 0.934, "footprint": ["0101010100", "0000000000", "0000000001", "0000000101", "0101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-74.5, -1.0], "hi": [-12.5, 23.0], "wall": 16.0, "ridge": 41.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-13.5, -0.0], "hi": [-1.5, 62.0], "wall": 12.0, "ridge": 18.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-80.5, 43.0], "hi": [-57.5, 66.0], "wall": 7.2, "ridge": 14.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-33.5, 18.0], "hi": [-1.5, 48.0], "wall": 24.0, "ridge": 32.0, "roof": "gable_x"}},
+  {"kind": "chimney", "block": {"lo": [-9.6, 44.9], "hi": [-7.5, 47.1], "wall": 55.7, "ridge": 55.7, "roof": "flat"}}]},
+"13": {"id": 409, "path": "Objects/SimpleObjects/ussr/summer/woodpier/13", "how": "fit, refined", "fit": 0.878, "footprint": ["0001010101010101010101010101010101", "0101010101010101010101010101010101", "0101000100010100010100010100010000", "0100000000000000000000000000010000", "0100000000000000000000000000010000", "0101010101010100000000000101010000"], "parts": [
+  {"kind": "body", "block": {"lo": [-292.6, -5.4], "hi": [2.4, 62.6], "wall": 48.0, "ridge": 48.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-99.6, -24.4], "hi": [20.4, 58.6], "wall": 4.0, "ridge": 4.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-299.6, -24.4], "hi": [-96.6, -15.4], "wall": 11.0, "ridge": 11.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-108.7, -34.3], "hi": [-97.6, -29.4], "wall": 12.4, "ridge": 12.4, "roof": "flat"}}]},
+"14": {"id": 410, "path": "Objects/SimpleObjects/ussr/summer/woodpier/14", "how": "fit", "fit": 0.831, "footprint": ["000000000101", "010101010101", "010101010101", "010000000101", "010000010101", "010000010101", "010000000101", "010000010101", "000000010101", "000000000101", "000000010101", "000000000101", "000000010101", "010000010101", "010000000101", "010101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-53.2, 121.9], "hi": [21.8, 281.9], "wall": 56.0, "ridge": 58.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-118.2, 27.9], "hi": [21.8, 87.9], "wall": 17.0, "ridge": 29.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-77.2, 75.9], "hi": [28.8, 109.9], "wall": 38.0, "ridge": 82.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-46.2, 70.9], "hi": [-33.5, 83.7], "wall": 78.6, "ridge": 78.6, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-43.7, 73.4], "hi": [-35.9, 81.2], "wall": 78.6, "ridge": 85.6, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-52.9, 232.6], "hi": [-50.8, 234.7], "wall": 68.8, "ridge": 68.8, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-89.8, 84.2], "hi": [-86.3, 87.7], "wall": 31.2, "ridge": 31.2, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-89.1, 84.9], "hi": [-87.0, 87.0], "wall": 31.2, "ridge": 42.7, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-58.3, 7.4], "hi": [21.8, 27.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [4.6, 8.1], "hi": [21.8, 27.9], "wall": 8.0, "ridge": 8.0, "roof": "flat"}}]},
+"15": {"id": 411, "path": "Objects/SimpleObjects/ussr/summer/woodpier/15", "how": "fit", "fit": 0.854, "footprint": ["00000000000000000000000000000100", "01010100000000000101010101010100", "01010000000000000101010101010101", "01000000000000000000000000010101", "01000000000000000000000000010100", "01010101010101010101010101010100"], "parts": [
+  {"kind": "body", "block": {"lo": [-224.1, 16.8], "hi": [39.9, 44.8], "wall": 52.0, "ridge": 52.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-325.1, 15.8], "hi": [-231.1, 98.8], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-147.7, 37.4], "hi": [-141.4, 43.8], "wall": 61.2, "ridge": 61.2, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-146.0, 39.2], "hi": [-143.1, 42.0], "wall": 61.2, "ridge": 70.5, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-89.4, 42.0], "hi": [-86.6, 44.9], "wall": 67.0, "ridge": 67.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [32.9, 37.1], "hi": [41.4, 45.6], "wall": 65.9, "ridge": 65.9, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [34.7, 38.8], "hi": [39.6, 43.8], "wall": 65.9, "ridge": 70.5, "roof": "hip"}}]},
+"16": {"id": 412, "path": "Objects/SimpleObjects/ussr/summer/woodpier/16", "how": "fit, refined", "fit": 0.867, "footprint": ["0000010000", "0001010000", "0101010101", "0100000101", "0100000101", "0100000000", "0100000000", "0100000000", "0100000000", "0100000000", "0100000101", "0100000101", "0100000101", "0100000101", "0100000101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-79.9, 116.2], "hi": [1.1, 309.2], "wall": 9.0, "ridge": 12.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-45.9, -12.8], "hi": [0.1, 126.2], "wall": 40.0, "ridge": 40.0, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-84.1, 240.2], "hi": [-78.4, 248.9], "wall": 11.7, "ridge": 11.7, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-75.0, 236.3], "hi": [-71.5, 243.8], "wall": 1.7, "ridge": 31.4, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-46.1, 24.2], "hi": [-44.3, 27.0], "wall": 52.7, "ridge": 52.7, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-31.2, -51.6], "hi": [-10.5, -12.8], "wall": 5.4, "ridge": 5.4, "roof": "flat"}}]}
+}

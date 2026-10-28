@@ -1,0 +1,21 @@
+{
+"05": {"id": 351, "path": "Objects/SimpleObjects/ussr/summer/factoryfence/05", "how": "fit, refined", "fit": 0.913, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.7, 1.0], "hi": [-52.7, 16.0], "wall": 1.0, "ridge": 48.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [-58.7, 1.0], "hi": [-6.7, 17.0], "wall": 3.0, "ridge": 23.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-9.7, -1.0], "hi": [-1.1, 9.5], "wall": 10.3, "ridge": 10.3, "roof": "flat"}}]},
+"06": {"id": 352, "path": "Objects/SimpleObjects/ussr/summer/factoryfence/06", "how": "fit, refined", "fit": 0.910, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-57.4, 3.1], "hi": [-21.4, 14.1], "wall": 21.0, "ridge": 25.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-18.4, 1.1], "hi": [-6.4, 15.1], "wall": 25.0, "ridge": 25.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-16.1, 8.2], "hi": [-13.4, 16.8], "wall": 43.8, "ridge": 43.8, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-15.9, 8.3], "hi": [-5.6, 14.6], "wall": 45.8, "ridge": 48.4, "roof": "gable_y"}}]},
+"07": {"id": 353, "path": "Objects/SimpleObjects/ussr/summer/factoryfence/07", "how": "fit, refined", "fit": 0.931, "footprint": ["010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-59.8, 0.7], "hi": [-19.8, 26.7], "wall": 8.0, "ridge": 18.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-15.8, -2.3], "hi": [-5.8, 12.7], "wall": 25.0, "ridge": 25.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-57.4, -1.8], "hi": [-43.0, 3.6], "wall": 45.8, "ridge": 45.8, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-57.3, 2.3], "hi": [-49.1, 9.5], "wall": 45.8, "ridge": 50.5, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-55.4, 12.9], "hi": [-48.8, 16.5], "wall": 22.0, "ridge": 22.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-38.7, -10.3], "hi": [-23.8, -7.3], "wall": 12.5, "ridge": 12.5, "roof": "flat"}}]},
+"08": {"id": 354, "path": "Objects/SimpleObjects/ussr/summer/factoryfence/08", "how": "fit, refined", "fit": 0.847, "footprint": ["000101", "010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-58.5, 22.8], "hi": [-46.5, 37.8], "wall": 5.0, "ridge": 31.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-22.5, -0.2], "hi": [-10.5, 40.8], "wall": 40.0, "ridge": 40.0, "roof": "flat"}}]}
+}

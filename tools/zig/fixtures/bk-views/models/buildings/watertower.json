@@ -1,0 +1,8 @@
+{
+"watertower": {"id": 190, "path": "Buildings/ussr/summer/watertower", "how": "hand shape", "fit": 0.858, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-30.0, 5.0], "hi": [1.0, 35.0], "wall": 116.0, "ridge": 130.0, "roof": "hip"}},
+  {"kind": "body", "block": {"lo": [-38.0, -1.0], "hi": [3.0, 4.0], "wall": 10.0, "ridge": 10.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [22.0, 45.0], "hi": [31.0, 50.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [1.0, 0.0], "hi": [5.0, 5.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [0.0, 0.0], "hi": [12.0, 7.0]}}]}
+}

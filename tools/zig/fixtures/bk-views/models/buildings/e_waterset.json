@@ -1,0 +1,26 @@
+{
+"01": {"id": 107, "path": "Buildings/europe/summer/e_waterset/01", "how": "fit", "fit": 0.807, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-32.2, 9.3], "hi": [-1.2, 29.3], "wall": 10.0, "ridge": 10.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-46.2, 33.3], "hi": [-34.2, 45.3], "wall": 34.0, "ridge": 44.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-36.2, -2.7], "hi": [-24.2, 9.3], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-41.1, 37.6], "hi": [-38.3, 40.4], "wall": 58.5, "ridge": 58.5, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-40.7, 37.9], "hi": [-38.6, 40.0], "wall": 58.5, "ridge": 70.1, "roof": "hip"}},
+  {"kind": "window", "rect": {"on": 2, "face": "wall +x", "lo": [0.0, 0.0], "hi": [7.0, 5.0]}}]},
+"02": {"id": 108, "path": "Buildings/europe/summer/e_waterset/02", "how": "fit", "fit": 0.917, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-33.3, -0.7], "hi": [2.7, 33.3], "wall": 16.0, "ridge": 16.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-48.3, 17.3], "hi": [-36.3, 37.3], "wall": 8.0, "ridge": 8.0, "roof": "flat"}},
+  {"kind": "body", "block": {"lo": [-42.3, 41.3], "hi": [-21.3, 53.3], "wall": 4.0, "ridge": 4.0, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-34.5, 26.7], "hi": [-26.0, 35.2], "wall": 24.1, "ridge": 24.1, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-32.7, 28.5], "hi": [-27.8, 33.4], "wall": 24.1, "ridge": 50.6, "roof": "hip"}},
+  {"kind": "low", "block": {"lo": [-22.3, -7.4], "hi": [-10.3, -0.7], "wall": 3.3, "ridge": 3.3, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [2.7, 15.2], "hi": [8.1, 21.6], "wall": 2.7, "ridge": 2.7, "roof": "flat"}}]},
+"03": {"id": 109, "path": "Buildings/europe/summer/e_waterset/03", "how": "hand shape", "fit": 0.912, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-41.0, -2.0], "hi": [0.0, 38.0], "wall": 12.0, "ridge": 17.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-67.0, 51.0], "hi": [-17.0, 56.0], "wall": 2.0, "ridge": 2.0, "roof": "flat"}}]},
+"04": {"id": 110, "path": "Buildings/europe/summer/e_waterset/04", "how": "hand shape", "fit": 0.875, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-41.0, -1.0], "hi": [2.0, 44.0], "wall": 12.0, "ridge": 16.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-55.0, 45.0], "hi": [-46.0, 57.0], "wall": 38.0, "ridge": 54.0, "roof": "gable_y"}},
+  {"kind": "body", "block": {"lo": [2.0, 15.0], "hi": [7.0, 30.0], "wall": 2.0, "ridge": 2.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [24.0, 2.0], "hi": [34.0, 8.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [2.0, 33.0], "hi": [6.0, 38.0]}}]}
+}

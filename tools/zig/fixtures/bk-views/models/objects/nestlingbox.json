@@ -1,0 +1,6 @@
+{
+"01": {"id": 370, "path": "Objects/SimpleObjects/ussr/summer/nestlingbox/01", "how": "fit, refined", "fit": 0.491, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-11.7, 8.4], "hi": [-9.1, 11.0], "wall": 52.0, "ridge": 54.0, "roof": "gable_x"}}]},
+"02": {"id": 371, "path": "Objects/SimpleObjects/ussr/summer/nestlingbox/02", "how": "fit, refined", "fit": 0.548, "footprint": ["01"], "parts": [
+  {"kind": "body", "block": {"lo": [-5.4, 2.0], "hi": [-3.8, 5.7], "wall": 62.0, "ridge": 62.0, "roof": "flat"}}]}
+}

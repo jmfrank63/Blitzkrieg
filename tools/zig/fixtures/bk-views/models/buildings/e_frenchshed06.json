@@ -1,0 +1,8 @@
+{
+"e_frenchshed06": {"id": 57, "path": "Buildings/europe/summer/e_frenchshed06", "how": "hand shape", "fit": 0.965, "footprint": ["010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101", "010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-137.0, -2.0], "hi": [-1.0, 218.0], "wall": 21.0, "ridge": 71.0, "roof": "gable_y"}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall +x", "lo": [47.0, 0.0], "hi": [60.0, 21.0]}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall +x", "lo": [98.0, 0.0], "hi": [110.0, 21.0]}},
+  {"kind": "door", "rect": {"on": 0, "face": "wall +x", "lo": [160.0, 0.0], "hi": [174.0, 21.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [180.0, 0.0], "hi": [184.0, 5.0]}}]}
+}

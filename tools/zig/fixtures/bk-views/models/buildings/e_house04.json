@@ -1,0 +1,7 @@
+{
+"e_house04_4": {"id": 67, "path": "Buildings/europe/summer/e_house04_4", "how": "hand shape", "fit": 0.949, "footprint": ["0101010101010000", "0101010101010101", "0101010101010101", "0101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-184.0, -23.0], "hi": [-42.0, 78.0], "wall": 49.0, "ridge": 113.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-36.0, 4.0], "hi": [-5.0, 60.0], "wall": 51.0, "ridge": 67.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [59.0, 9.0], "hi": [63.0, 17.0]}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall +x", "lo": [12.0, 29.0], "hi": [17.0, 35.0]}}]}
+}

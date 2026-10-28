@@ -1,0 +1,26 @@
+{
+"e_house01_1": {"id": 58, "path": "Buildings/europe/summer/e_house01_1", "how": "fit", "fit": 0.939, "footprint": ["01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-99.9, 0.9], "hi": [-4.9, 100.9], "wall": 62.0, "ridge": 119.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-56.9, 25.8], "hi": [-46.3, 36.4], "wall": 126.2, "ridge": 126.2, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-55.1, 27.6], "hi": [-48.1, 34.6], "wall": 126.2, "ridge": 130.8, "roof": "hip"}},
+  {"kind": "chimney", "block": {"lo": [-57.5, 32.0], "hi": [-52.5, 37.0], "wall": 121.1, "ridge": 121.1, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-4.9, 0.9], "hi": [-0.4, 90.2], "wall": 2.3, "ridge": 2.3, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-4.9, 0.9], "hi": [-0.1, 90.4], "wall": 2.4, "ridge": 2.4, "roof": "flat"}},
+  {"kind": "roof_part", "block": {"lo": [-34.0, 17.0], "hi": [-12.0, 37.0], "wall": 80.0, "ridge": 95.0, "roof": "gable_x"}},
+  {"kind": "roof_part", "block": {"lo": [-34.0, 63.0], "hi": [-12.0, 83.0], "wall": 80.0, "ridge": 95.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [59.0, 15.0], "hi": [63.0, 22.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [79.0, 16.0], "hi": [83.0, 25.0]}}]},
+"e_house01_2": {"id": 59, "path": "Buildings/europe/summer/e_house01_2", "how": "fit", "fit": 0.853, "footprint": ["01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-89.9, -1.1], "hi": [4.1, 88.9], "wall": 82.0, "ridge": 124.0, "roof": "gable_y"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [24.0, 0.0], "hi": [30.0, 9.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [88.0, 0.0], "hi": [94.0, 9.0]}}]},
+"e_house01_3": {"id": 60, "path": "Buildings/europe/summer/e_house01_3", "how": "fit", "fit": 0.942, "footprint": ["01010101", "01010101", "01010101", "01010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-99.3, 4.4], "hi": [-1.3, 97.4], "wall": 70.0, "ridge": 120.0, "roof": "gable_y"}},
+  {"kind": "chimney", "block": {"lo": [-54.8, 25.1], "hi": [-44.2, 35.7], "wall": 128.5, "ridge": 128.5, "roof": "flat"}},
+  {"kind": "chimney", "block": {"lo": [-53.0, 26.9], "hi": [-46.0, 34.0], "wall": 128.5, "ridge": 133.1, "roof": "hip"}},
+  {"kind": "roof_part", "block": {"lo": [-34.9, 18.9], "hi": [-12.9, 38.9], "wall": 80.0, "ridge": 95.0, "roof": "gable_x"}},
+  {"kind": "roof_part", "block": {"lo": [-34.9, 64.9], "hi": [-12.9, 84.9], "wall": 80.0, "ridge": 95.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [23.0, 20.0], "hi": [28.0, 29.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [16.0, 30.0], "hi": [21.0, 36.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [23.0, 30.0], "hi": [28.0, 35.0]}}]}
+}

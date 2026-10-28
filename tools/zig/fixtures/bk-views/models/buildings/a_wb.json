@@ -1,0 +1,12 @@
+{
+"01": {"id": 18, "path": "Buildings/africa/summer/a_wb/01", "how": "hand shape", "fit": 0.946, "footprint": ["0101010101010101", "0101010101010101", "0101010101010101", "0101010101010101", "0101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-154.0, 1.0], "hi": [2.0, 106.0], "wall": 27.0, "ridge": 62.0, "roof": "gable_x"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [119.0, 15.0], "hi": [125.0, 22.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [126.0, 16.0], "hi": [130.0, 22.0]}}]},
+"02": {"id": 19, "path": "Buildings/africa/summer/a_wb/02", "how": "hand shape", "fit": 0.943, "footprint": ["0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101", "0101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-102.0, -2.0], "hi": [4.0, 148.0], "wall": 29.0, "ridge": 64.0, "roof": "gable_y"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [138.0, 0.0], "hi": [143.0, 7.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [86.0, 12.0], "hi": [91.0, 18.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [14.0, 13.0], "hi": [19.0, 20.0]}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [49.0, 13.0], "hi": [55.0, 19.0]}}]}
+}

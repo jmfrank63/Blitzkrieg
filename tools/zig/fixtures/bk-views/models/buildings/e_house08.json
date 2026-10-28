@@ -1,0 +1,7 @@
+{
+"e_house08_1": {"id": 71, "path": "Buildings/europe/summer/e_house08_1", "how": "fit", "fit": 0.969, "footprint": ["0101010101010101", "0101010101010101", "0101010101010101", "0101010101010101", "0101010101010101"], "parts": [
+  {"kind": "body", "block": {"lo": [-164.4, -0.9], "hi": [0.6, 118.1], "wall": 48.0, "ridge": 56.0, "roof": "gable_x"}},
+  {"kind": "low", "block": {"lo": [-129.0, -10.3], "hi": [-112.1, -0.9], "wall": 4.7, "ridge": 4.7, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-47.7, -10.3], "hi": [-30.8, -0.9], "wall": 4.7, "ridge": 4.7, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall -y", "lo": [145.0, 30.0], "hi": [150.0, 40.0]}}]}
+}

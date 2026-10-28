@@ -1,0 +1,6 @@
+{
+"railroadlittlehouse": {"id": 159, "path": "Buildings/ussr/summer/railroadlittlehouse", "how": "fit", "fit": 0.958, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-43.2, 5.4], "hi": [-0.2, 39.4], "wall": 24.0, "ridge": 24.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-75.2, 34.4], "hi": [-20.2, 59.4], "wall": 24.0, "ridge": 24.0, "roof": "flat"}},
+  {"kind": "low", "block": {"lo": [-19.4, 0.4], "hi": [-6.0, 5.4], "wall": 2.5, "ridge": 2.5, "roof": "flat"}}]}
+}

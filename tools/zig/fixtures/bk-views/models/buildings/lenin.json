@@ -1,0 +1,6 @@
+{
+"lenin": {"id": 155, "path": "Buildings/ussr/summer/lenin", "how": "fit", "fit": 0.620, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-30.9, 0.8], "hi": [1.1, 28.8], "wall": 8.0, "ridge": 11.0, "roof": "gable_x"}},
+  {"kind": "body", "block": {"lo": [-48.9, 29.8], "hi": [-14.9, 41.8], "wall": 42.0, "ridge": 70.0, "roof": "flat"}},
+  {"kind": "window", "rect": {"on": 1, "face": "wall -y", "lo": [30.0, 17.0], "hi": [34.0, 23.0]}}]}
+}

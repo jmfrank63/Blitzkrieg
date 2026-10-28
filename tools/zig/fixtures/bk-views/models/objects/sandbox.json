@@ -1,0 +1,4 @@
+{
+"01": {"id": 375, "path": "Objects/SimpleObjects/ussr/summer/sandbox/01", "how": "fit, refined", "fit": 0.878, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-35.7, -1.8], "hi": [0.5, 36.4], "wall": 4.0, "ridge": 4.0, "roof": "flat"}}]}
+}

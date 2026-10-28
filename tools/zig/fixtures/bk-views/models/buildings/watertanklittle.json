@@ -1,0 +1,5 @@
+{
+"watertanklittle": {"id": 39, "path": "Buildings/common/summer/watertanklittle", "how": "fit", "fit": 0.764, "footprint": ["0101", "0101"], "parts": [
+  {"kind": "body", "block": {"lo": [-45.2, 15.7], "hi": [-13.2, 41.7], "wall": 43.0, "ridge": 71.0, "roof": "gable_y"}},
+  {"kind": "window", "rect": {"on": 0, "face": "wall +x", "lo": [19.0, 0.0], "hi": [25.0, 7.0]}}]}
+}
