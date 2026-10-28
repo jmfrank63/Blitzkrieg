@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | watertanklittle | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watertanklittle | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watertanklittle | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.36 | 15.9 | 0.082 | pass |
+| watertanklittle | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.93 | 20.0 | 0.189 | pass |
+| watertanklittle | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.62 | 18.5 | 0.075 | pass |
+| watertanklittle | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.18 | 20.8 | 0.100 | pass |
+| watertanklittle | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.05 | 1.7 | 0.013 | pass |
+| watertanklittle | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 1.8 | 0.016 | pass |
+| watertanklittle | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 8.5 | 0.061 | pass |
+| watertanklittle | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.83 | 18.6 | 0.092 | pass |
+| watertanklittle | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.49 | 35.4 | 0.018 | pass |
+| watertanklittle | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.70 | 38.4 | 0.082 | pass |
+| watertanklittle | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.63 | 30.7 | 0.262 | pass |
+| watertanklittle | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.75 | 25.1 | 0.085 | pass |
+| watertanklittle | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertanklittle | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | watertanklittle | r1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
 | watertanklittle | r2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
 | watertanklittle | r3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r1l1 | 0.92 | 0.41 | 0.76 | 1.079 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r2l2 | 0.93 | 0.41 | 0.76 | 1.090 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |
+| watertanklittle | r3l3 | 0.92 | 0.41 | 0.76 | 1.086 | 1.355 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.41 outside 0.5..2.0 | 2003 sprite |

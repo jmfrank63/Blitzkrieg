@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_monument | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | e_monument | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | e_monument | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.77 | 24.5 | 0.139 | pass |
+| e_monument | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.38 | 11.9 | 0.058 | pass |
+| e_monument | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.33 | 13.7 | 0.026 | pass |
+| e_monument | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.31 | 4.1 | 0.064 | pass |
+| e_monument | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| e_monument | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.37 | 9.3 | 0.032 | pass |
+| e_monument | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.73 | 25.0 | 0.050 | pass |
+| e_monument | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.84 | 12.5 | 0.051 | pass |
+| e_monument | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.82 | 14.1 | 0.026 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,3 +41,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_monument | r1 | 0.73 | 0.72 | 0.75 | 0.464 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
 | e_monument | r2 | 0.66 | 0.72 | 0.75 | 0.540 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 5 | height 0.66 outside 0.7..1.3 | 2003 sprite |
 | e_monument | r3 | 0.77 | 0.72 | 0.75 | 0.595 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
+| e_monument | r1l1 | 0.73 | 0.72 | 0.75 | 0.464 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
+| e_monument | r2l2 | 0.66 | 0.72 | 0.75 | 0.540 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 5 | height 0.66 outside 0.7..1.3 | 2003 sprite |
+| e_monument | r3l3 | 0.77 | 0.72 | 0.75 | 0.595 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |

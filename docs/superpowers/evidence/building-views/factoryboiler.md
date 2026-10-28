@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | factoryboiler | r3 | 4 | 2w | 30.2 | 63.8 | 2.6 | 3.4 | 1.03 | 2.0 | 0.041 | pass |
 | factoryboiler | r3 | 4 | 3 | 82.5 | 12.6 | 2.2 | 2.7 | 0.95 | 1.4 | 0.016 | pass |
 | factoryboiler | r3 | 4 | 3w | 80.4 | 14.3 | 2.5 | 2.7 | 0.96 | 1.6 | 0.015 | pass |
+| factoryboiler | r1l1 | 2 | 1 | 64.5 | 31.7 | 2.3 | 1.5 | 1.26 | 11.2 | 0.032 | pass |
+| factoryboiler | r1l1 | 2 | 1w | 61.8 | 30.3 | 3.8 | 4.1 | 1.28 | 15.7 | 0.059 | pass |
+| factoryboiler | r1l1 | 2 | 2 | 64.3 | 32.8 | 2.4 | 0.6 | 1.17 | 3.9 | 0.018 | pass |
+| factoryboiler | r1l1 | 2 | 2w | 61.8 | 33.1 | 3.7 | 1.3 | 1.24 | 6.5 | 0.016 | pass |
+| factoryboiler | r1l1 | 2 | 3 | 86.5 | 7.8 | 2.6 | 3.1 | 0.94 | 1.2 | 0.011 | pass |
+| factoryboiler | r1l1 | 2 | 3w | 88.6 | 5.8 | 2.5 | 3.1 | 0.97 | 0.6 | 0.008 | pass |
+| factoryboiler | r2l2 | 3 | 1 | 4.0 | 87.1 | 2.6 | 6.2 | 0.72 | 31.7 | 0.097 | pass |
+| factoryboiler | r2l2 | 3 | 1w | 4.0 | 82.9 | 2.7 | 10.4 | 0.81 | 50.5 | 0.058 | pass |
+| factoryboiler | r2l2 | 3 | 2 | 4.0 | 89.3 | 3.2 | 3.5 | 1.05 | 3.6 | 0.032 | pass |
+| factoryboiler | r2l2 | 3 | 2w | 4.0 | 89.3 | 3.1 | 3.7 | 1.04 | 2.9 | 0.017 | pass |
+| factoryboiler | r2l2 | 3 | 3 | 78.8 | 16.0 | 2.4 | 2.8 | 0.97 | 1.7 | 0.012 | pass |
+| factoryboiler | r2l2 | 3 | 3w | 76.9 | 17.7 | 2.7 | 2.8 | 1.01 | 0.5 | 0.011 | pass |
+| factoryboiler | r3l3 | 4 | 1 | 29.8 | 63.9 | 1.5 | 4.8 | 0.58 | 42.5 | 0.073 | pass |
+| factoryboiler | r3l3 | 4 | 1w | 29.5 | 61.1 | 2.4 | 7.0 | 0.69 | 63.3 | 0.033 | colour 63.3 > 62 |
+| factoryboiler | r3l3 | 4 | 2 | 30.4 | 64.0 | 2.4 | 3.2 | 1.07 | 1.4 | 0.019 | pass |
+| factoryboiler | r3l3 | 4 | 2w | 30.2 | 63.8 | 2.6 | 3.4 | 1.05 | 2.9 | 0.017 | pass |
+| factoryboiler | r3l3 | 4 | 3 | 82.5 | 12.6 | 2.2 | 2.7 | 0.95 | 1.4 | 0.014 | pass |
+| factoryboiler | r3l3 | 4 | 3w | 80.4 | 14.3 | 2.5 | 2.7 | 0.97 | 1.4 | 0.013 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | factoryboiler | r1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
 | factoryboiler | r2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
 | factoryboiler | r3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
+| factoryboiler | r1l1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
+| factoryboiler | r2l2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
+| factoryboiler | r3l3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |

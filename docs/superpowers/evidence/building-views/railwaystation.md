@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | railwaystation | r3 | 4 | 2w | 37.9 | 52.4 | 9.0 | 0.7 | 0.76 | 15.5 | 0.086 | pass |
 | railwaystation | r3 | 4 | 3 | 59.5 | 31.3 | 7.7 | 1.6 | 1.21 | 0.6 | 0.015 | pass |
 | railwaystation | r3 | 4 | 3w | 59.5 | 31.3 | 7.7 | 1.6 | 1.05 | 0.4 | 0.021 | pass |
+| railwaystation | r1l1 | 2 | 1 | 55.2 | 29.4 | 14.4 | 1.0 | 1.33 | 17.6 | 0.022 | pass |
+| railwaystation | r1l1 | 2 | 1w | 55.4 | 29.7 | 14.3 | 0.6 | 1.38 | 25.2 | 0.032 | pass |
+| railwaystation | r1l1 | 2 | 2 | 55.3 | 28.3 | 15.8 | 0.6 | 1.23 | 8.3 | 0.025 | pass |
+| railwaystation | r1l1 | 2 | 2w | 55.3 | 28.3 | 15.8 | 0.6 | 1.21 | 9.1 | 0.018 | pass |
+| railwaystation | r1l1 | 2 | 3 | 61.7 | 31.6 | 5.0 | 1.8 | 1.16 | 6.3 | 0.025 | pass |
+| railwaystation | r1l1 | 2 | 3w | 61.7 | 31.6 | 5.0 | 1.8 | 1.11 | 6.8 | 0.022 | pass |
+| railwaystation | r2l2 | 3 | 1 | 0.3 | 84.2 | 14.4 | 1.2 | 0.67 | 43.7 | 0.024 | pass |
+| railwaystation | r2l2 | 3 | 1w | 0.3 | 84.6 | 14.4 | 0.8 | 0.80 | 51.2 | 0.030 | pass |
+| railwaystation | r2l2 | 3 | 2 | 0.0 | 82.5 | 16.8 | 0.7 | 1.11 | 2.0 | 0.013 | pass |
+| railwaystation | r2l2 | 3 | 2w | 0.0 | 82.5 | 16.8 | 0.7 | 1.11 | 2.2 | 0.012 | pass |
+| railwaystation | r2l2 | 3 | 3 | 38.6 | 51.3 | 8.3 | 1.8 | 1.11 | 2.2 | 0.013 | pass |
+| railwaystation | r2l2 | 3 | 3w | 38.6 | 51.3 | 8.3 | 1.8 | 1.08 | 2.2 | 0.013 | pass |
+| railwaystation | r3l3 | 4 | 1 | 38.7 | 52.8 | 7.3 | 1.3 | 0.41 | 57.5 | 0.053 | sharpness 0.41 outside 0.45..3.20 |
+| railwaystation | r3l3 | 4 | 1w | 39.3 | 52.7 | 7.3 | 0.7 | 0.54 | 72.5 | 0.032 | colour 72.5 > 62 |
+| railwaystation | r3l3 | 4 | 2 | 37.9 | 52.4 | 9.0 | 0.7 | 0.98 | 5.0 | 0.032 | pass |
+| railwaystation | r3l3 | 4 | 2w | 37.9 | 52.4 | 9.0 | 0.7 | 0.98 | 5.7 | 0.030 | pass |
+| railwaystation | r3l3 | 4 | 3 | 59.5 | 31.3 | 7.7 | 1.6 | 1.05 | 5.3 | 0.027 | pass |
+| railwaystation | r3l3 | 4 | 3w | 59.5 | 31.3 | 7.7 | 1.6 | 1.03 | 6.5 | 0.032 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | railwaystation | r1 | 1.30 | 0.90 | 0.92 | 0.023 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
 | railwaystation | r2 | 1.29 | 0.90 | 0.92 | 0.017 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
 | railwaystation | r3 | 1.04 | 0.90 | 0.92 | 0.035 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
+| railwaystation | r1l1 | 1.30 | 0.90 | 0.92 | 0.023 | 0.037 | 45 | 45 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
+| railwaystation | r2l2 | 1.29 | 0.90 | 0.92 | 0.017 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |
+| railwaystation | r3l3 | 1.04 | 0.90 | 0.92 | 0.035 | 0.037 | 3 | 3 | 0 | 0 | 0.000 | 0 | 234 | 234 | 0 | pass | blocks |

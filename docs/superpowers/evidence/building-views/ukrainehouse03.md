@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | ukrainehouse03_1 | r3 | 4 | 2w | 65.8 | 32.2 | 1.5 | 0.5 | 1.13 | 13.1 | 0.113 | pass |
 | ukrainehouse03_1 | r3 | 4 | 3 | 86.5 | 12.8 | 0.6 | 0.1 | 1.15 | 2.5 | 0.026 | pass |
 | ukrainehouse03_1 | r3 | 4 | 3w | 86.5 | 12.8 | 0.6 | 0.1 | 1.15 | 2.5 | 0.026 | pass |
+| ukrainehouse03_1 | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.35 | 12.7 | 0.052 | pass |
+| ukrainehouse03_1 | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.40 | 15.0 | 0.039 | pass |
+| ukrainehouse03_1 | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.37 | 23.9 | 0.068 | pass |
+| ukrainehouse03_1 | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.37 | 23.9 | 0.068 | pass |
+| ukrainehouse03_1 | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.93 | 2.1 | 0.027 | pass |
+| ukrainehouse03_1 | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.93 | 2.1 | 0.027 | pass |
+| ukrainehouse03_1 | r2l2 | 3 | 1 | 32.5 | 66.3 | 0.1 | 1.2 | 0.69 | 19.2 | 0.291 | pass |
+| ukrainehouse03_1 | r2l2 | 3 | 1w | 32.8 | 62.1 | 0.1 | 5.0 | 0.70 | 25.4 | 0.283 | pass |
+| ukrainehouse03_1 | r2l2 | 3 | 2 | 67.3 | 30.9 | 1.6 | 0.2 | 1.46 | 28.8 | 0.106 | pass |
+| ukrainehouse03_1 | r2l2 | 3 | 2w | 67.3 | 30.9 | 1.6 | 0.2 | 1.46 | 28.8 | 0.106 | pass |
+| ukrainehouse03_1 | r2l2 | 3 | 3 | 86.3 | 12.9 | 0.7 | 0.1 | 1.09 | 2.3 | 0.035 | pass |
+| ukrainehouse03_1 | r2l2 | 3 | 3w | 86.3 | 12.9 | 0.7 | 0.1 | 1.09 | 2.3 | 0.035 | pass |
+| ukrainehouse03_1 | r3l3 | 4 | 1 | 30.8 | 67.9 | 0.1 | 1.2 | 0.60 | 37.4 | 0.030 | pass |
+| ukrainehouse03_1 | r3l3 | 4 | 1w | 31.2 | 62.4 | 0.0 | 6.4 | 0.59 | 49.5 | 0.048 | pass |
+| ukrainehouse03_1 | r3l3 | 4 | 2 | 65.8 | 32.2 | 1.5 | 0.5 | 1.24 | 8.1 | 0.065 | pass |
+| ukrainehouse03_1 | r3l3 | 4 | 2w | 65.8 | 32.2 | 1.5 | 0.5 | 1.24 | 8.1 | 0.065 | pass |
+| ukrainehouse03_1 | r3l3 | 4 | 3 | 86.5 | 12.8 | 0.6 | 0.1 | 1.09 | 1.6 | 0.041 | pass |
+| ukrainehouse03_1 | r3l3 | 4 | 3w | 86.5 | 12.8 | 0.6 | 0.1 | 1.09 | 1.6 | 0.041 | pass |
 | ukrainehouse03_2 | r1 | 3 | 1 | 67.3 | 32.5 | 0.0 | 0.2 | 1.24 | 6.5 | 0.096 | pass |
 | ukrainehouse03_2 | r1 | 3 | 1w | 68.9 | 31.1 | 0.0 | 0.0 | 1.16 | 6.7 | 0.107 | pass |
 | ukrainehouse03_2 | r1 | 3 | 2 | 70.3 | 28.8 | 0.7 | 0.2 | 1.30 | 11.1 | 0.026 | pass |
@@ -42,6 +60,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | ukrainehouse03_2 | r3 | 1 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.24 | 9.8 | 0.051 | pass |
 | ukrainehouse03_2 | r3 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 4.3 | 0.024 | pass |
 | ukrainehouse03_2 | r3 | 1 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 4.3 | 0.024 | pass |
+| ukrainehouse03_2 | r1l1 | 3 | 1 | 67.3 | 32.5 | 0.0 | 0.2 | 1.28 | 1.8 | 0.061 | pass |
+| ukrainehouse03_2 | r1l1 | 3 | 1w | 68.9 | 31.1 | 0.0 | 0.0 | 1.21 | 0.2 | 0.056 | pass |
+| ukrainehouse03_2 | r1l1 | 3 | 2 | 70.3 | 28.8 | 0.7 | 0.2 | 0.89 | 11.3 | 0.045 | pass |
+| ukrainehouse03_2 | r1l1 | 3 | 2w | 70.3 | 28.8 | 0.7 | 0.2 | 0.89 | 11.3 | 0.045 | pass |
+| ukrainehouse03_2 | r1l1 | 3 | 3 | 91.6 | 5.9 | 1.9 | 0.6 | 1.02 | 7.8 | 0.028 | pass |
+| ukrainehouse03_2 | r1l1 | 3 | 3w | 91.6 | 5.9 | 1.9 | 0.6 | 1.02 | 7.8 | 0.028 | pass |
+| ukrainehouse03_2 | r2l2 | 4 | 1 | 66.4 | 33.4 | 0.0 | 0.2 | 1.02 | 23.0 | 0.191 | pass |
+| ukrainehouse03_2 | r2l2 | 4 | 1w | 67.7 | 32.2 | 0.0 | 0.1 | 1.09 | 27.8 | 0.146 | pass |
+| ukrainehouse03_2 | r2l2 | 4 | 2 | 68.2 | 30.7 | 0.8 | 0.4 | 0.69 | 29.5 | 0.122 | pass |
+| ukrainehouse03_2 | r2l2 | 4 | 2w | 68.2 | 30.7 | 0.8 | 0.4 | 0.69 | 29.5 | 0.122 | pass |
+| ukrainehouse03_2 | r2l2 | 4 | 3 | 91.9 | 5.6 | 1.8 | 0.7 | 1.01 | 5.0 | 0.025 | pass |
+| ukrainehouse03_2 | r2l2 | 4 | 3w | 91.9 | 5.6 | 1.8 | 0.7 | 1.01 | 5.0 | 0.025 | pass |
+| ukrainehouse03_2 | r3l3 | 1 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.77 | 19.5 | 0.014 | pass |
+| ukrainehouse03_2 | r3l3 | 1 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.82 | 19.7 | 0.034 | pass |
+| ukrainehouse03_2 | r3l3 | 1 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 24.3 | 0.071 | pass |
+| ukrainehouse03_2 | r3l3 | 1 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 24.3 | 0.071 | pass |
+| ukrainehouse03_2 | r3l3 | 1 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.14 | 1.0 | 0.025 | pass |
+| ukrainehouse03_2 | r3l3 | 1 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.14 | 1.0 | 0.025 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -59,9 +95,15 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | ukrainehouse03_1 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
 | ukrainehouse03_1 | r2 | 1.01 | 1.00 | 0.91 | 0.035 | 0.044 | 35 | 35 | 0 | 0 | 0.000 | 0 | 48 | 38 | 0 | pass | blocks |
 | ukrainehouse03_1 | r3 | 1.00 | 1.00 | 0.91 | 0.036 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | 0 | 48 | 38 | 0 | pass | blocks |
+| ukrainehouse03_1 | r1l1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| ukrainehouse03_1 | r2l2 | 1.01 | 1.00 | 0.91 | 0.035 | 0.044 | 35 | 35 | 0 | 0 | 0.000 | 0 | 48 | 38 | 0 | pass | blocks |
+| ukrainehouse03_1 | r3l3 | 1.00 | 1.00 | 0.91 | 0.036 | 0.044 | 0 | 0 | 0 | 0 | 0.000 | 0 | 48 | 38 | 0 | pass | blocks |
 | ukrainehouse03_2 | r1 | 0.92 | 0.79 | 0.90 | 0.025 | 0.032 | 41 | 41 | 0 | 0 | 0.000 | 0 | 0 | 0 | 3 | pass | blocks |
 | ukrainehouse03_2 | r2 | 0.92 | 0.79 | 0.90 | 0.026 | 0.032 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 4 | pass | blocks |
 | ukrainehouse03_2 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| ukrainehouse03_2 | r1l1 | 0.92 | 0.79 | 0.90 | 0.025 | 0.032 | 41 | 41 | 0 | 0 | 0.000 | 0 | 0 | 0 | 3 | pass | blocks |
+| ukrainehouse03_2 | r2l2 | 0.92 | 0.79 | 0.90 | 0.026 | 0.032 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 4 | pass | blocks |
+| ukrainehouse03_2 | r3l3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 

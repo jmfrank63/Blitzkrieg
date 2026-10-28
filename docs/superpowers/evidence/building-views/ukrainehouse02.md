@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | ukrainehouse02 | r3 | 4 | 2w | 67.8 | 25.0 | 6.8 | 0.5 | 0.99 | 7.5 | 0.018 | pass |
 | ukrainehouse02 | r3 | 4 | 3 | 87.4 | 7.1 | 4.7 | 0.9 | 1.05 | 1.4 | 0.015 | pass |
 | ukrainehouse02 | r3 | 4 | 3w | 87.4 | 7.1 | 4.7 | 0.9 | 1.05 | 1.4 | 0.015 | pass |
+| ukrainehouse02 | r1l1 | 2 | 1 | 74.8 | 22.5 | 2.5 | 0.1 | 1.27 | 10.9 | 0.026 | pass |
+| ukrainehouse02 | r1l1 | 2 | 1w | 74.9 | 23.1 | 1.9 | 0.1 | 1.24 | 13.8 | 0.047 | pass |
+| ukrainehouse02 | r1l1 | 2 | 2 | 73.6 | 21.7 | 4.4 | 0.2 | 1.15 | 1.9 | 0.030 | pass |
+| ukrainehouse02 | r1l1 | 2 | 2w | 73.6 | 21.7 | 4.4 | 0.2 | 1.15 | 1.9 | 0.030 | pass |
+| ukrainehouse02 | r1l1 | 2 | 3 | 87.6 | 7.1 | 4.4 | 0.8 | 1.03 | 1.7 | 0.008 | pass |
+| ukrainehouse02 | r1l1 | 2 | 3w | 87.6 | 7.1 | 4.4 | 0.8 | 1.03 | 1.7 | 0.008 | pass |
+| ukrainehouse02 | r2l2 | 3 | 1 | 47.1 | 38.0 | 12.9 | 2.0 | 1.16 | 10.3 | 0.082 | pass |
+| ukrainehouse02 | r2l2 | 3 | 1w | 48.0 | 38.0 | 12.2 | 1.9 | 1.20 | 13.0 | 0.138 | pass |
+| ukrainehouse02 | r2l2 | 3 | 2 | 54.3 | 38.5 | 6.9 | 0.3 | 0.90 | 10.1 | 0.008 | pass |
+| ukrainehouse02 | r2l2 | 3 | 2w | 54.3 | 38.5 | 6.9 | 0.3 | 0.90 | 10.1 | 0.008 | pass |
+| ukrainehouse02 | r2l2 | 3 | 3 | 81.7 | 12.7 | 4.8 | 0.8 | 0.99 | 1.2 | 0.014 | pass |
+| ukrainehouse02 | r2l2 | 3 | 3w | 81.7 | 12.7 | 4.8 | 0.8 | 0.99 | 1.2 | 0.014 | pass |
+| ukrainehouse02 | r3l3 | 4 | 1 | 67.3 | 18.2 | 12.4 | 2.1 | 0.88 | 27.0 | 0.054 | pass |
+| ukrainehouse02 | r3l3 | 4 | 1w | 67.8 | 18.6 | 11.6 | 2.0 | 0.91 | 34.0 | 0.088 | pass |
+| ukrainehouse02 | r3l3 | 4 | 2 | 67.8 | 25.0 | 6.8 | 0.5 | 0.87 | 12.7 | 0.026 | pass |
+| ukrainehouse02 | r3l3 | 4 | 2w | 67.8 | 25.0 | 6.8 | 0.5 | 0.87 | 12.7 | 0.026 | pass |
+| ukrainehouse02 | r3l3 | 4 | 3 | 87.4 | 7.1 | 4.7 | 0.9 | 1.04 | 2.1 | 0.018 | pass |
+| ukrainehouse02 | r3l3 | 4 | 3w | 87.4 | 7.1 | 4.7 | 0.9 | 1.04 | 2.1 | 0.018 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | ukrainehouse02 | r1 | 0.92 | 1.05 | 0.96 | 0.074 | 0.040 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | ukrainehouse02 | r2 | 0.94 | 1.05 | 0.96 | 0.040 | 0.040 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | ukrainehouse02 | r3 | 0.89 | 1.05 | 0.96 | 0.035 | 0.040 | 96 | 96 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse02 | r1l1 | 0.92 | 1.05 | 0.96 | 0.074 | 0.040 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse02 | r2l2 | 0.94 | 1.05 | 0.96 | 0.040 | 0.040 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| ukrainehouse02 | r3l3 | 0.89 | 1.05 | 0.96 | 0.035 | 0.040 | 96 | 96 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

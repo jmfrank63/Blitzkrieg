@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | watertankbig | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watertankbig | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watertankbig | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertankbig | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.87 | 28.1 | 0.320 | pass |
+| watertankbig | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.19 | 17.6 | 0.268 | pass |
+| watertankbig | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 3.2 | 0.070 | pass |
+| watertankbig | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 4.9 | 0.021 | pass |
+| watertankbig | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.07 | 3.0 | 0.005 | pass |
+| watertankbig | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.04 | 3.3 | 0.005 | pass |
+| watertankbig | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.87 | 6.4 | 0.160 | pass |
+| watertankbig | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.34 | 15.0 | 0.212 | pass |
+| watertankbig | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertankbig | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertankbig | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertankbig | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertankbig | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.28 | 25.1 | 0.083 | pass |
+| watertankbig | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.13 | 37.2 | 0.175 | pass |
+| watertankbig | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 2.7 | 0.060 | pass |
+| watertankbig | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 4.9 | 0.027 | pass |
+| watertankbig | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 3.5 | 0.013 | pass |
+| watertankbig | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 4.0 | 0.011 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | watertankbig | r1 | 0.85 | 0.91 | 0.96 | 0.472 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
 | watertankbig | r2 | 0.69 | 0.91 | 0.96 | 0.419 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.69 outside 0.7..1.3 | 2003 sprite |
 | watertankbig | r3 | 0.85 | 0.91 | 0.96 | 0.505 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| watertankbig | r1l1 | 0.85 | 0.91 | 0.96 | 0.472 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| watertankbig | r2l2 | 0.69 | 0.91 | 0.96 | 0.419 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.69 outside 0.7..1.3 | 2003 sprite |
+| watertankbig | r3l3 | 0.85 | 0.91 | 0.96 | 0.505 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |

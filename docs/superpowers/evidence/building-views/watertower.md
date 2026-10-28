@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | watertower | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watertower | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watertower | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertower | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.10 | 11.7 | 0.032 | pass |
+| watertower | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.95 | 19.7 | 0.216 | pass |
+| watertower | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.58 | 25.4 | 0.067 | pass |
+| watertower | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.38 | 28.5 | 0.086 | pass |
+| watertower | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.16 | 8.7 | 0.064 | pass |
+| watertower | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.13 | 9.2 | 0.057 | pass |
+| watertower | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.78 | 23.9 | 0.046 | pass |
+| watertower | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.84 | 31.4 | 0.179 | pass |
+| watertower | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertower | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertower | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertower | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watertower | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.59 | 38.9 | 0.047 | pass |
+| watertower | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.69 | 57.5 | 0.175 | pass |
+| watertower | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.61 | 29.0 | 0.050 | pass |
+| watertower | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.65 | 32.9 | 0.044 | pass |
+| watertower | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.87 | 7.8 | 0.030 | pass |
+| watertower | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.89 | 8.1 | 0.041 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | watertower | r1 | 0.98 | 0.52 | 0.84 | 1.037 | 0.746 | 90 | 90 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.84 < 0.85 | 2003 sprite |
 | watertower | r2 | 0.98 | 0.52 | 0.84 | 1.048 | 0.746 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.84 < 0.85 | 2003 sprite |
 | watertower | r3 | 0.98 | 0.52 | 0.84 | 1.060 | 0.746 | 25 | 25 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.84 < 0.85 | 2003 sprite |
+| watertower | r1l1 | 0.98 | 0.52 | 0.84 | 1.037 | 0.746 | 90 | 90 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.84 < 0.85 | 2003 sprite |
+| watertower | r2l2 | 0.98 | 0.52 | 0.84 | 1.048 | 0.746 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.84 < 0.85 | 2003 sprite |
+| watertower | r3l3 | 0.98 | 0.52 | 0.84 | 1.060 | 0.746 | 25 | 25 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.84 < 0.85 | 2003 sprite |

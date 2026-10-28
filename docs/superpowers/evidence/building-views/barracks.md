@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | barracks | r3 | 4 | 2w | 79.9 | 17.4 | 2.1 | 0.6 | 1.03 | 1.3 | 0.013 | pass |
 | barracks | r3 | 4 | 3 | 84.2 | 8.9 | 3.8 | 3.1 | 0.98 | 0.8 | 0.040 | pass |
 | barracks | r3 | 4 | 3w | 84.2 | 8.9 | 3.8 | 3.1 | 0.97 | 0.9 | 0.047 | pass |
+| barracks | r1l1 | 2 | 1 | 78.8 | 11.4 | 7.5 | 2.2 | 1.34 | 11.6 | 0.099 | pass |
+| barracks | r1l1 | 2 | 1w | 78.1 | 11.6 | 7.9 | 2.4 | 1.17 | 11.6 | 0.179 | pass |
+| barracks | r1l1 | 2 | 2 | 78.6 | 13.3 | 6.6 | 1.5 | 1.11 | 0.7 | 0.027 | pass |
+| barracks | r1l1 | 2 | 2w | 78.6 | 13.3 | 6.6 | 1.5 | 1.10 | 0.8 | 0.030 | pass |
+| barracks | r1l1 | 2 | 3 | 86.4 | 5.7 | 4.2 | 3.6 | 0.99 | 0.8 | 0.013 | pass |
+| barracks | r1l1 | 2 | 3w | 86.4 | 5.7 | 4.2 | 3.6 | 0.99 | 0.8 | 0.012 | pass |
+| barracks | r2l2 | 3 | 1 | 63.3 | 26.6 | 7.8 | 2.2 | 1.16 | 3.1 | 0.135 | pass |
+| barracks | r2l2 | 3 | 1w | 66.5 | 23.0 | 8.2 | 2.4 | 1.01 | 11.8 | 0.205 | pass |
+| barracks | r2l2 | 3 | 2 | 63.8 | 27.5 | 7.0 | 1.7 | 1.06 | 0.7 | 0.025 | pass |
+| barracks | r2l2 | 3 | 2w | 63.8 | 27.5 | 7.0 | 1.7 | 1.06 | 0.8 | 0.026 | pass |
+| barracks | r2l2 | 3 | 3 | 78.7 | 12.5 | 5.0 | 3.8 | 1.05 | 0.8 | 0.004 | pass |
+| barracks | r2l2 | 3 | 3w | 78.7 | 12.5 | 5.0 | 3.8 | 1.05 | 1.0 | 0.003 | pass |
+| barracks | r3l3 | 4 | 1 | 80.5 | 16.4 | 2.3 | 0.7 | 0.88 | 12.2 | 0.046 | pass |
+| barracks | r3l3 | 4 | 1w | 85.5 | 11.8 | 2.3 | 0.4 | 0.92 | 20.7 | 0.077 | pass |
+| barracks | r3l3 | 4 | 2 | 79.9 | 17.4 | 2.1 | 0.6 | 1.04 | 0.3 | 0.012 | pass |
+| barracks | r3l3 | 4 | 2w | 79.9 | 17.4 | 2.1 | 0.6 | 1.03 | 0.4 | 0.011 | pass |
+| barracks | r3l3 | 4 | 3 | 84.2 | 8.9 | 3.8 | 3.1 | 0.96 | 1.1 | 0.020 | pass |
+| barracks | r3l3 | 4 | 3w | 84.2 | 8.9 | 3.8 | 3.1 | 0.97 | 1.4 | 0.020 | pass |
 | barracks_2 | r1 | 2 | 1 | 82.0 | 16.7 | 1.3 | 0.0 | 1.14 | 1.9 | 0.033 | pass |
 | barracks_2 | r1 | 2 | 1w | 82.2 | 16.7 | 0.7 | 0.4 | 1.19 | 2.9 | 0.041 | pass |
 | barracks_2 | r1 | 2 | 2 | 80.7 | 17.1 | 1.9 | 0.3 | 1.08 | 3.5 | 0.068 | pass |
@@ -42,6 +60,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | barracks_2 | r3 | 4 | 2w | 76.9 | 16.1 | 6.8 | 0.2 | 0.99 | 3.2 | 0.016 | pass |
 | barracks_2 | r3 | 4 | 3 | 81.4 | 6.6 | 6.0 | 6.0 | 1.02 | 0.4 | 0.021 | pass |
 | barracks_2 | r3 | 4 | 3w | 81.4 | 6.6 | 6.0 | 6.0 | 1.00 | 0.4 | 0.024 | pass |
+| barracks_2 | r1l1 | 2 | 1 | 82.0 | 16.7 | 1.3 | 0.0 | 1.19 | 4.7 | 0.028 | pass |
+| barracks_2 | r1l1 | 2 | 1w | 82.2 | 16.7 | 0.7 | 0.4 | 1.20 | 5.1 | 0.025 | pass |
+| barracks_2 | r1l1 | 2 | 2 | 80.7 | 17.1 | 1.9 | 0.3 | 1.10 | 2.0 | 0.021 | pass |
+| barracks_2 | r1l1 | 2 | 2w | 80.7 | 17.1 | 1.9 | 0.3 | 1.10 | 2.4 | 0.020 | pass |
+| barracks_2 | r1l1 | 2 | 3 | 83.0 | 7.1 | 5.5 | 4.3 | 1.01 | 0.4 | 0.027 | pass |
+| barracks_2 | r1l1 | 2 | 3w | 83.0 | 7.1 | 5.5 | 4.3 | 1.00 | 0.3 | 0.024 | pass |
+| barracks_2 | r2l2 | 3 | 1 | 62.8 | 26.5 | 9.3 | 1.3 | 1.00 | 5.5 | 0.063 | pass |
+| barracks_2 | r2l2 | 3 | 1w | 63.4 | 26.6 | 6.6 | 3.4 | 1.11 | 7.4 | 0.062 | pass |
+| barracks_2 | r2l2 | 3 | 2 | 60.9 | 31.9 | 6.9 | 0.3 | 1.01 | 0.8 | 0.049 | pass |
+| barracks_2 | r2l2 | 3 | 2w | 60.9 | 31.9 | 6.9 | 0.3 | 1.01 | 0.8 | 0.049 | pass |
+| barracks_2 | r2l2 | 3 | 3 | 75.2 | 12.6 | 6.4 | 5.8 | 1.05 | 0.6 | 0.028 | pass |
+| barracks_2 | r2l2 | 3 | 3w | 75.2 | 12.6 | 6.4 | 5.8 | 1.05 | 1.1 | 0.031 | pass |
+| barracks_2 | r3l3 | 4 | 1 | 80.5 | 10.0 | 8.1 | 1.5 | 0.82 | 13.1 | 0.085 | pass |
+| barracks_2 | r3l3 | 4 | 1w | 80.2 | 10.0 | 6.4 | 3.3 | 0.95 | 16.4 | 0.041 | pass |
+| barracks_2 | r3l3 | 4 | 2 | 76.9 | 16.1 | 6.8 | 0.2 | 0.94 | 2.4 | 0.060 | pass |
+| barracks_2 | r3l3 | 4 | 2w | 76.9 | 16.1 | 6.8 | 0.2 | 0.94 | 2.7 | 0.060 | pass |
+| barracks_2 | r3l3 | 4 | 3 | 81.4 | 6.6 | 6.0 | 6.0 | 0.99 | 0.8 | 0.018 | pass |
+| barracks_2 | r3l3 | 4 | 3w | 81.4 | 6.6 | 6.0 | 6.0 | 0.98 | 1.0 | 0.021 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -59,6 +95,12 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | barracks | r1 | 0.91 | 1.12 | 0.97 | 0.020 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | barracks | r2 | 0.97 | 1.12 | 0.97 | 0.024 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | barracks | r3 | 0.94 | 1.12 | 0.97 | 0.019 | 0.007 | 126 | 126 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| barracks | r1l1 | 0.91 | 1.12 | 0.97 | 0.020 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| barracks | r2l2 | 0.97 | 1.12 | 0.97 | 0.024 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| barracks | r3l3 | 0.94 | 1.12 | 0.97 | 0.019 | 0.007 | 126 | 126 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | barracks_2 | r1 | 0.97 | 1.05 | 0.98 | 0.017 | 0.004 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | barracks_2 | r2 | 0.93 | 1.05 | 0.98 | 0.026 | 0.004 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | barracks_2 | r3 | 0.92 | 1.05 | 0.98 | 0.023 | 0.004 | 69 | 69 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| barracks_2 | r1l1 | 0.97 | 1.05 | 0.98 | 0.017 | 0.004 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| barracks_2 | r2l2 | 0.93 | 1.05 | 0.98 | 0.026 | 0.004 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| barracks_2 | r3l3 | 0.92 | 1.05 | 0.98 | 0.023 | 0.004 | 69 | 69 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

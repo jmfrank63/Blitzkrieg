@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | townhouse03_1 | r3 | 4 | 2w | 38.7 | 60.8 | 0.2 | 0.2 | 0.86 | 18.7 | 0.023 | pass |
 | townhouse03_1 | r3 | 4 | 3 | 72.5 | 26.9 | 0.1 | 0.5 | 1.04 | 6.1 | 0.059 | pass |
 | townhouse03_1 | r3 | 4 | 3w | 72.5 | 26.9 | 0.1 | 0.5 | 1.01 | 7.2 | 0.044 | pass |
+| townhouse03_1 | r1l1 | 2 | 1 | 59.3 | 32.4 | 3.4 | 4.9 | 1.36 | 17.9 | 0.059 | pass |
+| townhouse03_1 | r1l1 | 2 | 1w | 59.3 | 32.3 | 3.4 | 5.0 | 1.30 | 19.3 | 0.043 | pass |
+| townhouse03_1 | r1l1 | 2 | 2 | 61.7 | 38.0 | 0.2 | 0.1 | 1.15 | 1.4 | 0.008 | pass |
+| townhouse03_1 | r1l1 | 2 | 2w | 61.7 | 38.0 | 0.2 | 0.1 | 1.12 | 1.3 | 0.005 | pass |
+| townhouse03_1 | r1l1 | 2 | 3 | 82.0 | 17.4 | 0.1 | 0.5 | 1.09 | 1.2 | 0.008 | pass |
+| townhouse03_1 | r1l1 | 2 | 3w | 82.0 | 17.4 | 0.1 | 0.5 | 1.08 | 1.4 | 0.013 | pass |
+| townhouse03_1 | r2l2 | 3 | 1 | 3.9 | 79.3 | 6.0 | 10.7 | 0.79 | 26.5 | 0.015 | pass |
+| townhouse03_1 | r2l2 | 3 | 1w | 4.0 | 79.3 | 6.0 | 10.7 | 0.97 | 28.1 | 0.052 | pass |
+| townhouse03_1 | r2l2 | 3 | 2 | 7.6 | 91.7 | 0.4 | 0.3 | 1.04 | 0.6 | 0.012 | pass |
+| townhouse03_1 | r2l2 | 3 | 2w | 7.6 | 91.7 | 0.4 | 0.3 | 1.05 | 0.7 | 0.013 | pass |
+| townhouse03_1 | r2l2 | 3 | 3 | 59.2 | 40.3 | 0.0 | 0.5 | 0.98 | 3.1 | 0.024 | pass |
+| townhouse03_1 | r2l2 | 3 | 3w | 59.2 | 40.3 | 0.0 | 0.5 | 0.98 | 3.6 | 0.026 | pass |
+| townhouse03_1 | r3l3 | 4 | 1 | 39.8 | 49.1 | 4.6 | 6.6 | 0.58 | 42.7 | 0.010 | pass |
+| townhouse03_1 | r3l3 | 4 | 1w | 39.9 | 48.9 | 4.5 | 6.7 | 0.83 | 48.3 | 0.047 | pass |
+| townhouse03_1 | r3l3 | 4 | 2 | 38.7 | 60.8 | 0.2 | 0.2 | 1.02 | 2.7 | 0.010 | pass |
+| townhouse03_1 | r3l3 | 4 | 2w | 38.7 | 60.8 | 0.2 | 0.2 | 1.03 | 3.1 | 0.010 | pass |
+| townhouse03_1 | r3l3 | 4 | 3 | 72.5 | 26.9 | 0.1 | 0.5 | 1.03 | 3.4 | 0.026 | pass |
+| townhouse03_1 | r3l3 | 4 | 3w | 72.5 | 26.9 | 0.1 | 0.5 | 1.03 | 4.0 | 0.028 | pass |
 | townhouse03_2 | r1 | 3 | 1 | 40.4 | 49.1 | 4.0 | 6.5 | 1.82 | 18.6 | 0.037 | pass |
 | townhouse03_2 | r1 | 3 | 1w | 40.6 | 49.0 | 4.0 | 6.4 | 1.39 | 14.5 | 0.080 | pass |
 | townhouse03_2 | r1 | 3 | 2 | 38.8 | 60.7 | 0.5 | 0.1 | 1.92 | 18.0 | 0.056 | pass |
@@ -42,6 +60,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | townhouse03_2 | r3 | 1 | 2w | 61.6 | 38.0 | 0.3 | 0.1 | 1.61 | 18.9 | 0.080 | pass |
 | townhouse03_2 | r3 | 1 | 3 | 76.9 | 23.0 | 0.1 | 0.1 | 1.09 | 1.1 | 0.024 | pass |
 | townhouse03_2 | r3 | 1 | 3w | 76.9 | 23.0 | 0.1 | 0.0 | 1.09 | 1.2 | 0.023 | pass |
+| townhouse03_2 | r1l1 | 3 | 1 | 40.4 | 49.1 | 4.0 | 6.5 | 1.60 | 26.5 | 0.041 | pass |
+| townhouse03_2 | r1l1 | 3 | 1w | 40.6 | 49.0 | 4.0 | 6.4 | 1.47 | 28.0 | 0.069 | pass |
+| townhouse03_2 | r1l1 | 3 | 2 | 38.8 | 60.7 | 0.5 | 0.1 | 1.08 | 1.8 | 0.012 | pass |
+| townhouse03_2 | r1l1 | 3 | 2w | 38.8 | 60.6 | 0.5 | 0.1 | 1.08 | 2.0 | 0.013 | pass |
+| townhouse03_2 | r1l1 | 3 | 3 | 62.9 | 37.0 | 0.0 | 0.0 | 1.03 | 3.4 | 0.005 | pass |
+| townhouse03_2 | r1l1 | 3 | 3w | 62.9 | 37.0 | 0.0 | 0.0 | 1.04 | 3.9 | 0.005 | pass |
+| townhouse03_2 | r2l2 | 4 | 1 | 4.3 | 79.7 | 5.5 | 10.5 | 1.28 | 10.6 | 0.035 | pass |
+| townhouse03_2 | r2l2 | 4 | 1w | 4.3 | 79.7 | 5.4 | 10.5 | 1.21 | 17.2 | 0.068 | pass |
+| townhouse03_2 | r2l2 | 4 | 2 | 7.7 | 91.7 | 0.5 | 0.2 | 1.02 | 3.7 | 0.009 | pass |
+| townhouse03_2 | r2l2 | 4 | 2w | 7.7 | 91.7 | 0.5 | 0.2 | 1.03 | 3.9 | 0.010 | pass |
+| townhouse03_2 | r2l2 | 4 | 3 | 48.5 | 51.5 | 0.0 | 0.1 | 1.00 | 3.2 | 0.005 | pass |
+| townhouse03_2 | r2l2 | 4 | 3w | 48.5 | 51.5 | 0.0 | 0.0 | 1.01 | 3.7 | 0.004 | pass |
+| townhouse03_2 | r3l3 | 1 | 1 | 59.4 | 32.6 | 3.2 | 4.8 | 0.90 | 35.5 | 0.014 | pass |
+| townhouse03_2 | r3l3 | 1 | 1w | 59.6 | 32.5 | 3.1 | 4.7 | 0.86 | 44.4 | 0.015 | pass |
+| townhouse03_2 | r3l3 | 1 | 2 | 61.6 | 38.0 | 0.3 | 0.1 | 1.07 | 4.2 | 0.011 | pass |
+| townhouse03_2 | r3l3 | 1 | 2w | 61.6 | 38.0 | 0.3 | 0.1 | 1.08 | 4.6 | 0.012 | pass |
+| townhouse03_2 | r3l3 | 1 | 3 | 76.9 | 23.0 | 0.1 | 0.1 | 1.06 | 0.6 | 0.018 | pass |
+| townhouse03_2 | r3l3 | 1 | 3w | 76.9 | 23.0 | 0.1 | 0.0 | 1.06 | 0.7 | 0.018 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -59,6 +95,12 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | townhouse03_1 | r1 | 0.98 | 1.05 | 0.95 | 0.007 | 0.006 | 390 | 390 | 2282 | 2282 | 0.000 | 0 | 35 | 23 | 0 | pass | blocks |
 | townhouse03_1 | r2 | 0.98 | 1.05 | 0.95 | 0.012 | 0.006 | 0 | 0 | 2527 | 2527 | 0.000 | 0 | 35 | 23 | 0 | pass | blocks |
 | townhouse03_1 | r3 | 0.97 | 1.05 | 0.95 | 0.009 | 0.006 | 858 | 858 | 2601 | 2601 | 0.000 | 0 | 35 | 23 | 0 | pass | blocks |
+| townhouse03_1 | r1l1 | 0.98 | 1.05 | 0.95 | 0.007 | 0.006 | 390 | 390 | 2282 | 0 | 0.000 | 0 | 35 | 23 | 0 | roof parts 0 of 2282 pixels | blocks |
+| townhouse03_1 | r2l2 | 0.98 | 1.05 | 0.95 | 0.012 | 0.006 | 0 | 0 | 2527 | 0 | 0.000 | 0 | 35 | 23 | 0 | roof parts 0 of 2527 pixels | blocks |
+| townhouse03_1 | r3l3 | 0.97 | 1.05 | 0.95 | 0.009 | 0.006 | 858 | 858 | 2601 | 0 | 0.000 | 0 | 35 | 23 | 0 | roof parts 0 of 2601 pixels | blocks |
 | townhouse03_2 | r1 | 0.98 | 1.04 | 0.95 | 0.010 | 0.005 | 872 | 872 | 2551 | 2551 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | townhouse03_2 | r2 | 0.98 | 1.04 | 0.95 | 0.009 | 0.005 | 6 | 6 | 2558 | 2558 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | townhouse03_2 | r3 | 0.99 | 1.04 | 0.95 | 0.013 | 0.005 | 304 | 304 | 2207 | 2207 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse03_2 | r1l1 | 0.98 | 1.04 | 0.95 | 0.010 | 0.005 | 872 | 872 | 2551 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 2551 pixels | blocks |
+| townhouse03_2 | r2l2 | 0.98 | 1.04 | 0.95 | 0.009 | 0.005 | 6 | 6 | 2558 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 2558 pixels | blocks |
+| townhouse03_2 | r3l3 | 0.99 | 1.04 | 0.95 | 0.013 | 0.005 | 304 | 304 | 2207 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 2207 pixels | blocks |

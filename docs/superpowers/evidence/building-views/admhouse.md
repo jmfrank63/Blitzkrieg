@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | admhouse | r3 | 4 | 2w | 40.2 | 55.5 | 2.7 | 1.6 | 1.04 | 4.4 | 0.028 | pass |
 | admhouse | r3 | 4 | 3 | 73.1 | 20.0 | 4.0 | 2.9 | 0.99 | 2.8 | 0.013 | pass |
 | admhouse | r3 | 4 | 3w | 73.1 | 20.0 | 4.0 | 2.9 | 0.99 | 3.4 | 0.014 | pass |
+| admhouse | r1l1 | 2 | 1 | 61.1 | 36.1 | 0.7 | 2.1 | 1.17 | 22.8 | 0.052 | pass |
+| admhouse | r1l1 | 2 | 1w | 61.9 | 35.7 | 1.2 | 1.2 | 1.18 | 24.9 | 0.120 | pass |
+| admhouse | r1l1 | 2 | 2 | 63.2 | 34.7 | 1.0 | 1.1 | 1.16 | 8.7 | 0.025 | pass |
+| admhouse | r1l1 | 2 | 2w | 63.2 | 34.7 | 1.0 | 1.1 | 1.15 | 10.0 | 0.021 | pass |
+| admhouse | r1l1 | 2 | 3 | 79.9 | 13.6 | 4.0 | 2.5 | 1.08 | 4.0 | 0.037 | pass |
+| admhouse | r1l1 | 2 | 3w | 79.9 | 13.6 | 4.0 | 2.5 | 1.08 | 4.7 | 0.034 | pass |
+| admhouse | r2l2 | 3 | 1 | 6.1 | 87.1 | 3.3 | 3.6 | 0.88 | 17.1 | 0.074 | pass |
+| admhouse | r2l2 | 3 | 1w | 5.5 | 90.9 | 1.7 | 1.8 | 0.74 | 33.4 | 0.106 | pass |
+| admhouse | r2l2 | 3 | 2 | 4.0 | 90.5 | 3.1 | 2.5 | 1.18 | 8.8 | 0.027 | pass |
+| admhouse | r2l2 | 3 | 2w | 4.0 | 90.5 | 3.1 | 2.5 | 1.18 | 10.2 | 0.027 | pass |
+| admhouse | r2l2 | 3 | 3 | 62.1 | 29.7 | 5.2 | 3.0 | 1.07 | 0.3 | 0.017 | pass |
+| admhouse | r2l2 | 3 | 3w | 62.1 | 29.7 | 5.2 | 3.0 | 1.07 | 0.3 | 0.015 | pass |
+| admhouse | r3l3 | 4 | 1 | 41.6 | 54.3 | 2.3 | 1.8 | 0.69 | 33.6 | 0.053 | pass |
+| admhouse | r3l3 | 4 | 1w | 40.2 | 57.6 | 1.2 | 1.1 | 0.66 | 53.7 | 0.066 | pass |
+| admhouse | r3l3 | 4 | 2 | 40.2 | 55.5 | 2.7 | 1.6 | 1.09 | 2.6 | 0.008 | pass |
+| admhouse | r3l3 | 4 | 2w | 40.2 | 55.5 | 2.7 | 1.6 | 1.10 | 3.0 | 0.009 | pass |
+| admhouse | r3l3 | 4 | 3 | 73.1 | 20.0 | 4.0 | 2.9 | 1.01 | 1.9 | 0.013 | pass |
+| admhouse | r3l3 | 4 | 3w | 73.1 | 20.0 | 4.0 | 2.9 | 1.01 | 2.4 | 0.014 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | admhouse | r1 | 0.95 | 0.81 | 0.97 | 0.015 | 0.015 | 47 | 47 | 0 | 0 | 0.000 | 0 | 117 | 99 | 0 | pass | blocks |
 | admhouse | r2 | 0.95 | 0.81 | 0.97 | 0.010 | 0.015 | 0 | 0 | 0 | 0 | 0.000 | 0 | 117 | 99 | 0 | pass | blocks |
 | admhouse | r3 | 0.96 | 0.81 | 0.97 | 0.009 | 0.015 | 511 | 511 | 0 | 0 | 0.000 | 0 | 117 | 99 | 0 | pass | blocks |
+| admhouse | r1l1 | 0.95 | 0.81 | 0.97 | 0.015 | 0.015 | 47 | 47 | 0 | 0 | 0.000 | 0 | 117 | 99 | 0 | pass | blocks |
+| admhouse | r2l2 | 0.95 | 0.81 | 0.97 | 0.010 | 0.015 | 0 | 0 | 0 | 0 | 0.000 | 0 | 117 | 99 | 0 | pass | blocks |
+| admhouse | r3l3 | 0.96 | 0.81 | 0.97 | 0.009 | 0.015 | 511 | 511 | 0 | 0 | 0.000 | 0 | 117 | 99 | 0 | pass | blocks |

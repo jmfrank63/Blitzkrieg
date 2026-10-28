@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | factoryoffice | r3 | 4 | 2w | 33.7 | 65.4 | 0.3 | 0.6 | 0.92 | 2.0 | 0.041 | pass |
 | factoryoffice | r3 | 4 | 3 | 73.4 | 23.7 | 1.5 | 1.4 | 1.01 | 1.0 | 0.030 | pass |
 | factoryoffice | r3 | 4 | 3w | 73.4 | 23.7 | 1.5 | 1.4 | 1.00 | 1.1 | 0.026 | pass |
+| factoryoffice | r1l1 | 2 | 1 | 64.8 | 26.6 | 1.2 | 7.3 | 1.18 | 13.9 | 0.079 | pass |
+| factoryoffice | r1l1 | 2 | 1w | 64.7 | 26.3 | 1.3 | 7.7 | 1.15 | 14.0 | 0.099 | pass |
+| factoryoffice | r1l1 | 2 | 2 | 65.0 | 34.1 | 0.5 | 0.4 | 1.07 | 3.4 | 0.041 | pass |
+| factoryoffice | r1l1 | 2 | 2w | 65.0 | 34.1 | 0.5 | 0.4 | 1.06 | 3.9 | 0.041 | pass |
+| factoryoffice | r1l1 | 2 | 3 | 76.1 | 21.4 | 1.2 | 1.3 | 1.07 | 0.8 | 0.006 | pass |
+| factoryoffice | r1l1 | 2 | 3w | 76.1 | 21.4 | 1.2 | 1.3 | 1.07 | 1.0 | 0.006 | pass |
+| factoryoffice | r2l2 | 3 | 1 | 4.0 | 76.0 | 5.9 | 14.2 | 0.80 | 34.0 | 0.099 | pass |
+| factoryoffice | r2l2 | 3 | 1w | 3.0 | 77.8 | 1.9 | 17.2 | 0.78 | 51.2 | 0.094 | pass |
+| factoryoffice | r2l2 | 3 | 2 | 3.5 | 94.9 | 0.7 | 0.9 | 1.04 | 2.2 | 0.053 | pass |
+| factoryoffice | r2l2 | 3 | 2w | 3.5 | 94.9 | 0.7 | 0.9 | 1.04 | 2.6 | 0.055 | pass |
+| factoryoffice | r2l2 | 3 | 3 | 57.5 | 39.6 | 1.4 | 1.5 | 1.00 | 0.6 | 0.033 | pass |
+| factoryoffice | r2l2 | 3 | 3w | 57.5 | 39.6 | 1.4 | 1.5 | 1.00 | 0.7 | 0.035 | pass |
+| factoryoffice | r3l3 | 4 | 1 | 34.6 | 52.5 | 5.4 | 7.5 | 0.56 | 47.5 | 0.106 | pass |
+| factoryoffice | r3l3 | 4 | 1w | 35.0 | 53.2 | 1.8 | 10.0 | 0.65 | 67.7 | 0.091 | colour 67.7 > 62 |
+| factoryoffice | r3l3 | 4 | 2 | 33.7 | 65.4 | 0.3 | 0.6 | 1.01 | 0.1 | 0.027 | pass |
+| factoryoffice | r3l3 | 4 | 2w | 33.7 | 65.4 | 0.3 | 0.6 | 1.01 | 0.1 | 0.028 | pass |
+| factoryoffice | r3l3 | 4 | 3 | 73.4 | 23.7 | 1.5 | 1.4 | 1.00 | 0.8 | 0.033 | pass |
+| factoryoffice | r3l3 | 4 | 3w | 73.4 | 23.7 | 1.5 | 1.4 | 1.00 | 0.9 | 0.034 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | factoryoffice | r1 | 0.98 | 1.04 | 0.96 | 0.032 | 0.032 | 205 | 205 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
 | factoryoffice | r2 | 0.98 | 1.04 | 0.96 | 0.019 | 0.032 | 0 | 0 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
 | factoryoffice | r3 | 0.99 | 1.04 | 0.96 | 0.019 | 0.032 | 390 | 390 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
+| factoryoffice | r1l1 | 0.98 | 1.04 | 0.96 | 0.032 | 0.032 | 205 | 205 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
+| factoryoffice | r2l2 | 0.98 | 1.04 | 0.96 | 0.019 | 0.032 | 0 | 0 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
+| factoryoffice | r3l3 | 0.99 | 1.04 | 0.96 | 0.019 | 0.032 | 390 | 390 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |

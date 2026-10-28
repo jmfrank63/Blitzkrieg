@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | watchtower | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watchtower | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | watchtower | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.55 | 16.4 | 0.063 | pass |
+| watchtower | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.14 | 11.2 | 0.059 | pass |
+| watchtower | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.87 | 32.4 | 0.085 | pass |
+| watchtower | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.33 | 24.9 | 0.147 | pass |
+| watchtower | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.09 | 4.4 | 0.011 | pass |
+| watchtower | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.06 | 5.0 | 0.010 | pass |
+| watchtower | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 14.3 | 0.037 | pass |
+| watchtower | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.82 | 14.8 | 0.047 | pass |
+| watchtower | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 3.9 | 0.039 | pass |
+| watchtower | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| watchtower | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.54 | 29.6 | 0.090 | pass |
+| watchtower | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.67 | 27.2 | 0.101 | pass |
+| watchtower | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.55 | 28.4 | 0.090 | pass |
+| watchtower | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.67 | 26.5 | 0.126 | pass |
+| watchtower | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 4.0 | 0.010 | pass |
+| watchtower | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.93 | 4.5 | 0.012 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | watchtower | r1 | 0.98 | 0.42 | 0.76 | 1.045 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
 | watchtower | r2 | 0.97 | 0.42 | 0.76 | 1.045 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
 | watchtower | r3 | 0.98 | 0.42 | 0.76 | 1.050 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
+| watchtower | r1l1 | 0.98 | 0.42 | 0.76 | 1.045 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
+| watchtower | r2l2 | 0.97 | 0.42 | 0.76 | 1.045 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.42 outside 0.5..2.0 | 2003 sprite |
+| watchtower | r3l3 | 0.98 | 0.42 | 0.76 | 1.050 | 0.075 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | ground 0.42 outside 0.5..2.0 | 2003 sprite |

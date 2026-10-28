@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | railroadlittlehouse | r3 | 4 | 2w | 62.4 | 24.1 | 13.4 | 0.1 | 0.94 | 3.7 | 0.083 | pass |
 | railroadlittlehouse | r3 | 4 | 3 | 70.9 | 27.6 | 1.1 | 0.3 | 1.04 | 2.2 | 0.020 | pass |
 | railroadlittlehouse | r3 | 4 | 3w | 70.9 | 27.6 | 1.1 | 0.3 | 1.03 | 2.6 | 0.030 | pass |
+| railroadlittlehouse | r1l1 | 2 | 1 | 67.3 | 19.9 | 12.9 | 0.0 | 1.15 | 13.2 | 0.060 | pass |
+| railroadlittlehouse | r1l1 | 2 | 1w | 64.5 | 22.8 | 12.6 | 0.1 | 1.12 | 8.5 | 0.082 | pass |
+| railroadlittlehouse | r1l1 | 2 | 2 | 67.2 | 22.2 | 10.6 | 0.0 | 1.11 | 0.7 | 0.028 | pass |
+| railroadlittlehouse | r1l1 | 2 | 2w | 67.2 | 22.2 | 10.6 | 0.0 | 1.11 | 0.7 | 0.027 | pass |
+| railroadlittlehouse | r1l1 | 2 | 3 | 78.4 | 20.6 | 0.9 | 0.2 | 1.11 | 0.5 | 0.037 | pass |
+| railroadlittlehouse | r1l1 | 2 | 3w | 78.4 | 20.6 | 0.9 | 0.2 | 1.10 | 0.5 | 0.037 | pass |
+| railroadlittlehouse | r2l2 | 3 | 1 | 46.3 | 33.0 | 20.7 | 0.0 | 0.85 | 20.7 | 0.081 | pass |
+| railroadlittlehouse | r2l2 | 3 | 1w | 41.5 | 39.8 | 18.5 | 0.1 | 1.13 | 30.4 | 0.021 | pass |
+| railroadlittlehouse | r2l2 | 3 | 2 | 47.9 | 36.3 | 15.7 | 0.0 | 1.08 | 5.9 | 0.072 | pass |
+| railroadlittlehouse | r2l2 | 3 | 2w | 47.9 | 36.3 | 15.7 | 0.0 | 1.08 | 6.9 | 0.073 | pass |
+| railroadlittlehouse | r2l2 | 3 | 3 | 56.1 | 42.7 | 0.9 | 0.3 | 1.02 | 0.9 | 0.009 | pass |
+| railroadlittlehouse | r2l2 | 3 | 3w | 56.1 | 42.7 | 0.9 | 0.3 | 1.02 | 1.0 | 0.008 | pass |
+| railroadlittlehouse | r3l3 | 4 | 1 | 58.8 | 23.5 | 17.4 | 0.3 | 0.63 | 29.1 | 0.133 | pass |
+| railroadlittlehouse | r3l3 | 4 | 1w | 55.3 | 28.1 | 16.3 | 0.3 | 0.86 | 51.3 | 0.065 | pass |
+| railroadlittlehouse | r3l3 | 4 | 2 | 62.4 | 24.1 | 13.4 | 0.1 | 1.06 | 2.6 | 0.084 | pass |
+| railroadlittlehouse | r3l3 | 4 | 2w | 62.4 | 24.1 | 13.4 | 0.1 | 1.06 | 3.0 | 0.084 | pass |
+| railroadlittlehouse | r3l3 | 4 | 3 | 70.9 | 27.6 | 1.1 | 0.3 | 1.03 | 1.9 | 0.007 | pass |
+| railroadlittlehouse | r3l3 | 4 | 3w | 70.9 | 27.6 | 1.1 | 0.3 | 1.03 | 2.2 | 0.010 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | railroadlittlehouse | r1 | 0.74 | 1.36 | 0.96 | 0.053 | 0.138 | 44 | 44 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | railroadlittlehouse | r2 | 1.00 | 1.36 | 0.96 | 0.097 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | railroadlittlehouse | r3 | 0.74 | 1.36 | 0.96 | 0.140 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadlittlehouse | r1l1 | 0.74 | 1.36 | 0.96 | 0.053 | 0.138 | 44 | 44 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadlittlehouse | r2l2 | 1.00 | 1.36 | 0.96 | 0.097 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadlittlehouse | r3l3 | 0.74 | 1.36 | 0.96 | 0.140 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

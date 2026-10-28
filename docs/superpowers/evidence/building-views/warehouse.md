@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | warehouse | r3 | 4 | 2w | 81.7 | 8.4 | 8.3 | 1.6 | 1.14 | 1.7 | 0.028 | pass |
 | warehouse | r3 | 4 | 3 | 89.8 | 4.4 | 1.3 | 4.5 | 1.04 | 0.3 | 0.008 | pass |
 | warehouse | r3 | 4 | 3w | 89.8 | 4.4 | 1.3 | 4.5 | 1.03 | 0.2 | 0.012 | pass |
+| warehouse | r1l1 | 2 | 1 | 77.2 | 20.6 | 1.9 | 0.3 | 1.24 | 8.5 | 0.038 | pass |
+| warehouse | r1l1 | 2 | 1w | 76.6 | 20.3 | 2.4 | 0.7 | 1.32 | 9.8 | 0.035 | pass |
+| warehouse | r1l1 | 2 | 2 | 77.0 | 19.9 | 2.6 | 0.4 | 1.09 | 1.4 | 0.011 | pass |
+| warehouse | r1l1 | 2 | 2w | 77.0 | 19.9 | 2.6 | 0.4 | 1.09 | 1.4 | 0.009 | pass |
+| warehouse | r1l1 | 2 | 3 | 87.0 | 7.3 | 1.4 | 4.3 | 1.02 | 0.1 | 0.005 | pass |
+| warehouse | r1l1 | 2 | 3w | 87.0 | 7.3 | 1.4 | 4.3 | 1.02 | 0.3 | 0.006 | pass |
+| warehouse | r2l2 | 3 | 1 | 66.0 | 23.7 | 8.5 | 1.8 | 1.14 | 2.8 | 0.031 | pass |
+| warehouse | r2l2 | 3 | 1w | 66.1 | 23.0 | 8.7 | 2.3 | 1.26 | 2.8 | 0.019 | pass |
+| warehouse | r2l2 | 3 | 2 | 65.0 | 25.0 | 8.5 | 1.6 | 1.12 | 2.6 | 0.012 | pass |
+| warehouse | r2l2 | 3 | 2w | 65.0 | 25.0 | 8.5 | 1.6 | 1.12 | 3.3 | 0.012 | pass |
+| warehouse | r2l2 | 3 | 3 | 83.7 | 10.2 | 1.5 | 4.6 | 1.01 | 0.7 | 0.002 | pass |
+| warehouse | r2l2 | 3 | 3w | 83.7 | 10.2 | 1.5 | 4.6 | 1.01 | 0.7 | 0.002 | pass |
+| warehouse | r3l3 | 4 | 1 | 83.0 | 6.9 | 8.3 | 1.8 | 0.92 | 13.2 | 0.055 | pass |
+| warehouse | r3l3 | 4 | 1w | 83.0 | 6.5 | 8.2 | 2.2 | 1.01 | 17.8 | 0.040 | pass |
+| warehouse | r3l3 | 4 | 2 | 81.7 | 8.4 | 8.3 | 1.6 | 1.01 | 3.3 | 0.019 | pass |
+| warehouse | r3l3 | 4 | 2w | 81.7 | 8.4 | 8.3 | 1.6 | 1.01 | 3.7 | 0.008 | pass |
+| warehouse | r3l3 | 4 | 3 | 89.8 | 4.4 | 1.3 | 4.5 | 0.99 | 1.1 | 0.002 | pass |
+| warehouse | r3l3 | 4 | 3w | 89.8 | 4.4 | 1.3 | 4.5 | 0.99 | 1.2 | 0.003 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | warehouse | r1 | 0.91 | 1.04 | 0.95 | 0.021 | 0.018 | 110 | 110 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | warehouse | r2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | warehouse | r3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| warehouse | r1l1 | 0.91 | 1.04 | 0.95 | 0.021 | 0.018 | 110 | 110 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| warehouse | r2l2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| warehouse | r3l3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | shed02 | r3 | 4 | 2w | 50.6 | 39.7 | 8.9 | 0.8 | 0.95 | 8.6 | 0.074 | pass |
 | shed02 | r3 | 4 | 3 | 32.1 | 59.3 | 7.7 | 0.9 | 1.49 | 5.9 | 0.049 | pass |
 | shed02 | r3 | 4 | 3w | 32.1 | 59.3 | 7.7 | 0.9 | 1.34 | 5.9 | 0.076 | pass |
+| shed02 | r1l1 | 2 | 1 | 28.8 | 67.4 | 2.7 | 1.1 | 1.25 | 33.7 | 0.064 | pass |
+| shed02 | r1l1 | 2 | 1w | 29.6 | 67.9 | 1.2 | 1.3 | 1.00 | 25.8 | 0.238 | pass |
+| shed02 | r1l1 | 2 | 2 | 38.4 | 53.3 | 7.5 | 0.8 | 1.36 | 10.1 | 0.016 | pass |
+| shed02 | r1l1 | 2 | 2w | 38.4 | 53.3 | 7.5 | 0.8 | 1.26 | 10.3 | 0.029 | pass |
+| shed02 | r1l1 | 2 | 3 | 63.0 | 33.9 | 2.4 | 0.8 | 1.15 | 3.8 | 0.021 | pass |
+| shed02 | r1l1 | 2 | 3w | 63.0 | 33.9 | 2.4 | 0.8 | 1.14 | 4.3 | 0.019 | pass |
+| shed02 | r2l2 | 3 | 1 | 4.5 | 90.6 | 3.7 | 1.1 | 0.97 | 3.7 | 0.072 | pass |
+| shed02 | r2l2 | 3 | 1w | 5.0 | 87.9 | 5.3 | 1.8 | 0.91 | 22.0 | 0.176 | pass |
+| shed02 | r2l2 | 3 | 2 | 0.0 | 91.1 | 8.0 | 0.8 | 1.03 | 1.3 | 0.008 | pass |
+| shed02 | r2l2 | 3 | 2w | 0.0 | 91.1 | 8.0 | 0.8 | 1.03 | 1.5 | 0.007 | pass |
+| shed02 | r2l2 | 3 | 3 | 2.4 | 89.6 | 7.1 | 0.8 | 1.03 | 1.3 | 0.014 | pass |
+| shed02 | r2l2 | 3 | 3w | 2.4 | 89.6 | 7.1 | 0.8 | 1.03 | 1.3 | 0.022 | pass |
+| shed02 | r3l3 | 4 | 1 | 60.5 | 35.3 | 3.1 | 1.1 | 0.77 | 29.9 | 0.031 | pass |
+| shed02 | r3l3 | 4 | 1w | 62.9 | 30.8 | 4.7 | 1.5 | 0.95 | 40.6 | 0.027 | pass |
+| shed02 | r3l3 | 4 | 2 | 50.6 | 39.7 | 8.9 | 0.8 | 1.03 | 4.7 | 0.031 | pass |
+| shed02 | r3l3 | 4 | 2w | 50.6 | 39.7 | 8.9 | 0.8 | 1.03 | 5.5 | 0.027 | pass |
+| shed02 | r3l3 | 4 | 3 | 32.1 | 59.3 | 7.7 | 0.9 | 1.17 | 4.4 | 0.048 | pass |
+| shed02 | r3l3 | 4 | 3w | 32.1 | 59.3 | 7.7 | 0.9 | 1.17 | 4.9 | 0.052 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | shed02 | r1 | 0.98 | 0.72 | 0.90 | 0.098 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | shed02 | r2 | 1.14 | 0.72 | 0.90 | 0.176 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | shed02 | r3 | 1.10 | 0.72 | 0.90 | 0.249 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| shed02 | r1l1 | 0.98 | 0.72 | 0.90 | 0.098 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| shed02 | r2l2 | 1.14 | 0.72 | 0.90 | 0.176 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| shed02 | r3l3 | 1.10 | 0.72 | 0.90 | 0.249 | 0.192 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

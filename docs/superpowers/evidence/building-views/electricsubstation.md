@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | electricsubstation | r3 | 4 | 2w | 60.1 | 39.5 | 0.0 | 0.4 | 0.99 | 11.6 | 0.119 | pass |
 | electricsubstation | r3 | 4 | 3 | 67.8 | 25.8 | 5.0 | 1.4 | 1.22 | 2.2 | 0.013 | pass |
 | electricsubstation | r3 | 4 | 3w | 67.8 | 25.8 | 5.0 | 1.4 | 1.14 | 2.5 | 0.018 | pass |
+| electricsubstation | r1l1 | 2 | 1 | 59.9 | 39.7 | 0.0 | 0.4 | 1.01 | 14.0 | 0.086 | pass |
+| electricsubstation | r1l1 | 2 | 1w | 60.3 | 33.5 | 0.0 | 6.3 | 1.18 | 22.6 | 0.176 | pass |
+| electricsubstation | r1l1 | 2 | 2 | 66.5 | 33.0 | 0.0 | 0.5 | 1.12 | 1.3 | 0.030 | pass |
+| electricsubstation | r1l1 | 2 | 2w | 66.5 | 33.0 | 0.0 | 0.5 | 1.09 | 1.2 | 0.025 | pass |
+| electricsubstation | r1l1 | 2 | 3 | 69.4 | 26.7 | 2.3 | 1.5 | 1.09 | 1.8 | 0.008 | pass |
+| electricsubstation | r1l1 | 2 | 3w | 69.4 | 26.7 | 2.3 | 1.5 | 1.09 | 2.1 | 0.008 | pass |
+| electricsubstation | r2l2 | 3 | 1 | 2.8 | 96.9 | 0.0 | 0.2 | 0.69 | 32.1 | 0.084 | pass |
+| electricsubstation | r2l2 | 3 | 1w | 2.8 | 91.5 | 0.0 | 5.7 | 0.73 | 58.1 | 0.123 | pass |
+| electricsubstation | r2l2 | 3 | 2 | 33.0 | 66.5 | 0.0 | 0.4 | 0.97 | 4.7 | 0.013 | pass |
+| electricsubstation | r2l2 | 3 | 2w | 33.0 | 66.5 | 0.0 | 0.4 | 0.97 | 5.3 | 0.015 | pass |
+| electricsubstation | r2l2 | 3 | 3 | 47.3 | 45.8 | 5.4 | 1.5 | 1.08 | 1.3 | 0.017 | pass |
+| electricsubstation | r2l2 | 3 | 3w | 47.3 | 45.8 | 5.4 | 1.5 | 1.09 | 1.5 | 0.017 | pass |
+| electricsubstation | r3l3 | 4 | 1 | 33.8 | 66.0 | 0.0 | 0.3 | 0.50 | 44.8 | 0.033 | pass |
+| electricsubstation | r3l3 | 4 | 1w | 34.9 | 64.5 | 0.0 | 0.6 | 0.61 | 83.6 | 0.057 | colour 83.6 > 62 |
+| electricsubstation | r3l3 | 4 | 2 | 60.1 | 39.5 | 0.0 | 0.4 | 1.01 | 6.3 | 0.018 | pass |
+| electricsubstation | r3l3 | 4 | 2w | 60.1 | 39.5 | 0.0 | 0.4 | 1.02 | 7.4 | 0.022 | pass |
+| electricsubstation | r3l3 | 4 | 3 | 67.8 | 25.8 | 5.0 | 1.4 | 1.04 | 3.7 | 0.024 | pass |
+| electricsubstation | r3l3 | 4 | 3w | 67.8 | 25.8 | 5.0 | 1.4 | 1.05 | 4.3 | 0.028 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | electricsubstation | r1 | 1.01 | 0.77 | 0.91 | 0.084 | 0.085 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | electricsubstation | r2 | 1.01 | 0.77 | 0.91 | 0.082 | 0.085 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | electricsubstation | r3 | 1.01 | 0.77 | 0.91 | 0.091 | 0.085 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| electricsubstation | r1l1 | 1.01 | 0.77 | 0.91 | 0.084 | 0.085 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| electricsubstation | r2l2 | 1.01 | 0.77 | 0.91 | 0.082 | 0.085 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| electricsubstation | r3l3 | 1.01 | 0.77 | 0.91 | 0.091 | 0.085 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

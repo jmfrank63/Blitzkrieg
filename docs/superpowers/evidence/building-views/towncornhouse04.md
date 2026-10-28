@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | towncornhouse04 | r3 | 4 | 2w | 43.2 | 41.9 | 14.7 | 0.2 | 1.01 | 4.3 | 0.043 | pass |
 | towncornhouse04 | r3 | 4 | 3 | 64.0 | 27.1 | 2.2 | 6.8 | 1.18 | 4.5 | 0.048 | pass |
 | towncornhouse04 | r3 | 4 | 3w | 64.0 | 27.1 | 2.2 | 6.8 | 1.14 | 3.4 | 0.049 | pass |
+| towncornhouse04 | r1l1 | 2 | 1 | 44.1 | 34.1 | 21.8 | 0.1 | 1.24 | 13.0 | 0.027 | pass |
+| towncornhouse04 | r1l1 | 2 | 1w | 43.6 | 34.2 | 22.0 | 0.1 | 1.38 | 16.7 | 0.006 | pass |
+| towncornhouse04 | r1l1 | 2 | 2 | 45.5 | 34.9 | 19.5 | 0.1 | 1.25 | 10.0 | 0.027 | pass |
+| towncornhouse04 | r1l1 | 2 | 2w | 45.5 | 34.9 | 19.5 | 0.1 | 1.22 | 11.4 | 0.028 | pass |
+| towncornhouse04 | r1l1 | 2 | 3 | 82.1 | 8.9 | 2.4 | 6.6 | 1.07 | 2.8 | 0.029 | pass |
+| towncornhouse04 | r1l1 | 2 | 3w | 82.1 | 8.9 | 2.4 | 6.6 | 1.07 | 3.0 | 0.028 | pass |
+| towncornhouse04 | r2l2 | 3 | 1 | 7.6 | 64.0 | 28.3 | 0.1 | 0.83 | 22.3 | 0.128 | pass |
+| towncornhouse04 | r2l2 | 3 | 1w | 7.4 | 63.8 | 28.6 | 0.2 | 1.16 | 22.4 | 0.071 | pass |
+| towncornhouse04 | r2l2 | 3 | 2 | 8.7 | 66.2 | 24.9 | 0.1 | 1.11 | 1.0 | 0.081 | pass |
+| towncornhouse04 | r2l2 | 3 | 2w | 8.7 | 66.2 | 24.9 | 0.1 | 1.12 | 1.0 | 0.082 | pass |
+| towncornhouse04 | r2l2 | 3 | 3 | 56.9 | 33.5 | 2.7 | 6.9 | 1.04 | 2.2 | 0.021 | pass |
+| towncornhouse04 | r2l2 | 3 | 3w | 56.9 | 33.5 | 2.7 | 6.9 | 1.04 | 2.7 | 0.022 | pass |
+| towncornhouse04 | r3l3 | 4 | 1 | 42.0 | 40.9 | 17.0 | 0.1 | 0.61 | 43.0 | 0.016 | pass |
+| towncornhouse04 | r3l3 | 4 | 1w | 41.8 | 40.8 | 17.3 | 0.1 | 0.91 | 57.8 | 0.025 | pass |
+| towncornhouse04 | r3l3 | 4 | 2 | 43.2 | 41.9 | 14.7 | 0.2 | 0.93 | 13.9 | 0.061 | pass |
+| towncornhouse04 | r3l3 | 4 | 2w | 43.2 | 41.9 | 14.7 | 0.2 | 0.93 | 16.1 | 0.059 | pass |
+| towncornhouse04 | r3l3 | 4 | 3 | 64.0 | 27.1 | 2.2 | 6.8 | 1.08 | 1.7 | 0.005 | pass |
+| towncornhouse04 | r3l3 | 4 | 3w | 64.0 | 27.1 | 2.2 | 6.8 | 1.08 | 2.1 | 0.006 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | towncornhouse04 | r1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 2293 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
 | towncornhouse04 | r2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 2401 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
 | towncornhouse04 | r3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 2523 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
+| towncornhouse04 | r1l1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 0 | 0.000 | 0 | 43 | 40 | 0 | roof parts 0 of 2293 pixels | blocks |
+| towncornhouse04 | r2l2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 0 | 0.000 | 0 | 43 | 40 | 0 | roof parts 0 of 2401 pixels | blocks |
+| towncornhouse04 | r3l3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 0 | 0.000 | 0 | 43 | 40 | 0 | roof parts 0 of 2523 pixels | blocks |

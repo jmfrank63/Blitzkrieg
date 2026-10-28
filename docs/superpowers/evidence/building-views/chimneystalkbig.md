@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | chimneystalkbig | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | chimneystalkbig | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | chimneystalkbig | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.51 | 17.7 | 0.031 | pass |
+| chimneystalkbig | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.21 | 18.0 | 0.038 | pass |
+| chimneystalkbig | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.58 | 25.6 | 0.043 | pass |
+| chimneystalkbig | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.33 | 29.2 | 0.052 | pass |
+| chimneystalkbig | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.18 | 9.9 | 0.031 | pass |
+| chimneystalkbig | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.11 | 10.9 | 0.031 | pass |
+| chimneystalkbig | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.90 | 23.2 | 0.021 | pass |
+| chimneystalkbig | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.91 | 28.2 | 0.024 | pass |
+| chimneystalkbig | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| chimneystalkbig | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.51 | 41.7 | 0.047 | pass |
+| chimneystalkbig | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.63 | 49.9 | 0.048 | pass |
+| chimneystalkbig | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.57 | 27.9 | 0.054 | pass |
+| chimneystalkbig | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.64 | 32.2 | 0.044 | pass |
+| chimneystalkbig | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.88 | 9.1 | 0.042 | pass |
+| chimneystalkbig | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.90 | 10.3 | 0.038 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | chimneystalkbig | r1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
 | chimneystalkbig | r2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
 | chimneystalkbig | r3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
+| chimneystalkbig | r1l1 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
+| chimneystalkbig | r2l2 | 1.00 | 1.13 | 0.71 | 0.295 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |
+| chimneystalkbig | r3l3 | 1.00 | 1.13 | 0.71 | 0.291 | 0.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | outline 0.71 < 0.85 | 2003 sprite |

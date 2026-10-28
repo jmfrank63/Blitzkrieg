@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | storehouse_1 | r3 | 4 | 2w | 36.0 | 62.4 | 0.9 | 0.8 | 1.20 | 6.8 | 0.073 | pass |
 | storehouse_1 | r3 | 4 | 3 | 85.3 | 9.5 | 1.9 | 3.4 | 1.05 | 0.6 | 0.018 | pass |
 | storehouse_1 | r3 | 4 | 3w | 85.3 | 9.5 | 1.9 | 3.4 | 1.05 | 0.6 | 0.021 | pass |
+| storehouse_1 | r1l1 | 2 | 1 | 64.8 | 35.1 | 0.0 | 0.1 | 1.33 | 20.7 | 0.207 | pass |
+| storehouse_1 | r1l1 | 2 | 1w | 65.2 | 21.6 | 0.1 | 13.1 | 1.18 | 22.4 | 0.081 | pass |
+| storehouse_1 | r1l1 | 2 | 2 | 64.1 | 35.6 | 0.2 | 0.1 | 1.06 | 4.7 | 0.044 | pass |
+| storehouse_1 | r1l1 | 2 | 2w | 64.2 | 35.1 | 0.5 | 0.2 | 1.09 | 8.3 | 0.048 | pass |
+| storehouse_1 | r1l1 | 2 | 3 | 87.5 | 7.6 | 1.7 | 3.2 | 1.03 | 3.3 | 0.015 | pass |
+| storehouse_1 | r1l1 | 2 | 3w | 87.5 | 7.6 | 1.7 | 3.2 | 1.02 | 3.7 | 0.017 | pass |
+| storehouse_1 | r2l2 | 3 | 1 | 12.8 | 87.1 | 0.0 | 0.1 | 0.98 | 20.7 | 0.215 | pass |
+| storehouse_1 | r2l2 | 3 | 1w | 12.8 | 57.6 | 0.0 | 29.6 | 0.91 | 42.9 | 0.115 | pass |
+| storehouse_1 | r2l2 | 3 | 2 | 13.2 | 86.2 | 0.3 | 0.2 | 0.78 | 25.4 | 0.025 | pass |
+| storehouse_1 | r2l2 | 3 | 2w | 13.2 | 85.5 | 0.7 | 0.5 | 0.85 | 23.3 | 0.026 | pass |
+| storehouse_1 | r2l2 | 3 | 3 | 80.1 | 13.7 | 2.4 | 3.9 | 0.97 | 3.3 | 0.035 | pass |
+| storehouse_1 | r2l2 | 3 | 3w | 80.1 | 13.7 | 2.4 | 3.9 | 0.97 | 3.9 | 0.037 | pass |
+| storehouse_1 | r3l3 | 4 | 1 | 33.1 | 66.8 | 0.0 | 0.1 | 0.67 | 31.1 | 0.161 | pass |
+| storehouse_1 | r3l3 | 4 | 1w | 33.7 | 47.7 | 0.1 | 18.5 | 0.83 | 56.6 | 0.088 | pass |
+| storehouse_1 | r3l3 | 4 | 2 | 33.7 | 65.6 | 0.4 | 0.2 | 0.78 | 26.5 | 0.026 | pass |
+| storehouse_1 | r3l3 | 4 | 2w | 36.0 | 62.4 | 0.9 | 0.8 | 0.83 | 28.5 | 0.039 | pass |
+| storehouse_1 | r3l3 | 4 | 3 | 85.3 | 9.5 | 1.9 | 3.4 | 1.09 | 1.8 | 0.021 | pass |
+| storehouse_1 | r3l3 | 4 | 3w | 85.3 | 9.5 | 1.9 | 3.4 | 1.08 | 2.1 | 0.022 | pass |
 | storehouse_2 | r1 | 3 | 1 | 35.7 | 62.2 | 0.0 | 2.1 | 0.97 | 2.9 | 0.116 | pass |
 | storehouse_2 | r1 | 3 | 1w | 35.5 | 62.0 | 0.3 | 2.2 | 1.14 | 0.8 | 0.065 | pass |
 | storehouse_2 | r1 | 3 | 2 | 36.0 | 62.4 | 0.8 | 0.8 | 0.91 | 8.7 | 0.032 | pass |
@@ -42,6 +60,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | storehouse_2 | r3 | 1 | 2w | 64.0 | 34.9 | 0.5 | 0.6 | 0.85 | 14.3 | 0.034 | pass |
 | storehouse_2 | r3 | 1 | 3 | 79.1 | 7.5 | 1.8 | 11.7 | 1.00 | 3.0 | 0.017 | pass |
 | storehouse_2 | r3 | 1 | 3w | 79.1 | 7.5 | 1.8 | 11.7 | 0.99 | 3.7 | 0.019 | pass |
+| storehouse_2 | r1l1 | 3 | 1 | 35.7 | 62.2 | 0.0 | 2.1 | 1.14 | 5.1 | 0.119 | pass |
+| storehouse_2 | r1l1 | 3 | 1w | 35.5 | 62.0 | 0.3 | 2.2 | 1.17 | 4.3 | 0.062 | pass |
+| storehouse_2 | r1l1 | 3 | 2 | 36.0 | 62.4 | 0.8 | 0.8 | 1.76 | 16.4 | 0.010 | pass |
+| storehouse_2 | r1l1 | 3 | 2w | 36.0 | 62.4 | 0.8 | 0.8 | 1.44 | 19.0 | 0.024 | pass |
+| storehouse_2 | r1l1 | 3 | 3 | 78.5 | 8.3 | 1.9 | 11.4 | 0.96 | 1.7 | 0.018 | pass |
+| storehouse_2 | r1l1 | 3 | 3w | 78.5 | 8.3 | 1.9 | 11.4 | 0.96 | 1.9 | 0.017 | pass |
+| storehouse_2 | r2l2 | 4 | 1 | 14.2 | 82.8 | 0.0 | 3.0 | 0.54 | 17.4 | 0.124 | pass |
+| storehouse_2 | r2l2 | 4 | 1w | 14.0 | 82.8 | 0.0 | 3.2 | 0.90 | 16.4 | 0.107 | pass |
+| storehouse_2 | r2l2 | 4 | 2 | 14.2 | 84.2 | 0.5 | 1.1 | 1.83 | 12.6 | 0.036 | pass |
+| storehouse_2 | r2l2 | 4 | 2w | 14.2 | 84.2 | 0.5 | 1.1 | 1.44 | 14.4 | 0.011 | pass |
+| storehouse_2 | r2l2 | 4 | 3 | 77.3 | 9.0 | 1.8 | 12.0 | 1.00 | 1.9 | 0.019 | pass |
+| storehouse_2 | r2l2 | 4 | 3w | 77.3 | 9.0 | 1.8 | 12.0 | 1.00 | 2.4 | 0.020 | pass |
+| storehouse_2 | r3l3 | 1 | 1 | 63.8 | 33.6 | 0.0 | 2.5 | 0.37 | 31.2 | 0.118 | sharpness 0.37 outside 0.45..3.20 |
+| storehouse_2 | r3l3 | 1 | 1w | 63.8 | 33.6 | 0.0 | 2.6 | 0.81 | 34.5 | 0.091 | pass |
+| storehouse_2 | r3l3 | 1 | 2 | 64.0 | 34.9 | 0.5 | 0.6 | 1.21 | 5.3 | 0.029 | pass |
+| storehouse_2 | r3l3 | 1 | 2w | 64.0 | 34.9 | 0.5 | 0.6 | 1.09 | 6.2 | 0.027 | pass |
+| storehouse_2 | r3l3 | 1 | 3 | 79.1 | 7.5 | 1.8 | 11.7 | 0.97 | 2.6 | 0.014 | pass |
+| storehouse_2 | r3l3 | 1 | 3w | 79.1 | 7.5 | 1.8 | 11.7 | 0.97 | 3.1 | 0.017 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -59,6 +95,12 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | storehouse_1 | r1 | 0.99 | 1.00 | 0.97 | 0.002 | 0.001 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | storehouse_1 | r2 | 1.00 | 1.00 | 0.97 | 0.001 | 0.001 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | storehouse_1 | r3 | 1.00 | 1.00 | 0.97 | 0.002 | 0.001 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| storehouse_1 | r1l1 | 0.99 | 1.00 | 0.97 | 0.002 | 0.001 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| storehouse_1 | r2l2 | 1.00 | 1.00 | 0.97 | 0.001 | 0.001 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| storehouse_1 | r3l3 | 1.00 | 1.00 | 0.97 | 0.002 | 0.001 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | storehouse_2 | r1 | 0.98 | 1.02 | 0.98 | 0.000 | 0.002 | 477 | 477 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | storehouse_2 | r2 | 0.98 | 1.02 | 0.98 | 0.000 | 0.002 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | storehouse_2 | r3 | 0.99 | 1.02 | 0.98 | 0.000 | 0.002 | 35 | 35 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| storehouse_2 | r1l1 | 0.98 | 1.02 | 0.98 | 0.000 | 0.002 | 477 | 477 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| storehouse_2 | r2l2 | 0.98 | 1.02 | 0.98 | 0.000 | 0.002 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| storehouse_2 | r3l3 | 0.99 | 1.02 | 0.98 | 0.000 | 0.002 | 35 | 35 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

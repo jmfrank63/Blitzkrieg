@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_townhouse03_1 | r3 | 4 | 1 | 65.9 | 32.8 | 0.6 | 0.7 | 1.52 | 7.0 | 0.101 | pass |
 | e_townhouse03_1 | r3 | 4 | 2 | 62.6 | 35.0 | 1.0 | 1.3 | 1.17 | 5.8 | 0.027 | pass |
 | e_townhouse03_1 | r3 | 4 | 3 | 29.0 | 65.0 | 1.3 | 4.7 | 1.02 | 1.4 | 0.004 | pass |
+| e_townhouse03_1 | r1l1 | 2 | 1 | 31.9 | 67.1 | 0.5 | 0.5 | 1.37 | 25.9 | 0.063 | pass |
+| e_townhouse03_1 | r1l1 | 2 | 2 | 34.4 | 62.9 | 1.0 | 1.7 | 1.01 | 0.2 | 0.005 | pass |
+| e_townhouse03_1 | r1l1 | 2 | 3 | 64.1 | 29.9 | 1.2 | 4.8 | 1.03 | 1.1 | 0.003 | pass |
+| e_townhouse03_1 | r2l2 | 3 | 1 | 0.2 | 98.7 | 0.5 | 0.5 | 1.17 | 10.2 | 0.029 | pass |
+| e_townhouse03_1 | r2l2 | 3 | 2 | 0.1 | 96.9 | 1.1 | 1.9 | 0.99 | 0.1 | 0.005 | pass |
+| e_townhouse03_1 | r2l2 | 3 | 3 | 0.1 | 93.7 | 1.2 | 5.0 | 0.98 | 1.0 | 0.003 | pass |
+| e_townhouse03_1 | r3l3 | 4 | 1 | 65.9 | 32.8 | 0.6 | 0.7 | 0.70 | 37.6 | 0.062 | pass |
+| e_townhouse03_1 | r3l3 | 4 | 2 | 62.6 | 35.0 | 1.0 | 1.3 | 0.97 | 1.1 | 0.003 | pass |
+| e_townhouse03_1 | r3l3 | 4 | 3 | 29.0 | 65.0 | 1.3 | 4.7 | 1.02 | 1.2 | 0.006 | pass |
 | e_townhouse03_4 | r1 | 2 | 1 | 66.4 | 32.9 | 0.0 | 0.7 | 0.70 | 21.7 | 0.022 | pass |
 | e_townhouse03_4 | r1 | 2 | 2 | 67.7 | 31.7 | 0.3 | 0.2 | 1.15 | 2.6 | 0.024 | pass |
 | e_townhouse03_4 | r1 | 2 | 3 | 39.7 | 48.7 | 5.8 | 5.7 | 1.04 | 2.4 | 0.036 | pass |
@@ -24,6 +33,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_townhouse03_4 | r3 | 4 | 1 | 32.3 | 67.0 | 0.0 | 0.7 | 0.70 | 20.3 | 0.022 | pass |
 | e_townhouse03_4 | r3 | 4 | 2 | 31.0 | 68.5 | 0.3 | 0.2 | 1.15 | 2.7 | 0.023 | pass |
 | e_townhouse03_4 | r3 | 4 | 3 | 52.2 | 41.4 | 1.6 | 4.8 | 1.12 | 0.6 | 0.035 | pass |
+| e_townhouse03_4 | r1l1 | 2 | 1 | 66.4 | 32.9 | 0.0 | 0.7 | 1.14 | 16.1 | 0.015 | pass |
+| e_townhouse03_4 | r1l1 | 2 | 2 | 67.7 | 31.7 | 0.3 | 0.2 | 1.03 | 0.5 | 0.014 | pass |
+| e_townhouse03_4 | r1l1 | 2 | 3 | 39.7 | 48.7 | 5.8 | 5.7 | 1.21 | 1.1 | 0.015 | pass |
+| e_townhouse03_4 | r2l2 | 3 | 1 | 0.1 | 99.2 | 0.0 | 0.7 | 0.53 | 42.0 | 0.021 | pass |
+| e_townhouse03_4 | r2l2 | 3 | 2 | 0.1 | 99.4 | 0.3 | 0.2 | 0.98 | 0.3 | 0.006 | pass |
+| e_townhouse03_4 | r2l2 | 3 | 3 | 8.3 | 79.5 | 6.0 | 6.2 | 1.07 | 0.2 | 0.016 | pass |
+| e_townhouse03_4 | r3l3 | 4 | 1 | 32.3 | 67.0 | 0.0 | 0.7 | 0.35 | 55.5 | 0.029 | sharpness 0.35 outside 0.45..3.20 |
+| e_townhouse03_4 | r3l3 | 4 | 2 | 31.0 | 68.5 | 0.3 | 0.2 | 1.00 | 0.6 | 0.005 | pass |
+| e_townhouse03_4 | r3l3 | 4 | 3 | 52.2 | 41.4 | 1.6 | 4.8 | 1.15 | 0.6 | 0.009 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,6 +59,12 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_townhouse03_1 | r1 | 1.00 | 0.94 | 0.96 | 0.032 | 0.022 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse03_1 | r2 | 1.08 | 0.94 | 0.96 | 0.036 | 0.022 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse03_1 | r3 | 1.08 | 0.94 | 0.96 | 0.038 | 0.022 | 376 | 376 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse03_1 | r1l1 | 1.00 | 0.94 | 0.96 | 0.032 | 0.022 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse03_1 | r2l2 | 1.08 | 0.94 | 0.96 | 0.036 | 0.022 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse03_1 | r3l3 | 1.08 | 0.94 | 0.96 | 0.038 | 0.022 | 376 | 376 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse03_4 | r1 | 1.01 | 0.88 | 0.96 | 0.015 | 0.019 | 82 | 82 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse03_4 | r2 | 1.01 | 0.88 | 0.96 | 0.016 | 0.019 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse03_4 | r3 | 1.02 | 0.88 | 0.96 | 0.015 | 0.019 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse03_4 | r1l1 | 1.01 | 0.88 | 0.96 | 0.015 | 0.019 | 82 | 82 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse03_4 | r2l2 | 1.01 | 0.88 | 0.96 | 0.016 | 0.019 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse03_4 | r3l3 | 1.02 | 0.88 | 0.96 | 0.015 | 0.019 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

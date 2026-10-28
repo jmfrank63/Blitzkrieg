@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_chapel_1 | r3 | 4 | 1 | 68.3 | 19.0 | 11.3 | 1.5 | 1.68 | 19.6 | 0.120 | pass |
 | e_chapel_1 | r3 | 4 | 2 | 60.7 | 28.3 | 9.6 | 1.3 | 1.15 | 5.7 | 0.018 | pass |
 | e_chapel_1 | r3 | 4 | 3 | 59.5 | 22.1 | 16.9 | 1.6 | 1.28 | 4.6 | 0.038 | pass |
+| e_chapel_1 | r1l1 | 2 | 1 | 33.0 | 64.1 | 1.9 | 1.0 | 1.48 | 25.8 | 0.058 | pass |
+| e_chapel_1 | r1l1 | 2 | 2 | 33.1 | 60.7 | 4.9 | 1.3 | 1.19 | 5.0 | 0.029 | pass |
+| e_chapel_1 | r1l1 | 2 | 3 | 64.9 | 31.2 | 3.5 | 0.4 | 1.15 | 3.0 | 0.013 | pass |
+| e_chapel_1 | r2l2 | 3 | 1 | 0.1 | 87.3 | 11.4 | 1.1 | 1.28 | 11.6 | 0.102 | pass |
+| e_chapel_1 | r2l2 | 3 | 2 | 0.0 | 89.0 | 9.9 | 1.0 | 0.97 | 20.5 | 0.022 | pass |
+| e_chapel_1 | r2l2 | 3 | 3 | 33.3 | 46.9 | 18.2 | 1.7 | 1.11 | 6.1 | 0.006 | pass |
+| e_chapel_1 | r3l3 | 4 | 1 | 68.3 | 19.0 | 11.3 | 1.5 | 0.81 | 33.8 | 0.067 | pass |
+| e_chapel_1 | r3l3 | 4 | 2 | 60.7 | 28.3 | 9.6 | 1.3 | 1.08 | 5.6 | 0.022 | pass |
+| e_chapel_1 | r3l3 | 4 | 3 | 59.5 | 22.1 | 16.9 | 1.6 | 1.13 | 6.5 | 0.023 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,3 +41,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_chapel_1 | r1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_chapel_1 | r2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_chapel_1 | r3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_chapel_1 | r1l1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_chapel_1 | r2l2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_chapel_1 | r3l3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

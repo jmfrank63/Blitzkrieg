@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | a_mosque_02_1 | r3 | 4 | 1 | 54.2 | 40.7 | 5.1 | 0.0 | 1.10 | 24.3 | 0.036 | pass |
 | a_mosque_02_1 | r3 | 4 | 2 | 67.9 | 30.5 | 1.3 | 0.2 | 1.13 | 14.6 | 0.094 | pass |
 | a_mosque_02_1 | r3 | 4 | 3 | 33.1 | 58.3 | 4.3 | 4.2 | 1.03 | 0.1 | 0.005 | pass |
+| a_mosque_02_1 | r1l1 | 2 | 1 | 67.1 | 29.4 | 3.4 | 0.0 | 1.16 | 15.3 | 0.017 | pass |
+| a_mosque_02_1 | r1l1 | 2 | 2 | 62.7 | 35.9 | 1.2 | 0.1 | 1.06 | 6.7 | 0.034 | pass |
+| a_mosque_02_1 | r1l1 | 2 | 3 | 67.5 | 15.3 | 4.2 | 13.0 | 1.02 | 1.8 | 0.013 | pass |
+| a_mosque_02_1 | r2l2 | 3 | 1 | 35.7 | 58.5 | 5.9 | 0.0 | 0.98 | 30.7 | 0.011 | pass |
+| a_mosque_02_1 | r2l2 | 3 | 2 | 37.2 | 61.2 | 1.3 | 0.3 | 0.97 | 6.8 | 0.013 | pass |
+| a_mosque_02_1 | r2l2 | 3 | 3 | 14.3 | 67.6 | 4.4 | 13.8 | 1.03 | 1.5 | 0.011 | pass |
+| a_mosque_02_1 | r3l3 | 4 | 1 | 54.2 | 40.7 | 5.1 | 0.0 | 0.89 | 55.2 | 0.026 | pass |
+| a_mosque_02_1 | r3l3 | 4 | 2 | 67.9 | 30.5 | 1.3 | 0.2 | 1.07 | 0.4 | 0.003 | pass |
+| a_mosque_02_1 | r3l3 | 4 | 3 | 33.1 | 58.3 | 4.3 | 4.2 | 1.02 | 1.6 | 0.003 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,3 +41,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | a_mosque_02_1 | r1 | 0.95 | 0.74 | 0.97 | 0.033 | 0.025 | 70 | 70 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | a_mosque_02_1 | r2 | 0.96 | 0.74 | 0.97 | 0.034 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | a_mosque_02_1 | r3 | 0.96 | 0.74 | 0.97 | 0.020 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| a_mosque_02_1 | r1l1 | 0.95 | 0.74 | 0.97 | 0.033 | 0.025 | 70 | 70 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| a_mosque_02_1 | r2l2 | 0.96 | 0.74 | 0.97 | 0.034 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| a_mosque_02_1 | r3l3 | 0.96 | 0.74 | 0.97 | 0.020 | 0.025 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | ukrainehouse01_1 | r3 | 4 | 2w | 32.7 | 51.5 | 7.1 | 8.7 | 0.99 | 1.6 | 0.028 | pass |
 | ukrainehouse01_1 | r3 | 4 | 3 | 79.0 | 9.9 | 7.2 | 3.9 | 0.99 | 4.4 | 0.008 | pass |
 | ukrainehouse01_1 | r3 | 4 | 3w | 79.0 | 9.9 | 7.2 | 3.9 | 0.99 | 4.4 | 0.008 | pass |
+| ukrainehouse01_1 | r1l1 | 2 | 1 | 57.9 | 27.4 | 10.7 | 4.0 | 1.46 | 15.7 | 0.048 | pass |
+| ukrainehouse01_1 | r1l1 | 2 | 1w | 56.0 | 27.8 | 11.8 | 4.4 | 1.49 | 20.3 | 0.031 | pass |
+| ukrainehouse01_1 | r1l1 | 2 | 2 | 49.2 | 44.1 | 3.1 | 3.7 | 1.10 | 4.7 | 0.045 | pass |
+| ukrainehouse01_1 | r1l1 | 2 | 2w | 49.2 | 44.1 | 3.1 | 3.7 | 1.10 | 4.7 | 0.045 | pass |
+| ukrainehouse01_1 | r1l1 | 2 | 3 | 77.1 | 8.3 | 10.4 | 4.2 | 0.99 | 4.0 | 0.015 | pass |
+| ukrainehouse01_1 | r1l1 | 2 | 3w | 77.1 | 8.3 | 10.4 | 4.2 | 0.99 | 4.0 | 0.015 | pass |
+| ukrainehouse01_1 | r2l2 | 3 | 1 | 7.5 | 64.2 | 19.2 | 9.2 | 1.15 | 41.9 | 0.021 | pass |
+| ukrainehouse01_1 | r2l2 | 3 | 1w | 6.8 | 64.2 | 19.1 | 9.8 | 1.25 | 51.6 | 0.045 | pass |
+| ukrainehouse01_1 | r2l2 | 3 | 2 | 0.5 | 84.9 | 6.6 | 8.0 | 0.96 | 6.6 | 0.018 | pass |
+| ukrainehouse01_1 | r2l2 | 3 | 2w | 0.5 | 84.9 | 6.6 | 8.0 | 0.96 | 6.6 | 0.018 | pass |
+| ukrainehouse01_1 | r2l2 | 3 | 3 | 74.9 | 11.0 | 10.3 | 3.8 | 0.97 | 5.0 | 0.008 | pass |
+| ukrainehouse01_1 | r2l2 | 3 | 3w | 74.9 | 11.0 | 10.3 | 3.8 | 0.97 | 5.0 | 0.008 | pass |
+| ukrainehouse01_1 | r3l3 | 4 | 1 | 35.6 | 44.4 | 11.2 | 8.8 | 0.72 | 54.9 | 0.016 | pass |
+| ukrainehouse01_1 | r3l3 | 4 | 1w | 35.7 | 44.5 | 10.3 | 9.6 | 0.88 | 67.6 | 0.052 | colour 67.6 > 62 |
+| ukrainehouse01_1 | r3l3 | 4 | 2 | 32.7 | 51.5 | 7.1 | 8.7 | 0.90 | 6.0 | 0.024 | pass |
+| ukrainehouse01_1 | r3l3 | 4 | 2w | 32.7 | 51.5 | 7.1 | 8.7 | 0.90 | 6.0 | 0.024 | pass |
+| ukrainehouse01_1 | r3l3 | 4 | 3 | 79.0 | 9.9 | 7.2 | 3.9 | 0.98 | 5.2 | 0.006 | pass |
+| ukrainehouse01_1 | r3l3 | 4 | 3w | 79.0 | 9.9 | 7.2 | 3.9 | 0.98 | 5.2 | 0.006 | pass |
 | ukrainehouse01_2 | r1 | 3 | 1 | 32.6 | 48.8 | 14.1 | 4.4 | 1.85 | 23.3 | 0.028 | pass |
 | ukrainehouse01_2 | r1 | 3 | 1w | 33.0 | 48.0 | 15.5 | 3.6 | 1.52 | 25.2 | 0.032 | pass |
 | ukrainehouse01_2 | r1 | 3 | 2 | 34.1 | 50.3 | 9.9 | 5.6 | 1.36 | 11.8 | 0.029 | pass |
@@ -42,6 +60,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | ukrainehouse01_2 | r3 | 1 | 2w | 55.0 | 39.1 | 3.5 | 2.3 | 1.47 | 10.3 | 0.037 | pass |
 | ukrainehouse01_2 | r3 | 1 | 3 | 41.9 | 53.3 | 4.4 | 0.4 | 1.17 | 3.6 | 0.028 | pass |
 | ukrainehouse01_2 | r3 | 1 | 3w | 41.9 | 53.3 | 4.4 | 0.4 | 1.17 | 3.6 | 0.028 | pass |
+| ukrainehouse01_2 | r1l1 | 3 | 1 | 32.6 | 48.8 | 14.1 | 4.4 | 1.86 | 31.7 | 0.025 | pass |
+| ukrainehouse01_2 | r1l1 | 3 | 1w | 33.0 | 48.0 | 15.5 | 3.6 | 1.61 | 35.9 | 0.019 | pass |
+| ukrainehouse01_2 | r1l1 | 3 | 2 | 34.1 | 50.3 | 9.9 | 5.6 | 1.09 | 5.2 | 0.006 | pass |
+| ukrainehouse01_2 | r1l1 | 3 | 2w | 34.1 | 50.3 | 9.9 | 5.6 | 1.09 | 5.2 | 0.006 | pass |
+| ukrainehouse01_2 | r1l1 | 3 | 3 | 68.9 | 27.6 | 3.2 | 0.2 | 1.12 | 1.7 | 0.005 | pass |
+| ukrainehouse01_2 | r1l1 | 3 | 3w | 68.9 | 27.6 | 3.2 | 0.2 | 1.12 | 1.7 | 0.005 | pass |
+| ukrainehouse01_2 | r2l2 | 4 | 1 | 0.4 | 74.1 | 21.2 | 4.3 | 1.36 | 12.6 | 0.056 | pass |
+| ukrainehouse01_2 | r2l2 | 4 | 1w | 0.4 | 72.7 | 23.4 | 3.5 | 1.43 | 13.1 | 0.039 | pass |
+| ukrainehouse01_2 | r2l2 | 4 | 2 | 0.6 | 82.5 | 10.4 | 6.6 | 1.13 | 4.4 | 0.007 | pass |
+| ukrainehouse01_2 | r2l2 | 4 | 2w | 0.6 | 82.5 | 10.4 | 6.6 | 1.13 | 4.4 | 0.007 | pass |
+| ukrainehouse01_2 | r2l2 | 4 | 3 | 26.5 | 68.0 | 5.3 | 0.2 | 1.06 | 0.6 | 0.008 | pass |
+| ukrainehouse01_2 | r2l2 | 4 | 3w | 26.5 | 68.0 | 5.3 | 0.2 | 1.06 | 0.6 | 0.008 | pass |
+| ukrainehouse01_2 | r3l3 | 1 | 1 | 60.5 | 29.7 | 9.3 | 0.5 | 0.83 | 38.6 | 0.065 | pass |
+| ukrainehouse01_2 | r3l3 | 1 | 1w | 60.9 | 28.7 | 10.0 | 0.5 | 0.87 | 50.0 | 0.043 | pass |
+| ukrainehouse01_2 | r3l3 | 1 | 2 | 55.0 | 39.1 | 3.5 | 2.3 | 1.02 | 3.8 | 0.020 | pass |
+| ukrainehouse01_2 | r3l3 | 1 | 2w | 55.0 | 39.1 | 3.5 | 2.3 | 1.02 | 3.8 | 0.020 | pass |
+| ukrainehouse01_2 | r3l3 | 1 | 3 | 41.9 | 53.3 | 4.4 | 0.4 | 1.10 | 2.0 | 0.011 | pass |
+| ukrainehouse01_2 | r3l3 | 1 | 3w | 41.9 | 53.3 | 4.4 | 0.4 | 1.10 | 2.0 | 0.011 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -59,6 +95,12 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | ukrainehouse01_1 | r1 | 1.01 | 0.92 | 0.94 | 0.034 | 0.043 | 0 | 0 | 260 | 260 | 0.000 | 0 | 109 | 90 | 0 | pass | blocks |
 | ukrainehouse01_1 | r2 | 1.08 | 0.92 | 0.94 | 0.041 | 0.043 | 0 | 0 | 138 | 138 | 0.000 | 0 | 109 | 90 | 0 | pass | blocks |
 | ukrainehouse01_1 | r3 | 1.03 | 0.92 | 0.94 | 0.062 | 0.043 | 0 | 0 | 295 | 295 | 0.000 | 0 | 109 | 90 | 0 | pass | blocks |
+| ukrainehouse01_1 | r1l1 | 1.01 | 0.92 | 0.94 | 0.034 | 0.043 | 0 | 0 | 260 | 0 | 0.000 | 0 | 109 | 90 | 0 | roof parts 0 of 260 pixels | blocks |
+| ukrainehouse01_1 | r2l2 | 1.08 | 0.92 | 0.94 | 0.041 | 0.043 | 0 | 0 | 138 | 0 | 0.000 | 0 | 109 | 90 | 0 | roof parts 0 of 138 pixels | blocks |
+| ukrainehouse01_1 | r3l3 | 1.03 | 0.92 | 0.94 | 0.062 | 0.043 | 0 | 0 | 295 | 0 | 0.000 | 0 | 109 | 90 | 0 | roof parts 0 of 295 pixels | blocks |
 | ukrainehouse01_2 | r1 | 1.05 | 0.84 | 0.93 | 0.053 | 0.041 | 0 | 0 | 0 | 0 | 0.000 | 0 | 42 | 42 | 0 | pass | blocks |
 | ukrainehouse01_2 | r2 | 0.98 | 0.84 | 0.93 | 0.041 | 0.041 | 0 | 0 | 0 | 0 | 0.000 | 0 | 42 | 42 | 0 | pass | blocks |
 | ukrainehouse01_2 | r3 | 0.96 | 0.84 | 0.93 | 0.037 | 0.041 | 478 | 478 | 0 | 0 | 0.000 | 0 | 42 | 42 | 0 | pass | blocks |
+| ukrainehouse01_2 | r1l1 | 1.05 | 0.84 | 0.93 | 0.053 | 0.041 | 0 | 0 | 0 | 0 | 0.000 | 0 | 42 | 42 | 0 | pass | blocks |
+| ukrainehouse01_2 | r2l2 | 0.98 | 0.84 | 0.93 | 0.041 | 0.041 | 0 | 0 | 0 | 0 | 0.000 | 0 | 42 | 42 | 0 | pass | blocks |
+| ukrainehouse01_2 | r3l3 | 0.96 | 0.84 | 0.93 | 0.037 | 0.041 | 478 | 478 | 0 | 0 | 0.000 | 0 | 42 | 42 | 0 | pass | blocks |

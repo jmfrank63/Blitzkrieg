@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_house09_1 | r3 | 4 | 1 | 59.5 | 33.4 | 6.5 | 0.6 | 1.11 | 6.4 | 0.114 | pass |
 | e_house09_1 | r3 | 4 | 2 | 60.1 | 36.6 | 2.3 | 1.0 | 0.95 | 8.0 | 0.026 | pass |
 | e_house09_1 | r3 | 4 | 3 | 69.2 | 22.4 | 4.9 | 3.5 | 1.08 | 3.6 | 0.011 | pass |
+| e_house09_1 | r1l1 | 2 | 1 | 30.9 | 60.6 | 1.2 | 7.3 | 1.16 | 7.8 | 0.071 | pass |
+| e_house09_1 | r1l1 | 2 | 2 | 32.6 | 64.9 | 0.7 | 1.8 | 1.00 | 2.6 | 0.054 | pass |
+| e_house09_1 | r1l1 | 2 | 3 | 29.2 | 60.1 | 6.0 | 4.8 | 1.10 | 1.4 | 0.012 | pass |
+| e_house09_1 | r2l2 | 3 | 1 | 0.0 | 85.8 | 6.7 | 7.5 | 0.90 | 18.0 | 0.038 | pass |
+| e_house09_1 | r2l2 | 3 | 2 | 0.0 | 95.9 | 2.2 | 1.9 | 0.97 | 1.3 | 0.037 | pass |
+| e_house09_1 | r2l2 | 3 | 3 | 16.0 | 71.7 | 7.3 | 5.0 | 1.08 | 3.7 | 0.002 | pass |
+| e_house09_1 | r3l3 | 4 | 1 | 59.5 | 33.4 | 6.5 | 0.6 | 0.72 | 27.5 | 0.123 | pass |
+| e_house09_1 | r3l3 | 4 | 2 | 60.1 | 36.6 | 2.3 | 1.0 | 0.94 | 5.2 | 0.018 | pass |
+| e_house09_1 | r3l3 | 4 | 3 | 69.2 | 22.4 | 4.9 | 3.5 | 1.03 | 4.9 | 0.012 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,3 +41,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_house09_1 | r1 | 1.03 | 0.84 | 0.93 | 0.026 | 0.017 | 322 | 322 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_house09_1 | r2 | 1.03 | 0.84 | 0.93 | 0.028 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_house09_1 | r3 | 1.03 | 0.84 | 0.93 | 0.027 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house09_1 | r1l1 | 1.03 | 0.84 | 0.93 | 0.026 | 0.017 | 322 | 322 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house09_1 | r2l2 | 1.03 | 0.84 | 0.93 | 0.028 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house09_1 | r3l3 | 1.03 | 0.84 | 0.93 | 0.027 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

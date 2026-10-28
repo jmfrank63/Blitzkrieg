@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | conduitbarrel | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | conduitbarrel | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | conduitbarrel | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.66 | 24.9 | 0.019 | pass |
+| conduitbarrel | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.74 | 34.1 | 0.312 | pass |
+| conduitbarrel | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.41 | 49.4 | 0.120 | sharpness 0.41 outside 0.45..3.20 |
+| conduitbarrel | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.63 | 83.9 | 0.494 | colour 83.9 > 62 |
+| conduitbarrel | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.42 | 49.3 | 0.122 | sharpness 0.42 outside 0.45..3.20 |
+| conduitbarrel | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.53 | 94.0 | 0.403 | colour 94.0 > 62 |
+| conduitbarrel | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.47 | 45.5 | 0.081 | pass |
+| conduitbarrel | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| conduitbarrel | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | conduitbarrel | r1 | 0.90 | 0.33 | 0.42 | 1.030 | 2.904 | 0 | 0 | 0 | 0 | 0.000 | 0 | 92 | 3 | 11 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
 | conduitbarrel | r2 | 0.90 | 0.33 | 0.42 | 1.036 | 2.904 | 0 | 0 | 0 | 0 | 0.000 | 0 | 92 | 3 | 12 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
 | conduitbarrel | r3 | 0.90 | 0.33 | 0.42 | 1.038 | 2.904 | 0 | 0 | 0 | 0 | 0.000 | 0 | 92 | 3 | 11 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| conduitbarrel | r1l1 | 0.90 | 0.33 | 0.42 | 1.030 | 2.904 | 0 | 0 | 0 | 0 | 0.000 | 0 | 92 | 3 | 11 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| conduitbarrel | r2l2 | 0.90 | 0.33 | 0.42 | 1.036 | 2.904 | 0 | 0 | 0 | 0 | 0.000 | 0 | 92 | 3 | 12 | ground 0.33 outside 0.5..2.0 | 2003 sprite |
+| conduitbarrel | r3l3 | 0.90 | 0.33 | 0.42 | 1.038 | 2.904 | 0 | 0 | 0 | 0 | 0.000 | 0 | 92 | 3 | 11 | ground 0.33 outside 0.5..2.0 | 2003 sprite |

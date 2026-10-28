@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_townhouse04_3 | r3 | 2 | 1 | 61.0 | 33.9 | 0.7 | 4.3 | 1.69 | 8.6 | 0.120 | pass |
 | e_townhouse04_3 | r3 | 2 | 2 | 68.4 | 28.8 | 0.7 | 2.1 | 1.64 | 2.9 | 0.051 | pass |
 | e_townhouse04_3 | r3 | 2 | 3 | 62.4 | 27.8 | 1.4 | 8.4 | 1.14 | 2.5 | 0.010 | pass |
+| e_townhouse04_3 | r1l1 | 4 | 1 | 29.1 | 66.1 | 0.2 | 4.6 | 1.51 | 21.5 | 0.069 | pass |
+| e_townhouse04_3 | r1l1 | 4 | 2 | 28.9 | 67.9 | 0.7 | 2.5 | 1.00 | 3.5 | 0.019 | pass |
+| e_townhouse04_3 | r1l1 | 4 | 3 | 26.0 | 64.6 | 1.4 | 8.1 | 1.10 | 2.9 | 0.003 | pass |
+| e_townhouse04_3 | r2l2 | 1 | 1 | 0.4 | 94.9 | 0.2 | 4.5 | 1.53 | 17.4 | 0.053 | pass |
+| e_townhouse04_3 | r2l2 | 1 | 2 | 0.1 | 95.9 | 0.9 | 3.1 | 0.99 | 1.4 | 0.014 | pass |
+| e_townhouse04_3 | r2l2 | 1 | 3 | 0.0 | 90.1 | 1.5 | 8.3 | 1.00 | 1.0 | 0.002 | pass |
+| e_townhouse04_3 | r3l3 | 2 | 1 | 61.0 | 33.9 | 0.7 | 4.3 | 0.74 | 41.9 | 0.036 | pass |
+| e_townhouse04_3 | r3l3 | 2 | 2 | 68.4 | 28.8 | 0.7 | 2.1 | 0.90 | 1.5 | 0.009 | pass |
+| e_townhouse04_3 | r3l3 | 2 | 3 | 62.4 | 27.8 | 1.4 | 8.4 | 1.04 | 0.7 | 0.002 | pass |
 | e_townhouse04_4 | r1 | 1 | 1 | 65.0 | 28.8 | 4.8 | 1.4 | 0.63 | 25.2 | 0.073 | pass |
 | e_townhouse04_4 | r1 | 1 | 2 | 67.8 | 28.8 | 0.6 | 2.7 | 1.23 | 2.0 | 0.086 | pass |
 | e_townhouse04_4 | r1 | 1 | 3 | 47.3 | 34.1 | 0.7 | 17.9 | 0.91 | 6.0 | 0.022 | pass |
@@ -24,6 +33,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_townhouse04_4 | r3 | 3 | 1 | 27.9 | 59.8 | 10.0 | 2.3 | 0.63 | 23.2 | 0.097 | pass |
 | e_townhouse04_4 | r3 | 3 | 2 | 29.3 | 67.0 | 0.6 | 3.1 | 1.23 | 2.6 | 0.090 | pass |
 | e_townhouse04_4 | r3 | 3 | 3 | 29.5 | 50.7 | 0.8 | 19.0 | 0.86 | 8.6 | 0.020 | pass |
+| e_townhouse04_4 | r1l1 | 1 | 1 | 65.0 | 28.8 | 4.8 | 1.4 | 1.03 | 12.3 | 0.053 | pass |
+| e_townhouse04_4 | r1l1 | 1 | 2 | 67.8 | 28.8 | 0.6 | 2.7 | 1.04 | 2.4 | 0.010 | pass |
+| e_townhouse04_4 | r1l1 | 1 | 3 | 47.3 | 34.1 | 0.7 | 17.9 | 0.98 | 4.4 | 0.025 | pass |
+| e_townhouse04_4 | r2l2 | 2 | 1 | 0.1 | 87.8 | 10.1 | 2.0 | 0.48 | 41.2 | 0.098 | pass |
+| e_townhouse04_4 | r2l2 | 2 | 2 | 0.0 | 96.0 | 0.7 | 3.4 | 1.00 | 0.7 | 0.011 | pass |
+| e_townhouse04_4 | r2l2 | 2 | 3 | 2.0 | 77.3 | 1.0 | 19.8 | 0.86 | 4.8 | 0.022 | pass |
+| e_townhouse04_4 | r3l3 | 3 | 1 | 27.9 | 59.8 | 10.0 | 2.3 | 0.32 | 52.8 | 0.154 | sharpness 0.32 outside 0.45..3.20 |
+| e_townhouse04_4 | r3l3 | 3 | 2 | 29.3 | 67.0 | 0.6 | 3.1 | 0.96 | 0.8 | 0.015 | pass |
+| e_townhouse04_4 | r3l3 | 3 | 3 | 29.5 | 50.7 | 0.8 | 19.0 | 0.86 | 10.5 | 0.025 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,6 +59,12 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_townhouse04_3 | r1 | 1.05 | 1.52 | 0.94 | 0.054 | 0.026 | 0 | 0 | 1992 | 1992 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse04_3 | r2 | 1.14 | 1.52 | 0.94 | 0.049 | 0.026 | 0 | 0 | 2026 | 2026 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_townhouse04_3 | r3 | 1.08 | 1.52 | 0.94 | 0.031 | 0.026 | 0 | 0 | 3828 | 3828 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_townhouse04_3 | r1l1 | 1.05 | 1.52 | 0.94 | 0.054 | 0.026 | 0 | 0 | 1992 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 1992 pixels | blocks |
+| e_townhouse04_3 | r2l2 | 1.14 | 1.52 | 0.94 | 0.049 | 0.026 | 0 | 0 | 2026 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 2026 pixels | blocks |
+| e_townhouse04_3 | r3l3 | 1.08 | 1.52 | 0.94 | 0.031 | 0.026 | 0 | 0 | 3828 | 0 | 0.000 | 0 | 0 | 0 | 0 | roof parts 0 of 3828 pixels | blocks |
 | e_townhouse04_4 | r1 | 1.15 | 1.55 | 0.91 | 0.045 | 0.020 | 271 | 271 | 1978 | 1911 | 0.000 | 0 | 353 | 353 | 0 | pass | blocks |
 | e_townhouse04_4 | r2 | 1.09 | 1.55 | 0.91 | 0.035 | 0.020 | 0 | 0 | 3863 | 3863 | 0.000 | 0 | 353 | 353 | 0 | pass | blocks |
 | e_townhouse04_4 | r3 | 1.00 | 1.55 | 0.91 | 0.021 | 0.020 | 0 | 0 | 3887 | 3887 | 0.000 | 0 | 353 | 353 | 0 | pass | blocks |
+| e_townhouse04_4 | r1l1 | 1.15 | 1.55 | 0.91 | 0.045 | 0.020 | 271 | 271 | 1978 | 0 | 0.000 | 0 | 353 | 353 | 0 | roof parts 0 of 1978 pixels | blocks |
+| e_townhouse04_4 | r2l2 | 1.09 | 1.55 | 0.91 | 0.035 | 0.020 | 0 | 0 | 3863 | 0 | 0.000 | 0 | 353 | 353 | 0 | roof parts 0 of 3863 pixels | blocks |
+| e_townhouse04_4 | r3l3 | 1.00 | 1.55 | 0.91 | 0.021 | 0.020 | 0 | 0 | 3887 | 0 | 0.000 | 0 | 353 | 353 | 0 | roof parts 0 of 3887 pixels | blocks |

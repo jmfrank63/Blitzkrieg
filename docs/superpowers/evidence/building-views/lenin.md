@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | lenin | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.16 | 11.2 | 0.072 | pass |
+| lenin | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 9.9 | 0.175 | pass |
+| lenin | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.29 | 13.4 | 0.019 | pass |
+| lenin | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.18 | 12.5 | 0.023 | pass |
+| lenin | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 0.7 | 0.007 | pass |
+| lenin | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 0.8 | 0.007 | pass |
+| lenin | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 40.0 | 0.087 | pass |
+| lenin | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.97 | 45.1 | 0.196 | pass |
+| lenin | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 5.5 | 0.017 | pass |
+| lenin | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 9.9 | 0.063 | pass |
+| lenin | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 0.1 | 0.019 | pass |
+| lenin | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 0.2 | 0.007 | pass |
+| lenin | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 45.2 | 0.120 | pass |
+| lenin | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.84 | 54.8 | 0.178 | pass |
+| lenin | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 45.1 | 0.072 | pass |
+| lenin | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.88 | 35.1 | 0.085 | pass |
+| lenin | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 0.8 | 0.005 | pass |
+| lenin | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 1.0 | 0.008 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.70 outside 0.7..1.3 | 2003 sprite |
 | lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.65 outside 0.7..1.3 | 2003 sprite |
 | lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.66 outside 0.7..1.3 | 2003 sprite |
+| lenin | r1l1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.70 outside 0.7..1.3 | 2003 sprite |
+| lenin | r2l2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.65 outside 0.7..1.3 | 2003 sprite |
+| lenin | r3l3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.66 outside 0.7..1.3 | 2003 sprite |

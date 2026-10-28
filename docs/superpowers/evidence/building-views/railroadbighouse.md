@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | railroadbighouse | r3 | 4 | 2w | 58.3 | 40.4 | 0.1 | 1.2 | 0.96 | 8.9 | 0.025 | pass |
 | railroadbighouse | r3 | 4 | 3 | 73.0 | 25.4 | 1.0 | 0.7 | 0.99 | 0.8 | 0.011 | pass |
 | railroadbighouse | r3 | 4 | 3w | 73.0 | 25.4 | 1.0 | 0.7 | 0.91 | 1.0 | 0.006 | pass |
+| railroadbighouse | r1l1 | 2 | 1 | 40.8 | 59.2 | 0.0 | 0.0 | 1.12 | 20.0 | 0.062 | pass |
+| railroadbighouse | r1l1 | 2 | 1w | 38.7 | 61.3 | 0.0 | 0.0 | 1.14 | 37.1 | 0.315 | pass |
+| railroadbighouse | r1l1 | 2 | 2 | 40.1 | 58.7 | 0.0 | 1.2 | 1.00 | 0.9 | 0.035 | pass |
+| railroadbighouse | r1l1 | 2 | 2w | 40.1 | 58.7 | 0.0 | 1.2 | 1.00 | 1.0 | 0.036 | pass |
+| railroadbighouse | r1l1 | 2 | 3 | 68.6 | 29.4 | 0.8 | 1.2 | 0.98 | 0.6 | 0.021 | pass |
+| railroadbighouse | r1l1 | 2 | 3w | 68.6 | 29.4 | 0.8 | 1.2 | 0.97 | 0.6 | 0.020 | pass |
+| railroadbighouse | r2l2 | 3 | 1 | 1.9 | 98.1 | 0.0 | 0.0 | 0.81 | 13.0 | 0.051 | pass |
+| railroadbighouse | r2l2 | 3 | 1w | 2.3 | 97.7 | 0.0 | 0.0 | 0.84 | 8.1 | 0.443 | pass |
+| railroadbighouse | r2l2 | 3 | 2 | 1.0 | 97.7 | 0.0 | 1.2 | 0.99 | 0.9 | 0.034 | pass |
+| railroadbighouse | r2l2 | 3 | 2w | 1.0 | 97.7 | 0.0 | 1.2 | 1.00 | 0.9 | 0.035 | pass |
+| railroadbighouse | r2l2 | 3 | 3 | 50.0 | 48.2 | 0.9 | 0.9 | 0.97 | 2.6 | 0.013 | pass |
+| railroadbighouse | r2l2 | 3 | 3w | 50.0 | 48.2 | 0.9 | 0.9 | 0.97 | 3.0 | 0.013 | pass |
+| railroadbighouse | r3l3 | 4 | 1 | 58.5 | 41.5 | 0.0 | 0.0 | 0.55 | 32.6 | 0.067 | pass |
+| railroadbighouse | r3l3 | 4 | 1w | 60.0 | 40.0 | 0.0 | 0.0 | 0.62 | 44.9 | 0.156 | pass |
+| railroadbighouse | r3l3 | 4 | 2 | 58.3 | 40.4 | 0.1 | 1.2 | 0.95 | 3.6 | 0.014 | pass |
+| railroadbighouse | r3l3 | 4 | 2w | 58.3 | 40.4 | 0.1 | 1.2 | 0.96 | 3.9 | 0.011 | pass |
+| railroadbighouse | r3l3 | 4 | 3 | 73.0 | 25.4 | 1.0 | 0.7 | 0.89 | 4.2 | 0.007 | pass |
+| railroadbighouse | r3l3 | 4 | 3w | 73.0 | 25.4 | 1.0 | 0.7 | 0.89 | 4.9 | 0.007 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | railroadbighouse | r1 | 0.98 | 0.60 | 0.94 | 0.088 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | railroadbighouse | r2 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | railroadbighouse | r3 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadbighouse | r1l1 | 0.98 | 0.60 | 0.94 | 0.088 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadbighouse | r2l2 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| railroadbighouse | r3l3 | 0.97 | 0.60 | 0.94 | 0.089 | 0.083 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | church | r3 | 4 | 2w | 49.0 | 47.5 | 2.3 | 1.3 | 1.06 | 8.0 | 0.122 | pass |
 | church | r3 | 4 | 3 | 36.6 | 58.9 | 2.5 | 2.0 | 1.08 | 4.6 | 0.031 | pass |
 | church | r3 | 4 | 3w | 36.6 | 58.9 | 2.5 | 2.0 | 1.07 | 5.5 | 0.024 | pass |
+| church | r1l1 | 2 | 1 | 48.3 | 50.6 | 1.0 | 0.1 | 1.37 | 23.3 | 0.041 | pass |
+| church | r1l1 | 2 | 1w | 48.0 | 46.0 | 2.6 | 3.3 | 1.18 | 28.5 | 0.171 | pass |
+| church | r1l1 | 2 | 2 | 58.6 | 37.6 | 2.8 | 1.0 | 1.25 | 5.4 | 0.042 | pass |
+| church | r1l1 | 2 | 2w | 58.6 | 37.6 | 2.8 | 1.0 | 1.21 | 6.1 | 0.037 | pass |
+| church | r1l1 | 2 | 3 | 56.7 | 36.4 | 4.7 | 2.2 | 1.11 | 3.8 | 0.014 | pass |
+| church | r1l1 | 2 | 3w | 56.7 | 36.4 | 4.7 | 2.2 | 1.11 | 4.3 | 0.019 | pass |
+| church | r2l2 | 3 | 1 | 0.7 | 97.4 | 1.2 | 0.7 | 0.92 | 19.6 | 0.077 | pass |
+| church | r2l2 | 3 | 1w | 0.8 | 89.0 | 3.1 | 7.1 | 0.81 | 38.7 | 0.285 | pass |
+| church | r2l2 | 3 | 2 | 13.7 | 82.0 | 3.0 | 1.3 | 1.19 | 6.0 | 0.020 | pass |
+| church | r2l2 | 3 | 2w | 13.7 | 82.0 | 3.0 | 1.3 | 1.14 | 6.5 | 0.028 | pass |
+| church | r2l2 | 3 | 3 | 11.5 | 81.1 | 5.0 | 2.4 | 1.04 | 3.6 | 0.009 | pass |
+| church | r2l2 | 3 | 3w | 11.5 | 81.1 | 5.0 | 2.4 | 1.04 | 4.0 | 0.010 | pass |
+| church | r3l3 | 4 | 1 | 46.3 | 51.9 | 1.1 | 0.7 | 0.69 | 42.1 | 0.103 | pass |
+| church | r3l3 | 4 | 1w | 45.6 | 46.9 | 2.4 | 5.1 | 0.68 | 70.4 | 0.246 | colour 70.4 > 62 |
+| church | r3l3 | 4 | 2 | 49.0 | 47.5 | 2.3 | 1.3 | 1.19 | 1.5 | 0.054 | pass |
+| church | r3l3 | 4 | 2w | 49.0 | 47.5 | 2.3 | 1.3 | 1.17 | 2.0 | 0.049 | pass |
+| church | r3l3 | 4 | 3 | 36.6 | 58.9 | 2.5 | 2.0 | 1.08 | 4.8 | 0.019 | pass |
+| church | r3l3 | 4 | 3w | 36.6 | 58.9 | 2.5 | 2.0 | 1.09 | 5.4 | 0.020 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | church | r1 | 0.89 | 0.58 | 0.92 | 0.074 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | church | r2 | 0.87 | 0.58 | 0.92 | 0.075 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | church | r3 | 0.87 | 0.58 | 0.92 | 0.072 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| church | r1l1 | 0.89 | 0.58 | 0.92 | 0.074 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| church | r2l2 | 0.87 | 0.58 | 0.92 | 0.075 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| church | r3l3 | 0.87 | 0.58 | 0.92 | 0.072 | 0.064 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

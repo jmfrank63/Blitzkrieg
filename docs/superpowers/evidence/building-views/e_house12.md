@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_house12_3 | r3 | 2 | 1 | 66.7 | 22.2 | 8.4 | 2.7 | 1.34 | 14.2 | 0.096 | pass |
 | e_house12_3 | r3 | 2 | 2 | 57.3 | 36.9 | 5.7 | 0.2 | 1.07 | 2.6 | 0.033 | pass |
 | e_house12_3 | r3 | 2 | 3 | 79.0 | 15.1 | 5.1 | 0.9 | 1.13 | 14.5 | 0.034 | pass |
+| e_house12_3 | r1l1 | 4 | 1 | 30.7 | 58.6 | 10.7 | 0.0 | 1.31 | 22.0 | 0.064 | pass |
+| e_house12_3 | r1l1 | 4 | 2 | 32.1 | 60.3 | 7.1 | 0.4 | 1.10 | 4.6 | 0.010 | pass |
+| e_house12_3 | r1l1 | 4 | 3 | 73.4 | 21.8 | 3.9 | 0.9 | 1.13 | 0.4 | 0.006 | pass |
+| e_house12_3 | r2l2 | 1 | 1 | 4.1 | 74.2 | 19.0 | 2.7 | 1.20 | 8.3 | 0.051 | pass |
+| e_house12_3 | r2l2 | 1 | 2 | 1.8 | 89.9 | 7.8 | 0.4 | 1.03 | 4.3 | 0.038 | pass |
+| e_house12_3 | r2l2 | 1 | 3 | 64.8 | 28.8 | 5.5 | 1.0 | 1.00 | 16.6 | 0.033 | pass |
+| e_house12_3 | r3l3 | 2 | 1 | 66.7 | 22.2 | 8.4 | 2.7 | 0.83 | 29.8 | 0.011 | pass |
+| e_house12_3 | r3l3 | 2 | 2 | 57.3 | 36.9 | 5.7 | 0.2 | 1.00 | 1.5 | 0.010 | pass |
+| e_house12_3 | r3l3 | 2 | 3 | 79.0 | 15.1 | 5.1 | 0.9 | 1.08 | 15.9 | 0.029 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,3 +41,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_house12_3 | r1 | 0.99 | 1.09 | 0.98 | 0.051 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | 0 | 505 | 493 | 0 | pass | blocks |
 | e_house12_3 | r2 | 0.99 | 1.09 | 0.98 | 0.055 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | 0 | 505 | 493 | 0 | pass | blocks |
 | e_house12_3 | r3 | 1.02 | 1.09 | 0.98 | 0.049 | 0.046 | 45 | 45 | 0 | 0 | 0.000 | 0 | 505 | 493 | 0 | pass | blocks |
+| e_house12_3 | r1l1 | 0.99 | 1.09 | 0.98 | 0.051 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | 0 | 505 | 493 | 0 | pass | blocks |
+| e_house12_3 | r2l2 | 0.99 | 1.09 | 0.98 | 0.055 | 0.046 | 0 | 0 | 0 | 0 | 0.000 | 0 | 505 | 493 | 0 | pass | blocks |
+| e_house12_3 | r3l3 | 1.02 | 1.09 | 0.98 | 0.049 | 0.046 | 45 | 45 | 0 | 0 | 0.000 | 0 | 505 | 493 | 0 | pass | blocks |

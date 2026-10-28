@@ -24,6 +24,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | house01 | r3 | 4 | 2w | 49.7 | 49.2 | 0.9 | 0.2 | 1.10 | 4.5 | 0.103 | pass |
 | house01 | r3 | 4 | 3 | 57.9 | 31.0 | 8.2 | 2.9 | 1.14 | 6.3 | 0.063 | pass |
 | house01 | r3 | 4 | 3w | 57.9 | 31.0 | 8.2 | 2.9 | 1.10 | 7.6 | 0.048 | pass |
+| house01 | r1l1 | 2 | 1 | 38.6 | 60.2 | 1.2 | 0.0 | 1.37 | 25.4 | 0.064 | pass |
+| house01 | r1l1 | 2 | 1w | 39.4 | 58.4 | 2.0 | 0.1 | 1.28 | 18.2 | 0.050 | pass |
+| house01 | r1l1 | 2 | 2 | 38.8 | 59.7 | 1.3 | 0.3 | 1.07 | 2.1 | 0.056 | pass |
+| house01 | r1l1 | 2 | 2w | 38.8 | 59.7 | 1.3 | 0.3 | 1.03 | 2.4 | 0.048 | pass |
+| house01 | r1l1 | 2 | 3 | 45.2 | 44.2 | 9.1 | 1.5 | 1.07 | 3.0 | 0.003 | pass |
+| house01 | r1l1 | 2 | 3w | 45.2 | 44.2 | 9.1 | 1.5 | 1.06 | 3.5 | 0.009 | pass |
+| house01 | r2l2 | 3 | 1 | 0.0 | 99.3 | 0.6 | 0.0 | 0.95 | 20.4 | 0.068 | pass |
+| house01 | r2l2 | 3 | 1w | 0.3 | 98.0 | 1.6 | 0.2 | 0.94 | 31.5 | 0.041 | pass |
+| house01 | r2l2 | 3 | 2 | 0.0 | 98.7 | 1.0 | 0.3 | 1.00 | 9.2 | 0.028 | pass |
+| house01 | r2l2 | 3 | 2w | 0.0 | 98.7 | 1.0 | 0.3 | 1.01 | 10.5 | 0.026 | pass |
+| house01 | r2l2 | 3 | 3 | 28.4 | 61.0 | 8.3 | 2.3 | 1.15 | 4.2 | 0.009 | pass |
+| house01 | r2l2 | 3 | 3w | 28.4 | 61.0 | 8.3 | 2.3 | 1.13 | 5.0 | 0.014 | pass |
+| house01 | r3l3 | 4 | 1 | 50.0 | 49.2 | 0.7 | 0.0 | 0.71 | 42.1 | 0.053 | pass |
+| house01 | r3l3 | 4 | 1w | 49.9 | 48.7 | 1.2 | 0.1 | 0.86 | 47.1 | 0.063 | pass |
+| house01 | r3l3 | 4 | 2 | 49.7 | 49.2 | 0.9 | 0.2 | 1.01 | 8.3 | 0.039 | pass |
+| house01 | r3l3 | 4 | 2w | 49.7 | 49.2 | 0.9 | 0.2 | 1.02 | 9.4 | 0.034 | pass |
+| house01 | r3l3 | 4 | 3 | 57.9 | 31.0 | 8.2 | 2.9 | 1.07 | 3.6 | 0.011 | pass |
+| house01 | r3l3 | 4 | 3w | 57.9 | 31.0 | 8.2 | 2.9 | 1.06 | 4.2 | 0.010 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -41,3 +59,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | house01 | r1 | 1.05 | 0.98 | 0.92 | 0.045 | 0.052 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | house01 | r2 | 0.92 | 0.98 | 0.92 | 0.097 | 0.052 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | house01 | r3 | 0.98 | 0.98 | 0.92 | 0.072 | 0.052 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house01 | r1l1 | 1.05 | 0.98 | 0.92 | 0.045 | 0.052 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house01 | r2l2 | 0.92 | 0.98 | 0.92 | 0.097 | 0.052 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house01 | r3l3 | 0.98 | 0.98 | 0.92 | 0.072 | 0.052 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

@@ -15,6 +15,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_frenchshed01 | r3 | 4 | 1 | 29.7 | 62.4 | 5.0 | 2.9 | 0.77 | 23.3 | 0.046 | pass |
 | e_frenchshed01 | r3 | 4 | 2 | 27.7 | 71.7 | 0.3 | 0.3 | 0.85 | 18.5 | 0.056 | pass |
 | e_frenchshed01 | r3 | 4 | 3 | 74.2 | 23.7 | 1.6 | 0.5 | 1.05 | 1.1 | 0.034 | pass |
+| e_frenchshed01 | r1l1 | 2 | 1 | 64.4 | 28.5 | 5.8 | 1.3 | 1.04 | 8.2 | 0.023 | pass |
+| e_frenchshed01 | r1l1 | 2 | 2 | 68.9 | 30.5 | 0.3 | 0.4 | 0.99 | 0.5 | 0.012 | pass |
+| e_frenchshed01 | r1l1 | 2 | 3 | 86.2 | 11.3 | 1.9 | 0.5 | 1.05 | 8.0 | 0.072 | pass |
+| e_frenchshed01 | r2l2 | 3 | 1 | 2.1 | 87.0 | 7.2 | 3.7 | 0.65 | 36.4 | 0.068 | pass |
+| e_frenchshed01 | r2l2 | 3 | 2 | 0.1 | 99.1 | 0.4 | 0.4 | 0.98 | 1.5 | 0.017 | pass |
+| e_frenchshed01 | r2l2 | 3 | 3 | 70.1 | 27.2 | 2.3 | 0.4 | 1.04 | 8.0 | 0.067 | pass |
+| e_frenchshed01 | r3l3 | 4 | 1 | 29.7 | 62.4 | 5.0 | 2.9 | 0.51 | 46.9 | 0.050 | pass |
+| e_frenchshed01 | r3l3 | 4 | 2 | 27.7 | 71.7 | 0.3 | 0.3 | 0.94 | 2.4 | 0.022 | pass |
+| e_frenchshed01 | r3l3 | 4 | 3 | 74.2 | 23.7 | 1.6 | 0.5 | 1.04 | 1.6 | 0.014 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -32,3 +41,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 | e_frenchshed01 | r1 | 0.91 | 0.84 | 0.95 | 0.035 | 0.037 | 18 | 18 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_frenchshed01 | r2 | 1.00 | 0.84 | 0.95 | 0.033 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
 | e_frenchshed01 | r3 | 0.94 | 0.84 | 0.95 | 0.070 | 0.037 | 89 | 89 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_frenchshed01 | r1l1 | 0.91 | 0.84 | 0.95 | 0.035 | 0.037 | 18 | 18 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_frenchshed01 | r2l2 | 1.00 | 0.84 | 0.95 | 0.033 | 0.037 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_frenchshed01 | r3l3 | 0.94 | 0.84 | 0.95 | 0.070 | 0.037 | 89 | 89 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
