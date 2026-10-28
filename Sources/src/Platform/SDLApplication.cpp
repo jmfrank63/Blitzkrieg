@@ -367,6 +367,17 @@ bool SDLApplication::AddVirtualControllerForTests(int deviceId, const char *name
 	return true;
 }
 
+bool SDLApplication::PushFocusEventForTests(void *window, bool gained)
+{
+	if ( window == nullptr ) return false;
+	SDL_Event raw{};
+	raw.type = gained ? SDL_EVENT_WINDOW_FOCUS_GAINED : SDL_EVENT_WINDOW_FOCUS_LOST;
+	raw.window.timestamp = SDL_GetTicksNS();
+	raw.window.windowID = SDL_GetWindowID( static_cast<SDL_Window *>( window ) );
+	raw.window.data1 = kHarnessFocusEvent;
+	return SDL_PushEvent( &raw );
+}
+
 bool SDLApplication::RemoveVirtualControllerForTests(int deviceId)
 {
 	for ( std::vector<GamepadRecord>::iterator it = gamepads_.begin(); it != gamepads_.end(); ++it )
@@ -452,8 +463,8 @@ bool SDLApplication::PollEvent(PlatformEvent &event)
 		switch ( raw.type )
 		{
 			case SDL_EVENT_QUIT: event.type = EventType::quit; event.timestamp = raw.quit.timestamp; break;
-			case SDL_EVENT_WINDOW_FOCUS_GAINED: event.type = EventType::focusGained; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; break;
-			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; wheel_source_.Clear(); break;
+			case SDL_EVENT_WINDOW_FOCUS_GAINED: event.type = EventType::focusGained; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.data1 = raw.window.data1; break;
+			case SDL_EVENT_WINDOW_FOCUS_LOST: event.type = EventType::focusLost; event.timestamp = raw.window.timestamp; event.windowId = raw.window.windowID; event.data1 = raw.window.data1; wheel_source_.Clear(); break;
 			// Not the engine's business, but a finger's FINGER_UP can go missing
 			// outside the window, and a finger left down would make every later
 			// wheel event a swipe (WheelScroll.h, CWheelSource::Clear).

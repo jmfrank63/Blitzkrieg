@@ -382,6 +382,13 @@ void CMainLoop::Pause( const bool _bPause, const int _nPauseReason )
 {
 	IGameTimer *pTimer = GetSingleton<IGameTimer>();
 	pTimer->PauseGame( _bPause, _nPauseReason );
+	// The focus pause stops the absolute clock too, or everything timed on it
+	// (chat lines, minimap marks, acknowledgements, the camera's slider) jumped
+	// by the time spent away on the first frame back. Not in a multiplayer
+	// game: the other players keep playing, and its lag and network timeouts
+	// are counted on this clock in real time.
+	if ( _nPauseReason == PAUSE_TYPE_INACTIVE )
+		pTimer->GetAbsTimer()->Pause( _bPause && GetGlobalVar( "MultiplayerGame", 0 ) == 0 );
 	const bool bPauseSFXes = pTimer->HasPause( PAUSE_TYPE_USER_PAUSE ) ||
 		                       pTimer->HasPause( PAUSE_TYPE_MENU ) ||
 		                       pTimer->HasPause( PAUSE_TYPE_MP_TIMEOUT );

@@ -1658,6 +1658,10 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 		// jump of the map on refocus.
 		float fDroppedX = 0, fDroppedY = 0;
 		pInput->TakeTrackpadScroll( &fDroppedX, &fDroppedY );
+		// The frame rate measured below skips the time away: counted as one
+		// long frame on refocus, it read as a slide show and lowered the game
+		// speed (Options.GFX.MinFPS) after a long enough pause.
+		timeFrameLastTime = NPlatform::MonotonicMilliseconds();
 		return false;
 	}
 
@@ -1893,6 +1897,9 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 				}
 			}
 			timeFrameLastGameTime = timeGameTime;
+			static const bool bFPSTrace = getenv( "BK_FPS_TRACE" ) != 0;
+			if ( bFPSTrace )
+				fprintf( stderr, "BK_FPS_TRACE: %.1f fps at game %u ms, speed %d\n", fAveFPS, unsigned( timeGameTime ), GetSingleton<IGameTimer>()->GetSpeed() );
 		}
 	}
 	return true;

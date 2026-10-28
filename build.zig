@@ -3325,6 +3325,29 @@ pub fn build(b: *std.Build) void {
         if (test_mode == .run) open_step.dependOn(&open_run.step);
     }
 
+    // The focus pause (tools/zig/focus_pause_game_reads_it.zig): a fight on
+    // the real Game, the window unfocused for eight seconds by SDL focus
+    // events the harness pushes; game time, the absolute clock and the shots
+    // must stop, and the frame rate measurement must skip the pause. Desktop
+    // and GPU, so not part of `test`.
+    const focus_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/focus_pause_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, focus_game_module, toolchain);
+    }
+    const focus_game_tests = b.addTest(.{ .root_module = focus_game_module, .filters = &.{"the focus pause"} });
+    const focus_game_run = b.addRunArtifact(focus_game_tests);
+    focus_game_run.setCwd(b.path("."));
+    focus_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    focus_game_run.has_side_effects = true;
+    focus_game_run.step.dependOn(install_game_step);
+    const focus_game_step = b.step("focus-pause-game-reads-it", "Unfocus the real Game for eight seconds in the middle of a fight, Remastered on and off, by SDL focus events, and measure that game time, the absolute clock and the shots stop and the frame rate measurement skips the pause");
+    focus_game_step.dependOn(&focus_game_tests.step);
+    if (test_mode == .run) focus_game_step.dependOn(&focus_game_run.step);
+
     // The rest of the world at every camera step (M006 S03,
     // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and
     // road3d, the dessau scene, and objects of each kind on a ring, each shot

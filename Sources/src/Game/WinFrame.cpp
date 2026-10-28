@@ -575,13 +575,18 @@ void PumpMessages()
 			// running against a clock that kept counting while macOS stopped
 			// presenting. Coming back, the whole backlog executed at once - on a
 			// large map, a lot of orders arriving in one frame.
+			// A Game driven by BK_AUTO_UI keeps stepping whatever the desktop's
+			// focus does (GameMain); only the focus events its blur= action pushes
+			// pause it.
 			case NPlatform::EventType::focusGained:
 				SetActive( true );
-				NMain::SwitchGame( true );
+				if ( getenv( "BK_AUTO_UI" ) == 0 || event.data1 == NPlatform::SDLApplication::kHarnessFocusEvent )
+					NMain::SwitchGame( true );
 				break;
 			case NPlatform::EventType::focusLost:
 				SetActive( false );
-				NMain::SwitchGame( false );
+				if ( getenv( "BK_AUTO_UI" ) == 0 || event.data1 == NPlatform::SDLApplication::kHarnessFocusEvent )
+					NMain::SwitchGame( false );
 				if ( NMain::IsInitialized() ) if ( IInput *input = GetSingleton<IInput>() ) input->ConsumePlatformEvent( event );
 				break;
 			case NPlatform::EventType::keyDown:

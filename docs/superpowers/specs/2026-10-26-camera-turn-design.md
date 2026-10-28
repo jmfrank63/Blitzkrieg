@@ -1186,3 +1186,50 @@ were not touched. The full sweep is left to the maintainer; Linux and macOS to C
 - The multiplayer pair runs on one machine at fixed waits (the host launches 80 s after creating the room); a slower
   machine may need longer waits. It plays the create screen's first map without a mod.
 - No Game-reads-it tier places a fence turned in the Map Editor (the bridge test proves the map and the engine).
+
+## The focus pause (round 2 of the hand test, 2026-10-28)
+
+The maintainer's report (macOS arm64): the Game pauses when its window loses the focus, but artillery fire goes on and
+is caught up after the focus comes back, and the frame rate measurement is not halted.
+
+Causes:
+
+- The macOS and Linux frame (`GameMain.cpp`'s `NWinFrame` over `GameFrame`) only cleared its active flag on a focus
+  loss. `NMain::SwitchGame`, which holds `PAUSE_TYPE_INACTIVE` on the game timer and pauses the sound, was called only by
+  `WinFrame.cpp`, which only the Windows build compiles (d71d2f5ba put the macOS fix there). So off Windows the game
+  clock ran on and the AI fired its segments while nothing was drawn; the world caught up on the first frame back.
+- The absolute clock (`IGameTimer::GetAbsTime`: chat lines, minimap marks, acknowledgements, the camera's slider, the
+  harness's `t` keys) was never paused on any platform: it jumped by the time away.
+- The mission's frame rate measurement (`CInterfaceMission::StepLocal`, the one that lowers the game speed under
+  `Options.GFX.MinFPS`) counted the whole time away as one frame on the first frame back, on every platform: after a long
+  enough pause the game speed went down a step with a "game speed lowered" chat line. The statistics overlay's frame
+  rate (`CInterfaceScreenBase::AddStatistics`) did the same for one second.
+
+Fix (Remastered on and off: this is 2003 behaviour in the port):
+
+- Both frames call `SwitchGame` on SDL's focus lost and gained events.
+- `CMainLoop::Pause` pauses the absolute timer with `PAUSE_TYPE_INACTIVE`, in single player only. Decision: in a
+  multiplayer game the other players play on, and the lag and network timeouts are counted on this clock in real time.
+- The mission's measurement re-anchors its last frame time on every unfocused step, and the statistics' timer is reset
+  on every frame not drawn, so neither counts the time away.
+- A Game driven by `BK_AUTO_UI` keeps ignoring the desktop's focus (decision: tiers run several Games and the desktop
+  moves the focus between them); only the focus events the harness pushes itself pause it. The new action
+  `blur=<ms>` pushes an SDL focus-lost event (`SDLApplication::PushFocusEventForTests`, `data1` = 1 marks it), holds
+  the window inactive for ms of wall time and pushes focus-gained, so the frame's own focus code is what runs.
+- New traces: `BK_SHOT_TRACE` (each `CGun::Fire` with its game time), `BK_FPS_TRACE` (each frame rate period of the
+  mission with the game speed).
+
+Tier `focus-pause-game-reads-it` (`tools/zig/focus_pause_game_reads_it.zig`): road3d with a Pz IV, a sniper and two
+rifle squads against a T-34, `Options.GFX.MinFPS` at 10, the window unfocused for 8 s five seconds into the fight,
+Remastered on and off. It holds game time and absolute time to move at most 100 ms across the pause, no shot fired
+while unfocused (and shots before and after), and the frame rate period across the pause at least half the one before
+and not lowering the game speed. Decision: MinFPS 10, not its highest 20 - a first run with other worktrees' builds on
+the machine drew 14 to 18 fps from the mission's start and lowered the speed every period, pause or not.
+
+Measured on win-home (Windows x64, debug install), 8 s unfocused: game time moved 42 / 31 ms and the absolute clock 42 /
+31 ms (Remastered on / off), shots 3 / 11 before, 0 / 0 unfocused, 46 / 43 after, frame rate periods 47.4, 39.1, 48.0 /
+46.1, 39.6, 35.4 at speed 0. The same tier with the absolute clock and frame rate fixes taken out: the absolute clock
+jumped 8007 / 7982 ms, the period across the pause read 5.2 / 6.6 fps and lowered the speed to -1. The frame fix itself
+(macOS, Linux) is not exercised on Windows, where WinFrame already paused; CI runs the tier there only if a workflow
+names it. Also run: `test-game-frame test-game-loop test-game-bootstrap camera-turn-storage-game-reads-it` pass. Not
+seen: macOS, Linux.

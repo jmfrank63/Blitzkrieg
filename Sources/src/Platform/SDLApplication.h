@@ -81,6 +81,11 @@ public:
 	bool GetControllerName(int deviceId, char *destination, std::size_t capacity) const;
 	bool AddVirtualControllerForTests(int deviceId, const char *name);
 	bool RemoveVirtualControllerForTests(int deviceId);
+	// Queues a focus lost or gained event for `window` (the SDL_Window the
+	// frames hand out), marked as the harness's: its data1 is
+	// kHarnessFocusEvent, SDL's own focus events carry 0.
+	static constexpr int kHarnessFocusEvent = 1;
+	static bool PushFocusEventForTests(void *window, bool gained);
 	bool IsMinimized() const;
 	bool IsVisible() const;
 	bool HasInputFocus() const;
