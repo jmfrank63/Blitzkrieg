@@ -1,0 +1,6 @@
+{
+  "ukrainehouse01_1": [
+    {"lo": [-83, 36], "hi": [-73, 46], "wall": 77, "ridge": 77, "roof": "flat"},
+    {"lo": [-34, 36], "hi": [-26, 46], "wall": 74, "ridge": 74, "roof": "flat"}
+  ]
+}

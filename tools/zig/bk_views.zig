@@ -1745,7 +1745,13 @@ fn descend(fit: *Fit, blocks: []Block, steps: []const f64) void {
 /// foot meets the top of the roof's outline below its middle (a ridge),
 /// unless along the first eye's line of sight (where it shows the same) the
 /// other pictures' outlines hold more of it, its foot hidden in the roof.
-pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []const Image, eyes: []const Eye) ![]const Block {
+/// `hand`: the blocks are a hand shape, whose author drew its towers and
+/// spires; only the chimneys of the picture alone (`chimneyMask`) that it
+/// lacks are cut, as many as there are. `drawn`: the roof parts drawn by
+/// hand, which stand on the blocks as they do and are not returned: no
+/// chimney is cut where one stands.
+pub fn cutChimneys(gpa: std.mem.Allocator, body: []const Block, drawn: []const Block, pictures: []const Image, eyes: []const Eye, hand: bool) ![]const Block {
+    const blocks = try std.mem.concat(gpa, Block, &.{ body, drawn });
     const picture = pictures[0];
     const eye = eyes[0];
     const w = picture.width;
@@ -1770,6 +1776,12 @@ pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []co
         var y = top[x];
         while (y > 0 and picture.pixels[(y - 1) * w + x][3] >= 128) : (y -= 1) above[(y - 1) * w + x] = true;
     }
+    // The chimneys of the picture alone go first, each on its own: a roof
+    // fitted up into one leaves only its top above the blocks, too narrow a
+    // foot, and above a gable the fit cut low it joins the gable's top.
+    const chimneys = try chimneyMask(gpa, picture);
+    defer gpa.free(chimneys);
+    for (above, chimneys) |*a, chimney| a.* = a.* and !chimney and !hand;
     // Each row's leftmost and rightmost pixel of the part being cut.
     const spans = try gpa.alloc([2]usize, h);
     defer gpa.free(spans);
@@ -1778,12 +1790,12 @@ pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []co
     try out.appendSlice(gpa, blocks);
     var stack: std.ArrayList(usize) = .empty;
     defer stack.deinit(gpa);
-    for (0..above.len) |seed| {
-        if (!above[seed] or out.items.len + 2 > max_blocks) continue;
+    for ([2][]bool{ chimneys, above }) |region| for (0..region.len) |seed| {
+        if (!region[seed] or (!hand and out.items.len - drawn.len + 2 > max_blocks)) continue;
         var box = [4]usize{ w, h, 0, 0 };
         var count: usize = 0;
         @memset(spans, .{ w, 0 });
-        above[seed] = false;
+        region[seed] = false;
         try stack.append(gpa, seed);
         while (stack.pop()) |i| {
             const x = i % w;
@@ -1796,8 +1808,8 @@ pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []co
                 const ny = @as(i64, @intCast(y)) + d[1];
                 if (nx < 0 or ny < 0 or nx >= w or ny >= h) continue;
                 const n: usize = @intCast(ny * w + nx);
-                if (!above[n]) continue;
-                above[n] = false;
+                if (!region[n]) continue;
+                region[n] = false;
                 try stack.append(gpa, n);
             }
         }
@@ -1854,8 +1866,9 @@ pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []co
             const roof = z_top + 1000 - under.t;
             if (roof < foot[2] + dz - 1 or roof >= z_top + dz - 2) continue;
             // Its whole foot on the blocks: a stalk beside a wall shows as a
-            // post from the other sides.
-            const half = @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2 / 2;
+            // post from the other sides. A chimney's middle: one on a gable
+            // end stands on the end wall (e_house06_4).
+            const half = @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2 / @as(f64, if (region.ptr == chimneys.ptr) 4 else 2);
             const on_blocks = for ([_][2]f64{ .{ -1, -1 }, .{ -1, 1 }, .{ 1, -1 }, .{ 1, 1 } }) |corner| {
                 if (castRay(blocks, .{ c[0] + corner[0] * half, c[1] + corner[1] * half, z_top + 1000 }, .{ 0, 0, -1 }) == null) break false;
             } else true;
@@ -1869,8 +1882,8 @@ pub fn cutChimneys(gpa: std.mem.Allocator, blocks: []const Block, pictures: []co
             best_score = score;
         }
         for (best) |part| try out.append(gpa, part orelse continue);
-    }
-    return out.items;
+    };
+    return std.mem.concat(gpa, Block, &.{ body, out.items[blocks.len..] });
 }
 
 /// The pixels a chimney adds to the blocks' outline in a picture: inside
@@ -2359,6 +2372,133 @@ pub fn copiedParts(blocks: []const Block, body: usize, eye: Eye, drawn: Generate
     return n;
 }
 
+/// The chimneys a picture shows above its roofs: what an opening of the top
+/// edge `chimney_window` pixels wide takes off it, in runs of columns that
+/// rise `chimney_rise` to `chimney_tallest` rows and have a vertical side, a step of
+/// `chimney_step` rows or more between two columns. A roof's apex the
+/// opening also cuts rises only along its slopes (2 to 6 rows a column on
+/// the 2003 houses, 6 at e_house02_4's steep gable); a chimney's sides rise
+/// 7 to 28 at once. Found from the
+/// picture alone, so the blocks cannot hide them: e_house02's fit raised its
+/// roof into the chimney, and the rest of the chimney was painted on the
+/// roof in every turn (M006 round 2).
+pub fn chimneyMask(gpa: std.mem.Allocator, picture: Image) ![]bool {
+    const w = picture.width;
+    const h = picture.height;
+    const mask = try gpa.alloc(bool, @as(usize, w) * h);
+    @memset(mask, false);
+    if (w < chimney_window) return mask;
+    // Per column the first opaque row, and that of the opened outline: the
+    // lowest top of the best window of columns round it.
+    const top = try gpa.alloc(usize, w);
+    defer gpa.free(top);
+    for (top, 0..) |*t, x| {
+        t.* = h;
+        for (0..h) |y| if (picture.pixels[y * w + x][3] >= 128) {
+            t.* = y;
+            break;
+        };
+    }
+    const opened = try gpa.alloc(usize, w);
+    defer gpa.free(opened);
+    @memset(opened, h);
+    for (0..w - chimney_window + 1) |s| {
+        const lowest = std.mem.max(usize, top[s .. s + chimney_window]);
+        for (opened[s .. s + chimney_window]) |*o| o.* = @min(o.*, lowest);
+    }
+    // Every window round a column at the outline's end holds an empty one:
+    // nothing to open there.
+    for (opened, top) |*o, t| if (o.* == h) {
+        o.* = t;
+    };
+    var x: usize = 0;
+    while (x < w) {
+        if (opened[x] <= top[x]) {
+            x += 1;
+            continue;
+        }
+        const a = x;
+        var rise: usize = 0;
+        while (x < w and opened[x] > top[x]) : (x += 1) rise = @max(rise, opened[x] - top[x]);
+        var step: usize = 0;
+        for (a -| 1..@min(x + 1, w - 1)) |c| step = @max(step, @max(top[c], top[c + 1]) - @min(top[c], top[c + 1]));
+        if (rise < chimney_rise or rise > chimney_tallest or step < chimney_step) continue;
+        for (a..x) |c| for (top[c]..opened[c]) |y| {
+            mask[y * w + c] = true;
+        };
+    }
+    return mask;
+}
+
+const chimney_window = 20;
+const chimney_rise = 5;
+const chimney_step = 7;
+/// A part rising further above the roofs is a spire or a tower (e_chapel_1,
+/// church, e_cityhall_1: 32 to 50 rows); the 2003 chimneys rise 5 to 23.
+const chimney_tallest = 30;
+const chimney_share = 0.5;
+
+/// The pictures with their chimneys (`chimneyMask`) cleared, for the fit.
+fn withoutChimneys(gpa: std.mem.Allocator, pictures: []const Image) ![]Image {
+    const out = try gpa.alloc(Image, pictures.len);
+    for (out, pictures) |*o, p| {
+        o.* = .{ .width = p.width, .height = p.height, .pixels = try gpa.dupe([4]u8, p.pixels) };
+        for (o.pixels, try chimneyMask(gpa, p)) |*pixel, chimney| {
+            if (chimney) pixel.* = .{ 0, 0, 0, 0 };
+        }
+    }
+    return out;
+}
+
+/// The chimneys the variant's own 2003 picture shows (`chimneyMask`) and
+/// how many of their pixels the blocks cover there: a chimney the fit leaves
+/// out above a gable (e_house06_4) is lost in every turn. Its own picture
+/// alone, as for the outline: another variant of the family may be another
+/// building (ukrainehouse01_1 and _2).
+/// A turn fails where they show more than `low_margin` pixels and the blocks
+/// cover less than `chimney_share` of them: a lost chimney leaves none to a
+/// sixth covered, one drawn a little narrower than its cap 0.7 or more
+/// (e_ctownhouse04_1, e_house11_1).
+pub fn keptChimneys(gpa: std.mem.Allocator, blocks: []const Block, picture: Image, eye: Eye) ![2]f64 {
+    var seen: f64 = 0;
+    var kept: f64 = 0;
+    const mask = try chimneyMask(gpa, picture);
+    defer gpa.free(mask);
+    for (mask, 0..) |chimney, i| {
+        if (!chimney) continue;
+        seen += 1;
+        kept += @floatFromInt(@intFromBool(castPixel(blocks, eye, @as(f64, @floatFromInt(i % picture.width)) + 0.5, @as(f64, @floatFromInt(i / picture.width)) + 0.5) != null));
+    }
+    return .{ seen, kept };
+}
+
+/// The pixels of a picture `projectPicture` drew on a roof of the body
+/// (`blocks[..body]`) from a point a 2003 picture of the colourway sees as
+/// a chimney (`chimneyMask`): a chimney missing from the blocks, or standing
+/// elsewhere than one of the 2003 sides shows it, is painted on the roof
+/// plane under where that side saw it.
+pub fn paintedChimneys(gpa: std.mem.Allocator, blocks: []const Block, body: usize, eye: Eye, drawn: Generated, pictures: []const Image, eyes: []const Eye) !f64 {
+    if (drawn.sources.len == 0) return 0;
+    const masks = try gpa.alloc([]bool, pictures.len);
+    for (masks, pictures) |*m, p| m.* = try chimneyMask(gpa, p);
+    var n: f64 = 0;
+    const w = drawn.image.width;
+    for (drawn.kinds, drawn.sources, 0..) |kind, q, i| {
+        if (kind == .empty or kind == .filled) continue;
+        const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(i % w)) + 0.5, @as(f64, @floatFromInt(i / w)) + 0.5) orelse continue;
+        if (hit.block >= body or hit.normal[2] <= 0.5) continue;
+        for (masks, pictures, eyes) |m, p, e| {
+            if (!sees(blocks, e, q)) continue;
+            const uv = e.project(q);
+            if (uv[0] < 0 or uv[1] < 0 or uv[0] >= @as(f64, @floatFromInt(p.width)) or uv[1] >= @as(f64, @floatFromInt(p.height))) continue;
+            if (!m[@as(usize, @intFromFloat(uv[1])) * p.width + @as(usize, @intFromFloat(uv[0]))]) continue;
+            n += 1;
+            break;
+        }
+    }
+    return n;
+}
+
 /// The target's picture: every pixel the blocks cover takes the colour of a
 /// 2003 picture that sees its point, relit to the target's shading class. A
 /// point none sees borrows from the first of its face's donors (donorsOf)
@@ -2744,8 +2884,8 @@ const Scene = struct {
     outlines: []Image,
     states: []const []const u8,
     shapes: []const []const Block,
-    /// How many of each state's blocks are the building's; the low and roof
-    /// parts follow them.
+    /// How many of each state's blocks are the building's; the chimneys cut
+    /// from its outline, the low parts and the roof parts follow them.
     bodies: []const usize,
     /// The variant's hand shape (`shapes_dir`): its intact blocks but for
     /// the chimneys cut from the outline.
@@ -2876,11 +3016,20 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         // chimneys and spires drawn by its author.
         // So is a damage state whose own picture it still covers (a
         // tarpaulin stack whose damaged picture differs by a few crates).
-        if (hand != null and (std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w") or blocksIou(hand.?, state_eyes.items[0], state_pictures.items[0]) >= outline_floor)) {
+        const intact_state = std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w");
+        if (hand != null and (intact_state or blocksIou(hand.?, state_eyes.items[0], state_pictures.items[0]) >= outline_floor)) {
             shape.* = hand.?;
+            body_count.* = shape.len;
+            // The chimneys its author left out, but for those the roof parts
+            // draw.
+            if (intact_state) shape.* = try cutChimneys(arena, hand.?, roof.items, state_pictures.items, state_eyes.items, true);
         } else {
-            const fitted = try fitBlocks(arena, intact, state_pictures.items, state_eyes.items, state[0] == '3');
-            shape.* = try cutChimneys(arena, fitted, state_pictures.items, state_eyes.items);
+            // Fitted to the outlines without their chimneys, the roof stays
+            // under them, and the chimneys cut from the whole outlines stand
+            // on it as parts, but for those the roof parts draw.
+            const fitted = try fitBlocks(arena, intact, try withoutChimneys(arena, state_pictures.items), state_eyes.items, state[0] == '3');
+            shape.* = try cutChimneys(arena, fitted, if (intact_state) roof.items else &.{}, state_pictures.items, state_eyes.items, false);
+            body_count.* = fitted.len;
             if (std.mem.eql(u8, state, "1")) {
                 intact = fitted;
                 body = shape.*;
@@ -2890,12 +3039,11 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         // shows stays on every turn.
         var parts: std.ArrayList(Block) = .empty;
         try parts.appendSlice(arena, shape.*);
-        body_count.* = shape.len;
         for (sources.items, eyes, same) |source, eye, s| {
             if (s) try parts.appendSlice(arena, try lowParts(arena, shape.*, pictureOf(source, state) orelse continue, eye));
         }
         // The intact building's roof parts.
-        if (std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w")) try parts.appendSlice(arena, roof.items);
+        if (intact_state) try parts.appendSlice(arena, roof.items);
         shape.* = parts.items;
     }
     return .{
@@ -3027,7 +3175,7 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
 /// the blocks are a hand shape. `low` and `low_kept`: the pixels the low
 /// parts of the 2003 sides show in the turn and those it holds (`turnLowParts`);
 /// `roof` and `roof_kept` likewise for the walls of the roof parts (`roofKept`).
-const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0 };
+const Shape = struct { height: f64 = 1, ground: f64 = 1, cover: f64 = 1, protrusion: f64 = 0, protrusion_2003: f64 = 0, hand: bool = false, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0, chimney: f64 = 0, chimney_kept: f64 = 0, painted: f64 = 0 };
 
 fn shapeOf(gpa: std.mem.Allocator, own: Source, fixed: usize, d: Drawn, shown: Image) !Shape {
     const original = pictureOf(own, "1").?;
@@ -3081,6 +3229,8 @@ fn shapeFailure(gpa: std.mem.Allocator, s: Shape) !?[]const u8 {
     if (lowFails(s.roof, s.roof_kept)) return try std.fmt.allocPrint(gpa, "roof parts {d:.0} of {d:.0} pixels", .{ s.roof_kept, s.roof });
     if (s.stretch > stretch_most) return try std.fmt.allocPrint(gpa, "stretched {d:.3} > {d:.2}", .{ s.stretch, stretch_most });
     if (s.copied > low_margin) return try std.fmt.allocPrint(gpa, "parts copied {d:.0} pixels", .{s.copied});
+    if (s.chimney > low_margin and s.chimney_kept < chimney_share * s.chimney) return try std.fmt.allocPrint(gpa, "chimneys {d:.0} of {d:.0} pixels", .{ s.chimney_kept, s.chimney });
+    if (s.painted > low_margin) return try std.fmt.allocPrint(gpa, "chimney painted {d:.0} pixels", .{s.painted});
     return null;
 }
 
@@ -3271,6 +3421,16 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
             shape.roof_kept = roof[1];
             shape.stretch = stretchShare(d.sprite);
             shape.copied = copiedParts(d.blocks, body, blocks_target.eye, d.sprite);
+            var pictures: std.ArrayList(Image) = .empty;
+            var eyes: std.ArrayList(Eye) = .empty;
+            for (scene.sources, scene.eyes, scene.same) |source, eye, same| if (same) {
+                try pictures.append(arena, pictureOf(source, "1").?);
+                try eyes.append(arena, eye);
+            };
+            const chimneys = try keptChimneys(arena, d.blocks, pictureOf(own, "1").?, scene.eyes[scene.fixed]);
+            shape.chimney = chimneys[0];
+            shape.chimney_kept = chimneys[1];
+            shape.painted = try paintedChimneys(arena, d.blocks, body, blocks_target.eye, d.sprite, pictures.items, eyes.items);
         }
     }
     const failure = try shapeFailure(arena, shape);
@@ -3379,7 +3539,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const zero = if (fallback) target.eye.anchor else footprintZero(scene, target);
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
@@ -4003,7 +4163,7 @@ const SideReport = struct {
     mirror: bool = false,
     sibling: []const u8 = "",
     hand: bool = false,
-    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0, failure: []const u8 },
+    shape: struct { height: f64, ground: f64, cover: f64, protrusion: f64, protrusion_2003: f64, low: f64 = 0, low_kept: f64 = 0, roof: f64 = 0, roof_kept: f64 = 0, stretch: f64 = 0, copied: f64 = 0, chimney: f64 = 0, chimney_kept: f64 = 0, painted: f64 = 0, failure: []const u8 },
     pictures: []const struct { picture: []const u8, projected: f64, mirrored: f64, transferred: f64, filled: f64, model_iou: []const f64 },
 };
 
@@ -4104,7 +4264,7 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, sh.chimney, sh.chimney_kept, sh.painted, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";
@@ -4151,11 +4311,13 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             \\the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
             \\parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
             \\pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-            \\another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+            \\another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+            \\of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+            \\sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
             \\sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
             \\
-            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+            \\| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+            \\|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
             \\{s}
         , .{shapes.written()});
         if (held_rows.written().len > 0) try d.print(
@@ -4184,7 +4346,9 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\  {d:.1} of the pixels it shows of the low parts the 2003 sides of the colourway show, ramps, steps and
         \\  porches, where they show more than {d:.0}, and draws as walls as much of the walls of the roof parts
         \\  in `tools/zig/fixtures/bk-views/roof-parts`, at most {d:.2} of its pixels still stretched, and no more than
-        \\  {d:.0} pixels of the body copied from beside a part, a chimney, dormer or door step of another side), the style
+        \\  {d:.0} pixels of the body copied from beside a part, a chimney, dormer or door step of another side, nor
+        \\  drawn on a roof from where a 2003 side of the colourway sees a chimney, and its blocks cover half or
+        \\  more of the chimneys the variant's 2003 picture shows above its roofs), the style
         \\  of every generated picture, and the hold-out where the family has another side of the colourway, against
         \\  the floors of `tools/zig/fixtures/bk-views/gate.json`: {d} of {d} variants pass; hold-out {d} of {d}; {d}
         \\  fail on the shape; {d} more pass the measures but look wrong on the contact sheet (`bk-views contact`),
