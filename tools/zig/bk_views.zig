@@ -2014,61 +2014,141 @@ pub fn cutChimneys(gpa: std.mem.Allocator, body: []const Block, drawn: []const B
         while (waist > box[1] and 10 * (spans[waist - 1][1] -| spans[waist - 1][0]) >= 7 * foot_width) waist -= 1;
         const xc = (box[0] + box[2]) / 2;
         if (top[xc] == h) continue;
-        const r = eye.ray(@as(f64, @floatFromInt(xc)) + 0.5, @as(f64, @floatFromInt(top[xc])) + 0.5);
-        const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(xc)) + 0.5, @as(f64, @floatFromInt(top[xc])) + 0.5) orelse continue;
-        const t = hit.t - far_away;
-        const foot = [3]f64{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], r[0][2] + t * r[1][2] };
-        // A row's height over the foot: the screen moves up as it grows.
-        const zOf = struct {
-            fn f(z0: f64, row0: usize, row: usize, per: f64) f64 {
-                return z0 + (@as(f64, @floatFromInt(row0)) - @as(f64, @floatFromInt(row))) / per;
-            }
-        }.f;
-        const z_waist = zOf(foot[2], top[xc], waist, rise);
-        const z_top = zOf(foot[2], top[xc], box[1], rise);
-        const pointed = waist - box[1] >= 4;
-        const spire_width: f64 = if (pointed) @floatFromInt(@max(3, spans[waist - 1][1] -| spans[waist - 1][0])) else 0;
-        const along = [2]f64{ r[1][0], r[1][1] };
-        const length = @sqrt(along[0] * along[0] + along[1] * along[1]);
-        var best: [2]?Block = .{ null, null };
-        var best_score = -std.math.inf(f64);
-        var step: f64 = -48;
-        while (step <= 48) : (step += 2) {
-            // Along the line of sight the part shows the same.
-            const c = [2]f64{ foot[0] + step * along[0] / length, foot[1] + step * along[1] / length };
-            const dz = step * r[1][2] / length;
-            const square = struct {
-                fn f(centre: [2]f64, side: f64, wall: f64, ridge: f64, roof: Roof) Block {
-                    return .{ .lo = .{ centre[0] - side / 2, centre[1] - side / 2 }, .hi = .{ centre[0] + side / 2, centre[1] + side / 2 }, .wall = wall, .ridge = ridge, .roof = roof };
+        // A chimney standing on the roof plane before the ridge shows its
+        // foot below the outline's top, where its brick meets the tiles: its
+        // place along the line of sight (e_house02_1's stands on the front
+        // plane; put on the ridge, its 2003 pixels lay on the roof plane in
+        // every turn, M006 round 3).
+        const own_row = if (region.ptr == chimneys.ptr) chimneyFoot(picture, spans, box, top) else top[xc];
+        // Its own foot first, else where the outline's top is (a foot the
+        // colours misread, on a wall or off the blocks).
+        for ([2]usize{ own_row, top[xc] }, 0..) |foot_row, attempt| {
+            if (attempt == 1 and own_row == top[xc]) break;
+            const own_foot = foot_row > top[xc];
+            const r = eye.ray(@as(f64, @floatFromInt(xc)) + 0.5, @as(f64, @floatFromInt(foot_row)) + 0.5);
+            const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(xc)) + 0.5, @as(f64, @floatFromInt(foot_row)) + 0.5) orelse continue;
+            const t = hit.t - far_away;
+            const foot = [3]f64{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], r[0][2] + t * r[1][2] };
+            // A row's height over the foot: the screen moves up as it grows.
+            const zOf = struct {
+                fn f(z0: f64, row0: usize, row: usize, per: f64) f64 {
+                    return z0 + (@as(f64, @floatFromInt(row0)) - @as(f64, @floatFromInt(row))) / per;
                 }
             }.f;
-            const parts: [2]?Block = .{
-                if (z_waist > foot[2] + 1) square(c, @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2, z_waist + dz, z_waist + dz, .flat) else null,
-                if (pointed) square(c, spire_width / std.math.sqrt2, @max(z_waist, foot[2]) + dz, z_top + dz, .hip) else null,
-            };
-            // Its foot hidden in the roof, its top above it.
-            const under = castRay(blocks, .{ c[0], c[1], z_top + 1000 }, .{ 0, 0, -1 }) orelse continue;
-            const roof = z_top + 1000 - under.t;
-            if (roof < foot[2] + dz - 1 or roof >= z_top + dz - 2) continue;
-            // Its whole foot on the blocks: a stalk beside a wall shows as a
-            // post from the other sides. A chimney's middle: one on a gable
-            // end stands on the end wall (e_house06_4).
-            const half = @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2 / @as(f64, if (region.ptr == chimneys.ptr) 4 else 2);
-            const on_blocks = for ([_][2]f64{ .{ -1, -1 }, .{ -1, 1 }, .{ 1, -1 }, .{ 1, 1 } }) |corner| {
-                if (castRay(blocks, .{ c[0] + corner[0] * half, c[1] + corner[1] * half, z_top + 1000 }, .{ 0, 0, -1 }) == null) break false;
-            } else true;
-            if (!on_blocks) continue;
-            var score: f64 = if (step == 0) 0.5 else 0;
-            for (pictures[1..], eyes[1..]) |other, other_eye| for (parts) |part| {
-                score += @floatFromInt(chimneyFit(blocks, part orelse continue, other, other_eye));
-            };
-            if (score <= best_score) continue;
-            best = parts;
-            best_score = score;
+            const z_waist = zOf(foot[2], foot_row, waist, rise);
+            const z_top = zOf(foot[2], foot_row, box[1], rise);
+            const pointed = waist - box[1] >= 4;
+            const spire_width: f64 = if (pointed) @floatFromInt(@max(3, spans[waist - 1][1] -| spans[waist - 1][0])) else 0;
+            const along = [2]f64{ r[1][0], r[1][1] };
+            const length = @sqrt(along[0] * along[0] + along[1] * along[1]);
+            var best: [2]?Block = .{ null, null };
+            var best_score = -std.math.inf(f64);
+            var step: f64 = -48;
+            while (step <= 48) : (step += 2) {
+                if (own_foot and step != 0) continue;
+                // Along the line of sight the part shows the same.
+                const c = [2]f64{ foot[0] + step * along[0] / length, foot[1] + step * along[1] / length };
+                const dz = step * r[1][2] / length;
+                const square = struct {
+                    fn f(centre: [2]f64, side: f64, wall: f64, ridge: f64, roof: Roof) Block {
+                        return .{ .lo = .{ centre[0] - side / 2, centre[1] - side / 2 }, .hi = .{ centre[0] + side / 2, centre[1] + side / 2 }, .wall = wall, .ridge = ridge, .roof = roof };
+                    }
+                }.f;
+                const parts: [2]?Block = .{
+                    if (z_waist > foot[2] + 1) square(c, @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2, z_waist + dz, z_waist + dz, .flat) else null,
+                    if (pointed) square(c, spire_width / std.math.sqrt2, @max(z_waist, foot[2]) + dz, z_top + dz, .hip) else null,
+                };
+                // Its foot hidden in the roof, its top above it.
+                const under = castRay(blocks, .{ c[0], c[1], z_top + 1000 }, .{ 0, 0, -1 }) orelse continue;
+                const roof = z_top + 1000 - under.t;
+                if (roof < foot[2] + dz - 1 or roof >= z_top + dz - 2) continue;
+                // Its whole foot on the blocks: a stalk beside a wall shows as a
+                // post from the other sides. A chimney's middle: one on a gable
+                // end stands on the end wall (e_house06_4).
+                const half = @as(f64, @floatFromInt(foot_width)) / std.math.sqrt2 / @as(f64, if (region.ptr == chimneys.ptr) 4 else 2);
+                const on_blocks = for ([_][2]f64{ .{ -1, -1 }, .{ -1, 1 }, .{ 1, -1 }, .{ 1, 1 } }) |corner| {
+                    if (castRay(blocks, .{ c[0] + corner[0] * half, c[1] + corner[1] * half, z_top + 1000 }, .{ 0, 0, -1 }) == null) break false;
+                } else true;
+                if (!on_blocks) continue;
+                var score: f64 = if (step == 0) 0.5 else 0;
+                for (pictures[1..], eyes[1..]) |other, other_eye| for (parts) |part| {
+                    score += @floatFromInt(chimneyFit(blocks, part orelse continue, other, other_eye));
+                };
+                if (score <= best_score) continue;
+                best = parts;
+                best_score = score;
+            }
+            if (best[0] != null or best[1] != null) {
+                for (best) |part| try out.append(gpa, part orelse continue);
+                break;
+            }
         }
-        for (best) |part| try out.append(gpa, part orelse continue);
     };
     return std.mem.concat(gpa, Block, &.{ body, out.items[blocks.len..] });
+}
+
+/// The row of a chimney's foot in its picture: per column of the chimney
+/// above the outline's top (`spans` of the rows of `box`), down from that top
+/// as long as a pixel is nearer the chimney's mean colour than the roof's
+/// beside it, up to 40 rows, the median of those rows. Where the roof hides
+/// the foot the first roof pixel is the top itself.
+fn chimneyFoot(picture: Image, spans: []const [2]usize, box: [4]usize, top: []const usize) usize {
+    const w = picture.width;
+    const colourOf = struct {
+        fn f(p: [4]u8) [3]f64 {
+            return .{ @floatFromInt(p[0]), @floatFromInt(p[1]), @floatFromInt(p[2]) };
+        }
+    }.f;
+    const far = struct {
+        fn f(a: [3]f64, b: [3]f64) f64 {
+            return (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]);
+        }
+    }.f;
+    var mean = [3]f64{ 0, 0, 0 };
+    var n: f64 = 0;
+    for (box[1]..box[3]) |y| for (spans[y][0]..spans[y][1]) |x| {
+        const p = picture.pixels[y * w + x];
+        if (p[3] < 128 or y >= top[x]) continue;
+        const c = colourOf(p);
+        for (0..3) |i| mean[i] += c[i];
+        n += 1;
+    };
+    // The middle column's top is the reference: its foot is sought.
+    const xc = (box[0] + box[2]) / 2;
+    if (n == 0) return top[xc];
+    for (&mean) |*m| m.* /= n;
+    // The roof: the opaque pixels a foot's width either side, below the top.
+    const width = box[2] - box[0];
+    var roof = [3]f64{ 0, 0, 0 };
+    var m: f64 = 0;
+    for ([2]i64{ -1, 1 }) |side| {
+        for (0..width) |d| {
+            const x = @as(i64, @intCast(xc)) + side * @as(i64, @intCast(width + d));
+            if (x < 0 or x >= w) continue;
+            const ux: usize = @intCast(x);
+            for (top[ux]..@min(picture.height, top[ux] + 2 * width)) |y| {
+                const p = picture.pixels[y * w + ux];
+                if (p[3] < 128) continue;
+                const c = colourOf(p);
+                for (0..3) |i| roof[i] += c[i];
+                m += 1;
+            }
+        }
+    }
+    if (m == 0) return top[xc];
+    for (&roof) |*r| r.* /= m;
+    var rows: [96]usize = undefined;
+    var count: usize = 0;
+    for (box[0]..box[2]) |x| {
+        if (count == rows.len or top[x] >= picture.height) continue;
+        var y = top[x];
+        while (y < @min(picture.height, top[x] + 40) and picture.pixels[y * w + x][3] >= 128 and far(colourOf(picture.pixels[y * w + x]), mean) < far(colourOf(picture.pixels[y * w + x]), roof)) y += 1;
+        rows[count] = y - top[x];
+        count += 1;
+    }
+    if (count == 0) return top[xc];
+    std.mem.sort(usize, rows[0..count], {}, std.sort.asc(usize));
+    return top[xc] + rows[count / 2];
 }
 
 /// The pixels a chimney adds to the blocks' outline in a picture: inside
@@ -2411,7 +2491,7 @@ const mirror_reach = 16;
 /// than `low_share` held) while it holds their mirror.
 pub fn handedFailure(gpa: std.mem.Allocator, h: Handed) !?[]const u8 {
     if (h.turned < h.own - outline_slack) return try std.fmt.allocPrint(gpa, "turned outline {d:.3} < {d:.3}", .{ h.turned, h.own - outline_slack });
-    if (h.symmetric < symmetric_floor and h.mirrored > h.turned) return try std.fmt.allocPrint(gpa, "mirrored: outline {d:.3} turned, {d:.3} mirrored", .{ h.turned, h.mirrored });
+    if (h.symmetric < symmetric_floor and h.mirrored > h.turned + mirror_margin) return try std.fmt.allocPrint(gpa, "mirrored: outline {d:.3} turned, {d:.3} mirrored", .{ h.turned, h.mirrored });
     if (lowFails(h.parts, h.parts_kept) and h.parts_mirrored_kept >= low_share * h.parts_mirrored) return try std.fmt.allocPrint(gpa, "parts on the mirrored side: {d:.0} of {d:.0} pixels", .{ h.parts_kept, h.parts });
     return null;
 }
@@ -2422,6 +2502,10 @@ const outline_slack = 0.05;
 /// A turned shape whose mirror covers it this well (IoU) is symmetric for
 /// that turn: a mirror of its picture shows it as well as the turn.
 const symmetric_floor = 0.95;
+/// A mirror's outline must beat the turn's by this much (IoU) to count: a
+/// round chimney stalk measures 0.715 turned and 0.716 mirrored on blocks
+/// that differ from round by a few units.
+const mirror_margin = 0.02;
 
 /// Where grid b's zero cross sits in b's frame when b shows grid a's building
 /// turned `turn` times, their occupied boxes laid centre on centre.
@@ -2455,7 +2539,10 @@ fn findFamily(gpa: std.mem.Allocator, io: std.Io, dir: []const u8) !InFamily {
     const numbered = std.ascii.isDigit(std.fs.path.basename(dir)[0]);
     const season = up(if (numbered) up(dir) else dir) orelse "";
     const named = std.ascii.eqlIgnoreCase(std.fs.path.basename(season), "summer") or std.ascii.eqlIgnoreCase(std.fs.path.basename(season), "winter");
-    if (up(up(season))) |root| if (named) if (listFamilies(gpa, io, root)) |families| {
+    // Only buildings form families: Data/Objects' numbered folders are other
+    // things (debris/05 a sand pile, /09 a stack of logs).
+    const buildings = if (up(up(season))) |root| std.ascii.eqlIgnoreCase(std.fs.path.basename(root), "buildings") else false;
+    if (up(up(season))) |root| if (named and buildings) if (listFamilies(gpa, io, root)) |families| {
         for (families) |family| for (family.variants, 0..) |variant, i| {
             const path = try std.fs.path.join(gpa, &.{ root, variant.path });
             if (!std.ascii.eqlIgnoreCase(try std.fs.path.resolve(gpa, &.{path}), try std.fs.path.resolve(gpa, &.{dir}))) continue;
@@ -2470,7 +2557,11 @@ fn findFamily(gpa: std.mem.Allocator, io: std.Io, dir: []const u8) !InFamily {
     const name = std.fs.path.basename(dir);
     const variants = try gpa.alloc(Variant, 1);
     variants[0] = .{ .path = name, .suffix = null, .colourway = null, .winter = hasName(files, "1w.san"), .side = 1, .how = "single" };
-    return .{ .root = std.fs.path.dirname(dir) orelse ".", .family = .{ .name = name, .region = "", .variants = variants }, .index = 0 };
+    // A numbered folder (an object's `debris/05`) is named by its parent, as
+    // a building's numbered subfolder is: its hand shape is `debris.json`'s
+    // "05".
+    const family = if (numbered) std.fs.path.basename(std.fs.path.dirname(dir) orelse dir) else name;
+    return .{ .root = std.fs.path.dirname(dir) orelse ".", .family = .{ .name = family, .region = "", .variants = variants }, .index = 0 };
 }
 
 /// A variant's 2003 pictures, its 1.xml and its side.
@@ -3253,6 +3344,11 @@ const Scene = struct {
 /// instead of the fitted intact blocks; the damage states are fitted from them.
 pub const shapes_dir = "tools/zig/fixtures/bk-views/shapes";
 
+/// The props of Data/Objects drawn turned on their shape, as buildings are,
+/// instead of mirrored (M006 round 3; build.zig's objects-relight step lists
+/// the same): the training camp's sand pile.
+pub const shaped_objects = [_][]const u8{"SimpleObjects/common/summer/debris/05"};
+
 /// A modder's hand shape: the blocks alone, in the variant's own folder.
 pub const variant_shape = "shape.json";
 
@@ -3787,7 +3883,7 @@ fn asGenerated(gpa: std.mem.Allocator, image: Image) !Generated {
 /// small object, as its 2003 pictures (`sameSprite`), with the intact
 /// shape's gate values; a turn a 2003 variant of its colourway shows, as
 /// that variant's pictures (`siblingSprite`, `sibling` names it).
-const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool, sibling: ?[]const u8 = null, handed: Handed = .{}, handed_failure: ?[]const u8 = null };
+const DrawnTurn = struct { target: Turned, drawn: []Drawn, shape: Shape, failure: ?[]const u8, fallback: bool, mirror: bool, sibling: ?[]const u8 = null, handed: Handed = .{}, handed_failure: ?[]const u8 = null, refused: ?[]const u8 = null };
 
 /// The handedness of a turn's intact picture (`handedness`) against the
 /// scene's intact shape turned as `target` sees it.
@@ -3802,23 +3898,33 @@ fn turnHanded(gpa: std.mem.Allocator, scene: Scene, target: Turned, drawn: []con
     return h;
 }
 
-fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
-    var turned = try drawTurnAs(ctx, scene, blocks_target);
-    turned.handed = try turnHanded(ctx.arena, scene, turned.target, turned.drawn);
-    turned.handed_failure = try handedFailure(ctx.arena, turned.handed);
-    return turned;
+/// Judges a drawn turn by `handedness` (`turnHanded`, `handedFailure`):
+/// whether its picture is the scene's shape turned.
+fn judgeTurn(gpa: std.mem.Allocator, scene: Scene, turned: *DrawnTurn) !bool {
+    turned.handed = try turnHanded(gpa, scene, turned.target, turned.drawn);
+    turned.handed_failure = try handedFailure(gpa, turned.handed);
+    return turned.handed_failure == null;
 }
 
-fn drawTurnAs(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
+/// A turn as the 2003 art where it shows the turn (a sibling of the
+/// colourway, or a thin, small or heaped object's own sprite, as it was or
+/// mirrored), but only where that art is the shape turned (M006 round 3: a
+/// turn is a rotation, never a mirror); else the shape turned, drawn by the
+/// blocks. `refused` names the 2003 art passed over and why.
+fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTurn {
     const arena = ctx.arena;
     const own = scene.sources[scene.fixed];
     const new_side = (scene.own_side - 1 + @as(u8, blocks_target.turn)) % 4 + 1;
+    var refused: ?[]const u8 = null;
+    var by: ?[]Drawn = null;
     if (siblingFor(scene, blocks_target.turn)) |e| {
-        const by = if (blocks_target.light != blocks_target.turn) try drawTarget(ctx, scene, blocks_target) else &.{};
-        const same = try siblingSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, e, by);
-        return .{ .target = same.target, .drawn = same.drawn, .shape = .{}, .failure = null, .fallback = true, .mirror = false, .sibling = std.fs.path.basename(scene.sources[e].dir) };
+        if (blocks_target.light != blocks_target.turn) by = try drawTarget(ctx, scene, blocks_target);
+        const same = try siblingSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, e, by orelse &.{});
+        var turned: DrawnTurn = .{ .target = same.target, .drawn = same.drawn, .shape = .{}, .failure = null, .fallback = true, .mirror = false, .sibling = std.fs.path.basename(scene.sources[e].dir) };
+        if (try judgeTurn(arena, scene, &turned)) return turned;
+        refused = try std.fmt.allocPrint(arena, "sibling {s}: {s}", .{ turned.sibling.?, turned.handed_failure.? });
     }
-    const drawn = try drawTarget(ctx, scene, blocks_target);
+    const drawn = by orelse try drawTarget(ctx, scene, blocks_target);
     const shown = for (scene.sources) |source| {
         if (source.side == new_side) break pictureOf(source, "1").?;
     } else pictureOf(own, "1").?;
@@ -3861,15 +3967,23 @@ fn drawTurnAs(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !Drawn
         .odd = blocks_target.turn % 2 == 1,
         .heap = scene.prop,
     });
-    if (!how.sprite) return .{ .target = blocks_target, .drawn = drawn, .shape = shape, .failure = failure, .fallback = false, .mirror = false };
-    const same = try sameSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, how.mirror, drawn);
-    return .{ .target = same.target, .drawn = same.drawn, .shape = shape, .failure = failure, .fallback = true, .mirror = how.mirror };
+    if (how.sprite) {
+        const same = try sameSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, how.mirror, drawn);
+        var turned: DrawnTurn = .{ .target = same.target, .drawn = same.drawn, .shape = shape, .failure = failure, .fallback = true, .mirror = how.mirror };
+        if (try judgeTurn(arena, scene, &turned)) return turned;
+        refused = try std.fmt.allocPrint(arena, "{s}{s}: {s}", .{ if (refused) |r| try std.fmt.allocPrint(arena, "{s}; ", .{r}) else "", if (how.mirror) "2003 sprite mirrored" else "2003 sprite", turned.handed_failure.? });
+    }
+    var turned: DrawnTurn = .{ .target = blocks_target, .drawn = drawn, .shape = shape, .failure = failure, .fallback = false, .mirror = false, .refused = refused };
+    _ = try judgeTurn(arena, scene, &turned);
+    return turned;
 }
 
 /// What a turn's object is, for `spriteTurn`.
 pub const TurnObject = struct { thin: bool, small: bool, failed: bool, kept: bool, rectangle: bool, odd: bool, heap: bool };
 
-/// Whether a turn is drawn as the 2003 pictures (`sameSprite`) and mirrored:
+/// Whether a turn is offered as the 2003 pictures (`sameSprite`), which
+/// `drawTurn` takes only where the gate finds them the shape turned, and
+/// mirrored:
 /// a thin object, or a small one whose blocks fail, where the turn keeps
 /// its footprint, or mirrored on an odd turn of a rectangle; a heap
 /// (`props_file`) on every turn, mirrored on an odd one that does not keep
@@ -3961,7 +4075,8 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const zero = if (fallback) target.eye.anchor else footprintZero(scene, target);
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n\"handed\":{{\"turned\":{d:.4},\"mirrored\":{d:.4},\"symmetric\":{d:.4},\"own\":{d:.4},\"parts\":{d:.0},\"parts_kept\":{d:.0},\"parts_mirrored\":{d:.0},\"parts_mirrored_kept\":{d:.0},\"failure\":\"{s}\"}},\n\"blocks\":{{", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "", turned.handed.turned, turned.handed.mirrored, turned.handed.symmetric, turned.handed.own, turned.handed.parts, turned.handed.parts_kept, turned.handed.parts_mirrored, turned.handed.parts_mirrored_kept, turned.handed_failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
+        try r.print("\"handed\":{{\"turned\":{d:.4},\"mirrored\":{d:.4},\"symmetric\":{d:.4},\"own\":{d:.4},\"parts\":{d:.0},\"parts_kept\":{d:.0},\"parts_mirrored\":{d:.0},\"parts_mirrored_kept\":{d:.0},\"failure\":\"{s}\",\"refused\":\"{s}\"}},\n\"blocks\":{{", .{ turned.handed.turned, turned.handed.mirrored, turned.handed.symmetric, turned.handed.own, turned.handed.parts, turned.handed.parts_kept, turned.handed.parts_mirrored, turned.handed.parts_mirrored_kept, turned.handed_failure orelse "", turned.refused orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
             for (blocks, 0..) |b, j| try r.print("{s}{{\"lo\":[{d:.1},{d:.1}],\"hi\":[{d:.1},{d:.1}],\"wall\":{d:.1},\"ridge\":{d:.1},\"roof\":\"{s}\"}}", .{ if (j > 0) "," else "", b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });

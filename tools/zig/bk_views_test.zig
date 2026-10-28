@@ -1113,7 +1113,17 @@ test "every hand shape reaches the outline floor against the 2003 pictures of it
         const shapes = try std.json.parseFromSliceLeaky(std.json.ArrayHashMap(std.json.Value), arena, try read(arena, try std.fmt.allocPrint(arena, "{s}/{s}", .{ views.shapes_dir, entry.name })), options);
         const variants = for (inventory.families) |f| {
             if (std.mem.eql(u8, f.family, family)) break f.variants;
-        } else return error.NoSuchFamily;
+        } else {
+            // A prop of Data/Objects drawn on its shape (the sand pile).
+            for (shapes.map.keys()) |key| {
+                const path = for (views.shaped_objects) |o| {
+                    if (std.mem.endsWith(u8, o, try std.fmt.allocPrint(arena, "/{s}/{s}", .{ family, key }))) break o;
+                } else return error.NoSuchFamily;
+                try argv.append(arena, try std.fmt.allocPrint(arena, "Data/Objects/{s}", .{path}));
+                named += 1;
+            }
+            continue;
+        };
         for (shapes.map.keys()) |key| {
             const variant = for (variants) |v| {
                 if (std.mem.eql(u8, std.fs.path.basename(v.path), key)) break v;
