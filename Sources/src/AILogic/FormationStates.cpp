@@ -878,6 +878,26 @@ const CVec2 CFormationEnterEntrenchmentState::GetPurposePoint() const
 {
 	return pEntrenchment->GetCenter();
 }
+// Remastered: whether the container an order sends a squad into has room for
+// all of it: a vehicle a free seat for each soldier, a building that is not
+// an enemy's (an enemy's is stormed) a free place for each. An entrenchment
+// has room for everyone. The squad's own enter states refuse a target
+// without room only at its door, after the squad got out of where it sat.
+static bool HasRoomForFormation( CFormation *pFormation, const SAIUnitCmd &cmd )
+{
+	if ( cmd.cmdType == ACTION_COMMAND_LOAD )
+	{
+		CMilitaryCar *pCar = dynamic_cast_ptr<CMilitaryCar*>( cmd.pObject );
+		return pCar != 0 && pCar->GetNAvailableSeats() >= pFormation->Size();
+	}
+	if ( cmd.cmdType == ACTION_COMMAND_ENTER )
+	{
+		CBuilding *pBuilding = dynamic_cast_ptr<CBuilding*>( cmd.pObject );
+		return pBuilding == 0 || pBuilding->GetNFreePlaces() >= pFormation->Size() ||
+			pBuilding->GetPlayer() != -1 && theDipl.GetDiplStatus( pFormation->GetPlayer(), pBuilding->GetPlayer() ) == EDI_ENEMY;
+	}
+	return true;
+}
 IUnitState* CFormationIdleBuildingState::Instance( CFormation *pFormation, CBuilding *pBuilding )
 {
 	return new CFormationIdleBuildingState( pFormation, pBuilding );
@@ -908,6 +928,14 @@ ETryStateInterruptResult CFormationIdleBuildingState::TryInterruptState( CAIComm
 
 	if ( cmdType == ACTION_COMMAND_LOAD && pCommand->GetFlag() == 1 )
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
+
+	// Remastered: a target without room refuses the order while the squad is
+	// still inside. The original puts it out first and the order fails there.
+	if ( NRemastered::Enabled() && !HasRoomForFormation( pFormation, pCommand->ToUnitCmd() ) )
+	{
+		pFormation->SendAcknowledgement( ACK_NEGATIVE );
+		return TSIR_NO_COMMAND_INCOMPATIBLE;
+	}
 	
 	if ( cmdType == ACTION_COMMAND_ROTATE_TO || cmdType == ACTION_COMMAND_ROTATE_TO_DIR ||
 			 cmdType == ACTION_COMMAND_USE_SPYGLASS || IsRestCommand( cmdType ) || cmdType == ACTION_COMMAND_STAND_GROUND )
@@ -1002,6 +1030,14 @@ ETryStateInterruptResult CFormationIdleEntrenchmentState::TryInterruptState( cla
 
 	if ( cmdType == ACTION_COMMAND_LOAD && pCommand->GetFlag() == 1 )
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
+
+	// Remastered: as in a building, a target without room refuses the order
+	// while the squad is still in the entrenchment.
+	if ( NRemastered::Enabled() && !HasRoomForFormation( pFormation, pCommand->ToUnitCmd() ) )
+	{
+		pFormation->SendAcknowledgement( ACK_NEGATIVE );
+		return TSIR_NO_COMMAND_INCOMPATIBLE;
+	}
 
 	if ( cmdType == ACTION_COMMAND_ROTATE_TO || cmdType == ACTION_COMMAND_ROTATE_TO_DIR || 
 			 IsRestCommand( cmdType ) || cmdType == ACTION_COMMAND_STAND_GROUND )
@@ -1640,22 +1676,30 @@ ETryStateInterruptResult CFormationIdleTransportState::TryInterruptState( class 
 	}
 
 	// Remastered: a squad picked in the who-is-inside strip and ordered into
-	// a building gets out first and then goes in, in one order - the way a
-	// building's occupants change buildings (CFormationIdleBuildingState puts
-	// a LEAVE before the order). The transport's entrance is where it gets
-	// out, so the walk starts there. A queued order (flag 1) waits, as it
-	// does in a building, and a towed gun's crew stays with its gun.
-	if ( bRemastered && pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_ENTER && pCommand->GetFlag() != 1 &&
-			 IsValidObj( pTransport ) && pTransport->IsAlive() && pFormation != pTransport->GetTowedArtilleryCrew() &&
+	// a building, an entrenchment or another vehicle gets out first and then
+	// goes in, in one order - the way a building's occupants change buildings
+	// (CFormationIdleBuildingState puts a LEAVE before the order). The
+	// transport's entrance is where it gets out, so the walk starts there. A
+	// queued order (flag 1) waits, as it does in a building, a towed gun's
+	// crew stays with its gun, and a target without room refuses the order
+	// while the squad still sits.
+	const EActionCommand cmdType = pCommand->ToUnitCmd().cmdType;
+	if ( bRemastered && ( cmdType == ACTION_COMMAND_ENTER || cmdType == ACTION_COMMAND_LOAD && pCommand->ToUnitCmd().pObject != pTransport ) &&
+			 pCommand->GetFlag() != 1 && IsValidObj( pTransport ) && pTransport->IsAlive() && pFormation != pTransport->GetTowedArtilleryCrew() &&
 			 pFormation->IsAnyUnitInTransport() )
 	{
+		if ( !HasRoomForFormation( pFormation, pCommand->ToUnitCmd() ) )
+		{
+			pFormation->SendAcknowledgement( ACK_NEGATIVE );
+			return TSIR_NO_COMMAND_INCOMPATIBLE;
+		}
 		// Finished first: a push onto a unit with a current command interrupts
 		// this state without a command, which frees the squad's flag while it
 		// is still aboard.
 		pFormation->SetCommandFinished();
 		theGroupLogic.PushFrontUnitCommand( pCommand->ToUnitCmd(), pFormation );
 		theGroupLogic.PushFrontUnitCommand( SAIUnitCmd( ACTION_COMMAND_LEAVE, pTransport->GetEntrancePoint() ), pFormation );
-		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai transport to building: squad of %d gets out to enter\n", pFormation->Size() );
+		if ( getenv("BK_AI_TRACE") ) fprintf( stderr, "BK_AI_TRACE: ai transport transfer: squad of %d gets out to enter\n", pFormation->Size() );
 		return TSIR_YES_MANAGED_ALREADY;
 	}
 

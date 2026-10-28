@@ -325,6 +325,7 @@ class CWorldClient : public CWorldBase
 	void CheckActions();
 	int DetermineBestAutoAction( const SMapObject *pMO );
 	void ExcludeActions( CUserActions *pActions, const SMapObject *pMO ) const;
+	bool IsBoardRefused( const SMapObject *pMO ) const;
 	void SetAvailablePlanes( int nPlaneType, int nTime, bool bEnable );
 	void RegisterAction( int nAction, DWORD flags, USER_ACTION pfnUserAction );
 	SActionDesc* GetAction( int nAction )

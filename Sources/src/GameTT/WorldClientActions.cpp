@@ -105,6 +105,8 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 				return USER_ACTION_DO_SELFACTION;
 				*/
 		}
+		if ( actions.HasAction(USER_ACTION_BOARD) && IsBoardRefused(pMO) )
+			return USER_ACTION_UNKNOWN;
 		for ( std::vector<int>::const_iterator it = priority.begin(); it != priority.end(); ++it )
 		{
 			if ( actions.HasAction(*it) ) 
@@ -453,6 +455,26 @@ void CWorldClient::CalcAvailableActionsSet( CUserActions *pActions, const IMapOb
 	if ( GetGlobalVar( "MultiplayerGame", 0 ) )
 		pActions->SetAction( USER_ACTION_PLACE_MARKER );
 	pActions->SetAction( USER_ACTION_CHANGE_MOVEMENT_ORDER );
+}
+// Remastered: passengers board another container in one order (the AI gets
+// them out first), so the board cursor over their own container or over a
+// vehicle without a free seat would promise an order the AI refuses; those
+// show the 2003 "no" cursor instead, the one a full building shows. The
+// original offers board over either and the order does nothing.
+bool CWorldClient::IsBoardRefused( const SMapObject *pMO ) const
+{
+	if ( !NRemastered::Enabled() )
+		return false;
+	const IMOContainer *pTarget = dynamic_cast<const IMOContainer*>( pMO );
+	if ( pTarget == 0 )
+		return false;
+	for ( CMapObjectsList::const_iterator it = selunits.GetObjects().begin(); it != selunits.GetObjects().end(); ++it )
+	{
+		const IMOUnit *pUnit = dynamic_cast<const IMOUnit*>( it->GetPtr() );
+		if ( pUnit != 0 && pUnit->GetContainer() == pTarget )
+			return true;
+	}
+	return pMO->pDesc->eGameType == SGVOGT_UNIT && pTarget->GetFreePlaces() == 0;
 }
 void CWorldClient::ExcludeActions( CUserActions *pActions, const SMapObject *pMO ) const
 {

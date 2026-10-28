@@ -113,7 +113,7 @@ public:
 	virtual bool STDCALL Load( interface IMOUnit *pMO, bool bEnter );
 	virtual void STDCALL UpdatePassangers();
 	virtual int STDCALL GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) const;
-	virtual int STDCALL GetFreePlaces() const { return 0; }
+	virtual int STDCALL GetFreePlaces() const { return GetNumFreeSlots(); }
 	virtual void STDCALL GetActions( CUserActions *pActions, EActionsType eActions ) const;
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
 	virtual void STDCALL AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene );

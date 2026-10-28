@@ -3096,6 +3096,29 @@ pub fn build(b: *std.Build) void {
     remastered_game_step.dependOn(&remastered_game_tests.step);
     if (test_mode == .run) remastered_game_step.dependOn(&remastered_game_run.step);
 
+    // Orders from inside to inside on the real Game
+    // (tools/zig/transfer_board_game_reads_it.zig): squads in trucks, houses and
+    // an entrenchment right-clicked onto another container, Remastered on and
+    // off, at step 0 and a quarter camera turn on. Desktop and GPU, so not part
+    // of `test`.
+    const transfer_board_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/transfer_board_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, transfer_board_module, toolchain);
+    }
+    const transfer_board_tests = b.addTest(.{ .root_module = transfer_board_module });
+    const transfer_board_run = b.addRunArtifact(transfer_board_tests);
+    transfer_board_run.setCwd(b.path("."));
+    transfer_board_run.setEnvironmentVariable("BK_TRANSFER_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    transfer_board_run.has_side_effects = true;
+    transfer_board_run.step.dependOn(install_game_step);
+    const transfer_board_step = b.step("transfer-board-game-reads-it", "Order infantry from inside a truck, a house or an entrenchment onto another truck or house with one right click on the real Game (Remastered on, also a quarter camera turn on), prove each soldier ends inside, a full target and the squad's own truck refuse under the 2003 no cursor, and Remastered off plays as the original");
+    transfer_board_step.dependOn(&transfer_board_tests.step);
+    if (test_mode == .run) transfer_board_step.dependOn(&transfer_board_run.step);
+
     // Mission replays on the real Game (tools/zig/replay_game_reads_it.zig): a
     // mission with two sides that fight recorded with an order, played back
     // twice, every state hash equal to the recording's; and a save written mid-

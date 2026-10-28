@@ -1875,6 +1875,12 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build remastered-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      - name: Orders from inside to inside in one click
+        if: matrix.part == 'all'
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build transfer-board-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: The Cloud tab's Repair, against a local remote
         if: matrix.part == 'all'
         env:
