@@ -72,6 +72,12 @@ int main()
 	CHECK( !NRemastered::Simulation() );
 	vars[NRemastered::pszReplayVar] = "1";
 	CHECK( NRemastered::Simulation() );
+	// A replay from the command line plays as a live game but keeps its mode.
+	vars.erase( "History.Playing" );
+	vars[NRemastered::pszOptionVar] = "1";
+	vars[NRemastered::pszReplayVar] = "0";
+	vars[NRemastered::pszCommandLineReplayVar] = "1";
+	CHECK( !NRemastered::Simulation() );
 	CHECK( !NRemastered::ResolveSimulation( true, true, false, false, false ) );
 	CHECK( NRemastered::ResolveSimulation( false, true, true, true, false ) );
 

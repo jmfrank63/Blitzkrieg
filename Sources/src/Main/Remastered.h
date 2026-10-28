@@ -43,6 +43,9 @@ namespace NRemastered
 	// every player (SGameInfo), and a multiplayer replay brings it back with
 	// the other Multiplayer.* vars; a game or replay without it has none.
 	const char * const pszMultiplayerVar = "Multiplayer.Remastered";
+	// A replay played from the command line (-lh): it plays as a live game
+	// (History.Playing is taken off), but its simulation is the recording's.
+	const char * const pszCommandLineReplayVar = "History.CommandLine";
 	// Remastered rules the simulation itself plays by, decided once as a
 	// mission starts and kept in its saves (the fastest path,
 	// docs/superpowers/specs/2026-10-28-fastest-path-design.md). Unlike
@@ -60,7 +63,7 @@ namespace NRemastered
 		return ResolveSimulation( GetGlobalVar( pszOptionVar, 0 ) != 0,
 		                          GetGlobalVar( "MultiplayerGame", 0 ) != 0,
 		                          GetGlobalVar( pszMultiplayerVar, 0 ) != 0,
-		                          GetGlobalVar( "History.Playing", 0 ) != 0,
+		                          GetGlobalVar( "History.Playing", 0 ) != 0 || GetGlobalVar( pszCommandLineReplayVar, 0 ) != 0,
 		                          GetGlobalVar( pszReplayVar, 0 ) != 0 );
 	}
 };
