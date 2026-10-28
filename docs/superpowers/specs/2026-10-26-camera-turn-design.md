@@ -1423,7 +1423,7 @@ behind is. Tiers run: `camera-turn-ground-game-reads-it` (pass, 507 s). Linux an
 
 ## The turn keys swapped (2026-10-28)
 
-The maintainer: `.` (`>`) turns clockwise, `,` (`<`) counter-clockwise. `Data/Configs/defconf.cfg` now binds `,` to`r
-`camera_turn` (step + 1) and `.` to `camera_turn_back` (step - 1); the step numbers, saves, multiplayer start steps and the`r
+The maintainer: `.` (`>`) turns clockwise, `,` (`<`) counter-clockwise. `Data/Configs/defconf.cfg` now binds `,` to
+`camera_turn` (step + 1) and `.` to `camera_turn_back` (step - 1); the step numbers, saves, multiplayer start steps and the
 minimap mark keep their meaning. The tiers that press the keys swap `key=.` and `key=COMMA` the same way. Where this
 spec says `.` turns the camera on (step + 1), read `,`.
