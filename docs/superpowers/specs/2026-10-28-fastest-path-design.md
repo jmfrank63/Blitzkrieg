@@ -172,8 +172,24 @@ this map: the measure here is the one-at-a-time rule, not a rescue.
 | dessau | 63 (41 big) | 643 us | 15.0 ms | 454 | 0 |
 | vitebsk (by hand, see below) | 1 774 (1 285 big) | 580 us | 26.4 ms | 56 090 | 0 |
 
+The tier's second run (kursk and dessau only, other worktrees building on the machine): kursk 4 729 requests, mean
+701 us, max 90.3 ms, 92 600 nodes at most; dessau 58, mean 626 us, max 13.8 ms; no budget hit, no leak. The maxima
+are a debug C++ snapshot of the whole map for a goal no path reaches; the search itself is ReleaseSafe Zig.
 The budget (262 144 nodes) was never reached; the most a search took was 35 % of it (an unreachable goal searched
 over every tile the step limit reaches). Requests the 2003 finder answered: start and goal on one tile (kursk 87).
+
+**Multiplayer** (`camera-turn-multiplayer-game-reads-it`, host and client on loopback, the host's Remastered on): the
+tier now runs with BK_PATH_TRACE, and each player frames its units and orders them elsewhere (`drag`, `hover`,
+`rclick`). Both Games played with the fastest path (the host's choice), both computed the same 193 path requests in
+the same order (the trace without its timing), and 91 of 91 seconds of game state were the same (88 distinct
+states); no leak. A first try right-clicked off the map and ordered nothing (0 requests): the order is clicked near
+the screen's middle now.
+
+**Other tiers**, one at a time after the last engine change (win-home, debug install): `test-remastered`,
+`test-fastest-path`, `replay-game-reads-it` (22 of 22 state hashes, both playbacks and the load) and
+`camera-turn-state-game-reads-it` pass (Remastered off: the 2003 finder). The state tier failed once in a run shared
+with other worktrees' builds (a 7 s frame stall before the click that should select the sniper) and passed when run
+again alone.
 
 ## Left open
 

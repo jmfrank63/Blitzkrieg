@@ -406,8 +406,11 @@ test "two players at different camera steps play the same game" {
     // that spans the mission's load counts from the load's end. Each player's
     // own start step comes from its corner (S05).
     var players = [_]Player{
-        .{ .name = "host", .schedule = "t3000:set=GamePlay.Remastered=ON,t3000:msg=10004,t80000:msg=10005,g2000:anchor,g85000:anchor,g10:exit", .extra = &.{"-host"}, .env = &.{}, .delay_s = 0, .game = game, .root = root },
-        .{ .name = "client", .schedule = "t3000:set=GamePlay.Remastered=ON,t12000:msg=10004,t50000:anchor,t10:key=.,t300:anchor,t15000:key=.,t300:anchor,t15000:key=COMMA,t300:anchor,t30000:exit", .extra = &.{"-connect127.0.0.1"}, .env = &.{.{ "BK_NET_CLIENT_PORT", "8890" }}, .delay_s = 35, .game = game, .root = root },
+        // Each player frames what it sees and orders it elsewhere: the orders
+        // travel to both machines and each computes the paths (the host's
+        // Remastered is on, so the fastest path, BK_PATH_TRACE).
+        .{ .name = "host", .schedule = "t3000:set=GamePlay.Remastered=ON,t3000:msg=10004,t80000:msg=10005,g2000:anchor,g1000:drag=40x120x980x640,g500:world=TraceSelection(0),g300:hover=520x300,g300:rclick=520x300,g84000:anchor,g10:exit", .extra = &.{"-host"}, .env = &.{.{ "BK_PATH_TRACE", "1" }}, .delay_s = 0, .game = game, .root = root },
+        .{ .name = "client", .schedule = "t3000:set=GamePlay.Remastered=ON,t12000:msg=10004,t50000:anchor,t10:key=.,t300:anchor,t2000:drag=40x120x980x640,t500:world=TraceSelection(0),t300:hover=520x460,t300:rclick=520x460,t15000:key=.,t300:anchor,t15000:key=COMMA,t300:anchor,t30000:exit", .extra = &.{"-connect127.0.0.1"}, .env = &.{ .{ "BK_NET_CLIENT_PORT", "8890" }, .{ "BK_PATH_TRACE", "1" } }, .delay_s = 35, .game = game, .root = root },
     };
     var threads: [players.len]std.Thread = undefined;
     for (&players, &threads) |*player, *thread| thread.* = try std.Thread.spawn(.{}, playOne, .{player});
@@ -446,6 +449,19 @@ test "two players at different camera steps play the same game" {
     }
     // A minute of play in both, every second the same, the scene changing.
     if (common < min_mp_seconds or same != common or distinct.count() < 10) failed = true;
+    // The host's Remastered decides the finder for both, and both compute the
+    // same paths from the same orders (the trace without its timing).
+    const host_paths = try fastestPaths(allocator, host);
+    const client_paths = try fastestPaths(allocator, client);
+    const both_fastest = std.mem.indexOf(u8, host, "BK_PATH_TRACE: mission finder fastest=1") != null and std.mem.indexOf(u8, client, "BK_PATH_TRACE: mission finder fastest=1") != null;
+    // The two stop at different times: the paths both logs hold must be the same.
+    const n_host = std.mem.count(u8, host_paths, "\n");
+    const n_client = std.mem.count(u8, client_paths, "\n");
+    const shorter = if (n_host < n_client) host_paths else client_paths;
+    const longer = if (n_host < n_client) client_paths else host_paths;
+    const same_paths = std.mem.startsWith(u8, longer, shorter);
+    try report.print(allocator, "fastest path in both {any}; paths computed: host {d}, client {d}, the same {any}\n", .{ both_fastest, n_host, n_client, same_paths });
+    if (!both_fastest or @min(n_host, n_client) == 0 or !same_paths) failed = true;
     // The two stood at different steps, and the client turned while playing.
     if (host_steps.len < 2 or client_steps.len < 3) failed = true;
     if (!failed) {
@@ -460,6 +476,17 @@ test "two players at different camera steps play the same game" {
         std.debug.print("{s}the two players do not play the same game at their steps; the logs are in {s}\n", .{ report.items, root });
         return error.OutOfSync;
     }
+}
+
+/// The fastest path's requests of a log (BK_PATH_TRACE), each without the
+/// time it took, one per line.
+fn fastestPaths(allocator: std.mem.Allocator, log: []const u8) ![]const u8 {
+    var out: std.ArrayList(u8) = .empty;
+    for (try control.lines(allocator, log, "BK_PATH_TRACE: fastest ")) |line| {
+        const end = std.mem.indexOf(u8, line, " us=") orelse line.len;
+        try out.print(allocator, "{s}\n", .{line[0..end]});
+    }
+    return out.items;
 }
 
 /// A minute of play common to both logs.
