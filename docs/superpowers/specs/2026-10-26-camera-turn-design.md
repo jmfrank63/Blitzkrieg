@@ -982,3 +982,207 @@ at the half turn (4 shots). `.` and `,` give the same picture for the same step.
 The full sweep is left to the maintainer; Linux and macOS to CI. The batch output in `zig-out/remastered/Buildings`
 was regenerated for europe only (`building-views-batch-europe`, then `camera-turn-mod`); run the other three regions'
 batches and `camera-turn-mod` again before playing.
+
+## What the first hand test left open (S08, 2026-10-28)
+
+Branch `fix/camera-turn-open`, made from main at f98294c83 (S07 merged). Each item: the cause, the fix and the tier that
+measures it. The bk-views generator (`tools/zig/bk_views.zig`'s side, fit and gate code) belongs to another agent and is
+not touched here.
+
+### 1. A storage placed for no player (S08)
+
+- **Seen in S07:** E_WB_01 (a barn, `BuildingType` 1, a storage) with `Player="-1"` trapped the debug Game at load.
+- **Reproduced** on road3d with the barn alone: player -1 exits 0xC000001D (a UBSan trap), player 0 loads. The option was
+  off at load, so it is pre-existing (the 2003 code path).
+- **Cause** (caught in cdb): `CAILogic::AddObject` hands the map's player to `CStaticObjects::AddNewStorage`;
+  `CStoragesContainer::AddStorage` asks `CDiplomacy::GetNParty( BYTE )` for player 255 and indexes `playerParty` (players
+  0..n) past its end. `IsPlayerExist( -1 )` would read before it.
+- **Fix:** a storage of a player outside the diplomacy's table is the neutral player's (`GetNeutralPlayer()`), whose party
+  2 `AddStorage` already leaves out of the supply lists.
+- **Tier:** `camera-turn-storage-game-reads-it` (`tools/zig/camera_turn_open_game_reads_it.zig`): the barn of Player -1
+  on road3d, Remastered off; the Game must exit 0 without a leak and draw it (19 271 pixels drawn around the middle).
+
+### 2. Armour sides, fire slots and flashes of a building standing turned (S08)
+
+- **The trace:** `BK_FIRE_TRACE=1` prints where the AI puts a soldier to fire (`CBuilding::SetFiringUnitProperties`: slot,
+  building, its standing turn, the soldier's place, the slot's direction), the side every shot hits
+  (`CExistingObject::GetRandArmorByDir`: attack direction and `SRect::GetSide`) and where the client draws a slot's flash
+  (`CMOBuilding::AIUpdateShot`).
+- **The AI was right.** `SBuildingRPGStats::GetTurned` turns the slots' places and directions and
+  `CGivenPassabilityStObject::Init` the armour's front; the tier finds every soldier on its slot turned and every hit on
+  the turned side.
+- **The client was not:**
+  - **Flash, fire and smoke points.** A 1.xml point has two places: `Position`, its ground place, and `WorldPosition`, the
+    picture point taken back to some depth on the 2003 camera's line of sight. Over the 5 710 points of all shipped
+    buildings the two lie a median 43 world units apart, 153 at the 90th percentile, 405 at most; both give the same
+    picture point (screen x to 0.001 px for 5 709 of them). The 2003 view draws `WorldPosition` at the window, so S07's
+    "the points are 3D, the camera step needs nothing" was wrong: turned, a flash or a fire is drawn off the wall.
+  - **Fix:** `CMOBuilding::PointOf`. With the Remastered option, the point is the one on the same line of sight above
+    the ground place: the 2003 camera puts world (x, y, z) at picture y (x - y) / (2 sqrt 2) - z sqrt 3 / 2, checked to
+    0.001 px on all 5 710 points, so the point at `Position`'s x, y is raised by the change of x - y over sqrt 6. The
+    solved heights are sane: median 1.2, 95th percentile 94.7, 216 for the city hall's tower, -16.7 at the lowest. It is
+    then turned by the standing turn. Without the option it is the 2003 point, as before.
+  - **Radians:** S07 added the standing turn to the fire and smoke points' directions as 90 degrees a turn, but
+    `ToAIUnits` has made them radians: now pi / 2 a turn.
+  - **Direction explosions** (`AIUpdateHit`) chose and placed the 2003 explosion point of the unturned building. They
+    now choose by the direction turned with it and draw at `PointOf` with the direction turned.
+- **A leak found on the way** (pre-existing): `PlayEffect` and `SetFlashEffect` (`Common/PlayEffect.h`) built an effect
+  and lost it when the scene refused it. `CScene::AddEffectObject` refuses every effect while effects are off: a
+  player's own switch, or the tiers' `BK_SCENE_DISABLE=effects`. A building under fire leaked 1 310 to 1 953 blocks at
+  exit, Remastered on or off. The objects are now held in a `CPtr` while they are added: 0 leaked blocks.
+- **Tier:** `camera-turn-fire-game-reads-it` (same file). E_FrenchShed01 at its own facing f = 0..3 (Direction 16384 f,
+  Remastered on before the map loads, its turns made by `bk-views side` into the scratch mod), a German squad linked into
+  it. Around it, placed turned with it: a T-34 in front of its own front (+x), one at its left (+y) and a Soviet squad at
+  its right (-y). 24 s of game time each.
+
+  | facing | soldiers put to fire (worst off the slot turned, direction off) | hits on the expected side (front, left, right) | what the unturned front would give | flashes: ground from the soldier, picture point from 1.xml's |
+  |---|---|---|---|---|
+  | 0 | 19 (1.34 AI units, 0) | 57 of 57 (23, 20, 14) | the same | 9: 0.01 AI units, 0.90 px |
+  | 1 | 23 (1.34, 0) | 39 of 39 (17, 1, 21) | sides 1, 2, 0 | 4: 0.01, 0.90 |
+  | 2 | 19 (1.34, 0) | 27 of 27 (4, 3, 20) | sides 2, 3, 1 | 14: 0.01, 0.90 |
+  | 3 | 24 (1.34, 0) | 18 of 18 (3, 13, 2) | sides 3, 0, 2 | 9: 0.01, 0.90 |
+
+  The 1.34 AI units and 0.90 px are the same at facing 0: the AI holds a slot's place in whole units against the 1.xml
+  float. The floors are 1.5 units and 1 px. Each flash's ground point is the firing soldier's, and its picture point,
+  unturned and drawn by the 2003 camera, is the slot's 1.xml `PicturePosition`. The 2003 `WorldPosition` of the slots
+  that fired lies up to 108.6 AI units from the soldier.
+
+### 3. Relighting mirrored props and painted terra objects (S08): planned, not built
+
+- **Mirrored props** (97 SimpleObjects and 5 trees on a longer rectangle, S03) draw their 2003 picture mirrored at odd
+  steps, so the lit side flips. **Painted terra objects** (ravines, dunes, mounts, coasts) turn flat with the ground and
+  keep their relief lit from the turned side. Nothing in the data says which pixel is a lit face.
+- **Considered:**
+  - *A lit/shaded mask from the sprite's own shading against its mirror.* At an odd step the mirror would take the
+    brightness of the unmirrored picture at the same screen pixel. The sprite pass draws a picture as squares of an
+    atlas, mirrored square by square (`SBasicSpriteInfo::bMirror`), so the unmirrored texel at a screen pixel can lie in
+    another square. That needs a second sampled texture per sprite in the GPU sprite shader, or a relit texture made at
+    load, for every mirrored prop: not short.
+  - *Generated sides by bk-views*, as M005 relights a mirrored building by the blocks' shading classes: bk-views' `side`
+    reads building 1.xml and sprite packs only, and S07c's `props.json` lists building variants drawn as their own
+    sprites. A prop needs the object's 1.xml (passability as the footprint, a box fit), its turns
+    `<object>_r<k>` in the mod, and `CMOObject` drawing `ModelPath` as buildings do instead of the mirror.
+- **Decision:** generated sides through bk-views, the same path as buildings and one look across the game. The side
+  command's input reader is the generator agent's file, so it is planned here, not done:
+  1. `bk-views side` takes a `Data/Objects/SimpleObjects/<...>` folder (its 1.xml `passability` and `origin`, a box fit to
+     the 2003 outline);
+  2. `camera-turn-mod` copies the turns;
+  3. `CMOObject::ApplyCameraTurn` draws `<object>_r<k>` where the data holds it, the mirror only as the fallback;
+  4. a tier measures the lit side's position: the brightest face's centroid against the step-0 frame turned.
+
+  Painted terra objects then follow with a relief shade turned with the step (a later slice).
+
+### 4. Bridge begin and end spans (S08): no 2003 pair fits
+
+S07 found that centring a span moves the length error into the river junction. A shipped bridge is a begin and an end
+span at one point. The 1.xml `Spans` (`Length`, tiles) of every kind with both variants give no choice: each variant
+holds exactly one begin and one end span (intact state, `Begins` and `Ends` one entry each).
+
+| kind | `_01` begin + end | `_02` begin + end |
+|---|---|---|
+| woodenlittle (and w_) | 5 + 7 = 12 | 7 + 7 = 14 |
+| asphaltbridge (and _special, w_) | 8 + 11 = 19 | 10 + 10 = 20 |
+| railwaybridge_little (and w_) | 12 + 13 = 25 | 12 + 11 = 23 |
+| woodenbig_heavy (and w_) | 10 + 10 = 20 | 11 + 10 = 21 |
+
+- At an odd step the other variant's pair is 1 to 2 tiles longer or shorter than the own pair turned. So no choice of
+  spans and no shift of the junction lays both banks right: the error can only be moved, to the bank (S04's
+  placement, kept) or into the river (S07's centring).
+- At the half turn the own pair is drawn with its ends traded, and begin and end differ by 0 to 3 tiles.
+- **Decision:** spans of the right length need pictures that do not exist in 2003. A begin or end span of the other
+  variant's length, made by bk-views from the span's blocks (M005's pipeline taught to read bridge segment packs), is
+  the fix. It is left to a slice that may change the generator. S04's placement stays: the junction is exact and the
+  bank end is off by up to two tiles.
+
+### 5. The Map Editor's Q and E on fences (S08)
+
+- **Cause:** a fence's direction is its packed frame type `(1 << dir) | 0x10000`, which the engine reads when it builds
+  the fence. Q and E changed the map Direction, which a fence ignores, and the bridge had no call to change the type.
+- **Fix:** `BkEditorTurnFence( session, link_id, quarters, out_token )` (`TurnFenceInSession`, `session_groups.cpp`):
+  - the fence goes out and comes back as the centre segment of its direction `quarters` on, one logged edit (an
+    `SGroupEdit`, as a fence run);
+  - it keeps its link ID, owner, HP and script ID;
+  - it is laid so its footprint's middle stays where it was: the Game's rule for a fence it draws turned
+    (`CMOObject::ShiftPicture`, S07), so the turned fence stands on the line the Game showed turned;
+  - a fence the engine will not place there is refused, changing nothing.
+- The Selector's Q and E call it for an object whose type is one of the database's fence types (`Editor.isFenceType`,
+  through `BkEditorFenceDescriptors`); everything else turns as before. The fake bridge turns the packed type and keeps
+  the place.
+- **Tests:**
+  - `test-editor-core`: Q and E on a fence step its packed type 1 -> 2 -> 1 -> 8, Direction 0 throughout, and undo
+    brings it back.
+  - `test-editor-bridge`: a single W_FactoryFence turned E, E, Q, E, E, E. Each turn keeps the link ID, takes its
+    direction's packed type, and the engine's world agrees with the map. Four quarters on it is back at its place, a
+    missing link ID is refused, and undoing every turn and the fence saves the unedited bytes.
+
+### 6. Multiplayer: two players at different camera steps (S08)
+
+- **Feasible from the command line.** `-host` opens the create screen. BK_AUTO_UI `msg=10004` presses its Create
+  button (the first multiplayer map, the screen's own choice), and `msg=10005` later presses the room's Launch. On the
+  other Game, `-connect127.0.0.1` joins the room and `msg=10004` presses Ready.
+- **What stood in the way** (found by running the pair):
+  1. **The port.** Every player's in-game driver takes UDP port 8889, so two Games on one machine collide. The net
+     layer answers the sender's own address, so `BK_NET_CLIENT_PORT` (a harness seam) gives the joining client
+     another port.
+  2. **Creating a room threw.** `NWin32Helper::CCriticalSection` stands for a Win32 critical section, which is
+     recursive, but the port backed it with `std::mutex`. `CNetDriver::StartGameInfoSend( SGameInfo )` locks and calls
+     its stream overload, which locks again: `resource_deadlock_would_occur`, so the host ended (0xC0000409). It is a
+     `std::recursive_mutex` now.
+  3. **A UBSan trap on both players' net thread** once connected: `CStreamTracker::WriteMsg` read
+     `SChannelBlock::GetHeaderSize()` through a null pointer (2003's `pMSVCSuck`). It is static now.
+  4. **Leaks at exit:**
+     - `CStatistics::SetFlagPoints` and `SetCapturedFlags` left their scenario iterators (raw pointers) every call;
+     - `CGameSpyMultiplayer::InitJoinToServer` left its servers list and address.
+
+     They are held in `CPtr` now. Over a minute of play each Game leaked about 2 600 blocks; now 0.
+  5. **A mod** (`-mod=`) makes the room's Create switch the Game's mode instead of opening the room. The pair runs
+     without one.
+- **Tier:** `camera-turn-multiplayer-game-reads-it` runs the host, then the client 35 s later, on two threads, each in
+  its own user folder with `BK_AI_STATE_TRACE`.
+  - Each player starts at the step its corner gives (S05's start step): the host at 1, the client at 2.
+  - The client turns with `.` and `,` while they play.
+  - Every second of game time both logs hold (the multiplayer checksum's terms of every unit) must be the same for at
+    least a minute, with at least 10 distinct states.
+  - Both must exit 0 without a leak.
+- **Measured before the tier's last schedule change** (by hand and by the tier, win-home, debug):
+  - host steps 1, 1, 1; client steps 2, 3, 2;
+  - 64 of 64 common seconds the same state, 28 distinct states;
+  - 0 leaked blocks in both.
+
+  An earlier pair (client turning 2 -> 3 -> 2) gave 55 of 55 the same, 55 distinct. The tier's run after the change:
+  see "Tiers run (S08)": 90 of 90 seconds the same, 35 distinct states, host 1, 1, 1 and client 2, 2, 3, 0, 3, no leak.
+- One tier run of the pair saw the client trap (0xC000001D) at its connect and was not seen again. A rerun under cdb
+  and two more runs were clean (open, below).
+
+### 7. `test-l10n-check` on Windows (S08)
+
+`fit_font_missing` expected `no-fonts/SHA256SUMS`, and bk_text joins it with the host's separator (`\` on Windows). The
+test now accepts either separator: 82 of 82 on win-home.
+
+### Tiers run (S08)
+
+On win-home (Windows x64, debug install), one `zig build` at a time and one job at a time within it (`-j1`), after the
+last engine change, with another worktree's bk-views batch sharing the machine:
+
+| Call | Result |
+|---|---|
+| `camera-turn-multiplayer-game-reads-it camera-turn-storage-game-reads-it camera-turn-fire-game-reads-it` | pass (1473 s) |
+| `camera-turn-game-reads-it camera-turn-world-game-reads-it camera-turn-units-game-reads-it camera-turn-control-game-reads-it camera-turn-state-game-reads-it` | pass (2503 s) |
+| `camera-turn-editor-game-reads-it camera-turn-village-game-reads-it camera-turn-ground-game-reads-it building-views-game-reads-it remastered-game-reads-it` | pass (2229 s; remastered with hb-view on PATH) |
+| `camera-turn-poland-game-reads-it` | pass (884 s) |
+| `test-editor-core test-map-editor-engine map-editor-smoke map-editor-auto test-l10n-check` | pass (799 s; the first try ran out of disk on C:, freed by deleting the earlier slices' by-hand scratch under `zig-out/local-test`) |
+| `test-editor-bridge` shards 1 to 5 (`-Deditor-bridge-shard=k`) | pass: 857, 1279, 676, 501 and 1685 s |
+
+The fire tier's last run: soldiers put to fire 21 / 14 / 16 / 22 at facings 0 to 3, hits 42 / 13 / 33 / 29 all on the
+expected side, flashes 4 / 2 / 15 / 9 at 0.00 to 0.01 AI units from the soldier and 0.90 px from the 1.xml picture point.
+The Map Editor's UI did not change (no new text: the Selector routes the same keys), so the lang files and the l10n tiers
+were not touched. The full sweep is left to the maintainer; Linux and macOS to CI.
+
+### Rough edges left (S08)
+
+- Item 3 (relighting) and item 4 (bridge spans of the right length) need bk-views changes (planned above).
+- One multiplayer tier run saw the client trap (0xC000001D) at its connect while another tier's Games shared the machine;
+  three later runs (one under cdb) were clean, so the cause is unknown.
+- The multiplayer pair runs on one machine at fixed waits (the host launches 80 s after creating the room); a slower
+  machine may need longer waits. It plays the create screen's first map without a mod.
+- No Game-reads-it tier places a fence turned in the Map Editor (the bridge test proves the map and the engine).
