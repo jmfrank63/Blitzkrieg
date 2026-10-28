@@ -30,12 +30,14 @@
 //! upright for the screen (so a half turn between them does not reflect the
 //! grain, and no offset stands out), are reported. Before S07 the ground stood
 //! a pixel low at the half turn in 1024 x 768 and not in the other sizes.
-//! In the same 1024 x 768 shots the minimap frame's north mark (`S -> N` on
-//! its upper left bar) must point where the map's north is: at step 1 on the
-//! upper right bar mirrored, at step 2 on the left one turned half round, at
-//! step 3 on the right one upside down, its band's pixels where that puts
-//! them (mean RGB difference to step 0's), and at odd steps the left plate's
-//! letters gone.
+//! In the same shots the minimap frame's north mark (`S -> N` on its upper
+//! left bar) must point where the map's north is, every letter upright: at
+//! step 1 `N <- S` on the upper right bar, at step 2 `N <- S` on the left one,
+//! at step 3 `S -> N` on the right one. Each glyph's place must hold that
+//! glyph of the texture (S, N or the arrow, mirrored only where the arrow
+//! turns), the left plate's letters must be gone where the mark left it, and
+//! no pixel may turn yellow off the bars' labels. With the option off the key
+//! must leave the bars as they are.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/village with every user
 //! path redirected (camera_turn_game_reads_it.runGameSized); frames, logs and
@@ -167,6 +169,8 @@ test "the ground stands where the turn puts it at every resolution" {
     const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), ground_scratch });
     cwd.deleteTree(io, ground_scratch) catch {};
     try writeMod(io, allocator, try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" }));
+    const texture = try cwd.readFileAlloc(io, "Data/UI/missionpanels_h.dds", allocator, .limited(1 << 20));
+    try testing.expectEqual(@as(usize, 128 + 256 * 256 * 4), texture.len);
 
     var failed = false;
     var report: std.ArrayList(u8) = .empty;
@@ -182,18 +186,19 @@ test "the ground stands where the turn puts it at every resolution" {
             try report.print(allocator, "{d}x{d} {d} -> {d}: {d},{d} ({d:.2}), {d:.2}\n", .{ size[0], size[1], from, to, found.dx, found.dy, found.best, found.still });
             if (from == 0 and to == 2 and (found.dx != 0 or found.dy != 0)) failed = true;
         }
-        // The north mark, in the window whose interface is not scaled.
-        if (size[0] == 1024) {
-            for (1..4) |k| {
-                const mark = northMark(frames[0], frames[k], k);
-                try report.print(allocator, "north mark, step {d}: {d:.1} where the turn puts it, {d:.1} as at step 0; dark pixels left on the left plate {d} of {d} at step 0\n", .{ k, mark.turned, mark.still, mark.dark, mark.dark_0 });
-                if (mark.turned > max_mark or mark.still < 2 * mark.turned or (k % 2 == 1 and mark.dark * 4 > mark.dark_0)) failed = true;
-            }
-        }
+        if (!try northMark(allocator, &report, texture, size, &frames)) failed = true;
+    }
+    // Remastered off the key turns nothing: the frame's bars stay the 2003 ones.
+    const off = try turn.runGameSized(io, allocator, game, root, "ground-off-1024x768", "village.xml", .{ look, look }, "OFF", ground_only, 4, false, .{ 1024, 768 });
+    const off_panel = findPanel(texture, .{ 1024, 768 }, off[0]);
+    for (1..4) |k| {
+        const changed = barsChanged(off_panel, off[0], off[k]);
+        try report.print(allocator, "off 1024x768 shot {d}: pixels of the bars changed by the key {d}\n", .{ k, changed });
+        if (changed != 0) failed = true;
     }
     try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
     if (failed) {
-        std.debug.print("{s}the ground stands off where a half turn puts it; the frames are in {s}\n", .{ report.items, root });
+        std.debug.print("{s}the ground stands off where a half turn puts it, or the north mark is drawn wrong; the frames are in {s}\n", .{ report.items, root });
         return error.DrawnWrong;
     }
 }
@@ -419,63 +424,206 @@ fn placeOf(frame: []const u8, size: [2]u32, sprite: game_views.Sprite, at: [2]i3
     return .{ .colour = best, .dx = best_at[0], .dy = best_at[1] };
 }
 
-/// The north mark's band on the frame's upper left bar (ui\missionpanels,
-/// whose top left is the panel's, at (0, h - 155) in 1024 x 768): pixels
-/// between (52, 26)-(52, 35) and (86, 9)-(86, 18), inside its edges.
-const panel_top = 768 - 155;
-const max_mark = 30.0;
+/// The north mark (UIMiniMap.cpp DrawNorthMark): its glyphs in the band of
+/// ui\missionpanels along the frame's upper left bar, under the line
+/// y = 52 - x / 2, rows 2 to 8; on the upper right bar (the left one mirrored
+/// about x = 135, a texel lower) the band's line is y = x / 2 - 82.
+const Glyph = struct { name: []const u8, from: f64, width: f64 };
+const glyph_s: Glyph = .{ .name = "S", .from = 53, .width = 8 };
+const glyph_arrow: Glyph = .{ .name = "arrow", .from = 61, .width = 15 };
+const glyph_n: Glyph = .{ .name = "N", .from = 76, .width = 8 };
+const Laid = struct { glyph: Glyph, mirrored: bool };
+const reads_on = [3]Laid{ .{ .glyph = glyph_s, .mirrored = false }, .{ .glyph = glyph_arrow, .mirrored = false }, .{ .glyph = glyph_n, .mirrored = false } };
+const reads_back = [3]Laid{ .{ .glyph = glyph_n, .mirrored = false }, .{ .glyph = glyph_arrow, .mirrored = true }, .{ .glyph = glyph_s, .mirrored = false } };
+/// The mean RGB difference a glyph may keep from step 0's where it is laid
+/// (the interface is resampled in the larger windows).
+const max_glyph = 30.0;
 
-fn inBand(x: i32, y: i32) bool {
-    if (x <= 52 or x >= 85) return false;
-    const top = 26.0 - @as(f64, @floatFromInt(x - 52)) / 2;
-    const yf: f64 = @floatFromInt(y);
-    return yf > top + 1 and yf < top + 8;
+fn bandTop(u: f64, right: bool) f64 {
+    return if (right) u / 2 - 82 else 52 - u / 2;
 }
 
-/// A band pixel at step k: on the upper right bar (mirrored about x = 135)
-/// at odd steps, turned half round about the band's middle at steps 2 and 3,
-/// so its arrow points where the map's north is (MiniMap's DrawNorthMark).
-fn markPlace(p: [2]i32, k: usize) [2]i32 {
-    var q = p;
-    if (k >= 2) q = .{ 137 - q[0], 43 - q[1] };
-    if (k % 2 == 1) q = .{ 269 - q[0], q[1] };
-    return q;
-}
+/// The panel (the minimap's parent) in a shot: the texture's top left on the
+/// screen and the interface's scale, min(w / 1024, h / 768).
+const Panel = struct {
+    texture: []const u8,
+    size: [2]u32,
+    origin: [2]i32,
+    scale: f64,
 
-fn panelPixel(frame: []const u8, p: [2]i32) [3]f64 {
-    const i: usize = @intCast(((panel_top + p[1]) * 1024 + p[0]) * 4);
-    return .{ @floatFromInt(frame[i]), @floatFromInt(frame[i + 1]), @floatFromInt(frame[i + 2]) };
-}
+    fn texel(p: Panel, u: f64, v: f64) [3]f64 {
+        const i: usize = @intCast(128 + (@as(i32, @intFromFloat(@floor(v))) * 256 + @as(i32, @intFromFloat(@floor(u)))) * 4);
+        return .{ @floatFromInt(p.texture[i + 2]), @floatFromInt(p.texture[i + 1]), @floatFromInt(p.texture[i]) };
+    }
+    /// The screen pixel over texture point (u, v), null off the screen.
+    fn screen(p: Panel, frame: []const u8, u: f64, v: f64) ?[3]f64 {
+        const x = p.origin[0] + @as(i32, @intFromFloat(@floor(u * p.scale)));
+        const y = p.origin[1] + @as(i32, @intFromFloat(@floor(v * p.scale)));
+        if (x < 0 or y < 0 or x >= @as(i32, @intCast(p.size[0])) or y >= @as(i32, @intCast(p.size[1]))) return null;
+        const i: usize = @intCast((y * @as(i32, @intCast(p.size[0])) + x) * 4);
+        return .{ @floatFromInt(frame[i]), @floatFromInt(frame[i + 1]), @floatFromInt(frame[i + 2]) };
+    }
+};
 
-/// Step k's frame against step 0's: the mean RGB difference of the band's
-/// pixels where the turn puts them and where they stood, and how many of the
-/// left band's pixels are dark (the letters) at step k and at step 0.
-fn northMark(before: []const u8, after: []const u8, k: usize) struct { turned: f64, still: f64, dark: usize, dark_0: usize } {
-    var turned: f64 = 0;
-    var still: f64 = 0;
-    var n: f64 = 0;
-    var dark: usize = 0;
-    var dark_0: usize = 0;
-    var y: i32 = 0;
-    while (y < 40) : (y += 1) {
-        var x: i32 = 40;
-        while (x < 100) : (x += 1) {
-            if (!inBand(x, y)) continue;
-            const was = panelPixel(before, .{ x, y });
-            const now = panelPixel(after, markPlace(.{ x, y }, k));
-            const same = panelPixel(after, .{ x, y });
-            for (0..3) |c| {
-                turned += @abs(was[c] - now[c]);
-                still += @abs(was[c] - same[c]);
+/// Where the panel stands in a step-0 shot: the place within a few pixels of
+/// the bottom left corner where the upper left bar's texels differ least.
+fn findPanel(texture: []const u8, size: [2]u32, frame: []const u8) Panel {
+    const scale = @min(@as(f64, @floatFromInt(size[0])) / 1024, @as(f64, @floatFromInt(size[1])) / 768);
+    const base: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(size[1])) - 155 * scale));
+    var best: Panel = .{ .texture = texture, .size = size, .origin = .{ 0, base }, .scale = scale };
+    var least: f64 = std.math.floatMax(f64);
+    var oy = base - 8;
+    while (oy <= base + 8) : (oy += 1) {
+        var ox: i32 = -4;
+        while (ox <= 4) : (ox += 1) {
+            const p: Panel = .{ .texture = texture, .size = size, .origin = .{ ox, oy }, .scale = scale };
+            var sum: f64 = 0;
+            var u: f64 = 38;
+            while (u < 96) : (u += 1) {
+                var v: f64 = 5;
+                while (v < 45) : (v += 1) {
+                    const got = p.screen(frame, u + 0.5, v + 0.5) orelse [3]f64{ 255, 255, 255 };
+                    const want = p.texel(u, v);
+                    for (0..3) |c| sum += @abs(got[c] - want[c]);
+                }
             }
-            n += 3;
-            if (was[0] + was[1] + was[2] < 300) dark_0 += 1;
-            if (same[0] + same[1] + same[2] < 300) dark += 1;
+            if (sum < least) {
+                least = sum;
+                best = p;
+            }
         }
     }
-    return .{ .turned = turned / n, .still = still / n, .dark = dark, .dark_0 = dark_0 };
+    return best;
 }
 
+/// The mean RGB difference between a glyph as the 2003 frame shows it at step
+/// 0 (columns reversed when mirrored) and the shot where it would lie from
+/// column `at` of a bar (the right bar's glyphs start at 185, under 53 of the
+/// widened plate laid there from 178).
+fn glyphDifference(p: Panel, reference: []const u8, frame: []const u8, at: f64, right: bool, laid: Laid) f64 {
+    var sum: f64 = 0;
+    var n: f64 = 0;
+    var x: f64 = 0;
+    while (x < laid.glyph.width) : (x += 1) {
+        const du = at + x + 0.5;
+        const su = if (laid.mirrored) laid.glyph.from + laid.glyph.width - x - 0.5 else laid.glyph.from + x + 0.5;
+        var r: f64 = 2;
+        while (r < 8) : (r += 1) {
+            const got = p.screen(frame, du, bandTop(du, right) + r + 0.5) orelse return 255;
+            const want = p.screen(reference, su, bandTop(su, false) + r + 0.5) orelse return 255;
+            for (0..3) |c| sum += @abs(got[c] - want[c]);
+            n += 3;
+        }
+    }
+    return sum / n;
+}
+
+/// The dark (letter) pixels where the glyphs stand on a bar.
+fn darkOnBar(p: Panel, frame: []const u8, right: bool) usize {
+    var dark: usize = 0;
+    var u: f64 = if (right) 185.5 else 53.5;
+    const end = u + 31;
+    while (u < end) : (u += 1) {
+        var r: f64 = 2;
+        while (r < 8) : (r += 1) {
+            const got = p.screen(frame, u, bandTop(u, right) + r + 0.5) orelse continue;
+            if (got[0] + got[1] + got[2] < 300) dark += 1;
+        }
+    }
+    return dark;
+}
+
+/// Whether texture point (u, v) is on a bar's label (with a margin) or in the
+/// minimap's diamond (its window at (6, 3), 256 x 128, where the turned map is).
+fn onLabelOrMap(u: f64, v: f64) bool {
+    if (@abs(u - 134) / 128 + @abs(v - 67) / 64 < 1.08) return true;
+    if (u >= 42 and u < 96 and v >= bandTop(u, false) - 3 and v < bandTop(u, false) + 12) return true;
+    return u >= 174 and u < 228 and v >= bandTop(u, true) - 3 and v < bandTop(u, true) + 12;
+}
+
+fn yellow(c: [3]f64) bool {
+    return c[0] > 200 and c[1] > 140 and c[2] < 100;
+}
+
+/// Pixels on the panel or the 40 texels above it, off the labels and the map,
+/// that are yellow in `after` and were not in `before`.
+fn yellowAdded(p: Panel, before: []const u8, after: []const u8) usize {
+    var added: usize = 0;
+    const top: i32 = p.origin[1] - @as(i32, @intFromFloat(40 * p.scale));
+    const bottom: i32 = p.origin[1] + @as(i32, @intFromFloat(70 * p.scale));
+    const right: i32 = p.origin[0] + @as(i32, @intFromFloat(264 * p.scale));
+    var y = @max(top, 0);
+    while (y < bottom) : (y += 1) {
+        var x = @max(p.origin[0], 0);
+        while (x < right) : (x += 1) {
+            const u = (@as(f64, @floatFromInt(x - p.origin[0])) + 0.5) / p.scale;
+            const v = (@as(f64, @floatFromInt(y - p.origin[1])) + 0.5) / p.scale;
+            if (onLabelOrMap(u, v)) continue;
+            const i: usize = @intCast((y * @as(i32, @intCast(p.size[0])) + x) * 4);
+            const was = [3]f64{ @floatFromInt(before[i]), @floatFromInt(before[i + 1]), @floatFromInt(before[i + 2]) };
+            const now = [3]f64{ @floatFromInt(after[i]), @floatFromInt(after[i + 1]), @floatFromInt(after[i + 2]) };
+            if (yellow(now) and !yellow(was)) added += 1;
+        }
+    }
+    return added;
+}
+
+/// Pixels of both bars' labels that differ between two shots.
+fn barsChanged(p: Panel, before: []const u8, after: []const u8) usize {
+    var changed: usize = 0;
+    var y: i32 = p.origin[1];
+    while (y < p.origin[1] + @as(i32, @intFromFloat(50 * p.scale))) : (y += 1) {
+        var x: i32 = p.origin[0];
+        while (x < p.origin[0] + @as(i32, @intFromFloat(264 * p.scale))) : (x += 1) {
+            const u = (@as(f64, @floatFromInt(x - p.origin[0])) + 0.5) / p.scale;
+            const v = (@as(f64, @floatFromInt(y - p.origin[1])) + 0.5) / p.scale;
+            if (@abs(u - 134) / 128 + @abs(v - 67) / 64 < 1.08 or !onLabelOrMap(u, v)) continue;
+            const i: usize = @intCast((y * @as(i32, @intCast(p.size[0])) + x) * 4);
+            if (!std.mem.eql(u8, before[i..][0..3], after[i..][0..3])) changed += 1;
+        }
+    }
+    return changed;
+}
+
+/// The north mark at each step of a run: `S -> N` on the left bar at step 0
+/// (the 2003 frame), `N <- S` on the right one at step 1 and on the left one
+/// at step 2, `S -> N` on the right one at step 3: each place's best glyph of
+/// the texture (S, N or the arrow, as drawn or mirrored) must be the one laid
+/// there. Where the mark left the left plate no letter pixel stays, and no
+/// pixel turns yellow off the labels and the map (the panel and above it).
+fn northMark(allocator: std.mem.Allocator, report: *std.ArrayList(u8), texture: []const u8, size: [2]u32, frames: []const []u8) !bool {
+    const p = findPanel(texture, size, frames[0]);
+    try report.print(allocator, "north mark {d}x{d}: panel at {d},{d}, scale {d:.3}; dark pixels on the left plate at step 0 {d}\n", .{ size[0], size[1], p.origin[0], p.origin[1], p.scale, darkOnBar(p, frames[0], false) });
+    var ok = true;
+    for (frames, 0..) |frame, k| {
+        const right = k % 2 == 1;
+        const order = if (k == 0 or k == 3) reads_on else reads_back;
+        var at: f64 = if (right) 185 else 53;
+        try report.print(allocator, "  step {d} on the {s} bar:", .{ k, if (right) "right" else "left" });
+        for (order) |laid| {
+            const glyphs = [_]Glyph{ glyph_s, glyph_arrow, glyph_n };
+            var best: ?Laid = null;
+            var least: f64 = std.math.floatMax(f64);
+            for (glyphs) |g| for ([_]bool{ false, true }) |m| {
+                if (g.width != laid.glyph.width) continue;
+                const d = glyphDifference(p, frames[0], frame, at, right, .{ .glyph = g, .mirrored = m });
+                if (d < least) {
+                    least = d;
+                    best = .{ .glyph = g, .mirrored = m };
+                }
+            };
+            const own = glyphDifference(p, frames[0], frame, at, right, laid);
+            try report.print(allocator, " {s}{s} {d:.1} (best {s}{s})", .{ laid.glyph.name, if (laid.mirrored) " mirrored" else "", own, best.?.glyph.name, if (best.?.mirrored) " mirrored" else "" });
+            if (own > max_glyph or best.?.glyph.from != laid.glyph.from or best.?.mirrored != laid.mirrored) ok = false;
+            at += laid.glyph.width;
+        }
+        const dark = darkOnBar(p, frame, false);
+        const added = yellowAdded(p, frames[0], frame);
+        try report.print(allocator, "; dark pixels on the left plate {d}; yellow added off the labels {d}\n", .{ dark, added });
+        if ((right and dark != 0) or added != 0) ok = false;
+    }
+    return ok;
+}
 /// The offset within 3 pixels that best lays `after` on `before` turned k
 /// times about the centre (w / 2 - 1, h / 2 - 1), the mean block difference
 /// there and at no offset.

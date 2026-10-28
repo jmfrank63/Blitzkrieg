@@ -1219,55 +1219,97 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 // towards the map's north (world +y, up and right on the 2003 screen). The
 // minimap turns with the camera (Remastered), so at step k north is world +y
 // turned k times (x, y) -> (-y, x) on the screen; the mark goes to the bar
-// that runs that way, drawn so its arrow points there:
-// - step 1: north is up and left: on the upper right bar, mirrored (N <- S);
-// - step 2: down and left: on the upper left bar, turned half round;
-// - step 3: down and right: on the upper right bar, upside down.
-// Where it leaves the plate, the plate's letters are painted over in its
-// yellow. Step 0 draws nothing: the 2003 frame.
+// that runs that way, its arrow pointing there:
+// - step 1, up and left: `N <- S` on the upper right bar;
+// - step 2, down and left: `N <- S` on the upper left bar;
+// - step 3, down and right: `S -> N` on the upper right bar.
+// `N <- S` is the 2003 glyphs laid in the other order with the arrow
+// mirrored, so no letter is ever mirrored or upside down; on the right bar
+// each glyph is sheared along that bar as the 2003 ones are along theirs. The
+// left plate the mark leaves keeps its yellow where the letters were. Step 0
+// draws nothing: the 2003 frame.
 //
-// The letters lie in the band of the texture between (52, 26)-(52, 35) and
-// (86, 9)-(86, 18), along the bar; the upper right bar is the upper left one
-// mirrored about x = 135 (the minimap's middle: its window stands at (6, 3) of
-// the panel, whose top left is the texture's).
+// The texture's band runs along the left bar under the line y = 52 - x / 2
+// (texels); the glyphs stand in its rows 2 to 8: S in columns 53 to 61, the
+// arrow 61 to 76, N 76 to 84, on a widened stretch of the plate (46 to 92).
+// The right bar is the left one mirrored about x = 135 and a texel lower,
+// its plate narrower, so the mark takes the widened stretch along, laid as
+// the glyphs are (not mirrored: the glyphs keep their place on it). The panel
+// (the minimap's parent) draws the texture from its top left at its layout
+// scale; the minimap's own window is fitted apart from it.
+namespace
+{
+	const float NORTH_S = 53, NORTH_ARROW = 61, NORTH_N = 76, NORTH_END = 84;
+	const float NORTH_PLATE_FROM = 46, NORTH_PLATE_TO = 92;
+	// Rows 2 to 8, and most of the texel around them that a scaled panel blurs
+	// the letters into.
+	const float NORTH_ROW0 = 1.6f, NORTH_ROW1 = 8.4f;
+	struct SNorthBand
+	{
+		IGFX *pGFX;
+		IGFXTexture *pPanels;
+		CVec2 vOrigin, vScale;
+
+		static float Top( float fX, bool bRight ) { return bRight ? fX / 2 - 82 : 52 - fX / 2; }
+		// The left band's columns fFrom to fTo, rows fRow0 to fRow1 under its top
+		// line, laid on a bar from column fAt on, mirrored if bMirror; without
+		// pTexture the same place filled from dwTop to dwBottom.
+		void Draw( IGFXTexture *pTexture, float fFrom, float fTo, float fAt, bool bRight, bool bMirror, float fRow0, float fRow1, DWORD dwTop, DWORD dwBottom ) const
+		{
+			const float fSizeX = pPanels->GetSizeX( 0 ), fSizeY = pPanels->GetSizeY( 0 );
+			CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
+			CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
+			// Bottom left, bottom right, top right, top left.
+			for ( int i = 0; i < 4; ++i )
+			{
+				const bool bEnd = i == 1 || i == 2;
+				const float fRow = i < 2 ? fRow1 : fRow0;
+				const float fX = fAt + ( bEnd ? fTo - fFrom : 0 );
+				const float fU = bEnd != bMirror ? fTo : fFrom;
+				vertices[i].Setup( vOrigin.x + fX * vScale.x, vOrigin.y + ( Top( fX, bRight ) + fRow ) * vScale.y, 0.0f, 1.0f,
+					i < 2 ? dwBottom : dwTop, 0xFF000000, fU / fSizeX, ( Top( fU, false ) + fRow ) / fSizeY );
+			}
+			indices[0] = 0; indices[1] = 1; indices[2] = 2; indices[3] = 0; indices[4] = 2; indices[5] = 3;
+			pGFX->SetTexture( 0, pTexture );
+			pGFX->DrawTemp();
+		}
+		void Glyph( float fFrom, float fTo, float fAt, bool bRight, bool bMirror ) const
+		{
+			Draw( pPanels, fFrom, fTo, fAt, bRight, bMirror, NORTH_ROW0, NORTH_ROW1, 0xFFFFFFFF, 0xFFFFFFFF );
+		}
+	};
+}
 void CUIMiniMap::DrawNorthMark( IGFX *pGFX )
 {
 	IGFXTexture *pPanels = GetSingleton<ITextureManager>()->GetTexture( "ui\\missionpanels" );
-	if ( pPanels == 0 )
+	IUIContainer *pPanel = GetParent();
+	if ( pPanels == 0 || pPanel == 0 )
 		return;
-	const float fLeft = wndRect.left - 6.0f, fTop = wndRect.top - 3.0f;
-	const float fSizeX = pPanels->GetSizeX( 0 ), fSizeY = pPanels->GetSizeY( 0 );
-	// The band's corners, bottom left, bottom right, top right, top left.
-	const float bandX[4] = { 52, 86, 86, 52 }, bandY[4] = { 35, 18, 9, 26 };
+	CTRect<float> rcPanel;
+	pPanel->GetWindowPlacement( 0, 0, &rcPanel );
+	const SNorthBand band = { pGFX, pPanels, CVec2( rcPanel.x1, rcPanel.y1 ), pPanel->GetLayoutScale() };
 	const bool bRight = ( nTurn & 1 ) != 0;
-	const bool bHalf = nTurn >= 2;
 	if ( bRight )
 	{
-		// The letters left behind: the plate's yellow over them.
-		CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
-		CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
-		for ( int i = 0; i < 4; ++i )
-			vertices[i].Setup( fLeft + bandX[i], fTop + bandY[i], 0.0f, 1.0f, 0xFFF7C211, 0xFF000000, 0, 0 );
-		indices[0] = 0; indices[1] = 1; indices[2] = 2; indices[3] = 0; indices[4] = 2; indices[5] = 3;
-		pGFX->SetTexture( 0, 0 );
-		pGFX->DrawTemp();
+		// The letters left behind: the plate's yellow over them (its body darker
+		// at the top), then the widened plate laid on the right bar.
+		band.Draw( 0, NORTH_S, NORTH_END, NORTH_S, false, false, NORTH_ROW0, NORTH_ROW1, 0xFFEBB60E, 0xFFF7C312 );
+		band.Draw( pPanels, NORTH_PLATE_FROM, NORTH_PLATE_TO, 270 - NORTH_PLATE_TO, true, false, 0, 9, 0xFFFFFFFF, 0xFFFFFFFF );
 	}
-	CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
-	CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
-	for ( int i = 0; i < 4; ++i )
+	const float fAt = bRight ? 270 - NORTH_PLATE_TO + ( NORTH_S - NORTH_PLATE_FROM ) : NORTH_S;
+	const float fArrow = fAt + ( NORTH_ARROW - NORTH_S ), fLast = fAt + ( NORTH_N - NORTH_S );
+	if ( nTurn == 3 )
 	{
-		// Mirrored onto the right bar the corners keep their texels (step 1);
-		// a half turn more gives each corner the texels of the opposite one.
-		const int nFrom = bHalf ? ( i + 2 ) % 4 : i;
-		const float fX = bRight ? 270.0f - bandX[i] : bandX[i];
-		vertices[i].Setup( fLeft + fX, fTop + bandY[i], 0.0f, 1.0f, 0xFFFFFFFF, 0xFF000000, bandX[nFrom] / fSizeX, bandY[nFrom] / fSizeY );
+		band.Glyph( NORTH_S, NORTH_ARROW, fAt, bRight, false );
+		band.Glyph( NORTH_ARROW, NORTH_N, fArrow, bRight, false );
+		band.Glyph( NORTH_N, NORTH_END, fLast, bRight, false );
 	}
-	// Mirrored, the corners run the other way round: the same winding kept.
-	const WORD order[6] = { 0, WORD( bRight ? 2 : 1 ), WORD( bRight ? 1 : 2 ), 0, WORD( bRight ? 3 : 2 ), WORD( bRight ? 2 : 3 ) };
-	for ( int i = 0; i < 6; ++i )
-		indices[i] = order[i];
-	pGFX->SetTexture( 0, pPanels );
-	pGFX->DrawTemp();
+	else
+	{
+		band.Glyph( NORTH_N, NORTH_END, fAt, bRight, false );
+		band.Glyph( NORTH_ARROW, NORTH_N, fArrow, bRight, true );
+		band.Glyph( NORTH_S, NORTH_ARROW, fLast, bRight, false );
+	}
 }
 void CUIMiniMap::Visit( interface ISceneVisitor *pVisitor )
 {
