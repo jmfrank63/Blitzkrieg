@@ -213,6 +213,10 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         if (options.season_data) |season_data_path| {
             syncSeasonData(io, allocator, repo, season_data_path, destination) catch |err| return failStep("syncSeasonData", err);
         }
+        if (@import("builtin").os.tag == .macos) {
+            dropBuildRpaths(io, allocator, destination, ".") catch |err| return failStep("drop build rpaths", err);
+            dropBuildRpaths(io, allocator, destination, tools_dir) catch |err| return failStep("drop tool build rpaths", err);
+        }
         verifyStagedPayload(io, destination, options) catch |err| return failStep("verify staged payload", err);
     } else if (!options.layout.editors_supported) {
         return error.EditorsUnsupported;
@@ -311,6 +315,68 @@ fn copyToolImports(io: std.Io, destination: std.Io.Dir, staged_tool: []const u8)
         const target = try std.fmt.bufPrint(&target_buf, tools_dir ++ "/{s}", .{name});
         destination.access(io, target, .{}) catch try copyFile(io, destination, name, destination, target);
     }
+}
+
+/// Zig links a dynamic library with an -rpath into its build-cache directory, written relative
+/// (`.zig-cache/o/<hash>`), so dyld resolves it against the current directory. An installed Game
+/// started from the repository root then loaded the cache copy of a library beside the installed
+/// one: two libSDL3 ("Class SDL3Window is implemented in both"), and the same for every engine
+/// library. The uninstalled build tools need those paths; the staged copies keep only their
+/// @loader_path ones. A changed Mach-O must be signed again, or arm64 macOS kills it on start.
+fn dropBuildRpaths(io: std.Io, allocator: std.mem.Allocator, destination: std.Io.Dir, sub_path: []const u8) !void {
+    var dir = destination.openDir(io, sub_path, .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => return,
+        else => return err,
+    };
+    defer dir.close(io);
+    var iterator = dir.iterate();
+    while (try iterator.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        const image = dir.readFileAlloc(io, entry.name, allocator, .limited(512 << 20)) catch continue;
+        defer allocator.free(image);
+        var paths: [32][]const u8 = undefined;
+        const drop = buildRpaths(image, &paths);
+        if (drop.len == 0) continue;
+        for (drop) |path| try runTool(io, allocator, dir, &.{ "install_name_tool", "-delete_rpath", path, entry.name });
+        try runTool(io, allocator, dir, &.{ "codesign", "--force", "--sign", "-", entry.name });
+    }
+}
+
+fn runTool(io: std.Io, allocator: std.mem.Allocator, cwd: std.Io.Dir, argv: []const []const u8) !void {
+    const result = try std.process.run(allocator, io, .{ .argv = argv, .cwd = .{ .dir = cwd } });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    if (result.term != .exited or result.term.exited != 0) {
+        report("stage: {s} {s} failed: {s}\n", .{ argv[0], argv[argv.len - 1], result.stderr });
+        return error.MachOToolFailed;
+    }
+}
+
+/// The LC_RPATH entries of a thin 64-bit Mach-O that are not @loader_path/@executable_path
+/// relative, at most `out.len`; none for anything else.
+pub fn buildRpaths(image: []const u8, out: [][]const u8) []const []const u8 {
+    if (image.len < 32 or std.mem.readInt(u32, image[0..4], .little) != 0xfeedfacf) return out[0..0];
+    const count = std.mem.readInt(u32, image[16..20], .little);
+    var offset: usize = 32;
+    var found: usize = 0;
+    for (0..count) |_| {
+        if (offset + 12 > image.len) break;
+        const cmd = std.mem.readInt(u32, image[offset..][0..4], .little);
+        const size = std.mem.readInt(u32, image[offset + 4 ..][0..4], .little);
+        if (size < 8 or offset + size > image.len) break;
+        if (cmd == 0x8000001c) { // LC_RPATH
+            const start = offset + std.mem.readInt(u32, image[offset + 8 ..][0..4], .little);
+            if (start < offset + size) {
+                const path = std.mem.sliceTo(image[start .. offset + size], 0);
+                if (path.len > 0 and path[0] != '@' and found < out.len) {
+                    out[found] = path;
+                    found += 1;
+                }
+            }
+        }
+        offset += size;
+    }
+    return out[0..found];
 }
 
 /// The DLL names a PE image's import directory lists, at most `out.len`; none
@@ -798,6 +864,25 @@ test "copy is the default data mode" {
 test "runtime replacement rejects stale image names" {
     try std.testing.expect(!shouldReplaceRuntime("Game.exe.stale"));
     try std.testing.expect(shouldReplaceRuntime("Game.exe"));
+}
+
+test "buildRpaths lists the build-cache rpaths of a Mach-O, not @loader_path" {
+    // A header, then two LC_RPATH commands of 32 bytes: the path at offset 12 in each.
+    var image: [32 + 64]u8 = @splat(0);
+    std.mem.writeInt(u32, image[0..4], 0xfeedfacf, .little);
+    std.mem.writeInt(u32, image[16..20], 2, .little);
+    for ([_][]const u8{ "@loader_path", ".zig-cache/o/ab" }, 0..) |path, i| {
+        const at = 32 + i * 32;
+        std.mem.writeInt(u32, image[at..][0..4], 0x8000001c, .little);
+        std.mem.writeInt(u32, image[at + 4 ..][0..4], 32, .little);
+        std.mem.writeInt(u32, image[at + 8 ..][0..4], 12, .little);
+        @memcpy(image[at + 12 ..][0..path.len], path);
+    }
+    var out: [4][]const u8 = undefined;
+    const paths = buildRpaths(&image, &out);
+    try std.testing.expectEqual(@as(usize, 1), paths.len);
+    try std.testing.expectEqualStrings(".zig-cache/o/ab", paths[0]);
+    try std.testing.expectEqual(@as(usize, 0), buildRpaths("MZ not a Mach-O", &out).len);
 }
 
 test "peImports lists a tool's DLLs" {

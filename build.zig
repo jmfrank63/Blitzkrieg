@@ -1824,7 +1824,6 @@ pub fn build(b: *std.Build) void {
     addLinuxCxxIncludePaths(b, gfx_gpu_abi_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
     gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
-    if (target.result.os.tag == .macos) linkSdlImport(gfx_gpu_abi_test_module, target, sdl_dynamic);
     const gfx_gpu_abi_test = b.addExecutable(.{
         .name = "gfxgpu-abi-test",
         .root_module = gfx_gpu_abi_test_module,
@@ -2735,7 +2734,11 @@ pub fn build(b: *std.Build) void {
     // flagged the duplicate Metal classes on macOS, and on Linux and Windows
     // the run died in SDL before the harness printed anything. Take the same
     // SDL the module takes (addGFXGPU), so there is exactly one.
-    linkSdlRuntime(gfx_gpu_factory_test_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    if (target.result.os.tag == .macos) {
+        gfx_gpu_factory_test_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(gfx_gpu_factory_test_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
     gfx_gpu_factory_test_module.linkLibrary(formats);
     if (target.result.os.tag == .windows) {
         gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
@@ -2825,7 +2828,11 @@ pub fn build(b: *std.Build) void {
     text_measure_draw_module.linkLibrary(formats);
     text_measure_draw_module.linkLibrary(gfx_gpu_zig);
     text_measure_draw_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
-    linkSdlRuntime(text_measure_draw_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    if (target.result.os.tag == .macos) {
+        text_measure_draw_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(text_measure_draw_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
     if (target.result.os.tag == .windows) {
         text_measure_draw_module.linkSystemLibrary("user32", .{});
         text_measure_draw_module.linkSystemLibrary("gdi32", .{});
@@ -2890,7 +2897,11 @@ pub fn build(b: *std.Build) void {
     mod_font_fallback_module.linkLibrary(formats);
     mod_font_fallback_module.linkLibrary(gfx_gpu_zig);
     mod_font_fallback_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
-    linkSdlRuntime(mod_font_fallback_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    if (target.result.os.tag == .macos) {
+        mod_font_fallback_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    } else {
+        linkSdlRuntime(mod_font_fallback_module, target, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    }
     if (target.result.os.tag == .windows) {
         mod_font_fallback_module.linkSystemLibrary("user32", .{});
         mod_font_fallback_module.linkSystemLibrary("gdi32", .{});
@@ -5426,7 +5437,7 @@ fn addOptionsBridge(
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     module.linkLibrary(platform_runtime);
-    if (target.result.os.tag == .macos) linkSdlImport(module, target, sdl) else module.linkLibrary(sdl);
+    module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     applyLoaderPath(target, module);
     addSharedObjectFinalizer(b, target, module);
@@ -5484,7 +5495,7 @@ fn addStreamIOZig(
     streamio_module.linkLibrary(options_bridge);
     streamio_module.linkLibrary(platform_runtime);
     // Paths.cpp asks SDL for the base and preference paths: the Game's one shared SDL3.
-    if (target.result.os.tag == .macos) linkSdlImport(streamio_module, target, sdl) else streamio_module.linkLibrary(sdl);
+    streamio_module.linkLibrary(sdl);
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
     const def_path = if (target.result.cpu.arch == .x86)
@@ -6884,9 +6895,15 @@ fn addGFXGPU(
     gfx_gpu_module.linkLibrary(gfx_gpu_zig);
     gfx_gpu_module.addIncludePath(b.path("Sources/src/BkText"));
     gfx_gpu_module.linkLibrary(addBkTextLib(b, target, optimize, toolchain));
-    // On macOS gfx_gpu_zig is static and no longer brings SDL3 (linked by path, see vendor/zig-sdl3), so every
-    // platform links the one installed SDL3 here.
-    linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
+    if (target.result.os.tag == .macos) {
+        // gfx_gpu_zig already links SDL3, so linking it again here emits a
+        // second LC_LOAD_DYLIB for @rpath/libSDL3.dylib. ELF tolerates the
+        // duplicate DT_NEEDED, but dyld rejects the image outright
+        // ("duplicate linked dylib"), so take only the headers here.
+        gfx_gpu_module.addIncludePath(sdl_include);
+    } else {
+        linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
+    }
     if (target.result.os.tag == .windows) {
         gfx_gpu_module.linkSystemLibrary("user32", .{});
         gfx_gpu_module.linkSystemLibrary("gdi32", .{});
@@ -8758,10 +8775,7 @@ fn addGameBootstrapSmoke(
             // C++ sources here, so they link the one dynamic SDL3 the game ships.
             linkSdlImport(module, target, sdl_dynamic);
         },
-        .macos => {
-            module.linkSystemLibrary("c++", .{});
-            linkSdlImport(module, target, sdl_dynamic);
-        },
+        .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
     const exe = b.addExecutable(.{ .name = "game-bootstrap-smoke", .root_module = module });
@@ -14562,12 +14576,6 @@ fn linkSdlImport(
 ) void {
     switch (target.result.os.tag) {
         .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
-        // By path on macOS: linkLibrary adds an absolute -rpath into .zig-cache, where dyld finds a
-        // second libSDL3 (the dependency's own build, see vendor/zig-sdl3) beside the installed one.
-        .macos => {
-            module.addObjectFile(sdl_dynamic.getEmittedBin());
-            module.addIncludePath(sdl_dynamic.getEmittedIncludeTree()); // linkLibrary would bring the headers
-        },
         else => module.linkLibrary(sdl_dynamic),
     }
 }
