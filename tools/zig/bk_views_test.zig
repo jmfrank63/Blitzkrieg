@@ -568,10 +568,10 @@ test "a roof part turns into the frame of another side, and a turn that paints i
     // with the vent's pixels on the roof planes, keeps none and fails.
     for ([_]u2{ 0, 1, 2, 3 }) |turn| {
         const turned: views.Eye = .{ .anchor = .{ 130, 150 }, .turn = turn };
-        const kept = views.roofKept(&.{shed}, &.{vent}, turned, try blocksDrawn(arena, turned, &.{ shed, vent }));
+        const kept = views.roofKept(&.{shed}, &.{vent}, turned, turned.turn, try blocksDrawn(arena, turned, &.{ shed, vent }));
         try std.testing.expect(kept[0] > 40);
         try std.testing.expectEqual(kept[0], kept[1]);
-        const flat = views.roofKept(&.{shed}, &.{vent}, turned, try blocksDrawn(arena, turned, &.{shed}));
+        const flat = views.roofKept(&.{shed}, &.{vent}, turned, turned.turn, try blocksDrawn(arena, turned, &.{shed}));
         try std.testing.expectEqual(@as(f64, 0), flat[1]);
         try std.testing.expect(views.lowFails(flat[0], flat[1]));
     }

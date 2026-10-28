@@ -2317,8 +2317,10 @@ const low_share = 0.8;
 /// How a drawn picture keeps roof parts (`roof_parts_dir`): the pixels where
 /// its eye sees a part's wall, the blocks without the parts (`blocks`)
 /// behind it, and how many of those it drew as that wall (its shading
-/// class). A turn that paints a vent on the roof plane keeps none.
-pub fn roofKept(blocks: []const Block, parts: []const Block, eye: Eye, drawn: Generated) [2]f64 {
+/// class under the turn's `light`, as `projectPicture` classes it: compared
+/// with the eye's own turn, every turn lit by the world's sun at another step
+/// kept none). A turn that paints a vent on the roof plane keeps none.
+pub fn roofKept(blocks: []const Block, parts: []const Block, eye: Eye, light: u2, drawn: Generated) [2]f64 {
     var seen: f64 = 0;
     var kept: f64 = 0;
     const w = drawn.image.width;
@@ -2329,7 +2331,7 @@ pub fn roofKept(blocks: []const Block, parts: []const Block, eye: Eye, drawn: Ge
         if (part.normal[2] != 0) continue;
         if (castPixel(blocks, eye, px, py)) |behind| if (behind.t < part.t) continue;
         seen += 1;
-        kept += @floatFromInt(@intFromBool(drawn.classes[y * w + x] == shadeClass(part.normal, eye.turn)));
+        kept += @floatFromInt(@intFromBool(drawn.classes[y * w + x] == shadeClass(part.normal, light)));
     };
     return .{ seen, kept };
 }
@@ -3939,7 +3941,7 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
             const low = try turnLowParts(arena, scene, d.sprite.image, blocks_target.eye);
             shape.low = low[0];
             shape.low_kept = low[1];
-            const roof = roofKept(scene.body, scene.roof, blocks_target.eye, d.sprite);
+            const roof = roofKept(scene.body, scene.roof, blocks_target.eye, blocks_target.light, d.sprite);
             shape.roof = roof[0];
             shape.roof_kept = roof[1];
             shape.stretch = stretchShare(d.sprite);
@@ -4906,7 +4908,8 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
         \\  objects (a 2003 protrusion of {d:.2} or more) and small ones ({d} footprint cells or fewer) whose blocks fail
         \\  the shape, where the turn keeps the footprint (cells IoU {d:.1} or more), or mirrored onto it on an odd
         \\  turn of a rectangular footprint; and the heaps (supply depots, earth pillboxes) on every turn, mirrored on
-        \\  an odd one.
+        \\  an odd one; each, and each 2003 sibling side, only where it is the variant's shape turned (a turn is a
+        \\  rotation, never a mirror: the Turn column of the family reports), else the turn is drawn on the blocks.
         \\- Hand shapes: {d} variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
         \\
         \\| Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
