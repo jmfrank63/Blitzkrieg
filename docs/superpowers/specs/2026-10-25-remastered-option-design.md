@@ -152,3 +152,12 @@ Run on win-home (Windows 11 x64, debug Game), 2026-10-28/29:
 9.5 minutes; staging the Game after a rebuild took 8 to 27 minutes more
 while other worktrees built), `remastered-game-reads-it` passes. Linux and
 macOS are left to CI (the new tier has a step next to the Remastered one).
+
+## The simulation's own rules (2026-10-28)
+
+The fastest path (`2026-10-28-fastest-path-design.md`) changes the decision
+"multiplayer always plays the original" for rules the simulation itself plays
+by: `NRemastered::Simulation()` holds in multiplayer as the host's option
+(sent with the game info as `Multiplayer.Remastered`), is decided once as a
+mission starts and is kept in its saves. `Enabled()` and everything behind it
+are unchanged.

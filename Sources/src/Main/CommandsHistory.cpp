@@ -114,6 +114,7 @@ bool CCommandsHistory::LoadCommandLineHistory()
 		{
 			Load( szLoadedHistoryFileName.c_str() );
 			RemoveGlobalVar( "History.Playing" );
+			SetGlobalVar( NRemastered::pszCommandLineReplayVar, 1 );
 			// The start PrepareToStartMission just took is this process's own;
 			// the replay's replaces it at the same point of the mission start.
 			ApplyLoadedStartState();
@@ -133,6 +134,7 @@ void CCommandsHistory::Clear()
 		GetSingleton<IMainLoop>()->RestoreScenarioTracker();
 	bStored = false;
 	RemoveGlobalVar( "History.Playing" );
+	RemoveGlobalVar( NRemastered::pszCommandLineReplayVar );
 	RemoveGlobalVar( "MultiplayerGame" );
 	if ( nViewerDifficulty >= 0 )
 	{
@@ -206,6 +208,9 @@ bool CCommandsHistory::Load( const char *pszFileName )
 	saver.Add( "Multiplayer", &nMultiplayerGame );
 	if ( nMultiplayerGame == 1 )
 	{
+		// A replay from before the host's Remastered option travelled has none:
+		// not the last game's.
+		RemoveGlobalVar( NRemastered::pszMultiplayerVar );
 		GetSingleton<IGlobalVars>()->SerializeVarsByMatch( saver, "Multiplayer." );
 		SetGlobalVar( "MultiplayerGame", 1 );
 	}

@@ -3,6 +3,7 @@
 
 #pragma ONCE
 #include "PathFinder.h"
+#include "FastestPath.h"
 class CStandartPathFinder : public IStaticPathFinder
 {
 	OBJECT_NORMAL_METHODS( CStandartPathFinder );
@@ -57,20 +58,50 @@ class CStandartPathFinder : public IStaticPathFinder
 	void EraseCycles();
 	void AnalyzePoint( const SVector &point, const int num );
 	const int GetAdditionalPathLength( const SVector &pointFrom );
+
+	// The fastest path (Remastered, FastestPath.h): an A* over a snapshot of
+	// the tiles the unit can enter, weighted by how fast it crosses each.
+	// Which finder plays is game state, decided once a mission (CAILogic).
+	static bool bFastestPath;
+	// The unit's own speed off roads (its fPassability); 1 unless the caller
+	// of a big path sets it after SetPathParameters, which puts it back.
+	float fUnitPassability;
+	// Whether the last path came from the A* (its smoothing then checks costs).
+	bool bSearched;
+	// Per terrain class of the static map: the weight of entering a tile.
+	static int weights[256];
+	static WORD snapshot[SAIConsts::MAX_MAP_SIZE * SAIConsts::MAX_MAP_SIZE];
+	static struct SBkPathPoint searchPoints[SAIConsts::INFINITY_PATH_LIMIT + 1];
+	// What reaching each of stopPoints cost from the start, by the A*.
+	static unsigned int stopCosts[SAIConsts::INFINITY_PATH_LIMIT + 1];
+	enum { NODE_BUDGET = 1 << 18, MAX_WEIGHT = 4096 };
+	int nSearchLength;
+
+	void InitWeights();
+	int Search( const SVector &start, const SVector &vMin, const SVector &vMax, const int nMaxSteps, int *pnExpanded );
+	bool CalculateFastestPath();
+	const unsigned int LineCost( const SVector &start, const SVector &finish ) const;
+	void FastestSmoothing( const int STEP_LENGTH, const int MAX_NUM_OF_ATTEMPTS );
 public:
-	CStandartPathFinder() : nBoundTileRadius(0), upperLimit( 0 ), nLength( -1 ), pChecking( 0 ), aiClass( AI_CLASS_HUMAN )
+	CStandartPathFinder() : nBoundTileRadius(0), upperLimit( 0 ), nLength( -1 ), pChecking( 0 ), aiClass( AI_CLASS_HUMAN ), fUnitPassability( 1.0f ), bSearched( false )
 	{ 
 		memset(*mapBuf, 0, sizeof(mapBuf) ); 
 		cyclePoints[0] = 0;
 	}
+	static void SetFastestPath( const bool bOn ) { bFastestPath = bOn; }
+	static bool IsFastestPath() { return bFastestPath; }
+
 	virtual void SetPathParameters( const int nBoundTileRadius, const BYTE aiClass, interface IPointChecking *pChecking, const CVec2 &startPoint, const CVec2 &finishPoint, const int upperLimit, const bool longPath, const SVector &lastKnownGoodTile );
+	virtual void SetUnitPassability( const float fPassability ) { fUnitPassability = fPassability; }
 
 	virtual bool CalculatePath();
 	virtual void CalculatePathWOCycles();
 
 	virtual void SmoothPath()
 	{
-		if ( longPath ) 
+		if ( bSearched )
+			FastestSmoothing( longPath ? STEP_LENGTH_THERE : STEP_LENGTH_THERE_SHORT, longPath ? MAX_NUM_OF_ATTEMPTS_THERE : MAX_NUM_OF_ATTEMPTS_THERE_SHORT );
+		else if ( longPath ) 
 			LineSmoothing( STEP_LENGTH_THERE, MAX_NUM_OF_ATTEMPTS_THERE, STEP_LENGTH_BACK, MAX_NUM_OF_ATTEMPTS_BACK );
 		else 
 			LineSmoothing( STEP_LENGTH_THERE_SHORT, MAX_NUM_OF_ATTEMPTS_THERE_SHORT, STEP_LENGTH_BACK_SHORT, MAX_NUM_OF_ATTEMPTS_BACK_SHORT );

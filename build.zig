@@ -1535,6 +1535,7 @@ pub fn build(b: *std.Build) void {
     // the run-mode jobs run it.
     test_platform_foundation.dependOn(wheel_scroll_step);
     const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain);
+    addFastestPathTest(b, target, test_mode);
     const replay_core_step = addReplayCoreTest(b, target, platform, test_mode, toolchain);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
     addInputTextRepeatTest(b, target, test_mode, toolchain);
@@ -2493,6 +2494,7 @@ pub fn build(b: *std.Build) void {
     const random_missions_repeat = b.option(u32, "random-missions-repeat", "test-random-missions: generate the sweep this many times; from 4 on, fail if the heap grows over the second half of the rounds (default 1)") orelse 1;
 
     const zlib = addZlib(b, target, optimize, toolchain);
+    const fastest_path = addFastestPathLib(b, target);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
     const misc = addMisc(b, target, optimize, toolchain, sdl_dynamic_dep.path("include"));
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc, platform_runtime, sdl_dynamic);
@@ -2531,7 +2533,7 @@ pub fn build(b: *std.Build) void {
     // leaks nothing (count 0 on a help run and on a conversion, 2026-10-22); the
     // Game tiers that run it, test-bk-font among them, fail on a leak count above 0.
     bk_tools_tests_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
-    const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
+    const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib, fastest_path }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
     // shows the version string without relying on the Win32 version resource
@@ -3372,6 +3374,35 @@ pub fn build(b: *std.Build) void {
     const focus_game_step = b.step("focus-pause-game-reads-it", "Unfocus the real Game for eight seconds in the middle of a fight, Remastered on and off, by SDL focus events, and measure that game time, the absolute clock and the shots stop and the frame rate measurement skips the pause");
     focus_game_step.dependOn(&focus_game_tests.step);
     if (test_mode == .run) focus_game_step.dependOn(&focus_game_run.step);
+
+    // The fastest path (tools/zig/fastest_path_game_reads_it.zig): a march
+    // round a slow field, Remastered off and on, replayed and saved across
+    // the option; and the AI's own orders on the largest shipped maps,
+    // measured. Desktop and GPU, so not part of `test`.
+    const fastest_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/fastest_path_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, fastest_game_module, toolchain);
+    }
+    const fastest_steps = [_]struct { name: []const u8, filter: []const u8, about: []const u8 }{
+        .{ .name = "fastest-path-game-reads-it", .filter = "fastest path march", .about = "March a lorry, a car, a tank and a squad round a slow field on the real Game with the 2003 finder and the fastest path (Remastered), each kind arriving no later with it, and replay and load the march across the option" },
+        .{ .name = "fastest-path-passages-game-reads-it", .filter = "fastest path passages one at a time", .about = "Drive a column of lorries and tanks through two one-lane gaps, a squad standing in the first, on the real Game with the fastest path (Remastered): all arrive, one at a time in a gap, in the order they came" },
+        .{ .name = "fastest-path-maps-game-reads-it", .filter = "fastest path on the largest shipped maps", .about = "Play kursk, dessau and vitebsk on the real Game with the fastest path (Remastered) and measure the AI's path requests: count, time, nodes, budget hits" },
+    };
+    for (fastest_steps) |fastest| {
+        const fastest_tests = b.addTest(.{ .root_module = fastest_game_module, .filters = &.{fastest.filter} });
+        const fastest_run = b.addRunArtifact(fastest_tests);
+        fastest_run.setCwd(b.path("."));
+        fastest_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+        fastest_run.has_side_effects = true;
+        fastest_run.step.dependOn(install_game_step);
+        const fastest_step = b.step(fastest.name, fastest.about);
+        fastest_step.dependOn(&fastest_tests.step);
+        if (test_mode == .run) fastest_step.dependOn(&fastest_run.step);
+    }
 
     // The rest of the world at every camera step (M006 S03,
     // tools/zig/camera_turn_world_game_reads_it.zig): the ground of dessau and
@@ -8198,6 +8229,34 @@ fn addRemasteredTest(
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
     return step;
+}
+
+/// The fastest path's A* (Sources/src/AILogic/fastest_path.zig), linked into AILogic. A pure
+/// function over static buffers: no allocator, no libc. ReleaseSafe in every build, so a debug
+/// install measures the search at the speed players get, with its bounds checks kept.
+fn addFastestPathLib(b: *std.Build, target: std.Build.ResolvedTarget) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/AILogic/fastest_path.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+        .pic = true,
+    });
+    return b.addLibrary(.{ .name = "FastestPath", .linkage = .static, .root_module = module });
+}
+
+/// The A* on fixture grids (road against field, a wall, an unreachable or blocked goal, the
+/// bound radius, the step limit, the budget, determinism): the Zig tests in fastest_path.zig.
+fn addFastestPathTest(b: *std.Build, target: std.Build.ResolvedTarget, test_mode: build_support.TestMode) void {
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/AILogic/fastest_path.zig"),
+        .target = target,
+        .optimize = .Debug,
+    });
+    const tests = b.addTest(.{ .root_module = module });
+    const run = b.addRunArtifact(tests);
+    const step = b.step("test-fastest-path", "Run the fastest path's A* tests on fixture grids (Remastered pathing)");
+    step.dependOn(&tests.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 /// The replay core (Sources/src/Main/ReplayCore.h): a Zig test over the

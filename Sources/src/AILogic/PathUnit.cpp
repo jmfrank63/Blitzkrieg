@@ -11,6 +11,7 @@
 #include "AIUnit.h"
 #include "PlanePath.h"
 #include "StandartPath.h"
+#include "PathFinderInternal.h"
 #include "DifficultyLevel.h"
 #include "Trigonometry.h"
 #include "StaticObjectsIters.h"
@@ -189,7 +190,8 @@ void CPathUnit::CheckForDestroyedObjects( const CVec2 &center ) const
 }
 void CPathUnit::SecondSegment( const bool bUpdate )
 {
-	if ( pOwner->CanMovePathfinding() && ( !IsIdle() || stayTime == 0 ) )
+	if ( pOwner->CanMovePathfinding() && ( !IsIdle() || stayTime == 0 ) &&
+			 ( passagesOnPath.empty() || !thePassages.MustWait( pOwner, &passagesOnPath ) ) )
 	{
 		bool bPathIsFinished = GetSmoothPath()->IsFinished();
 		NTimer::STime timeDiff = SConsts::AI_SEGMENT_DURATION * pOwner->GetPathSegmentsPeriod();
@@ -306,6 +308,16 @@ void CPathUnit::UnlockTiles( const bool bUpdate )
 		bLocking = false;
 	}
 }
+// A vehicle's new way, with the fastest path: the narrow places on it, each
+// a passage it waits its turn for (Passages.h). Any other way leaves them.
+void CPathUnit::FindPassages( IStaticPath *pStaticPath )
+{
+	if ( !passagesOnPath.empty() )
+		thePassages.Leave( pOwner );
+	passagesOnPath.clear();
+	if ( pStaticPath != 0 && CStandartPathFinder::IsFastestPath() && !pOwner->GetStats()->IsInfantry() && !pOwner->GetStats()->IsAviation() )
+		thePassages.FindOnPath( pOwner, pStaticPath, &passagesOnPath );
+}
 bool CPathUnit::SendAlongPath( IPath *pPath )
 {
 	bool bResult = false;
@@ -313,6 +325,7 @@ bool CPathUnit::SendAlongPath( IPath *pPath )
 	CPtr<IPath> pUnitPath = pPath;
 	if ( pOwner->CanMovePathfinding() )
 	{
+		FindPassages( 0 );
 		pPathMemento = 0;
 		pCollMemento = 0;
 		stayTime = 0;
@@ -339,6 +352,7 @@ bool CPathUnit::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &vShift, bo
 	CPtr<IStaticPath> pUnitPath = pStaticPath;
 	if ( pOwner->CanMovePathfinding() )
 	{
+		FindPassages( pStaticPath );
 		pPathMemento = 0;
 		pCollMemento = 0;
 		stayTime = 0;
@@ -950,6 +964,7 @@ IStaticPath* CPathUnit::CreateBigStaticPath( const CVec2 &vStartPoint, const CVe
 	theStaticMap.SetMode( ELM_STATIC );
 
 	pPathFinder->SetPathParameters( GetBoundTileRadius(), GetAIClass(), pPointChecking, vStartPoint, vFinishPoint, SConsts::INFINITY_PATH_LIMIT, true, GetLastKnownGoodTile() );
+	pPathFinder->SetUnitPassability( pOwner->GetPassability() );
 	pPathFinder->CalculatePathWOCycles();
 	pPathFinder->SmoothPath();
 

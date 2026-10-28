@@ -121,6 +121,7 @@ void SGameInfo::Pack( IDataStream *pDataStream )
 	stream << szGameName << szMapName << nMaxPlayers << eGameType;
 	gameSettings.Pack( pDataStream );
 	stream << checkSumMap << checkSumRes << bPasswordRequired << szPassword << szModName << szModVersion;
+	stream << nRemastered;
 }
 void SGameInfo::Unpack( IDataStream *pDataStream )
 {
@@ -128,4 +129,7 @@ void SGameInfo::Unpack( IDataStream *pDataStream )
 	stream >> szGameName >> szMapName >> nMaxPlayers >> eGameType;
 	gameSettings.Unpack( pDataStream );
 	stream >> checkSumMap >> checkSumRes >> bPasswordRequired >> szPassword >> szModName >> szModVersion;
+	nRemastered = 0;
+	if ( pDataStream->GetPos() < pDataStream->GetSize() )
+		stream >> nRemastered;
 }

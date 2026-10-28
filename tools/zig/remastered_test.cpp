@@ -54,5 +54,32 @@ int main()
 	vars.erase( "History.Playing" );
 	CHECK( !NRemastered::Enabled() );
 
+	// The simulation's rules (the fastest path): the option or a replay's
+	// mode as above, but in multiplayer the host's choice, which a
+	// multiplayer replay brings back with its Multiplayer vars.
+	vars.clear();
+	CHECK( !NRemastered::Simulation() );
+	vars[NRemastered::pszOptionVar] = "1";
+	CHECK( NRemastered::Simulation() );
+	vars["MultiplayerGame"] = "1";
+	CHECK( !NRemastered::Simulation() );
+	vars[NRemastered::pszMultiplayerVar] = "1";
+	vars[NRemastered::pszOptionVar] = "0";
+	CHECK( NRemastered::Simulation() );
+	vars["History.Playing"] = "1";
+	CHECK( NRemastered::Simulation() );
+	vars.erase( "MultiplayerGame" );
+	CHECK( !NRemastered::Simulation() );
+	vars[NRemastered::pszReplayVar] = "1";
+	CHECK( NRemastered::Simulation() );
+	// A replay from the command line plays as a live game but keeps its mode.
+	vars.erase( "History.Playing" );
+	vars[NRemastered::pszOptionVar] = "1";
+	vars[NRemastered::pszReplayVar] = "0";
+	vars[NRemastered::pszCommandLineReplayVar] = "1";
+	CHECK( !NRemastered::Simulation() );
+	CHECK( !NRemastered::ResolveSimulation( true, true, false, false, false ) );
+	CHECK( NRemastered::ResolveSimulation( false, true, true, true, false ) );
+
 	return failures == 0 ? 0 : 1;
 }

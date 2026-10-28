@@ -526,6 +526,7 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="Passages.cpp" />
     <ClCompile Include="PathFinderInternal.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm400   /Zm400 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
@@ -1587,6 +1588,8 @@
     <ClInclude Include="TrainPath.h" />
     <ClInclude Include="TankPitPath.h" />
     <ClInclude Include="Path.h" />
+    <ClInclude Include="FastestPath.h" />
+    <ClInclude Include="Passages.h" />
     <ClInclude Include="PathFinderInternal.h" />
     <ClInclude Include="TrainPathFinder.h" />
     <ClInclude Include="PathFinder.h" />
