@@ -208,7 +208,7 @@ static float Overlap( const CTRect<float> &a, const CTRect<float> &b )
 	return fBoth / ( a.Width() * a.Height() + b.Width() * b.Height() - fBoth );
 }
 // One part of the span drawn as the segment of the bridge kind at pDesc, at
-// vPos; where that segment has no shadow the part's shadow is hidden.
+// vPos (its shadow: ApplyCameraTurn).
 static void DrawSegment( SMapObject *pMO, const SGDBObjectDesc *pDesc, const SBridgeRPGStats::SSegmentRPGStats &segment,
 												 const CVec3 &vPos, const WORD wDir, const NTimer::STime &currTime, IVisObjBuilder *pVOB )
 {
@@ -221,16 +221,6 @@ static void DrawSegment( SMapObject *pMO, const SGDBObjectDesc *pDesc, const SBr
 	pVOB->ChangeObject( pMO->pVisObj, szPartName.c_str(), 0, SGVOT_SPRITE );
 	GetAnim<ISpriteAnimation>( pMO->pVisObj )->SetFrameIndex( segment.nFrameIndex );
 	pMO->pVisObj->Update( currTime, true );
-	if ( pMO->pShadow )
-	{
-		const bool bShadow = pVOB->ChangeObject( pMO->pShadow, (szPartName + "s").c_str(), 0, SGVOT_SPRITE );
-		if ( bShadow )
-		{
-			GetAnim<ISpriteAnimation>( pMO->pShadow )->SetFrameIndex( segment.nFrameIndex );
-			pMO->pShadow->Update( currTime, true );
-		}
-		pMO->pShadow->SetOpacity( bShadow ? 0xff : 0 );
-	}
 }
 // Draws the span for the camera step (Remastered, docs/superpowers/specs/
 // 2026-10-26-camera-turn-design.md, S04) with the 2003 pictures of the span
@@ -241,12 +231,16 @@ static void DrawSegment( SMapObject *pMO, const SGDBObjectDesc *pDesc, const SBr
 // variant's or other end's; either may be a tile longer or narrower). Its back girder, slab and front
 // girder stand at that span's places turned back by the step, so the girder
 // that is far now is drawn behind the slab. Where no span covers half of it,
-// the span keeps its 2003 pictures at its turned place. At step 0 it is drawn
-// as in 2003.
+// the span keeps its 2003 pictures at its turned place. The sun stays in the
+// world (M006 round 2): each part's shadow is its own span's 2003 shadow at
+// its own place, laid on the ground turned with it by the step. At step 0 it
+// is drawn as in 2003.
 void CMOBridgeSpan::ApplyCameraTurn( const NTimer::STime &currTime, IVisObjBuilder *pVOB ) const
 {
 	const SGDBObjectDesc *pDesc = GetDesc();
 	const SBridgeRPGStats *pRPG = static_cast<const SBridgeRPGStats*>( GetRPG() );
+	const SGDBObjectDesc *pOwnDesc = pDesc;
+	const SBridgeRPGStats *pOwnRPG = pRPG;
 	const int nState = GetBridgeDamageState( pSlab->fHP );
 	int nSpan = nOwnSpan;
 	if ( nCameraTurn != 0 )
@@ -281,6 +275,25 @@ void CMOBridgeSpan::ApplyCameraTurn( const NTimer::STime &currTime, IVisObjBuild
 	{
 		const SBridgeRPGStats::SSegmentRPGStats &segment = pRPG->GetSegmentStats( segments[i] );
 		DrawSegment( const_cast<SMapObject*>( parts[i] ), pDesc, segment, vPlacement + NCameraTurn::ViewOffset( segment.vRelPos, nCameraTurn ), wPlacementDir, currTime, pVOB );
+	}
+	const SBridgeRPGStats::SSpan &own = pOwnRPG->GetSpanStats( nOwnSpan, nState );
+	const int ownSegments[3] = { own.nSlab, own.nBackGirder, own.nFrontGirder };
+	for ( int i = 0; i < 3; ++i )
+	{
+		if ( parts[i] == 0 || parts[i]->pShadow == 0 )
+			continue;
+		IVisObj *pShadow = parts[i]->pShadow;
+		const SBridgeRPGStats::SSegmentRPGStats &segment = pOwnRPG->GetSegmentStats( ownSegments[i] );
+		const bool bShadow = pVOB->ChangeObject( pShadow, ( pOwnDesc->szPath + "\\" + segment.szModel + "s" ).c_str(), 0, SGVOT_SPRITE );
+		pShadow->SetPlacement( vPlacement + segment.vRelPos, wPlacementDir );
+		if ( bShadow )
+		{
+			GetAnim<ISpriteAnimation>( pShadow )->SetFrameIndex( segment.nFrameIndex );
+			if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow ) )
+				pShadowSprite->SetScreenTurn( nCameraTurn, false );
+			pShadow->Update( currTime, true );
+		}
+		pShadow->SetOpacity( bShadow ? 0xff : 0 );
 	}
 }
 void CMOBridgeSpan::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
