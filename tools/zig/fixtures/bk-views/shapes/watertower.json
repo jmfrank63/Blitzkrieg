@@ -1,0 +1,6 @@
+{
+  "watertower": [
+    {"lo": [-30, 5], "hi": [1, 35], "wall": 116, "ridge": 130, "roof": "hip"},
+    {"lo": [-38, -1], "hi": [3, 4], "wall": 10, "ridge": 10, "roof": "flat"}
+  ]
+}

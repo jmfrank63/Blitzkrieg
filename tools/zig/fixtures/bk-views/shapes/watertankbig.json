@@ -1,0 +1,7 @@
+{
+  "watertankbig": [
+    {"lo": [-39, 1], "hi": [-1, 40], "wall": 6, "ridge": 6, "roof": "flat"},
+    {"lo": [-55, 27], "hi": [-44, 47], "wall": 45, "ridge": 45, "roof": "flat"},
+    {"lo": [-44, 48], "hi": [-27, 52], "wall": 47, "ridge": 47, "roof": "flat"}
+  ]
+}
