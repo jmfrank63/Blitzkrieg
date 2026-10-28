@@ -949,3 +949,77 @@ tutorial's green-roofed church whose spire floats behind its roof.
   - 36 variants fail style only on a turn lit by the world's sun (`r<k>l<k>`: sharpness under 0.45 or winter colour
     over 62), as on main since fix/world-sun; not changed here. dot/03's hold-out winter colour is 68.6 (main passed).
   - Faces no 2003 side shows still borrow the opposite face whole; doors and windows are not parts yet.
+
+## Shapes first: vector models for review (M006 round 4, 2026-10-29)
+
+The maintainer, on a winter group of anti-tank stakes that kept leaning the same way after a turn: "We should model
+the shape as vectors, rotate and create a new outline shape which we then fill with the new sprite. Basically for all
+shapes we do this. [...] For houses we do sub divisions like walls, roof sides and chimneys and windows. [...] create
+vector models and rotate them in all four directions. Save them as a pdf for me to review so we get the shapes correct.
+Then we deal with the filling." And: "give each shape a number and a side like 33.N 33.S". This round is shapes only:
+nothing the Game or `side` draws changed.
+
+- **Numbers** (`bk-views ids`, `tools/zig/fixtures/bk-views/shape-ids.json`). Every object that turns, in contents
+  order (Data/Buildings by region, family and variant, then Data/Objects/SimpleObjects the same way; flora turns as
+  itself and is not numbered): 412, 1 to 194 the building variants, 195 to 412 the simple objects. A number is kept
+  across runs; a new object takes the next. **Sides:** `<number>.N` is turn 0, the side the 2003 picture shows; `.E`,
+  `.S` and `.W` are turns 1, 2 and 3, what one, two and three presses of the Game's turn key (`.`, camera step 1, 2,
+  3) show of an object at facing 0. So "33.S" is object 33 after two presses.
+- **Models** (`bk-views models`, `zig build shapes-models`, `tools/zig/fixtures/bk-views/models/buildings/<family>.json`
+  and `objects/<family>.json`, variant folder to model). A model is its number, path, how it was made, the outline IoU
+  of its turn 0 with its 2003 intact picture (`fit`), its footprint and its parts, in the variant's frame (world units
+  from its zero cross): blocks (the format of `shapes/`, with a kind: `body`, `chimney`, `low` for ramps, steps and
+  porches, `roof_part` for dormers, vents and crates, `tower` for a hipped roof part over 100 units and twice its width),
+  `pole`s (a square prism from a foot to a top, with a radius) and rectangles on a block's wall (`window`, `door`: the
+  wall's name, across it from its left end seen from outside, and up). The faces are named when drawn: each block's
+  `wall ±x/±y`, `gable ±x/±y` and `roof ±x/±y` or `roof flat`.
+  - Buildings: the intact blocks `side` draws (hand shape or fit, with the chimneys cut from the picture, the low
+    parts and the roof parts), so the review shows what the turns are drawn on.
+  - Windows and doors (`findOpenings`): on each body wall the 2003 picture sees squarely, the wall sampled on a 1-unit
+    grid where nothing stands in front; groups of points darker than 0.7 of the wall's median, 4 to 20 units wide, 5 to
+    26 high, between 2:5 and 5:2 and three fifths dark (half-timbering's long beams are not); from the ground and 10
+    high a door. 518 windows and 27 doors on 150 of the 194 building variants.
+  - Simple objects: the fit, and one box over the footprint (under the outline's foot where there is none), each
+    refined to the outline by the exact IoU of the drawing with no least size (`refineToOutline`; a block of the fit
+    keeps 12 units, too big for a barrel or a box); the better one. Thin objects (`fitPoles`): straight lines found
+    among the opaque pixels (the longest run within 1.6 pixels of a line through two of them, gaps up to 7 so that a
+    crossing beam does not cut it, thin and free on both sides along half its length or more), each lifted to a pole by
+    the 2003 projection: its lower end on the ground, its upper end at the same depth along the line of sight. Poles
+    replace the blocks where they hold the outline better by 0.02. A hand shape always stays.
+  - Made: 86 hand shapes, 116 fits, 180 fits refined, 30 pole models; 731 body blocks, 198 chimneys, 396 low parts, 188
+    roof parts, 3 towers, 52 poles, 518 windows, 27 doors. The drawing at N over the 2003 picture: mean outline IoU 0.85.
+- **Drawing** (`seenFaces`). Each turn is the model's faces projected by the 2003 camera turned (Eye's turn), back
+  faces culled, in a painter's order: where two faces overlap on the screen, the one farther along the line of sight at
+  a point of the overlap (the middle of the two polygons clipped one by the other) is drawn first; a cycle (blocks
+  that pass through each other) is broken at the farthest face. A chimney, roof part or tower is drawn from the lowest
+  roof under it up, not through the house. A window or door lies on its wall, seen only where the wall is.
+- **Review** (`bk-views review`, `zig build shapes-review`, `zig-out/review/shapes.pdf`, A4 landscape, one file:
+  417 pages, 13 MB). Contents pages (number, path, how made, page; the side convention and the colours), then a page
+  per object: its number and path, how it was made, the fit, the footprint, the 2003 picture alone and with the
+  model's turn 0 drawn over it in the parts' colours, the parts list (p1, p2, ...), and the four turns at one scale as
+  vector drawings, each labelled `<number>.N` to `.W` in 22-point type, parts coloured by kind and numbered. Bookmarks
+  per object. The PDF writer is `tools/zig/bk_pdf.zig` (std-only: Flate streams, Helvetica, RGBA pictures with a soft
+  mask, outlines); its test checks every xref offset.
+- **Tests** (`test-bk-views`): a gabled house with a chimney drawn as a model covers its blocks' picture (IoU over
+  0.97); a stake drawn leaning in a picture comes back as one pole, its foot on the ground under the stake's lower end
+  and its top over 30 units up; the PDF writer's test.
+- **For the maintainer's review** (97 objects whose model is a guess: pole models, whose lean towards the eye one
+  picture cannot tell, and models under 0.8 of their outline): 22 conduitbarrel, 37 watchtower, 39 watertanklittle,
+  80 e_monument, 89, 90 e_statue/01, /02, 92 e_stella/01, 122, 123 chimneystalkbig, chimneystalklittle, 155 lenin; the
+  props 200 to 216 (a_counter, a_ruins_01), 217 to 220 antitank/01..04 (the stakes), 223 to 227 box/00..04, 228
+  conduitbarrel, 231, 236 debris/03, /08, 250 to 258 logs/01..08 and mine, 259 to 262 railroadbarrier, railroadswitch,
+  265 to 267 semaphore, sheaf, 276, 277 wirefence, 278 to 290 e_megaphone, e_columnclock, e_directionsign*, 299, 300
+  e_francefence/03, /04, 309 e_gravestone/09, 315 to 318 bench, 356 factoryfencewire/06, 370, 371 nestlingbox, 374
+  russyn, 376 to 379 swing, 381 to 383 ukrainesyn, ukrainewell, 384 to 392 villagefence, 394 to 396 wickerfence, 397
+  to 400 woodpier. And for every building the windows and doors, which the detector finds from dark patches (a dark
+  eave or timber cross can pass; a window lit as bright as its wall is missed).
+- **Not modelled yet:** cylinders, cones and domes (a round tank, a barrel or an onion dome is a box or a hip; the
+  church's dome is a hip on its drum), polygons other than a block's faces; Data/Fences (a fence draws the segment of
+  its turned direction, which the 2003 data has) and Data/Bridges (a span turns with the ground); damage states
+  (models are of the intact picture).
+- **Also in this round.** `camera-turn-control-game-reads-it` failed on main after fix/no-mirror at step 2: Swing01
+  picked at 18 of 41 grid points. The parked cursor stood in the swing's pick grid at that step and the grid counted it
+  as the swing's picture (the swing's own 17 points all picked). The cursor now waits at 1000x60, dark at every step:
+  17 of 17. The tier also builds the bk-sprite `side` needs (a fresh checkout failed composing with FileNotFound).
+  `camera-turn-control-game-reads-it`, `camera-turn-village-game-reads-it` and `camera-turn-game-reads-it` pass on
+  main plus that fix, on win-home (Windows x64).
