@@ -351,12 +351,13 @@ fn relightCommand(ctx: *bk_tool.Context, dir_arg: []const u8, out_arg: []const u
 
 fn relightTree(ctx: *bk_tool.Context, dir: []const u8, out: []const u8) !usize {
     var made: usize = 0;
-    // A folder relight cannot read (a mine's animation pack) is noted on stderr
-    // and keeps its 2003 picture.
-    if (hasName(try entries(ctx.arena, ctx.io, dir, .file), "1.san")) made += relightFolder(ctx, dir, out) catch |err| switch (err) {
-        error.Failed => 0,
-        else => return err,
-    };
+    // A folder whose pack is not a sprite pack (a mine's animation pack) keeps
+    // its 2003 picture: noted on stdout, as a build step fails on a tool's stderr.
+    if (hasName(try entries(ctx.arena, ctx.io, dir, .file), "1.san")) {
+        if (decodePack(ctx.arena, try readFile(ctx, try std.fs.path.join(ctx.arena, &.{ dir, "1.san" })))) |_| {
+            made += try relightFolder(ctx, dir, out);
+        } else |err| try ctx.out.print("{s}: kept as drawn ({s})\n", .{ dir, @errorName(err) });
+    }
     for (try entries(ctx.arena, ctx.io, dir, .directory)) |sub| {
         made += try relightTree(ctx, try std.fs.path.join(ctx.arena, &.{ dir, sub }), try std.fs.path.join(ctx.arena, &.{ out, sub }));
     }
