@@ -431,7 +431,8 @@ or more turns from a sibling); `camera-turn-mod` copies them when it runs next.
   camera's yaw offset for the frame (`CScene::Draw`, a local `sun` for mesh light and mesh shadows), so a tank is
   lit and casts its shadow to the same side of the screen at every step, as the 2003 pictures of infantry, trees
   and props and M005's turned building sides are (camera-fixed light). The ground's vertex shade still follows the
-  world sun (S03's rough edge).
+  world sun (S03's rough edge). *Reversed in round 2: the sun stays in the world ("The sun fixed in the world",
+  below).*
 - **Icons, the plane camera and sound: `NCameraTurn::ViewOffset`.** An offset laid out along the 45 degree view's
   axes is turned by the camera's yaw offset, so an icon row stays a row on the screen and a passenger's bar stays in
   front of its building; each icon applies it when it is placed beside its object every frame (`Reposition`).
@@ -1233,3 +1234,109 @@ jumped 8007 / 7982 ms, the period across the pause read 5.2 / 6.6 fps and lowere
 (macOS, Linux) is not exercised on Windows, where WinFrame already paused; CI runs the tier there only if a workflow
 names it. Also run: `test-game-frame test-game-loop test-game-bootstrap camera-turn-storage-game-reads-it` pass. Not
 seen: macOS, Linux.
+
+## The sun fixed in the world (M006 round 2, 2026-10-28)
+
+The maintainer's second hand test: "Shadows are not moving. Light always comes from the left side. If we switch the
+camera angle the shadows need to move, too."
+
+### Decision (reverses S01/S04's light that turns with the camera)
+
+- **The sun stays in the world.** S04 turned the sun with the camera so that meshes matched the 2003 pictures, which
+  are all lit from the screen's left; M005's turned building sides were lit the same way. Now at camera step k the
+  light and every shadow come from the world's sun as the turned camera sees it: from the screen's left at step 0, as
+  in 2003, from the other side at step 2. Remastered off (step always 0) draws as before.
+- **Vehicles and guns:** `CScene::Draw` hands the world's `sunlight` to mesh light and to `DrawShadow`; the turned
+  local `sun` is gone. Measured: the T-34's colour against the step-0 tank at the turned place stays 0.01 to 0.15
+  under either sun, so the GPU renderer does not shade meshes by the light's direction at all (`effectiveDrawColor`
+  folds the material in, no Lambert term); their light is the texture's. Only their shadows show the sun.
+- **Buildings: pictures per (side, step).** `bk-views side` takes `<k>l<s>`: turn k lit by the sun as camera step s
+  shows it, `<variant>_r<k>_l<s>`, whose light is the building's facing k - s in its own frame (`Turned.light`, passed
+  to `projectPicture`, `shadeClass` and the shadow). A face keeps the light the world gives it: a face the 2003 picture
+  shows lit stays lit. Pictures a turn copies whole (a sibling's 2003 side, a thin object's own picture, a mirror) are
+  relit pixel by pixel in place (`sunLit`: the blocks give each pixel's face, the light model gives the gain), so their
+  2003 detail is kept; heaps are not relit, as before. The shadow is cast from the fitted blocks along the world's sun
+  (`castShadow`). The batch makes `1l1`, `2l2` and `3l3` for every variant (the turns a building of facing 0 shows) and
+  `bk-views report` lists them as `r<k>l<k>`. The Game (`NCameraTurn::LitModelPath`) draws `<variant>_r<d>_l<s>` at
+  camera step s where the data holds it, its shadow with it; else `_r<d>` (the light fixed to the camera) and the
+  shadow of step 0 laid turned with the ground (`GetShadowPath`). Step 0 of side 0 stays the 2003 picture.
+- **Objects, fences, bridges: their own shadow turned with the ground.** A shadow on flat ground seen by the camera
+  turned k quarters is the step-0 shadow turned with the ground about the object's zero cross: S03's flat turn
+  (`SetScreenTurn`), no new data. Flora and props lay their own 2003 shadow so (a prop of four sides its own facing's
+  variant's, not the shown side's), a fence segment its own segment's at its own footprint (no fence shift), a bridge
+  part its own span's at its own place.
+- **Flora and props lit by the world's sun** (the maintainer's follow-up: "relight them too"). `bk-views relight
+  <objects-dir> <out-dir>` writes `<pack>_l<k>` beside each object's 2003 packs (every one-sprite pack but shadows;
+  `1` and `1w`): each pixel's normal guessed from the outline as an upright body of revolution (across a row from the
+  screen's left through the viewer to its right, the upper half of each column leaning up to 0.7; `spriteNormals`), the
+  object's own lit against shaded side per channel (`objectLight`, held within the 13 houses' median), and each pixel
+  relit by the 2003 light model to the light of turn -k (`relightSprite`), mirrored where the Game mirrors the prop.
+  `CMOObject::ShowPicture` takes `<pack>_l<step>` where the data holds it (a prop of four sides its side's), else the
+  2003 picture. `zig build objects-relight` makes them for Flora and SimpleObjects into
+  `zig-out/remastered/Objects` (about 1 minute and 8 minutes on win-home: 195 and 1125 packs; the two mines are
+  animation packs and keep their pictures); `camera-turn-mod` copies them into the mod.
+- **Infantry: left as drawn.** A soldier's small shadow is drawn into its 2003 animation pictures (dark pixels at its
+  feet), not by the shadow pass: the sniper shows 0 to 7 shadow-pass pixels. Turning it needs the shadow pixels split
+  from the animation packs (`fmtAnimation`, not the sprite packs bk-views reads) and drawn flat-turned; its lit side
+  likewise. Not done (below).
+- **The minimap and fog** are not touched.
+
+### The tiers (round 2)
+
+`zig build camera-turn-sun-game-reads-it` (`tools/zig/camera_turn_sun_game_reads_it.zig`): a map from road3d.xml with
+a T-34, the lime tree `_Lime` and a German sniper on a ring (eighths 0, 2, 4) and `E_FrenchShed01` on a smaller ring
+(eighth 6, clear of the pause label), the shed's turns made with `1,2,3,1l1,2l2,3l3` and the tree relit into a scratch
+mod. A shadow is where the frame with shadows is darker than the one without (by 30 over three channels); each
+object's shadow at step k is scored against its own step-0 shadow mapped by the ground's turn about it, on the ground
+neither picture of the object covers (`sunShadow`): IoU at the best offset within 4 pixels, against the same not turned
+(the sun turning with the camera), and the angle between the two shadows' centroids on the ground (screen y doubled).
+Held where the shadow shows 100 pixels or more: IoU 0.35 or more, above the not-turned IoU, centroids within 30 degrees,
+and at one step at least per object. Measured (win-home, Windows x64, debug install):
+
+| step | shed | T-34 | lime |
+|---|---|---|---|
+| 1 | hidden behind it (0 px) | 0.650 / 0.232, 3.2 deg | 0.749 / 0.239, 7.7 deg |
+| 2 | 0.380 / 0.000, 15.7 deg | 0.461 / 0.169, 9.8 deg | 0.991 / 0.218, 0.2 deg |
+| 3 | 0.647 / 0.000, 7.4 deg | 0.810 / 0.205, 13.2 deg | 0.861 / 0.239, 0.4 deg |
+
+(IoU turned / not turned, centroids apart.) The shed's shadow is cast by its blocks, the 2003 one by the artist, so it
+matches less; the T-34's at step 2 falls on the road where step 0's lay on grass, and the threshold cuts the two
+differently. The shed at step k is its `_r<k>_l<k>` sprite (IoU 1.000, colour 0.00 to 0.01) and not its `_r<k>`
+(colour 27.2, 33.4, 14.0). The tree is its `1_l<k>` picture (IoU 0.976, colour 0.00 to 2.93; the 2003 picture 16.5 to
+18.7), and the crown's left half against its right goes from 1.449 at step 0 to 0.705 at step 2 (0.851 and 1.041 at
+the quarter turns). Remastered off: 0 pixels changed by the key.
+
+`camera-turn-units-game-reads-it` holds the tanks the same way (it held them to the step-0 shadow at the turned place
+before): turned / not turned 0.10 to 0.73 / 0.00 to 0.23 at step 1 (cast behind the tank: 59 to 149 pixels), 0.40 to
+0.46 / 0.14 to 0.17 at step 2, 0.80 to 0.90 / 0.12 to 0.21 at step 3, centroids 0.6 to 16.9 degrees where held; a
+tank's colour is reported only (0.01 to 0.15, above). `test-bk-views` gains a box drawn at the half turn under either
+light (each pixel the grey lit as its face is under that light; the +y wall twice as bright under the camera's light,
+the -x wall brighter under the world's sun) and a round crown relit for step 2 (its lit half moves from left to right).
+
+### Other tiers (round 2)
+
+Run on win-home (Windows x64, debug install), one `zig build` at a time, after the last engine change:
+`camera-turn-sun-game-reads-it camera-turn-units-game-reads-it test-bk-views` pass;
+`test-map-editor-engine map-editor-smoke camera-turn-world-game-reads-it camera-turn-game-reads-it` pass (628 s; the
+shared `CameraTurn.h`, `MOBuilding` and `MOObject`, the Map Editor's step stays 0).
+After the objects' relighting: `camera-turn-sun-game-reads-it camera-turn-world-game-reads-it objects-relight` pass
+(1345 s; `objects-relight` notes the two mines on stderr and exits 0), then
+`test-map-editor-engine map-editor-smoke` again (pass, 1100 s with other worktrees building).
+The building batch (`building-views-batch-<region>`, now twice the turns) and the full sweep are left to the
+maintainer; Linux and macOS to CI.
+
+### Left open (round 2)
+
+- **Infantry** keep their 2003 shadow and lit side at every step (above).
+- **Mesh light:** the GPU renderer has no directional term, so a tank's lit side does not follow any sun; adding a
+  Lambert term to the lit effect would light every mesh anew (2003's D3D fixed function did), a renderer change of its
+  own.
+- **Buildings turned in the Map Editor:** only `_r<k>_l<k>` (facing 0) is made; a building of facing f at step s
+  needs `_r<f+s>_l<s>` and falls back to the light fixed to the camera with its step-0 shadow turned. `bk-views side`
+  makes any `<k>l<s>`; the batch would grow from 6 to 15 turns a variant. The Resource Editor's Four sides still makes
+  `1,2,3` only.
+- **Objects' shadows** are the 2003 shadow sprites turned, which hold the shadow outside the 2003 picture only: where
+  the object hid part of its shadow at step 0, that part is missing at the other steps (small under a tree or a box).
+  Terra objects keep their painted relief as before (S03).
+- **Relit objects are not gated by a style measure** (`bk-views style` compares buildings with their family's
+  pictures); a crown seen at step 2 is the shaded side, about 0.6 of the 2003 brightness, as a building's back is.

@@ -22,10 +22,12 @@ class CMOObject : public CTRefCount<SMapObject>
 	int nOwnFrame;
 	int nSeason;												// its season (a prop of four sides draws the season's picture of a side)
 	int nShownTurn;											// the turn of a prop of four sides it shows (0: its own)
+	int nShownLight;										// the camera step whose sun its picture is lit by (0: the 2003 picture)
 	int nFacing;												// its own facing in quarter turns (a prop of four sides draws by it)
 	CVec3 vTurnShift;											// how far a turned fence segment's picture stands from its place (world units)
 	void ApplyCameraTurn();
 	void ShiftPicture( const CVec3 &vShift );
+	void ShowPicture( const std::string &szFolder );
 	IText* GetLocalName() const
 	{
 		if ( pLocalName == 0 )
@@ -33,7 +35,7 @@ class CMOObject : public CTRefCount<SMapObject>
 		return pLocalName;
 	}
 public:
-	CMOObject() : nCameraTurn( 0 ), nOwnFrame( -1 ), nSeason( 0 ), nShownTurn( 0 ), nFacing( 0 ), vTurnShift( VNULL3 ) {  }
+	CMOObject() : nCameraTurn( 0 ), nOwnFrame( -1 ), nSeason( 0 ), nShownTurn( 0 ), nShownLight( 0 ), nFacing( 0 ), vTurnShift( VNULL3 ) {  }
 	virtual bool STDCALL Create( IRefCount *pAIObj, const SGDBObjectDesc *pDesc, int nSeason, int nFrameIndex, float fHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB );
 	virtual void STDCALL SetPlacement( const CVec3 &vPos, const WORD &wDir );
 	virtual void STDCALL GetPlacement( CVec3 *pvPos, WORD *pwDir );

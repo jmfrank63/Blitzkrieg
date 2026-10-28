@@ -820,6 +820,16 @@ in the same screen place at every step, not standing on the ridge where the hous
   2003 side (e_house02_4's) is not found by the mask and stays as the fit and the projection draw it; the thatch
   houses' ridge sticks are cut as thin posts (ukrainehouse03_1).
 
+## Turns lit by the world's sun (M006 round 2, 2026-10-28)
+
+The camera turn's light now stays in the world (camera-turn spec, "The sun fixed in the world"). `bk-views side`'s
+`<k>l<s>` makes turn k lit as camera step s shows it (`<variant>_r<k>_l<s>`: the light of facing k - s in the
+variant's frame); the batch adds `1l1`, `2l2` and `3l3` to every variant (6 turns, 1164 folders), checked and scored as
+the others and listed as `r<k>l<k>` by the report. Faces drawn by the blocks take that light from the light model; a
+turn copied whole (sibling side, thin object, mirror) is relit pixel by pixel on its blocks (`sunLit`), keeping the
+2003 detail; its shadow is cast from the blocks along that light. `bk-views relight` relights flora and props the same
+way on a shape guessed from the outline. The batch was not rerun here (left to the maintainer).
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

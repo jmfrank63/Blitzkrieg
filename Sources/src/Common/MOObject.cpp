@@ -150,8 +150,9 @@ static CVec2 FenceFootprintMiddle( const SFenceRPGStats *pStats, const int nFram
 	}
 	return VNULL2;
 }
-// Moves its pictures to stand vShift (world units) from its place, the shift
-// before taken off; an object not in the scene yet is only placed.
+// Moves its picture to stand vShift (world units) from its place, the shift
+// before taken off; an object not in the scene yet is only placed. Its shadow
+// stays at its place (ApplyCameraTurn).
 void CMOObject::ShiftPicture( const CVec3 &vShift )
 {
 	if ( vShift == vTurnShift )
@@ -161,8 +162,6 @@ void CMOObject::ShiftPicture( const CVec3 &vShift )
 	IScene *pScene = GetSingleton<IScene>();
 	if ( !pScene->MoveObject( pVisObj, vPos ) )
 		pVisObj->SetPosition( vPos );
-	if ( pShadow && !pScene->MoveObject( pShadow, vPos ) )
-		pShadow->SetPosition( vPos );
 }
 // Draws it for the camera step (Remastered, Main/CameraTurn.h), each kind by
 // the shortest path (docs/superpowers/specs/2026-10-26-camera-turn-design.md,
@@ -174,6 +173,11 @@ void CMOObject::ShiftPicture( const CVec3 &vShift )
 //   longer rectangle its picture is mirrored at an odd step, which lays it on
 //   the turned footprint (its shadow kept, as M005's mirrored sprites keep it);
 // - a fence segment shows the segment of its direction turned by the step.
+// The sun stays in the world (M006 round 2): the shadow an object casts is the
+// one it casts at step 0 (its own picture's, its own segment's), at its place,
+// laid on the ground turned with it by the step, as a terra object is; an
+// object (flora, a prop) shows its picture lit by that sun where the data
+// holds one (ShowPicture).
 // At step 0 each is drawn as in 2003.
 void CMOObject::ApplyCameraTurn()
 {
@@ -188,24 +192,27 @@ void CMOObject::ApplyCameraTurn()
 				pShadowSprite->SetScreenTurn( nCameraTurn, false );
 			break;
 		case SGVOGT_OBJECT:
+			if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
+				pShadowSprite->SetScreenTurn( nCameraTurn, false );
 			if ( NCameraTurn::IsFourSided( pDesc->szPath ) )
 			{
 				// A prop the 2003 data shows from four sides as variants `01` to
 				// `04`, each the one before turned by (x, y) -> (-y, x) (bench,
 				// France fence, the wooden columns), draws its variant of
 				// turn DrawnTurn( its own facing, step ), as a building does.
-				const int nTurn = NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nCameraTurn );
-				if ( nTurn == nShownTurn )
+				const int nOwnTurn = NCameraTurn::FacingCounts() ? nFacing : 0;
+				const int nTurn = NCameraTurn::DrawnTurn( nOwnTurn, nCameraTurn );
+				if ( nTurn == nShownTurn && nCameraTurn == nShownLight )
 					break;
 				nShownTurn = nTurn;
-				const std::string szSide = NCameraTurn::FourSidedPath( pDesc->szPath, nTurn );
+				ShowPicture( NCameraTurn::FourSidedPath( pDesc->szPath, nTurn ) );
 				IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
-				const std::string szName = szSide + ( nSeason == 1 ? "\\1w" : "\\1" );
-				const bool bSeason = pVOB->ChangeObject( pVisObj, szName.c_str(), 0, SGVOT_SPRITE );
-				if ( !bSeason )
-					pVOB->ChangeObject( pVisObj, ( szSide + "\\1" ).c_str(), 0, SGVOT_SPRITE );
 				if ( pShadow )
-					pVOB->ChangeObject( pShadow, ( ( bSeason ? szName : szSide + "\\1" ) + "s" ).c_str(), 0, SGVOT_SPRITE );
+				{
+					const std::string szShadowSide = NCameraTurn::FourSidedPath( pDesc->szPath, nOwnTurn );
+					if ( !pVOB->ChangeObject( pShadow, ( szShadowSide + ( nSeason == 1 ? "\\1ws" : "\\1s" ) ).c_str(), 0, SGVOT_SPRITE ) )
+						pVOB->ChangeObject( pShadow, ( szShadowSide + "\\1s" ).c_str(), 0, SGVOT_SPRITE );
+				}
 				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
 				pVisObj->Update( currTime, true );
 				if ( pShadow )
@@ -216,6 +223,11 @@ void CMOObject::ApplyCameraTurn()
 				const CArray2D<BYTE> &passability = static_cast_gdb<const SStaticObjectRPGStats*>( pRPG )->GetPassability();
 				const bool bRectangle = passability.GetSizeX() != passability.GetSizeY() && passability.GetSizeX() * passability.GetSizeY() != 0;
 				pSprite->SetScreenTurn( 0, bRectangle && ( nCameraTurn & 1 ) != 0 );
+				if ( nCameraTurn != nShownLight )
+				{
+					ShowPicture( pDesc->szPath );
+					pVisObj->Update( GetSingleton<IGameTimer>()->GetGameTime(), true );
+				}
 			}
 			break;
 		case SGVOGT_FENCE:
@@ -239,19 +251,43 @@ void CMOObject::ApplyCameraTurn()
 					AI2Vis( &vShift, vOwn.x - vDrawn.x, vOwn.y - vDrawn.y, 0 );
 				}
 				ShiftPicture( vShift );
+				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
+				if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
+				{
+					pShadowSprite->SetScreenTurn( nCameraTurn, false );
+					ISpriteAnimation *pShadowAnim = static_cast<ISpriteAnimation*>( static_cast_ptr<IObjVisObj*>(pShadow)->GetAnimation() );
+					if ( pShadowAnim->GetFrameIndex() != nOwnFrame )
+					{
+						pShadowAnim->SetFrameIndex( nOwnFrame );
+						pShadow->Update( currTime, true );
+					}
+				}
 				if ( nFrame == pAnim->GetFrameIndex() )
 					break;
-				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
 				pAnim->SetFrameIndex( nFrame );
 				pVisObj->Update( currTime, true );
-				if ( pShadow )
-				{
-					static_cast<ISpriteAnimation*>( static_cast_ptr<IObjVisObj*>(pShadow)->GetAnimation() )->SetFrameIndex( nFrame );
-					pShadow->Update( currTime, true );
-				}
 			}
 			break;
 	}
+}
+// Shows the picture of szFolder (a prop's or its side's folder), its season's
+// where the data holds it, lit by the world's sun as the camera step shows it:
+// `<pack>_l<step>` (bk-views relight, M006 round 2) where the data holds it,
+// else the 2003 picture.
+void CMOObject::ShowPicture( const std::string &szFolder )
+{
+	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
+	const std::string szLit = NStr::Format( "_l%d", nCameraTurn );
+	const std::string szPacks[2] = { szFolder + ( nSeason == 1 ? "\\1w" : "\\1" ), szFolder + "\\1" };
+	for ( int i = 0; i < 2; ++i )
+	{
+		if ( nCameraTurn != 0 && GetSingleton<IDataStorage>()->IsStreamExist( ( szPacks[i] + szLit + ".san" ).c_str() ) &&
+				 pVOB->ChangeObject( pVisObj, ( szPacks[i] + szLit ).c_str(), 0, SGVOT_SPRITE ) )
+			break;
+		if ( pVOB->ChangeObject( pVisObj, szPacks[i].c_str(), 0, SGVOT_SPRITE ) )
+			break;
+	}
+	nShownLight = nCameraTurn;
 }
 void CMOObject::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {
@@ -282,6 +318,7 @@ int CMOObject::operator&( IStructureSaver &ss )
 		saver.Add( 8, &nShownTurn );
 		saver.Add( 9, &nFacing );
 		saver.Add( 10, &vTurnShift );
+		saver.Add( 11, &nShownLight );
 	}
 	if ( saver.IsReading() ) 
 		FillActions();
@@ -308,7 +345,7 @@ void CMOObject::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 	const WORD wSpriteDir = pDesc->eGameType == SGVOGT_OBJECT ? 0 : wDir;
 	pVisObj->SetPlacement( vPos + vTurnShift, wSpriteDir );
 	if ( pShadow )
-		pShadow->SetPlacement( vPos + vTurnShift, wSpriteDir );
+		pShadow->SetPlacement( vPos, wSpriteDir );
 	if ( pDesc->eGameType == SGVOGT_OBJECT && NCameraTurn::Facing( wDir ) != nFacing )
 	{
 		nFacing = NCameraTurn::Facing( wDir );
@@ -390,7 +427,7 @@ void CMOObject::AIUpdatePlacement( const SAINotifyPlacement &placement, const NT
 	pVisObj->Update( currTime, true );
 	if ( pShadow )
 	{
-		pScene->MoveObject( pShadow, vPos + vTurnShift );
+		pScene->MoveObject( pShadow, vPos );
 		pShadow->Update( currTime, true );
 	}
 }
