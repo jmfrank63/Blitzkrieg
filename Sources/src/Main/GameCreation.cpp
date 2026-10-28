@@ -9,6 +9,7 @@
 #include "NetMessages.h"
 #include "MultiplayerConsts.h"
 #include "CommandsHistory.h"
+#include "Remastered.h"
 
 #include "../RandomMapGen/Resource_Types.h"
 #include "../RandomMapGen/MapInfo_Types.h"
@@ -314,6 +315,7 @@ void CCommonGameCreationInfo::SetGlobalVars( const int nOurLogicID )
 	SetGlobalVar( "Multiplayer.GameSettings.KillScoreLimit", gameInfo.gameSettings.nKillScoreLimit );
 	SetGlobalVar( "Multiplayer.GameSettings.TimeToCapture", gameInfo.gameSettings.nTimeToCapture );
 	SetGlobalVar( "Multiplayer.GameSettings.TimeLimit", gameInfo.gameSettings.nTimeLimit );
+	SetGlobalVar( NRemastered::pszMultiplayerVar, gameInfo.nRemastered );
 	SetGlobalVar( "Multiplayer.CheckSumMap", gameInfo.checkSumMap );
 	SetGlobalVar( "Multiplayer.CheckSumRes", gameInfo.checkSumRes );
 }
@@ -412,6 +414,7 @@ void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOut
 {
 	gameInfo = _gameInfo;
 	gameInfo.nCurPlayers = 1;
+	gameInfo.nRemastered = GetGlobalVar( NRemastered::pszOptionVar, 0 ) != 0;
 	mapInfo = _mapInfo;
 
 	pInGameNetDriver = _pInGameNetDriver;

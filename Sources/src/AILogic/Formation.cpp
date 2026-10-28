@@ -209,6 +209,7 @@ IStaticPath* CFormationCenter::CreateBigStaticPath( const CVec2 &vStartPoint, co
 	theStaticMap.SetMode( ELM_STATIC );
 
 	GetPathFinder()->SetPathParameters( GetBoundTileRadius(), GetAIClass(), pPointChecking, vStartPoint, vFinishPoint, SConsts::INFINITY_PATH_LIMIT, true, lastKnownGoodTile );
+	GetPathFinder()->SetUnitPassability( GetPassability() );
 	GetPathFinder()->CalculatePathWOCycles();
 	GetPathFinder()->SmoothPath();
 

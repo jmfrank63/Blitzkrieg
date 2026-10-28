@@ -85,8 +85,12 @@ struct SGameInfo
 	std::string szModVersion;
 	
 	bool bMapLoaded;
+	// The host's Remastered option (NRemastered::Simulation): the rules every
+	// player's simulation plays by. Sent last, so a 2003 client reads the rest
+	// as before and a game from a host without it plays the 2003 rules.
+	int nRemastered;
 
-	SGameInfo() : checkSumMap( 0L ), checkSumRes( 0L ), bPasswordRequired( false ), szPassword( "" ), bMapLoaded( true ) { }
+	SGameInfo() : checkSumMap( 0L ), checkSumRes( 0L ), bPasswordRequired( false ), szPassword( "" ), bMapLoaded( true ), nRemastered( 0 ) { }
 
 	void Init( const WORD *pszGameName, const char *pszMapName, const int _nMaxPlayers, const int _nCurPlayers,
 						 const SMultiplayerGameSettings &_gameSettings,

@@ -206,6 +206,9 @@ bool CCommandsHistory::Load( const char *pszFileName )
 	saver.Add( "Multiplayer", &nMultiplayerGame );
 	if ( nMultiplayerGame == 1 )
 	{
+		// A replay from before the host's Remastered option travelled has none:
+		// not the last game's.
+		RemoveGlobalVar( NRemastered::pszMultiplayerVar );
 		GetSingleton<IGlobalVars>()->SerializeVarsByMatch( saver, "Multiplayer." );
 		SetGlobalVar( "MultiplayerGame", 1 );
 	}

@@ -94,3 +94,12 @@ order or a click happens, so a save written in one mode plays in the other.
 - The Game looks for `defconf.cfg` relative to its working folder
   (`ResolveConfigFileName`); a Game started from a scratch folder has no
   option actions unless the file is beside it, so the tier copies it there.
+
+## The simulation's own rules (2026-10-28)
+
+The fastest path (`2026-10-28-fastest-path-design.md`) changes the decision
+"multiplayer always plays the original" for rules the simulation itself plays
+by: `NRemastered::Simulation()` holds in multiplayer as the host's option
+(sent with the game info as `Multiplayer.Remastered`), is decided once as a
+mission starts and is kept in its saves. `Enabled()` and everything behind it
+are unchanged.

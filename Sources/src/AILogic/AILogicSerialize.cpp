@@ -12,6 +12,7 @@
 #include "Building.h"
 #include "StaticObjectsIters.h"
 #include "../Main/Remastered.h"
+#include "PathFinderInternal.h"
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 int CAILogic::operator&( IStructureSaver &ss )
@@ -45,6 +46,17 @@ int CAILogic::operator&( IStructureSaver &ss )
 	saver.Add( 17, &availableTrucks );
 	saver.Add( 18, &bNetGameStarted );
 	saver.Add( 19, &reservePositions );
+	// The fastest path (Remastered, CStandartPathFinder), decided when the
+	// mission started: kept only when on, so a save from 2003, or one written
+	// with it off, plays on with the 2003 finder.
+	int nFastestPath = saver.IsReading() ? 0 : int( CStandartPathFinder::IsFastestPath() );
+	if ( saver.IsReading() || nFastestPath != 0 )
+		saver.Add( 20, &nFastestPath );
+	if ( saver.IsReading() )
+	{
+		CStandartPathFinder::SetFastestPath( nFastestPath != 0 );
+		if ( getenv( "BK_PATH_TRACE" ) ) fprintf( stderr, "BK_PATH_TRACE: loaded finder fastest=%d\n", nFastestPath );
+	}
 	
 	if ( saver.IsReading() )
 	{

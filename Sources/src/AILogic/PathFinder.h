@@ -8,6 +8,10 @@ interface IPointChecking : public IRefCount
 interface IStaticPathFinder : public IRefCount
 {
 	virtual void SetPathParameters( const int nBoundTileRadius, const BYTE aiClass, interface IPointChecking *pChecking, const CVec2 &startPoint, const CVec2 &finishPoint, const int upperLimit, const bool longPath, const SVector &lastKnownGoodTile ) = 0;
+	// The unit's own speed off roads (fPassability), which the fastest path
+	// (Remastered) weighs terrain by. Called after SetPathParameters, which
+	// puts it back to 1: only a unit's big path sets it.
+	virtual void SetUnitPassability( const float fPassability ) { }
 
 	virtual bool CalculatePath() = 0;	
 	virtual void CalculatePathWOCycles() = 0;

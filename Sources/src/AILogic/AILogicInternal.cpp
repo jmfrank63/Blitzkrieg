@@ -78,6 +78,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #include "VTuneAPI.h"
 #endif // _PROFILER
 #include "../Main/Remastered.h"
+#include "PathFinderInternal.h"
 #include "../StreamIO/StreamIOTypes.h"
 #include "../StreamIO/RandomGen.h"
 extern CWeather theWeather;
@@ -915,6 +916,11 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 
 	theDipl.Load( mapInfo.diplomacies );	
 	
+	// The finder a mission plays with is decided as it starts (game state:
+	// saves and replays keep it, multiplayer takes the host's).
+	CStandartPathFinder::SetFastestPath( NRemastered::Simulation() );
+	if ( getenv( "BK_PATH_TRACE" ) ) fprintf( stderr, "BK_PATH_TRACE: mission finder fastest=%d\n", int( CStandartPathFinder::IsFastestPath() ) );
+
 	theCheats.SetWarFog( strlen( GetGlobalVar( "warfog" ) ) == 0 );
 	theCheats.SetLoadObjects( strlen( GetGlobalVar( "noobjects" ) ) == 0 );
 
@@ -996,6 +1002,7 @@ void CAILogic::InitEditor( const STerrainInfo &terrainInfo )
 	theCheats.SetWarFog( true );
 	theCheats.SetNPartyForWarFog( 0, true );
 	theCheats.SetLoadObjects( true );
+	CStandartPathFinder::SetFastestPath( false );
 
 	theDipl.InitForEditor();	
 	theStaticMap.LoadMap( terrainInfo );
@@ -1207,6 +1214,22 @@ void CAILogic::Segment()
 				++nUnits;
 			}
 			fprintf( stderr, "BK_AI_STATE_TRACE: %u ms units=%d state=%08lx\n", unsigned( curTime ), nUnits, (unsigned long)nState );
+		}
+		// BK_AI_UNIT_TRACE: every unit's place and whether it is on its way, each
+		// segment, so a harness can time a march (the fastest path's tiers).
+		static const bool bUnitTrace = getenv( "BK_AI_UNIT_TRACE" ) != 0;
+		if ( bUnitTrace )
+		{
+			for ( CGlobalIter iter( 0, ANY_PARTY ); !iter.IsFinished(); iter.Iterate() )
+			{
+				CAIUnit *pUnit = *iter;
+				const CVec2 vCenter = pUnit->GetCenter();
+				CPathUnit *pPath = pUnit->GetPathUnit();
+				ISmoothPath *pSmooth = pPath != 0 ? pPath->GetSmoothPath() : 0;
+				fprintf( stderr, "BK_AI_UNIT_TRACE: %u ms unit %d player %d at %.1f %.1f tile %d %d moving %d\n",
+					unsigned( curTime ), pUnit->GetUniqueId(), int( pUnit->GetPlayer() ), vCenter.x, vCenter.y,
+					int( vCenter.x / SConsts::TILE_SIZE ), int( vCenter.y / SConsts::TILE_SIZE ), pSmooth != 0 && !pSmooth->IsFinished() ? 1 : 0 );
+			}
 		}
 		bFirstTime = false;
 

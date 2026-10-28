@@ -272,6 +272,10 @@ public:
 		}
 	}
 
+	// The terrain class of an AI tile (a visual tile holds 2 x 2 of them) and
+	// each class's speed: what GetPass reads, by tile, for the fastest path.
+	const BYTE GetTilePassType( const int nX, const int nY ) const { return passTypes[nY >> 1][nX >> 1]; }
+	const std::vector<float>& GetPassabilities() const { return passabilities; }
 	const int GetTerrainPassabilityType( const int nX, const int nY ) const;
 	void RemoveTerrainPassability( const int nX, const int nY );
 	void UpdateTerrainPassabilityRect( const int nMinX, const int nMinY, const int nMaxX, const int nMaxY, bool bRemove );

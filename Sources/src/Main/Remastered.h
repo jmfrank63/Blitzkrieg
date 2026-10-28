@@ -38,5 +38,30 @@ namespace NRemastered
 		                GetGlobalVar( "History.Playing", 0 ) != 0,
 		                GetGlobalVar( pszReplayVar, 0 ) != 0 );
 	}
+
+	// The host's option in a multiplayer game: the game settings carry it to
+	// every player (SGameInfo), and a multiplayer replay brings it back with
+	// the other Multiplayer.* vars; a game or replay without it has none.
+	const char * const pszMultiplayerVar = "Multiplayer.Remastered";
+	// Remastered rules the simulation itself plays by, decided once as a
+	// mission starts and kept in its saves (the fastest path,
+	// docs/superpowers/specs/2026-10-28-fastest-path-design.md). Unlike
+	// Enabled() they hold in multiplayer too: every machine computes the
+	// same paths from the same orders, so all a lockstep game needs is the
+	// one choice, the host's.
+	inline bool ResolveSimulation( const bool bOption, const bool bMultiplayer, const bool bHost, const bool bReplay, const bool bReplayRemastered )
+	{
+		if ( bMultiplayer )
+			return bHost;
+		return Resolve( bOption, false, bReplay, bReplayRemastered );
+	}
+	inline bool Simulation()
+	{
+		return ResolveSimulation( GetGlobalVar( pszOptionVar, 0 ) != 0,
+		                          GetGlobalVar( "MultiplayerGame", 0 ) != 0,
+		                          GetGlobalVar( pszMultiplayerVar, 0 ) != 0,
+		                          GetGlobalVar( "History.Playing", 0 ) != 0,
+		                          GetGlobalVar( pszReplayVar, 0 ) != 0 );
+	}
 };
 #endif // __REMASTERED_H__

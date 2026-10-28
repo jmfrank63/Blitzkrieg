@@ -950,6 +950,7 @@ IStaticPath* CPathUnit::CreateBigStaticPath( const CVec2 &vStartPoint, const CVe
 	theStaticMap.SetMode( ELM_STATIC );
 
 	pPathFinder->SetPathParameters( GetBoundTileRadius(), GetAIClass(), pPointChecking, vStartPoint, vFinishPoint, SConsts::INFINITY_PATH_LIMIT, true, GetLastKnownGoodTile() );
+	pPathFinder->SetUnitPassability( pOwner->GetPassability() );
 	pPathFinder->CalculatePathWOCycles();
 	pPathFinder->SmoothPath();
 
