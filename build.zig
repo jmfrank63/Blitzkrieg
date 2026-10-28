@@ -3364,6 +3364,7 @@ pub fn build(b: *std.Build) void {
     }
     const fastest_steps = [_]struct { name: []const u8, filter: []const u8, about: []const u8 }{
         .{ .name = "fastest-path-game-reads-it", .filter = "fastest path march", .about = "March a lorry, a car, a tank and a squad round a slow field on the real Game with the 2003 finder and the fastest path (Remastered), each kind arriving no later with it, and replay and load the march across the option" },
+        .{ .name = "fastest-path-passages-game-reads-it", .filter = "fastest path passages one at a time", .about = "Drive a column of lorries and tanks through two one-lane gaps, a squad standing in the first, on the real Game with the fastest path (Remastered): all arrive, one at a time in a gap, in the order they came" },
         .{ .name = "fastest-path-maps-game-reads-it", .filter = "fastest path on the largest shipped maps", .about = "Play kursk, dessau and vitebsk on the real Game with the fastest path (Remastered) and measure the AI's path requests: count, time, nodes, budget hits" },
     };
     for (fastest_steps) |fastest| {

@@ -30,6 +30,7 @@
 #include "MultiplayerInfo.h"
 #include "AAFeedBacks.h"
 #include "ScanLimiter.h"
+#include "Passages.h"
 extern CAAFeedBacks theAAFeedBacks;
 extern CScanLimiter theScanLimiter;
 extern CSupremeBeing theSupremeBeing;
@@ -91,6 +92,7 @@ void NGlobalObjects::Clear()
 	theDifficultyLevel.Clear();
 
 	theAAFeedBacks.Clear();
+	thePassages.Clear();
 }
 class CGlobalSerializer
 {
@@ -136,6 +138,12 @@ int CGlobalSerializer::operator&( IStructureSaver &ss )
 	saver.Add( 28, &nScannedUnits );
 	if ( saver.IsReading() )
 		theScanLimiter.SetNScannedUnits( nScannedUnits );
+	// The fastest path's passages (Passages.h): only once there are any, so a
+	// game without them is saved as before.
+	if ( saver.IsReading() )
+		thePassages.Clear();
+	if ( saver.IsReading() || !thePassages.IsEmpty() )
+		saver.Add( 29, &thePassages );
 
 	return 0;
 }

@@ -2,6 +2,7 @@
 #define __PATH_UNIT_H__
 #pragma ONCE
 #include "../Common/Actions.h"
+#include "Passages.h"
 interface IStaticPathFinder;
 interface ISmoothPath;
 interface ICollision;
@@ -42,6 +43,9 @@ class CPathUnit : public IRefCount
 
 	bool bIdle;
 	NTimer::STime nextSecondPathSegmTime;
+	// The narrow places ahead on its path (the fastest path's passages).
+	std::vector<SPassageOnPath> passagesOnPath;
+	void FindPassages( interface IStaticPath *pStaticPath );
 
 	const CVec2 GetCenterShift() const;
 	void ChooseDirToTurn( const WORD &newDir );

@@ -53,6 +53,8 @@ int CPathUnit::operator&( IStructureSaver &ss )
 	saver.Add( 30, &curTile );
 	saver.Add( 31, &bIdle );
 	saver.Add( 32, &nextSecondPathSegmTime );
+	if ( saver.IsReading() || !passagesOnPath.empty() )
+		saver.Add( 33, &passagesOnPath );
 
 	return 0;
 }

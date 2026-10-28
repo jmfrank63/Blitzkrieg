@@ -79,6 +79,7 @@ extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 #endif // _PROFILER
 #include "../Main/Remastered.h"
 #include "PathFinderInternal.h"
+#include "Passages.h"
 #include "../StreamIO/StreamIOTypes.h"
 #include "../StreamIO/RandomGen.h"
 extern CWeather theWeather;
@@ -1186,6 +1187,7 @@ void CAILogic::Segment()
 		theCombatEstimator.Segment();
 		theSupremeBeing.Segment();
 		theMPInfo.Segment();
+		thePassages.Segment();
 		if ( curTime >= nextCheckSumTime && theDipl.IsNetGame() )
 		{
 			nextCheckSumTime = curTime + periodToCheckSum;
