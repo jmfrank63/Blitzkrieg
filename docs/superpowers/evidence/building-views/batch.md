@@ -22,7 +22,7 @@ the step failed. Per family: `<family>.md`. Written by `bk-views report`.
   the shape, where the turn keeps the footprint (cells IoU 0.9 or more), or mirrored onto it on an odd
   turn of a rectangular footprint; and the heaps (supply depots, earth pillboxes) on every turn, mirrored on
   an odd one.
-- Hand shapes: 73 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
+- Hand shapes: 74 variants are drawn on blocks authored by hand (`tools/zig/fixtures/bk-views/shapes`).
 
 | Region | Family | Variant | Side | New sides | Gate | Hold-out | 2003 sprite |
 |---|---|---|---|---|---|---|---|

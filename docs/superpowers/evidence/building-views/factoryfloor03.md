@@ -7,19 +7,19 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | factoryfloor03 | r1 | 2 | 1 | 69.9 | 30.1 | 0.0 | 0.1 | 1.16 | 4.9 | 0.053 | pass |
-| factoryfloor03 | r1 | 2 | 1w | 69.9 | 22.0 | 0.0 | 8.1 | 1.18 | 13.3 | 0.073 | pass |
+| factoryfloor03 | r1 | 2 | 1w | 69.9 | 22.0 | 0.0 | 8.1 | 1.21 | 13.1 | 0.026 | pass |
 | factoryfloor03 | r1 | 2 | 2 | 68.9 | 29.5 | 0.6 | 1.0 | 1.20 | 8.6 | 0.208 | pass |
 | factoryfloor03 | r1 | 2 | 2w | 68.9 | 29.5 | 0.6 | 1.0 | 0.99 | 9.8 | 0.220 | pass |
 | factoryfloor03 | r1 | 2 | 3 | 30.3 | 62.6 | 3.3 | 3.7 | 1.11 | 2.8 | 0.022 | pass |
 | factoryfloor03 | r1 | 2 | 3w | 30.3 | 62.6 | 3.3 | 3.7 | 1.09 | 3.2 | 0.026 | pass |
 | factoryfloor03 | r2 | 3 | 1 | 51.0 | 49.0 | 0.0 | 0.1 | 1.10 | 2.0 | 0.025 | pass |
-| factoryfloor03 | r2 | 3 | 1w | 50.9 | 36.3 | 0.0 | 12.7 | 1.07 | 2.5 | 0.041 | pass |
+| factoryfloor03 | r2 | 3 | 1w | 50.9 | 36.3 | 0.0 | 12.7 | 1.08 | 1.5 | 0.007 | pass |
 | factoryfloor03 | r2 | 3 | 2 | 50.1 | 47.5 | 0.6 | 1.7 | 1.33 | 1.8 | 0.104 | pass |
 | factoryfloor03 | r2 | 3 | 2w | 50.1 | 47.5 | 0.6 | 1.7 | 1.10 | 3.6 | 0.079 | pass |
 | factoryfloor03 | r2 | 3 | 3 | 19.4 | 73.0 | 3.4 | 4.1 | 1.08 | 1.8 | 0.015 | pass |
 | factoryfloor03 | r2 | 3 | 3w | 19.4 | 73.0 | 3.4 | 4.1 | 1.09 | 2.1 | 0.021 | pass |
 | factoryfloor03 | r3 | 4 | 1 | 77.6 | 22.3 | 0.0 | 0.0 | 1.17 | 5.0 | 0.066 | pass |
-| factoryfloor03 | r3 | 4 | 1w | 77.8 | 17.0 | 0.1 | 5.2 | 1.05 | 7.2 | 0.077 | pass |
+| factoryfloor03 | r3 | 4 | 1w | 77.8 | 17.0 | 0.1 | 5.2 | 1.08 | 5.3 | 0.050 | pass |
 | factoryfloor03 | r3 | 4 | 2 | 77.3 | 21.5 | 0.5 | 0.7 | 1.33 | 3.1 | 0.058 | pass |
 | factoryfloor03 | r3 | 4 | 2w | 77.3 | 21.5 | 0.5 | 0.7 | 1.12 | 3.5 | 0.042 | pass |
 | factoryfloor03 | r3 | 4 | 3 | 64.2 | 28.9 | 3.3 | 3.6 | 1.12 | 2.8 | 0.020 | pass |

@@ -6,10 +6,10 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townhouse04_3 | r1 | 4 | 1 | 29.1 | 53.1 | 0.2 | 17.5 | 1.62 | 7.3 | 0.112 | pass |
+| e_townhouse04_3 | r1 | 4 | 1 | 29.1 | 66.1 | 0.2 | 4.6 | 1.86 | 6.9 | 0.133 | pass |
 | e_townhouse04_3 | r1 | 4 | 2 | 28.9 | 67.9 | 0.7 | 2.5 | 1.62 | 4.5 | 0.039 | pass |
 | e_townhouse04_3 | r1 | 4 | 3 | 28.8 | 65.2 | 0.8 | 5.2 | 1.28 | 2.1 | 0.008 | pass |
-| e_townhouse04_3 | r2 | 1 | 1 | 0.4 | 81.9 | 0.2 | 17.5 | 0.89 | 2.9 | 0.066 | pass |
+| e_townhouse04_3 | r2 | 1 | 1 | 0.4 | 94.9 | 0.2 | 4.5 | 0.96 | 4.2 | 0.015 | pass |
 | e_townhouse04_3 | r2 | 1 | 2 | 0.1 | 95.9 | 0.9 | 3.1 | 0.97 | 1.2 | 0.009 | pass |
 | e_townhouse04_3 | r2 | 1 | 3 | 3.0 | 90.8 | 0.9 | 5.3 | 1.05 | 0.4 | 0.007 | pass |
 | e_townhouse04_3 | r3 | 2 | 1 | 61.0 | 33.9 | 0.7 | 4.3 | 1.69 | 8.6 | 0.120 | pass |

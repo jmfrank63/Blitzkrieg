@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house07_1 | r1 | 2 | 1 | 70.9 | 24.8 | 2.2 | 2.1 | 1.02 | 4.8 | 0.143 | pass |
-| e_house07_1 | r1 | 2 | 2 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 5.0 | 0.016 | pass |
-| e_house07_1 | r1 | 2 | 3 | 71.8 | 25.3 | 2.9 | 0.0 | 1.08 | 2.9 | 0.000 | pass |
-| e_house07_1 | r2 | 3 | 1 | 46.8 | 36.7 | 13.1 | 3.3 | 1.08 | 1.7 | 0.021 | pass |
-| e_house07_1 | r2 | 3 | 2 | 47.9 | 37.6 | 13.6 | 0.9 | 1.45 | 0.5 | 0.001 | pass |
-| e_house07_1 | r2 | 3 | 3 | 47.9 | 37.6 | 13.6 | 0.9 | 1.46 | 0.3 | 0.000 | pass |
-| e_house07_1 | r3 | 4 | 1 | 69.7 | 14.9 | 12.8 | 2.6 | 1.10 | 7.0 | 0.154 | pass |
-| e_house07_1 | r3 | 4 | 2 | 70.2 | 15.6 | 13.2 | 1.0 | 1.25 | 4.2 | 0.015 | pass |
-| e_house07_1 | r3 | 4 | 3 | 70.2 | 15.6 | 13.2 | 1.0 | 1.26 | 2.5 | 0.000 | pass |
+| e_house07_1 | r1 | 2 | 1 | 29.8 | 65.3 | 0.0 | 4.9 | 1.15 | 25.3 | 0.107 | pass |
+| e_house07_1 | r1 | 2 | 2 | 30.0 | 68.0 | 0.1 | 1.9 | 0.80 | 12.6 | 0.004 | pass |
+| e_house07_1 | r1 | 2 | 3 | 30.0 | 68.0 | 0.1 | 1.9 | 0.85 | 7.7 | 0.000 | pass |
+| e_house07_1 | r2 | 3 | 1 | 0.1 | 94.7 | 0.0 | 5.1 | 0.97 | 5.4 | 0.049 | pass |
+| e_house07_1 | r2 | 3 | 2 | 0.1 | 97.9 | 0.1 | 1.9 | 0.97 | 4.1 | 0.009 | pass |
+| e_house07_1 | r2 | 3 | 3 | 0.1 | 97.9 | 0.1 | 1.9 | 0.97 | 2.4 | 0.000 | pass |
+| e_house07_1 | r3 | 4 | 1 | 66.0 | 30.1 | 0.0 | 3.9 | 1.21 | 27.9 | 0.133 | pass |
+| e_house07_1 | r3 | 4 | 2 | 66.3 | 31.6 | 0.1 | 2.0 | 0.90 | 12.7 | 0.004 | pass |
+| e_house07_1 | r3 | 4 | 3 | 66.3 | 31.6 | 0.1 | 2.0 | 0.96 | 7.9 | 0.000 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -27,6 +27,6 @@ sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/
 
 | Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house07_1 | r1 | 1.01 | 0.94 | 0.97 | 0.016 | 0.000 | 15 | 15 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_house07_1 | r2 | 1.06 | 0.94 | 0.97 | 0.011 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_house07_1 | r3 | 1.02 | 0.94 | 0.97 | 0.010 | 0.000 | 175 | 175 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house07_1 | r1 | 1.12 | 0.92 | 0.89 | 0.017 | 0.000 | 15 | 15 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house07_1 | r2 | 1.12 | 0.92 | 0.89 | 0.016 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| e_house07_1 | r3 | 1.12 | 0.92 | 0.89 | 0.017 | 0.000 | 175 | 175 | 0 | 0 | 0.000 | 0 | pass | blocks |

@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| admhouse | r1 | 2 | 1 | 61.1 | 36.2 | 0.6 | 2.1 | 0.98 | 4.9 | 0.081 | pass |
+| admhouse | r1 | 2 | 1 | 61.1 | 36.2 | 0.6 | 2.1 | 0.94 | 3.9 | 0.052 | pass |
 | admhouse | r1 | 2 | 1w | 61.9 | 35.8 | 1.1 | 1.3 | 0.81 | 17.1 | 0.138 | pass |
 | admhouse | r1 | 2 | 2 | 63.3 | 34.6 | 1.1 | 1.1 | 1.12 | 7.7 | 0.041 | pass |
 | admhouse | r1 | 2 | 2w | 63.3 | 34.6 | 1.1 | 1.1 | 1.06 | 7.9 | 0.030 | pass |
 | admhouse | r1 | 2 | 3 | 79.3 | 14.8 | 2.8 | 3.1 | 1.03 | 1.2 | 0.040 | pass |
 | admhouse | r1 | 2 | 3w | 79.3 | 14.8 | 2.8 | 3.1 | 1.04 | 1.3 | 0.037 | pass |
-| admhouse | r2 | 3 | 1 | 6.0 | 89.5 | 0.9 | 3.6 | 1.07 | 14.3 | 0.059 | pass |
+| admhouse | r2 | 3 | 1 | 6.0 | 89.5 | 0.9 | 3.6 | 1.07 | 14.1 | 0.058 | pass |
 | admhouse | r2 | 3 | 1w | 5.6 | 91.0 | 1.5 | 1.9 | 1.05 | 12.5 | 0.024 | pass |
 | admhouse | r2 | 3 | 2 | 4.0 | 92.7 | 1.4 | 1.9 | 1.13 | 6.8 | 0.019 | pass |
 | admhouse | r2 | 3 | 2w | 4.0 | 92.7 | 1.4 | 1.9 | 1.13 | 7.7 | 0.015 | pass |
 | admhouse | r2 | 3 | 3 | 61.1 | 32.7 | 3.2 | 3.0 | 1.05 | 0.6 | 0.023 | pass |
 | admhouse | r2 | 3 | 3w | 61.1 | 32.7 | 3.2 | 3.0 | 1.05 | 0.7 | 0.022 | pass |
-| admhouse | r3 | 4 | 1 | 41.0 | 56.7 | 0.4 | 1.9 | 1.01 | 8.4 | 0.105 | pass |
-| admhouse | r3 | 4 | 1w | 40.2 | 57.3 | 1.4 | 1.1 | 0.81 | 21.3 | 0.150 | pass |
+| admhouse | r3 | 4 | 1 | 41.0 | 56.7 | 0.4 | 1.9 | 0.95 | 8.4 | 0.036 | pass |
+| admhouse | r3 | 4 | 1w | 40.2 | 57.6 | 1.1 | 1.1 | 0.82 | 21.6 | 0.152 | pass |
 | admhouse | r3 | 4 | 2 | 40.3 | 57.4 | 1.2 | 1.1 | 1.09 | 4.8 | 0.020 | pass |
 | admhouse | r3 | 4 | 2w | 40.3 | 57.4 | 1.2 | 1.1 | 1.03 | 4.5 | 0.028 | pass |
 | admhouse | r3 | 4 | 3 | 71.6 | 22.4 | 3.1 | 2.9 | 0.97 | 3.1 | 0.015 | pass |

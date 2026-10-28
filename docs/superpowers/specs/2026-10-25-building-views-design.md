@@ -677,6 +677,95 @@ buildings do not turn").
   (the porch roof stands as a red slab), e_house11_1 r3 (its lean-to's roof lit pale), a_wb/01 r1/r3 (planked gables
   pale in the light).
 
+## S07d's list, own light and roof donors (M006 S07e, 2026-10-28)
+
+S07d left eight variants that do not read as the 2003 object, the e_wt crate, the damage states' light and a rise of
+the mean colour difference. Each was traced to its cause; numbers from `zig build building-views-batch-<region>`,
+`bk-views contact` and scratch measures (the per-class mean colour under the blocks, `bk-views style` on single
+variants) that are not tracked.
+
+- **Light per building** (`wallLight`; a_wb/01 r1/r3 planked gables pale in the light, e_house11_1 r3 and e_house07_1
+  whiter in the light). Cause: S07d relit every building by the median of 13 houses, (1.82, 2.03, 2.71) per channel,
+  but a building's own lit and shaded walls differ: a_wb/01's planks measure (1.57, 1.57, 1.64), so its shaded gable
+  (102, 95, 62) came out (186, 193, 168), a pale grey-white beside its lit planks (160, 149, 101). Fix: the ratio of a
+  building's own lit wall to its shaded one (the class means of its intact pictures, each wall on 500 pixels or more)
+  where their brightness ratio lies in the 13 houses' spread (1.5..2.3); its colour against red held between none and
+  the median's, since a lit wall of another material is not the light's colour (taken unheld, e_frenchshed01's cream
+  plaster over brown stone turned its walls green, hue 0.036 -> 0.199, and factoryfloor01's lit red brick its grey
+  ones red, 0.193 -> 0.444). About 102 of the 194 variants take their own light. Measure, `bk-views style` of every
+  intact turn against the 2003 pictures of its colourway (408 summer, 189 winter turns): hue 0.078 -> 0.058 (winter
+  0.123 -> 0.073), colour 10.57 -> 10.22 (11.22 -> 10.69); the largest single rise is 0.04 (e_shed02_4 r2); on 22
+  chosen variants the worst turn of a_wb/01 0.112 -> 0.018, factoryfloor01 0.193 -> 0.035.
+- **The own picture first** (e_house01_3). Cause: of two pictures of one side (e_house01_1 and _3, a colourway apart
+  by 0.03), the first listed won every tie, so _3's turns showed _1's thatch: r2's roof (104, 71, 20) against _3's
+  shingles (93, 68, 39) and _1's thatch (105, 72, 22). Fix: the variant's own picture is the first projector.
+  Measure: style colour of _3's r1/r3 14.9/15.3 -> 4.7/5.8.
+- **e_house01's dormers** (e_house01_1/_3 thatch bright). Cause: the dormers' roofs, lit in the 2003 picture, lay on
+  the shaded roof plane and were relit with it by about 1.4, as bright yellow patches. Fix: two dormers in
+  `roof-parts/e_house01.json` (gabled, x -34..-12, walls 80, ridge 95), measured with a wire-frame of the blocks drawn
+  over the 2003 picture; _3 takes them through its colourway. The lit thatch itself is not too bright for the 2003
+  light: the turned lit roof against the 2003 lit wall measures 1.07 in brightness, within the 0.70..1.20 the 2003
+  houses that show both measure (e_ctownhouse02_1 0.83, e_house10_2 0.97, townhouse02_1 1.18); left as it is.
+- **Lean-to roofs** (e_townhouse01_3/_4 r2/r3 porch roof a red slab; e_house11_1 r3 lean-to pale). Cause: a flat
+  block takes the pixels of a pitched porch roof on its top, and a flat top is lit as the brightest face. Fix: lean-to
+  roofs as gabled roof parts whose ridge lies in the house wall (half of the block inside the house):
+  e_townhouse01_3's porch x -19..7, ridge 44 at the facade, eaves 36 (measured on the 2003 picture: its top edge at
+  height 41 to 44, its eave 13 units out at 36; S07d's slab stood at 55); e_house11_1's lean-to x -66..20, eaves 17,
+  ridge 45 (a hand shape of the whole house reached an own outline IoU of 0.81 to 0.87 refined and was not kept).
+- **e_house07_1** (eaves on the gable walls). Cause: the fit made the chalet a box with a flat top at 68 (walls =
+  ridge), so its wide eaves and roof edge landed on the walls. Fix: a hand shape, one gable_y block -176..-13 x
+  -2..158, walls 44, ridge 120 (own outline IoU 0.883; `shape`'s refinement to walls 57 reaches 0.914 but puts the
+  eaves back on the walls). Measure (per-class mean colour of a turn's wall against the 2003 one): r1's shaded wall
+  0.51 -> 1.00 of the 2003 brightness, r3's lit wall 1.68 -> 0.98.
+- **e_townhouse02_2/_3's large dormers.** Cause: _2's two wall dormers stood 10 and 25 units behind the facade and B
+  was 19 wide; _3's two front gables were not in the fixture at all (only the back ones, mirrored). Fix: A
+  -139..-111 and B -48..-20, both from y 1 (6.6 behind the facade: flush with it, the facade below them lost its
+  donor points to the part exclusion and was patch-filled), B to ridge 152; _3's front gables x -55..-15 and
+  -50..-15 (y 28..60 and 136..176, walls 97, ridges 150 and 140), checked on the wire-frame.
+- **Patch-filled roof planes** (e_jettybuilding_1/_4, the roof between e_townhouse02's dormers). Cause: S07d keeps a
+  body face from borrowing near a part up to 40 units above its top (a door over its step); on a roof that took the
+  tiles above a dormer or the tower up to the ridge, and the patch fill drew them as blotches: 7098 pixels (29%) of
+  e_jettybuilding_1 r2. Fix: on a roof a part reaches its margin (6) above its top (`partReach`, also in the
+  `copied` gate measure), and a roof donor point by a part moves across its face by the part's width and margins,
+  up to three times, to where none stands (`slidePast`). Walls keep the exclusion and the fill: moved along a facade,
+  a door step's columns repeated the facade's windows in a row. Patch-filled pixels of the intact turns:
+  e_jettybuilding_1 2915/7098/5140 -> 2011/4638/3592, _4 1379/1523/891 -> 948/1133/797, e_townhouse02_2
+  2292/7930/6930 -> 2815/3613/2498. Test: a gabled house with a chimney seen from behind leaves none of the pixels
+  the unexcluded copy draws to the patch fill (306 without the move).
+- **a_h04_1** (railings as stripes on the flat roofs). Cause: the upper storey's block began 13 units behind the
+  gallery, so the gallery's floor (the lower roof) took the railing and post pixels and showed them as stripes
+  turned. Fix: the hand shape's upper storey over the gallery (y -10, x to -62, walls 74; own outline IoU 0.891); the
+  gallery is drawn on its face. The outside stair's and the ladder's railings on the steps remain (by eye).
+- **e_wt's crate** (not fixed). The free cells of e_wt/01's 5 x 6 footprint (one at one corner, two at the opposite
+  end) have no symmetry, so neither mirror of a 2003 picture lays them on the turned footprint: e_wt/01 mirrored
+  matches its turned footprint at cell IoU 0.80 (r1) and 0.93 (r3), e_wt/02 mirrored (the only other depot of the
+  colourway, a 4 x 6 heap) at 0.79 and 0.72. (wt/01's r1 would take wt/02's mirror at 0.77 against its own 0.60, but
+  that is another heap.) The passability stays the 2003 object's turned; the offset stays.
+- **Damage states keep the class gains.** Lit by the light model with their intact building's own light, 8
+  variants failed (europe alone): ruin sharpness 1.56 to 1.88 against 1.55 (e_ctownhouse02_4, e_house11_1,
+  e_townhouse01_3/_4, e_townhouse03_1, e_townhouse04_3, e_townrailwaystation_4), e_house11_4 r1 ruin hue 0.297
+  against 0.26 and e_townhouse01_4's hold-out 0.299 against 0.29. A ruin's fitted blocks are rubble, and lit as
+  faces they take seams.
+- **The mean colour rise** (|log luma ratio| of whole intact sprites 0.048 -> 0.060 in S07d) is not a regression.
+  Rerun here: pre-S07d (f98294c83) 0.0479, S07d 0.0602, now 0.0589 (mean chromaticity distance 0.0050, 0.0068,
+  0.0057). Per class (a turn's lit or shaded wall against the 2003 picture's, 700 class turns): pre-S07d 0.051, S07d
+  0.116, now 0.103 (chromaticity 0.0062, 0.0240, 0.0144). The pre-S07d class-mean gains set every turned class to the
+  2003 class's mean by construction, whatever material the face shows; the light keeps a face's material. The
+  largest remaining deviations are such swaps: e_frenchshed02 r1's lit face is its shaded stone long wall turned to
+  the light, 0.61 of the 2003 lit face, which is a cream plaster gable, and its shaded face 1.59. Geometry errors were
+  the others (e_house07_1's 0.51 above).
+- **Result** ([batch](../evidence/building-views/batch.md)): 194 of 194 variants pass, hold-out 43 of 43, 582
+  folders through the engine check, 74 hand shapes (73), roof parts on 91 turns of 35 variants with 150968 of 151339
+  wall pixels kept, 0 copied part pixels. Contact sheets: `zig-out/local-test/s07e/contact-before`, `contact-after`
+  (not tracked).
+- **Still not reading as the 2003 object** (the pass over all 194 after the fix): wb/01 r1/r3 (gables pale
+  blue-grey: its walls fall outside the spread and take the median light), townhouse05_1/_2/_3 r1/r3 (olive walls),
+  barracks and barracks_2 r1/r3 (the lit roof plane pale green), e_jettybuilding_4 (its tower pale on every turn),
+  house06 r3 (a fitted flat porch, pale), a_h04_1 r1/r3 (stair and ladder railings on the steps) and r3 with a_h03_3
+  r2 (a pale blue band where a deep gallery shade is relit), towncornhouse03/04 r1/r3 (jumbled wings),
+  e_townhouse02_2 r2/r3 (the dormer zone of the back roof still patchy), e_cityhall_1 r2/r3 (bright orange roof
+  planes), e_wt (the crate above).
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

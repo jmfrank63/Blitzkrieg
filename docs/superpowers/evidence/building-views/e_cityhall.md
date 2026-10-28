@@ -6,13 +6,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.06 | 2.0 | 0.046 | pass |
+| e_cityhall_1 | r1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.04 | 1.5 | 0.014 | pass |
 | e_cityhall_1 | r1 | 2 | 2 | 45.9 | 26.5 | 26.5 | 1.1 | 0.98 | 6.0 | 0.083 | pass |
 | e_cityhall_1 | r1 | 2 | 3 | 56.3 | 34.8 | 7.9 | 1.0 | 1.10 | 3.1 | 0.003 | pass |
-| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 1.17 | 7.5 | 0.041 | pass |
+| e_cityhall_1 | r2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 1.16 | 7.5 | 0.035 | pass |
 | e_cityhall_1 | r2 | 3 | 2 | 0.0 | 59.7 | 39.0 | 1.3 | 1.05 | 2.4 | 0.019 | pass |
 | e_cityhall_1 | r2 | 3 | 3 | 25.0 | 65.0 | 9.4 | 0.6 | 1.00 | 3.6 | 0.011 | pass |
-| e_cityhall_1 | r3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.96 | 15.4 | 0.083 | pass |
+| e_cityhall_1 | r3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.94 | 15.7 | 0.061 | pass |
 | e_cityhall_1 | r3 | 4 | 2 | 29.2 | 39.5 | 30.2 | 1.2 | 0.81 | 20.2 | 0.097 | pass |
 | e_cityhall_1 | r3 | 4 | 3 | 47.4 | 39.5 | 12.9 | 0.2 | 0.92 | 10.3 | 0.006 | pass |
 

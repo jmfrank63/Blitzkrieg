@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse04 | r1 | 2 | 1 | 44.6 | 30.3 | 24.4 | 0.7 | 1.08 | 4.6 | 0.019 | pass |
-| towncornhouse04 | r1 | 2 | 1w | 44.2 | 30.5 | 24.6 | 0.7 | 1.11 | 8.5 | 0.095 | pass |
+| towncornhouse04 | r1 | 2 | 1 | 44.1 | 34.1 | 21.8 | 0.1 | 1.05 | 6.2 | 0.027 | pass |
+| towncornhouse04 | r1 | 2 | 1w | 43.6 | 34.2 | 22.0 | 0.1 | 1.20 | 7.3 | 0.023 | pass |
 | towncornhouse04 | r1 | 2 | 2 | 45.5 | 34.9 | 19.5 | 0.1 | 1.17 | 0.9 | 0.023 | pass |
 | towncornhouse04 | r1 | 2 | 2w | 45.5 | 34.9 | 19.5 | 0.1 | 1.07 | 1.0 | 0.012 | pass |
 | towncornhouse04 | r1 | 2 | 3 | 82.5 | 9.0 | 2.0 | 6.4 | 1.05 | 1.2 | 0.004 | pass |
 | towncornhouse04 | r1 | 2 | 3w | 82.5 | 9.0 | 2.0 | 6.4 | 1.05 | 1.4 | 0.005 | pass |
-| towncornhouse04 | r2 | 3 | 1 | 7.9 | 57.5 | 32.2 | 2.5 | 1.08 | 7.0 | 0.127 | pass |
-| towncornhouse04 | r2 | 3 | 1w | 7.7 | 57.3 | 32.5 | 2.5 | 1.22 | 6.1 | 0.104 | pass |
+| towncornhouse04 | r2 | 3 | 1 | 7.6 | 64.0 | 28.3 | 0.1 | 1.07 | 7.4 | 0.134 | pass |
+| towncornhouse04 | r2 | 3 | 1w | 7.4 | 63.8 | 28.6 | 0.2 | 1.27 | 3.8 | 0.077 | pass |
 | towncornhouse04 | r2 | 3 | 2 | 8.7 | 66.2 | 24.9 | 0.1 | 1.21 | 1.3 | 0.113 | pass |
 | towncornhouse04 | r2 | 3 | 2w | 8.7 | 66.2 | 24.9 | 0.1 | 1.10 | 1.2 | 0.107 | pass |
 | towncornhouse04 | r2 | 3 | 3 | 57.9 | 33.0 | 2.4 | 6.7 | 1.03 | 1.8 | 0.005 | pass |
 | towncornhouse04 | r2 | 3 | 3w | 57.9 | 33.0 | 2.4 | 6.7 | 1.01 | 1.7 | 0.002 | pass |
-| towncornhouse04 | r3 | 4 | 1 | 42.2 | 37.8 | 18.7 | 1.3 | 1.12 | 15.3 | 0.047 | pass |
-| towncornhouse04 | r3 | 4 | 1w | 42.0 | 37.7 | 19.0 | 1.3 | 1.14 | 23.8 | 0.120 | pass |
+| towncornhouse04 | r3 | 4 | 1 | 42.0 | 40.9 | 17.0 | 0.1 | 1.12 | 14.9 | 0.047 | pass |
+| towncornhouse04 | r3 | 4 | 1w | 41.8 | 40.8 | 17.3 | 0.1 | 1.27 | 20.1 | 0.016 | pass |
 | towncornhouse04 | r3 | 4 | 2 | 43.2 | 41.9 | 14.7 | 0.2 | 1.20 | 4.2 | 0.067 | pass |
 | towncornhouse04 | r3 | 4 | 2w | 43.2 | 41.9 | 14.7 | 0.2 | 1.01 | 4.3 | 0.043 | pass |
 | towncornhouse04 | r3 | 4 | 3 | 64.2 | 26.8 | 2.2 | 6.8 | 1.16 | 3.2 | 0.014 | pass |
