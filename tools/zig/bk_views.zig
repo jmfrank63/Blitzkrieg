@@ -31,6 +31,7 @@
 
 const std = @import("std");
 const bk_tool = @import("bk_tool.zig");
+const bk_pdf = @import("bk_pdf.zig");
 
 const usage: bk_tool.Usage = .{
     .synopsis =
@@ -44,6 +45,9 @@ const usage: bk_tool.Usage = .{
     \\       bk-views contact <buildings-dir> <generated-dir> <out-dir>
     \\       bk-views shape <out-dir> <variant-dir>...
     \\       bk-views relight <objects-dir> <out-dir>
+    \\       bk-views ids <ids.json> <buildings-dir> <objects-dir>
+    \\       bk-views models <models-dir> <ids.json> <variant-dir>...
+    \\       bk-views review <out.pdf> <ids.json> <models-dir> <buildings-dir> <objects-dir>
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -93,7 +97,21 @@ fn run(ctx: *bk_tool.Context) !void {
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return shapeCommand(ctx, ctx.args[1], ctx.args[2..]);
     }
-    if (std.mem.eql(u8, command, "contact")) {
+    if (std.mem.eql(u8, command, "ids")) {
+        if (ctx.args.len != 4) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return idsCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3]);
+    }
+    if (std.mem.eql(u8, command, "models")) {
+        if (ctx.args.len < 4) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return modelsCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3..]);
+    }
+    if (std.mem.eql(u8, command, "review")) {
+        if (ctx.args.len != 6) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return reviewCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], ctx.args[4], ctx.args[5]);
+    }    if (std.mem.eql(u8, command, "contact")) {
         if (ctx.args.len != 4) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return contactCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3]);
@@ -5085,4 +5103,1048 @@ fn contactCommand(ctx: *bk_tool.Context, buildings_arg: []const u8, generated_ar
         start = end;
     }
     try ctx.out.print("{d} variants on {d} pages in {s}\n", .{ rows.items.len, pages, out });
+}
+
+// ---------------------------------------------------------------------------
+// Shape models for review (M006 round 4): every object that turns as a vector
+// model of named parts, turned to the four sides and drawn for the maintainer.
+
+/// The kind of a model part, which the review colours.
+pub const PartKind = enum { body, chimney, low, roof_part, tower, pole, window, door };
+
+/// A part of a shape model: a block (the format of `shapes_dir`), a pole (a
+/// thin square prism from `from` to `to`) or a rectangle on face `face` of
+/// block part `on` (a window or a door: across the face from its left end
+/// seen from outside, and up, in world units).
+pub const Part = struct {
+    kind: PartKind,
+    block: ?Block = null,
+    pole: ?struct { from: [3]f64, to: [3]f64, radius: f64 } = null,
+    rect: ?struct { on: usize, face: []const u8, lo: [2]f64, hi: [2]f64 } = null,
+};
+
+/// An object's shape model: its review number (`shape_ids_file`), its path
+/// under Data, how it was made (hand shape, fit, poles) and the outline IoU
+/// of its turn 0 with its 2003 intact picture.
+pub const Model = struct { id: u32, path: []const u8, how: []const u8, fit: f64, footprint: []const []const u8, parts: []const Part };
+
+/// The review number of every modelled object, stable across runs: an
+/// object keeps its number, a new one takes the next.
+pub const shape_ids_file = "tools/zig/fixtures/bk-views/shape-ids.json";
+/// The models, `buildings/<family>.json` and `objects/<family>.json`, each a
+/// map of variant folder name to model.
+pub const models_dir = "tools/zig/fixtures/bk-views/models";
+
+const ShapeIds = struct { ids: []const struct { id: u32, path: []const u8 } };
+
+/// The objects that turn, in contents order: every building variant, then
+/// every simple object of Data/Objects/SimpleObjects (flora is not modelled:
+/// a tree turns as itself), as `Buildings/...` and `Objects/SimpleObjects/...`.
+fn turningObjects(ctx: *bk_tool.Context, buildings: []const u8, objects: []const u8) ![]const []const u8 {
+    var out: std.ArrayList([]const u8) = .empty;
+    for ([2][]const u8{ buildings, objects }, [2][]const u8{ "Buildings", "Objects/SimpleObjects" }) |root, prefix| {
+        for (try listFamilies(ctx.arena, ctx.io, root)) |family| for (family.variants) |v| {
+            try out.append(ctx.arena, try std.fmt.allocPrint(ctx.arena, "{s}/{s}", .{ prefix, v.path }));
+        };
+    }
+    return out.items;
+}
+
+/// `ids`: numbers every object that turns in `ids-file`, keeping the numbers
+/// it holds.
+fn idsCommand(ctx: *bk_tool.Context, ids_arg: []const u8, buildings_arg: []const u8, objects_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const path = try bk_tool.inputPath(arena, ids_arg);
+    const known = try readJson(ShapeIds, ctx, path);
+    var next: u32 = 1;
+    var text: std.Io.Writer.Allocating = .init(arena);
+    try text.writer.writeAll("{\"ids\":[");
+    var n: usize = 0;
+    if (known) |k| for (k.ids) |e| {
+        try text.writer.print("{s}\n{{\"id\":{d},\"path\":\"{s}\"}}", .{ if (n > 0) "," else "", e.id, e.path });
+        next = @max(next, e.id + 1);
+        n += 1;
+    };
+    for (try turningObjects(ctx, try bk_tool.inputPath(arena, buildings_arg), try bk_tool.inputPath(arena, objects_arg))) |object| {
+        if (known) |k| if (for (k.ids) |e| {
+            if (std.mem.eql(u8, e.path, object)) break true;
+        } else false) continue;
+        try text.writer.print("{s}\n{{\"id\":{d},\"path\":\"{s}\"}}", .{ if (n > 0) "," else "", next, object });
+        next += 1;
+        n += 1;
+    }
+    try text.writer.writeAll("\n]}\n");
+    try writeCrlf(ctx, std.fs.path.dirname(path) orelse ".", std.fs.path.basename(path), text.written());
+    try ctx.out.print("{d} objects numbered in {s}\n", .{ n, path });
+}
+
+/// The face of a model: its part, a name and its corners (a convex polygon).
+const ModelFace = struct { part: usize, kind: PartKind, roof: bool, name: []const u8, points: []const [3]f64, wall: []const u8 = "" };
+
+/// The faces of a block: four walls (a gable end reaching up to the ridge),
+/// its roof planes (two for a gable, four for a hip) or a flat top.
+fn blockFaces(gpa: std.mem.Allocator, out: *std.ArrayList(ModelFace), part: usize, kind: PartKind, b: Block, base: f64) !void {
+    const x0 = b.lo[0];
+    const x1 = b.hi[0];
+    const y0 = b.lo[1];
+    const y1 = b.hi[1];
+    const w = b.wall;
+    const r = @max(b.ridge, b.wall);
+    const xm = (x0 + x1) / 2;
+    const ym = (y0 + y1) / 2;
+    const add = struct {
+        fn f(g: std.mem.Allocator, o: *std.ArrayList(ModelFace), p: usize, k: PartKind, roof: bool, name: []const u8, points: []const [3]f64) !void {
+            try o.append(g, .{ .part = p, .kind = k, .roof = roof, .name = name, .points = try g.dupe([3]f64, points) });
+        }
+    }.f;
+    switch (b.roof) {
+        .flat => {
+            try add(gpa, out, part, kind, false, "wall -y", &.{ .{ x0, y0, base }, .{ x1, y0, base }, .{ x1, y0, w }, .{ x0, y0, w } });
+            try add(gpa, out, part, kind, false, "wall +x", &.{ .{ x1, y0, base }, .{ x1, y1, base }, .{ x1, y1, w }, .{ x1, y0, w } });
+            try add(gpa, out, part, kind, false, "wall +y", &.{ .{ x1, y1, base }, .{ x0, y1, base }, .{ x0, y1, w }, .{ x1, y1, w } });
+            try add(gpa, out, part, kind, false, "wall -x", &.{ .{ x0, y1, base }, .{ x0, y0, base }, .{ x0, y0, w }, .{ x0, y1, w } });
+            try add(gpa, out, part, kind, true, "roof flat", &.{ .{ x0, y0, w }, .{ x1, y0, w }, .{ x1, y1, w }, .{ x0, y1, w } });
+        },
+        .gable_x => {
+            // The ridge along x at y = ym: walls along x, gable ends at x0 and x1.
+            try add(gpa, out, part, kind, false, "wall -y", &.{ .{ x0, y0, base }, .{ x1, y0, base }, .{ x1, y0, w }, .{ x0, y0, w } });
+            try add(gpa, out, part, kind, false, "gable +x", &.{ .{ x1, y0, base }, .{ x1, y1, base }, .{ x1, y1, w }, .{ x1, ym, r }, .{ x1, y0, w } });
+            try add(gpa, out, part, kind, false, "wall +y", &.{ .{ x1, y1, base }, .{ x0, y1, base }, .{ x0, y1, w }, .{ x1, y1, w } });
+            try add(gpa, out, part, kind, false, "gable -x", &.{ .{ x0, y1, base }, .{ x0, y0, base }, .{ x0, y0, w }, .{ x0, ym, r }, .{ x0, y1, w } });
+            try add(gpa, out, part, kind, true, "roof -y", &.{ .{ x0, y0, w }, .{ x1, y0, w }, .{ x1, ym, r }, .{ x0, ym, r } });
+            try add(gpa, out, part, kind, true, "roof +y", &.{ .{ x1, y1, w }, .{ x0, y1, w }, .{ x0, ym, r }, .{ x1, ym, r } });
+        },
+        .gable_y => {
+            try add(gpa, out, part, kind, false, "gable -y", &.{ .{ x0, y0, base }, .{ x1, y0, base }, .{ x1, y0, w }, .{ xm, y0, r }, .{ x0, y0, w } });
+            try add(gpa, out, part, kind, false, "wall +x", &.{ .{ x1, y0, base }, .{ x1, y1, base }, .{ x1, y1, w }, .{ x1, y0, w } });
+            try add(gpa, out, part, kind, false, "gable +y", &.{ .{ x1, y1, base }, .{ x0, y1, base }, .{ x0, y1, w }, .{ xm, y1, r }, .{ x1, y1, w } });
+            try add(gpa, out, part, kind, false, "wall -x", &.{ .{ x0, y1, base }, .{ x0, y0, base }, .{ x0, y0, w }, .{ x0, y1, w } });
+            try add(gpa, out, part, kind, true, "roof +x", &.{ .{ x1, y0, w }, .{ x1, y1, w }, .{ xm, y1, r }, .{ xm, y0, r } });
+            try add(gpa, out, part, kind, true, "roof -x", &.{ .{ x0, y1, w }, .{ x0, y0, w }, .{ xm, y0, r }, .{ xm, y1, r } });
+        },
+        .hip => {
+            try add(gpa, out, part, kind, false, "wall -y", &.{ .{ x0, y0, base }, .{ x1, y0, base }, .{ x1, y0, w }, .{ x0, y0, w } });
+            try add(gpa, out, part, kind, false, "wall +x", &.{ .{ x1, y0, base }, .{ x1, y1, base }, .{ x1, y1, w }, .{ x1, y0, w } });
+            try add(gpa, out, part, kind, false, "wall +y", &.{ .{ x1, y1, base }, .{ x0, y1, base }, .{ x0, y1, w }, .{ x1, y1, w } });
+            try add(gpa, out, part, kind, false, "wall -x", &.{ .{ x0, y1, base }, .{ x0, y0, base }, .{ x0, y0, w }, .{ x0, y1, w } });
+            // The ridge along the longer side, as blockPlanes slopes it.
+            const half = @min(x1 - x0, y1 - y0) / 2;
+            const long_x = x1 - x0 > y1 - y0;
+            const a = [2]f64{ if (long_x) x0 + half else xm, if (long_x) ym else y0 + half };
+            const c = [2]f64{ if (long_x) x1 - half else xm, if (long_x) ym else y1 - half };
+            if (long_x) {
+                try add(gpa, out, part, kind, true, "roof -y", &.{ .{ x0, y0, w }, .{ x1, y0, w }, .{ c[0], c[1], r }, .{ a[0], a[1], r } });
+                try add(gpa, out, part, kind, true, "roof +x", &.{ .{ x1, y0, w }, .{ x1, y1, w }, .{ c[0], c[1], r } });
+                try add(gpa, out, part, kind, true, "roof +y", &.{ .{ x1, y1, w }, .{ x0, y1, w }, .{ a[0], a[1], r }, .{ c[0], c[1], r } });
+                try add(gpa, out, part, kind, true, "roof -x", &.{ .{ x0, y1, w }, .{ x0, y0, w }, .{ a[0], a[1], r } });
+            } else {
+                try add(gpa, out, part, kind, true, "roof -y", &.{ .{ x0, y0, w }, .{ x1, y0, w }, .{ a[0], a[1], r } });
+                try add(gpa, out, part, kind, true, "roof +x", &.{ .{ x1, y0, w }, .{ x1, y1, w }, .{ c[0], c[1], r }, .{ a[0], a[1], r } });
+                try add(gpa, out, part, kind, true, "roof +y", &.{ .{ x1, y1, w }, .{ x0, y1, w }, .{ c[0], c[1], r } });
+                try add(gpa, out, part, kind, true, "roof -x", &.{ .{ x0, y1, w }, .{ x0, y0, w }, .{ a[0], a[1], r }, .{ c[0], c[1], r } });
+            }
+        },
+    }
+}
+
+fn cross3(a: [3]f64, b: [3]f64) [3]f64 {
+    return .{ a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
+}
+
+fn unit3(a: [3]f64) [3]f64 {
+    const l = @sqrt(dot(a, a));
+    return if (l == 0) a else .{ a[0] / l, a[1] / l, a[2] / l };
+}
+
+/// Where a part standing on the building (a chimney, a dormer, a tower)
+/// shows from: the lowest point of the body's roofs under it, so that it is
+/// drawn from the roof up and not through the house (the model's blocks
+/// reach down to the ground, as `side` takes them).
+fn partBase(gpa: std.mem.Allocator, parts: []const Part, kind: PartKind, b: Block) !f64 {
+    if (kind != .chimney and kind != .roof_part and kind != .tower) return 0;
+    var body: std.ArrayList(Block) = .empty;
+    defer body.deinit(gpa);
+    for (parts) |p| if (p.kind == .body) if (p.block) |q| try body.append(gpa, q);
+    var lowest = std.math.inf(f64);
+    const inset = [2]f64{ @min(0.5, (b.hi[0] - b.lo[0]) / 4), @min(0.5, (b.hi[1] - b.lo[1]) / 4) };
+    for ([_][2]f64{ .{ b.lo[0] + inset[0], b.lo[1] + inset[1] }, .{ b.hi[0] - inset[0], b.lo[1] + inset[1] }, .{ b.lo[0] + inset[0], b.hi[1] - inset[1] }, .{ b.hi[0] - inset[0], b.hi[1] - inset[1] }, .{ (b.lo[0] + b.hi[0]) / 2, (b.lo[1] + b.hi[1]) / 2 } }) |c| {
+        const hit = castRay(body.items, .{ c[0], c[1], 1000 }, .{ 0, 0, -1 }) orelse continue;
+        lowest = @min(lowest, 1000 - hit.t);
+    }
+    return if (lowest == std.math.inf(f64)) 0 else @min(lowest, @max(b.wall, b.ridge) - 1);
+}
+
+/// Every face of a model's parts.
+fn modelFaces(gpa: std.mem.Allocator, parts: []const Part) ![]ModelFace {
+    var out: std.ArrayList(ModelFace) = .empty;
+    for (parts, 0..) |p, i| {
+        if (p.block) |b| try blockFaces(gpa, &out, i, p.kind, b, try partBase(gpa, parts, p.kind, b));
+        if (p.pole) |pole| {
+            const axis = [3]f64{ pole.to[0] - pole.from[0], pole.to[1] - pole.from[1], pole.to[2] - pole.from[2] };
+            var u = cross3(axis, .{ 0, 0, 1 });
+            if (dot(u, u) < 1e-9) u = .{ 1, 0, 0 };
+            u = unit3(u);
+            const v = unit3(cross3(axis, u));
+            var corners: [8][3]f64 = undefined;
+            for (0..2) |e| for (0..4) |c| {
+                const end = if (e == 0) pole.from else pole.to;
+                const su: f64 = if (c == 0 or c == 3) -1 else 1;
+                const sv: f64 = if (c < 2) -1 else 1;
+                corners[e * 4 + c] = .{ end[0] + pole.radius * (su * u[0] + sv * v[0]), end[1] + pole.radius * (su * u[1] + sv * v[1]), end[2] + pole.radius * (su * u[2] + sv * v[2]) };
+            };
+            for (0..4) |c| try out.append(gpa, .{ .part = i, .kind = .pole, .roof = false, .name = "pole", .points = try gpa.dupe([3]f64, &.{ corners[c], corners[(c + 1) % 4], corners[4 + (c + 1) % 4], corners[4 + c] }) });
+            try out.append(gpa, .{ .part = i, .kind = .pole, .roof = false, .name = "pole end", .points = try gpa.dupe([3]f64, corners[4..8]) });
+            try out.append(gpa, .{ .part = i, .kind = .pole, .roof = false, .name = "pole foot", .points = try gpa.dupe([3]f64, corners[0..4]) });
+        }
+        if (p.rect) |rect| {
+            const on = parts[rect.on].block orelse continue;
+            const n = faceDirection(rect.face);
+            const start = faceStart(on, n);
+            const right = [2]f64{ -n[1], n[0] };
+            var corners: [4][3]f64 = undefined;
+            for (&corners, [4][2]f64{ .{ rect.lo[0], rect.lo[1] }, .{ rect.hi[0], rect.lo[1] }, .{ rect.hi[0], rect.hi[1] }, .{ rect.lo[0], rect.hi[1] } }) |*c, uv| {
+                c.* = .{ start[0] + right[0] * uv[0] + n[0] * 0.4, start[1] + right[1] * uv[0] + n[1] * 0.4, uv[1] };
+            }
+            // Drawn on its wall: part `on`'s face `face`.
+            try out.append(gpa, .{ .part = rect.on, .kind = p.kind, .roof = false, .name = @tagName(p.kind), .points = try gpa.dupe([3]f64, &corners), .wall = rect.face });
+        }
+    }
+    return out.items;
+}
+
+/// The outward direction of a block's wall named `wall +x` and so on.
+fn faceDirection(name: []const u8) [2]f64 {
+    return if (std.mem.endsWith(u8, name, "+x")) .{ 1, 0 } else if (std.mem.endsWith(u8, name, "-x")) .{ -1, 0 } else if (std.mem.endsWith(u8, name, "+y")) .{ 0, 1 } else .{ 0, -1 };
+}
+
+/// The left end, seen from outside, of a block's wall facing `n`: along the
+/// wall runs (-n.y, n.x).
+fn faceStart(b: Block, n: [2]f64) [2]f64 {
+    const right = [2]f64{ -n[1], n[0] };
+    return .{
+        if (n[0] > 0) b.hi[0] else if (n[0] < 0) b.lo[0] else if (right[0] > 0) b.lo[0] else b.hi[0],
+        if (n[1] > 0) b.hi[1] else if (n[1] < 0) b.lo[1] else if (right[1] > 0) b.lo[1] else b.hi[1],
+    };
+}
+
+/// A face's outward normal: from Newell's sum, turned away from its part's
+/// middle.
+fn faceNormal(face: ModelFace, middle: [3]f64) [3]f64 {
+    var n = [3]f64{ 0, 0, 0 };
+    var c = [3]f64{ 0, 0, 0 };
+    for (face.points, 0..) |p, i| {
+        const q = face.points[(i + 1) % face.points.len];
+        n[0] += (p[1] - q[1]) * (p[2] + q[2]);
+        n[1] += (p[2] - q[2]) * (p[0] + q[0]);
+        n[2] += (p[0] - q[0]) * (p[1] + q[1]);
+        for (0..3) |k| c[k] += p[k] / @as(f64, @floatFromInt(face.points.len));
+    }
+    n = unit3(n);
+    const away = [3]f64{ c[0] - middle[0], c[1] - middle[1], c[2] - middle[2] };
+    return if (dot(n, away) < 0) .{ -n[0], -n[1], -n[2] } else n;
+}
+
+/// A face as an eye sees it: its screen polygon, its plane (a point and the
+/// outward normal) and its mean depth along the line of sight.
+const SeenFace = struct { face: ModelFace, points: []const [2]f64, depth: f64, at: [3]f64 = .{ 0, 0, 0 }, normal: [3]f64 = .{ 0, 0, 1 } };
+
+/// The faces `eye` sees of a model (back faces left out) in a painter's
+/// order: where two faces overlap on the screen, the one farther along the
+/// line of sight at a point of the overlap comes first (a mean depth puts a
+/// large roof plane behind a small porch roof that stands behind it); a cycle
+/// is broken by the mean depth. A window or a door lies just before its wall.
+fn seenFaces(gpa: std.mem.Allocator, faces: []const ModelFace, eye: Eye) ![]SeenFace {
+    const d = eye.ray(0, 0)[1];
+    var middles: std.AutoHashMap(usize, [4]f64) = .init(gpa);
+    for (faces) |f| {
+        if (f.kind == .window or f.kind == .door) continue;
+        for (f.points) |p| {
+            const e = try middles.getOrPutValue(f.part, .{ 0, 0, 0, 0 });
+            for (0..3) |k| e.value_ptr[k] += p[k];
+            e.value_ptr[3] += 1;
+        }
+    }
+    var seen: std.ArrayList(SeenFace) = .empty;
+    for (faces) |f| {
+        const opening = f.kind == .window or f.kind == .door;
+        const normal = if (opening) blk: {
+            const n = faceDirection(f.wall);
+            break :blk [3]f64{ n[0], n[1], 0 };
+        } else blk: {
+            const m = middles.get(f.part).?;
+            break :blk faceNormal(f, .{ m[0] / m[3], m[1] / m[3], m[2] / m[3] });
+        };
+        if (dot(normal, d) >= -1e-6) continue;
+        var depth: f64 = 0;
+        for (f.points) |p| depth += dot(p, d) / @as(f64, @floatFromInt(f.points.len));
+        const points = try gpa.alloc([2]f64, f.points.len);
+        for (f.points, points) |p, *q| q.* = eye.project(p);
+        try seen.append(gpa, .{ .face = f, .points = points, .depth = depth, .at = f.points[0], .normal = normal });
+    }
+    const n = seen.items.len;
+    // behind[i * n + j]: face i is drawn before face j.
+    const behind = try gpa.alloc(bool, n * n);
+    defer gpa.free(behind);
+    @memset(behind, false);
+    const incoming = try gpa.alloc(usize, n);
+    defer gpa.free(incoming);
+    @memset(incoming, 0);
+    for (0..n) |i| for (i + 1..n) |j| {
+        const p = overlapPoint(gpa, seen.items[i].points, seen.items[j].points) orelse continue;
+        const r = eye.ray(p[0], p[1]);
+        const ti = planeDepth(seen.items[i], r);
+        const tj = planeDepth(seen.items[j], r);
+        if (@abs(ti - tj) < 1e-6) continue;
+        const first, const second = if (ti > tj) .{ i, j } else .{ j, i };
+        behind[first * n + second] = true;
+        incoming[second] += 1;
+    };
+    // Kahn's order, the farthest ready face first; a cycle is broken at the
+    // farthest face left.
+    const done = try gpa.alloc(bool, n);
+    defer gpa.free(done);
+    @memset(done, false);
+    var out: std.ArrayList(SeenFace) = .empty;
+    while (out.items.len < n) {
+        var pick: ?usize = null;
+        for (0..n) |i| {
+            if (done[i] or incoming[i] != 0) continue;
+            if (pick == null or seen.items[i].depth > seen.items[pick.?].depth) pick = i;
+        }
+        if (pick == null) for (0..n) |i| {
+            if (done[i]) continue;
+            if (pick == null or seen.items[i].depth > seen.items[pick.?].depth) pick = i;
+        };
+        const i = pick.?;
+        done[i] = true;
+        try out.append(gpa, seen.items[i]);
+        for (0..n) |j| if (behind[i * n + j] and !done[j]) {
+            incoming[j] -|= 1;
+        };
+    }
+    return out.items;
+}
+
+/// The depth along ray `r` (a point and a unit direction) where it meets a
+/// face's plane.
+fn planeDepth(s: SeenFace, r: [2][3]f64) f64 {
+    const along = dot(s.normal, r[1]);
+    if (@abs(along) < 1e-9) return dot(.{ s.at[0] - r[0][0], s.at[1] - r[0][1], s.at[2] - r[0][2] }, r[1]);
+    return dot(s.normal, .{ s.at[0] - r[0][0], s.at[1] - r[0][1], s.at[2] - r[0][2] }) / along;
+}
+
+/// A point inside both convex polygons (the middle of their intersection,
+/// clipped one by the other), or null where they overlap by less than a
+/// hundredth of a square pixel.
+fn overlapPoint(gpa: std.mem.Allocator, a: []const [2]f64, b: []const [2]f64) ?[2]f64 {
+    var lo_a = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+    var hi_a = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+    for (a) |p| {
+        lo_a = .{ @min(lo_a[0], p[0]), @min(lo_a[1], p[1]) };
+        hi_a = .{ @max(hi_a[0], p[0]), @max(hi_a[1], p[1]) };
+    }
+    var lo_b = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+    var hi_b = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+    for (b) |p| {
+        lo_b = .{ @min(lo_b[0], p[0]), @min(lo_b[1], p[1]) };
+        hi_b = .{ @max(hi_b[0], p[0]), @max(hi_b[1], p[1]) };
+    }
+    if (hi_a[0] <= lo_b[0] or hi_b[0] <= lo_a[0] or hi_a[1] <= lo_b[1] or hi_b[1] <= lo_a[1]) return null;
+    // Sutherland-Hodgman: a clipped by each edge of b, b turned
+    // counter-clockwise first.
+    var area: f64 = 0;
+    for (b, 0..) |p, i| {
+        const q = b[(i + 1) % b.len];
+        area += p[0] * q[1] - q[0] * p[1];
+    }
+    if (@abs(area) < 1e-9) return null;
+    const sign: f64 = if (area > 0) 1 else -1;
+    var poly: std.ArrayList([2]f64) = .empty;
+    defer poly.deinit(gpa);
+    poly.appendSlice(gpa, a) catch return null;
+    var next: std.ArrayList([2]f64) = .empty;
+    defer next.deinit(gpa);
+    for (b, 0..) |e0, i| {
+        const e1 = b[(i + 1) % b.len];
+        next.clearRetainingCapacity();
+        const inside = struct {
+            fn f(s: f64, u: [2]f64, v: [2]f64, p: [2]f64) f64 {
+                return s * ((v[0] - u[0]) * (p[1] - u[1]) - (v[1] - u[1]) * (p[0] - u[0]));
+            }
+        }.f;
+        for (poly.items, 0..) |p, k| {
+            const q = poly.items[(k + 1) % poly.items.len];
+            const ip = inside(sign, e0, e1, p);
+            const iq = inside(sign, e0, e1, q);
+            if (ip >= 0) next.append(gpa, p) catch return null;
+            if ((ip >= 0) != (iq >= 0)) {
+                const t = ip / (ip - iq);
+                next.append(gpa, .{ p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]) }) catch return null;
+            }
+        }
+        std.mem.swap(std.ArrayList([2]f64), &poly, &next);
+        if (poly.items.len < 3) return null;
+    }
+    var sum: f64 = 0;
+    var c = [2]f64{ 0, 0 };
+    for (poly.items, 0..) |p, k| {
+        const q = poly.items[(k + 1) % poly.items.len];
+        const w = p[0] * q[1] - q[0] * p[1];
+        sum += w;
+        c = .{ c[0] + (p[0] + q[0]) * w, c[1] + (p[1] + q[1]) * w };
+    }
+    if (@abs(sum) < 0.02) return null;
+    return .{ c[0] / (3 * sum), c[1] / (3 * sum) };
+}
+
+/// Fills a convex polygon into a mask of `width` x `height` (pixel centres).
+fn fillPolygon(mask: []bool, width: usize, height: usize, points: []const [2]f64) void {
+    var lo: f64 = std.math.inf(f64);
+    var hi: f64 = -std.math.inf(f64);
+    for (points) |p| {
+        lo = @min(lo, p[1]);
+        hi = @max(hi, p[1]);
+    }
+    const y0: usize = @intFromFloat(std.math.clamp(@floor(lo), 0, @as(f64, @floatFromInt(height))));
+    const y1: usize = @intFromFloat(std.math.clamp(@ceil(hi), 0, @as(f64, @floatFromInt(height))));
+    for (y0..y1) |y| {
+        const py = @as(f64, @floatFromInt(y)) + 0.5;
+        var left: f64 = std.math.inf(f64);
+        var right: f64 = -std.math.inf(f64);
+        for (points, 0..) |a, i| {
+            const b = points[(i + 1) % points.len];
+            if ((a[1] <= py) == (b[1] <= py)) continue;
+            const x = a[0] + (py - a[1]) / (b[1] - a[1]) * (b[0] - a[0]);
+            left = @min(left, x);
+            right = @max(right, x);
+        }
+        if (left > right) continue;
+        const x0: usize = @intFromFloat(std.math.clamp(@ceil(left - 0.5), 0, @as(f64, @floatFromInt(width))));
+        const x1: usize = @intFromFloat(std.math.clamp(@floor(right - 0.5) + 1, 0, @as(f64, @floatFromInt(width))));
+        for (x0..@max(x0, x1)) |x| mask[y * width + x] = true;
+    }
+}
+
+/// The outline IoU of a model's faces as `eye` sees them with `picture`'s
+/// (alpha 128 or more).
+pub fn modelIou(gpa: std.mem.Allocator, parts: []const Part, eye: Eye, picture: Image) !f64 {
+    const mask = try gpa.alloc(bool, picture.pixels.len);
+    defer gpa.free(mask);
+    @memset(mask, false);
+    for (try seenFaces(gpa, try modelFaces(gpa, parts), eye)) |s| fillPolygon(mask, picture.width, picture.height, s.points);
+    var both: f64 = 0;
+    var either: f64 = 0;
+    for (mask, picture.pixels) |m, p| {
+        both += @floatFromInt(@intFromBool(m and p[3] >= 128));
+        either += @floatFromInt(@intFromBool(m or p[3] >= 128));
+    }
+    return if (either == 0) 0 else both / either;
+}
+
+/// Thin straight parts of a picture (stakes, posts, beams, a hedgehog's
+/// girders) as 3D poles: lines found one after another among the opaque
+/// pixels (of 600 lines through two of them, the one holding the longest run
+/// of pixels within 1.6 of it, gaps of 7 at most, which a crossing beam the
+/// line before took leaves), each lifted to the world by the 2003
+/// projection: its lower end stands on the ground, its upper end
+/// lies as deep along the line of sight (one picture cannot tell how far a
+/// pole leans towards the eye; the review lists poles as unsure).
+pub fn fitPoles(gpa: std.mem.Allocator, picture: Image, eye: Eye) ![]Part {
+    var points: std.ArrayList([2]f64) = .empty;
+    for (0..picture.height) |y| for (0..picture.width) |x| {
+        if (picture.pixels[y * picture.width + x][3] >= 128) try points.append(gpa, .{ @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5 });
+    };
+    var prng = std.Random.DefaultPrng.init(0x5eed);
+    const random = prng.random();
+    var out: std.ArrayList(Part) = .empty;
+    const Run = struct { count: usize = 0, lo: f64 = 0, hi: f64 = 0, origin: [2]f64 = .{ 0, 0 }, dir: [2]f64 = .{ 0, 0 } };
+    const along = try gpa.alloc(f64, points.items.len);
+    defer gpa.free(along);
+    while (out.items.len < 24 and points.items.len >= pole_pixels) {
+        var best: Run = .{};
+        for (0..600) |_| {
+            const a = points.items[random.uintLessThan(usize, points.items.len)];
+            const b = points.items[random.uintLessThan(usize, points.items.len)];
+            const dx = b[0] - a[0];
+            const dy = b[1] - a[1];
+            const length = @sqrt(dx * dx + dy * dy);
+            if (length < 6) continue;
+            const dir = [2]f64{ dx / length, dy / length };
+            var n: usize = 0;
+            for (points.items) |p| {
+                const rx = p[0] - a[0];
+                const ry = p[1] - a[1];
+                if (@abs(rx * dir[1] - ry * dir[0]) > 1.6) continue;
+                along[n] = rx * dir[0] + ry * dir[1];
+                n += 1;
+            }
+            std.mem.sort(f64, along[0..n], {}, std.sort.asc(f64));
+            var start: usize = 0;
+            for (0..n) |i| {
+                if (i > 0 and along[i] - along[i - 1] > 7) start = i;
+                if (i + 1 - start > best.count) best = .{ .count = i + 1 - start, .lo = along[start], .hi = along[i], .origin = a, .dir = dir };
+            }
+        }
+        if (best.count < pole_pixels or best.hi - best.lo < 8) break;
+        // A pole is thin: about three pixels a row of its length at most (a
+        // wall's face holds a whole band along the line).
+        if (@as(f64, @floatFromInt(best.count)) > 4 * (best.hi - best.lo)) break;
+        // And free on both sides along most of its length: a line drawn
+        // through a heap's or a wall's face has picture beside it.
+        var free: usize = 0;
+        var samples: usize = 0;
+        var step = best.lo;
+        while (step <= best.hi) : (step += 2) {
+            const c = [2]f64{ best.origin[0] + step * best.dir[0], best.origin[1] + step * best.dir[1] };
+            samples += 1;
+            const side_free = for ([2]f64{ -4.5, 4.5 }) |off| {
+                const px = picture.at(@intFromFloat(@floor(c[0] - off * best.dir[1])), @intFromFloat(@floor(c[1] + off * best.dir[0])));
+                if (px != null and px.?[3] >= 128) break false;
+            } else true;
+            free += @intFromBool(side_free);
+        }
+        if (2 * free < samples) break;
+        var kept: std.ArrayList([2]f64) = .empty;
+        var spread: f64 = 0;
+        for (points.items) |p| {
+            const rx = p[0] - best.origin[0];
+            const ry = p[1] - best.origin[1];
+            const off = @abs(rx * best.dir[1] - ry * best.dir[0]);
+            const t = rx * best.dir[0] + ry * best.dir[1];
+            if (off <= 2.5 and t >= best.lo - 1 and t <= best.hi + 1) {
+                spread = @max(spread, off);
+            } else try kept.append(gpa, p);
+        }
+        points = kept;
+        var ends = [2][2]f64{
+            .{ best.origin[0] + best.lo * best.dir[0], best.origin[1] + best.lo * best.dir[1] },
+            .{ best.origin[0] + best.hi * best.dir[0], best.origin[1] + best.hi * best.dir[1] },
+        };
+        if (ends[0][1] < ends[1][1]) std.mem.swap([2]f64, &ends[0], &ends[1]);
+        const foot = groundPoint(eye, ends[0][0], ends[0][1]);
+        const rf = eye.ray(ends[0][0], ends[0][1]);
+        const s = (foot[0] - rf[0][0]) * rf[1][0] + (foot[1] - rf[0][1]) * rf[1][1] + (foot[2] - rf[0][2]) * rf[1][2];
+        const rt = eye.ray(ends[1][0], ends[1][1]);
+        const top = [3]f64{ rt[0][0] + s * rt[1][0], rt[0][1] + s * rt[1][1], rt[0][2] + s * rt[1][2] };
+        try out.append(gpa, .{ .kind = .pole, .pole = .{ .from = foot, .to = top, .radius = @max(0.6, spread * 0.8) } });
+    }
+    return out.items;
+}
+
+/// A line holds at least this many pixels to be a pole.
+const pole_pixels = 12;
+
+/// The parts of a scene's intact shape, by kind: the building's blocks, then
+/// the chimneys cut from its outline, the low parts and the roof parts (a
+/// hipped roof part rising over 100 units and twice its width is a tower or a
+/// spire).
+fn sceneParts(gpa: std.mem.Allocator, scene: Scene) ![]Part {
+    const i = for (scene.states, 0..) |state, i| {
+        if (std.mem.eql(u8, state, "1")) break i;
+    } else return &.{};
+    const shape = scene.shapes[i];
+    const body = scene.bodies[i];
+    const chimneys_end = @min(shape.len, scene.body.len);
+    const roof_start = shape.len - @min(shape.len, scene.roof.len);
+    const out = try gpa.alloc(Part, shape.len);
+    for (shape, out, 0..) |b, *p, j| {
+        const top = @max(b.wall, b.ridge);
+        const kind: PartKind = if (j < body) .body else if (j < chimneys_end) .chimney else if (j < roof_start) .low else if (b.roof == .hip and top > 100 and top > 2 * @min(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1])) .tower else .roof_part;
+        p.* = .{ .kind = kind, .block = b };
+    }
+    return out;
+}
+
+/// `models`: the shape model of every variant folder given, each family to
+/// `<models-dir>/<buildings|objects>/<family>.json`.
+fn modelsCommand(ctx: *bk_tool.Context, out_arg: []const u8, ids_arg: []const u8, dir_args: []const []const u8) !void {
+    const arena = ctx.arena;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const ids = (try readJson(ShapeIds, ctx, try bk_tool.inputPath(arena, ids_arg))) orelse return ctx.failKey("views.err.read", .{ ids_arg, "FileNotFound" });
+    const Entry = struct { file: []const u8, text: std.Io.Writer.Allocating };
+    var files: std.ArrayList(Entry) = .empty;
+    for (dir_args) |dir_arg| {
+        const dir = try bk_tool.inputPath(arena, dir_arg);
+        // Its path under Data, with forward slashes.
+        const slashed = try std.mem.replaceOwned(u8, arena, dir, "\\", "/");
+        const at = std.mem.indexOf(u8, slashed, "Buildings/") orelse std.mem.indexOf(u8, slashed, "Objects/") orelse return ctx.failKey("views.err.read", .{ dir, "NotUnderData" });
+        const path = std.mem.trimEnd(u8, slashed[at..], "/");
+        const building = std.mem.startsWith(u8, path, "Buildings/");
+        const id = for (ids.ids) |e| {
+            if (std.mem.eql(u8, e.path, path)) break e.id;
+        } else return ctx.failKey("views.err.read", .{ path, "NoShapeId" });
+        const found = findFamily(arena, ctx.io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+        const model = try buildModel(ctx, found, id, path, building);
+        const file = try std.fmt.allocPrint(arena, "{s}/{s}.json", .{ if (building) "buildings" else "objects", found.family.name });
+        const entry = for (files.items) |*e| {
+            if (std.mem.eql(u8, e.file, file)) break e;
+        } else blk: {
+            try files.append(arena, .{ .file = file, .text = .init(arena) });
+            try files.items[files.items.len - 1].text.writer.writeAll("{");
+            break :blk &files.items[files.items.len - 1];
+        };
+        try entry.text.writer.print("{s}\n\"{s}\": ", .{ if (entry.text.written().len > 1) "," else "", std.fs.path.basename(path) });
+        try writeModel(&entry.text.writer, model);
+        try ctx.out.print("{d} {s}: {s}, {d} parts, IoU {d:.3}\n", .{ id, path, model.how, model.parts.len, model.fit });
+    }
+    for (files.items) |*e| {
+        try e.text.writer.writeAll("\n}\n");
+        const path = try std.fs.path.join(arena, &.{ out, e.file });
+        try std.Io.Dir.cwd().createDirPath(ctx.io, std.fs.path.dirname(path).?);
+        try writeCrlf(ctx, std.fs.path.dirname(path).?, std.fs.path.basename(path), e.text.written());
+    }
+}
+
+fn writeModel(w: *std.Io.Writer, m: Model) !void {
+    try w.print("{{\"id\": {d}, \"path\": \"{s}\", \"how\": \"{s}\", \"fit\": {d:.3}, \"footprint\": [", .{ m.id, m.path, m.how, m.fit });
+    for (m.footprint, 0..) |row, i| try w.print("{s}\"{s}\"", .{ if (i > 0) ", " else "", row });
+    try w.writeAll("], \"parts\": [");
+    for (m.parts, 0..) |p, i| {
+        try w.print("{s}\n  {{\"kind\": \"{s}\"", .{ if (i > 0) "," else "", @tagName(p.kind) });
+        if (p.block) |b| try w.print(", \"block\": {{\"lo\": [{d:.1}, {d:.1}], \"hi\": [{d:.1}, {d:.1}], \"wall\": {d:.1}, \"ridge\": {d:.1}, \"roof\": \"{s}\"}}", .{ b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge, @tagName(b.roof) });
+        if (p.pole) |q| try w.print(", \"pole\": {{\"from\": [{d:.1}, {d:.1}, {d:.1}], \"to\": [{d:.1}, {d:.1}, {d:.1}], \"radius\": {d:.1}}}", .{ q.from[0], q.from[1], q.from[2], q.to[0], q.to[1], q.to[2], q.radius });
+        if (p.rect) |r| try w.print(", \"rect\": {{\"on\": {d}, \"face\": \"{s}\", \"lo\": [{d:.1}, {d:.1}], \"hi\": [{d:.1}, {d:.1}]}}", .{ r.on, r.face, r.lo[0], r.lo[1], r.hi[0], r.hi[1] });
+        try w.writeAll("}");
+    }
+    try w.writeAll("]}");
+}
+
+/// The model of one variant: its intact blocks with their parts (its hand
+/// shape or the fit, as `side` draws it), the windows and doors its 2003
+/// picture shows on them, and for an object the poles where they hold its
+/// outline better.
+fn buildModel(ctx: *bk_tool.Context, found: InFamily, id: u32, path: []const u8, building: bool) !Model {
+    const arena = ctx.arena;
+    const own_dir = try std.fs.path.join(arena, &.{ found.root, found.family.variants[found.index].path });
+    const own = try loadSource(ctx, own_dir, 1);
+    const picture = pictureOf(own, "1") orelse return ctx.failKey("views.err.no_san", .{own_dir});
+    const eye: Eye = .{ .anchor = .{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) } };
+    var parts: []const Part = &.{};
+    var how: []const u8 = "none";
+    var scene_hand = false;
+    if (footprintArea(own.footprint) > 0) {
+        if (loadScene(ctx, found, found.index, null, true)) |scene| {
+            parts = try sceneParts(arena, scene);
+            scene_hand = scene.hand != null;
+            how = if (scene_hand) "hand shape" else "fit";
+            if (building) parts = try std.mem.concat(arena, Part, &.{ parts, try findOpenings(arena, parts, picture, eye) });
+        } else |_| {}
+    }
+    var fit = try modelIou(arena, parts, eye, picture);
+    if (!building and !scene_hand) {
+        // A prop is smaller than the 12 units a building's block keeps: its
+        // fit, and one box over its footprint (or, with none, under the
+        // middle of its outline's foot), refined to its outline with no
+        // least size (a barrel, a gravestone, a box).
+        const box = occupiedBox(own.footprint.rows);
+        const footprint_box: Block = if (box[2] > box[0] and box[3] > box[1]) blk: {
+            break :blk .{
+                .lo = .{ @as(f64, @floatFromInt(box[0])) * tile_size - own.footprint.origin[0], @as(f64, @floatFromInt(box[1])) * tile_size - own.footprint.origin[1] },
+                .hi = .{ @as(f64, @floatFromInt(box[2])) * tile_size - own.footprint.origin[0], @as(f64, @floatFromInt(box[3])) * tile_size - own.footprint.origin[1] },
+                .wall = 12,
+                .ridge = 12,
+            };
+        } else blk: {
+            var foot = [2]f64{ 0, 0 };
+            var lowest: usize = 0;
+            var columns: f64 = 0;
+            for (0..picture.height) |y| for (0..picture.width) |x| {
+                if (picture.pixels[y * picture.width + x][3] < 128) continue;
+                if (y > lowest) {
+                    lowest = y;
+                    foot = .{ 0, 0 };
+                    columns = 0;
+                }
+                if (y == lowest) {
+                    foot[0] += @floatFromInt(x);
+                    columns += 1;
+                }
+            };
+            const g = groundPoint(eye, foot[0] / @max(1, columns) + 0.5, @as(f64, @floatFromInt(lowest)) - 4);
+            break :blk .{ .lo = .{ g[0] - 6, g[1] - 6 }, .hi = .{ g[0] + 6, g[1] + 6 }, .wall = 12, .ridge = 12 };
+        };
+        var fitted: std.ArrayList(Block) = .empty;
+        for (parts) |p| if (p.block) |b| try fitted.append(arena, b);
+        for ([2][]const Block{ fitted.items, &.{footprint_box} }) |start| {
+            if (start.len == 0 or start.len > max_blocks) continue;
+            const refined = try refineToOutline(arena, start, picture, eye);
+            const candidate = try arena.alloc(Part, refined.len);
+            for (refined, candidate, 0..) |b, *c, j| c.* = .{ .kind = if (start.len == fitted.items.len and j < parts.len) parts[j].kind else .body, .block = b };
+            const candidate_fit = try modelIou(arena, candidate, eye, picture);
+            if (candidate_fit > fit) {
+                parts = candidate;
+                fit = candidate_fit;
+                how = "fit, refined";
+            }
+        }
+    }
+    if (!building and !scene_hand) {
+        const poles = try fitPoles(arena, picture, eye);
+        const pole_fit = try modelIou(arena, poles, eye, picture);
+        if (poles.len > 0 and pole_fit > fit + 0.02) {
+            parts = poles;
+            fit = pole_fit;
+            how = "poles";
+        }
+    }
+    return .{ .id = id, .path = path, .how = how, .fit = fit, .footprint = own.footprint.rows, .parts = parts };
+}
+
+/// Blocks moved to a picture's outline by the exact outline IoU of their
+/// drawing (`modelIou`): every edge, height, roof and whole move of each
+/// block by 8, 4, 2 and 1 units while the IoU grows; a block keeps a unit
+/// each way. For props, whose parts are smaller than the fit's sampling.
+fn refineToOutline(gpa: std.mem.Allocator, start: []const Block, picture: Image, eye: Eye) ![]Block {
+    const blocks = try gpa.dupe(Block, start);
+    const parts = try gpa.alloc(Part, blocks.len);
+    const sync = struct {
+        fn f(ps: []Part, bs: []const Block) void {
+            for (ps, bs) |*p, b| p.* = .{ .kind = .body, .block = b };
+        }
+    }.f;
+    sync(parts, blocks);
+    var best = try modelIou(gpa, parts, eye, picture);
+    for ([_]f64{ 8, 4, 2, 1 }) |step| {
+        var rounds: usize = 0;
+        var improved = true;
+        while (improved and rounds < 30) : (rounds += 1) {
+            improved = false;
+            for (blocks) |*block| for (0..20) |v| {
+                var c = block.*;
+                switch (v) {
+                    0...3 => c.lo[v % 2] += if (v < 2) step else -step,
+                    4...7 => c.hi[v % 2] += if (v < 6) step else -step,
+                    8, 9 => c.wall += if (v == 8) step else -step,
+                    10, 11 => c.ridge += if (v == 10) step else -step,
+                    12...15 => c.roof = @enumFromInt(v - 12),
+                    else => {
+                        const d = if (v % 2 == 0) step else -step;
+                        c.lo[(v - 16) / 2] += d;
+                        c.hi[(v - 16) / 2] += d;
+                    },
+                }
+                if (v >= 12 and v < 16 and c.roof == block.roof) continue;
+                if (c.hi[0] - c.lo[0] < 1 or c.hi[1] - c.lo[1] < 1 or c.wall < 1) continue;
+                if (c.roof == .flat) c.ridge = c.wall;
+                if (c.ridge < c.wall) continue;
+                const before = block.*;
+                block.* = c;
+                sync(parts, blocks);
+                const iou = try modelIou(gpa, parts, eye, picture);
+                if (iou > best + 1e-9) {
+                    best = iou;
+                    improved = true;
+                } else block.* = before;
+            };
+        }
+    }
+    return blocks;
+}
+
+/// Windows and doors on the walls of a building's body that its 2003 picture
+/// shows: on each wall seen squarely (cosine 0.3 or more), the wall's points
+/// on a grid of one world unit sampled from the picture where nothing stands
+/// in front; points darker than 0.7 of the wall's median brightness grouped
+/// 4-connected, each group whose box is 4 to 20 units wide and 5 to 26 high,
+/// between 2:5 and 5:2, and three fifths dark or more (half-timbering's long
+/// thin beams are not); one from within 3 units of the ground and 10 high is
+/// a door.
+fn findOpenings(gpa: std.mem.Allocator, parts: []const Part, picture: Image, eye: Eye) ![]Part {
+    var blocks: std.ArrayList(Block) = .empty;
+    for (parts) |p| if (p.block) |b| try blocks.append(gpa, b);
+    const d = eye.ray(0, 0)[1];
+    var out: std.ArrayList(Part) = .empty;
+    for (parts, 0..) |p, index| {
+        if (p.kind != .body) continue;
+        const b = p.block.?;
+        for ([_][]const u8{ "wall -y", "wall +x", "wall +y", "wall -x" }) |name| {
+            const n = faceDirection(name);
+            if (-(n[0] * d[0] + n[1] * d[1]) < 0.3) continue;
+            const right = [2]f64{ -n[1], n[0] };
+            const start = faceStart(b, n);
+            const across: usize = @intFromFloat(@floor(if (n[0] != 0) b.hi[1] - b.lo[1] else b.hi[0] - b.lo[0]));
+            const up: usize = @intFromFloat(@floor(b.wall));
+            if (across < 4 or up < 4) continue;
+            // Each point's brightness, -1 where the picture does not show it.
+            const level = try gpa.alloc(f64, across * up);
+            var seen: std.ArrayList(f64) = .empty;
+            for (0..up) |v| for (0..across) |u| {
+                const fu = @as(f64, @floatFromInt(u)) + 0.5;
+                const p3 = [3]f64{ start[0] + right[0] * fu + n[0] * 0.01, start[1] + right[1] * fu + n[1] * 0.01, @as(f64, @floatFromInt(v)) + 0.5 };
+                level[v * across + u] = -1;
+                if (!sees(blocks.items, eye, p3)) continue;
+                const s = eye.project(p3);
+                const px = picture.at(@intFromFloat(@floor(s[0])), @intFromFloat(@floor(s[1]))) orelse continue;
+                if (px[3] < 128) continue;
+                const l = 0.3 * @as(f64, @floatFromInt(px[0])) + 0.59 * @as(f64, @floatFromInt(px[1])) + 0.11 * @as(f64, @floatFromInt(px[2]));
+                level[v * across + u] = l;
+                try seen.append(gpa, l);
+            };
+            if (seen.items.len < 40) continue;
+            std.mem.sort(f64, seen.items, {}, std.sort.asc(f64));
+            const dark = 0.7 * seen.items[seen.items.len / 2];
+            const visited = try gpa.alloc(bool, level.len);
+            @memset(visited, false);
+            var stack: std.ArrayList(usize) = .empty;
+            for (0..level.len) |seed| {
+                if (visited[seed] or level[seed] < 0 or level[seed] >= dark) continue;
+                var box = [4]usize{ across, up, 0, 0 };
+                var count: usize = 0;
+                visited[seed] = true;
+                try stack.append(gpa, seed);
+                while (stack.pop()) |i| {
+                    const u = i % across;
+                    const v = i / across;
+                    box = .{ @min(box[0], u), @min(box[1], v), @max(box[2], u + 1), @max(box[3], v + 1) };
+                    count += 1;
+                    for ([_][2]i64{ .{ -1, 0 }, .{ 1, 0 }, .{ 0, -1 }, .{ 0, 1 } }) |step| {
+                        const nu = @as(i64, @intCast(u)) + step[0];
+                        const nv = @as(i64, @intCast(v)) + step[1];
+                        if (nu < 0 or nv < 0 or nu >= across or nv >= up) continue;
+                        const k: usize = @intCast(nv * @as(i64, @intCast(across)) + nu);
+                        if (visited[k] or level[k] < 0 or level[k] >= dark) continue;
+                        visited[k] = true;
+                        try stack.append(gpa, k);
+                    }
+                }
+                const w = box[2] - box[0];
+                const h = box[3] - box[1];
+                // A window or door is a compact dark box (timber framing is long and thin).
+                if (w < 4 or w > 20 or h < 5 or h > 26 or 5 * w < 2 * h or 2 * w > 5 * h or 5 * count < 3 * w * h) continue;
+                const door = box[1] <= 3 and h >= 10;
+                try out.append(gpa, .{ .kind = if (door) .door else .window, .rect = .{ .on = index, .face = name, .lo = .{ @floatFromInt(box[0]), @floatFromInt(box[1]) }, .hi = .{ @floatFromInt(box[2]), @floatFromInt(box[3]) } } });
+            }
+        }
+    }
+    return out.items;
+}
+
+/// The four sides a model is drawn from, by turn: N is turn 0 (the 2003
+/// picture's side), E, S and W the turns one, two and three presses of the
+/// Game's turn key (`.`, camera step 1, 2, 3) show.
+pub const side_letters = [4]u8{ 'N', 'E', 'S', 'W' };
+
+const kind_fill = std.enums.EnumArray(PartKind, [3]f64).init(.{
+    .body = .{ 0.90, 0.86, 0.76 },
+    .chimney = .{ 0.80, 0.42, 0.32 },
+    .low = .{ 0.62, 0.82, 0.58 },
+    .roof_part = .{ 0.58, 0.72, 0.92 },
+    .tower = .{ 0.74, 0.62, 0.90 },
+    .pole = .{ 0.96, 0.70, 0.30 },
+    .window = .{ 0.30, 0.70, 0.90 },
+    .door = .{ 0.55, 0.35, 0.62 },
+});
+
+/// A face's fill: its kind's colour, roof planes of the body in tile red.
+fn faceFill(f: ModelFace) [3]f64 {
+    if (f.kind == .body and f.roof) return .{ 0.82, 0.55, 0.45 };
+    return kind_fill.get(f.kind);
+}
+
+const ModelFile = std.json.ArrayHashMap(Model);
+
+/// `review`: the review document of every numbered object (`shape_ids_file`)
+/// whose model `models-dir` holds: a contents page, then a page each with its
+/// 2003 picture, the model's turn 0 drawn over it, and the model turned to
+/// the four sides as vector drawings labelled `<number>.N` to `<number>.W`.
+fn reviewCommand(ctx: *bk_tool.Context, out_arg: []const u8, ids_arg: []const u8, models_arg: []const u8, buildings_arg: []const u8, objects_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const ids = (try readJson(ShapeIds, ctx, try bk_tool.inputPath(arena, ids_arg))) orelse return ctx.failKey("views.err.read", .{ ids_arg, "FileNotFound" });
+    const models = try bk_tool.inputPath(arena, models_arg);
+    const roots = [2][]const u8{ try bk_tool.inputPath(arena, buildings_arg), try bk_tool.inputPath(arena, objects_arg) };
+    // Each object's family, as `models` files it.
+    var families: std.StringHashMap([]const u8) = .init(arena);
+    for (roots, [2][]const u8{ "Buildings", "Objects/SimpleObjects" }) |root, prefix| {
+        for (try listFamilies(arena, ctx.io, root)) |family| for (family.variants) |v| {
+            try families.put(try std.fmt.allocPrint(arena, "{s}/{s}", .{ prefix, v.path }), family.name);
+        };
+    }
+    const Entry = struct { id: u32, path: []const u8, model: ?Model };
+    var entries_list: std.ArrayList(Entry) = .empty;
+    var files: std.StringHashMap(?ModelFile) = .init(arena);
+    for (ids.ids) |e| {
+        const building = std.mem.startsWith(u8, e.path, "Buildings/");
+        const family = families.get(e.path) orelse continue;
+        const file = try std.fmt.allocPrint(arena, "{s}/{s}/{s}.json", .{ models, if (building) "buildings" else "objects", family });
+        const loaded = files.get(file) orelse blk: {
+            const m = try readJson(ModelFile, ctx, file);
+            try files.put(file, m);
+            break :blk m;
+        };
+        const model = if (loaded) |m| m.map.get(std.fs.path.basename(e.path)) else null;
+        try entries_list.append(arena, .{ .id = e.id, .path = e.path, .model = model });
+    }
+    std.mem.sort(Entry, entries_list.items, {}, struct {
+        fn less(_: void, a: Entry, b: Entry) bool {
+            return a.id < b.id;
+        }
+    }.less);
+    const items = entries_list.items;
+
+    const page_w = 842.0;
+    const page_h = 595.0;
+    var pdf = try bk_pdf.begin(arena);
+    // Contents: the convention, the colours, then two columns of entries.
+    const per_column = 46;
+    const first_rows = 26;
+    const contents_pages: usize = if (items.len <= 2 * first_rows) 1 else 1 + (items.len - 2 * first_rows + 2 * per_column - 1) / (2 * per_column);
+    var at: usize = 0;
+    for (0..contents_pages) |cp| {
+        var page: bk_pdf.Page = .init(arena);
+        var top: f64 = page_h - 40;
+        if (cp == 0) {
+            try page.text(30, top, 20, true, .{ 0, 0, 0 }, "Blitzkrieg shapes review: every object that turns, as a vector model");
+            top -= 22;
+            const lines = [_][]const u8{
+                "Each object has a number; its four drawings are <number>.N, .E, .S, .W. N is turn 0, the side its 2003 picture shows.",
+                "E, S and W are the turns one, two and three presses of the Game's turn key (period: camera step 1, 2, 3) show.",
+                "So '33.S' is object 33 seen after two presses. The numbers are kept in tools/zig/fixtures/bk-views/shape-ids.json,",
+                "the models in tools/zig/fixtures/bk-views/models (buildings/<family>.json, objects/<family>.json).",
+                "Each page: the 2003 picture, the model's turn 0 drawn over it (fit: outline IoU of model and picture), the parts list,",
+                "and the four turns drawn with the 2003 camera (30 degrees down, 45 degrees across), parts coloured by kind:",
+            };
+            for (lines) |l| {
+                try page.text(30, top, 9.5, false, .{ 0, 0, 0 }, l);
+                top -= 12;
+            }
+            var x: f64 = 30;
+            for (std.enums.values(PartKind)) |k| {
+                try page.polygon(&.{ .{ x, top - 2 }, .{ x + 14, top - 2 }, .{ x + 14, top + 8 }, .{ x, top + 8 } }, kind_fill.get(k), .{ 0.3, 0.3, 0.3 }, 0.5);
+                try page.text(x + 18, top, 9.5, false, .{ 0, 0, 0 }, if (k == .body) "walls" else if (k == .roof_part) "roof part (dormer, vent, crate)" else if (k == .low) "low part (ramp, step, porch)" else @tagName(k));
+                x += if (k == .roof_part) 170 else if (k == .low) 150 else 70;
+            }
+            try page.polygon(&.{ .{ x, top - 2 }, .{ x + 14, top - 2 }, .{ x + 14, top + 8 }, .{ x, top + 8 } }, .{ 0.82, 0.55, 0.45 }, .{ 0.3, 0.3, 0.3 }, 0.5);
+            try page.text(x + 18, top, 9.5, false, .{ 0, 0, 0 }, "roof");
+            top -= 22;
+        }
+        const rows: usize = if (cp == 0) first_rows else per_column;
+        for (0..2) |column| for (0..rows) |row| {
+            if (at == items.len) break;
+            const e = items[at];
+            const y = top - @as(f64, @floatFromInt(row)) * 11.5;
+            const x = 30 + @as(f64, @floatFromInt(column)) * 400;
+            try page.text(x, y, 9, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}", .{e.id}));
+            try page.text(x + 32, y, 9, false, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{s}  {s}", .{ e.path, if (e.model) |m| m.how else "no model" }));
+            try page.text(x + 360, y, 9, false, .{ 0.3, 0.3, 0.3 }, try std.fmt.allocPrint(arena, "p. {d}", .{contents_pages + at + 1}));
+            at += 1;
+        };
+        _ = try pdf.page(page_w, page_h, page.out.written(), &.{});
+    }
+    try pdf.bookmark("Contents", 0);
+    for (items) |e| {
+        var page: bk_pdf.Page = .init(arena);
+        var images: std.ArrayList(u32) = .empty;
+        const relative = if (std.mem.startsWith(u8, e.path, "Objects/SimpleObjects/")) e.path["Objects/SimpleObjects/".len..] else e.path["Buildings/".len..];
+        const dir = try std.fs.path.join(arena, &.{ if (std.mem.startsWith(u8, e.path, "Buildings/")) roots[0] else roots[1], relative });
+        try page.text(30, page_h - 42, 26, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}", .{e.id}));
+        try page.text(100, page_h - 34, 13, true, .{ 0, 0, 0 }, e.path);
+        const model = e.model orelse {
+            try page.text(100, page_h - 50, 10, false, .{ 0.6, 0, 0 }, "no model");
+            _ = try pdf.page(page_w, page_h, page.out.written(), &.{});
+            continue;
+        };
+        try page.text(100, page_h - 50, 10, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "{s}  |  fit (outline IoU at N) {d:.3}  |  footprint {d} x {d} cells  |  {d} parts", .{ model.how, model.fit, if (model.footprint.len > 0) model.footprint[0].len / 2 else 0, model.footprint.len, model.parts.len }));
+        const faces = try modelFaces(arena, model.parts);
+        // The 2003 picture, alone and with the model's turn 0 over it.
+        const source = loadSource(ctx, dir, 1) catch null;
+        const box = [2]f64{ 250, 215 };
+        const box_y = 300.0;
+        if (source) |s| if (pictureOf(s, "1")) |picture| {
+            const im = try pdf.image(picture.width, picture.height, picture.pixels);
+            try images.append(arena, im);
+            const scale = @min(@min(box[0] / @as(f64, @floatFromInt(picture.width)), box[1] / @as(f64, @floatFromInt(picture.height))), 3.0);
+            const w = scale * @as(f64, @floatFromInt(picture.width));
+            const h = scale * @as(f64, @floatFromInt(picture.height));
+            const eye: Eye = .{ .anchor = .{ @floatFromInt(s.anchor[0]), @floatFromInt(s.anchor[1]) } };
+            for ([2]f64{ 30, 300 }, 0..) |x0, k| {
+                const ox = x0 + (box[0] - w) / 2;
+                const oy = box_y + (box[1] - h) / 2;
+                try page.polygon(&.{ .{ ox, oy }, .{ ox + w, oy }, .{ ox + w, oy + h }, .{ ox, oy + h } }, .{ 0.80, 0.83, 0.88 }, null, 0);
+                try page.image(im, ox, oy, w, h);
+                if (k == 0) {
+                    try page.text(x0, box_y + box[1] + 6, 9, false, .{ 0.2, 0.2, 0.2 }, "2003 picture");
+                    continue;
+                }
+                try page.text(x0, box_y + box[1] + 6, 9, false, .{ 0.2, 0.2, 0.2 }, "model at N over it");
+                for (try seenFaces(arena, faces, eye)) |f| {
+                    const pts = try arena.alloc([2]f64, f.points.len);
+                    for (f.points, pts) |q, *r| r.* = .{ ox + q[0] * scale, oy + h - q[1] * scale };
+                    const c = faceFill(f.face);
+                    try page.polygon(pts, null, .{ c[0] * 0.55, c[1] * 0.55, c[2] * 0.55 }, 0.8);
+                }
+            }
+        };
+        // The parts list.
+        var y: f64 = box_y + box[1] - 4;
+        try page.text(580, y + 10, 9, true, .{ 0, 0, 0 }, "parts (lo, hi, wall, ridge in world units)");
+        for (model.parts, 0..) |p, i| {
+            if (y < box_y - 10) {
+                try page.text(580, y, 8, false, .{ 0.3, 0.3, 0.3 }, try std.fmt.allocPrint(arena, "... {d} more", .{model.parts.len - i}));
+                break;
+            }
+            const line = if (p.block) |b| try std.fmt.allocPrint(arena, "p{d} {s} {s} ({d:.0},{d:.0})-({d:.0},{d:.0}) {d:.0}/{d:.0}", .{ i + 1, @tagName(p.kind), @tagName(b.roof), b.lo[0], b.lo[1], b.hi[0], b.hi[1], b.wall, b.ridge }) else if (p.pole) |q| try std.fmt.allocPrint(arena, "p{d} pole ({d:.0},{d:.0},{d:.0})-({d:.0},{d:.0},{d:.0}) r {d:.1}", .{ i + 1, q.from[0], q.from[1], q.from[2], q.to[0], q.to[1], q.to[2], q.radius }) else if (p.rect) |r| try std.fmt.allocPrint(arena, "p{d} {s} on p{d} {s} {d:.0}..{d:.0} x {d:.0}..{d:.0}", .{ i + 1, @tagName(p.kind), r.on + 1, r.face, r.lo[0], r.hi[0], r.lo[1], r.hi[1] }) else "";
+            const c = kind_fill.get(p.kind);
+            try page.polygon(&.{ .{ 580, y - 1 }, .{ 587, y - 1 }, .{ 587, y + 6 }, .{ 580, y + 6 } }, c, null, 0);
+            try page.text(591, y, 7.5, false, .{ 0, 0, 0 }, line);
+            y -= 9;
+        }
+        // The four turns at one scale.
+        var turned: [4][]SeenFace = undefined;
+        var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+        var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+        var bounds: [4][4]f64 = undefined;
+        for (0..4) |k| {
+            turned[k] = try seenFaces(arena, faces, .{ .anchor = .{ 0, 0 }, .turn = @intCast(k) });
+            bounds[k] = .{ std.math.inf(f64), std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64) };
+            for (turned[k]) |f| for (f.points) |q| {
+                bounds[k] = .{ @min(bounds[k][0], q[0]), @min(bounds[k][1], q[1]), @max(bounds[k][2], q[0]), @max(bounds[k][3], q[1]) };
+            };
+            lo = .{ @min(lo[0], bounds[k][2] - bounds[k][0]), 0 };
+            hi = .{ @max(hi[0], bounds[k][2] - bounds[k][0]), @max(hi[1], bounds[k][3] - bounds[k][1]) };
+        }
+        const cell = [2]f64{ 190, 220 };
+        const scale = if (hi[0] > 0 and hi[1] > 0) @min(@min(cell[0] / hi[0], (cell[1] - 34) / hi[1]), 3.0) else 1;
+        for (0..4) |k| {
+            const x0 = 30 + @as(f64, @floatFromInt(k)) * 200;
+            const y0 = 30.0;
+            try page.polygon(&.{ .{ x0, y0 }, .{ x0 + cell[0], y0 }, .{ x0 + cell[0], y0 + cell[1] }, .{ x0, y0 + cell[1] } }, .{ 0.97, 0.97, 0.97 }, .{ 0.75, 0.75, 0.75 }, 0.5);
+            const label = try std.fmt.allocPrint(arena, "{d}.{c}", .{ e.id, side_letters[k] });
+            defer {
+                // The label over the drawing, on a plate of its own.
+                page.polygon(&.{ .{ x0 + 2, y0 + cell[1] - 30 }, .{ x0 + 18 + 13 * @as(f64, @floatFromInt(label.len)), y0 + cell[1] - 30 }, .{ x0 + 18 + 13 * @as(f64, @floatFromInt(label.len)), y0 + cell[1] - 2 }, .{ x0 + 2, y0 + cell[1] - 2 } }, .{ 1, 1, 1 }, null, 0) catch {};
+                page.text(x0 + 6, y0 + cell[1] - 26, 22, true, .{ 0, 0, 0 }, label) catch {};
+                page.text(x0 + 6, y0 + 6, 7.5, false, .{ 0.35, 0.35, 0.35 }, if (k == 0) "turn 0: the 2003 side" else std.fmt.allocPrint(arena, "turn {d}: {d} press{s} of '.'", .{ k, k, if (k == 1) "" else "es" }) catch "") catch {};
+            }
+            if (bounds[k][0] > bounds[k][2]) continue;
+            const cx = (bounds[k][0] + bounds[k][2]) / 2;
+            const cy = (bounds[k][1] + bounds[k][3]) / 2;
+            const mx = x0 + cell[0] / 2;
+            const my = y0 + (cell[1] - 30) / 2 + 6;
+            var label_at = std.AutoHashMap(usize, [2]f64).init(arena);
+            for (turned[k]) |f| {
+                const pts = try arena.alloc([2]f64, f.points.len);
+                for (f.points, pts) |q, *r| {
+                    r.* = .{ mx + (q[0] - cx) * scale, my - (q[1] - cy) * scale };
+                    if (f.face.kind != .window and f.face.kind != .door) {
+                        const g = try label_at.getOrPutValue(f.face.part, r.*);
+                        if (r[1] > g.value_ptr[1]) g.value_ptr.* = r.*;
+                    }
+                }
+                try page.polygon(pts, faceFill(f.face), .{ 0.25, 0.25, 0.25 }, 0.45);
+            }
+            // Each part's number at its top.
+            if (model.parts.len <= 40) {
+                var it = label_at.iterator();
+                while (it.next()) |l| try page.text(l.value_ptr[0] - 3, l.value_ptr[1] + 2, 6, false, .{ 0.1, 0.1, 0.5 }, try std.fmt.allocPrint(arena, "p{d}", .{l.key_ptr.* + 1}));
+            }
+        }
+        const index = try pdf.page(page_w, page_h, page.out.written(), images.items);
+        try pdf.bookmark(try std.fmt.allocPrint(arena, "{d} {s}", .{ e.id, e.path }), index);
+    }
+    var text: std.Io.Writer.Allocating = .init(arena);
+    try pdf.write(&text.writer);
+    try std.Io.Dir.cwd().createDirPath(ctx.io, std.fs.path.dirname(out) orelse ".");
+    try writeOut(ctx, std.fs.path.dirname(out) orelse ".", std.fs.path.basename(out), text.written());
+    try ctx.out.print("wrote {s}: {d} objects on {d} pages\n", .{ out, items.len, pdf.pages.items.len });
 }
