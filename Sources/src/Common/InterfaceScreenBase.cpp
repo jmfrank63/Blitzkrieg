@@ -281,6 +281,9 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 			}
 			// Keep diagnostics in load_trace.log only to avoid debugger output stalls while recovering from draw-skip states.
 		}
+		// The statistics' frame rate counts drawn frames only: the time away
+		// is not one long frame of the next second.
+		NHPTimer::GetTime( &time );
 		NPlatform::SleepMilliseconds( 10 );
 		return;
 	}

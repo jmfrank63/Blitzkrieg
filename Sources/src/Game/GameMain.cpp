@@ -14,6 +14,8 @@
 // swipe verbs and the trackpad sensitivity option, on every platform.
 #include "../Platform/Event.h"
 #include "../Platform/WheelScroll.h"
+// The BK_AUTO_UI blur= action pushes its focus events through SDL.
+#include "../Platform/SDLApplication.h"
 #include "SysKeys.h"
 
 #include "../GFX/GFX.H"
@@ -155,12 +157,24 @@ void PumpMessages()
 				SetGlobalVar( "GFX.Monitor.Index", event.data1 );
 				SetGlobalVar( "GFX.DisplayChanged", 1 );
 				break;
-			case NPlatform::EventType::textInput:
+			// The focus pause. WinFrame's SDL path calls SwitchGame on both
+			// transitions; this frame only cleared its active flag, so on macOS
+			// and Linux the simulation went on against the running game clock
+			// while nothing was drawn - the artillery kept firing - and the world
+			// caught up with all of it on the first frame back. A Game driven by
+			// BK_AUTO_UI keeps stepping whatever the desktop's focus does; only
+			// the focus events its blur= action pushes pause it.
+			// focusGained is also what sets CInputAPI::bFocusCaptured, and the
+			// input pump is gated on that flag. Without it the module received
+			// every mouse event and discarded them all, so clicks never reached
+			// the UI.
 			case NPlatform::EventType::focusLost:
-			// focusGained is what sets CInputAPI::bFocusCaptured, and the input
-			// pump is gated on that flag. Without it the module received every
-			// mouse event and discarded them all, so clicks never reached the UI.
 			case NPlatform::EventType::focusGained:
+				if ( getenv( "BK_AUTO_UI" ) == 0 || event.data1 == NPlatform::SDLApplication::kHarnessFocusEvent )
+					NMain::SwitchGame( event.type == NPlatform::EventType::focusGained );
+				pInput->ConsumePlatformEvent( event );
+				break;
+			case NPlatform::EventType::textInput:
 				pInput->ConsumePlatformEvent( event );
 				break;
 			default: break;
@@ -1287,7 +1301,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 			// (x,y), in the AI's own coordinates - a harness's way to see a
 			// placed unit in the running mission without driving the UI) |
 			// world=<Command>(<args>) (a world console command, e.g. the
-			// TraceSelection and TraceContainers dumps of CWorldClient::Update).
+			// TraceSelection and TraceContainers dumps of CWorldClient::Update) |
+			// blur=<ms> (the window loses the focus for ms of wall time).
 			// An entry keyed g<ms> instead of a frame fires once, ms of game time
 			// after the entry before it has run, counted from the start of a new
 			// game when one starts in between (game time going back is a mission
@@ -1307,7 +1322,21 @@ int RunGame( const BkGameLaunchInfo &launch )
 			static const char *pszAutoUI = getenv( "BK_AUTO_UI" );
 			if ( pszAutoUI != 0 )
 			{
-				bActive = true;		// keep stepping while the window is unfocused
+				// blur=<ms> loses the focus for ms of wall time and gets it back:
+				// it pushes SDL focus events marked as the harness's, which the
+				// frames take as they take a real focus change (the harness
+				// otherwise ignores those), and holds the window inactive.
+				static bool bAutoUIBlurred = false;
+				static DWORD nAutoUIBlurStart = 0;
+				static DWORD nAutoUIBlurLength = 0;
+				if ( bAutoUIBlurred && NPlatform::MillisecondsElapsed( nAutoUIBlurStart, NPlatform::MonotonicMilliseconds() ) >= nAutoUIBlurLength )
+				{
+					bAutoUIBlurred = false;
+					NPlatform::SDLApplication::PushFocusEventForTests( NWinFrame::GetSDLWindow(), true );
+					IGameTimer *pTimer = GetSingleton<IGameTimer>();
+					fprintf( stderr, "BK_AUTO_UI: focus back at %u ms game %u ms abs %u ms\n", unsigned( NPlatform::MonotonicMilliseconds() ), unsigned( pTimer->GetGameTime() ), unsigned( pTimer->GetAbsTime() ) );
+				}
+				bActive = !bAutoUIBlurred;		// otherwise keep stepping while the window is unfocused
 				static int nAutoUIFrame = 0;
 				static int nAutoUIRelease = 0;
 				static int vAutoUIReleasePos[2] = { 0, 0 };
@@ -1429,6 +1458,16 @@ int RunGame( const BkGameLaunchInfo &launch )
 					else if ( szAction == "cancel" ) pInput->AddMessage( SGameMessage( 10001 ) );	// IMC_CANCEL
 					else if ( szAction.compare( 0, 4, "msg=" ) == 0 ) pInput->AddMessage( SGameMessage( (int)strtol( szAction.c_str() + 4, 0, 0 ) ) );
 					else if ( szAction.compare( 0, 4, "cmd=" ) == 0 ) pMainLoop->Command( (int)strtol( szAction.c_str() + 4, 0, 0 ), "" );
+					else if ( szAction.compare( 0, 5, "blur=" ) == 0 && !bAutoUIBlurred )
+					{
+						IGameTimer *pTimer = GetSingleton<IGameTimer>();
+						fprintf( stderr, "BK_AUTO_UI: focus lost at %u ms game %u ms abs %u ms\n", unsigned( NPlatform::MonotonicMilliseconds() ), unsigned( pTimer->GetGameTime() ), unsigned( pTimer->GetAbsTime() ) );
+						bAutoUIBlurred = true;
+						nAutoUIBlurStart = NPlatform::MonotonicMilliseconds();
+						nAutoUIBlurLength = DWORD( atoi( szAction.c_str() + 5 ) );
+						bActive = false;
+						NPlatform::SDLApplication::PushFocusEventForTests( NWinFrame::GetSDLWindow(), false );
+					}
 					else if ( szAction.compare( 0, 9, "campaign=" ) == 0 )
 					{
 						// campaign=<index>=<campaign stats name>: starts a single-player

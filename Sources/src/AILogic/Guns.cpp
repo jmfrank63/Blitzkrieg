@@ -922,6 +922,11 @@ IBallisticTraj* CGun::CreateTraj( const CVec2 &vTarget ) const
 }
 void CGun::Fire( const CVec2 &target, const float z )
 {
+	// Each shot with the game time it is fired at: how a tier sees that the
+	// fight stops while the Game is paused (focus-pause tier).
+	static const bool bShotTrace = getenv( "BK_SHOT_TRACE" ) != 0;
+	if ( bShotTrace )
+		fprintf( stderr, "BK_SHOT_TRACE: %s fires at %u ms\n", pOwner->GetStats()->szParentName.c_str(), unsigned( curTime ) );
 	const CVec2 vOwnerCenter = pOwner->GetCenter();
 	switch ( eType )
 	{
