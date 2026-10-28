@@ -292,6 +292,7 @@ pub const RealBridge = struct {
         .fenceDescriptors = vtableFenceDescriptors,
         .planFences = vtablePlanFences,
         .drawFences = vtableDrawFences,
+        .turnFence = vtableTurnFence,
         .planEntrenchment = vtablePlanEntrenchment,
         .drawEntrenchment = vtableDrawEntrenchment,
         .entrenchments = vtableEntrenchments,
@@ -1971,6 +1972,10 @@ pub const RealBridge = struct {
         var desc_buffer: [core.bridge.name_capacity]u8 = undefined;
         const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
         return status(c.BkEditorDrawFences(self.session, desc_z, wx0, wy0, wx1, wy1, if (ctrl) 1 else 0, token));
+    }
+
+    fn vtableTurnFence(ptr: *anyopaque, link_id: i32, quarters: i32, token: *i32) Status {
+        return status(c.BkEditorTurnFence(from(ptr).session, link_id, quarters, token));
     }
 
     /// The clicks as the C call takes them; null for more than the bridge

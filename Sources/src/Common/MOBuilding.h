@@ -35,6 +35,7 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	void AddEffectsAtDamagePoints( const int nDamageState, const NTimer::STime &currTime, const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene );
 	int GetStandingTurn() const;
 	CVec3 TurnPoint( const CVec3 &vPoint ) const;
+	CVec3 PointOf( const CVec3 &vAIPos, const CVec3 &vWorldPos ) const;
 	IText* GetLocalName() const
 	{
 		if ( pLocalName == 0 )

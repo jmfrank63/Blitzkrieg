@@ -85,7 +85,7 @@ private:
 		PACKET_ID nPkt;
 		
 		int GetSendSize() const { return sizeof(nOffset) + sizeof(nLength) + nLength; }
-		int GetHeaderSize() { return sizeof(nOffset) + sizeof(nLength); }
+		static int GetHeaderSize() { return sizeof(nOffset) + sizeof(nLength); }
 	};
 #pragma pack(pop)
 	

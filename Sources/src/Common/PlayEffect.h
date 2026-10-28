@@ -26,7 +26,10 @@ inline IEffectVisObj* PlayEffect( const std::string &szEffect, const CVec3 &vPos
 {
 	if ( szEffect.empty() )
 		return 0;
-	if ( IVisObj *pObj = pVOB->BuildObject(("effects\\effects\\" + szEffect).c_str(), 0, SGVOT_EFFECT) ) 
+	// Held while it is added: an effect the scene refuses (effects switched off)
+	// is released here instead of leaking.
+	CPtr<IVisObj> pHeld = pVOB->BuildObject( ("effects\\effects\\" + szEffect).c_str(), 0, SGVOT_EFFECT );
+	if ( IVisObj *pObj = pHeld.GetPtr() )
 	{
 		static_cast<IEffectVisObj*>(pObj)->SetStartTime( currTime );
 		pObj->SetPlacement( vPos, 0 );
@@ -60,7 +63,9 @@ inline void SetFlashEffect( const SFlashEffect &flash, const NTimer::STime &curr
 {
 	NI_ASSERT_SLOW_T( flash.HasFlash(), "Empty flash passed" );
 	const char *pszName = "effects\\sprites\\flash\\1";
-	IVisObj *pObj = pVOB->BuildObject( pszName, 0, SGVOT_FLASH );
+	// Held while it is added: the scene refuses a flash with effects switched off.
+	CPtr<IVisObj> pHeld = pVOB->BuildObject( pszName, 0, SGVOT_FLASH );
+	IVisObj *pObj = pHeld.GetPtr();
 	NI_ASSERT_SLOW_T( pObj != 0, NStr::Format("Can't create flash \"%s\"", pszName) );
 	pObj->SetPosition( vPos );
 	static_cast<IFlashVisObj*>(pObj)->Setup( currTime, flash.nDuration, flash.nPower, dwColor );

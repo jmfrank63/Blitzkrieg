@@ -606,18 +606,20 @@ IServersList* CGameSpyMultiplayer::CreateServersList()
 }
 bool CGameSpyMultiplayer::InitJoinToServer( const char *pszIPAddress, const int nHostPort, bool bPasswordRequired, const char* pszPassword )
 {
+	// Held, not raw: neither the list nor the address outlives the join (both
+	// leaked at exit before).
 #if BK_ENABLE_GAMESPY
-	CGameSpyServersList *pServersList = new CGameSpyServersList();
+	CPtr<CServersList> pServersList = new CGameSpyServersList();
 #else
-	CInternetServersList *pServersList = new CInternetServersList();
+	CPtr<CServersList> pServersList = new CInternetServersList();
 #endif
 
-	INetNodeAddress *pAddress = CreateObject<INetNodeAddress>( NET_NODE_ADDRESS );
+	CPtr<INetNodeAddress> pAddress = CreateObject<INetNodeAddress>( NET_NODE_ADDRESS );
 	const int nPort = nHostPort == -1 ? SMultiplayerConsts::NET_PORT : nHostPort;
 	if ( pAddress->SetInetName( pszIPAddress, nPort ) )
 	{
 		CPtr<IChat> pChat;
-		CPtr<IGameCreation> pGameCreation = pServersList->JoinToServerByAddress( pAddress, &pChat, nPort, bPasswordRequired, pszPassword );
+		CPtr<IGameCreation> pGameCreation = pServersList->JoinToServerByAddress( pAddress.GetPtr(), &pChat, nPort, bPasswordRequired, pszPassword );
 		if ( pGameCreation )
 		{
 			SetGameCreation( pGameCreation );

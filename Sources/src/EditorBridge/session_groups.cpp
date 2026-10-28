@@ -1113,6 +1113,74 @@ bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, c
 	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
 }
 
+namespace {
+// The middle of a fence segment's footprint from its place (AI units), as the
+// Game's turned fence takes it (CMOObject's FenceFootprintMiddle).
+CVec2 FenceFootprintMiddle( const SFenceRPGStats *pStats, int nIndex )
+{
+	const SFenceRPGStats::SSegmentRPGStats &segment = pStats->stats[nIndex];
+	return CVec2( segment.passability.GetSizeX() * SAIConsts::TILE_SIZE / 2.0f - segment.vOrigin.x,
+	              segment.passability.GetSizeY() * SAIConsts::TILE_SIZE / 2.0f - segment.vOrigin.y );
+}
+}
+
+// The Map Editor's Q and E on a fence (M006 S08): a fence's direction is its
+// packed frame type, which the engine reads when it builds the fence, so the
+// fence goes out and comes back as the centre segment of the direction
+// nQuarters on (a quarter is (x, y) -> (-y, x)), laid so its footprint's
+// middle stays where it was: the Game's rule for a fence it draws turned
+// (CMOObject::ShiftPicture). Same link ID, owner, HP and script ID; one edit.
+bool TurnFenceInSession( SEditorSession *pSession, int nLinkID, int nQuarters, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	bool bScenario = false;
+	const SMapObjectInfo *pFence = FindObject( &pSession->snapshot, nLinkID, &bScenario, 0 );
+	const SMapObjectInfo *pWorking = FindObject( &pSession->working, nLinkID, 0, 0 );
+	const SFenceRPGStats *pStats = pFence != 0 ? FenceStats( pFence->szName, 0 ) : 0;
+	if ( pFence == 0 || pWorking == 0 || pStats == 0 )
+	{
+		pSession->szMessage = pFence == 0 ? NStr::Format( "no object has link ID %d", nLinkID ) : "\"" + pFence->szName + "\" is not a fence type";
+		*pbRefused = true;
+		return false;
+	}
+	int nDir = 0;
+	while ( nDir < 3 && ( ( pFence->nFrameIndex >> nDir ) & 1 ) == 0 )
+		++nDir;
+	const int nNewDir = ( nDir + nQuarters % 4 + 4 ) & 3;
+	const int nOld = FenceCentreIndex( pStats, nDir ), nNew = FenceCentreIndex( pStats, nNewDir );
+	if ( nOld < 0 || nNew < 0 )
+	{
+		pSession->szMessage = "the fence type \"" + pFence->szName + "\" has no centre segment in one of its directions";
+		*pbRefused = true;
+		return false;
+	}
+	const CVec2 vShift = FenceFootprintMiddle( pStats, nOld ) - FenceFootprintMiddle( pStats, nNew );
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.bEntry = false;
+	edit->oldGroup.linkIDs.push_back( nLinkID );
+	edit->bNew = true;
+	SBridgeGroup &rNew = edit->newGroup;
+	rNew.bEntry = false;
+	rNew.linkIDs.push_back( nLinkID );
+	NMapOverlay::SDeletedObject saved;
+	saved.object = *pFence;
+	saved.object.vPos.x += vShift.x;
+	saved.object.vPos.y += vShift.y;
+	saved.object.nFrameIndex = ( 1 << nNewDir ) | 0x00010000;
+	saved.bScenario = bScenario;
+	saved.nIndex = size_t( -1 );									// RestoreObject appends
+	NMapOverlay::SDeletedObject working;
+	working.object = *pWorking;
+	working.object.vPos = saved.object.vPos;
+	working.object.nFrameIndex = nNew;
+	working.bScenario = bScenario;
+	working.nIndex = size_t( -1 );
+	rNew.snapshotSpans.push_back( saved );
+	rNew.workingSpans.push_back( working );
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}
+
 // ---------------------------------------------------------------------------
 // Entrenchments (04-08, D-13).
 //

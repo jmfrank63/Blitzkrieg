@@ -372,6 +372,12 @@ pub const Selector = struct {
                     },
                     .rotate_left, .rotate_right => {
                         const object = editor.document.find(link_id) orelse return;
+                        // A fence's direction is its frame type: it turns by a
+                        // quarter about its footprint's middle (M006 S08).
+                        if (editor.isFenceType(object.nameSlice())) {
+                            try editor.turnFence(link_id, if (key == .rotate_left) -1 else 1);
+                            return;
+                        }
                         // A building or a prop of four sides turns by quarters,
                         // one side a press (M006 S06; the bridge takes the nearest).
                         const turn_step = editor.turnStep(object.nameSlice(), rotate_step);
@@ -752,6 +758,30 @@ test "Q and E turn a building by quarter turns, one side a press, selected or ab
     var tank: Placer = .{ .name = "T34" };
     try tank.handle(&editor, .{ .key = .rotate_left });
     try testing.expectEqual(full_turn - rotate_step, tank.dir);
+}
+
+test "Q and E turn a fence by quarters through the bridge's fence turn, one undo step a press (M006 S08)" {
+    const ObjectRecord = bridge_mod.ObjectRecord;
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    try fake.addFenceTypeFixture("W_Fake_Fence");
+    var fence: ObjectRecord = .{ .link_id = 41, .x = 60, .y = 120, .dir = 0, .player = 0, .frame_index = 0x10001 };
+    fence.setName("W_Fake_Fence");
+    try fake.addFixture(fence, false);
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var selector: Selector = .{};
+    defer selector.deinit(testing.allocator);
+    editor.selectOnly(41);
+    try selector.handle(&editor, .{ .key = .rotate_right });
+    try testing.expectEqual(@as(i32, 0x10002), editor.document.find(41).?.frame_index);
+    try testing.expectEqual(@as(i32, 0), editor.document.find(41).?.dir);
+    try selector.handle(&editor, .{ .key = .rotate_left });
+    try selector.handle(&editor, .{ .key = .rotate_left });
+    try testing.expectEqual(@as(i32, 0x10008), editor.document.find(41).?.frame_index);
+    _ = try editor.undo();
+    try testing.expectEqual(@as(i32, 0x10001), editor.document.find(41).?.frame_index);
+    try testing.expectEqual(@as(?i32, 41), editor.selection);
 }
 
 test "a press on nothing clears the selection" {

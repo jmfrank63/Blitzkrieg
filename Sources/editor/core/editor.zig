@@ -2546,6 +2546,28 @@ pub const Editor = struct {
         try self.reloadObjectsAfterEdit();
     }
 
+    /// Q and E on a fence (M006 S08): the fence `link_id` turned by
+    /// `quarters` quarter turns about its footprint's middle, the Game's rule;
+    /// it keeps its link ID. One undo step; a refusal changes nothing.
+    pub fn turnFence(self: *Editor, link_id: i32, quarters: i32) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.turnFence(link_id, quarters, &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjectsAfterEdit();
+    }
+
+    /// Whether `name` is one of the object database's fence types (a read).
+    pub fn isFenceType(self: *Editor, name: []const u8) bool {
+        const kinds = self.fenceDescriptors(self.allocator) catch return false;
+        defer self.allocator.free(kinds);
+        for (kinds) |*kind| {
+            if (std.mem.eql(u8, std.mem.sliceTo(&kind.name, 0), name)) return true;
+        }
+        return false;
+    }
+
     /// The object database's fence types, sorted; the caller frees the slice
     /// with `allocator`. A read: the status line is left alone.
     pub fn fenceDescriptors(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.FenceDescriptor {

@@ -40,8 +40,9 @@ void CStreamTracker::WriteMsg( PACKET_ID nPkt, CBitStream *pBits, int nSizeLimit
 		else
 		{
 			channelOutFlyList.push_back( SChannelBlock() );
-			SChannelBlock *pMSVCSuck = 0;
-			int nMaxSize = nSizeLimit - pMSVCSuck->GetHeaderSize();
+			// The size of a block's header without a block (2003 called it on a
+			// null pointer, which UBSan traps).
+			int nMaxSize = nSizeLimit - SChannelBlock::GetHeaderSize();
 			nMaxSize = Min( nMaxSize, 255 );
 			int nSize = Min( nMaxSize, channelOutBuf.GetSize() );
 			

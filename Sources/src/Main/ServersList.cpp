@@ -186,8 +186,11 @@ IGameCreation* CServersList::JoinToServerByID( const WORD wServerID, CPtr<IChat>
 IGameCreation* CServersList::JoinToServerByAddress( INetNodeAddress *pAddress, CPtr<IChat> *pChat, const int nPort, bool bPasswordRequired, const std::string &szPassword )
 {
 	CPtr<IDataStream> pPwd = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
-	CPtr<INetDriver> pNetDriver = CreateInGameNetDriver( SMultiplayerConsts::NET_PORT );
-	
+	// BK_NET_CLIENT_PORT: the joining player's own port, for a harness that
+	// runs the host and a client on one machine (both would take NET_PORT).
+	const char *pszClientPort = getenv( "BK_NET_CLIENT_PORT" );
+	CPtr<INetDriver> pNetDriver = CreateInGameNetDriver( pszClientPort != 0 ? atoi( pszClientPort ) : int( SMultiplayerConsts::NET_PORT ) );
+
 	std::string szIPAdderss = pAddress->GetFastName();
 	const int n = szIPAdderss.find( ':' );
 	if ( n >= 0 )

@@ -1191,6 +1191,12 @@ bool PlanFencesInSession( SEditorSession *pSession, const std::string &szDesc, c
 // for a bad type, a run off the map and a fence the engine will not place.
 bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
                           int *pnToken, bool *pbRefused );
+// The fence nLinkID turned by nQuarters quarter turns about its footprint's
+// middle (M006 S08, the Map Editor's Q and E): out and back in as the centre
+// segment of its new direction, same link ID, one logged edit. Refused,
+// changing nothing, for an object that is not a fence and a fence the engine
+// will not place there.
+bool TurnFenceInSession( SEditorSession *pSession, int nLinkID, int nQuarters, int *pnToken, bool *pbRefused );
 
 // Entrenchments (session_groups.cpp, 04-08, D-13): one entry of
 // CMapInfo::entrenchments (sections of piece link IDs) plus its piece objects,

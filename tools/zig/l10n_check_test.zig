@@ -1131,8 +1131,11 @@ test "fit_font_missing: the faces the rule measures with are gone" {
     const outcome = try runCheckerWith(io, testing.allocator, "fit_font_missing", &.{ "--fonts", no_fonts });
     defer testing.allocator.free(outcome.report);
     try testing.expectEqual(@as(u8, 1), outcome.code);
-    // bk_text names the file it misses on its own line; the finding follows with the directory.
-    try testing.expect(std.mem.indexOf(u8, outcome.report, "bk_text: " ++ no_fonts ++ "/SHA256SUMS: missing\n") != null);
+    // bk_text names the file it misses on its own line, joined with the host's separator (`\` on Windows); the
+    // finding follows with the directory.
+    const missing_line = std.mem.indexOf(u8, outcome.report, "bk_text: " ++ no_fonts ++ "/SHA256SUMS: missing\n") != null or
+        std.mem.indexOf(u8, outcome.report, "bk_text: " ++ no_fonts ++ "\\SHA256SUMS: missing\n") != null;
+    try testing.expect(missing_line);
     try testing.expect(std.mem.indexOf(u8, outcome.report, "l10n-check: fit-font: all: " ++ no_fonts ++ ": cannot read the font the fit rule measures with (FontMissing)\n") != null);
     // No fit note: nothing was measured.
     try testing.expect(std.mem.indexOf(u8, outcome.report, "l10n-check: fit: ") == null);
