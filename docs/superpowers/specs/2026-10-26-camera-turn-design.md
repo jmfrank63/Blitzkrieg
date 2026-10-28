@@ -1386,3 +1386,62 @@ out. The mark is drawn only at a turned step, so Remastered off and step 0 are t
 
 Tiers run: `camera-turn-ground-game-reads-it` (pass, 341 s). The Map Editor has no minimap frame; the other tiers do
 not draw it differently (UI only). Linux and macOS are left to CI.
+
+## The repair truck and the bridge (round 2 of the hand test, 2026-10-29)
+
+The maintainer's report (macOS): "Using the repair truck when the map is rotated does not let him find the bridge for
+repair."
+
+What was measured (win-home, Windows x64, debug install, before the fix): a map from road3d.xml with four bridges laid
+as the Map Editor lays them (begin, line and end spans listed in `<Bridges>`): wooden little `_01`, asphalt `_02`,
+railway little `_01` and wooden heavy `_02`, damaged in play to 0.4 by the map's script (`DamageObject` on the begin
+span), an Opel Blitz engineering truck selected. At each step a 41 x 41 grid of cursor points (10 pixels apart) over
+each bridge: the cursor's order there (`pick=` now prints `DetermineBestAutoAction` for the selection). Of the points
+on the drawn bridge that pick it, the share offering no repair (the cursor shows a move):
+
+| bridge | step 0 | step 1 | step 2 | step 3 |
+|---|---|---|---|---|
+| wooden little `_01` | (not measured) | 4.1 % | 2.4 % | 14.4 % |
+| asphalt `_02` | 6.5 % | 7.0 % | 7.8 % | 8.1 % |
+| railway little `_01` | 11.0 % | 17.1 % | 11.5 % | 16.3 % |
+| wooden heavy `_02` | 1.5 % | 0.3 % | 1.2 % | 0 % |
+
+Every such point picked a girder first. A right click on a bridge's deck ordered the repair at every step, and the
+truck repaired the bridge (its HP rose) at every step: picking, the order's target, the AI's repair and the truck's
+path are right turned. No turned-only failure was found.
+
+- **Cause:** a span's back and front girders are map objects of the bridge too (each picks as the span), but
+  `CMOBridgeSpan::UpdateModelWithHP` gave only the slab the new HP. A bridge damaged in play kept girders at the HP
+  they were made with (1), and the cursor offers what the first picked part allows (`CMOObject::GetActions`: the
+  repair below 1). Where a girder lies over the deck the cursor offers a move. It is 2003 behaviour at step 0 too;
+  at a turned step the girders are another variant's (the railway's trusses, the wooden little bridge's rails at
+  step 3) and stand where the turn puts them, so they cover more of what the player clicks.
+- **Fix:** the girders take the span's HP with the slab. **Decision:** made at every step and with Remastered off,
+  although the brief asks that Remastered off be unchanged: the cause is the same at step 0, the change touches only
+  the client's copy of a span's HP (the AI, its repair and saves are unchanged), and a gate on the option would keep a
+  known wrong cursor in the 2003 game. Remastered off now offers the repair on a damaged bridge's girders.
+- **Harness:** the world command `TraceSpans` (BK_AUTO_UI `world=TraceSpans(0)`) prints every span's name, place and
+  HP (`BK_SPAN_TRACE`); `pick=` lines carry `action <n>`, the order the cursor offers there.
+
+Tier `camera-turn-bridge-game-reads-it` (`tools/zig/camera_turn_bridge_game_reads_it.zig`): the four bridges above,
+each with its own truck. Remastered on, bridge k at step k: the truck framed, the grid over the bridge, a right click
+on its middle, then the bridges' HP 30 s on; Remastered off the same at step 0 with the turn key pressed. Held: every
+grid point on the drawn bridge that picks it offers the repair (100 points or more), the order is the repair, the HP
+rises by 0.1 or more. Measured after the fix:
+
+| | wooden little | asphalt | railway little | wooden heavy |
+|---|---|---|---|---|
+| on (steps 0, 1, 2, 3): repair offered / picking | 113 / 113 | 441 / 441 | 544 / 544 | 313 / 313 |
+| on: HP | 0.400 -> 0.560 | 0.400 -> 0.548 | 0.400 -> 0.622 | 0.400 -> 0.844 |
+| off (step 0): repair offered / picking | 113 / 113 | 489 / 489 | 539 / 539 | 307 / 307 |
+| off: HP | 0.400 -> 0.560 | 0.400 -> 0.548 | 0.400 -> 0.622 | 0.400 -> 0.844 |
+
+The tier takes about 3 minutes of Game runs; its `zig build` took 15 to 18 minutes on win-home with other worktrees
+building (staging the install). The other bridge commands share the path measured here: build bridge (`fHP < 0`) and
+attack object take the first pick's type and AI object, which every part shares; units crossing and the engineers'
+work are AI, which the step does not reach (S05). A truck's resources run out at about 0.7 of a wooden little
+bridge's HP (seen in a first run), as in 2003. Not seen: macOS, Linux (CI); the maintainer's own map.
+Left open: in one exploratory run (lone begin and end spans placed at HP 0.3 in the map, not damaged in play) one
+bridge's HP fell from 0.586 to 0 while its truck repaired it, ordered at step 1; it did not recur in the later runs and
+was not traced. The step-0 cell of the wooden little bridge in the table above was taken before the selection's orders
+were ready and is not counted.
