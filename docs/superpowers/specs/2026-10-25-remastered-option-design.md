@@ -146,3 +146,9 @@ something shells the trucks and houses after about 100 seconds:
 The map XML holds an entrenchment's sections as `<Sections><item><data><item
 data="<LinkID>"/>...</data></item></Sections>`, and each piece's FrameIndex
 is its packed type (1 line, 2 fireplace, 4 terminator), unpacked on load.
+
+Run on win-home (Windows 11 x64, debug Game), 2026-10-28/29:
+`transfer-board-game-reads-it` passed twice (its five Game runs take about
+9.5 minutes; staging the Game after a rebuild took 8 to 27 minutes more
+while other worktrees built), `remastered-game-reads-it` passes. Linux and
+macOS are left to CI (the new tier has a step next to the Remastered one).
