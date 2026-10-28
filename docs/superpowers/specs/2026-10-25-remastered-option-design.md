@@ -94,3 +94,55 @@ order or a click happens, so a save written in one mode plays in the other.
 - The Game looks for `defconf.cfg` relative to its working folder
   (`ResolveConfigFileName`); a Game started from a scratch folder has no
   option actions unless the file is beside it, so the tier copies it there.
+
+## Inside to inside in one order (2026-10-28)
+
+Hand test: "Load infantry into a truck. Select the infantry. Right click on
+another vehicle to enter it. Nothing happens." Measured on main e990ebb9c
+before the change: the board cursor showed over the other truck and the
+client sent `ACTION_COMMAND_LOAD`, but `CFormationIdleTransportState` turned
+down every LOAD (`TSIR_NO_COMMAND_INCOMPATIBLE`); the earlier attempt
+(dd25a28fa, the table above) put a LEAVE before ENTER only, so a truck's
+squad could change into a building but not into another vehicle. The other
+cases already worked in both modes through the original idle states, which
+put a LEAVE before the order: house to house, house to truck, entrenchment to
+truck.
+
+Behind the switch, in the command layer (so every machine runs the same
+order and a replay records the one order the player gave):
+
+| Original (off) | Remastered (on) |
+| --- | --- |
+| A squad aboard a transport ignores an order into another vehicle | It gets out at the transport's entrance and boards the other one, in one order (`CFormationIdleTransportState` pushes LEAVE, then the LOAD) |
+| An order into a container without room puts the squad out (of a building or an entrenchment) and fails at the door; aboard a transport it does nothing | It is refused while the squad still sits, with the negative acknowledgement (`HasRoomForFormation`: a vehicle needs a free seat per soldier, a building that is not an enemy's a free place per soldier) |
+| The board cursor over the passengers' own container and over a vehicle without a free seat | The 2003 "no" cursor (`USER_ACTION_UNKNOWN`, the one a full building already shows; `CWorldClient::IsBoardRefused`); a click there gives no order |
+
+`CMOUnitMechanical::GetFreePlaces` returns the free seats instead of 0 (it had
+no caller). The order into the squad's own transport stays refused, a queued
+order (shift) waits as before, a towed gun's crew stays with its gun.
+Soldiers in an entrenchment have no client container, so over their own
+entrenchment the board cursor stays and the AI refuses, as in 2003.
+
+`zig build transfer-board-game-reads-it` (`tools/zig/transfer_board_game_reads_it.zig`)
+drives the real Game through the cursor path (BK_AUTO_UI hover and right
+click) on river3d with two houses, three trucks (truck C full with two
+squads) and a six-piece entrenchment written into the map. It reads the
+cursor at each right click from BK_CURSOR_TRACE and who sits where from
+TraceContainers. Five runs, each under 90 game seconds, because on river3d
+something shells the trucks and houses after about 100 seconds:
+
+- on, step 0: truck A to truck B (10 aboard B, A empty), B to house B (10 in
+  house B), house A to house B, house B to truck B, all under the board
+  cursor (mode 4);
+- on: the squad's own truck and the full truck C show mode 0 and the order
+  onto C leaves A 10, C 20; the entrenchment's squad then boards truck A (20);
+- on, a quarter turn on (the turn key, step 1, other screen points): truck to
+  truck, truck to house, under the board cursor;
+- off: house A's squad ordered onto full truck C gets out and stays outside
+  (house A empty, C 20), the entrenchment's squad boards truck B (10,
+  selectable 0), both under the board cursor: the numbers main gave before the
+  change.
+
+The map XML holds an entrenchment's sections as `<Sections><item><data><item
+data="<LinkID>"/>...</data></item></Sections>`, and each piece's FrameIndex
+is its packed type (1 line, 2 fireplace, 4 terminator), unpacked on load.
