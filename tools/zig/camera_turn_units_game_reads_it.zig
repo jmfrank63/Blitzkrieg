@@ -228,18 +228,18 @@ fn screenOf(radius: f64, eighth: u32) [2]i32 {
     return .{ centre[0] + @as(i32, @intFromFloat(@round((dx + dy) / 2))), centre[1] + @as(i32, @intFromFloat(@round((dx - dy) / 4))) };
 }
 
-fn rgb(frame: []const u8, x: i32, y: i32) ?[3]u8 {
+pub fn rgb(frame: []const u8, x: i32, y: i32) ?[3]u8 {
     if (x < 0 or y < 0 or x >= width or y >= height) return null;
     const i: usize = @intCast((y * width + x) * 4);
     return frame[i..][0..3].*;
 }
 
-fn drawn(p: ?[3]u8) bool {
+pub fn drawn(p: ?[3]u8) bool {
     const q = p orelse return false;
     return @max(q[0], q[1], q[2]) > 24;
 }
 
-fn inInterface(y: i32) bool {
+pub fn inInterface(y: i32) bool {
     return y < turn.clear_rows[0] or y >= turn.clear_rows[1];
 }
 
@@ -292,7 +292,7 @@ fn drawnPixels(frame: []const u8, at: [2]i32, reach: [4]i32) usize {
 }
 
 /// A shadow pixel: the frame with shadows darker than the one without.
-fn shadowed(lit: []const u8, unlit: []const u8, x: i32, y: i32) bool {
+pub fn shadowed(lit: []const u8, unlit: []const u8, x: i32, y: i32) bool {
     const a = rgb(lit, x, y) orelse return false;
     const b = rgb(unlit, x, y).?;
     var sum: i32 = 0;

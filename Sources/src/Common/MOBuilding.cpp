@@ -55,7 +55,7 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 		pBar = static_cast<ISceneIconBar*>( pVOB->BuildSceneObject( "icons\\mechhp", SCENE_OBJECT_TYPE_ICON, ICON_HP_BAR ) );
 	pBar->SetColor( 0xff00ff00 );
 	pBar->SetSize( CVec2(50, 2) );
-	GetVisObj()->AddIcon( pBar, ICON_HP_BAR, VNULL3, VNULL3, ICON_HP_BAR, ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_TOP | ICON_PLACEMENT_VERTICAL );
+	GetVisObj()->AddIcon( pBar, ICON_HP_BAR, GetIconShift(), VNULL3, ICON_HP_BAR, GetBarPlacement() );
 	pBar->SetLength( fHP );
 	pBar->Enable( false );
 	fTraceProbabilityCoeff = GetGlobalVar( "Scene.GunTrace.ProbabilityCoeff", 1.0f );
@@ -161,8 +161,29 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 // Where the passengers' HP bars stand: above the sprite's nearest depth.
 void CMOBuilding::GetPassangerIconPlacement( CVec3 *pvAdd, CVec3 *pvStep )
 {
-	*pvAdd = CalcPassangerHPAdd( GetAnim()->GetRect().fDepthLeft + 1 );
+	*pvAdd = CalcPassangerHPAdd( GetAnim()->GetRect().fDepthLeft + 1 ) + GetIconShift();
 	*pvStep = CVec3( 0, 0, GetGlobalVar("MultiplayerGame", 0) == 1 ? 4 : 2 );
+}
+// Its icons (the HP bar, the passengers' bars) stand where the 2003 view put
+// them over its zero cross, which lies off the middle of a long building's
+// picture: a warehouse's by about 100 pixels after a quarter turn. At a turned
+// step they stand over the middle of the picture drawn, the HP bar centred
+// there; their height stays that picture's top. Step 0 is the 2003 view.
+CVec3 CMOBuilding::GetIconShift()
+{
+	if ( nCameraTurn == 0 )
+		return VNULL3;
+	// An AI offset (d, d) is d pixels across the screen and none up or down;
+	// icons keep their screen offsets at every step (NCameraTurn::ViewOffset).
+	const SSpriteRect &rect = GetAnim()->GetRect();
+	const float fMiddle = ( rect.rect.x1 + rect.rect.x2 ) / 2.0f;
+	CVec3 vShift;
+	AI2Vis( &vShift, fMiddle, fMiddle, 0 );
+	return vShift;
+}
+DWORD CMOBuilding::GetBarPlacement() const
+{
+	return ( nCameraTurn == 0 ? ICON_ALIGNMENT_LEFT : ICON_ALIGNMENT_HCENTER ) | ICON_ALIGNMENT_TOP | ICON_PLACEMENT_VERTICAL;
 }
 void CMOBuilding::UpdatePassangers()
 {
@@ -416,6 +437,8 @@ void CMOBuilding::Redraw( IVisObjBuilder *pVOB, const bool bInScene )
 		if ( ISceneIcon *pIcon = GetVisObj()->GetIcon( it->nHPIconID ) )
 			GetVisObj()->AddIcon( pIcon, it->nHPIconID, vAdd, vStep, 0, ICON_ALIGNMENT_BOTTOM | ICON_ALIGNMENT_HCENTER | ICON_PLACEMENT_VERTICAL, false );
 	}
+	if ( CPtr<ISceneIcon> pBar = GetVisObj()->GetIcon( ICON_HP_BAR ) )
+		GetVisObj()->AddIcon( pBar, ICON_HP_BAR, GetIconShift(), VNULL3, ICON_HP_BAR, GetBarPlacement(), false );
 	GetVisObj()->AddIcon( 0, 0, VNULL3, VNULL3, 0, 0 );
 }
 IVisObj* AddDirEffect( const std::string &szEffect, const CVec3 &vPos, const float fHDir, const float fVDir, 

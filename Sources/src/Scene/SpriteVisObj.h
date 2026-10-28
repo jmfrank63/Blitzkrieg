@@ -17,9 +17,13 @@ class CSpriteVisObj : public CTObjVisObj< CTRefCount<ISpriteVisObj> >
 	SComplexSpriteInfo info2;							// temp complex sprite info
 	bool bComplexSprite;
 	int nViewTurn;												// the camera step its facing is drawn for (not saved)
+	SComplexSpriteInfo fillInfo;					// a turned shadow's part its object hid at step 0 (not saved)
+	IGFXTexture *pFillTexture;						// the texture and frame fillInfo was made for (compared only)
+	int nFillFrame;
 	virtual void RepositionIcons();
 	void RepositionIconsLocal( DWORD placement );
 	void RetrieveSpriteInfo();
+	void VisitShadowFill( ISceneVisitor *pVisitor, const int nType );
 	virtual ~CSpriteVisObj() {  }
 public:
 	CSpriteVisObj();

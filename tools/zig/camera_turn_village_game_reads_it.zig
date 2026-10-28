@@ -22,6 +22,11 @@
 //!   from the centre (w / 2 - 1, h / 2 - 1) goes to (2 dy, -dx / 2) per step;
 //!   the best of the places within 6 pixels must be that one.
 //!
+//! A bars test (the hand test's round 4) lays Poland's warehouse E_WB_01 and
+//! europe's other storages on the same ring, player 1's so that their HP bars
+//! show, and finds each bar at all four steps in 1024 x 768: at a turned step
+//! its middle must stand over the middle of the building's turned picture.
+//!
 //! A second test shoots the same map's ground alone (objects, units, fog and
 //! the rest off) at all four steps in the three window sizes: a half turn is
 //! the point reflection about the centre, so step 2 must show step 0
@@ -154,6 +159,155 @@ test "the village's houses turn and stand where the turn puts them at every reso
         std.debug.print("{s}a house of the village shows the wrong side or stands off its turned place (IoU floor {d}, offset 0,0); the frames are in {s}\n", .{ report.items, min_iou, root });
         return error.DrawnWrong;
     }
+}
+
+/// The buildings whose HP bars are measured (the hand test's round 4: "the bar
+/// over the warehouse in the village also should stay over the middle of the
+/// warehouse"): Poland's warehouse E_WB_01 (9 x 6 cells, its zero cross 48
+/// AI units along and 83 across from its footprint's middle) and europe's
+/// other storages, on the village ring, each player 1's: a storage is the
+/// building whose bar shows unselected.
+const bar_buildings = [_]Building{
+    .{ .name = "E_WB_01", .folder = "Data/Buildings/europe/summer/e_wb/01" },
+    .{ .name = "E_WB_02", .folder = "Data/Buildings/europe/summer/e_wb/02" },
+    .{ .name = "E_WT_01", .folder = "Data/Buildings/europe/summer/e_wt/01" },
+    .{ .name = "E_WT_02", .folder = "Data/Buildings/europe/summer/e_wt/02" },
+};
+/// At a turned step a bar's middle stands within this many pixels of its
+/// building's picture's middle (the picture's outline and its bound box in
+/// the pack differ by a pixel or two); step 0 is the 2003 view, reported.
+const max_bar_off = 3;
+
+test "the buildings' bars stand over their middles at every step" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-village-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const cwd = std.Io.Dir.cwd();
+    const bars_scratch = scratch ++ "-bars";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), bars_scratch });
+    cwd.deleteTree(io, bars_scratch) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const work = try std.fs.path.join(allocator, &.{ root, "work" });
+    var children: [bar_buildings.len]std.process.Child = undefined;
+    for (bar_buildings, &children) |building, *child| {
+        const out = try std.fs.path.join(allocator, &.{ data, mod_buildings, std.fs.path.dirname(building.folder["Data/Buildings/europe/summer/".len..]) orelse "" });
+        try cwd.createDirPath(io, out);
+        child.* = try std.process.spawn(io, .{ .argv = &.{ tool, "side", building.folder, "1,2,3", out, work }, .stdin = .ignore, .stdout = .ignore, .stderr = .ignore });
+    }
+    for (bar_buildings, &children) |building, *child| {
+        const term = try child.wait(io);
+        if (!term.success()) {
+            std.debug.print("bk-views side {s} ended {any}\n", .{ building.folder, term });
+            return error.ToolFailed;
+        }
+    }
+    try writeBarsMod(io, allocator, data);
+
+    var sprites: [bar_buildings.len][4]game_views.Sprite = undefined;
+    for (bar_buildings, 0..) |building, b| for (0..4) |k| {
+        const variant = building.folder["Data/Buildings/europe/summer/".len..];
+        const folder = if (k == 0) building.folder else try std.fmt.allocPrint(allocator, "{s}/{s}/{s}_r{d}", .{ data, mod_buildings, variant, k });
+        sprites[b][k] = try game_views.decompose(io, allocator, tool, folder, try std.fmt.allocPrint(allocator, "{s}/sprites/{d}_{d}", .{ root, b, k }));
+    };
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "step building: bar middle - picture middle (pixels, across), bar at x,y\n");
+    const objects_only = "shadows,effects,terrain,noise,warfog,border,haze,grid";
+    const size = [2]u32{ 1024, 768 };
+    const frames = try turn.runGameSized(io, allocator, game, root, "bars-1024x768", "bars.xml", .{ look, look }, "ON", objects_only, 4, false, size);
+    const centre = [2]f64{ @floatFromInt(size[0] / 2 - 1), @floatFromInt(size[1] / 2 - 1) };
+    for (frames, 0..) |frame, k| for (bar_buildings, 0..) |building, b| {
+        const d = turn.turnOffset(offset(b), k);
+        const at = [2]i32{ @intFromFloat(@round(centre[0] + d[0])), @intFromFloat(@round(centre[1] + d[1])) };
+        const box = spriteBox(sprites[b][k], at);
+        const bar = findBar(frame, size, box) orelse {
+            try report.print(allocator, "{d} {s}: no bar found above {d},{d}..{d},{d}\n", .{ k, building.name, box[0], box[1], box[2], box[3] });
+            failed = true;
+            continue;
+        };
+        const off = bar[0] - @as(f64, @floatFromInt(box[0] + box[2])) / 2;
+        try report.print(allocator, "{d} {s}: {d:.1}, bar at {d:.1},{d}\n", .{ k, building.name, off, bar[0], bar[1] });
+        if (k != 0 and @abs(off) > max_bar_off) failed = true;
+    };
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}a building's bar leaves its middle at a turned step (more than {d} pixels at a turned step); the frames are in {s}\n", .{ report.items, max_bar_off, root });
+        return error.DrawnWrong;
+    }
+}
+
+/// The screen box (x0, y0, x1, y1) of a sprite's opaque drawn pixels with its zero cross at `at`.
+fn spriteBox(sprite: game_views.Sprite, at: [2]i32) [4]i32 {
+    var box = [4]i32{ std.math.maxInt(i32), std.math.maxInt(i32), std.math.minInt(i32), std.math.minInt(i32) };
+    for (sprite.image.pixels, 0..) |p, i| {
+        if (p[3] < 128 or !drawn(&p)) continue;
+        const x = at[0] + @as(i32, @intCast(i % sprite.image.width)) - sprite.anchor[0];
+        const y = at[1] + @as(i32, @intCast(i / sprite.image.width)) - sprite.anchor[1];
+        box = .{ @min(box[0], x), @min(box[1], y), @max(box[2], x + 1), @max(box[3], y + 1) };
+    }
+    return box;
+}
+
+/// The middle (x) and row of the longest run of bar green (an HP bar's fill
+/// over the black of a shot without terrain) of 20 pixels or more in the
+/// rows from 60 above the box's top to 30 below it, across the box and 60
+/// pixels either side.
+fn findBar(frame: []const u8, size: [2]u32, box: [4]i32) ?[2]f64 {
+    var best: ?[2]f64 = null;
+    var longest: i32 = 19;
+    var y = @max(box[1] - 60, top_rows);
+    while (y < @min(box[1] + 30, @as(i32,@intCast(size[1])) - bottom_rows)) : (y += 1) {
+        var run: i32 = 0;
+        var x = @max(box[0] - 60, 0);
+        const end = @min(box[2] + 60, @as(i32, @intCast(size[0])));
+        while (x <= end) : (x += 1) {
+            const green = x < end and blk: {
+                const p = frame[@intCast((y * @as(i32, @intCast(size[0])) + x) * 4)..][0..3];
+                break :blk p[1] >= 50 and @as(u32, p[1]) > 2 * @as(u32, p[0]) and @as(u32, p[1]) > 2 * @as(u32, p[2]);
+            };
+            if (green) {
+                run += 1;
+                continue;
+            }
+            if (run > longest) {
+                longest = run;
+                best = .{ @as(f64, @floatFromInt(x - run)) + @as(f64, @floatFromInt(run)) / 2, @floatFromInt(y) };
+            }
+            run = 0;
+        }
+    }
+    return best;
+}
+
+/// mod.xml and maps/bars.xml: river3d with the bar buildings on the ring, each player 1's.
+fn writeBarsMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
+    try cwd.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "mod.xml" }),
+        .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Camera turn bars test</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n",
+    });
+    const map = try cwd.readFileAlloc(io, "Data/Maps/river3d.xml", allocator, .limited(4 << 20));
+    var items: std.ArrayList(u8) = .empty;
+    try items.appendSlice(allocator, "<Objects>");
+    for (bar_buildings, 0..) |building, i| {
+        const at = place(i);
+        try items.print(allocator, "<item Direction=\"0\" Player=\"1\" ScriptID=\"-1\" HP=\"1\" FrameIndex=\"-1\"><Name>{s}</Name>" ++
+            "<Position x=\"{d:.0}\" y=\"{d:.0}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ building.name, at[0], at[1], i + 1 });
+    }
+    try items.appendSlice(allocator, "</Objects>");
+    try cwd.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", "bars.xml" }),
+        .data = try std.mem.replaceOwned(u8, allocator, map, "<Objects/>", items.items),
+    });
 }
 
 test "the ground stands where the turn puts it at every resolution" {

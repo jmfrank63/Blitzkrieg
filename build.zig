@@ -3252,7 +3252,7 @@ pub fn build(b: *std.Build) void {
     if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, village_game_module, toolchain);
     }
-    const village_game_tests = b.addTest(.{ .root_module = village_game_module, .filters = &.{ "the village ring", "the village's houses" } });
+    const village_game_tests = b.addTest(.{ .root_module = village_game_module, .filters = &.{ "the village ring", "the village's houses", "the buildings' bars" } });
     const village_game_run = b.addRunArtifact(village_game_tests);
     village_game_run.setCwd(b.path("."));
     village_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
@@ -3261,7 +3261,7 @@ pub fn build(b: *std.Build) void {
     village_game_run.step.dependOn(install_game_step);
     village_game_run.step.dependOn(bk_views_step);
     village_game_run.step.dependOn(bk_sprite.install);
-    const village_game_step = b.step("camera-turn-village-game-reads-it", "Turn four houses of Poland's village with bk-views side into a scratch mod, press the camera turn key on the real Game in windows of 1024x768, 1280x1024 and 1920x1080, and measure each house's side and its place at all four steps");
+    const village_game_step = b.step("camera-turn-village-game-reads-it", "Turn four houses of Poland's village with bk-views side into a scratch mod, press the camera turn key on the real Game in windows of 1024x768, 1280x1024 and 1920x1080, and measure each house's side and its place at all four steps, and that europe's storages' HP bars stand over their turned pictures' middles");
     village_game_step.dependOn(&village_game_tests.step);
     if (test_mode == .run) village_game_step.dependOn(&village_game_run.step);
     // The same map's ground alone at the three window sizes (S07): a half
@@ -3406,7 +3406,7 @@ pub fn build(b: *std.Build) void {
     if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, sun_game_module, toolchain);
     }
-    const sun_game_tests = b.addTest(.{ .root_module = sun_game_module, .filters = &.{ "a quarter turn takes the ring onto itself", "the sun stays in the world" } });
+    const sun_game_tests = b.addTest(.{ .root_module = sun_game_module, .filters = &.{ "a quarter turn takes the ring onto itself", "the sun stays in the world", "a turned shadow reaches" } });
     const sun_game_run = b.addRunArtifact(sun_game_tests);
     sun_game_run.setCwd(b.path("."));
     sun_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
@@ -3415,7 +3415,7 @@ pub fn build(b: *std.Build) void {
     sun_game_run.step.dependOn(install_game_step);
     sun_game_run.step.dependOn(bk_views_step);
     sun_game_run.step.dependOn(bk_sprite.install);
-    const sun_game_step = b.step("camera-turn-sun-game-reads-it", "Press the camera turn key on the real Game with Remastered on over a shed, a tank, a tree and a sniper and measure that each shadow turns with the ground and the shed shows its turns lit by the world's sun; with it off the key changes nothing");
+    const sun_game_step = b.step("camera-turn-sun-game-reads-it", "Press the camera turn key on the real Game with Remastered on over a shed, a tank, a tree and a sniper and measure that each shadow turns with the ground and the shed shows its turns lit by the world's sun; with it off the key changes nothing; a tree's, a prop's, a fence's and a house's turned 2003 shadows reach their feet, the ground their objects hid at step 0 dark");
     sun_game_step.dependOn(&sun_game_tests.step);
     if (test_mode == .run) sun_game_step.dependOn(&sun_game_run.step);
 

@@ -31,6 +31,13 @@
 //!   picture, and its lit side must follow the sun: the left half of the
 //!   crown brighter than the right at step 0, the right brighter at step 2.
 //! - Remastered off: the key changes no pixel of the shots with shadows.
+//! - A second map (round 4) holds the lime, a hay rick, a VillageFence
+//!   segment and a house drawn by its turns lit by the camera's light, whose
+//!   shadows are 2003 sprites laid turned. At steps 1 to 3 the ray from each
+//!   zero cross along the sun must meet its shadow as soon as at step 0, the
+//!   ground its picture hid at step 0 inside its shadow's hull must show dark
+//!   (the fill, Scene/SpriteVisObj.cpp), and the shadow must be as dark as the
+//!   2003 one.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/sun with every user path
 //! redirected (camera_turn_game_reads_it.runGame); frames, logs and scores.txt
@@ -60,9 +67,9 @@ const tree_folder = "Data/Objects/Flora/USSR/summer/_NEW/_Lime";
 const mod_tree = "objects/flora/USSR/summer/_NEW/_Lime";
 
 /// An object of the map: its objects.xml name, its player (-1 for none), the
-/// ring and eighth it stands at, and the pixels around its place its shadow
-/// may reach.
-const Placed = struct { name: []const u8, player: i32, ring: f64, eighth: u32, reach: [4]i32 };
+/// ring and eighth it stands at, the pixels around its place its shadow may
+/// reach, and its FrameIndex where the map gives one (a fence's direction).
+const Placed = struct { name: []const u8, player: i32, ring: f64, eighth: u32, reach: [4]i32, frame: ?u32 = null };
 const ring = 560.0;
 const placed = [_]Placed{
     .{ .name = shed, .player = -1, .ring = 400, .eighth = 6, .reach = .{ -130, -150, 130, 90 } },
@@ -105,7 +112,7 @@ test "the sun stays in the world: shadows of a building, a tank, a tree and a so
     try game_views.runTool(io, allocator, tool, &.{ "side", shed_folder, "1,2,3,1l1,2l2,3l3", turned, try std.fs.path.join(allocator, &.{ root, "work" }) });
     const relit = try std.fs.path.join(allocator, &.{ data, mod_tree });
     try game_views.runTool(io, allocator, tool, &.{ "relight", tree_folder, relit });
-    try writeMod(io, allocator, data);
+    try writeMod(io, allocator, data, "sun.xml", &placed);
 
     var failed = false;
     var report: std.ArrayList(u8) = .empty;
@@ -185,6 +192,210 @@ test "the sun stays in the world: shadows of a building, a tank, a tree and a so
     }
 }
 
+/// Objects whose shadow is a 2003 shadow sprite laid turned with the ground
+/// (the hand test's round 4: "shadows point in the right direction but have a
+/// lit gap which need to be filled with dark"): the lime tree, a hay rick
+/// (a prop), a VillageFence segment and a house drawn by its turns lit by the
+/// camera's light (`_r<k>`, no `_l`), whose shadow is its step-0 one turned.
+/// They stand on the odd eighths, off road3d's road, which runs along the AI
+/// axes and is drawn over shadows.
+const gap_ring = 480.0;
+const gap_placed = [_]Placed{
+    .{ .name = "_Lime", .player = -1, .ring = gap_ring, .eighth = 1, .reach = .{ -90, -170, 90, 60 } },
+    .{ .name = "Rick", .player = -1, .ring = gap_ring, .eighth = 3, .reach = .{ -60, -70, 60, 40 } },
+    .{ .name = "VillageFence", .player = -1, .ring = gap_ring, .eighth = 5, .reach = .{ -60, -60, 60, 50 }, .frame = 0x10001 },
+    .{ .name = "E_House09_1", .player = -1, .ring = gap_ring, .eighth = 7, .reach = .{ -110, -140, 110, 70 } },
+};
+const gap_house = "Data/Buildings/europe/summer/e_house09_1";
+/// A turned shadow's darkness (the shadowed frame over the one without, mean
+/// over its pixels) may differ this much from the 2003 one at step 0.
+const max_darkness_change = 0.05;
+/// The lit ground on the ray from the zero cross along the sun to the shadow
+/// at a turned step may be this many pixels longer than at step 0.
+const max_foot_gap_growth = 2;
+/// At most this share of the ground the object hid at step 0 inside its
+/// shadow's hull may show lit at a turned step (all of it is lit without the
+/// fill): the shadow sprite and its fill are point-sampled, so their edges
+/// move by a pixel against the ground's turn, most at a quarter turn's 2:1
+/// stretch, and where the turned picture leaves only a thin band of that
+/// ground in sight (a house at a quarter turn) the edge is most of it.
+const max_hidden_lit = 0.3;
+
+test "a turned shadow reaches its object's foot: no lit ground between them, as dark as in 2003" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-sun-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const cwd = std.Io.Dir.cwd();
+    const gap_scratch = scratch ++ "-gap";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), gap_scratch });
+    cwd.deleteTree(io, gap_scratch) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const turned = try std.fs.path.join(allocator, &.{ data, mod_buildings });
+    try cwd.createDirPath(io, turned);
+    try game_views.runTool(io, allocator, tool, &.{ "side", gap_house, "1,2,3", turned, try std.fs.path.join(allocator, &.{ root, "work" }) });
+    try writeMod(io, allocator, data, "gap.xml", &gap_placed);
+
+    const objects = try turn.runGameWith(io, allocator, game, root, "objects", "gap.xml", look, "ON", objects_only, 4, true);
+    const shadowed = try turn.runGameWith(io, allocator, game, root, "shadows", "gap.xml", look, "ON", with_shadows, 4, true);
+    const plain = try turn.runGameWith(io, allocator, game, root, "no-shadows", "gap.xml", look, "ON", without_shadows, 4, true);
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "step name: lit ground on the ray from the zero cross along the sun to the shadow (step 0's); ground hidden at step 0 in the shadow's hull lit / all; darkness (step 0's); shadow pixels\n");
+    for (gap_placed) |object| {
+        const from = screenOf(object.ring, object.eighth);
+        const zero_frames = [3][]const u8{ shadowed[0], plain[0], objects[0] };
+        const zero = footGap(zero_frames, from, object.reach);
+        const hull = try shadowHull(allocator, zero_frames, from, object.reach);
+        for (0..4) |k| {
+            const at = screenOf(object.ring, (object.eighth + 2 * @as(u32, @intCast(k))) % 8);
+            const frames = [3][]const u8{ shadowed[k], plain[k], objects[k] };
+            const gap = footGap(frames, at, object.reach);
+            const hidden = if (k == 0) [2]usize{ 0, 0 } else hiddenLit(zero_frames, from, hull, frames, at, k, object.reach);
+            try report.print(allocator, "{d} {s}: {d} ({d}); {d} / {d}; {d:.3} ({d:.3}); {d}\n", .{ k, object.name, gap.foot, zero.foot, hidden[0], hidden[1], gap.darkness, zero.darkness, gap.pixels });
+            if (k == 0 or gap.pixels < min_shadow_pixels) continue;
+            const share = if (hidden[1] == 0) 0 else @as(f64, @floatFromInt(hidden[0])) / @as(f64, @floatFromInt(hidden[1]));
+            if (gap.foot > zero.foot + max_foot_gap_growth or share > max_hidden_lit or @abs(gap.darkness - zero.darkness) > max_darkness_change) failed = true;
+        }
+    }
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}a turned shadow leaves lit ground between it and its object, or is not as dark as in 2003; the frames are in {s}\n", .{ report.items, root });
+        return error.DrawnWrong;
+    }
+}
+
+/// A pixel of an object's picture in a shot of objects only, or next to one
+/// (a dark picture pixel reads as the black backdrop).
+fn nearPicture(frame: []const u8, x: i32, y: i32) bool {
+    var j: i32 = -1;
+    while (j <= 1) : (j += 1) {
+        var i: i32 = -1;
+        while (i <= 1) : (i += 1) if (units.drawn(units.rgb(frame, x + i, y + j))) return true;
+    }
+    return false;
+}
+
+fn isShadow(frames: [3][]const u8, x: i32, y: i32) bool {
+    return !units.inInterface(y) and !units.drawn(units.rgb(frames[2], x, y)) and units.shadowed(frames[0], frames[1], x, y);
+}
+
+/// An object's shadow around its zero cross `at` (`frames`: with shadows,
+/// without, objects only): its pixels on the ground (not under a picture),
+/// their darkness, and the lit ground on the ray from `at` towards the
+/// shadow's centroid (the sun's direction on the ground) before the ray
+/// first meets the shadow, pictures left out.
+const Gap = struct { foot: usize, darkness: f64, pixels: usize };
+fn footGap(frames: [3][]const u8, at: [2]i32, reach: [4]i32) Gap {
+    var pixels: usize = 0;
+    var sum = [2]f64{ 0, 0 };
+    var darkness: f64 = 0;
+    var y = at[1] + reach[1];
+    while (y <= at[1] + reach[3]) : (y += 1) {
+        var x = at[0] + reach[0];
+        while (x <= at[0] + reach[2]) : (x += 1) {
+            if (!isShadow(frames, x, y)) continue;
+            pixels += 1;
+            sum = .{ sum[0] + @as(f64, @floatFromInt(x - at[0])), sum[1] + @as(f64, @floatFromInt(y - at[1])) };
+            const a = units.rgb(frames[0], x, y).?;
+            const b = units.rgb(frames[1], x, y).?;
+            darkness += @as(f64, @floatFromInt(@as(u32, a[0]) + a[1] + a[2])) / @max(1, @as(f64, @floatFromInt(@as(u32, b[0]) + b[1] + b[2])));
+        }
+    }
+    if (pixels == 0) return .{ .foot = 0, .darkness = 0, .pixels = 0 };
+    const n: f64 = @floatFromInt(pixels);
+    const along = @sqrt(sum[0] * sum[0] + sum[1] * sum[1]) / n;
+    var foot: usize = 0;
+    if (along >= 1) {
+        const d = [2]f64{ sum[0] / n / along, sum[1] / n / along };
+        const length: usize = @intCast(@max(-reach[0], -reach[1], reach[2], reach[3]));
+        for (0..length) |step| {
+            const t: f64 = @floatFromInt(step);
+            const x = at[0] + @as(i32, @intFromFloat(@round(t * d[0])));
+            const yy = at[1] + @as(i32, @intFromFloat(@round(t * d[1])));
+            if (units.inInterface(yy) or units.drawn(units.rgb(frames[2], x, yy))) continue;
+            if (isShadow(frames, x, yy)) break;
+            foot += 1;
+        }
+    }
+    return .{ .foot = foot, .darkness = darkness / n, .pixels = pixels };
+}
+
+/// The convex hull of the zero cross `at` and an object's shadow pixels
+/// (Andrew's monotone chain), counter-clockwise on the screen.
+fn shadowHull(allocator: std.mem.Allocator, frames: [3][]const u8, at: [2]i32, reach: [4]i32) ![][2]i64 {
+    var points: std.ArrayList([2]i64) = .empty;
+    try points.append(allocator, .{ at[0], at[1] });
+    var y = at[1] + reach[1];
+    while (y <= at[1] + reach[3]) : (y += 1) {
+        var x = at[0] + reach[0];
+        while (x <= at[0] + reach[2]) : (x += 1) if (isShadow(frames, x, y)) try points.append(allocator, .{ x, y });
+    }
+    std.mem.sort([2]i64, points.items, {}, struct {
+        fn less(_: void, a: [2]i64, b: [2]i64) bool {
+            return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]);
+        }
+    }.less);
+    const hull = try allocator.alloc([2]i64, 2 * points.items.len);
+    var k: usize = 0;
+    for (points.items) |p| {
+        while (k >= 2 and cross(hull[k - 2], hull[k - 1], p) <= 0) k -= 1;
+        hull[k] = p;
+        k += 1;
+    }
+    var i = points.items.len - 1;
+    const lower = k + 1;
+    while (i > 0) {
+        i -= 1;
+        const p = points.items[i];
+        while (k >= lower and cross(hull[k - 2], hull[k - 1], p) <= 0) k -= 1;
+        hull[k] = p;
+        k += 1;
+    }
+    return hull[0..@max(k, 1) - 1];
+}
+
+fn cross(o: [2]i64, a: [2]i64, b: [2]i64) i64 {
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+}
+
+fn inHull(hull: []const [2]i64, p: [2]i64) bool {
+    if (hull.len < 3) return false;
+    for (hull, 0..) |c, j| {
+        if (cross(c, hull[(j + 1) % hull.len], p) < 0) return false;
+    }
+    return true;
+}
+
+/// The ground the object's picture hid at step 0 inside its shadow's hull
+/// there (the part of its shadow the 2003 sprite leaves out), as step k
+/// shows it turned about the object (`to`): how much of it is lit, of all of
+/// it the step-k picture leaves in sight.
+fn hiddenLit(zero: [3][]const u8, from: [2]i32, hull: []const [2]i64, frames: [3][]const u8, to: [2]i32, k: usize, reach: [4]i32) [2]usize {
+    var lit: usize = 0;
+    var all: usize = 0;
+    var y = to[1] + 2 * reach[1];
+    while (y <= to[1] + 2 * reach[3]) : (y += 1) {
+        var x = to[0] + 2 * reach[0];
+        while (x <= to[0] + 2 * reach[2]) : (x += 1) {
+            if (units.inInterface(y) or units.rgb(frames[0], x, y) == null or nearPicture(frames[2], x, y)) continue;
+            const back = turn.unturn(.{ @floatFromInt(x - to[0]), @floatFromInt(y - to[1]) }, k);
+            const q = [2]i32{ from[0] + @as(i32, @intFromFloat(@round(back[0]))), from[1] + @as(i32, @intFromFloat(@round(back[1]))) };
+            if (units.inInterface(q[1]) or !units.drawn(units.rgb(zero[2], q[0], q[1])) or !inHull(hull, .{ q[0], q[1] })) continue;
+            all += 1;
+            if (!units.shadowed(frames[0], frames[1], x, y)) lit += 1;
+        }
+    }
+    return .{ lit, all };
+}
+
 /// The mean brightness of the frame over the sprite's left half against its
 /// right half (split at its zero cross's column), the sprite's zero cross at
 /// `at`.
@@ -206,8 +417,8 @@ fn leftAgainstRight(frame: []const u8, sprite: game_views.Sprite, at: [2]i32) f6
     return (sums[0] / @max(1, counts[0])) / @max(1, sums[1] / @max(1, counts[1]));
 }
 
-/// mod.xml and maps/sun.xml, written from road3d.xml.
-fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
+/// mod.xml and maps/<map_name> with `objects`, written from road3d.xml.
+fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8, map_name: []const u8, objects: []const Placed) !void {
     const cwd = std.Io.Dir.cwd();
     try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
     try cwd.writeFile(io, .{
@@ -218,7 +429,7 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     try testing.expectEqual(@as(usize, 1), std.mem.count(u8, map, "<Objects/>"));
     var items: std.ArrayList(u8) = .empty;
     try items.appendSlice(allocator, "<Objects>");
-    for (placed, 1..) |object, link| {
+    for (objects, 1..) |object, link| {
         const at = ringPoint(object.ring, object.eighth);
         // Units face along the ring, as in camera-turn-units-game-reads-it;
         // a squad's FrameIndex is its formation (0), a unit's and a static
@@ -226,11 +437,11 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
         const unit = object.player >= 0;
         const infantry = std.mem.eql(u8, object.name, "German_sniper");
         try items.print(allocator, "<item Direction=\"{d}\" Player=\"{d}\" ScriptID=\"-1\" HP=\"1\" FrameIndex=\"{d}\"><Name>{s}</Name>" ++
-            "<Position x=\"{d:.0}\" y=\"{d:.0}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ if (unit) object.eighth * 8192 else 0, object.player, @as(i32, if (infantry) 0 else -1), object.name, at[0], at[1], link });
+            "<Position x=\"{d:.0}\" y=\"{d:.0}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ if (unit) object.eighth * 8192 else 0, object.player, if (object.frame) |f| @as(i64, f) else @as(i64, if (infantry) 0 else -1), object.name, at[0], at[1], link });
     }
     try items.appendSlice(allocator, "</Objects>");
     try cwd.writeFile(io, .{
-        .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", "sun.xml" }),
+        .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", map_name }),
         .data = try std.mem.replaceOwned(u8, allocator, map, "<Objects/>", items.items),
     });
 }
