@@ -4090,6 +4090,12 @@ jobs:
         shell: bash
         run: zig build install-game test-random-missions -Dtest-mode=compile -Dsystem_include_path="$MACOS_SYSROOT/usr/include" -Dsystem_framework_path="$MACOS_SYSROOT/System/Library/Frameworks" -Dlibrary_path="$MACOS_SYSROOT/usr/lib" -Dtarget=aarch64-macos --release=fast --summary new
 
+      # One libSDL3 in the install: dyld loads two (and the ObjC runtime says so) when a Mach-O links a
+      # second build of SDL by its cache path or carries an -rpath into the cache.
+      - name: Check the installed SDL3
+        shell: bash
+        run: for d in zig-out/game/macos/*/*/; do bash tools/zig/check-installed-sdl.sh "$d"; done
+
 
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.

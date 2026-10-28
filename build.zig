@@ -5414,7 +5414,7 @@ fn addOptionsBridge(
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     module.linkLibrary(platform_runtime);
-    module.linkLibrary(sdl);
+    if (target.result.os.tag == .macos) linkSdlImport(module, target, sdl) else module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
     applyLoaderPath(target, module);
     addSharedObjectFinalizer(b, target, module);
@@ -5472,7 +5472,7 @@ fn addStreamIOZig(
     streamio_module.linkLibrary(options_bridge);
     streamio_module.linkLibrary(platform_runtime);
     // Paths.cpp asks SDL for the base and preference paths: the Game's one shared SDL3.
-    streamio_module.linkLibrary(sdl);
+    if (target.result.os.tag == .macos) linkSdlImport(streamio_module, target, sdl) else streamio_module.linkLibrary(sdl);
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
     const def_path = if (target.result.cpu.arch == .x86)
@@ -14553,6 +14553,12 @@ fn linkSdlImport(
 ) void {
     switch (target.result.os.tag) {
         .windows => module.addObjectFile(sdl_dynamic.getEmittedImplib()),
+        // By path on macOS: linkLibrary adds an absolute -rpath into .zig-cache, where dyld finds a
+        // second libSDL3 (the dependency's own build, see vendor/zig-sdl3) beside the installed one.
+        .macos => {
+            module.addObjectFile(sdl_dynamic.getEmittedBin());
+            module.addIncludePath(sdl_dynamic.getEmittedIncludeTree()); // linkLibrary would bring the headers
+        },
         else => module.linkLibrary(sdl_dynamic),
     }
 }
