@@ -6,13 +6,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed04 | r1 | 2 | 1 | 13.6 | 74.4 | 6.5 | 5.4 | 1.84 | 37.0 | 0.069 | pass |
+| e_frenchshed04 | r1 | 2 | 1 | 13.6 | 76.7 | 6.4 | 3.2 | 1.86 | 36.0 | 0.074 | pass |
 | e_frenchshed04 | r1 | 2 | 2 | 21.7 | 75.5 | 1.7 | 1.2 | 1.40 | 3.9 | 0.058 | pass |
 | e_frenchshed04 | r1 | 2 | 3 | 52.0 | 35.4 | 4.0 | 8.6 | 1.17 | 4.7 | 0.020 | pass |
-| e_frenchshed04 | r2 | 3 | 1 | 0.1 | 86.3 | 7.3 | 6.4 | 1.14 | 6.2 | 0.102 | pass |
+| e_frenchshed04 | r2 | 3 | 1 | 0.1 | 89.3 | 6.7 | 3.8 | 1.16 | 6.2 | 0.086 | pass |
 | e_frenchshed04 | r2 | 3 | 2 | 0.2 | 96.4 | 2.1 | 1.4 | 1.20 | 3.1 | 0.058 | pass |
 | e_frenchshed04 | r2 | 3 | 3 | 39.9 | 44.5 | 4.6 | 11.0 | 1.02 | 0.5 | 0.009 | pass |
-| e_frenchshed04 | r3 | 4 | 1 | 78.6 | 17.4 | 2.1 | 1.9 | 1.83 | 26.9 | 0.143 | pass |
+| e_frenchshed04 | r3 | 4 | 1 | 78.6 | 18.2 | 1.6 | 1.6 | 1.83 | 26.6 | 0.140 | pass |
 | e_frenchshed04 | r3 | 4 | 2 | 65.5 | 32.4 | 1.8 | 0.3 | 1.45 | 1.7 | 0.076 | pass |
 | e_frenchshed04 | r3 | 4 | 3 | 69.2 | 15.7 | 4.8 | 10.3 | 1.13 | 0.9 | 0.022 | pass |
 

@@ -6,13 +6,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_chapel_1 | r1 | 2 | 1 | 33.0 | 62.4 | 2.0 | 2.6 | 1.57 | 17.1 | 0.179 | pass |
+| e_chapel_1 | r1 | 2 | 1 | 33.0 | 62.4 | 2.0 | 2.6 | 1.48 | 15.5 | 0.057 | pass |
 | e_chapel_1 | r1 | 2 | 2 | 33.1 | 60.7 | 4.9 | 1.3 | 1.15 | 3.0 | 0.014 | pass |
 | e_chapel_1 | r1 | 2 | 3 | 60.4 | 25.2 | 5.7 | 8.7 | 1.10 | 10.9 | 0.021 | pass |
-| e_chapel_1 | r2 | 3 | 1 | 0.1 | 86.0 | 11.6 | 2.3 | 1.20 | 9.9 | 0.134 | pass |
+| e_chapel_1 | r2 | 3 | 1 | 0.1 | 86.0 | 11.6 | 2.3 | 1.16 | 10.8 | 0.097 | pass |
 | e_chapel_1 | r2 | 3 | 2 | 0.0 | 89.0 | 9.9 | 1.0 | 1.13 | 12.4 | 0.043 | pass |
 | e_chapel_1 | r2 | 3 | 3 | 31.0 | 39.0 | 17.3 | 12.7 | 1.13 | 0.3 | 0.018 | pass |
-| e_chapel_1 | r3 | 4 | 1 | 68.3 | 18.9 | 11.3 | 1.5 | 1.79 | 22.2 | 0.278 | pass |
+| e_chapel_1 | r3 | 4 | 1 | 68.3 | 18.9 | 11.3 | 1.5 | 1.67 | 19.4 | 0.118 | pass |
 | e_chapel_1 | r3 | 4 | 2 | 60.7 | 28.3 | 9.6 | 1.3 | 1.15 | 5.7 | 0.018 | pass |
 | e_chapel_1 | r3 | 4 | 3 | 59.1 | 16.1 | 16.2 | 8.6 | 1.14 | 6.3 | 0.014 | pass |
 

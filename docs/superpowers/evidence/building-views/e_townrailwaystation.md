@@ -6,13 +6,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_townrailwaystation_4 | r1 | 1 | 1 | 24.9 | 65.8 | 5.3 | 4.0 | 1.38 | 44.8 | 0.063 | pass |
+| e_townrailwaystation_4 | r1 | 1 | 1 | 24.9 | 65.8 | 5.3 | 4.0 | 1.42 | 46.0 | 0.059 | pass |
 | e_townrailwaystation_4 | r1 | 1 | 2 | 24.3 | 65.6 | 6.1 | 4.0 | 1.68 | 36.4 | 0.079 | pass |
 | e_townrailwaystation_4 | r1 | 1 | 3 | 47.5 | 49.5 | 2.3 | 0.6 | 1.35 | 7.2 | 0.015 | pass |
-| e_townrailwaystation_4 | r2 | 2 | 1 | 0.0 | 87.4 | 8.4 | 4.2 | 0.89 | 8.6 | 0.063 | pass |
+| e_townrailwaystation_4 | r2 | 2 | 1 | 0.0 | 87.4 | 8.4 | 4.2 | 0.89 | 6.6 | 0.068 | pass |
 | e_townrailwaystation_4 | r2 | 2 | 2 | 0.0 | 87.3 | 8.5 | 4.2 | 0.90 | 3.5 | 0.054 | pass |
 | e_townrailwaystation_4 | r2 | 2 | 3 | 29.1 | 67.2 | 3.0 | 0.7 | 0.97 | 4.5 | 0.015 | pass |
-| e_townrailwaystation_4 | r3 | 3 | 1 | 65.7 | 27.3 | 6.0 | 1.1 | 1.40 | 28.1 | 0.175 | pass |
+| e_townrailwaystation_4 | r3 | 3 | 1 | 65.7 | 27.3 | 6.0 | 1.1 | 1.46 | 30.9 | 0.057 | pass |
 | e_townrailwaystation_4 | r3 | 3 | 2 | 65.3 | 27.0 | 6.8 | 1.0 | 1.84 | 26.2 | 0.038 | pass |
 | e_townrailwaystation_4 | r3 | 3 | 3 | 71.6 | 25.7 | 2.2 | 0.5 | 1.39 | 9.5 | 0.037 | pass |
 

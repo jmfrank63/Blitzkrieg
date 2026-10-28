@@ -15,13 +15,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | e_railwaystation_1 | r3 | 4 | 1 | 52.4 | 20.5 | 26.8 | 0.3 | 1.29 | 9.1 | 0.116 | pass |
 | e_railwaystation_1 | r3 | 4 | 2 | 50.1 | 45.9 | 2.2 | 1.8 | 1.06 | 1.7 | 0.026 | pass |
 | e_railwaystation_1 | r3 | 4 | 3 | 70.6 | 27.1 | 1.7 | 0.6 | 1.15 | 5.0 | 0.047 | pass |
-| e_railwaystation_2 | r1 | 2 | 1 | 65.8 | 19.5 | 12.2 | 2.5 | 0.55 | 41.7 | 0.036 | pass |
+| e_railwaystation_2 | r1 | 2 | 1 | 65.8 | 19.5 | 12.1 | 2.6 | 0.55 | 41.8 | 0.037 | pass |
 | e_railwaystation_2 | r1 | 2 | 2 | 64.2 | 19.1 | 13.3 | 3.3 | 0.65 | 27.8 | 0.037 | pass |
 | e_railwaystation_2 | r1 | 2 | 3 | 63.8 | 19.0 | 14.1 | 3.0 | 1.06 | 0.5 | 0.011 | pass |
-| e_railwaystation_2 | r2 | 3 | 1 | 0.0 | 66.3 | 20.1 | 13.6 | 0.92 | 9.0 | 0.036 | pass |
+| e_railwaystation_2 | r2 | 3 | 1 | 0.0 | 66.9 | 19.3 | 13.8 | 0.88 | 11.3 | 0.044 | pass |
 | e_railwaystation_2 | r2 | 3 | 2 | 0.0 | 64.1 | 21.8 | 14.1 | 0.93 | 10.4 | 0.058 | pass |
 | e_railwaystation_2 | r2 | 3 | 3 | 29.2 | 48.5 | 18.9 | 3.5 | 1.06 | 1.8 | 0.017 | pass |
-| e_railwaystation_2 | r3 | 4 | 1 | 21.4 | 51.0 | 13.7 | 14.0 | 0.57 | 42.5 | 0.065 | pass |
+| e_railwaystation_2 | r3 | 4 | 1 | 21.4 | 51.6 | 13.0 | 14.1 | 0.56 | 44.1 | 0.075 | pass |
 | e_railwaystation_2 | r3 | 4 | 2 | 20.8 | 49.6 | 15.2 | 14.3 | 0.62 | 36.6 | 0.089 | pass |
 | e_railwaystation_2 | r3 | 4 | 3 | 48.8 | 36.1 | 11.9 | 3.2 | 0.98 | 3.0 | 0.014 | pass |
 

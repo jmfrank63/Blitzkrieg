@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryboiler | r1 | 2 | 1 | 64.5 | 31.7 | 2.2 | 1.5 | 1.05 | 16.0 | 0.082 | pass |
-| factoryboiler | r1 | 2 | 1w | 61.8 | 30.3 | 3.8 | 4.1 | 0.94 | 28.3 | 0.130 | pass |
+| factoryboiler | r1 | 2 | 1 | 64.5 | 31.7 | 2.2 | 1.5 | 1.05 | 16.1 | 0.048 | pass |
+| factoryboiler | r1 | 2 | 1w | 61.8 | 30.3 | 3.8 | 4.1 | 1.00 | 25.9 | 0.050 | pass |
 | factoryboiler | r1 | 2 | 2 | 64.3 | 32.8 | 2.4 | 0.6 | 1.34 | 7.1 | 0.086 | pass |
 | factoryboiler | r1 | 2 | 2w | 61.8 | 33.1 | 3.7 | 1.3 | 1.17 | 5.6 | 0.070 | pass |
 | factoryboiler | r1 | 2 | 3 | 82.4 | 13.0 | 1.9 | 2.7 | 0.93 | 2.2 | 0.017 | pass |
 | factoryboiler | r1 | 2 | 3w | 84.7 | 10.8 | 1.8 | 2.7 | 0.98 | 0.2 | 0.014 | pass |
-| factoryboiler | r2 | 3 | 1 | 4.0 | 87.2 | 2.6 | 6.2 | 1.05 | 4.9 | 0.059 | pass |
-| factoryboiler | r2 | 3 | 1w | 4.0 | 82.4 | 2.9 | 10.8 | 1.11 | 4.0 | 0.065 | pass |
+| factoryboiler | r2 | 3 | 1 | 4.0 | 87.2 | 2.6 | 6.2 | 1.05 | 4.8 | 0.054 | pass |
+| factoryboiler | r2 | 3 | 1w | 4.0 | 82.9 | 2.7 | 10.4 | 1.13 | 4.6 | 0.049 | pass |
 | factoryboiler | r2 | 3 | 2 | 4.0 | 89.3 | 3.2 | 3.5 | 1.09 | 5.8 | 0.044 | pass |
 | factoryboiler | r2 | 3 | 2w | 4.0 | 89.3 | 3.1 | 3.7 | 1.08 | 1.3 | 0.019 | pass |
 | factoryboiler | r2 | 3 | 3 | 70.5 | 24.8 | 2.0 | 2.6 | 0.96 | 0.2 | 0.016 | pass |
 | factoryboiler | r2 | 3 | 3w | 69.3 | 26.6 | 2.0 | 2.1 | 1.00 | 3.4 | 0.014 | pass |
-| factoryboiler | r3 | 4 | 1 | 29.8 | 63.9 | 1.5 | 4.8 | 0.98 | 18.4 | 0.112 | pass |
-| factoryboiler | r3 | 4 | 1w | 29.5 | 60.6 | 2.5 | 7.4 | 0.86 | 30.8 | 0.126 | pass |
+| factoryboiler | r3 | 4 | 1 | 29.8 | 63.9 | 1.5 | 4.8 | 0.98 | 18.3 | 0.075 | pass |
+| factoryboiler | r3 | 4 | 1w | 29.5 | 61.1 | 2.4 | 7.0 | 0.94 | 30.2 | 0.045 | pass |
 | factoryboiler | r3 | 4 | 2 | 30.4 | 64.0 | 2.4 | 3.2 | 1.16 | 4.2 | 0.059 | pass |
 | factoryboiler | r3 | 4 | 2w | 30.2 | 63.8 | 2.6 | 3.4 | 1.03 | 2.0 | 0.041 | pass |
 | factoryboiler | r3 | 4 | 3 | 78.2 | 17.2 | 2.0 | 2.6 | 0.92 | 1.3 | 0.007 | pass |

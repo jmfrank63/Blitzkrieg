@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| ukrainehouse02 | r1 | 2 | 1 | 74.8 | 22.2 | 2.5 | 0.4 | 1.18 | 2.2 | 0.028 | pass |
-| ukrainehouse02 | r1 | 2 | 1w | 74.9 | 22.9 | 1.9 | 0.3 | 1.14 | 5.0 | 0.076 | pass |
+| ukrainehouse02 | r1 | 2 | 1 | 74.8 | 22.5 | 2.5 | 0.1 | 1.12 | 2.3 | 0.065 | pass |
+| ukrainehouse02 | r1 | 2 | 1w | 74.9 | 23.1 | 1.9 | 0.1 | 1.13 | 3.7 | 0.116 | pass |
 | ukrainehouse02 | r1 | 2 | 2 | 73.6 | 21.7 | 4.4 | 0.2 | 1.03 | 5.8 | 0.021 | pass |
 | ukrainehouse02 | r1 | 2 | 2w | 73.6 | 21.7 | 4.4 | 0.2 | 1.03 | 5.8 | 0.021 | pass |
 | ukrainehouse02 | r1 | 2 | 3 | 84.3 | 8.9 | 3.3 | 3.4 | 1.00 | 3.9 | 0.026 | pass |
 | ukrainehouse02 | r1 | 2 | 3w | 84.3 | 8.9 | 3.3 | 3.4 | 1.00 | 3.9 | 0.026 | pass |
-| ukrainehouse02 | r2 | 3 | 1 | 47.1 | 37.7 | 12.9 | 2.3 | 1.48 | 1.3 | 0.042 | pass |
-| ukrainehouse02 | r2 | 3 | 1w | 48.0 | 37.8 | 12.2 | 2.1 | 1.46 | 0.9 | 0.062 | pass |
+| ukrainehouse02 | r2 | 3 | 1 | 47.1 | 38.0 | 12.9 | 2.0 | 1.50 | 0.6 | 0.047 | pass |
+| ukrainehouse02 | r2 | 3 | 1w | 48.0 | 38.0 | 12.2 | 1.9 | 1.41 | 0.8 | 0.047 | pass |
 | ukrainehouse02 | r2 | 3 | 2 | 54.3 | 38.5 | 6.9 | 0.3 | 0.93 | 7.5 | 0.026 | pass |
 | ukrainehouse02 | r2 | 3 | 2w | 54.3 | 38.5 | 6.9 | 0.3 | 0.93 | 7.5 | 0.026 | pass |
 | ukrainehouse02 | r2 | 3 | 3 | 65.1 | 27.6 | 3.2 | 4.1 | 0.99 | 3.1 | 0.013 | pass |
 | ukrainehouse02 | r2 | 3 | 3w | 65.1 | 27.6 | 3.2 | 4.1 | 0.99 | 3.1 | 0.013 | pass |
-| ukrainehouse02 | r3 | 4 | 1 | 67.3 | 17.9 | 12.4 | 2.4 | 1.31 | 6.7 | 0.042 | pass |
-| ukrainehouse02 | r3 | 4 | 1w | 67.8 | 18.4 | 11.6 | 2.2 | 1.31 | 10.3 | 0.050 | pass |
+| ukrainehouse02 | r3 | 4 | 1 | 67.3 | 18.2 | 12.4 | 2.1 | 1.20 | 10.4 | 0.027 | pass |
+| ukrainehouse02 | r3 | 4 | 1w | 67.8 | 18.6 | 11.6 | 2.0 | 1.25 | 12.2 | 0.071 | pass |
 | ukrainehouse02 | r3 | 4 | 2 | 67.8 | 25.0 | 6.8 | 0.5 | 0.99 | 7.5 | 0.018 | pass |
 | ukrainehouse02 | r3 | 4 | 2w | 67.8 | 25.0 | 6.8 | 0.5 | 0.99 | 7.5 | 0.018 | pass |
 | ukrainehouse02 | r3 | 4 | 3 | 71.6 | 21.0 | 3.5 | 4.0 | 1.01 | 4.8 | 0.013 | pass |
