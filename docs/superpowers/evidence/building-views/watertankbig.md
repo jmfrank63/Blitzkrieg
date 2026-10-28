@@ -6,42 +6,42 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| watertankbig | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.87 | 28.1 | 0.320 | pass |
-| watertankbig | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.19 | 17.6 | 0.268 | pass |
-| watertankbig | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 3.2 | 0.070 | pass |
-| watertankbig | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.03 | 4.9 | 0.021 | pass |
-| watertankbig | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.07 | 3.0 | 0.005 | pass |
-| watertankbig | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.04 | 3.3 | 0.005 | pass |
-| watertankbig | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.87 | 6.4 | 0.160 | pass |
-| watertankbig | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.34 | 15.0 | 0.212 | pass |
-| watertankbig | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| watertankbig | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.28 | 25.1 | 0.083 | pass |
-| watertankbig | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.13 | 37.2 | 0.175 | pass |
-| watertankbig | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 2.7 | 0.060 | pass |
-| watertankbig | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 4.9 | 0.027 | pass |
-| watertankbig | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 3.5 | 0.013 | pass |
-| watertankbig | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 4.0 | 0.011 | pass |
+| watertankbig | r1 | 2 | 1 | 65.3 | 32.9 | 1.8 | 0.0 | 2.38 | 32.8 | 0.287 | pass |
+| watertankbig | r1 | 2 | 1w | 66.3 | 33.0 | 0.7 | 0.0 | 1.46 | 14.1 | 0.286 | pass |
+| watertankbig | r1 | 2 | 2 | 65.3 | 32.9 | 1.8 | 0.0 | 1.57 | 15.6 | 0.075 | pass |
+| watertankbig | r1 | 2 | 2w | 66.3 | 33.0 | 0.7 | 0.0 | 1.22 | 15.5 | 0.037 | pass |
+| watertankbig | r1 | 2 | 3 | 81.8 | 2.7 | 8.2 | 7.2 | 1.01 | 4.8 | 0.012 | pass |
+| watertankbig | r1 | 2 | 3w | 81.8 | 2.7 | 8.2 | 7.2 | 1.00 | 5.7 | 0.011 | pass |
+| watertankbig | r2 | 3 | 1 | 13.3 | 85.6 | 1.1 | 0.0 | 1.77 | 21.8 | 0.052 | pass |
+| watertankbig | r2 | 3 | 1w | 13.5 | 86.0 | 0.5 | 0.0 | 1.30 | 13.7 | 0.060 | pass |
+| watertankbig | r2 | 3 | 2 | 13.3 | 85.6 | 1.1 | 0.0 | 1.21 | 19.6 | 0.047 | pass |
+| watertankbig | r2 | 3 | 2w | 13.5 | 86.0 | 0.5 | 0.0 | 1.13 | 12.9 | 0.052 | pass |
+| watertankbig | r2 | 3 | 3 | 78.9 | 4.8 | 8.8 | 7.5 | 1.02 | 3.6 | 0.027 | pass |
+| watertankbig | r2 | 3 | 3w | 78.9 | 4.8 | 8.8 | 7.5 | 1.02 | 4.1 | 0.028 | pass |
+| watertankbig | r3 | 4 | 1 | 61.8 | 37.0 | 1.2 | 0.0 | 1.52 | 21.6 | 0.173 | pass |
+| watertankbig | r3 | 4 | 1w | 62.8 | 37.0 | 0.2 | 0.0 | 0.93 | 34.5 | 0.264 | pass |
+| watertankbig | r3 | 4 | 2 | 61.8 | 37.0 | 1.2 | 0.0 | 2.20 | 3.9 | 0.038 | pass |
+| watertankbig | r3 | 4 | 2w | 62.8 | 37.0 | 0.2 | 0.0 | 1.62 | 5.7 | 0.028 | pass |
+| watertankbig | r3 | 4 | 3 | 79.8 | 3.7 | 8.7 | 7.8 | 0.92 | 5.6 | 0.031 | pass |
+| watertankbig | r3 | 4 | 3w | 79.8 | 3.7 | 8.7 | 7.8 | 0.93 | 5.9 | 0.036 | pass |
+| watertankbig | r1l1 | 2 | 1 | 65.3 | 32.9 | 1.8 | 0.0 | 2.08 | 48.0 | 0.279 | pass |
+| watertankbig | r1l1 | 2 | 1w | 66.3 | 33.0 | 0.7 | 0.0 | 1.32 | 42.8 | 0.309 | pass |
+| watertankbig | r1l1 | 2 | 2 | 65.3 | 32.9 | 1.8 | 0.0 | 1.44 | 17.0 | 0.035 | pass |
+| watertankbig | r1l1 | 2 | 2w | 66.3 | 33.0 | 0.7 | 0.0 | 1.27 | 18.0 | 0.035 | pass |
+| watertankbig | r1l1 | 2 | 3 | 81.8 | 2.7 | 8.2 | 7.2 | 1.01 | 4.8 | 0.012 | pass |
+| watertankbig | r1l1 | 2 | 3w | 81.8 | 2.7 | 8.2 | 7.2 | 1.00 | 5.7 | 0.011 | pass |
+| watertankbig | r2l2 | 3 | 1 | 13.3 | 85.6 | 1.1 | 0.0 | 2.10 | 21.3 | 0.234 | pass |
+| watertankbig | r2l2 | 3 | 1w | 13.5 | 86.0 | 0.5 | 0.0 | 1.22 | 12.3 | 0.335 | pass |
+| watertankbig | r2l2 | 3 | 2 | 13.3 | 85.6 | 1.1 | 0.0 | 1.36 | 20.3 | 0.043 | pass |
+| watertankbig | r2l2 | 3 | 2w | 13.5 | 86.0 | 0.5 | 0.0 | 1.17 | 13.3 | 0.050 | pass |
+| watertankbig | r2l2 | 3 | 3 | 78.9 | 4.8 | 8.8 | 7.5 | 1.02 | 3.6 | 0.027 | pass |
+| watertankbig | r2l2 | 3 | 3w | 78.9 | 4.8 | 8.8 | 7.5 | 1.02 | 4.1 | 0.028 | pass |
+| watertankbig | r3l3 | 4 | 1 | 61.8 | 37.0 | 1.2 | 0.0 | 1.19 | 39.4 | 0.064 | pass |
+| watertankbig | r3l3 | 4 | 1w | 62.8 | 37.0 | 0.2 | 0.0 | 0.92 | 52.8 | 0.185 | pass |
+| watertankbig | r3l3 | 4 | 2 | 61.8 | 37.0 | 1.2 | 0.0 | 1.67 | 12.2 | 0.060 | pass |
+| watertankbig | r3l3 | 4 | 2w | 62.8 | 37.0 | 0.2 | 0.0 | 1.52 | 9.3 | 0.036 | pass |
+| watertankbig | r3l3 | 4 | 3 | 79.8 | 3.7 | 8.7 | 7.8 | 0.92 | 5.6 | 0.031 | pass |
+| watertankbig | r3l3 | 4 | 3w | 79.8 | 3.7 | 8.7 | 7.8 | 0.93 | 5.9 | 0.036 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| watertankbig | r1 | 0.85 | 0.91 | 0.96 | 0.472 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| watertankbig | r2 | 0.69 | 0.91 | 0.96 | 0.419 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.69 outside 0.7..1.3 | 2003 sprite |
-| watertankbig | r3 | 0.85 | 0.91 | 0.96 | 0.505 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| watertankbig | r1l1 | 0.85 | 0.91 | 0.96 | 0.472 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| watertankbig | r2l2 | 0.69 | 0.91 | 0.96 | 0.419 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.69 outside 0.7..1.3 | 2003 sprite |
-| watertankbig | r3l3 | 0.85 | 0.91 | 0.96 | 0.505 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| watertankbig | r1 | 0.84 | 0.86 | 0.93 | 0.457 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.424 | 0.424 | 0.926 | pass | blocks |
+| watertankbig | r2 | 0.68 | 0.86 | 0.93 | 0.412 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.882 | 0.882 | 0.926 | pass | blocks |
+| watertankbig | r3 | 0.85 | 0.86 | 0.93 | 0.508 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.373 | 0.373 | 0.926 | pass | blocks |
+| watertankbig | r1l1 | 0.84 | 0.86 | 0.93 | 0.457 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.424 | 0.424 | 0.926 | pass | blocks |
+| watertankbig | r2l2 | 0.68 | 0.86 | 0.93 | 0.412 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.882 | 0.882 | 0.926 | pass | blocks |
+| watertankbig | r3l3 | 0.85 | 0.86 | 0.93 | 0.508 | 0.756 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.373 | 0.373 | 0.926 | pass | blocks |

@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryboiler | r1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
-| factoryboiler | r2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
-| factoryboiler | r3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
-| factoryboiler | r1l1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
-| factoryboiler | r2l2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
-| factoryboiler | r3l3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| factoryboiler | r1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | 1.000 | 0.638 | 0.638 | 0.950 | pass | blocks |
+| factoryboiler | r2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | 1.000 | 0.625 | 0.625 | 0.950 | pass | blocks |
+| factoryboiler | r3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | 1.000 | 0.689 | 0.689 | 0.950 | pass | blocks |
+| factoryboiler | r1l1 | 1.14 | 1.00 | 0.95 | 0.015 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | 1.000 | 0.638 | 0.638 | 0.950 | pass | blocks |
+| factoryboiler | r2l2 | 1.10 | 1.00 | 0.95 | 0.028 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | 1.000 | 0.625 | 0.625 | 0.950 | pass | blocks |
+| factoryboiler | r3l3 | 1.01 | 1.00 | 0.95 | 0.024 | 0.018 | 224 | 224 | 0 | 0 | 0.000 | 0 | 19 | 13 | 0 | pass | 1.000 | 0.689 | 0.689 | 0.950 | pass | blocks |

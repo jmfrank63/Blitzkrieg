@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| railroadlittlehouse | r1 | 0.74 | 1.36 | 0.96 | 0.053 | 0.138 | 44 | 44 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| railroadlittlehouse | r2 | 1.00 | 1.36 | 0.96 | 0.097 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| railroadlittlehouse | r3 | 0.74 | 1.36 | 0.96 | 0.140 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| railroadlittlehouse | r1l1 | 0.74 | 1.36 | 0.96 | 0.053 | 0.138 | 44 | 44 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| railroadlittlehouse | r2l2 | 1.00 | 1.36 | 0.96 | 0.097 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| railroadlittlehouse | r3l3 | 0.74 | 1.36 | 0.96 | 0.140 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| railroadlittlehouse | r1 | 0.74 | 1.36 | 0.96 | 0.053 | 0.138 | 44 | 44 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.748 | 0.748 | 0.958 | pass | blocks |
+| railroadlittlehouse | r2 | 1.00 | 1.36 | 0.96 | 0.097 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.770 | 0.770 | 0.958 | pass | blocks |
+| railroadlittlehouse | r3 | 0.74 | 1.36 | 0.96 | 0.140 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.721 | 0.721 | 0.958 | pass | blocks |
+| railroadlittlehouse | r1l1 | 0.74 | 1.36 | 0.96 | 0.053 | 0.138 | 44 | 44 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.748 | 0.748 | 0.958 | pass | blocks |
+| railroadlittlehouse | r2l2 | 1.00 | 1.36 | 0.96 | 0.097 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.770 | 0.770 | 0.958 | pass | blocks |
+| railroadlittlehouse | r3l3 | 0.74 | 1.36 | 0.96 | 0.140 | 0.138 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.721 | 0.721 | 0.958 | pass | blocks |

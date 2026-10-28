@@ -10,38 +10,38 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | towncornhouse02 | r1 | 2 | 1w | 52.5 | 41.8 | 5.6 | 0.1 | 1.01 | 8.6 | 0.079 | pass |
 | towncornhouse02 | r1 | 2 | 2 | 52.3 | 44.7 | 3.0 | 0.1 | 1.10 | 3.0 | 0.037 | pass |
 | towncornhouse02 | r1 | 2 | 2w | 52.3 | 44.3 | 3.3 | 0.1 | 1.00 | 2.5 | 0.031 | pass |
-| towncornhouse02 | r1 | 2 | 3 | 75.2 | 19.1 | 3.0 | 2.7 | 1.06 | 1.3 | 0.006 | pass |
-| towncornhouse02 | r1 | 2 | 3w | 74.8 | 21.8 | 2.1 | 1.3 | 1.08 | 1.0 | 0.009 | pass |
+| towncornhouse02 | r1 | 2 | 3 | 75.1 | 19.1 | 3.0 | 2.8 | 1.06 | 1.2 | 0.007 | pass |
+| towncornhouse02 | r1 | 2 | 3w | 74.8 | 21.7 | 2.1 | 1.3 | 1.07 | 1.0 | 0.009 | pass |
 | towncornhouse02 | r2 | 3 | 1 | 10.1 | 86.9 | 2.7 | 0.3 | 0.94 | 5.6 | 0.031 | pass |
 | towncornhouse02 | r2 | 3 | 1w | 10.2 | 80.3 | 9.3 | 0.2 | 0.97 | 5.0 | 0.041 | pass |
 | towncornhouse02 | r2 | 3 | 2 | 10.1 | 86.9 | 2.8 | 0.1 | 1.05 | 5.9 | 0.026 | pass |
 | towncornhouse02 | r2 | 3 | 2w | 10.1 | 86.5 | 3.3 | 0.1 | 1.01 | 6.2 | 0.025 | pass |
-| towncornhouse02 | r2 | 3 | 3 | 14.1 | 79.7 | 3.3 | 2.9 | 1.03 | 0.4 | 0.012 | pass |
-| towncornhouse02 | r2 | 3 | 3w | 21.8 | 73.8 | 2.7 | 1.7 | 1.05 | 0.5 | 0.014 | pass |
+| towncornhouse02 | r2 | 3 | 3 | 14.1 | 79.6 | 3.3 | 3.0 | 1.02 | 0.5 | 0.011 | pass |
+| towncornhouse02 | r2 | 3 | 3w | 21.8 | 74.3 | 2.4 | 1.5 | 1.06 | 0.4 | 0.016 | pass |
 | towncornhouse02 | r3 | 4 | 1 | 45.1 | 54.4 | 0.3 | 0.2 | 1.10 | 7.4 | 0.083 | pass |
 | towncornhouse02 | r3 | 4 | 1w | 45.2 | 50.1 | 4.5 | 0.2 | 0.99 | 11.4 | 0.054 | pass |
 | towncornhouse02 | r3 | 4 | 2 | 45.3 | 54.3 | 0.3 | 0.1 | 1.08 | 6.8 | 0.046 | pass |
 | towncornhouse02 | r3 | 4 | 2w | 45.6 | 53.7 | 0.5 | 0.1 | 1.00 | 7.3 | 0.037 | pass |
-| towncornhouse02 | r3 | 4 | 3 | 31.5 | 62.8 | 3.0 | 2.6 | 1.05 | 0.4 | 0.008 | pass |
-| towncornhouse02 | r3 | 4 | 3w | 39.0 | 56.8 | 2.6 | 1.6 | 1.07 | 0.5 | 0.014 | pass |
+| towncornhouse02 | r3 | 4 | 3 | 31.4 | 62.9 | 3.0 | 2.7 | 1.04 | 0.5 | 0.007 | pass |
+| towncornhouse02 | r3 | 4 | 3w | 39.1 | 57.2 | 2.3 | 1.4 | 1.06 | 0.3 | 0.010 | pass |
 | towncornhouse02 | r1l1 | 2 | 1 | 52.4 | 44.6 | 2.9 | 0.2 | 1.17 | 10.6 | 0.036 | pass |
 | towncornhouse02 | r1l1 | 2 | 1w | 52.5 | 41.8 | 5.6 | 0.1 | 1.14 | 12.2 | 0.056 | pass |
 | towncornhouse02 | r1l1 | 2 | 2 | 52.3 | 44.7 | 3.0 | 0.1 | 1.06 | 3.0 | 0.031 | pass |
 | towncornhouse02 | r1l1 | 2 | 2w | 52.3 | 44.3 | 3.3 | 0.1 | 1.07 | 2.1 | 0.028 | pass |
-| towncornhouse02 | r1l1 | 2 | 3 | 75.2 | 19.1 | 3.0 | 2.7 | 1.05 | 1.4 | 0.010 | pass |
-| towncornhouse02 | r1l1 | 2 | 3w | 74.8 | 21.8 | 2.1 | 1.3 | 1.07 | 0.8 | 0.012 | pass |
+| towncornhouse02 | r1l1 | 2 | 3 | 75.1 | 19.1 | 3.0 | 2.8 | 1.05 | 1.6 | 0.011 | pass |
+| towncornhouse02 | r1l1 | 2 | 3w | 74.8 | 21.7 | 2.1 | 1.3 | 1.07 | 0.7 | 0.011 | pass |
 | towncornhouse02 | r2l2 | 3 | 1 | 10.1 | 86.9 | 2.7 | 0.3 | 0.90 | 20.8 | 0.086 | pass |
 | towncornhouse02 | r2l2 | 3 | 1w | 10.2 | 80.3 | 9.3 | 0.2 | 0.89 | 26.5 | 0.073 | pass |
 | towncornhouse02 | r2l2 | 3 | 2 | 10.1 | 86.9 | 2.8 | 0.1 | 1.01 | 9.4 | 0.029 | pass |
 | towncornhouse02 | r2l2 | 3 | 2w | 10.1 | 86.5 | 3.3 | 0.1 | 1.02 | 9.3 | 0.028 | pass |
-| towncornhouse02 | r2l2 | 3 | 3 | 14.1 | 79.7 | 3.3 | 2.9 | 1.02 | 0.2 | 0.010 | pass |
-| towncornhouse02 | r2l2 | 3 | 3w | 21.8 | 73.8 | 2.7 | 1.7 | 1.06 | 0.7 | 0.015 | pass |
+| towncornhouse02 | r2l2 | 3 | 3 | 14.1 | 79.6 | 3.3 | 3.0 | 1.02 | 0.1 | 0.010 | pass |
+| towncornhouse02 | r2l2 | 3 | 3w | 21.8 | 74.3 | 2.4 | 1.5 | 1.05 | 0.5 | 0.016 | pass |
 | towncornhouse02 | r3l3 | 4 | 1 | 45.1 | 54.4 | 0.3 | 0.2 | 0.71 | 33.0 | 0.103 | pass |
 | towncornhouse02 | r3l3 | 4 | 1w | 45.2 | 50.1 | 4.5 | 0.2 | 0.78 | 42.8 | 0.039 | pass |
 | towncornhouse02 | r3l3 | 4 | 2 | 45.3 | 54.3 | 0.3 | 0.1 | 1.03 | 8.4 | 0.033 | pass |
 | towncornhouse02 | r3l3 | 4 | 2w | 45.6 | 53.7 | 0.5 | 0.1 | 1.04 | 8.7 | 0.034 | pass |
-| towncornhouse02 | r3l3 | 4 | 3 | 31.5 | 62.8 | 3.0 | 2.6 | 1.02 | 0.9 | 0.008 | pass |
-| towncornhouse02 | r3l3 | 4 | 3w | 39.0 | 56.8 | 2.6 | 1.6 | 1.05 | 1.3 | 0.014 | pass |
+| towncornhouse02 | r3l3 | 4 | 3 | 31.4 | 62.9 | 3.0 | 2.7 | 1.02 | 0.7 | 0.008 | pass |
+| towncornhouse02 | r3l3 | 4 | 3w | 39.1 | 57.2 | 2.3 | 1.4 | 1.05 | 0.7 | 0.011 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse02 | r1 | 1.10 | 0.91 | 0.94 | 0.005 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| towncornhouse02 | r2 | 0.86 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| towncornhouse02 | r3 | 0.99 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| towncornhouse02 | r1l1 | 1.10 | 0.91 | 0.94 | 0.005 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| towncornhouse02 | r2l2 | 0.86 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| towncornhouse02 | r3l3 | 0.99 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| towncornhouse02 | r1 | 1.10 | 0.91 | 0.94 | 0.005 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.512 | 0.512 | 0.937 | pass | blocks |
+| towncornhouse02 | r2 | 0.86 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.730 | 0.730 | 0.937 | pass | blocks |
+| towncornhouse02 | r3 | 0.99 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.569 | 0.569 | 0.937 | pass | blocks |
+| towncornhouse02 | r1l1 | 1.10 | 0.91 | 0.94 | 0.005 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.512 | 0.512 | 0.937 | pass | blocks |
+| towncornhouse02 | r2l2 | 0.86 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.730 | 0.730 | 0.937 | pass | blocks |
+| towncornhouse02 | r3l3 | 0.99 | 0.91 | 0.94 | 0.011 | 0.007 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.569 | 0.569 | 0.937 | pass | blocks |

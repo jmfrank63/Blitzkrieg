@@ -860,3 +860,92 @@ GFXGPU (73 undefined SDL symbols on the maintainer's arm64 build: a dylib given 
 is not passed on). The modules that took only SDL's headers on macOS because gfx_gpu_zig brought the library (GFXGPU,
 its factory and ABI tests, text-measure-draw, mod-font-fallback, game-bootstrap-smoke) now link the one installed
 SDL3 themselves on every platform.
+
+## A turn is a rotation, never a mirror (M006 round 3, 2026-10-28)
+
+The maintainer's hand test (macOS arm64, main 8aa351dc7), on a turned village: "If we rotate, the shape rotates,
+too. Then we need to identify the parts of the buildings, walls and roof. All of them have representations in already
+drawn sprites, so we only need to exchange the details." Then: "Chimney and Church are still wrong", "the supply depot
+is still not showing correctly", "the sandpile in the training camp should have four faces, too", and the 5th
+tutorial's green-roofed church whose spire floats behind its roof.
+
+- **Decision.** A turn is a rotation, never a mirror. A mirror flips handedness (an L-shaped house's wing, a door, a
+  chimney, a lean-to, a ramp land on the wrong side) and equals the rotation only where the shape and its parts are
+  symmetric for that turn. So every turn, however drawn, must be the variant's shape turned: 2003 art (a sibling side,
+  the 2003 sprite as it is or mirrored) is taken only where the gate finds it so; else the turn is drawn on the blocks
+  rotated, its parts (chimneys, dormers, towers, porches, ramps, crates) placed on the rotated shape with the existing
+  part-aware texture transfer and the world sun's light.
+- **Gate** (`handedness`, `handedFailure`, sources.json `handed`, the family reports' Turned / Mirrored / Symmetric /
+  Own / Turn columns). For the intact picture of every turn: the outline IoU with the projection of the intact shape
+  (body and parts) turned, at the best shift within 16 pixels (a 2003 sprite is laid by its footprint, which stands a
+  few units from the shape's middle); the same with that projection mirrored across the screen's vertical through the
+  turned footprint's middle (shifts within 32); the turned shape against its own mirror (symmetric); the pixels each
+  part adds to the outline beyond the body on either hand, and how many the picture holds. A turn fails where its
+  outline lies more than 0.05 under the 2003 picture's own IoU with the shape unturned (what the shape can reach),
+  where a mirror's outline beats the turn's by more than 0.02 and the shape is not symmetric (under 0.95), or where it
+  drops more than 40 part pixels (under 0.8 held) while holding their mirror. Test: an L-shaped house with a wing and a
+  chimney drawn turned passes; its 2003 picture mirrored onto the turned footprint, or left as it is at a half turn,
+  fails; a box's picture mirrored (the box turned) passes.
+- **Listed first** (main's drawing, before any fix): of 582 turns, 379 drawn by blocks, 58 as a 2003 sibling, 46 as
+  the 2003 sprite mirrored, 99 as the 2003 sprite as it is; 82 turns of 39 variants failed: 22 of the 46 mirrored, 57
+  of the 99 unturned, 3 of the 58 siblings (dot/01 r2 mirrored, dot_h/04 r3 and e_statue/01 r1 under the outline), 0
+  of the blocks'. The failing variants are the heaps (a_wt/01, /02, e_wt/01, /02, wt/01, /02, dot/01..04, dzot/01,
+  /03, /04) and the props the blocks cannot draw that were turned as their sprite (watertankbig, watertanklittle,
+  e_monument, e_statue/01, /02, /04, e_stella/02, e_stubtrack/01..04, e_waterset/01..04, e_wellbig/03,
+  e_welllittle/01, /02, chimneystalkbig, cistern/01, /02, lenin, pigeonloft/02, stubtrack/02, /04, watertower).
+- **The screenshot's buildings** (identified by eye against the contact sheets, `bk-views contact`, and Poland's
+  village in camera_turn_village_game_reads_it.zig): e_house02_1 and _2 (the red pair), e_jettybuilding_4 (the church
+  with the clock), e_house09_1, an e_house03, the barn e_wb/01 and sheds of e_shed02, all at one camera step (every
+  building at facing 0 shows the same turn). Each was drawn by blocks, so its outline was the rotated shape's (gate
+  IoU 1.000); what read as a mirror were faces no 2003 side shows, painted from the opposite face ("the half turn, so
+  writing stays readable", S03), and the church's hand shape, which was e_jettybuilding_1's turned with a wrong shift.
+- **Drawing** (`drawTurn`). The sibling, then the 2003 sprite (`spriteTurn` still proposes it for thin, small and
+  heaped objects), each judged by the gate; what fails falls to the blocks turned, and sources.json `refused` says
+  what was passed over and why. A mirror stays only where the gate passes it: the shape's two hands are then alike
+  (kiosks, dustbins, leaders, track ends on a rectangle).
+- **Chimneys on their own place** (`chimneyFoot`). A chimney the picture shows before the ridge shows its foot below
+  the outline's top, where its brick meets the tiles: per column down from that top while a pixel is nearer the
+  chimney's mean colour (its pixels above the outline) than the roof's beside it, up to 40 rows, the median. The
+  chimney stands where the ray of that row meets the roof, its heights measured from there; where no placement fits (a
+  foot misread on a wall) it stands on the ridge as before. Its 2003 pixels then fall on the chimney, and the roof
+  under it comes from the roof (S07d's part exclusion): the roof drawn whole, the chimney on it. Moved in 25 variants
+  (e_house02_2, e_house01_1/_3, e_house10_2, e_house11_1, e_townhouse02_2/_3, house02, house03, housebig, admhouse,
+  ...); every turn's chimneys still pass the kept and painted gates.
+- **Shapes** (fixtures). e_jettybuilding_4 ("the church", a T of a hall and a cross wing): hall x -57..-2, y 2..134,
+  walls 63, ridge 118 (gable along y), cross wing x -82..42, y 134..186, walls 56, ridge 116, the tower (x 14..39, y
+  133..152, 146 high, spire to 186) and the clock gable as roof parts, measured on its own picture with `bk-views
+  shape` and its 1.xml points: own outline IoU 0.864 -> 0.952. The ussr church (in tutorial3 and tutorial6; the
+  maintainer's "5th tutorial"): its tower was one 30 x 50 hipped block, which turned stood off the roof's middle and
+  drew the onion dome as a pyramid behind it; now the drum (x -73..-45, y 45..73, 150 high), the dome (x -79..-39, y
+  39..79, 161 to 211) and the cross are roof parts on the roof's middle: 0.922 -> 0.934, roof part walls held
+  2747/2747, 2722/2722, 2966/2966 (r1..r3). The tarpaulin depot wt/01: the tarpaulin a low hip (walls 16, ridge 50),
+  its crates and barrels six roof parts: 0.883, their walls held 1264 of 1275, 1294 of 1297, 1021 of 1033.
+- **Props on their shape.** The thin props whose sprite failed the gate are drawn on their blocks, with hand shapes
+  from the fit refined by `bk-views shape` for watertankbig, e_stubtrack/01..03, e_waterset/03, /04, pigeonloft/02 and
+  watertower (0.85..0.94 on their own pictures).
+- **The sand pile** (Data/Objects/SimpleObjects/common/summer/debris/05, tutorial1's training camp). `side` took an
+  object's numbered folder as one of a family (debris/01..09 are logs, sand and rubble); only Data's building layout
+  forms families now, and an object folder is a family of one named by its parent, so its hand shape is
+  `shapes/debris.json`'s "05" (one hip, x -66..12, y -14..72, walls 4, ridge 20; outline 0.879). `objects-relight`
+  also draws its turns and lit turns into zig-out/remastered/Objects, and the Game (`CMOObject::ApplyCameraTurn`) shows
+  a prop's `<folder>_r<k>` (lit `_r<k>_l<k>`) at camera step k where the data holds it, instead of its picture
+  mirrored. Not seen in the Game yet: no tier places it.
+- **A bug on the way.** `roofKept` compared the drawn shading class with the eye's turn, but a turn lit by the world's
+  sun (`_r<k>_l<k>`) classes its pixels by its light, so every lit turn with roof parts kept 0 of them (36 variants
+  failed so on main). It takes the turn's light now.
+- **Measured** (the four batch steps and `bk-views report` on win-home): 456 turns drawn by blocks, 55 as a sibling,
+  25 as the 2003 sprite mirrored, 46 as it is, each passing the gate; 77 turns refused their 2003 art; every turn of
+  the 194 variants passes the handedness gate. Batch: 149 of 194 variants pass every gate (main: 128), hold-out 42 of
+  43, 1164 folders through the engine check. `test-bk-views` (the new test included), `bk-views-side`,
+  `bk-views-roundtrip`, `building-views-game-reads-it`, `camera-turn-poland-game-reads-it` (the village with
+  the church's new shape) and `install-game` pass on Windows x64; macOS and Linux are left to CI.
+- **Left**, with the measured reason:
+  - 8 variants fail the shape gate on their blocks where their sprite failed the turn: e_monument (outline 0.75),
+    e_welllittle/01, /02 (0.81, 0.82), e_waterset/01 (ground 0.44), /03 (chimneys 71 of 189), lenin (height 0.70),
+    pigeonloft/02 (outline 0.849), a_wt/01 (chimneys 3 of 88). Statues, wells and a pump are not blocks: they need a
+    finer shape (a height field or authored parts).
+  - The other depots (a_wt/01, /02, e_wt/01, /02, wt/02) and the pillboxes are drawn on their S07 boxes where the gate
+    refused their sprite; crates as parts are authored for wt/01 only.
+  - 36 variants fail style only on a turn lit by the world's sun (`r<k>l<k>`: sharpness under 0.45 or winter colour
+    over 62), as on main since fix/world-sun; not changed here. dot/03's hold-out winter colour is 68.6 (main passed).
+  - Faces no 2003 side shows still borrow the opposite face whole; doors and windows are not parts yet.

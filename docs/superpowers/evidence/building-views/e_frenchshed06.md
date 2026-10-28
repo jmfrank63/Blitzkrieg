@@ -8,22 +8,22 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_frenchshed06 | r1 | 2 | 1 | 20.6 | 78.7 | 0.0 | 0.7 | 1.28 | 14.7 | 0.060 | pass |
 | e_frenchshed06 | r1 | 2 | 2 | 22.3 | 75.3 | 0.9 | 1.5 | 0.98 | 4.8 | 0.019 | pass |
-| e_frenchshed06 | r1 | 2 | 3 | 78.9 | 19.5 | 1.1 | 0.4 | 1.01 | 3.8 | 0.005 | pass |
+| e_frenchshed06 | r1 | 2 | 3 | 78.2 | 20.1 | 1.3 | 0.4 | 1.02 | 3.6 | 0.009 | pass |
 | e_frenchshed06 | r2 | 3 | 1 | 3.6 | 95.7 | 0.0 | 0.7 | 1.05 | 0.9 | 0.002 | pass |
 | e_frenchshed06 | r2 | 3 | 2 | 4.5 | 92.7 | 0.9 | 1.9 | 0.98 | 0.4 | 0.014 | pass |
-| e_frenchshed06 | r2 | 3 | 3 | 75.4 | 22.8 | 1.2 | 0.6 | 0.98 | 3.4 | 0.019 | pass |
+| e_frenchshed06 | r2 | 3 | 3 | 73.9 | 24.2 | 1.4 | 0.5 | 1.00 | 3.3 | 0.019 | pass |
 | e_frenchshed06 | r3 | 4 | 1 | 77.5 | 21.8 | 0.0 | 0.7 | 1.27 | 15.9 | 0.051 | pass |
 | e_frenchshed06 | r3 | 4 | 2 | 76.4 | 21.2 | 1.1 | 1.3 | 1.02 | 7.6 | 0.023 | pass |
-| e_frenchshed06 | r3 | 4 | 3 | 89.7 | 8.1 | 1.5 | 0.6 | 1.00 | 5.6 | 0.009 | pass |
+| e_frenchshed06 | r3 | 4 | 3 | 89.0 | 8.8 | 1.8 | 0.5 | 1.02 | 5.3 | 0.008 | pass |
 | e_frenchshed06 | r1l1 | 2 | 1 | 20.6 | 78.7 | 0.0 | 0.7 | 1.23 | 21.1 | 0.024 | pass |
 | e_frenchshed06 | r1l1 | 2 | 2 | 22.3 | 75.3 | 0.9 | 1.5 | 1.11 | 4.0 | 0.007 | pass |
-| e_frenchshed06 | r1l1 | 2 | 3 | 78.9 | 19.5 | 1.1 | 0.4 | 1.03 | 2.5 | 0.005 | pass |
+| e_frenchshed06 | r1l1 | 2 | 3 | 78.2 | 20.1 | 1.3 | 0.4 | 1.04 | 1.9 | 0.010 | pass |
 | e_frenchshed06 | r2l2 | 3 | 1 | 3.6 | 95.7 | 0.0 | 0.7 | 1.18 | 3.2 | 0.018 | pass |
 | e_frenchshed06 | r2l2 | 3 | 2 | 4.5 | 92.7 | 0.9 | 1.9 | 1.08 | 3.2 | 0.013 | pass |
-| e_frenchshed06 | r2l2 | 3 | 3 | 75.4 | 22.8 | 1.2 | 0.6 | 0.96 | 4.5 | 0.008 | pass |
+| e_frenchshed06 | r2l2 | 3 | 3 | 73.9 | 24.2 | 1.4 | 0.5 | 0.98 | 4.6 | 0.009 | pass |
 | e_frenchshed06 | r3l3 | 4 | 1 | 77.5 | 21.8 | 0.0 | 0.7 | 0.81 | 22.4 | 0.011 | pass |
 | e_frenchshed06 | r3l3 | 4 | 2 | 76.4 | 21.2 | 1.1 | 1.3 | 1.00 | 2.4 | 0.006 | pass |
-| e_frenchshed06 | r3l3 | 4 | 3 | 89.7 | 8.1 | 1.5 | 0.6 | 1.01 | 4.7 | 0.009 | pass |
+| e_frenchshed06 | r3l3 | 4 | 3 | 89.0 | 8.8 | 1.8 | 0.5 | 1.02 | 4.5 | 0.008 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_frenchshed06 | r1 | 0.99 | 0.97 | 0.97 | 0.017 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r2 | 0.99 | 0.97 | 0.97 | 0.016 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r3 | 1.00 | 0.97 | 0.97 | 0.018 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r1l1 | 0.99 | 0.97 | 0.97 | 0.017 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r2l2 | 0.99 | 0.97 | 0.97 | 0.016 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_frenchshed06 | r3l3 | 1.00 | 0.97 | 0.97 | 0.018 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_frenchshed06 | r1 | 0.99 | 0.97 | 0.97 | 0.017 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.435 | 0.434 | 0.965 | pass | blocks |
+| e_frenchshed06 | r2 | 0.99 | 0.97 | 0.97 | 0.016 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.435 | 0.435 | 0.965 | pass | blocks |
+| e_frenchshed06 | r3 | 1.00 | 0.97 | 0.97 | 0.018 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.435 | 0.435 | 0.965 | pass | blocks |
+| e_frenchshed06 | r1l1 | 0.99 | 0.97 | 0.97 | 0.017 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.434 | 0.434 | 0.965 | pass | blocks |
+| e_frenchshed06 | r2l2 | 0.99 | 0.97 | 0.97 | 0.016 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.435 | 0.435 | 0.965 | pass | blocks |
+| e_frenchshed06 | r3l3 | 1.00 | 0.97 | 0.97 | 0.018 | 0.020 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.435 | 0.435 | 0.965 | pass | blocks |

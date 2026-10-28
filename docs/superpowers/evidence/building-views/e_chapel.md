@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_chapel_1 | r1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_chapel_1 | r2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_chapel_1 | r3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_chapel_1 | r1l1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_chapel_1 | r2l2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_chapel_1 | r3l3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_chapel_1 | r1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.664 | 0.659 | 0.941 | pass | blocks |
+| e_chapel_1 | r2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.769 | 0.769 | 0.941 | pass | blocks |
+| e_chapel_1 | r3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.706 | 0.706 | 0.941 | pass | blocks |
+| e_chapel_1 | r1l1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.659 | 0.659 | 0.941 | pass | blocks |
+| e_chapel_1 | r2l2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.769 | 0.769 | 0.941 | pass | blocks |
+| e_chapel_1 | r3l3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.706 | 0.706 | 0.941 | pass | blocks |

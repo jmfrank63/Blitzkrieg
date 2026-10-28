@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse04 | r1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 2293 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
-| towncornhouse04 | r2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 2401 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
-| towncornhouse04 | r3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 2523 | 0.000 | 0 | 43 | 40 | 0 | pass | blocks |
-| towncornhouse04 | r1l1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 0 | 0.000 | 0 | 43 | 40 | 0 | roof parts 0 of 2293 pixels | blocks |
-| towncornhouse04 | r2l2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 0 | 0.000 | 0 | 43 | 40 | 0 | roof parts 0 of 2401 pixels | blocks |
-| towncornhouse04 | r3l3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 0 | 0.000 | 0 | 43 | 40 | 0 | roof parts 0 of 2523 pixels | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| towncornhouse04 | r1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 2293 | 0.000 | 0 | 43 | 40 | 0 | pass | 1.000 | 0.928 | 0.928 | 0.966 | pass | blocks |
+| towncornhouse04 | r2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 2401 | 0.000 | 0 | 43 | 40 | 0 | pass | 1.000 | 0.696 | 0.696 | 0.966 | pass | blocks |
+| towncornhouse04 | r3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 2523 | 0.000 | 0 | 43 | 40 | 0 | pass | 1.000 | 0.942 | 0.942 | 0.966 | pass | blocks |
+| towncornhouse04 | r1l1 | 0.75 | 0.90 | 0.97 | 0.012 | 0.005 | 170 | 170 | 2293 | 2293 | 0.000 | 0 | 43 | 40 | 0 | pass | 1.000 | 0.928 | 0.928 | 0.966 | pass | blocks |
+| towncornhouse04 | r2l2 | 1.00 | 0.90 | 0.97 | 0.003 | 0.005 | 0 | 0 | 2401 | 2401 | 0.000 | 0 | 43 | 40 | 0 | pass | 1.000 | 0.696 | 0.696 | 0.966 | pass | blocks |
+| towncornhouse04 | r3l3 | 0.77 | 0.90 | 0.97 | 0.004 | 0.005 | 0 | 0 | 2523 | 2523 | 0.000 | 0 | 43 | 40 | 0 | pass | 1.000 | 0.942 | 0.942 | 0.966 | pass | blocks |

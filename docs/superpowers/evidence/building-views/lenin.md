@@ -6,42 +6,42 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| lenin | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
+| lenin | r1 | 2 | 1 | 58.7 | 22.4 | 7.0 | 11.9 | 1.16 | 40.4 | 0.158 | pass |
+| lenin | r1 | 2 | 1w | 58.0 | 23.7 | 6.9 | 11.3 | 0.81 | 48.1 | 0.306 | pass |
+| lenin | r1 | 2 | 2 | 58.7 | 22.4 | 7.0 | 11.9 | 1.26 | 39.9 | 0.009 | pass |
+| lenin | r1 | 2 | 2w | 58.0 | 23.7 | 6.9 | 11.3 | 0.96 | 36.2 | 0.025 | pass |
+| lenin | r1 | 2 | 3 | 78.6 | 17.9 | 2.3 | 1.2 | 1.05 | 2.7 | 0.024 | pass |
+| lenin | r1 | 2 | 3w | 78.6 | 17.9 | 2.3 | 1.2 | 1.06 | 3.2 | 0.024 | pass |
 | lenin | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
 | lenin | r2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| lenin | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.16 | 11.2 | 0.072 | pass |
-| lenin | r1l1 | 2 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 9.9 | 0.175 | pass |
-| lenin | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.29 | 13.4 | 0.019 | pass |
-| lenin | r1l1 | 2 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 1.18 | 12.5 | 0.023 | pass |
-| lenin | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 0.7 | 0.007 | pass |
-| lenin | r1l1 | 2 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 0.8 | 0.007 | pass |
+| lenin | r3 | 4 | 1 | 34.0 | 44.6 | 8.0 | 13.4 | 1.05 | 46.2 | 0.153 | pass |
+| lenin | r3 | 4 | 1w | 36.3 | 43.0 | 8.2 | 12.6 | 0.78 | 55.1 | 0.320 | pass |
+| lenin | r3 | 4 | 2 | 34.0 | 44.6 | 8.0 | 13.4 | 1.08 | 47.9 | 0.015 | pass |
+| lenin | r3 | 4 | 2w | 36.3 | 43.0 | 8.2 | 12.6 | 0.89 | 48.8 | 0.039 | pass |
+| lenin | r3 | 4 | 3 | 76.9 | 20.4 | 2.0 | 0.8 | 1.02 | 5.5 | 0.013 | pass |
+| lenin | r3 | 4 | 3w | 76.9 | 20.4 | 2.0 | 0.8 | 1.02 | 6.5 | 0.010 | pass |
+| lenin | r1l1 | 2 | 1 | 58.7 | 22.4 | 7.0 | 11.9 | 1.45 | 0.3 | 0.029 | pass |
+| lenin | r1l1 | 2 | 1w | 58.0 | 23.7 | 6.9 | 11.3 | 1.18 | 5.0 | 0.103 | pass |
+| lenin | r1l1 | 2 | 2 | 58.7 | 22.4 | 7.0 | 11.9 | 1.67 | 2.4 | 0.070 | pass |
+| lenin | r1l1 | 2 | 2w | 58.0 | 23.7 | 6.9 | 11.3 | 1.25 | 7.8 | 0.078 | pass |
+| lenin | r1l1 | 2 | 3 | 78.6 | 17.9 | 2.3 | 1.2 | 1.06 | 2.4 | 0.022 | pass |
+| lenin | r1l1 | 2 | 3w | 78.6 | 17.9 | 2.3 | 1.2 | 1.06 | 2.8 | 0.023 | pass |
 | lenin | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 40.0 | 0.087 | pass |
 | lenin | r2l2 | 3 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.97 | 45.1 | 0.196 | pass |
 | lenin | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.01 | 5.5 | 0.017 | pass |
 | lenin | r2l2 | 3 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.98 | 9.9 | 0.063 | pass |
 | lenin | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 0.1 | 0.019 | pass |
 | lenin | r2l2 | 3 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 0.2 | 0.007 | pass |
-| lenin | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.92 | 45.2 | 0.120 | pass |
-| lenin | r3l3 | 4 | 1w | 100.0 | 0.0 | 0.0 | 0.0 | 0.84 | 54.8 | 0.178 | pass |
-| lenin | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 45.1 | 0.072 | pass |
-| lenin | r3l3 | 4 | 2w | 100.0 | 0.0 | 0.0 | 0.0 | 0.88 | 35.1 | 0.085 | pass |
-| lenin | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 0.8 | 0.005 | pass |
-| lenin | r3l3 | 4 | 3w | 100.0 | 0.0 | 0.0 | 0.0 | 0.99 | 1.0 | 0.008 | pass |
+| lenin | r3l3 | 4 | 1 | 34.0 | 44.6 | 8.0 | 13.4 | 0.69 | 67.6 | 0.192 | colour 67.6 > 62 |
+| lenin | r3l3 | 4 | 1w | 36.3 | 43.0 | 8.2 | 12.6 | 0.57 | 87.1 | 0.283 | colour 87.1 > 62 |
+| lenin | r3l3 | 4 | 2 | 34.0 | 44.6 | 8.0 | 13.4 | 1.54 | 27.2 | 0.049 | pass |
+| lenin | r3l3 | 4 | 2w | 36.3 | 43.0 | 8.2 | 12.6 | 1.18 | 34.4 | 0.057 | pass |
+| lenin | r3l3 | 4 | 3 | 76.9 | 20.4 | 2.0 | 0.8 | 1.01 | 5.7 | 0.011 | pass |
+| lenin | r3l3 | 4 | 3w | 76.9 | 20.4 | 2.0 | 0.8 | 1.01 | 6.8 | 0.012 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -53,12 +53,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.70 outside 0.7..1.3 | 2003 sprite |
-| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.65 outside 0.7..1.3 | 2003 sprite |
-| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.66 outside 0.7..1.3 | 2003 sprite |
-| lenin | r1l1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.70 outside 0.7..1.3 | 2003 sprite |
-| lenin | r2l2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.65 outside 0.7..1.3 | 2003 sprite |
-| lenin | r3l3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.66 outside 0.7..1.3 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| lenin | r1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.70 outside 0.7..1.3 | 1.000 | 0.491 | 0.491 | 0.620 | pass | blocks |
+| lenin | r2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.65 outside 0.7..1.3 | 0.572 | 0.568 | 0.709 | 0.620 | pass | 2003 sprite |
+| lenin | r3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.66 outside 0.7..1.3 | 1.000 | 0.439 | 0.439 | 0.620 | pass | blocks |
+| lenin | r1l1 | 0.70 | 0.64 | 0.62 | 0.485 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.70 outside 0.7..1.3 | 1.000 | 0.491 | 0.491 | 0.620 | pass | blocks |
+| lenin | r2l2 | 0.65 | 0.64 | 0.62 | 1.225 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.65 outside 0.7..1.3 | 0.572 | 0.568 | 0.709 | 0.620 | pass | 2003 sprite |
+| lenin | r3l3 | 0.66 | 0.64 | 0.62 | 0.406 | 1.599 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | height 0.66 outside 0.7..1.3 | 1.000 | 0.439 | 0.439 | 0.620 | pass | blocks |

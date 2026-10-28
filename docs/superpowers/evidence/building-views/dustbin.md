@@ -125,27 +125,30 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 | r1 | 0.92 | 0.77 | 0.88 | 0.141 | 0.116 | 32 | 32 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r2 | 0.87 | 0.77 | 0.88 | 0.143 | 0.116 | 102 | 102 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 01 | r1l1 | 0.92 | 0.77 | 0.88 | 0.141 | 0.116 | 32 | 32 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r2l2 | 0.87 | 0.77 | 0.88 | 0.143 | 0.116 | 102 | 102 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| 01 | r3l3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r2 | 0.90 | 0.70 | 0.87 | 0.182 | 0.188 | 35 | 35 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r3 | 0.87 | 0.70 | 0.87 | 0.161 | 0.188 | 65 | 65 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r1l1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r2l2 | 0.90 | 0.70 | 0.87 | 0.182 | 0.188 | 35 | 35 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 02 | r3l3 | 0.87 | 0.70 | 0.87 | 0.161 | 0.188 | 65 | 65 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 2003 sprite |
-| 03 | r1 | 0.90 | 0.64 | 0.81 | 0.175 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r2 | 0.92 | 0.64 | 0.81 | 0.183 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r3 | 0.87 | 0.64 | 0.81 | 0.186 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r1l1 | 0.90 | 0.64 | 0.81 | 0.175 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r2l2 | 0.92 | 0.64 | 0.81 | 0.183 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 2003 sprite |
-| 03 | r3l3 | 0.87 | 0.64 | 0.81 | 0.186 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 01 | r1 | 0.92 | 0.77 | 0.88 | 0.141 | 0.116 | 32 | 32 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.493 | 0.493 | 0.878 | pass | blocks |
+| 01 | r2 | 0.87 | 0.77 | 0.88 | 0.143 | 0.116 | 102 | 102 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.553 | 0.553 | 0.878 | pass | blocks |
+| 01 | r3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.857 | 0.568 | 0.570 | 0.878 | pass | 2003 sibling |
+| 01 | r1l1 | 0.92 | 0.77 | 0.88 | 0.141 | 0.116 | 32 | 32 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.493 | 0.493 | 0.878 | pass | blocks |
+| 01 | r2l2 | 0.87 | 0.77 | 0.88 | 0.143 | 0.116 | 102 | 102 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.553 | 0.553 | 0.878 | pass | blocks |
+| 01 | r3l3 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.857 | 0.568 | 0.570 | 0.878 | pass | 2003 sibling |
+| 02 | r1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.875 | 0.546 | 0.533 | 0.867 | pass | 2003 sibling |
+| 02 | r2 | 0.90 | 0.70 | 0.87 | 0.182 | 0.188 | 35 | 35 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.835 | 0.529 | 0.521 | 0.867 | pass | 2003 sprite |
+| 02 | r3 | 0.87 | 0.70 | 0.87 | 0.161 | 0.188 | 65 | 65 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.863 | 0.545 | 0.536 | 0.867 | pass | 2003 sprite mirrored |
+| 02 | r1l1 | 1.00 | 1.00 | 1.00 | 0.000 | 0.000 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.875 | 0.546 | 0.533 | 0.867 | pass | 2003 sibling |
+| 02 | r2l2 | 0.90 | 0.70 | 0.87 | 0.182 | 0.188 | 35 | 35 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.835 | 0.529 | 0.521 | 0.867 | pass | 2003 sprite |
+| 02 | r3l3 | 0.87 | 0.70 | 0.87 | 0.161 | 0.188 | 65 | 65 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 0.863 | 0.545 | 0.536 | 0.867 | pass | 2003 sprite mirrored |
+| 03 | r1 | 0.90 | 0.64 | 0.81 | 0.175 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 0.812 | 0.476 | 0.494 | 0.810 | pass | 2003 sprite mirrored |
+| 03 | r2 | 0.92 | 0.64 | 0.81 | 0.183 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 0.807 | 0.471 | 0.483 | 0.810 | pass | 2003 sprite |
+| 03 | r3 | 0.87 | 0.64 | 0.81 | 0.186 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 0.809 | 0.473 | 0.485 | 0.810 | pass | 2003 sprite mirrored |
+| 03 | r1l1 | 0.90 | 0.64 | 0.81 | 0.175 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 0.812 | 0.476 | 0.494 | 0.810 | pass | 2003 sprite mirrored |
+| 03 | r2l2 | 0.92 | 0.64 | 0.81 | 0.183 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 0.807 | 0.471 | 0.483 | 0.810 | pass | 2003 sprite |
+| 03 | r3l3 | 0.87 | 0.64 | 0.81 | 0.186 | 0.229 | 0 | 0 | 0 | 0 | 0.000 | 0 | 63 | 21 | 0 | outline 0.81 < 0.85 | 0.809 | 0.473 | 0.485 | 0.810 | pass | 2003 sprite mirrored |
 
 Hold-out: the variant's own side drawn without it, against the 2003 picture.
 

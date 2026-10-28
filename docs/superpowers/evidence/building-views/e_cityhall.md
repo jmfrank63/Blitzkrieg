@@ -8,22 +8,22 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_cityhall_1 | r1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.04 | 1.5 | 0.014 | pass |
 | e_cityhall_1 | r1 | 2 | 2 | 45.9 | 26.5 | 26.5 | 1.1 | 0.98 | 6.0 | 0.083 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 57.0 | 25.3 | 7.3 | 10.4 | 1.07 | 2.4 | 0.015 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 56.6 | 25.6 | 7.7 | 10.1 | 1.07 | 2.4 | 0.012 | pass |
 | e_cityhall_1 | r2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 1.16 | 7.5 | 0.035 | pass |
 | e_cityhall_1 | r2 | 3 | 2 | 0.0 | 59.7 | 39.0 | 1.3 | 1.05 | 2.4 | 0.019 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 31.0 | 48.7 | 9.3 | 11.1 | 0.97 | 1.0 | 0.030 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 29.8 | 49.5 | 9.4 | 11.3 | 0.99 | 0.7 | 0.034 | pass |
 | e_cityhall_1 | r3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.94 | 15.7 | 0.061 | pass |
 | e_cityhall_1 | r3 | 4 | 2 | 29.2 | 39.5 | 30.2 | 1.2 | 0.81 | 20.2 | 0.097 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 49.5 | 34.1 | 8.4 | 8.0 | 0.89 | 9.4 | 0.006 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 48.6 | 34.1 | 9.0 | 8.4 | 0.90 | 9.1 | 0.009 | pass |
 | e_cityhall_1 | r1l1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.33 | 21.4 | 0.043 | pass |
 | e_cityhall_1 | r1l1 | 2 | 2 | 45.9 | 26.5 | 26.5 | 1.1 | 1.15 | 11.4 | 0.027 | pass |
-| e_cityhall_1 | r1l1 | 2 | 3 | 57.0 | 25.3 | 7.3 | 10.4 | 1.17 | 1.9 | 0.020 | pass |
+| e_cityhall_1 | r1l1 | 2 | 3 | 56.6 | 25.6 | 7.7 | 10.1 | 1.16 | 2.1 | 0.019 | pass |
 | e_cityhall_1 | r2l2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 0.75 | 26.2 | 0.050 | pass |
 | e_cityhall_1 | r2l2 | 3 | 2 | 0.0 | 59.7 | 39.0 | 1.3 | 1.04 | 4.8 | 0.032 | pass |
-| e_cityhall_1 | r2l2 | 3 | 3 | 31.0 | 48.7 | 9.3 | 11.1 | 1.00 | 1.0 | 0.034 | pass |
+| e_cityhall_1 | r2l2 | 3 | 3 | 29.8 | 49.5 | 9.4 | 11.3 | 1.01 | 1.3 | 0.033 | pass |
 | e_cityhall_1 | r3l3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.53 | 42.2 | 0.078 | pass |
 | e_cityhall_1 | r3l3 | 4 | 2 | 29.2 | 39.5 | 30.2 | 1.2 | 0.97 | 5.0 | 0.024 | pass |
-| e_cityhall_1 | r3l3 | 4 | 3 | 49.5 | 34.1 | 8.4 | 8.0 | 0.96 | 5.7 | 0.028 | pass |
+| e_cityhall_1 | r3l3 | 4 | 3 | 48.6 | 34.1 | 9.0 | 8.4 | 0.96 | 5.5 | 0.028 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 0.85 | 0.87 | 0.96 | 0.017 | 0.026 | 93 | 93 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r2 | 1.01 | 0.87 | 0.96 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r3 | 1.08 | 0.87 | 0.96 | 0.027 | 0.026 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r1l1 | 0.85 | 0.87 | 0.96 | 0.017 | 0.026 | 93 | 93 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r2l2 | 1.01 | 0.87 | 0.96 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
-| e_cityhall_1 | r3l3 | 1.08 | 0.87 | 0.96 | 0.027 | 0.026 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_cityhall_1 | r1 | 0.85 | 0.87 | 0.96 | 0.017 | 0.026 | 93 | 93 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.556 | 0.556 | 0.956 | pass | blocks |
+| e_cityhall_1 | r2 | 1.01 | 0.87 | 0.96 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.514 | 0.514 | 0.956 | pass | blocks |
+| e_cityhall_1 | r3 | 1.08 | 0.87 | 0.96 | 0.027 | 0.026 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.456 | 0.456 | 0.956 | pass | blocks |
+| e_cityhall_1 | r1l1 | 0.85 | 0.87 | 0.96 | 0.017 | 0.026 | 93 | 93 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.556 | 0.556 | 0.956 | pass | blocks |
+| e_cityhall_1 | r2l2 | 1.01 | 0.87 | 0.96 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.514 | 0.514 | 0.956 | pass | blocks |
+| e_cityhall_1 | r3l3 | 1.08 | 0.87 | 0.96 | 0.027 | 0.026 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | 1.000 | 0.456 | 0.456 | 0.956 | pass | blocks |

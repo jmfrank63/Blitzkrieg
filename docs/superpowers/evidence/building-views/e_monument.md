@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_monument | r1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r1l1 | 2 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.77 | 24.5 | 0.139 | pass |
-| e_monument | r1l1 | 2 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.38 | 11.9 | 0.058 | pass |
-| e_monument | r1l1 | 2 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.33 | 13.7 | 0.026 | pass |
-| e_monument | r2l2 | 3 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 1.31 | 4.1 | 0.064 | pass |
-| e_monument | r2l2 | 3 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 1.00 | 0.0 | 0.000 | pass |
-| e_monument | r2l2 | 3 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 1.37 | 9.3 | 0.032 | pass |
-| e_monument | r3l3 | 4 | 1 | 100.0 | 0.0 | 0.0 | 0.0 | 0.73 | 25.0 | 0.050 | pass |
-| e_monument | r3l3 | 4 | 2 | 100.0 | 0.0 | 0.0 | 0.0 | 0.84 | 12.5 | 0.051 | pass |
-| e_monument | r3l3 | 4 | 3 | 100.0 | 0.0 | 0.0 | 0.0 | 0.82 | 14.1 | 0.026 | pass |
+| e_monument | r1 | 2 | 1 | 30.5 | 54.6 | 11.3 | 3.7 | 1.76 | 18.4 | 0.137 | pass |
+| e_monument | r1 | 2 | 2 | 29.5 | 58.2 | 11.2 | 1.2 | 1.24 | 4.0 | 0.042 | pass |
+| e_monument | r1 | 2 | 3 | 56.3 | 37.7 | 5.1 | 0.9 | 1.26 | 2.6 | 0.081 | pass |
+| e_monument | r2 | 3 | 1 | 3.1 | 72.1 | 18.8 | 6.0 | 1.40 | 12.1 | 0.137 | pass |
+| e_monument | r2 | 3 | 2 | 2.9 | 77.1 | 18.4 | 1.6 | 1.23 | 9.6 | 0.042 | pass |
+| e_monument | r2 | 3 | 3 | 33.9 | 60.1 | 5.4 | 0.7 | 1.12 | 1.7 | 0.071 | pass |
+| e_monument | r3 | 4 | 1 | 55.3 | 35.5 | 4.6 | 4.5 | 1.76 | 14.2 | 0.173 | pass |
+| e_monument | r3 | 4 | 2 | 57.4 | 37.1 | 4.2 | 1.3 | 1.44 | 3.8 | 0.044 | pass |
+| e_monument | r3 | 4 | 3 | 63.2 | 33.5 | 2.5 | 0.8 | 1.24 | 3.0 | 0.055 | pass |
+| e_monument | r1l1 | 2 | 1 | 30.5 | 54.6 | 11.3 | 3.7 | 1.67 | 28.6 | 0.125 | pass |
+| e_monument | r1l1 | 2 | 2 | 29.5 | 58.2 | 11.2 | 1.2 | 1.29 | 2.5 | 0.080 | pass |
+| e_monument | r1l1 | 2 | 3 | 56.3 | 37.7 | 5.1 | 0.9 | 1.26 | 8.9 | 0.085 | pass |
+| e_monument | r2l2 | 3 | 1 | 3.1 | 72.1 | 18.8 | 6.0 | 1.26 | 6.0 | 0.127 | pass |
+| e_monument | r2l2 | 3 | 2 | 2.9 | 77.1 | 18.4 | 1.6 | 1.18 | 8.3 | 0.041 | pass |
+| e_monument | r2l2 | 3 | 3 | 33.9 | 60.1 | 5.4 | 0.7 | 1.25 | 6.8 | 0.067 | pass |
+| e_monument | r3l3 | 4 | 1 | 55.3 | 35.5 | 4.6 | 4.5 | 0.83 | 25.5 | 0.035 | pass |
+| e_monument | r3l3 | 4 | 2 | 57.4 | 37.1 | 4.2 | 1.3 | 1.25 | 2.4 | 0.051 | pass |
+| e_monument | r3l3 | 4 | 3 | 63.2 | 33.5 | 2.5 | 0.8 | 1.16 | 3.2 | 0.048 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -35,12 +35,15 @@ another side (copied), the pixels of the chimneys the 2003 sides of the colourwa
 of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
 sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
+The turn, however drawn (a turn is a rotation, never a mirror): the outline IoU of the turned intact picture
+with the variant's shape turned, with that turn mirrored, of the turned shape with its own mirror
+(symmetric), and of the 2003 picture with the shape unturned (own).
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_monument | r1 | 0.73 | 0.72 | 0.75 | 0.464 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
-| e_monument | r2 | 0.66 | 0.72 | 0.75 | 0.540 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 5 | height 0.66 outside 0.7..1.3 | 2003 sprite |
-| e_monument | r3 | 0.77 | 0.72 | 0.75 | 0.595 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
-| e_monument | r1l1 | 0.73 | 0.72 | 0.75 | 0.464 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
-| e_monument | r2l2 | 0.66 | 0.72 | 0.75 | 0.540 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 5 | height 0.66 outside 0.7..1.3 | 2003 sprite |
-| e_monument | r3l3 | 0.77 | 0.72 | 0.75 | 0.595 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 5 | 6 | outline 0.75 < 0.85 | 2003 sprite |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Turned | Mirrored | Symmetric | Own | Turn | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_monument | r1 | 0.80 | 0.72 | 0.76 | 0.467 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 28 | 2 | outline 0.75 < 0.85 | 1.000 | 0.411 | 0.411 | 0.755 | pass | blocks |
+| e_monument | r2 | 0.74 | 0.72 | 0.76 | 0.542 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 28 | 2 | outline 0.75 < 0.85 | 1.000 | 0.791 | 0.791 | 0.755 | pass | blocks |
+| e_monument | r3 | 0.85 | 0.72 | 0.76 | 0.599 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 28 | 2 | outline 0.75 < 0.85 | 1.000 | 0.393 | 0.393 | 0.755 | pass | blocks |
+| e_monument | r1l1 | 0.80 | 0.72 | 0.76 | 0.467 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 28 | 2 | outline 0.75 < 0.85 | 1.000 | 0.411 | 0.411 | 0.755 | pass | blocks |
+| e_monument | r2l2 | 0.74 | 0.72 | 0.76 | 0.542 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 28 | 2 | outline 0.75 < 0.85 | 1.000 | 0.791 | 0.791 | 0.755 | pass | blocks |
+| e_monument | r3l3 | 0.85 | 0.72 | 0.76 | 0.599 | 0.948 | 0 | 0 | 0 | 0 | 0.000 | 0 | 83 | 28 | 2 | outline 0.75 < 0.85 | 1.000 | 0.393 | 0.393 | 0.755 | pass | blocks |
