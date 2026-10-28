@@ -1340,3 +1340,49 @@ maintainer; Linux and macOS to CI.
   Terra objects keep their painted relief as before (S03).
 - **Relit objects are not gated by a style measure** (`bk-views style` compares buildings with their family's
   pictures); a crown seen at step 2 is the shaded side, about 0.6 of the 2003 brightness, as a building's back is.
+
+### The minimap's north mark, round 3 (replaces the S07 table)
+
+The maintainer's hand test (macOS, a scaled interface) showed a yellow bar outside the frame and the mark mirrored
+and upside down. Causes: `DrawNorthMark` placed the band at the minimap window's corner minus (6, 3) in unscaled
+texels, while the panel (the minimap's parent) draws the texture at its layout scale and the minimap window is fitted
+apart from it, so in any scaled window the patch landed off the bar; and the S07 mark was the band mirrored or turned
+as a whole. Now:
+
+| Step | North on the screen | Upper left bar | Upper right bar |
+|---|---|---|---|
+| 0 | up, right | `S -> N` (2003, nothing drawn) | empty |
+| 1 | up, left | empty (letters painted over in the plate's yellow) | `N <- S` |
+| 2 | down, left | `N <- S` | empty |
+| 3 | down, right | `S -> N` | empty |
+
+Decision: the brief counts the maintainer's quarter turns counter-clockwise; the arrow must point at the map's north,
+which puts his first counter-clockwise turn at step 3 (the `,` key; `.` visits 0, 1, 2, 3, the table read upwards),
+the arrow directions S07 measured. The glyphs are cut out of the 2003 band (under the line y = 52 - x / 2 of
+`ui\missionpanels`, rows 2 to 8 widened by 0.4 texel each way for the scaled panel's blur: S in columns 53 to 61,
+the arrow 61 to 76, N 76 to 84) and laid in the new order, the arrow mirrored for `N <- S`, every column upright and
+sheared along its bar. The right plate is narrower than the left one's widened stretch (46 to 92), and is the left
+one mirrored about x = 135 a texel lower; the mark takes the widened stretch along, laid unmirrored from x = 178
+with its glyphs from 185. Everything is placed from the panel's screen rect and layout scale.
+
+`camera-turn-ground-game-reads-it` measures it in all three window sizes at every step: the panel is found in the
+step-0 shot (origin 0,613 / 0,831 / -1,863, scale 1 / 1.25 / 1.406), each glyph place is compared with every glyph
+as the step-0 shot shows it (S, N, arrow, each as drawn or mirrored) and the best must be the one laid there;
+the letter pixels left on the left plate at odd steps must be 0, and no pixel on the panel or 40 texels above it,
+off the two labels and the map, may turn yellow. A run with Remastered off presses the key and the bars must not
+change. Measured on win-home (Windows x64, debug install):
+
+| Size | step 1 right: N, arrow mirrored, S | step 2 left | step 3 right: S, arrow, N | dark left at 1/3 (step 0) | yellow added |
+|---|---|---|---|---|---|
+| 1024 x 768 | 15.3, 12.1, 15.5 | 16.7, 11.9, 13.8 | 13.8, 12.1, 17.0 | 0, 0 (75) | 0 |
+| 1280 x 1024 | 19.5, 11.5, 17.9 | 19.2, 14.1, 12.2 | 10.9, 10.8, 15.2 | 0, 0 (74) | 0 |
+| 1920 x 1080 | 20.9, 18.9, 12.8 | 19.6, 18.0, 19.3 | 12.7, 9.6, 13.6 | 0, 0 (79) | 0 |
+
+(mean RGB difference to step 0's glyph, floor 30; every place's best glyph is the one laid there.) Remastered off:
+0 pixels of the bars changed by the key at shots 1 to 3. At 1024 x 768 the drawn glyphs equal the texture's texels
+(0.0 against the texture at step 3); the 2003 panel itself differs from its texels by 12 to 16 there (its own
+sampling), which is the 11 to 17 above. A half-pixel shift like `DrawRects`' made it worse (16 to 28) and was left
+out. The mark is drawn only at a turned step, so Remastered off and step 0 are the 2003 frame.
+
+Tiers run: `camera-turn-ground-game-reads-it` (pass, 341 s). The Map Editor has no minimap frame; the other tiers do
+not draw it differently (UI only). Linux and macOS are left to CI.
