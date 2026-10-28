@@ -475,6 +475,16 @@ void CWorldBase::SetSpansCameraTurn( const int nTurn )
 	for ( CBridgeSpanObjectsMap::iterator it = visspans.begin(); it != visspans.end(); ++it )
 		it->second->SetCameraTurn( nTurn, pVOB );
 }
+void CWorldBase::TraceSpans()
+{
+	for ( CBridgeSpanObjectsMap::iterator it = aispans.begin(); it != aispans.end(); ++it )
+	{
+		CVec3 vPos;
+		WORD wDir = 0;
+		it->second->GetPlacement( &vPos, &wDir );
+		fprintf( stderr, "BK_SPAN_TRACE: \"%s\" at %.0f,%.0f hp %.3f\n", it->second->GetDesc()->szKey.c_str(), vPos.x, vPos.y, it->second->pSlab->fHP );
+	}
+}
 void CWorldBase::RemoveFromScene( SBridgeSpanObject *pSpan )
 {
 	RemoveFromScene( pSpan->pSlab );

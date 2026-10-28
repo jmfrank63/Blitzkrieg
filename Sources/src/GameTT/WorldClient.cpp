@@ -784,6 +784,8 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 		}
 		else if ( szParts[0].compare( "TraceContainers" ) == 0 )
 			TraceContainers();
+		else if ( szParts[0].compare( "TraceSpans" ) == 0 )
+			TraceSpans();
 		else
 		{
 			NStr::DebugTrace( "Skipping command: unknown function\n" );
@@ -1095,11 +1097,14 @@ void CWorldClient::TraceSelection()
 }
 // The TracePick world command (BK_AUTO_UI pick=<x>x<y>): every object the
 // cursor at a screen point picks, by name and place, nearest first as a click
-// takes them, each line led by the point.
+// takes them, each line led by the point, and the order the cursor offers
+// there for what is selected (DetermineBestAutoAction, as OnMouseMove).
 void CWorldClient::TracePick( const CVec2 &vPos )
 {
+	UpdatePick( vPos, pTimer->GetGameTime(), true, true, false );
+	const int nAction = DetermineBestAutoAction( GetFirstPick( SGVOGT_FENCE, true, false ) ) & 0x00007fff;
 	UpdatePick( vPos, pTimer->GetGameTime(), true, false, false );
-	std::string szLine = NStr::Format( "BK_PICK_TRACE: %.0f,%.0f:", vPos.x, vPos.y );
+	std::string szLine = NStr::Format( "BK_PICK_TRACE: %.0f,%.0f: action %d:", vPos.x, vPos.y, nAction );
 	for ( CMapObjectsPtrList::const_iterator it = framePick.begin(); it != framePick.end(); ++it )
 	{
 		CVec3 vPlace;

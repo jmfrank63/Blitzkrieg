@@ -112,6 +112,8 @@ protected:
 	typedef CWorldObjectsIterator iterator;
 	// Every bridge span in the scene draws itself for the camera step (NCameraTurn).
 	void SetSpansCameraTurn( const int nTurn );
+	// The TraceSpans world command: every bridge span's kind, place and HP.
+	void TraceSpans();
 	CPtr<IScene> pScene;									// shortcut to scene
 	CPtr<IClientAckManager> pAckManager;	// -~- to client's acknowledgements manager
 	CPtr<ICursor> pCursor;								// -~- to cursor

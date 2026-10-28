@@ -159,7 +159,15 @@ void CMOBridgeSpan::UpdateModelWithHP( const float fNewHP, const NTimer::STime &
 		ChangeModel( pBackGirder, pSlab->GetDesc(), pRPGStats->GetSegmentStats(span.nBackGirder), fNewHP, currTime, pVOB );
 		ChangeModel( pFrontGirder, pSlab->GetDesc(), pRPGStats->GetSegmentStats(span.nFrontGirder), fNewHP, currTime, pVOB );
 	}
+	// The girders are picked as the span too (each maps to it), and the cursor
+	// offers what the first picked part's HP allows: a girder left at the HP it
+	// was made with offered no repair on a damaged bridge wherever it is drawn
+	// over the deck, which a turned step does over much of a span.
 	pSlab->fHP = fNewHP;
+	if ( pBackGirder )
+		pBackGirder->fHP = fNewHP;
+	if ( pFrontGirder )
+		pFrontGirder->fHP = fNewHP;
 	if ( nCameraTurn != 0 && nNewState != nOldState )
 		ApplyCameraTurn( currTime, pVOB );
 }
