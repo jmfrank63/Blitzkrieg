@@ -299,12 +299,6 @@ void CScene::Draw( ICamera *pCamera )
 		vScreenUp = CQuat( NCameraTurn::YawOffset( nCameraTurn ), V3_AXIS_Z ).Rotate( vScreenUp );
 	matTransform.RotateHVector( &vecZ2, vScreenUp );
 	fZBias2 = vecZ2.z - vecZ1.z;
-	// The sun turns with the camera as well (Remastered): a mesh is lit and casts
-	// its shadow to the same side of the screen at every step, as the 2003
-	// pictures of infantry, trees and props and M005's turned sides are.
-	SGFXLightDirectional sun = sunlight;
-	if ( nCameraTurn != 0 )
-		sun.vDir = CQuat( NCameraTurn::YawOffset( nCameraTurn ), V3_AXIS_Z ).Rotate( sunlight.vDir );
 	if ( bEnableDepthComplexity )
 		pGFX->SetShadingEffect( 300 );
 	if ( bEnableTerrain && pTerrain )
@@ -422,8 +416,8 @@ void CScene::Draw( ICamera *pCamera )
 				pGFX->SetShadingEffect( 112 );
 				SHMatrix matShadow;
 				Identity( &matShadow );
-				matShadow._13 = -sun.vDir.x / sun.vDir.z;
-				matShadow._23 = -sun.vDir.y / sun.vDir.z;
+				matShadow._13 = -sunlight.vDir.x / sunlight.vDir.z;
+				matShadow._23 = -sunlight.vDir.y / sunlight.vDir.z;
 				matShadow._33 = 0;
 				pGFX->EnableSpecular( false );
 				pGFX->EnableLighting( true );
@@ -437,7 +431,7 @@ void CScene::Draw( ICamera *pCamera )
 				{
 					CVisObjDescMap::const_iterator pos = objdescs.find( *it );
 					if ( (pos->second.gametype != SGVOGT_ENTRENCHMENT) && (pos->second.gametype != SGVOGT_TANK_PIT) )
-						(*it)->DrawShadow( pGFX, 0, sun.vDir );
+						(*it)->DrawShadow( pGFX, 0, sunlight.vDir );
 				}
 				pGFX->EnableLighting( false );
 			}
@@ -454,7 +448,7 @@ void CScene::Draw( ICamera *pCamera )
 			DrawSprites( pDrawVisitor->spriteUnits );
 			RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 		}
-		DrawMeshes( pDrawVisitor->meshes, pGFX, bEnableBBs, sun );
+		DrawMeshes( pDrawVisitor->meshes, pGFX, bEnableBBs, sunlight );
 	}
 	if ( bEnableObjects )
 	{
@@ -498,8 +492,8 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetShadingEffect( 112 );
 			SHMatrix matShadow;
 			Identity( &matShadow );
-			matShadow._13 = -sun.vDir.x / sun.vDir.z;
-			matShadow._23 = -sun.vDir.y / sun.vDir.z;
+			matShadow._13 = -sunlight.vDir.x / sunlight.vDir.z;
+			matShadow._23 = -sunlight.vDir.y / sunlight.vDir.z;
 			matShadow._33 = 0;
 			pGFX->EnableSpecular( false );
 			pGFX->EnableLighting( true );
@@ -510,7 +504,7 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetMaterial( material );
 			pGFX->SetTexture( 0, 0 );
 			for ( CMeshVisList::iterator it = pDrawVisitor->aviation.begin(); it != pDrawVisitor->aviation.end(); ++it )
-				(*it)->DrawShadow( pGFX, &matShadow, sun.vDir );
+				(*it)->DrawShadow( pGFX, &matShadow, sunlight.vDir );
 			pGFX->EnableLighting( false );
 		}
 		pGFX->SetShadingEffect( 113 );
@@ -642,7 +636,7 @@ void CScene::Draw( ICamera *pCamera )
 	if ( bEnableWarFog && pTerrain )
 		pTerrain->DrawWarFog();
 	if ( bEnableUnits )
-		DrawMeshesChecked( pDrawVisitor->aviation, pGFX, bEnableBBs, sun, &(vViewVolumePlanes[0]) );
+		DrawMeshesChecked( pDrawVisitor->aviation, pGFX, bEnableBBs, sunlight, &(vViewVolumePlanes[0]) );
 	if ( bScaleGameplayProjection )
 		pGFX->SetProjectionTransform( matScreenProjection );
 	pGFX->SetupDirectTransform();

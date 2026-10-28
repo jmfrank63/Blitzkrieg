@@ -2,9 +2,9 @@
 //! docs/superpowers/specs/2026-10-26-camera-turn-design.md). With the
 //! Remastered option on, the turn key (`.`) turns the view a quarter turn
 //! about the point at the screen centre: infantry draws the facing a quarter
-//! turn on (two of its eight pictures), vehicles and guns turn as 3D with the
-//! sun, so their light and shadows fall to the same side of the screen as the
-//! 2003 pictures', and health bars stay above their units.
+//! turn on (two of its eight pictures), vehicles and guns turn as 3D under the
+//! sun fixed in the world (M006 round 2), so their shadows turn with the
+//! ground, and health bars stay above their units.
 //!
 //! A map written from road3d.xml holds, on rings around the centre that a
 //! quarter turn takes onto themselves, units of player 0, each facing along
@@ -26,8 +26,11 @@
 //!   else), the game paused (SPACE) so animations stand still.
 //! - Shadows, Remastered on, paused: the same map with the terrain on, once
 //!   with shadows and once without; a tank's shadow is where the first is
-//!   darker, and must be the shadow of the tank at the turned place at step 0
-//!   (the sun turns with the camera).
+//!   darker. The sun stays in the world, so a tank's shadow is its own step-0
+//!   shadow turned with the ground about it (`sunShadow`, on the ground
+//!   neither picture of the tank covers): it must match that better than the
+//!   step-0 shadow not turned (a sun that turned with the camera), and the
+//!   centroids of the two must point the same way on the ground.
 //! - Remastered off, paused: the key changes no pixel of any unit.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/units with every user path
@@ -73,17 +76,29 @@ const units = blk: {
     break :blk list;
 };
 
-/// Floors. The game is paused for the shots, so a sniper and a tank are the
-/// pixels of the step-0 one at the place it moves to (a sprite's picture; a
-/// mesh drawn by the 2003 camera a quarter turn on, lit from the same side of
-/// the screen). A gun's crew (sprites around it) stands in animations whose
+/// Floors. The game is paused for the shots, so a sniper is the pixels of the
+/// step-0 one at the place it moves to and a tank its outline (a mesh drawn
+/// by the 2003 camera a quarter turn on, lit by the world's sun: the step-0
+/// tank there shows another side to the sun, so the colour is only
+/// reported). A gun's crew (sprites around it) stands in animations whose
 /// phases differ from gun to gun, so a gun is held to its outline, and its
 /// shadow, mixed with the crew's moves between two runs, is only reported.
 const min_iou: f64 = 0.98;
 const max_colour: f64 = 1.0;
 const min_gun_iou: f64 = 0.85;
 const max_gun_colour: f64 = 16.0;
-const min_shadow_iou: f64 = 0.95;
+/// A tank's shadow found by the threshold (darker by 30 over the three
+/// channels) is cut differently on grass and on the road the turn may lay it
+/// on (0.40 to 0.46 at step 2), so the floor is low and the shadow not turned
+/// must score lower. Held where it shows min_shadow_pixels or more: cast
+/// behind the tank at step 1 it shows 60 to 150 (at step 3, 525 to 690).
+const min_shadow_iou: f64 = 0.35;
+pub const min_shadow_pixels = 100;
+/// The centroid of a shadow about its object's place against its step-0 one
+/// turned, on the ground (screen y doubled). The object hides another part of
+/// its shadow at each step, which moves the centroid of what shows.
+pub const max_shadow_degrees: f64 = 30;
+const shadow_reach = [4]i32{ -110, -90, 110, 90 };
 
 fn isGun(unit: Unit) bool {
     return !unit.infantry and !std.mem.eql(u8, unit.name, "T-34");
@@ -117,7 +132,7 @@ test "units turn with the camera: infantry facings shift by two a step, vehicles
             if (unit.infantry and (unit.eighth + 2 * k) % 8 == empty_eighth) continue;
             const right = score(frames[0], to, frames[k], to, unit.reach);
             try report.print(allocator, "{d} {s} {d}: {d:.3} / {d:.2} ({d},{d})", .{ k, unit.name, unit.eighth, right.iou, right.colour, right.dx, right.dy });
-            if (right.iou < (if (isGun(unit)) min_gun_iou else min_iou) or right.colour > (if (isGun(unit)) max_gun_colour else max_colour)) failed = true;
+            if (right.iou < (if (isGun(unit)) min_gun_iou else min_iou) or (unit.infantry and right.colour > max_colour) or (isGun(unit) and right.colour > max_gun_colour)) failed = true;
             if (unit.infantry) {
                 const still = score(frames[0], screenOf(unit.ring, unit.eighth), frames[k], to, unit.reach);
                 try report.print(allocator, "; {d:.3}\n", .{still.iou});
@@ -132,16 +147,19 @@ test "units turn with the camera: infantry facings shift by two a step, vehicles
     }
 
     // Shadows: where the frame with shadows is darker than the one without.
-    try report.appendSlice(allocator, "shadows: step name eighth: IoU of the shadow against the step-0 shadow at the turned place (pixels)\n");
+    try report.appendSlice(allocator, "shadows: step name eighth: IoU against its own step-0 shadow turned / not turned; centroids apart (degrees); pixels\n");
     const lit = try turn.runGameWith(io, allocator, game, root, "shadows", "units.xml", look, "ON", with_shadows, 4, true);
     const unlit = try turn.runGameWith(io, allocator, game, root, "no-shadows", "units.xml", look, "ON", without_shadows, 4, true);
     for (1..4) |step| for (units) |unit| {
         const k: u32 = @intCast(step);
         if (unit.infantry) continue;
         const to = screenOf(unit.ring, (unit.eighth + 2 * k) % 8);
-        const shadow = shadowScore(lit[0], unlit[0], lit[k], unlit[k], to);
-        try report.print(allocator, "{d} {s} {d}: {d:.3} ({d})\n", .{ k, unit.name, unit.eighth, shadow.iou, shadow.pixels });
-        if (!isGun(unit) and (shadow.pixels < 50 or shadow.iou < min_shadow_iou)) failed = true;
+        const from = screenOf(unit.ring, unit.eighth);
+        const sun = sunShadow(.{ lit[0], unlit[0], frames[0] }, from, .{ lit[k], unlit[k], frames[k] }, to, k, shadow_reach);
+        const screen_sun = sunShadow(.{ lit[0], unlit[0], frames[0] }, from, .{ lit[k], unlit[k], frames[k] }, to, 0, shadow_reach);
+        try report.print(allocator, "{d} {s} {d}: {d:.3} / {d:.3}; {d:.1}; {d}\n", .{ k, unit.name, unit.eighth, sun.iou, screen_sun.iou, sun.off_degrees, sun.pixels });
+        if (!isGun(unit) and sun.pixels >= min_shadow_pixels and (sun.iou < min_shadow_iou or sun.iou <= screen_sun.iou or sun.off_degrees > max_shadow_degrees)) failed = true;
+        if (!isGun(unit) and k == 3 and sun.pixels < min_shadow_pixels) failed = true;
     };
 
     // Remastered off: the key does nothing to any unit.
@@ -282,11 +300,18 @@ fn shadowed(lit: []const u8, unlit: []const u8, x: i32, y: i32) bool {
     return sum > 30;
 }
 
-/// The shadow around `at` at step k against the step-0 shadow there, the
-/// best offset within 4 pixels; `pixels` counts the step-0 shadow.
-fn shadowScore(lit0: []const u8, unlit0: []const u8, litk: []const u8, unlitk: []const u8, at: [2]i32) struct { iou: f64, pixels: usize } {
-    const reach = [4]i32{ -110, -90, 110, 90 };
+/// An object's shadow at step k (`after`: the frames with shadows, without
+/// them and with the objects alone, the object at `to`) against its own
+/// step-0 shadow (`before`, the object at `from`) mapped by the ground's turn
+/// by k about it, as a sun fixed in the world casts it (k = 0: not turned, as
+/// a sun turning with the camera casts it). Only the ground neither picture
+/// of the object covers counts: it hides another part of its shadow at each
+/// step. The IoU at the best offset within 4 pixels, and the angle between
+/// the centroids of the two shadows about the object's place, on the ground
+/// (screen y doubled). `pixels` counts the shadow at step k.
+pub fn sunShadow(before: [3][]const u8, from: [2]i32, after: [3][]const u8, to: [2]i32, k: usize, reach: [4]i32) struct { iou: f64, off_degrees: f64, pixels: usize } {
     var best: f64 = 0;
+    var off: f64 = 180;
     var pixels: usize = 0;
     var oy: i32 = -4;
     while (oy <= 4) : (oy += 1) {
@@ -294,26 +319,45 @@ fn shadowScore(lit0: []const u8, unlit0: []const u8, litk: []const u8, unlitk: [
         while (ox <= 4) : (ox += 1) {
             var both: f64 = 0;
             var either: f64 = 0;
+            var c0 = [2]f64{ 0, 0 };
+            var ck = [2]f64{ 0, 0 };
             var count: usize = 0;
-            var y = at[1] + reach[1];
-            while (y <= at[1] + reach[3]) : (y += 1) {
-                if (inInterface(y) or inInterface(y + oy)) continue;
-                var x = at[0] + reach[0];
-                while (x <= at[0] + reach[2]) : (x += 1) {
-                    const w = shadowed(lit0, unlit0, x, y);
-                    const g = shadowed(litk, unlitk, x + ox, y + oy);
-                    if (w) count += 1;
+            var y = reach[1];
+            while (y <= reach[3]) : (y += 1) {
+                var x = reach[0];
+                while (x <= reach[2]) : (x += 1) {
+                    // The step-0 pixel this one shows: the ground turned back.
+                    const back = turn.unturn(.{ @floatFromInt(x), @floatFromInt(y) }, k);
+                    const bx = from[0] + @as(i32, @intFromFloat(@round(back[0])));
+                    const by = from[1] + @as(i32, @intFromFloat(@round(back[1])));
+                    const gx = to[0] + x + ox;
+                    const gy = to[1] + y + oy;
+                    if (inInterface(by) or inInterface(gy) or rgb(before[0], bx, by) == null or rgb(after[0], gx, gy) == null) continue;
+                    if (drawn(rgb(before[2], bx, by)) or drawn(rgb(after[2], gx, gy))) continue;
+                    const w = shadowed(before[0], before[1], bx, by);
+                    const g = shadowed(after[0], after[1], gx, gy);
+                    const fx: f64 = @floatFromInt(x);
+                    const fy: f64 = @floatFromInt(y);
+                    if (w) c0 = .{ c0[0] + fx, c0[1] + 2 * fy };
+                    if (g) {
+                        ck = .{ ck[0] + fx, ck[1] + 2 * fy };
+                        count += 1;
+                    }
                     if (w or g) either += 1;
                     if (w and g) both += 1;
                 }
             }
+            const iou = if (either == 0) 0 else both / either;
+            if (iou <= best and !(ox == -4 and oy == -4)) continue;
+            best = iou;
             pixels = count;
-            if (either != 0 and both / either > best) best = both / either;
+            var angle = std.math.radiansToDegrees(@abs(std.math.atan2(ck[1], ck[0]) - std.math.atan2(c0[1], c0[0])));
+            if (angle > 180) angle = 360 - angle;
+            off = angle;
         }
     }
-    return .{ .iou = best, .pixels = pixels };
+    return .{ .iou = best, .off_degrees = off, .pixels = pixels };
 }
-
 test "a quarter turn takes each ring onto itself, two eighths on" {
     try testing.expectEqual(turn.turnScreen(screenOf(inner, 0), 1), screenOf(inner, 2));
     try testing.expectEqual(turn.turnScreen(screenOf(outer, 2), 1), screenOf(outer, 4));
