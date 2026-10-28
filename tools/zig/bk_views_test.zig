@@ -582,20 +582,67 @@ test "a face turned to another side is relit by the 2003 light, not by the colou
     const lit = [3]f64{ 0, -1, 0 };
     const shaded = [3]f64{ 1, 0, 0 };
     for (0..3) |c| {
-        try std.testing.expectApproxEqAbs(views.wall_light_rgb[c], views.shading(lit, 0)[c] / views.shading(shaded, 0)[c], 1e-9);
-        try std.testing.expectApproxEqAbs(views.wall_light_rgb[c], views.shading(.{ -1, 0, 0 }, 1)[c] / views.shading(lit, 1)[c], 1e-9);
+        try std.testing.expectApproxEqAbs(views.wall_light_rgb[c], views.shading(lit, 0, views.wall_light_rgb)[c] / views.shading(shaded, 0, views.wall_light_rgb)[c], 1e-9);
+        try std.testing.expectApproxEqAbs(views.wall_light_rgb[c], views.shading(.{ -1, 0, 0 }, 1, views.wall_light_rgb)[c] / views.shading(lit, 1, views.wall_light_rgb)[c], 1e-9);
     }
     // A roof is lit from above more than either wall; a wall turned away
     // from the light keeps the ambient light, as the shaded one.
     const roof = [3]f64{ 0, -std.math.sqrt1_2, std.math.sqrt1_2 };
-    try std.testing.expect(views.shading(roof, 0)[1] > views.shading(lit, 0)[1]);
-    try std.testing.expectEqual(views.shading(shaded, 0), views.shading(.{ 0, 1, 0 }, 0));
+    try std.testing.expect(views.shading(roof, 0, views.wall_light_rgb)[1] > views.shading(lit, 0, views.wall_light_rgb)[1]);
+    try std.testing.expectEqual(views.shading(shaded, 0, views.wall_light_rgb), views.shading(.{ 0, 1, 0 }, 0, views.wall_light_rgb));
     // A shaded cream wall turned to the light comes out cream, not orange;
     // a relit pixel keeps its hue where a channel would clip.
-    const cream = views.relight(.{ 110, 100, 70, 255 }, views.shading(lit, 0), views.shading(shaded, 0));
+    const cream = views.relight(.{ 110, 100, 70, 255 }, views.shading(lit, 0, views.wall_light_rgb), views.shading(shaded, 0, views.wall_light_rgb));
     try std.testing.expectEqual([4]u8{ 200, 203, 190, 255 }, cream);
     const tile = views.relight(.{ 200, 80, 40, 255 }, .{ 2, 2, 2 }, .{ 1, 1, 1 });
     try std.testing.expectEqual([4]u8{ 255, 102, 51, 255 }, tile);
+}
+
+test "a building's own walls set its light where they are seen and lie in the 2003 spread" {
+    // a_wb/01's planks: the shaded gable turned to the light comes out as
+    // its lit planks, not the pale grey the median light made of it.
+    var planks: views.Means = .{};
+    for (0..600) |_| {
+        planks.add(0, .{ 160, 149, 101, 255 });
+        planks.add(1, .{ 102, 95, 62, 255 });
+    }
+    const own = views.wallLight(planks);
+    const lit = views.relight(.{ 102, 95, 62, 255 }, views.shading(.{ 0, -1, 0 }, 0, own), views.shading(.{ 1, 0, 0 }, 0, own));
+    try std.testing.expectEqual([4]u8{ 160, 149, 101, 255 }, lit);
+    const median = views.relight(.{ 102, 95, 62, 255 }, views.shading(.{ 0, -1, 0 }, 0, views.wall_light_rgb), views.shading(.{ 1, 0, 0 }, 0, views.wall_light_rgb));
+    try std.testing.expect(median[2] > 160);
+    // A wall seen on a few pixels, or walls of about one brightness (a box
+    // that put roof pixels on both), keep the median.
+    var few: views.Means = .{};
+    for (0..100) |_| {
+        few.add(0, .{ 160, 149, 101, 255 });
+        few.add(1, .{ 102, 95, 62, 255 });
+    }
+    try std.testing.expectEqual(views.wall_light_rgb, views.wallLight(few));
+    var alike: views.Means = .{};
+    for (0..600) |_| {
+        alike.add(0, .{ 97, 70, 42, 255 });
+        alike.add(1, .{ 89, 72, 47, 255 });
+    }
+    try std.testing.expectEqual(views.wall_light_rgb, views.wallLight(alike));
+    // A lit wall of another material lends its brightness, not its colour:
+    // factoryfloor01's lit red brick against its shaded grey (redder than
+    // no colour at all) and e_frenchshed01's cream plaster against brown
+    // stone (greener than the median) are held to that range.
+    var brick: views.Means = .{};
+    var plaster: views.Means = .{};
+    for (0..600) |_| {
+        brick.add(0, .{ 162, 108, 67, 255 });
+        brick.add(1, .{ 90, 76, 53, 255 });
+        plaster.add(0, .{ 142, 118, 63, 255 });
+        plaster.add(1, .{ 95, 61, 25, 255 });
+    }
+    const red = views.wallLight(brick);
+    try std.testing.expectApproxEqAbs(162.0 / 90.0, red[0], 1e-9);
+    try std.testing.expectEqual(red[0], red[1]);
+    try std.testing.expectEqual(red[0], red[2]);
+    const cream = views.wallLight(plaster);
+    for (1..3) |c| try std.testing.expectApproxEqAbs(cream[0] * views.wall_light_rgb[c] / views.wall_light_rgb[0], cream[c], 1e-9);
 }
 test "a back roof copied from the front leaves the front's chimney out, and a copy that keeps it fails the gate" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -613,14 +660,20 @@ test "a back roof copied from the front leaves the front's chimney out, and a co
     const projectors = [_]views.Projector{.{ .eye = eye, .picture = picture }};
     // Told which block is a part, the back roof plane borrows nothing
     // near it; told none, it copies the chimney's foot and fails.
-    const drawn = try views.projectPicture(arena, &blocks, 1, null, back, size, &projectors);
+    const drawn = try views.projectPicture(arena, &blocks, 1, null, views.wall_light_rgb, back, size, &projectors);
     try std.testing.expectEqual(@as(f64, 0), views.copiedParts(&blocks, 1, back, drawn));
-    const copied = try views.projectPicture(arena, &blocks, blocks.len, null, back, size, &projectors);
+    const copied = try views.projectPicture(arena, &blocks, blocks.len, null, views.wall_light_rgb, back, size, &projectors);
     try std.testing.expect(views.copiedParts(&blocks, 1, back, copied) > 40);
     // The back roof is still drawn, from the rest of the front one.
     var mirrored: usize = 0;
     for (drawn.kinds) |kind| mirrored += @intFromBool(kind == .mirrored);
     try std.testing.expect(mirrored > 1000);
+    // The tiles beside and above the chimney's foot lend the back roof
+    // theirs (`slidePast`, `partReach`): no pixel the copy draws from the
+    // front is left to the patch fill.
+    var lost: usize = 0;
+    for (copied.kinds, drawn.kinds) |a, b| lost += @intFromBool(a == .mirrored and b == .filled);
+    try std.testing.expectEqual(@as(usize, 0), lost);
 }
 
 test "an outline's protrusion is the share of it narrower than the window" {
