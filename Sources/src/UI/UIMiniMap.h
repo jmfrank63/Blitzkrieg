@@ -188,6 +188,11 @@ class CUIMiniMap : public CSimpleWindow
 	// click through TextureMiniMapToPoint, which turn it about the map's middle;
 	// not saved, Draw takes the step again.
 	int nTurn;
+	// The frame's texture with the left bar's plain plate where its label is,
+	// the panel's while the north mark stands on the right bar (DrawNorthMark).
+	// Made on first use and named as the 2003 texture, so a save that catches it
+	// on the panel loads the 2003 one back; not saved here.
+	CPtr<IGFXTexture> pPlainPanels;
 
 
 	void CreateMiniMapTextures();
@@ -231,6 +236,7 @@ class CUIMiniMap : public CSimpleWindow
 
 	void DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock );
 	void DrawNorthMark( IGFX *pGFX );
+	void ShowPlainLeftPlate( bool bPlain );
 public:
 	CUIMiniMap( )
 		: nSize( 0 ), nUnitCrossSize( 1 ), terrainSize( 0, 0 ), nFiledVISTiles( 0 ),  dwScreenFrameColor( 0xFFAFAFAF ), dwScreenFrameColorShadow( 0xFF4F4F4F ), isWarFogNeedUpdate( false ), isInstantObjectsNeedUpdate( false ), nPlayersCount( 2 ), nTurn( 0 )

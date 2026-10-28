@@ -1224,19 +1224,28 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 // - step 2, down and left: `N <- S` on the upper left bar;
 // - step 3, down and right: `S -> N` on the upper right bar.
 // `N <- S` is the 2003 glyphs laid in the other order with the arrow
-// mirrored, so no letter is ever mirrored or upside down; on the right bar
-// each glyph is sheared along that bar as the 2003 ones are along theirs. The
-// left plate the mark leaves keeps its yellow where the letters were. Step 0
-// draws nothing: the 2003 frame.
+// mirrored, so no letter is ever mirrored or upside down. The 2003 letters
+// lie flat on their plate: a letter's up is the ground's other axis (up and
+// left on the screen, away from the map). The right bar's mark is therefore
+// the left one turned a quarter turn on the ground, the screen map
+// (dx, dy) -> (-2 dy, dx / 2): the bar's direction goes to the right bar's,
+// a letter's up to up and right, so its letters stand on their bar as the
+// 2003 ones stand on theirs. A bar without the mark shows the 2003 plain
+// plate: while the mark is on the right bar the panel draws a texture whose
+// left label is the right plate's stretch mirrored (ShowPlainLeftPlate; the
+// texture's transparency keeps the view behind the frame, which no quad
+// drawn over the panel could give back). Step 0 draws nothing: the 2003
+// frame.
 //
 // The texture's band runs along the left bar under the line y = 52 - x / 2
 // (texels); the glyphs stand in its rows 2 to 8: S in columns 53 to 61, the
 // arrow 61 to 76, N 76 to 84, on a widened stretch of the plate (46 to 92).
-// The right bar is the left one mirrored about x = 135 and a texel lower,
-// its plate narrower, so the mark takes the widened stretch along, laid as
-// the glyphs are (not mirrored: the glyphs keep their place on it). The panel
-// (the minimap's parent) draws the texture from its top left at its layout
-// scale; the minimap's own window is fitted apart from it.
+// The right bar is the left one mirrored about x = 135 and a texel lower
+// (its band's line y = x / 2 - 82), its plate the plain one. Column c and row
+// r of the left band go to column c + 132 of the right band, r rows under
+// its line taken 2 r to the left (the quarter turn). The panel (the
+// minimap's parent) draws the texture from its top left at its layout scale;
+// the minimap's own window is fitted apart from it.
 namespace
 {
 	const float NORTH_S = 53, NORTH_ARROW = 61, NORTH_N = 76, NORTH_END = 84;
@@ -1251,10 +1260,10 @@ namespace
 		CVec2 vOrigin, vScale;
 
 		static float Top( float fX, bool bRight ) { return bRight ? fX / 2 - 82 : 52 - fX / 2; }
-		// The left band's columns fFrom to fTo, rows fRow0 to fRow1 under its top
-		// line, laid on a bar from column fAt on, mirrored if bMirror; without
-		// pTexture the same place filled from dwTop to dwBottom.
-		void Draw( IGFXTexture *pTexture, float fFrom, float fTo, float fAt, bool bRight, bool bMirror, float fRow0, float fRow1, DWORD dwTop, DWORD dwBottom ) const
+		// Columns fFrom to fTo of the left band, rows fRow0 to fRow1 under its
+		// line, laid on a bar from column fAt on, mirrored if bMirror; on the
+		// right bar turned a quarter turn.
+		void Draw( float fFrom, float fTo, float fAt, bool bRight, bool bMirror, float fRow0, float fRow1 ) const
 		{
 			const float fSizeX = pPanels->GetSizeX( 0 ), fSizeY = pPanels->GetSizeY( 0 );
 			CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
@@ -1266,16 +1275,18 @@ namespace
 				const float fRow = i < 2 ? fRow1 : fRow0;
 				const float fX = fAt + ( bEnd ? fTo - fFrom : 0 );
 				const float fU = bEnd != bMirror ? fTo : fFrom;
-				vertices[i].Setup( vOrigin.x + fX * vScale.x, vOrigin.y + ( Top( fX, bRight ) + fRow ) * vScale.y, 0.0f, 1.0f,
-					i < 2 ? dwBottom : dwTop, 0xFF000000, fU / fSizeX, ( Top( fU, false ) + fRow ) / fSizeY );
+				const float fScreenX = bRight ? fX - 2 * fRow : fX;
+				const float fScreenY = bRight ? Top( fX, true ) : Top( fX, false ) + fRow;
+				vertices[i].Setup( vOrigin.x + fScreenX * vScale.x, vOrigin.y + fScreenY * vScale.y, 0.0f, 1.0f,
+					0xFFFFFFFF, 0xFF000000, fU / fSizeX, ( Top( fU, false ) + fRow ) / fSizeY );
 			}
 			indices[0] = 0; indices[1] = 1; indices[2] = 2; indices[3] = 0; indices[4] = 2; indices[5] = 3;
-			pGFX->SetTexture( 0, pTexture );
+			pGFX->SetTexture( 0, pPanels );
 			pGFX->DrawTemp();
 		}
 		void Glyph( float fFrom, float fTo, float fAt, bool bRight, bool bMirror ) const
 		{
-			Draw( pPanels, fFrom, fTo, fAt, bRight, bMirror, NORTH_ROW0, NORTH_ROW1, 0xFFFFFFFF, 0xFFFFFFFF );
+			Draw( fFrom, fTo, fAt, bRight, bMirror, NORTH_ROW0, NORTH_ROW1 );
 		}
 	};
 }
@@ -1289,13 +1300,9 @@ void CUIMiniMap::DrawNorthMark( IGFX *pGFX )
 	pPanel->GetWindowPlacement( 0, 0, &rcPanel );
 	const SNorthBand band = { pGFX, pPanels, CVec2( rcPanel.x1, rcPanel.y1 ), pPanel->GetLayoutScale() };
 	const bool bRight = ( nTurn & 1 ) != 0;
+	// The widened plate under the mark on the right bar.
 	if ( bRight )
-	{
-		// The letters left behind: the plate's yellow over them (its body darker
-		// at the top), then the widened plate laid on the right bar.
-		band.Draw( 0, NORTH_S, NORTH_END, NORTH_S, false, false, NORTH_ROW0, NORTH_ROW1, 0xFFEBB60E, 0xFFF7C312 );
-		band.Draw( pPanels, NORTH_PLATE_FROM, NORTH_PLATE_TO, 270 - NORTH_PLATE_TO, true, false, 0, 9, 0xFFFFFFFF, 0xFFFFFFFF );
-	}
+		band.Draw( NORTH_PLATE_FROM, NORTH_PLATE_TO, 270 - NORTH_PLATE_TO, true, false, 0, 9 );
 	const float fAt = bRight ? 270 - NORTH_PLATE_TO + ( NORTH_S - NORTH_PLATE_FROM ) : NORTH_S;
 	const float fArrow = fAt + ( NORTH_ARROW - NORTH_S ), fLast = fAt + ( NORTH_N - NORTH_S );
 	if ( nTurn == 3 )
@@ -1310,6 +1317,53 @@ void CUIMiniMap::DrawNorthMark( IGFX *pGFX )
 		band.Glyph( NORTH_ARROW, NORTH_N, fArrow, bRight, true );
 		band.Glyph( NORTH_S, NORTH_ARROW, fLast, bRight, false );
 	}
+}
+// The panel draws the frame from ui\missionpanels, or while the north mark is
+// on the right bar from a copy whose left label (columns 44 to 94, from 4
+// rows above the band's line to 9 under it) is the right plate's stretch
+// mirrored about x = 135 a texel lower: the plain 2003 plate, transparent
+// above it as the right one is. The panel takes the change from the next
+// frame on (it has drawn this one already). Nothing is touched before the
+// first such step, so with Remastered off the panel keeps its texture.
+void CUIMiniMap::ShowPlainLeftPlate( bool bPlain )
+{
+	IUIContainer *pPanel = GetParent();
+	if ( pPanel == 0 || ( !bPlain && pPlainPanels == 0 ) )
+		return;
+	IGFXTexture *pPanels = GetSingleton<ITextureManager>()->GetTexture( "ui\\missionpanels" );
+	if ( pPanels == 0 )
+		return;
+	if ( bPlain && pPlainPanels == 0 )
+	{
+		CPtr<IImage> pImage = LoadMiniMapImage( pPanels->GetSharedResourceName() );
+		const int nSizeX = pImage ? pImage->GetSizeX() : 0, nSizeY = pImage ? pImage->GetSizeY() : 0;
+		if ( nSizeX < 256 || nSizeY < 64 )
+			return;
+		CPtr<IGFXTexture> pTexture = GetSingleton<IGFX>()->CreateTexture( nSizeX, nSizeY, 1, GFXPF_ARGB8888, GFXD_STATIC );
+		if ( pTexture == 0 )
+			return;
+		{
+			CTextureLock<SGFXColor8888> textureLock( pTexture, 0 );
+			if ( textureLock.GetSizeY() <= 0 )
+				return;
+			const SColor *pPixels = pImage->GetLFB();
+			for ( int nY = 0; nY < nSizeY; ++nY )
+			{
+				for ( int nX = 0; nX < nSizeX; ++nX )
+				{
+					const int nTop = static_cast<int>( floorf( 52 - nX * 0.5f ) );
+					const bool bLabel = nX >= 44 && nX < 94 && nY >= nTop - 4 && nY <= nTop + 9;
+					const SColor &color = bLabel ? pPixels[( nY + 1 ) * nSizeX + 269 - nX] : pPixels[nY * nSizeX + nX];
+					textureLock[nY][nX] = SGFXColor8888( color.a, color.r, color.g, color.b );
+				}
+			}
+		}
+		pTexture->SetSharedResourceName( pPanels->GetSharedResourceName() );
+		pPlainPanels = pTexture;
+	}
+	IGFXTexture *pWanted = bPlain ? static_cast<IGFXTexture*>( pPlainPanels ) : pPanels;
+	if ( pPanel->GetWindowTexture() != pWanted )
+		pPanel->SetWindowTexture( pWanted );
 }
 void CUIMiniMap::Visit( interface ISceneVisitor *pVisitor )
 {
@@ -1506,6 +1560,7 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 			_pGFX->DrawTemp();
 		}
 		/**/
+		ShowPlainLeftPlate( ( nTurn & 1 ) != 0 );
 		if ( nTurn != 0 )
 			DrawNorthMark( _pGFX );
 		_pGFX->SetTexture( 0, 0 );

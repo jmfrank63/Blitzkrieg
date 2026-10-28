@@ -1386,3 +1386,37 @@ out. The mark is drawn only at a turned step, so Remastered off and step 0 are t
 
 Tiers run: `camera-turn-ground-game-reads-it` (pass, 341 s). The Map Editor has no minimap frame; the other tiers do
 not draw it differently (UI only). Linux and macOS are left to CI.
+### The minimap's north mark, round 4
+
+The maintainer on round 3 (macOS): the left bar should be plain again when the mark has left it, and N and S on the
+right bar must be turned 90 degrees clockwise. The 2003 letters lie flat on their plate: a letter's up is the
+ground's other axis (up and left on the screen). Round 3 laid them on the right bar with the same screen columns,
+so they lay along that bar. Now the right bar's mark is the left one turned a quarter turn on the ground, the screen
+map (dx, dy) -> (-2 dy, dx / 2): row r of band column c goes to column c + 132 of the right band, on its line and
+2 r to the left. Every piece on the right bar (the widened plate, S, the arrow, N) is turned that way, so they still
+tile the label; the arrow's direction is as before.
+
+A plain bar cannot be painted over the panel: above the plate the texture is transparent (the view shows through),
+and a quad drawn after the panel cannot give that back. So while the mark is on the right bar the panel (the
+minimap's parent) draws a copy of `ui\missionpanels` whose left label (columns 44 to 94, from 4 rows above the band's
+line to 9 under it) is the right plate's stretch mirrored about x = 135 a texel lower, alpha included
+(`CUIMiniMap::ShowPlainLeftPlate`). The copy is made on the first odd step from the DDS the texture manager loaded and
+carries that texture's name, so a save that catches it on the panel loads the 2003 texture back. Nothing is touched
+before the first odd step (Remastered off keeps the panel as it was); the panel takes the change from the next frame.
+
+`camera-turn-ground-game-reads-it` adds: on the right bar each letter must match the 2003 one turned along the bar
+better than the same letter with upright columns, and at odd steps the left bar's widened stretch (rows 4 to 9 of
+the plain plate, the best of the reference moved by up to a pixel) must match the right bar's plain plate at step 0
+mirrored, mean RGB difference at most 20, its yellow pixels within 10 % of the plain plate's. Measured on win-home
+(Windows x64, debug install):
+
+| Size | right bar, turned [upright]: step 1 N, S; step 3 S, N | left bar against the plain plate: steps 1, 3 (step 0, 2) | yellow left / plain |
+|---|---|---|---|
+| 1024 x 768 | 17.1 [39.7], 12.5 [56.6]; 14.8 [44.2], 17.8 [49.4] | 1.3, 3.6 (32.0, 35.6) | 156 / 156 |
+| 1280 x 1024 | 20.1 [44.0], 19.5 [55.8]; 14.8 [47.4], 18.8 [46.5] | 14.9, 15.4 (34.5, 35.4) | 173 / 173 |
+| 1920 x 1080 | 18.9 [37.7], 17.3 [53.6]; 14.3 [47.4], 14.5 [56.1] | 16.2, 16.2 (35.4, 38.5) | 170 / 173 |
+
+Every glyph place still holds its own glyph (best of S, N and the arrow, drawn or mirrored), no pixel turns yellow
+off the labels, and with Remastered off the key changes 0 pixels of the bars. The round 3 check that no letter pixel
+stays on the left plate is dropped: the plain plate leaves the label's upper rows transparent, dark where the view
+behind is. Tiers run: `camera-turn-ground-game-reads-it` (pass, 507 s). Linux and macOS are left to CI.

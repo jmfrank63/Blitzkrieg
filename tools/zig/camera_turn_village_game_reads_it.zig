@@ -35,8 +35,10 @@
 //! step 1 `N <- S` on the upper right bar, at step 2 `N <- S` on the left one,
 //! at step 3 `S -> N` on the right one. Each glyph's place must hold that
 //! glyph of the texture (S, N or the arrow, mirrored only where the arrow
-//! turns), the left plate's letters must be gone where the mark left it, and
-//! no pixel may turn yellow off the bars' labels. With the option off the key
+//! turns; on the right bar the 2003 glyph turned a quarter turn along it,
+//! not laid with upright columns), the left bar must show the plain 2003
+//! plate where the mark left it, and no pixel may turn yellow off the bars'
+//! labels. With the option off the key
 //! must leave the bars as they are.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/village with every user
@@ -499,8 +501,10 @@ fn findPanel(texture: []const u8, size: [2]u32, frame: []const u8) Panel {
 /// The mean RGB difference between a glyph as the 2003 frame shows it at step
 /// 0 (columns reversed when mirrored) and the shot where it would lie from
 /// column `at` of a bar (the right bar's glyphs start at 185, under 53 of the
-/// widened plate laid there from 178).
-fn glyphDifference(p: Panel, reference: []const u8, frame: []const u8, at: f64, right: bool, laid: Laid) f64 {
+/// widened plate laid there from 178). On the right bar a glyph is the left
+/// one turned a quarter turn on the ground when `turned` (row r of column c
+/// 2 r to the left on the band's line), else laid with upright columns.
+fn glyphDifference(p: Panel, reference: []const u8, frame: []const u8, at: f64, right: bool, turned: bool, laid: Laid) f64 {
     var sum: f64 = 0;
     var n: f64 = 0;
     var x: f64 = 0;
@@ -509,7 +513,7 @@ fn glyphDifference(p: Panel, reference: []const u8, frame: []const u8, at: f64, 
         const su = if (laid.mirrored) laid.glyph.from + laid.glyph.width - x - 0.5 else laid.glyph.from + x + 0.5;
         var r: f64 = 2;
         while (r < 8) : (r += 1) {
-            const got = p.screen(frame, du, bandTop(du, right) + r + 0.5) orelse return 255;
+            const got = (if (right and turned) p.screen(frame, du - 2 * (r + 0.5), bandTop(du, true)) else p.screen(frame, du, bandTop(du, right) + r + 0.5)) orelse return 255;
             const want = p.screen(reference, su, bandTop(su, false) + r + 0.5) orelse return 255;
             for (0..3) |c| sum += @abs(got[c] - want[c]);
             n += 3;
@@ -533,12 +537,55 @@ fn darkOnBar(p: Panel, frame: []const u8, right: bool) usize {
     return dark;
 }
 
+/// The mean RGB difference a left bar without the mark may keep from the right
+/// bar's plain plate at step 0, mirrored.
+const max_plain = 20.0;
+
+/// The left bar's widened stretch (columns 46 to 92, rows 0 to 9 under its
+/// line) in `frame` against the right bar's plain plate there at step 0,
+/// mirrored about x = 135 a texel lower: the yellow pixels of each, and the
+/// mean RGB difference over the plain plate's rows (4 to 9; above them the
+/// frame is transparent and shows the turned view), the least of the
+/// reference moved by up to a pixel (a scaled panel's mirror lands between
+/// pixels).
+fn plainLeft(p: Panel, reference: []const u8, frame: []const u8) struct { difference: f64, yellow: usize, yellow_plain: usize } {
+    var least: f64 = 255;
+    var yellow_now: usize = 0;
+    var yellow_plain: usize = 0;
+    var oy: f64 = -1;
+    while (oy <= 1) : (oy += 1) {
+        var ox: f64 = -1;
+        while (ox <= 1) : (ox += 1) {
+            var sum: f64 = 0;
+            var n: f64 = 0;
+            var u: f64 = 46.5;
+            while (u < 92) : (u += 1) {
+                var r: f64 = 0.5;
+                while (r < 9) : (r += 1) {
+                    const got = p.screen(frame, u, bandTop(u, false) + r) orelse continue;
+                    const want = p.screen(reference, 270 - u + ox / p.scale, bandTop(270 - u, true) + r + oy / p.scale) orelse continue;
+                    if (r > 4) {
+                        for (0..3) |c| sum += @abs(got[c] - want[c]);
+                        n += 3;
+                    }
+                    if (ox == 0 and oy == 0) {
+                        if (yellow(got)) yellow_now += 1;
+                        if (yellow(want)) yellow_plain += 1;
+                    }
+                }
+            }
+            if (n > 0) least = @min(least, sum / n);
+        }
+    }
+    return .{ .difference = least, .yellow = yellow_now, .yellow_plain = yellow_plain };
+}
+
 /// Whether texture point (u, v) is on a bar's label (with a margin) or in the
 /// minimap's diamond (its window at (6, 3), 256 x 128, where the turned map is).
 fn onLabelOrMap(u: f64, v: f64) bool {
     if (@abs(u - 134) / 128 + @abs(v - 67) / 64 < 1.08) return true;
     if (u >= 42 and u < 96 and v >= bandTop(u, false) - 3 and v < bandTop(u, false) + 12) return true;
-    return u >= 174 and u < 228 and v >= bandTop(u, true) - 3 and v < bandTop(u, true) + 12;
+    return u >= 156 and u < 228 and v >= bandTop(u, true) - 3 and v < bandTop(u, true) + 12;
 }
 
 fn yellow(c: [3]f64) bool {
@@ -589,8 +636,10 @@ fn barsChanged(p: Panel, before: []const u8, after: []const u8) usize {
 /// (the 2003 frame), `N <- S` on the right one at step 1 and on the left one
 /// at step 2, `S -> N` on the right one at step 3: each place's best glyph of
 /// the texture (S, N or the arrow, as drawn or mirrored) must be the one laid
-/// there. Where the mark left the left plate no letter pixel stays, and no
+/// there. No
 /// pixel turns yellow off the labels and the map (the panel and above it).
+/// Where the mark left it, the left bar shows the plain plate (plainLeft);
+/// a letter on the right bar matches the 2003 one turned along that bar.
 fn northMark(allocator: std.mem.Allocator, report: *std.ArrayList(u8), texture: []const u8, size: [2]u32, frames: []const []u8) !bool {
     const p = findPanel(texture, size, frames[0]);
     try report.print(allocator, "north mark {d}x{d}: panel at {d},{d}, scale {d:.3}; dark pixels on the left plate at step 0 {d}\n", .{ size[0], size[1], p.origin[0], p.origin[1], p.scale, darkOnBar(p, frames[0], false) });
@@ -606,21 +655,31 @@ fn northMark(allocator: std.mem.Allocator, report: *std.ArrayList(u8), texture: 
             var least: f64 = std.math.floatMax(f64);
             for (glyphs) |g| for ([_]bool{ false, true }) |m| {
                 if (g.width != laid.glyph.width) continue;
-                const d = glyphDifference(p, frames[0], frame, at, right, .{ .glyph = g, .mirrored = m });
+                const d = glyphDifference(p, frames[0], frame, at, right, true, .{ .glyph = g, .mirrored = m });
                 if (d < least) {
                     least = d;
                     best = .{ .glyph = g, .mirrored = m };
                 }
             };
-            const own = glyphDifference(p, frames[0], frame, at, right, laid);
+            const own = glyphDifference(p, frames[0], frame, at, right, true, laid);
             try report.print(allocator, " {s}{s} {d:.1} (best {s}{s})", .{ laid.glyph.name, if (laid.mirrored) " mirrored" else "", own, best.?.glyph.name, if (best.?.mirrored) " mirrored" else "" });
             if (own > max_glyph or best.?.glyph.from != laid.glyph.from or best.?.mirrored != laid.mirrored) ok = false;
+            // A letter on the right bar must match the 2003 one turned along the
+            // bar better than the same letter laid with upright columns.
+            if (right and laid.glyph.width == glyph_s.width) {
+                const upright = glyphDifference(p, frames[0], frame, at, right, false, laid);
+                try report.print(allocator, " [upright {d:.1}]", .{upright});
+                if (upright <= own) ok = false;
+            }
             at += laid.glyph.width;
         }
         const dark = darkOnBar(p, frame, false);
         const added = yellowAdded(p, frames[0], frame);
-        try report.print(allocator, "; dark pixels on the left plate {d}; yellow added off the labels {d}\n", .{ dark, added });
-        if ((right and dark != 0) or added != 0) ok = false;
+        const plain = plainLeft(p, frames[0], frame);
+        try report.print(allocator, "; dark pixels on the left plate {d}; yellow added off the labels {d}; left label against the plain plate {d:.1}, yellow {d} (plain {d})\n", .{ dark, added, plain.difference, plain.yellow, plain.yellow_plain });
+        if (added != 0) ok = false;
+        // Where the mark left it, the left bar is the plain 2003 plate.
+        if (right and (plain.difference > max_plain or plain.yellow * 10 > plain.yellow_plain * 11 or plain.yellow * 10 < plain.yellow_plain * 9)) ok = false;
     }
     return ok;
 }
