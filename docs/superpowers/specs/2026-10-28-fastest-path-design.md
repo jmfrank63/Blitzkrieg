@@ -189,7 +189,7 @@ the screen's middle now.
 `test-fastest-path`, `replay-game-reads-it` (22 of 22 state hashes, both playbacks and the load) and
 `camera-turn-state-game-reads-it` pass (Remastered off: the 2003 finder). The state tier failed once in a run shared
 with other worktrees' builds (a 7 s frame stall before the click that should select the sniper) and passed when run
-again alone.
+again alone. The Map Editor loads AILogic: `test-map-editor-engine map-editor-smoke` pass (one call, 16 min).
 
 ## Left open
 
