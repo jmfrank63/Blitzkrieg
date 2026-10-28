@@ -407,7 +407,7 @@ test "two players at different camera steps play the same game" {
     // own start step comes from its corner (S05).
     var players = [_]Player{
         .{ .name = "host", .schedule = "t3000:set=GamePlay.Remastered=ON,t3000:msg=10004,t80000:msg=10005,g2000:anchor,g85000:anchor,g10:exit", .extra = &.{"-host"}, .env = &.{}, .delay_s = 0, .game = game, .root = root },
-        .{ .name = "client", .schedule = "t3000:set=GamePlay.Remastered=ON,t12000:msg=10004,t50000:anchor,t10:key=.,t300:anchor,t15000:key=.,t300:anchor,t15000:key=COMMA,t300:anchor,t30000:exit", .extra = &.{"-connect127.0.0.1"}, .env = &.{.{ "BK_NET_CLIENT_PORT", "8890" }}, .delay_s = 35, .game = game, .root = root },
+        .{ .name = "client", .schedule = "t3000:set=GamePlay.Remastered=ON,t12000:msg=10004,t50000:anchor,t10:key=COMMA,t300:anchor,t15000:key=COMMA,t300:anchor,t15000:key=.,t300:anchor,t30000:exit", .extra = &.{"-connect127.0.0.1"}, .env = &.{.{ "BK_NET_CLIENT_PORT", "8890" }}, .delay_s = 35, .game = game, .root = root },
     };
     var threads: [players.len]std.Thread = undefined;
     for (&players, &threads) |*player, *thread| thread.* = try std.Thread.spawn(.{}, playOne, .{player});

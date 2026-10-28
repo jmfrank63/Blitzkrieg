@@ -1420,3 +1420,10 @@ Every glyph place still holds its own glyph (best of S, N and the arrow, drawn o
 off the labels, and with Remastered off the key changes 0 pixels of the bars. The round 3 check that no letter pixel
 stays on the left plate is dropped: the plain plate leaves the label's upper rows transparent, dark where the view
 behind is. Tiers run: `camera-turn-ground-game-reads-it` (pass, 507 s). Linux and macOS are left to CI.
+
+## The turn keys swapped (2026-10-28)
+
+The maintainer: `.` (`>`) turns clockwise, `,` (`<`) counter-clockwise. `Data/Configs/defconf.cfg` now binds `,` to`r
+`camera_turn` (step + 1) and `.` to `camera_turn_back` (step - 1); the step numbers, saves, multiplayer start steps and the`r
+minimap mark keep their meaning. The tiers that press the keys swap `key=.` and `key=COMMA` the same way. Where this
+spec says `.` turns the camera on (step + 1), read `,`.

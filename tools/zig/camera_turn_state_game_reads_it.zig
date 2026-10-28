@@ -86,11 +86,11 @@ test "the camera step in saves, replays and the multiplayer start" {
 
     // Save at step 2, then at step 0; load the first, turn once, load the second.
     {
-        const schedule = "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g10:anchor,g10:key=SPACE,t10:key=.,t300:key=.,t1500:shot,t10:anchor," ++
-            "t10:cmdc=" ++ save_command ++ "=turned.sav;0,t1500:key=.,t300:key=.,t300:anchor,t10:cmdc=" ++ save_command ++ "=plain.sav;0,t1500:exit";
+        const schedule = "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g10:anchor,g10:key=SPACE,t10:key=COMMA,t300:key=COMMA,t1500:shot,t10:anchor," ++
+            "t10:cmdc=" ++ save_command ++ "=turned.sav;0,t1500:key=COMMA,t300:key=COMMA,t300:anchor,t10:cmdc=" ++ save_command ++ "=plain.sav;0,t1500:exit";
         const saved = try control.runSchedule(io, allocator, game, root, mod_name, "save", "save.xml", schedule, objects_only);
         start_logs[2] = saved.log;
-        const load_schedule = "g500:set=GamePlay.Remastered=ON,60:cmdc=" ++ load_command ++ "=turned.sav,t2000:anchor,t11:shot,t10:key=.,t300:anchor," ++
+        const load_schedule = "g500:set=GamePlay.Remastered=ON,60:cmdc=" ++ load_command ++ "=turned.sav,t2000:anchor,t11:shot,t10:key=COMMA,t300:anchor," ++
             "t10:cmdc=" ++ load_command ++ "=plain.sav,t2000:anchor,t500:exit";
         const loaded = try control.runScheduleWith(io, allocator, game, root, mod_name, "load", "", load_schedule, objects_only, .{ .user = "save" });
         const saved_anchors = try control.parseAnchors(allocator, saved.log);
@@ -115,13 +115,13 @@ test "the camera step in saves, replays and the multiplayer start" {
         const history = try std.fs.path.join(allocator, &.{ root, "history.rep" });
         const sniper = control.screenAt(sniper_at, 1);
         const to = control.screenAt(order_at, 1);
-        const record_schedule = try std.fmt.allocPrint(allocator, "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g10:anchor,g500:key=.,g300:click={d}x{d},g300:world=TraceSelection(0),g10:rclick={d}x{d},g12000:world=TraceSelection(0),g10:exit", .{ sniper[0], sniper[1] - 12, to[0], to[1] });
+        const record_schedule = try std.fmt.allocPrint(allocator, "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g10:anchor,g500:key=COMMA,g300:click={d}x{d},g300:world=TraceSelection(0),g10:rclick={d}x{d},g12000:world=TraceSelection(0),g10:exit", .{ sniper[0], sniper[1] - 12, to[0], to[1] });
         const recorded = try control.runScheduleWith(io, allocator, game, root, mod_name, "record", "fight.xml", record_schedule, "", .{ .extra = &.{try std.fmt.allocPrint(allocator, "-sh{s}", .{history})}, .state_trace = true });
         start_logs[3] = recorded.log;
         const history_size = (try cwd.readFileAlloc(io, history, allocator, .limited(16 << 20))).len;
         const lh = try std.fmt.allocPrint(allocator, "-lh{s}", .{history});
         const plain = try control.runScheduleWith(io, allocator, game, root, mod_name, "play-0", "fight.xml", "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g16000:exit", "", .{ .extra = &.{lh}, .state_trace = true });
-        const turned = try control.runScheduleWith(io, allocator, game, root, mod_name, "play-turned", "fight.xml", "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g500:key=.,g700:key=.,g1100:key=COMMA,g1300:key=.,g1700:key=.,g500:camera=200x900,g2000:key=.,g16000:exit", "", .{ .extra = &.{lh}, .state_trace = true });
+        const turned = try control.runScheduleWith(io, allocator, game, root, mod_name, "play-turned", "fight.xml", "g1000:hover=1000x400,g10:camera=512x512,g10:set=GamePlay.Remastered=ON,g500:key=COMMA,g700:key=COMMA,g1100:key=.,g1300:key=COMMA,g1700:key=COMMA,g500:camera=200x900,g2000:key=COMMA,g16000:exit", "", .{ .extra = &.{lh}, .state_trace = true });
         const a = try control.lines(allocator, plain.log, "BK_AI_STATE_TRACE: ");
         const b = try control.lines(allocator, turned.log, "BK_AI_STATE_TRACE: ");
         const r = try control.lines(allocator, recorded.log, "BK_AI_STATE_TRACE: ");

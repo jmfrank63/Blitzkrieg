@@ -261,7 +261,7 @@ test "picking, selection, orders, scrolling, the minimap, the pivot and draw ord
         try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d:.0}x{d:.0},g10:set=GamePlay.Remastered=ON", .{ minimap_look, minimap_look });
         for (0..4) |k| {
             const m = minimapClick(k);
-            try schedule.print(allocator, ",g{d}:shot,g10:click={d}x{d},g300:anchor,g{d}:shot,g10:camera={d:.0}x{d:.0},g300:key=.", .{ 800 + k, m[0], m[1], 200 + k, minimap_look, minimap_look });
+            try schedule.print(allocator, ",g{d}:shot,g10:click={d}x{d},g300:anchor,g{d}:shot,g10:camera={d:.0}x{d:.0},g300:key=COMMA", .{ 800 + k, m[0], m[1], 200 + k, minimap_look, minimap_look });
         }
         try schedule.appendSlice(allocator, ",g300:exit");
         const run = try runSchedule(io, allocator, game, root, mod_name, "minimap", minimap_map, schedule.items, "");
@@ -299,8 +299,8 @@ test "picking, selection, orders, scrolling, the minimap, the pivot and draw ord
         // slope (S06: GetViewVolumeCrosses); back at step 0 the sniper is
         // framed and ordered to the slope point.
         const ground_trace = ",g10:ground=511x383,g10:ground=" ++ std.fmt.comptimePrint("{d}x{d}", .{ slope_click[0], slope_click[1] });
-        const run = try runSchedule(io, allocator, game, root, mod_name, "hill", "hill.xml", "g1000:hover=1000x400,g10:camera=382x512,g10:set=GamePlay.Remastered=ON,g500:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++ ",g10:key=COMMA,g300:anchor" ++ ground_trace ++
-            ",g10:key=COMMA,g300:key=COMMA,g300:anchor" ++ ground_trace ++ ",g10:drag=40x100x1000x590,g500:rclick=" ++ std.fmt.comptimePrint("{d}x{d}", .{ slope_click[0], slope_click[1] }) ++ ",g12000:world=TraceSelection(0),g300:exit", objects_only);
+        const run = try runSchedule(io, allocator, game, root, mod_name, "hill", "hill.xml", "g1000:hover=1000x400,g10:camera=382x512,g10:set=GamePlay.Remastered=ON,g500:anchor" ++ ground_trace ++ ",g10:key=COMMA,g300:anchor" ++ ground_trace ++ ",g10:key=COMMA,g300:anchor" ++ ground_trace ++ ",g10:key=COMMA,g300:anchor" ++ ground_trace ++ ",g10:key=.,g300:anchor" ++ ground_trace ++
+            ",g10:key=.,g300:key=.,g300:anchor" ++ ground_trace ++ ",g10:drag=40x100x1000x590,g500:rclick=" ++ std.fmt.comptimePrint("{d}x{d}", .{ slope_click[0], slope_click[1] }) ++ ",g12000:world=TraceSelection(0),g300:exit", objects_only);
         const anchors = try parseAnchors(allocator, run.log);
         const grounds = try parseGrounds(allocator, run.log);
         const selections = try parseSelections(allocator, run.log);
@@ -347,10 +347,10 @@ test "picking, selection, orders, scrolling, the minimap, the pivot and draw ord
         var schedule: std.ArrayList(u8) = .empty;
         try schedule.appendSlice(allocator, "g1000:hover=1000x400,g10:camera=724x724,g10:set=GamePlay.Remastered=ON,g10:key=SPACE");
         for (0..4) |k| {
-            if (k != 0) try schedule.appendSlice(allocator, ",t10:key=.");
+            if (k != 0) try schedule.appendSlice(allocator, ",t10:key=COMMA");
             try schedule.print(allocator, ",t{d}:shot", .{1500 + k});
         }
-        try schedule.appendSlice(allocator, ",t10:key=.");
+        try schedule.appendSlice(allocator, ",t10:key=COMMA");
         for (clusters[1..], 1..) |c, j| try schedule.print(allocator, ",t10:camera={d:.0}x{d:.0},t{d}:shot", .{ (middle + c[0]) / ai_per_world, (middle + c[1]) / ai_per_world, 1600 + j });
         try schedule.appendSlice(allocator, ",t200:exit");
         const run = try runSchedule(io, allocator, game, root, mod_name, "order", "clusters.xml", schedule.items, objects_only);
@@ -407,7 +407,7 @@ fn controlSchedule(allocator: std.mem.Allocator) ![]const u8 {
         }
         // The game time those frames take passes here, not between a click and what follows it.
         try s.appendSlice(allocator, ",g500:hover=512x200");
-        if (k != 3) try s.appendSlice(allocator, ",g300:key=.");
+        if (k != 3) try s.appendSlice(allocator, ",g300:key=COMMA");
     }
     const s0 = screenAt(ringOffset(0), 3);
     const to = screenAt(order_at, 3);

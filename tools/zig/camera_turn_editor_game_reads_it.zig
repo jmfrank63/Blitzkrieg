@@ -208,7 +208,7 @@ test "the Map Editor turns buildings and a prop of four sides by the Game's rule
         for (objects, 0..) |object, o| {
             const look = worldOf(object.at);
             try schedule.print(allocator, ",g10:camera={d:.1}x{d:.1}", .{ look[0], look[1] });
-            for (0..4) |k| try schedule.print(allocator, ",g10:key=.,g{d}:shot", .{1500 + o * 10 + k});
+            for (0..4) |k| try schedule.print(allocator, ",g10:key=COMMA,g{d}:shot", .{1500 + o * 10 + k});
         }
         try schedule.appendSlice(allocator, ",g200:exit");
         // The schedule turns once before each shot: the k-th shot of an object is at step k + 1 + 4 o, so step (k + 1) mod 4.
@@ -234,7 +234,7 @@ test "the Map Editor turns buildings and a prop of four sides by the Game's rule
         try schedule.appendSlice(allocator, "g1000:hover=1000x400,g10:set=GamePlay.Remastered=OFF");
         for (objects, 0..) |object, o| {
             const look = worldOf(object.at);
-            try schedule.print(allocator, ",g10:camera={d:.1}x{d:.1},g{d}:shot,g10:key=.,g{d}:shot", .{ look[0], look[1], 1600 + o * 10, 1601 + o * 10 });
+            try schedule.print(allocator, ",g10:camera={d:.1}x{d:.1},g{d}:shot,g10:key=COMMA,g{d}:shot", .{ look[0], look[1], 1600 + o * 10, 1601 + o * 10 });
         }
         try schedule.appendSlice(allocator, ",g200:exit");
         const run = try control.runSchedule(io, allocator, game, root, mod_name, "off", "edited.xml", schedule.items, objects_only);
