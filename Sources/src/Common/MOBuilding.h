@@ -33,6 +33,8 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	int GetDrawnTurn() const;
 	void Redraw( IVisObjBuilder *pVOB, const bool bInScene );
 	void GetPassangerIconPlacement( CVec3 *pvAdd, CVec3 *pvStep );
+	CVec3 GetIconShift();
+	DWORD GetBarPlacement() const;
 	void AddEffectsAtDamagePoints( const int nDamageState, const NTimer::STime &currTime, const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene );
 	int GetStandingTurn() const;
 	CVec3 TurnPoint( const CVec3 &vPoint ) const;

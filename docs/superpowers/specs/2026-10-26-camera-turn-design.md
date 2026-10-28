@@ -1386,3 +1386,86 @@ out. The mark is drawn only at a turned step, so Remastered off and step 0 are t
 
 Tiers run: `camera-turn-ground-game-reads-it` (pass, 341 s). The Map Editor has no minimap frame; the other tiers do
 not draw it differently (UI only). Linux and macOS are left to CI.
+
+## Shadows reach their feet, bars over the middle (M006 round 4, 2026-10-28)
+
+The maintainer's hand test (macOS) on main with the world sun: "Shadows point in the right direction but have a lit
+gap which need to be filled with dark", and "the bar over the warehouse in the village also should stay over the
+middle of the warehouse".
+
+### The lit gap
+
+- **Cause.** The 2003 shadow sprites hold only the shadow the object leaves in sight at step 0: where its own picture
+  covers the ground the sprite is empty (the lime's shadow is cut by its trunk and lower crown, the hay rick's by its
+  whole lower half). Round 2 lays that sprite turned with the ground, so at steps 1 to 3 the hole lies between the
+  object's foot and its shadow as lit ground.
+- **Fix (Scene/SpriteVisObj.cpp, `NShadowFill`).** A shadow sprite drawn turned (`SetScreenTurn` with a step, so
+  flora, props, fences, bridges, terra objects and a building's fallback shadow alike) is drawn with a fill made from
+  the 2003 pictures alone, once per pack and frame: the object's pack is the shadow pack's name without its last `s`
+  (`1s` -> `1`, `1ws` -> `1w`) at the shadow's frame; both are rasterized from their `.san` squares and `_h.dds`
+  atlases (`_c`, `_l` if not) around the zero cross, and the fill is every pixel of the convex hull of the shadow's
+  pixels and the zero cross that the picture or the shadow covers. It is drawn as squares mapped onto one opaque
+  texel of the shadow's own atlas, at the shadow's place, colour and turn, in the shadow pass, whose stencil darkens a
+  pixel once: so it is exactly as dark as the shadow, and overlapping the shadow it leaves no seam (the first version
+  left the shadow's own pixels out and showed one-pixel seams where the sprite and the fill meet). Nothing is drawn at
+  step 0 (the picture covers the fill there) or with Remastered off. Decision: the hull is the completion of the
+  hidden part; a guess of the ground the object hid, it reaches back to the foot and never beyond the 2003 shadow's
+  outline and the zero cross.
+- **Tier.** `camera-turn-sun-game-reads-it` gains "a turned shadow reaches its object's foot": road3d with the lime, a
+  hay rick (`Rick`, a prop on 2 x 2 cells), a VillageFence segment and E_House09_1 drawn by its `_r<k>` turns (no
+  `_l`, so its shadow is its 2003 one turned), on the odd eighths of a ring of 480 (off road3d's road, which is drawn
+  over shadows). For each object at steps 1 to 3: the lit ground on the ray from its zero cross towards its shadow's
+  centroid before the ray meets the shadow (at most step 0's + 2), the share of the ground its picture hid at step 0
+  inside its step-0 shadow's hull that shows lit, turned to step k, pixels within a pixel of a picture left out (at
+  most 0.3), and the shadow's darkness against step 0's (within 0.05). Measured on win-home (Windows x64, debug
+  install); the unfixed Game's frames scored with the same measure:
+
+| step | lime hidden lit (unfixed) | rick hidden lit (unfixed) | fence | house hidden lit (unfixed) | rick ray gap (unfixed) |
+|---|---|---|---|---|---|
+| 1 | 22 / 170 (156 / 173) | 5 / 298 (283 / 310) | 0 / 6 | 20 / 20, 58 px of shadow, not held (21 / 21) | 1 (29) |
+| 2 | 12 / 178 (177 / 178) | 13 / 538 (524 / 538) | 0 / 4 | 70 / 386 (386 / 386) | 0 (29) |
+| 3 | 16 / 176 (156 / 176) | 3 / 447 (430 / 451) | 0 / 0 | 139 / 610 (628 / 628) | 2 (28) |
+
+  Darkness 0.497 to 0.506 against 0.497 to 0.515 at step 0 (the shadowed frame over the frame without). The lime's
+  ray meets its shadow at once at every step either way (its hole lies beside the ray, under the trunk), the fence's
+  6 pixels are its 2003 sprite's own gap at step 0 too, the house's 21 at step 0 run under its eaves. The house's
+  remaining lit share at step 3 is a band two pixels wide along the edge of its turned picture, where the turned
+  picture leaves little of that ground in sight.
+
+### The bar over the warehouse
+
+- **Cause.** A building's HP bar (and its passengers' bars) stands over its zero cross, the 2003 view's offset kept
+  on the screen at every step. A long building's zero cross lies far from the middle of its turned picture: the
+  bar of E_WB_01, Poland's warehouse, stood 103.5, -39.0 and -122.5 pixels across from the middle of its picture at
+  steps 1 to 3 (18.0 at step 0), europe's other storages' 65.5 to 98.0, 9.5 to 14.5 and -93.5 to -115.5.
+- **Fix (Common/MOBuilding.cpp, `GetIconShift`, `GetBarPlacement`).** At a turned step the bar is centred
+  (`ICON_ALIGNMENT_HCENTER`) over the middle of the picture drawn (its pack's bound box, `GetRect`), given as the
+  AI offset (d, d), which is d pixels across the screen and none up or down at every step; the passengers' bars
+  move with it; the height stays the picture's top. Set again on every redraw (each step). Decision: step 0 keeps the
+  2003 bar (over the zero cross, a little left), with Remastered on as off, so the 2003 view is unchanged; the bar
+  moves to the middle once the view turns. Units' bars already stand over their middle (their zero cross).
+- **Tier.** `camera-turn-village-game-reads-it` gains "the buildings' bars stand over their middles at every step":
+  E_WB_01, E_WB_02, E_WT_01 and E_WT_02 (the storages, whose bars show unselected) as player 1's on the village
+  ring, their turns made by `bk-views side`, 1024 x 768, objects only. Each bar is the longest run of bar green above
+  its building; its middle against the middle of the building's turned picture (the decomposed `_r<k>` placed at
+  its turned place): within 3 pixels at steps 1 to 3. Measured: -1.0 to -0.5 at every turned step for all four (step
+  0, the 2003 bar: 18.0, -35.5, -4.5, -22.5).
+
+### Tiers run (round 4)
+
+On win-home (Windows x64, debug install), one `zig build` at a time, other worktrees building alongside:
+`camera-turn-sun-game-reads-it camera-turn-village-game-reads-it camera-turn-world-game-reads-it
+camera-turn-units-game-reads-it` pass (1456 s, after the last engine change). In the round-2 sun scores the T-34 and the shed
+are unchanged; the lime's turned shadow against its step-0 shadow turned falls from 0.749, 0.991, 0.861 to 0.688,
+0.773, 0.762 (not turned 0.265, 0.225, 0.284; centroids 15.6, 7.3, 5.6 degrees): the fill darkens ground that
+step 0's sprite leaves out, which that measure counts as a difference. Remastered off: 0 pixels changed. Then `test-map-editor-engine map-editor-smoke` pass (909 s; shared `MOBuilding` and
+`SpriteVisObj`, the Map Editor's step stays 0). The building batch, the full
+sweep and Linux and macOS (CI) are left to the maintainer.
+
+### Left open (round 4)
+
+- Infantry's shadows are drawn in their animation pictures (round 2), so they get no fill.
+- The fill is a guess of the hidden ground; a building lit by the world's sun (`_r<k>_l<s>`) casts its own complete
+  shadow and needs none.
+- Selection markers and names: buildings show none over them; units' stand over their zero cross, which is their
+  middle.
