@@ -16,6 +16,8 @@
 #include "../Misc/Win32Random.h"
 #include "../Main/CameraTurn.h"
 #include "../Main/Remastered.h"
+#include "../Main/TurnTrace.h"
+#include "TurnPreload.h"
 CMOBuilding::~CMOBuilding()
 {
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
@@ -296,19 +298,23 @@ inline int GetBuildingDamageState( float fHP )
 IVisObj* UpdateVisObj( IVisObj *pVisObj, const std::string &szBaseName, const char *pszSeasonApp, 
 											 const char *pszShadowApp, IVisObjBuilder *pVOB )
 {
-	if ( pVisObj == 0 ) 
+	// A pack the turn preload found missing (NTurnPreload) is not asked for
+	// again: each ask opens the storage twice.
+	const std::string szSeasoned = szBaseName + pszSeasonApp + pszShadowApp, szPlain = szBaseName + pszShadowApp;
+	if ( pVisObj == 0 )
 	{
-		pVisObj = pVOB->BuildObject( (szBaseName + pszSeasonApp + pszShadowApp).c_str(), 0, SGVOT_SPRITE );
-		if ( pVisObj == 0 ) 
-			pVisObj = pVOB->BuildObject( (szBaseName + pszShadowApp).c_str(), 0, SGVOT_SPRITE );
+		pVisObj = NTurnPreload::Missing( szSeasoned ) ? 0 : pVOB->BuildObject( szSeasoned.c_str(), 0, SGVOT_SPRITE );
+		if ( pVisObj == 0 && !NTurnPreload::Missing( szPlain ) )
+			pVisObj = pVOB->BuildObject( szPlain.c_str(), 0, SGVOT_SPRITE );
 	}
 	else
 	{
-		if ( pVOB->ChangeObject(pVisObj, (szBaseName + pszSeasonApp + pszShadowApp).c_str(), 0, SGVOT_SPRITE) == false )
-		{
-			if ( pVOB->ChangeObject(pVisObj, (szBaseName + pszShadowApp).c_str(), 0, SGVOT_SPRITE) == false )
-				pVisObj = 0;
-		}
+		if ( !NTurnPreload::Missing( szSeasoned ) && pVOB->ChangeObject(pVisObj, szSeasoned.c_str(), 0, SGVOT_SPRITE) )
+			NTurnPreload::NoteDrawn( szSeasoned );
+		else if ( !NTurnPreload::Missing( szPlain ) && pVOB->ChangeObject(pVisObj, szPlain.c_str(), 0, SGVOT_SPRITE) )
+			NTurnPreload::NoteDrawn( szPlain );
+		else
+			pVisObj = 0;
 	}
 	return pVisObj;
 }
@@ -319,11 +325,9 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 	const int nNewState = GetBuildingDamageState( fNewHP );
 	if ( (nNewState != nOldState) || bForced )
 	{
-		const std::string szModelPath = GetModelPath();
+		const std::string szModelPath = GetModelPath( nDrawnTurn, nCameraTurn );
 		const std::string szBaseModelName = NStr::Format( "%s\\%d", szModelPath.c_str(), nNewState + 1 );
-		// Lit by the world's sun, its pictures hold the shadow cast that way;
-		// else it lays the shadow of camera step 0 turned with the ground.
-		const bool bSunLit = szModelPath != NCameraTurn::ModelPath( pDesc->szPath, nDrawnTurn );
+		const bool bSunLit = IsSunLit( szModelPath, nDrawnTurn );
 		CPtr<IVisObj> pTempVO = UpdateVisObj( pVisObj, szBaseModelName, GetSeasonApp(nSeason), "", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pVisObj );
@@ -352,17 +356,26 @@ int CMOBuilding::GetDrawnTurn() const
 // A turn the data holds no pictures of is drawn as its own side, and the log
 // says so once per variant and turn (the camera turn mod missing or not made
 // for this variant would otherwise look like a building that does not turn).
-std::string CMOBuilding::GetModelPath() const
+std::string CMOBuilding::GetModelPath( const int nTurn, const int nStep ) const
 {
-	const std::string szPath = NCameraTurn::LitModelPath( pDesc->szPath, nDrawnTurn, nCameraTurn );
-	if ( nDrawnTurn != 0 && szPath == pDesc->szPath )
+	NTurnTrace::CScope scope( "probe", true );
+	const std::string szPath = NCameraTurn::LitModelPath( pDesc->szPath, nTurn, nStep, NTurnPreload::Exists );
+	if ( nTurn != 0 && szPath == pDesc->szPath )
 	{
 		static std::set<std::string> told;
-		const std::string szTold = NStr::Format( "%s_r%d", pDesc->szPath.c_str(), nDrawnTurn );
+		const std::string szTold = NStr::Format( "%s_r%d", pDesc->szPath.c_str(), nTurn );
 		if ( told.insert( szTold ).second )
-			fprintf( stderr, "camera turn: no pictures of %s (its turn %d); drawn as its own side\n", szTold.c_str(), nDrawnTurn );
+			fprintf( stderr, "camera turn: no pictures of %s (its turn %d); drawn as its own side\n", szTold.c_str(), nTurn );
 	}
 	return szPath;
+}
+// Whether its pictures of turn nTurn at szModelPath are lit by the world's
+// sun: they hold the shadow cast that way then; else it lays the shadow of
+// camera step 0 turned with the ground.
+bool CMOBuilding::IsSunLit( const std::string &szModelPath, const int nTurn ) const
+{
+	NTurnTrace::CScope scope( "probe", true );
+	return szModelPath != NCameraTurn::ModelPath( pDesc->szPath, nTurn, NTurnPreload::Exists );
 }
 // Its shadow where no pictures lit by the world's sun (M006 round 2) hold
 // one: the sun stays in the world, so the shadow is the one its pictures of
@@ -370,7 +383,26 @@ std::string CMOBuilding::GetModelPath() const
 // (UpdateModelWithHP) - at facing 0 the 2003 shadow itself.
 std::string CMOBuilding::GetShadowPath() const
 {
-	return NCameraTurn::ModelPath( pDesc->szPath, NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, 0 ) );
+	NTurnTrace::CScope scope( "probe", true );
+	return NCameraTurn::ModelPath( pDesc->szPath, NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, 0 ), NTurnPreload::Exists );
+}
+// Brings the pictures of its damage state at camera step nStep into the
+// shared caches (NTurnPreload), each as UpdateModelWithHP and UpdateVisObj
+// load it at that step.
+void CMOBuilding::PreloadCameraTurn( const int nStep )
+{
+	const int nState = GetBuildingDamageState( fHP ) + 1;
+	const std::string szSeason = GetSeasonApp( nSeason );
+	const int nTurn = NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nStep );
+	const std::string szModelPath = GetModelPath( nTurn, nStep );
+	const std::string szBase = NStr::Format( "%s\\%d", szModelPath.c_str(), nState );
+	const std::string szBases[3] = { szBase, IsSunLit( szModelPath, nTurn ) ? szBase : NStr::Format( "%s\\%d", GetShadowPath().c_str(), nState ), szBase };
+	const char *pszApps[3] = { "", "s", "g" };
+	for ( int i = 0; i < 3; ++i )
+	{
+		if ( !NTurnPreload::Warm( szBases[i] + szSeason + pszApps[i] ) )
+			NTurnPreload::Warm( szBases[i] + pszApps[i] );
+	}
 }
 void CMOBuilding::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {

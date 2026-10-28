@@ -373,6 +373,7 @@ const common_sources = &.{
     "Sources/src/Common/MOObject.cpp",
     "Sources/src/Common/MOProjectile.cpp",
     "Sources/src/Common/MOSquad.cpp",
+    "Sources/src/Common/TurnPreload.cpp",
     "Sources/src/Common/MOUnit.cpp",
     "Sources/src/Common/MOUnitInfantry.cpp",
     "Sources/src/Common/MOUnitMechanical.cpp",

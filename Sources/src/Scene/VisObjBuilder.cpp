@@ -12,6 +12,7 @@
 #include "IconHPBar.h"
 
 #include "../Common/Icons.h"
+#include "../Main/TurnTrace.h"
 bool CVisObjBuilder::Init( ISingleton *pSingleton )
 {
 	pGFX = GetSingleton<IGFX>( pSingleton );
@@ -213,10 +214,18 @@ bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, cons
 		CSpriteVisObj *pVO = static_cast<CSpriteVisObj*>( pObj );
 
 		const std::string szName = pszTextureName == 0 ? pszModelName : pszTextureName;
-		ISpriteAnimation *pAnimation = pAM->GetSpriteAnimation( (szName + ".san").c_str() );
+		ISpriteAnimation *pAnimation = 0;
+		{
+			NTurnTrace::CScope scope( "anim", true );
+			pAnimation = pAM->GetSpriteAnimation( (szName + ".san").c_str() );
+		}
 		if ( pAnimation != 0 )
 		{
-			IGFXTexture *pTexture = pTM->GetTexture( szName.c_str() );
+			IGFXTexture *pTexture = 0;
+			{
+				NTurnTrace::CScope scope( "tex", true );
+				pTexture = pTM->GetTexture( szName.c_str() );
+			}
 			int nDirection = 0;
 			ISpriteAnimation *pOldAnim = static_cast<ISpriteAnimation*>( pVO->GetAnimation() );
 			if ( pOldAnim ) 

@@ -83,6 +83,9 @@ public:
 	// Draws the object as the camera sees it at quarter turn nTurn
 	// (NCameraTurn, Remastered only); only a building has other sides to show.
 	virtual void STDCALL SetCameraTurn( const int nTurn, interface IVisObjBuilder *pVOB ) {  }
+	// Brings the pictures it shows at camera step nStep into memory
+	// (Remastered, Common/TurnPreload.h), so a turn only switches what is drawn.
+	virtual void STDCALL PreloadCameraTurn( const int nStep ) {  }
 };
 struct SBridgeSpanObject : public IMapObj
 {

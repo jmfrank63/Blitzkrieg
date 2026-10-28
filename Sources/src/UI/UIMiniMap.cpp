@@ -12,6 +12,7 @@
 #include "../RandomMapGen/Resource_Types.h"
 #include "../Common/PauseGame.h"
 #include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
 const char CUIMiniMap::MARKERS_TYPES_FILE_NAME[] = "UI\\MiniMapMarkers";
 const char CUIMiniMap::MARKERS_TEXTURE_NAME[] = "MiniMapMarkersTexture";
 const char CUIMiniMap::MARKERS_TYPES_NAME[] = "MiniMapMarkers";
@@ -178,21 +179,28 @@ void CUIMiniMap::SetBackgroundImage( const char *pszStreamName )
 // 90% of its local contrast from the 512x512 Ultra image.
 void CUIMiniMap::CreateSharpBackground()
 {
-	pSharpBackground = 0;
+	for ( int i = 0; i < 4; ++i )
+		sharpBackgrounds[i] = 0;
+	pSharpBackground = MakeSharpBackground();
+	sharpBackgrounds[nTurn & 3] = pSharpBackground;
+}
+// The picture of the frame at the step nTurn.
+CPtr<IGFXTexture> CUIMiniMap::MakeSharpBackground()
+{
 	if ( !IsInitialized() || !pBackgroundImage )
-		return;
+		return 0;
 	const int nFrameWidth = static_cast<int>( wndRect.right - wndRect.left );
 	const int nFrameHeight = static_cast<int>( wndRect.bottom - wndRect.top );
 	const int nImageWidth = pBackgroundImage->GetSizeX();
 	const int nImageHeight = pBackgroundImage->GetSizeY();
 	if ( nFrameWidth <= 0 || nFrameHeight <= 0 || nImageWidth <= 0 || nImageHeight <= 0 )
-		return;
+		return 0;
 	IGFX *_pGFX = GetSingleton<IGFX>();
 	if ( !_pGFX )
-		return;
+		return 0;
 	CPtr<IGFXTexture> pTexture = _pGFX->CreateTexture( GetNextPow2( nFrameWidth ), GetNextPow2( nFrameHeight ), 1, GFXPF_ARGB8888, GFXD_STATIC );
 	if ( !pTexture )
-		return;
+		return 0;
 	nSize = FittedMiniMapSize();
 
 	const int SUBSAMPLES = 6;
@@ -240,7 +248,7 @@ void CUIMiniMap::CreateSharpBackground()
 	{
 		CTextureLock<SGFXColor8888> textureLock( pTexture, 0 );
 		if ( textureLock.GetSizeY() <= 0 )
-			return;
+			return 0;
 		const int nFull = SUBSAMPLES * SUBSAMPLES;
 		for ( int nY = 0; nY < textureLock.GetSizeY(); ++nY )
 		{
@@ -270,10 +278,10 @@ void CUIMiniMap::CreateSharpBackground()
 			}
 		}
 	}
-	pSharpBackground = pTexture;
 	if ( getenv( "BK_UI_TRACE" ) )
 		fprintf( stderr, "BK_UI_TRACE: minimap resampled \"%s\" %dx%d onto %dx%d\n",
 			szBackgroundImageName.c_str(), nImageWidth, nImageHeight, nFrameWidth, nFrameHeight );
+	return pTexture;
 }
 
 int CUIMiniMap::operator&( IDataTree &ss )
@@ -1386,8 +1394,26 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		if ( nTurn != NCameraTurn::Step() )
 		{
 			nTurn = NCameraTurn::Step();
-			CreateSharpBackground();
+			NTurnTrace::CScope scope( "minimap" );
+			if ( sharpBackgrounds[nTurn] == 0 )
+				sharpBackgrounds[nTurn] = MakeSharpBackground();
+			pSharpBackground = sharpBackgrounds[nTurn];
 			isInstantObjectsNeedUpdate = true;
+		}
+		else if ( NCameraTurn::Allowed() && pSharpBackground != 0 )
+		{
+			// The steps not seen yet, one a frame, so that the first turn to each
+			// is as quick as the next.
+			for ( int i = 0; i < 4; ++i )
+			{
+				if ( sharpBackgrounds[i] != 0 )
+					continue;
+				NTurnTrace::CScope scope( "minimap" );
+				nTurn = i;
+				sharpBackgrounds[i] = MakeSharpBackground();
+				nTurn = NCameraTurn::Step();
+				break;
+			}
 		}
 
 		std::vector<CTPoint<float> > vPoints;

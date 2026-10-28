@@ -51,5 +51,6 @@ public:
 	virtual void STDCALL AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB );
 	virtual void STDCALL Visit( IMapObjVisitor *pVisitor );
 	virtual void STDCALL SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB );
+	virtual void STDCALL PreloadCameraTurn( const int nStep );
 };
 #endif // __MOOBJECT_H__

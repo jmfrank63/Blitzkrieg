@@ -11,6 +11,8 @@
 #include "../Main/ScenarioTracker.h"
 #include "../UI/UI.h"
 #include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
+#include "TurnPreload.h"
 #include "../AILogic/aiconsts.h"
 int CMOObject::nLastMarkerID = 0;
 bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int nSeason, int nFrameIndex, 
@@ -150,6 +152,18 @@ static CVec2 FenceFootprintMiddle( const SFenceRPGStats *pStats, const int nFram
 	}
 	return VNULL2;
 }
+// Whether bk-views drew the prop's turns (`<folder>_r<k>`), and whether a
+// stream is in the data: asked once a mission (NTurnPreload).
+static bool HasTurns( const std::string &szPath, const int nTurn )
+{
+	NTurnTrace::CScope scope( "probe", true );
+	return NCameraTurn::ModelPath( szPath, nTurn, NTurnPreload::Exists ) != szPath;
+}
+static bool StreamExists( const std::string &szName )
+{
+	NTurnTrace::CScope scope( "probe", true );
+	return NTurnPreload::Exists( szName );
+}
 // Moves its picture to stand vShift (world units) from its place, the shift
 // before taken off; an object not in the scene yet is only placed. Its shadow
 // stays at its place (ApplyCameraTurn).
@@ -220,7 +234,7 @@ void CMOObject::ApplyCameraTurn()
 				if ( pShadow )
 					pShadow->Update( currTime, true );
 			}
-			else if ( nCameraTurn != 0 && NCameraTurn::ModelPath( pDesc->szPath, nCameraTurn ) != pDesc->szPath )
+			else if ( nCameraTurn != 0 && HasTurns( pDesc->szPath, nCameraTurn ) )
 			{
 				// A prop whose turns bk-views drew (`<folder>_r<k>`, the training
 				// camp's sand pile): its shape turned, never its picture mirrored
@@ -229,7 +243,7 @@ void CMOObject::ApplyCameraTurn()
 				if ( nCameraTurn == nShownTurn && nCameraTurn == nShownLight )
 					break;
 				nShownTurn = nCameraTurn;
-				ShowPicture( NCameraTurn::LitModelPath( pDesc->szPath, nCameraTurn, nCameraTurn ) );
+				ShowPicture( NCameraTurn::LitModelPath( pDesc->szPath, nCameraTurn, nCameraTurn, NTurnPreload::Exists ) );
 				pVisObj->Update( GetSingleton<IGameTimer>()->GetGameTime(), true );
 			}
 			else
@@ -295,13 +309,47 @@ void CMOObject::ShowPicture( const std::string &szFolder )
 	const std::string szPacks[2] = { szFolder + ( nSeason == 1 ? "\\1w" : "\\1" ), szFolder + "\\1" };
 	for ( int i = 0; i < 2; ++i )
 	{
-		if ( nCameraTurn != 0 && GetSingleton<IDataStorage>()->IsStreamExist( ( szPacks[i] + szLit + ".san" ).c_str() ) &&
+		if ( nCameraTurn != 0 && StreamExists( szPacks[i] + szLit + ".san" ) &&
 				 pVOB->ChangeObject( pVisObj, ( szPacks[i] + szLit ).c_str(), 0, SGVOT_SPRITE ) )
+		{
+			NTurnPreload::NoteDrawn( szPacks[i] + szLit );
 			break;
+		}
 		if ( pVOB->ChangeObject( pVisObj, szPacks[i].c_str(), 0, SGVOT_SPRITE ) )
+		{
+			NTurnPreload::NoteDrawn( szPacks[i] );
 			break;
+		}
 	}
 	nShownLight = nCameraTurn;
+}
+// The packs ShowPicture takes for szFolder at camera step nStep.
+static void PreloadPicture( const std::string &szFolder, const int nSeason, const int nStep )
+{
+	const std::string szPacks[2] = { szFolder + ( nSeason == 1 ? "\\1w" : "\\1" ), szFolder + "\\1" };
+	for ( int i = 0; i < 2; ++i )
+	{
+		if ( nStep != 0 && StreamExists( szPacks[i] + NStr::Format( "_l%d", nStep ) + ".san" ) &&
+				 NTurnPreload::Warm( szPacks[i] + NStr::Format( "_l%d", nStep ) ) )
+			break;
+		if ( NTurnPreload::Warm( szPacks[i] ) )
+			break;
+	}
+}
+// Brings the picture a flora or prop shows at camera step nStep into the
+// shared caches (NTurnPreload), as ApplyCameraTurn picks it. Terra objects
+// and fences show their own packs at every step, and step 0 is the picture
+// it was made with.
+void CMOObject::PreloadCameraTurn( const int nStep )
+{
+	if ( pDesc->eGameType != SGVOGT_OBJECT || pRPG == 0 || nStep == 0 )
+		return;
+	if ( NCameraTurn::IsFourSided( pDesc->szPath ) )
+		PreloadPicture( NCameraTurn::FourSidedPath( pDesc->szPath, NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nStep ) ), nSeason, nStep );
+	else if ( HasTurns( pDesc->szPath, nStep ) )
+		PreloadPicture( NCameraTurn::LitModelPath( pDesc->szPath, nStep, nStep, NTurnPreload::Exists ), nSeason, nStep );
+	else
+		PreloadPicture( pDesc->szPath, nSeason, nStep );
 }
 void CMOObject::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {

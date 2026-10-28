@@ -15,6 +15,7 @@
 #include "../UI/UIMessages.h"
 #include <typeinfo>
 #include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
 int CComplexObjects::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -675,6 +676,7 @@ void CWorldBase::AIUpdateWarFog( const NTimer::STime &currTime )
 	if ( (currTime >= warFogLastTime + 1000) || (vLastAnchor != pCamera->GetAnchor()) || nWarFogTurn != NCameraTurn::Step() )
 	{
 		nWarFogTurn = NCameraTurn::Step();
+		NTurnTrace::CScope scope( "fog" );
 		AIUpdateWarFogLocal();
 		warFogLastTime = currTime;
 		vLastAnchor = pCamera->GetAnchor();

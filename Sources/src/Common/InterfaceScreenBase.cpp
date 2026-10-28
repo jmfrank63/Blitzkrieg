@@ -9,6 +9,15 @@
 #include "../GameTT/CommonId.h"
 #include "../Main/ScenarioTracker.h"
 #include "../GameTT/iMission.h"
+#include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
+#if defined( _WIN32 )
+#include <psapi.h>
+#elif defined( __APPLE__ )
+#include <mach/mach.h>
+#else
+#include <unistd.h>
+#endif
 BASIC_REGISTER_CLASS( CInterfaceScreenBase );
 CInterfaceScreenBase::CInterfaceScreenBase( const std::string &_szInterfaceType )
 : szInterfaceType( _szInterfaceType ), bInterfaceClosed( false )
@@ -195,6 +204,67 @@ int CInterfaceScreenBase::FinishInterface( IInterfaceCommand *pCmdNextInterface 
 		return 0;
 	}
 }
+// The process's resident memory in MB, for BK_TURN_TRACE.
+static double ResidentMB()
+{
+#if defined( _WIN32 )
+	PROCESS_MEMORY_COUNTERS counters;
+	if ( K32GetProcessMemoryInfo( GetCurrentProcess(), &counters, sizeof( counters ) ) )
+		return counters.WorkingSetSize / double( 1 << 20 );
+#elif defined( __APPLE__ )
+	mach_task_basic_info_data_t info;
+	mach_msg_type_number_t nCount = MACH_TASK_BASIC_INFO_COUNT;
+	if ( task_info( mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &nCount ) == KERN_SUCCESS )
+		return info.resident_size / double( 1 << 20 );
+#else
+	long nPages = 0, nResident = 0;
+	if ( FILE *pFile = fopen( "/proc/self/statm", "r" ) )
+	{
+		if ( fscanf( pFile, "%ld %ld", &nPages, &nResident ) != 2 )
+			nResident = 0;
+		fclose( pFile );
+		return nResident * double( sysconf( _SC_PAGESIZE ) ) / double( 1 << 20 );
+	}
+#endif
+	return 0;
+}
+// BK_TURN_TRACE (Main/TurnTrace.h): the frame the camera step changed on and
+// the two after it, each with its phases, in one line a frame; then every
+// phase back to 0 for the next frame.
+static void TraceTurnFrame( const LARGE_INTEGER &start )
+{
+	LARGE_INTEGER end, freq;
+	QueryPerformanceCounter( &end );
+	QueryPerformanceFrequency( &freq );
+	static int nTracedStep = -1;
+	static int nFrame = 3;
+	const int nStep = NCameraTurn::Step();
+	if ( nTracedStep >= 0 && nStep != nTracedStep )
+		nFrame = 0;
+	nTracedStep = nStep;
+	// The first frames of a mission (NewMission sets the var) as well, where the
+	// world's objects are made.
+	static int nLoadFrame = 5;
+	if ( GetGlobalVar( "Perf.Turn.Loaded", 0 ) != 0 )
+	{
+		RemoveGlobalVar( "Perf.Turn.Loaded" );
+		nLoadFrame = 0;
+	}
+	if ( nFrame < 3 || nLoadFrame < 5 )
+	{
+		const bool bLoad = nFrame >= 3;
+		std::string szLine = NStr::Format( "BK_TURN_TRACE: %s %d frame %d total %.2f", bLoad ? "load" : "step", bLoad ? 0 : nStep,
+		                                   bLoad ? nLoadFrame++ : nFrame, ( end.QuadPart - start.QuadPart ) * 1000.0 / double( freq.QuadPart ) );
+		for ( int i = 0; i < int( sizeof( NTurnTrace::pszPhases ) / sizeof( NTurnTrace::pszPhases[0] ) ); ++i )
+			szLine += NStr::Format( " %s %.2f", NTurnTrace::pszPhases[i], GetGlobalVar( NTurnTrace::VarName( NTurnTrace::pszPhases[i] ).c_str(), 0.0f ) );
+		fprintf( stderr, "%s resident %.0f textures %.0f\n", szLine.c_str(), ResidentMB(), GetGlobalVar( "Perf.Turn.TexturesMB", 0.0f ) );
+		fflush( stderr );
+		if ( !bLoad )
+			++nFrame;
+	}
+	for ( int i = 0; i < int( sizeof( NTurnTrace::pszPhases ) / sizeof( NTurnTrace::pszPhases[0] ) ); ++i )
+		SetGlobalVar( NTurnTrace::VarName( NTurnTrace::pszPhases[i] ).c_str(), 0.0f );
+}
 void CInterfaceScreenBase::Step( bool bAppActive )
 {
 	// BK_PERF: the total column is taken from here rather than from BeginScene,
@@ -202,7 +272,7 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	// the resolution/option checks below, the camera update and StepLocal.
 	static const bool bPerf = getenv( "BK_PERF" ) != 0;
 	LARGE_INTEGER pfStep;
-	if ( bPerf ) QueryPerformanceCounter( &pfStep );
+	if ( bPerf || NTurnTrace::On() ) QueryPerformanceCounter( &pfStep );
 	// The OS moved the window to another display (drag, arrangement change,
 	// unplug) - GameMain's event pump has already pointed GFX.Monitor.Index at
 	// it. In fullscreen the mode must follow so the picture covers the display
@@ -306,13 +376,18 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 	pInput->PumpPlatform();
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
 	if ( bPerf ) QueryPerformanceCounter( &pf1 );
-  pScene->Draw( pCamera );
+	{
+		NTurnTrace::CScope scope( "draw" );
+		pScene->Draw( pCamera );
+	}
 	if ( bPerf ) QueryPerformanceCounter( &pf2 );
 	DrawAdd();
 	AddStatistics();
 	pGFX->EndScene();
 	if ( bPerf ) QueryPerformanceCounter( &pf3 );
 	pGFX->Flip();
+	if ( NTurnTrace::On() )
+		TraceTurnFrame( pfStep );
 	if ( bPerf )
 	{
 		QueryPerformanceCounter( &pf4 );
