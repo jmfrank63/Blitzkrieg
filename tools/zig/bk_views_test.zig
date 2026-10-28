@@ -644,6 +644,45 @@ test "a building's own walls set its light where they are seen and lie in the 20
     const cream = views.wallLight(plaster);
     for (1..3) |c| try std.testing.expectApproxEqAbs(cream[0] * views.wall_light_rgb[c] / views.wall_light_rgb[0], cream[c], 1e-9);
 }
+test "a turn lit by the sun fixed in the world keeps each face lit as the 2003 light lights it" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A flat box painted as the 2003 light lights it: one grey, times its shading.
+    const blocks = [_]views.Block{.{ .lo = .{ 0, 0 }, .hi = .{ 3 * views.tile_size, 2 * views.tile_size }, .wall = 30, .ridge = 30 }};
+    const eye: views.Eye = .{ .anchor = .{ 130, 150 } };
+    const picture = try blocksPicture(arena, eye, &blocks);
+    for (picture.pixels, 0..) |*p, i| {
+        const hit = views.castPixel(&blocks, eye, @as(f64, @floatFromInt(i % picture.width)) + 0.5, @as(f64, @floatFromInt(i / picture.width)) + 0.5) orelse continue;
+        const s = views.shading(hit.normal, 0, views.wall_light_rgb);
+        p.* = .{ @intFromFloat(@round(40 * s[0])), @intFromFloat(@round(40 * s[1])), @intFromFloat(@round(40 * s[2])), 255 };
+    }
+    const projectors = [_]views.Projector{.{ .eye = eye, .picture = picture }};
+    const size = [2]u32{ picture.width, picture.height };
+    // The half turn shows the +y and -x walls. Lit by the 2003 light fixed
+    // to the camera (light 2) the +y wall is lit as the 2003 picture's lit
+    // -y wall; lit by the world's sun as camera step 2 shows a building of
+    // facing 0 (light 0) it is the back, in the shade, and -x takes the
+    // sun's side light.
+    const back: views.Eye = .{ .anchor = .{ 130, 150 }, .turn = 2 };
+    // Green of the +y and the -x wall, per light.
+    var sums = [2][2]f64{ .{ 0, 0 }, .{ 0, 0 } };
+    for ([_]u2{ 2, 0 }, &sums) |light, *sum| {
+        const drawn = try views.projectPicture(arena, &blocks, blocks.len, null, views.wall_light_rgb, back, light, size, &projectors);
+        for (drawn.image.pixels, drawn.kinds, 0..) |p, kind, i| {
+            if (kind == .empty or kind == .filled) continue;
+            const hit = views.castPixel(&blocks, back, @as(f64, @floatFromInt(i % size[0])) + 0.5, @as(f64, @floatFromInt(i / size[0])) + 0.5).?;
+            // Each pixel is the grey lit as its face is under that light.
+            const s = views.shading(hit.normal, light, views.wall_light_rgb);
+            for (0..3) |c| try std.testing.expectApproxEqAbs(40 * s[c], @as(f64, @floatFromInt(p[c])), 1.5);
+            if (hit.normal[1] > 0.5) sum[0] += @floatFromInt(p[1]);
+            if (hit.normal[0] < -0.5) sum[1] += @floatFromInt(p[1]);
+        }
+    }
+    try std.testing.expect(sums[0][0] > 1.5 * sums[1][0]);
+    try std.testing.expect(sums[1][1] > sums[0][1]);
+}
+
 test "a back roof copied from the front leaves the front's chimney out, and a copy that keeps it fails the gate" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
@@ -660,9 +699,9 @@ test "a back roof copied from the front leaves the front's chimney out, and a co
     const projectors = [_]views.Projector{.{ .eye = eye, .picture = picture }};
     // Told which block is a part, the back roof plane borrows nothing
     // near it; told none, it copies the chimney's foot and fails.
-    const drawn = try views.projectPicture(arena, &blocks, 1, null, views.wall_light_rgb, back, size, &projectors);
+    const drawn = try views.projectPicture(arena, &blocks, 1, null, views.wall_light_rgb, back, back.turn, size, &projectors);
     try std.testing.expectEqual(@as(f64, 0), views.copiedParts(&blocks, 1, back, drawn));
-    const copied = try views.projectPicture(arena, &blocks, blocks.len, null, views.wall_light_rgb, back, size, &projectors);
+    const copied = try views.projectPicture(arena, &blocks, blocks.len, null, views.wall_light_rgb, back, back.turn, size, &projectors);
     try std.testing.expect(views.copiedParts(&blocks, 1, back, copied) > 40);
     // The back roof is still drawn, from the rest of the front one.
     var mirrored: usize = 0;

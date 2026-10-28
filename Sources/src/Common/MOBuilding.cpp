@@ -319,15 +319,21 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 	const int nNewState = GetBuildingDamageState( fNewHP );
 	if ( (nNewState != nOldState) || bForced )
 	{
-		const std::string szBaseModelName = NStr::Format( "%s\\%d", GetModelPath().c_str(), nNewState + 1 );
+		const std::string szModelPath = GetModelPath();
+		const std::string szBaseModelName = NStr::Format( "%s\\%d", szModelPath.c_str(), nNewState + 1 );
+		// Lit by the world's sun, its pictures hold the shadow cast that way;
+		// else it lays the shadow of camera step 0 turned with the ground.
+		const bool bSunLit = szModelPath != NCameraTurn::ModelPath( pDesc->szPath, nDrawnTurn );
 		CPtr<IVisObj> pTempVO = UpdateVisObj( pVisObj, szBaseModelName, GetSeasonApp(nSeason), "", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pVisObj );
 		pVisObj = pTempVO;
-		pTempVO = UpdateVisObj( pShadow, szBaseModelName, GetSeasonApp(nSeason), "s", pVOB );
+		pTempVO = UpdateVisObj( pShadow, bSunLit ? szBaseModelName : NStr::Format( "%s\\%d", GetShadowPath().c_str(), nNewState + 1 ), GetSeasonApp(nSeason), "s", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pShadow );
 		pShadow = pTempVO;
+		if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
+			pShadowSprite->SetScreenTurn( bSunLit ? 0 : nCameraTurn, false );
 		pTempVO = UpdateVisObj( pGarbage, szBaseModelName, GetSeasonApp(nSeason), "g", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pGarbage );
@@ -348,7 +354,7 @@ int CMOBuilding::GetDrawnTurn() const
 // for this variant would otherwise look like a building that does not turn).
 std::string CMOBuilding::GetModelPath() const
 {
-	const std::string szPath = NCameraTurn::ModelPath( pDesc->szPath, nDrawnTurn );
+	const std::string szPath = NCameraTurn::LitModelPath( pDesc->szPath, nDrawnTurn, nCameraTurn );
 	if ( nDrawnTurn != 0 && szPath == pDesc->szPath )
 	{
 		static std::set<std::string> told;
@@ -357,6 +363,14 @@ std::string CMOBuilding::GetModelPath() const
 			fprintf( stderr, "camera turn: no pictures of %s (its turn %d); drawn as its own side\n", szTold.c_str(), nDrawnTurn );
 	}
 	return szPath;
+}
+// Its shadow where no pictures lit by the world's sun (M006 round 2) hold
+// one: the sun stays in the world, so the shadow is the one its pictures of
+// camera step 0 cast, laid on the ground turned with it by the step
+// (UpdateModelWithHP) - at facing 0 the 2003 shadow itself.
+std::string CMOBuilding::GetShadowPath() const
+{
+	return NCameraTurn::ModelPath( pDesc->szPath, NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, 0 ) );
 }
 void CMOBuilding::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {

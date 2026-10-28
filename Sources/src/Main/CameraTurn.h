@@ -179,6 +179,21 @@ namespace NCameraTurn
 		}
 		return szVariant;
 	}
+	// The folder of a variant's turn k as camera step s shows it under the sun
+	// fixed in the world (M006 round 2): `<variant>_r<k>_l<s>` where the data
+	// holds it (bk-views side `<k>l<s>`: the building lit as its facing k - s
+	// stands in the world), else ModelPath's, lit by the 2003 light fixed to
+	// the camera. At step 0 the two are one.
+	inline std::string LitModelPath( const std::string &szVariant, const int nTurn, const int nStep )
+	{
+		if ( nStep != 0 )
+		{
+			const std::string szLit = NStr::Format( "%s_r%d_l%d", szVariant.c_str(), nTurn, nStep );
+			if ( GetSingleton<IDataStorage>()->IsStreamExist( (szLit + "\\1.san").c_str() ) )
+				return szLit;
+		}
+		return ModelPath( szVariant, nTurn );
+	}
 	// The quarter turns a map object stands turned by, its footprint, entrances
 	// and fire slots with its picture (AI and Map Editor alike): its facing
 	// where facings count and its picture turns with it - a building whose

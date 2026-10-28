@@ -2368,8 +2368,11 @@ pub fn copiedParts(blocks: []const Block, body: usize, eye: Eye, drawn: Generate
 /// wins. `blocks[body..]` are the low and roof parts: a face of the body
 /// borrows no point near one (`nearPart`), so a house's back does not repeat
 /// the chimney, dormers and door steps of its front. Pixels none sees either
-/// way are left for `patchFill`.
-pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, means: ?Means, wall: [3]f64, target: Eye, size: [2]u32, projectors: []const Projector) !Generated {
+/// way are left for `patchFill`. `light`: the turn the light is lit by
+/// (`lightFor`): the target's own turn for the 2003 light, fixed to the
+/// camera; the building's facing for the sun fixed in the world, whose
+/// picture of turn k at camera step s is lit by turn k - s (M006 round 2).
+pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, means: ?Means, wall: [3]f64, target: Eye, light: u2, size: [2]u32, projectors: []const Projector) !Generated {
     const count = @as(usize, size[0]) * size[1];
     const uvs = try gpa.alloc([2]f64, count);
     const sources = try gpa.alloc([3]f64, count);
@@ -2392,7 +2395,7 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize
         const hit = castPixel(blocks, target, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5) orelse continue;
         const t = hit.t - far_away;
         const p = [3]f64{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], r[0][2] + t * r[1][2] };
-        const class = shadeClass(hit.normal, target.turn);
+        const class = shadeClass(hit.normal, light);
         out.classes[i] = @intCast(class);
         out.kinds[i] = .filled;
         var best_score: f64 = -std.math.inf(f64);
@@ -2421,7 +2424,7 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize
                 best_score = score;
                 if (means) |m| {
                     for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * m.gain(class, from, ch))));
-                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn, wall), shading(nq, projector.eye.turn, wall));
+                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, light, wall), shading(nq, projector.eye.turn, wall));
                 out.image.pixels[i][3] = 255;
                 out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
                 uvs[i] = uv;
@@ -2721,7 +2724,9 @@ pub fn groundPoint(eye: Eye, x: f64, y: f64) [3]f64 {
     return .{ r[0][0] + t * r[1][0], r[0][1] + t * r[1][1], 0 };
 }
 
-const Turned = struct { turn: u2, eye: Eye, size: [2]u32, name: []const u8 };
+/// A turn to draw. `light`: the turn the light is lit by (`projectPicture`),
+/// `turn` itself for the 2003 light fixed to the camera.
+const Turned = struct { turn: u2, light: u2, eye: Eye, size: [2]u32, name: []const u8 };
 
 /// The 2003 light, towards it in the camera's frame. Fitted to the 2003
 /// shadow pictures of e_ctownhouse01, a_h07, e_house01, e_house11 and
@@ -2917,13 +2922,13 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
     };
 }
 
-/// Each turn's canvas: it holds every state's blocks, their shadows and the
-/// 2003 ground pictures.
-fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
+/// Each turn's canvas: it holds every state's blocks, their shadows under
+/// the light of turn `light` and the 2003 ground pictures.
+fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
     var eye: Eye = .{ .anchor = .{ 0, 0 }, .turn = k };
     var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
     var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
-    const l = lightFor(light_2003, k);
+    const l = lightFor(light_2003, light);
     for (scene.shapes) |shape| for (shape) |b| for (0..8) |c| {
         const p = [3]f64{ if (c & 1 != 0) b.hi[0] else b.lo[0], if (c & 2 != 0) b.hi[1] else b.lo[1], if (c & 4 != 0) @max(b.wall, b.ridge) else 0 };
         for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
@@ -2947,10 +2952,23 @@ fn turnTarget(scene: Scene, k: u2, name: []const u8) Turned {
     eye.anchor = .{ 2 - @floor(lo[0]), 2 - @floor(lo[1]) };
     return .{
         .turn = k,
+        .light = light,
         .eye = eye,
         .size = .{ @intFromFloat(@ceil(hi[0]) - @floor(lo[0]) + 4), @intFromFloat(@ceil(hi[1]) - @floor(lo[1]) + 4) },
         .name = name,
     };
+}
+
+/// The shadow the blocks cast on the ground under the light of turn `light`
+/// (`projectPicture`), as `eye` sees it on a canvas of `size`.
+fn castShadow(gpa: std.mem.Allocator, blocks: []const Block, eye: Eye, size: [2]u32, light: u2) !Image {
+    const shadow: Image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, @as(usize, size[0]) * size[1]) };
+    const l = lightFor(light_2003, light);
+    for (0..shadow.height) |y| for (0..shadow.width) |x| {
+        const g = groundPoint(eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
+        shadow.pixels[y * shadow.width + x] = if (castRay(blocks, g, l) != null) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
+    };
+    return shadow;
 }
 
 /// One damage state of a target: the sprite with the source of each pixel,
@@ -2994,14 +3012,9 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
         // wins the tie, so e_house01_3 keeps its shingles and does not take
         // e_house01_1's thatch, a colourway apart by 0.03 (M006 S07e).
         std.mem.swap(Projector, &projectors[0], &projectors[scene.fixed]);
-        const sprite = try projectPicture(arena, blocks, if (state[0] == '1') body else blocks.len, if (state[0] == '1') null else means, wallLight(means), target.eye, target.size, projectors);
+        const sprite = try projectPicture(arena, blocks, if (state[0] == '1') body else blocks.len, if (state[0] == '1') null else means, wallLight(means), target.eye, target.light, target.size, projectors);
         try patchFill(arena, sprite);
-        const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, sprite.kinds.len) };
-        const l = lightFor(light_2003, target.turn);
-        for (0..shadow.height) |y| for (0..shadow.width) |x| {
-            const g = groundPoint(target.eye, @as(f64, @floatFromInt(x)) + 0.5, @as(f64, @floatFromInt(y)) + 0.5);
-            shadow.pixels[y * shadow.width + x] = if (castRay(blocks, g, l) != null) .{ 0, 0, 0, 255 } else .{ 0, 0, 0, 0 };
-        };
+        const shadow = try castShadow(arena, blocks, target.eye, target.size, target.light);
         keepShadow(sprite.image, shadow);
         const has_ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state})) != null;
         d.* = .{
@@ -3115,7 +3128,9 @@ fn turnLowParts(gpa: std.mem.Allocator, scene: Scene, picture: Image, eye: Eye) 
 /// gain from the shading class each pixel's face shows in the 2003 picture
 /// to the class the mirrored face shows (`by`, the blocks' drawing of the
 /// turn), pooled over the sprite: a lit board turned to the shade darkens.
-fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirror: bool, by: []const Drawn) !struct { target: Turned, drawn: []Drawn } {
+/// Under the sun fixed in the world (`light` other than k) each pixel is
+/// relit instead (`sunLit`), but for a heap's.
+fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, light: u2, name: []const u8, mirror: bool, by: []const Drawn) !struct { target: Turned, drawn: []Drawn } {
     const arena = ctx.arena;
     const own = scene.sources[scene.fixed];
     const c = boxCentre(own.footprint);
@@ -3131,6 +3146,7 @@ fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirr
     const width: u32 = @intCast(if (mirror) @max(w - 1, 2 * ax) - lo + 1 else w);
     const target: Turned = .{
         .turn = k,
+        .light = light,
         .eye = .{ .anchor = .{ @as(f64, @floatFromInt(ax - lo)) + @round(from[0] - to[0]), @as(f64, @floatFromInt(own.anchor[1])) + @round(from[1] - to[1]) }, .turn = k },
         .size = .{ width, first.height },
         .name = name,
@@ -3152,7 +3168,9 @@ fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirr
     const drawn = try arena.alloc(Drawn, scene.states.len);
     for (scene.states, drawn, by) |state, *d, blocks_drawn| {
         var picture = pictureOf(own, state).?;
-        if (mirror and !scene.prop) {
+        if (light != k and !scene.prop) {
+            picture = try sunLit(arena, picture, scene.eyes[scene.fixed], blocks_drawn, mirror, k, light);
+        } else if (mirror and !scene.prop) {
             // One factor a channel over the sprite, so that a curved tank
             // drawn as a few block faces does not take their seams. A heap
             // is not relit: its boxes stand for crates and earth alike from
@@ -3177,7 +3195,10 @@ fn sameSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, mirr
             picture = relit;
         }
         const sprite = try asGenerated(arena, try place(arena, picture, target.size, lo, flip));
-        const shadow = try place(arena, pictureOf(own, try std.fmt.allocPrint(arena, "{s}s", .{state})), target.size, lo, null);
+        // Under the sun fixed in the world the blocks cast the shadow: the
+        // 2003 one falls from the camera's light.
+        const own_shadow = pictureOf(own, try std.fmt.allocPrint(arena, "{s}s", .{state}));
+        const shadow = if (light != k and own_shadow != null) try castShadow(arena, blocks_drawn.blocks, target.eye, target.size, light) else try place(arena, own_shadow, target.size, lo, null);
         keepShadow(sprite.image, shadow);
         const ground = pictureOf(own, try std.fmt.allocPrint(arena, "{s}g", .{state}));
         d.* = .{ .state = state, .blocks = &.{}, .sprite = sprite, .shadow = shadow, .ground = if (ground) |g| try asGenerated(arena, try place(arena, g, target.size, lo, flip)) else null, .covers = &.{} };
@@ -3204,29 +3225,63 @@ fn siblingFor(scene: Scene, k: u2) ?usize {
 /// with the zero cross moved to where the variant's turned zero cross falls
 /// in them: the sibling's eye sees a point q of the turned frame at
 /// q + shift, so the turn's zero cross is the sibling's plus the shift's
-/// projection, rounded to a whole pixel.
-fn siblingSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, name: []const u8, e: usize) !struct { target: Turned, drawn: []Drawn } {
+/// projection, rounded to a whole pixel. Under the sun fixed in the world
+/// (`light` other than k) each pixel is relit (`sunLit`, `by`: the blocks'
+/// drawing of the turn), so the sibling's own detail is kept.
+fn siblingSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, light: u2, name: []const u8, e: usize, by: []const Drawn) !struct { target: Turned, drawn: []Drawn } {
     const arena = ctx.arena;
     const sibling = scene.sources[e];
     const shift = mfc_camera.project(.{ scene.eyes[e].shift[0], scene.eyes[e].shift[1], 0 });
     const first = pictureOf(sibling, "1").?;
     const target: Turned = .{
         .turn = k,
+        .light = light,
         .eye = .{ .anchor = .{ @as(f64, @floatFromInt(sibling.anchor[0])) + @round(shift[0]), @as(f64, @floatFromInt(sibling.anchor[1])) + @round(shift[1]) }, .turn = k },
         .size = .{ first.width, first.height },
         .name = name,
     };
     const drawn = try arena.alloc(Drawn, scene.states.len);
-    for (scene.states, drawn) |state, *d| {
-        const sprite = try asGenerated(arena, pictureOf(sibling, state).?);
+    for (scene.states, drawn, 0..) |state, *d, i| {
+        const picture = pictureOf(sibling, state).?;
+        const sprite = try asGenerated(arena, if (light != k) try sunLit(arena, picture, scene.eyes[e], by[i], false, k, light) else picture);
         // A copy: keepShadow may mark a pixel, and the sibling's pictures are shared.
         const shadow: Image = .{ .width = first.width, .height = first.height, .pixels = try arena.alloc([4]u8, @as(usize, first.width) * first.height) };
-        if (pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}s", .{state}))) |s| @memcpy(shadow.pixels, s.pixels) else @memset(shadow.pixels, .{ 0, 0, 0, 0 });
+        if (pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}s", .{state}))) |s| {
+            if (light != k) @memcpy(shadow.pixels, (try castShadow(arena, by[i].blocks, target.eye, target.size, light)).pixels) else @memcpy(shadow.pixels, s.pixels);
+        } else @memset(shadow.pixels, .{ 0, 0, 0, 0 });
         keepShadow(sprite.image, shadow);
         const ground = pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}g", .{state}));
         d.* = .{ .state = state, .blocks = &.{}, .sprite = sprite, .shadow = shadow, .ground = if (ground) |g| try asGenerated(arena, g) else null, .covers = &.{} };
     }
     return .{ .target = target, .drawn = drawn };
+}
+
+/// A 2003 picture seen by `eye` and shown as turn k (mirrored across the
+/// screen's vertical where `mirror`), relit pixel by pixel from the 2003
+/// light it was drawn under to the light of turn `light` (`projectPicture`):
+/// the face a pixel shows (the blocks of `by`, its state's drawing, seen by
+/// `eye`) keeps its place on the screen, so its normal in the eye's frame is
+/// kept (mirrored with the picture) and taken back to the variant's frame by
+/// the shown turn. An intact state is relit by the light (`shading`), a ruin
+/// by its class gains, as `projectPicture` does. A pixel on no block keeps
+/// its colour.
+fn sunLit(gpa: std.mem.Allocator, picture: Image, eye: Eye, by: Drawn, mirror: bool, k: u2, light: u2) !Image {
+    const out: Image = .{ .width = picture.width, .height = picture.height, .pixels = try gpa.dupe([4]u8, picture.pixels) };
+    const wall = wallLight(by.means);
+    const intact = by.state[0] == '1';
+    for (out.pixels, 0..) |*pixel, i| {
+        if (pixel[3] == 0) continue;
+        const hit = castPixel(by.blocks, eye, @as(f64, @floatFromInt(i % picture.width)) + 0.5, @as(f64, @floatFromInt(i / picture.width)) + 0.5) orelse continue;
+        const seen = turnPoint(.{ hit.normal[0], hit.normal[1] }, eye.turn);
+        const back = turnPoint(if (mirror) .{ -seen[1], -seen[0] } else seen, 0 -% k);
+        const n = [3]f64{ back[0], back[1], hit.normal[2] };
+        if (intact) {
+            pixel.* = relight(pixel.*, shading(n, light, wall), shading(hit.normal, eye.turn, wall));
+        } else for (0..3) |ch| {
+            pixel[ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * by.means.gain(shadeClass(n, light), shadeClass(hit.normal, eye.turn), ch))));
+        }
+    }
+    return out;
 }
 
 /// A 2003 picture as a generated one, every pixel projected.
@@ -3248,7 +3303,8 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
     const own = scene.sources[scene.fixed];
     const new_side = (scene.own_side - 1 + @as(u8, blocks_target.turn)) % 4 + 1;
     if (siblingFor(scene, blocks_target.turn)) |e| {
-        const same = try siblingSprite(ctx, scene, blocks_target.turn, blocks_target.name, e);
+        const by = if (blocks_target.light != blocks_target.turn) try drawTarget(ctx, scene, blocks_target) else &.{};
+        const same = try siblingSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, e, by);
         return .{ .target = same.target, .drawn = same.drawn, .shape = .{}, .failure = null, .fallback = true, .mirror = false, .sibling = std.fs.path.basename(scene.sources[e].dir) };
     }
     const drawn = try drawTarget(ctx, scene, blocks_target);
@@ -3285,7 +3341,7 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
         .heap = scene.prop,
     });
     if (!how.sprite) return .{ .target = blocks_target, .drawn = drawn, .shape = shape, .failure = failure, .fallback = false, .mirror = false };
-    const same = try sameSprite(ctx, scene, blocks_target.turn, blocks_target.name, how.mirror, drawn);
+    const same = try sameSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, how.mirror, drawn);
     return .{ .target = same.target, .drawn = same.drawn, .shape = shape, .failure = failure, .fallback = true, .mirror = how.mirror };
 }
 
@@ -3339,18 +3395,23 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const dir = try bk_tool.inputPath(arena, dir_arg);
     const out = try bk_tool.inputPath(arena, out_arg);
     const work = try bk_tool.inputPath(arena, work_arg);
-    var turns: std.ArrayList(u2) = .empty;
+    // A turn k (`<variant>_r<k>`, lit by the 2003 light fixed to the camera),
+    // or `<k>l<s>`: turn k lit by the sun fixed in the world as camera step s
+    // shows it (`<variant>_r<k>_l<s>`, the light of turn k - s, M006 round 2).
+    var turns: std.ArrayList([2]u2) = .empty;
     var split = std.mem.splitScalar(u8, turns_arg, ',');
     while (split.next()) |t| {
-        const k = std.fmt.parseInt(u2, t, 10) catch return error.Usage;
-        if (k == 0) return error.Usage;
-        try turns.append(arena, k);
+        const at = std.mem.indexOfScalar(u8, t, 'l') orelse t.len;
+        const k = std.fmt.parseInt(u2, t[0..at], 10) catch return error.Usage;
+        const s = if (at < t.len) std.fmt.parseInt(u2, t[at + 1 ..], 10) catch return error.Usage else 0;
+        if (k == 0 or (at < t.len and s == 0)) return error.Usage;
+        try turns.append(arena, .{ k, s });
     }
 
     const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
     const scene = try loadScene(ctx, found, found.index, null, false);
     var targets: std.ArrayList(Turned) = .empty;
-    for (turns.items) |k| try targets.append(arena, turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, k })));
+    for (turns.items) |ks| try targets.append(arena, turnTarget(scene, ks[0], ks[0] -% ks[1], if (ks[1] == 0) try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks[0] }) else try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ scene.name, ks[0], ks[1] })));
 
     // The pictures, the source maps and the packs of each turn.
     // bk-sprite beside bk-views (zig-out/bin), else the one on PATH.
@@ -3485,7 +3546,7 @@ fn shapeCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{name}), try writePng(arena, overlay));
         }
         for (0..4) |k| {
-            const target = turnTarget(scene, @intCast(k), "");
+            const target = turnTarget(scene, @intCast(k), @intCast(k), "");
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "r{d}.png", .{k}), try writePng(arena, try shapePicture(arena, blocks, target)));
         }
         for ([_][]const Block{ blocks, refined }, [_][]const u8{ "blocks", "refined" }) |list, key| {
@@ -3867,7 +3928,7 @@ fn holdoutCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
         const from = try variantLabel(arena, found.family, reference);
         const k: u2 = @intCast((side + 4 - scene.own_side) % 4);
         // Drawn the way `side` draws the turn, the 2003-sprite fallback included.
-        const turned = try drawTurn(ctx, scene, turnTarget(scene, k, try std.fmt.allocPrint(arena, "{s}_holdout", .{name})));
+        const turned = try drawTurn(ctx, scene, turnTarget(scene, k, k, try std.fmt.allocPrint(arena, "{s}_holdout", .{name})));
         const target = turned.target;
         const pictures = try std.fs.path.join(arena, &.{ out, name });
         cwd.deleteTree(io, pictures) catch {};
@@ -4079,14 +4140,19 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
             var same_turns: std.ArrayList([]const u8) = .empty;
             var hand = false;
             var new_sides: std.Io.Writer.Allocating = .init(arena);
-            for (1..4) |k| {
-                const target = try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k });
+            // The three turns lit by the 2003 light fixed to the camera, then the
+            // three lit by the sun fixed in the world as the camera step that
+            // shows each at facing 0 (`<variant>_r<k>_l<k>`, M006 round 2).
+            for (1..7) |i| {
+                const k = (i - 1) % 3 + 1;
+                const label = if (i <= 3) try std.fmt.allocPrint(arena, "r{d}", .{k}) else try std.fmt.allocPrint(arena, "r{d}l{d}", .{ k, k });
+                const target = if (i <= 3) try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k }) else try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ name, k, k });
                 const side = (try readJson(SideReport, ctx, try std.fs.path.join(arena, &.{ dir, try std.fmt.allocPrint(arena, "{s}.map", .{target}), "sources.json" }))) orelse continue;
                 generated += 1;
-                if (variant.side != null) try new_sides.writer.print("{s}{d}", .{ if (k > 1) ", " else "", side.new_side });
+                if (variant.side != null and i <= 3) try new_sides.writer.print("{s}{d}", .{ if (k > 1) ", " else "", side.new_side });
                 hand = hand or side.hand;
-                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "r{d}{s}{s}", .{ k, if (side.mirror) " mirrored" else if (side.sibling.len > 0) " = " else "", side.sibling }));
-                if (side.shape.failure.len > 0 and !side.fallback and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} shape: {s}", .{ k, side.shape.failure });
+                if (side.fallback) try same_turns.append(arena, try std.fmt.allocPrint(arena, "{s}{s}{s}", .{ label, if (side.mirror) " mirrored" else if (side.sibling.len > 0) " = " else "", side.sibling }));
+                if (side.shape.failure.len > 0 and !side.fallback and failure == null) failure = try std.fmt.allocPrint(arena, "{s} shape: {s}", .{ label, side.shape.failure });
                 for (side.pictures) |picture| {
                     if (std.mem.endsWith(u8, picture.picture, "g")) continue;
                     const all = picture.projected + picture.mirrored + picture.transferred + picture.filled;
@@ -4098,13 +4164,13 @@ fn reportCommand(ctx: *bk_tool.Context, inventory_arg: []const u8, gate_arg: []c
                     if (row) |r| {
                         const why = try gateFailure(arena, floors, r);
                         row_gate = if (why) |w| w else "pass";
-                        if (why != null and failure == null) failure = try std.fmt.allocPrint(arena, "r{d} {s}: {s}", .{ k, picture.picture, why.? });
+                        if (why != null and failure == null) failure = try std.fmt.allocPrint(arena, "{s} {s}: {s}", .{ label, picture.picture, why.? });
                     }
-                    try d.print("| {s} | r{d} | {d} | {s} | {d:.1} | {d:.1} | {d:.1} | {d:.1} | ", .{ name, k, side.new_side, picture.picture, percent(picture.projected, all), percent(picture.mirrored, all), percent(picture.transferred, all), percent(picture.filled, all) });
+                    try d.print("| {s} | {s} | {d} | {s} | {d:.1} | {d:.1} | {d:.1} | {d:.1} | ", .{ name, label, side.new_side, picture.picture, percent(picture.projected, all), percent(picture.mirrored, all), percent(picture.transferred, all), percent(picture.filled, all) });
                     if (row) |r| try d.print("{d:.2} | {d:.1} | {d:.3} | {s} |\n", .{ r.sharpness, r.colour, r.hue, row_gate }) else try d.writeAll("- | - | - | - |\n");
                 }
                 const sh = side.shape;
-                try shapes.writer.print("| {s} | r{d} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {s} | {s} |\n", .{ name, k, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
+                try shapes.writer.print("| {s} | {s} | {d:.2} | {d:.2} | {d:.2} | {d:.3} | {d:.3} | {d:.0} | {d:.0} | {d:.0} | {d:.0} | {d:.3} | {d:.0} | {s} | {s} |\n", .{ name, label, sh.height, sh.ground, sh.cover, sh.protrusion, sh.protrusion_2003, sh.low, sh.low_kept, sh.roof, sh.roof_kept, sh.stretch, sh.copied, if (sh.failure.len > 0) sh.failure else "pass", if (side.fallback) "2003 sprite" else "blocks" });
             }
             // The hold-out where the family has another side of the colourway.
             var held: []const u8 = "-";

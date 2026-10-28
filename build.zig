@@ -3371,6 +3371,31 @@ pub fn build(b: *std.Build) void {
     units_game_step.dependOn(&units_game_tests.step);
     if (test_mode == .run) units_game_step.dependOn(&units_game_run.step);
 
+    // The sun fixed in the world at every camera step (M006 round 2,
+    // tools/zig/camera_turn_sun_game_reads_it.zig): the shadows of a building,
+    // a tank, a tree and a soldier, and the building's world-lit turns.
+    // Desktop and GPU, so not part of `test`.
+    const sun_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_sun_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, sun_game_module, toolchain);
+    }
+    const sun_game_tests = b.addTest(.{ .root_module = sun_game_module, .filters = &.{ "a quarter turn takes the ring onto itself", "the sun stays in the world" } });
+    const sun_game_run = b.addRunArtifact(sun_game_tests);
+    sun_game_run.setCwd(b.path("."));
+    sun_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    sun_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    sun_game_run.has_side_effects = true;
+    sun_game_run.step.dependOn(install_game_step);
+    sun_game_run.step.dependOn(bk_views_step);
+    sun_game_run.step.dependOn(bk_sprite.install);
+    const sun_game_step = b.step("camera-turn-sun-game-reads-it", "Press the camera turn key on the real Game with Remastered on over a shed, a tank, a tree and a sniper and measure that each shadow turns with the ground and the shed shows its turns lit by the world's sun; with it off the key changes nothing");
+    sun_game_step.dependOn(&sun_game_tests.step);
+    if (test_mode == .run) sun_game_step.dependOn(&sun_game_run.step);
+
     // The controls at every camera step (M006 S05,
     // tools/zig/camera_turn_control_game_reads_it.zig): picking, selection,
     // orders, scrolling, the minimap, the turn's pivot on a hill and draw
@@ -9542,7 +9567,7 @@ fn addBuildingViewsBatch(b: *std.Build, target: std.Build.ResolvedTarget, views:
     aggregate_report.addArgs(&report_args);
     quiet(aggregate_report);
     for ([_][]const u8{ "africa", "common", "europe", "ussr" }) |region| {
-        const group = b.step(b.fmt("building-views-batch-{s}", .{region}), b.fmt("Make the three other quarter turns of every {s} building variant into zig-out/remastered/Buildings with bk-views side, check every pack with the engine's reader, compose-pack and decompose, and score them with bk-views style and holdout", .{region}));
+        const group = b.step(b.fmt("building-views-batch-{s}", .{region}), b.fmt("Make the three other quarter turns of every {s} building variant, each also lit by the world's sun at its camera step, into zig-out/remastered/Buildings with bk-views side, check every pack with the engine's reader, compose-pack and decompose, and score them with bk-views style and holdout", .{region}));
         aggregate.dependOn(group);
         aggregate_report.step.dependOn(group);
         for (inventory.families) |family| {
@@ -9562,7 +9587,9 @@ fn addBuildingViewsBatch(b: *std.Build, target: std.Build.ResolvedTarget, views:
                 const side = b.addRunArtifact(views);
                 side.setCwd(b.path("."));
                 setUserRootsForTest(side, "bk-views-user");
-                side.addArgs(&.{ "side", data, "1,2,3", out, work });
+                // The three turns, and each lit by the sun fixed in the world as
+                // the camera step that shows it at facing 0 (M006 round 2).
+                side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3", out, work });
                 side.step.dependOn(sprite.install);
                 addPathDir(side, rootPath(b, "zig-out/bin"));
                 quiet(side);
@@ -9580,7 +9607,9 @@ fn addBuildingViewsBatch(b: *std.Build, target: std.Build.ResolvedTarget, views:
                 style.addArgs(&.{ "style", b.fmt("{s}/style", .{work}), data });
                 for (1..4) |k| {
                     check.addArg(b.fmt("{s}/{s}_r{d}", .{ out, name, k }));
+                    check.addArg(b.fmt("{s}/{s}_r{d}_l{d}", .{ out, name, k, k }));
                     style.addArg(b.fmt("{s}/{s}.work/{s}_r{d}", .{ work, name, name, k }));
+                    style.addArg(b.fmt("{s}/{s}.work/{s}_r{d}_l{d}", .{ work, name, name, k, k }));
                 }
                 check.step.dependOn(&side.step);
                 addPathDir(check, rootPath(b, "zig-out/bin"));
