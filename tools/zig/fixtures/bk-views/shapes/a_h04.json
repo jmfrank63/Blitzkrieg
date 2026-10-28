@@ -3,6 +3,6 @@
     {"lo": [-215, -10], "hi": [-30, 159], "wall": 44, "ridge": 44, "roof": "flat"},
     {"lo": [-4, -10], "hi": [16, 159], "wall": 44, "ridge": 44, "roof": "flat"},
     {"lo": [-30, 42], "hi": [-4, 159], "wall": 44, "ridge": 44, "roof": "flat"},
-    {"lo": [-215, 3], "hi": [-74, 140], "wall": 76, "ridge": 76, "roof": "flat"}
+    {"lo": [-215, -10], "hi": [-62, 140], "wall": 74, "ridge": 74, "roof": "flat"}
   ]
 }
