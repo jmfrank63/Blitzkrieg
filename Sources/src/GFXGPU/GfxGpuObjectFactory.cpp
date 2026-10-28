@@ -583,7 +583,11 @@ public:
     void STDCALL Clear( EClearMode mode, int, int ) override
     {
         if ( mode == CLEAR_ALL )
+        {
             textures_.clear();
+            if ( getenv( "BK_TURN_TRACE" ) != 0 )
+                SetGlobalVar( "Perf.Turn.TexturesMB", 0.0f );
+        }
     }
     // CTextureManager serializes its shared map, which is what gives every
     // stored texture pointer something to come back to. Without it the factory
@@ -686,6 +690,10 @@ public:
         texture->SetSharedResourceName( stream_name );
         if ( !texture->Load() ) return nullptr;
         textures_[key] = texture;
+        // BK_TURN_TRACE (Main/TurnTrace.h) reports what the cache holds on the
+        // GPU: every level-0 texel widened to four bytes.
+        if ( getenv( "BK_TURN_TRACE" ) != 0 )
+            SetGlobalVar( "Perf.Turn.TexturesMB", GetGlobalVar( "Perf.Turn.TexturesMB", 0.0f ) + texture->GetSizeX( 0 ) * texture->GetSizeY( 0 ) * 4.0f / ( 1 << 20 ) );
         return texture;
     }
     const char * STDCALL GetTextureName( IGFXTexture *texture ) override

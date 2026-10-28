@@ -2,6 +2,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <cfloat>
 #include "../Platform/Debug.h"
 #include "../Platform/LegacyText.h"
 
@@ -20,6 +22,8 @@
 #include "../Main/iMainCommands.h"
 #include "../Main/Remastered.h"
 #include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
+#include "../Common/TurnPreload.h"
 
 #include "SelectorVisitors.h"
 #include "../Main/ScenarioTrackerTypes.h"
@@ -524,6 +528,9 @@ CWorldClient::CWorldClient()
 	bCheckDiplomacy = true;
 	bReconcileSelection = false;
 	nCameraTurn = 0;
+	bTurnPreloadStarted = false;
+	nTurnPreloadFrames = 0;
+	fTurnPreloadMs = 0;
 	nLastAvailableActionsSet = 0;
 	timeLastPick = 0;
 	vLastPickPos = VNULL2;
@@ -562,6 +569,128 @@ void FillActionsPriority( const char *pszRow, const char *pszEntry, CTableAccess
 			dst.push_back( 0 );
 	}
 	dst.erase( std::remove_if(dst.begin(), dst.end(), [](int val) { return val >= 64; }), dst.end() );
+}
+// BK_TURN_PRELOAD=0 (camera-turn-preload-game-reads-it) turns the preload and
+// the staged turn off, so that a tier compares the frames with the turn drawn
+// whole on its frame.
+static bool TurnPreloadOn()
+{
+	static const bool bOn = getenv( "BK_TURN_PRELOAD" ) == 0 || strcmp( getenv( "BK_TURN_PRELOAD" ), "0" ) != 0;
+	return bOn;
+}
+CWorldClient::~CWorldClient()
+{
+	NTurnPreload::Clear();
+}
+// With Remastered on, brings the pictures every map object shows at each
+// camera step into memory (NTurnPreload), so that a turn only switches what is
+// drawn: the turn of the second tutorial took 3 to 4 seconds, loading the new
+// side's packs and asking the storage for the turned and lit folders. The
+// objects are taken in slices of a few milliseconds a frame from the first
+// frame the option holds, an object's step at a time (the quarter turns next
+// to the view first), so the mission starts drawing at once; a turn before
+// the preload is done loads the rest itself, as before. Objects made later
+// load their turns when the camera turns. Remastered off, nothing is loaded.
+void CWorldClient::PreloadCameraTurns()
+{
+	if ( !bTurnPreloadStarted )
+	{
+		bTurnPreloadStarted = true;
+		NTurnPreload::Begin();
+		const int steps[4] = { 1, 3, 2, 0 };
+		for ( int i = 0; i < 4; ++i )
+		{
+			for ( iterator it = begin(); it != end(); ++it )
+			{
+				if ( SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) ) )
+					turnPreload.push_back( std::make_pair( CPtr<SMapObject>( pMO ), ( NCameraTurn::Step() + steps[i] ) & 3 ) );
+			}
+		}
+		std::reverse( turnPreload.begin(), turnPreload.end() );
+	}
+	if ( turnPreload.empty() )
+		return;
+	NTurnTrace::CScope scope( "preload" );
+	LARGE_INTEGER start, now, freq;
+	QueryPerformanceCounter( &start );
+	QueryPerformanceFrequency( &freq );
+	const double fBudgetMs = 8;
+	double fMs = 0;
+	while ( !turnPreload.empty() && fMs < fBudgetMs )
+	{
+		turnPreload.back().first->PreloadCameraTurn( turnPreload.back().second );
+		turnPreload.pop_back();
+		QueryPerformanceCounter( &now );
+		fMs = ( now.QuadPart - start.QuadPart ) * 1000.0 / double( freq.QuadPart );
+	}
+	++nTurnPreloadFrames;
+	fTurnPreloadMs += fMs;
+	if ( turnPreload.empty() )
+	{
+		std::vector< std::pair< CPtr<SMapObject>, int > >().swap( turnPreload );
+		if ( NTurnTrace::On() )
+			fprintf( stderr, "BK_TURN_TRACE: preload done in %.0f ms over %d frames\n", fTurnPreloadMs, nTurnPreloadFrames );
+	}
+}
+// Draws every object as the camera sees it now (SMapObject::SetCameraTurn):
+// those that can be on the screen at once, the rest a few at a time over the
+// next frames (Update), so the frame of a turn only draws what is seen anew
+// (on the second tutorial the whole map took 100 to 170 ms with every
+// picture in memory). A turn is a rotation about the camera's anchor, so the
+// ground under the screen at any step lies within the distance of the
+// screen's farthest corner from it; tall pictures (a church on the ground
+// below the screen) reach in from up to a screen's height further (a world
+// unit is at most a pixel on the screen).
+void CWorldClient::TurnObjects()
+{
+	const CVec3 vAnchor = pCamera->GetAnchor();
+	const RECT rcScreen = GetSingleton<IGFX>()->GetScreenRect();
+	float fRadius = 0;
+	const CVec2 corners[4] = { CVec2( rcScreen.left, rcScreen.top ), CVec2( rcScreen.right, rcScreen.top ),
+	                           CVec2( rcScreen.left, rcScreen.bottom ), CVec2( rcScreen.right, rcScreen.bottom ) };
+	for ( int i = 0; i < 4; ++i )
+	{
+		CVec3 vCorner;
+		pScene->GetPos3( &vCorner, corners[i], true );
+		fRadius = Max( fRadius, fabs( CVec2( vCorner.x - vAnchor.x, vCorner.y - vAnchor.y ) ) );
+	}
+	fRadius += float( rcScreen.bottom - rcScreen.top );
+	if ( !TurnPreloadOn() )
+		fRadius = FLT_MAX;
+	std::vector< CPtr<SMapObject> >().swap( turnPending );
+	// The pictures drawn from here on are this turn's (TraceDrawn).
+	int nCount = 0;
+	unsigned int nSum = 0;
+	NTurnPreload::TakeDrawn( &nCount, &nSum );
+	for ( iterator it = begin(); it != end(); ++it )
+	{
+		SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
+		if ( pMO == 0 )
+			continue;
+		if ( pMO->pVisObj != 0 )
+		{
+			const CVec3 vPos = pMO->pVisObj->GetPosition();
+			if ( fabs( CVec2( vPos.x - vAnchor.x, vPos.y - vAnchor.y ) ) > fRadius )
+			{
+				turnPending.push_back( pMO );
+				continue;
+			}
+		}
+		pMO->SetCameraTurn( NCameraTurn::Step(), pVOB );
+	}
+	if ( NTurnTrace::On() )
+		fprintf( stderr, "BK_TURN_TRACE: turn to step %d: %d objects staged\n", NCameraTurn::Step(), int( turnPending.size() ) );
+	if ( turnPending.empty() )
+		TraceDrawn();
+}
+// BK_TURN_TRACE: the pictures the turn drew, once every object is drawn.
+void CWorldClient::TraceDrawn()
+{
+	int nCount = 0;
+	unsigned int nSum = 0;
+	NTurnPreload::TakeDrawn( &nCount, &nSum );
+	if ( NTurnTrace::On() )
+		fprintf( stderr, "BK_TURN_TRACE: drawn for step %d: %d pictures, sum %08x\n", NCameraTurn::Step(), nCount, nSum );
 }
 void CWorldClient::Init( ISingleton *pSingleton )
 {
@@ -666,14 +795,33 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 	if ( nCameraTurn != nView )
 	{
 		nCameraTurn = nView;
-		for ( iterator it = begin(); it != end(); ++it )
-		{
-			SMapObject *pMO = const_cast<SMapObject*>( static_cast<const SMapObject*>( it ) );
-			if ( pMO != 0 )
-				pMO->SetCameraTurn( NCameraTurn::Step(), pVOB );
-		}
+		NTurnTrace::CScope scope( "world" );
+		TurnObjects();
 		SetSpansCameraTurn( NCameraTurn::Step() );
 	}
+	// The objects off the screen, a few milliseconds a frame.
+	if ( !turnPending.empty() )
+	{
+		NTurnTrace::CScope scope( "world" );
+		LARGE_INTEGER start, now, freq;
+		QueryPerformanceCounter( &start );
+		QueryPerformanceFrequency( &freq );
+		do
+		{
+			SMapObject *pMO = turnPending.back();
+			if ( pMO->pAIObj != 0 && FindByAI( pMO->pAIObj ) == pMO )
+				pMO->SetCameraTurn( NCameraTurn::Step(), pVOB );
+			turnPending.pop_back();
+			QueryPerformanceCounter( &now );
+		} while ( !turnPending.empty() && ( now.QuadPart - start.QuadPart ) * 1000.0 < 4.0 * double( freq.QuadPart ) );
+		if ( turnPending.empty() )
+		{
+			std::vector< CPtr<SMapObject> >().swap( turnPending );
+			TraceDrawn();
+		}
+	}
+	if ( NRemastered::Enabled() && TurnPreloadOn() )
+		PreloadCameraTurns();
 	while ( const char *pszString = GetSingleton<IConsoleBuffer>()->ReadASCII(CONSOLE_STREAM_WORLD) )
 	{
 		NStr::DebugTrace( "Got command: %s\n", pszString );

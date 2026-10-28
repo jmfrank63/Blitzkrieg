@@ -373,6 +373,7 @@ const common_sources = &.{
     "Sources/src/Common/MOObject.cpp",
     "Sources/src/Common/MOProjectile.cpp",
     "Sources/src/Common/MOSquad.cpp",
+    "Sources/src/Common/TurnPreload.cpp",
     "Sources/src/Common/MOUnit.cpp",
     "Sources/src/Common/MOUnitInfantry.cpp",
     "Sources/src/Common/MOUnitMechanical.cpp",
@@ -3442,6 +3443,31 @@ pub fn build(b: *std.Build) void {
     const sun_game_step = b.step("camera-turn-sun-game-reads-it", "Press the camera turn key on the real Game with Remastered on over a shed, a tank, a tree and a sniper and measure that each shadow turns with the ground and the shed shows its turns lit by the world's sun; with it off the key changes nothing; a tree's, a prop's, a fence's and a house's turned 2003 shadows reach their feet, the ground their objects hid at step 0 dark");
     sun_game_step.dependOn(&sun_game_tests.step);
     if (test_mode == .run) sun_game_step.dependOn(&sun_game_run.step);
+
+    // The turn preload (M006 round 2,
+    // tools/zig/camera_turn_preload_game_reads_it.zig): a turn on the second
+    // tutorial's map, its time and its frames against the turn drawn whole.
+    // Desktop and GPU, so not part of `test`.
+    const preload_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_preload_game_reads_it.zig"),
+        .target = target,
+        .optimize = .ReleaseSafe,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, preload_game_module, toolchain);
+    }
+    const preload_game_tests = b.addTest(.{ .root_module = preload_game_module, .filters = &.{ "the trace's lines are read", "a camera turn on the second tutorial" } });
+    const preload_game_run = b.addRunArtifact(preload_game_tests);
+    preload_game_run.setCwd(b.path("."));
+    preload_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    preload_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    preload_game_run.has_side_effects = true;
+    preload_game_run.step.dependOn(install_game_step);
+    preload_game_run.step.dependOn(bk_views_step);
+    preload_game_run.step.dependOn(bk_sprite.install);
+    const preload_game_step = b.step("camera-turn-preload-game-reads-it", "Press the camera turn keys on the real Game with Remastered on over the second tutorial's map with its buildings' turns and the relit flora, and measure each turn's frame and the frames after it, load time and memory, with the turn preload and without; the shots must be equal");
+    preload_game_step.dependOn(&preload_game_tests.step);
+    if (test_mode == .run) preload_game_step.dependOn(&preload_game_run.step);
 
     // The controls at every camera step (M006 S05,
     // tools/zig/camera_turn_control_game_reads_it.zig): picking, selection,

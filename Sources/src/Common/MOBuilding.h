@@ -28,7 +28,8 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	int GetNumFreeSlots() const { return GetNumTotalSlots() - passangers.size(); }
 	bool CanEnterOrBoard() const;
 	bool UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, const bool bForced = false );
-	std::string GetModelPath() const;
+	std::string GetModelPath( const int nTurn, const int nStep ) const;
+	bool IsSunLit( const std::string &szModelPath, const int nTurn ) const;
 	std::string GetShadowPath() const;
 	int GetDrawnTurn() const;
 	void Redraw( IVisObjBuilder *pVOB, const bool bInScene );
@@ -75,5 +76,6 @@ public:
 	virtual void STDCALL AIUpdateShot( const struct SAINotifyBaseShot &shot, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene );
 	virtual void STDCALL Visit( IMapObjVisitor *pVisitor );
 	virtual void STDCALL SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB );
+	virtual void STDCALL PreloadCameraTurn( const int nStep );
 };
 #endif // __MOBUILDING_H__

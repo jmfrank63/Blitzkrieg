@@ -7,6 +7,16 @@
 ISpriteAnimation* CAnimationManager::GetSpriteAnimation( const char *pszName )
 {
 	const std::string szName = pszName;
+	// A sprite pack already loaded is taken first: asking the animation share
+	// for it opened and read the pack again on every call, as the share keeps
+	// no record of a name that is not an animation (a building's or prop's
+	// one-sprite pack; half a second a camera turn on the second tutorial).
+	if ( SSpritesPack *pSprites = complexsprites.HasData(szName) ? complexsprites.Get(szName) : 0 )
+	{
+		CComplexSprite *pAnim = new CComplexSprite();
+		pAnim->Init( pSprites );
+		return pAnim;
+	}
 	if ( SSpriteAnimationFormat *pAnimations = sprites.Get(szName) )
 	{
 		CSpriteAnimation *pAnim = new CSpriteAnimation();

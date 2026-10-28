@@ -16,6 +16,7 @@
 #include "SoundScene.h"
 #include "SceneScreenScale.h"
 #include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
 #define MESH_SHADOW_DENSITY 0.5f
 // The terra-object shadow pass (effect 111) draws pre-baked shadow sprites
 // whose alpha carries per-texel detail (frond gaps, dither). At a fractional
@@ -303,6 +304,7 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->SetShadingEffect( 300 );
 	if ( bEnableTerrain && pTerrain )
 	{
+		NTurnTrace::CScope scope( "terrain" );
 		if ( bScaleGameplayProjection )
 			pGFX->SetProjectionTransform( matScreenProjection );
 		pGFX->SetupDirectTransform();

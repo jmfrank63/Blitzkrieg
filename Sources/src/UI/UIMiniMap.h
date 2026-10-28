@@ -188,6 +188,10 @@ class CUIMiniMap : public CSimpleWindow
 	// click through TextureMiniMapToPoint, which turn it about the map's middle;
 	// not saved, Draw takes the step again.
 	int nTurn;
+	// The picture made at each camera step, kept until the frame or the image
+	// changes, so a turn shows the step's picture at once (with Remastered on
+	// the steps not seen yet are made one a frame).
+	CPtr<IGFXTexture> sharpBackgrounds[4];
 	// The frame's texture with the left bar's plain plate where its label is,
 	// the panel's while the north mark stands on the right bar (DrawNorthMark).
 	// Made on first use and named as the 2003 texture, so a save that catches it
@@ -197,6 +201,7 @@ class CUIMiniMap : public CSimpleWindow
 
 	void CreateMiniMapTextures();
 	void CreateSharpBackground();
+	CPtr<IGFXTexture> MakeSharpBackground();
   void GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool isTopLeft = true );
 	void TurnMapPoint( float *pfXPos, float *pfYPos, const int nTurns ) const;
 	void ProjectMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos , bool isLeftTop = true );

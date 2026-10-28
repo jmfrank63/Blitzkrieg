@@ -1571,3 +1571,110 @@ Left open: in one exploratory run (lone begin and end spans placed at HP 0.3 in 
 bridge's HP fell from 0.586 to 0 while its truck repaired it, ordered at step 1; it did not recur in the later runs and
 was not traced. The step-0 cell of the wooden little bridge in the table above was taken before the selection's orders
 were ready and is not counted.
+
+## The turn preload (round 2 of the hand test, 2026-10-29)
+
+The maintainer (macOS arm64, release, the remastered_views mod): "The second tutorial contains a rather complex map.
+Rotating takes about 3 to 4 seconds. Can we preload the calculated objects into memory and speed up the loading so it
+is almost instant? Some kind of quadruple buffering?"
+
+### Measured first (win-home, Windows x64, release, the batch's mod, `Data/Maps/Tutorial/tutorial2.bzm`)
+
+`BK_TURN_TRACE=1` (new, `Main/TurnTrace.h`) prints the frame the camera step changed on and the two after it by phase,
+the mission's load and first frames, resident memory and the textures the GPU cache holds; `BK_TURN_TRACE=2` adds the
+fine phases (sprite pack and texture loads, storage probes), which cost some time of their own. Before any change, the
+turn's frame in ms:
+
+| press | 1 (step 1) | 2 | 3 | 4 (step 0) | 5 to 8 (back) |
+|---|---|---|---|---|---|
+| frame | 4113 | 3274 | 3077 | 753 | 1084, 1188, 1174, 830 |
+| world (objects redrawn) | 4060 | 3233 | 3044 | 721 | 1052 to 1150, 794 |
+| of it: pack loads / textures / storage probes | 990 / 1388 / 1528 | 873 / 1204 / 1028 | 914 / 1130 / 882 | 630 / 16 / 1 | 464 to 693 / 16 / 466 to 510 |
+| minimap / fog / terrain / draw | 25 / 8 / 3 / 35 | 23 / 8 / 3 / 28 | 18 / 6 / 2 / 23 | 16 / 6 / 2 / 20 | 16 to 27 / 6 / 2 / 20 to 32 |
+
+The ground (terrain re-layout 2 to 3 ms), the fog (6 to 8 ms) and the minimap (16 to 27 ms) were small. The seconds
+were the map objects (2 291 of them, 1 267 pictures changed a turn): on a step's first visit loading its packs and
+textures, and on every visit asking the data storage whether `<variant>_r<k>`, `_r<k>_l<s>` and `<pack>_l<s>` exist
+(each a walk of the file system through the mod and Data) and reloading every one-sprite pack from disk, because
+`IAnimationManager::GetSpriteAnimation` asked the animation share first, which records no name it failed on.
+Textures grew from 25 to 37 MB over all four steps; resident memory 459 to 522 MB.
+
+### Decisions
+
+- **The packs' share first** (`Anim/AnimationManager.cpp`): a sprite pack already loaded is taken from its share
+  before the animation share is asked; same result, no reread. For Remastered off as well (2003 code; nothing drawn
+  changes).
+- **The quadruple buffer is the shared caches, filled ahead** (`Common/TurnPreload.h`). With Remastered on the world
+  (`CWorldClient::PreloadCameraTurns`) asks every map object for the pictures it shows at each step
+  (`SMapObject::PreloadCameraTurn`: a building its damage state's picture, shadow and ground picture by
+  `GetModelPath`/`IsSunLit`/`GetShadowPath`, the season's first as `UpdateVisObj` takes them; a flora or prop its
+  `ShowPicture` pack, relit or its own) and loads each pack and texture once into the animation and texture managers,
+  which keep them until the mission's resources are cleared. The work is spread over the frames after the option
+  holds, an object's step at a time within 8 ms a frame (steps next to the view first), so the first frame is not
+  delayed; a turn before it is done loads the rest itself, as before. The storage's answers and the packs found
+  missing are kept for the mission (`NTurnPreload::Exists`, `Missing`), so a turn asks the storage nothing; outside a
+  Game mission (the Map Editor) they are asked as before. The objects keep one picture each, swapped in place: a
+  second set of scene objects per step would have to carry selection, icons and passengers along, and the swap costs
+  microseconds once the pictures are in memory. Remastered off: nothing is preloaded and the memo is not started.
+- **A turn draws what is seen** (`CWorldClient::TurnObjects`): the objects within the distance of the screen's
+  farthest corner from the anchor plus a screen's height (a turn is a rotation about the anchor; tall pictures reach
+  in from below) are drawn on the turn's frame, the others over the next frames, 4 ms a frame (about 25 frames on
+  the tutorial). With every picture in memory the whole map still took 100 to 170 ms.
+- **The minimap keeps each step's picture** (`CUIMiniMap::sharpBackgrounds`), made one a frame for the steps not seen
+  yet while the option allows turning, dropped when its frame or image changes.
+- The fog (5 to 8 ms, the AI's visibilities asked for the new rectangle) and the terrain re-layout (2 ms) are left as
+  they are.
+
+### The tier
+
+`zig build camera-turn-preload-game-reads-it` (`tools/zig/camera_turn_preload_game_reads_it.zig`, about 6 minutes on
+win-home): the 27 building variants of tutorial2 (`bk-views side ... 1,2,3,1l1,2l2,3l3`) and the relit flora into a
+scratch mod, the real Game paused on the map with Remastered on, four presses of `.` and four of `,`, a shot after
+each, once as built and once with `BK_TURN_PRELOAD=0` (preload and staging off). Held: every turn draws the same
+pictures in both runs (a count and an order-free sum of the names' hashes, printed when every object is drawn), the
+preload is done before the first press, each turn's frame takes at most half the mean of the other run's, no leak.
+Measured (release; preloaded / without):
+
+| press | 1 `.` | 2 | 3 | 4 | 5 `,` | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| turn's frame, ms | 41.2 / 808 | 29.1 / 781 | 29.1 / 821 | 26.4 / 158 | 29.8 / 653 | 29.3 / 552 | 28.4 / 543 | 24.9 / 136 |
+| next two frames, ms | 10.9, 9.7 | 9.8, 9.9 | 13.6, 12.6 | 11.1, 9.9 | 10.2, 10.7 | 10.0, 9.4 | 9.2, 9.3 | 9.7, 9.6 |
+| pictures drawn (both runs) | 1202 | 1202 | 1202 | 1202 | 1202 | 1202 | 1202 | 1202 |
+
+(the run without the preload already has the packs' share fix and the minimap's pictures, hence 136 to 821 ms
+against 753 to 4113 before.) Mission load 1724 / 1739 ms, its first frame 1560 / 1547 ms: unchanged. The preload took
+991 ms of frames. After the last turn resident 469 / 488 MB and textures 36 / 36 MB: every step's pictures are what
+four turns load anyway; with the preload they are there from the start (textures 25 MB before, 37 MB after it).
+
+The shots are compared and reported, not held. Two runs of the same build differ (up to about 2 000 pixels at the
+same step) where the map animates by the clock that runs while paused (the river's water, some ground decals), and
+where two sprites overlap the renderer orders them by their textures' addresses (`CSpritesSortFunctional`), which
+moves with what was allocated first: the preload, or the staging alone, swaps a few overlapping crowns. Measured on
+objects-only shots without shadows (units, effects, ground and fog off), outside the pixels in which two runs without
+the preload differ from each other: the preloaded run differs by 0 pixels at step 0, 17 at step 1, 51 at the half
+turn and 142 at step 3, each where two crowns overlap and the other one is drawn on top. The tier's own shots (whole
+scene) differ by 0 to 7 pixels at steps 0 and 1, about 960 at step 2 and 3 500 at step 3, mostly two big crowns under
+the bottom panel. The pictures drawn are the same, as held above.
+
+**The largest shipped map**, `Data/Maps/Multiplayer/normandie.bzm` (1.6 MB), launched as a custom map with the batch's
+mod, Remastered on, release: the preload took 1967 ms over 193 frames; the turn's frame 36 to 46 ms (the objects on
+the screen alone take 19 to 25 ms: it is dense) against 1 634 to 2 129 ms without the preload (441 to 458 at step
+0). Resident 789 to 815 MB with it against 762 to 796 without after the same turns, textures 70 MB in both (40 MB
+at load). Mission load 3657 / 3759 ms. 0 leaked blocks in every run.
+
+### Tiers run (turn preload)
+
+On win-home (Windows x64), one `zig build` at a time: `camera-turn-preload-game-reads-it` (release, pass, 350 s);
+`camera-turn-game-reads-it camera-turn-sun-game-reads-it camera-turn-ground-game-reads-it` (debug, pass, 750 s);
+`test-map-editor-engine map-editor-smoke camera-turn-world-game-reads-it` (debug, pass, 444 s; the Map Editor shares
+`CameraTurn.h`, `MOBuilding`, `MOObject` and the animation manager). The full sweep is left to the maintainer, macOS
+and Linux to CI. Not seen: macOS (the maintainer's machine), Linux.
+
+### Left open (turn preload)
+
+- The fog (5 to 8 ms) is asked of the AI anew on a turn; the turn's frame on the densest map (normandie) is 36 to
+  46 ms, around the 40 ms aimed at, most of it the objects on the screen.
+- Objects made after the preload (reinforcements, a building's other damage state) load their turned pictures on
+  the turn, as before.
+- Sprites that overlap are ordered by texture address (2003's batching), so which of two overlapping crowns is on
+  top can change with what was loaded first; not changed here.

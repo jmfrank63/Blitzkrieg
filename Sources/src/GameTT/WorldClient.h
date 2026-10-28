@@ -229,6 +229,14 @@ class CWorldClient : public CWorldBase
 	bool bCheckDiplomacy;									// do we need check diplomacy during FoF operations ? (for editor mode)
 	bool bReconcileSelection;						// run ReconcileSelection on the next Update (not saved: set by a load)
 	int nCameraTurn;										// the camera's quarter turn the buildings are drawn for, + 4 with Remastered off (not saved; -1 after a load)
+	bool bTurnPreloadStarted;						// the objects' camera turns are being (or were) preloaded (not saved)
+	std::vector< std::pair< CPtr<SMapObject>, int > > turnPreload;	// the objects and camera steps still to be preloaded
+	int nTurnPreloadFrames;							// the frames the preload took so far
+	double fTurnPreloadMs;							// its milliseconds so far
+	void PreloadCameraTurns();
+	std::vector< CPtr<SMapObject> > turnPending;	// the objects off the screen still to be drawn for the camera step
+	void TurnObjects();
+	void TraceDrawn();
 	typedef std::vector<SSelectionGroup> CSelectionsList;
 	CSelectionsList selectionGroups;			// selection groups
 	CSelector selunits, selbuildings;			// selected units & buildings
@@ -450,6 +458,7 @@ class CWorldClient : public CWorldBase
 	void MarkSelectedUnits( const CVec3 &vPos, bool bFadingMark = true );
 public:
 	CWorldClient();
+	virtual ~CWorldClient();
 	virtual void STDCALL Init( ISingleton *pSingleton );
 	void Select( const CVec2 &vPos );
 	int Select( IVisObj **objects, int nNumObjects );

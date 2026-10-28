@@ -168,13 +168,20 @@ namespace NCameraTurn
 	// The folder of a variant's turn k: the variant itself at 0, else M005's
 	// `<variant>_r<k>` where the data holds it (bk-views side writes it, from
 	// the family's 2003 variant where one of the variant's colourway shows that
-	// side), else the variant itself. The caller brings IDataStorage in.
-	inline std::string ModelPath( const std::string &szVariant, const int nTurn )
+	// side), else the variant itself. The caller brings IDataStorage in;
+	// pfnExists, where given, answers for the storage (the Game's memo of the
+	// mission, Common/TurnPreload.h).
+	typedef bool (*TExists)( const std::string &szName );
+	inline bool StreamExists( const std::string &szName, TExists pfnExists )
+	{
+		return pfnExists != 0 ? pfnExists( szName ) : GetSingleton<IDataStorage>()->IsStreamExist( szName.c_str() );
+	}
+	inline std::string ModelPath( const std::string &szVariant, const int nTurn, TExists pfnExists = 0 )
 	{
 		if ( nTurn != 0 )
 		{
 			const std::string szTurned = NStr::Format( "%s_r%d", szVariant.c_str(), nTurn );
-			if ( GetSingleton<IDataStorage>()->IsStreamExist( (szTurned + "\\1.san").c_str() ) )
+			if ( StreamExists( szTurned + "\\1.san", pfnExists ) )
 				return szTurned;
 		}
 		return szVariant;
@@ -184,15 +191,15 @@ namespace NCameraTurn
 	// holds it (bk-views side `<k>l<s>`: the building lit as its facing k - s
 	// stands in the world), else ModelPath's, lit by the 2003 light fixed to
 	// the camera. At step 0 the two are one.
-	inline std::string LitModelPath( const std::string &szVariant, const int nTurn, const int nStep )
+	inline std::string LitModelPath( const std::string &szVariant, const int nTurn, const int nStep, TExists pfnExists = 0 )
 	{
 		if ( nStep != 0 )
 		{
 			const std::string szLit = NStr::Format( "%s_r%d_l%d", szVariant.c_str(), nTurn, nStep );
-			if ( GetSingleton<IDataStorage>()->IsStreamExist( (szLit + "\\1.san").c_str() ) )
+			if ( StreamExists( szLit + "\\1.san", pfnExists ) )
 				return szLit;
 		}
-		return ModelPath( szVariant, nTurn );
+		return ModelPath( szVariant, nTurn, pfnExists );
 	}
 	// The quarter turns a map object stands turned by, its footprint, entrances
 	// and fire slots with its picture (AI and Map Editor alike): its facing

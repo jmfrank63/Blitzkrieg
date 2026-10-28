@@ -63,6 +63,7 @@ void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, co
 #include "../GameTT/WorldClient.h"
 #include "../Main/Remastered.h"
 #include "../Main/CameraTurn.h"
+#include "../Main/TurnTrace.h"
 enum
 {
 	E_MULTIPLAYER_PLAYER_LAGGED_DIALOG								= 100001,
@@ -1337,6 +1338,8 @@ void AddBorder( const SVectorStripeObject &stripe, const int nSide, std::vector<
 }
 bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycledLaunch )
 {
+	LARGE_INTEGER loadStart;
+	QueryPerformanceCounter( &loadStart );
 	CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 	pProgress->Init( IMovieProgressHook::PT_NEWMISSION );
 	pProgress->SetNumSteps( 7 + AI_INIT_PROGRESS_STEPS );
@@ -1648,6 +1651,14 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 	}
 	ResetGameSpeedAdjusting();
 	GetSingleton<IScenarioTracker>()->UpdateMinimumDifficulty();
+	if ( NTurnTrace::On() )
+	{
+		LARGE_INTEGER loadEnd, freq;
+		QueryPerformanceCounter( &loadEnd );
+		QueryPerformanceFrequency( &freq );
+		fprintf( stderr, "BK_TURN_TRACE: mission load %.0f ms\n", ( loadEnd.QuadPart - loadStart.QuadPart ) * 1000.0 / double( freq.QuadPart ) );
+		SetGlobalVar( "Perf.Turn.Loaded", 1 );
+	}
 	return true;
 }
 bool CInterfaceMission::StepLocal( bool bAppActive )
