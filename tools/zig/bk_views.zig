@@ -2168,7 +2168,9 @@ pub fn shadeClass(n: [3]f64, turn: u2) usize {
 /// state, so a face taken from a picture where it was lit as one class can be
 /// lit as another. The intact building is relit by the light (`shading`);
 /// a ruin's fitted blocks stand for rubble, and relit by the light their
-/// faces took seams (e_house07_1's ruin sharpness 1.13 to 2.53, M006 S07d).
+/// faces took seams (e_house07_1's ruin sharpness 1.13 to 2.53, M006 S07d;
+/// lit by their intact building's own light, `wallLight`, 8 variants' ruins
+/// still measured 1.56 to 1.88 against the gate's 1.55, M006 S07e).
 pub const Means = struct {
     sum: [8][3]f64 = std.mem.zeroes([8][3]f64),
     count: [8]f64 = std.mem.zeroes([8]f64),
@@ -2219,12 +2221,47 @@ pub const wall_light: f64 = 2.01;
 /// Per channel (`wall_light_rgb`): the sun is yellower than the sky that
 /// lights the shade, so a shaded wall relit by one factor came out a
 /// saturated orange beside the 2003 lit walls' cream (a_h02_2).
-pub fn shading(n: [3]f64, turn: u2) [3]f64 {
+/// `wall`: the lit wall against the shaded one per channel (`wallLight`).
+pub fn shading(n: [3]f64, turn: u2, wall: [3]f64) [3]f64 {
     const direct = @max(0, dot(n, lightFor(light_2003, turn)));
     var out: [3]f64 = undefined;
-    for (&out, wall_light_rgb) |*o, w| o.* = 1 + (w - 1) / -light_2003[1] * direct;
+    for (&out, wall) |*o, w| o.* = 1 + (w - 1) / -light_2003[1] * direct;
     return out;
 }
+
+/// The lit wall against the shaded one per channel for one building: its own
+/// 2003 walls (`means` of an intact state's pictures), where both are seen on
+/// `wall_pixels` or more and their brightness ratio lies in the spread of the
+/// 13 houses `wall_light` was measured on; else `wall_light_rgb`. The ratio
+/// is the building's own: a_wb/01's planks measure 1.57, 1.57, 1.64, and its
+/// shaded gable relit by the median (1.82, 2.03, 2.71) came out a pale
+/// grey-white beside its lit planks (M006 S07e).
+pub fn wallLight(means: Means) [3]f64 {
+    if (means.count[0] < wall_pixels or means.count[1] < wall_pixels) return wall_light_rgb;
+    var out: [3]f64 = undefined;
+    var lit: f64 = 0;
+    var shaded: f64 = 0;
+    for (&out, 0..) |*o, c| {
+        const a = means.sum[0][c] / means.count[0];
+        const b = @max(1, means.sum[1][c] / means.count[1]);
+        o.* = @max(1, a / b);
+        lit += a;
+        shaded += b;
+    }
+    if (lit / shaded < wall_light_spread[0] or lit / shaded > wall_light_spread[1]) return wall_light_rgb;
+    // Against red, the light's colour lies between none and the median's:
+    // where the lit wall is another material its colour is not taken for
+    // the light's (e_frenchshed01's cream plaster against its shaded brown
+    // stone, green 1.30 against red; factoryfloor01's lit red brick, 0.79).
+    for (out[1..], wall_light_rgb[1..]) |*o, m| o.* = std.math.clamp(o.*, out[0], out[0] * m / wall_light_rgb[0]);
+    return out;
+}
+
+/// The brightness ratios of the lit wall to the shaded one of the 13 houses
+/// `wall_light` was measured on (M005 S08).
+pub const wall_light_spread = [2]f64{ 1.5, 2.3 };
+/// Each wall seen on this many pixels or more gives a building its own light.
+pub const wall_pixels = 500;
 
 /// The lit wall against the shaded one per channel: the medians of the 13
 /// houses `wall_light` was measured on (M005 S08).
@@ -2259,17 +2296,52 @@ pub const Projector = struct { eye: Eye, picture: ?Image };
 pub const Generated = struct { image: Image, kinds: []Kind, classes: []u8, stretched: []const bool = &.{}, sources: []const [3]f64 = &.{} };
 
 /// Whether point q of a face lies on or by a low or roof part: within
-/// `part_margin` of its rectangle and no higher than `part_reach` above its
-/// top (a door over its step, a dormer's flashing).
-pub fn nearPart(parts: []const Block, q: [3]f64) bool {
+/// `part_margin` of its rectangle and no higher than `reach` above its top.
+pub fn nearPart(parts: []const Block, q: [3]f64, reach: f64) bool {
     for (parts) |b| {
-        if (q[0] >= b.lo[0] - part_margin and q[0] <= b.hi[0] + part_margin and q[1] >= b.lo[1] - part_margin and q[1] <= b.hi[1] + part_margin and q[2] <= @max(b.wall, b.ridge) + part_reach) return true;
+        if (q[0] >= b.lo[0] - part_margin and q[0] <= b.hi[0] + part_margin and q[1] >= b.lo[1] - part_margin and q[1] <= b.hi[1] + part_margin and q[2] <= @max(b.wall, b.ridge) + reach) return true;
     }
     return false;
 }
 
+/// How far above a part `nearPart` reaches on a face whose normal is `n`:
+/// on a wall `part_reach` (a door over its step), on a roof `part_margin`,
+/// as a part's pixels end at its own roof (a dormer's flashing). With the
+/// wall's reach on roofs, the tiles above e_townhouse02's dormers, up to its
+/// ridge, were left to the patch fill (M006 S07e).
+pub fn partReach(n: [3]f64) f64 {
+    return if (n[2] > 0.5) part_margin else part_reach;
+}
+
 const part_margin = 6;
 const part_reach = 40;
+
+/// A donor point on a roof by a part (`nearPart`) moved across its face, at
+/// its height, by the width the part keeps clear (its own and the margins),
+/// once or more, to where no part stands by; null on a wall or where it
+/// leaves the face. The roof beside a front's dormers lends the back its
+/// tiles: left to the patch fill, those points drew a quarter of
+/// e_townhouse02's and e_jettybuilding's turned roofs as blotches (M006
+/// S07e). A wall keeps the patch fill: a door step runs along most of a
+/// facade, and moved past it the facade's end repeated in stripes.
+fn slidePast(blocks: []const Block, body: usize, to: Face, q: [3]f64) ?[3]f64 {
+    const b = blocks[to.block];
+    const plane = facePlane(blocks, to);
+    if (plane.n[2] <= 0) return null;
+    const at = faceAt(b, plane, q);
+    const a: usize = if (plane.n[0] != 0 and plane.n[1] == 0) 1 else 0;
+    const width = b.hi[a] - b.lo[a];
+    const clear = for (blocks[body..]) |part| {
+        if (nearPart(&.{part}, q, part_margin)) break part.hi[a] - part.lo[a] + 2 * part_margin;
+    } else return null;
+    for (1..4) |j| for ([2]f64{ 1, -1 }) |sign| {
+        const u = at[0] + sign * @as(f64, @floatFromInt(j)) * clear / width;
+        if (u < 0 or u > 1) continue;
+        const p = facePoint(b, plane, .{ u, at[1] });
+        if (!nearPart(blocks[body..], p, part_margin)) return p;
+    };
+    return null;
+}
 
 /// The pixels of a picture `projectPicture` drew on a face of the body
 /// (`blocks[..body]`) from a donor point near a part (`nearPart`): a back
@@ -2282,7 +2354,7 @@ pub fn copiedParts(blocks: []const Block, body: usize, eye: Eye, drawn: Generate
     for (drawn.kinds, drawn.sources, 0..) |kind, q, i| {
         if (kind != .mirrored and kind != .transferred) continue;
         const hit = castPixel(blocks, eye, @as(f64, @floatFromInt(i % w)) + 0.5, @as(f64, @floatFromInt(i / w)) + 0.5) orelse continue;
-        if (hit.block < body and nearPart(blocks[body..], q)) n += 1;
+        if (hit.block < body and nearPart(blocks[body..], q, partReach(hit.normal))) n += 1;
     }
     return n;
 }
@@ -2297,7 +2369,7 @@ pub fn copiedParts(blocks: []const Block, body: usize, eye: Eye, drawn: Generate
 /// borrows no point near one (`nearPart`), so a house's back does not repeat
 /// the chimney, dormers and door steps of its front. Pixels none sees either
 /// way are left for `patchFill`.
-pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, means: ?Means, target: Eye, size: [2]u32, projectors: []const Projector) !Generated {
+pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize, means: ?Means, wall: [3]f64, target: Eye, size: [2]u32, projectors: []const Projector) !Generated {
     const count = @as(usize, size[0]) * size[1];
     const uvs = try gpa.alloc([2]f64, count);
     const sources = try gpa.alloc([3]f64, count);
@@ -2332,8 +2404,8 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize
         // goes first.
         for ([_]f64{ grazing, -1 }) |least| for (0..donors.*.?.len + 1) |k| {
             if (out.kinds[i] != .filled) break;
-            const q = if (k == 0) p else donorPoint(blocks, face, donors.*.?[k - 1], p);
-            if (k > 0 and face.block < body and nearPart(blocks[body..], q)) continue;
+            var q = if (k == 0) p else donorPoint(blocks, face, donors.*.?[k - 1], p);
+            if (k > 0 and face.block < body and nearPart(blocks[body..], q, partReach(hit.normal))) q = slidePast(blocks, body, donors.*.?[k - 1], q) orelse continue;
             const nq = if (k == 0) hit.normal else normalOf(blocks, donors.*.?[k - 1]);
             for (projectors, 0..) |projector, e| {
                 const source = projector.picture orelse continue;
@@ -2349,7 +2421,7 @@ pub fn projectPicture(gpa: std.mem.Allocator, blocks: []const Block, body: usize
                 best_score = score;
                 if (means) |m| {
                     for (0..3) |ch| out.image.pixels[i][ch] = @intFromFloat(@min(255, @round(@as(f64, @floatFromInt(pixel[ch])) * m.gain(class, from, ch))));
-                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn), shading(nq, projector.eye.turn));
+                } else out.image.pixels[i] = relight(pixel, shading(hit.normal, target.turn, wall), shading(nq, projector.eye.turn, wall));
                 out.image.pixels[i][3] = 255;
                 out.kinds[i] = if (k == 0) .projected else if (donors.*.?[k - 1].block == face.block) .mirrored else .transferred;
                 uvs[i] = uv;
@@ -2918,7 +2990,11 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
             if (e == scene.fixed) std.mem.swap(Projector, &ground[0], &ground[ground_count]);
             ground_count += 1;
         }
-        const sprite = try projectPicture(arena, blocks, if (state[0] == '1') body else blocks.len, if (state[0] == '1') null else means, target.eye, target.size, projectors);
+        // The variant's own picture first: of two pictures of one side it
+        // wins the tie, so e_house01_3 keeps its shingles and does not take
+        // e_house01_1's thatch, a colourway apart by 0.03 (M006 S07e).
+        std.mem.swap(Projector, &projectors[0], &projectors[scene.fixed]);
+        const sprite = try projectPicture(arena, blocks, if (state[0] == '1') body else blocks.len, if (state[0] == '1') null else means, wallLight(means), target.eye, target.size, projectors);
         try patchFill(arena, sprite);
         const shadow: Image = .{ .width = target.size[0], .height = target.size[1], .pixels = try arena.alloc([4]u8, sprite.kinds.len) };
         const l = lightFor(light_2003, target.turn);
