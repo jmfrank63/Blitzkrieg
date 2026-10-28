@@ -1273,7 +1273,8 @@ Run on win-home (Windows x64, debug install), one `zig build` at a time, after t
 `test-map-editor-engine map-editor-smoke camera-turn-world-game-reads-it camera-turn-game-reads-it` pass (628 s; the
 shared `CameraTurn.h`, `MOBuilding` and `MOObject`, the Map Editor's step stays 0).
 After the objects' relighting: `camera-turn-sun-game-reads-it camera-turn-world-game-reads-it objects-relight` pass
-(1345 s; `objects-relight` notes the two mines on stderr and exits 0).
+(1345 s; `objects-relight` notes the two mines on stderr and exits 0), then
+`test-map-editor-engine map-editor-smoke` again (pass, 1100 s with other worktrees building).
 The building batch (`building-views-batch-<region>`, now twice the turns) and the full sweep are left to the
 maintainer; Linux and macOS to CI.
 
