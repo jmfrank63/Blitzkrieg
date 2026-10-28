@@ -10,20 +10,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | warehouse | r1 | 2 | 1w | 76.6 | 20.3 | 2.4 | 0.7 | 1.31 | 6.6 | 0.040 | pass |
 | warehouse | r1 | 2 | 2 | 77.0 | 19.9 | 2.6 | 0.4 | 1.12 | 1.5 | 0.050 | pass |
 | warehouse | r1 | 2 | 2w | 77.0 | 19.9 | 2.6 | 0.4 | 1.16 | 1.8 | 0.026 | pass |
-| warehouse | r1 | 2 | 3 | 79.8 | 12.8 | 2.6 | 4.8 | 1.13 | 1.3 | 0.012 | pass |
-| warehouse | r1 | 2 | 3w | 79.8 | 12.8 | 2.6 | 4.8 | 1.10 | 1.4 | 0.016 | pass |
+| warehouse | r1 | 2 | 3 | 87.0 | 7.3 | 1.4 | 4.3 | 1.06 | 1.2 | 0.007 | pass |
+| warehouse | r1 | 2 | 3w | 87.0 | 7.3 | 1.4 | 4.3 | 1.04 | 1.3 | 0.007 | pass |
 | warehouse | r2 | 3 | 1 | 66.0 | 23.7 | 8.5 | 1.8 | 1.18 | 1.3 | 0.043 | pass |
 | warehouse | r2 | 3 | 1w | 66.1 | 23.0 | 8.7 | 2.3 | 1.24 | 0.8 | 0.036 | pass |
 | warehouse | r2 | 3 | 2 | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.6 | 0.006 | pass |
 | warehouse | r2 | 3 | 2w | 65.0 | 25.0 | 8.5 | 1.6 | 1.13 | 1.8 | 0.014 | pass |
-| warehouse | r2 | 3 | 3 | 71.8 | 20.3 | 2.3 | 5.6 | 1.00 | 1.6 | 0.011 | pass |
-| warehouse | r2 | 3 | 3w | 71.8 | 20.3 | 2.3 | 5.6 | 1.00 | 1.6 | 0.008 | pass |
+| warehouse | r2 | 3 | 3 | 83.7 | 10.2 | 1.5 | 4.6 | 1.02 | 0.2 | 0.004 | pass |
+| warehouse | r2 | 3 | 3w | 83.7 | 10.2 | 1.5 | 4.6 | 1.02 | 0.2 | 0.005 | pass |
 | warehouse | r3 | 4 | 1 | 83.0 | 6.9 | 8.3 | 1.8 | 1.30 | 2.4 | 0.031 | pass |
 | warehouse | r3 | 4 | 1w | 83.0 | 6.5 | 8.2 | 2.2 | 1.37 | 1.1 | 0.034 | pass |
 | warehouse | r3 | 4 | 2 | 81.7 | 8.4 | 8.3 | 1.6 | 1.09 | 1.4 | 0.043 | pass |
 | warehouse | r3 | 4 | 2w | 81.7 | 8.4 | 8.3 | 1.6 | 1.14 | 1.7 | 0.028 | pass |
-| warehouse | r3 | 4 | 3 | 83.0 | 9.9 | 2.4 | 4.6 | 1.07 | 0.5 | 0.006 | pass |
-| warehouse | r3 | 4 | 3w | 83.0 | 9.9 | 2.4 | 4.6 | 1.04 | 0.8 | 0.007 | pass |
+| warehouse | r3 | 4 | 3 | 89.8 | 4.4 | 1.3 | 4.5 | 1.04 | 0.3 | 0.008 | pass |
+| warehouse | r3 | 4 | 3w | 89.8 | 4.4 | 1.3 | 4.5 | 1.03 | 0.2 | 0.012 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| warehouse | r1 | 0.91 | 1.04 | 0.95 | 0.021 | 0.018 | 110 | 110 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| warehouse | r2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| warehouse | r3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| warehouse | r1 | 0.91 | 1.04 | 0.95 | 0.021 | 0.018 | 110 | 110 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| warehouse | r2 | 0.97 | 1.04 | 0.95 | 0.014 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| warehouse | r3 | 0.91 | 1.04 | 0.95 | 0.013 | 0.018 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

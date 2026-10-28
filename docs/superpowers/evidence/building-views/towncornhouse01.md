@@ -6,24 +6,24 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse01 | r1 | 2 | 1 | 61.2 | 23.2 | 6.3 | 9.3 | 1.49 | 4.4 | 0.197 | pass |
-| towncornhouse01 | r1 | 2 | 1w | 61.9 | 24.0 | 5.8 | 8.2 | 0.96 | 20.4 | 0.250 | pass |
-| towncornhouse01 | r1 | 2 | 2 | 54.8 | 32.1 | 6.3 | 6.8 | 1.39 | 7.0 | 0.033 | pass |
-| towncornhouse01 | r1 | 2 | 2w | 54.8 | 32.1 | 6.3 | 6.8 | 1.32 | 8.6 | 0.027 | pass |
-| towncornhouse01 | r1 | 2 | 3 | 69.7 | 25.4 | 4.2 | 0.8 | 1.19 | 3.3 | 0.027 | pass |
-| towncornhouse01 | r1 | 2 | 3w | 65.2 | 30.3 | 4.1 | 0.4 | 1.07 | 1.0 | 0.071 | pass |
-| towncornhouse01 | r2 | 3 | 1 | 0.3 | 77.7 | 11.5 | 10.5 | 1.09 | 0.9 | 0.055 | pass |
-| towncornhouse01 | r2 | 3 | 1w | 0.3 | 79.8 | 9.8 | 10.2 | 1.05 | 7.4 | 0.080 | pass |
-| towncornhouse01 | r2 | 3 | 2 | 0.3 | 81.4 | 9.7 | 8.6 | 1.13 | 1.8 | 0.064 | pass |
-| towncornhouse01 | r2 | 3 | 2w | 0.3 | 81.5 | 9.5 | 8.7 | 1.13 | 2.5 | 0.069 | pass |
-| towncornhouse01 | r2 | 3 | 3 | 46.2 | 48.8 | 4.0 | 0.9 | 1.09 | 0.1 | 0.004 | pass |
-| towncornhouse01 | r2 | 3 | 3w | 43.9 | 50.8 | 4.7 | 0.5 | 1.05 | 1.5 | 0.024 | pass |
-| towncornhouse01 | r3 | 4 | 1 | 38.7 | 52.6 | 7.0 | 1.8 | 1.29 | 7.6 | 0.200 | pass |
-| towncornhouse01 | r3 | 4 | 1w | 37.2 | 52.9 | 7.3 | 2.6 | 0.85 | 17.4 | 0.261 | pass |
-| towncornhouse01 | r3 | 4 | 2 | 44.7 | 45.6 | 5.0 | 4.7 | 1.12 | 4.2 | 0.021 | pass |
-| towncornhouse01 | r3 | 4 | 2w | 44.8 | 45.5 | 4.8 | 4.8 | 1.07 | 4.5 | 0.029 | pass |
-| towncornhouse01 | r3 | 4 | 3 | 68.8 | 27.6 | 2.7 | 0.9 | 1.14 | 3.9 | 0.024 | pass |
-| towncornhouse01 | r3 | 4 | 3w | 72.0 | 23.8 | 3.4 | 0.8 | 1.04 | 0.4 | 0.075 | pass |
+| towncornhouse01 | r1 | 2 | 1 | 61.3 | 23.2 | 6.2 | 9.3 | 1.42 | 4.7 | 0.204 | pass |
+| towncornhouse01 | r1 | 2 | 1w | 61.8 | 24.4 | 5.6 | 8.2 | 0.95 | 18.2 | 0.269 | pass |
+| towncornhouse01 | r1 | 2 | 2 | 54.9 | 32.0 | 6.2 | 6.8 | 1.40 | 7.2 | 0.040 | pass |
+| towncornhouse01 | r1 | 2 | 2w | 54.6 | 32.4 | 6.2 | 6.8 | 1.34 | 7.5 | 0.035 | pass |
+| towncornhouse01 | r1 | 2 | 3 | 69.2 | 26.5 | 4.1 | 0.2 | 1.18 | 2.9 | 0.020 | pass |
+| towncornhouse01 | r1 | 2 | 3w | 65.0 | 31.2 | 3.5 | 0.3 | 1.08 | 0.6 | 0.061 | pass |
+| towncornhouse01 | r2 | 3 | 1 | 0.3 | 78.1 | 11.1 | 10.5 | 1.06 | 1.2 | 0.043 | pass |
+| towncornhouse01 | r2 | 3 | 1w | 0.3 | 79.8 | 10.9 | 9.0 | 1.04 | 6.6 | 0.079 | pass |
+| towncornhouse01 | r2 | 3 | 2 | 0.3 | 81.3 | 10.7 | 7.7 | 1.12 | 1.8 | 0.061 | pass |
+| towncornhouse01 | r2 | 3 | 2w | 0.3 | 81.3 | 10.9 | 7.6 | 1.10 | 2.2 | 0.059 | pass |
+| towncornhouse01 | r2 | 3 | 3 | 46.5 | 49.0 | 4.2 | 0.3 | 1.07 | 0.7 | 0.007 | pass |
+| towncornhouse01 | r2 | 3 | 3w | 43.1 | 52.0 | 4.5 | 0.5 | 1.06 | 1.2 | 0.023 | pass |
+| towncornhouse01 | r3 | 4 | 1 | 38.4 | 53.1 | 6.7 | 1.7 | 1.27 | 7.4 | 0.198 | pass |
+| towncornhouse01 | r3 | 4 | 1w | 37.4 | 52.7 | 8.5 | 1.4 | 0.85 | 18.6 | 0.251 | pass |
+| towncornhouse01 | r3 | 4 | 2 | 44.4 | 45.9 | 6.0 | 3.8 | 1.12 | 3.9 | 0.032 | pass |
+| towncornhouse01 | r3 | 4 | 2w | 45.0 | 45.3 | 6.1 | 3.6 | 1.06 | 4.7 | 0.039 | pass |
+| towncornhouse01 | r3 | 4 | 3 | 71.0 | 25.6 | 3.0 | 0.3 | 1.13 | 2.9 | 0.019 | pass |
+| towncornhouse01 | r3 | 4 | 3w | 72.1 | 23.8 | 3.6 | 0.5 | 1.06 | 0.2 | 0.068 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| towncornhouse01 | r1 | 1.07 | 0.96 | 0.98 | 0.015 | 0.012 | 579 | 579 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| towncornhouse01 | r2 | 1.04 | 0.96 | 0.98 | 0.015 | 0.012 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| towncornhouse01 | r3 | 1.21 | 0.96 | 0.98 | 0.005 | 0.012 | 166 | 166 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| towncornhouse01 | r1 | 1.07 | 0.96 | 0.98 | 0.015 | 0.012 | 579 | 579 | 0 | 0 | 0.000 | 0 | 42 | 34 | 4 | pass | blocks |
+| towncornhouse01 | r2 | 1.04 | 0.96 | 0.98 | 0.014 | 0.012 | 0 | 0 | 0 | 0 | 0.000 | 0 | 42 | 34 | 0 | pass | blocks |
+| towncornhouse01 | r3 | 1.21 | 0.96 | 0.98 | 0.005 | 0.012 | 180 | 180 | 0 | 0 | 0.000 | 0 | 42 | 34 | 0 | pass | blocks |

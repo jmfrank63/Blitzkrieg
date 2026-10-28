@@ -10,20 +10,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | house06 | r1 | 2 | 1w | 41.9 | 40.6 | 4.7 | 12.7 | 0.91 | 8.2 | 0.208 | pass |
 | house06 | r1 | 2 | 2 | 39.2 | 52.5 | 4.3 | 4.0 | 0.97 | 4.3 | 0.029 | pass |
 | house06 | r1 | 2 | 2w | 39.2 | 52.5 | 4.3 | 4.0 | 1.00 | 4.8 | 0.028 | pass |
-| house06 | r1 | 2 | 3 | 60.2 | 29.6 | 5.8 | 4.5 | 1.07 | 0.5 | 0.016 | pass |
-| house06 | r1 | 2 | 3w | 60.2 | 29.6 | 5.8 | 4.5 | 1.07 | 0.5 | 0.018 | pass |
+| house06 | r1 | 2 | 3 | 58.0 | 24.4 | 15.0 | 2.6 | 1.07 | 4.0 | 0.019 | pass |
+| house06 | r1 | 2 | 3w | 58.0 | 24.4 | 15.0 | 2.6 | 1.08 | 4.8 | 0.017 | pass |
 | house06 | r2 | 3 | 1 | 6.0 | 93.5 | 0.5 | 0.0 | 1.02 | 5.6 | 0.017 | pass |
 | house06 | r2 | 3 | 1w | 6.1 | 59.3 | 9.4 | 25.3 | 0.91 | 9.6 | 0.114 | pass |
 | house06 | r2 | 3 | 2 | 6.3 | 84.7 | 6.0 | 3.0 | 1.08 | 5.9 | 0.042 | pass |
 | house06 | r2 | 3 | 2w | 6.3 | 84.7 | 6.0 | 3.0 | 1.09 | 6.8 | 0.042 | pass |
-| house06 | r2 | 3 | 3 | 41.7 | 48.0 | 6.2 | 4.1 | 1.02 | 1.6 | 0.027 | pass |
-| house06 | r2 | 3 | 3w | 41.7 | 48.0 | 6.2 | 4.1 | 1.02 | 1.9 | 0.028 | pass |
+| house06 | r2 | 3 | 3 | 16.6 | 66.0 | 15.6 | 1.8 | 1.11 | 5.4 | 0.019 | pass |
+| house06 | r2 | 3 | 3w | 16.6 | 66.0 | 15.6 | 1.8 | 1.11 | 6.4 | 0.022 | pass |
 | house06 | r3 | 4 | 1 | 63.0 | 36.4 | 0.6 | 0.1 | 0.85 | 10.5 | 0.098 | pass |
 | house06 | r3 | 4 | 1w | 63.6 | 17.9 | 4.8 | 13.7 | 0.97 | 12.7 | 0.207 | pass |
 | house06 | r3 | 4 | 2 | 63.9 | 31.3 | 2.4 | 2.4 | 0.89 | 6.6 | 0.056 | pass |
 | house06 | r3 | 4 | 2w | 63.9 | 31.3 | 2.4 | 2.4 | 0.92 | 7.5 | 0.055 | pass |
-| house06 | r3 | 4 | 3 | 64.6 | 27.0 | 6.1 | 2.4 | 1.03 | 1.3 | 0.008 | pass |
-| house06 | r3 | 4 | 3w | 64.6 | 27.0 | 6.1 | 2.4 | 1.02 | 1.5 | 0.010 | pass |
+| house06 | r3 | 4 | 3 | 34.2 | 56.3 | 8.3 | 1.2 | 1.06 | 2.3 | 0.032 | pass |
+| house06 | r3 | 4 | 3w | 34.2 | 56.3 | 8.3 | 1.2 | 1.07 | 2.7 | 0.031 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| house06 | r1 | 0.98 | 0.71 | 0.97 | 0.041 | 0.061 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| house06 | r2 | 0.98 | 0.71 | 0.97 | 0.064 | 0.061 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| house06 | r3 | 1.07 | 0.71 | 0.97 | 0.062 | 0.061 | 23 | 23 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| house06 | r1 | 0.98 | 0.71 | 0.97 | 0.041 | 0.061 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house06 | r2 | 0.98 | 0.71 | 0.97 | 0.064 | 0.061 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house06 | r3 | 1.07 | 0.71 | 0.97 | 0.062 | 0.061 | 23 | 23 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

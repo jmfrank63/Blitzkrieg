@@ -8,13 +8,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_house09_1 | r1 | 2 | 1 | 30.9 | 60.6 | 1.2 | 7.3 | 1.13 | 2.3 | 0.072 | pass |
 | e_house09_1 | r1 | 2 | 2 | 32.6 | 64.9 | 0.7 | 1.8 | 0.95 | 3.5 | 0.048 | pass |
-| e_house09_1 | r1 | 2 | 3 | 26.5 | 62.9 | 6.3 | 4.4 | 1.18 | 3.5 | 0.015 | pass |
+| e_house09_1 | r1 | 2 | 3 | 29.2 | 60.1 | 6.0 | 4.8 | 1.10 | 1.0 | 0.013 | pass |
 | e_house09_1 | r2 | 3 | 1 | 0.0 | 85.8 | 6.7 | 7.5 | 0.84 | 17.6 | 0.039 | pass |
 | e_house09_1 | r2 | 3 | 2 | 0.0 | 95.9 | 2.2 | 1.9 | 0.90 | 4.4 | 0.035 | pass |
-| e_house09_1 | r2 | 3 | 3 | 15.1 | 73.3 | 6.8 | 4.8 | 1.15 | 0.4 | 0.009 | pass |
+| e_house09_1 | r2 | 3 | 3 | 16.0 | 71.7 | 7.3 | 5.0 | 1.06 | 5.1 | 0.004 | pass |
 | e_house09_1 | r3 | 4 | 1 | 59.5 | 33.4 | 6.5 | 0.6 | 1.11 | 6.4 | 0.114 | pass |
 | e_house09_1 | r3 | 4 | 2 | 60.1 | 36.6 | 2.3 | 1.0 | 0.95 | 8.0 | 0.026 | pass |
-| e_house09_1 | r3 | 4 | 3 | 69.9 | 21.8 | 5.0 | 3.3 | 1.09 | 1.0 | 0.003 | pass |
+| e_house09_1 | r3 | 4 | 3 | 69.2 | 22.4 | 4.9 | 3.5 | 1.08 | 3.6 | 0.011 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -22,11 +22,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_house09_1 | r1 | 1.03 | 0.84 | 0.93 | 0.026 | 0.017 | 322 | 322 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_house09_1 | r2 | 1.03 | 0.84 | 0.93 | 0.028 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_house09_1 | r3 | 1.03 | 0.84 | 0.93 | 0.027 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_house09_1 | r1 | 1.03 | 0.84 | 0.93 | 0.026 | 0.017 | 322 | 322 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house09_1 | r2 | 1.03 | 0.84 | 0.93 | 0.028 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_house09_1 | r3 | 1.03 | 0.84 | 0.93 | 0.027 | 0.017 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

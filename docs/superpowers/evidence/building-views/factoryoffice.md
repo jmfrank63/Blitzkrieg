@@ -6,20 +6,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryoffice | r1 | 2 | 1 | 65.1 | 27.3 | 0.1 | 7.4 | 0.87 | 16.1 | 0.112 | pass |
-| factoryoffice | r1 | 2 | 1w | 65.0 | 27.0 | 0.1 | 7.9 | 0.83 | 26.3 | 0.130 | pass |
+| factoryoffice | r1 | 2 | 1 | 64.8 | 26.6 | 1.2 | 7.3 | 0.91 | 15.9 | 0.105 | pass |
+| factoryoffice | r1 | 2 | 1w | 64.7 | 26.3 | 1.3 | 7.7 | 0.87 | 25.5 | 0.112 | pass |
 | factoryoffice | r1 | 2 | 2 | 65.0 | 34.1 | 0.5 | 0.4 | 0.99 | 0.2 | 0.045 | pass |
 | factoryoffice | r1 | 2 | 2w | 65.0 | 34.1 | 0.5 | 0.4 | 0.93 | 0.7 | 0.055 | pass |
 | factoryoffice | r1 | 2 | 3 | 76.1 | 21.4 | 1.2 | 1.3 | 1.06 | 2.0 | 0.004 | pass |
 | factoryoffice | r1 | 2 | 3w | 76.1 | 21.4 | 1.2 | 1.3 | 1.05 | 2.4 | 0.006 | pass |
-| factoryoffice | r2 | 3 | 1 | 3.9 | 79.4 | 0.3 | 16.5 | 0.98 | 1.8 | 0.041 | pass |
-| factoryoffice | r2 | 3 | 1w | 2.7 | 79.8 | 0.3 | 17.2 | 1.06 | 5.3 | 0.052 | pass |
+| factoryoffice | r2 | 3 | 1 | 4.0 | 76.0 | 5.9 | 14.2 | 1.02 | 2.0 | 0.058 | pass |
+| factoryoffice | r2 | 3 | 1w | 3.0 | 77.8 | 1.9 | 17.2 | 1.07 | 5.3 | 0.055 | pass |
 | factoryoffice | r2 | 3 | 2 | 3.5 | 94.9 | 0.7 | 0.9 | 1.02 | 1.4 | 0.055 | pass |
 | factoryoffice | r2 | 3 | 2w | 3.5 | 94.9 | 0.7 | 0.9 | 1.02 | 1.6 | 0.056 | pass |
 | factoryoffice | r2 | 3 | 3 | 57.5 | 39.6 | 1.4 | 1.5 | 1.00 | 1.4 | 0.030 | pass |
 | factoryoffice | r2 | 3 | 3w | 57.5 | 39.6 | 1.4 | 1.5 | 0.99 | 1.7 | 0.025 | pass |
-| factoryoffice | r3 | 4 | 1 | 34.6 | 55.5 | 0.2 | 9.7 | 0.81 | 22.1 | 0.073 | pass |
-| factoryoffice | r3 | 4 | 1w | 34.8 | 54.8 | 0.4 | 9.9 | 0.75 | 35.3 | 0.101 | pass |
+| factoryoffice | r3 | 4 | 1 | 34.6 | 52.5 | 5.4 | 7.5 | 0.87 | 20.8 | 0.102 | pass |
+| factoryoffice | r3 | 4 | 1w | 35.0 | 53.2 | 1.8 | 10.0 | 0.78 | 37.6 | 0.113 | pass |
 | factoryoffice | r3 | 4 | 2 | 33.7 | 65.4 | 0.3 | 0.6 | 0.97 | 1.4 | 0.031 | pass |
 | factoryoffice | r3 | 4 | 2w | 33.7 | 65.4 | 0.3 | 0.6 | 0.92 | 2.0 | 0.041 | pass |
 | factoryoffice | r3 | 4 | 3 | 73.4 | 23.7 | 1.5 | 1.4 | 1.01 | 1.0 | 0.030 | pass |
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| factoryoffice | r1 | 0.98 | 1.04 | 0.96 | 0.031 | 0.032 | 205 | 205 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| factoryoffice | r2 | 0.98 | 1.04 | 0.96 | 0.019 | 0.032 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| factoryoffice | r3 | 0.99 | 1.04 | 0.96 | 0.019 | 0.032 | 390 | 390 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| factoryoffice | r1 | 0.98 | 1.04 | 0.96 | 0.032 | 0.032 | 205 | 205 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
+| factoryoffice | r2 | 0.98 | 1.04 | 0.96 | 0.019 | 0.032 | 0 | 0 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |
+| factoryoffice | r3 | 0.99 | 1.04 | 0.96 | 0.019 | 0.032 | 390 | 390 | 0 | 0 | 0.000 | 0 | 55 | 55 | 0 | pass | blocks |

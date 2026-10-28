@@ -766,6 +766,60 @@ variants) that are not tracked.
   e_townhouse02_2 r2/r3 (the dormer zone of the back roof still patchy), e_cityhall_1 r2/r3 (bright orange roof
   planes), e_wt (the crate above).
 
+## Chimneys on turned sides (M006 round 2, 2026-10-28)
+
+The maintainer's second hand test (macOS arm64, main 151a064ff): with the camera turned, the red-roof half-timbered
+houses of Poland's village (e_house02_1 and _2) showed their chimneys painted on the roof slope facing the camera,
+in the same screen place at every step, not standing on the ridge where the house's own chimney is.
+
+- **Cause.** The fit raised e_house02's roof into its chimney: the outline IoU counts the chimney's pixels, so a hip
+  with its ridge at 109 to 112 (the 2003 roof is a gable at about 100) covered most of it. `cutChimneys` only sees
+  what stands above the blocks' outline, so it cut a stalk 5 units square from the chimney's top, and the 2003
+  chimney pixels below that top lay on the raised roof plane: every turn painted them there. Other houses lost
+  their chimneys instead: e_house06_4's fit (one gable along the wrong axis over house and lean-to) left both gable-end
+  chimneys standing beside the roof, where no placement passed, and hand shapes (S07 on) never had chimneys cut.
+- **Chimneys from the picture alone** (`chimneyMask`). What an opening of the top edge 20 pixels wide takes off the
+  outline, in runs of columns that rise 5 to 30 rows and have a vertical side (a step of 7 rows or more between two
+  columns): a roof's apex rises 2 to 6 rows a column (6 at e_house02_4's steep gable), a chimney's sides 7 to 28 at
+  once, spires and towers rise further (e_chapel_1, church, e_cityhall_1: 32 to 50). No blocks are needed, so a
+  roof fitted into a chimney does not hide it.
+- **Fix.** The fit takes the outlines without their chimneys (`withoutChimneys`), so the roof stays under them;
+  `cutChimneys` cuts the chimneys of the mask first, each on its own (above a gable cut low the outline above the
+  blocks joined the chimney to the gable's top), as wide as its sides; a chimney's middle only, not its whole foot,
+  must stand on the blocks (one on a gable end stands on the end wall). Cut chimneys are parts now, like the low and
+  roof parts: a body face borrows no point near one (`nearPart`), so the roof under a chimney's 2003 place shows
+  roof. A hand shape keeps its author's blocks and takes the chimneys of the mask it lacks (`hand`), and no chimney
+  is cut where a roof part stands. Fixtures: `shapes/e_house06.json` (house gable_x x -112..0, walls 50, ridge 102,
+  lean-to -155..-113, walls 28, ridge 52; own outline IoU 0.893 fitted -> 0.935, refined by `shape`),
+  `shapes/ukrainehouse01.json` (_2: the S07e fit's three hips, which the fit without the chimney lost to a flat
+  gable, outline 0.930 -> 0.898) and `shapes/ukrainehouse03.json` (_1: one hip, ridge 75, instead of a gable rising
+  5 units), `roof-parts/ukrainehouse01.json` (_1's two thatch chimneys, placed on a wire-frame of the blocks) and
+  e_townhouse01_3's two chimneys in `roof-parts/e_townhouse01.json`, so e_townhouse01_4 stands them too.
+- **Gate** (in the shape gate, sources.json `chimney`, `chimney_kept`, `painted`, the family reports' "Chimneys",
+  "Kept", "Painted"): `keptChimneys`, the pixels of the chimneys the variant's own 2003 picture shows and of those the
+  blocks cover there; a turn fails where there are more than 40 and less than half are covered (a lost chimney
+  leaves none to a sixth covered, one drawn a little narrower than its cap 0.7 or more). Its own picture only, as
+  for the outline: ukrainehouse01_1 and _2 are other buildings. `paintedChimneys`, the pixels a turn draws on a roof
+  of the body from a point a 2003 picture of the colourway sees as a chimney (a chimney missing, or standing
+  elsewhere than one of the 2003 sides shows it); a turn fails above 40. Test: a chimney 12 units square on a gabled
+  house's ridge is found by the mask (the gable's apex is not), cut 12 wide where it stands from a roof raised into
+  it, the blocks without it keep none of its pixels and with it 0.9 or more, and a quarter turn of the raised roof
+  paints more than 40 of them, with the chimney a part none.
+- **Measured** (`bk-views side` over all 194 variants with the gate, then the four batch steps and the report).
+  Before the fix, of the 379 turns drawn by blocks, 66 turns of 23 variants failed: 32 painted (11 variants:
+  e_house02_1/_2, e_house03_2, e_house10_2, e_house11_1, e_house12_3, e_townhouse02_2/_3, factoryfloor01,
+  factoryoffice, house02; e_house02_1 54 to 59 pixels, e_house10_2 43 to 57) and 34 lost (12 variants: admhouse,
+  e_ctownhouse04_1_2, e_house01_3, e_house05_3, e_house06_4 0 of 423, e_house11_3/_4, housebig, pigeonloft/01,
+  railwaystation, ukrainehouse01_2, ukrainehouse03_1). After: none; the most painted is 40 (e_house11_3 r1), the
+  least kept share 0.71 (pigeonloft/01, whose mask is its perch). 117 block turns show chimneys. The blocks' outline
+  IoU against the variant's 2003 picture rose on 16 turns by more than 0.01 (e_house06_4 0.904 -> 0.974,
+  e_house11_4 0.887 -> 0.907) and fell on none; the turns drawn as 2003 sprites are the same. Batch
+  ([batch](../evidence/building-views/batch.md)): 194 of 194 variants pass, hold-out 43 of 43, 582 folders through the
+  engine check, 77 hand shapes (74). `test-bk-views`, `bk-views-side`, `bk-views-roundtrip` pass.
+- **Left.** Spires and towers (the mask's rise over 30) are not checked; a chimney in front of its roof from every
+  2003 side (e_house02_4's) is not found by the mask and stays as the fit and the projection draw it; the thatch
+  houses' ridge sticks are cut as thin posts (ukrainehouse03_1).
+
 ## Open questions
 
 - How the Game should pick a variant for an object placed in a map at orientation k under camera step r

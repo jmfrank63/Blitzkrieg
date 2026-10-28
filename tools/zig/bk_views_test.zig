@@ -491,7 +491,7 @@ test "a block the outlines barely need is dropped, and a chimney is cut back fro
     // comes back where it stands, as high and about as wide.
     const fitted = try views.fitBlocks(arena, &start, &pictures, &eyes, false);
     try std.testing.expectEqual(@as(usize, 1), fitted.len);
-    const cut = try views.cutChimneys(arena, fitted, &pictures, &eyes);
+    const cut = try views.cutChimneys(arena, fitted, &.{}, &pictures, &eyes, false);
     try std.testing.expectEqual(@as(usize, 2), cut.len);
     const found = cut[1];
     for (0..2) |k| try std.testing.expectApproxEqAbs((chimney.lo[k] + chimney.hi[k]) / 2, (found.lo[k] + found.hi[k]) / 2, 4);
@@ -674,6 +674,51 @@ test "a back roof copied from the front leaves the front's chimney out, and a co
     var lost: usize = 0;
     for (copied.kinds, drawn.kinds) |a, b| lost += @intFromBool(a == .mirrored and b == .filled);
     try std.testing.expectEqual(@as(usize, 0), lost);
+}
+
+test "a chimney is found from the picture alone, cut whole from a roof fitted up into it, and a turn that paints it on the roof fails the gate" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // A gabled house and a chimney 12 units square on its ridge, 20 above it
+    // (e_house02_1).
+    const gabled: views.Block = .{ .lo = .{ 0, 0 }, .hi = .{ 3 * views.tile_size, 2 * views.tile_size }, .wall = 30, .ridge = 55, .roof = .gable_x };
+    const chimney: views.Block = .{ .lo = .{ 28, 17 }, .hi = .{ 40, 29 }, .wall = 75, .ridge = 75 };
+    var eyes: [3]views.Eye = undefined;
+    var pictures: [3]views.Image = undefined;
+    for (&eyes, &pictures, [_]u2{ 0, 1, 3 }) |*eye, *picture, turn| {
+        eye.* = .{ .anchor = .{ 130, 150 }, .turn = turn };
+        picture.* = try blocksPicture(arena, eye.*, &.{ gabled, chimney });
+    }
+    // The gable's apex is no chimney; the chimney's top is.
+    var found: usize = 0;
+    for (try views.chimneyMask(arena, pictures[0])) |m| found += @intFromBool(m);
+    try std.testing.expect(found > 40);
+    for (try views.chimneyMask(arena, try blocksPicture(arena, eyes[0], &.{gabled}))) |m| try std.testing.expect(!m);
+    // The roof the fit raised into the chimney (S05..S07e on e_house02)
+    // leaves only its top above the blocks; the chimney is cut whole all the
+    // same, as wide as it is and where it stands.
+    var swollen = gabled;
+    swollen.ridge = 66;
+    const cut = try views.cutChimneys(arena, &.{swollen}, &.{}, &pictures, &eyes, false);
+    try std.testing.expect(cut.len >= 2);
+    try std.testing.expectApproxEqAbs(@as(f64, 12), cut[1].hi[0] - cut[1].lo[0], 4);
+    for (0..2) |k| try std.testing.expectApproxEqAbs((chimney.lo[k] + chimney.hi[k]) / 2, (cut[1].lo[k] + cut[1].hi[k]) / 2, 6);
+    // Kept: the blocks cover the chimney the picture shows, or lose it.
+    const lost = try views.keptChimneys(arena, &.{gabled}, pictures[0], eyes[0]);
+    try std.testing.expectEqual(@as(f64, 0), lost[1]);
+    const kept = try views.keptChimneys(arena, &.{ gabled, chimney }, pictures[0], eyes[0]);
+    try std.testing.expect(kept[1] >= 0.9 * kept[0]);
+    // Painted: a quarter turn of the swollen roof draws the chimney's
+    // pixels on the roof plane; with the chimney a part it draws none.
+    const turned: views.Eye = .{ .anchor = .{ 130, 150 }, .turn = 1 };
+    const size = [2]u32{ pictures[0].width, pictures[0].height };
+    const projectors = [_]views.Projector{.{ .eye = eyes[0], .picture = pictures[0] }};
+    const painted = try views.projectPicture(arena, &.{swollen}, 1, null, views.wall_light_rgb, turned, size, &projectors);
+    try std.testing.expect(try views.paintedChimneys(arena, &.{swollen}, 1, turned, painted, pictures[0..1], eyes[0..1]) > 40);
+    const blocks = [_]views.Block{ gabled, chimney };
+    const drawn = try views.projectPicture(arena, &blocks, 1, null, views.wall_light_rgb, turned, size, &projectors);
+    try std.testing.expectEqual(@as(f64, 0), try views.paintedChimneys(arena, &blocks, 1, turned, drawn, pictures[0..1], eyes[0..1]));
 }
 
 test "an outline's protrusion is the share of it narrower than the window" {

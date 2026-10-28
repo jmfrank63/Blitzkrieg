@@ -8,13 +8,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_cityhall_1 | r1 | 2 | 1 | 45.6 | 29.1 | 25.2 | 0.1 | 1.04 | 1.5 | 0.014 | pass |
 | e_cityhall_1 | r1 | 2 | 2 | 45.9 | 26.5 | 26.5 | 1.1 | 0.98 | 6.0 | 0.083 | pass |
-| e_cityhall_1 | r1 | 2 | 3 | 56.3 | 34.8 | 7.9 | 1.0 | 1.10 | 3.1 | 0.003 | pass |
+| e_cityhall_1 | r1 | 2 | 3 | 57.0 | 25.3 | 7.3 | 10.4 | 1.07 | 2.4 | 0.015 | pass |
 | e_cityhall_1 | r2 | 3 | 1 | 0.0 | 61.1 | 38.7 | 0.2 | 1.16 | 7.5 | 0.035 | pass |
 | e_cityhall_1 | r2 | 3 | 2 | 0.0 | 59.7 | 39.0 | 1.3 | 1.05 | 2.4 | 0.019 | pass |
-| e_cityhall_1 | r2 | 3 | 3 | 25.0 | 65.0 | 9.4 | 0.6 | 1.00 | 3.6 | 0.011 | pass |
+| e_cityhall_1 | r2 | 3 | 3 | 31.0 | 48.7 | 9.3 | 11.1 | 0.97 | 1.0 | 0.030 | pass |
 | e_cityhall_1 | r3 | 4 | 1 | 31.0 | 40.0 | 28.9 | 0.1 | 0.94 | 15.7 | 0.061 | pass |
 | e_cityhall_1 | r3 | 4 | 2 | 29.2 | 39.5 | 30.2 | 1.2 | 0.81 | 20.2 | 0.097 | pass |
-| e_cityhall_1 | r3 | 4 | 3 | 47.4 | 39.5 | 12.9 | 0.2 | 0.92 | 10.3 | 0.006 | pass |
+| e_cityhall_1 | r3 | 4 | 3 | 49.5 | 34.1 | 8.4 | 8.0 | 0.89 | 9.4 | 0.006 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -22,11 +22,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_cityhall_1 | r1 | 0.85 | 0.87 | 0.96 | 0.017 | 0.026 | 93 | 93 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_cityhall_1 | r2 | 1.01 | 0.87 | 0.96 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_cityhall_1 | r3 | 1.08 | 0.87 | 0.96 | 0.027 | 0.026 | 30 | 30 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_cityhall_1 | r1 | 0.85 | 0.87 | 0.96 | 0.017 | 0.026 | 93 | 93 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_cityhall_1 | r2 | 1.01 | 0.87 | 0.96 | 0.017 | 0.026 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_cityhall_1 | r3 | 1.08 | 0.87 | 0.96 | 0.027 | 0.026 | 30 | 30 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

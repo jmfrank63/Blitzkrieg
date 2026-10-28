@@ -10,20 +10,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | house04 | r1 | 2 | 1w | 36.7 | 59.0 | 2.4 | 1.9 | 0.93 | 8.0 | 0.285 | pass |
 | house04 | r1 | 2 | 2 | 31.0 | 61.9 | 2.5 | 4.6 | 1.00 | 1.9 | 0.038 | pass |
 | house04 | r1 | 2 | 2w | 31.0 | 61.9 | 2.5 | 4.6 | 0.98 | 2.2 | 0.041 | pass |
-| house04 | r1 | 2 | 3 | 74.8 | 18.5 | 3.5 | 3.3 | 1.14 | 0.7 | 0.013 | pass |
-| house04 | r1 | 2 | 3w | 74.8 | 18.5 | 3.5 | 3.3 | 1.12 | 0.7 | 0.015 | pass |
+| house04 | r1 | 2 | 3 | 71.8 | 19.8 | 6.8 | 1.7 | 1.02 | 0.6 | 0.024 | pass |
+| house04 | r1 | 2 | 3w | 71.8 | 19.8 | 6.8 | 1.7 | 1.01 | 0.7 | 0.016 | pass |
 | house04 | r2 | 3 | 1 | 0.2 | 95.6 | 3.6 | 0.6 | 0.99 | 1.8 | 0.027 | pass |
 | house04 | r2 | 3 | 1w | 0.2 | 95.6 | 3.6 | 0.5 | 0.97 | 2.7 | 0.080 | pass |
 | house04 | r2 | 3 | 2 | 0.2 | 92.2 | 2.3 | 5.3 | 1.06 | 1.0 | 0.025 | pass |
 | house04 | r2 | 3 | 2w | 0.2 | 92.2 | 2.3 | 5.3 | 1.06 | 1.2 | 0.025 | pass |
-| house04 | r2 | 3 | 3 | 71.0 | 21.5 | 4.3 | 3.2 | 1.15 | 0.4 | 0.017 | pass |
-| house04 | r2 | 3 | 3w | 71.0 | 21.5 | 4.3 | 3.2 | 1.13 | 0.4 | 0.016 | pass |
+| house04 | r2 | 3 | 3 | 62.7 | 26.5 | 8.1 | 2.7 | 1.08 | 1.0 | 0.005 | pass |
+| house04 | r2 | 3 | 3w | 62.7 | 26.5 | 8.1 | 2.7 | 1.07 | 1.1 | 0.004 | pass |
 | house04 | r3 | 4 | 1 | 56.5 | 40.7 | 2.1 | 0.7 | 1.05 | 10.0 | 0.111 | pass |
 | house04 | r3 | 4 | 1w | 56.6 | 40.6 | 2.2 | 0.6 | 0.93 | 11.0 | 0.267 | pass |
 | house04 | r3 | 4 | 2 | 62.4 | 30.5 | 2.1 | 5.0 | 1.01 | 4.8 | 0.044 | pass |
 | house04 | r3 | 4 | 2w | 62.4 | 30.5 | 2.1 | 5.0 | 0.96 | 5.6 | 0.049 | pass |
-| house04 | r3 | 4 | 3 | 79.5 | 13.2 | 3.9 | 3.4 | 1.10 | 1.6 | 0.016 | pass |
-| house04 | r3 | 4 | 3w | 79.5 | 13.2 | 3.9 | 3.4 | 1.10 | 1.8 | 0.014 | pass |
+| house04 | r3 | 4 | 3 | 72.8 | 16.6 | 7.8 | 2.7 | 1.05 | 4.3 | 0.032 | pass |
+| house04 | r3 | 4 | 3w | 72.8 | 16.6 | 7.8 | 2.7 | 1.05 | 5.2 | 0.021 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -31,11 +31,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| house04 | r1 | 0.95 | 0.79 | 0.93 | 0.069 | 0.066 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| house04 | r2 | 0.95 | 0.79 | 0.93 | 0.069 | 0.066 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| house04 | r3 | 0.95 | 0.79 | 0.93 | 0.063 | 0.066 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| house04 | r1 | 0.95 | 0.79 | 0.93 | 0.069 | 0.066 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house04 | r2 | 0.95 | 0.79 | 0.93 | 0.069 | 0.066 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| house04 | r3 | 0.95 | 0.79 | 0.93 | 0.063 | 0.066 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

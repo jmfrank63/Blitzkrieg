@@ -10,20 +10,20 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | townhouse03_1 | r1 | 2 | 1w | 59.3 | 32.3 | 3.4 | 5.0 | 1.12 | 12.6 | 0.041 | pass |
 | townhouse03_1 | r1 | 2 | 2 | 61.7 | 38.0 | 0.2 | 0.1 | 0.97 | 13.0 | 0.026 | pass |
 | townhouse03_1 | r1 | 2 | 2w | 61.7 | 38.0 | 0.2 | 0.1 | 0.92 | 15.7 | 0.023 | pass |
-| townhouse03_1 | r1 | 2 | 3 | 81.5 | 18.0 | 0.1 | 0.4 | 1.07 | 3.2 | 0.034 | pass |
-| townhouse03_1 | r1 | 2 | 3w | 81.5 | 18.0 | 0.1 | 0.4 | 1.04 | 3.9 | 0.034 | pass |
+| townhouse03_1 | r1 | 2 | 3 | 82.0 | 17.4 | 0.1 | 0.5 | 1.07 | 2.8 | 0.035 | pass |
+| townhouse03_1 | r1 | 2 | 3w | 82.0 | 17.4 | 0.1 | 0.5 | 1.05 | 3.4 | 0.036 | pass |
 | townhouse03_1 | r2 | 3 | 1 | 3.9 | 79.3 | 6.0 | 10.7 | 1.02 | 3.7 | 0.037 | pass |
 | townhouse03_1 | r2 | 3 | 1w | 4.0 | 79.3 | 6.0 | 10.7 | 1.15 | 4.4 | 0.055 | pass |
 | townhouse03_1 | r2 | 3 | 2 | 7.6 | 91.7 | 0.4 | 0.3 | 1.05 | 0.4 | 0.020 | pass |
 | townhouse03_1 | r2 | 3 | 2w | 7.6 | 91.7 | 0.4 | 0.3 | 1.04 | 0.6 | 0.019 | pass |
-| townhouse03_1 | r2 | 3 | 3 | 57.5 | 42.1 | 0.1 | 0.4 | 1.04 | 0.5 | 0.044 | pass |
-| townhouse03_1 | r2 | 3 | 3w | 57.5 | 42.1 | 0.1 | 0.4 | 1.01 | 0.5 | 0.034 | pass |
+| townhouse03_1 | r2 | 3 | 3 | 59.2 | 40.3 | 0.0 | 0.5 | 1.04 | 0.7 | 0.047 | pass |
+| townhouse03_1 | r2 | 3 | 3w | 59.2 | 40.3 | 0.0 | 0.5 | 1.01 | 0.7 | 0.035 | pass |
 | townhouse03_1 | r3 | 4 | 1 | 39.8 | 49.1 | 4.6 | 6.6 | 1.04 | 12.7 | 0.056 | pass |
 | townhouse03_1 | r3 | 4 | 1w | 39.9 | 48.9 | 4.5 | 6.7 | 1.03 | 18.5 | 0.055 | pass |
 | townhouse03_1 | r3 | 4 | 2 | 38.7 | 60.8 | 0.2 | 0.2 | 0.89 | 15.9 | 0.026 | pass |
 | townhouse03_1 | r3 | 4 | 2w | 38.7 | 60.8 | 0.2 | 0.2 | 0.86 | 18.7 | 0.023 | pass |
-| townhouse03_1 | r3 | 4 | 3 | 71.2 | 28.3 | 0.1 | 0.4 | 1.02 | 6.3 | 0.055 | pass |
-| townhouse03_1 | r3 | 4 | 3w | 71.2 | 28.3 | 0.1 | 0.4 | 1.00 | 7.6 | 0.041 | pass |
+| townhouse03_1 | r3 | 4 | 3 | 72.5 | 26.9 | 0.1 | 0.5 | 1.04 | 6.1 | 0.059 | pass |
+| townhouse03_1 | r3 | 4 | 3w | 72.5 | 26.9 | 0.1 | 0.5 | 1.01 | 7.2 | 0.044 | pass |
 | townhouse03_2 | r1 | 3 | 1 | 40.4 | 49.1 | 4.0 | 6.5 | 1.82 | 18.6 | 0.037 | pass |
 | townhouse03_2 | r1 | 3 | 1w | 40.6 | 49.0 | 4.0 | 6.4 | 1.39 | 14.5 | 0.080 | pass |
 | townhouse03_2 | r1 | 3 | 2 | 38.8 | 60.7 | 0.5 | 0.1 | 1.92 | 18.0 | 0.056 | pass |
@@ -34,13 +34,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 | townhouse03_2 | r2 | 4 | 1w | 4.3 | 79.7 | 5.4 | 10.5 | 1.20 | 2.7 | 0.051 | pass |
 | townhouse03_2 | r2 | 4 | 2 | 7.7 | 91.7 | 0.5 | 0.2 | 1.02 | 2.9 | 0.010 | pass |
 | townhouse03_2 | r2 | 4 | 2w | 7.7 | 91.7 | 0.5 | 0.2 | 1.02 | 3.1 | 0.010 | pass |
-| townhouse03_2 | r2 | 4 | 3 | 48.4 | 51.5 | 0.0 | 0.1 | 1.03 | 1.2 | 0.058 | pass |
-| townhouse03_2 | r2 | 4 | 3w | 48.4 | 51.5 | 0.0 | 0.0 | 1.03 | 1.2 | 0.060 | pass |
+| townhouse03_2 | r2 | 4 | 3 | 48.5 | 51.5 | 0.0 | 0.1 | 1.03 | 1.1 | 0.058 | pass |
+| townhouse03_2 | r2 | 4 | 3w | 48.5 | 51.5 | 0.0 | 0.0 | 1.03 | 1.2 | 0.059 | pass |
 | townhouse03_2 | r3 | 1 | 1 | 59.4 | 32.6 | 3.2 | 4.8 | 1.96 | 16.5 | 0.024 | pass |
 | townhouse03_2 | r3 | 1 | 1w | 59.6 | 32.5 | 3.1 | 4.7 | 1.45 | 13.4 | 0.064 | pass |
 | townhouse03_2 | r3 | 1 | 2 | 61.6 | 38.0 | 0.3 | 0.1 | 1.94 | 17.4 | 0.060 | pass |
 | townhouse03_2 | r3 | 1 | 2w | 61.6 | 38.0 | 0.3 | 0.1 | 1.61 | 18.9 | 0.080 | pass |
-| townhouse03_2 | r3 | 1 | 3 | 76.9 | 23.0 | 0.1 | 0.1 | 1.10 | 1.1 | 0.025 | pass |
+| townhouse03_2 | r3 | 1 | 3 | 76.9 | 23.0 | 0.1 | 0.1 | 1.09 | 1.1 | 0.024 | pass |
 | townhouse03_2 | r3 | 1 | 3w | 76.9 | 23.0 | 0.1 | 0.0 | 1.09 | 1.2 | 0.023 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
@@ -49,14 +49,16 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| townhouse03_1 | r1 | 0.98 | 1.05 | 0.95 | 0.007 | 0.006 | 390 | 390 | 2282 | 2282 | 0.000 | 0 | pass | blocks |
-| townhouse03_1 | r2 | 0.98 | 1.05 | 0.95 | 0.012 | 0.006 | 0 | 0 | 2527 | 2527 | 0.000 | 0 | pass | blocks |
-| townhouse03_1 | r3 | 0.97 | 1.05 | 0.95 | 0.009 | 0.006 | 858 | 858 | 2601 | 2601 | 0.000 | 0 | pass | blocks |
-| townhouse03_2 | r1 | 0.98 | 1.04 | 0.95 | 0.010 | 0.005 | 872 | 872 | 2551 | 2551 | 0.000 | 0 | pass | blocks |
-| townhouse03_2 | r2 | 0.98 | 1.04 | 0.95 | 0.009 | 0.005 | 6 | 6 | 2558 | 2558 | 0.000 | 0 | pass | blocks |
-| townhouse03_2 | r3 | 0.99 | 1.04 | 0.95 | 0.013 | 0.005 | 304 | 304 | 2207 | 2207 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| townhouse03_1 | r1 | 0.98 | 1.05 | 0.95 | 0.007 | 0.006 | 390 | 390 | 2282 | 2282 | 0.000 | 0 | 35 | 23 | 0 | pass | blocks |
+| townhouse03_1 | r2 | 0.98 | 1.05 | 0.95 | 0.012 | 0.006 | 0 | 0 | 2527 | 2527 | 0.000 | 0 | 35 | 23 | 0 | pass | blocks |
+| townhouse03_1 | r3 | 0.97 | 1.05 | 0.95 | 0.009 | 0.006 | 858 | 858 | 2601 | 2601 | 0.000 | 0 | 35 | 23 | 0 | pass | blocks |
+| townhouse03_2 | r1 | 0.98 | 1.04 | 0.95 | 0.010 | 0.005 | 872 | 872 | 2551 | 2551 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse03_2 | r2 | 0.98 | 1.04 | 0.95 | 0.009 | 0.005 | 6 | 6 | 2558 | 2558 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| townhouse03_2 | r3 | 0.99 | 1.04 | 0.95 | 0.013 | 0.005 | 304 | 304 | 2207 | 2207 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

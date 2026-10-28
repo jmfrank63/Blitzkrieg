@@ -8,13 +8,13 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | e_railwaystation_1 | r1 | 2 | 1 | 26.5 | 51.6 | 21.4 | 0.5 | 1.37 | 15.8 | 0.094 | pass |
 | e_railwaystation_1 | r1 | 2 | 2 | 60.5 | 36.1 | 2.2 | 1.2 | 1.10 | 4.0 | 0.020 | pass |
-| e_railwaystation_1 | r1 | 2 | 3 | 70.0 | 27.8 | 1.6 | 0.7 | 1.04 | 2.6 | 0.013 | pass |
+| e_railwaystation_1 | r1 | 2 | 3 | 70.8 | 27.3 | 1.4 | 0.4 | 1.05 | 3.0 | 0.007 | pass |
 | e_railwaystation_1 | r2 | 3 | 1 | 0.0 | 67.3 | 32.2 | 0.5 | 1.11 | 3.5 | 0.027 | pass |
 | e_railwaystation_1 | r2 | 3 | 2 | 23.4 | 73.0 | 2.2 | 1.5 | 1.05 | 2.5 | 0.022 | pass |
-| e_railwaystation_1 | r2 | 3 | 3 | 50.3 | 47.3 | 1.6 | 0.7 | 1.01 | 1.5 | 0.017 | pass |
+| e_railwaystation_1 | r2 | 3 | 3 | 51.1 | 46.6 | 1.8 | 0.5 | 1.02 | 1.0 | 0.019 | pass |
 | e_railwaystation_1 | r3 | 4 | 1 | 52.4 | 20.5 | 26.8 | 0.3 | 1.29 | 9.1 | 0.116 | pass |
 | e_railwaystation_1 | r3 | 4 | 2 | 50.1 | 45.9 | 2.2 | 1.8 | 1.06 | 1.7 | 0.026 | pass |
-| e_railwaystation_1 | r3 | 4 | 3 | 70.6 | 27.1 | 1.7 | 0.6 | 1.15 | 5.0 | 0.047 | pass |
+| e_railwaystation_1 | r3 | 4 | 3 | 71.1 | 26.8 | 1.7 | 0.4 | 1.13 | 4.5 | 0.045 | pass |
 | e_railwaystation_2 | r1 | 2 | 1 | 65.8 | 19.5 | 12.1 | 2.6 | 0.55 | 41.8 | 0.037 | pass |
 | e_railwaystation_2 | r1 | 2 | 2 | 64.2 | 19.1 | 13.3 | 3.3 | 0.65 | 27.8 | 0.037 | pass |
 | e_railwaystation_2 | r1 | 2 | 3 | 63.8 | 19.0 | 14.1 | 3.0 | 1.06 | 0.5 | 0.011 | pass |
@@ -31,14 +31,16 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_railwaystation_1 | r1 | 0.99 | 0.91 | 0.90 | 0.034 | 0.053 | 101 | 101 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_railwaystation_1 | r2 | 1.41 | 0.91 | 0.90 | 0.027 | 0.053 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_railwaystation_1 | r3 | 1.29 | 0.91 | 0.90 | 0.031 | 0.053 | 385 | 385 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_railwaystation_2 | r1 | 1.04 | 0.92 | 0.96 | 0.047 | 0.047 | 123 | 123 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_railwaystation_2 | r2 | 1.12 | 0.92 | 0.96 | 0.066 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_railwaystation_2 | r3 | 1.03 | 0.92 | 0.96 | 0.049 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_railwaystation_1 | r1 | 0.99 | 0.91 | 0.90 | 0.034 | 0.053 | 101 | 101 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_railwaystation_1 | r2 | 1.41 | 0.91 | 0.90 | 0.027 | 0.053 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_railwaystation_1 | r3 | 1.29 | 0.91 | 0.90 | 0.031 | 0.053 | 385 | 385 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_railwaystation_2 | r1 | 1.04 | 0.92 | 0.96 | 0.047 | 0.047 | 123 | 123 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_railwaystation_2 | r2 | 1.12 | 0.92 | 0.96 | 0.066 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_railwaystation_2 | r3 | 1.03 | 0.92 | 0.96 | 0.049 | 0.047 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |

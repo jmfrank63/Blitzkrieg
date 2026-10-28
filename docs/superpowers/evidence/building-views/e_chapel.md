@@ -6,15 +6,15 @@ pixels the blocks cover; style is against the family's 2003 pictures of the colo
 
 | Variant | Turn | Side | Picture | Projected % | Mirrored % | Transferred % | Filled % | Sharpness | Colour | Hue | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| e_chapel_1 | r1 | 2 | 1 | 33.0 | 62.4 | 2.0 | 2.6 | 1.48 | 15.5 | 0.057 | pass |
+| e_chapel_1 | r1 | 2 | 1 | 33.0 | 64.1 | 1.9 | 1.0 | 1.54 | 16.9 | 0.060 | pass |
 | e_chapel_1 | r1 | 2 | 2 | 33.1 | 60.7 | 4.9 | 1.3 | 1.15 | 3.0 | 0.014 | pass |
-| e_chapel_1 | r1 | 2 | 3 | 60.4 | 25.2 | 5.7 | 8.7 | 1.10 | 10.9 | 0.021 | pass |
-| e_chapel_1 | r2 | 3 | 1 | 0.1 | 86.0 | 11.6 | 2.3 | 1.16 | 10.8 | 0.097 | pass |
+| e_chapel_1 | r1 | 2 | 3 | 64.9 | 31.2 | 3.5 | 0.4 | 1.15 | 7.9 | 0.017 | pass |
+| e_chapel_1 | r2 | 3 | 1 | 0.1 | 87.3 | 11.4 | 1.1 | 1.19 | 10.0 | 0.105 | pass |
 | e_chapel_1 | r2 | 3 | 2 | 0.0 | 89.0 | 9.9 | 1.0 | 1.13 | 12.4 | 0.043 | pass |
-| e_chapel_1 | r2 | 3 | 3 | 31.0 | 39.0 | 17.3 | 12.7 | 1.13 | 0.3 | 0.018 | pass |
-| e_chapel_1 | r3 | 4 | 1 | 68.3 | 18.9 | 11.3 | 1.5 | 1.67 | 19.4 | 0.118 | pass |
+| e_chapel_1 | r2 | 3 | 3 | 33.3 | 46.9 | 18.2 | 1.7 | 1.10 | 5.9 | 0.020 | pass |
+| e_chapel_1 | r3 | 4 | 1 | 68.3 | 19.0 | 11.3 | 1.5 | 1.68 | 19.6 | 0.120 | pass |
 | e_chapel_1 | r3 | 4 | 2 | 60.7 | 28.3 | 9.6 | 1.3 | 1.15 | 5.7 | 0.018 | pass |
-| e_chapel_1 | r3 | 4 | 3 | 59.1 | 16.1 | 16.2 | 8.6 | 1.14 | 6.3 | 0.014 | pass |
+| e_chapel_1 | r3 | 4 | 3 | 59.5 | 22.1 | 16.9 | 1.6 | 1.28 | 4.6 | 0.038 | pass |
 
 Shape of the turned intact sprite drawn by the blocks: its height over the 2003 one's, the blocks' ground
 over the footprint's cells, the outline IoU of the blocks against the variant's 2003 picture, the protrusion
@@ -22,11 +22,13 @@ of the turned and of the 2003 outline, the pixels the turn shows of the low part
 the walls (ramps, steps, porches) and of those the turn holds, the pixels it shows of the walls of the roof
 parts (vents, dormers) and of those it draws as walls, the share of its pixels that still spread one 2003
 pixel over four or more (stretched), the pixels of the body it copied from beside a low or roof part of
-another side (copied); a thin object, or a small one whose shape fails, is drawn as its 2003
+another side (copied), the pixels of the chimneys the 2003 sides of the colourway show above the roofs and
+of those the blocks cover there (kept), the pixels it drew on a roof of the body from where a 2003 side
+sees such a chimney (painted); a thin object, or a small one whose shape fails, is drawn as its 2003
 sprite where the turn keeps the footprint, a heap (`tools/zig/fixtures/bk-views/props.json`) on every turn.
 
-| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Shape | Drawn as |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| e_chapel_1 | r1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_chapel_1 | r2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
-| e_chapel_1 | r3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | pass | blocks |
+| Variant | Turn | Height | Ground | Outline | Protrusion | 2003 | Low parts | Kept | Roof parts | Kept | Stretched | Copied | Chimneys | Kept | Painted | Shape | Drawn as |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| e_chapel_1 | r1 | 0.97 | 1.04 | 0.94 | 0.060 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_chapel_1 | r2 | 0.96 | 1.04 | 0.94 | 0.061 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
+| e_chapel_1 | r3 | 0.97 | 1.04 | 0.94 | 0.059 | 0.071 | 0 | 0 | 0 | 0 | 0.000 | 0 | 0 | 0 | 0 | pass | blocks |
