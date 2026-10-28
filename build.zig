@@ -3506,7 +3506,7 @@ pub fn build(b: *std.Build) void {
     // Flora and props lit by the sun fixed in the world at each camera step
     // (M006 round 2, bk-views relight): <pack>_l<k> beside each object's
     // 2003 packs, at its Data path.
-    const relight_step = b.step("objects-relight", "Relight every flora and prop picture with bk-views relight for camera steps 1 to 3 under the sun fixed in the world, into zig-out/remastered/Objects");
+    const relight_step = b.step("objects-relight", "Relight every flora and prop picture with bk-views relight for camera steps 1 to 3 under the sun fixed in the world, and draw the turns of the props drawn on their shape (the training camp's sand pile) with bk-views side, into zig-out/remastered/Objects");
     for ([_][]const u8{ "Flora", "SimpleObjects" }) |group| {
         const relight = b.addRunArtifact(bk_views);
         relight.setCwd(b.path("."));
@@ -3517,6 +3517,19 @@ pub fn build(b: *std.Build) void {
         relight.expectExitCode(0);
         relight.has_side_effects = true;
         relight_step.dependOn(&relight.step);
+    }
+    // Props drawn turned on their shape, as buildings are, instead of their
+    // picture mirrored (M006 round 3): the training camp's sand pile.
+    for ([_][]const u8{"SimpleObjects/common/summer/debris/05"}) |prop| {
+        const side = b.addRunArtifact(bk_views);
+        side.setCwd(b.path("."));
+        setUserRootsForTest(side, "bk-views-user");
+        side.addArgs(&.{ "side", b.fmt("Data/Objects/{s}", .{prop}), "1,2,3,1l1,2l2,3l3", b.fmt("zig-out/remastered/Objects/{s}", .{std.fs.path.dirname(prop).?}), b.fmt("zig-out/local-test/building-views/objects/{s}", .{prop}) });
+        side.step.dependOn(bk_sprite.install);
+        addPathDir(side, rootPath(b, "zig-out/bin"));
+        side.expectExitCode(0);
+        side.has_side_effects = true;
+        relight_step.dependOn(&side.step);
     }
     const relit_objects = b.addInstallDirectory(.{
         .source_dir = b.path("zig-out/remastered/Objects"),
