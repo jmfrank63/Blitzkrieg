@@ -1,0 +1,8 @@
+{"id":11,"path":"Buildings/africa/summer/a_h07_2","family":"africa/a_h07","measured_side":2,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [10, 11, 12]; measured side 2. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Africa/house04/summer_1_geometry.xdb",
+"source":"family-revision/models/011.json","previous_variant":"a_h07_2__pre_family_011",
+"alignment":{"angle":180.0000,"zscale":1.0000,"ratio":1.0000},
+"scores":{"silhouette":0.9122,"edge":0.8435,"combined":0.8882},
+"shared":"africa_a_h07"}

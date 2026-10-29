@@ -1,0 +1,16 @@
+{"id":258,"path":"Objects/SimpleObjects/common/summer/mine","family":"","joint":false,"needs_review":true,
+"status":"BK1-specific rebuild",
+"note":"Previous geometry retained with a more closely fitted camera alignment.",
+"reference":"BK1 sprite reconstruction; BK2 counterparts used where stated.",
+"source":"edge-revision/models/258.json","previous_variant":"",
+"alignment":{"angle":45.0000,"zscale":1.1250,"ratio":1.0000},
+"scores":{"silhouette":0.3865,"edge":0.6481,"combined":0.4780},
+"vertices":[
+0.4,0,0,0,-0.4,0,-0.4,0,0,0,0.4,0,0,0.4,18,-0.4,0,18,
+0,-0.4,18,0.4,0,18,0,0,18,9,0,15,0,0,12],
+"parts":[
+{"kind":"pole","triangles":[
+0,1,2,0,2,3,4,5,6,4,6,7,3,2,5,3,5,4,2,1,6,2,6,5,1,0,7,1,7,6,
+0,3,4,0,4,7]},
+{"kind":"cloth","triangles":[
+8,9,10]}]}

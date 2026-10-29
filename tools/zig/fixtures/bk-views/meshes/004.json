@@ -1,0 +1,8 @@
+{"id":4,"path":"Buildings/africa/summer/a_h01_2","family":"africa/a_h01","measured_side":2,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [3, 4]; measured side 2. Candidate needs visual review of details and hidden geometry.",
+"reference":"BK1 sprite reconstruction; BK2 counterparts used where stated.",
+"source":"family-revision/models/004.json","previous_variant":"a_h01_2__pre_family_004",
+"alignment":{"angle":0.0000,"zscale":1.1500,"ratio":1.0000},
+"scores":{"silhouette":0.8798,"edge":0.8414,"combined":0.8663},
+"shared":"africa_a_h01"}

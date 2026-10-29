@@ -1,0 +1,8 @@
+{"id":36,"path":"Buildings/common/summer/tent/02","family":"common/tent","measured_side":2,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [35, 36]; measured side 2. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Common/tent/summer_1_geometry.xdb",
+"source":"family-revision/models/036.json","previous_variant":"02__pre_family_036",
+"alignment":{"angle":90.0000,"zscale":1.1500,"ratio":1.1000},
+"scores":{"silhouette":0.8936,"edge":0.8920,"combined":0.8931},
+"shared":"common_tent"}

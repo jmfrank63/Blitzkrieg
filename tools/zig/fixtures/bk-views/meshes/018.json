@@ -1,0 +1,17 @@
+{"id":18,"path":"Buildings/africa/summer/a_wb/01","family":"africa/a_wb","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Buildings/Africa/wb/summer_1_geometry.xdb",
+"source":"edge-revision/models/018.json","previous_variant":"",
+"alignment":{"angle":180.0000,"zscale":0.8050,"ratio":1.0000},
+"scores":{"silhouette":0.9058,"edge":0.7851,"combined":0.8636},
+"vertices":[
+-6.692,4.457,0,-6.654,4.528,2.46,6.654,4.528,2.46,6.654,0,4.152,6.654,-4.489,0,6.654,-4.513,2.46,
+6.66,4.6,0,-6.654,-4.513,2.46,-6.654,0,4.152,-6.795,-4.659,0,-6.994,0,4.22,6.994,0,4.22,
+-6.994,4.758,2.458,6.994,4.758,2.458,-6.994,-4.758,2.458,6.994,-4.758,2.458,-6.994,4.684,2.258,-6.994,0,4.019,
+6.994,0,4.019,6.994,4.684,2.258,-6.994,-4.684,2.258,6.994,-4.684,2.258],
+"parts":[
+{"kind":"mesh","triangles":[
+15,21,18,11,15,18,14,17,20,10,17,14,13,18,19,11,18,13,12,16,17,10,12,17,14,15,11,10,14,11,
+10,11,13,12,10,13,4,5,7,9,4,7,8,1,0,7,8,0,9,7,0,3,5,4,2,3,4,6,2,4,
+1,2,6,0,1,6]}]}

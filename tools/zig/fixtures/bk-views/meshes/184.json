@@ -1,0 +1,8 @@
+{"id":184,"path":"Buildings/ussr/summer/ukrainehouse01_1","family":"ussr/ukrainehouse01","measured_side":1,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [184, 185]; measured side 1. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/USSR/ukrainehouse01/summer_1_geometry.xdb",
+"source":"family-revision/models/184.json","previous_variant":"ukrainehouse01_1__pre_family_184",
+"alignment":{"angle":180.0000,"zscale":0.7225,"ratio":0.8000},
+"scores":{"silhouette":0.8667,"edge":0.8488,"combined":0.8604},
+"shared":"ussr_ukrainehouse01"}

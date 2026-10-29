@@ -1,0 +1,8 @@
+{"id":84,"path":"Buildings/europe/summer/e_shed01_3","family":"europe/e_shed01","measured_side":3,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [83, 84]; measured side 3. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Europe/E_Shed01/summer_1_geometry.xdb",
+"source":"family-revision/models/084.json","previous_variant":"e_shed01_3__pre_family_084",
+"alignment":{"angle":270.0000,"zscale":0.8500,"ratio":1.0000},
+"scores":{"silhouette":0.9367,"edge":0.8756,"combined":0.9153},
+"shared":"europe_e_shed01"}

@@ -1,0 +1,17 @@
+{"id":272,"path":"Objects/SimpleObjects/common/summer/watchbox/01","family":"","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Buildings/Common/watchbox/summer_1_geometry.xdb",
+"source":"edge-revision/models/272.json","previous_variant":"",
+"alignment":{"angle":15.0000,"zscale":0.7225,"ratio":0.8000},
+"scores":{"silhouette":0.8733,"edge":0.5500,"combined":0.7601},
+"vertices":[
+-0.6167,-0.6308,2.6576,0.6167,-0.6308,2.6576,-0.6167,0.6308,2.6576,0.6167,0.6308,2.6576,-0.6167,0.6308,0,0.6167,0.6308,0,
+-0.6167,-0.6308,0,0.6167,-0.6308,0,0,-0.6308,3.2537,0,0.6308,3.2537,-0.7305,-0.7003,2.5644,0,-0.7003,3.2721,
+0,0.7003,3.2721,-0.7305,0.7003,2.5644,0.7305,-0.7003,2.5644,0.7305,0.7003,2.5644,-0.6743,-0.7003,2.518,0,-0.7003,3.1841,
+-0.6743,0.7003,2.518,0,0.7003,3.1841,0.6743,-0.7003,2.518,0.6743,0.7003,2.518],
+"parts":[
+{"kind":"mesh","triangles":[
+15,21,19,12,15,19,14,17,20,11,17,14,13,19,18,12,19,13,10,16,17,11,10,17,14,15,12,11,14,12,
+11,12,13,10,11,13,0,2,4,6,0,4,7,5,3,1,7,3,7,1,8,0,7,8,6,7,0,2,9,4,
+3,4,9,5,4,3]}]}

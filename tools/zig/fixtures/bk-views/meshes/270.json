@@ -1,0 +1,13 @@
+{"id":270,"path":"Objects/SimpleObjects/common/summer/shellbox/03","family":"","joint":false,"needs_review":true,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Objects/SimpleObjects/ShellBox/1/summer_1_geometry.xdb",
+"source":"edge-revision/models/270.json","previous_variant":"",
+"alignment":{"angle":90.0000,"zscale":0.5950,"ratio":0.8000},
+"scores":{"silhouette":0.7598,"edge":0.4354,"combined":0.6463},
+"vertices":[
+-0.6852,-0.2702,0.3256,0.6852,-0.2702,0.3256,-0.6852,0.2702,0.3256,0.6852,0.2702,0.3256,-0.6852,0.2702,0,0.6852,0.2702,0,
+-0.6852,-0.2702,0,0.6852,-0.2702,0],
+"parts":[
+{"kind":"mesh","triangles":[
+0,2,4,6,0,4,7,5,3,1,7,3,7,1,0,6,7,0,3,5,4,2,3,4,1,3,2,0,1,2]}]}

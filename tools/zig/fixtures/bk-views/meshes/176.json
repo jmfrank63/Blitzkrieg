@@ -1,0 +1,8 @@
+{"id":176,"path":"Buildings/ussr/summer/townhouse02_2","family":"ussr/townhouse02","measured_side":2,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [175, 176]; measured side 2. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/USSR/townhouse02/summer_1_geometry.xdb",
+"source":"family-revision/models/176.json","previous_variant":"townhouse02_2__pre_family_176",
+"alignment":{"angle":180.0000,"zscale":1.0000,"ratio":1.0000},
+"scores":{"silhouette":0.9668,"edge":0.8587,"combined":0.9290},
+"shared":"ussr_townhouse02"}

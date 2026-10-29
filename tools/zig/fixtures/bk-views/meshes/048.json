@@ -1,0 +1,8 @@
+{"id":48,"path":"Buildings/europe/summer/e_ctownhouse03_2","family":"europe/e_ctownhouse03","measured_side":2,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [48, 49]; measured side 2. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Europe/corner_house01/summer_1_geometry.xdb",
+"source":"family-revision/models/048.json","previous_variant":"e_ctownhouse03_2__pre_family_048",
+"alignment":{"angle":-195.0000,"zscale":0.8500,"ratio":1.2500},
+"scores":{"silhouette":0.8327,"edge":0.8675,"combined":0.8449},
+"shared":"europe_e_ctownhouse03"}
