@@ -1721,3 +1721,22 @@ meaning: the tiers rely on it being the only folder.
 language mods) and in the options run clicks the Language row's value first: the config written must hold a `lang-*`
 language. Measured on win-home: the settings screen listed Default and the nine languages (`BK_L10N_TRACE`), the
 config held `lang-de`, and the keys run (in German) showed steps 3, 0, 1.
+
+### Seen on macOS arm64 (the maintainer's machine, a throwaway clone)
+
+The maintainer's command line (`-autosave -mod=remastered_views`, `BK_MODS_ROOT` the run's `zig-out/remastered/mods`;
+windowed 1024x768 instead of `-Monitor=2 -fullscreen`), a scratch profile holding a copy of his `config.cfg`, the
+second tutorial's map, `.`, `,`, `,` through `key=`. At 836bbff31 with his own `zig-out/remastered/mods`: Options >
+Language listed Default alone, and no turn's frame was traced. On this branch after `install-all` and `camera-turn-mod`
+(his batch outputs copied into the clone): Default and the nine languages; steps 3, 0, 1, each drawing 1202 pictures; the
+config written at exit binds `camera_turn` to `,` and `camera_turn_back` to `.` only. `camera-turn-keys-game-reads-it`
+fails at 836bbff31 (no step shown) and passes on this branch, 0 leaked blocks in both runs.
+
+### Tiers run (keys of an older config)
+
+win-home, release, one `zig build` at a time: `camera-turn-keys-game-reads-it` (fails before the fix, passes after),
+`camera-turn-control-game-reads-it` (pass, 177 s), `remastered-game-reads-it camera-turn-state-game-reads-it` (pass,
+224 s). macOS arm64: `camera-turn-keys-game-reads-it` (pass), `install-all`, `camera-turn-mod`. The full sweep is left
+to the maintainer, Linux to CI.
+
+For the maintainer: nothing in his profile needs editing; the next start drops the two older binds from his config.
