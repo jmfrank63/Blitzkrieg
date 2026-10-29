@@ -2554,6 +2554,7 @@ pub fn build(b: *std.Build) void {
     addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
     addShapesReview(b, bk_views_fast);
     addFillFamilies(b, bk_views_fast, bk_sprite);
+    addFull3dPilot(b, bk_views_fast, bk_sprite);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -10059,6 +10060,46 @@ fn addFillFamilies(b: *std.Build, views: *std.Build.Step.Compile, sprite: BkSpri
     }
     b.step("fill-families", "Draw the turns of every view of a joint candidate family (tools/zig/fixtures/bk-views/meshes) on its shared mesh or as a sibling's 2003 art with bk-views side, into zig-out/remastered/Buildings, and lay them out with their checks in zig-out/review/fill-families.pdf").dependOn(&review.step);
 }
+/// The full 3D pilot (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md): every object of
+/// tools/zig/fixtures/bk-views/full3d.json drawn turned with bk-views side, its turns rendered from its
+/// textured model, into the places the batch and objects-relight use (zig-out/remastered/Buildings and
+/// /Objects), and the models themselves (.mod, .dds, the lossless atlases) into zig-out/full3d/models with
+/// their review, zig-out/review/full3d.pdf and full3d.csv.
+fn addFull3dPilot(b: *std.Build, views: *std.Build.Step.Compile, sprite: BkSprite) void {
+    const pilot_path = "tools/zig/fixtures/bk-views/full3d.json";
+    const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
+    b.dependOnFileContents(b.path(pilot_path));
+    b.dependOnFileContents(b.path(ids_path));
+    const io = b.graph.io;
+    const Pilot = struct { ids: []const u32 };
+    const Ids = struct { ids: []const struct { id: u32, path: []const u8 } };
+    const pilot_bytes = b.root.root_dir.handle.readFileAlloc(io, pilot_path, b.allocator, .limited(1024 * 1024)) catch |err| @panic(@errorName(err));
+    const ids_bytes = b.root.root_dir.handle.readFileAlloc(io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const pilot = std.json.parseFromSliceLeaky(Pilot, b.allocator, pilot_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    const ids = std.json.parseFromSliceLeaky(Ids, b.allocator, ids_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    const step = b.step("full3d-pilot", "Draw the turns of every full 3D pilot object (tools/zig/fixtures/bk-views/full3d.json) from its textured model with bk-views side into zig-out/remastered, write the models (.mod, .dds, lossless atlases) to zig-out/full3d/models and their review to zig-out/review/full3d.pdf");
+    const models = b.addRunArtifact(views);
+    models.setCwd(b.path("."));
+    setUserRootsForTest(models, "bk-views-user");
+    models.addArgs(&.{ "model3d", "zig-out/full3d/models", "zig-out/review/full3d.pdf" });
+    models.expectExitCode(0);
+    models.has_side_effects = true;
+    for (pilot.ids) |id| for (ids.ids) |e| {
+        if (e.id != id) continue;
+        const data = b.fmt("Data/{s}", .{e.path});
+        models.addArg(data);
+        const side = b.addRunArtifact(views);
+        side.setCwd(b.path("."));
+        setUserRootsForTest(side, "bk-views-user");
+        side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3", b.fmt("zig-out/remastered/{s}", .{std.fs.path.dirname(e.path).?}), b.fmt("zig-out/local-test/full3d/work/{s}", .{e.path}) });
+        side.step.dependOn(sprite.install);
+        addPathDir(side, rootPath(b, "zig-out/bin"));
+        side.expectExitCode(0);
+        side.has_side_effects = true;
+        step.dependOn(&side.step);
+    };
+    step.dependOn(&models.step);
+}
 /// A build-root-relative path with the host's separators, as a tool prints it.
 /// The replacement runs only on a Windows host (this file compiles for the
 /// host, so Linux never analyses the branch); replaceOwned allocates the
@@ -12709,6 +12750,19 @@ fn addResourceEditor(
         if (test_mode == .run) auto_step.dependOn(chained);
     }
 
+    // A full 3D model in the Unit editor (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md):
+    // bk-views model3d writes e_wb/01's model (.mod, atlas) beside the scratch folder, and the editor shows it
+    // in the unit fixture's place, from the default camera and from the side, with its parts as locators.
+    const full3d_model = b.addRunArtifact(views_tools[0]);
+    full3d_model.setCwd(b.path("."));
+    setUserRootsForTest(full3d_model, "bk-views-user");
+    full3d_model.addArgs(&.{ "model3d", "zig-out/local-test/resource_editor/full3d-model", "zig-out/local-test/resource_editor/full3d-model/review.pdf", "Data/Buildings/europe/summer/e_wb/01" });
+    full3d_model.expectExitCode(0);
+    full3d_model.has_side_effects = true;
+    const full3d_step = b.step("resource-editor-full3d", "Write e_wb/01's full 3D model with bk-views model3d and show it in the Unit editor's preview, from the default camera and from the side, its parts picked as locators");
+    full3d_step.dependOn(&install_exe.step);
+    if (test_mode == .run) full3d_step.dependOn(addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, resource_auto_full3d, &full3d_model.step));
+
     // resource-editor-game-reads-it: the exports of the object-side kinds played by the real Game. After the
     // smoke so two engines never start at once; its own scratch folder holds result.log, one KIND= line per
     // kind, and the user data (profile, settings) lives apart from it so the run never touches the player's own.
@@ -13338,6 +13392,54 @@ const resource_auto_msh =
     "229:do=preview_stop," ++
     "230:do=run_game," ++
     "231:waitgame=240,";
+
+/// A full 3D model (bk-views model3d's e_wb/01, written to full3d-model beside the scratch folder) in the
+/// unit fixture's place: its .mod as the three models, its summer atlas as every picture. The preview shows
+/// it lit, from the default camera and from the side (the horizontal camera), and its parts are the skeleton's nodes,
+/// picked by name at their screen points.
+const resource_auto_full3d: ResourceAutoStep = .{
+    .name = "full3d",
+    .about = "Run BK_EDITOR_AUTO's full 3D model scenario",
+    .prefix = resource_auto_preview_on,
+    .schedule = "2:do=mod_dir:{mods}/reseditor_auto_full3d," ++
+        "3:do=copy:{fix}/msh/project.msh>{dir}/m3d/project.msh," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.mod>{dir}/m3d/1.mod," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.mod>{dir}/m3d/2.mod," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.mod>{dir}/m3d/3.mod," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/1.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/1w.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/1a.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/2.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/2w.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/2a.tga," ++
+        "3:do=copy:{fix}/msh/icon.tga>{dir}/m3d/icon.tga," ++
+        "3:do=copy:{fix}/msh/name.txt>{dir}/m3d/name.txt," ++
+        "3:do=copy:{fix}/msh/desc.txt>{dir}/m3d/desc.txt," ++
+        "4:open={dir}/m3d/project.msh," ++
+        "5:expect=kind:msh," ++
+        "6:do=preview_run," ++
+        "7:do=pause:200," ++
+        "8:do=mesh_variant:0," ++
+        "9:do=pause:150," ++
+        "9:shot=model_n," ++
+        "10:expect=shot_lit:model_n," ++
+        "11:do=camera," ++
+        "12:do=pause:150," ++
+        "12:shot=model_side," ++
+        "13:expect=shot_lit:model_side," ++
+        "14:differ=model_n/model_side@0.01," ++
+        "15:do=camera," ++
+        "16:do=locators:1," ++
+        "17:do=pause:150," ++
+        "17:shot=model_parts," ++
+        "18:differ=model_n/model_parts@0.001," ++
+        "19:do=pick_locator:body.roof," ++
+        "20:expect=selected:body.roof," ++
+        "21:do=pick_locator:chimney.wall," ++
+        "22:expect=selected:chimney.wall," ++
+        "23:do=preview_stop,",
+    .exit_frame = 24,
+};
 
 /// S09 Object: locked, transparency and one-way grid edits measured in the shots.
 const resource_auto_obt =

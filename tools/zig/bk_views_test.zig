@@ -1358,3 +1358,85 @@ test "a joint family's tracked mesh scores on each 2003 side as the review did, 
     const b = mesh.transformed(v, models[1].alignment, 0);
     for (0..3) |c| try std.testing.expectApproxEqAbs(a[c], b[c], 1e-6);
 }
+test "a box's full 3D model unrolls each face flat, its normals outward, and writes the vehicles' .mod chunks" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const mesh = views.mesh;
+    const model3d = views.model3d;
+    // A box 20 x 10 x 8 with its faces wound either way, as the review's meshes are.
+    const vertices = [_]f64{ 0, 0, 0, 20, 0, 0, 20, 10, 0, 0, 10, 0, 0, 0, 8, 20, 0, 8, 20, 10, 8, 0, 10, 8 };
+    const triangles = [_]u32{ 0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7 };
+    const parts = [_]mesh.Part{.{ .kind = "mesh", .triangles = &triangles }};
+    const box: mesh.Model = .{ .id = 0, .path = "box", .vertices = &vertices, .parts = &parts };
+    const m = try model3d.unwrap(arena, box, try mesh.triangles(arena, box), .{});
+    try std.testing.expectEqual(@as(usize, 6), m.charts.len);
+    for (m.triangles) |t| {
+        var mid = [3]f64{ 0, 0, 0 };
+        for (t.v) |v| for (0..3) |c| {
+            mid[c] += m.vertices[v].world[c] / 3;
+        };
+        try std.testing.expect(mesh.dot(t.normal, .{ mid[0] - 10, mid[1] - 5, mid[2] - 4 }) > 0);
+    }
+    var names: [3][]const u8 = undefined;
+    for (m.groups, 0..) |g, i| names[i] = g;
+    try std.testing.expectEqual(@as(usize, 3), m.groups.len);
+    for ([_][]const u8{ "body.under", "body.roof", "body.wall" }) |want| {
+        for (names) |n| {
+            if (std.mem.eql(u8, n, want)) break;
+        } else return error.GroupMissing;
+    }
+    // A wall chart is as wide and high as the wall at `density` texels a unit.
+    for (m.charts) |c| try std.testing.expect(c.w - 4 == @as(u32, @intFromFloat(20 * model3d.density)) or c.w - 4 == @as(u32, @intFromFloat(10 * model3d.density)) or c.w - 4 == @as(u32, @intFromFloat(8 * model3d.density)));
+    // The .mod: a data chunk 1 holding the skeleton (1, its nodes in chunk
+    // 1, a node a group), the meshes (2, one a group) and the box (4), then
+    // the empty chunks 0 and 2.
+    const mod = try model3d.writeMod(arena, m);
+    const data = views.findChunk(mod, 1, 0).?;
+    try std.testing.expectEqual(@as(usize, 3), countChunks(views.findChunk(views.findChunk(data, 1, 0).?, 1, 0).?, 1));
+    try std.testing.expectEqual(@as(usize, 3), countChunks(views.findChunk(data, 2, 0).?, 1));
+    try std.testing.expectEqual(@as(usize, 24), views.findChunk(data, 4, 0).?.len);
+    try std.testing.expect(views.findChunk(mod, 0, 0) != null and views.findChunk(mod, 2, 0) != null);
+}
+
+fn countChunks(bytes: []const u8, id: u8) usize {
+    var n: usize = 0;
+    while (views.findChunk(bytes, id, n) != null) n += 1;
+    return n;
+}
+
+test "a_h01_1 as a full 3D model renders at N as its 2003 picture, has no holes, and renders the same every time" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const mesh = views.mesh;
+    const model3d = views.model3d;
+    const model = (try mesh.load(arena, std.testing.io, mesh.meshes_dir, 3)).?;
+    const tris = try mesh.triangles(arena, model);
+    const found = try variantPicture(arena, "Data/Buildings/africa/summer/a_h01_1/");
+    const placement = mesh.place(model, found.picture, found.anchor).?;
+    var m = try model3d.unwrap(arena, model, tris, placement);
+    // Its own picture the only one the bake paints from.
+    const v = mesh.view(placement, 0, found.anchor);
+    const normals = try arena.alloc([3]f64, tris.len);
+    for (tris, normals) |t, *n| n.* = mesh.worldNormal(model, placement, t, 0);
+    const raster = try mesh.raster(arena, try mesh.viewVertices(arena, model, v), tris, found.picture.width, found.picture.height);
+    try model3d.bake(arena, &m, "1", &.{.{ .picture = found.picture, .view = v, .raster = raster, .normals = normals }});
+    // N on the picture's own canvas at its zero cross, with no shift: the
+    // outline as the mesh's, the colour within a few levels.
+    const n = try model3d.render(arena, m, "1", 0, 0, found.anchor, .{ found.picture.width, found.picture.height });
+    const match = views.artMatch(n.image, found.picture, .{ 0, 0 }, false);
+    try std.testing.expect(match.iou > 0.9);
+    try std.testing.expect(match.colour < 4);
+    try std.testing.expectEqual(@as(usize, 0), n.unpainted);
+    // A quarter turn: no holes, and the same bytes a second time.
+    const size = [2]u32{ 2 * found.picture.width, 2 * found.picture.height };
+    const anchor = [2]f64{ found.anchor[0] + @as(f64, @floatFromInt(found.picture.width)) / 2, found.anchor[1] + @as(f64, @floatFromInt(found.picture.height)) / 2 };
+    const e = try model3d.render(arena, m, "1", 1, 1, anchor, size);
+    try std.testing.expectEqual(@as(usize, 0), e.unpainted);
+    var opaque_pixels: usize = 0;
+    for (e.image.pixels) |p| opaque_pixels += @intFromBool(p[3] == 255);
+    try std.testing.expect(opaque_pixels > 1000);
+    const again = try model3d.render(arena, m, "1", 1, 1, anchor, size);
+    try std.testing.expectEqualSlices(u8, std.mem.sliceAsBytes(e.image.pixels), std.mem.sliceAsBytes(again.image.pixels));
+}
