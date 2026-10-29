@@ -3580,12 +3580,14 @@ fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
             };
         }
     }
-    eye.anchor = .{ 2 - @floor(lo[0]), 2 - @floor(lo[1]) };
+    // On a mesh, room for the damage states drawn by the blocks moved to the mesh's zero cross.
+    const margin: f64 = if (scene.mesh != null) 18 else 2;
+    eye.anchor = .{ margin - @floor(lo[0]), margin - @floor(lo[1]) };
     return .{
         .turn = k,
         .light = light,
         .eye = eye,
-        .size = .{ @intFromFloat(@ceil(hi[0]) - @floor(lo[0]) + 4), @intFromFloat(@ceil(hi[1]) - @floor(lo[1]) + 4) },
+        .size = .{ @intFromFloat(@ceil(hi[0]) - @floor(lo[0]) + 2 * margin), @intFromFloat(@ceil(hi[1]) - @floor(lo[1]) + 2 * margin) },
         .name = name,
     };
 }
@@ -4144,7 +4146,19 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const failure = turned.failure;
         const fallback = turned.fallback;
         const mirror = turned.mirror;
-        const zero = if (fallback) target.eye.anchor else footprintZero(scene, target);
+        // One zero cross for every picture of a turn (the engine's packs share
+        // it): on a mesh, the mesh's; a damage state drawn by the blocks moves
+        // its pictures by what lies between the blocks' and the mesh's.
+        const zero = if (fallback) target.eye.anchor else if (scene.mesh) |ms| meshZero(scene, ms, target) else footprintZero(scene, target);
+        if (!fallback and scene.mesh != null) {
+            const blocks_zero = footprintZero(scene, target);
+            const by: [2]i64 = .{ @intFromFloat(zero[0] - blocks_zero[0]), @intFromFloat(zero[1] - blocks_zero[1]) };
+            for (drawn) |*d| if (!d.mesh) {
+                d.sprite.image = try shiftedBy(arena, d.sprite.image, by);
+                d.shadow = try shiftedBy(arena, d.shadow, by);
+                if (d.ground) |*g| g.image = try shiftedBy(arena, g.image, by);
+            };
+        }
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
         try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n", .{ scene.name, scene.own_side, target.turn, new_side, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
@@ -4168,7 +4182,6 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         try r.writeAll(",\n\"pictures\":[");
         var first_picture = true;
         for (drawn) |d| {
-            const state_zero = if (d.mesh) meshZero(scene, scene.mesh.?, target) else zero;
             const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{d.state});
             const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{d.state});
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, d.sprite.image));
@@ -4185,7 +4198,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
                 try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}) }),
                 try std.fs.path.join(arena, &.{ temp, d.state }),
                 "--zero",
-                try std.fmt.allocPrint(arena, "{d},{d}", .{ state_zero[0], state_zero[1] }),
+                try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }),
                 "--pass",
                 try std.mem.join(arena, "/", grid.rows),
                 "--locked",
@@ -7041,6 +7054,17 @@ fn meshDrawn(gpa: std.mem.Allocator, scene: Scene, ms: MeshScene, state: []const
     const shadow = try meshShadow(gpa, ms, target.eye, target.size, target.light);
     keepShadow(out.image, shadow);
     return .{ .state = state, .blocks = blocks, .sprite = out, .shadow = shadow, .ground = null, .covers = covers.items, .means = means, .mesh = true };
+}
+
+/// A picture moved by `by` pixels on its canvas.
+fn shiftedBy(gpa: std.mem.Allocator, image: Image, by: [2]i64) !Image {
+    const out: Image = .{ .width = image.width, .height = image.height, .pixels = try gpa.alloc([4]u8, image.pixels.len) };
+    @memset(out.pixels, .{ 0, 0, 0, 0 });
+    for (0..image.height) |y| for (0..image.width) |x| {
+        const to = out.at(@as(i64, @intCast(x)) + by[0], @as(i64, @intCast(y)) + by[1]) orelse continue;
+        to.* = image.pixels[y * image.width + x];
+    };
+    return out;
 }
 
 /// The zero cross of a turn drawn on the mesh: as `footprintZero` lays the
