@@ -1314,3 +1314,47 @@ test "a shape model drawn at turn 0 is its own outline, and a stake in a picture
     const foot = eye.project(pole.from);
     try std.testing.expect(@abs(foot[1] - 150) < 3 and @abs(foot[0] - 121.5) < 3);
 }
+
+/// The intact picture of a tracked building variant and its zero cross.
+fn variantPicture(arena: std.mem.Allocator, dir: []const u8) !struct { picture: views.Image, anchor: [2]f64 } {
+    const pack = try views.decodePack(arena, try read(arena, try std.fmt.allocPrint(arena, "{s}1.san", .{dir})));
+    const atlas = try views.readDds(arena, try read(arena, try std.fmt.allocPrint(arena, "{s}1_h.dds", .{dir})));
+    var bounds: views.Bounds = .{};
+    for (pack.sprites[0].squares) |square| bounds.add(square);
+    return .{ .picture = try views.unpack(arena, pack.sprites[0], atlas, bounds), .anchor = .{ @floatFromInt(-bounds.min_x), @floatFromInt(-bounds.min_y) } };
+}
+
+test "a joint family's tracked mesh scores on each 2003 side as the review did, lies on its pictures and turns from one side to the other" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const mesh = views.mesh;
+    // a_h01_1 and a_h01_2 (3 and 4) share one mesh, measured sides 1 and 2.
+    var models: [2]mesh.Model = undefined;
+    for (&models, [_]u32{ 3, 4 }, [_][]const u8{ "a_h01_1", "a_h01_2" }) |*m, id, name| {
+        m.* = (try mesh.load(arena, std.testing.io, mesh.meshes_dir, id)).?;
+        try std.testing.expect(m.joint);
+        try std.testing.expectEqualStrings("africa_a_h01", m.shared.?);
+        const tris = try mesh.triangles(arena, m.*);
+        const found = try variantPicture(arena, try std.fmt.allocPrint(arena, "Data/Buildings/africa/summer/{s}/", .{name}));
+        // The review's measure, as edgefit.py takes it, within the tolerance.
+        const score = try mesh.evaluate(arena, m.*, tris, m.alignment, (try mesh.target(arena, found.picture)).?);
+        try std.testing.expectApproxEqAbs(m.scores.?.silhouette, score.silhouette, views.match_tolerance[0]);
+        try std.testing.expectApproxEqAbs(m.scores.?.edge, score.edge, views.match_tolerance[1]);
+        // Placed on the picture, the mesh at N covers its outline.
+        const placement = mesh.place(m.*, found.picture, found.anchor).?;
+        const r = try mesh.raster(arena, try mesh.viewVertices(arena, m.*, mesh.view(placement, 0, found.anchor)), tris, found.picture.width, found.picture.height);
+        var both: f64 = 0;
+        var either: f64 = 0;
+        for (found.picture.pixels, r.tri) |p, t| {
+            both += @floatFromInt(@intFromBool(p[3] >= 128 and t != mesh.Raster.none));
+            either += @floatFromInt(@intFromBool(p[3] >= 128 or t != mesh.Raster.none));
+        }
+        try std.testing.expect(both / either > 0.85);
+    }
+    // Side 2 is side 1 turned a quarter: the same mesh, its yaw 90 degrees on.
+    const v = mesh.vertex(models[0], 7);
+    const a = mesh.transformed(v, models[0].alignment, 1);
+    const b = mesh.transformed(v, models[1].alignment, 0);
+    for (0..3) |c| try std.testing.expectApproxEqAbs(a[c], b[c], 1e-6);
+}

@@ -2553,6 +2553,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
     addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
     addShapesReview(b, bk_views_fast);
+    addFillFamilies(b, bk_views_fast, bk_sprite);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -9909,6 +9910,47 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
     b.step("shapes-review", "Draw every tracked shape model (tools/zig/fixtures/bk-views/models) with its 2003 picture and turned to the four sides, labelled <number>.N, .E, .S, .W, into zig-out/review/shapes.pdf").dependOn(&review.step);
 }
 
+/// The fill of the joint families (M006 round 5, docs/superpowers/specs/2026-10-25-building-views-design.md):
+/// `fill-families` draws the three turns, each also lit by the world's sun, of every view of a joint
+/// candidate family (tools/zig/fixtures/bk-views/meshes/families.json) with bk-views side, as the
+/// building-views batch does and into the same places (zig-out/remastered/Buildings, the batch's working
+/// folders), and lays them out for the maintainer in zig-out/review/fill-families.pdf.
+fn addFillFamilies(b: *std.Build, views: *std.Build.Step.Compile, sprite: BkSprite) void {
+    const families_path = "tools/zig/fixtures/bk-views/meshes/families.json";
+    const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
+    b.dependOnFileContents(b.path(families_path));
+    b.dependOnFileContents(b.path(ids_path));
+    const io = b.graph.io;
+    const Families = struct { families: []const struct { status: []const u8, included: []const u32 } };
+    const Ids = struct { ids: []const struct { id: u32, path: []const u8 } };
+    const families_bytes = b.root.root_dir.handle.readFileAlloc(io, families_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const ids_bytes = b.root.root_dir.handle.readFileAlloc(io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const families = std.json.parseFromSliceLeaky(Families, b.allocator, families_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    const ids = std.json.parseFromSliceLeaky(Ids, b.allocator, ids_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    const work_root = "zig-out/local-test/building-views/batch";
+    const review = b.addRunArtifact(views);
+    review.setCwd(b.path("."));
+    review.addArgs(&.{ "fill-review", "zig-out/review/fill-families.pdf", work_root, "Data/Buildings" });
+    review.expectExitCode(0);
+    review.has_side_effects = true;
+    for (families.families) |family| {
+        if (!std.mem.eql(u8, family.status, "joint candidate")) continue;
+        for (family.included) |id| for (ids.ids) |e| {
+            if (e.id != id) continue;
+            const variant = e.path["Buildings/".len..];
+            const side = b.addRunArtifact(views);
+            side.setCwd(b.path("."));
+            setUserRootsForTest(side, "bk-views-user");
+            side.addArgs(&.{ "side", b.fmt("Data/{s}", .{e.path}), "1,2,3,1l1,2l2,3l3", b.fmt("zig-out/remastered/Buildings/{s}", .{std.fs.path.dirname(variant).?}), b.fmt("{s}/{s}", .{ work_root, variant }) });
+            side.step.dependOn(sprite.install);
+            addPathDir(side, rootPath(b, "zig-out/bin"));
+            side.expectExitCode(0);
+            side.has_side_effects = true;
+            review.step.dependOn(&side.step);
+        };
+    }
+    b.step("fill-families", "Draw the turns of every view of a joint candidate family (tools/zig/fixtures/bk-views/meshes) on its shared mesh or as a sibling's 2003 art with bk-views side, into zig-out/remastered/Buildings, and lay them out with their checks in zig-out/review/fill-families.pdf").dependOn(&review.step);
+}
 /// A build-root-relative path with the host's separators, as a tool prints it.
 /// The replacement runs only on a Windows host (this file compiles for the
 /// host, so Linux never analyses the branch); replaceOwned allocates the
