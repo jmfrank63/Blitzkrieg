@@ -1706,3 +1706,18 @@ tutorial with `-mod=remastered_views` (an empty scratch mod), `.`, `,`, `,` thro
 BK_TURN_TRACE shows must be 3, 0, 1 and the config written at exit must bind `camera_turn` to `,` and
 `camera_turn_back` to `.` only. Before the fix (release, win-home): no step shown after the three presses, the config
 kept both binds of each command. After it: 3, 0, 1, both older binds dropped, 0 leaked blocks in both runs.
+
+### No languages in the same run
+
+The maintainer's run also offered no language in Options. The language mods are in the install's `mods/` (nine
+`lang-*`, checked in his install), but the run sets `BK_MODS_ROOT=zig-out/remastered/mods`, which `camera-turn-mod`
+writes and the comment on that step names for the hand run, and with `BK_MODS_ROOT` that folder is the only mods
+folder (`NMods::Roots`, so that tests never see the player's mods): it held `remastered_views` alone. A separate cause
+from the turn keys; the two met in one run. `camera-turn-mod` now also copies the install's nine language mods into
+`zig-out/remastered/mods` (after `install-language-mods`), so the hand run offers them. `BK_MODS_ROOT` keeps its
+meaning: the tiers rely on it being the only folder.
+
+`camera-turn-keys-game-reads-it` lays its mods folder out the same way (`remastered_views` and copies of the installed
+language mods) and in the options run clicks the Language row's value first: the config written must hold a `lang-*`
+language. Measured on win-home: the settings screen listed Default and the nine languages (`BK_L10N_TRACE`), the
+config held `lang-de`, and the keys run (in German) showed steps 3, 0, 1.
