@@ -232,6 +232,7 @@ class CWorldClient : public CWorldBase
 	bool bTurnPreloadStarted;						// the objects' camera turns are being (or were) preloaded (not saved)
 	std::vector< std::pair< CPtr<SMapObject>, int > > turnPreload;	// the objects and camera steps still to be preloaded
 	int nTurnPreloadFrames;							// the frames the preload took so far
+	int nTurnPreloadGone;								// the objects it skipped, gone from the world
 	double fTurnPreloadMs;							// its milliseconds so far
 	void PreloadCameraTurns();
 	std::vector< CPtr<SMapObject> > turnPending;	// the objects off the screen still to be drawn for the camera step

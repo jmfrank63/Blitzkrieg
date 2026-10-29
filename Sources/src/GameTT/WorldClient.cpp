@@ -530,6 +530,7 @@ CWorldClient::CWorldClient()
 	nCameraTurn = 0;
 	bTurnPreloadStarted = false;
 	nTurnPreloadFrames = 0;
+	nTurnPreloadGone = 0;
 	fTurnPreloadMs = 0;
 	nLastAvailableActionsSet = 0;
 	timeLastPick = 0;
@@ -618,7 +619,15 @@ void CWorldClient::PreloadCameraTurns()
 	double fMs = 0;
 	while ( !turnPreload.empty() && fMs < fBudgetMs )
 	{
-		turnPreload.back().first->PreloadCameraTurn( turnPreload.back().second );
+		// The list holds the first frame's objects by CPtr, which does not keep
+		// an object: one the world has let go of since is emptied in place
+		// (DestroyContents), invalid and without a desc. On the sixth tutorial
+		// the script's bridge demolition at two seconds deletes two birches.
+		const CPtr<SMapObject> &pMO = turnPreload.back().first;
+		if ( pMO.IsValid() && pMO->pDesc != 0 )
+			pMO->PreloadCameraTurn( turnPreload.back().second );
+		else
+			++nTurnPreloadGone;
 		turnPreload.pop_back();
 		QueryPerformanceCounter( &now );
 		fMs = ( now.QuadPart - start.QuadPart ) * 1000.0 / double( freq.QuadPart );
@@ -629,7 +638,7 @@ void CWorldClient::PreloadCameraTurns()
 	{
 		std::vector< std::pair< CPtr<SMapObject>, int > >().swap( turnPreload );
 		if ( NTurnTrace::On() )
-			fprintf( stderr, "BK_TURN_TRACE: preload done in %.0f ms over %d frames\n", fTurnPreloadMs, nTurnPreloadFrames );
+			fprintf( stderr, "BK_TURN_TRACE: preload done in %.0f ms over %d frames, %d gone from the world\n", fTurnPreloadMs, nTurnPreloadFrames, nTurnPreloadGone );
 	}
 }
 // Draws every object as the camera sees it now (SMapObject::SetCameraTurn):
