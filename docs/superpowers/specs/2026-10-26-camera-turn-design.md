@@ -1740,3 +1740,97 @@ win-home, release, one `zig build` at a time: `camera-turn-keys-game-reads-it` (
 to the maintainer, Linux to CI.
 
 For the maintainer: nothing in his profile needs editing; the next start drops the two older binds from his config.
+
+## Tutorial 6 crashes in the preload (round 2 of the hand test, 2026-10-29)
+
+The maintainer (macOS arm64, release, main 61b2bf3b7, Remastered on, `-mod=remastered_views` with `BK_MODS_ROOT`
+his `zig-out/remastered/mods`; Russian chosen, then Default as well): loading the sixth tutorial ended in SIGSEGV,
+`KERN_INVALID_ADDRESS at 0x3c` in `CMOObject::PreloadCameraTurn` (`MOObject.cpp:345`, `pDesc->eGameType`) called from
+`CWorldClient::PreloadCameraTurns`.
+
+### Cause
+
+The preload lists every map object of its first frame, four times (one per camera step), as `CPtr<SMapObject>`, and
+works the list off 8 ms a frame. `CPtr` is the engine's weak reference: the world holds its objects by `CObj`, and when
+the last `CObj` goes, `CTRefCount::Release` empties the object in place (`DestroyContents`: destructor, then a default
+constructor) and marks it invalid while the `CPtr`s keep the memory. A deleted object in the list is therefore a
+default `CMOObject` with a null `pDesc`. The sixth tutorial's `Init` runs `DestroyBridges` at two seconds of game time
+(`DamageObject(502, 0)`); the demolition deletes two birches (`_Birch`, `_Birch01`, at 5578,3218 and 5946,3260;
+`ACTION_NOTIFY_DELETED_ST_OBJ` at 2076 ms, `CWorldBase::AIUpdateRemoveObjects`), while the preload, a second or more of
+slices, is still under way. With `DamageObject` taken out of a copy of the script nothing is deleted;
+`LandReinforcement(1234)` taken out instead, the birches still go. The language is not involved: the same crash with
+Default and with lang-ru (the maintainer saw both). Measured with the deletions traced (a temporary diagnostic, not
+kept), win-home, debug: 6 list entries gone (3 steps of each birch still to do). The third tutorial loses 16 entries
+the same way when the preload starts on its first frame.
+
+Reproduced at 61b2bf3b7 before the fix: win-home debug Game, `scenarios\tutorials\tutorial6\1.xml` on the command
+line, Remastered on in the profile, `-mod=remastered_views`: `panic: member access within null pointer of type 'const
+SGDBObjectDesc'` at `MOObject.cpp:345` from `WorldClient.cpp:621`, exit 3. The same on the Mac (a throwaway clone,
+debug): the same panic, abort. A release Game reads the null desc at offset 0x3c, the maintainer's report.
+
+### Fix
+
+`CWorldClient::PreloadCameraTurns` skips an entry whose object is no longer valid or has no desc and counts it; the
+trace's line reads `preload done in N ms over F frames, G gone from the world`. Keeping the objects alive by `CObj`
+instead would preload pictures nobody draws again. The staged turn (`turnPending`) already skipped such an object
+(its `pAIObj` is null after `DestroyContents`, and `FindByAI` must give the same object back); `TurnObjects` and
+`SetSpansCameraTurn` walk the world's own containers, which hold only live objects, so `CMOObject::SetCameraTurn`,
+`ApplyCameraTurn` and `CMOBuilding::PreloadCameraTurn`/`SetCameraTurn` are only reached with a live object and are
+unchanged.
+
+### The tiers
+
+`camera-turn-tutorials-game-reads-it`, `camera-turn-tutorials-ru-game-reads-it` and
+`camera-turn-campaign-game-reads-it` (`tools/zig/camera_turn_missions_game_reads_it.zig`, one test, the set named by
+`BK_TURN_MISSIONS`): the real Game plays each tutorial mission (Default; lang-ru) and the first mission of a German,
+an Allied and a Soviet campaign (poland, normandy, moscow's Tula), given on the command line as the mission XML so its
+script runs, unpaused, with `-mod=remastered_views` (an empty scratch mod). Remastered is set on at 1.6 s of game time,
+so that the preload is under way when the birches go at 2.08 s. The window is narrow at both ends and was measured:
+with Remastered on from the first frame a release Game on the M1 Pro was done with the preload before then (0 gone, also
+with his mods folder copied; there the old code would not have crashed, and his run (fullscreen on a
+second monitor) did: how far the preload gets by 2.08 s depends on the first frames); set on at 1.5 s it
+had 3 or 4 of the birches' 8 entries left there; set on at 1.9 s a debug Game on win-home listed the objects only after
+the birches had gone (0 gone, the tier failed as it should). At 1.6 s: 8 gone on win-home (debug, three runs), 6 on the
+Mac with the maintainer's mod (release, three runs). Then the four turn keys, Remastered off again (the option is kept in the profile), exit. Held:
+a clean exit, the preload done, four turns drawn, 0 leaked blocks, and on the sixth tutorial at least one entry gone
+from the world (else the run did not cover the crash). Only the lang-ru set waits for `language-mods` (about 12
+minutes on win-home, run anew each time as for the keys tier).
+
+### Measured
+
+Preload in ms of its slices, entries gone from the world; every run drew four turns, exited cleanly and leaked 0
+blocks.
+
+| mission | win-home debug, Default | lang-ru | M1 Pro release, Default | lang-ru |
+|---|---|---|---|---|
+| tutorial 1 | 423, 0 | 427, 0 | 446, 0 | 358, 0 |
+| tutorial 2 | 1056, 0 | 1090, 0 | 635, 0 | 556, 0 |
+| tutorial 3 | 1247, 0 | 1257, 0 | 717, 0 | 746, 0 |
+| tutorial 4 | 413, 0 | 414, 0 | 361, 0 | 366, 0 |
+| tutorial 5 | 449, 0 | 448, 0 | 283, 0 | 284, 0 |
+| tutorial 6 | 1049, 8 | 1070, 8 | 519, 5 | 502, 4 |
+| poland 1 | 406, 0 | | 508, 0 | |
+| normandy 1 | 1063, 4 | | 618, 0 | |
+| moscow 1 (Tula) | 1787, 0 | | 829, 0 | |
+
+`camera-turn-tutorials-game-reads-it` with the skip taken out again (win-home, debug): the sixth tutorial's run ends in
+the same panic at `MOObject.cpp:345`, exit 3; the tier fails. With the skip it passes. The Mac's release Game, the
+maintainer's mods folder copied into the clone, the sixth tutorial with Remastered set on at 1.6 s: 6 entries gone,
+four turns, 0 leaked blocks, Default and lang-ru.
+
+### Tiers run (tutorial 6)
+
+win-home, one `zig build` at a time: `camera-turn-tutorials-game-reads-it camera-turn-campaign-game-reads-it` (debug,
+pass, 497 s), `camera-turn-tutorials-ru-game-reads-it` (debug, pass, 841 s, of it about 12 minutes of `language-mods`).
+macOS arm64 (a throwaway clone of the maintainer's checkout, deleted after): the same three steps with
+`-Doptimize=ReleaseFast` (pass). `camera-turn-preload-game-reads-it` reads the "preload done" line by its first number
+and was not run again. The full sweep is left to the maintainer, Linux to CI.
+
+### Left open (tutorial 6)
+
+- The tier's window (Remastered set on at 1.6 s, the birches at 2.08 s) is measured on two machines; a much slower
+  Game could list the objects after the birches went, and the tier then fails on "0 gone" rather than passing
+  without covering the crash.
+- Other objects the world lets go of while the preload runs (normandy loses 4 entries the same way) are skipped
+  alike; the staged turn's list (`turnPending`), the only other one the turn keeps across frames, was
+  already guarded.

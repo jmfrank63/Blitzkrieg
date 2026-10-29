@@ -4724,6 +4724,39 @@ pub fn build(b: *std.Build) void {
     // The turn keys tier lays its mods folder out the same way, from the install's language mods.
     keys_game_run.step.dependOn(&language_mods_run.step);
 
+    // Every tutorial (Default and lang-ru) and a campaign mission of each side
+    // played with Remastered on and the turn preload, the turn keys pressed: the
+    // sixth tutorial's script deleted two birches the preload still listed
+    // (tools/zig/camera_turn_missions_game_reads_it.zig). A step per set, each
+    // under ten minutes on a debug Game. Desktop and GPU, so not part of `test`.
+    const missions_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_missions_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, missions_game_module, toolchain);
+    }
+    const missions_game_tests = b.addTest(.{ .root_module = missions_game_module, .filters = &.{ "the trace readers", "the missions play" } });
+    const mission_sets = [_][2][]const u8{
+        .{ "tutorials", "Play every tutorial mission" },
+        .{ "tutorials-ru", "Play every tutorial mission under lang-ru" },
+        .{ "campaign", "Play the first mission of a German, an Allied and a Soviet campaign" },
+    };
+    for (mission_sets) |set| {
+        const missions_game_run = b.addRunArtifact(missions_game_tests);
+        missions_game_run.setCwd(b.path("."));
+        missions_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+        missions_game_run.setEnvironmentVariable("BK_TURN_MISSIONS", set[0]);
+        missions_game_run.has_side_effects = true;
+        missions_game_run.step.dependOn(install_game_step);
+        // Under lang-ru the scratch mods folder holds a copy of the installed one.
+        if (std.mem.endsWith(u8, set[0], "-ru")) missions_game_run.step.dependOn(&language_mods_run.step);
+        const missions_game_step = b.step(b.fmt("camera-turn-{s}-game-reads-it", .{set[0]}), b.fmt("{s} on the real Game with Remastered on and -mod=remastered_views, let the turn preload finish while the mission's script runs and press the turn keys: no crash, the preload done, four turns drawn, no leak at exit", .{set[1]}));
+        missions_game_step.dependOn(&missions_game_tests.step);
+        if (test_mode == .run) missions_game_step.dependOn(&missions_game_run.step);
+    }
+
     // A gameplay mod made in English under a language mod (Achtung Panzer 2 with lang-ru), from
     // tracked data: which of their texts the Game shows, that the mod's empty .bik videos stay off and
     // that a save does not switch the session's language (tools/zig/mod_language_game_reads_it.zig).
