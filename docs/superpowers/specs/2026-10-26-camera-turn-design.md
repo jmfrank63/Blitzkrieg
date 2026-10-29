@@ -1678,3 +1678,31 @@ and Linux to CI. Not seen: macOS (the maintainer's machine), Linux.
   the turn, as before.
 - Sprites that overlap are ordered by texture address (2003's batching), so which of two overlapping crowns is on
   top can change with what was loaded first; not changed here.
+
+## Keys of an older config (round 2 of the hand test, 2026-10-29)
+
+The maintainer, on macOS arm64 at main 836bbff31 with `-mod=remastered_views` and Remastered switched on in Options:
+the turn keys did nothing. His profile's `config.cfg` (`zig-out/game/macos/arm64/release/profiles/Johannes/config.cfg`,
+read only) binds, in the mission's section, `camera_turn` to `.` and `camera_turn_back` to `,` (written before the keys
+were swapped) and after them `camera_turn` to `,` and `camera_turn_back` to `.` (today's defaults). `CInputBinder::Repair`
+merges every default bind a config lacks into it at each start, matched by name, type and controls, so the swap left
+both commands on both keys: a press turned a quarter one way and back in the same frame, and no frame showed a step
+other than 0. Nothing in the turn code changed; every tier starts from a fresh profile, so none saw it.
+
+### Decision
+
+`Repair` drops a saved bind the defaults do not hold when the defaults give its controls (same bind type) to another
+command of the same section: a key moved to another command is a stale default, and with the merge it would fire both.
+The defaults' bind then has the key, the dropped one leaves the live binder and the config written at exit (a debug
+line names it). A bind the player added on a key no default uses stays, as does every default bind. It holds with
+Remastered off as well: the binder knows no option, and a key that fires two commands is wrong in either mode.
+
+### The tier
+
+`zig build camera-turn-keys-game-reads-it` (`tools/zig/camera_turn_keys_game_reads_it.zig`, about 1 minute on
+win-home): a profile seeded with a config holding only the two older binds; the real Game's settings screen, Gameplay
+tab, a click on the Remastered row's value, OK, exit (the config written must hold Remastered ON); then the second
+tutorial with `-mod=remastered_views` (an empty scratch mod), `.`, `,`, `,` through the bind chain (`key=`). The steps
+BK_TURN_TRACE shows must be 3, 0, 1 and the config written at exit must bind `camera_turn` to `,` and
+`camera_turn_back` to `.` only. Before the fix (release, win-home): no step shown after the three presses, the config
+kept both binds of each command. After it: 3, 0, 1, both older binds dropped, 0 leaked blocks in both runs.
