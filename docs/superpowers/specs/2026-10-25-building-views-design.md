@@ -1023,3 +1023,122 @@ nothing the Game or `side` draws changed.
   17 of 17. The tier also builds the bk-sprite `side` needs (a fresh checkout failed composing with FileNotFound).
   `camera-turn-control-game-reads-it`, `camera-turn-village-game-reads-it` and `camera-turn-game-reads-it` pass on
   main plus that fix, on win-home (Windows x64).
+
+## The maintainer's shapes tracked, and the fill of the joint families (M006 round 5, 2026-10-29)
+
+The maintainer worked on the round-4 shapes elsewhere (D:\bk-review, read-only) and handed back
+`shapes-family-review.pdf` (457 pages: the 412 objects with the same numbers and pages, then the family
+comparison pages) with its manifest and family table: "We made significant progress on the shapes [...] it is
+the latest version." This round makes that review the tracked source of truth and starts the fill on its 24
+"joint candidate" families (52 views).
+
+- **Import** (`bk-views import <shapes-family-review-manifest.json> <meshes-dir>`, run once into
+  `tools/zig/fixtures/bk-views/meshes`; rerun it on the maintainer's next review). Every object's final model is
+  the manifest's `model` path, which lies in one of the review's layers (360 in `edge-revision/models`, 52 in
+  `family-revision/models`). Written per object, `<id>.json` (3 digits): number, path, family
+  (`region/family` of the family table), measured side, `joint`, `needs_review`, status, note and reference
+  (the review's provenance, `bk2_reference`), source (the model's path in the review), the preserved earlier
+  version's name, alignment (yaw, height factor, width factor), the review's scores (outline IoU, edge score,
+  combined) and the mesh: `vertices` (x, y, z in a row) and `parts` (triangles grouped by face kind: body, roof,
+  timber, sandbag, tank, mesh, ...). A joint view names its family's mesh instead (`"shared"`), held once in
+  `shared/<region>_<family>.json` (24); `families.json` is the family table (51: status, reason, all ids,
+  included, excluded with reasons, donor, objective, the views with measured side, method, alignment and scores,
+  geometry note). Format decisions: JSON, CRLF, numbers to a 5000th of the mesh's longest extent (1 to 5
+  decimals: the meshes span 1 to 272 units, BK2 adaptations in their own units), vertices at one place merged
+  (156,109 review vertices become 51,988; 82,882 triangles), 6 vertices and 10 triangles a line. 437 files,
+  1.99 MB. The preserved variants and the review's Python and pictures are not imported (the review keeps
+  them). Statuses: 203 BK1-specific rebuilds, 139 BK2 mesh adaptations, 52 joint family candidates, 17 BK2
+  structure proposals, 1 retained box; 178 need review.
+- **Geometry** (`tools/zig/bk_views_mesh.zig`). The review's frame is the 2003 camera's (`camera-2003.json`
+  rows (0.7071, 0.7071, 0) and (0.3536, -0.3536, -0.8660)) after the alignment: the width factor on x, the
+  height factor on z, the yaw. A quarter turn adds 90 degrees of yaw, the same way as `turnPoint` (a joint
+  family's views differ by 90 degrees a measured side: a_h01_1 at -90, a_h01_2 at 0). The review fits a mesh to
+  its picture by its projection's box, so `place` does the same for the Game: the turn-0 projection's box
+  centred on the picture's opaque box, the longer sides equal (that is the scale from mesh units to world
+  units), the lowest point on the ground; the ground shift follows (the camera cannot tell a move along the
+  line of sight from a lift, and the ground decides). A depth buffer (`raster`) draws and looks up the mesh.
+- **Review** (`zig build shapes-review`, `zig-out/review/shapes.pdf`, 443 pages, 29 MB, from tracked data
+  only). The meshes win over the block models (`models/`), which stay for objects without a mesh (none now).
+  As the maintainer's: 5 contents pages, object `n` on page `n + 5`, each with its number and path, status and
+  scores, the 2003 picture alone and with the mesh's visible creases over it (hidden by the faces in front),
+  the correction and provenance, and the four turns at one scale labelled `<n>.N` to `.W`; then the family
+  table (2 pages) and the 24 joint comparison pages (each view's picture with the shared mesh's edges at its
+  own alignment, the shared mesh turned from the first view).
+- **The match** (`shapes-match.csv` beside the PDF). The review's measure is ported (`mesh.target`,
+  `mesh.evaluate`: Pillow's Lanczos on premultiplied colour to a 348-pixel box on a 384 grid, OpenCV's grey,
+  3x3 Gaussian (43, 170, 43 of 256, measured on OpenCV 5.0.0), Canny 40/100 with its integer non-maximum
+  suppression, the outline's border, the 3x3 chamfer distance; the mesh's triangles filled with rounded
+  corners, its creases drawn, exp(-d / 7.5)). Measured on the meshes as tracked and the pictures from Data:
+  - The 52 joint views (rescored by the maintainer at the 384 grid): all within the tolerance (outline 0.01,
+    edge 0.03); largest differences 0.0029 and 0.0054.
+  - The other 360: 27 within it, 332 not, almost all by the edge score (ours about 0.1 higher). Cause: the
+    manifest's scores for them are the edge revision's, taken by an earlier version of edgefit.py on the
+    128-pixel grid (`edge-scores.json`); the review's own edgefit.py as it is now gives our numbers (object 1:
+    manifest 0.887 / 0.731, edgefit.py now 0.909 / 0.843, ours 0.908 / 0.840; at SIZE 128, UP 1 it gives
+    0.885 / 0.742).
+  - Against the review's edgefit.py run now on all 411 objects with a picture (a reference run on the
+    maintainer's Python, not part of the build): mean difference 0.0006 (outline) and 0.0023 (edge), 404
+    within the tolerance. The 7 outside (263 rick 0.11, 221 barrel, 360, 361, 394, 223, 316: 0.01 to 0.03)
+    are textured or tiny pictures where Canny flips on single grey levels: the review read its pictures back
+    from shapes.pdf, where semi-transparent pixels come back a level off (29 such pixels in 263's crop).
+  - 278 (e_megaphone) has no 2003 picture (as in the review).
+- **The fill** (`bk-views side`, every caller: the batch, `fill-families`, the Game tiers, hold-out). Where
+  the variant is a view of a joint candidate family (`loadMeshScene`: its number in shape-ids.json, its mesh
+  `joint`, the family's `included`), the scene holds the shared mesh and each view of it in the variant's
+  colourway with its own placement on its own picture (views of another colourway give no pixels).
+  - A turn a family's variant shows in the colourway, holding every picture the variant holds, is that
+    variant's 2003 art (`siblingFor`, `siblingSprite`, as before), without the blocks' gates (the mesh is
+    the family's measured shape); under the world's sun it is relit pixel by pixel as before (by the blocks'
+    normals) and its intact shadow is the mesh's.
+  - Else the intact states (`1`, `1w`) are drawn on the mesh turned (`meshDrawn`): each pixel takes the
+    picture of the colourway that sees its point most squarely (no face in front of it within 2 units; a face
+    seen under `grazing` waits for a better one), relit from that picture's 2003 light to the turn's (the
+    existing `shading` with the building's own wall light, so `_r<k>_l<k>` is lit by the world's sun as
+    every other turn). A point no picture sees takes the face the mesh turned a half turn, then a quarter turn
+    either way, brings to it: from the point turned about the mesh's middle, the farthest face along the
+    turned face's outward direction that faces that way (an L-shaped house's hidden back wall takes its outer
+    front wall, not the courtyard). The rest, with stretched pixels, is patch-filled as before. Its shadow is
+    the mesh's, its ground picture as before, its zero cross laid on the footprint as `footprintZero` lays the
+    blocks (`meshZero`). The damage states stay on their blocks (a mesh is the intact building), their
+    pictures moved onto the mesh's zero cross: the engine's packs of one variant share one zero cross (the first
+    try gave each state its own and `decompose` refused e_wb/01_r1).
+  - Into the existing folders (`<variant>_r<k>`, `_r<k>_l<k>`, packed by compose-pack): the Game reads them
+    unchanged. Objects outside the joint families keep the current generator.
+- **Checks** (`meshCheck`, in each turn's sources.json `"mesh"`, and `fill-families.csv`): of the turn's
+  intact picture against the mesh turned as the turn's eye sees it, the outline IoU, the mesh's pixels left
+  empty (holes), the patch-filled ones, and per face kind the largest difference of a mean colour channel from
+  that kind in the variant's 2003 picture (of 255).
+- **`zig build fill-families`** (about 3 minutes on win-home): `side` on the 52 views as the batch runs it, then
+  `bk-views fill-review` into `zig-out/review/fill-families.pdf` (a page per view: the family's 2003 sides,
+  then the four turns under the 2003 light and under the world's sun, each with how it was drawn and its
+  checks; ill-families.csv the numbers). Measured: 52 views, 156 turns, 48 as a sibling's 2003 art and 108
+  drawn on the mesh. The mesh turns: outline against the mesh turned 0.977 or more, 765 mesh pixels left empty
+  in all (edges the patch fill leaves under half alpha), 231,282 patch-filled (most where a colourway has one
+  picture: e_townhouse04_4 S and W about 20,000 each, e_house11_4, townhouse02_1 and _2, a_h03_2 and _3 5,000 to
+  14,000 a turn), colour of a face kind against the 2003 picture: median 11 of 255, at most 61 (the leaders'
+  boards, whose two faces are different art). The siblings' art against the variant's own mesh turned: outline
+  0.51 to 0.95, median 0.77: the sibling is laid by the footprints' shift as before (siblingSprite), and
+  each view's mesh is fitted to its own picture, so the two estimates of where the turned building stands
+  differ by a few pixels.
+- **Tests** (`test-bk-views`): a_h01_1 and a_h01_2's tracked mesh scores on each picture as the review did
+  (within the tolerance), covers each picture's outline placed on it (IoU over 0.85), and side 2 is side 1
+  turned a quarter. Run on win-home (Windows x64): 	est-bk-views passes (the quality gate's hold-out included);
+  shapes-review, ill-families and k-views-side steps pass. camera-turn-village-game-reads-it and
+  camera-turn-game-reads-it fail at camera steps 1 and 3 only, for buildings this round does not touch
+  (E_CTownHouse01_2, E_FrenchShed01, the four village houses, E_WT_01/_02) as for e_wb: at steps 0 and 2
+  every building scores 0.99 to 1.00 (e_wb/01 and /02, drawn on their mesh, included), at 1 and 3 each stands
+  where another is expected (IoU 0.00 to 0.02). main (836bbff31) gives the same numbers for the village houses
+  in a clean worktree: a regression on main since round 4, left open here. On main the bars test also failed
+  earlier: e_wb/01 and e_wt/01 shared one working folder ( 1.work) and ran at once; each building has its own
+  now, and the bars test then reaches the Game (its steps 1 and 3 fail as above). macOS and Linux are left to CI.
+- **For the maintainer's review**:
+  - The 24 joint families' fill (fill-families.pdf), most of all the patch-filled faces of e_townhouse04,
+    e_house11, townhouse02 and a_h03 (a colourway alone sees them; another colourway's art would be exact
+    shape and wrong colour) and where a sibling's art and the mesh turned disagree (a_h01 E 0.78, a_h03,
+    leaders, dot, e_house11 0.51 to 0.69): which of the two is the building's place.
+  - The 7 families that need geometry review (a_wt, e_ctownhouse01, e_jettybuilding, e_wt, dustbin,
+    pigeonloft, stubtrack) and the 20 unresolved ones keep the current generator; so do the 360 single objects.
+  - 178 objects the review marks 
+eeds_review; 278 has no 2003 picture.
+- **Left**: the sibling's relighting under the world's sun still reads normals from the blocks; faces no
+  picture of the colourway sees are patch-filled; the odd-step regression above.
