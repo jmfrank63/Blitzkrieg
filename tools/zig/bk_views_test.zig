@@ -1388,11 +1388,12 @@ test "a box's full 3D model unrolls each face flat, its normals outward, and wri
     }
     // A wall chart is as wide and high as the wall at `density` texels a unit.
     for (m.charts) |c| try std.testing.expect(c.w - 4 == @as(u32, @intFromFloat(20 * model3d.density)) or c.w - 4 == @as(u32, @intFromFloat(10 * model3d.density)) or c.w - 4 == @as(u32, @intFromFloat(8 * model3d.density)));
-    // The .mod: a data chunk 1 holding the skeleton (1, a node a group), the
-    // meshes (2, one a group) and the box (4), then the empty chunks 0 and 2.
+    // The .mod: a data chunk 1 holding the skeleton (1, its nodes in chunk
+    // 1, a node a group), the meshes (2, one a group) and the box (4), then
+    // the empty chunks 0 and 2.
     const mod = try model3d.writeMod(arena, m);
     const data = views.findChunk(mod, 1, 0).?;
-    try std.testing.expectEqual(@as(usize, 3), countChunks(views.findChunk(data, 1, 0).?, 1));
+    try std.testing.expectEqual(@as(usize, 3), countChunks(views.findChunk(views.findChunk(data, 1, 0).?, 1, 0).?, 1));
     try std.testing.expectEqual(@as(usize, 3), countChunks(views.findChunk(data, 2, 0).?, 1));
     try std.testing.expectEqual(@as(usize, 24), views.findChunk(data, 4, 0).?.len);
     try std.testing.expect(views.findChunk(mod, 0, 0) != null and views.findChunk(mod, 2, 0) != null);

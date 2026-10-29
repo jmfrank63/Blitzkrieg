@@ -710,7 +710,8 @@ pub fn writeMod(gpa: std.mem.Allocator, m: Model) ![]u8 {
         hi[c] = @max(hi[c], v.world[c]);
     };
 
-    var skeleton: std.ArrayList(u8) = .empty;
+    // The nodes (SSkeletonFormat chunk 1: a vector of structures, one chunk 1 each).
+    var nodes: std.ArrayList(u8) = .empty;
     for (0..G) |g| {
         var node: std.ArrayList(u8) = .empty;
         try stringChunk(gpa, &node, 1, m.groups[g]);
@@ -721,8 +722,10 @@ pub fn writeMod(gpa: std.mem.Allocator, m: Model) ![]u8 {
         const children = try gpa.alloc(i32, if (g == 0) G - 1 else 0);
         for (children, 1..) |*c, i| c.* = @intCast(i);
         try dataVectorChunk(gpa, &node, 20, i32, children);
-        try chunk(gpa, &skeleton, 1, node.items);
+        try chunk(gpa, &nodes, 1, node.items);
     }
+    var skeleton: std.ArrayList(u8) = .empty;
+    try chunk(gpa, &skeleton, 1, nodes.items);
     try podChunk(gpa, &skeleton, 2, @as(i32, 0));
     const locators = try gpa.alloc(i32, G);
     for (locators, 0..) |*l, i| l.* = @intCast(i);
@@ -798,8 +801,9 @@ pub fn writeMod(gpa: std.mem.Allocator, m: Model) ![]u8 {
     try chunk(gpa, &data, 3, &.{});
     const box = [6]f32{ @floatCast((lo[0] + hi[0]) / 2), @floatCast((lo[1] + hi[1]) / 2), @floatCast((lo[2] + hi[2]) / 2), @floatCast((hi[0] - lo[0]) / 2), @floatCast((hi[1] - lo[1]) / 2), @floatCast((hi[2] - lo[2]) / 2) };
     try podChunk(gpa, &data, 4, box);
-    try chunk(gpa, &data, 5, &.{});
-    try chunk(gpa, &data, 6, &.{});
+    // No fatality or death boxes: empty vectors, their count alone.
+    try dataVectorChunk(gpa, &data, 5, [6]f32, &.{});
+    try dataVectorChunk(gpa, &data, 6, [6]f32, &.{});
     var file: std.ArrayList(u8) = .empty;
     try chunk(gpa, &file, 1, data.items);
     try chunk(gpa, &file, 0, &.{});
