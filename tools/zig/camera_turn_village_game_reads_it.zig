@@ -199,7 +199,10 @@ test "the buildings' bars stand over their middles at every step" {
     for (bar_buildings, &children) |building, *child| {
         const out = try std.fs.path.join(allocator, &.{ data, mod_buildings, std.fs.path.dirname(building.folder["Data/Buildings/europe/summer/".len..]) orelse "" });
         try cwd.createDirPath(io, out);
-        child.* = try std.process.spawn(io, .{ .argv = &.{ tool, "side", building.folder, "1,2,3", out, work }, .stdin = .ignore, .stdout = .ignore, .stderr = .ignore });
+        // A working folder each: e_wb/01 and e_wt/01 both name theirs 01.work, and the
+        // runs go at once.
+        const own_work = try std.fs.path.join(allocator, &.{ work, building.folder["Data/Buildings/europe/summer/".len..] });
+        child.* = try std.process.spawn(io, .{ .argv = &.{ tool, "side", building.folder, "1,2,3", out, own_work }, .stdin = .ignore, .stdout = .ignore, .stderr = .ignore });
     }
     for (bar_buildings, &children) |building, *child| {
         const term = try child.wait(io);
