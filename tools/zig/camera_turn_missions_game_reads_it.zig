@@ -8,17 +8,19 @@
 //!
 //! The real Game plays each tutorial mission (given on the command line as
 //! its mission XML, so its script runs as from the menu) and a sample of
-//! campaign missions, unpaused, with `-mod=remastered_views` (an empty scratch mod of that name, the mods
-//! folder laid out as `zig build camera-turn-mod` does; under lang-ru with a
-//! copy of the installed one beside it). Each run sets Remastered on at one and a half
-//! seconds of game time, so that the preload, a second or more of 8 ms slices
-//! a frame, is under way when the sixth tutorial's birches go at two however
-//! fast the machine (a release Game on an M1 Pro, Remastered on from the first
-//! frame, was done with the preload before then); waits for the preload,
-//! presses the turn keys four times, sets Remastered off again (the option is
-//! kept in the profile) and exits. BK_TURN_MISSIONS names the set, a build
-//! step each, under ten minutes on a debug Game: `tutorials` (Default),
-//! `tutorials-ru` (lang-ru) and `campaign` (Default).
+//! campaign missions, unpaused, with `-mod=remastered_views` (an empty
+//! scratch mod of that name, the mods folder laid out as `zig build
+//! camera-turn-mod` does; under lang-ru with a copy of the installed one
+//! beside it). Each run sets Remastered on at 1.6 s of game time, so that the
+//! preload is under way when the sixth tutorial's birches go at 2.08 s: with
+//! Remastered on from the first frame a release Game on an M1 Pro was done
+//! with it before then; set on at 1.5 s it had half the birches' entries left
+//! there, and set on at 1.9 s a debug Game on win-home listed the objects only
+//! after the birches had gone. Then it waits for the preload, presses the turn
+//! keys four times, sets Remastered off again (the option is kept in the
+//! profile) and exits. BK_TURN_MISSIONS names the set, a build step each, under ten
+//! minutes of missions on a debug Game: `tutorials` (Default), `tutorials-ru`
+//! (lang-ru) and `campaign` (Default).
 //!
 //! Held, per run: the Game exits cleanly, BK_TURN_TRACE reports the preload
 //! done and four turns drawn, and nothing leaks at exit; on the sixth
@@ -54,8 +56,8 @@ const campaign = [_][]const u8{
 /// win-home, done well within 13 s; the campaign's maps are larger (Tula's
 /// 2631 objects ran 9 frames a second there), so they get 40 s.
 const Set = struct { name: []const u8, missions: []const []const u8, language: []const u8, schedule: []const u8 };
-const tutorial_schedule = "g1500:set=GamePlay.Remastered=ON,g500:hover=1000x400,g11000:key=.,g500:key=.,g500:key=COMMA,g500:key=COMMA,g500:set=GamePlay.Remastered=OFF,g500:exit";
-const campaign_schedule = "g1500:set=GamePlay.Remastered=ON,g500:hover=1000x400,g38000:key=.,g500:key=.,g500:key=COMMA,g500:key=COMMA,g500:set=GamePlay.Remastered=OFF,g500:exit";
+const tutorial_schedule = "g1600:set=GamePlay.Remastered=ON,g400:hover=1000x400,g11000:key=.,g500:key=.,g500:key=COMMA,g500:key=COMMA,g500:set=GamePlay.Remastered=OFF,g500:exit";
+const campaign_schedule = "g1600:set=GamePlay.Remastered=ON,g400:hover=1000x400,g38000:key=.,g500:key=.,g500:key=COMMA,g500:key=COMMA,g500:set=GamePlay.Remastered=OFF,g500:exit";
 const sets = [_]Set{
     .{ .name = "tutorials", .missions = &tutorials, .language = "Default", .schedule = tutorial_schedule },
     .{ .name = "tutorials-ru", .missions = &tutorials, .language = language, .schedule = tutorial_schedule },
