@@ -9,6 +9,8 @@
 //! a material paint taken from the seen faces of the same material and is
 //! marked as guessed. The turns the Game draws are this model rendered
 //! offline at the 2003 camera, so painting the atlas changes every turn.
+//! Each damage state is a model of its own (`damaged`): the intact one cut
+//! where its damaged 2003 picture no longer reaches, painted from that picture.
 
 const std = @import("std");
 const views = @import("bk_views.zig");
@@ -31,9 +33,6 @@ const coplanar = 0.999;
 /// (paintUnseen).
 const own_tile = 8;
 
-/// The tracked meshes' objects that are drawn as full 3D models (the pilot
-/// of the design; the list grows to all objects and then goes away).
-pub const pilot_file = "tools/zig/fixtures/bk-views/full3d.json";
 pub const Vertex = struct { mesh: [3]f64, world: [3]f64, uv: [2]f64 };
 /// `source`: the mesh triangle it is (mesh.triangles' order); `normal`: its
 /// outward normal in the world.
@@ -60,6 +59,9 @@ pub const Model = struct {
     /// Per atlas texel: the triangle whose face it shows (`none` off every face).
     texel_tri: []u32,
     texel_bary: [][3]f32,
+    /// Per chart: a damage state's fallen roof (`damaged`), whose texels no
+    /// picture sees are tiled from those its picture does.
+    fallen: []const bool = &.{},
 
     pub const none = std.math.maxInt(u32);
 
@@ -278,32 +280,9 @@ pub fn unwrap(gpa: std.mem.Allocator, model: mesh.Model, tris: []const mesh.Tri,
     }
 
     // Each texel's face, for the bake and the paint.
-    const count = @as(usize, width) * height_px;
-    const texel_tri = try gpa.alloc(u32, count);
-    const texel_bary = try gpa.alloc([3]f32, count);
-    @memset(texel_tri, Model.none);
-    for (triangles, 0..) |t, ti| {
-        const a = vertices.items[t.v[0]].uv;
-        const b = vertices.items[t.v[1]].uv;
-        const c = vertices.items[t.v[2]].uv;
-        const den = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
-        if (@abs(den) < 1e-12) continue;
-        const x0: usize = @intFromFloat(@max(0, @floor(@min(a[0], b[0], c[0]))));
-        const x1: usize = @intFromFloat(@min(@as(f64, @floatFromInt(width - 1)), @floor(@max(a[0], b[0], c[0]))));
-        const y0: usize = @intFromFloat(@max(0, @floor(@min(a[1], b[1], c[1]))));
-        const y1: usize = @intFromFloat(@min(@as(f64, @floatFromInt(height_px - 1)), @floor(@max(a[1], b[1], c[1]))));
-        for (y0..y1 + 1) |ty| for (x0..x1 + 1) |tx| {
-            const px = @as(f64, @floatFromInt(tx)) + 0.5;
-            const py = @as(f64, @floatFromInt(ty)) + 0.5;
-            const l0 = ((b[1] - c[1]) * (px - c[0]) + (c[0] - b[0]) * (py - c[1])) / den;
-            const l1 = ((c[1] - a[1]) * (px - c[0]) + (a[0] - c[0]) * (py - c[1])) / den;
-            const l2 = 1 - l0 - l1;
-            if (l0 < -1e-9 or l1 < -1e-9 or l2 < -1e-9) continue;
-            const i = ty * width + tx;
-            texel_tri[i] = @intCast(ti);
-            texel_bary[i] = .{ @floatCast(l0), @floatCast(l1), @floatCast(l2) };
-        };
-    }
+    const faces = try texelFaces(gpa, vertices.items, triangles, width, height_px);
+    const texel_tri = faces.tri;
+    const texel_bary = faces.bary;
     // A texel of a chart's box no face's middle lies in (along a face's
     // edge, the padding, a sliver chart narrower than a texel) takes the
     // nearest point of the chart's faces: a sample at a face's very edge then
@@ -347,6 +326,291 @@ fn shelves(charts: []Chart, order: []const u32, width: u32) u32 {
         row = @max(row, c.h);
     }
     return y + row;
+}
+
+/// Each texel's face: the triangle whose texels hold the texel's middle and
+/// where in it (`Model.none` off every face).
+fn texelFaces(gpa: std.mem.Allocator, vertices: []const Vertex, triangles: []const Triangle, width: u32, height: u32) !struct { tri: []u32, bary: [][3]f32 } {
+    const count = @as(usize, width) * height;
+    const texel_tri = try gpa.alloc(u32, count);
+    const texel_bary = try gpa.alloc([3]f32, count);
+    @memset(texel_tri, Model.none);
+    for (triangles, 0..) |t, ti| {
+        const a = vertices[t.v[0]].uv;
+        const b = vertices[t.v[1]].uv;
+        const c = vertices[t.v[2]].uv;
+        const den = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+        if (@abs(den) < 1e-12) continue;
+        const x0: usize = @intFromFloat(@max(0, @floor(@min(a[0], b[0], c[0]))));
+        const x1: usize = @intFromFloat(@min(@as(f64, @floatFromInt(width - 1)), @floor(@max(a[0], b[0], c[0]))));
+        const y0: usize = @intFromFloat(@max(0, @floor(@min(a[1], b[1], c[1]))));
+        const y1: usize = @intFromFloat(@min(@as(f64, @floatFromInt(height - 1)), @floor(@max(a[1], b[1], c[1]))));
+        for (y0..y1 + 1) |ty| for (x0..x1 + 1) |tx| {
+            const px = @as(f64, @floatFromInt(tx)) + 0.5;
+            const py = @as(f64, @floatFromInt(ty)) + 0.5;
+            const l0 = ((b[1] - c[1]) * (px - c[0]) + (c[0] - b[0]) * (py - c[1])) / den;
+            const l1 = ((c[1] - a[1]) * (px - c[0]) + (a[0] - c[0]) * (py - c[1])) / den;
+            const l2 = 1 - l0 - l1;
+            if (l0 < -1e-9 or l1 < -1e-9 or l2 < -1e-9) continue;
+            const i = ty * width + tx;
+            texel_tri[i] = @intCast(ti);
+            texel_bary[i] = .{ @floatCast(l0), @floatCast(l1), @floatCast(l2) };
+        };
+    }
+    return .{ .tri = texel_tri, .bary = texel_bary };
+}
+
+// ---------------------------------------------------------------------------
+// Damage states
+
+/// A corner of a face being cut: where it is in the mesh and in the world,
+/// and its texel.
+const Corner = struct { mesh: [3]f64, world: [3]f64, uv: [2]f64 };
+
+fn lerpCorner(a: Corner, b: Corner, t: f64) Corner {
+    var out: Corner = undefined;
+    for (0..3) |c| {
+        out.mesh[c] = a.mesh[c] + (b.mesh[c] - a.mesh[c]) * t;
+        out.world[c] = a.world[c] + (b.world[c] - a.world[c]) * t;
+    }
+    for (0..2) |c| out.uv[c] = a.uv[c] + (b.uv[c] - a.uv[c]) * t;
+    return out;
+}
+
+/// A plane of the world: the points w where dot(normal, w) + offset >= 0
+/// are on its kept side.
+const Plane = struct { normal: [3]f64, offset: f64 };
+
+fn signed(p: Plane, c: Corner) f64 {
+    return mesh.dot(p.normal, c.world) + p.offset;
+}
+
+/// The part of a convex polygon on a plane's kept side (Sutherland-Hodgman).
+fn clip(gpa: std.mem.Allocator, polygon: []const Corner, p: Plane) ![]Corner {
+    var out: std.ArrayList(Corner) = .empty;
+    for (polygon, 0..) |a, i| {
+        const b = polygon[(i + 1) % polygon.len];
+        const da = signed(p, a);
+        const db = signed(p, b);
+        if (da >= 0) try out.append(gpa, a);
+        if ((da >= 0) != (db >= 0)) try out.append(gpa, lerpCorner(a, b, da / (da - db)));
+    }
+    return out.items;
+}
+
+/// The kept side of `p` turned over.
+fn flipped(p: Plane) Plane {
+    return .{ .normal = scaled(p.normal, -1), .offset = -p.offset };
+}
+
+/// The model of a damage state (`2`, `3`), as the vehicles have `2.mod` and
+/// `3.mod`: the intact model cut by the visual hull of the damaged 2003
+/// picture at N (`picture`, its zero cross at `anchor`; `placement` the
+/// intact model's). In each pixel column of the picture the outline's top is
+/// where the damaged building now ends; between the columns' edges it runs
+/// straight, so neighbouring faces are cut along the same line and no crack
+/// opens. A wall above the line is gone (a breach, a fallen gable); a face
+/// that looks up (a roof) is lowered straight down onto the hull's surface,
+/// so a roof the outline cuts lies over the cut walls as a cap and turned
+/// the building stays closed. One picture cannot tell how deep a pixel
+/// lies, so rubble seen inside the outline would keep a roof over it: a roof
+/// group (`body.roof`, `chimney.roof`) whose pixels at N in the damaged
+/// picture mostly differ from the intact picture's (`intact_picture`; one N
+/// hardly sees goes as all the roofs N sees) has
+/// fallen, and its faces lie flat at `rubble` of the building's height, a
+/// floor of rubble inside the walls (`Model.fallen`: its texels no picture
+/// sees are tiled from those it does). A column the damaged picture does not
+/// reach takes nothing. The faces keep their texels (the intact atlas's
+/// layout), so the damaged atlas starts from the intact paint (`bake` with
+/// a base).
+pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement, picture: Image, intact_picture: Image, anchor: [2]f64) !Model {
+    // The outline's top per column, then at each column edge the higher of
+    // its two columns' (null where neither has one).
+    const top = try gpa.alloc(?f64, picture.width);
+    for (top, 0..) |*t, x| {
+        t.* = null;
+        for (0..picture.height) |y| if (picture.pixels[y * picture.width + x][3] >= 128) {
+            t.* = @floatFromInt(y);
+            break;
+        };
+    }
+    const knots = try gpa.alloc(?f64, picture.width + 1);
+    for (knots, 0..) |*k, c| {
+        const left = if (c > 0) top[c - 1] else null;
+        const right = if (c < picture.width) top[c] else null;
+        k.* = if (left != null and right != null) @min(left.?, right.?) else left orelse right;
+    }
+    // World z per mesh z, and the picture's y per world z.
+    const z_scale = placement.scale * placement.alignment.zscale;
+    const y_per_z = -mesh.rows[1][2];
+    // The roof groups that fell: of the pixels the intact model shows as a
+    // roof at N where the intact picture is opaque, the share the damaged
+    // picture shows changed (clear, or a mean channel `changed` or more off).
+    const at_n = try ownBakeView(gpa, intact, intact_picture, placement, anchor);
+    const counts = try gpa.alloc([2]f64, intact.groups.len);
+    @memset(counts, .{ 0, 0 });
+    for (at_n.raster.tri, intact_picture.pixels, picture.pixels) |ti, before, after| {
+        if (ti == mesh.Raster.none or before[3] < 128) continue;
+        const g = intact.triangles[ti].group;
+        if (!std.mem.eql(u8, lookOf(intact.groups[g]), "roof")) continue;
+        var difference: f64 = 0;
+        for (0..3) |c| difference += @abs(@as(f64, @floatFromInt(before[c])) - @as(f64, @floatFromInt(after[c]))) / 3;
+        counts[g][0] += 1;
+        counts[g][1] += @floatFromInt(@intFromBool(after[3] < 128 or difference >= changed));
+    }
+    // A roof group N hardly sees goes as the building's roofs go.
+    var all = [2]f64{ 0, 0 };
+    for (counts) |n| all = .{ all[0] + n[0], all[1] + n[1] };
+    const fallen_group = try gpa.alloc(bool, intact.groups.len);
+    for (fallen_group, counts, intact.groups) |*f, n, g| {
+        const evidence = if (n[0] >= fallen_pixels) n else all;
+        f.* = std.mem.eql(u8, lookOf(g), "roof") and evidence[0] >= fallen_pixels and evidence[1] >= fallen_share * evidence[0];
+    }
+    var height: f64 = 0;
+    for (intact.vertices) |v| height = @max(height, v.world[2]);
+
+    var vertices: std.ArrayList(Vertex) = .empty;
+    var triangles: std.ArrayList(Triangle) = .empty;
+    var index: std.AutoHashMap([5]u64, u32) = .init(gpa);
+    const corner_of = struct {
+        fn f(v: Vertex) Corner {
+            return .{ .mesh = v.mesh, .world = v.world, .uv = v.uv };
+        }
+    }.f;
+    for (intact.triangles) |t| {
+        const tri = [3]Corner{ corner_of(intact.vertices[t.v[0]]), corner_of(intact.vertices[t.v[1]]), corner_of(intact.vertices[t.v[2]]) };
+        const roof = t.normal[2] >= 0.5;
+        var pieces_list: std.ArrayList(struct { corners: []const Corner, lowered: bool }) = .empty;
+        if (fallen_group[t.group]) {
+            const flat = try gpa.dupe(Corner, &tri);
+            for (flat) |*a| {
+                const z = @min(a.world[2], rubble * height);
+                a.mesh[2] += (z - a.world[2]) / z_scale;
+                a.world[2] = z;
+            }
+            try pieces_list.append(gpa, .{ .corners = flat, .lowered = true });
+        }
+        var xs_lo = std.math.inf(f64);
+        var xs_hi = -std.math.inf(f64);
+        for (tri) |c| {
+            const s = mesh.project(c.world);
+            xs_lo = @min(xs_lo, s[0] + anchor[0]);
+            xs_hi = @max(xs_hi, s[0] + anchor[0]);
+        }
+        const c_lo: i64 = @intFromFloat(@floor(xs_lo));
+        const c_hi: i64 = @intFromFloat(@ceil(xs_hi));
+        // Column by column; a run of columns where the face lies wholly under
+        // the line is kept as one piece, so a face is split only where the
+        // outline crosses it.
+        var run: ?i64 = null;
+        var c = c_lo;
+        while (!fallen_group[t.group] and c <= @max(c_hi, c_lo + 1)) : (c += 1) {
+            const k0: ?f64 = if (c < 0 or c >= picture.width) null else knots[@intCast(c)];
+            const k1: ?f64 = if (c < 0 or c >= picture.width) null else knots[@intCast(c + 1)];
+            const cf: f64 = @floatFromInt(c);
+            // The strip of column c: cf <= x_s < cf + 1.
+            const left: Plane = .{ .normal = mesh.rows[0], .offset = anchor[0] - cf };
+            const right: Plane = .{ .normal = scaled(mesh.rows[0], -1), .offset = cf + 1 - anchor[0] };
+            var no_corners: [0]Corner = .{};
+            const strip: []Corner = if (c < @max(c_hi, c_lo + 1)) try clip(gpa, try clip(gpa, &tri, left), right) else &no_corners;
+            // Under the line y_s = k0 + (x_s - cf) (k1 - k0): kept.
+            const slope = if (k0 != null and k1 != null) k1.? - k0.? else 0;
+            const under: Plane = .{ .normal = sub(mesh.rows[1], scaled(mesh.rows[0], slope)), .offset = anchor[1] - (k0 orelse 0) - (anchor[0] - cf) * slope };
+            const above: []Corner = if (k0 != null and k1 != null and strip.len >= 3) try clip(gpa, strip, flipped(under)) else &no_corners;
+            const continues = k0 != null and k1 != null and above.len < 3 and c < @max(c_hi, c_lo + 1);
+            if (continues) {
+                if (run == null) run = c;
+                continue;
+            }
+            if (run) |r| {
+                const from: Plane = .{ .normal = mesh.rows[0], .offset = anchor[0] - @as(f64, @floatFromInt(r)) };
+                const piece = try clip(gpa, try clip(gpa, &tri, from), flipped(left));
+                if (piece.len >= 3) try pieces_list.append(gpa, .{ .corners = piece, .lowered = false });
+                run = null;
+            }
+            if (k0 == null or k1 == null or strip.len < 3) continue;
+            const below = try clip(gpa, strip, under);
+            if (below.len >= 3) try pieces_list.append(gpa, .{ .corners = below, .lowered = false });
+            if (!roof) continue;
+            for (above) |*a| {
+                const e = signed(under, a.*);
+                const z = @max(0, a.world[2] + e / y_per_z);
+                a.mesh[2] += (z - a.world[2]) / z_scale;
+                a.world[2] = z;
+            }
+            try pieces_list.append(gpa, .{ .corners = above, .lowered = true });
+        }
+        for (pieces_list.items) |piece| for (1..piece.corners.len - 1) |i| {
+            const fan = [3]Corner{ piece.corners[0], piece.corners[i], piece.corners[i + 1] };
+            const n = mesh.cross(sub(fan[1].world, fan[0].world), sub(fan[2].world, fan[0].world));
+            if (mesh.dot(n, n) < 1e-12) continue;
+            const normal = if (!piece.lowered) t.normal else if (n[2] < 0) mesh.unit(scaled(n, -1)) else mesh.unit(n);
+            var v: [3]u32 = undefined;
+            for (fan, &v) |corner, *out| {
+                const key = [5]u64{ @bitCast(corner.world[0]), @bitCast(corner.world[1]), @bitCast(corner.world[2]), @bitCast(corner.uv[0]), @bitCast(corner.uv[1]) };
+                const g = try index.getOrPut(key);
+                if (!g.found_existing) {
+                    g.value_ptr.* = @intCast(vertices.items.len);
+                    try vertices.append(gpa, .{ .mesh = corner.mesh, .world = corner.world, .uv = corner.uv });
+                }
+                out.* = g.value_ptr.*;
+            }
+            try triangles.append(gpa, .{ .v = v, .source = @intCast(triangles.items.len), .group = t.group, .chart = t.chart, .normal = normal });
+        };
+    }
+    const faces = try texelFaces(gpa, vertices.items, triangles.items, intact.width, intact.height);
+    const fallen = try gpa.alloc(bool, intact.charts.len);
+    for (fallen, intact.charts) |*f, chart| f.* = fallen_group[chart.group];
+    return .{ .vertices = vertices.items, .triangles = triangles.items, .charts = intact.charts, .groups = intact.groups, .width = intact.width, .height = intact.height, .wall = intact.wall, .texel_tri = faces.tri, .texel_bary = faces.bary, .fallen = fallen };
+}
+
+/// A pixel whose mean channel is this far from the intact picture's has changed.
+const changed = 48.0;
+/// A roof group seen on this many pixels at N or more, this share of them
+/// changed, has fallen.
+const fallen_pixels = 20.0;
+const fallen_share = 0.5;
+/// The height of a fallen roof's rubble, of the building's height.
+const rubble = 0.1;
+
+/// The bake view of a model's own faces in its variant's own 2003 picture
+/// (`placement` and `anchor` as the model was unrolled): the depth buffer
+/// of its triangles (a triangle's `source` is its index) and their normals
+/// turned towards the eye, as `mesh.worldNormal` turns the mesh's.
+pub fn ownBakeView(gpa: std.mem.Allocator, m: Model, picture: Image, placement: mesh.Placement, anchor: [2]f64) !BakeView {
+    const v = mesh.view(placement, 0, anchor);
+    const points = try gpa.alloc([3]f64, m.vertices.len);
+    for (points, m.vertices) |*p, vertex| p.* = v.apply(vertex.mesh);
+    const tris = try gpa.alloc(mesh.Tri, m.triangles.len);
+    const normals = try gpa.alloc([3]f64, m.triangles.len);
+    for (tris, normals, m.triangles) |*o, *n, t| {
+        o.* = .{ .v = t.v, .part = t.group };
+        n.* = if (mesh.dot(t.normal, mesh.toward_eye) < 0) scaled(t.normal, -1) else t.normal;
+    }
+    return .{ .picture = picture, .view = v, .raster = try mesh.raster(gpa, points, tris, picture.width, picture.height), .normals = normals };
+}
+
+/// The model's shadow on the ground under the light of turn `light`
+/// (`views.lightFor` of the 2003 light), as the camera turned `turn`
+/// quarter turns sees it with the zero cross at `anchor` on a canvas of
+/// `size`: opaque where a face's shadow covers a pixel's middle.
+pub fn shadow(gpa: std.mem.Allocator, m: Model, turn: u2, light: u2, anchor: [2]f64, size: [2]u32) !Image {
+    const l = views.lightFor(views.light_2003, light);
+    const points = try gpa.alloc([3]f64, m.vertices.len);
+    defer gpa.free(points);
+    for (points, m.vertices) |*p, v| {
+        const w = v.world;
+        const q = mesh.quarter(.{ w[0] - l[0] * w[2] / l[2], w[1] - l[1] * w[2] / l[2] }, turn);
+        const s = mesh.project(.{ q[0], q[1], 0 });
+        p.* = .{ s[0] + anchor[0], s[1] + anchor[1], 0 };
+    }
+    const tris = try gpa.alloc(mesh.Tri, m.triangles.len);
+    defer gpa.free(tris);
+    for (tris, m.triangles) |*o, t| o.* = .{ .v = t.v, .part = t.group };
+    const r = try mesh.raster(gpa, points, tris, size[0], size[1]);
+    const out: Image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, r.tri.len) };
+    for (out.pixels, r.tri) |*p, t| p.* = if (t == mesh.Raster.none) .{ 0, 0, 0, 0 } else .{ 0, 0, 0, 255 };
+    return out;
 }
 
 /// Connected pieces of a mesh: triangles joined by a shared vertex.
@@ -394,14 +658,21 @@ const visible = 2.0;
 /// face seen under `grazing` waits for a better picture). A texel takes the
 /// pixel under it with the 2003 light divided out (`views.shading` with the
 /// building's own `wall` light); the rest a material paint (`paintUnseen`).
-pub fn bake(gpa: std.mem.Allocator, m: *Model, state: []const u8, bake_views: []const BakeView) !void {
+/// With a `base` (a damage state's atlas starts from the intact one, of the
+/// same layout) a texel no picture sees keeps the base's paint and mark.
+pub fn bake(gpa: std.mem.Allocator, m: *Model, state: []const u8, bake_views: []const BakeView, base: ?Texture) !void {
     const count = @as(usize, m.width) * m.height;
     const image: Image = .{ .width = m.width, .height = m.height, .pixels = try gpa.alloc([4]u8, count) };
     const paint = try gpa.alloc(Paint, count);
     const source = try gpa.alloc(u8, count);
-    @memset(image.pixels, .{ 0, 0, 0, 0 });
-    @memset(paint, .none);
     @memset(source, 0);
+    if (base) |b| {
+        @memcpy(image.pixels, b.image.pixels);
+        @memcpy(paint, b.paint);
+    } else {
+        @memset(image.pixels, .{ 0, 0, 0, 0 });
+        @memset(paint, .none);
+    }
     for (m.texel_tri, m.texel_bary, 0..) |ti, bary, i| {
         if (ti == Model.none) continue;
         const t = m.triangles[ti];
@@ -409,11 +680,11 @@ pub fn bake(gpa: std.mem.Allocator, m: *Model, state: []const u8, bake_views: []
         for (t.v, bary) |v, b| for (0..3) |c| {
             p[c] += m.vertices[v].mesh[c] * b;
         };
-        paint[i] = .guessed;
+        if (base == null) paint[i] = .guessed;
         var best: f64 = -std.math.inf(f64);
         // The variant's own picture first, then the others.
         for ([_]struct { least: f64, own: bool }{ .{ .least = grazing, .own = true }, .{ .least = grazing, .own = false }, .{ .least = 0, .own = false } }) |pass| {
-            if (paint[i] == .seen) break;
+            if (best > -std.math.inf(f64)) break;
             for (bake_views, 0..) |bv, j| {
                 if (pass.own and j > 0) break;
                 const least = pass.least;
@@ -437,7 +708,7 @@ pub fn bake(gpa: std.mem.Allocator, m: *Model, state: []const u8, bake_views: []
         }
     }
     const tex: Texture = .{ .state = state, .image = image, .paint = paint, .source = source };
-    try paintUnseen(gpa, m.*, tex);
+    if (base == null) try paintUnseen(gpa, m.*, tex) else try tileFallen(gpa, m.*, tex);
     var list: std.ArrayList(Texture) = .empty;
     try list.appendSlice(gpa, m.textures);
     try list.append(gpa, tex);
@@ -534,6 +805,42 @@ fn paintUnseen(gpa: std.mem.Allocator, m: Model, tex: Texture) !void {
     }
 }
 
+/// A damage state's fallen roof (`Model.fallen`) where its picture does not
+/// see it: the rubble its picture does see, as a tile of the largest
+/// rectangle of seen texels of its own chart where that is a good tile,
+/// else of any fallen chart, repeated from the chart's lower left corner and
+/// marked guessed. Without any, it keeps the intact roof's paint.
+fn tileFallen(gpa: std.mem.Allocator, m: Model, tex: Texture) !void {
+    if (m.fallen.len == 0) return;
+    // Seen: painted by this bake (the base's own marks say nothing of the rubble).
+    const fresh = try gpa.alloc(Paint, tex.paint.len);
+    defer gpa.free(fresh);
+    for (fresh, tex.source) |*f, s| f.* = if (s > 0) .seen else .none;
+    const seen: Texture = .{ .state = tex.state, .image = tex.image, .paint = fresh, .source = tex.source };
+    var any: ?Rect = null;
+    const rects = try gpa.alloc(?Rect, m.charts.len);
+    for (m.charts, m.fallen, rects) |c, f, *r| {
+        r.* = if (f) try seenRect(gpa, m, seen, c) else null;
+        if (r.*) |q| if (any == null or @as(u64, q[2]) * q[3] > @as(u64, any.?[2]) * any.?[3]) {
+            any = q;
+        };
+    }
+    for (m.charts, m.fallen, rects) |c, f, own| {
+        if (!f) continue;
+        const tile = if (own) |q| (if (q[2] >= own_tile and q[3] >= own_tile) q else any) else any;
+        const t = tile orelse continue;
+        for (0..c.h) |ry| for (0..c.w) |rx| {
+            const i = (c.y + ry) * m.width + c.x + rx;
+            if (tex.source[i] > 0 or m.texel_tri[i] == Model.none) continue;
+            const from_bottom = c.h - 1 - ry;
+            const tx = t[0] + @as(u32, @intCast(rx % t[2]));
+            const ty = t[1] + t[3] - 1 - @as(u32, @intCast(from_bottom % t[3]));
+            tex.image.pixels[i] = tex.image.pixels[ty * m.width + tx];
+            tex.paint[i] = .guessed;
+        };
+    }
+}
+
 /// The point of triangle a, b, c nearest to p: its squared distance and
 /// its barycentric weights.
 fn nearest(p: [2]f64, a: [2]f64, b: [2]f64, c: [2]f64) struct { distance: f64, bary: [3]f32 } {
@@ -572,7 +879,7 @@ pub fn lookOf(group: []const u8) []const u8 {
 /// `size`), lit by the 2003 light of turn `light` (`views.shading`): `supersample`
 /// squared samples a pixel, each the nearest texel of the face in front; a
 /// pixel is opaque where half its samples or more meet a face, its colour
-/// their mean. `guessed`: the pixels most of whose samples show guessed
+/// that of the sample at its middle. `guessed`: the pixels most of whose samples show guessed
 /// paint; `unpainted`: the samples on a texel no paint reached (holes).
 pub const Rendered = struct { image: Image, guessed: []bool, unpainted: usize = 0 };
 
@@ -606,6 +913,7 @@ pub fn render(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2, lig
         var sum = [3]f64{ 0, 0, 0 };
         var covered: u32 = 0;
         var guessed: u32 = 0;
+        var centre = [4]f64{ 0, 0, 0, 0 };
         for (0..ss) |sy| for (0..ss) |sx| {
             const hx = px * ss + sx;
             const hy = py * ss + sy;
@@ -632,15 +940,21 @@ pub fn render(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2, lig
             const lit = views.relight(tex.image.pixels[i], gains[ti], .{ 1, 1, 1 });
             for (0..3) |ch| sum[ch] += @floatFromInt(lit[ch]);
             covered += 1;
+            if (sx == ss / 2 and sy == ss / 2) centre = .{ @floatFromInt(lit[0]), @floatFromInt(lit[1]), @floatFromInt(lit[2]), 1 };
             guessed += @intFromBool(tex.paint[i] == .guessed);
             out.unpainted += @intFromBool(tex.paint[i] == .none);
         };
         const o = py * size[0] + px;
         out.guessed[o] = covered * 2 >= ss * ss and guessed * 2 > covered;
+        // The colour of the sample at the pixel's middle (the mean of the
+        // covered samples where no face meets it): a 2003 pixel spans about two
+        // texels, and the mean of the whole pixel blurred a turned picture
+        // against the crisp 2003 sides (the quality gate's sharpness).
+        if (centre[3] == 0) centre = .{ sum[0], sum[1], sum[2], @floatFromInt(covered) };
         out.image.pixels[o] = if (covered * 2 >= ss * ss) .{
-            @intFromFloat(@round(sum[0] / @as(f64, @floatFromInt(covered)))),
-            @intFromFloat(@round(sum[1] / @as(f64, @floatFromInt(covered)))),
-            @intFromFloat(@round(sum[2] / @as(f64, @floatFromInt(covered)))),
+            @intFromFloat(@round(centre[0] / centre[3])),
+            @intFromFloat(@round(centre[1] / centre[3])),
+            @intFromFloat(@round(centre[2] / centre[3])),
             255,
         } else .{ 0, 0, 0, 0 };
     };

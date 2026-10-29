@@ -234,6 +234,60 @@ pub fn writePng(gpa: std.mem.Allocator, image: Image) ![]u8 {
     return out.toOwnedSlice();
 }
 
+/// writePng with its pixels deflated (the fastest level): the full 3D
+/// models' atlases and their review pictures, several megabytes each stored.
+pub fn writePngDeflated(gpa: std.mem.Allocator, image: Image) ![]u8 {
+    const row = image.width * 4 + 1;
+    const raw = try gpa.alloc(u8, row * image.height);
+    defer gpa.free(raw);
+    for (0..image.height) |y| {
+        raw[y * row] = 0;
+        @memcpy(raw[y * row + 1 ..][0 .. row - 1], std.mem.sliceAsBytes(image.pixels[y * image.width ..][0..image.width]));
+    }
+    var zlib: std.Io.Writer.Allocating = try .initCapacity(gpa, 64 * 1024);
+    defer zlib.deinit();
+    const window = try gpa.alloc(u8, std.compress.flate.max_window_len);
+    defer gpa.free(window);
+    var c = try std.compress.flate.Compress.init(&zlib.writer, window, .zlib, .fastest);
+    try c.writer.writeAll(raw);
+    try c.finish();
+    var out: std.Io.Writer.Allocating = .init(gpa);
+    errdefer out.deinit();
+    const w = &out.writer;
+    try w.writeAll("\x89PNG\r\n\x1a\n");
+    var header: [13]u8 = undefined;
+    std.mem.writeInt(u32, header[0..4], image.width, .big);
+    std.mem.writeInt(u32, header[4..8], image.height, .big);
+    header[8..13].* = .{ 8, 6, 0, 0, 0 };
+    try pngChunk(w, "IHDR", &header);
+    try pngChunk(w, "IDAT", zlib.written());
+    try pngChunk(w, "IEND", "");
+    return out.toOwnedSlice();
+}
+
+/// Reads back what writePng and writePngDeflated write (8-bit RGBA, one
+/// IDAT, every row unfiltered).
+pub fn readPng(gpa: std.mem.Allocator, bytes: []const u8) !Image {
+    if (bytes.len < 33 or !std.mem.eql(u8, bytes[0..8], "\x89PNG\r\n\x1a\n")) return error.NotAPng;
+    const width = std.mem.readInt(u32, bytes[16..20], .big);
+    const height = std.mem.readInt(u32, bytes[20..24], .big);
+    const idat = std.mem.indexOf(u8, bytes, "IDAT") orelse return error.NotAPng;
+    const length = std.mem.readInt(u32, bytes[idat - 4 ..][0..4], .big);
+    var input: std.Io.Reader = .fixed(bytes[idat + 4 ..][0..length]);
+    const window = try gpa.alloc(u8, std.compress.flate.max_window_len);
+    defer gpa.free(window);
+    var d: std.compress.flate.Decompress = .init(&input, .zlib, window);
+    const row = @as(usize, width) * 4 + 1;
+    const raw = try d.reader.readAlloc(gpa, row * height);
+    defer gpa.free(raw);
+    const pixels = try gpa.alloc([4]u8, @as(usize, width) * height);
+    for (0..height) |y| {
+        if (raw[y * row] != 0) return error.FilteredPng;
+        @memcpy(std.mem.sliceAsBytes(pixels[y * width ..][0..width]), raw[y * row + 1 ..][0 .. row - 1]);
+    }
+    return .{ .width = width, .height = height, .pixels = pixels };
+}
+
 pub fn pngChunk(w: *std.Io.Writer, kind: *const [4]u8, data: []const u8) !void {
     try w.writeInt(u32, @intCast(data.len), .big);
     try w.writeAll(kind);
