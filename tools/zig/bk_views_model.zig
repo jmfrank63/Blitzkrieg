@@ -419,10 +419,14 @@ fn flipped(p: Plane) Plane {
 /// hardly sees goes as all the roofs N sees) has
 /// fallen, and its faces lie flat at `rubble` of the building's height, a
 /// floor of rubble inside the walls (`Model.fallen`: its texels no picture
-/// sees are tiled from those it does). A column the damaged picture does not
-/// reach takes nothing. The faces keep their texels (the intact atlas's
-/// layout), so the damaged atlas starts from the intact paint (`bake` with
-/// a base).
+/// sees are tiled from those it does). Of a face N does not see (a back
+/// wall, a far wing) the picture tells only how much of the building stands
+/// where it does see: such a face stands no higher than the share of the
+/// walls N sees that the damaged picture still shows unchanged, of the
+/// building's height, a roof among them lowered onto it. A
+/// column the damaged picture does not reach takes nothing. The faces keep
+/// their texels (the intact atlas's layout), so the damaged atlas starts
+/// from the intact paint (`bake` with a base).
 pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement, picture: Image, intact_picture: Image, anchor: [2]f64) !Model {
     // The outline's top per column, then at each column edge the higher of
     // its two columns' (null where neither has one).
@@ -449,14 +453,18 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
     const at_n = try ownBakeView(gpa, intact, intact_picture, placement, anchor);
     const counts = try gpa.alloc([2]f64, intact.groups.len);
     @memset(counts, .{ 0, 0 });
+    // The walls N sees, and those of them it still shows unchanged.
+    var walls = [2]f64{ 0, 0 };
     for (at_n.raster.tri, intact_picture.pixels, picture.pixels) |ti, before, after| {
         if (ti == mesh.Raster.none or before[3] < 128) continue;
         const g = intact.triangles[ti].group;
-        if (!std.mem.eql(u8, lookOf(intact.groups[g]), "roof")) continue;
         var difference: f64 = 0;
         for (0..3) |c| difference += @abs(@as(f64, @floatFromInt(before[c])) - @as(f64, @floatFromInt(after[c]))) / 3;
+        const gone = after[3] < 128 or difference >= changed;
+        if (std.mem.eql(u8, lookOf(intact.groups[g]), "wall")) walls = .{ walls[0] + 1, walls[1] + @as(f64, @floatFromInt(@intFromBool(!gone))) };
+        if (!std.mem.eql(u8, lookOf(intact.groups[g]), "roof")) continue;
         counts[g][0] += 1;
-        counts[g][1] += @floatFromInt(@intFromBool(after[3] < 128 or difference >= changed));
+        counts[g][1] += @floatFromInt(@intFromBool(gone));
     }
     // A roof group N hardly sees goes as the building's roofs go.
     var all = [2]f64{ 0, 0 };
@@ -468,19 +476,20 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
     }
     var height: f64 = 0;
     for (intact.vertices) |v| height = @max(height, v.world[2]);
+    const cap: Plane = .{ .normal = .{ 0, 0, -1 }, .offset = (if (walls[0] >= fallen_pixels) walls[1] / walls[0] else 1) * height };
 
-    var vertices: std.ArrayList(Vertex) = .empty;
-    var triangles: std.ArrayList(Triangle) = .empty;
-    var index: std.AutoHashMap([5]u64, u32) = .init(gpa);
     const corner_of = struct {
         fn f(v: Vertex) Corner {
             return .{ .mesh = v.mesh, .world = v.world, .uv = v.uv };
         }
     }.f;
-    for (intact.triangles) |t| {
+    // Every face cut: its pieces, each with its face (`tri`).
+    const Piece = struct { corners: []Corner, lowered: bool, tri: u32 };
+    var cut: std.ArrayList(Piece) = .empty;
+    for (intact.triangles, 0..) |t, ti| {
         const tri = [3]Corner{ corner_of(intact.vertices[t.v[0]]), corner_of(intact.vertices[t.v[1]]), corner_of(intact.vertices[t.v[2]]) };
         const roof = t.normal[2] >= 0.5;
-        var pieces_list: std.ArrayList(struct { corners: []const Corner, lowered: bool }) = .empty;
+        const face: u32 = @intCast(ti);
         if (fallen_group[t.group]) {
             const flat = try gpa.dupe(Corner, &tri);
             for (flat) |*a| {
@@ -488,7 +497,8 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
                 a.mesh[2] += (z - a.world[2]) / z_scale;
                 a.world[2] = z;
             }
-            try pieces_list.append(gpa, .{ .corners = flat, .lowered = true });
+            try cut.append(gpa, .{ .corners = flat, .lowered = true, .tri = face });
+            continue;
         }
         var xs_lo = std.math.inf(f64);
         var xs_hi = -std.math.inf(f64);
@@ -504,7 +514,7 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
         // outline crosses it.
         var run: ?i64 = null;
         var c = c_lo;
-        while (!fallen_group[t.group] and c <= @max(c_hi, c_lo + 1)) : (c += 1) {
+        while (c <= @max(c_hi, c_lo + 1)) : (c += 1) {
             const k0: ?f64 = if (c < 0 or c >= picture.width) null else knots[@intCast(c)];
             const k1: ?f64 = if (c < 0 or c >= picture.width) null else knots[@intCast(c + 1)];
             const cf: f64 = @floatFromInt(c);
@@ -525,12 +535,12 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
             if (run) |r| {
                 const from: Plane = .{ .normal = mesh.rows[0], .offset = anchor[0] - @as(f64, @floatFromInt(r)) };
                 const piece = try clip(gpa, try clip(gpa, &tri, from), flipped(left));
-                if (piece.len >= 3) try pieces_list.append(gpa, .{ .corners = piece, .lowered = false });
+                if (piece.len >= 3) try cut.append(gpa, .{ .corners = piece, .lowered = false, .tri = face });
                 run = null;
             }
             if (k0 == null or k1 == null or strip.len < 3) continue;
             const below = try clip(gpa, strip, under);
-            if (below.len >= 3) try pieces_list.append(gpa, .{ .corners = below, .lowered = false });
+            if (below.len >= 3) try cut.append(gpa, .{ .corners = below, .lowered = false, .tri = face });
             if (!roof) continue;
             for (above) |*a| {
                 const e = signed(under, a.*);
@@ -538,26 +548,72 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
                 a.mesh[2] += (z - a.world[2]) / z_scale;
                 a.world[2] = z;
             }
-            try pieces_list.append(gpa, .{ .corners = above, .lowered = true });
+            try cut.append(gpa, .{ .corners = above, .lowered = true, .tri = face });
         }
-        for (pieces_list.items) |piece| for (1..piece.corners.len - 1) |i| {
-            const fan = [3]Corner{ piece.corners[0], piece.corners[i], piece.corners[i + 1] };
-            const n = mesh.cross(sub(fan[1].world, fan[0].world), sub(fan[2].world, fan[0].world));
-            if (mesh.dot(n, n) < 1e-12) continue;
-            const normal = if (!piece.lowered) t.normal else if (n[2] < 0) mesh.unit(scaled(n, -1)) else mesh.unit(n);
-            var v: [3]u32 = undefined;
-            for (fan, &v) |corner, *out| {
-                const key = [5]u64{ @bitCast(corner.world[0]), @bitCast(corner.world[1]), @bitCast(corner.world[2]), @bitCast(corner.uv[0]), @bitCast(corner.uv[1]) };
-                const g = try index.getOrPut(key);
-                if (!g.found_existing) {
-                    g.value_ptr.* = @intCast(vertices.items.len);
-                    try vertices.append(gpa, .{ .mesh = corner.mesh, .world = corner.world, .uv = corner.uv });
-                }
-                out.* = g.value_ptr.*;
-            }
-            try triangles.append(gpa, .{ .v = v, .source = @intCast(triangles.items.len), .group = t.group, .chart = t.chart, .normal = normal });
-        };
     }
+
+    // The pieces N sees of the cut building, at the render's samples (a sliver
+    // no pixel's middle meets still shows; a back wall a fallen roof uncovers
+    // is seen); a piece N does not see keeps no more than the walls' share of
+    // the height, a roof among them lowered onto it.
+    const seen = try gpa.alloc(bool, cut.items.len);
+    @memset(seen, false);
+    {
+        const v = mesh.view(placement, 0, anchor);
+        var points: std.ArrayList([3]f64) = .empty;
+        var tris: std.ArrayList(mesh.Tri) = .empty;
+        for (cut.items, 0..) |piece, pi| {
+            const first: u32 = @intCast(points.items.len);
+            for (piece.corners) |corner| {
+                const q = v.apply(corner.mesh);
+                try points.append(gpa, .{ q[0] * supersample, q[1] * supersample, q[2] });
+            }
+            for (1..piece.corners.len - 1) |i| try tris.append(gpa, .{ .v = .{ first, first + @as(u32, @intCast(i)), first + @as(u32, @intCast(i + 1)) }, .part = @intCast(pi) });
+        }
+        for ((try mesh.raster(gpa, points.items, tris.items, picture.width * supersample, picture.height * supersample)).tri) |k| {
+            if (k != mesh.Raster.none) seen[tris.items[k].part] = true;
+        }
+    }
+    var kept: std.ArrayList(Piece) = .empty;
+    for (cut.items, seen) |piece, n_sees| {
+        const t = intact.triangles[piece.tri];
+        if (n_sees or fallen_group[t.group]) {
+            try kept.append(gpa, piece);
+            continue;
+        }
+        const below = try clip(gpa, piece.corners, cap);
+        if (below.len >= 3) try kept.append(gpa, .{ .corners = below, .lowered = piece.lowered, .tri = piece.tri });
+        if (t.normal[2] < 0.5) continue;
+        const above = try clip(gpa, piece.corners, flipped(cap));
+        if (above.len < 3) continue;
+        for (above) |*a| {
+            a.mesh[2] += (cap.offset - a.world[2]) / z_scale;
+            a.world[2] = cap.offset;
+        }
+        try kept.append(gpa, .{ .corners = above, .lowered = true, .tri = piece.tri });
+    }
+
+    var vertices: std.ArrayList(Vertex) = .empty;
+    var triangles: std.ArrayList(Triangle) = .empty;
+    var index: std.AutoHashMap([5]u64, u32) = .init(gpa);
+    for (kept.items) |piece| for (1..piece.corners.len - 1) |i| {
+        const t = intact.triangles[piece.tri];
+        const fan = [3]Corner{ piece.corners[0], piece.corners[i], piece.corners[i + 1] };
+        const n = mesh.cross(sub(fan[1].world, fan[0].world), sub(fan[2].world, fan[0].world));
+        if (mesh.dot(n, n) < 1e-12) continue;
+        const normal = if (!piece.lowered) t.normal else if (n[2] < 0) mesh.unit(scaled(n, -1)) else mesh.unit(n);
+        var v: [3]u32 = undefined;
+        for (fan, &v) |corner, *out| {
+            const key = [5]u64{ @bitCast(corner.world[0]), @bitCast(corner.world[1]), @bitCast(corner.world[2]), @bitCast(corner.uv[0]), @bitCast(corner.uv[1]) };
+            const g = try index.getOrPut(key);
+            if (!g.found_existing) {
+                g.value_ptr.* = @intCast(vertices.items.len);
+                try vertices.append(gpa, .{ .mesh = corner.mesh, .world = corner.world, .uv = corner.uv });
+            }
+            out.* = g.value_ptr.*;
+        }
+        try triangles.append(gpa, .{ .v = v, .source = @intCast(triangles.items.len), .group = t.group, .chart = t.chart, .normal = normal });
+    };
     const faces = try texelFaces(gpa, vertices.items, triangles.items, intact.width, intact.height);
     const fallen = try gpa.alloc(bool, intact.charts.len);
     for (fallen, intact.charts) |*f, chart| f.* = fallen_group[chart.group];

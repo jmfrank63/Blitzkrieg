@@ -3601,6 +3601,16 @@ fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
             };
         }
     }
+    // A meshed object's turn is laid on the zero cross `meshZero` finds,
+    // which the canvas must hold (a small prop's mesh may stand off its
+    // footprint's middle by more than the margin: compose-pack hung on
+    // mine_r1's zero at 31,13 of a 27 x 18 canvas, and read a negative one
+    // as an option).
+    if (scene.mesh) |ms| {
+        const z = meshZero(scene, ms, .{ .turn = k, .light = light, .eye = eye, .size = .{ 0, 0 }, .name = name });
+        lo = .{ @min(lo[0], z[0]), @min(lo[1], z[1]) };
+        hi = .{ @max(hi[0], z[0]), @max(hi[1], z[1]) };
+    }
     const margin: f64 = 2;
     eye.anchor = .{ margin - @floor(lo[0]), margin - @floor(lo[1]) };
     return .{
