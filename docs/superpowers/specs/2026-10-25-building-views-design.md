@@ -1142,3 +1142,11 @@ the latest version." This round makes that review the tracked source of truth an
 eeds_review; 278 has no 2003 picture.
 - **Left**: the sibling's relighting under the world's sun still reads normals from the blocks; faces no
   picture of the colourway sees are patch-filled; the odd-step regression above.
+
+## Full 3D objects (2026-10-29)
+
+The maintainer turned the project from 2D synthesis to full 3D: every object becomes a textured model of its
+tracked mesh, painted once from the 2003 pictures, and its turns are that model rendered offline at the 2003
+camera. Design, pilot (a_h01, e_wb, e_house02_2, the ussr church, villagefence/03) and results:
+[full 3D objects](2026-10-29-full-3d-objects-design.md). `bk-views side` renders the intact states of the objects
+listed in `tools/zig/fixtures/bk-views/full3d.json` from their models; every other object is drawn as before.
