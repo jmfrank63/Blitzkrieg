@@ -181,7 +181,7 @@ test "orders from inside to inside: one order with Remastered, refused when full
     }
     // A quarter turn on: truck to truck, truck to house.
     {
-        const run = try runGame(io, allocator, game, root, "on-turned", comptime trucksSchedule(step1, "g10:key=.,g1000:anchor,"));
+        const run = try runGame(io, allocator, game, root, "on-turned", comptime trucksSchedule(step1, "g10:key=COMMA,g1000:anchor,"));
         try expectCursors(run, &.{ board, board });
         try expectContainers(run, 1, &.{ truck_b ++ "passangers=10", house_a ++ "passangers=10" }, &.{truck_a});
         try expectContainers(run, 2, &.{ house_b ++ "passangers=10", house_a ++ "passangers=10" }, &.{ truck_a, truck_b });

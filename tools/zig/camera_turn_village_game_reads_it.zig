@@ -487,8 +487,8 @@ test "Poland's village: every building's turned picture stands at its map place 
         const frames = try turn.runGameTurning(io, allocator, game, root, name, "poland.xml", .{ look, look }, "ON", objects_only, 4, false, size, key);
         const centre = [2]f64{ @floatFromInt(size[0] / 2 - 1), @floatFromInt(size[1] / 2 - 1) };
         for (frames, 0..) |frame, shot| {
-            // `.` turns one step on, `,` one back.
-            const step = if (key[0] == '.') shot else (4 - shot) % 4;
+            // `,` turns one step on, `.` one back (the keys swapped on 2026-10-28).
+            const step = if (key[0] == '.') (4 - shot) % 4 else shot;
             for (poland, 0..) |b, i| {
                 const d = turn.turnOffset(polandOffset(b), step);
                 const at = [2]i32{ @intFromFloat(@round(centre[0] + d[0])), @intFromFloat(@round(centre[1] + d[1])) };

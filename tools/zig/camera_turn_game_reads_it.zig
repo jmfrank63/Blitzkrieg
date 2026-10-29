@@ -346,7 +346,7 @@ pub fn runGameWith(io: std.Io, allocator: std.mem.Allocator, game: []const u8, r
 
 /// runGameWith in a window of `size` pixels (the shots are that size).
 pub fn runGameSized(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, look: [2]u32, remastered: []const u8, disable: []const u8, comptime shots: usize, paused: bool, size: [2]u32) ![shots][]u8 {
-    return runGameTurning(io, allocator, game, root, name, map, look, remastered, disable, shots, paused, size, ".");
+    return runGameTurning(io, allocator, game, root, name, map, look, remastered, disable, shots, paused, size, "COMMA");
 }
 
 /// runGameSized with `key` (`.` or `COMMA`, the other way) pressed between the shots.
