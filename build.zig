@@ -3624,7 +3624,9 @@ pub fn build(b: *std.Build) void {
     // copied to zig-out/remastered/mods/remastered_views/data/buildings, where a
     // Game run with BK_MODS_ROOT=zig-out/remastered/mods -mod=remastered_views
     // finds each turn by its variant's Data path. Not the install's mods
-    // folder, which is the player's and is packaged.
+    // folder, which is the player's and is packaged. The language mods are
+    // copied beside it (below, after install-language-mods), as that run sees
+    // no other mods folder.
     const turn_mod_files = b.addWriteFiles();
     const turn_mod_xml = turn_mod_files.add("mod.xml", "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Remastered views</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n");
     const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building sides the building-views-batch-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
@@ -4706,6 +4708,20 @@ pub fn build(b: *std.Build) void {
     // in every test mode.
     const install_language_mods_step = b.step("install-language-mods", "Write the nine language mods into the game installation's mods folder (fresh-install step; M002 D087)");
     install_language_mods_step.dependOn(&language_mods_run.step);
+    // The hand run of camera-turn-mod names zig-out/remastered/mods with BK_MODS_ROOT, which is
+    // then the only mods folder: without copies of the language mods beside remastered_views,
+    // Options > Language offered only Default there.
+    for ([_][]const u8{ "de", "es", "fr", "hi", "id", "ja", "pt-br", "ru", "zh-hans" }) |code| {
+        const copy = b.addInstallDirectory(.{
+            .source_dir = b.path(b.fmt("{s}/mods/lang-{s}", .{ stage_root, code })),
+            .install_dir = .prefix,
+            .install_subdir = b.fmt("remastered/mods/lang-{s}", .{code}),
+        });
+        copy.step.dependOn(&language_mods_run.step);
+        turn_mod_step.dependOn(&copy.step);
+    }
+    // The turn keys tier lays its mods folder out the same way, from the install's language mods.
+    keys_game_run.step.dependOn(&language_mods_run.step);
 
     // A gameplay mod made in English under a language mod (Achtung Panzer 2 with lang-ru), from
     // tracked data: which of their texts the Game shows, that the mod's empty .bik videos stay off and
