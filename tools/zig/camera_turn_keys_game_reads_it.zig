@@ -13,7 +13,13 @@
 //!
 //! - options: the main menu's settings screen, its Gameplay tab, a click on
 //!   the Remastered row's value (OFF to ON, the SetRemastered action), OK,
-//!   exit; the config written at exit must hold the option ON.
+//!   exit; the config written at exit must hold the option ON. Before it a
+//!   click on the Language row's value must choose a language mod: the mods
+//!   folder (BK_MODS_ROOT) is laid out as `zig-out/remastered/mods` of the
+//!   hand run (`zig build camera-turn-mod`), remastered_views and copies of
+//!   the installed language mods, and with BK_MODS_ROOT it is the only one;
+//!   that hand run's folder held remastered_views alone, and Options >
+//!   Language offered only Default.
 //! - keys: the second tutorial's map with `-mod=remastered_views` (an empty
 //!   scratch mod of that name); `.`, `,` and `,` pressed through the bind
 //!   chain (`key=`). BK_TURN_TRACE prints the step each turn's frame shows:
@@ -40,9 +46,11 @@ const older_config = "<?xml version=\"1.0\"?>\r\n<base><Binds><Sections><item><N
     "<item><Name>camera_turn</Name><Type>event down</Type><Controls><item>.</item></Controls></item>" ++
     "<item><Name>camera_turn_back</Name><Type>event down</Type><Controls><item>,</item></Controls></item>" ++
     "</Commands></item></Sections></Binds></base>\r\n";
-/// The settings screen's Gameplay tab and its Remastered row's value at
-/// 1024x768 (the tab as the language tier opens it; the row measured).
-const options_schedule = "60:settings,100:msg=10003,250:click=260x256,350:shot,400:click=900x411,450:shot,500:ok,560:exit";
+/// The settings screen's Gameplay tab, its Language row's value and its
+/// Remastered row's value at 1024x768 (the tab and the language row as the
+/// language tier clicks them; the Remastered row measured).
+const options_schedule = "60:settings,100:msg=10003,250:click=260x256,300:click=900x371,350:shot,400:click=900x411,450:shot,500:ok,560:exit";
+const languages = [_][]const u8{ "lang-de", "lang-es", "lang-fr", "lang-hi", "lang-id", "lang-ja", "lang-pt-br", "lang-ru", "lang-zh-hans" };
 const presses = [_][]const u8{ ".", "COMMA", "COMMA" };
 const expected_steps = [_]u32{ 3, 0, 1 };
 
@@ -70,10 +78,18 @@ test "the turn keys turn the camera with a config written before they were swapp
         .data = "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Camera turn keys test</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n",
     });
 
+    for (languages) |language| {
+        // A language mod is data/mod.xml and data/texts.pak.
+        const installed = try std.fs.path.join(allocator, &.{ std.fs.path.dirname(game).?, "mods", language, "data" });
+        try game_views.copyFolder(io, allocator, installed, try std.fs.path.join(allocator, &.{ root, "mods", language, "data" }));
+    }
+
     _ = try runGame(io, allocator, game, root, user, "options", options_schedule, &.{});
     const after_options = try cwd.readFileAlloc(io, config_path, allocator, .limited(1 << 20));
-    if (!remasteredOn(after_options)) {
-        std.debug.print("the settings screen's click did not leave Remastered ON in {s}; the shots are in {s}\n", .{ config_path, user });
+    const remastered = optionValue(after_options, "GamePlay.Remastered") orelse "";
+    const language = optionValue(after_options, "GamePlay.Language") orelse "";
+    if (!std.mem.eql(u8, remastered, "ON") or !std.mem.startsWith(u8, language, "lang-")) {
+        std.debug.print("the settings screen's clicks left Remastered {s} and Language {s} in {s}; the shots are in {s}\n", .{ remastered, language, config_path, user });
         return error.OptionNotSet;
     }
 
@@ -136,11 +152,15 @@ fn runGame(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []c
     return log;
 }
 
-/// Whether the config's Remastered option is ON.
-fn remasteredOn(config: []const u8) bool {
-    const key = std.mem.indexOf(u8, config, "<KeyName>GamePlay.Remastered</KeyName>") orelse return false;
-    const item = std.mem.lastIndexOf(u8, config[0..key], "<item ") orelse return false;
-    return std.mem.indexOf(u8, config[item..key], "<Var>ON</Var>") != null;
+/// The value of a config's option: its item's first Var, not the Default's.
+fn optionValue(config: []const u8, name: []const u8) ?[]const u8 {
+    var buffer: [128]u8 = undefined;
+    const key_name = std.fmt.bufPrint(&buffer, "<KeyName>{s}</KeyName>", .{name}) catch return null;
+    const key = std.mem.indexOf(u8, config, key_name) orelse return null;
+    const item = std.mem.lastIndexOf(u8, config[0..key], "<item ") orelse return null;
+    const start = (std.mem.indexOfPos(u8, config[0..key], item, "<Var>") orelse return null) + "<Var>".len;
+    const end = std.mem.indexOfPos(u8, config[0..key], start, "</Var>") orelse return null;
+    return config[start..end];
 }
 
 /// The step of every turn's first frame BK_TURN_TRACE printed, in order.
@@ -186,8 +206,9 @@ test "the config readers: the option, the steps traced and a command's binds" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    try testing.expect(remasteredOn(config));
-    try testing.expect(!remasteredOn("<item><Var>OFF</Var><KeyName>GamePlay.Remastered</KeyName></item>"));
+    try testing.expectEqualStrings("ON", optionValue(config, "GamePlay.Remastered").?);
+    try testing.expectEqualStrings("OFF", optionValue("<item a=\"1\"><Var>OFF</Var><Default><Var>ON</Var></Default><KeyName>GamePlay.Remastered</KeyName></item>", "GamePlay.Remastered").?);
+    try testing.expect(optionValue(config, "GamePlay.Language") == null);
     const turn = try boundControls(allocator, config, "camera_turn");
     try testing.expectEqual(@as(usize, 2), turn.len);
     try testing.expectEqualStrings(".", turn[0]);
