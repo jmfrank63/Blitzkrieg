@@ -2553,8 +2553,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
     addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
     addShapesReview(b, bk_views_fast);
-    addFillFamilies(b, bk_views_fast, bk_sprite);
-    addFull3dPilot(b, bk_views_fast, bk_sprite);
+    addFull3d(b, target, bk_views_fast, bk_sprite);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -3267,6 +3266,32 @@ pub fn build(b: *std.Build) void {
     turn_game_step.dependOn(&turn_game_tests.step);
     if (test_mode == .run) turn_game_step.dependOn(&turn_game_run.step);
 
+    // Full 3D props and a damaged building turned (docs/superpowers/specs/
+    // 2026-10-29-full-3d-objects-design.md, tools/zig/camera_turn_full3d_game_reads_it.zig):
+    // bk-views side renders every state of each from its own model into a
+    // scratch mod, the Game turns the camera, and each shot is measured
+    // against the rendered packs. Desktop and GPU, so not part of `test`.
+    const full3d_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_full3d_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, full3d_game_module, toolchain);
+    }
+    const full3d_game_tests = b.addTest(.{ .root_module = full3d_game_module, .filters = &.{"the Game turns full 3D props"} });
+    const full3d_game_run = b.addRunArtifact(full3d_game_tests);
+    full3d_game_run.setCwd(b.path("."));
+    full3d_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    full3d_game_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    full3d_game_run.has_side_effects = true;
+    full3d_game_run.step.dependOn(install_game_step);
+    full3d_game_run.step.dependOn(bk_views_step);
+    full3d_game_run.step.dependOn(bk_sprite.install);
+    const full3d_game_step = b.step("camera-turn-full3d-game-reads-it", "Render the turns of two props and the damaged warehouse e_wb/01 from their full 3D models with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure each object's turn and place in the shots of all four steps");
+    full3d_game_step.dependOn(&full3d_game_tests.step);
+    if (test_mode == .run) full3d_game_step.dependOn(&full3d_game_run.step);
+
     // The village of the maintainer's hand test (M006 S07,
     // tools/zig/camera_turn_village_game_reads_it.zig): four of Poland's
     // village houses turned by bk-views side into a scratch mod, shot at all
@@ -3631,12 +3656,12 @@ pub fn build(b: *std.Build) void {
     // no other mods folder.
     const turn_mod_files = b.addWriteFiles();
     const turn_mod_xml = turn_mod_files.add("mod.xml", "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Remastered views</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n");
-    const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building sides the building-views-batch-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
+    const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building and prop sides the building-views-batch-<region> and full3d-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
     turn_mod_step.dependOn(&b.addInstallFile(turn_mod_xml, "remastered/mods/remastered_views/data/mod.xml").step);
     // Flora and props lit by the sun fixed in the world at each camera step
     // (M006 round 2, bk-views relight): <pack>_l<k> beside each object's
     // 2003 packs, at its Data path.
-    const relight_step = b.step("objects-relight", "Relight every flora and prop picture with bk-views relight for camera steps 1 to 3 under the sun fixed in the world, and draw the turns of the props drawn on their shape (the training camp's sand pile) with bk-views side, into zig-out/remastered/Objects");
+    const relight_step = b.step("objects-relight", "Relight every flora and prop picture with bk-views relight for camera steps 1 to 3 under the sun fixed in the world, into zig-out/remastered/Objects (the props' turns are the full3d-<region> steps')");
     for ([_][]const u8{ "Flora", "SimpleObjects" }) |group| {
         const relight = b.addRunArtifact(bk_views);
         relight.setCwd(b.path("."));
@@ -3647,19 +3672,6 @@ pub fn build(b: *std.Build) void {
         relight.expectExitCode(0);
         relight.has_side_effects = true;
         relight_step.dependOn(&relight.step);
-    }
-    // Props drawn turned on their shape, as buildings are, instead of their
-    // picture mirrored (M006 round 3): the training camp's sand pile.
-    for ([_][]const u8{"SimpleObjects/common/summer/debris/05"}) |prop| {
-        const side = b.addRunArtifact(bk_views);
-        side.setCwd(b.path("."));
-        setUserRootsForTest(side, "bk-views-user");
-        side.addArgs(&.{ "side", b.fmt("Data/Objects/{s}", .{prop}), "1,2,3,1l1,2l2,3l3", b.fmt("zig-out/remastered/Objects/{s}", .{std.fs.path.dirname(prop).?}), b.fmt("zig-out/local-test/building-views/objects/{s}", .{prop}) });
-        side.step.dependOn(bk_sprite.install);
-        addPathDir(side, rootPath(b, "zig-out/bin"));
-        side.expectExitCode(0);
-        side.has_side_effects = true;
-        relight_step.dependOn(&side.step);
     }
     const relit_objects = b.addInstallDirectory(.{
         .source_dir = b.path("zig-out/remastered/Objects"),
@@ -10019,86 +10031,76 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
     b.step("shapes-review", "Draw every tracked shape model (tools/zig/fixtures/bk-views/models) with its 2003 picture and turned to the four sides, labelled <number>.N, .E, .S, .W, into zig-out/review/shapes.pdf").dependOn(&review.step);
 }
 
-/// The fill of the joint families (M006 round 5, docs/superpowers/specs/2026-10-25-building-views-design.md):
-/// `fill-families` draws the three turns, each also lit by the world's sun, of every view of a joint
-/// candidate family (tools/zig/fixtures/bk-views/meshes/families.json) with bk-views side, as the
-/// building-views batch does and into the same places (zig-out/remastered/Buildings, the batch's working
-/// folders), and lays them out for the maintainer in zig-out/review/fill-families.pdf.
-fn addFillFamilies(b: *std.Build, views: *std.Build.Step.Compile, sprite: BkSprite) void {
-    const families_path = "tools/zig/fixtures/bk-views/meshes/families.json";
+/// The full 3D objects (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md): every object of
+/// tools/zig/fixtures/bk-views/shape-ids.json (each has a tracked mesh) drawn turned with bk-views side,
+/// every state rendered from its textured model, into the places the batch and objects-relight use
+/// (zig-out/remastered/Buildings and /Objects), each pack checked by the engine's reader as the batch
+/// does; and the models themselves (.mod a state, .dds and .tga atlases, paint maps, review pictures)
+/// written by bk-views model3d into zig-out/full3d/models/<number>. One step a region
+/// (`full3d-<region>`), each object its own runs, so they spread over the cores and every output is
+/// the object's alone; `full3d-review` lays out what they wrote in zig-out/review/full3d.pdf with
+/// full3d.csv and full3d-ranked.csv, and `full3d` runs them all.
+fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) void {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
-    b.dependOnFileContents(b.path(families_path));
     b.dependOnFileContents(b.path(ids_path));
-    const io = b.graph.io;
-    const Families = struct { families: []const struct { status: []const u8, included: []const u32 } };
     const Ids = struct { ids: []const struct { id: u32, path: []const u8 } };
-    const families_bytes = b.root.root_dir.handle.readFileAlloc(io, families_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
-    const ids_bytes = b.root.root_dir.handle.readFileAlloc(io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
-    const families = std.json.parseFromSliceLeaky(Families, b.allocator, families_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    const ids_bytes = b.root.root_dir.handle.readFileAlloc(b.graph.io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     const ids = std.json.parseFromSliceLeaky(Ids, b.allocator, ids_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
-    const work_root = "zig-out/local-test/building-views/batch";
+    const module_root = if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin") else rootPath(b, "zig-out/lib");
+    const quiet = struct {
+        fn f(run: *std.Build.Step.Run) void {
+            run.expectExitCode(0);
+            run.has_side_effects = true;
+        }
+    }.f;
     const review = b.addRunArtifact(views);
     review.setCwd(b.path("."));
-    review.addArgs(&.{ "fill-review", "zig-out/review/fill-families.pdf", work_root, "Data/Buildings" });
-    review.expectExitCode(0);
-    review.has_side_effects = true;
-    for (families.families) |family| {
-        if (!std.mem.eql(u8, family.status, "joint candidate")) continue;
-        for (family.included) |id| for (ids.ids) |e| {
-            if (e.id != id) continue;
-            const variant = e.path["Buildings/".len..];
+    review.addArgs(&.{ "full3d-review", "zig-out/review/full3d.pdf", "zig-out/full3d/models" });
+    quiet(review);
+    const all = b.step("full3d", "Run every full3d-<region> step and full3d-review (longer than one ten-minute foreground command: run the regions one by one)");
+    for ([_][]const u8{ "africa", "common", "europe", "ussr" }) |region| {
+        const group = b.step(b.fmt("full3d-{s}", .{region}), b.fmt("Render the turns of every {s} building and object (each state from its own textured model, each turn also lit by the world's sun) with bk-views side into zig-out/remastered, check every pack with the engine's reader, and write the models with bk-views model3d to zig-out/full3d/models", .{region}));
+        all.dependOn(group);
+        for (ids.ids) |e| {
+            const under = if (std.mem.startsWith(u8, e.path, "Buildings/")) e.path["Buildings/".len..] else e.path["Objects/SimpleObjects/".len..];
+            if (!std.mem.startsWith(u8, under, region) or under[region.len] != '/') continue;
+            const data = b.fmt("Data/{s}", .{e.path});
+            const out = b.fmt("zig-out/remastered/{s}", .{std.fs.path.dirname(e.path).?});
+            const name = std.fs.path.basename(e.path);
             const side = b.addRunArtifact(views);
             side.setCwd(b.path("."));
             setUserRootsForTest(side, "bk-views-user");
-            side.addArgs(&.{ "side", b.fmt("Data/{s}", .{e.path}), "1,2,3,1l1,2l2,3l3", b.fmt("zig-out/remastered/Buildings/{s}", .{std.fs.path.dirname(variant).?}), b.fmt("{s}/{s}", .{ work_root, variant }) });
+            side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3", out, b.fmt("zig-out/local-test/full3d/work/{s}", .{e.path}) });
             side.step.dependOn(sprite.install);
             addPathDir(side, rootPath(b, "zig-out/bin"));
-            side.expectExitCode(0);
-            side.has_side_effects = true;
-            review.step.dependOn(&side.step);
-        };
+            quiet(side);
+            const check = b.addRunArtifact(sprite.roundtrip);
+            check.setCwd(b.path("."));
+            setLeakReportStrict(check);
+            setUserRootsForTest(check, "bk-views-user");
+            check.addArtifactArg(views);
+            check.addArtifactArg(sprite.tool);
+            check.addArtifactArg(sprite.check);
+            check.addArgs(&.{ module_root, b.fmt("zig-out/local-test/full3d/check/{s}", .{e.path}) });
+            for (1..4) |k| {
+                check.addArg(b.fmt("{s}/{s}_r{d}", .{ out, name, k }));
+                check.addArg(b.fmt("{s}/{s}_r{d}_l{d}", .{ out, name, k, k }));
+            }
+            check.step.dependOn(&side.step);
+            addPathDir(check, rootPath(b, "zig-out/bin"));
+            quiet(check);
+            group.dependOn(&check.step);
+            const model = b.addRunArtifact(views);
+            model.setCwd(b.path("."));
+            setUserRootsForTest(model, "bk-views-user");
+            model.addArgs(&.{ "model3d", "zig-out/full3d/models", data });
+            quiet(model);
+            group.dependOn(&model.step);
+            review.step.dependOn(&model.step);
+        }
     }
-    b.step("fill-families", "Draw the turns of every view of a joint candidate family (tools/zig/fixtures/bk-views/meshes) on its shared mesh or as a sibling's 2003 art with bk-views side, into zig-out/remastered/Buildings, and lay them out with their checks in zig-out/review/fill-families.pdf").dependOn(&review.step);
-}
-/// The full 3D pilot (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md): every object of
-/// tools/zig/fixtures/bk-views/full3d.json drawn turned with bk-views side, its turns rendered from its
-/// textured model, into the places the batch and objects-relight use (zig-out/remastered/Buildings and
-/// /Objects), and the models themselves (.mod, .dds, the lossless atlases) into zig-out/full3d/models with
-/// their review, zig-out/review/full3d.pdf and full3d.csv.
-fn addFull3dPilot(b: *std.Build, views: *std.Build.Step.Compile, sprite: BkSprite) void {
-    const pilot_path = "tools/zig/fixtures/bk-views/full3d.json";
-    const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
-    b.dependOnFileContents(b.path(pilot_path));
-    b.dependOnFileContents(b.path(ids_path));
-    const io = b.graph.io;
-    const Pilot = struct { ids: []const u32 };
-    const Ids = struct { ids: []const struct { id: u32, path: []const u8 } };
-    const pilot_bytes = b.root.root_dir.handle.readFileAlloc(io, pilot_path, b.allocator, .limited(1024 * 1024)) catch |err| @panic(@errorName(err));
-    const ids_bytes = b.root.root_dir.handle.readFileAlloc(io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
-    const pilot = std.json.parseFromSliceLeaky(Pilot, b.allocator, pilot_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
-    const ids = std.json.parseFromSliceLeaky(Ids, b.allocator, ids_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
-    const step = b.step("full3d-pilot", "Draw the turns of every full 3D pilot object (tools/zig/fixtures/bk-views/full3d.json) from its textured model with bk-views side into zig-out/remastered, write the models (.mod, .dds, lossless atlases) to zig-out/full3d/models and their review to zig-out/review/full3d.pdf");
-    const models = b.addRunArtifact(views);
-    models.setCwd(b.path("."));
-    setUserRootsForTest(models, "bk-views-user");
-    models.addArgs(&.{ "model3d", "zig-out/full3d/models", "zig-out/review/full3d.pdf" });
-    models.expectExitCode(0);
-    models.has_side_effects = true;
-    for (pilot.ids) |id| for (ids.ids) |e| {
-        if (e.id != id) continue;
-        const data = b.fmt("Data/{s}", .{e.path});
-        models.addArg(data);
-        const side = b.addRunArtifact(views);
-        side.setCwd(b.path("."));
-        setUserRootsForTest(side, "bk-views-user");
-        side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3", b.fmt("zig-out/remastered/{s}", .{std.fs.path.dirname(e.path).?}), b.fmt("zig-out/local-test/full3d/work/{s}", .{e.path}) });
-        side.step.dependOn(sprite.install);
-        addPathDir(side, rootPath(b, "zig-out/bin"));
-        side.expectExitCode(0);
-        side.has_side_effects = true;
-        step.dependOn(&side.step);
-    };
-    step.dependOn(&models.step);
+    b.step("full3d-review", "Lay out every model bk-views model3d wrote to zig-out/full3d/models (the full3d-<region> steps) in zig-out/review/full3d.pdf, with full3d.csv and the ranked needs-paint and needs-mesh-fix lists in full3d-ranked.csv").dependOn(&review.step);
+    all.dependOn(&review.step);
 }
 /// A build-root-relative path with the host's separators, as a tool prints it.
 /// The replacement runs only on a Windows host (this file compiles for the
@@ -12756,10 +12758,10 @@ fn addResourceEditor(
     const full3d_model = b.addRunArtifact(views_tools[0]);
     full3d_model.setCwd(b.path("."));
     setUserRootsForTest(full3d_model, "bk-views-user");
-    full3d_model.addArgs(&.{ "model3d", "zig-out/local-test/resource_editor/full3d-model", "zig-out/local-test/resource_editor/full3d-model/review.pdf", "Data/Buildings/europe/summer/e_wb/01" });
+    full3d_model.addArgs(&.{ "model3d", "zig-out/local-test/resource_editor/full3d-model", "Data/Buildings/europe/summer/e_wb/01", "Data/Objects/SimpleObjects/ussr/summer/ukrainewell/01" });
     full3d_model.expectExitCode(0);
     full3d_model.has_side_effects = true;
-    const full3d_step = b.step("resource-editor-full3d", "Write e_wb/01's full 3D model with bk-views model3d and show it in the Unit editor's preview, from the default camera and from the side, its parts picked as locators");
+    const full3d_step = b.step("resource-editor-full3d", "Write the full 3D models of e_wb/01 (intact and its two damage states) and of the prop ukrainewell/01 with bk-views model3d and show them in the Unit editor's preview, from the default camera and from the side, their parts picked as locators");
     full3d_step.dependOn(&install_exe.step);
     if (test_mode == .run) full3d_step.dependOn(addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, resource_auto_full3d, &full3d_model.step));
 
@@ -13394,9 +13396,11 @@ const resource_auto_msh =
     "231:waitgame=240,";
 
 /// A full 3D model (bk-views model3d's e_wb/01, written to full3d-model beside the scratch folder) in the
-/// unit fixture's place: its .mod as the three models, its summer atlas as every picture. The preview shows
-/// it lit, from the default camera and from the side (the horizontal camera), and its parts are the skeleton's nodes,
-/// picked by name at their screen points.
+/// unit fixture's place: its intact .mod as the combat model and its damage states' as the other two, its
+/// summer atlases as the pictures; then a prop's (ukrainewell/01) as a second project. The preview shows
+/// the model lit, from the default camera and from the side (the horizontal camera), its parts the skeleton's nodes
+/// picked by name at their screen points, its heavier damage state (3.mod) lit and unlike the intact one, and the prop lit,
+/// a part of it picked by name.
 const resource_auto_full3d: ResourceAutoStep = .{
     .name = "full3d",
     .about = "Run BK_EDITOR_AUTO's full 3D model scenario",
@@ -13404,17 +13408,30 @@ const resource_auto_full3d: ResourceAutoStep = .{
     .schedule = "2:do=mod_dir:{mods}/reseditor_auto_full3d," ++
         "3:do=copy:{fix}/msh/project.msh>{dir}/m3d/project.msh," ++
         "3:do=copy:{dir}/../full3d-model/111/1.mod>{dir}/m3d/1.mod," ++
-        "3:do=copy:{dir}/../full3d-model/111/1.mod>{dir}/m3d/2.mod," ++
-        "3:do=copy:{dir}/../full3d-model/111/1.mod>{dir}/m3d/3.mod," ++
+        "3:do=copy:{dir}/../full3d-model/111/2.mod>{dir}/m3d/2.mod," ++
+        "3:do=copy:{dir}/../full3d-model/111/3.mod>{dir}/m3d/3.mod," ++
         "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/1.tga," ++
         "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/1w.tga," ++
         "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/1a.tga," ++
-        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/2.tga," ++
-        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/2w.tga," ++
-        "3:do=copy:{dir}/../full3d-model/111/1.tga>{dir}/m3d/2a.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/2.tga>{dir}/m3d/2.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/2.tga>{dir}/m3d/2w.tga," ++
+        "3:do=copy:{dir}/../full3d-model/111/2.tga>{dir}/m3d/2a.tga," ++
         "3:do=copy:{fix}/msh/icon.tga>{dir}/m3d/icon.tga," ++
         "3:do=copy:{fix}/msh/name.txt>{dir}/m3d/name.txt," ++
         "3:do=copy:{fix}/msh/desc.txt>{dir}/m3d/desc.txt," ++
+        "3:do=copy:{fix}/msh/project.msh>{dir}/m3p/project.msh," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.mod>{dir}/m3p/1.mod," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.mod>{dir}/m3p/2.mod," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.mod>{dir}/m3p/3.mod," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.tga>{dir}/m3p/1.tga," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.tga>{dir}/m3p/1w.tga," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.tga>{dir}/m3p/1a.tga," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.tga>{dir}/m3p/2.tga," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.tga>{dir}/m3p/2w.tga," ++
+        "3:do=copy:{dir}/../full3d-model/382/1.tga>{dir}/m3p/2a.tga," ++
+        "3:do=copy:{fix}/msh/icon.tga>{dir}/m3p/icon.tga," ++
+        "3:do=copy:{fix}/msh/name.txt>{dir}/m3p/name.txt," ++
+        "3:do=copy:{fix}/msh/desc.txt>{dir}/m3p/desc.txt," ++
         "4:open={dir}/m3d/project.msh," ++
         "5:expect=kind:msh," ++
         "6:do=preview_run," ++
@@ -13437,8 +13454,28 @@ const resource_auto_full3d: ResourceAutoStep = .{
         "20:expect=selected:body.roof," ++
         "21:do=pick_locator:chimney.wall," ++
         "22:expect=selected:chimney.wall," ++
-        "23:do=preview_stop,",
-    .exit_frame = 24,
+        "23:do=locators:0," ++
+        "24:do=mesh_variant:2," ++
+        "25:do=pause:150," ++
+        "25:shot=model_damaged," ++
+        "26:expect=shot_lit:model_damaged," ++
+        "27:differ=model_n/model_damaged@0.01," ++
+        "28:do=preview_stop," ++
+        "29:open={dir}/m3p/project.msh," ++
+        "30:expect=kind:msh," ++
+        "31:do=preview_run," ++
+        "32:do=pause:200," ++
+        "33:do=mesh_variant:0," ++
+        "34:do=pause:150," ++
+        "34:shot=prop_n," ++
+        "35:expect=shot_lit:prop_n," ++
+        "36:differ=model_n/prop_n@0.01," ++
+        "37:do=locators:1," ++
+        "38:do=pause:150," ++
+        "39:do=pick_locator:body.roof," ++
+        "40:expect=selected:body.roof," ++
+        "41:do=preview_stop,",
+    .exit_frame = 42,
 };
 
 /// S09 Object: locked, transparency and one-way grid edits measured in the shots.

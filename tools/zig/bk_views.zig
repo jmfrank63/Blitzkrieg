@@ -49,8 +49,8 @@ const usage: bk_tool.Usage = .{
     \\       bk-views models <models-dir> <ids.json> <variant-dir>...
     \\       bk-views review <out.pdf> <ids.json> <models-dir> <buildings-dir> <objects-dir>
     \\       bk-views import <family-review-manifest.json> <meshes-dir>
-    \\       bk-views fill-review <out.pdf> <work-root> <buildings-dir>
-    \\       bk-views model3d <out-dir> <review.pdf> <variant-dir>...
+    \\       bk-views model3d <out-dir> <variant-dir>...
+    \\       bk-views full3d-review <out.pdf> <models-dir>
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -120,15 +120,15 @@ fn run(ctx: *bk_tool.Context) !void {
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return importCommand(ctx, ctx.args[1], ctx.args[2]);
     }
-    if (std.mem.eql(u8, command, "fill-review")) {
-        if (ctx.args.len != 4) return error.Usage;
-        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
-        return fillReviewCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3]);
-    }
     if (std.mem.eql(u8, command, "model3d")) {
-        if (ctx.args.len < 4) return error.Usage;
+        if (ctx.args.len < 3) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
-        return model3dCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3..]);
+        return model3dCommand(ctx, ctx.args[1], ctx.args[2..]);
+    }
+    if (std.mem.eql(u8, command, "full3d-review")) {
+        if (ctx.args.len != 3) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return full3dReviewCommand(ctx, ctx.args[1], ctx.args[2]);
     }
     if (std.mem.eql(u8, command, "contact")) {
         if (ctx.args.len != 4) return error.Usage;
@@ -172,6 +172,8 @@ pub const Image = formats.Image;
 pub const readDds = formats.readDds;
 pub const writePng = formats.writePng;
 pub const readStoredPng = formats.readStoredPng;
+pub const writePngDeflated = formats.writePngDeflated;
+pub const readPng = formats.readPng;
 pub const Bounds = formats.Bounds;
 pub const unpack = formats.unpack;
 pub const Stats = formats.Stats;
@@ -3375,12 +3377,18 @@ const Scene = struct {
     roof: []const Block,
     /// The family is a heap (props_file): its turns are its 2003 pictures.
     prop: bool = false,
-    /// The joint family's shared mesh the intact states are drawn on (M006
-    /// round 5), where the variant is one of its views.
+    /// The object's tracked mesh (a joint family's shared one with the views
+    /// of the colourway), where it has one.
     mesh: ?MeshScene = null,
-    /// The full 3D model on that mesh the intact states are rendered from
-    /// (`full3dIds`), where the object is one.
-    full3d: ?model3d.Model = null,
+    /// The full 3D models on that mesh every state is rendered from
+    /// (`buildFull3d`): the intact model, then one a damage state.
+    full3d: []const model3d.Model = &.{},
+
+    /// The full 3D model that holds a state's atlas.
+    fn modelFor(scene: Scene, state: []const u8) ?model3d.Model {
+        for (scene.full3d) |m| if (m.texture(state) != null) return m;
+        return null;
+    }
 };
 
 /// Hand shapes, from the working folder (the build root): `<family>.json`
@@ -3390,9 +3398,8 @@ const Scene = struct {
 /// instead of the fitted intact blocks; the damage states are fitted from them.
 pub const shapes_dir = "tools/zig/fixtures/bk-views/shapes";
 
-/// The props of Data/Objects drawn turned on their shape, as buildings are,
-/// instead of mirrored (M006 round 3; build.zig's objects-relight step lists
-/// the same): the training camp's sand pile.
+/// The props of Data/Objects with a hand shape (M006 round 3, before every
+/// prop became a full 3D model): the training camp's sand pile.
 pub const shaped_objects = [_][]const u8{"SimpleObjects/common/summer/debris/05"};
 
 /// A modder's hand shape: the blocks alone, in the variant's own folder.
@@ -3440,6 +3447,8 @@ fn handShape(ctx: *bk_tool.Context, dir: []const u8, family: []const u8, variant
 
 /// The scene of variant `index` of the family; variants that show side
 /// `skip` are left out, so the hold-out draws that side without them.
+/// `intact_only`: the intact state's blocks alone and no full 3D models,
+/// for the block shapes' fit and review (`shape`, `models`).
 fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, intact_only: bool) !Scene {
     const arena = ctx.arena;
     // Every measured variant gives the shape, those of the variant's own
@@ -3535,7 +3544,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         shape.* = parts.items;
     }
     const mesh_scene = try loadMeshScene(ctx, sources.items, same, fixed);
-    const full3d = if (mesh_scene) |ms| (if (std.mem.indexOfScalar(u32, try full3dIds(ctx), ms.model.id) != null) try buildFull3d(arena, sources.items, ms, states.items) else null) else null;
+    const full3d = if (mesh_scene != null and !intact_only) try buildFull3d(arena, sources.items, mesh_scene.?, states.items) else &.{};
     return .{
         .family = found.family.name,
         .name = std.fs.path.basename(own.dir),
@@ -3592,8 +3601,17 @@ fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
             };
         }
     }
-    // On a mesh, room for the damage states drawn by the blocks moved to the mesh's zero cross.
-    const margin: f64 = if (scene.mesh != null) 18 else 2;
+    // A meshed object's turn is laid on the zero cross `meshZero` finds,
+    // which the canvas must hold (a small prop's mesh may stand off its
+    // footprint's middle by more than the margin: compose-pack hung on
+    // mine_r1's zero at 31,13 of a 27 x 18 canvas, and read a negative one
+    // as an option).
+    if (scene.mesh) |ms| {
+        const z = meshZero(scene, ms, .{ .turn = k, .light = light, .eye = eye, .size = .{ 0, 0 }, .name = name });
+        lo = .{ @min(lo[0], z[0]), @min(lo[1], z[1]) };
+        hi = .{ @max(hi[0], z[0]), @max(hi[1], z[1]) };
+    }
+    const margin: f64 = 2;
     eye.anchor = .{ margin - @floor(lo[0]), margin - @floor(lo[1]) };
     return .{
         .turn = k,
@@ -3619,9 +3637,7 @@ fn castShadow(gpa: std.mem.Allocator, blocks: []const Block, eye: Eye, size: [2]
 /// One damage state of a target: the sprite with the source of each pixel,
 /// its shadow, its ground picture where the variant has one, and how well the
 /// blocks cover each source's outline.
-/// `mesh`: drawn on the scene's mesh (`meshDrawn`), whose `blocks` are the
-/// state's blocks all the same.
-const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64, means: Means = .{}, mesh: bool = false };
+const Drawn = struct { state: []const u8, blocks: []const Block, sprite: Generated, shadow: Image, ground: ?Generated, covers: []const f64, means: Means = .{} };
 
 fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const arena = ctx.arena;
@@ -3629,11 +3645,11 @@ fn drawTarget(ctx: *bk_tool.Context, scene: Scene, target: Turned) ![]Drawn {
     const own = scene.sources[scene.fixed];
     const drawn = try arena.alloc(Drawn, scene.states.len);
     for (scene.states, scene.shapes, scene.bodies, drawn) |state, blocks, body, *d| {
-        if (scene.mesh) |ms| if (intactState(state)) {
-            d.* = if (scene.full3d) |m| try full3dDrawn(arena, ms, m, state, blocks, target) else try meshDrawn(arena, scene, ms, state, blocks, target);
+        if (scene.modelFor(state)) |m| {
+            d.* = try full3dDrawn(arena, m, state, blocks, target);
             d.ground = try groundOf(arena, scene, state, target);
             continue;
-        };
+        }
         var means: Means = .{};
         const projectors = try arena.alloc(Projector, n);
         const ground = try arena.alloc(Projector, n);
@@ -3901,7 +3917,7 @@ fn siblingSprite(ctx: *bk_tool.Context, scene: Scene, k: u2, light: u2, name: []
         // A copy: keepShadow may mark a pixel, and the sibling's pictures are shared.
         const shadow: Image = .{ .width = first.width, .height = first.height, .pixels = try arena.alloc([4]u8, @as(usize, first.width) * first.height) };
         if (pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}s", .{state}))) |s| {
-            if (light != k) @memcpy(shadow.pixels, (if (by[i].mesh) try meshShadow(arena, scene.mesh.?, target.eye, target.size, light) else try castShadow(arena, by[i].blocks, target.eye, target.size, light)).pixels) else @memcpy(shadow.pixels, s.pixels);
+            if (light != k) @memcpy(shadow.pixels, (try castShadow(arena, by[i].blocks, target.eye, target.size, light)).pixels) else @memcpy(shadow.pixels, s.pixels);
         } else @memset(shadow.pixels, .{ 0, 0, 0, 0 });
         keepShadow(sprite.image, shadow);
         const ground = pictureOf(sibling, try std.fmt.allocPrint(arena, "{s}g", .{state}));
@@ -3982,22 +3998,10 @@ fn drawTurn(ctx: *bk_tool.Context, scene: Scene, blocks_target: Turned) !DrawnTu
     const arena = ctx.arena;
     const own = scene.sources[scene.fixed];
     const new_side = (scene.own_side - 1 + @as(u8, blocks_target.turn)) % 4 + 1;
-    // A view of a joint family (M006 round 5): its turn is the 2003 art of
-    // the family's variant that shows it where there is one, else the shared
-    // mesh turned. The mesh is the family's measured shape, so the blocks'
-    // gates do not judge it; `meshCheck` measures it instead.
     // A full 3D model draws every turn, a sibling's included: the sibling's
-    // 2003 art is painted into its atlas (`buildFull3d`).
-    if (scene.full3d != null) return .{ .target = blocks_target, .drawn = try drawTarget(ctx, scene, blocks_target), .shape = .{}, .failure = null, .fallback = false, .mirror = false };
-    if (scene.mesh != null) {
-        const sibling = siblingFor(scene, blocks_target.turn);
-        const by: []Drawn = if (sibling == null or blocks_target.light != blocks_target.turn) try drawTarget(ctx, scene, blocks_target) else &.{};
-        if (sibling) |e| {
-            const same = try siblingSprite(ctx, scene, blocks_target.turn, blocks_target.light, blocks_target.name, e, by);
-            return .{ .target = same.target, .drawn = same.drawn, .shape = .{}, .failure = null, .fallback = true, .mirror = false, .sibling = std.fs.path.basename(scene.sources[e].dir) };
-        }
-        return .{ .target = blocks_target, .drawn = by, .shape = .{}, .failure = null, .fallback = false, .mirror = false };
-    }
+    // 2003 art is painted into its atlas (`buildFull3d`). The model is the
+    // object's tracked mesh, so the blocks' gates do not judge it.
+    if (scene.full3d.len > 0) return .{ .target = blocks_target, .drawn = try drawTarget(ctx, scene, blocks_target), .shape = .{}, .failure = null, .fallback = false, .mirror = false };
     var refused: ?[]const u8 = null;
     var by: ?[]Drawn = null;
     if (siblingFor(scene, blocks_target.turn)) |e| {
@@ -4162,21 +4166,11 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const fallback = turned.fallback;
         const mirror = turned.mirror;
         // One zero cross for every picture of a turn (the engine's packs share
-        // it): on a mesh, the mesh's; a damage state drawn by the blocks moves
-        // its pictures by what lies between the blocks' and the mesh's.
+        // it): on a mesh, the mesh's.
         const zero = if (fallback) target.eye.anchor else if (scene.mesh) |ms| meshZero(scene, ms, target) else footprintZero(scene, target);
-        if (!fallback and scene.mesh != null) {
-            const blocks_zero = footprintZero(scene, target);
-            const by: [2]i64 = .{ @intFromFloat(zero[0] - blocks_zero[0]), @intFromFloat(zero[1] - blocks_zero[1]) };
-            for (drawn) |*d| if (!d.mesh) {
-                d.sprite.image = try shiftedBy(arena, d.sprite.image, by);
-                d.shadow = try shiftedBy(arena, d.shadow, by);
-                if (d.ground) |*g| g.image = try shiftedBy(arena, g.image, by);
-            };
-        }
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
-        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"full3d\":{},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n", .{ scene.name, scene.own_side, target.turn, new_side, scene.full3d != null, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
+        try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"full3d\":{},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n", .{ scene.name, scene.own_side, target.turn, new_side, scene.full3d.len > 0, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
         try r.print("\"handed\":{{\"turned\":{d:.4},\"mirrored\":{d:.4},\"symmetric\":{d:.4},\"own\":{d:.4},\"parts\":{d:.0},\"parts_kept\":{d:.0},\"parts_mirrored\":{d:.0},\"parts_mirrored_kept\":{d:.0},\"failure\":\"{s}\",\"refused\":\"{s}\"}},\n\"blocks\":{{", .{ turned.handed.turned, turned.handed.mirrored, turned.handed.symmetric, turned.handed.own, turned.handed.parts, turned.handed.parts_kept, turned.handed.parts_mirrored, turned.handed.parts_mirrored_kept, turned.handed_failure orelse "", turned.refused orelse "" });
         for (scene.states, scene.shapes, 0..) |state, blocks, i| {
             try r.print("{s}\n\"{s}\":[", .{ if (i > 0) "," else "", state });
@@ -4214,12 +4208,10 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
                 try std.fs.path.join(arena, &.{ temp, d.state }),
                 "--zero",
                 try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }),
-                "--pass",
-                try std.mem.join(arena, "/", grid.rows),
-                "--locked",
-                try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }),
                 "--force",
             });
+            // A prop with no passable grid (a box, a barrel) has none to lock.
+            if (grid.rows.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", grid.rows), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
             if (d.ground) |g| {
                 try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}), try writePng(arena, g.image));
                 try writePictureReport(ctx, r, map_dir, ground_name, g, &.{}, &first_picture);
@@ -6859,32 +6851,32 @@ fn shapeIdOf(ids: ShapeIds, gpa: std.mem.Allocator, dir: []const u8) !?u32 {
     return null;
 }
 
-/// The scene's mesh where its variant is a view of a joint candidate family
-/// (`mesh.meshes_dir` families.json), or a full 3D model (`full3dIds`, its
-/// own picture its only view), else null: the other variants keep the
-/// blocks.
+/// The scene's mesh where its variant has one (`mesh.meshes_dir`, by its
+/// number in shape-ids.json): a view of a joint candidate family
+/// (families.json) holds the shared mesh and each view of the colourway,
+/// every other object its own mesh with its own picture its only view. Null
+/// for a folder without a mesh (a modder's), which keeps the blocks.
 fn loadMeshScene(ctx: *bk_tool.Context, sources: []const Source, same: []const bool, fixed: usize) !?MeshScene {
     const arena = ctx.arena;
     const ids = (try readJson(ShapeIds, ctx, shape_ids_file)) orelse return null;
     const own_id = (try shapeIdOf(ids, arena, sources[fixed].dir)) orelse return null;
     const model = (try mesh.load(arena, ctx.io, mesh.meshes_dir, own_id)) orelse return null;
-    if (!model.joint) {
-        if (std.mem.indexOfScalar(u32, try full3dIds(ctx), own_id) == null) return null;
+    const family = if (model.joint) for (try mesh.loadFamilies(arena, ctx.io, mesh.meshes_dir)) |f| {
+        if (std.mem.eql(u8, f.status, "joint candidate") and std.mem.indexOfScalar(u32, f.included, own_id) != null) break f;
+    } else null else null;
+    if (family == null) {
         const picture = pictureOf(sources[fixed], "1") orelse return null;
         const placement = mesh.place(model, picture, .{ @floatFromInt(sources[fixed].anchor[0]), @floatFromInt(sources[fixed].anchor[1]) }) orelse return null;
         const views = try arena.alloc(MeshView, 1);
         views[0] = .{ .source = fixed, .placement = placement };
         return .{ .model = model, .tris = try mesh.triangles(arena, model), .views = views };
     }
-    const family = for (try mesh.loadFamilies(arena, ctx.io, mesh.meshes_dir)) |f| {
-        if (std.mem.eql(u8, f.status, "joint candidate") and std.mem.indexOfScalar(u32, f.included, own_id) != null) break f;
-    } else return null;
     var views: std.ArrayList(MeshView) = .empty;
     for (0..sources.len) |i| {
         const e = if (i == 0) fixed else if (i <= fixed) i - 1 else i;
         if (!same[e]) continue;
         const id = (try shapeIdOf(ids, arena, sources[e].dir)) orelse continue;
-        if (std.mem.indexOfScalar(u32, family.included, id) == null) continue;
+        if (std.mem.indexOfScalar(u32, family.?.included, id) == null) continue;
         const view_model = (try mesh.load(arena, ctx.io, mesh.meshes_dir, id)) orelse continue;
         const picture = pictureOf(sources[e], "1") orelse continue;
         const placement = mesh.place(view_model, picture, .{ @floatFromInt(sources[e].anchor[0]), @floatFromInt(sources[e].anchor[1]) }) orelse continue;
@@ -6892,13 +6884,6 @@ fn loadMeshScene(ctx: *bk_tool.Context, sources: []const Source, same: []const b
     }
     if (views.items.len == 0 or views.items[0].source != fixed) return null;
     return .{ .model = model, .tris = try mesh.triangles(arena, model), .views = views.items };
-}
-
-/// Whether a damage state is the intact building (summer or winter): the
-/// states the mesh draws; the damaged ones stay on the blocks fitted to
-/// their own outlines.
-fn intactState(state: []const u8) bool {
-    return std.mem.eql(u8, state, "1") or std.mem.eql(u8, state, "1w");
 }
 
 /// A state's ground picture turned (`projectGround`) from the colourway's
@@ -6915,23 +6900,6 @@ fn groundOf(gpa: std.mem.Allocator, scene: Scene, state: []const u8, target: Tur
     return try projectGround(gpa, target.eye, target.size, ground.items);
 }
 
-/// The mesh's shadow on the ground under the light of turn `light`, as
-/// `eye` sees it on a canvas of `size`.
-fn meshShadow(gpa: std.mem.Allocator, ms: MeshScene, eye: Eye, size: [2]u32, light: u2) !Image {
-    const l = lightFor(light_2003, light);
-    const own = ms.views[0].placement;
-    const points = try gpa.alloc([3]f64, mesh.vertexCount(ms.model));
-    for (points, 0..) |*p, i| {
-        const w = own.world(mesh.vertex(ms.model, i));
-        const s = eye.project(.{ w[0] - l[0] * w[2] / l[2], w[1] - l[1] * w[2] / l[2], 0 });
-        p.* = .{ s[0], s[1], 0 };
-    }
-    const r = try mesh.raster(gpa, points, ms.tris, size[0], size[1]);
-    const shadow: Image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, r.tri.len) };
-    for (shadow.pixels, r.tri) |*p, t| p.* = if (t == mesh.Raster.none) .{ 0, 0, 0, 0 } else .{ 0, 0, 0, 255 };
-    return shadow;
-}
-
 /// The depth buffer of the mesh in one view, with each triangle's normal in
 /// that view's world turned towards its eye.
 const MeshSeen = struct { view: mesh.View, raster: mesh.Raster, normals: [][3]f64 };
@@ -6941,153 +6909,6 @@ fn meshSeen(gpa: std.mem.Allocator, ms: MeshScene, placement: mesh.Placement, tu
     const normals = try gpa.alloc([3]f64, ms.tris.len);
     for (ms.tris, normals) |t, *n| n.* = mesh.worldNormal(ms.model, placement, t, turn);
     return .{ .view = v, .raster = try mesh.raster(gpa, try mesh.viewVertices(gpa, ms.model, v), ms.tris, size[0], size[1]), .normals = normals };
-}
-
-/// How far, in world units, a point may lie behind the nearest face of a
-/// view's depth buffer and still be the point that view sees.
-const mesh_visible = 2.0;
-/// The steps of the search for a hidden point's opposite face, over the mesh's extent.
-const march_steps = 64;
-/// Two faces whose normals' cosine is this or more lie in one plane, or face
-/// one way.
-const same_plane = 0.9;
-
-/// An intact state drawn on the scene's mesh: each pixel of the mesh turned
-/// as `target` sees it takes the 2003 picture of the colourway that sees its
-/// point most squarely (a face no picture sees well enough, under `grazing`,
-/// waits for one that does), relit from that picture's 2003 light to the
-/// target's (`shading`, with the building's own wall light). A point no
-/// picture sees takes the face the mesh turned by a half or a quarter turn
-/// brings to it, and the rest, with the stretched pixels, is patch-filled.
-/// Its shadow is the mesh's.
-fn meshDrawn(gpa: std.mem.Allocator, scene: Scene, ms: MeshScene, state: []const u8, blocks: []const Block, target: Turned) !Drawn {
-    const own = ms.views[0].placement;
-    const goal = try meshSeen(gpa, ms, own, target.eye.turn, target.eye.anchor, target.size);
-    const seen = try gpa.alloc(?MeshSeen, ms.views.len);
-    const pictures = try gpa.alloc(?Image, ms.views.len);
-    var means: Means = .{};
-    var covers: std.ArrayList(f64) = .empty;
-    for (ms.views, seen, pictures) |v, *s, *p| {
-        const source = scene.sources[v.source];
-        p.* = pictureOf(source, state);
-        const picture = p.* orelse {
-            s.* = null;
-            continue;
-        };
-        s.* = try meshSeen(gpa, ms, v.placement, 0, .{ @floatFromInt(source.anchor[0]), @floatFromInt(source.anchor[1]) }, .{ picture.width, picture.height });
-        var both: f64 = 0;
-        var either: f64 = 0;
-        for (picture.pixels, s.*.?.raster.tri) |pixel, t| {
-            const on = t != mesh.Raster.none;
-            both += @floatFromInt(@intFromBool(on and pixel[3] >= 128));
-            either += @floatFromInt(@intFromBool(on or pixel[3] >= 128));
-            if (on and pixel[3] >= 128) means.add(shadeClass(s.*.?.normals[t], 0), pixel);
-        }
-        try covers.append(gpa, if (either == 0) 0 else both / either);
-    }
-    const wall = wallLight(means);
-    // The mesh's middle, about which a hidden point takes its opposite.
-    var lo = [3]f64{ std.math.inf(f64), std.math.inf(f64), std.math.inf(f64) };
-    var hi = [3]f64{ -std.math.inf(f64), -std.math.inf(f64), -std.math.inf(f64) };
-    for (0..mesh.vertexCount(ms.model)) |i| {
-        const p = mesh.vertex(ms.model, i);
-        for (0..3) |c| {
-            lo[c] = @min(lo[c], p[c]);
-            hi[c] = @max(hi[c], p[c]);
-        }
-    }
-    const mesh_extent = @max(hi[0] - lo[0], hi[1] - lo[1]);
-    const count = @as(usize, target.size[0]) * target.size[1];
-    var out: Generated = .{
-        .image = .{ .width = target.size[0], .height = target.size[1], .pixels = try gpa.alloc([4]u8, count) },
-        .kinds = try gpa.alloc(Kind, count),
-        .classes = try gpa.alloc(u8, count),
-    };
-    @memset(out.image.pixels, .{ 0, 0, 0, 0 });
-    @memset(out.kinds, .empty);
-    @memset(out.classes, 255);
-    const uvs = try gpa.alloc([2]f64, count);
-    const ids = try gpa.alloc(usize, count);
-    @memset(ids, 0);
-    for (goal.raster.tri, goal.raster.depth, 0..) |t, depth, i| {
-        if (t == mesh.Raster.none) continue;
-        const n = goal.normals[t];
-        out.classes[i] = @intCast(shadeClass(n, target.light));
-        out.kinds[i] = .filled;
-        const m = goal.view.unapply(.{ @as(f64, @floatFromInt(i % target.size[0])) + 0.5, @as(f64, @floatFromInt(i / target.size[0])) + 0.5, depth });
-        var best: f64 = -std.math.inf(f64);
-        // Where no picture sees the point: the face the mesh turned a half
-        // turn (the opposite wall, the other roof plane), else a quarter
-        // turn, brings to it, if a picture sees that: from the point turned
-        // about the mesh's middle, the farthest face along the turned face's
-        // outward direction that faces that way (an L-shaped house's hidden
-        // back wall takes its front wall, not the courtyard's).
-        for ([_]f64{ grazing, -1 }) |least| for ([_]u2{ 0, 2, 1, 3 }) |k| {
-            if (out.kinds[i] != .filled) break;
-            const nk = mesh.quarter(.{ n[0], n[1] }, k);
-            const away = own.toMesh(.{ nk[0], nk[1], 0 });
-            const away_length = @sqrt(away[0] * away[0] + away[1] * away[1]);
-            if (k != 0 and away_length < 1e-9) continue;
-            const turned = mesh.quarter(.{ m[0] - (lo[0] + hi[0]) / 2, m[1] - (lo[1] + hi[1]) / 2 }, k);
-            const from = [3]f64{ (lo[0] + hi[0]) / 2 + turned[0], (lo[1] + hi[1]) / 2 + turned[1], m[2] };
-            for (seen, pictures, 0..) |s_opt, picture_opt, j| {
-                const s = s_opt orelse continue;
-                const picture = picture_opt.?;
-                // t's outside in this view: its winding normal on the side
-                // the target sees, turned as the point is.
-                const w = mesh.windingNormal(ms.model, ms.views[j].placement, ms.tris[t]);
-                const outside = if (mesh.dot(mesh.windingNormal(ms.model, own, ms.tris[t]), n) > 0) w else [3]f64{ -w[0], -w[1], -w[2] };
-                const wanted = mesh.quarter(.{ outside[0], outside[1] }, k);
-                var step: usize = if (k != 0) march_steps else 1;
-                while (step > 0) {
-                    step -= 1;
-                    const along = @as(f64, @floatFromInt(step)) / march_steps * mesh_extent / @max(away_length, 1e-9);
-                    const p = [3]f64{ from[0] + away[0] * along, from[1] + away[1] * along, from[2] };
-                    const q = s.view.apply(p);
-                    const at = s.raster.at(q[0], q[1]) orelse continue;
-                    const shown = s.raster.tri[at];
-                    if (shown == mesh.Raster.none) continue;
-                    // Directly: no face stands in front of the point.
-                    if (k == 0 and shown != t and (s.raster.depth[at] > q[2] + mesh_visible or mesh.dot(s.normals[shown], s.normals[t]) < same_plane)) continue;
-                    if (k != 0 and (@abs(s.raster.depth[at] - q[2]) > mesh_visible + mesh_extent / march_steps * ms.views[j].placement.scale or mesh.dot(s.normals[shown], .{ wanted[0], wanted[1], outside[2] }) < same_plane)) continue;
-                    const source_normal = s.normals[shown];
-                    const facing = mesh.dot(source_normal, mesh.toward_eye);
-                    const pixel = picture.pixels[at];
-                    if (facing < least or facing <= best or pixel[3] < 128) break;
-                    best = facing;
-                    out.image.pixels[i] = relight(pixel, shading(n, target.light, wall), shading(source_normal, 0, wall));
-                    out.image.pixels[i][3] = 255;
-                    out.kinds[i] = switch (k) {
-                        0 => .projected,
-                        2 => .mirrored,
-                        else => .transferred,
-                    };
-                    uvs[i] = .{ q[0], q[1] };
-                    ids[i] = 1 + j * ms.tris.len + shown;
-                    break;
-                }
-            }
-        };
-    }
-    out.stretched = try stretchedPixels(gpa, target.size, uvs, ids);
-    for (out.kinds, out.stretched) |*kind, s| {
-        if (s and kind.* != .empty) kind.* = .filled;
-    }
-    try patchFill(gpa, out);
-    const shadow = try meshShadow(gpa, ms, target.eye, target.size, target.light);
-    keepShadow(out.image, shadow);
-    return .{ .state = state, .blocks = blocks, .sprite = out, .shadow = shadow, .ground = null, .covers = covers.items, .means = means, .mesh = true };
-}
-
-/// A picture moved by `by` pixels on its canvas.
-fn shiftedBy(gpa: std.mem.Allocator, image: Image, by: [2]i64) !Image {
-    const out: Image = .{ .width = image.width, .height = image.height, .pixels = try gpa.alloc([4]u8, image.pixels.len) };
-    @memset(out.pixels, .{ 0, 0, 0, 0 });
-    for (0..image.height) |y| for (0..image.width) |x| {
-        const to = out.at(@as(i64, @intCast(x)) + by[0], @as(i64, @intCast(y)) + by[1]) orelse continue;
-        to.* = image.pixels[y * image.width + x];
-    };
-    return out;
 }
 
 /// The zero cross of a turn drawn on the mesh: as `footprintZero` lays the
@@ -7157,22 +6978,24 @@ fn meshCheck(gpa: std.mem.Allocator, scene: Scene, ms: MeshScene, target: Turned
 
 pub const model3d = @import("bk_views_model.zig");
 
-/// The objects drawn as full 3D models (`model3d.pilot_file`).
-fn full3dIds(ctx: *bk_tool.Context) ![]const u32 {
-    const list = (try readJson(struct { ids: []const u32 }, ctx, model3d.pilot_file)) orelse return &.{};
-    return list.ids;
-}
-
-/// The scene's full 3D model: its mesh unrolled where the variant's own
-/// picture places it, each intact state's atlas painted from the pictures of
-/// the colourway the mesh lies on (`model3d.bake`), lit by the building's own
-/// wall light measured on its intact pictures as `meshDrawn` measures it.
-fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8) !model3d.Model {
+/// The scene's full 3D models. The intact one: its mesh unrolled where the
+/// variant's own picture places it, each intact state's atlas (summer `1`,
+/// winter `1w`) painted from the pictures of the colourway the mesh lies on
+/// (`model3d.bake`), lit by the building's own wall light measured on its
+/// intact pictures. Then a model a damage state (`model3d.damaged`, from the
+/// variant's own damaged picture of summer), its atlas of each season the
+/// intact one of that season painted over from its own damaged picture.
+fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8) ![]const model3d.Model {
+    var models: std.ArrayList(model3d.Model) = .empty;
     var m = try model3d.unwrap(gpa, ms.model, ms.tris, ms.views[0].placement);
+    const has = struct {
+        fn f(list: []const []const u8, state: []const u8) bool {
+            for (list) |s| if (std.mem.eql(u8, s, state)) return true;
+            return false;
+        }
+    }.f;
     for ([_][]const u8{ "1", "1w" }) |state| {
-        for (states) |s| {
-            if (std.mem.eql(u8, s, state)) break;
-        } else continue;
+        if (!has(states, state)) continue;
         var means: Means = .{};
         var bake_views: std.ArrayList(model3d.BakeView) = .empty;
         for (ms.views) |v| {
@@ -7185,22 +7008,35 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
             try bake_views.append(gpa, .{ .picture = picture, .view = s.view, .raster = s.raster, .normals = s.normals });
         }
         if (std.mem.eql(u8, state, "1")) m.wall = wallLight(means);
-        try model3d.bake(gpa, &m, state, bake_views.items);
+        try model3d.bake(gpa, &m, state, bake_views.items, null);
     }
-    return m;
+    try models.append(gpa, m);
+    const own = sources[ms.views[0].source];
+    const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
+    for ([_][]const u8{ "2", "3" }) |state| {
+        if (!has(states, state)) continue;
+        var d = try model3d.damaged(gpa, m, ms.views[0].placement, pictureOf(own, state).?, pictureOf(own, "1").?, anchor);
+        for ([_][2][]const u8{ .{ state, "1" }, .{ try std.fmt.allocPrint(gpa, "{s}w", .{state}), "1w" } }) |pair| {
+            if (!has(states, pair[0])) continue;
+            const picture = pictureOf(own, pair[0]).?;
+            const view = try model3d.ownBakeView(gpa, d, picture, ms.views[0].placement, anchor);
+            try model3d.bake(gpa, &d, pair[0], &.{view}, m.texture(pair[1]) orelse m.texture("1").?);
+        }
+        try models.append(gpa, d);
+    }
+    return models.items;
 }
 
-/// An intact state of a turn drawn by the full 3D model (`model3d.render`);
-/// pixels of guessed paint count as patch-filled for `meshCheck`. Its shadow
-/// is the mesh's.
-fn full3dDrawn(gpa: std.mem.Allocator, ms: MeshScene, m: model3d.Model, state: []const u8, blocks: []const Block, target: Turned) !Drawn {
+/// A state of a turn drawn by its full 3D model (`model3d.render`), its
+/// shadow the model's.
+fn full3dDrawn(gpa: std.mem.Allocator, m: model3d.Model, state: []const u8, blocks: []const Block, target: Turned) !Drawn {
     const r = try model3d.render(gpa, m, state, target.eye.turn, target.light, target.eye.anchor, target.size);
     const out: Generated = .{ .image = r.image, .kinds = try gpa.alloc(Kind, r.guessed.len), .classes = try gpa.alloc(u8, r.guessed.len) };
     for (out.kinds, r.image.pixels, r.guessed) |*kind, p, g| kind.* = if (p[3] == 0) .empty else if (g) .filled else .projected;
     @memset(out.classes, 255);
-    const shadow = try meshShadow(gpa, ms, target.eye, target.size, target.light);
+    const shadow = try model3d.shadow(gpa, m, target.eye.turn, target.light, target.eye.anchor, target.size);
     keepShadow(out.image, shadow);
-    return .{ .state = state, .blocks = blocks, .sprite = out, .shadow = shadow, .ground = null, .covers = &.{}, .mesh = true };
+    return .{ .state = state, .blocks = blocks, .sprite = out, .shadow = shadow, .ground = null, .covers = &.{} };
 }
 
 /// What a picture rendered from the full 3D model shows of the 2003 art it
@@ -7224,198 +7060,143 @@ pub fn artMatch(rendered: Image, art: Image, start: [2]i64, search: bool) ArtMat
     return .{ .iou = shiftedIou(rendered, art, offset), .colour = if (n == 0) 255 else sum / n, .shift = offset };
 }
 
-/// What `side` recorded of one turn (its sources.json): the sibling whose
-/// 2003 art it is, if any, and the fill's checks of its intact picture.
-const TurnRecord = struct { sibling: []const u8 = "", mesh: ?MeshCheck = null };
-
-/// `fill-review`: the fill of the joint families (M006 round 5) for the
-/// maintainer: per object of each joint candidate family the family's 2003
-/// sides, then its four turns as `side` made them under the 2003 light
-/// (`_r<k>`) and under the world's sun (`_r<k>_l<k>`), each with how it was
-/// drawn and the fill's checks (`meshCheck`). `work-root` holds `side`'s
-/// working folders as the building-views batch lays them
-/// (`<work-root>/<variant path>/`).
-fn fillReviewCommand(ctx: *bk_tool.Context, out_arg: []const u8, work_arg: []const u8, buildings_arg: []const u8) !void {
-    const arena = ctx.arena;
-    const out = try bk_tool.inputPath(arena, out_arg);
-    const work = try bk_tool.inputPath(arena, work_arg);
-    const roots = [2][]const u8{ try bk_tool.inputPath(arena, buildings_arg), "" };
-    const ids = (try readJson(ShapeIds, ctx, shape_ids_file)) orelse return ctx.failKey("views.err.read", .{ shape_ids_file, "FileNotFound" });
-    const page_w = 842.0;
-    const page_h = 595.0;
-    var pdf = try bk_pdf.begin(arena);
-    var summary: std.Io.Writer.Allocating = .init(arena);
-    var totals = struct { objects: usize = 0, sibling: usize = 0, drawn: usize = 0, missing: usize = 0, worst_outline: f64 = 1, holes: usize = 0, patched: usize = 0, worst_colour: f64 = 0 }{};
-    for (try mesh.loadFamilies(arena, ctx.io, mesh.meshes_dir)) |family| {
-        if (!std.mem.eql(u8, family.status, "joint candidate")) continue;
-        var first = true;
-        for (family.included) |id| {
-            const path = for (ids.ids) |e| {
-                if (e.id == id) break e.path;
-            } else continue;
-            const variant = path["Buildings/".len..];
-            const name = std.fs.path.basename(variant);
-            totals.objects += 1;
-            var page: bk_pdf.Page = .init(arena);
-            var images: std.ArrayList(u32) = .empty;
-            try page.text(30, page_h - 34, 16, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}  {s}", .{ id, path }));
-            try page.text(30, page_h - 50, 9, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "joint family {s}/{s}: its 2003 sides (measured side of each), then the four turns filled", .{ family.region, family.family }));
-            // The family's 2003 sides.
-            const side_w = 780 / @as(f64, @floatFromInt(@max(family.views.len, 1)));
-            for (family.views, 0..) |v, i| {
-                const vpath = for (ids.ids) |e| {
-                    if (e.id == v.id) break e.path;
-                } else continue;
-                const found = objectPicture(ctx, roots, vpath) orelse continue;
-                const pic = try pdf.image(found.picture.width, found.picture.height, found.picture.pixels);
-                try images.append(arena, pic);
-                const x = 30 + @as(f64, @floatFromInt(i)) * side_w;
-                _ = try placePicture(&page, found.picture, pic, x, 400, .{ side_w - 10, 120 });
-                try page.text(x, 390, 8, v.id == id, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}: 2003, measured side {d}", .{ v.id, v.side }));
-            }
-            // The turns, under the 2003 light and under the world's sun.
-            const own = objectPicture(ctx, roots, path) orelse continue;
-            const own_id = try pdf.image(own.picture.width, own.picture.height, own.picture.pixels);
-            try images.append(arena, own_id);
-            for ([2]bool{ false, true }, 0..) |lit, row| {
-                const y0 = 205 - @as(f64, @floatFromInt(row)) * 180;
-                // The four pictures at one scale: the turns' canvases are larger.
-                var turns: [4]?Image = .{ own.picture, null, null, null };
-                for (1..4) |k| {
-                    const turn_name = if (lit) try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ name, k, k }) else try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k });
-                    const png = std.Io.Dir.cwd().readFileAlloc(ctx.io, try std.fs.path.join(arena, &.{ work, variant, try std.fmt.allocPrint(arena, "{s}.work", .{name}), turn_name, "1.png" }), arena, .limited(64 * 1024 * 1024)) catch continue;
-                    turns[k] = try readStoredPng(arena, png);
-                }
-                var scale: f64 = 3;
-                for (turns) |p| if (p) |q| {
-                    scale = @min(scale, 182 / @as(f64, @floatFromInt(q.width)), 124 / @as(f64, @floatFromInt(q.height)));
-                };
-                try page.text(30, y0 + 165, 9, true, .{ 0, 0, 0 }, if (lit) "lit by the world's sun at the camera step that shows each turn (_r<k>_l<k>)" else "under the 2003 light, fixed to the camera (_r<k>)");
-                for (0..4) |k| {
-                    const x = 30 + @as(f64, @floatFromInt(k)) * 197;
-                    try page.polygon(&.{ .{ x, y0 }, .{ x + 190, y0 }, .{ x + 190, y0 + 158 }, .{ x, y0 + 158 } }, .{ 0.97, 0.97, 0.97 }, .{ 0.75, 0.75, 0.75 }, 0.5);
-                    try page.text(x + 4, y0 + 144, 12, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}.{c}", .{ id, side_letters[k] }));
-                    if (k == 0) {
-                        _ = try placeScaled(&page, own.picture, own_id, x + 4, y0 + 16, .{ 182, 124 }, scale);
-                        try page.text(x + 4, y0 + 4, 7, false, .{ 0.3, 0.3, 0.3 }, "the 2003 picture");
-                        continue;
-                    }
-                    const turn_name = if (lit) try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ name, k, k }) else try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, k });
-                    const dir = try std.fs.path.join(arena, &.{ work, variant });
-                    const picture = turns[k] orelse {
-                        try page.text(x + 4, y0 + 70, 9, false, .{ 0.6, 0, 0 }, "not made: run bk-views side");
-                        totals.missing += 1;
-                        continue;
-                    };
-                    const pic = try pdf.image(picture.width, picture.height, picture.pixels);
-                    try images.append(arena, pic);
-                    _ = try placeScaled(&page, picture, pic, x + 4, y0 + 16, .{ 182, 124 }, scale);
-                    const record = (try readJson(TurnRecord, ctx, try std.fs.path.join(arena, &.{ dir, try std.fmt.allocPrint(arena, "{s}.map", .{turn_name}), "sources.json" }))) orelse TurnRecord{};
-                    const how = if (record.sibling.len > 0) try std.fmt.allocPrint(arena, "2003 art of {s}", .{record.sibling}) else "mesh, textured from the 2003 sides";
-                    try page.text(x + 4, y0 + 4, 7, false, .{ 0.3, 0.3, 0.3 }, how);
-                    if (record.mesh) |c| {
-                        try page.text(x + 96, y0 + 144, 6.5, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "outline {d:.3}, holes {d}", .{ c.outline, c.holes }));
-                        try page.text(x + 96, y0 + 136, 6.5, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "patched {d}, colour {d:.1}", .{ c.patched, c.colour }));
-                        if (!lit) {
-                            if (record.sibling.len > 0) totals.sibling += 1 else {
-                                totals.drawn += 1;
-                                totals.worst_outline = @min(totals.worst_outline, c.outline);
-                                totals.holes += c.holes;
-                                totals.patched += c.patched;
-                            }
-                            totals.worst_colour = @max(totals.worst_colour, c.colour);
-                            try summary.writer.print("{d},{s},{d},{s},{d:.4},{d},{d},{d:.1}\n", .{ id, path, k, if (record.sibling.len > 0) record.sibling else "mesh", c.outline, c.holes, c.patched, c.colour });
-                        }
-                    }
-                }
-            }
-            try page.text(30, 12, 7, false, .{ 0.4, 0.4, 0.4 }, "Checks of each turn's intact picture against the mesh turned: outline IoU, mesh pixels left empty (holes), patch-filled pixels, largest mean colour difference of a face kind from the 2003 picture (of 255).");
-            const index = try pdf.page(page_w, page_h, page.out.written(), images.items);
-            if (first) try pdf.bookmark(try std.fmt.allocPrint(arena, "{s}/{s}", .{ family.region, family.family }), index);
-            first = false;
-        }
+/// A picture of where two pictures of one canvas differ: grey by their colour
+/// difference where both are opaque, red where only `a` is, blue where only `b` is.
+fn diffImage(gpa: std.mem.Allocator, a: Image, b: Image) !Image {
+    const out: Image = .{ .width = a.width, .height = a.height, .pixels = try gpa.alloc([4]u8, a.pixels.len) };
+    for (out.pixels, a.pixels, b.pixels) |*d, p, q| {
+        const in_a = p[3] >= 128;
+        const in_b = q[3] >= 128;
+        d.* = if (in_a and in_b) blk: {
+            var sum: u32 = 0;
+            for (0..3) |c| sum += @abs(@as(i32, p[c]) - @as(i32, q[c]));
+            const g: u8 = @intCast(255 - @min(255, sum));
+            break :blk .{ g, g, g, 255 };
+        } else if (in_a) .{ 220, 30, 30, 255 } else if (in_b) .{ 30, 60, 220, 255 } else .{ 0, 0, 0, 0 };
     }
-    var text: std.Io.Writer.Allocating = .init(arena);
-    try pdf.write(&text.writer);
-    const out_dir = std.fs.path.dirname(out) orelse ".";
-    try std.Io.Dir.cwd().createDirPath(ctx.io, out_dir);
-    try writeOut(ctx, out_dir, std.fs.path.basename(out), text.written());
-    try writeOut(ctx, out_dir, "fill-families.csv", try std.fmt.allocPrint(arena, "id,path,turn,drawn,outline,holes,patched,colour\n{s}", .{summary.written()}));
-    try ctx.out.print("wrote {s}: {d} objects, {d} turns as a sibling's 2003 art, {d} drawn on the mesh (outline at least {d:.4}, {d} holes, {d} pixels patched), largest colour difference {d:.1}, {d} turns missing\n", .{ out, totals.objects, totals.sibling, totals.drawn, totals.worst_outline, totals.holes, totals.patched, totals.worst_colour, totals.missing });
+    return out;
 }
 
-/// `model3d`: each full 3D object (`full3dIds`) of the variant folders as
-/// files in the vehicles' format family, `<out-dir>/<number>/`: `1.mod`, per
-/// intact state its atlas as `<state>_h.dds` (what the Game reads), the
-/// lossless `<state>.png` and `<state>.tga` (the Resource Editor's unit
-/// sources) and `<state>_paint.png` (green where a 2003 picture painted a
-/// texel, magenta where the material paint guessed it), and `model.json`;
-/// and the pilot's review, `<review.pdf>` with `full3d.csv` beside it: per
-/// object the 2003 picture, the render at N over it with their measured
-/// match, the mesh's creases, the atlas, the four turns under the 2003 light
-/// and the three under the world's sun, a 2003 sibling against the turn
-/// that shows it, and whether a second build and render give the same bytes.
-fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, review_arg: []const u8, dir_args: []const []const u8) !void {
+/// A picture made at most `side` pixels on its longer side (nearest pixel),
+/// for the review.
+fn shrunk(gpa: std.mem.Allocator, image: Image, side: u32) !Image {
+    const longer = @max(image.width, image.height);
+    if (longer <= side) return image;
+    const w = @max(1, image.width * side / longer);
+    const h = @max(1, image.height * side / longer);
+    const out: Image = .{ .width = w, .height = h, .pixels = try gpa.alloc([4]u8, @as(usize, w) * h) };
+    for (0..h) |y| for (0..w) |x| {
+        out.pixels[y * w + x] = image.pixels[(y * image.height / h) * image.width + x * image.width / w];
+    };
+    return out;
+}
+
+/// Where an atlas's paint came from: green from a 2003 picture, magenta
+/// guessed (material paint), black not reached; clear off every face.
+fn paintMap(gpa: std.mem.Allocator, m: model3d.Model, t: model3d.Texture) !Image {
+    const map: Image = .{ .width = t.image.width, .height = t.image.height, .pixels = try gpa.alloc([4]u8, t.paint.len) };
+    for (map.pixels, t.paint, m.texel_tri) |*p, k, tri| p.* = if (tri == model3d.Model.none) .{ 0, 0, 0, 0 } else switch (k) {
+        .seen => .{ 40, 170, 60, 255 },
+        .guessed => .{ 230, 40, 200, 255 },
+        .none => .{ 0, 0, 0, 255 },
+    };
+    return map;
+}
+
+/// What `model3d` measures of an object and `full3d-review` lays out (the
+/// object's model.json).
+const Full3dReport = struct {
+    id: u32,
+    path: []const u8,
+    mesh: []const u8,
+    status: []const u8,
+    needs_review: bool,
+    atlas: [2]u32,
+    vertices: usize,
+    triangles: usize,
+    charts: usize,
+    groups: []const []const u8,
+    textures: []const struct { state: []const u8, seen: f64, guessed: f64 },
+    /// N against the 2003 picture: the render's outline IoU, the mesh's, the colour difference.
+    n_iou: f64,
+    n_mesh_iou: f64,
+    n_colour: f64,
+    /// Render samples on texels no paint reached: N, the turns, the turns under the sun.
+    holes: usize,
+    /// Pixels of guessed paint at N, E, S, W.
+    guessed_pixels: [4]usize,
+    sibling: ?struct { name: []const u8, turn: u2, laid: f64, iou: f64, colour: f64 } = null,
+    damage: []const struct { state: []const u8, triangles: usize, iou: f64, colour: f64, intact_iou: f64, holes: usize },
+    /// A second build and render gave the same bytes.
+    same: bool,
+};
+
+/// `model3d`: each variant folder's full 3D models (`buildFull3d`) as files
+/// in the vehicles' format family, in `<out-dir>/<number>/`: a `.mod` a model
+/// (`1` the intact building, `2` and `3` its damage states), per state its
+/// atlas as `<state>_h.dds` (what the Game's loader reads), `<state>.tga` (the
+/// Resource Editor's unit source) and `<state>_paint.png` (green where a 2003
+/// picture painted a texel, magenta where the material paint guessed it);
+/// `model.json` (`Full3dReport`: what the review measures, a second build and
+/// render compared byte for byte); and `review/`, the pictures `full3d-review`
+/// lays out: the 2003 picture, the render at N and their difference, the
+/// atlas and its paint map, the turns under the 2003 light (`t<k>`) and the
+/// world's sun (`s<k>`), and per damage state the same at N and its turns.
+/// One run an object, so the batch spreads the objects over the cores.
+fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []const u8) !void {
     const arena = ctx.arena;
     const out = try bk_tool.inputPath(arena, out_arg);
-    const review = try bk_tool.inputPath(arena, review_arg);
-    const page_w = 842.0;
-    const page_h = 595.0;
-    var pdf = try bk_pdf.begin(arena);
-    var csv: std.Io.Writer.Allocating = .init(arena);
-    try csv.writer.writeAll("id,path,vertices,triangles,groups,charts,atlas,seen,guessed,n_iou,n_mesh_iou,n_colour,holes,guessed_pixels_e_s_w,sibling,sibling_turn,sibling_laid_iou,sibling_iou,sibling_colour,same_bytes\n");
     for (dir_args) |dir_arg| {
         const dir = try bk_tool.inputPath(arena, dir_arg);
         const found = findFamily(arena, ctx.io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
         const scene = try loadScene(ctx, found, found.index, null, false);
-        const ms = scene.mesh orelse return ctx.failKey("views.err.read", .{ dir, "NotAFull3dObject" });
-        const m = scene.full3d orelse return ctx.failKey("views.err.read", .{ dir, "NotAFull3dObject" });
+        const ms = scene.mesh orelse return ctx.failKey("views.err.read", .{ dir, "NoMesh" });
+        const intact = scene.full3d[0];
         const own = scene.sources[scene.fixed];
-        const id = ms.model.id;
-        const name = try std.fmt.allocPrint(arena, "{d:0>3}", .{id});
-        const folder = try std.fs.path.join(arena, &.{ out, name });
-        try std.Io.Dir.cwd().createDirPath(ctx.io, folder);
+        const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
+        const folder = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{d:0>3}", .{ms.model.id}) });
+        const review = try std.fs.path.join(arena, &.{ folder, "review" });
+        try std.Io.Dir.cwd().createDirPath(ctx.io, review);
+        const picturePng = struct {
+            fn f(c: *bk_tool.Context, d: []const u8, name: []const u8, image: Image) !void {
+                try writeOut(c, d, name, try writePngDeflated(c.arena, image));
+            }
+        }.f;
 
-        // The files.
-        const mod = try model3d.writeMod(arena, m);
-        try writeOut(ctx, folder, "1.mod", mod);
+        // The files, a model at a time.
         var json: std.Io.Writer.Allocating = .init(arena);
-        try json.writer.print("{{\"id\":{d},\"path\":\"{s}\",\"mesh\":\"{s}\",\"atlas\":[{d},{d}],\"density\":{d},\"wall\":[{d:.4},{d:.4},{d:.4}],\"vertices\":{d},\"triangles\":{d},\"charts\":{d},\"groups\":[", .{ id, ms.model.path, ms.model.shared orelse name, m.width, m.height, model3d.density, m.wall[0], m.wall[1], m.wall[2], m.vertices.len, m.triangles.len, m.charts.len });
-        for (m.groups, 0..) |g, i| try json.writer.print("{s}\"{s}\"", .{ if (i > 0) "," else "", g });
-        try json.writer.writeAll("],\"textures\":[");
-        var seen_share: f64 = 0;
-        var guessed_share: f64 = 0;
-        for (m.textures, 0..) |t, i| {
-            var counts = [3]f64{ 0, 0, 0 };
-            const map: Image = .{ .width = t.image.width, .height = t.image.height, .pixels = try arena.alloc([4]u8, t.paint.len) };
-            for (map.pixels, t.paint, m.texel_tri) |*p, k, tri| {
-                p.* = if (tri == model3d.Model.none) .{ 0, 0, 0, 0 } else switch (k) {
-                    .seen => .{ 40, 170, 60, 255 },
-                    .guessed => .{ 230, 40, 200, 255 },
-                    .none => .{ 0, 0, 0, 255 },
-                };
+        const w = &json.writer;
+        try w.print("{{\"id\":{d},\"path\":\"{s}\",\"mesh\":\"{s}\",\"status\":\"{s}\",\"needs_review\":{},\"atlas\":[{d},{d}],\"density\":{d},\"wall\":[{d:.4},{d:.4},{d:.4}],\"vertices\":{d},\"triangles\":{d},\"charts\":{d},\"groups\":[", .{ ms.model.id, ms.model.path, ms.model.shared orelse "own", ms.model.status, ms.model.needs_review, intact.width, intact.height, model3d.density, intact.wall[0], intact.wall[1], intact.wall[2], intact.vertices.len, intact.triangles.len, intact.charts.len });
+        for (intact.groups, 0..) |g, i| try w.print("{s}\"{s}\"", .{ if (i > 0) "," else "", g });
+        try w.writeAll("],\r\n\"textures\":[");
+        var mods: std.ArrayList([]const u8) = .empty;
+        var first_texture = true;
+        for (scene.full3d) |m| {
+            const mod = try model3d.writeMod(arena, m);
+            try mods.append(arena, mod);
+            try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}.mod", .{m.textures[0].state[0..1]}), mod);
+            for (m.textures) |t| {
+                var counts = [3]f64{ 0, 0, 0 };
                 // Faces that look down (floors, eaves' undersides) no turn shows.
-                if (tri != model3d.Model.none and !std.mem.eql(u8, model3d.lookOf(m.groups[m.triangles[tri].group]), "under")) counts[@intFromEnum(k)] += 1;
+                for (t.paint, m.texel_tri) |k, tri| {
+                    if (tri != model3d.Model.none and !std.mem.eql(u8, model3d.lookOf(m.groups[m.triangles[tri].group]), "under")) counts[@intFromEnum(k)] += 1;
+                }
+                const on = @max(counts[0] + counts[1] + counts[2], 1);
+                try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}_h.dds", .{t.state}), try model3d.writeDds(arena, t.image));
+                try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}.tga", .{t.state}), try model3d.writeTga(arena, t.image));
+                try picturePng(ctx, folder, try std.fmt.allocPrint(arena, "{s}_paint.png", .{t.state}), try paintMap(arena, m, t));
+                try w.print("{s}{{\"state\":\"{s}\",\"seen\":{d:.4},\"guessed\":{d:.4}}}", .{ if (first_texture) "" else ",", t.state, counts[1] / on, counts[2] / on });
+                first_texture = false;
             }
-            const on = counts[0] + counts[1] + counts[2];
-            if (std.mem.eql(u8, t.state, "1")) {
-                seen_share = counts[1] / @max(on, 1);
-                guessed_share = counts[2] / @max(on, 1);
-            }
-            try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}_h.dds", .{t.state}), try model3d.writeDds(arena, t.image));
-            try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}.png", .{t.state}), try writePng(arena, t.image));
-            try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}.tga", .{t.state}), try model3d.writeTga(arena, t.image));
-            try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}_paint.png", .{t.state}), try writePng(arena, map));
-            try json.writer.print("{s}{{\"state\":\"{s}\",\"seen\":{d:.4},\"guessed\":{d:.4}}}", .{ if (i > 0) "," else "", t.state, counts[1] / @max(on, 1), counts[2] / @max(on, 1) });
         }
-        try json.writer.writeAll("]}\r\n");
-        try writeOut(ctx, folder, "model.json", json.written());
+        const tex = intact.texture("1").?;
+        try picturePng(ctx, review, "atlas.png", try shrunk(arena, tex.image, 512));
+        try picturePng(ctx, review, "paint.png", try shrunk(arena, try paintMap(arena, intact, tex), 512));
 
         // N on the 2003 picture's own canvas, at its zero cross: the
         // projection must be the 2003 camera's to the pixel, so no shift.
         const picture = pictureOf(own, "1").?;
-        const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
-        const n = try model3d.render(arena, m, "1", 0, 0, anchor, .{ picture.width, picture.height });
+        const n = try model3d.render(arena, intact, "1", 0, 0, anchor, .{ picture.width, picture.height });
         const n_match = artMatch(n.image, picture, .{ 0, 0 }, false);
         const at_n = try meshSeen(arena, ms, ms.views[0].placement, 0, anchor, .{ picture.width, picture.height });
         var both: f64 = 0;
@@ -7424,123 +7205,355 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, review_arg: []cons
             both += @floatFromInt(@intFromBool(p[3] >= 128 and t != mesh.Raster.none));
             either += @floatFromInt(@intFromBool(p[3] >= 128 or t != mesh.Raster.none));
         }
-        const mesh_iou = if (either == 0) 0 else both / either;
+        try picturePng(ctx, review, "pic.png", picture);
+        try picturePng(ctx, review, "n.png", n.image);
+        try picturePng(ctx, review, "diff.png", try diffImage(arena, picture, n.image));
 
         // The turns as `side` draws them, on its canvases.
         var turns: [4]model3d.Rendered = undefined;
-        var lit: [4]?model3d.Rendered = .{ null, null, null, null };
         var holes: usize = n.unpainted;
         var guessed_pixels: [4]usize = .{ 0, 0, 0, 0 };
+        for (n.guessed) |g| guessed_pixels[0] += @intFromBool(g);
         for (0..4) |k| {
             const t = turnTarget(scene, @intCast(k), @intCast(k), "");
-            turns[k] = try model3d.render(arena, m, "1", @intCast(k), @intCast(k), t.eye.anchor, t.size);
+            turns[k] = try model3d.render(arena, intact, "1", @intCast(k), @intCast(k), t.eye.anchor, t.size);
             holes += turns[k].unpainted;
+            if (k == 0) continue;
             for (turns[k].guessed) |g| guessed_pixels[k] += @intFromBool(g);
             // N lit by the sun at camera step 0 is N under the 2003 light.
-            lit[k] = if (k == 0) turns[0] else try model3d.render(arena, m, "1", @intCast(k), 0, t.eye.anchor, t.size);
-            if (k > 0) holes += lit[k].?.unpainted;
+            const lit = try model3d.render(arena, intact, "1", @intCast(k), 0, t.eye.anchor, t.size);
+            holes += lit.unpainted;
+            try picturePng(ctx, review, try std.fmt.allocPrint(arena, "t{d}.png", .{k}), turns[k].image);
+            try picturePng(ctx, review, try std.fmt.allocPrint(arena, "s{d}.png", .{k}), lit.image);
         }
+        try w.print("],\r\n\"n_iou\":{d:.4},\"n_mesh_iou\":{d:.4},\"n_colour\":{d:.2},\"holes\":{d},\"guessed_pixels\":[{d},{d},{d},{d}]", .{ n_match.iou, if (either == 0) 0 else both / either, n_match.colour, holes, guessed_pixels[0], guessed_pixels[1], guessed_pixels[2], guessed_pixels[3] });
+
         // A 2003 sibling of the colourway against the turn that shows it.
-        var sibling: ?struct { name: []const u8, turn: u2, start: [2]i64, laid: f64, match: ArtMatch } = null;
         for (ms.views[1..]) |v| {
             const source = scene.sources[v.source];
             const eye = scene.eyes[v.source];
             const art = pictureOf(source, "1") orelse continue;
             const t = turnTarget(scene, eye.turn, eye.turn, "");
             const shift = mfc_camera.project(.{ eye.shift[0], eye.shift[1], 0 });
-            const start = [2]i64{ @intFromFloat(@round(t.eye.anchor[0] - @as(f64, @floatFromInt(source.anchor[0])) - shift[0])), @intFromFloat(@round(t.eye.anchor[1] - @as(f64, @floatFromInt(source.anchor[1])) - shift[1])) };
-            sibling = .{ .name = std.fs.path.basename(source.dir), .turn = eye.turn, .start = start, .laid = shiftedIou(turns[eye.turn].image, art, start), .match = artMatch(turns[eye.turn].image, art, start, true) };
+            const start = [2]i64{ @intFromFloat(@round(t.eye.anchor[0] - anchor[0] - shift[0])), @intFromFloat(@round(t.eye.anchor[1] - anchor[1] - shift[1])) };
+            const match = artMatch(turns[eye.turn].image, art, start, true);
+            try w.print(",\r\n\"sibling\":{{\"name\":\"{s}\",\"turn\":{d},\"laid\":{d:.4},\"iou\":{d:.4},\"colour\":{d:.2}}}", .{ std.fs.path.basename(source.dir), eye.turn, shiftedIou(turns[eye.turn].image, art, start), match.iou, match.colour });
             break;
         }
-        // The same bytes again: the model built anew and rendered anew.
+
+        // The damage states: each model at N against its 2003 picture (and
+        // the intact model against it, what the cut changes), and turned.
+        try w.writeAll(",\r\n\"damage\":[");
+        for (scene.full3d[1..], 0..) |m, i| {
+            const state = m.textures[0].state;
+            const art = pictureOf(own, state).?;
+            const dn = try model3d.render(arena, m, state, 0, 0, anchor, .{ art.width, art.height });
+            const match = artMatch(dn.image, art, .{ 0, 0 }, false);
+            const before = artMatch(n.image, art, .{ 0, 0 }, false);
+            var damage_holes = dn.unpainted;
+            try picturePng(ctx, review, try std.fmt.allocPrint(arena, "d{s}_pic.png", .{state}), art);
+            try picturePng(ctx, review, try std.fmt.allocPrint(arena, "d{s}_n.png", .{state}), dn.image);
+            try picturePng(ctx, review, try std.fmt.allocPrint(arena, "d{s}_diff.png", .{state}), try diffImage(arena, art, dn.image));
+            for (1..4) |k| {
+                const t = turnTarget(scene, @intCast(k), @intCast(k), "");
+                const r = try model3d.render(arena, m, state, @intCast(k), @intCast(k), t.eye.anchor, t.size);
+                damage_holes += r.unpainted;
+                try picturePng(ctx, review, try std.fmt.allocPrint(arena, "d{s}_t{d}.png", .{ state, k }), r.image);
+            }
+            try w.print("{s}{{\"state\":\"{s}\",\"triangles\":{d},\"iou\":{d:.4},\"colour\":{d:.2},\"intact_iou\":{d:.4},\"holes\":{d}}}", .{ if (i > 0) "," else "", state, m.triangles.len, match.iou, match.colour, before.iou, damage_holes });
+        }
+
+        // The same bytes again: the models built anew, their files and the
+        // intact turns compared.
         const again = try buildFull3d(arena, scene.sources, ms, scene.states);
-        var same = std.mem.eql(u8, mod, try model3d.writeMod(arena, again));
-        for (m.textures, again.textures) |a, b| same = same and std.mem.eql(u8, std.mem.sliceAsBytes(a.image.pixels), std.mem.sliceAsBytes(b.image.pixels));
+        var same = again.len == scene.full3d.len;
+        if (same) for (scene.full3d, again, mods.items) |a, b, mod| {
+            same = same and std.mem.eql(u8, mod, try model3d.writeMod(arena, b));
+            for (a.textures, b.textures) |ta, tb| same = same and std.mem.eql(u8, std.mem.sliceAsBytes(ta.image.pixels), std.mem.sliceAsBytes(tb.image.pixels));
+        };
         for (0..4) |k| {
             const t = turnTarget(scene, @intCast(k), @intCast(k), "");
-            same = same and std.mem.eql(u8, std.mem.sliceAsBytes(turns[k].image.pixels), std.mem.sliceAsBytes((try model3d.render(arena, again, "1", @intCast(k), @intCast(k), t.eye.anchor, t.size)).image.pixels));
+            same = same and std.mem.eql(u8, std.mem.sliceAsBytes(turns[k].image.pixels), std.mem.sliceAsBytes((try model3d.render(arena, again[0], "1", @intCast(k), @intCast(k), t.eye.anchor, t.size)).image.pixels));
         }
-        try csv.writer.print("{d},{s},{d},{d},{d},{d},{d}x{d},{d:.4},{d:.4},{d:.4},{d:.4},{d:.2},{d},{d}/{d}/{d},{s},{d},{d:.4},{d:.4},{d:.2},{}\n", .{
-            id,                                  ms.model.path,     m.vertices.len,    m.triangles.len,                        m.groups.len, m.charts.len, m.width, m.height, seen_share, guessed_share, n_match.iou, mesh_iou, n_match.colour, holes,
-            guessed_pixels[1],                   guessed_pixels[2], guessed_pixels[3], if (sibling) |s| s.name else "",        if (sibling) |s| @as(u8, s.turn) else 0, if (sibling) |s| s.laid else 0,
-            if (sibling) |s| s.match.iou else 0, if (sibling) |s| s.match.colour else 0, same,
+        try w.print("],\r\n\"same\":{}}}\r\n", .{same});
+        try writeOut(ctx, folder, "model.json", json.written());
+        try ctx.out.print("wrote {s}: {d} models, atlas {d}x{d}; N against 2003: outline {d:.4}, colour {d:.2}; holes {d}; same bytes {}\n", .{ folder, scene.full3d.len, intact.width, intact.height, n_match.iou, n_match.colour, holes, same });
+    }
+}
+
+/// `full3d-review`: every object `model3d` wrote into `<models-dir>` laid out
+/// for the maintainer, by number, with a contents index as the shapes
+/// review's: per object a page with the 2003 picture, the render at N and
+/// their difference, the mesh's creases, the atlas and its paint map and the
+/// numbers; a page with the four turns under the 2003 light and under the
+/// world's sun; and where it has damage states a page with each at N against
+/// its 2003 picture and turned. Beside the PDF `full3d.csv` (the numbers of
+/// every object) and `full3d-ranked.csv` (the objects that most need paint
+/// and those whose mesh most needs fixing, worst first).
+fn full3dReviewCommand(ctx: *bk_tool.Context, out_arg: []const u8, models_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const models = try bk_tool.inputPath(arena, models_arg);
+    var reports: std.ArrayList(Full3dReport) = .empty;
+    for (try entries(arena, ctx.io, models, .directory)) |name| {
+        const report = (try readJson(Full3dReport, ctx, try std.fs.path.join(arena, &.{ models, name, "model.json" }))) orelse continue;
+        try reports.append(arena, report);
+    }
+    std.mem.sort(Full3dReport, reports.items, {}, struct {
+        fn less(_: void, a: Full3dReport, b: Full3dReport) bool {
+            return a.id < b.id;
+        }
+    }.less);
+    const items = reports.items;
+    const page_w = 842.0;
+    const page_h = 595.0;
+    var pdf = try bk_pdf.begin(arena);
+
+    // The distributions over all objects.
+    const Stat = struct {
+        fn median(gpa: std.mem.Allocator, values: []const f64) !f64 {
+            if (values.len == 0) return 0;
+            const sorted = try gpa.dupe(f64, values);
+            std.mem.sort(f64, sorted, {}, std.sort.asc(f64));
+            return sorted[sorted.len / 2];
+        }
+        fn lowest(values: []const f64) f64 {
+            return if (values.len == 0) 0 else std.mem.min(f64, values);
+        }
+        fn highest(values: []const f64) f64 {
+            return if (values.len == 0) 0 else std.mem.max(f64, values);
+        }
+    };
+    var n_ious: std.ArrayList(f64) = .empty;
+    var colours: std.ArrayList(f64) = .empty;
+    var guessed: std.ArrayList(f64) = .empty;
+    var damage_ious: std.ArrayList(f64) = .empty;
+    var holes: usize = 0;
+    var different: usize = 0;
+    var pages: usize = 0;
+    for (items) |r| {
+        try n_ious.append(arena, r.n_iou);
+        try colours.append(arena, r.n_colour);
+        try guessed.append(arena, r.textures[0].guessed);
+        for (r.damage) |d| try damage_ious.append(arena, d.iou);
+        holes += r.holes;
+        for (r.damage) |d| holes += d.holes;
+        different += @intFromBool(!r.same);
+        pages += 2 + @as(usize, @intFromBool(r.damage.len > 0));
+    }
+    const summary = try std.fmt.allocPrint(arena, "{d} objects, {d} damage states; N outline IoU median {d:.3} (lowest {d:.3}), N colour median {d:.2} (highest {d:.2}), guessed texels median {d:.0}%, damage states at N outline IoU median {d:.3} (lowest {d:.3}); holes {d}; second build different: {d}", .{
+        items.len,                                 damage_ious.items.len,                  try Stat.median(arena, n_ious.items), Stat.lowest(n_ious.items),
+        try Stat.median(arena, colours.items),     Stat.highest(colours.items),            100 * try Stat.median(arena, guessed.items),
+        try Stat.median(arena, damage_ious.items), Stat.lowest(damage_ious.items),         holes,                                different,
+    });
+
+    // Contents: the convention, then two columns of entries.
+    const per_column = 46;
+    const first_rows = 30;
+    const contents_pages: usize = if (items.len <= 2 * first_rows) 1 else 1 + (items.len - 2 * first_rows + 2 * per_column - 1) / (2 * per_column);
+    var at: usize = 0;
+    var next_page: usize = contents_pages + 1;
+    for (0..contents_pages) |cp| {
+        var page: bk_pdf.Page = .init(arena);
+        var top: f64 = page_h - 40;
+        if (cp == 0) {
+            try page.text(30, top, 20, true, .{ 0, 0, 0 }, "Blitzkrieg full 3D objects: every building and object as a textured model");
+            top -= 22;
+            const lines = [_][]const u8{
+                "Each object (its number as in shapes.pdf) is a model of its tracked mesh, its atlas painted from the 2003 pictures, rendered to the four",
+                "turns: <number>.N is turn 0, the side its 2003 picture shows, E, S and W the turns one, two and three presses of the Game's turn key",
+                "show, under the 2003 light fixed to the camera and lit by the world's sun. A damage state is a model of its own: the intact one cut",
+                "where the damaged 2003 picture at N no longer reaches (walls above the outline gone, roofs lowered onto it), painted from that",
+                "picture. Magenta paint is guessed (material paint: no 2003 picture sees it), the first place to paint. * marks a mesh to review.",
+            };
+            for (lines) |l| {
+                try page.text(30, top, 9.5, false, .{ 0, 0, 0 }, l);
+                top -= 12;
+            }
+            const wrapped = try wrapText(arena, summary, 170);
+            for (wrapped) |l| {
+                try page.text(30, top, 9.5, true, .{ 0.1, 0.3, 0.4 }, l);
+                top -= 12;
+            }
+            top -= 8;
+        }
+        const rows: usize = if (cp == 0) first_rows else per_column;
+        for (0..2) |column| for (0..rows) |row| {
+            if (at == items.len) break;
+            const r = items[at];
+            const y = top - @as(f64, @floatFromInt(row)) * 11.5;
+            const x = 30 + @as(f64, @floatFromInt(column)) * 400;
+            try page.text(x, y, 9, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}", .{r.id}));
+            try page.text(x + 32, y, 8, false, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{s}{s}  N {d:.2}{s}", .{ r.path, if (r.needs_review) " *" else "", r.n_iou, if (r.damage.len > 0) try std.fmt.allocPrint(arena, ", {d} damage states", .{r.damage.len}) else "" }));
+            try page.text(x + 360, y, 9, false, .{ 0.3, 0.3, 0.3 }, try std.fmt.allocPrint(arena, "p. {d}", .{next_page}));
+            next_page += 2 + @as(usize, @intFromBool(r.damage.len > 0));
+            at += 1;
+        };
+        _ = try pdf.page(page_w, page_h, page.out.written(), &.{});
+    }
+    try pdf.bookmark("Contents", 0);
+
+    var csv: std.Io.Writer.Allocating = .init(arena);
+    try csv.writer.writeAll("id,path,status,needs_review,triangles,groups,charts,atlas,seen,guessed,n_iou,n_mesh_iou,n_colour,holes,guessed_pixels_e_s_w,sibling,sibling_turn,sibling_laid_iou,sibling_iou,sibling_colour,damage_states,damage_iou,damage_intact_iou,damage_colour,damage_holes,winter_guessed,same_bytes\r\n");
+    for (items) |r| {
+        const folder = try std.fs.path.join(arena, &.{ models, try std.fmt.allocPrint(arena, "{d:0>3}", .{r.id}) });
+        const review = try std.fs.path.join(arena, &.{ folder, "review" });
+        // The object's pictures, gone once its pages hold them (deflated).
+        var scratch: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
+        defer scratch.deinit();
+        const Loader = struct {
+            c: *bk_tool.Context,
+            gpa: std.mem.Allocator,
+            fn f(l: @This(), d: []const u8, name: []const u8) !Image {
+                const bytes = try std.Io.Dir.cwd().readFileAlloc(l.c.io, try std.fs.path.join(l.gpa, &.{ d, name }), l.gpa, .limited(256 * 1024 * 1024));
+                return readPng(l.gpa, bytes);
+            }
+        };
+        const loader: Loader = .{ .c = ctx, .gpa = scratch.allocator() };
+        var damage_text: [4]std.Io.Writer.Allocating = .{ .init(arena), .init(arena), .init(arena), .init(arena) };
+        for (r.damage, 0..) |d, i| {
+            const sep = if (i > 0) "/" else "";
+            try damage_text[0].writer.print("{s}{d:.4}", .{ sep, d.iou });
+            try damage_text[1].writer.print("{s}{d:.4}", .{ sep, d.intact_iou });
+            try damage_text[2].writer.print("{s}{d:.2}", .{ sep, d.colour });
+            try damage_text[3].writer.print("{s}{d}", .{ sep, d.holes });
+        }
+        var winter: ?f64 = null;
+        for (r.textures) |t| if (std.mem.eql(u8, t.state, "1w")) {
+            winter = t.guessed;
+        };
+        try csv.writer.print("{d},{s},{s},{},{d},{d},{d},{d}x{d},{d:.4},{d:.4},{d:.4},{d:.4},{d:.2},{d},{d}/{d}/{d},{s},{d},{d:.4},{d:.4},{d:.2},{d},{s},{s},{s},{s},{s},{}\r\n", .{
+            r.id,                                  r.path,                                    r.status,                                   r.needs_review,                         r.triangles,                                             r.groups.len,         r.charts,                 r.atlas[0],               r.atlas[1], r.textures[0].seen, r.textures[0].guessed, r.n_iou, r.n_mesh_iou, r.n_colour, r.holes,
+            r.guessed_pixels[1],                   r.guessed_pixels[2],                       r.guessed_pixels[3],                        if (r.sibling) |s| s.name else "",      if (r.sibling) |s| @as(u8, s.turn) else 0,               if (r.sibling) |s| s.laid else 0, if (r.sibling) |s| s.iou else 0, if (r.sibling) |s| s.colour else 0,
+            r.damage.len,                          damage_text[0].written(),                  damage_text[1].written(),                   damage_text[2].written(),               damage_text[3].written(),                                if (winter) |g| try std.fmt.allocPrint(arena, "{d:.4}", .{g}) else "", r.same,
         });
-        try ctx.out.print("wrote {s}: {d} groups, {d} charts, atlas {d}x{d}, seen {d:.3}, guessed {d:.3}; N against 2003: outline {d:.4} (mesh {d:.4}), colour {d:.2}; holes {d}; same bytes {}\n", .{ folder, m.groups.len, m.charts.len, m.width, m.height, seen_share, guessed_share, n_match.iou, mesh_iou, n_match.colour, holes, same });
 
         // Page 1: the model and its paint against the 2003 picture.
         var page: bk_pdf.Page = .init(arena);
         var images: std.ArrayList(u32) = .empty;
-        try page.text(30, page_h - 42, 26, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}", .{id}));
-        try page.text(100, page_h - 34, 13, true, .{ 0, 0, 0 }, ms.model.path);
-        try page.text(100, page_h - 50, 9, false, .{ 0.12, 0.35, 0.45 }, try std.fmt.allocPrint(arena, "full 3D model: {d} vertices, {d} triangles, {d} charts, atlas {d} x {d} at {d} texels a world unit; mesh {s} ({s})", .{ m.vertices.len, m.triangles.len, m.charts.len, m.width, m.height, model3d.density, ms.model.shared orelse name, ms.model.status }));
-        _ = try paragraph(&page, arena, 100, page_h - 62, try std.fmt.allocPrint(arena, "Parts (groups and Resource Editor locators): {s}", .{try std.mem.join(arena, ", ", m.groups)}), 150, 7.5, .{ 0.2, 0.2, 0.2 });
+        try page.text(30, page_h - 42, 26, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}", .{r.id}));
+        try page.text(100, page_h - 34, 13, true, .{ 0, 0, 0 }, r.path);
+        try page.text(100, page_h - 50, 9, false, .{ 0.12, 0.35, 0.45 }, try std.fmt.allocPrint(arena, "full 3D model: {d} vertices, {d} triangles, {d} charts, atlas {d} x {d} at {d} texels a world unit; mesh {s} ({s}{s})", .{ r.vertices, r.triangles, r.charts, r.atlas[0], r.atlas[1], model3d.density, r.mesh, r.status, if (r.needs_review) ", needs review" else "" }));
+        _ = try paragraph(&page, arena, 100, page_h - 62, try std.fmt.allocPrint(arena, "Parts (groups and Resource Editor locators): {s}", .{try std.mem.join(arena, ", ", r.groups)}), 150, 7.5, .{ 0.2, 0.2, 0.2 });
         const box = [2]f64{ 190, 170 };
         const row_y = 330.0;
         const labels = [_][]const u8{ "2003 picture (N)", "render N, 2003 light", "difference (red: 2003 only, blue: model only)", "mesh creases at N" };
         for (labels, 0..) |label, i| try page.text(30 + @as(f64, @floatFromInt(i)) * 200, row_y + box[1] + 6, 8, false, .{ 0.2, 0.2, 0.2 }, label);
-        const diff: Image = .{ .width = picture.width, .height = picture.height, .pixels = try arena.alloc([4]u8, picture.pixels.len) };
-        for (diff.pixels, picture.pixels, n.image.pixels) |*d, a, b| {
-            const in_a = a[3] >= 128;
-            const in_b = b[3] >= 128;
-            d.* = if (in_a and in_b) blk: {
-                var sum: u32 = 0;
-                for (0..3) |c| sum += @abs(@as(i32, a[c]) - @as(i32, b[c]));
-                const g: u8 = @intCast(255 - @min(255, sum));
-                break :blk .{ g, g, g, 255 };
-            } else if (in_a) .{ 220, 30, 30, 255 } else if (in_b) .{ 30, 60, 220, 255 } else .{ 0, 0, 0, 0 };
-        }
-        for ([_]Image{ picture, n.image, diff }, 0..) |image, i| {
+        for ([_][]const u8{ "pic.png", "n.png", "diff.png" }, 0..) |name, i| {
+            const image = try loader.f(review, name);
             const pid = try pdf.image(image.width, image.height, image.pixels);
             try images.append(arena, pid);
             _ = try placePicture(&page, image, pid, 30 + @as(f64, @floatFromInt(i)) * 200, row_y, box);
         }
         try page.polygon(&.{ .{ 630, row_y }, .{ 630 + box[0], row_y }, .{ 630 + box[0], row_y + box[1] }, .{ 630, row_y + box[1] } }, .{ 0.97, 0.97, 0.97 }, null, 0);
-        try drawCreases(arena, &page, ms.model, ms.tris, ms.views[0].placement.alignment, .{ 640, row_y + 10, 620 + box[0], row_y + box[1] - 10 });
-        var y = try paragraph(&page, arena, 30, row_y - 14, try std.fmt.allocPrint(arena, "Render N against the 2003 picture, on its canvas at its zero cross (no shift): outline IoU {d:.4} (the mesh alone {d:.4}), mean colour difference {d:.2} of 255 where both are opaque. Holes (samples on unpainted texels) in N, the four turns and the three under the world's sun: {d}. A second build and render: {s}.", .{ n_match.iou, mesh_iou, n_match.colour, holes, if (same) "the same bytes" else "DIFFERENT bytes" }), 150, 8, .{ 0.1, 0.1, 0.1 });
-        if (sibling) |s| y = try paragraph(&page, arena, 30, y - 2, try std.fmt.allocPrint(arena, "The 2003 sibling {s} against turn {d}.{c} that shows its side: outline IoU {d:.4} where the footprints lay it, {d:.4} at the best shift ({d}, {d} pixels from there), colour difference {d:.2} there.", .{ s.name, id, side_letters[s.turn], s.laid, s.match.iou, s.match.shift[0] - s.start[0], s.match.shift[1] - s.start[1], s.match.colour }), 150, 8, .{ 0.1, 0.1, 0.1 });
-        // The atlas and where its paint came from.
-        const tex = m.texture("1").?;
-        const atlas_box = [2]f64{ 380, 220 };
-        const atlas_scale = @min(atlas_box[0] / @as(f64, @floatFromInt(tex.image.width)), atlas_box[1] / @as(f64, @floatFromInt(tex.image.height)));
-        try page.text(30, 256, 8, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "texture atlas, summer (1.png, 1_h.dds): seen {d:.1}%, guessed {d:.1}% of the texels of faces that look up or sideways", .{ seen_share * 100, guessed_share * 100 }));
-        try page.text(430, 256, 8, false, .{ 0.2, 0.2, 0.2 }, "paint source: green from a 2003 picture, magenta material paint (guessed)");
-        const atlas_id = try pdf.image(tex.image.width, tex.image.height, tex.image.pixels);
-        try images.append(arena, atlas_id);
-        _ = try placeScaled(&page, tex.image, atlas_id, 30, 30, atlas_box, atlas_scale);
-        const map: Image = .{ .width = tex.image.width, .height = tex.image.height, .pixels = try arena.alloc([4]u8, tex.paint.len) };
-        for (map.pixels, tex.paint, m.texel_tri) |*p, k, tri| p.* = if (tri == model3d.Model.none) .{ 0, 0, 0, 0 } else if (k == .seen) .{ 40, 170, 60, 255 } else .{ 230, 40, 200, 255 };
-        const map_id = try pdf.image(map.width, map.height, map.pixels);
-        try images.append(arena, map_id);
-        _ = try placeScaled(&page, map, map_id, 430, 30, atlas_box, atlas_scale);
+        if (try mesh.load(arena, ctx.io, mesh.meshes_dir, r.id)) |m| try drawCreases(arena, &page, m, try mesh.triangles(arena, m), m.alignment, .{ 640, row_y + 10, 620 + box[0], row_y + box[1] - 10 });
+        var y = try paragraph(&page, arena, 30, row_y - 14, try std.fmt.allocPrint(arena, "Render N against the 2003 picture, on its canvas at its zero cross (no shift): outline IoU {d:.4} (the mesh alone {d:.4}), mean colour difference {d:.2} of 255 where both are opaque. Holes (samples on unpainted texels) in N, the turns and those under the world's sun{s}: {d}. A second build and render: {s}.", .{ r.n_iou, r.n_mesh_iou, r.n_colour, if (r.damage.len > 0) " and the damage states" else "", r.holes, if (r.same) "the same bytes" else "DIFFERENT bytes" }), 150, 8, .{ 0.1, 0.1, 0.1 });
+        if (r.sibling) |s| y = try paragraph(&page, arena, 30, y - 2, try std.fmt.allocPrint(arena, "The 2003 sibling {s} against turn {d}.{c} that shows its side: outline IoU {d:.4} where the footprints lay it, {d:.4} at the best shift, colour difference {d:.2} there.", .{ s.name, r.id, side_letters[s.turn], s.laid, s.iou, s.colour }), 150, 8, .{ 0.1, 0.1, 0.1 });
+        var shares: std.Io.Writer.Allocating = .init(arena);
+        for (r.textures, 0..) |t, i| try shares.writer.print("{s}{s} {d:.0}%", .{ if (i > 0) ", " else "", t.state, 100 * t.guessed });
+        try page.text(30, 256, 8, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "texture atlas, summer (1_h.dds): seen {d:.1}%, guessed {d:.1}% of the texels of faces that look up or sideways", .{ r.textures[0].seen * 100, r.textures[0].guessed * 100 }));
+        try page.text(430, 256, 8, false, .{ 0.2, 0.2, 0.2 }, try std.fmt.allocPrint(arena, "paint source: green from a 2003 picture, magenta guessed. Guessed: {s}", .{shares.written()}));
+        for ([_][]const u8{ "atlas.png", "paint.png" }, [_]f64{ 30, 430 }) |name, x| {
+            const image = try loader.f(review, name);
+            const pid = try pdf.image(image.width, image.height, image.pixels);
+            try images.append(arena, pid);
+            const atlas_box = [2]f64{ 380, 220 };
+            _ = try placeScaled(&page, image, pid, x, 30, atlas_box, @min(atlas_box[0] / @as(f64, @floatFromInt(image.width)), atlas_box[1] / @as(f64, @floatFromInt(image.height))));
+        }
         const first = try pdf.page(page_w, page_h, page.out.written(), images.items);
-        try pdf.bookmark(try std.fmt.allocPrint(arena, "{d} {s}", .{ id, ms.model.path }), first);
+        try pdf.bookmark(try std.fmt.allocPrint(arena, "{d} {s}", .{ r.id, r.path }), first);
 
         // Page 2: the four turns.
         page = .init(arena);
         images = .empty;
-        try page.text(30, page_h - 34, 16, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}  {s}: the model turned", .{ id, ms.model.path }));
+        try page.text(30, page_h - 34, 16, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}  {s}: the model turned", .{ r.id, r.path }));
+        var turns: [2][4]Image = undefined;
+        turns[0][0] = try loader.f(review, "n.png");
+        turns[1][0] = turns[0][0];
         var scale: f64 = 3;
-        for (turns) |t| scale = @min(scale, 182 / @as(f64, @floatFromInt(t.image.width)), 200 / @as(f64, @floatFromInt(t.image.height)));
-        for ([2]bool{ false, true }, 0..) |sun, row| {
+        for (1..4) |k| {
+            turns[0][k] = try loader.f(review, try std.fmt.allocPrint(arena, "t{d}.png", .{k}));
+            turns[1][k] = try loader.f(review, try std.fmt.allocPrint(arena, "s{d}.png", .{k}));
+        }
+        for (turns[0]) |t| scale = @min(scale, 182 / @as(f64, @floatFromInt(t.width)), 200 / @as(f64, @floatFromInt(t.height)));
+        for (0..2) |row| {
             const y0 = 290 - @as(f64, @floatFromInt(row)) * 265;
-            try page.text(30, y0 + 238, 9, true, .{ 0, 0, 0 }, if (sun) "lit by the world's sun at the camera step that shows each turn (_r<k>_l<k>)" else "under the 2003 light, fixed to the camera (in the Game N is the 2003 sprite, E, S, W these, _r<k>)");
+            try page.text(30, y0 + 238, 9, true, .{ 0, 0, 0 }, if (row == 1) "lit by the world's sun at the camera step that shows each turn (_r<k>_l<k>)" else "under the 2003 light, fixed to the camera (in the Game N is the 2003 sprite, E, S, W these, _r<k>)");
             for (0..4) |k| {
                 const x = 30 + @as(f64, @floatFromInt(k)) * 197;
                 try page.polygon(&.{ .{ x, y0 }, .{ x + 190, y0 }, .{ x + 190, y0 + 232 }, .{ x, y0 + 232 } }, .{ 0.97, 0.97, 0.97 }, .{ 0.75, 0.75, 0.75 }, 0.5);
-                try page.text(x + 4, y0 + 216, 12, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}.{c}", .{ id, side_letters[k] }));
-                const r = if (sun) (lit[k] orelse continue) else turns[k];
-                const pid = try pdf.image(r.image.width, r.image.height, r.image.pixels);
+                try page.text(x + 4, y0 + 216, 12, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}.{c}", .{ r.id, side_letters[k] }));
+                const image = turns[row][k];
+                const pid = try pdf.image(image.width, image.height, image.pixels);
                 try images.append(arena, pid);
-                _ = try placeScaled(&page, r.image, pid, x + 4, y0 + 12, .{ 182, 200 }, scale);
-                if (!sun) try page.text(x + 4, y0 + 4, 7, false, .{ 0.3, 0.3, 0.3 }, try std.fmt.allocPrint(arena, "{d} pixels of guessed paint", .{guessed_pixels[k]}));
+                _ = try placeScaled(&page, image, pid, x + 4, y0 + 12, .{ 182, 200 }, if (k == 0) @min(3, 182 / @as(f64, @floatFromInt(image.width)), 200 / @as(f64, @floatFromInt(image.height))) else scale);
+                if (row == 0) try page.text(x + 4, y0 + 4, 7, false, .{ 0.3, 0.3, 0.3 }, try std.fmt.allocPrint(arena, "{d} pixels of guessed paint", .{r.guessed_pixels[k]}));
+            }
+        }
+        _ = try pdf.page(page_w, page_h, page.out.written(), images.items);
+
+        // Page 3: the damage states, compact.
+        if (r.damage.len == 0) continue;
+        page = .init(arena);
+        images = .empty;
+        try page.text(30, page_h - 34, 16, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}  {s}: the damage states", .{ r.id, r.path }));
+        try page.text(30, page_h - 50, 8.5, false, .{ 0.2, 0.2, 0.2 }, "Each a model of its own: the intact model cut where the damaged 2003 picture at N no longer reaches, painted from it; its N, its difference, its turns.");
+        for (r.damage, 0..) |d, row| {
+            const y0 = 300 - @as(f64, @floatFromInt(row)) * 250;
+            try page.text(30, y0 + 228, 9, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "state {s} ({d} triangles): at N outline IoU {d:.4} (the intact model {d:.4}), colour {d:.2}; holes {d}", .{ d.state, d.triangles, d.iou, d.intact_iou, d.colour, d.holes }));
+            const names = [_][]const u8{ "_pic", "_n", "_diff", "_t1", "_t2", "_t3" };
+            const titles = [_][]const u8{ "2003 picture", "render N", "difference", "E", "S", "W" };
+            for (names, titles, 0..) |suffix, title, i| {
+                const x = 30 + @as(f64, @floatFromInt(i)) * 132;
+                const image = try loader.f(review, try std.fmt.allocPrint(arena, "d{s}{s}.png", .{ d.state, suffix }));
+                const pid = try pdf.image(image.width, image.height, image.pixels);
+                try images.append(arena, pid);
+                try page.text(x, y0 + 212, 8, i >= 3, .{ 0.2, 0.2, 0.2 }, if (i >= 3) try std.fmt.allocPrint(arena, "{d}.{c} state {s}", .{ r.id, side_letters[i - 2], d.state }) else title);
+                _ = try placePicture(&page, image, pid, x, y0, .{ 126, 204 });
             }
         }
         _ = try pdf.page(page_w, page_h, page.out.written(), images.items);
     }
+
+    // The ranked lists: paint first where most of the atlas is guessed, a
+    // mesh first where its outline at N matches its picture least (intact,
+    // or a damage state's cut).
+    var ranked: std.Io.Writer.Allocating = .init(arena);
+    try ranked.writer.writeAll("list,rank,id,path,value,why\r\n");
+    const order = try arena.alloc(usize, items.len);
+    for (order, 0..) |*o, i| o.* = i;
+    std.mem.sort(usize, order, items, struct {
+        fn less(rs: []const Full3dReport, a: usize, b: usize) bool {
+            return rs[a].textures[0].guessed > rs[b].textures[0].guessed or (rs[a].textures[0].guessed == rs[b].textures[0].guessed and rs[a].id < rs[b].id);
+        }
+    }.less);
+    for (order, 1..) |i, rank| {
+        const r = items[i];
+        try ranked.writer.print("needs paint,{d},{d},{s},{d:.4},guessed share of the summer atlas; N colour {d:.2}\r\n", .{ rank, r.id, r.path, r.textures[0].guessed, r.n_colour });
+    }
+    const worst = struct {
+        fn f(r: Full3dReport) f64 {
+            var v = r.n_mesh_iou;
+            for (r.damage) |d| v = @min(v, d.iou);
+            return v;
+        }
+    }.f;
+    std.mem.sort(usize, order, items, struct {
+        fn less(rs: []const Full3dReport, a: usize, b: usize) bool {
+            return worst(rs[a]) < worst(rs[b]) or (worst(rs[a]) == worst(rs[b]) and rs[a].id < rs[b].id);
+        }
+    }.less);
+    for (order, 1..) |i, rank| {
+        const r = items[i];
+        try ranked.writer.print("needs mesh fix,{d},{d},{s},{d:.4},lowest outline IoU at N of the mesh ({d:.4}) and the damage states' cuts{s}\r\n", .{ rank, r.id, r.path, worst(r), r.n_mesh_iou, if (r.needs_review) "; marked needs_review" else "" });
+    }
+
     var text: std.Io.Writer.Allocating = .init(arena);
     try pdf.write(&text.writer);
-    const out_dir = std.fs.path.dirname(review) orelse ".";
+    const out_dir = std.fs.path.dirname(out) orelse ".";
     try std.Io.Dir.cwd().createDirPath(ctx.io, out_dir);
-    try writeOut(ctx, out_dir, std.fs.path.basename(review), text.written());
+    try writeOut(ctx, out_dir, std.fs.path.basename(out), text.written());
     try writeOut(ctx, out_dir, "full3d.csv", csv.written());
+    try writeOut(ctx, out_dir, "full3d-ranked.csv", ranked.written());
+    try ctx.out.print("wrote {s}: {d} pages; {s}\n", .{ out, contents_pages + pages, summary });
 }

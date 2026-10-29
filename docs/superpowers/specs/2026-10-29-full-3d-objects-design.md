@@ -79,12 +79,13 @@ turn is that model rendered.
   to their own 2003 outlines, moved onto the mesh's zero cross (as round 5). The target: a model per damage state,
   as the vehicles have `1.mod`, `2.mod`, `3.mod`: the intact model cut by the visual hull of the damaged 2003
   picture at N (what the damaged outline no longer covers is gone), painted from the damaged picture where it sees
-  and from the intact atlas elsewhere, its guessed paint marked as here.
+  and from the intact atlas elsewhere, its guessed paint marked as here (built, with fallen roofs: see "All 412
+  objects" below).
 - **Inspection: the Resource Editor's Unit editor**, no new viewer. The `.mod` and the summer atlas in place of a
   unit fixture's models and pictures: the preview shows the model lit from the 2003 camera and from above, and its
   parts are the skeleton's nodes, picked by name (`resource-editor-full3d`).
 - **Which objects:** `tools/zig/fixtures/bk-views/full3d.json` lists the full 3D objects by number; `side` draws
-  every other object as before. The list grows to all 412 and then goes away.
+  every other object as before. The list grows to all 412 and then goes away (gone: see "All 412 objects" below).
 
 ## The pilot
 
@@ -192,3 +193,202 @@ maintainer), macOS and Linux (CI).
   under a second); a mesh of tens of thousands would want a grid. 412 objects at the pilot's pace are about 2 hours
   in Debug, a fraction in the ReleaseFast the build steps use; one `side` per object, run per family as the batch
   does.
+
+## All 412 objects (2026-10-29, second round)
+
+The pilot's list (`full3d.json`) is gone: every object with a tracked mesh (all 412 of shape-ids.json: 194 building
+variants, 218 props) is a full 3D object in `side`, `holdout` and `model3d`, its joint family's views included. A
+folder without a mesh (a modder's variant) keeps the blocks.
+
+### Damage states: a model each
+
+As decided above, a damage state is a model of its own (`model3d.damaged`, written as `2.mod` and `3.mod`), derived
+from the intact model and the variant's own damaged 2003 picture at N. It keeps the intact model's charts and texels,
+so its atlas starts from the intact one and is painted over from the damaged picture (`bake` with a base).
+
+- **The outline cut.** In each pixel column of the damaged picture the outline's top is where the building now ends;
+  between the columns' edges the line runs straight (an edge takes the higher of its two columns'), so neighbouring
+  faces are cut along one line and no crack opens. A wall above the line is gone (a breach, a fallen gable); a face
+  that looks up is lowered straight down onto the line's surface, so a roof the outline cuts lies over the cut walls
+  as a cap; a column the damaged picture does not reach keeps nothing. A face is split only in the columns where the
+  line crosses it (a run of columns where it lies wholly under the line stays one piece: e_wb/01's state 3 took 4758
+  triangles split column by column, 2392 with the runs). This is the visual hull of one picture.
+- **Fallen roofs.** One picture cannot tell how deep a pixel lies, so rubble seen inside the walls kept the roof over
+  it: e_wb/01's state 3, turned, showed an almost whole roof. A roof group (`body.roof`, `chimney.roof`, ...) whose
+  pixels at N in the damaged picture mostly differ from the intact picture's (half or more of 20 or more: clear, or a
+  mean channel 48 or more off; a group N hardly sees goes as all the roofs N sees) has fallen: its faces lie flat at a
+  tenth of the building's height, a floor of rubble inside the cut walls, painted from the damaged picture where it
+  sees them and elsewhere tiled from the rubble it does see (the material paint's tile rule on the fallen charts),
+  marked guessed.
+- **Seasons.** Each season of a state is an atlas on the same model: `2` and `2w`, `3` and `3w`, each started from
+  the intact atlas of its season (`1`, `1w`) and painted from its own damaged picture; the geometry is the summer
+  picture's. The 2003 data has summer and winter only (`w`): 109 props with `1`, 109 with `1` and `1w`, 100
+  buildings with `1`, `2`, `3`, 94 with their winters too.
+- **Shadows** are each model's own (`model3d.shadow`).
+- **What N does not see.** Of a face N does not see (a back wall, a far wing) the picture tells only how much of the
+  building stands where it does see: the share of the walls N sees that the damaged picture still shows unchanged.
+  A piece of the cut building N does not see (judged on the cut model at the render's 4 x 4 samples, so a back wall
+  a fallen roof uncovers counts as seen) stands no higher than that share of the building's height, a roof among
+  them lowered onto it (e_house02_2's back wing, its steep roof counted as a wall, came down in state 3). A first
+  try measured the share as the outline's height per column against the intact one's: 0.87 for a_h01_1's ruin,
+  whose rubble at the back stands as high on the screen as the walls did. A first try judged visibility on the
+  intact model and cut the back walls the fallen roof uncovers at N (a_h01_1's state 3 at N: 0.815 to 0.778).
+  Left: a wall N sees through a fallen roof keeps the height the outline gives it (a_h01_1's back walls turned).
+
+### The render: the colour of the pixel's middle
+
+A render pixel took the mean of its 16 samples. A 2003 pixel spans about two texels, so a turned picture was a box
+filter of the 2003 pixels, softer than the 2003 sides: once every gate building was a model, the quality gate's
+hold-out failed 52 of its 75 rows, almost all on sharpness. A pixel now takes the colour of its middle sample (the
+mean of its covered samples where no face meets the middle; coverage stays the 16 samples'): 11 rows outside the
+blocks' floors (19 with the middle 2 x 2 samples' mean), all of damage states. At N the render is the 2003 picture's
+pixels again: colour difference e_wb/01 3.49 to 1.13, a_h01_1 2.58 to 0.92, e_house02_2 5.51 to 0.51,
+villagefence/03 6.03 to 1.79, the church 3.22 to 1.18.
+
+### The quality gate derived again
+
+gate.json's floors came from the blocks' hold-out of its 23 variants by a rule its `about` states; drawn by the
+models, the same rule gives (the blocks' in brackets): intact IoU 0.75 (0.64), mean IoU 0.88 (0.84), mean SSIM 0.25
+(0.13), sharpness 0.42 to 1.89 (0.45 to 3.2), colour 49 (62), hue 0.56 (0.77); state 2 IoU 0.71 (0.59), mean IoU 0.83
+(0.77), mean SSIM 0.04 (0.0), sharpness 0.31 to 1.93 (0.5 to 2.2), colour 77 (60), hue 0.43 (0.29); state 3 IoU 0.56
+(0.6), mean IoU 0.74 (0.72), mean SSIM 0.01 (-0.02), sharpness 0.45 to 1.64 (0.7 to 1.55), colour 72 (49), hue 0.34
+(0.26). Measured: intact worst / mean IoU 0.796 / 0.898 and mean SSIM 0.293, state 2 0.760 / 0.846 and 0.082,
+state 3 0.607 / 0.756 and 0.053: the models hold the outline better at every state but state 3's worst; a damage
+state drawn for another side paints that side's rubble from its own picture, so its sharpness, colour and hue against
+the other side's 2003 rubble are looser. The hand shapes' test (blocks) keeps the blocks' mean floor, 0.84.
+
+### Retired
+
+- `full3d.json`, `full3d-pilot` (now `full3d-<region>`, `full3d-review`, `full3d`).
+- The round-5 fill of the joint families on their mesh (`meshDrawn`: intact states drawn pixel by pixel on the mesh
+  and the sibling's 2003 art as a mesh turn), `fill-families` and `bk-views fill-review`: every joint view is a model.
+- The blocks' damage states of meshed objects, and the zero-cross shift between blocks and mesh.
+- objects-relight's `side` of the sand pile: full3d-common draws every prop's turns.
+
+Kept: the blocks for folders without a mesh, the hand shapes and their tests, `shape`, `models` and the shapes review
+(blocks only, `intact_only`: they build no models), the relight of flora and of the four-sided props (whose turns
+are their sibling variants in the Game), the building-views batch (its `side` now renders the models).
+
+### e_megaphone (278)
+
+The review's PDF has no 2003 picture of it, but Data holds its sprite (`e_column/e_megaphone/1.san`, 50 x 63): it is
+painted from that like every other object.
+
+### The batch and the review
+
+- `full3d-africa`, `-common`, `-europe`, `-ussr`: per object `bk-views side` (its six turned folders into
+  `zig-out/remastered`, every state rendered from its model), the engine's reader on every pack (the batch's round
+  trip), and `bk-views model3d` into `zig-out/full3d/models/<number>/`: a `.mod` a state, per state `<state>_h.dds`,
+  `<state>.tga` and a deflated `<state>_paint.png`, `model.json` (the numbers below; a second build and render compared
+  byte for byte) and `review/` (the pictures the review lays out). One run an object, so the build spreads them over
+  the cores and every output is that object's alone: the same bytes however many run at once. The `.png` beside each
+  `.dds` is gone (the `.dds` and `.tga` are both lossless).
+- `full3d-review`: `zig-out/review/full3d.pdf`, a contents index as shapes.pdf's (number, path, needs-review mark, N
+  outline, damage states, page), then per object the pilot's two pages (the 2003 picture, the render at N and their
+  difference, the mesh's creases, the atlas and its paint map, the numbers; the four turns under the 2003 light and
+  under the world's sun) and, for a building with damage states, a third: each state's 2003 picture, its render at N,
+  their difference and its three turns. Beside it `full3d.csv` (per object: triangles, groups, charts, atlas, seen
+  and guessed shares, N outline of the render and of the mesh, N colour, holes, guessed pixels at E / S / W, the
+  sibling's match, per damage state its outline at N, the intact model's there, colour and holes, the winter atlas's
+  guessed share, the second build's bytes) and `full3d-ranked.csv` (every object ranked twice: needs paint by the
+  summer atlas's guessed share; needs mesh fix by the lowest outline IoU at N of its mesh and its damage states' cuts).
+- `full3d`: all four regions and the review (longer than one foreground command: run the regions one by one).
+- **The first batch stopped on props**, two causes. The pilot's canvases kept 18 pixels of margin round a meshed
+  object for its block-drawn damage states; with that margin down to the blocks' 2, a prop's zero cross (laid on the
+  footprint's middle, `meshZero`) could fall off its canvas (mine_r1: 31,13 of 27 x 18), and on the Mac one left of
+  the canvas reached bk-sprite as `--zero -3,...`, an option: `turnTarget` now takes the zero cross into the canvas.
+  And on Windows compose-pack stopped at a debug CRT dialog: the mine renders as a post one pixel wide, and the
+  icon's crop (`SaveIconFile`, MFC's box, which leaves out its last row and column) made an empty image its copy read
+  out of range. A box one pixel thin now keeps that pixel; every other icon is cropped as before.
+
+### Results (win-home, Windows x64, and macOS arm64, 2026-10-30)
+
+`full3d` on all 412 objects (`zig-out/review/full3d.pdf`, 197 MB, copied to `D:\bk-review\full3d-all.pdf`;
+`full3d.csv`, `full3d-ranked.csv`). The two CSVs are byte for byte the same on Windows x64 and macOS arm64 (the PDFs
+have the same size; their bytes differ, not looked into).
+
+- **Coverage.** 412 intact models, 194 models of state 2 and 194 of state 3 (800 `.mod`); atlases `1` 412, `1w` 203,
+  `2` and `3` 194 each, `2w` and `3w` 94 each. Holes (render samples on unpainted texels) in every N, turn, sun-lit
+  turn and damage state: 0. A second build and render: the same bytes for all 412.
+- **N against the 2003 picture** (outline IoU of the render; colour difference of 255 where both are opaque):
+  outline min 0.042, 10th percentile 0.448, median 0.829, 90th 0.939, max 0.978 (buildings' median 0.882, props'
+  0.709); colour min 0.29, 10th 0.61, median 1.12, 90th 5.46, max 36.6. The render's outline is the mesh's: the low
+  ones are meshes, the top of the needs-mesh-fix list: box/00 (0.04; mesh 0.11, two bars for a lattice crate),
+  wirefence/03 and /04 (0.12, 0.22), wickerfence/07 (0.23), factoryfencewire/06 (0.26), railroadbarrier/01 (0.28),
+  box/04 (0.28), mine (0.29, a post one pixel wide), conduitbarrel's state 3 (0.14). The highest colour differences
+  are thin or open props where few pixels meet: box/03 36.6, wirefence/03 31.3, e_columnclock/04 22.3.
+- **Paint.** Guessed share of the summer atlas (texels of faces that look up or sideways no 2003 picture sees):
+  min 0.08, 10th 0.42, median 0.62, 90th 0.77, max 0.93 (villagefence/06 0.93, /09 0.92, wickerfence/07 0.88,
+  railroadbarrier/01 0.88, debris/04 0.87 head the needs-paint list); winter atlases median 0.57.
+- **Damage states** (388): outline IoU at N of the cut model min 0.14, 10th 0.62, median 0.82, 90th 0.92, max
+  0.97; against the intact model on the same damaged picture it gains median 0.045, 90th percentile 0.23, at most
+  0.38 (the heavy ruins: e_wb/01's state 3 0.719 to 0.856, the church's 0.661 to 0.841, a_h01_1's 0.684 to 0.815);
+  7 of 388 lose, by at most 0.036. The lowest: conduitbarrel 3 (0.14), leaders/02 3 (0.32), watchtower 3 (0.32),
+  e_stella/02 3 (0.37): towers and posts whose damaged picture is a heap beside the mesh.
+
+### The batch: time and size
+
+One `zig build` a step, outputs cleared first; the times include the step's own compiles (bk-views-fast's in
+africa on Windows).
+
+| step | win-home (36 threads) | macOS arm64 (10 cores) |
+|---|---|---|
+| prepare (`bk-views-side`, the tools and the engine's reader) | 66 s | 47 s |
+| full3d-africa (43 objects) | 153 s | 88 s |
+| full3d-common (79) | 115 s | 59 s |
+| full3d-europe (116) | 229 s | 160 s |
+| full3d-ussr (174) | 517 s | 232 s |
+| full3d-review | 176 s | 74 s |
+| all | 1256 s | 660 s |
+
+The Mac ran in a throwaway `--shared` clone of its checkout with this branch fetched from a bundle (a fresh Zig cache
+of its own, so its prepare includes fetching the dependencies), deleted after. Sizes (the same on both, KiB):
+
+| region | models (`zig-out/full3d/models`) | turned packs (`zig-out/remastered`) | side's work and checks (`zig-out/local-test/full3d`) |
+|---|---|---|---|
+| africa | 498,637 | 157,847 | 1,094,987 |
+| common | 606,185 | 134,394 | 739,996 |
+| europe | 1,562,886 | 469,204 | 3,798,762 |
+| ussr | 2,779,962 | 805,138 | 5,994,662 |
+| all | 5,447,734 | 1,566,583 | 11,628,407 |
+
+All of it is build output under `zig-out` (git ignores it). The models are mostly the uncompressed atlases
+(`_h.dds` and `.tga`, each a copy, per state); the work folders keep every turn's pictures and the round trip's.
+
+### Tiers (win-home, Windows x64, debug Game)
+
+- `test-bk-views`: pass (with the damage-state test: e_wb/01's state 3 cut model at N 0.856 against its damaged
+  picture, the intact model 0.719; its fallen roof no higher than the rubble; no holes; the same bytes; its shadow
+  all but a twentieth within the intact one's. The deflated PNG round trip. The re-derived gate).
+- `resource-editor-full3d`: pass. e_wb/01's intact model from the default camera and the side, its parts picked
+  by name, its damage state 3 (`3.mod`, the transportable variant) lit and unlike the intact one, and the prop
+  ukrainewell/01 opened as a second project, lit, `body.roof` picked by name.
+- `camera-turn-full3d-game-reads-it` (new): UkraineWell01, Semaphore02 (props, turn k at step k) and E_WB_01 at
+  own facing 1 with HP 0.3 (damage state 2, turn facing + step), each alone, rendered by `side` into a scratch
+  mod: every rendered turn IoU 0.986 to 1.000, colour 0.00, better than every other turn there; turn 0 (the 2003
+  picture) 0.931 and 0.967 for the props' soft-edged sprites and 0.986 / 2.23 for the warehouse's 2003 state 2
+  over its rubble, measured as camera-turn-world measures 2003 props (IoU 0.9, colour 8). Pass.
+- `camera-turn-game-reads-it`: two changes the full 3D models need. Turn 2 of e_ctownhouse01_2 was required to
+  be the 2003 e_ctownhouse01_4 picture for picture; a model draws every turn (decided above), so the match is
+  reported (IoU 0.560: e_ctownhouse01 is among the families the review marks for geometry). And the town house's
+  turned model reaches the shed at the odd steps (its spire) and the message line and the dark band the interface
+  lays over the top of the screen at step 3: each building is shot alone, as facing.xml already was, and the rows
+  down to the first the band leaves black are left out of the measure. Every turn 0.994 to 1.000, colour 0.00.
+  Pass.
+- `camera-turn-village-game-reads-it`, `camera-turn-world-game-reads-it`, `camera-turn-tutorials-game-reads-it`:
+  pass.
+- Not run here: the other Resource Editor and Map Editor tiers (no editor code changed but `SaveIconFile`, which
+  only the one-pixel box reaches), the full sweep (left to the maintainer), Linux (CI). macOS arm64: the `full3d`
+  batch above in a throwaway clone (its Game tiers not run there).
+
+### Left open
+
+- Paint: the median atlas is 62% guessed; the needs-paint list in `full3d-ranked.csv` is the order to paint in
+  (props with one small 2003 picture first).
+- Meshes: the needs-mesh-fix list, led by thin and open props (boxes, wire and wicker fences, the mine's post)
+  whose mesh does not cover their picture, and towers whose damaged picture is a heap beside the mesh.
+- Damage: a wall N sees through a fallen roof keeps the height the outline gives it; rubble lying beyond the
+  intact outline (the damaged pictures' heaps) has no geometry, its pixels lost at N.
+- Size: the models are 5.2 GiB, mostly the uncompressed `_h.dds` and `.tga` of every state; a compressed TGA or
+  dropping the `.tga` for states the Resource Editor does not open would halve it, not done (the RE tier reads them).
+- The review PDFs of Windows and macOS have the same size and differ in bytes (their CSVs are the same bytes).

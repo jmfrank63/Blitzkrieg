@@ -84,6 +84,15 @@ test "a PNG reads back to the same pixels" {
     defer gpa.free(back.pixels);
     try std.testing.expectEqual(image.width, back.width);
     try std.testing.expectEqualSlices([4]u8, image.pixels, back.pixels);
+    // Deflated (the full 3D models' atlases), and read back by the general reader.
+    const deflated = try views.writePngDeflated(gpa, image);
+    defer gpa.free(deflated);
+    try std.testing.expect(deflated.len < png.len);
+    for ([_][]const u8{ png, deflated }) |bytes| {
+        const again = try views.readPng(gpa, bytes);
+        defer gpa.free(again.pixels);
+        try std.testing.expectEqualSlices([4]u8, image.pixels, again.pixels);
+    }
 }
 
 test "1.xml gives the passability, the origin and the point pairs" {
@@ -1140,12 +1149,12 @@ test "every hand shape reaches the outline floor against the 2003 pictures of it
     }
     // Its own picture reaches the shape gate's outline floor. The family's
     // other pictures of its colourway (those that lend it pixels) reach the
-    // hold-out's mean floor of the intact state: their zero crosses are
-    // aligned to about a world unit and their sides measured on hand-painted
-    // grids (dot/03 and /04 both read as side 4). Other colourways may be
-    // other buildings (e_shed02_4 is an open shed, _5 a closed one).
-    const gate = try std.json.parseFromSliceLeaky(Gate, arena, try read(arena, "tools/zig/fixtures/bk-views/gate.json"), options);
-    const others = gate.floors("1").mean_iou;
+    // blocks' hold-out mean floor of the intact state (gate.json's before the
+    // full 3D objects): their zero crosses are aligned to about a world unit
+    // and their sides measured on hand-painted grids (dot/03 and /04 both
+    // read as side 4). Other colourways may be other buildings (e_shed02_4 is
+    // an open shed, _5 a closed one).
+    const others: f64 = 0.84;
     const Picture = struct { variant: []const u8, own: bool, same: bool, iou: f64 };
     const report = try std.json.parseFromSliceLeaky(struct { shapes: []const struct { variant: []const u8, hand: bool, pictures: []const Picture } }, arena, try read(arena, "zig-out/local-test/bk-views/shapes/shape.json"), options);
     try std.testing.expectEqual(named, report.shapes.len);
@@ -1421,7 +1430,7 @@ test "a_h01_1 as a full 3D model renders at N as its 2003 picture, has no holes,
     const normals = try arena.alloc([3]f64, tris.len);
     for (tris, normals) |t, *n| n.* = mesh.worldNormal(model, placement, t, 0);
     const raster = try mesh.raster(arena, try mesh.viewVertices(arena, model, v), tris, found.picture.width, found.picture.height);
-    try model3d.bake(arena, &m, "1", &.{.{ .picture = found.picture, .view = v, .raster = raster, .normals = normals }});
+    try model3d.bake(arena, &m, "1", &.{.{ .picture = found.picture, .view = v, .raster = raster, .normals = normals }}, null);
     // N on the picture's own canvas at its zero cross, with no shift: the
     // outline as the mesh's, the colour within a few levels.
     const n = try model3d.render(arena, m, "1", 0, 0, found.anchor, .{ found.picture.width, found.picture.height });
@@ -1439,4 +1448,77 @@ test "a_h01_1 as a full 3D model renders at N as its 2003 picture, has no holes,
     try std.testing.expect(opaque_pixels > 1000);
     const again = try model3d.render(arena, m, "1", 1, 1, anchor, size);
     try std.testing.expectEqualSlices(u8, std.mem.sliceAsBytes(e.image.pixels), std.mem.sliceAsBytes(again.image.pixels));
+}
+
+/// The pictures of a variant's states on the canvas they share (the bounds of
+/// all their packs), and its zero cross there.
+fn statePictures(arena: std.mem.Allocator, dir: []const u8, states: []const []const u8) !struct { pictures: []views.Image, anchor: [2]f64 } {
+    const packs = try arena.alloc(views.Pack, states.len);
+    const atlases = try arena.alloc(views.Image, states.len);
+    var bounds: views.Bounds = .{};
+    for (states, packs, atlases) |state, *pack, *atlas| {
+        pack.* = try views.decodePack(arena, try read(arena, try std.fmt.allocPrint(arena, "{s}{s}.san", .{ dir, state })));
+        atlas.* = try views.readDds(arena, try read(arena, try std.fmt.allocPrint(arena, "{s}{s}_h.dds", .{ dir, state })));
+        for (pack.sprites[0].squares) |square| bounds.add(square);
+    }
+    const pictures = try arena.alloc(views.Image, states.len);
+    for (pictures, packs, atlases) |*picture, pack, atlas| picture.* = try views.unpack(arena, pack.sprites[0], atlas, bounds);
+    return .{ .pictures = pictures, .anchor = .{ @floatFromInt(-bounds.min_x), @floatFromInt(-bounds.min_y) } };
+}
+
+test "a damage state's model is the intact one cut to its damaged picture at N, its fallen roof rubble, every turn painted and the same every time" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const mesh = views.mesh;
+    const model3d = views.model3d;
+    // e_wb/01 (111): its state 3 has lost its roof and most of its walls.
+    const model = (try mesh.load(arena, std.testing.io, mesh.meshes_dir, 111)).?;
+    const found = try statePictures(arena, "Data/Buildings/europe/summer/e_wb/01/", &.{ "1", "3" });
+    const intact_picture = found.pictures[0];
+    const damaged_picture = found.pictures[1];
+    const placement = mesh.place(model, intact_picture, found.anchor).?;
+    var m = try model3d.unwrap(arena, model, try mesh.triangles(arena, model), placement);
+    try model3d.bake(arena, &m, "1", &.{try model3d.ownBakeView(arena, m, intact_picture, placement, found.anchor)}, null);
+    var d = try model3d.damaged(arena, m, placement, damaged_picture, intact_picture, found.anchor);
+    try model3d.bake(arena, &d, "3", &.{try model3d.ownBakeView(arena, d, damaged_picture, placement, found.anchor)}, m.texture("1").?);
+    // At N the cut model lies on the damaged picture far better than the
+    // intact one, its colour within a few levels.
+    const size = [2]u32{ damaged_picture.width, damaged_picture.height };
+    const n = try model3d.render(arena, d, "3", 0, 0, found.anchor, size);
+    const cut = views.artMatch(n.image, damaged_picture, .{ 0, 0 }, false);
+    const whole = views.artMatch((try model3d.render(arena, m, "1", 0, 0, found.anchor, size)).image, damaged_picture, .{ 0, 0 }, false);
+    try std.testing.expect(cut.iou > 0.84);
+    try std.testing.expect(cut.iou > whole.iou + 0.1);
+    try std.testing.expect(cut.colour < 6);
+    try std.testing.expectEqual(@as(usize, 0), n.unpainted);
+    // Its roof fell: the roof's charts are rubble, no face of it stands
+    // higher than the rubble.
+    var fallen: usize = 0;
+    for (d.fallen) |f| fallen += @intFromBool(f);
+    try std.testing.expect(fallen > 0);
+    var height: f64 = 0;
+    for (m.vertices) |v| height = @max(height, v.world[2]);
+    for (d.triangles) |t| if (d.fallen[t.chart]) for (t.v) |v| try std.testing.expect(d.vertices[v].world[2] <= 0.1 * height + 1e-9);
+    // A quarter turn: no holes, and the same bytes a second time; the
+    // shadow is the cut model's, all but a twentieth within the intact one's.
+    const turned = [2]u32{ 2 * size[0], 2 * size[1] };
+    const anchor = [2]f64{ found.anchor[0] + @as(f64, @floatFromInt(size[0])) / 2, found.anchor[1] + @as(f64, @floatFromInt(size[1])) / 2 };
+    const e = try model3d.render(arena, d, "3", 1, 1, anchor, turned);
+    try std.testing.expectEqual(@as(usize, 0), e.unpainted);
+    const again = try model3d.render(arena, d, "3", 1, 1, anchor, turned);
+    try std.testing.expectEqualSlices(u8, std.mem.sliceAsBytes(e.image.pixels), std.mem.sliceAsBytes(again.image.pixels));
+    const shadows = [2]views.Image{ try model3d.shadow(arena, m, 1, 1, anchor, turned), try model3d.shadow(arena, d, 1, 1, anchor, turned) };
+    var cast: usize = 0;
+    var outside: usize = 0;
+    for (shadows[0].pixels, shadows[1].pixels) |intact_shadow, cut_shadow| {
+        cast += @intFromBool(cut_shadow[3] == 255);
+        outside += @intFromBool(cut_shadow[3] == 255 and intact_shadow[3] == 0);
+    }
+    // A fallen roof's eaves lie flat just beyond the walls.
+    if (cast == 0 or outside * 20 > cast) {
+        std.debug.print("the cut model's shadow: {d} pixels, {d} outside the intact one's\n", .{ cast, outside });
+        return error.ShadowOutside;
+    }
+    _ = try model3d.writeMod(arena, d);
 }

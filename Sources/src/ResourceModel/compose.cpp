@@ -406,6 +406,14 @@ bool SaveIconFile( const SExportContext &context, const std::string &szSource, c
 		return false;
 	}
 
+	// MFC's box leaves out its last row and column, so a picture one pixel
+	// wide or high (a full 3D prop's thin post, rendered by bk-views) cropped
+	// to an empty image that its copy read out of range: such a box keeps
+	// that pixel.
+	if ( nMaxX == nMinX )
+		++nMaxX;
+	if ( nMaxY == nMinY )
+		++nMaxY;
 	// MFC cropped only when the box differed from the picture, and used the
 	// cropped image unconditionally afterwards (a null for a full-size box).
 	CPtr<IImage> pMinImage = pSrcImage;
