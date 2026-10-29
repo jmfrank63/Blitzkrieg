@@ -11,7 +11,8 @@
 //! Game runs it three times under a BK_AUTO_UI schedule that presses the key
 //! three times and takes a shot at each of the four steps:
 //!
-//! - objects only (BK_SCENE_DISABLE): each building must be drawn where the
+//! - objects only (BK_SCENE_DISABLE), each building alone on a copy of the map
+//!   (a turned full 3D model can reach the other): each building must be drawn where the
 //!   quarter turn of the 2003 camera puts it and with its turned side's
 //!   sprite (outline IoU and colour as building-views-game-reads-it, and
 //!   better than any other side of it at the same place). The turn is
@@ -32,8 +33,8 @@
 //! each must show turn (facing + step) mod 4 of its variant in its damage
 //! state; with it off (the last run) the 2003 picture, as the 2003 game
 //! ignored a building's Direction. The town house's turn 2 is side 4, which
-//! the 2003 e_ctownhouse01_4 shows: bk-views side must have made it from that
-//! picture.
+//! the 2003 e_ctownhouse01_4 shows: it was that picture until every building
+//! became a full 3D model (2026-10-29), now its match is reported.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/game with every user path
 //! redirected; frames (`<run>-<step>.png`), sprites, logs and scores.txt stay
@@ -158,22 +159,30 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
     var failed = false;
     var report: std.ArrayList(u8) = .empty;
 
-    // The town house's turn 2 is the 2003 side 4, picture for picture.
+    // The town house's turn 2 shows side 4, which the 2003 e_ctownhouse01_4
+    // shows: reported. Since every building is a full 3D model it is the
+    // model rendered, the sibling's art painted into its atlas
+    // (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md), no longer
+    // that picture.
     const sibling = try game_views.decompose(io, allocator, tool, sibling_folder, try std.fmt.allocPrint(allocator, "{s}/sprites/sibling", .{root}));
     const same = comparePictures(sprites[0][2], sibling);
     try report.print(allocator, "turn 2 of {s} against {s}: IoU {d:.3}, colour {d:.2}; its zero cross {d},{d} from the turned one\n", .{ buildings[0].name, std.fs.path.basename(sibling_folder), same.iou, same.colour, same.dx, same.dy });
-    if (same.iou < 0.999 or same.colour > 0.5) failed = true;
     const objects_only = "shadows,effects,terrain,noise,warfog,border,haze,grid";
 
-    // Remastered on: each step draws the turned side where the turn puts it.
+    // Remastered on, each building alone (the town house's turned model
+    // reaches the shed at the odd steps): each step draws the turned side
+    // where the turn puts it.
     try report.appendSlice(allocator, "on, objects: step building: IoU / colour at x,y (offset); best IoU of another side there\n");
-    const on = try runGame(io, allocator, game, root, "on", "turn.xml", .{ camera, camera }, "ON", objects_only, 4);
-    for (on, 0..) |frame, k| for (buildings, 0..) |building, b| {
+    for (buildings, 0..) |building, b| for (try runGame(io, allocator, game, root, try std.fmt.allocPrint(allocator, "on{d}", .{b}), try std.fmt.allocPrint(allocator, "turn{d}.xml", .{b}), .{ camera, camera }, "ON", objects_only, 4), 0..) |frame, k| {
         const at = turnScreen(building.screen, k);
-        const own = game_views.score(frame, sprites[b][k], at);
+        // The message line and the band at the top are the interface's: a
+        // turned model's spire can reach them.
+        const shown = try belowMessages(allocator, frame);
+        const top = messagesEnd(frame);
+        const own = game_views.score(shown, try spriteBelowMessages(allocator, sprites[b][k], at, top), at);
         var other_best: f64 = 0;
         for (0..4) |o| {
-            if (o != k) other_best = @max(other_best, game_views.score(frame, sprites[b][o], at).iou);
+            if (o != k) other_best = @max(other_best, game_views.score(shown, try spriteBelowMessages(allocator, sprites[b][o], at, top), at).iou);
         }
         try report.print(allocator, "{d} {s}: {d:.3} / {d:.2} at {d},{d} ({d},{d}); {d:.3}\n", .{ k, building.name, own.iou, own.colour, at[0], at[1], own.dx, own.dy, other_best });
         if (own.iou < min_iou or own.colour > max_colour or other_best >= own.iou) failed = true;
@@ -241,7 +250,36 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
     }
 }
 
-/// mod.xml, maps/turn.xml (river3d with the two buildings at facing 0),
+/// The first row below the message line (`clear_rows[0]`) and the dark
+/// band the interface lays over the top of the screen: the first there that
+/// is black at the screen's right edge, where nothing stands.
+fn messagesEnd(frame: []const u8) i32 {
+    var y: i32 = clear_rows[0];
+    while (y < clear_rows[1]) : (y += 1) {
+        const p = pixel(frame, width - 1, y);
+        if (p[0] + p[1] + p[2] == 0) return y;
+    }
+    return clear_rows[1];
+}
+
+/// A frame with the rows above `messagesEnd` black.
+fn belowMessages(allocator: std.mem.Allocator, frame: []const u8) ![]u8 {
+    const out = try allocator.dupe(u8, frame);
+    @memset(out[0..@as(usize, @intCast(messagesEnd(frame))) * width * 4], 0);
+    return out;
+}
+
+/// A sprite standing with its zero cross at `at` without its pixels above
+/// row `top` of the screen.
+fn spriteBelowMessages(allocator: std.mem.Allocator, sprite: game_views.Sprite, at: [2]i32, top: i32) !game_views.Sprite {
+    const pixels = try allocator.dupe([4]u8, sprite.image.pixels);
+    for (0..sprite.image.height) |y| {
+        if (at[1] + @as(i32, @intCast(y)) - sprite.anchor[1] >= top) continue;
+        @memset(pixels[y * sprite.image.width ..][0..sprite.image.width], .{ 0, 0, 0, 0 });
+    }
+    return .{ .image = .{ .width = sprite.image.width, .height = sprite.image.height, .pixels = pixels }, .anchor = sprite.anchor };
+}
+/// mod.xml, maps/turn.xml (river3d with the two buildings at facing 0), turn<i>.xml (its building i alone),
 /// maps/facing.xml (`facing_map`) and facing<i>.xml (its building i alone).
 fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
@@ -256,6 +294,8 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     for (&turn_map, 0..) |*placed, i| placed.* = .{ .building = i, .facing = 0, .hp = "1", .state = "1" };
     const maps = [_]struct { []const u8, []const Placed }{
         .{ "turn.xml", &turn_map },
+        .{ "turn0.xml", turn_map[0..1] },
+        .{ "turn1.xml", turn_map[1..2] },
         .{ "facing.xml", &facing_map },
         .{ "facing0.xml", facing_map[0..1] },
         .{ "facing1.xml", facing_map[1..2] },

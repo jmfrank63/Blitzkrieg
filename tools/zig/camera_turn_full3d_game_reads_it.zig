@@ -15,7 +15,9 @@
 //! four steps, objects only (BK_SCENE_DISABLE): at every step the object must
 //! be drawn where the quarter turn of the 2003 camera puts it with the
 //! picture of its turn, as the packs hold it (outline IoU and colour as
-//! camera-turn-game-reads-it), and better than any other turn of it there.
+//! camera-turn-game-reads-it; at turn 0, the 2003 picture, as
+//! camera-turn-world-game-reads-it measures 2003 props), and better than any
+//! other turn of it there.
 //!
 //! The Game runs from zig-out/local-test/camera-turn/full3d with every user
 //! path redirected (camera_turn_game_reads_it.runGame); frames, sprites, logs
@@ -54,8 +56,13 @@ const objects = [_]Object{
 const at = [2]u32{ 574, 374 };
 const screen = [2]i32{ 261, 433 };
 
+/// A rendered turn: the Game draws its one-bit pixels unchanged.
 const min_iou = 0.95;
 const max_colour = 2.0;
+/// Turn 0 is the 2003 picture, its edges soft: a small prop's outline is a few
+/// pixels of edge (camera-turn-world-game-reads-it's floors for the 2003 pictures).
+const min_2003_iou = 0.9;
+const max_2003_colour = 8.0;
 
 test "the Game turns full 3D props and a damaged building: each shows its turn's rendered picture where the turn puts it" {
     const io = testing.io;
@@ -101,12 +108,13 @@ test "the Game turns full 3D props and a damaged building: each shows its turn's
                 if (other != t) other_best = @max(other_best, game_views.score(frame, sprites[other], where).iou);
             }
             try report.print(allocator, "{d} {s} {d} {s}: {d}: {d:.3} / {d:.2} at {d},{d} ({d},{d}); {d:.3}\n", .{ k, object.name, object.facing, object.state, t, own.iou, own.colour, where[0], where[1], own.dx, own.dy, other_best });
-            if (own.iou < min_iou or own.colour > max_colour or other_best >= own.iou) failed = true;
+            const rendered = t != 0;
+            if (own.iou < (if (rendered) min_iou else min_2003_iou) or own.colour > (if (rendered) max_colour else max_2003_colour) or other_best >= own.iou) failed = true;
         }
     }
     try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
     if (failed) {
-        std.debug.print("{s}a full 3D object's turn is drawn wrong (IoU floor {d}, colour ceiling {d}); the frames are in {s}\n", .{ report.items, min_iou, max_colour, root });
+        std.debug.print("{s}a full 3D object's turn is drawn wrong (IoU floor {d}, colour ceiling {d}; at turn 0, the 2003 picture, {d} and {d}); the frames are in {s}\n", .{ report.items, min_iou, max_colour, min_2003_iou, max_2003_colour, root });
         return error.DrawnWrong;
     }
 }
