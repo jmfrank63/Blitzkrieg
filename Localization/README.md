@@ -115,6 +115,54 @@ here, to a text that still says what the English says. `ap2-menu-game-reads-it -
 Panzer 2's main menu, Load Game, New Game, Custom Game and Options menus and the settings tooltip in the nine languages:
 each caption one whole line inside its control, every title different from its buttons.
 
+### List rows: two lines at most (2026-10-29)
+
+The tutorial list and the custom mission list draw each entry's header in a row two lines high
+(`Data/UI/Lists/SaveLoadNameIcon2.xml`, 43 pixels; the medium line space is 21). A third line spills out of the row
+and of the selection frame drawn around it. The maintainer saw it in the Russian tutorial list. The fit map now also
+gives `scenarios/tutorials/*/header` and `scenarios/custom/missions/*/header` the row's room (`area 384x43` and
+`234x43`), so `l10n-check` and `language-mods` refuse a header that needs three lines. It found eight, all tutorials,
+and each was reworded to a shorter text that keeps its meaning. Russian tutorials 4 and 5 were also shortened, so that
+their first line stops before the scrollbar's border (below):
+
+| Language | Tutorial | Old | New |
+|---|---|---|---|
+| ru | 2 | Танки. Массовая атака агрессивным движением. Следование. Оборона и засада. Приказы силой. | Танки. Массовая атака в движении. Следование. Оборона и засада. Приказы силой. |
+| ru | 4 | Пехота. Разные строи. Использование окопов и зданий. Снайпер. | Пехота. Разные строи. Окопы и здания. Снайпер. |
+| ru | 5 | Вызов авиации. Разведчики. Истребители. Бомбардировщики. Десант. Штурмовики. Зенитки. | Авиация: разведчики, истребители, бомбардировщики, десант, штурмовики. ПВО. |
+| hi | 5 | वायुसेना बुलाना। टोही विमान। लड़ाकू विमान। बमवर्षक विमान। पैराट्रूपर। ज़मीनी हमले वाले विमान। विमान-रोधी तोपें। | वायुसेना बुलाना। टोही, लड़ाकू और बमवर्षक विमान। पैराट्रूपर। हमलावर विमान। विमान-रोधी तोपें। |
+| es | 2 | Tanques.  Ataque en masa con Movimiento agresivo.  Seguir.  Defensa y emboscada. Acciones forzadas. | Tanques. Ataque en masa agresivo. Seguir. Defensa y emboscada. Acciones forzadas. |
+| de | 3 | Artillerie.  Anhöhen nutzen.  Verschiedene Granatentypen.  Selbstfahrlafetten.  Raketenartillerie. | Artillerie. Anhöhen nutzen. Verschiedene Granaten. Selbstfahrlafetten. Raketenartillerie. |
+| pt-BR | 1 | Seleção. Movimento simples e ataque. Controles da câmera. Salvamento e carregamento rápidos. Minimapa. | Seleção. Movimento e ataque simples. Controle da câmera. Salvar/carregar rápido. Minimapa. |
+| pt-BR | 2 | Tanques. Ataque em massa com movimento agressivo. Seguir. Defesa e emboscada. Ações forçadas. | Tanques. Ataque em massa agressivo. Seguir. Defesa e emboscada. Ações forçadas. |
+| id | 1 | Memilih. Bergerak dan menyerang sederhana. Kontrol kamera. Simpan cepat/muat cepat. Peta mini. | Memilih. Bergerak dan menyerang. Kontrol kamera. Simpan/muat cepat. Peta mini. |
+
+The layout stays the 2003 one. A tutorial column 8 pixels narrower would keep every line clear of the scrollbar's
+border at x 692 (the 412 wide column lets a line run to 699), but it wrapped the English tutorials 2 and 3 to three
+lines in the Game, so it was dropped. The Game tier below counts the ink over the border in its report but does not fail
+on it. Measured on 2026-10-29: en, ru, es, fr, pt-BR, ja and hi stay clear of the border. de and id touch it with 3 and
+4 ink pixels, and zh-Hans with 10. Chinese breaks between any two characters, so its wrapped lines fill the column to x
+699, and no rewording avoids that. This stays open. A fix would be a layout per language, which the language mods (texts
+only) cannot carry today.
+
+`list-lines-game-reads-it` (one shard per language, `list-lines-game-reads-it-<code>`) opens both lists on the real
+Game in English and the nine mods at 1024x768 and measures the captured frames (`tools/zig/list_lines_game_reads_it.zig`).
+Each entry's 43 pixel box must hold one or two lines (a new line starts after at least 3 blank pixel rows). No text ink
+may lie more than 4 rows above the first box or below the last one, and the first, selected entry's ink must lie between
+its selection frame's rules (rows 203-242). The 4-row allowance is for Hindi: two lines of Devanagari are taller than the
+row, and their marks reach up to 4 rows past it, so the top line's marks touch the frame's rule. That is the face, not a
+third line: a third line in any face reaches 8 rows or more past the box. The tier reports this ink but does not fail on
+it. `test-list-lines-measure` checks the measure on synthetic frames. Before the
+rewording, the Russian tutorial list measured 1234 ink pixels outside the rows, with tutorials 2 and 5 on three lines.
+After it, every entry in every language is one or two lines inside its box and frame. The shards' reports are `zig-out/local-test/list-lines/<code>/report.txt`. The
+other list screens hold no translated entry of more than one line. The campaign, chapter and mission screens are maps
+with buttons; the option rows are single-line labels the fit map already covers; the custom campaign and chapter
+lists are empty in the shipped data; the mods list shows folder names.
+
+Running the tier also turned up a leak from 2003. `CObjectsDB::GetGameStats` never caches BASIC stats, and
+`CustomList.cpp`, which is its only caller, never freed them, so every list row leaked 11 blocks at exit. The caller
+now deletes them.
+
 Known limit: a Hindi half form (a cluster ending in a halant, such as ख्) is drawn with the advance the
 cluster has shaped alone (with a zero-width joiner), up to about a tenth wider than in running text.
 
