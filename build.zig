@@ -3500,6 +3500,28 @@ pub fn build(b: *std.Build) void {
     preload_game_step.dependOn(&preload_game_tests.step);
     if (test_mode == .run) preload_game_step.dependOn(&preload_game_run.step);
 
+    // The turn keys with a config written before they were swapped, the
+    // option set on the settings screen (M006 round 2,
+    // tools/zig/camera_turn_keys_game_reads_it.zig). Desktop and GPU, so not
+    // part of `test`.
+    const keys_game_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/camera_turn_keys_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, keys_game_module, toolchain);
+    }
+    const keys_game_tests = b.addTest(.{ .root_module = keys_game_module, .filters = &.{ "the config readers", "the turn keys turn the camera" } });
+    const keys_game_run = b.addRunArtifact(keys_game_tests);
+    keys_game_run.setCwd(b.path("."));
+    keys_game_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    keys_game_run.has_side_effects = true;
+    keys_game_run.step.dependOn(install_game_step);
+    const keys_game_step = b.step("camera-turn-keys-game-reads-it", "Set Remastered on the real Game's settings screen and press the camera turn keys on the second tutorial's map with a profile whose config was written before the keys were swapped: each press turns the view a quarter, and the older binds are dropped from the config");
+    keys_game_step.dependOn(&keys_game_tests.step);
+    if (test_mode == .run) keys_game_step.dependOn(&keys_game_run.step);
+
     // The controls at every camera step (M006 S05,
     // tools/zig/camera_turn_control_game_reads_it.zig): picking, selection,
     // orders, scrolling, the minimap, the turn's pivot on a hill and draw
