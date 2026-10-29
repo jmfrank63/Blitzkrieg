@@ -520,6 +520,32 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 		}
 		if ( pFoundSection )
 		{
+			// A config written before the defaults gave a key to another command
+			// still binds it to the old one, and the merge below adds the new
+			// default to the same key: one press then fires both (the camera
+			// turn keys, swapped on 2026-10-28, turned one way and back in the
+			// same frame). A saved bind the defaults do not hold, on controls they
+			// give another command of the section, is such a stale default: it
+			// is dropped and the defaults' bind has the key.
+			SetBindSection( itRepairSect->szName.c_str() );
+			for ( int nHave = int( pFoundSection->commands.size() ) - 1; nHave >= 0; --nHave )
+			{
+				const SBindsConfig::SBindSection::SCommandBind &have = pFoundSection->commands[nHave];
+				bool bDefault = false, bTaken = false;
+				for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = itRepairSect->commands.begin(); bind != itRepairSect->commands.end(); ++bind )
+				{
+					if ( bind->szBindType == have.szBindType && bind->controls == have.controls )
+						( bind->szName == have.szName ? bDefault : bTaken ) = true;
+				}
+				if ( bDefault || !bTaken )
+					continue;
+				NStr::DebugTrace( "bind \"%s\" of section \"%s\": its controls are another command's by default, dropped\n", have.szName.c_str(), itRepairSect->szName.c_str() );
+				CPtr<IInputBind> pInputBind = CreateObject<IInputBind>( INPUT_BIND );
+				TransformBind( pInputBind, &have );
+				RemoveBind( pInputBind );
+				pFoundSection->commands.erase( pFoundSection->commands.begin() + nHave );
+				bMappingChanged = true;
+			}
 			// The section survived from an old config, but the defaults may
 			// have gained binds since it was written (a new command, a new
 			// alternative control). Merge every bind the config does not
