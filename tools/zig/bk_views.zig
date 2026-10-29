@@ -4208,12 +4208,10 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
                 try std.fs.path.join(arena, &.{ temp, d.state }),
                 "--zero",
                 try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }),
-                "--pass",
-                try std.mem.join(arena, "/", grid.rows),
-                "--locked",
-                try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }),
                 "--force",
             });
+            // A prop with no passable grid (a box, a barrel) has none to lock.
+            if (grid.rows.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", grid.rows), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
             if (d.ground) |g| {
                 try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}), try writePng(arena, g.image));
                 try writePictureReport(ctx, r, map_dir, ground_name, g, &.{}, &first_picture);
