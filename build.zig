@@ -5092,6 +5092,43 @@ pub fn build(b: *std.Build) void {
         }
     }
     l10n_game_reads_step.dependOn(&l10n_game_reads_tests.step);
+    // The tutorial and custom mission lists' two-line rows in the ten languages, measured on the
+    // captured frames (tools/zig/list_lines_game_reads_it.zig).
+    const list_lines_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/list_lines_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, list_lines_module, toolchain);
+    }
+    const list_lines_tests = b.addTest(.{ .root_module = list_lines_module });
+    // The measure on synthetic frames, no Game needed.
+    const list_lines_measure_tests = b.addTest(.{ .root_module = list_lines_module, .filters = &.{"the measure"} });
+    const list_lines_measure_step = b.step("test-list-lines-measure", "The list-lines-game-reads-it measure on synthetic frames: two lines inside their row and selection frame, a third line outside");
+    if (test_mode == .run) list_lines_measure_step.dependOn(&b.addRunArtifact(list_lines_measure_tests).step);
+    // One shard per language (BK_LIST_LINES_LANGS), each well under the 10 minute foreground limit;
+    // the aggregate chains its own copies so two Games never start at once.
+    const list_lines_step = b.step("list-lines-game-reads-it", "Open the tutorial list and the custom mission list in English and the nine language mods on the real Game (list-lines-game-reads-it-<code> is one shard), capture them and measure that every entry's text is one or two lines inside its 43 pixel row and the first entry's ink inside its selection frame");
+    list_lines_step.dependOn(&list_lines_tests.step);
+    var list_lines_chain: ?*std.Build.Step = null;
+    for (l10n_shards) |code| {
+        const shard_step = b.step(b.fmt("list-lines-game-reads-it-{s}", .{code}), b.fmt("list-lines-game-reads-it for {s} alone, frames and logs in zig-out/local-test/list-lines/{s}", .{ code, code }));
+        shard_step.dependOn(&list_lines_tests.step);
+        for ([_]bool{ false, true }) |chained| {
+            const run = b.addRunArtifact(list_lines_tests);
+            run.setCwd(b.path("."));
+            run.setEnvironmentVariable("BK_LIST_LINES_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            run.setEnvironmentVariable("BK_LIST_LINES_LANGS", code);
+            run.has_side_effects = true;
+            run.step.dependOn(&language_mods_run.step);
+            if (chained) {
+                if (list_lines_chain) |before| run.step.dependOn(before);
+                list_lines_chain = &run.step;
+                if (test_mode == .run) list_lines_step.dependOn(&run.step);
+            } else if (test_mode == .run) shard_step.dependOn(&run.step);
+        }
+    }
     // M004 S02 on the real Game: BK_TEXT_ENGINE=ttf draws the menu and a briefing in en, de and hi
     // through bk_text, measured like the l10n tier (tools/zig/text_engine_game_reads_it.zig), and a
     // save written on the bitmap path loads under ttf. The test compiles on every target; it runs where

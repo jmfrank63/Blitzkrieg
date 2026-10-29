@@ -205,12 +205,16 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 			if ( nPos != std::string::npos ) 
 				szName.resize( nPos );
 		}
+		// The objects database does not keep BASIC stats (GameDB.cpp GetGameStats), so the caller owns
+		// them: left alone, every row of a list leaked them at exit.
 		const SBasicGameStats *pStats = NGDB::GetGameStats<SBasicGameStats>( szName.c_str(), IObjectsDB::BASIC );
-		if ( (pStats == 0) || pStats->szHeaderText.empty() )
+		const std::string szHeaderText = pStats ? pStats->szHeaderText : "";
+		delete pStats;
+		if ( szHeaderText.empty() )
 			continue;
-		
-		CPtr<IText> p = pTextM->GetDialog( pStats->szHeaderText.c_str() );
-		NI_ASSERT_T( p != 0, (std::string("Can not get text by key") + pStats->szHeaderText).c_str() );
+
+		CPtr<IText> p = pTextM->GetDialog( szHeaderText.c_str() );
+		NI_ASSERT_T( p != 0, (std::string("Can not get text by key") + szHeaderText).c_str() );
 		if ( !p )
 			continue;
 		

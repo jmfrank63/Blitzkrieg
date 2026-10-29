@@ -484,6 +484,14 @@ scroll textes/strings/aboutmission # labels CUIConsts::CreateDescription joins i
 scroll textes/strings/singleobjective # labels CUIConsts::CreateDescription joins into the briefing text of Mission.xml 2000, a UI_SCROLL_TEXT
 scroll textes/ui/difficulty/** # difficulty names CUIConsts::CreateDescription joins into the briefing text, a UI_SCROLL_TEXT
 scroll textes/strings/*-desc # description text of a screen, shown in a UI_SCROLL_TEXT
+# A tutorial's and a custom mission's header is also its row in the tutorial and custom mission lists (CustomList.cpp sets it into the row's
+# SaveLoadNameIcon2 element, two lines high): the column width minus the list's HSubSpace 4 on each side minus TextPos 20, by the
+# template's 43 (UIList.cpp UpdateItemsCoordinates). IMTutorialList.xml column 412 -> 384x43, IMCustomMission.xml column 262 -> 234x43.
+# A third line spills out of the row and its selection frame (2026-10-29).
+box scenarios/tutorials/*/header Data/UI/common/Mission.xml 20000
+area scenarios/tutorials/*/header 384x43 medium
+box scenarios/custom/missions/*/header Data/UI/common/Mission.xml 20000
+area scenarios/custom/missions/*/header 234x43 medium
 box scenarios/chapters/**/header Data/UI/common/Chapter.xml 20000
 box scenarios/campaigns/**/header Data/UI/common/Campaign.xml 20000
 box scenarios/**/header Data/UI/common/Mission.xml 20000
