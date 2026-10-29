@@ -87,7 +87,7 @@ fn schedule(allocator: std.mem.Allocator, remastered: []const u8, steps: []const
     try s.print(allocator, "g1000:hover=1000x400,g10:set=GamePlay.Remastered={s},g10:lua=Damage(),g500:world=TraceSpans(0)", .{remastered});
     var at: usize = 0;
     for (steps, 0..) |k, i| {
-        while (at != k) : (at = (at + 1) % 4) try s.appendSlice(allocator, ",g300:key=.");
+        while (at != k) : (at = (at + 1) % 4) try s.appendSlice(allocator, ",g300:key=COMMA");
         // Remastered off: the key is pressed and must do nothing.
         if (k == 0 and i != 0) try s.appendSlice(allocator, ",g300:key=.");
         const truck = [2]f64{ (control.middle + begins[i][0] + truck_at[0]) / ai_per_world, (control.middle + begins[i][1] + truck_at[1]) / ai_per_world };

@@ -1,0 +1,8 @@
+{"id":34,"path":"Buildings/common/summer/dzot/04","family":"common/dzot","measured_side":3,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [31, 34]; measured side 3. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Common/dzot/summer_1_geometry.xdb",
+"source":"family-revision/models/034.json","previous_variant":"04__pre_family_034",
+"alignment":{"angle":195.0000,"zscale":0.6842,"ratio":1.0000},
+"scores":{"silhouette":0.8300,"edge":0.8185,"combined":0.8260},
+"shared":"common_dzot"}

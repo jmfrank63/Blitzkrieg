@@ -1,0 +1,15 @@
+{"id":359,"path":"Objects/SimpleObjects/ussr/summer/kennel","family":"","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Objects/SimpleObjects/Kennel/1/summer_1_geometry.xdb",
+"source":"edge-revision/models/359.json","previous_variant":"",
+"alignment":{"angle":270.0000,"zscale":1.1500,"ratio":1.2500},
+"scores":{"silhouette":0.8762,"edge":0.5312,"combined":0.7554},
+"vertices":[
+-0.408,-0.408,0.7136,0.408,-0.408,0.7136,-0.408,0.408,0.7136,0.408,0.408,0.7136,-0.408,0.408,0,0.408,0.408,0,
+-0.408,-0.408,0,0.408,-0.408,0,0,0.408,1.0474,0,-0.408,1.0474,-0.4559,-0.4559,0.684,0.4559,-0.4559,0.684,
+-0.4559,0.4559,0.684,0.4559,0.4559,0.684,0,0.4559,1.0569,0,-0.4559,1.0569],
+"parts":[
+{"kind":"mesh","triangles":[
+15,14,12,10,15,12,11,13,14,15,11,14,0,2,4,6,0,4,7,5,3,1,7,3,1,9,0,7,1,0,
+6,7,0,2,8,3,4,2,3,5,4,3]}]}

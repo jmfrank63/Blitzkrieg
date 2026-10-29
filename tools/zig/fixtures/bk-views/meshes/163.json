@@ -1,0 +1,8 @@
+{"id":163,"path":"Buildings/ussr/summer/storehouse_1","family":"ussr/storehouse","measured_side":1,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [163, 164]; measured side 1. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/USSR/storehouse/summer_1_geometry.xdb",
+"source":"family-revision/models/163.json","previous_variant":"storehouse_1__pre_family_163",
+"alignment":{"angle":90.0000,"zscale":1.0000,"ratio":1.0000},
+"scores":{"silhouette":0.9589,"edge":0.8249,"combined":0.9120},
+"shared":"ussr_storehouse"}

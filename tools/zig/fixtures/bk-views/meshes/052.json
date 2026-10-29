@@ -1,0 +1,15 @@
+{"id":52,"path":"Buildings/europe/summer/e_frenchshed01","family":"","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Buildings/Europe/e_frenchshed01/summer_1_geometry.xdb",
+"source":"edge-revision/models/052.json","previous_variant":"",
+"alignment":{"angle":0.0000,"zscale":0.7000,"ratio":1.2500},
+"scores":{"silhouette":0.8688,"edge":0.6872,"combined":0.8052},
+"vertices":[
+-3.104,2.116,2.541,3.104,2.116,2.541,-3.102,0.001,5.412,3.103,0.001,5.435,-3.096,2.044,2.661,-3.096,-2.038,2.661,
+3.1,-2.038,2.661,3.1,-2.038,0,-3.096,-2.038,0,-3.096,2.044,0,3.1,2.044,2.661,3.1,2.044,0,
+-3.104,-2.116,2.541,3.104,-2.116,2.541],
+"parts":[
+{"kind":"mesh","triangles":[
+13,3,2,12,13,2,8,5,4,9,8,4,7,6,5,8,7,5,4,10,11,9,4,11,2,4,5,6,7,11,
+10,6,11,3,6,10,2,3,1,0,2,1]}]}

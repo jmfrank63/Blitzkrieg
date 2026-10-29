@@ -1,0 +1,8 @@
+{"id":191,"path":"Buildings/ussr/summer/wb/01","family":"ussr/wb","measured_side":1,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [191, 192]; measured side 1. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/USSR/wb/summer_1_geometry.xdb",
+"source":"family-revision/models/191.json","previous_variant":"01__pre_family_191",
+"alignment":{"angle":90.0000,"zscale":0.9350,"ratio":1.0000},
+"scores":{"silhouette":0.9741,"edge":0.8901,"combined":0.9447},
+"shared":"ussr_wb"}

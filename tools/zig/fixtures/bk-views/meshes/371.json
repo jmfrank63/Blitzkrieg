@@ -1,0 +1,17 @@
+{"id":371,"path":"Objects/SimpleObjects/ussr/summer/nestlingbox/02","family":"","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Objects/SimpleObjects/NestlingBox/1/summer_1_geometry.xdb",
+"source":"edge-revision/models/371.json","previous_variant":"",
+"alignment":{"angle":150.0000,"zscale":1.0000,"ratio":1.2500},
+"scores":{"silhouette":0.7725,"edge":0.8890,"combined":0.8133},
+"vertices":[
+-0.1751,-0.2156,4.1239,0.1751,-0.2156,4.1239,-0.1751,0.1346,4.1239,0.1751,0.1346,4.1239,-0.1751,0.1346,3.8176,0.1751,0.1346,3.8176,
+-0.1751,-0.2156,3.8176,0.1751,-0.2156,3.8176,0,0.1346,4.2671,0,-0.2156,4.2671,-0.1957,-0.2362,4.1112,0.1957,-0.2362,4.1112,
+-0.1957,0.1551,4.1112,0.1957,0.1551,4.1112,0,0.1551,4.2712,0,-0.2362,4.2712,0.0041,0.2362,0,-0.0489,0.1465,0,
+0.0553,0.1455,0,0.0041,0.2362,4.4562,-0.0489,0.1465,4.4562,0.0553,0.1455,4.4562],
+"parts":[
+{"kind":"mesh","triangles":[
+21,19,20,16,19,21,18,16,21,18,21,20,17,18,20,17,20,19,16,17,19,15,14,12,10,15,12,11,13,14,
+15,11,14,0,2,4,6,0,4,7,5,3,1,7,3,1,9,0,7,1,0,6,7,0,2,8,3,4,2,3,
+5,4,3]}]}

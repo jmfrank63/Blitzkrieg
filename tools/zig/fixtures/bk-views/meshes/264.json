@@ -1,0 +1,14 @@
+{"id":264,"path":"Objects/SimpleObjects/common/summer/roadpost","family":"","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Actual BK2 geometry; alignment and proportions fitted to the BK1 silhouette. Review hidden sides.",
+"reference":"Objects/SimpleObjects/RoadPost/1/summer_1_geometry.xdb",
+"source":"edge-revision/models/264.json","previous_variant":"",
+"alignment":{"angle":90.0000,"zscale":1.0000,"ratio":1.0000},
+"scores":{"silhouette":0.9160,"edge":0.7313,"combined":0.8514},
+"vertices":[
+-0.1076,-0.1075,1.0334,0.1076,-0.1075,1.0334,-0.1076,0.1075,1.0334,0.1076,0.1075,1.0334,-0.1076,0.1075,0,0.1076,0.1075,0,
+-0.1076,-0.1075,0,0.1076,-0.1075,0,0,0,1.1154],
+"parts":[
+{"kind":"mesh","triangles":[
+1,3,8,0,1,8,0,2,4,6,0,4,7,5,3,1,7,3,7,1,0,6,7,0,3,5,4,2,3,4,
+8,3,2,0,8,2]}]}

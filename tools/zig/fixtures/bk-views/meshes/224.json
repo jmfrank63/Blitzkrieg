@@ -1,0 +1,14 @@
+{"id":224,"path":"Objects/SimpleObjects/common/summer/box/01","family":"","joint":false,"needs_review":true,
+"status":"BK1-specific rebuild",
+"note":"Thin connected wire/mesh strands with open gaps; solid slabs removed.",
+"reference":"BK1 wire arrangement; BK2 Fences/Common/WireFence supplies structural reference.",
+"source":"edge-revision/models/224.json","previous_variant":"",
+"alignment":{"angle":0.0000,"zscale":0.8000,"ratio":1.0000},
+"scores":{"silhouette":0.4378,"edge":0.8861,"combined":0.5947},
+"vertices":[
+-20,0,0.3,-20,0.3,0,-20,0,-0.3,-20,-0.3,0,20,-0.3,0,20,0,-0.3,
+20,0.3,0,20,0,0.3],
+"parts":[
+{"kind":"pole","triangles":[
+0,1,2,0,2,3,4,5,6,4,6,7,3,2,5,3,5,4,2,1,6,2,6,5,1,0,7,1,7,6,
+0,3,4,0,4,7]}]}

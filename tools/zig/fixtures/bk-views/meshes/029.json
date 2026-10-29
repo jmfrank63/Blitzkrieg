@@ -1,0 +1,8 @@
+{"id":29,"path":"Buildings/common/summer/dot_h/03","family":"common/dot_h","measured_side":3,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [27, 28, 29, 30]; measured side 3. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Common/dot/summer_1_geometry.xdb",
+"source":"family-revision/models/029.json","previous_variant":"03__pre_family_029",
+"alignment":{"angle":270.0000,"zscale":1.0115,"ratio":0.8000},
+"scores":{"silhouette":0.8783,"edge":0.8928,"combined":0.8834},
+"shared":"common_dot_h"}

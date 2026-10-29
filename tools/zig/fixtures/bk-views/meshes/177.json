@@ -1,0 +1,8 @@
+{"id":177,"path":"Buildings/ussr/summer/townhouse03_1","family":"ussr/townhouse03","measured_side":1,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [177, 178]; measured side 1. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/USSR/townhouse03/summer_1_geometry.xdb",
+"source":"family-revision/models/177.json","previous_variant":"townhouse03_1__pre_family_177",
+"alignment":{"angle":270.0000,"zscale":0.9350,"ratio":1.0000},
+"scores":{"silhouette":0.9412,"edge":0.8283,"combined":0.9017},
+"shared":"ussr_townhouse03"}

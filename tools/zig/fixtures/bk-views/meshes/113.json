@@ -1,0 +1,8 @@
+{"id":113,"path":"Buildings/europe/summer/e_wellbig/01","family":"europe/e_wellbig","measured_side":1,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [113, 114]; measured side 1. Candidate needs visual review of details and hidden geometry.",
+"reference":"Objects/SimpleObjects/E_WellBig/1/summer_1_geometry.xdb",
+"source":"family-revision/models/113.json","previous_variant":"01__pre_family_113",
+"alignment":{"angle":180.0000,"zscale":0.6842,"ratio":1.0000},
+"scores":{"silhouette":0.8581,"edge":0.7693,"combined":0.8270},
+"shared":"europe_e_wellbig"}

@@ -1,0 +1,15 @@
+{"id":159,"path":"Buildings/ussr/summer/railroadlittlehouse","family":"","joint":false,"needs_review":false,
+"status":"BK2 mesh adaptation",
+"note":"Previous geometry retained with a more closely fitted camera alignment.",
+"reference":"Buildings/USSR/railroadlittlehouse/summer_1_geometry.xdb",
+"source":"edge-revision/models/159.json","previous_variant":"",
+"alignment":{"angle":180.0000,"zscale":1.1500,"ratio":0.9000},
+"scores":{"silhouette":0.9274,"edge":0.7069,"combined":0.8502},
+"vertices":[
+1.7315,1.5181,2.6221,-1.7944,1.5181,2.6221,1.7315,-1.5129,2.6221,-1.7944,-1.5129,2.6221,1.7315,1.5181,0,-1.7944,1.5181,0,
+1.7315,-1.5129,0,-1.7944,-1.5129,0,-1.7944,0,3.7278,1.7315,0,3.7278,1.9318,1.8714,2.397,-1.9318,1.8714,2.397,
+1.9318,-1.8714,2.397,-1.9318,-1.8714,2.397,-1.9318,0,3.7531,1.9318,0,3.7531],
+"parts":[
+{"kind":"mesh","triangles":[
+12,15,14,13,12,14,15,10,11,14,15,11,3,8,1,7,3,1,5,7,1,2,3,7,6,2,7,0,9,2,
+4,0,2,6,4,2,1,0,4,5,1,4]}]}

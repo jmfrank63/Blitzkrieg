@@ -1,0 +1,19 @@
+{"id":339,"path":"Objects/SimpleObjects/ussr/summer/container/21","family":"","joint":false,"needs_review":false,
+"status":"BK1-specific rebuild",
+"note":"Previous geometry retained with a more closely fitted camera alignment.",
+"reference":"BK1 sprite reconstruction; BK2 counterparts used where stated.",
+"source":"edge-revision/models/339.json","previous_variant":"",
+"alignment":{"angle":180.0000,"zscale":1.2500,"ratio":1.1000},
+"scores":{"silhouette":0.8489,"edge":0.5602,"combined":0.7479},
+"vertices":[
+0,0,0,0,18,0,18,18,0,18,0,0,18,0,16,0,0,16,
+18,18,16,0,18,16,20,0,0,20,18,0,38,18,0,38,0,0,
+38,0,16,20,0,16,38,18,16,20,18,16,-0.5,-0.5,17,38.5,-0.5,17,
+38.5,18.5,17,-0.5,18.5,17],
+"parts":[
+{"kind":"crate","triangles":[
+0,1,2,0,2,3,0,3,4,0,4,5,3,2,6,3,6,4,2,1,7,2,7,6,1,0,5,1,5,7,
+5,4,6,5,6,7,8,9,10,8,10,11,8,11,12,8,12,13,11,10,14,11,14,12,10,9,15,10,15,14,
+9,8,13,9,13,15,13,12,14,13,14,15]},
+{"kind":"cloth","triangles":[
+16,17,18,16,18,19]}]}

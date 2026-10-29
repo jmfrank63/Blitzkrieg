@@ -1,0 +1,8 @@
+{"id":101,"path":"Buildings/europe/summer/e_townhouse02_3","family":"europe/e_townhouse02","measured_side":1,"joint":true,"needs_review":true,
+"status":"joint family candidate",
+"note":"Shared mesh for source IDs [100, 101]; measured side 1. Candidate needs visual review of details and hidden geometry.",
+"reference":"Buildings/Europe/e_townhouse02/summer_1_geometry.xdb",
+"source":"family-revision/models/101.json","previous_variant":"e_townhouse02_3__pre_family_101",
+"alignment":{"angle":0.0000,"zscale":0.8500,"ratio":0.8000},
+"scores":{"silhouette":0.9247,"edge":0.8856,"combined":0.9110},
+"shared":"europe_e_townhouse02"}

@@ -1,0 +1,121 @@
+{"families":[
+{"region":"africa","family":"a_cisterns","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[1,2],"included":[],"excluded":[{"id":1,"reason":"same-side variant; structure may differ"},{"id":2,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"africa","family":"a_h01","status":"joint candidate","reason":"","all_ids":[3,4],"included":[3,4],"excluded":[],"donor_id":4,"objective":0.8316,"shared":"africa_a_h01","geometry_note":"Open recessed porch, roof openings and two ladders reconstructed from both sprites; placement remains approximate.","views":[
+ {"id":3,"side":1,"method":"reference","alignment":{"angle":-90.0000,"zscale":1.1500,"ratio":1.0000},"silhouette":0.9195,"edge":0.8036,"combined":0.8789},
+ {"id":4,"side":2,"method":"footprint","alignment":{"angle":0.0000,"zscale":1.1500,"ratio":1.0000},"silhouette":0.8798,"edge":0.8414,"combined":0.8663}]},
+{"region":"africa","family":"a_h02","status":"joint candidate","reason":"","all_ids":[5,6],"included":[5,6],"excluded":[],"donor_id":5,"objective":0.8685,"shared":"africa_a_h02","geometry_note":"","views":[
+ {"id":5,"side":2,"method":"reference","alignment":{"angle":180.0000,"zscale":0.8500,"ratio":1.0000},"silhouette":0.9223,"edge":0.7992,"combined":0.8792},
+ {"id":6,"side":4,"method":"footprint","alignment":{"angle":360.0000,"zscale":0.8500,"ratio":1.0000},"silhouette":0.9463,"edge":0.8781,"combined":0.9224}]},
+{"region":"africa","family":"a_h03","status":"joint candidate","reason":"","all_ids":[7,8],"included":[7,8],"excluded":[],"donor_id":7,"objective":0.8560,"shared":"africa_a_h03","geometry_note":"","views":[
+ {"id":7,"side":2,"method":"reference","alignment":{"angle":180.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9680,"edge":0.8754,"combined":0.9356},
+ {"id":8,"side":3,"method":"footprint","alignment":{"angle":270.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9074,"edge":0.8518,"combined":0.8879}]},
+{"region":"africa","family":"a_h07","status":"joint candidate","reason":"","all_ids":[10,11,12],"included":[10,11,12],"excluded":[],"donor_id":10,"objective":0.8617,"shared":"africa_a_h07","geometry_note":"","views":[
+ {"id":10,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9364,"edge":0.8752,"combined":0.9150},
+ {"id":11,"side":2,"method":"footprint","alignment":{"angle":180.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9122,"edge":0.8435,"combined":0.8882},
+ {"id":12,"side":3,"method":"footprint","alignment":{"angle":270.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9277,"edge":0.8635,"combined":0.9052}]},
+{"region":"africa","family":"a_h08","status":"joint candidate","reason":"","all_ids":[13,14],"included":[13,14],"excluded":[],"donor_id":13,"objective":0.8304,"shared":"africa_a_h08","geometry_note":"","views":[
+ {"id":13,"side":1,"method":"reference","alignment":{"angle":270.0000,"zscale":0.9257,"ratio":1.0000},"silhouette":0.8761,"edge":0.7829,"combined":0.8435},
+ {"id":14,"side":4,"method":"walls","alignment":{"angle":540.0000,"zscale":0.9257,"ratio":1.0000},"silhouette":0.9263,"edge":0.8502,"combined":0.8997}]},
+{"region":"africa","family":"a_wb","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[18,19],"included":[18],"excluded":[{"id":19,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"africa","family":"a_wt","status":"needs geometry review","reason":"","all_ids":[20,21],"included":[20,21],"excluded":[],"donor_id":21,"objective":0.7620,"shared":"","geometry_note":"","views":[
+ {"id":20,"side":1,"method":"reference","alignment":{"angle":-270.0000,"zscale":0.9775,"ratio":1.0000},"silhouette":0.7473,"edge":0.7646,"combined":0.7534},
+ {"id":21,"side":4,"method":"footprint","alignment":{"angle":0.0000,"zscale":0.9775,"ratio":1.0000},"silhouette":0.7830,"edge":0.7739,"combined":0.7798}]},
+{"region":"common","family":"dot","status":"joint candidate","reason":"","all_ids":[23,24,25,26],"included":[23,24],"excluded":[{"id":25,"reason":"same-side variant; structure may differ"},{"id":26,"reason":"same-side variant; structure may differ"}],"donor_id":23,"objective":0.8125,"shared":"common_dot","geometry_note":"","views":[
+ {"id":23,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":1.0115,"ratio":0.8000},"silhouette":0.8636,"edge":0.9066,"combined":0.8786},
+ {"id":24,"side":3,"method":"footprint","alignment":{"angle":270.0000,"zscale":1.0115,"ratio":0.8000},"silhouette":0.8527,"edge":0.8927,"combined":0.8667}]},
+{"region":"common","family":"dot_h","status":"joint candidate","reason":"","all_ids":[27,28,29,30],"included":[27,28,29,30],"excluded":[],"donor_id":27,"objective":0.8105,"shared":"common_dot_h","geometry_note":"","views":[
+ {"id":27,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":1.0115,"ratio":0.8000},"silhouette":0.8636,"edge":0.9055,"combined":0.8782},
+ {"id":28,"side":2,"method":"footprint","alignment":{"angle":180.0000,"zscale":1.0115,"ratio":0.8000},"silhouette":0.8624,"edge":0.8807,"combined":0.8688},
+ {"id":29,"side":3,"method":"footprint","alignment":{"angle":270.0000,"zscale":1.0115,"ratio":0.8000},"silhouette":0.8783,"edge":0.8928,"combined":0.8834},
+ {"id":30,"side":4,"method":"walls","alignment":{"angle":360.0000,"zscale":1.0115,"ratio":0.8000},"silhouette":0.8437,"edge":0.9057,"combined":0.8654}]},
+{"region":"common","family":"dzot","status":"joint candidate","reason":"","all_ids":[31,32,33,34],"included":[31,34],"excluded":[{"id":32,"reason":"unresolved side"},{"id":33,"reason":"unresolved side"}],"donor_id":34,"objective":0.8035,"shared":"common_dzot","geometry_note":"","views":[
+ {"id":31,"side":1,"method":"reference","alignment":{"angle":15.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.8657,"edge":0.8562,"combined":0.8624},
+ {"id":34,"side":3,"method":"outline","alignment":{"angle":195.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.8300,"edge":0.8185,"combined":0.8260}]},
+{"region":"common","family":"tent","status":"joint candidate","reason":"","all_ids":[35,36],"included":[35,36],"excluded":[],"donor_id":36,"objective":0.8174,"shared":"common_tent","geometry_note":"","views":[
+ {"id":35,"side":1,"method":"reference","alignment":{"angle":0.0000,"zscale":1.1500,"ratio":1.1000},"silhouette":0.8250,"edge":0.7604,"combined":0.8024},
+ {"id":36,"side":2,"method":"walls","alignment":{"angle":90.0000,"zscale":1.1500,"ratio":1.1000},"silhouette":0.8936,"edge":0.8920,"combined":0.8931}]},
+{"region":"europe","family":"e_ctownhouse01","status":"needs geometry review","reason":"","all_ids":[42,43,44],"included":[42,43,44],"excluded":[],"donor_id":42,"objective":0.7209,"shared":"","geometry_note":"","views":[
+ {"id":42,"side":1,"method":"reference","alignment":{"angle":-15.0000,"zscale":0.5950,"ratio":1.0000},"silhouette":0.8224,"edge":0.6509,"combined":0.7623},
+ {"id":43,"side":2,"method":"footprint","alignment":{"angle":75.0000,"zscale":0.5950,"ratio":1.0000},"silhouette":0.7853,"edge":0.6318,"combined":0.7316},
+ {"id":44,"side":4,"method":"footprint","alignment":{"angle":255.0000,"zscale":0.5950,"ratio":1.0000},"silhouette":0.7354,"edge":0.6370,"combined":0.7009}]},
+{"region":"europe","family":"e_ctownhouse02","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[45,46,47],"included":[47],"excluded":[{"id":45,"reason":"same-side variant; structure may differ"},{"id":46,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_ctownhouse03","status":"joint candidate","reason":"","all_ids":[48,49],"included":[48,49],"excluded":[],"donor_id":49,"objective":0.7805,"shared":"europe_e_ctownhouse03","geometry_note":"","views":[
+ {"id":48,"side":2,"method":"reference","alignment":{"angle":-195.0000,"zscale":0.8500,"ratio":1.2500},"silhouette":0.8327,"edge":0.8675,"combined":0.8449},
+ {"id":49,"side":4,"method":"footprint","alignment":{"angle":-15.0000,"zscale":0.8500,"ratio":1.2500},"silhouette":0.8599,"edge":0.8104,"combined":0.8425}]},
+{"region":"europe","family":"e_ctownhouse04","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[50,51],"included":[],"excluded":[{"id":50,"reason":"same-side variant; structure may differ"},{"id":51,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_house01","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[58,59,60],"included":[59],"excluded":[{"id":58,"reason":"same-side variant; structure may differ"},{"id":60,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_house02","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[61,62,63],"included":[63],"excluded":[{"id":61,"reason":"same-side variant; structure may differ"},{"id":62,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_house03","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[64,65,66],"included":[64],"excluded":[{"id":65,"reason":"same-side variant; structure may differ"},{"id":66,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_house11","status":"joint candidate","reason":"","all_ids":[74,75,76],"included":[74,75,76],"excluded":[],"donor_id":74,"objective":0.7991,"shared":"europe_e_house11","geometry_note":"","views":[
+ {"id":74,"side":1,"method":"reference","alignment":{"angle":270.0000,"zscale":1.1900,"ratio":0.8000},"silhouette":0.8588,"edge":0.8792,"combined":0.8660},
+ {"id":75,"side":3,"method":"footprint","alignment":{"angle":450.0000,"zscale":1.1900,"ratio":0.8000},"silhouette":0.8804,"edge":0.7268,"combined":0.8266},
+ {"id":76,"side":4,"method":"footprint","alignment":{"angle":540.0000,"zscale":1.1900,"ratio":0.8000},"silhouette":0.8584,"edge":0.8298,"combined":0.8484}]},
+{"region":"europe","family":"e_jettybuilding","status":"needs geometry review","reason":"","all_ids":[78,79],"included":[78,79],"excluded":[],"donor_id":78,"objective":0.7073,"shared":"","geometry_note":"","views":[
+ {"id":78,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":0.9000,"ratio":0.8000},"silhouette":0.9045,"edge":0.7422,"combined":0.8477},
+ {"id":79,"side":2,"method":"footprint","alignment":{"angle":180.0000,"zscale":0.9000,"ratio":0.8000},"silhouette":0.6911,"edge":0.5442,"combined":0.6397}]},
+{"region":"europe","family":"e_railwaystation","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[81,82],"included":[81],"excluded":[{"id":82,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_shed01","status":"joint candidate","reason":"","all_ids":[83,84],"included":[83,84],"excluded":[],"donor_id":83,"objective":0.8144,"shared":"europe_e_shed01","geometry_note":"","views":[
+ {"id":83,"side":2,"method":"reference","alignment":{"angle":180.0000,"zscale":0.8500,"ratio":1.0000},"silhouette":0.8577,"edge":0.8192,"combined":0.8442},
+ {"id":84,"side":3,"method":"footprint","alignment":{"angle":270.0000,"zscale":0.8500,"ratio":1.0000},"silhouette":0.9367,"edge":0.8756,"combined":0.9153}]},
+{"region":"europe","family":"e_shed02","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[85,86,87,88],"included":[87],"excluded":[{"id":85,"reason":"same-side variant; structure may differ"},{"id":86,"reason":"unresolved side"},{"id":88,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_statue","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[89,90,91],"included":[89],"excluded":[{"id":90,"reason":"same-side variant; structure may differ"},{"id":91,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_stella","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[92,93],"included":[],"excluded":[{"id":92,"reason":"same-side variant; structure may differ"},{"id":93,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_stubtrack","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[94,95,96,97],"included":[94],"excluded":[{"id":95,"reason":"unresolved side"},{"id":96,"reason":"unresolved side"},{"id":97,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_townhouse01","status":"joint candidate","reason":"","all_ids":[98,99],"included":[98,99],"excluded":[],"donor_id":98,"objective":0.8638,"shared":"europe_e_townhouse01","geometry_note":"","views":[
+ {"id":98,"side":3,"method":"reference","alignment":{"angle":0.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9393,"edge":0.8828,"combined":0.9195},
+ {"id":99,"side":4,"method":"walls","alignment":{"angle":90.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9461,"edge":0.8511,"combined":0.9128}]},
+{"region":"europe","family":"e_townhouse02","status":"joint candidate","reason":"","all_ids":[100,101],"included":[100,101],"excluded":[],"donor_id":100,"objective":0.8426,"shared":"europe_e_townhouse02","geometry_note":"","views":[
+ {"id":100,"side":2,"method":"reference","alignment":{"angle":90.0000,"zscale":0.8500,"ratio":0.8000},"silhouette":0.9281,"edge":0.8465,"combined":0.8995},
+ {"id":101,"side":1,"method":"walls","alignment":{"angle":0.0000,"zscale":0.8500,"ratio":0.8000},"silhouette":0.9247,"edge":0.8856,"combined":0.9110}]},
+{"region":"europe","family":"e_townhouse03","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[102,103],"included":[102],"excluded":[{"id":103,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_townhouse04","status":"joint candidate","reason":"","all_ids":[104,105],"included":[104,105],"excluded":[],"donor_id":105,"objective":0.8261,"shared":"europe_e_townhouse04","geometry_note":"","views":[
+ {"id":104,"side":3,"method":"reference","alignment":{"angle":0.0000,"zscale":0.8500,"ratio":0.8800},"silhouette":0.9205,"edge":0.7850,"combined":0.8731},
+ {"id":105,"side":4,"method":"walls","alignment":{"angle":90.0000,"zscale":0.8500,"ratio":0.8800},"silhouette":0.8921,"edge":0.7596,"combined":0.8457}]},
+{"region":"europe","family":"e_waterset","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[107,108,109,110],"included":[107],"excluded":[{"id":108,"reason":"unresolved side"},{"id":109,"reason":"unresolved side"},{"id":110,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_wb","status":"joint candidate","reason":"","all_ids":[111,112],"included":[111,112],"excluded":[],"donor_id":111,"objective":0.8822,"shared":"europe_e_wb","geometry_note":"","views":[
+ {"id":111,"side":1,"method":"reference","alignment":{"angle":270.0000,"zscale":0.7000,"ratio":1.0000},"silhouette":0.9595,"edge":0.9238,"combined":0.9470},
+ {"id":112,"side":4,"method":"walls","alignment":{"angle":540.0000,"zscale":0.7000,"ratio":1.0000},"silhouette":0.9630,"edge":0.9179,"combined":0.9472}]},
+{"region":"europe","family":"e_wellbig","status":"joint candidate","reason":"","all_ids":[113,114],"included":[113,114],"excluded":[],"donor_id":113,"objective":0.7860,"shared":"europe_e_wellbig","geometry_note":"","views":[
+ {"id":113,"side":1,"method":"reference","alignment":{"angle":180.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.8581,"edge":0.7693,"combined":0.8270},
+ {"id":114,"side":3,"method":"outline","alignment":{"angle":360.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.7973,"edge":0.7394,"combined":0.7770}]},
+{"region":"europe","family":"e_welllittle","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[115,116],"included":[],"excluded":[{"id":115,"reason":"same-side variant; structure may differ"},{"id":116,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"europe","family":"e_wt","status":"needs geometry review","reason":"","all_ids":[117,118],"included":[117,118],"excluded":[],"donor_id":118,"objective":0.6454,"shared":"","geometry_note":"","views":[
+ {"id":117,"side":1,"method":"reference","alignment":{"angle":-150.0000,"zscale":1.4375,"ratio":1.0000},"silhouette":0.7009,"edge":0.6070,"combined":0.6681},
+ {"id":118,"side":3,"method":"footprint","alignment":{"angle":30.0000,"zscale":1.4375,"ratio":1.0000},"silhouette":0.6781,"edge":0.5536,"combined":0.6345}]},
+{"region":"ussr","family":"cistern","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[125,126],"included":[125],"excluded":[{"id":126,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"ussr","family":"dustbin","status":"needs geometry review","reason":"","all_ids":[127,128,129],"included":[127,128,129],"excluded":[],"donor_id":127,"objective":0.7280,"shared":"","geometry_note":"","views":[
+ {"id":127,"side":1,"method":"reference","alignment":{"angle":270.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.7734,"edge":0.6865,"combined":0.7430},
+ {"id":128,"side":4,"method":"walls","alignment":{"angle":540.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.7277,"edge":0.6682,"combined":0.7069},
+ {"id":129,"side":3,"method":"footprint","alignment":{"angle":450.0000,"zscale":0.6842,"ratio":1.0000},"silhouette":0.7740,"edge":0.7571,"combined":0.7681}]},
+{"region":"ussr","family":"kiosk","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[149,150,151,152],"included":[],"excluded":[{"id":149,"reason":"same-side variant; structure may differ"},{"id":150,"reason":"unresolved side"},{"id":151,"reason":"same-side variant; structure may differ"},{"id":152,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"ussr","family":"leaders","status":"joint candidate","reason":"","all_ids":[153,154],"included":[153,154],"excluded":[],"donor_id":154,"objective":0.8464,"shared":"ussr_leaders","geometry_note":"","views":[
+ {"id":153,"side":1,"method":"reference","alignment":{"angle":-90.0000,"zscale":0.8500,"ratio":1.2500},"silhouette":0.9144,"edge":0.7278,"combined":0.8491},
+ {"id":154,"side":2,"method":"walls","alignment":{"angle":0.0000,"zscale":0.8500,"ratio":1.2500},"silhouette":0.8919,"edge":0.5649,"combined":0.7774}]},
+{"region":"ussr","family":"pigeonloft","status":"needs geometry review","reason":"","all_ids":[156,157],"included":[156,157],"excluded":[],"donor_id":157,"objective":0.7359,"shared":"","geometry_note":"","views":[
+ {"id":156,"side":1,"method":"reference","alignment":{"angle":-180.0000,"zscale":1.0183,"ratio":1.2500},"silhouette":0.7308,"edge":0.6082,"combined":0.6879},
+ {"id":157,"side":4,"method":"walls","alignment":{"angle":90.0000,"zscale":1.0183,"ratio":1.2500},"silhouette":0.8494,"edge":0.8098,"combined":0.8356}]},
+{"region":"ussr","family":"storehouse","status":"joint candidate","reason":"","all_ids":[163,164],"included":[163,164],"excluded":[],"donor_id":163,"objective":0.8961,"shared":"ussr_storehouse","geometry_note":"","views":[
+ {"id":163,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9589,"edge":0.8249,"combined":0.9120},
+ {"id":164,"side":2,"method":"walls","alignment":{"angle":180.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9739,"edge":0.8381,"combined":0.9264}]},
+{"region":"ussr","family":"stubtrack","status":"needs geometry review","reason":"","all_ids":[165,166,167,168],"included":[165,167],"excluded":[{"id":166,"reason":"unresolved side"},{"id":168,"reason":"unresolved side"}],"donor_id":167,"objective":0.7152,"shared":"","geometry_note":"","views":[
+ {"id":165,"side":1,"method":"reference","alignment":{"angle":0.0000,"zscale":0.6842,"ratio":0.8000},"silhouette":0.6797,"edge":0.7102,"combined":0.6904},
+ {"id":167,"side":3,"method":"footprint","alignment":{"angle":180.0000,"zscale":0.6842,"ratio":0.8000},"silhouette":0.7911,"edge":0.7218,"combined":0.7668}]},
+{"region":"ussr","family":"townhouse01","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[173,174],"included":[173],"excluded":[{"id":174,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"ussr","family":"townhouse02","status":"joint candidate","reason":"","all_ids":[175,176],"included":[175,176],"excluded":[],"donor_id":176,"objective":0.8832,"shared":"ussr_townhouse02","geometry_note":"","views":[
+ {"id":175,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9426,"edge":0.8682,"combined":0.9166},
+ {"id":176,"side":2,"method":"footprint","alignment":{"angle":180.0000,"zscale":1.0000,"ratio":1.0000},"silhouette":0.9668,"edge":0.8587,"combined":0.9290}]},
+{"region":"ussr","family":"townhouse03","status":"joint candidate","reason":"","all_ids":[177,178],"included":[177,178],"excluded":[],"donor_id":177,"objective":0.8469,"shared":"ussr_townhouse03","geometry_note":"","views":[
+ {"id":177,"side":1,"method":"reference","alignment":{"angle":270.0000,"zscale":0.9350,"ratio":1.0000},"silhouette":0.9412,"edge":0.8283,"combined":0.9017},
+ {"id":178,"side":2,"method":"walls","alignment":{"angle":360.0000,"zscale":0.9350,"ratio":1.0000},"silhouette":0.9422,"edge":0.7850,"combined":0.8871}]},
+{"region":"ussr","family":"townhouse04","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[179,180],"included":[179],"excluded":[{"id":180,"reason":"unresolved side"}],"shared":"","geometry_note":"","views":[]},
+{"region":"ussr","family":"townhouse05","status":"unresolved","reason":"fewer than two unique measured sides","all_ids":[181,182,183],"included":[181],"excluded":[{"id":182,"reason":"same-side variant; structure may differ"},{"id":183,"reason":"same-side variant; structure may differ"}],"shared":"","geometry_note":"","views":[]},
+{"region":"ussr","family":"ukrainehouse01","status":"joint candidate","reason":"","all_ids":[184,185],"included":[184,185],"excluded":[],"donor_id":184,"objective":0.8196,"shared":"ussr_ukrainehouse01","geometry_note":"","views":[
+ {"id":184,"side":1,"method":"reference","alignment":{"angle":180.0000,"zscale":0.7225,"ratio":0.8000},"silhouette":0.8667,"edge":0.8488,"combined":0.8604},
+ {"id":185,"side":2,"method":"walls","alignment":{"angle":270.0000,"zscale":0.7225,"ratio":0.8000},"silhouette":0.8607,"edge":0.8211,"combined":0.8468}]},
+{"region":"ussr","family":"ukrainehouse03","status":"joint candidate","reason":"","all_ids":[187,188],"included":[187,188],"excluded":[],"donor_id":188,"objective":0.8396,"shared":"ussr_ukrainehouse03","geometry_note":"","views":[
+ {"id":187,"side":1,"method":"reference","alignment":{"angle":0.0000,"zscale":0.7000,"ratio":1.0000},"silhouette":0.8787,"edge":0.8404,"combined":0.8653},
+ {"id":188,"side":2,"method":"footprint","alignment":{"angle":90.0000,"zscale":0.7000,"ratio":1.0000},"silhouette":0.8930,"edge":0.8165,"combined":0.8663}]},
+{"region":"ussr","family":"wb","status":"joint candidate","reason":"","all_ids":[191,192],"included":[191,192],"excluded":[],"donor_id":191,"objective":0.9078,"shared":"ussr_wb","geometry_note":"","views":[
+ {"id":191,"side":1,"method":"reference","alignment":{"angle":90.0000,"zscale":0.9350,"ratio":1.0000},"silhouette":0.9741,"edge":0.8901,"combined":0.9447},
+ {"id":192,"side":4,"method":"walls","alignment":{"angle":360.0000,"zscale":0.9350,"ratio":1.0000},"silhouette":0.9735,"edge":0.8596,"combined":0.9336}]}
+]}
