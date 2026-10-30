@@ -7017,7 +7017,7 @@ fn meshSeen(gpa: std.mem.Allocator, ms: MeshScene, placement: mesh.Placement, tu
 /// (`mesh.place`: its box on the picture's, its lowest point on the ground),
 /// but one picture cannot tell a building moved along its line of sight and
 /// lifted by as much, and a mesh taller or shorter than the picture stands
-/// nearer or farther: the rick's stood 4 pixels low. The lowest opaque pixel
+/// nearer or farther: the rick's stood 6 pixels low. The lowest opaque pixel
 /// of each column is where the object meets the ground there; the median
 /// over the columns of the render at N against the picture is how far the
 /// model stands below it, which a move along the line of sight takes back.
