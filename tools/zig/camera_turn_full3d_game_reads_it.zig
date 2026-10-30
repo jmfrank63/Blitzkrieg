@@ -57,12 +57,12 @@ const at = [2]u32{ 574, 374 };
 const screen = [2]i32{ 261, 433 };
 
 /// A rendered turn: the Game draws its one-bit pixels unchanged.
-const min_iou = 0.95;
-const max_colour = 2.0;
+const min_iou: f64 = 0.95;
+const max_colour: f64 = 2.0;
 /// Turn 0 is the 2003 picture, its edges soft: a small prop's outline is a few
 /// pixels of edge (camera-turn-world-game-reads-it's floors for the 2003 pictures).
-const min_2003_iou = 0.9;
-const max_2003_colour = 8.0;
+const min_2003_iou: f64 = 0.9;
+const max_2003_colour: f64 = 8.0;
 
 test "the Game turns full 3D props and a damaged building: each shows its turn's rendered picture where the turn puts it" {
     const io = testing.io;

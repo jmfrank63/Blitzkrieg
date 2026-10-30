@@ -2,23 +2,27 @@
 
 ## How to try it
 
-You need the Game, the Map Editor and the turned building pictures. From the repository root (Windows PowerShell
-shown; one `zig build` at a time):
+You need the Game, the Map Editor and the turned building and prop pictures. From the repository root (one
+`zig build` at a time):
 
-1. Build and install: `zig build install-game install-map-editor`.
-2. Make the turned pictures of every shipped building, once (about 6 minutes in all):
-   `zig build building-views-batch-africa`, then `-common`, `-europe`, `-ussr`.
-3. Put them into a mod: `zig build camera-turn-mod`. It writes `zig-out\remastered\mods\remastered_views`
-   (outside the install's own `mods` folder).
-4. Start the Game with that mod:
-   `$env:BK_MODS_ROOT = "$PWD\zig-out\remastered\mods"; & zig-out\game\windows\x86_64\debug\Game.exe -mod=remastered_views`
-   (`release` instead of `debug` for an optimized build; on Linux
-   `BK_MODS_ROOT=$PWD/zig-out/remastered/mods zig-out/game/linux/x86_64/release/Game -mod=remastered_views`).
-5. In the main menu: Options > Settings > Gameplay > **Remastered: On**. Start any mission or custom map.
-6. Press `.` (period) to turn the view a quarter turn one way and `,` (comma) to turn it back. Four presses come back
+1. Build and install everything, the turned pictures included: `zig build install-all --release=fast`. It installs
+   the Game, the language mods and the editors, and makes the mod `zig-out/remastered/mods/remastered_views`
+   (camera-turn-mod: every object's turns from its full 3D model, the full3d-<region> runs, and the relit flora and
+   props), outside the install's own `mods` folder. The first run draws all 412 objects (about 10 minutes on
+   macOS arm64, longer than one ten-minute command on Windows: run `full3d-africa`, `-common`, `-europe`, `-ussr`
+   first there); every run after it is cached and draws again only the objects whose Data folders, meshes or
+   shape fixtures, or bk-views and bk-sprite, changed (see the full 3D objects spec, "install-all").
+2. Start the Game with that mod. On macOS arm64 the whole line is
+   `git pull && zig build install-all --release=fast && BK_MODS_ROOT="$PWD/zig-out/remastered/mods" zig-out/game/macos/arm64/release/Game -autosave -Monitor=2 -fullscreen -mod=remastered_views`;
+   on Windows `$env:BK_MODS_ROOT = "$PWD\zig-out\remastered\mods"; & zig-out\game\windows\x86_64\release\Game.exe -mod=remastered_views`,
+   on Linux `BK_MODS_ROOT=$PWD/zig-out/remastered/mods zig-out/game/linux/x86_64/release/Game -mod=remastered_views`.
+   `BK_MODS_ROOT` and `-mod=` stay: the mod is 1.3 GiB of generated pictures and the install's `mods` folder is the
+   player's and is packaged, so it does not go there, and a Game that loaded it by itself would do so for players.
+3. In the main menu: Options > Settings > Gameplay > **Remastered: On**. Start any mission or custom map.
+4. Press `.` (period) to turn the view a quarter turn one way and `,` (comma) to turn it back. Four presses come back
    to the 2003 view. Buildings show the side that faces the camera, the ground, units, props, bridges and the minimap
    turn with the view; picking, orders and scrolling follow it. With Remastered off the keys do nothing.
-7. The Map Editor turns buildings too: start `zig-out\game\windows\x86_64\debug\MapEditor.exe -mod=remastered_views`
+5. The Map Editor turns buildings too: start `zig-out\game\windows\x86_64\debug\MapEditor.exe -mod=remastered_views`
    with the same `BK_MODS_ROOT`, open a map, select a building with the Select tool and press `Q` or `E`: it turns by a
    quarter, shows that side and stands on its turned footprint. Save the map; the Game (Remastered on) draws and plays
    the building turned. The four-sided props (benches, the France fence, the wooden columns) turn the same way. A

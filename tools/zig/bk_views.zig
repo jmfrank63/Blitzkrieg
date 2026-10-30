@@ -38,18 +38,18 @@ const usage: bk_tool.Usage = .{
     \\usage: bk-views decompose <variant-dir> <out-dir>
     \\       bk-views camera <variant-dir>... [--out <camera.json>]
     \\       bk-views inventory <buildings-dir> <out-dir>
-    \\       bk-views side <variant-dir> <turns> <out-dir> [<work-dir>]
+    \\       bk-views side <variant-dir> <turns> <out-dir> [<work-dir> | --no-work] [--deps=<file>]
     \\       bk-views holdout <out-dir> <variant-dir>...
     \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
     \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
     \\       bk-views contact <buildings-dir> <generated-dir> <out-dir>
     \\       bk-views shape <out-dir> <variant-dir>...
-    \\       bk-views relight <objects-dir> <out-dir>
+    \\       bk-views relight <objects-dir> <out-dir> [--deps=<file>]
     \\       bk-views ids <ids.json> <buildings-dir> <objects-dir>
     \\       bk-views models <models-dir> <ids.json> <variant-dir>...
     \\       bk-views review <out.pdf> <ids.json> <models-dir> <buildings-dir> <objects-dir>
     \\       bk-views import <family-review-manifest.json> <meshes-dir>
-    \\       bk-views model3d <out-dir> <variant-dir>...
+    \\       bk-views model3d <out-dir> <variant-dir>... [--deps=<file>]
     \\       bk-views full3d-review <out.pdf> <models-dir>
     \\
     ,
@@ -60,9 +60,28 @@ pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-views", usage, run);
 }
 
+/// The options side, relight and model3d take after their arguments, for a build
+/// system that caches their runs (build.zig's install-all): `--deps=<file>` writes a
+/// make-style list of every input file the run read, so zig build runs it again only
+/// when one of them changed, and `--no-work` (side) keeps the pictures and source maps
+/// in a scratch folder in <out-dir> that is removed when done, as nothing reads them.
+var deps_path: ?[]const u8 = null;
+var no_work = false;
+
 fn run(ctx: *bk_tool.Context) !void {
     if (ctx.args.len == 0) return error.Usage;
     const command = ctx.args[0];
+    if (std.mem.eql(u8, command, "side") or std.mem.eql(u8, command, "relight") or std.mem.eql(u8, command, "model3d")) {
+        var kept: std.ArrayList([]const u8) = .empty;
+        for (ctx.args) |arg| {
+            if (std.mem.startsWith(u8, arg, "--deps=") and arg.len > "--deps=".len) {
+                deps_path = arg["--deps=".len..];
+            } else if (std.mem.eql(u8, command, "side") and std.mem.eql(u8, arg, "--no-work")) {
+                no_work = true;
+            } else try kept.append(ctx.arena, arg);
+        }
+        ctx.args = kept.items;
+    }
     if (std.mem.eql(u8, command, "decompose")) {
         if (ctx.args.len != 3) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
@@ -81,6 +100,7 @@ fn run(ctx: *bk_tool.Context) !void {
     if (std.mem.eql(u8, command, "side")) {
         if (ctx.args.len != 4 and ctx.args.len != 5) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        if (no_work and ctx.args.len == 5) return error.Usage;
         return sideCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], if (ctx.args.len == 5) ctx.args[4] else ctx.args[3]);
     }
     if (std.mem.eql(u8, command, "holdout") or std.mem.eql(u8, command, "style")) {
@@ -295,6 +315,58 @@ fn writeOut(ctx: *bk_tool.Context, dir: []const u8, name: []const u8, data: []co
         return ctx.failKey("views.err.read", .{ path, @errorName(err) });
 }
 
+/// The input files of the run, for `--deps=`.
+var inputs: std.ArrayList([]const u8) = .empty;
+
+/// Every file of `dir` (not below it) as an input of the run.
+fn depDir(ctx: *bk_tool.Context, dir: []const u8) !void {
+    if (deps_path == null) return;
+    const files = entries(ctx.arena, ctx.io, dir, .file) catch return;
+    for (files) |name| try inputs.append(ctx.arena, try std.fs.path.join(ctx.arena, &.{ dir, name }));
+}
+
+/// `path` as an input of the run where it exists. A fixture the run looked for and
+/// did not find is left out: zig build fails on an input that is not there.
+fn depFile(ctx: *bk_tool.Context, path: []const u8) !void {
+    if (deps_path == null) return;
+    std.Io.Dir.cwd().access(ctx.io, path, .{}) catch return;
+    try inputs.append(ctx.arena, path);
+}
+
+/// What a scene is drawn from: every variant folder of the family (the inventory
+/// measures each one's side) and the fixtures loadScene and loadMeshScene read.
+fn depScene(ctx: *bk_tool.Context, found: InFamily, scene: Scene) !void {
+    if (deps_path == null) return;
+    const arena = ctx.arena;
+    for (found.family.variants) |variant| try depDir(ctx, try std.fs.path.join(arena, &.{ found.root, variant.path }));
+    for ([_][]const u8{ shapes_dir, roof_parts_dir }) |dir| try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/{s}.json", .{ dir, found.family.name }));
+    try depFile(ctx, props_file);
+    try depFile(ctx, shape_ids_file);
+    try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/families.json", .{mesh.meshes_dir}));
+    if (try readJson(ShapeIds, ctx, shape_ids_file)) |ids| for (found.family.variants) |variant| {
+        const id = (try shapeIdOf(ids, arena, try std.fs.path.join(arena, &.{ found.root, variant.path }))) orelse continue;
+        try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/{d:0>3}.json", .{ mesh.meshes_dir, id }));
+    };
+    if (scene.mesh) |ms| if (ms.model.shared) |name| try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/shared/{s}.json", .{ mesh.meshes_dir, name }));
+}
+
+/// Writes the make-style dep file `--deps=` names, each input by its absolute
+/// path and quoted: zig build resolves a relative one against its own working
+/// folder, which need not be the run's.
+fn writeDeps(ctx: *bk_tool.Context) !void {
+    const path = deps_path orelse return;
+    const cwd = try std.process.currentPathAlloc(ctx.io, ctx.arena);
+    var text: std.Io.Writer.Allocating = .init(ctx.arena);
+    const w = &text.writer;
+    try w.writeAll("inputs:");
+    for (inputs.items) |input| {
+        try w.print(" \\\n \"{s}\"", .{if (std.fs.path.isAbsolute(input)) input else try std.fs.path.join(ctx.arena, &.{ cwd, input })});
+    }
+    try w.writeAll("\n");
+    std.Io.Dir.cwd().writeFile(ctx.io, .{ .sub_path = path, .data = text.written() }) catch |err|
+        return ctx.failKey("views.err.read", .{ path, @errorName(err) });
+}
+
 // ---------------------------------------------------------------------------
 // relight
 
@@ -385,6 +457,7 @@ fn relightCommand(ctx: *bk_tool.Context, dir_arg: []const u8, out_arg: []const u
     const dir = try bk_tool.inputPath(ctx.arena, dir_arg);
     const out = try bk_tool.inputPath(ctx.arena, out_arg);
     const made = try relightTree(ctx, dir, out);
+    try writeDeps(ctx);
     try ctx.out.print("wrote {s}: {d} relit packs\n", .{ out, made });
 }
 
@@ -393,6 +466,7 @@ fn relightTree(ctx: *bk_tool.Context, dir: []const u8, out: []const u8) !usize {
     // A folder whose pack is not a sprite pack (a mine's animation pack) keeps
     // its 2003 picture: noted on stdout, as a build step fails on a tool's stderr.
     if (hasName(try entries(ctx.arena, ctx.io, dir, .file), "1.san")) {
+        try depDir(ctx, dir);
         if (decodePack(ctx.arena, try readFile(ctx, try std.fs.path.join(ctx.arena, &.{ dir, "1.san" })))) |_| {
             made += try relightFolder(ctx, dir, out);
         } else |err| try ctx.out.print("{s}: kept as drawn ({s})\n", .{ dir, @errorName(err) });
@@ -4122,7 +4196,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const cwd = std.Io.Dir.cwd();
     const dir = try bk_tool.inputPath(arena, dir_arg);
     const out = try bk_tool.inputPath(arena, out_arg);
-    const work = try bk_tool.inputPath(arena, work_arg);
+    const work = if (no_work) try std.fs.path.join(arena, &.{ out, ".work" }) else try bk_tool.inputPath(arena, work_arg);
     // A turn k (`<variant>_r<k>`, lit by the 2003 light fixed to the camera),
     // or `<k>l<s>`: turn k lit by the sun fixed in the world as camera step s
     // shows it (`<variant>_r<k>_l<s>`, the light of turn k - s, M006 round 2).
@@ -4237,6 +4311,9 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         try cwd.rename(temp, cwd, final, io);
         try ctx.out.print("wrote {s}: side {d} of {s}, {d} damage states\n", .{ final, new_side, scene.family, scene.states.len });
     }
+    if (no_work) cwd.deleteTree(io, work) catch {};
+    try depScene(ctx, found, scene);
+    try writeDeps(ctx);
 }
 
 /// `shape`: each variant's intact blocks (its hand shape, or the fit)
@@ -7151,6 +7228,7 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
         const found = findFamily(arena, ctx.io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
         const scene = try loadScene(ctx, found, found.index, null, false);
         const ms = scene.mesh orelse return ctx.failKey("views.err.read", .{ dir, "NoMesh" });
+        try depScene(ctx, found, scene);
         const intact = scene.full3d[0];
         const own = scene.sources[scene.fixed];
         const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
@@ -7279,7 +7357,9 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
         try writeOut(ctx, folder, "model.json", json.written());
         try ctx.out.print("wrote {s}: {d} models, atlas {d}x{d}; N against 2003: outline {d:.4}, colour {d:.2}; holes {d}; same bytes {}\n", .{ folder, scene.full3d.len, intact.width, intact.height, n_match.iou, n_match.colour, holes, same });
     }
+    try writeDeps(ctx);
 }
+
 
 /// `full3d-review`: every object `model3d` wrote into `<models-dir>` laid out
 /// for the maintainer, by number, with a contents index as the shapes
