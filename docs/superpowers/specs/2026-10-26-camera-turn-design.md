@@ -8,9 +8,9 @@ You need the Game, the Map Editor and the turned building and prop pictures. Fro
 1. Build and install everything, the turned pictures included: `zig build install-all --release=fast`. It installs
    the Game, the language mods and the editors, and makes the mod `zig-out/remastered/mods/remastered_views`
    (camera-turn-mod: every object's turns from its full 3D model, the full3d-<region> runs, and the relit flora and
-   props), outside the install's own `mods` folder. The first run draws all 412 objects (about 10 minutes on
-   macOS arm64, longer than one ten-minute command on Windows: run `full3d-africa`, `-common`, `-europe`, `-ussr`
-   first there); every run after it is cached and draws again only the objects whose Data folders, meshes or
+   props), outside the install's own `mods` folder. The first run draws all 412 objects (1031 s on macOS arm64
+   from a fresh clone; longer than one ten-minute command on Windows: run `full3d-africa`, `-common`, `-europe`,
+   `-ussr` first there); every run after it is cached and draws again only the objects whose Data folders, meshes or
    shape fixtures, or bk-views and bk-sprite, changed (see the full 3D objects spec, "install-all").
 2. Start the Game with that mod. On macOS arm64 the whole line is
    `git pull && zig build install-all --release=fast && BK_MODS_ROOT="$PWD/zig-out/remastered/mods" zig-out/game/macos/arm64/release/Game -autosave -Monitor=2 -fullscreen -mod=remastered_views`;

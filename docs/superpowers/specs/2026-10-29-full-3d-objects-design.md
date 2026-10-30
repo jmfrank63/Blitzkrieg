@@ -381,7 +381,50 @@ All of it is build output under `zig-out` (git ignores it). The models are mostl
   only the one-pixel box reaches), the full sweep (left to the maintainer), Linux (CI). macOS arm64: the `full3d`
   batch above in a throwaway clone (its Game tiers not run there).
 
+### install-all (2026-10-30)
+
+`zig build install-all --release=fast` makes everything the camera turn needs: it now depends on `camera-turn-mod`,
+which installs the turns of all 412 objects (`full3d-mod`) and the relit flora and props from cached runs into
+`zig-out/remastered/mods/remastered_views`. The maintainer's line on macOS arm64 is
+
+`git pull && zig build install-all --release=fast && BK_MODS_ROOT="$PWD/zig-out/remastered/mods" zig-out/game/macos/arm64/release/Game -autosave -Monitor=2 -fullscreen -mod=remastered_views`
+
+- **Cached by Zig, not by timestamps.** `bk-views side`, `relight` and `model3d` write into the run's own cache
+  folder (`addOutputDirectoryArg`) and list every file they read in a make-style dep file (`--deps=<file>`): the
+  object's family's Data folders, `shape-ids.json`, `props.json`, `meshes/families.json`, the family's
+  `meshes/<id>.json` and shared mesh, `shapes/<family>.json` and `roof-parts/<family>.json`. With bk-views-fast
+  (the run's executable) and `zig-out/bin/bk-sprite` as inputs, a run comes again only when one of those changed;
+  the steps install from the cache folders, so deleted outputs come back. The engine's reader check takes the turns'
+  cache paths as its arguments and comes again exactly when the turns did. A file added to a folder the run read
+  (a new damage state) is not seen until another input changes.
+- **Dropped from install-all:** the models (`model3d`, 5.2 GiB) and the review PDF stay in `full3d-<region>` and
+  `full3d-review`. `side --no-work` keeps its pictures and source maps in a scratch folder it removes (they were
+  11 GiB nothing read), and the round trip keeps a variant's scratch only where it differed (6 GiB). The
+  building-views batch is not part of it: every inventory variant (194) is one of the 412 full 3D objects.
+- **The artifacts' paths.** The first runs used bk-sprite's and bk-views' artifacts as inputs; Zig resolved them at
+  times to the copies `install-resource-editor` puts beside ResourceEditor in the staged game, which install-game
+  rewrites while the runs go, and 21 to 127 checks drew again at random on each repeat. The runs now name
+  `zig-out/bin/bk-sprite` and use bk-views-fast (installed nowhere). A Debug build installs a Debug bk-sprite there,
+  so the next release install-all draws everything again once.
+- **`BK_MODS_ROOT` and `-mod=remastered_views` stay.** The mod is generated pictures (1.3 GiB on Windows, 1.6 GiB
+  on the Mac, `du`) and the install's `mods` folder is the player's and is packaged; a Game that loaded the mod by
+  itself would do so for players too.
+
+| | Windows x64 (win-home) | macOS arm64 |
+|---|---|---|
+| first run | regions one at a time (the 10-minute cap): africa 126 s (with bk-views-fast's compile), common 87 s, europe 201 s, ussr 505 s, then install-all 459 s (relight, the mod) | 1031 s, a fresh `--shared` clone with its own `.zig-cache`, all compiles included |
+| repeat, nothing changed | 242 s and 244 s, nothing drawn: 3 min of it is `install-language-mods` (its run has side effects, as before) | 70 s and 71 s, nothing drawn (`--summary all`: no bk-views or round trip run); 1 min is `install-language-mods` |
+| `full3d-mod` alone, repeat | 3 s | not run |
+| one mesh changed (`meshes/003.json`, a_h01_1) | its family's two objects drawn again, 19 s for full3d-africa | not run |
+
+Proof the Game reads it: every installed pack passes the engine's reader (`bk-views-check` in the round trip) inside
+install-all, and `camera-turn-full3d-game-reads-it` passes on Windows (release), with `side` changed as above; it did
+not compile on main (its floors were `comptime_float` chosen at run time) and does now. `test-bk-views`,
+`test-bk-tools-l10n`, `bk-views-roundtrip` and `bk-views-side` pass on Windows. Not run: the Mac's Game tiers, Linux
+(CI), the full sweep (left to the maintainer).
+
 ### Left open
+
 
 - Paint: the median atlas is 62% guessed; the needs-paint list in `full3d-ranked.csv` is the order to paint in
   (props with one small 2003 picture first).
