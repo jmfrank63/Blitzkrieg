@@ -3457,6 +3457,10 @@ const Scene = struct {
     /// The full 3D models on that mesh every state is rendered from
     /// (`buildFull3d`): the intact model, then one a damage state.
     full3d: []const model3d.Model = &.{},
+    /// How far the full 3D model is moved on the ground along the 2003
+    /// line of sight, world (1, -1), to stand where the variant's 2003
+    /// picture stands (`artAlong`); every turn is laid by it (`zeroAlong`).
+    art_along: f64 = 0,
 
     /// The full 3D model that holds a state's atlas.
     fn modelFor(scene: Scene, state: []const u8) ?model3d.Model {
@@ -3637,6 +3641,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         .prop = if (try readJson(std.json.ArrayHashMap([]const u8), ctx, props_file)) |props| props.map.contains(found.family.name) else false,
         .mesh = mesh_scene,
         .full3d = full3d,
+        .art_along = if (full3d.len > 0) try artAlong(arena, own, full3d[0]) else 0,
     };
 }
 
@@ -3675,13 +3680,12 @@ fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
             };
         }
     }
-    // A meshed object's turn is laid on the zero cross `meshZero` finds,
-    // which the canvas must hold (a small prop's mesh may stand off its
-    // footprint's middle by more than the margin: compose-pack hung on
-    // mine_r1's zero at 31,13 of a 27 x 18 canvas, and read a negative one
-    // as an option).
-    if (scene.mesh) |ms| {
-        const z = meshZero(scene, ms, .{ .turn = k, .light = light, .eye = eye, .size = .{ 0, 0 }, .name = name });
+    // A full 3D object's turn is laid on the zero cross `zeroAlong` finds,
+    // which the canvas must hold (a small prop's zero cross may lie off its
+    // picture by more than the margin: compose-pack hung on mine_r1's zero
+    // at 31,13 of a 27 x 18 canvas, and read a negative one as an option).
+    if (scene.full3d.len > 0) {
+        const z = zeroAlong(.{ .turn = k, .light = light, .eye = eye, .size = .{ 0, 0 }, .name = name }, scene.art_along);
         lo = .{ @min(lo[0], z[0]), @min(lo[1], z[1]) };
         hi = .{ @max(hi[0], z[0]), @max(hi[1], z[1]) };
     }
@@ -4184,7 +4188,13 @@ fn footprintZero(scene: Scene, target: Turned) [2]f64 {
 /// moved along the line of sight to the footprint's middle (`footprintZero`).
 fn zeroOnFootprint(scene: Scene, target: Turned, lo: [2]f64, hi: [2]f64) [2]f64 {
     const foot = boxCentre(scene.sources[scene.fixed].footprint);
-    const along = ((foot[0] - (lo[0] + hi[0]) / 2) - (foot[1] - (lo[1] + hi[1]) / 2)) / 2;
+    return zeroAlong(target, ((foot[0] - (lo[0] + hi[0]) / 2) - (foot[1] - (lo[1] + hi[1]) / 2)) / 2);
+}
+
+/// The zero cross that lays a turn's picture as if what it shows were moved
+/// `along` world (1, -1) on the ground: the engine draws the zero cross at
+/// the object's place, so the picture moves the other way.
+fn zeroAlong(target: Turned, along: f64) [2]f64 {
     const moved = target.eye.project(.{ along, -along, 0 });
     const still = target.eye.project(.{ 0, 0, 0 });
     return .{ target.eye.anchor[0] - @round(moved[0] - still[0]), target.eye.anchor[1] - @round(moved[1] - still[1]) };
@@ -4200,20 +4210,31 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     // A turn k (`<variant>_r<k>`, lit by the 2003 light fixed to the camera),
     // or `<k>l<s>`: turn k lit by the sun fixed in the world as camera step s
     // shows it (`<variant>_r<k>_l<s>`, the light of turn k - s, M006 round 2).
+    // A building standing at its own facing f shows turn f + s at step s, so
+    // every k with every s is drawn for one: `0l<s>` too, its turn 0 rendered
+    // from its full 3D model (the 2003 picture is lit for step 0 and its
+    // shadow, cut under the picture, cannot be laid turned; a folder without
+    // a model has no such turn and skips it).
     var turns: std.ArrayList([2]u2) = .empty;
     var split = std.mem.splitScalar(u8, turns_arg, ',');
     while (split.next()) |t| {
         const at = std.mem.indexOfScalar(u8, t, 'l') orelse t.len;
         const k = std.fmt.parseInt(u2, t[0..at], 10) catch return error.Usage;
         const s = if (at < t.len) std.fmt.parseInt(u2, t[at + 1 ..], 10) catch return error.Usage else 0;
-        if (k == 0 or (at < t.len and s == 0)) return error.Usage;
+        if ((k == 0 and s == 0) or (at < t.len and s == 0)) return error.Usage;
         try turns.append(arena, .{ k, s });
     }
 
     const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
     const scene = try loadScene(ctx, found, found.index, null, false);
     var targets: std.ArrayList(Turned) = .empty;
-    for (turns.items) |ks| try targets.append(arena, turnTarget(scene, ks[0], ks[0] -% ks[1], if (ks[1] == 0) try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks[0] }) else try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ scene.name, ks[0], ks[1] })));
+    for (turns.items) |ks| {
+        if (ks[0] == 0 and scene.full3d.len == 0) {
+            try ctx.out.print("skipped {s}_r0_l{d}: turn 0 under the world's sun needs a full 3D model\n", .{ scene.name, ks[1] });
+            continue;
+        }
+        try targets.append(arena, turnTarget(scene, ks[0], ks[0] -% ks[1], if (ks[1] == 0) try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks[0] }) else try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ scene.name, ks[0], ks[1] })));
+    }
 
     // The pictures, the source maps and the packs of each turn.
     // bk-sprite beside bk-views (zig-out/bin), else the one on PATH.
@@ -4240,8 +4261,8 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const fallback = turned.fallback;
         const mirror = turned.mirror;
         // One zero cross for every picture of a turn (the engine's packs share
-        // it): on a mesh, the mesh's.
-        const zero = if (fallback) target.eye.anchor else if (scene.mesh) |ms| meshZero(scene, ms, target) else footprintZero(scene, target);
+        // it): a full 3D model's where its 2003 picture stands (`artAlong`).
+        const zero = if (fallback) target.eye.anchor else if (scene.full3d.len > 0) zeroAlong(target, scene.art_along) else footprintZero(scene, target);
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
         try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"full3d\":{},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n", .{ scene.name, scene.own_side, target.turn, new_side, scene.full3d.len > 0, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
@@ -6988,18 +7009,50 @@ fn meshSeen(gpa: std.mem.Allocator, ms: MeshScene, placement: mesh.Placement, tu
     return .{ .view = v, .raster = try mesh.raster(gpa, try mesh.viewVertices(gpa, ms.model, v), ms.tris, size[0], size[1]), .normals = normals };
 }
 
-/// The zero cross of a turn drawn on the mesh: as `footprintZero` lays the
-/// blocks, the mesh's ground box moved along the line of sight to the
-/// footprint's middle.
-fn meshZero(scene: Scene, ms: MeshScene, target: Turned) [2]f64 {
-    var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
-    var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
-    for (0..mesh.vertexCount(ms.model)) |i| {
-        const w = ms.views[0].placement.world(mesh.vertex(ms.model, i));
-        lo = .{ @min(lo[0], w[0]), @min(lo[1], w[1]) };
-        hi = .{ @max(hi[0], w[0]), @max(hi[1], w[1]) };
+/// How far a full 3D model must move on the ground along the 2003 line of
+/// sight, world (1, -1), to stand where its variant's 2003 picture stands:
+/// the Game draws that picture at camera step 0 and the model's turns at the
+/// others, both at the object's place, so a model standing elsewhere jumps
+/// across the ground when the camera turns. The mesh lies on the picture
+/// (`mesh.place`: its box on the picture's, its lowest point on the ground),
+/// but one picture cannot tell a building moved along its line of sight and
+/// lifted by as much, and a mesh taller or shorter than the picture stands
+/// nearer or farther: the rick's stood 6 pixels low. The lowest opaque pixel
+/// of each column is where the object meets the ground there; the median
+/// over the columns of the render at N against the picture is how far the
+/// model stands below it, which a move along the line of sight takes back.
+/// This replaces laying the model's ground box on the footprint's middle
+/// (round 5's `meshZero`, as `footprintZero` lays the blocks): the 2003
+/// pictures do not stand there (e_wb/01's ramps take the footprint's front
+/// rows), so the barn's turns stood 11 pixels to the side of its step 0.
+fn artAlong(gpa: std.mem.Allocator, own: Source, m: model3d.Model) !f64 {
+    const picture = pictureOf(own, "1") orelse return 0;
+    const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
+    const rendered = (try model3d.render(gpa, m, "1", 0, 0, anchor, .{ picture.width, picture.height })).image;
+    var below: std.ArrayList(f64) = .empty;
+    for (0..picture.width) |x| {
+        const art = lowestOpaque(picture, x) orelse continue;
+        const model = lowestOpaque(rendered, x) orelse continue;
+        try below.append(gpa, @as(f64, @floatFromInt(model)) - @as(f64, @floatFromInt(art)));
     }
-    return zeroOnFootprint(scene, target, lo, hi);
+    if (below.items.len == 0) return 0;
+    std.mem.sort(f64, below.items, {}, std.sort.asc(f64));
+    const n = below.items.len;
+    const median = if (n % 2 == 1) below.items[n / 2] else (below.items[n / 2 - 1] + below.items[n / 2]) / 2;
+    // A move of `along` on the ground moves the picture at N straight down.
+    const eye: Eye = .{ .anchor = .{ 0, 0 } };
+    const down = eye.project(.{ 1, -1, 0 })[1] - eye.project(.{ 0, 0, 0 })[1];
+    return -median / down;
+}
+
+/// The row of a column's lowest pixel of alpha 128 or more, or null.
+fn lowestOpaque(image: Image, x: usize) ?usize {
+    var y = image.height;
+    while (y > 0) {
+        y -= 1;
+        if (image.pixels[y * image.width + x][3] >= 128) return y;
+    }
+    return null;
 }
 
 /// What the fill's checks measure of a turn's intact picture against the

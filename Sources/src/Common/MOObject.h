@@ -25,9 +25,11 @@ class CMOObject : public CTRefCount<SMapObject>
 	int nShownLight;										// the camera step whose sun its picture is lit by (0: the 2003 picture)
 	int nFacing;												// its own facing in quarter turns (a prop of four sides draws by it)
 	CVec3 vTurnShift;											// how far a turned fence segment's picture stands from its place (world units)
+	std::string szShownShadow;						// the folder whose shadow it casts (empty: its own)
 	void ApplyCameraTurn();
 	void ShiftPicture( const CVec3 &vShift );
 	void ShowPicture( const std::string &szFolder );
+	void ShowShadow( const std::string &szFolder );
 	IText* GetLocalName() const
 	{
 		if ( pLocalName == 0 )

@@ -228,6 +228,7 @@ void CMOObject::ApplyCameraTurn()
 					const std::string szShadowSide = NCameraTurn::FourSidedPath( pDesc->szPath, nOwnTurn );
 					if ( !pVOB->ChangeObject( pShadow, ( szShadowSide + ( nSeason == 1 ? "\\1ws" : "\\1s" ) ).c_str(), 0, SGVOT_SPRITE ) )
 						pVOB->ChangeObject( pShadow, ( szShadowSide + "\\1s" ).c_str(), 0, SGVOT_SPRITE );
+					szShownShadow = szShadowSide == pDesc->szPath ? "" : szShadowSide;
 				}
 				const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
 				pVisObj->Update( currTime, true );
@@ -236,20 +237,32 @@ void CMOObject::ApplyCameraTurn()
 			}
 			else if ( nCameraTurn != 0 && HasTurns( pDesc->szPath, nCameraTurn ) )
 			{
-				// A prop whose turns bk-views drew (`<folder>_r<k>`, the training
-				// camp's sand pile): its shape turned, never its picture mirrored
-				// (M006 round 3), lit by the world's sun where `_r<k>_l<k>` is there.
+				// A prop whose turns bk-views drew (`<folder>_r<k>`, every prop's
+				// full 3D model): its shape turned, never its picture mirrored
+				// (M006 round 3), lit by the world's sun where `_r<k>_l<k>` is
+				// there. That pack holds the shadow the model casts under the sun
+				// as the step shows it, drawn as it lies: the 2003 shadow turned
+				// with the ground is another shape's (the artist's picture), and
+				// the hull its fill closes stood off the model as a dark slab.
+				const std::string szModel = NCameraTurn::LitModelPath( pDesc->szPath, nCameraTurn, nCameraTurn, NTurnPreload::Exists );
+				const bool bSunLit = szModel != NCameraTurn::ModelPath( pDesc->szPath, nCameraTurn, NTurnPreload::Exists );
+				ShowShadow( bSunLit ? szModel : pDesc->szPath );
+				if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
+					pShadowSprite->SetScreenTurn( bSunLit ? 0 : nCameraTurn, false );
 				pSprite->SetScreenTurn( 0, false );
 				if ( nCameraTurn == nShownTurn && nCameraTurn == nShownLight )
 					break;
 				nShownTurn = nCameraTurn;
-				ShowPicture( NCameraTurn::LitModelPath( pDesc->szPath, nCameraTurn, nCameraTurn, NTurnPreload::Exists ) );
+				ShowPicture( szModel );
 				pVisObj->Update( GetSingleton<IGameTimer>()->GetGameTime(), true );
 			}
 			else
 			{
 				const CArray2D<BYTE> &passability = static_cast_gdb<const SStaticObjectRPGStats*>( pRPG )->GetPassability();
 				const bool bRectangle = passability.GetSizeX() != passability.GetSizeY() && passability.GetSizeX() * passability.GetSizeY() != 0;
+				ShowShadow( pDesc->szPath );
+				if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
+					pShadowSprite->SetScreenTurn( nCameraTurn, false );
 				pSprite->SetScreenTurn( 0, bRectangle && ( nCameraTurn & 1 ) != 0 );
 				if ( nCameraTurn != nShownLight )
 				{
@@ -323,6 +336,20 @@ void CMOObject::ShowPicture( const std::string &szFolder )
 	}
 	nShownLight = nCameraTurn;
 }
+// Casts the shadow of szFolder (a prop's own folder or a turn of it), its
+// season's where the data holds it; a folder without one keeps the shadow it
+// has.
+void CMOObject::ShowShadow( const std::string &szFolder )
+{
+	if ( pShadow == 0 || szFolder == ( szShownShadow.empty() ? pDesc->szPath : szShownShadow ) )
+		return;
+	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
+	if ( !( nSeason == 1 && pVOB->ChangeObject( pShadow, ( szFolder + "\\1ws" ).c_str(), 0, SGVOT_SPRITE ) ) &&
+			 !pVOB->ChangeObject( pShadow, ( szFolder + "\\1s" ).c_str(), 0, SGVOT_SPRITE ) )
+		return;
+	szShownShadow = szFolder == pDesc->szPath ? "" : szFolder;
+	pShadow->Update( GetSingleton<IGameTimer>()->GetGameTime(), true );
+}
 // The packs ShowPicture takes for szFolder at camera step nStep.
 static void PreloadPicture( const std::string &szFolder, const int nSeason, const int nStep )
 {
@@ -347,7 +374,13 @@ void CMOObject::PreloadCameraTurn( const int nStep )
 	if ( NCameraTurn::IsFourSided( pDesc->szPath ) )
 		PreloadPicture( NCameraTurn::FourSidedPath( pDesc->szPath, NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nStep ) ), nSeason, nStep );
 	else if ( HasTurns( pDesc->szPath, nStep ) )
-		PreloadPicture( NCameraTurn::LitModelPath( pDesc->szPath, nStep, nStep, NTurnPreload::Exists ), nSeason, nStep );
+	{
+		const std::string szModel = NCameraTurn::LitModelPath( pDesc->szPath, nStep, nStep, NTurnPreload::Exists );
+		PreloadPicture( szModel, nSeason, nStep );
+		// Its shadow there (ShowShadow): the turn's own where it is lit by the world's sun.
+		if ( szModel != NCameraTurn::ModelPath( pDesc->szPath, nStep, NTurnPreload::Exists ) && !( nSeason == 1 && NTurnPreload::Warm( szModel + "\\1ws" ) ) )
+			NTurnPreload::Warm( szModel + "\\1s" );
+	}
 	else
 		PreloadPicture( pDesc->szPath, nSeason, nStep );
 }
@@ -381,6 +414,7 @@ int CMOObject::operator&( IStructureSaver &ss )
 		saver.Add( 9, &nFacing );
 		saver.Add( 10, &vTurnShift );
 		saver.Add( 11, &nShownLight );
+		saver.Add( 12, &szShownShadow );
 	}
 	if ( saver.IsReading() ) 
 		FillActions();
