@@ -3291,6 +3291,27 @@ pub fn build(b: *std.Build) void {
     const full3d_game_step = b.step("camera-turn-full3d-game-reads-it", "Render the turns of two props and the damaged warehouse e_wb/01 from their full 3D models with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure each object's turn and place in the shots of all four steps");
     full3d_game_step.dependOn(&full3d_game_tests.step);
     if (test_mode == .run) full3d_game_step.dependOn(&full3d_game_run.step);
+    // The same file's other tests (the maintainer's hand test of
+    // 2026-10-30): full 3D objects turn in place, each standing where its
+    // 2003 picture stands at every step, and cast their shadows from their
+    // foot under the world's sun, a building at its own facing too.
+    for ([_][3][]const u8{
+        .{ "camera-turn-full3d-anchor-game-reads-it", "the Game turns full 3D objects in place", "Render the turns of the barn E_WB_01, the L-shaped house A_H01_1, the house E_House02_2 and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure that each stands where its 2003 picture stands at all four steps" },
+        .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns lit by the world's sun of the barns E_WB_01 and E_WB_02 (at own facing 3) and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is its step-0 shadow turned with the ground, lies against its object and falls the way the world's sun casts" },
+    }) |tier| {
+        const tier_tests = b.addTest(.{ .root_module = full3d_game_module, .filters = &.{tier[1]} });
+        const tier_run = b.addRunArtifact(tier_tests);
+        tier_run.setCwd(b.path("."));
+        tier_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+        tier_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+        tier_run.has_side_effects = true;
+        tier_run.step.dependOn(install_game_step);
+        tier_run.step.dependOn(bk_views_step);
+        tier_run.step.dependOn(bk_sprite.install);
+        const tier_step = b.step(tier[0], tier[2]);
+        tier_step.dependOn(&tier_tests.step);
+        if (test_mode == .run) tier_step.dependOn(&tier_run.step);
+    }
 
     // The village of the maintainer's hand test (M006 S07,
     // tools/zig/camera_turn_village_game_reads_it.zig): four of Poland's
@@ -10045,6 +10066,10 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 /// again only when one of those changed. The steps install from the cache folders. The work folders
 /// (pictures and source maps, 11 GiB for all objects) are dropped (`--no-work`): nothing reads them.
 /// Returns the step that installs the checked turns into the mod of camera-turn-mod.
+/// Every turn of a building lit by the world's sun at every camera step
+/// (`bk-views side`'s `<k>l<s>`), and the turns lit by the 2003 light.
+const all_lit_turns = "1,2,3,1l1,2l2,3l3,0l1,0l2,0l3,1l2,1l3,2l1,2l3,3l1,3l2";
+
 fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) *std.Build.Step {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
     b.dependOnFileContents(b.path(ids_path));
@@ -10076,7 +10101,11 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             const side = b.addRunArtifact(views);
             side.setCwd(b.path("."));
             setUserRootsForTest(side, "bk-views-user");
-            side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3" });
+            // A building may stand at its own facing f (the Map Editor's Q and E)
+            // and shows turn f + s at camera step s: its turns are lit by the world's
+            // sun for every step, turn 0 included. A prop shows turn s at step s.
+            const building = std.mem.startsWith(u8, e.path, "Buildings/");
+            side.addArgs(&.{ "side", data, if (building) all_lit_turns else "1,2,3,1l1,2l2,3l3" });
             const turns = side.addOutputDirectoryArg(name);
             side.addArg("--no-work");
             _ = side.addPrefixedDepFileOutputArg("--deps=", "deps.d");
@@ -10097,10 +10126,10 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             check.step.dependOn(sprite.install);
             // The turns' paths name the side run's cache folder, so the check comes again
             // exactly when the turns did.
-            for (1..4) |k| {
-                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
-                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
-            }
+            for (1..4) |k| check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
+            for (0..4) |k| for (1..4) |s| {
+                if (building or k == s) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, s })));
+            };
             addPathDir(check, rootPath(b, "zig-out/bin"));
             check.expectExitCode(0);
             const remastered = b.addInstallDirectory(.{ .source_dir = turns, .install_dir = .prefix, .install_subdir = b.fmt("remastered/{s}", .{parent}) });

@@ -435,3 +435,97 @@ not compile on main (its floors were `comptime_float` chosen at run time) and do
 - Size: the models are 5.2 GiB, mostly the uncompressed `_h.dds` and `.tga` of every state; a compressed TGA or
   dropping the `.tga` for states the Resource Editor does not open would halve it, not done (the RE tier reads them).
 - The review PDFs of Windows and macOS have the same size and differ in bytes (their CSVs are the same bytes).
+
+## The hand test of 2026-10-30: turning in place, shadows
+
+The maintainer on Windows (main at 78f5fe19c): the full 3D models are a success, but (1) buildings and objects move
+when the camera turns, each turn's picture not anchored to the same world point, and (2) a barn at a turned step
+casts a dark slab detached from it, offset down and to the right, not its outline from that sun direction.
+
+### Cause 1: the turns were laid on the footprint, not where the 2003 picture stands
+
+- The Game lays every picture's zero cross at the object's place turned (`camera-turn-full3d-game-reads-it`: offset
+  0,0 at every step), so a turn stands still only if its pack's zero cross is the same world point as the 2003
+  picture's. bk-views laid a model's turns by round 5's `meshZero`: the mesh's ground box moved along the line of
+  sight, world (1, -1), onto the footprint's middle, as `footprintZero` lays the blocks (S07). The model already lies
+  on the 2003 picture (`mesh.place`), and the 2003 pictures do not stand on their footprint's middle: e_wb/01's
+  footprint takes its ramps' rows in front of the barn, so the shift moved every turn of the barn 11 pixels sideways
+  at the quarter turns and 5 at the half turn from where step 0 shows it (Rick 16 and 8, e_house02_2 8 and 4,
+  e_jettybuilding_4 7 and 3; measured by printing both zero crosses of `side`).
+- **Fix (`artAlong`, `zeroAlong`):** a full 3D object's turns are laid where its 2003 picture stands on the ground:
+  in each pixel column the lowest opaque pixel is where the object meets the ground there; the median over the
+  columns of the render at N against the picture is how far the model stands below the picture, which a move along
+  the line of sight takes back (a mesh taller or shorter than its picture stands nearer or farther: Rick's render at
+  N stood 6 pixels low). The shifts are now 0 to 2 pixels for the buildings measured and 12 and 6 for Rick. Objects
+  without a model keep `footprintZero` (the blocks' fit is free along the line of sight).
+- **Tier `camera-turn-full3d-anchor-game-reads-it`** (river3d, objects only): E_WB_01, A_H01_1 (L-shaped),
+  E_House02_2 (back wing) and Rick, each alone, its footprint's middle 40 AI units off the screen's middle, shot at
+  the four steps. A body standing still in the world ties its drawn extents across the steps: the middles of steps 0
+  and 2 (the 2003 picture and the model), the edges of steps 1 and 3, and where the turned model meets the ground in
+  front against where the 2003 picture does at step 0 ((R1 + L1) / 2 + B2 - B0 and -(L3 + R3) / 2 + B2 - B0 in
+  step-0 pixels, front and back eaves taken alike). Held within 2 pixels.
+
+  | object | anchor before | anchor after | rigid after |
+  |---|---|---|---|
+  | E_WB_01 | 4.5, 5.5 | -0.5, 0.5 | -0.5, 0.0, 0.0 |
+  | A_H01_1 | -2.0, -1.0 | -2.0, -1.0 | -0.5, 0.0, 0.0 |
+  | E_House02_2 | 4.5, 5.5 | 0.5, 1.5 | 0.0, 0.0, 0.0 |
+  | Rick | -3.5, -2.5 | -1.5, -0.5 | -1.5, 0.0, 0.0 |
+
+### Cause 2: a turn without pictures lit by the world's sun casts its 2003 shadow turned, and props always did
+
+- A building stands at its own facing f (the Map Editor's Q and E) and shows turn f + s at camera step s
+  (`DrawnTurn`). `camera-turn-mod` made `1,2,3,1l1,2l2,3l3`: the turns lit by the world's sun only for facing 0.
+  At any other facing the Game drew `_r<d>` lit by the camera's light, or at f + s = 4 the 2003 picture itself, and
+  laid the 2003 step's shadow turned with the ground, holes and all: the pack keeps a shadow only outside its
+  picture (`ComposeSingleObjectPack`), and the fill (`NShadowFill`) closes the hull of the shadow and the zero
+  cross, a dark slab the turned picture no longer stands on. The screenshot's barn is E_WB_02's 2003 picture at a
+  turned step: the facing case.
+- A prop (Rick, every SimpleObject with a model) showed its turn lit by the world's sun but kept the 2003
+  artist's shadow turned with the ground (`CMOObject::ApplyCameraTurn`): another shape's shadow, with the fill's
+  hull, under the model (IoU against the model's own shadow 0.11 to 0.56).
+- **Decision: the shadow is baked with the picture, one pack per (turn, step).** A separate shadow pack laid turned
+  cannot be right: the export cuts the shadow under the picture, and the picture lit by the camera's light would
+  stay wrong too. So `bk-views side` takes `0l<s>` (turn 0 under the world's sun at step s, rendered from the model:
+  the 2003 picture is lit for step 0 and its shadow cannot be laid turned; a folder without a model skips it), and
+  `camera-turn-mod` (`full3d-<region>`, `all_lit_turns`) makes every building's twelve `<d>l<s>` with its three
+  `_r<d>`. Props keep `1,2,3,1l1,2l2,3l3` (a prop has no facing in the Game: turn s at step s).
+- **Engine (`CMOObject::ShowShadow`):** a prop shown by its turn lit by the world's sun casts that pack's shadow, drawn
+  as it lies (screen turn 0, no fill); at step 0 or without the turn it casts its own 2003 shadow turned as before.
+  The folder shown is saved (chunk 12 of `CMOObject`) and preloaded with the picture. Buildings needed no engine
+  change: `LitModelPath` finds `_r0_l<s>` as any other turn.
+- **Tier `camera-turn-full3d-shadow-game-reads-it`** (road3d at world 297, 297, away from its road, which is drawn
+  over shadows; terrain on): E_WB_01, E_WB_02 at own facing 3 (at step 1 it shows turn 0, the screenshot's case)
+  and Rick. A shadow is where the shot with shadows is darker than the ground alone (no objects) by 30, on the ground
+  the object's picture leaves in sight (its outline filled, a pixel round it: dark timbers read as the backdrop).
+  Held: the shadow equals the shadow of the pack lit by the world's sun for that turn and step laid at the zero cross
+  (IoU 0.8 or more, best within a pixel), all of it joined to the picture (0.95), and from the footprint's middle it
+  falls within 35 degrees of the world's sun (held where it shows a quarter of its most; a strip along a wall
+  leans up to 32 degrees). The IoU against the step-0 shadow turned with the ground is reported.
+
+  | object, step | before: IoU against the lit pack's shadow | after |
+  |---|---|---|
+  | E_WB_01, 1 / 2 / 3 | 1.000 / 0.986 / 0.990 | 1.000 / 0.986 / 0.990 |
+  | E_WB_02 at facing 3, 1 / 2 / 3 | no pictures lit by the world's sun (`02_r0_l1`, `02_r1_l2`, `02_r2_l3`) | 1.000 / 0.998 / 0.983 |
+  | Rick, 1 / 2 / 3 | 0.109 / 0.506 / 0.561 | 1.000 / 1.000 / 1.000 |
+
+### Cost
+
+`camera-turn-mod` draws each building's twelve lit turns and three camera-lit ones instead of three and three
+(props unchanged). Measured on `full3d-africa` (43 objects, a fresh cache): 150 s, and its turned packs 308,078 KiB
+against 157,847 before, about twice; the whole mod grows by about as much as its buildings' share (1.3 GiB to an
+estimated 2.3 to 2.6 GiB on Windows). `install-all` draws every object again once: bk-views-fast (an input of every
+run) changed, and the buildings' `side` arguments too.
+
+### Tiers (win-home, Windows x64, debug Game)
+
+- `camera-turn-full3d-anchor-game-reads-it` (new): fails on main (E_WB_01 4.5 / 5.5, E_House02_2 4.5 / 5.5, Rick
+  -3.5 / -2.5 pixels), passes after; with `-shadow-` 8 min 50 s in one build.
+- `camera-turn-full3d-shadow-game-reads-it` (new): fails on main (E_WB_02 at facing 3 has no turns lit by the world's
+  sun; Rick's shadow 0.11 / 0.51 / 0.56 against its lit pack's), passes after.
+- `camera-turn-full3d-game-reads-it`, `camera-turn-world-game-reads-it`, `test-bk-views`, `bk-views-side`,
+  `bk-views-roundtrip`, `full3d-africa`: pass.
+- `camera-turn-sun-game-reads-it`: fails, on main as after (E_FrenchShed01 at step 2: 0.283 on main, 0.280 after,
+  against the floor 0.35): the shed's model casts its own shadow, the step-0 one is the artist's 2003 shadow. Not
+  changed here.
+- Not run: the other camera-turn and Map Editor tiers, the full sweep (left to the maintainer), macOS and Linux (CI).
