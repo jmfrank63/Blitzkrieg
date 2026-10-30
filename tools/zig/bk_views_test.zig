@@ -1432,11 +1432,22 @@ test "a_h01_1 as a full 3D model renders at N as its 2003 picture, has no holes,
     const raster = try mesh.raster(arena, try mesh.viewVertices(arena, model, v), tris, found.picture.width, found.picture.height);
     try model3d.bake(arena, &m, "1", &.{.{ .picture = found.picture, .view = v, .raster = raster, .normals = normals }}, null);
     // N on the picture's own canvas at its zero cross, with no shift: the
-    // outline as the mesh's, the colour within a few levels.
+    // outline as the mesh's, the colour within a few levels where N shows the
+    // picture's own pixels. (A face the picture samples too sparsely for some
+    // turn is painted from the object, at N too; with the colourway's other
+    // picture, as model3d bakes it, N's colour difference is under 1.)
     const n = try model3d.render(arena, m, "1", 0, 0, found.anchor, .{ found.picture.width, found.picture.height });
     const match = views.artMatch(n.image, found.picture, .{ 0, 0 }, false);
     try std.testing.expect(match.iou > 0.9);
-    try std.testing.expect(match.colour < 4);
+    var difference: f64 = 0;
+    var projected: f64 = 0;
+    for (n.image.pixels, found.picture.pixels, n.paint) |r, a, k| {
+        if (k != .seen or a[3] < 128) continue;
+        for (0..3) |c| difference += @abs(@as(f64, @floatFromInt(r[c])) - @as(f64, @floatFromInt(a[c]))) / 3;
+        projected += 1;
+    }
+    try std.testing.expect(projected > 1000);
+    try std.testing.expect(difference / projected < 4);
     try std.testing.expectEqual(@as(usize, 0), n.unpainted);
     // A quarter turn: no holes, and the same bytes a second time.
     const size = [2]u32{ 2 * found.picture.width, 2 * found.picture.height };
@@ -1448,6 +1459,71 @@ test "a_h01_1 as a full 3D model renders at N as its 2003 picture, has no holes,
     try std.testing.expect(opaque_pixels > 1000);
     const again = try model3d.render(arena, m, "1", 1, 1, anchor, size);
     try std.testing.expectEqualSlices(u8, std.mem.sliceAsBytes(e.image.pixels), std.mem.sliceAsBytes(again.image.pixels));
+}
+
+test "a full 3D model's paint stretches no 2003 pixel: e_house02_2's back roof slope comes from the object, not smeared from N, at every turn" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const mesh = views.mesh;
+    const model3d = views.model3d;
+    // e_house02_2 (62), a house of the maintainer's village screenshot: the
+    // 2003 camera sees its back roof slope almost edge on.
+    const model = (try mesh.load(arena, std.testing.io, mesh.meshes_dir, 62)).?;
+    const tris = try mesh.triangles(arena, model);
+    const found = try variantPicture(arena, "Data/Buildings/europe/summer/e_house02_2/");
+    const placement = mesh.place(model, found.picture, found.anchor).?;
+    const v = mesh.view(placement, 0, found.anchor);
+    const normals = try arena.alloc([3]f64, tris.len);
+    for (tris, normals) |t, *n| n.* = mesh.worldNormal(model, placement, t, 0);
+    const raster = try mesh.raster(arena, try mesh.viewVertices(arena, model, v), tris, found.picture.width, found.picture.height);
+    const bake_view: model3d.BakeView = .{ .picture = found.picture, .view = v, .raster = raster, .normals = normals };
+    const size = [2]u32{ 2 * found.picture.width, 2 * found.picture.height };
+    const anchor = [2]f64{ found.anchor[0] + @as(f64, @floatFromInt(found.picture.width)) / 2, found.anchor[1] + @as(f64, @floatFromInt(found.picture.height)) / 2 };
+
+    // An upright wall a quarter turn shows sheared the other way at the same
+    // density: not stretched.
+    var m = try model3d.unwrap(arena, model, tris, placement);
+    var walls: usize = 0;
+    for (m.triangles) |t| {
+        if (@abs(t.normal[2]) > 0.01) continue;
+        const at_n = model3d.turnMap(m, t, 0) orelse continue;
+        for (1..4) |k| try std.testing.expect(model3d.magnification(model3d.turnMap(m, t, @intCast(k)).?, at_n) < 1.001);
+        walls += 1;
+    }
+    try std.testing.expect(walls > 0);
+
+    // The 2026-10-29 paint stretched the 2003 pixels of the faces N sees
+    // obliquely over the turns that show them squarely (over a hundredth of
+    // the turns' pixels); the coherent paint
+    // stretches none, copies the back faces from their counterparts, and
+    // still draws N as the 2003 picture.
+    var stretched = [2]usize{ 0, 0 };
+    var drawn: usize = 0;
+    for ([_]model3d.Method{ .tile, .coherent }, 0..) |method, i| {
+        m.method = method;
+        m.textures = &.{};
+        try model3d.bake(arena, &m, "1", &.{bake_view}, null);
+        for (1..4) |k| {
+            const r = try model3d.render(arena, m, "1", @intCast(k), @intCast(k), anchor, size);
+            for (r.stretched, r.image.pixels) |s, p| {
+                stretched[i] += @intFromBool(s);
+                if (i == 1) drawn += @intFromBool(p[3] == 255);
+            }
+            try std.testing.expectEqual(@as(usize, 0), r.unpainted);
+        }
+    }
+    try std.testing.expect(stretched[0] * 100 > drawn);
+    try std.testing.expectEqual(@as(usize, 0), stretched[1]);
+    var copied: usize = 0;
+    for (m.textures[0].paint) |p| copied += @intFromBool(p == .copied);
+    try std.testing.expect(copied > 0);
+    const n = try model3d.render(arena, m, "1", 0, 0, found.anchor, .{ found.picture.width, found.picture.height });
+    try std.testing.expect(views.artMatch(n.image, found.picture, .{ 0, 0 }, false).colour < 4);
+    // The same bytes a second time.
+    var again = try model3d.unwrap(arena, model, tris, placement);
+    try model3d.bake(arena, &again, "1", &.{bake_view}, null);
+    try std.testing.expectEqualSlices(u8, std.mem.sliceAsBytes(m.textures[0].image.pixels), std.mem.sliceAsBytes(again.textures[0].image.pixels));
 }
 
 /// The pictures of a variant's states on the canvas they share (the bounds of
