@@ -1838,3 +1838,65 @@ and was not run again. The full sweep is left to the maintainer, Linux to CI.
 - Other objects the world lets go of while the preload runs (normandy loses 4 entries the same way) are skipped
   alike; the staged turn's list (`turnPending`), the only other one the turn keeps across frames, was
   already guarded.
+
+## Dark videos at startup (maintainer report, 2026-10-31)
+
+"Videos are dark when I start", with the release Game started as
+`Game.exe -autosave -Monitor=2 -fullscreen -mod=remastered_views` and `BK_MODS_ROOT` at `zig-out\remastered\mods`,
+Remastered on, lang-ru.
+
+### What "dark" was
+
+Not the videos' brightness. Monitor 2 was captured from the desktop twice a second while the cdv, nival and intro
+movies played, and each capture's mean luminance compared with ffmpeg's decode of the same `.ogv` frame, scaled for
+the pillarbox: 1.00 to 1.02 of the source in every combination (the maintainer's command, Remastered off, no mods
+folder, no `-mod`, launched from a console, started unfocused). It was the start: 17 to 19 s from launch to the cdv
+logo's first frame, of them about 8 s with a black window Windows marked Not Responding, then the logo's own dark
+first seconds (by design, mean 6 to 26 of 255). Without the mods folder the logo came after 9 s.
+
+### Cause
+
+Measured with the main thread's stack sampled by cdb during the hang: `CICChangeMOD::Exec` (the `-mod=`),
+`CFilesInspector::InspectStorage`, `DataStorage::CreateEnumerator`, `collectFiles`. The files inspector collects the
+tutorials, the custom missions, chapters and campaigns and the multiplayer maps, and to find them it listed every
+file of the storage: the game's data (65,879 files, 3 to 5 s at startup, before the window shows) and, once the mod
+was mounted, the game's data and remastered_views' 154,483 loose files (the 8 s). The language mount itself
+(`NMain::ApplyLanguage`, now traced with its phases) takes 96 ms: mount 18, texts 0, textures 0, fonts 78.
+
+### Fix
+
+- The enumerator of the Zig StreamIO lists the folder part of `Reset`'s mask, as the original file systems' masks
+  did, and only when the enumeration starts (`bk_storage_enumerator_create_in`); `*.*`, which every other caller
+  passes, is everything as before.
+- Each inspector entry names its folder (`IFilesInspectorEntry::GetFolder`, the collector's prefix), and the
+  inspector enumerates each folder once. The collectors only ever wanted names starting with their folder (the
+  multiplayer list cuts the prefix off by length); the ELK's copies under `elk\game_data_base\` and
+  `americanelk\game_data_base\`, which the old substring match also took, are no longer collected.
+- `files inspector: <ms> ms, <folder> <streams>, ...` in the BK_DEBUG_LOG trace.
+
+### Measured (win-home, release, the maintainer's command, lang-ru profile copy, cloud off)
+
+| | launch to the cdv's first frame | window Not Responding |
+|---|---|---|
+| before (06f35a95d), 4 runs | 19.30, 19.05, 18.95, 19.15 s | 8.6, 8.2, 8.7, 8.2 s |
+| after, 4 runs | 3.10, 3.40, 3.15, 3.50 s | 0, 0, 0, 0 |
+
+The inspections: 5,338 ms at startup and about 8 s after the mod before; 36 ms and 110 ms after. The videos'
+brightness is unchanged (1.004 to 1.016 of the source).
+
+### The tier
+
+`mod-scan-game-reads-it` (`tools/zig/mod_scan_game_reads_it.zig`) starts the real Game to its main menu without and
+with a mod of 20,000 loose files under `objects\` and one custom mission. Every inspection must take under 1.5 s,
+and with the mod the custom missions must be one more and every other folder the same. With the inspector set back
+to the whole storage it fails: 7,240 ms without the mod, 9,190 and 11,599 ms with it. With the fix: 41, 39 and 44 ms,
+custom missions 75 and 76.
+
+### Tiers run (dark videos)
+
+win-home, release (`-Doptimize=ReleaseFast -Dbuild-variant=release`), one `zig build` at a time:
+`mod-scan-game-reads-it` (fails before, passes after), `test-streamio` (with a new test: an enumeration in
+`Scenarios/Tutorials` lists that folder only), `test-bk-tools-l10n`, `list-lines-game-reads-it-ru` and `-de` (6 of 6
+tutorials, 3 of 3 custom missions), `mod-language-game-reads-it`, `mod-compat-game-reads-it`, and
+`install-game install-language-mods install-map-editor install-resource-editor install-elk verify-install-l10n`: all
+pass. macOS and Linux are left to CI, the full sweep to the maintainer.

@@ -42,6 +42,8 @@ public:
 		: pfnAddIfMatched( 0 ), nMatchType( -1 ) {  }
 	void STDCALL Configure( const char *pszConfig );
 	const std::vector<std::string>& STDCALL GetCollected() const { return szNames; }
+	// The prefix is a folder from the storage's root (GameMain's collectors).
+	const char* STDCALL GetFolder() const { return szPrefix.c_str(); }
 	void STDCALL InspectStream( const std::string &szName );
 	void STDCALL Clear() { szNames.clear(); }
 };

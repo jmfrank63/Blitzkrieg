@@ -3423,6 +3423,28 @@ pub fn build(b: *std.Build) void {
     focus_game_step.dependOn(&focus_game_tests.step);
     if (test_mode == .run) focus_game_step.dependOn(&focus_game_run.step);
 
+    // The files inspector with a large mod (tools/zig/mod_scan_game_reads_it.zig):
+    // the real Game to its main menu without and with a mod of 20,000 loose
+    // files; every inspection under 1.5 s and only its folders' files listed.
+    // Desktop and GPU, so not part of `test`.
+    const mod_scan_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/mod_scan_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, mod_scan_module, toolchain);
+    }
+    const mod_scan_tests = b.addTest(.{ .root_module = mod_scan_module, .filters = &.{"the files inspector"} });
+    const mod_scan_run = b.addRunArtifact(mod_scan_tests);
+    mod_scan_run.setCwd(b.path("."));
+    mod_scan_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    mod_scan_run.has_side_effects = true;
+    mod_scan_run.step.dependOn(install_game_step);
+    const mod_scan_step = b.step("mod-scan-game-reads-it", "Start the real Game without and with a mod of 20,000 loose files and measure from its log that the files inspector stays under 1.5 s and lists only its folders' files, the mod's custom mission included");
+    mod_scan_step.dependOn(&mod_scan_tests.step);
+    if (test_mode == .run) mod_scan_step.dependOn(&mod_scan_run.step);
+
     // The fastest path (tools/zig/fastest_path_game_reads_it.zig): a march
     // round a slow field, Remastered off and on, replayed and saved across
     // the option; and the AI's own orders on the largest shipped maps,
