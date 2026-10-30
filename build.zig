@@ -2553,7 +2553,7 @@ pub fn build(b: *std.Build) void {
     bk_tools_tests_run.addFileInput(bk_sprite.tool.getEmittedBin());
     addBuildingViewsBatch(b, target, bk_views_fast, bk_sprite);
     addShapesReview(b, bk_views_fast);
-    addFull3d(b, target, bk_views_fast, bk_sprite);
+    const full3d_mod_step = addFull3d(b, target, bk_views_fast, bk_sprite);
     // The per-language half of the conventions (M002 S07): help in every language for the seven
     // tools, the language order for a real process, and the dropped-key fallback. It runs the same
     // executables, so it waits for the same installs and names the same binaries as inputs.
@@ -3645,46 +3645,43 @@ pub fn build(b: *std.Build) void {
     editor_game_step.dependOn(&editor_game_tests.step);
     if (test_mode == .run) editor_game_step.dependOn(&editor_game_run.step);
 
-    // The turned building sides as a mod, to try the camera turn by hand
-    // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): what the
-    // building-views-batch-<region> steps left in zig-out/remastered/Buildings,
-    // copied to zig-out/remastered/mods/remastered_views/data/buildings, where a
-    // Game run with BK_MODS_ROOT=zig-out/remastered/mods -mod=remastered_views
-    // finds each turn by its variant's Data path. Not the install's mods
-    // folder, which is the player's and is packaged. The language mods are
-    // copied beside it (below, after install-language-mods), as that run sees
-    // no other mods folder.
+    // The turned buildings and props as a mod, to try the camera turn by hand
+    // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): the turns the
+    // full3d-<region> runs make (full3d-mod) and the relit flora and props, in
+    // zig-out/remastered/mods/remastered_views/data, where a Game run with
+    // BK_MODS_ROOT=zig-out/remastered/mods -mod=remastered_views finds each turn
+    // by its variant's Data path. Not the install's mods folder, which is the
+    // player's and is packaged. The language mods are copied beside it (below,
+    // after install-language-mods), as that run sees no other mods folder.
+    // install-all makes it too; every run is cached, so a pull that changed
+    // none of their inputs draws nothing again.
     const turn_mod_files = b.addWriteFiles();
     const turn_mod_xml = turn_mod_files.add("mod.xml", "<?xml version=\"1.0\"?>\r\n<base>\r\n\t<MODName>Remastered views</MODName>\r\n\t<MODVersion>1.0</MODVersion>\r\n</base>\r\n");
-    const turn_mod_step = b.step("camera-turn-mod", "Copy the turned building and prop sides the building-views-batch-<region> and full3d-<region> steps made into the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
+    const turn_mod_step = b.step("camera-turn-mod", "Make the turned buildings and props of every full3d-<region> step and the relit flora and props, and install them as the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
     turn_mod_step.dependOn(&b.addInstallFile(turn_mod_xml, "remastered/mods/remastered_views/data/mod.xml").step);
+    turn_mod_step.dependOn(full3d_mod_step);
     // Flora and props lit by the sun fixed in the world at each camera step
     // (M006 round 2, bk-views relight): <pack>_l<k> beside each object's
-    // 2003 packs, at its Data path.
+    // 2003 packs, at its Data path. Cached as the full3d runs are: into the
+    // run's cache folder, with the folders it read in its dep file.
     const relight_step = b.step("objects-relight", "Relight every flora and prop picture with bk-views relight for camera steps 1 to 3 under the sun fixed in the world, into zig-out/remastered/Objects (the props' turns are the full3d-<region> steps')");
+    // bk-views-fast, as the full3d runs: bk-views is also copied beside ResourceEditor in the
+    // staged game, and Zig named that copy as the run's input at times, which install-game
+    // rewrites, so the cache missed.
     for ([_][]const u8{ "Flora", "SimpleObjects" }) |group| {
-        const relight = b.addRunArtifact(bk_views);
+        const relight = b.addRunArtifact(bk_views_fast);
         relight.setCwd(b.path("."));
         setUserRootsForTest(relight, "bk-views-user");
-        relight.addArgs(&.{ "relight", b.fmt("Data/Objects/{s}", .{group}), b.fmt("zig-out/remastered/Objects/{s}", .{group}) });
+        relight.addArgs(&.{ "relight", b.fmt("Data/Objects/{s}", .{group}) });
+        const relit = relight.addOutputDirectoryArg(group);
+        _ = relight.addPrefixedDepFileOutputArg("--deps=", "deps.d");
+        relight.addFileInput(b.path(b.fmt("zig-out/bin/bk-sprite{s}", .{target.result.exeFileExt()})));
         relight.step.dependOn(bk_sprite.install);
         addPathDir(relight, rootPath(b, "zig-out/bin"));
         relight.expectExitCode(0);
-        relight.has_side_effects = true;
-        relight_step.dependOn(&relight.step);
+        relight_step.dependOn(&b.addInstallDirectory(.{ .source_dir = relit, .install_dir = .prefix, .install_subdir = b.fmt("remastered/Objects/{s}", .{group}) }).step);
+        turn_mod_step.dependOn(&b.addInstallDirectory(.{ .source_dir = relit, .install_dir = .prefix, .install_subdir = b.fmt("remastered/mods/remastered_views/data/objects/{s}", .{group}) }).step);
     }
-    const relit_objects = b.addInstallDirectory(.{
-        .source_dir = b.path("zig-out/remastered/Objects"),
-        .install_dir = .prefix,
-        .install_subdir = "remastered/mods/remastered_views/data/objects",
-    });
-    relit_objects.step.dependOn(relight_step);
-    turn_mod_step.dependOn(&relit_objects.step);
-    turn_mod_step.dependOn(&b.addInstallDirectory(.{
-        .source_dir = b.path("zig-out/remastered/Buildings"),
-        .install_dir = .prefix,
-        .install_subdir = "remastered/mods/remastered_views/data/buildings",
-    }).step);
 
     // 03-08 Task 1's fixture mod (tools/zig/fixtures/editor_mod/EditorTestMod),
     // for the engine-tier test's TestModsListSetAndClear and the host-check's
@@ -5394,8 +5391,9 @@ pub fn build(b: *std.Build) void {
 
     // install-all: every install step this host has, in one command. Looked up by name because the
     // editor installs only exist where the editors build.
-    const install_all_step = b.step("install-all", "Install the Game, the nine language mods, MapEditor, ResourceEditor and ELK into the game installation");
-    for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk" }) |name| {
+    const install_all_step = b.step("install-all", "Install the Game, the nine language mods, MapEditor, ResourceEditor and ELK into the game installation, and make the Remastered views mod of camera-turn-mod (cached: only objects whose inputs changed are drawn again)");
+    for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk", "camera-turn-mod" }) |name| {
+
         if (b.top_level_steps.get(name)) |install| install_all_step.dependOn(&install.step);
     }
 
@@ -10040,24 +10038,32 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 /// (`full3d-<region>`), each object its own runs, so they spread over the cores and every output is
 /// the object's alone; `full3d-review` lays out what they wrote in zig-out/review/full3d.pdf with
 /// full3d.csv and full3d-ranked.csv, and `full3d` runs them all.
-fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) void {
+///
+/// Every run is cached by zig build, so install-all can make the turns on every pull: each writes into
+/// its own cache folder and names what it read in a dep file (`--deps=`: the object's family's Data
+/// folders and its mesh and shape fixtures), and bk-views and bk-sprite are inputs too, so a run comes
+/// again only when one of those changed. The steps install from the cache folders. The work folders
+/// (pictures and source maps, 11 GiB for all objects) are dropped (`--no-work`): nothing reads them.
+/// Returns the step that installs the checked turns into the mod of camera-turn-mod.
+fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) *std.Build.Step {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
     b.dependOnFileContents(b.path(ids_path));
     const Ids = struct { ids: []const struct { id: u32, path: []const u8 } };
     const ids_bytes = b.root.root_dir.handle.readFileAlloc(b.graph.io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     const ids = std.json.parseFromSliceLeaky(Ids, b.allocator, ids_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
     const module_root = if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin") else rootPath(b, "zig-out/lib");
-    const quiet = struct {
-        fn f(run: *std.Build.Step.Run) void {
-            run.expectExitCode(0);
-            run.has_side_effects = true;
-        }
-    }.f;
+    // bk-sprite as sprite.install puts it in zig-out/bin, beside the libraries it loads. Its
+    // artifact's path is not used: Zig resolves it to one of the artifact's installed copies,
+    // and install-all also copies it beside ResourceEditor in the staged game, which
+    // install-game rewrites while these runs go, so their cache missed at random.
+    const sprite_bin = b.fmt("zig-out/bin/bk-sprite{s}", .{target.result.exeFileExt()});
     const review = b.addRunArtifact(views);
     review.setCwd(b.path("."));
     review.addArgs(&.{ "full3d-review", "zig-out/review/full3d.pdf", "zig-out/full3d/models" });
-    quiet(review);
+    review.expectExitCode(0);
+    review.has_side_effects = true;
     const all = b.step("full3d", "Run every full3d-<region> step and full3d-review (longer than one ten-minute foreground command: run the regions one by one)");
+    const mod = b.step("full3d-mod", "Install the turns of every object the full3d-<region> steps make, each pack checked by the engine's reader, into the mod zig-out/remastered/mods/remastered_views (part of camera-turn-mod and install-all)");
     for ([_][]const u8{ "africa", "common", "europe", "ussr" }) |region| {
         const group = b.step(b.fmt("full3d-{s}", .{region}), b.fmt("Render the turns of every {s} building and object (each state from its own textured model, each turn also lit by the world's sun) with bk-views side into zig-out/remastered, check every pack with the engine's reader, and write the models with bk-views model3d to zig-out/full3d/models", .{region}));
         all.dependOn(group);
@@ -10065,43 +10071,64 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             const under = if (std.mem.startsWith(u8, e.path, "Buildings/")) e.path["Buildings/".len..] else e.path["Objects/SimpleObjects/".len..];
             if (!std.mem.startsWith(u8, under, region) or under[region.len] != '/') continue;
             const data = b.fmt("Data/{s}", .{e.path});
-            const out = b.fmt("zig-out/remastered/{s}", .{std.fs.path.dirname(e.path).?});
+            const parent = std.fs.path.dirname(e.path).?;
             const name = std.fs.path.basename(e.path);
             const side = b.addRunArtifact(views);
             side.setCwd(b.path("."));
             setUserRootsForTest(side, "bk-views-user");
-            side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3", out, b.fmt("zig-out/local-test/full3d/work/{s}", .{e.path}) });
+            side.addArgs(&.{ "side", data, "1,2,3,1l1,2l2,3l3" });
+            const turns = side.addOutputDirectoryArg(name);
+            side.addArg("--no-work");
+            _ = side.addPrefixedDepFileOutputArg("--deps=", "deps.d");
+            // bk-sprite composes every pack; the engine libraries it loads are not inputs.
+            side.addFileInput(b.path(sprite_bin));
             side.step.dependOn(sprite.install);
             addPathDir(side, rootPath(b, "zig-out/bin"));
-            quiet(side);
+            side.expectExitCode(0);
             const check = b.addRunArtifact(sprite.roundtrip);
             check.setCwd(b.path("."));
             setLeakReportStrict(check);
             setUserRootsForTest(check, "bk-views-user");
             check.addArtifactArg(views);
-            check.addArtifactArg(sprite.tool);
+            check.addArg(rootPath(b, sprite_bin));
+            check.addFileInput(b.path(sprite_bin));
             check.addArtifactArg(sprite.check);
             check.addArgs(&.{ module_root, b.fmt("zig-out/local-test/full3d/check/{s}", .{e.path}) });
+            check.step.dependOn(sprite.install);
+            // The turns' paths name the side run's cache folder, so the check comes again
+            // exactly when the turns did.
             for (1..4) |k| {
-                check.addArg(b.fmt("{s}/{s}_r{d}", .{ out, name, k }));
-                check.addArg(b.fmt("{s}/{s}_r{d}_l{d}", .{ out, name, k, k }));
+                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
+                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
             }
-            check.step.dependOn(&side.step);
             addPathDir(check, rootPath(b, "zig-out/bin"));
-            quiet(check);
-            group.dependOn(&check.step);
+            check.expectExitCode(0);
+            const remastered = b.addInstallDirectory(.{ .source_dir = turns, .install_dir = .prefix, .install_subdir = b.fmt("remastered/{s}", .{parent}) });
+            remastered.step.dependOn(&check.step);
+            group.dependOn(&remastered.step);
+            // The mod's data folder spells the top folders as the Game's Data does.
+            const top = std.mem.indexOfScalar(u8, parent, '/').?;
+            const in_mod = b.addInstallDirectory(.{ .source_dir = turns, .install_dir = .prefix, .install_subdir = b.fmt("remastered/mods/remastered_views/data/{s}{s}", .{ if (std.mem.eql(u8, parent[0..top], "Buildings")) "buildings" else "objects", parent[top..] }) });
+            in_mod.step.dependOn(&check.step);
+            mod.dependOn(&in_mod.step);
             const model = b.addRunArtifact(views);
             model.setCwd(b.path("."));
             setUserRootsForTest(model, "bk-views-user");
-            model.addArgs(&.{ "model3d", "zig-out/full3d/models", data });
-            quiet(model);
-            group.dependOn(&model.step);
-            review.step.dependOn(&model.step);
+            model.addArg("model3d");
+            const models = model.addOutputDirectoryArg("models");
+            model.addArg(data);
+            _ = model.addPrefixedDepFileOutputArg("--deps=", "deps.d");
+            model.expectExitCode(0);
+            const install_model = b.addInstallDirectory(.{ .source_dir = models, .install_dir = .prefix, .install_subdir = "full3d/models" });
+            group.dependOn(&install_model.step);
+            review.step.dependOn(&install_model.step);
         }
     }
     b.step("full3d-review", "Lay out every model bk-views model3d wrote to zig-out/full3d/models (the full3d-<region> steps) in zig-out/review/full3d.pdf, with full3d.csv and the ranked needs-paint and needs-mesh-fix lists in full3d-ranked.csv").dependOn(&review.step);
     all.dependOn(&review.step);
+    return mod;
 }
+
 /// A build-root-relative path with the host's separators, as a tool prints it.
 /// The replacement runs only on a Windows host (this file compiles for the
 /// host, so Linux never analyses the branch); replaceOwned allocates the
