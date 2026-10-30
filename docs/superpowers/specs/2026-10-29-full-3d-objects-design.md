@@ -56,6 +56,8 @@ turn is that model rendered.
   marked (`<state>_paint.png`: green from a picture, magenta guessed) and the review shows the map and counts the
   guessed pixels of every turn. A smaller seen rectangle is mostly a strip where mesh and picture disagree by a
   pixel (e_house02_2's gable under the roof's edge, seen as roof), whose tile painted a whole wall salmon.
+  Superseded on 2026-10-31 ("The hand test of 2026-10-31" below): a picture's pixel only where no turn stretches
+  it, the rest copied from counterpart faces or synthesised from the object's well-seen faces, never stretched.
 - **Textures generated, tracked once painted.** The bake is deterministic from tracked data (meshes, Data), so the
   atlases are build output (`zig-out/full3d/models/<id>/`), with a lossless `<state>.png` beside each `.dds` and a
   `<state>.tga` for the Resource Editor's unit sources. The first atlas the maintainer paints becomes tracked
@@ -529,3 +531,209 @@ run) changed, and the buildings' `side` arguments too.
   against the floor 0.35): the shed's model casts its own shadow, the step-0 one is the artist's 2003 shadow. Not
   changed here.
 - Not run: the other camera-turn and Map Editor tiers, the full sweep (left to the maintainer), macOS and Linux (CI).
+
+## The hand test of 2026-10-31: the turned textures
+
+The maintainer on Windows (main at 06f35a95d): the full 3D objects turn in place with the right shadows, but at the
+turned steps their textures look broken. A European village (Poland's) showed ragged, smeared roofs, blotchy walls
+and broken timber framing, and a round earth and sandbag emplacement (dzot) showed radial smears across its top.
+
+### Causes, measured
+
+- **Stretched 2003 pixels (the smears and streaks).** `bake` gave a texel the variant's own 2003 pixel wherever that
+  picture saw the face at `grazing` (0.25) or more, and in a third pass at any angle at all. A face the 2003 camera
+  sees obliquely is sampled sparsely along one direction, and the turn that shows it squarely draws each of its
+  pixels as a streak several pixels long. e_house02_2's back roof slope: the 2003 picture's map of its texels has
+  singular values 0.50 and 0.041 pixels a texel, turn E's 0.50 and 0.39, so turn E draws each 2003 pixel 9.5 pixels
+  down the slope (the front slope 1.0, every upright wall 1.0). The dzot's
+  far slopes, seen nearly edge on, are the radial smear. The tile paint copied the same stretched texels into the
+  faces it tiled.
+- **Tiles (the blotches).** What no picture saw was tiled from one seen rectangle of its material, repeated from the
+  chart's corner with hard seams, wherever that rectangle lay and however small. e_house02_2's back wing (the BK2
+  mesh's, which the 2003 house does not have) stands high on a small foot, so the unwrap calls it a chimney, and its
+  walls were tiled from the real chimney's 15 x 24 texels of brick.
+- **Broken timber framing.** Both of the above on half-timbered walls: rows of beams stretched from a face the 2003
+  camera sees obliquely, or tiled out of step with the wall's height.
+
+### The paint (`model3d.Method.coherent`, the default; `tile`, the paint above, kept as the measured baseline)
+
+1. **Project only where the 2003 picture samples the face densely enough.** Per triangle and picture, the map of
+   texels to picture pixels (S) against the map each turn draws them with (J_k). A texel takes a picture's pixel only
+   where at no turn J_k draws one of its pixels over more than `stretch_limit` = 2 pixels: the larger ratio of their
+   singular values, the face's densest and sparsest directions. Not the singular values of J_k times S inverted: a
+   quarter turn draws an upright wall's texels sheared the other way at the same density, which that measure calls
+   1.62, and a shear at the same density makes no streak. The variant's own picture first, then the colourway's least
+   stretched. A first try at 1.5 also replaced the walls a yawed building's 2003 picture sees at 0.43 while a turn
+   shows them at 0.75 (1.7: doubled pixels, no streak), so N lost its own pixels there: a_h01_1 painted from its own
+   picture alone measured a colour difference of 8.2 at N; the smears of the hand test are 3 to 10.
+2. **Faces the mesh and the picture disagree on.** A wall chart whose seen paint is 40 levels or more from the
+   object's other walls and under half as far from its roofs (mean colours), or a roof the other way round, is taken
+   as unseen (`dropMisplaced`). Without the 40 levels, African mud walls and flat roofs of one colour were dropped by
+   noise (a_h01_1's N colour 7.4; 0.85 with it).
+3. **Counterparts, texel for texel.** A face with texels left copies them from a counterpart of the same material that
+   looks as steeply and is about as large (within a sixth and two texels): the back roof slope from the front one, the
+   back wall from the front wall, the far facets of a ring or an apse from the near ones. A rotation about an upright
+   axis keeps level rows level and slopes their slope, so the copy is a shift of the chart: rows matched by height,
+   columns by the charts' middles. A copied texel must fit the receiving face's turns too, and a counterpart is used
+   only where it paints a quarter or more of what is missing. Marked `copied` (blue in the paint map).
+4. **Synthesis, never stretching.** What remains is quilted (Efros and Freeman 2001) at one texel for one along the
+   face's own axes: 16-texel patches with 4 texels of overlap, cut along the path of least difference, laid from the
+   face's foot upwards. A patch comes from the exemplar's rows at its own height above the face's foot (within two
+   texels), so courses, tiles and timbers stay level and in step; it matches the texels already painted around it, one
+   of the places within a tenth of the best picked by the patch's place (deterministic), at about 600 places a patch;
+   a prior weighs the patch's mean colour against the face's (half a squared difference a texel it paints), so a facet
+   with nothing around it takes plain wall, not the exemplar's windows at random. The exemplar: the face's own
+   well-seen rectangle where it is a quarter of the face, else the best of its material, else of its look (wall,
+   roof), scored by the largest square it holds, how alike it faces and how near it stands (the church's apse takes
+   the apse's wall, not the porch's arched door), and only one whose pixels the face's turns do not stretch and that
+   is big enough for the face (a sixteenth of it, or 32 x 32 texels). Without one: the least stretched exemplar of the
+   material or look, then the face's own least stretched pixels, and only then any face (the right material a little
+   stretched beats a wall in roof tiles). Copied texels may serve as exemplars. Marked `guessed` (magenta).
+5. **Light.** Every atlas texel is the surface colour under the ambient light (the 2003 light divided out with the
+   building's own wall light, as before), and the renderer lights each turn under the camera's or the world's sun. A
+   copy or a patch from another face is brought to the receiving face's brightness (its own seen mean, else its
+   material's) by one factor within a sixth, so a sunlit wall copied onto a shaded side keeps the shaded side's level;
+   a factor per channel tinted e_house01_1's plaster salmon.
+6. **Damage states and winters.** Each winter atlas is baked the same way from its own pictures. A damage state starts
+   from its intact atlas; the texels its damaged picture shows too stretched are painted the same way from what that
+   picture shows well (its rubble and scorch), its fallen roofs quilted from the rubble it shows well; a texel the
+   damaged picture does not show keeps the intact paint.
+
+`render` reports per pixel its stretch (`stretched`, at the pixel's middle sample) and its paint (`paint`);
+`model.json` gains `drawn_pixels` and `stretched_pixels` per turn and `copied` beside `seen` and `guessed`.
+
+### Measures (all 412 objects, 1191 object states)
+
+`bk-views paint-compare <out-dir> <variant-dir>...` builds each object's models both ways and measures turns E, S and
+W under the 2003 light: the **stretched** share of the drawn pixels (over 2 pixels a 2003 pixel); the **detail
+ratio**, the turn's high-frequency energy (the mean absolute difference of each inner pixel's luminance from its
+3 x 3 mean, over the mean luminance) over the 2003 picture's of that state, 1 alike; the **histogram distance** of
+their gradient histograms (Sobel, 8 directions by 4 strengths, half the L1 distance, 0 alike); the atlas's seen,
+copied and synthesised shares. `bk-views paint-review <out.pdf> <compare-dir> [<id>[:<state>]...]` writes
+`paint-compare.csv`, `paint-compare.md` (medians and the worst ten of each measure, summer and all states) and the
+review PDF. All 412 objects in about two minutes on win-home (108 s with 30 runs at once). The review: `D:\bk-review\full3d-texture-fix.pdf`
+(33 pages: the summary, then per object and state the 2003 picture and turns E, S, W before and after, with their
+numbers: Poland's village houses e_house01_1, _2, e_house02_1, _2, e_house03_2, the warehouses e_wb/01 and /02, the
+sheds e_frenchshed01 and e_shed01_2, the chapel e_chapel_1, the ussr church, the dzot, the dot and dot_h bunkers,
+fence_sandbag/02, housebig, a_h01_1, e_stubtrack/03, the props ukrainewell/01, semaphore/02, rick, logs/01, box/01,
+villagefence/03 and bench/02, the damage states e_house02_2 2, e_wb/01 3, the church 3 and housebig 2, and the
+winters of the church, the dzot, housebig and semaphore/02).
+
+| state | objects | stretched, median before / after | mean before / after | detail ratio, median | histogram distance, median |
+|---|---|---|---|---|---|
+| 1 | 412 | 0.041 / 0.000 | 0.100 / 0.007 | 1.174 / 1.118 | 0.169 / 0.154 |
+| 1w | 203 | 0.085 / 0.000 | 0.124 / 0.009 | 1.216 / 1.125 | 0.160 / 0.141 |
+| 2 | 194 | 0.067 / 0.004 | 0.098 / 0.012 | 1.003 / 0.981 | 0.125 / 0.124 |
+| 2w | 94 | 0.114 / 0.002 | 0.130 / 0.011 | 1.074 / 1.041 | 0.118 / 0.109 |
+| 3 | 194 | 0.001 / 0.000 | 0.025 / 0.002 | 1.011 / 0.962 | 0.117 / 0.130 |
+| 3w | 94 | 0.002 / 0.000 | 0.034 / 0.004 | 1.015 / 0.965 | 0.119 / 0.130 |
+
+At 1.5 pixels, the first limit tried, the summer median before was 0.098 and the mean 0.160 (after 0.000 and 0.011).
+Summer atlas: seen median 0.38 before, 0.32 after; guessed 0.62 before (all tiles), synthesised 0.29 after, with
+0.35 copied from counterparts. Buildings: stretched mean 0.086 before, 0.002 after, over 1% of their turns' pixels 136
+of 194 before, 7 after; props 0.113 and 0.011, 149 of 218 and 30.
+
+Worst ten, summer, stretched share:
+
+| before | | after | |
+|---|---|---|---|
+| 253 logs/04 | 0.863 | 224 box/01 | 0.327 |
+| 384 villagefence/03 | 0.715 | 217 antitank/01 | 0.276 |
+| 228 conduitbarrel (prop) | 0.648 | 254 logs/05 | 0.226 |
+| 254 logs/05 | 0.582 | 370 nestlingbox/01 | 0.195 |
+| 239 fence_sandbag/02 | 0.581 | 225 box/02 | 0.138 |
+| 250 logs/01 | 0.556 | 252 logs/03 | 0.135 |
+| 252 logs/03 | 0.552 | 250 logs/01 | 0.128 |
+| 22 conduitbarrel (building) | 0.551 | 255 logs/06 | 0.110 |
+| 217 antitank/01 | 0.548 | 227 box/04 | 0.109 |
+| 370 nestlingbox/01 | 0.537 | 251 logs/02 | 0.106 |
+
+What is left stretched is thin props whose faces no picture samples well anywhere on the object (a log seen end on, a
+crate's slats): their least stretched paint is the only paint the object has. The worst ten of the detail ratio
+(before: fence_sandbag/10 2.53, bench/04 2.52, woodpier/07 2.44; after: bench/04 2.89, logs/04 2.59, e_gravestone/10
+2.44) and of the histogram distance (before: bench/02 0.91, logs/05 0.90, logs/01 0.84; after: logs/05 1.00, logs/01
+0.86, logs/02 0.84) are the same kind of small props, whose few inner pixels make both measures noisy (11 of 412 have
+none and are left out); both lists in full are in `paint-compare.md`.
+
+State 3 (the heavy ruins) measures a slightly larger histogram distance after (0.117 to 0.130) and less detail (1.01 to
+0.96): its damaged picture shows little rubble well enough to quilt from, so more of a turned ruin keeps its intact
+paint where the tile paint smeared rubble pixels over it.
+
+**The cost at N.** One atlas serves every turn, so a face the 2003 picture samples too sparsely for some turn is the
+object's own paint at N too, where its 2003 pixels were exact. `model3d`'s colour difference of the render at N
+against the 2003 picture over all 412: median 1.12 before, 3.62 after; 90th percentile 5.46 and 13.1; the outlines
+are unchanged. Per object: e_house02_2 0.51 / 0.83, a_h01_1 0.92 / 0.85, e_wb/01 1.13 / 1.21, the church 1.18 / 5.40
+(the onion dome's and the apse's oblique facets; the render at N looks the same at a glance). The Game draws N from
+the 2003 sprite at camera step 0; the render at N is drawn only for a building standing at its own facing whose
+turn reaches 4 (`0l<s>`). Holes in every render: 0. A second build: the same bytes for all 412.
+
+### The quality gate
+
+The gate's hold-out draws a side from another side's picture alone; it broke five floors, which were derived again by
+gate.json's rule and the rest kept: state 1 sharpness 0.42..1.89 to 0.29..2.56 (a_h03_2 2.31: its synthesised faces
+are crisper than the held-out 2003 side; e_ctownhouse03_2 0.40) and colour 49 to 63 (e_ctownhouse03_4 52.65: the tile
+paint had 17.2 there; the family's mesh fits poorly and its unseen side is painted from its other side's shop front),
+state 2 sharpness 1.93 to 2.22 (e_townhouse01_4's style 1.97). gate.json's `about` records the change.
+
+### The Game reads it, and the turned village no longer smears
+
+`camera-turn-full3d-anchor-game-reads-it` stands E_House02_2 (a house of the hand test's village), the barn E_WB_01,
+A_H01_1 and the prop Rick alone and shoots them at all four camera steps in the real Game. It ran twice: with `side`
+on the tile paint (a temporary build; frames kept) and on the new paint. `bk-views paint-frames <out.md>
+<before-shots> <after-shots> <name>...` measures each object in the shots (its pixels unlike the backdrop, in the
+shot's middle 400 pixels) at steps 1 to 3 against its own step-0 shot, the 2003 picture as the Game draws it:
+
+| object | step | detail before | after | histogram before | after |
+|---|---|---|---|---|---|
+| E_House02_2 | 1 | 1.069 | 0.954 | 0.127 | 0.118 |
+| E_House02_2 | 2 | 1.280 | 1.006 | 0.115 | 0.093 |
+| E_House02_2 | 3 | 1.292 | 1.129 | 0.134 | 0.091 |
+| E_WB_01 | 1 / 2 / 3 | 1.104 / 1.176 / 1.212 | 1.098 / 1.147 / 1.207 | 0.300 / 0.177 / 0.250 | 0.301 / 0.182 / 0.250 |
+| A_H01_1 | 1 / 2 / 3 | 1.056 / 0.984 / 0.971 | 1.066 / 1.021 / 0.985 | 0.088 / 0.028 / 0.077 | 0.088 / 0.032 / 0.072 |
+| Rick | 1 / 2 / 3 | 0.699 / 0.605 / 0.956 | 0.803 / 0.911 / 1.096 | 0.200 / 0.255 / 0.124 | 0.110 / 0.130 / 0.112 |
+
+The Game draws a pack's pixels unchanged (`camera-turn-full3d-game-reads-it`: IoU 0.95 or more, colour 2 or less), so
+the shots carry the renders' stretch: e_house02_2's E / S / W 381 / 359 / 0 stretched pixels before, 0 after; Rick
+482 / 63 / 245 before, 0 after; the dzot 508 / 285 / 104 before, 0 after; e_wb/01 none either way (its turns were
+not stretched, and its numbers barely move).
+
+### The batch: time
+
+| step (win-home, Windows x64, 36 threads) | before | after |
+|---|---|---|
+| full3d-africa (43 objects) | 153 s | 194 s |
+| full3d-common (79) | 115 s | 274 s |
+| full3d-europe (116) | 229 s | 619 s |
+| full3d-ussr (174) | 517 s | 1148 s |
+
+The counterpart search and the quilting cost about 2.5 times the old bake (each object is baked in `side` and twice in
+`model3d`). `install-all` draws every object again once: bk-views-fast, an input of every run, changed.
+
+### Tiers (win-home, Windows x64)
+
+- `test-bk-views`: pass, with the new test (e_house02_2 painted from its own picture: no upright wall reads as
+  stretched at a quarter turn; the tile paint stretches over a hundredth of its turns' pixels, the coherent paint
+  none; texels copied from counterparts; N within 4 levels; the same bytes twice) and the a_h01_1 test measuring N's
+  colour where N shows the picture's own pixels (with only its own picture, the faces it samples too sparsely are
+  painted from the object at N too). The quality gate with the floors above.
+- `bk-views-side`, `bk-views-roundtrip`: pass.
+- `full3d-africa`, `full3d-common`, `full3d-europe`, `full3d-ussr` (one at a time): pass, times above; every pack
+  read by the engine's reader; 412 models, holes 0, the same bytes on a second build.
+- `camera-turn-full3d-game-reads-it`: pass (every rendered turn IoU 0.986 to 1.000, colour 0.00).
+- `camera-turn-full3d-anchor-game-reads-it`: pass (rigid within 1.5 pixels, anchors within 2), and the frames above.
+- `camera-turn-full3d-shadow-game-reads-it`: pass.
+- Not run: the full sweep (left to the maintainer), the other camera-turn, Resource Editor and Map Editor tiers (no
+  engine or editor code changed), macOS and Linux (CI).
+
+### Left open
+
+- Thin props with no well-sampled face (logs, crates, antitank stakes, swings) keep up to a third of their turns'
+  pixels stretched: they need painted atlases.
+- Where the mesh and the 2003 picture disagree on a strip (e_house01_1's wall end meeting the picture's porch), the
+  strip's colour is seen paint and quilting continues it across the wall (salmon stripes): mesh fixes.
+- e_ctownhouse03's hold-out (one side painted from the other) is a patchwork: the gate's state-1 colour floor rose for it.
+- State 3 ruins keep more intact paint than before (above).
+- N: the faces the 2003 camera samples too sparsely are the object's paint at N too (median colour difference 1.12 to
+  3.62). Keeping the picture's low frequencies under the synthesised detail on those faces (detail transfer) would
+  bring N back without streaks; not built.
+- Time: the batch is 2.5 times slower.

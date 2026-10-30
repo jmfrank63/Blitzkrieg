@@ -7819,7 +7819,8 @@ fn paintReviewCommand(ctx: *bk_tool.Context, out_arg: []const u8, compare_arg: [
 /// distance of the object against its own step-0 shot (the 2003 picture as
 /// the Game draws it), for a folder of shots before and one after. An
 /// object's pixels are those unlike the shot's most common colour (objects
-/// only: the backdrop is one colour). Writes `<out.md>`.
+/// only: the backdrop is one colour) in the shot's middle (`objectOfShot`).
+/// Writes `<out.md>`.
 fn paintFramesCommand(ctx: *bk_tool.Context, out_arg: []const u8, before_arg: []const u8, after_arg: []const u8, names: []const []const u8) !void {
     const arena = ctx.arena;
     var md: std.Io.Writer.Allocating = .init(arena);
@@ -7847,8 +7848,10 @@ fn paintFramesCommand(ctx: *bk_tool.Context, out_arg: []const u8, before_arg: []
     try ctx.out.print("{s}", .{md.written()});
 }
 
-/// A shot with every pixel of its most common colour (the backdrop of a shot
-/// of objects alone) made clear.
+/// A shot's middle `shot_middle` pixels square (the tier stands its object
+/// there; the interface's panels lie outside) with every pixel of the
+/// shot's most common colour (the backdrop of a shot of objects alone) made
+/// clear.
 fn objectOfShot(gpa: std.mem.Allocator, shot: Image) !Image {
     var counts: std.AutoHashMap([3]u8, usize) = .init(gpa);
     defer counts.deinit();
@@ -7861,13 +7864,18 @@ fn objectOfShot(gpa: std.mem.Allocator, shot: Image) !Image {
         back = e.key_ptr.*;
     };
     const out: Image = .{ .width = shot.width, .height = shot.height, .pixels = try gpa.alloc([4]u8, shot.pixels.len) };
-    for (out.pixels, shot.pixels) |*o, p| {
+    for (out.pixels, shot.pixels, 0..) |*o, p, i| {
+        const x: i64 = @intCast(i % shot.width);
+        const y: i64 = @intCast(i / shot.width);
+        const middle = @abs(x - @as(i64, shot.width / 2)) <= shot_middle / 2 and @abs(y - @as(i64, shot.height / 2)) <= shot_middle / 2;
         var far = false;
         for (0..3) |c| far = far or @abs(@as(i32, p[c]) - @as(i32, back[c])) > 8;
-        o.* = .{ p[0], p[1], p[2], if (far) 255 else 0 };
+        o.* = .{ p[0], p[1], p[2], if (far and middle) 255 else 0 };
     }
     return out;
 }
+
+const shot_middle = 400;
 
 /// `full3d-review`: every object `model3d` wrote into `<models-dir>` laid out
 /// for the maintainer, by number, with a contents index as the shapes
