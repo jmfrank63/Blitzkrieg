@@ -1,5 +1,5 @@
 {
- "about": "Floors of the building views quality gate (M005 S03). test-bk-views draws the side of each variant again with bk-views holdout and scores its pictures with bk-views style; a picture or a damage state's mean outside these fails. They come from the hold-out of these 23 variants (docs/superpowers/evidence/building-views/holdout.md): per picture 0.05 IoU under the worst, colour 10 and hue 0.1 over the worst, sharpness 0.1 under and 0.25 over the extremes of the hold-out and the style pictures; per state the mean IoU 0.02 and the mean SSIM 0.04 under the measured. Winter states count as their summer state. by_eye (M005 S06) lists variants whose turns pass the measures but look wrong on bk-views contact's sheet, with the reason; bk-views report lists them for hand fixing. Empty since M005 S07: the 18 listed in S06 have hand shapes (tools/zig/fixtures/bk-views/shapes). Derived again by the same rule on 2026-10-29, when every gate variant became a full 3D model (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md): the blocks' floors were 0.64 / 0.59 / 0.6 IoU, mean IoU 0.84 / 0.77 / 0.72, mean SSIM 0.13 / 0.0 / -0.02, sharpness 0.45..3.2 / 0.5..2.2 / 0.7..1.55, colour 62 / 60 / 49, hue 0.77 / 0.29 / 0.26. On 2026-10-31 the full 3D paint stopped stretching 2003 pixels (it paints what the 2003 camera samples too sparsely from the object itself, docs/superpowers/specs/2026-10-29-full-3d-objects-design.md, the hand test of 2026-10-31); the floors its hold-out broke were derived again by the same rule, the rest kept: state 1 sharpness 0.42..1.89 to 0.29..2.56 (a_h03_2 2.31: its synthesised faces are crisper than the held-out 2003 side; e_ctownhouse03_2 0.40) and colour 49 to 63 (e_ctownhouse03_4 52.65: a family the review marks for geometry, its unseen side painted from the one picture of its other side), state 2 sharpness 1.93 to 2.22 (e_townhouse01_4's style 1.97).",
+ "about": "Floors of the building views quality gate (M005 S03). test-bk-views draws the side of each variant again with bk-views holdout and scores its pictures with bk-views style; a picture or a damage state's mean outside these fails. They come from the hold-out of these 23 variants (docs/superpowers/evidence/building-views/holdout.md): per picture 0.05 IoU under the worst, colour 10 and hue 0.1 over the worst, sharpness 0.1 under and 0.25 over the extremes of the hold-out and the style pictures; per state the mean IoU 0.02 and the mean SSIM 0.04 under the measured. Winter states count as their summer state. by_eye (M005 S06) lists variants whose turns pass the measures but look wrong on bk-views contact's sheet, with the reason; bk-views report lists them for hand fixing. Empty since M005 S07: the 18 listed in S06 have hand shapes (tools/zig/fixtures/bk-views/shapes). Derived again by the same rule on 2026-10-29, when every gate variant became a full 3D model (docs/superpowers/specs/2026-10-29-full-3d-objects-design.md): the blocks' floors were 0.64 / 0.59 / 0.6 IoU, mean IoU 0.84 / 0.77 / 0.72, mean SSIM 0.13 / 0.0 / -0.02, sharpness 0.45..3.2 / 0.5..2.2 / 0.7..1.55, colour 62 / 60 / 49, hue 0.77 / 0.29 / 0.26.",
  "variants": [
   "africa/summer/a_h01_1",
   "africa/summer/a_h01_2",
@@ -32,10 +32,10 @@
    "mean_iou": 0.88,
    "mean_ssim": 0.25,
    "sharpness": [
-    0.29,
-    2.56
+    0.42,
+    1.89
    ],
-   "colour": 63,
+   "colour": 49,
    "hue": 0.56
   },
   "2": {
@@ -44,7 +44,7 @@
    "mean_ssim": 0.04,
    "sharpness": [
     0.31,
-    2.22
+    1.93
    ],
    "colour": 77,
    "hue": 0.43
