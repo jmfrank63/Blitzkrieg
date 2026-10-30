@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "FilesInspector.h"
+#include "../Platform/Clock.h"
 
 namespace
 {
@@ -45,19 +46,38 @@ IFilesInspectorEntry* CFilesInspector::GetEntry( const std::string &szName )
 	}
 	return 0;
 }
+// Each entry is shown only the streams of its own folder, one enumeration per
+// folder. A single enumeration of the whole storage, with a mod mounted that
+// is 154,000 loose files (remastered_views), held the main loop for 8 s at
+// startup - a black, Not Responding window before the first video.
 bool CFilesInspector::InspectStorage( IDataStorage *pStorage )
 {
-	CPtr<IStorageEnumerator> pEnumerator = pStorage->CreateEnumerator();
-	pEnumerator->Reset( "*.*" );
-	while (	pEnumerator->Next() )
+	const DWORD dwStart = NPlatform::MonotonicMilliseconds();
+	std::string szCounts;
+	std::map< std::string, std::vector<IFilesInspectorEntry*> > folders;
+	for ( CEntriesList::iterator it = entries.begin(); it != entries.end(); ++it )
+		folders[it->second->GetFolder()].push_back( it->second );
+	for ( std::map< std::string, std::vector<IFilesInspectorEntry*> >::const_iterator folder = folders.begin(); folder != folders.end(); ++folder )
 	{
-		const SStorageElementStats *pStats = pEnumerator->GetStats();
-		if ( pStats->type != SET_STREAM ) 
+		CPtr<IStorageEnumerator> pEnumerator = pStorage->CreateEnumerator();
+		if ( pEnumerator == 0 )
 			continue;
-		const std::string szName = pStats->pszName;
-		for ( CEntriesList::iterator it = entries.begin(); it != entries.end(); ++it )
-			it->second->InspectStream( szName );
+		pEnumerator->Reset( (folder->first + "*.*").c_str() );
+		int nStreams = 0;
+		while (	pEnumerator->Next() )
+		{
+			const SStorageElementStats *pStats = pEnumerator->GetStats();
+			if ( pStats->type != SET_STREAM )
+				continue;
+			const std::string szName = pStats->pszName;
+			for ( int i = 0; i < folder->second.size(); ++i )
+				folder->second[i]->InspectStream( szName );
+			++nStreams;
+		}
+		szCounts += NStr::Format( ", %s %d", folder->first.empty() ? "*" : folder->first.c_str(), nStreams );
 	}
+	// BK_DEBUG_LOG: what startup and a mod change spend here (mod-scan-game-reads-it).
+	NStr::DebugTrace( "files inspector: %u ms%s\n", unsigned( NPlatform::MonotonicMilliseconds() - dwStart ), szCounts.c_str() );
 	return true;
 }
 void CFilesInspector::Clear()

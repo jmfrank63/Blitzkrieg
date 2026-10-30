@@ -32,6 +32,7 @@ extern "C" void *bk_storage_open(void *storage, const char *name, unsigned long 
 extern "C" void *bk_storage_create_stream(void *storage, const char *name, unsigned long access);
 extern "C" bool bk_storage_stats(void *storage, const char *name, void *stats);
 extern "C" void *bk_storage_enumerator_create(void *storage);
+extern "C" void *bk_storage_enumerator_create_in(void *storage, const char *folder);
 extern "C" void bk_enumerator_destroy(void *enumerator);
 extern "C" void bk_enumerator_reset(void *enumerator);
 extern "C" bool bk_enumerator_next(void *enumerator);
@@ -755,19 +756,37 @@ public:
     void BK_STDCALL SetRawData(const char *, const char *, const void *, int) override {}
 };
 
+// The files are listed when the enumeration starts, from the folder part of
+// Reset's mask (scenarios\custom\missions\*.*: that folder and its
+// subfolders; *.*: everything), as the original file systems' masks did. The
+// file part stays unread: every caller passes *.*. Listing everything at
+// CreateEnumerator walked all 154,000 files of the remastered_views mod for
+// the files inspector, which wants six folders. Every caller resets it at
+// once, while it holds the storage.
 class StorageEnumerator final : public IStorageEnumerator {
-    void *enumerator_;
+    void *storage_;
+    void *enumerator_ = 0;
     mutable struct { const char *name; int type; int size; unsigned int ctime, mtime, atime; } stats_ = {};
     int refs_ = 0;
+    void Collect(const char *mask) {
+        if (enumerator_) bk_enumerator_destroy(enumerator_);
+        std::string folder;
+        if (mask) {
+            const std::string text = mask;
+            const size_t separator = text.find_last_of("\\/");
+            if (separator != std::string::npos && text.find_first_of("*?") > separator) folder = text.substr(0, separator + 1);
+        }
+        enumerator_ = bk_storage_enumerator_create_in(storage_, folder.c_str());
+    }
 public:
-    explicit StorageEnumerator(void *enumerator) : enumerator_(enumerator) {}
-    ~StorageEnumerator() { bk_enumerator_destroy(enumerator_); }
+    explicit StorageEnumerator(void *storage) : storage_(storage) {}
+    ~StorageEnumerator() { if (enumerator_) bk_enumerator_destroy(enumerator_); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
-    bool BK_STDCALL IsValid() const override { return enumerator_ != 0; }
-    void BK_STDCALL Reset(const char *) override { bk_enumerator_reset(enumerator_); }
-    bool BK_STDCALL Next() override { return bk_enumerator_next(enumerator_); }
-    const void *BK_STDCALL GetStats() const override { return bk_enumerator_stats(enumerator_, &stats_) ? &stats_ : 0; }
+    bool BK_STDCALL IsValid() const override { return storage_ != 0; }
+    void BK_STDCALL Reset(const char *mask) override { Collect(mask); }
+    bool BK_STDCALL Next() override { if (!enumerator_) Collect(0); return enumerator_ && bk_enumerator_next(enumerator_); }
+    const void *BK_STDCALL GetStats() const override { return enumerator_ && bk_enumerator_stats(enumerator_, &stats_) ? &stats_ : 0; }
 };
 
 class ZigDataTree final : public IDataTree {
@@ -1488,7 +1507,7 @@ public:
     }
     bool BK_STDCALL DestroyElement(const char *) override { return false; }
     bool BK_STDCALL RenameElement(const char *, const char *) override { return false; }
-    void *BK_STDCALL CreateEnumerator() override { void *enumerator = bk_storage_enumerator_create(storage_); return enumerator ? new StorageEnumerator(enumerator) : 0; }
+    void *BK_STDCALL CreateEnumerator() override { return storage_ ? new StorageEnumerator(storage_) : 0; }
     const char *BK_STDCALL GetName() const override { const char *name = bk_storage_name(storage_); return name ? name : ""; }
     bool BK_STDCALL AddStorage(IDataStorage *storage, const char *name) override {
         DataStorage *child = static_cast<DataStorage *>(storage);

@@ -64,6 +64,10 @@ interface IFilesInspectorEntry : public IRefCount
 {
 	virtual void STDCALL InspectStream( const std::string &szName ) = 0;
 	virtual void STDCALL Clear() = 0;
+	// The folder whose streams the entry is given (scenarios\tutorials\, with
+	// its subfolders), or "" for every stream of the storage. A mod is mostly
+	// folders no entry looks in, and listing all of it is slow.
+	virtual const char* STDCALL GetFolder() const { return ""; }
 };
 interface IFilesInspectorEntryCollector : public IFilesInspectorEntry
 {

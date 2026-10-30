@@ -952,7 +952,14 @@ fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []co
     defer allocator.free(raw_directory);
     const directory_path = hostPathAlloc(raw_directory) orelse return;
     defer allocator.free(directory_path);
-    var directory = std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch return;
+    var directory = std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch reopen: {
+        // A folder asked for by name (an enumeration under scenarios\tutorials\)
+        // is in the engine's lower case; on a case-sensitive disk it is Scenarios.
+        if (builtin.os.tag == .windows or relative.len == 0) return;
+        const resolved = resolveCaseInsensitivePath(directory_path) orelse return;
+        defer allocator.free(resolved);
+        break :reopen std.Io.Dir.cwd().openDir(hostIo(), resolved, .{ .iterate = true }) catch return;
+    };
     defer directory.close(hostIo());
     var iterator = directory.iterate();
     while (iterator.next(hostIo()) catch null) |entry| {
@@ -1436,26 +1443,54 @@ pub export fn bk_stream_stats(handle: ?*anyopaque, output: ?*StorageStats) callc
 // unpacked as loose folders (the usual way mods ship) was missing from every
 // list built by enumeration - custom campaigns, chapters, missions and
 // multiplayer maps - although each of its files opened fine by name.
-fn collectStorageFiles(storage: *const Storage, enumerator: *Enumerator) void {
-    if (storage.single_archive == null) collectFiles(storage, enumerator, "");
+//
+// `folder` (lower case, backslashes, ending in one; empty for everything)
+// keeps the walk to that folder: the files inspector wants scenarios\ and
+// maps\multiplayer\, and walking the whole of a mod such as remastered_views
+// (154,000 loose files) for them held the Game's first frame for 8 s.
+fn collectStorageFiles(storage: *const Storage, enumerator: *Enumerator, folder: []const u8) void {
+    if (storage.single_archive == null) collectFiles(storage, enumerator, folder);
     for (storage.archives.items) |*loaded| {
         for (loaded.archive.entries) |*entry| {
             const name_copy = normalizedStorageName(entry.name) orelse continue;
+            if (!std.mem.startsWith(u8, name_copy, folder)) {
+                allocator.free(name_copy);
+                continue;
+            }
             enumerator.names.append(allocator, name_copy) catch allocator.free(name_copy);
         }
     }
     var index = storage.overlays.items.len;
     while (index > 0) {
         index -= 1;
-        collectStorageFiles(storage.overlays.items[index].storage, enumerator);
+        collectStorageFiles(storage.overlays.items[index].storage, enumerator, folder);
     }
 }
 
 pub export fn bk_storage_enumerator_create(handle: ?*anyopaque) callconv(.c) ?*anyopaque {
+    return bk_storage_enumerator_create_in(handle, null);
+}
+
+/// The files of one folder of the storage and its overlays, with their
+/// subfolders: `folder` in either case and separator, a trailing separator
+/// optional; null or empty for the whole storage.
+pub export fn bk_storage_enumerator_create_in(handle: ?*anyopaque, folder_name: ?[*:0]const u8) callconv(.c) ?*anyopaque {
     const storage = fromHandle(Storage, handle) orelse return null;
+    const raw_folder: []const u8 = if (folder_name) |name| std.mem.span(name) else "";
+    const folder = allocator.alloc(u8, raw_folder.len + 1) catch return null;
+    defer allocator.free(folder);
+    var folder_len: usize = 0;
+    for (raw_folder) |byte| {
+        folder[folder_len] = if (byte == '/') '\\' else std.ascii.toLower(byte);
+        folder_len += 1;
+    }
+    if (folder_len != 0 and folder[folder_len - 1] != '\\') {
+        folder[folder_len] = '\\';
+        folder_len += 1;
+    }
     const enumerator = allocator.create(Enumerator) catch return null;
     enumerator.* = .{};
-    collectStorageFiles(storage, enumerator);
+    collectStorageFiles(storage, enumerator, folder[0..folder_len]);
     std.mem.sort([:0]u8, enumerator.names.items, {}, storageNameLessThan);
     // A name a mod overrides is present in both layers but is one file to the
     // game, as it is to open: list it once.
@@ -2651,6 +2686,28 @@ test "storage enumeration normalizes the six tutorial mission paths" {
     }
 
     try std.testing.expectEqual(@as(usize, 6), tutorial_count);
+}
+
+test "storage enumeration in one folder lists that folder's files only" {
+    const handle = bk_storage_create("Data\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(handle);
+    const enumerator_handle = bk_storage_enumerator_create_in(handle, "Scenarios/Tutorials") orelse return error.TestUnexpectedResult;
+    defer bk_enumerator_destroy(enumerator_handle);
+
+    var tutorial_count: usize = 0;
+    var count: usize = 0;
+    while (bk_enumerator_next(enumerator_handle)) {
+        var stats: StorageStats = undefined;
+        try std.testing.expect(bk_enumerator_stats(enumerator_handle, &stats));
+        const name = std.mem.span(stats.name orelse return error.TestUnexpectedResult);
+        try std.testing.expect(std.mem.startsWith(u8, name, "scenarios\\tutorials\\"));
+        if (std.mem.endsWith(u8, name, "\\1.xml")) tutorial_count += 1;
+        count += 1;
+    }
+    try std.testing.expectEqual(@as(usize, 6), tutorial_count);
+    // Every name is under the folder (above), so the ELK's copies of the
+    // tutorials (elk\game_data_base\scenarios\...) are not in it.
+    try std.testing.expect(count >= tutorial_count);
 }
 
 test "storage opens an entry from a repository PAK" {
