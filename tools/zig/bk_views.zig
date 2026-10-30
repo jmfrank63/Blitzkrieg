@@ -51,6 +51,9 @@ const usage: bk_tool.Usage = .{
     \\       bk-views import <family-review-manifest.json> <meshes-dir>
     \\       bk-views model3d <out-dir> <variant-dir>... [--deps=<file>]
     \\       bk-views full3d-review <out.pdf> <models-dir>
+    \\       bk-views paint-compare <out-dir> <variant-dir>...
+    \\       bk-views paint-review <out.pdf> <compare-dir> [<id>[:<state>]...]
+    \\       bk-views paint-frames <out.md> <before-shots-dir> <after-shots-dir> <name>...
     \\
     ,
     .body = &.{"views.usage.body"},
@@ -144,6 +147,21 @@ fn run(ctx: *bk_tool.Context) !void {
         if (ctx.args.len < 3) return error.Usage;
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         return model3dCommand(ctx, ctx.args[1], ctx.args[2..]);
+    }
+    if (std.mem.eql(u8, command, "paint-compare")) {
+        if (ctx.args.len < 3) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return paintCompareCommand(ctx, ctx.args[1], ctx.args[2..]);
+    }
+    if (std.mem.eql(u8, command, "paint-review")) {
+        if (ctx.args.len < 3) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return paintReviewCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3..]);
+    }
+    if (std.mem.eql(u8, command, "paint-frames")) {
+        if (ctx.args.len < 5) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return paintFramesCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], ctx.args[4..]);
     }
     if (std.mem.eql(u8, command, "full3d-review")) {
         if (ctx.args.len != 3) return error.Usage;
@@ -3622,7 +3640,7 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         shape.* = parts.items;
     }
     const mesh_scene = try loadMeshScene(ctx, sources.items, same, fixed);
-    const full3d = if (mesh_scene != null and !intact_only) try buildFull3d(arena, sources.items, mesh_scene.?, states.items) else &.{};
+    const full3d = if (mesh_scene != null and !intact_only) try buildFull3d(arena, sources.items, mesh_scene.?, states.items, .coherent) else &.{};
     return .{
         .family = found.family.name,
         .name = std.fs.path.basename(own.dir),
@@ -7115,9 +7133,10 @@ pub const model3d = @import("bk_views_model.zig");
 /// intact pictures. Then a model a damage state (`model3d.damaged`, from the
 /// variant's own damaged picture of summer), its atlas of each season the
 /// intact one of that season painted over from its own damaged picture.
-fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8) ![]const model3d.Model {
+fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8, method: model3d.Method) ![]const model3d.Model {
     var models: std.ArrayList(model3d.Model) = .empty;
     var m = try model3d.unwrap(gpa, ms.model, ms.tris, ms.views[0].placement);
+    m.method = method;
     const has = struct {
         fn f(list: []const []const u8, state: []const u8) bool {
             for (list) |s| if (std.mem.eql(u8, s, state)) return true;
@@ -7221,13 +7240,15 @@ fn shrunk(gpa: std.mem.Allocator, image: Image, side: u32) !Image {
     return out;
 }
 
-/// Where an atlas's paint came from: green from a 2003 picture, magenta
-/// guessed (material paint), black not reached; clear off every face.
+/// Where an atlas's paint came from: green from a 2003 picture, blue copied
+/// from a counterpart face, magenta synthesised from the object's well-seen
+/// faces, black not reached; clear off every face.
 fn paintMap(gpa: std.mem.Allocator, m: model3d.Model, t: model3d.Texture) !Image {
     const map: Image = .{ .width = t.image.width, .height = t.image.height, .pixels = try gpa.alloc([4]u8, t.paint.len) };
     for (map.pixels, t.paint, m.texel_tri) |*p, k, tri| p.* = if (tri == model3d.Model.none) .{ 0, 0, 0, 0 } else switch (k) {
         .seen => .{ 40, 170, 60, 255 },
         .guessed => .{ 230, 40, 200, 255 },
+        .copied => .{ 50, 110, 230, 255 },
         .none => .{ 0, 0, 0, 255 },
     };
     return map;
@@ -7246,7 +7267,7 @@ const Full3dReport = struct {
     triangles: usize,
     charts: usize,
     groups: []const []const u8,
-    textures: []const struct { state: []const u8, seen: f64, guessed: f64 },
+    textures: []const struct { state: []const u8, seen: f64, guessed: f64, copied: f64 = 0 },
     /// N against the 2003 picture: the render's outline IoU, the mesh's, the colour difference.
     n_iou: f64,
     n_mesh_iou: f64,
@@ -7255,6 +7276,9 @@ const Full3dReport = struct {
     holes: usize,
     /// Pixels of guessed paint at N, E, S, W.
     guessed_pixels: [4]usize,
+    /// Drawn pixels of E, S, W and those stretched (`model3d.stretch_limit`).
+    drawn_pixels: [4]usize = .{ 0, 0, 0, 0 },
+    stretched_pixels: [4]usize = .{ 0, 0, 0, 0 },
     sibling: ?struct { name: []const u8, turn: u2, laid: f64, iou: f64, colour: f64 } = null,
     damage: []const struct { state: []const u8, triangles: usize, iou: f64, colour: f64, intact_iou: f64, holes: usize },
     /// A second build and render gave the same bytes.
@@ -7307,16 +7331,16 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
             try mods.append(arena, mod);
             try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}.mod", .{m.textures[0].state[0..1]}), mod);
             for (m.textures) |t| {
-                var counts = [3]f64{ 0, 0, 0 };
+                var counts = [4]f64{ 0, 0, 0, 0 };
                 // Faces that look down (floors, eaves' undersides) no turn shows.
                 for (t.paint, m.texel_tri) |k, tri| {
                     if (tri != model3d.Model.none and !std.mem.eql(u8, model3d.lookOf(m.groups[m.triangles[tri].group]), "under")) counts[@intFromEnum(k)] += 1;
                 }
-                const on = @max(counts[0] + counts[1] + counts[2], 1);
+                const on = @max(counts[0] + counts[1] + counts[2] + counts[3], 1);
                 try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}_h.dds", .{t.state}), try model3d.writeDds(arena, t.image));
                 try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}.tga", .{t.state}), try model3d.writeTga(arena, t.image));
                 try picturePng(ctx, folder, try std.fmt.allocPrint(arena, "{s}_paint.png", .{t.state}), try paintMap(arena, m, t));
-                try w.print("{s}{{\"state\":\"{s}\",\"seen\":{d:.4},\"guessed\":{d:.4}}}", .{ if (first_texture) "" else ",", t.state, counts[1] / on, counts[2] / on });
+                try w.print("{s}{{\"state\":\"{s}\",\"seen\":{d:.4},\"guessed\":{d:.4},\"copied\":{d:.4}}}", .{ if (first_texture) "" else ",", t.state, counts[1] / on, counts[2] / on, counts[3] / on });
                 first_texture = false;
             }
         }
@@ -7344,6 +7368,8 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
         var turns: [4]model3d.Rendered = undefined;
         var holes: usize = n.unpainted;
         var guessed_pixels: [4]usize = .{ 0, 0, 0, 0 };
+        var drawn_pixels: [4]usize = .{ 0, 0, 0, 0 };
+        var stretched_pixels: [4]usize = .{ 0, 0, 0, 0 };
         for (n.guessed) |g| guessed_pixels[0] += @intFromBool(g);
         for (0..4) |k| {
             const t = turnTarget(scene, @intCast(k), @intCast(k), "");
@@ -7351,13 +7377,17 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
             holes += turns[k].unpainted;
             if (k == 0) continue;
             for (turns[k].guessed) |g| guessed_pixels[k] += @intFromBool(g);
+            for (turns[k].image.pixels, turns[k].stretched) |p, st| {
+                drawn_pixels[k] += @intFromBool(p[3] == 255);
+                stretched_pixels[k] += @intFromBool(st);
+            }
             // N lit by the sun at camera step 0 is N under the 2003 light.
             const lit = try model3d.render(arena, intact, "1", @intCast(k), 0, t.eye.anchor, t.size);
             holes += lit.unpainted;
             try picturePng(ctx, review, try std.fmt.allocPrint(arena, "t{d}.png", .{k}), turns[k].image);
             try picturePng(ctx, review, try std.fmt.allocPrint(arena, "s{d}.png", .{k}), lit.image);
         }
-        try w.print("],\r\n\"n_iou\":{d:.4},\"n_mesh_iou\":{d:.4},\"n_colour\":{d:.2},\"holes\":{d},\"guessed_pixels\":[{d},{d},{d},{d}]", .{ n_match.iou, if (either == 0) 0 else both / either, n_match.colour, holes, guessed_pixels[0], guessed_pixels[1], guessed_pixels[2], guessed_pixels[3] });
+        try w.print("],\r\n\"n_iou\":{d:.4},\"n_mesh_iou\":{d:.4},\"n_colour\":{d:.2},\"holes\":{d},\"guessed_pixels\":[{d},{d},{d},{d}],\"drawn_pixels\":[{d},{d},{d},{d}],\"stretched_pixels\":[{d},{d},{d},{d}]", .{ n_match.iou, if (either == 0) 0 else both / either, n_match.colour, holes, guessed_pixels[0], guessed_pixels[1], guessed_pixels[2], guessed_pixels[3], drawn_pixels[0], drawn_pixels[1], drawn_pixels[2], drawn_pixels[3], stretched_pixels[0], stretched_pixels[1], stretched_pixels[2], stretched_pixels[3] });
 
         // A 2003 sibling of the colourway against the turn that shows it.
         for (ms.views[1..]) |v| {
@@ -7396,7 +7426,7 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
 
         // The same bytes again: the models built anew, their files and the
         // intact turns compared.
-        const again = try buildFull3d(arena, scene.sources, ms, scene.states);
+        const again = try buildFull3d(arena, scene.sources, ms, scene.states, .coherent);
         var same = again.len == scene.full3d.len;
         if (same) for (scene.full3d, again, mods.items) |a, b, mod| {
             same = same and std.mem.eql(u8, mod, try model3d.writeMod(arena, b));
@@ -7413,6 +7443,431 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
     try writeDeps(ctx);
 }
 
+
+// ---------------------------------------------------------------------------
+// The paint review (2026-10-31): the 2026-10-29 tile paint against the
+// coherent paint, measured on the turns they draw.
+
+/// What the paint review measures of a picture's detail: the mean absolute
+/// difference of each inner pixel's luminance from its 3 x 3 neighbourhood's
+/// mean, over the mean luminance (`hf`: high-frequency energy, what a smear
+/// loses and a blotch changes), and the histogram of its gradients (Sobel),
+/// 8 directions by 4 strengths over the mean luminance, as shares (`hist`).
+/// Inner pixels: those whose 3 x 3 neighbourhood is opaque, so the outline
+/// is not detail.
+pub const Detail = struct { hf: f64 = 0, hist: [32]f64 = @splat(0), pixels: usize = 0 };
+
+pub fn detailOf(gpa: std.mem.Allocator, image: Image) !Detail {
+    const w = image.width;
+    const h = image.height;
+    if (w < 3 or h < 3) return .{};
+    const lum = try gpa.alloc(f64, @as(usize, w) * h);
+    defer gpa.free(lum);
+    for (lum, image.pixels) |*l, p| l.* = if (p[3] < 128) -1 else 0.3 * @as(f64, @floatFromInt(p[0])) + 0.59 * @as(f64, @floatFromInt(p[1])) + 0.11 * @as(f64, @floatFromInt(p[2]));
+    var mean: f64 = 0;
+    var n: usize = 0;
+    for (1..h - 1) |y| for (1..w - 1) |x| {
+        if (!innerAt(lum, w, x, y)) continue;
+        mean += lum[y * w + x];
+        n += 1;
+    };
+    if (n == 0) return .{};
+    mean = @max(mean / @as(f64, @floatFromInt(n)), 1);
+    var out: Detail = .{ .pixels = n };
+    for (1..h - 1) |y| for (1..w - 1) |x| {
+        if (!innerAt(lum, w, x, y)) continue;
+        var around: f64 = 0;
+        for (0..3) |dy| for (0..3) |dx| {
+            around += lum[(y + dy - 1) * w + x + dx - 1];
+        };
+        out.hf += @abs(lum[y * w + x] - around / 9) / mean;
+        const at = struct {
+            fn f(l: []const f64, width: usize, xx: usize, yy: usize) f64 {
+                return l[yy * width + xx];
+            }
+        }.f;
+        const gx = (at(lum, w, x + 1, y - 1) + 2 * at(lum, w, x + 1, y) + at(lum, w, x + 1, y + 1)) - (at(lum, w, x - 1, y - 1) + 2 * at(lum, w, x - 1, y) + at(lum, w, x - 1, y + 1));
+        const gy = (at(lum, w, x - 1, y + 1) + 2 * at(lum, w, x, y + 1) + at(lum, w, x + 1, y + 1)) - (at(lum, w, x - 1, y - 1) + 2 * at(lum, w, x, y - 1) + at(lum, w, x + 1, y - 1));
+        const strength = @sqrt(gx * gx + gy * gy) / 8 / mean;
+        var angle = std.math.atan2(gy, gx);
+        if (angle < 0) angle += std.math.pi;
+        const dir: usize = @min(7, @as(usize, @intFromFloat(angle / std.math.pi * 8)));
+        const level: usize = if (strength < 0.05) 0 else if (strength < 0.15) 1 else if (strength < 0.35) 2 else 3;
+        out.hist[level * 8 + dir] += 1;
+    };
+    const fn_ = @as(f64, @floatFromInt(n));
+    out.hf /= fn_;
+    for (&out.hist) |*b| b.* /= fn_;
+    return out;
+}
+
+fn innerAt(lum: []const f64, w: usize, x: usize, y: usize) bool {
+    for (0..3) |dy| for (0..3) |dx| {
+        if (lum[(y + dy - 1) * w + x + dx - 1] < 0) return false;
+    };
+    return true;
+}
+
+/// Half the sum of the histograms' differences: 0 alike, 1 nothing in common.
+pub fn histDistance(a: Detail, b: Detail) f64 {
+    var d: f64 = 0;
+    for (a.hist, b.hist) |x, y| d += @abs(x - y);
+    return d / 2;
+}
+
+/// `paint-compare`: for each variant folder, its full 3D models painted both
+/// ways (`model3d.Method`: `tile`, the 2026-10-29 paint, and `coherent`),
+/// every state's turns E, S and W (under the 2003 light, as `model3d`'s
+/// review draws them) measured: the drawn pixels whose 2003 pixel the turn
+/// stretches over more than `model3d.stretch_limit` pixels (`stretched`), the
+/// detail of the turn against the 2003 picture of that state (`detail`: the
+/// ratio of their high-frequency energy, 1 alike; `hist`: their gradient
+/// histograms' distance) and the atlas's shares of seen, copied and
+/// synthesised texels (faces that look up or sideways). Writes
+/// `<out-dir>/<number>/compare.json` and the turns as PNGs for `paint-review`.
+fn paintCompareCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const []const u8) !void {
+    const arena = ctx.arena;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    for (dir_args) |dir_arg| {
+        const dir = try bk_tool.inputPath(arena, dir_arg);
+        const found = findFamily(arena, ctx.io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
+        const scene = try loadScene(ctx, found, found.index, null, false);
+        const ms = scene.mesh orelse return ctx.failKey("views.err.read", .{ dir, "NoMesh" });
+        const own = scene.sources[scene.fixed];
+        const folder = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{d:0>3}", .{ms.model.id}) });
+        try std.Io.Dir.cwd().createDirPath(ctx.io, folder);
+        const tile = try buildFull3d(arena, scene.sources, ms, scene.states, .tile);
+        var json: std.Io.Writer.Allocating = .init(arena);
+        const w = &json.writer;
+        try w.print("{{\"id\":{d},\"path\":\"{s}\",\"rows\":[", .{ ms.model.id, ms.model.path });
+        var first = true;
+        for ([_][]const model3d.Model{ tile, scene.full3d }, [_][]const u8{ "tile", "coherent" }) |models, method| for (models) |m| for (m.textures) |t| {
+            const art = pictureOf(own, t.state) orelse continue;
+            const art_detail = try detailOf(arena, art);
+            try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "pic_{s}.png", .{t.state}), try writePngDeflated(arena, art));
+            var counts = [4]f64{ 0, 0, 0, 0 };
+            for (t.paint, m.texel_tri) |k, tri| {
+                if (tri != model3d.Model.none and !std.mem.eql(u8, model3d.lookOf(m.groups[m.triangles[tri].group]), "under")) counts[@intFromEnum(k)] += 1;
+            }
+            const on = @max(counts[0] + counts[1] + counts[2] + counts[3], 1);
+            try w.print("{s}\r\n{{\"method\":\"{s}\",\"state\":\"{s}\",\"seen\":{d:.4},\"copied\":{d:.4},\"guessed\":{d:.4},\"art_hf\":{d:.5},\"turns\":[", .{ if (first) "" else ",", method, t.state, counts[1] / on, counts[3] / on, counts[2] / on, art_detail.hf });
+            first = false;
+            for (1..4) |k| {
+                const target = turnTarget(scene, @intCast(k), @intCast(k), "");
+                const r = try model3d.render(arena, m, t.state, @intCast(k), @intCast(k), target.eye.anchor, target.size);
+                var drawn: usize = 0;
+                var stretched: usize = 0;
+                var guessed: usize = 0;
+                for (r.image.pixels, r.stretched, r.guessed) |p, s, g| {
+                    drawn += @intFromBool(p[3] == 255);
+                    stretched += @intFromBool(s);
+                    guessed += @intFromBool(g);
+                }
+                const d = try detailOf(arena, r.image);
+                try w.print("{s}{{\"drawn\":{d},\"stretched\":{d},\"guessed\":{d},\"hf\":{d:.5},\"detail\":{d:.4},\"hist\":{d:.4}}}", .{ if (k > 1) "," else "", drawn, stretched, guessed, d.hf, if (art_detail.hf > 0) d.hf / art_detail.hf else 0, histDistance(d, art_detail) });
+                try writeOut(ctx, folder, try std.fmt.allocPrint(arena, "{s}_{s}_t{d}.png", .{ method, t.state, k }), try writePngDeflated(arena, try croppedToOpaque(arena, r.image)));
+            }
+            try w.writeAll("]}");
+        };
+        try w.writeAll("]}\r\n");
+        try writeOut(ctx, folder, "compare.json", json.written());
+        try ctx.out.print("wrote {s}\n", .{folder});
+    }
+}
+
+/// A picture cut to its opaque box and a pixel round it.
+fn croppedToOpaque(gpa: std.mem.Allocator, image: Image) !Image {
+    const box = mesh.opaqueBox(image) orelse return image;
+    const x0: usize = @intFromFloat(@max(0, box[0] - 1));
+    const y0: usize = @intFromFloat(@max(0, box[1] - 1));
+    const x1: usize = @min(image.width, @as(usize, @intFromFloat(box[2])) + 1);
+    const y1: usize = @min(image.height, @as(usize, @intFromFloat(box[3])) + 1);
+    const out: Image = .{ .width = @intCast(x1 - x0), .height = @intCast(y1 - y0), .pixels = try gpa.alloc([4]u8, (x1 - x0) * (y1 - y0)) };
+    for (y0..y1) |y| @memcpy(out.pixels[(y - y0) * (x1 - x0) ..][0 .. x1 - x0], image.pixels[y * image.width + x0 ..][0 .. x1 - x0]);
+    return out;
+}
+
+const CompareTurn = struct { drawn: usize, stretched: usize, guessed: usize, hf: f64, detail: f64, hist: f64 };
+const CompareRow = struct { method: []const u8, state: []const u8, seen: f64, copied: f64, guessed: f64, art_hf: f64, turns: []const CompareTurn };
+const CompareFile = struct { id: u32, path: []const u8, rows: []const CompareRow };
+
+/// One object's numbers of one paint and state over its three turns: the
+/// share of drawn pixels stretched, the mean detail ratio and histogram
+/// distance.
+const CompareSummary = struct { stretched: f64, detail: f64, hist: f64, synthesised: f64, copied: f64 };
+
+fn summarise(row: CompareRow) CompareSummary {
+    var drawn: f64 = 0;
+    var stretched: f64 = 0;
+    var detail: f64 = 0;
+    var hist: f64 = 0;
+    for (row.turns) |t| {
+        drawn += @floatFromInt(t.drawn);
+        stretched += @floatFromInt(t.stretched);
+        detail += t.detail / 3;
+        hist += t.hist / 3;
+    }
+    // A picture with no inner pixels (a post a pixel wide) has no detail to
+    // measure: its detail and histogram are left out (NaN).
+    const none = row.art_hf <= 0 or detail <= 0;
+    return .{ .stretched = if (drawn == 0) 0 else stretched / drawn, .detail = if (none) std.math.nan(f64) else detail, .hist = if (none) std.math.nan(f64) else hist, .synthesised = row.guessed, .copied = row.copied };
+}
+
+/// `paint-review`: the numbers `paint-compare` wrote under `<compare-dir>`
+/// over every object (`paint-compare.csv`: per object, paint and state;
+/// `paint-compare.md`: the medians and the worst ten of each measure, before
+/// and after, for the summer state and for every state) and `<out.pdf>`: a
+/// page of those, then per `<id>[:<state>]` its 2003 picture of that state
+/// and its turns E, S, W painted both ways, side by side, with their numbers.
+fn paintReviewCommand(ctx: *bk_tool.Context, out_arg: []const u8, compare_arg: []const u8, picks: []const []const u8) !void {
+    const arena = ctx.arena;
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const root = try bk_tool.inputPath(arena, compare_arg);
+    var files: std.ArrayList(CompareFile) = .empty;
+    for (try entries(arena, ctx.io, root, .directory)) |name| {
+        const f = (try readJson(CompareFile, ctx, try std.fs.path.join(arena, &.{ root, name, "compare.json" }))) orelse continue;
+        try files.append(arena, f);
+    }
+    std.mem.sort(CompareFile, files.items, {}, struct {
+        fn less(_: void, a: CompareFile, b: CompareFile) bool {
+            return a.id < b.id;
+        }
+    }.less);
+    var csv: std.Io.Writer.Allocating = .init(arena);
+    try csv.writer.writeAll("id,path,state,method,seen,copied,synthesised,stretched_share,detail_ratio,hist_distance,stretched_E,stretched_S,stretched_W,drawn_E,drawn_S,drawn_W\r\n");
+    const Entry = struct { id: u32, path: []const u8, state: []const u8, before: CompareSummary, after: CompareSummary };
+    var all: std.ArrayList(Entry) = .empty;
+    for (files.items) |f| {
+        for (f.rows) |row| {
+            const s = summarise(row);
+            try csv.writer.print("{d},{s},{s},{s},{d:.4},{d:.4},{d:.4},{d:.5},{d:.4},{d:.4},{d},{d},{d},{d},{d},{d}\r\n", .{ f.id, f.path, row.state, row.method, row.seen, row.copied, row.guessed, s.stretched, s.detail, s.hist, row.turns[0].stretched, row.turns[1].stretched, row.turns[2].stretched, row.turns[0].drawn, row.turns[1].drawn, row.turns[2].drawn });
+        }
+        for (f.rows) |row| {
+            if (!std.mem.eql(u8, row.method, "tile")) continue;
+            for (f.rows) |other| if (std.mem.eql(u8, other.method, "coherent") and std.mem.eql(u8, other.state, row.state)) {
+                try all.append(arena, .{ .id = f.id, .path = f.path, .state = row.state, .before = summarise(row), .after = summarise(other) });
+            };
+        }
+    }
+
+    // The medians and the worst ten, summer state and every state.
+    var md: std.Io.Writer.Allocating = .init(arena);
+    var lines: std.ArrayList([]const u8) = .empty;
+    const Measure = struct { name: []const u8, get: *const fn (CompareSummary) f64, worse_high: bool, share: bool = false };
+    const measures = [_]Measure{
+        .{ .name = "stretched share of drawn pixels", .get = struct {
+            fn f(s: CompareSummary) f64 {
+                return s.stretched;
+            }
+        }.f, .worse_high = true },
+        .{ .name = "detail ratio against the 2003 picture (1 alike; worst = farthest from 1)", .get = struct {
+            fn f(s: CompareSummary) f64 {
+                return s.detail;
+            }
+        }.f, .worse_high = false },
+        .{ .name = "gradient histogram distance against the 2003 picture", .get = struct {
+            fn f(s: CompareSummary) f64 {
+                return s.hist;
+            }
+        }.f, .worse_high = true },
+        .{ .name = "synthesised share of the atlas", .get = struct {
+            fn f(s: CompareSummary) f64 {
+                return s.synthesised;
+            }
+        }.f, .worse_high = true, .share = true },
+        .{ .name = "copied share of the atlas", .get = struct {
+            fn f(s: CompareSummary) f64 {
+                return s.copied;
+            }
+        }.f, .worse_high = true, .share = true },
+    };
+    try md.writer.print("# Paint review: tile (2026-10-29) against coherent (2026-10-31)\r\n\r\n{d} objects, {d} object states. Turns E, S, W under the 2003 light.\r\n", .{ files.items.len, all.items.len });
+    for ([_]bool{ true, false }) |summer_only| {
+        var set: std.ArrayList(Entry) = .empty;
+        for (all.items) |e| if (!summer_only or std.mem.eql(u8, e.state, "1")) try set.append(arena, e);
+        try md.writer.print("\r\n## {s} ({d})\r\n", .{ if (summer_only) "Summer intact state (1)" else "Every state (1, 1w, 2, 2w, 3, 3w)", set.items.len });
+        for (measures) |ms_| {
+            // The objects this measure has a value for, before and after.
+            var kept: std.ArrayList(Entry) = .empty;
+            for (set.items) |e| if (!std.math.isNan(ms_.get(e.before)) and !std.math.isNan(ms_.get(e.after))) try kept.append(arena, e);
+            const measured = kept.items;
+            var before = try arena.alloc(f64, measured.len);
+            var after = try arena.alloc(f64, measured.len);
+            for (measured, 0..) |e, i| {
+                before[i] = ms_.get(e.before);
+                after[i] = ms_.get(e.after);
+            }
+            const med = struct {
+                fn f(gpa: std.mem.Allocator, v: []const f64) !f64 {
+                    if (v.len == 0) return 0;
+                    const s = try gpa.dupe(f64, v);
+                    std.mem.sort(f64, s, {}, std.sort.asc(f64));
+                    return if (s.len % 2 == 1) s[s.len / 2] else (s[s.len / 2 - 1] + s[s.len / 2]) / 2;
+                }
+            }.f;
+            const line = try std.fmt.allocPrint(arena, "{s}: median before {d:.4}, after {d:.4}", .{ ms_.name, try med(arena, before), try med(arena, after) });
+            try lines.append(arena, try std.fmt.allocPrint(arena, "{s}{s}", .{ if (summer_only) "summer: " else "all states: ", line }));
+            const head = if (ms_.share) "highest" else "worst";
+            try md.writer.print("\r\n### {s}\r\n\r\nMedian before {d:.4}, after {d:.4} ({d} measured).\r\n\r\n| {s} before | value | {s} after | value |\r\n|---|---|---|---|\r\n", .{ ms_.name, try med(arena, before), try med(arena, after), measured.len, head, head });
+            const badness = struct {
+                fn f(v: f64, high: bool) f64 {
+                    return if (high) v else @abs(v - 1);
+                }
+            }.f;
+            var ob = try arena.alloc(usize, measured.len);
+            var oa = try arena.alloc(usize, measured.len);
+            for (0..measured.len) |i| {
+                ob[i] = i;
+                oa[i] = i;
+            }
+            const Ctx = struct { v: []const f64, high: bool };
+            const less = struct {
+                fn f(c: Ctx, a: usize, b: usize) bool {
+                    const x = badness(c.v[a], c.high);
+                    const y = badness(c.v[b], c.high);
+                    return x > y or (x == y and a < b);
+                }
+            }.f;
+            std.mem.sort(usize, ob, Ctx{ .v = before, .high = ms_.worse_high }, less);
+            std.mem.sort(usize, oa, Ctx{ .v = after, .high = ms_.worse_high }, less);
+            for (0..@min(10, measured.len)) |i| {
+                const b = measured[ob[i]];
+                const a = measured[oa[i]];
+                try md.writer.print("| {d} {s} ({s}) | {d:.4} | {d} {s} ({s}) | {d:.4} |\r\n", .{ b.id, b.path, b.state, before[ob[i]], a.id, a.path, a.state, after[oa[i]] });
+            }
+        }
+    }
+
+    // The PDF: the summary, then the picks.
+    const page_w = 842.0;
+    const page_h = 595.0;
+    var pdf = try bk_pdf.begin(arena);
+    {
+        var page: bk_pdf.Page = .init(arena);
+        try page.text(30, page_h - 40, 18, true, .{ 0, 0, 0 }, "Full 3D objects: the 2003 pixels no longer stretched (paint review, 2026-10-31)");
+        var y = try paragraph(&page, arena, 30, page_h - 62, "Before: the 2026-10-29 paint (a texel took any 2003 picture that saw its face at all, the rest tiled from seen rectangles). After: a texel takes a 2003 pixel only where no turn draws that pixel over more than 1.5 pixels; the rest is copied from the object's counterpart faces (the back roof slope from the front one) or synthesised patch by patch from its well-seen faces of the same material, along the face's own axes, rows kept at their height. Turns E, S, W under the 2003 light. Stretched: drawn pixels whose texel's 2003 pixel the turn draws over more than 1.5 pixels. Detail: the turn's high-frequency energy over the 2003 picture's (1 alike). Histogram: the distance of their gradient histograms (0 alike).", 160, 8.5, .{ 0.15, 0.15, 0.15 });
+        y -= 8;
+        for (lines.items) |l| {
+            try page.text(30, y, 8.5, false, .{ 0, 0, 0 }, l);
+            y -= 12;
+        }
+        _ = try pdf.page(page_w, page_h, page.out.written(), &.{});
+    }
+    for (picks) |pick| {
+        const colon = std.mem.indexOfScalar(u8, pick, ':');
+        const id = std.fmt.parseInt(u32, pick[0 .. colon orelse pick.len], 10) catch return error.Usage;
+        const state = if (colon) |c| pick[c + 1 ..] else "1";
+        const obj = for (files.items) |x| {
+            if (x.id == id) break x;
+        } else continue;
+        const folder = try std.fs.path.join(arena, &.{ root, try std.fmt.allocPrint(arena, "{d:0>3}", .{id}) });
+        const load = struct {
+            fn f(c: *bk_tool.Context, gpa: std.mem.Allocator, d: []const u8, name: []const u8) !Image {
+                const bytes = try std.Io.Dir.cwd().readFileAlloc(c.io, try std.fs.path.join(gpa, &.{ d, name }), gpa, .limited(64 * 1024 * 1024));
+                return readPng(gpa, bytes);
+            }
+        }.f;
+        var page: bk_pdf.Page = .init(arena);
+        var images: std.ArrayList(u32) = .empty;
+        try page.text(30, page_h - 40, 18, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{d}  {s}  state {s}", .{ id, obj.path, state }));
+        const pic = try load(ctx, arena, folder, try std.fmt.allocPrint(arena, "pic_{s}.png", .{state}));
+        var pid = try pdf.image(pic.width, pic.height, pic.pixels);
+        try images.append(arena, pid);
+        try page.text(30, page_h - 60, 9, true, .{ 0.2, 0.2, 0.2 }, "2003 picture (N)");
+        _ = try placePicture(&page, pic, pid, 30, page_h - 260, .{ 170, 190 });
+        var scale: f64 = 4;
+        var turns: [2][3]Image = undefined;
+        for ([_][]const u8{ "tile", "coherent" }, 0..) |method, row| for (0..3) |k| {
+            turns[row][k] = try load(ctx, arena, folder, try std.fmt.allocPrint(arena, "{s}_{s}_t{d}.png", .{ method, state, k + 1 }));
+            scale = @min(scale, 196 / @as(f64, @floatFromInt(turns[row][k].width)), 236 / @as(f64, @floatFromInt(turns[row][k].height)));
+        };
+        for ([_][]const u8{ "tile", "coherent" }, 0..) |method, row| {
+            const r = for (obj.rows) |x| {
+                if (std.mem.eql(u8, x.method, method) and std.mem.eql(u8, x.state, state)) break x;
+            } else continue;
+            const s = summarise(r);
+            const y0 = 290 - @as(f64, @floatFromInt(row)) * 270;
+            try page.text(215, y0 + 252, 9, true, .{ 0, 0, 0 }, try std.fmt.allocPrint(arena, "{s}: stretched {d:.2}% of drawn pixels, detail {d:.2}, histogram {d:.3}; atlas seen {d:.0}%, copied {d:.0}%, synthesised {d:.0}%", .{ if (row == 0) "before (tile)" else "after (coherent)", 100 * s.stretched, s.detail, s.hist, 100 * r.seen, 100 * r.copied, 100 * r.guessed }));
+            for (0..3) |k| {
+                const x = 215 + @as(f64, @floatFromInt(k)) * 204;
+                const image = turns[row][k];
+                pid = try pdf.image(image.width, image.height, image.pixels);
+                try images.append(arena, pid);
+                try page.polygon(&.{ .{ x, y0 }, .{ x + 200, y0 }, .{ x + 200, y0 + 244 }, .{ x, y0 + 244 } }, .{ 0.42, 0.5, 0.38 }, null, 0);
+                _ = try placeScaled(&page, image, pid, x + 2, y0 + 4, .{ 196, 236 }, scale);
+                try page.text(x + 3, y0 + 3, 8, true, .{ 1, 1, 1 }, try std.fmt.allocPrint(arena, "{d}.{c}  stretched {d}", .{ id, side_letters[k + 1], r.turns[k].stretched }));
+            }
+        }
+        const first = try pdf.page(page_w, page_h, page.out.written(), images.items);
+        try pdf.bookmark(try std.fmt.allocPrint(arena, "{d} {s} {s}", .{ id, obj.path, state }), first);
+    }
+    var text: std.Io.Writer.Allocating = .init(arena);
+    try pdf.write(&text.writer);
+    const out_dir = std.fs.path.dirname(out) orelse ".";
+    try std.Io.Dir.cwd().createDirPath(ctx.io, out_dir);
+    try writeOut(ctx, out_dir, std.fs.path.basename(out), text.written());
+    try writeOut(ctx, out_dir, "paint-compare.csv", csv.written());
+    try writeOut(ctx, out_dir, "paint-compare.md", md.written());
+    for (lines.items) |l| try ctx.out.print("{s}\n", .{l});
+    try ctx.out.print("wrote {s}\n", .{out});
+}
+
+/// `paint-frames`: the Game's own shots of full 3D objects standing alone
+/// (`camera-turn-full3d-anchor-game-reads-it` leaves `<name>-<step>.png` in
+/// its scratch folder) measured as `paint-compare` measures the renders: per
+/// object and camera step 1 to 3 the detail ratio and the gradient histogram
+/// distance of the object against its own step-0 shot (the 2003 picture as
+/// the Game draws it), for a folder of shots before and one after. An
+/// object's pixels are those unlike the shot's most common colour (objects
+/// only: the backdrop is one colour). Writes `<out.md>`.
+fn paintFramesCommand(ctx: *bk_tool.Context, out_arg: []const u8, before_arg: []const u8, after_arg: []const u8, names: []const []const u8) !void {
+    const arena = ctx.arena;
+    var md: std.Io.Writer.Allocating = .init(arena);
+    try md.writer.writeAll("| object | step | before: detail | before: histogram | after: detail | after: histogram |\r\n|---|---|---|---|---|---|\r\n");
+    for (names) |name| {
+        var details: [2][4]Detail = undefined;
+        for ([_][]const u8{ before_arg, after_arg }, 0..) |dir, side| for (0..4) |k| {
+            const path = try std.fs.path.join(arena, &.{ try bk_tool.inputPath(arena, dir), try std.fmt.allocPrint(arena, "{s}-{d}.png", .{ name, k }) });
+            const bytes = std.Io.Dir.cwd().readFileAlloc(ctx.io, path, arena, .limited(64 * 1024 * 1024)) catch |err| return ctx.failKey("views.err.read", .{ path, @errorName(err) });
+            details[side][k] = try detailOf(arena, try objectOfShot(arena, try readPng(arena, bytes)));
+        };
+        for (1..4) |k| {
+            const ratio = struct {
+                fn f(a: Detail, b: Detail) f64 {
+                    return if (b.hf > 0) a.hf / b.hf else 0;
+                }
+            }.f;
+            try md.writer.print("| {s} | {d} | {d:.3} | {d:.4} | {d:.3} | {d:.4} |\r\n", .{ name, k, ratio(details[0][k], details[0][0]), histDistance(details[0][k], details[0][0]), ratio(details[1][k], details[1][0]), histDistance(details[1][k], details[1][0]) });
+        }
+    }
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const out_dir = std.fs.path.dirname(out) orelse ".";
+    try std.Io.Dir.cwd().createDirPath(ctx.io, out_dir);
+    try writeOut(ctx, out_dir, std.fs.path.basename(out), md.written());
+    try ctx.out.print("{s}", .{md.written()});
+}
+
+/// A shot with every pixel of its most common colour (the backdrop of a shot
+/// of objects alone) made clear.
+fn objectOfShot(gpa: std.mem.Allocator, shot: Image) !Image {
+    var counts: std.AutoHashMap([3]u8, usize) = .init(gpa);
+    defer counts.deinit();
+    for (shot.pixels) |p| (try counts.getOrPutValue(.{ p[0], p[1], p[2] }, 0)).value_ptr.* += 1;
+    var back = [3]u8{ 0, 0, 0 };
+    var most: usize = 0;
+    var it = counts.iterator();
+    while (it.next()) |e| if (e.value_ptr.* > most or (e.value_ptr.* == most and std.mem.order(u8, &e.key_ptr.*, &back) == .lt)) {
+        most = e.value_ptr.*;
+        back = e.key_ptr.*;
+    };
+    const out: Image = .{ .width = shot.width, .height = shot.height, .pixels = try gpa.alloc([4]u8, shot.pixels.len) };
+    for (out.pixels, shot.pixels) |*o, p| {
+        var far = false;
+        for (0..3) |c| far = far or @abs(@as(i32, p[c]) - @as(i32, back[c])) > 8;
+        o.* = .{ p[0], p[1], p[2], if (far) 255 else 0 };
+    }
+    return out;
+}
 
 /// `full3d-review`: every object `model3d` wrote into `<models-dir>` laid out
 /// for the maintainer, by number, with a contents index as the shapes
