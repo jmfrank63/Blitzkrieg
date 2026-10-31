@@ -304,11 +304,17 @@ namespace
 		szDeviceName[0] = 0;
 		ma_device_get_name( pDevice, ma_device_type_playback, szDeviceName, sizeof( szDeviceName ), 0 );
 
-		NPlatform::DebugWriteFormat( "SFX open audio device: backend=%s, device=\"%s\", sampleRate=%u, channels=%u\n",
+		// sampleRate is the mix's; deviceRate the one the device was opened at,
+		// which miniaudio converts to.
+		NPlatform::DebugWriteFormat( "SFX open audio device: backend=%s, device=\"%s\", sampleRate=%u, channels=%u, deviceRate=%u, deviceChannels=%u, period=%u frames x %u\n",
 			ma_get_backend_name( pDevice->pContext->backend ),
 			szDeviceName,
 			pDevice->sampleRate,
-			pDevice->playback.channels );
+			pDevice->playback.channels,
+			pDevice->playback.internalSampleRate,
+			pDevice->playback.internalChannels,
+			pDevice->playback.internalPeriodSizeInFrames,
+			pDevice->playback.internalPeriods );
 	}
 
 	// BK_AUDIO_FAIL_DEFAULT=1 makes every attempt on the system default device
@@ -498,6 +504,368 @@ namespace
 			}
 		}
 		return false;
+	}
+
+	// The output meter (BK_DEBUG_LOG): "the stream started" in the log says
+	// nothing about what the device plays. The mixer thread counts the frames
+	// it hands the device and keeps the loudest sample; the main thread prints
+	// them every two seconds with the device's state and rates, so a silent
+	// session shows whether the mixer stopped (no frames), mixed silence
+	// (peak 0) or sent sound to a device that did not play it.
+	bool g_bMeterEnabled = false;
+	unsigned int g_nMeterChannels = 0;
+	std::atomic<unsigned long long> g_nMeterFrames( 0 );
+	std::atomic<unsigned int> g_nMeterCallbacks( 0 );
+	std::atomic<unsigned int> g_nMeterPeakBits( 0 );
+	// Device notifications arrive on Core Audio's threads; they are counted
+	// there and reported by the main thread.
+	std::atomic<unsigned int> g_nNotifyStarted( 0 );
+	std::atomic<unsigned int> g_nNotifyStopped( 0 );
+	std::atomic<unsigned int> g_nNotifyRerouted( 0 );
+	std::atomic<unsigned int> g_nNotifyInterrupted( 0 );
+
+	void MeterEngineOutput( const float *pFramesOut, ma_uint64 nFrameCount )
+	{
+		float fPeak = 0.0f;
+		const ma_uint64 nSamples = nFrameCount * g_nMeterChannels;
+		for ( ma_uint64 i = 0; i < nSamples; ++i )
+		{
+			const float fValue = pFramesOut[i] < 0.0f ? -pFramesOut[i] : pFramesOut[i];
+			if ( fValue > fPeak )
+				fPeak = fValue;
+		}
+		g_nMeterFrames.fetch_add( nFrameCount, std::memory_order_relaxed );
+		g_nMeterCallbacks.fetch_add( 1, std::memory_order_relaxed );
+		unsigned int nBits = 0;
+		memcpy( &nBits, &fPeak, sizeof( nBits ) );
+		// Non-negative floats order like their bit patterns.
+		unsigned int nOld = g_nMeterPeakBits.load( std::memory_order_relaxed );
+		while ( nBits > nOld && !g_nMeterPeakBits.compare_exchange_weak( nOld, nBits, std::memory_order_relaxed ) )
+		{
+		}
+	}
+
+	void OnDeviceNotification( const ma_device_notification *pNotification )
+	{
+		if ( !pNotification )
+			return;
+		switch ( pNotification->type )
+		{
+		case ma_device_notification_type_started:
+			g_nNotifyStarted.fetch_add( 1, std::memory_order_relaxed );
+			break;
+		case ma_device_notification_type_stopped:
+			g_nNotifyStopped.fetch_add( 1, std::memory_order_relaxed );
+			break;
+		case ma_device_notification_type_rerouted:
+			g_nNotifyRerouted.fetch_add( 1, std::memory_order_relaxed );
+			break;
+		case ma_device_notification_type_interruption_began:
+			g_nNotifyInterrupted.fetch_add( 1, std::memory_order_relaxed );
+			break;
+		default:
+			break;
+		}
+	}
+
+	const char* GetDeviceStateName( ma_device_state state )
+	{
+		switch ( state )
+		{
+		case ma_device_state_uninitialized:
+			return "uninitialized";
+		case ma_device_state_stopped:
+			return "stopped";
+		case ma_device_state_started:
+			return "started";
+		case ma_device_state_starting:
+			return "starting";
+		case ma_device_state_stopping:
+			return "stopping";
+		default:
+			return "unknown";
+		}
+	}
+
+	// The device the engine plays on, as Core Audio sees it now: its nominal
+	// sample rate and transport. A Bluetooth headset that switches from its
+	// music profile (A2DP, 44.1 or 48 kHz) to the hands-free one (HFP, 16 or
+	// 24 kHz, when something opens its microphone) keeps its device but
+	// changes this rate, and miniaudio, which only follows a change of the
+	// default device, keeps the audio unit it set up for the old rate.
+	struct SOutputDeviceState
+	{
+		unsigned int nObjectID;
+		double fNominalRate;
+		const char *pszTransport;
+		bool bAlive;
+	};
+
+#if defined(MA_HAS_COREAUDIO) && defined(MA_APPLE_DESKTOP)
+	const char* GetTransportName( UInt32 nTransportType )
+	{
+		switch ( nTransportType )
+		{
+		case kAudioDeviceTransportTypeBuiltIn:
+			return "built-in";
+		case kAudioDeviceTransportTypeBluetooth:
+			return "bluetooth";
+		case kAudioDeviceTransportTypeBluetoothLE:
+			return "bluetooth-le";
+		case kAudioDeviceTransportTypeUSB:
+			return "usb";
+		case kAudioDeviceTransportTypeHDMI:
+			return "hdmi";
+		case kAudioDeviceTransportTypeDisplayPort:
+			return "displayport";
+		case kAudioDeviceTransportTypeAirPlay:
+			return "airplay";
+		case kAudioDeviceTransportTypeAggregate:
+			return "aggregate";
+		case kAudioDeviceTransportTypeVirtual:
+			return "virtual";
+		default:
+			return "other";
+		}
+	}
+
+	SOutputDeviceState GetOutputDeviceState( ma_device *pDevice )
+	{
+		SOutputDeviceState state = { 0, 0.0, "unknown", true };
+		if ( !pDevice || pDevice->pContext->backend != ma_backend_coreaudio || !g_context.coreaudio.AudioObjectGetPropertyData )
+			return state;
+		const ma_AudioObjectGetPropertyData_proc pGetPropertyData = (ma_AudioObjectGetPropertyData_proc)g_context.coreaudio.AudioObjectGetPropertyData;
+		state.nObjectID = pDevice->coreaudio.deviceObjectIDPlayback;
+		AudioObjectPropertyAddress address;
+		address.mScope = kAudioObjectPropertyScopeGlobal;
+		address.mElement = kAudioObjectPropertyElementMain;
+		address.mSelector = kAudioDevicePropertyNominalSampleRate;
+		Float64 fRate = 0.0;
+		UInt32 nSize = sizeof( fRate );
+		if ( pGetPropertyData( state.nObjectID, &address, 0, 0, &nSize, &fRate ) == noErr )
+			state.fNominalRate = fRate;
+		address.mSelector = kAudioDevicePropertyTransportType;
+		UInt32 nTransport = kAudioDeviceTransportTypeUnknown;
+		nSize = sizeof( nTransport );
+		if ( pGetPropertyData( state.nObjectID, &address, 0, 0, &nSize, &nTransport ) == noErr )
+			state.pszTransport = GetTransportName( nTransport );
+		address.mSelector = kAudioDevicePropertyDeviceIsAlive;
+		UInt32 nAlive = 1;
+		nSize = sizeof( nAlive );
+		if ( pGetPropertyData( state.nObjectID, &address, 0, 0, &nSize, &nAlive ) == noErr )
+			state.bAlive = nAlive != 0;
+		return state;
+	}
+
+	// Set on Core Audio's notification thread when the watched device's rate
+	// changes or it dies; the main thread reopens the output (ReopenOutput).
+	std::atomic<unsigned int> g_nDeviceFormatChanges( 0 );
+	AudioObjectID g_watchedDeviceID = kAudioObjectUnknown;
+
+	const AudioObjectPropertySelector cWatchedSelectors[] = { kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyDeviceIsAlive };
+
+	OSStatus OnWatchedDeviceChanged( AudioObjectID objectID, UInt32 nAddresses, const AudioObjectPropertyAddress *pAddresses, void *pUserData )
+	{
+		( void )objectID;
+		( void )nAddresses;
+		( void )pAddresses;
+		( void )pUserData;
+		g_nDeviceFormatChanges.fetch_add( 1, std::memory_order_relaxed );
+		return noErr;
+	}
+
+	void SetDeviceWatch( AudioObjectID deviceID, bool bAdd )
+	{
+		const ma_AudioObjectAddPropertyListener_proc pAdd = (ma_AudioObjectAddPropertyListener_proc)g_context.coreaudio.AudioObjectAddPropertyListener;
+		const ma_AudioObjectRemovePropertyListener_proc pRemove = (ma_AudioObjectRemovePropertyListener_proc)g_context.coreaudio.AudioObjectRemovePropertyListener;
+		if ( deviceID == kAudioObjectUnknown || !pAdd || !pRemove )
+			return;
+		for ( size_t i = 0; i < sizeof( cWatchedSelectors ) / sizeof( cWatchedSelectors[0] ); ++i )
+		{
+			AudioObjectPropertyAddress address;
+			address.mSelector = cWatchedSelectors[i];
+			address.mScope = kAudioObjectPropertyScopeGlobal;
+			address.mElement = kAudioObjectPropertyElementMain;
+			if ( bAdd )
+				pAdd( deviceID, &address, &OnWatchedDeviceChanged, 0 );
+			else
+				pRemove( deviceID, &address, &OnWatchedDeviceChanged, 0 );
+		}
+	}
+
+	// Watches the device the engine plays on now; miniaudio's reroute to a new
+	// default device moves the watch with it (called every frame).
+	void UpdateDeviceWatch()
+	{
+		if ( !g_bEngineInitialized )
+			return;
+		ma_device *pDevice = ma_engine_get_device( &g_engine );
+		if ( !pDevice || pDevice->pContext->backend != ma_backend_coreaudio )
+			return;
+		const AudioObjectID deviceID = pDevice->coreaudio.deviceObjectIDPlayback;
+		if ( deviceID == g_watchedDeviceID )
+			return;
+		SetDeviceWatch( g_watchedDeviceID, false );
+		g_watchedDeviceID = deviceID;
+		SetDeviceWatch( g_watchedDeviceID, true );
+	}
+
+	void StopDeviceWatch()
+	{
+		SetDeviceWatch( g_watchedDeviceID, false );
+		g_watchedDeviceID = kAudioObjectUnknown;
+	}
+
+	// Builds the playback audio unit again on the system default output at its
+	// current format, the way miniaudio does itself when the default device
+	// changes (ma_default_device_changed__coreaudio), and restarts it if it
+	// was playing. The voices, streams and the mixer stay as they are.
+	ma_result ReopenOutput( const char *pszReason )
+	{
+		ma_device *pDevice = ma_engine_get_device( &g_engine );
+		if ( !pDevice || pDevice->pContext->backend != ma_backend_coreaudio )
+			return MA_INVALID_OPERATION;
+		const bool bWasStarted = ma_device_get_state( pDevice ) == ma_device_state_started;
+		ma_result result;
+		ma_mutex_lock( &g_DeviceTrackingMutex_CoreAudio );
+		{
+			pDevice->coreaudio.isSwitchingPlaybackDevice = MA_TRUE;
+			result = ma_device_reinit_internal__coreaudio( pDevice, ma_device_type_playback, MA_TRUE );
+			pDevice->coreaudio.isSwitchingPlaybackDevice = MA_FALSE;
+			if ( result == MA_SUCCESS )
+			{
+				ma_device__post_init_setup( pDevice, ma_device_type_playback );
+				// Opened on the default now, whatever it was opened on before.
+				pDevice->coreaudio.isDefaultPlaybackDevice = MA_TRUE;
+				if ( bWasStarted )
+				{
+					const OSStatus status = ( (ma_AudioOutputUnitStart_proc)pDevice->pContext->coreaudio.AudioOutputUnitStart )( (AudioUnit)pDevice->coreaudio.audioUnitPlayback );
+					if ( status != noErr )
+					{
+						ma_device__set_state( pDevice, ma_device_state_stopped );
+						result = MA_FAILED_TO_START_BACKEND_DEVICE;
+					}
+				}
+			}
+		}
+		ma_mutex_unlock( &g_DeviceTrackingMutex_CoreAudio );
+		char szAction[96];
+		snprintf( szAction, sizeof( szAction ), "output reopened (%s)", pszReason );
+		TraceOpenAudioResult( szAction, result );
+		if ( result == MA_SUCCESS )
+			TraceOpenAudioDevice();
+		return result;
+	}
+
+	// The watched device changed its rate or went away: reopen. A second
+	// change that arrives while reopening is taken on the next frame.
+	void ReopenOnDeviceChange()
+	{
+		if ( !g_bEngineInitialized || g_nDeviceFormatChanges.exchange( 0, std::memory_order_relaxed ) == 0 )
+			return;
+		ma_device *pDevice = ma_engine_get_device( &g_engine );
+		if ( !pDevice )
+			return;
+		const SOutputDeviceState state = GetOutputDeviceState( pDevice );
+		NPlatform::DebugWriteFormat( "SFX open audio output device changed: opened at %u Hz, device now %.0f Hz, %s, %s\n",
+			pDevice->playback.internalSampleRate, state.fNominalRate, state.pszTransport, state.bAlive ? "alive" : "gone" );
+		if ( state.bAlive && state.fNominalRate == double( pDevice->playback.internalSampleRate ) )
+			return;
+		ReopenOutput( state.bAlive ? "device rate changed" : "device gone" );
+		UpdateDeviceWatch();
+	}
+#else
+	SOutputDeviceState GetOutputDeviceState( ma_device *pDevice )
+	{
+		( void )pDevice;
+		SOutputDeviceState state = { 0, 0.0, "unknown", true };
+		return state;
+	}
+
+	void UpdateDeviceWatch()
+	{
+	}
+
+	void StopDeviceWatch()
+	{
+	}
+
+	ma_result ReopenOutput( const char *pszReason )
+	{
+		( void )pszReason;
+		return MA_INVALID_OPERATION;
+	}
+
+	void ReopenOnDeviceChange()
+	{
+	}
+#endif
+
+	// BK_AUDIO_TEST_REINIT_MS=<ms>: reopen the output once, that long after the
+	// device opened, through the same path a device rate change takes, so the
+	// path can be measured on a machine whose output never changes.
+	void ReopenForTestOnce( std::uint32_t tNow )
+	{
+		static bool s_bDone = false;
+		static std::uint32_t s_tOpened = 0;
+		if ( s_bDone )
+			return;
+		const char *pszValue = getenv( "BK_AUDIO_TEST_REINIT_MS" );
+		if ( !pszValue || !pszValue[0] )
+		{
+			s_bDone = true;
+			return;
+		}
+		if ( s_tOpened == 0 )
+			s_tOpened = tNow == 0 ? 1 : tNow;
+		if ( NPlatform::MillisecondsElapsed( s_tOpened, tNow ) < std::uint32_t( strtoul( pszValue, 0, 10 ) ) )
+			return;
+		s_bDone = true;
+		ReopenOutput( "BK_AUDIO_TEST_REINIT_MS" );
+		UpdateDeviceWatch();
+	}
+
+	// Prints the output meter every two seconds (BK_DEBUG_LOG).
+	void ReportOutputMeter( std::uint32_t tNow )
+	{
+		static std::uint32_t s_tLast = 0;
+		static unsigned long long s_nLastFrames = 0;
+		static unsigned int s_nLastCallbacks = 0;
+		if ( !g_bMeterEnabled || !g_bEngineInitialized )
+			return;
+		if ( s_tLast == 0 )
+		{
+			s_tLast = tNow;
+			s_nLastFrames = g_nMeterFrames.load( std::memory_order_relaxed );
+			s_nLastCallbacks = g_nMeterCallbacks.load( std::memory_order_relaxed );
+			return;
+		}
+		const std::uint32_t nElapsed = NPlatform::MillisecondsElapsed( s_tLast, tNow );
+		if ( nElapsed < 2000 )
+			return;
+		const unsigned long long nFrames = g_nMeterFrames.load( std::memory_order_relaxed );
+		const unsigned int nCallbacks = g_nMeterCallbacks.load( std::memory_order_relaxed );
+		const unsigned int nPeakBits = g_nMeterPeakBits.exchange( 0, std::memory_order_relaxed );
+		float fPeak = 0.0f;
+		memcpy( &fPeak, &nPeakBits, sizeof( fPeak ) );
+		ma_device *pDevice = ma_engine_get_device( &g_engine );
+		const SOutputDeviceState state = GetOutputDeviceState( pDevice );
+		char szDeviceName[MA_MAX_DEVICE_NAME_LENGTH + 1];
+		szDeviceName[0] = 0;
+		if ( pDevice )
+			ma_device_get_name( pDevice, ma_device_type_playback, szDeviceName, sizeof( szDeviceName ), 0 );
+		NPlatform::DebugWriteFormat( "SFX open audio output: %.0f frames/s (engine %u Hz), %u callbacks in %u ms, peak %.4f, state %s, "
+			"device \"%s\" opened at %u Hz/%u ch, now %.0f Hz, %s, %s; started %u stopped %u rerouted %u interrupted %u\n",
+			double( nFrames - s_nLastFrames ) * 1000.0 / double( nElapsed ), ma_engine_get_sample_rate( &g_engine ),
+			nCallbacks - s_nLastCallbacks, nElapsed, fPeak,
+			pDevice ? GetDeviceStateName( ma_device_get_state( pDevice ) ) : "none",
+			szDeviceName, pDevice ? pDevice->playback.internalSampleRate : 0u, pDevice ? pDevice->playback.internalChannels : 0u,
+			state.fNominalRate, state.pszTransport, state.bAlive ? "alive" : "gone",
+			g_nNotifyStarted.load( std::memory_order_relaxed ), g_nNotifyStopped.load( std::memory_order_relaxed ),
+			g_nNotifyRerouted.load( std::memory_order_relaxed ), g_nNotifyInterrupted.load( std::memory_order_relaxed ) );
+		s_tLast = tNow;
+		s_nLastFrames = nFrames;
+		s_nLastCallbacks = nCallbacks;
 	}
 
 	// Keep disabled by default: per-read tracing runs on the mixer thread and
@@ -1235,6 +1603,8 @@ namespace
 	void CaptureEngineOutput( void *pUserData, float *pFramesOut, ma_uint64 nFrameCount )
 	{
 		( void )pUserData;
+		if ( g_bMeterEnabled && pFramesOut )
+			MeterEngineOutput( pFramesOut, nFrameCount );
 		if ( g_pCaptureFile && pFramesOut )
 		{
 			fwrite( pFramesOut, sizeof( float ) * g_nCaptureChannels, size_t( nFrameCount ), g_pCaptureFile );
@@ -1427,6 +1797,12 @@ namespace NAudioBackendImpl
 		ma_engine_config engineConfig = ma_engine_config_init();
 		engineConfig.pContext = &g_context;
 		engineConfig.sampleRate = nMixRate > 0 ? nMixRate : 0;
+		// BK_AUDIO_RATE=<Hz> mixes at that rate instead of the configured one
+		// (0 = the device's own), to measure a device at a rate it is not set to.
+		if ( const char *pszRate = getenv( "BK_AUDIO_RATE" ) )
+			if ( pszRate[0] )
+				engineConfig.sampleRate = ma_uint32( strtoul( pszRate, 0, 10 ) );
+		engineConfig.notificationCallback = OnDeviceNotification;
 		// 40ms device period for immediate audio start. Stutter prevention
 		// comes from MA_SOUND_FLAG_DECODE in PlayStream: the entire file is
 		// decoded to PCM at init time, so the mixer callback only copies
@@ -1465,8 +1841,11 @@ namespace NAudioBackendImpl
 		}
 
 		g_bEngineInitialized = true;
+		g_nMeterChannels = ma_engine_get_channels( &g_engine );
+		g_bMeterEnabled = NPlatform::IsDiagnosticStderrEnabled();
 		NPlatform::DebugWrite( "SFX open audio backend initialized miniaudio\n" );
 		TraceOpenAudioDevice();
+		UpdateDeviceWatch();
 		OpenCapture();
 		return true;
 	}
@@ -1475,6 +1854,7 @@ namespace NAudioBackendImpl
 	{
 		if ( g_bEngineInitialized )
 		{
+			StopDeviceWatch();
 			ma_engine_stop( &g_engine );
 			CloseCapture();
 		}
@@ -1500,27 +1880,45 @@ namespace NAudioBackendImpl
 	// but its AudioOutputUnitStart fails while the link wakes up; miniaudio
 	// then marks the device stopped without telling anyone and the whole
 	// session stays silent. Called every frame; retries once a second.
+	//
+	// Also, every frame: the watched device's rate change or loss reopens the
+	// output (ReopenOnDeviceChange), and the output meter is reported.
 	void RestartStoppedDevice()
 	{
 		if ( !g_bEngineInitialized )
 			return;
+		const std::uint32_t tNow = NPlatform::MonotonicMilliseconds();
+		UpdateDeviceWatch();
+		ReopenOnDeviceChange();
+		ReopenForTestOnce( tNow );
+		ReportOutputMeter( tNow );
+
 		ma_device *pDevice = ma_engine_get_device( &g_engine );
 		if ( !pDevice || ma_device_get_state( pDevice ) != ma_device_state_stopped )
 			return;
 
 		static std::uint32_t s_tLastAttempt = 0;
 		static bool s_bReportedFailure = false;
-		const std::uint32_t tNow = NPlatform::MonotonicMilliseconds();
+		static int s_nFailedStarts = 0;
 		if ( s_tLastAttempt != 0 && NPlatform::MillisecondsElapsed( s_tLastAttempt, tNow ) < 1000 )
 			return;
 		s_tLastAttempt = tNow;
 
-		const ma_result result = ma_device_start( pDevice );
+		ma_result result = ma_device_start( pDevice );
+		// The device it was opened on may be gone for good (headphones
+		// switched off, a profile switch that replaced the device): after
+		// three failed starts, open the output again on the current default.
+		if ( result != MA_SUCCESS && ++s_nFailedStarts >= 3 && ReopenOutput( "device stopped and would not start" ) == MA_SUCCESS )
+		{
+			UpdateDeviceWatch();
+			result = ma_device_start( pDevice );
+		}
 		if ( result == MA_SUCCESS )
 		{
 			NPlatform::DebugWrite( "SFX open audio device had stopped; restarted\n" );
 			TraceOpenAudioDevice();
 			s_bReportedFailure = false;
+			s_nFailedStarts = 0;
 		}
 		else if ( !s_bReportedFailure )
 		{
