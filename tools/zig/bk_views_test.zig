@@ -11,6 +11,36 @@ const bk_views_gate = @import("bk_views_gate");
 
 const house = "Data/Buildings/europe/summer/e_ctownhouse01_1/";
 
+test "the mirror list covers a listed object's steps, all of them when no steps are given" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const list = try views.MirrorList.parse(arena,
+        \\# judged in the compare view, one line per object
+        \\e_wb/01
+        \\e_house02_2 2 3
+        \\
+    );
+    try std.testing.expect(list.covers("e_wb/01", 1));
+    try std.testing.expect(list.covers("e_wb/01", 3));
+    try std.testing.expect(!list.covers("e_house02_2", 1));
+    try std.testing.expect(list.covers("e_house02_2", 2));
+    try std.testing.expect(!list.covers("e_wb/02", 1));
+}
+
+test "mirrorImage flips the rows horizontally" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var pixels: [6][4]u8 = undefined;
+    for (&pixels, 0..) |*p, i| p.* = .{ @intCast(i), 0, 0, 255 };
+    const image: views.Image = .{ .width = 3, .height = 2, .pixels = &pixels };
+    const mirrored = try views.mirrorImage(arena, image);
+    try std.testing.expectEqualSlices([4]u8, &.{ pixels[2], pixels[1], pixels[0], pixels[5], pixels[4], pixels[3] }, mirrored.pixels);
+    try std.testing.expectEqual(image.width, mirrored.width);
+    try std.testing.expectEqual(image.height, mirrored.height);
+}
+
 fn read(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     return std.Io.Dir.cwd().readFileAlloc(std.testing.io, path, gpa, .limited(64 * 1024 * 1024));
 }

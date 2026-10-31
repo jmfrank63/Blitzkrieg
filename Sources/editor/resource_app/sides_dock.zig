@@ -13,6 +13,7 @@ const views = @import("bk_views_pack");
 const c_bridge = @import("c_bridge.zig");
 const logic = @import("panels_logic.zig");
 const sl = @import("sides_logic.zig");
+const compare_logic = @import("compare_logic.zig");
 
 const ig = imgui.c;
 const l10n = kit.l10n;
@@ -52,6 +53,9 @@ pub const Sides = struct {
     /// The cell Import side picture replaces a picture of.
     selected: usize = 1,
     textures: [sl.cells]?Texture = @splat(null),
+    /// Each cell's anchor cross in its picture's image coordinates, from the
+    /// same decode as the texture.
+    anchors: [sl.cells]?[2]i32 = @splat(null),
     device: ?*anyopaque = null,
     /// The variant and pack the textures show; empty after a change on disk.
     key: [logic.path_capacity + 8]u8 = undefined,
@@ -59,6 +63,18 @@ pub const Sides = struct {
     job: ?Job = null,
     note: [768]u8 = undefined,
     note_len: usize = 0,
+    /// The Compare shipped 2003 toggle and everything it shows: the shipped
+    /// building folder (editable), its picture's texture and anchor, and the
+    /// selected cell's display transform. Nothing here writes; the compare
+    /// never disturbs the generated turns.
+    compare: bool = false,
+    compare_folder: [logic.path_capacity]u8 = @splat(0),
+    compare_texture: ?Texture = null,
+    compare_anchor: ?[2]i32 = null,
+    mode: compare_logic.Mode = .upright,
+    /// The compare cell's shown rect, for the scenario's checks beside the
+    /// regular cells' `shown`.
+    shown_compare: ?Rect = null,
     /// The last Generate or Import failed.
     failed: bool = false,
     /// Where each cell's picture was drawn in the last frame (null: missing), for the auto tier.
@@ -84,6 +100,10 @@ pub const Sides = struct {
             if (slot.*) |t| if (self.device) |device| kit.pictures_cache.releaseTexture(device, t.texture);
             slot.* = null;
         }
+        if (self.compare_texture) |t| if (self.device) |device| kit.pictures_cache.releaseTexture(device, t.texture);
+        self.compare_texture = null;
+        self.compare_anchor = null;
+        self.shown_compare = null;
         self.key_len = 0;
     }
 
@@ -123,7 +143,12 @@ pub const Sides = struct {
         var settings: core_bridge.ModSettings = .{};
         if (b.modSettingsGet(&settings) != .ok) return;
         var buffer: [logic.path_capacity]u8 = undefined;
-        if (sl.defaultVariant(&buffer, settings.exportDirSlice(), path)) |variant| self.setVariant(variant);
+        if (sl.defaultVariant(&buffer, settings.exportDirSlice(), path)) |variant| {
+            self.setVariant(variant);
+            // The compare cell's first guess: the same building in the
+            // shipped data, whose spine the exported variant path carries.
+            if (compare_logic.prefillFolder(&self.compare_folder, variant) != null) self.key_len = 0;
+        }
     }
 
     /// The window, for an open Building project.
@@ -139,6 +164,7 @@ pub const Sides = struct {
         }
         defer ig.igEnd();
         self.shown = @splat(null);
+        self.shown_compare = null;
         if (!ig.igBegin(l10n.id("resource_app.window.sides"), null, 0)) return;
         if (ig.igInputText(l10n.id("resource_app.sides.variant"), &self.variant, self.variant.len - 1, 0)) self.key_len = 0;
         ig.igTextDisabled("%s", l10n.t("resource_app.sides.state"));
@@ -153,6 +179,21 @@ pub const Sides = struct {
         _ = ig.igCheckbox(l10n.id("resource_app.sides.winter"), &self.look.winter);
         ig.igSameLine();
         _ = ig.igCheckbox(l10n.id("resource_app.sides.shadow"), &self.look.shadow);
+        ig.igSameLine();
+        if (ig.igCheckbox(l10n.id("resource_app.sides.compare"), &self.compare)) self.key_len = 0;
+        if (self.compare) {
+            if (ig.igInputText(l10n.id("resource_app.sides.compare_folder"), &self.compare_folder, self.compare_folder.len - 1, 0)) self.key_len = 0;
+            ig.igSameLine();
+            if (ig.igButton(l10n.id("resource_app.sides.mirror"))) {
+                self.mode = if (self.mode == .mirrored) .upright else .mirrored;
+                self.key_len = 0;
+            }
+            ig.igSameLine();
+            if (ig.igButton(l10n.id("resource_app.sides.rotate"))) {
+                self.mode = if (self.mode == .rotated_180) .upright else .rotated_180;
+                self.key_len = 0;
+            }
+        } else self.mode = .upright;
         const idle = self.job == null;
         ig.igBeginDisabled(!idle);
         if (ig.igButton(l10n.id("resource_app.sides.generate"))) self.generate();
@@ -169,12 +210,17 @@ pub const Sides = struct {
         self.drawCells();
     }
 
-    /// The four cells: a turn's label (a click selects it for Import), its
-    /// picture on the cell's ground at one scale for all four, or "missing".
+    /// The four cells — a turn's label (a click selects it for Import), its
+    /// picture on the cell's ground at one scale, or "missing" — and, with
+    /// the compare on, the shipped 2003 picture in a leading cell. With the
+    /// compare on every cell also shows its anchor cross, so the two sides'
+    /// crosses can be judged against each other.
     fn drawCells(self: *Sides) void {
+        const compare_cell = self.compare and self.compare_texture != null;
+        const total: usize = sl.cells + if (compare_cell) @as(usize, 1) else 0;
         const avail = ig.igGetContentRegionAvail();
         const spacing: f32 = 8;
-        const cell_w = @max(40, (avail.x - spacing * 3) / sl.cells);
+        const cell_w = @max(40, (avail.x - spacing * @as(f32, @floatFromInt(total - 1))) / @as(f32, @floatFromInt(total)));
         const cell_h = @max(40, avail.y - ig.igGetFrameHeightWithSpacing());
         var widest: f32 = 1;
         var tallest: f32 = 1;
@@ -182,22 +228,75 @@ pub const Sides = struct {
             widest = @max(widest, t.width);
             tallest = @max(tallest, t.height);
         };
+        if (self.compare_texture) |t| {
+            widest = @max(widest, t.width);
+            tallest = @max(tallest, t.height);
+        }
         const scale = @min(1, @min(cell_w / widest, cell_h / tallest));
         const draw_list = ig.igGetWindowDrawList();
-        for (self.textures, 0..) |slot, k| {
-            if (k > 0) ig.igSameLine();
+        var index: usize = 0;
+        while (index < total) : (index += 1) {
+            if (index > 0) ig.igSameLine();
             ig.igBeginGroup();
+            const compare_here = compare_cell and index == 0;
+            var top = ig.igGetCursorScreenPos();
+            if (compare_here) {
+                var label: [64:0]u8 = @splat(0);
+                const text = l10n.say(label[0 .. label.len - 1], "resource_app.sides.original", .{});
+                ig.igTextDisabled("%s", text.ptr);
+                top = ig.igGetCursorScreenPos();
+                ig.ImDrawList_AddRectFilled(draw_list, top, .{ .x = top.x + cell_w, .y = top.y + cell_h }, ground_colour);
+                if (self.compare_texture) |t| {
+                    const size = ig.ImVec2{ .x = t.width * scale, .y = t.height * scale };
+                    ig.ImDrawList_AddImage(draw_list, .{ ._TexData = null, ._TexID = @intCast(@intFromPtr(t.texture)) }, top, .{ .x = top.x + size.x, .y = top.y + size.y });
+                    self.shown_compare = .{ .x = top.x, .y = top.y, .w = size.x, .h = size.y };
+                    if (self.compare_anchor) |anchor| {
+                        const cx = top.x + @as(f32, @floatFromInt(anchor[0])) * scale;
+                        const cy = top.y + @as(f32, @floatFromInt(anchor[1])) * scale;
+                        const cross: u32 = 0xffffffff;
+                        ig.ImDrawList_AddLine(draw_list, .{ .x = cx - 5, .y = cy }, .{ .x = cx + 5, .y = cy }, cross);
+                        ig.ImDrawList_AddLine(draw_list, .{ .x = cx, .y = cy - 5 }, .{ .x = cx, .y = cy + 5 }, cross);
+                    }
+                } else {
+                    ig.igSetCursorScreenPos(.{ .x = top.x + 6, .y = top.y + 6 });
+                    ig.igTextDisabled("%s", l10n.t("resource_app.sides.missing"));
+                    ig.igSetCursorScreenPos(top);
+                }
+                ig.igDummy(.{ .x = cell_w, .y = cell_h });
+                ig.igEndGroup();
+                continue;
+            }
+            const k: usize = if (compare_cell) index - 1 else index;
             var label: [64:0]u8 = @splat(0);
             const text = l10n.say(label[0 .. label.len - 1], "resource_app.sides.turn", .{k});
             var id: [80:0]u8 = @splat(0);
             _ = std.fmt.bufPrint(&id, "{s}##turn{d}", .{ text, k }) catch {};
-            if (ig.igRadioButton(&id, self.selected == k)) self.selected = k;
-            const top = ig.igGetCursorScreenPos();
+            if (ig.igRadioButton(&id, self.selected == k)) {
+                self.selected = k;
+                // The transform follows the selection: reload so the
+                // freshly selected cell shows it.
+                if (self.mode != .upright) self.key_len = 0;
+            }
+            top = ig.igGetCursorScreenPos();
             ig.ImDrawList_AddRectFilled(draw_list, top, .{ .x = top.x + cell_w, .y = top.y + cell_h }, ground_colour);
-            if (slot) |t| {
+            const cell_texture = self.textures[k];
+            const cell_anchor = self.anchors[k];
+            if (cell_texture) |t| {
                 const size = ig.ImVec2{ .x = t.width * scale, .y = t.height * scale };
                 ig.ImDrawList_AddImage(draw_list, .{ ._TexData = null, ._TexID = @intCast(@intFromPtr(t.texture)) }, top, .{ .x = top.x + size.x, .y = top.y + size.y });
                 self.shown[k] = .{ .x = top.x, .y = top.y, .w = size.x, .h = size.y };
+                // The anchor cross, only while comparing: the two sides'
+                // crosses sit at the same image coordinates when the
+                // generated turn fits the original.
+                if (compare_cell) {
+                    if (cell_anchor) |anchor| {
+                        const cx = top.x + @as(f32, @floatFromInt(anchor[0])) * scale;
+                        const cy = top.y + @as(f32, @floatFromInt(anchor[1])) * scale;
+                        const cross: u32 = 0xffffffff;
+                        ig.ImDrawList_AddLine(draw_list, .{ .x = cx - 5, .y = cy }, .{ .x = cx + 5, .y = cy }, cross);
+                        ig.ImDrawList_AddLine(draw_list, .{ .x = cx, .y = cy - 5 }, .{ .x = cx, .y = cy + 5 }, cross);
+                    }
+                }
             } else {
                 ig.igSetCursorScreenPos(.{ .x = top.x + 6, .y = top.y + 6 });
                 ig.igTextDisabled("%s", l10n.t("resource_app.sides.missing"));
@@ -208,12 +307,13 @@ pub const Sides = struct {
         }
     }
 
-    /// Decodes the four pictures of the current look once per variant and pack.
+    /// Decodes the four pictures of the current look once per variant, pack,
+    /// compare folder and display mode.
     fn load(self: *Sides, real: *c_bridge.RealResBridge) void {
         var pack_buffer: [4]u8 = undefined;
         const pack = self.look.pack(&pack_buffer);
-        var key_buffer: [logic.path_capacity + 8]u8 = undefined;
-        const key = std.fmt.bufPrint(&key_buffer, "{s}|{s}", .{ self.variantPath(), pack }) catch return;
+        var key_buffer: [logic.path_capacity * 2 + 16]u8 = undefined;
+        const key = std.fmt.bufPrint(&key_buffer, "{s}|{s}|{s}|{d}", .{ self.variantPath(), pack, std.mem.sliceTo(&self.compare_folder, 0), @intFromEnum(self.mode) }) catch return;
         if (self.key_len == key.len and std.mem.eql(u8, self.key[0..self.key_len], key)) return;
         self.release();
         @memcpy(self.key[0..key.len], key);
@@ -231,9 +331,32 @@ pub const Sides = struct {
             var folder_buffer: [logic.path_capacity + 8]u8 = undefined;
             const folder = sl.turnFolder(&folder_buffer, self.variantPath(), k) catch continue;
             const picture = (sl.readPicture(arena_state.allocator(), self.io, folder, pack) catch null) orelse continue;
-            const image = picture.image;
+            // The selected cell carries the display transform: what the
+            // maintainer judges here is exactly what a mirrored pack would
+            // ship. The other cells stay upright.
+            const shown = if (self.mode != .upright and k == self.selected)
+                (compare_logic.transformPicture(arena_state.allocator(), picture, self.mode) catch picture)
+            else
+                picture;
+            self.anchors[k] = shown.anchor;
+            const image = shown.image;
             const texture = kit.pictures_cache.upload(device.?, .{ .width = @intCast(image.width), .height = @intCast(image.height), .bytes = std.mem.sliceAsBytes(image.pixels) }) orelse continue;
             slot.* = .{ .texture = texture, .width = @floatFromInt(image.width), .height = @floatFromInt(image.height) };
+        }
+        // The compare cell: the shipped 2003 building's own pack for the same
+        // look, upright whatever the selected cell's transform is.
+        self.compare_texture = null;
+        self.compare_anchor = null;
+        const compare_folder = std.mem.sliceTo(&self.compare_folder, 0);
+        if (self.compare and compare_folder.len != 0) {
+            var arena_state = std.heap.ArenaAllocator.init(self.gpa);
+            defer arena_state.deinit();
+            if (compare_logic.originalPicture(arena_state.allocator(), self.io, compare_folder, self.look) catch null) |picture| {
+                self.compare_anchor = picture.anchor;
+                const image = picture.image;
+                const texture = kit.pictures_cache.upload(device.?, .{ .width = @intCast(image.width), .height = @intCast(image.height), .bytes = std.mem.sliceAsBytes(image.pixels) });
+                if (texture) |t| self.compare_texture = .{ .texture = t, .width = @floatFromInt(image.width), .height = @floatFromInt(image.height) };
+            }
         }
     }
 

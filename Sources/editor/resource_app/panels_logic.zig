@@ -29,6 +29,7 @@ test {
     _ = @import("docks_logic.zig");
     _ = @import("squad_logic.zig");
     _ = @import("image_logic.zig");
+_ = @import("compare_logic.zig");
     _ = @import("gui_logic.zig");
     _ = @import("mesh_logic.zig");
     _ = @import("grid_logic.zig");

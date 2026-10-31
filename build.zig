@@ -10171,6 +10171,8 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // step s.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
             side.addArgs(&.{ "side", data, if (building) "1,2,3,1l1,2l2,3l3," ++ facing_shadows else "1,2,3,1l1,2l2,3l3," ++ prop_shadows });
+            side.addArg("--mirror=tools/zig/views-mirror.txt");
+            side.addFileInput(b.path("tools/zig/views-mirror.txt"));
             const turns = side.addOutputDirectoryArg(name);
             side.addArg("--no-work");
             _ = side.addPrefixedDepFileOutputArg("--deps=", "deps.d");
@@ -13172,7 +13174,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
     .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
     .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
-    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 411 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 417 },
     .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
     .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
     .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
@@ -13851,7 +13853,17 @@ const resource_auto_bld =
     "408:do=sides_look:2," ++
     "408:do=sides_import:2/{fix}/bld/side-import.png," ++
     "409:shot=bld_sides_import," ++
-    "410:expect=shot_colour:bld_sides_import/10e0a0/min/2000,";
+    "410:expect=shot_colour:bld_sides_import/10e0a0/min/2000," ++
+    // The compare (2026-10-31): the shipped 2003 shed beside the generated turns, its
+    // cell measured like the others, then the selected cell mirrored — the mirror
+    // must hold exactly as many side pixels as the upright display, since it is a
+    // pure transform of the same picture.
+    "411:do=sides_compare:ussr/summer/shed01," ++
+    "412:shot=bld_sides_compare," ++
+    "413:expect=shot_compare:bld_sides_compare/400," ++
+    "414:do=sides_mirror," ++
+    "415:shot=bld_sides_mirror," ++
+    "416:expect=shot_compare_mirror:bld_sides_mirror/bld_sides_compare,";
 
 /// S11 Bridge: span marks, grid and the fire and smoke points.
 const resource_auto_bdg =
