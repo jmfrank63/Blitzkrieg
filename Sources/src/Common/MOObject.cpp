@@ -245,10 +245,14 @@ void CMOObject::ApplyCameraTurn()
 				// with the ground is another shape's (the artist's picture), and
 				// the hull its fill closes stood off the model as a dark slab.
 				const std::string szModel = NCameraTurn::LitModelPath( pDesc->szPath, nCameraTurn, nCameraTurn, NTurnPreload::Exists );
+				// Its shadow alone (`_r<k>_s<k>`, the model flattened on the ground
+				// along the Game's sun, as a vehicle's) is taken before it.
+				const std::string szCast = NCameraTurn::ShadowModelPath( pDesc->szPath, nCameraTurn, nCameraTurn, NTurnPreload::Exists );
 				const bool bSunLit = szModel != NCameraTurn::ModelPath( pDesc->szPath, nCameraTurn, NTurnPreload::Exists );
-				ShowShadow( bSunLit ? szModel : pDesc->szPath );
+				const std::string szShadowFolder = !szCast.empty() ? szCast : bSunLit ? szModel : pDesc->szPath;
+				ShowShadow( szShadowFolder );
 				if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
-					pShadowSprite->SetScreenTurn( bSunLit ? 0 : nCameraTurn, false );
+					pShadowSprite->SetScreenTurn( szShadowFolder != pDesc->szPath ? 0 : nCameraTurn, false );
 				pSprite->SetScreenTurn( 0, false );
 				if ( nCameraTurn == nShownTurn && nCameraTurn == nShownLight )
 					break;
@@ -377,9 +381,12 @@ void CMOObject::PreloadCameraTurn( const int nStep )
 	{
 		const std::string szModel = NCameraTurn::LitModelPath( pDesc->szPath, nStep, nStep, NTurnPreload::Exists );
 		PreloadPicture( szModel, nSeason, nStep );
-		// Its shadow there (ShowShadow): the turn's own where it is lit by the world's sun.
-		if ( szModel != NCameraTurn::ModelPath( pDesc->szPath, nStep, NTurnPreload::Exists ) && !( nSeason == 1 && NTurnPreload::Warm( szModel + "\\1ws" ) ) )
-			NTurnPreload::Warm( szModel + "\\1s" );
+		// Its shadow there (ShowShadow): its shadow alone, else the turn's own
+		// where it is lit by the world's sun.
+		const std::string szCast = NCameraTurn::ShadowModelPath( pDesc->szPath, nStep, nStep, NTurnPreload::Exists );
+		const std::string szShadowFolder = !szCast.empty() ? szCast : szModel != NCameraTurn::ModelPath( pDesc->szPath, nStep, NTurnPreload::Exists ) ? szModel : "";
+		if ( !szShadowFolder.empty() && !( nSeason == 1 && NTurnPreload::Warm( szShadowFolder + "\\1ws" ) ) )
+			NTurnPreload::Warm( szShadowFolder + "\\1s" );
 	}
 	else
 		PreloadPicture( pDesc->szPath, nSeason, nStep );

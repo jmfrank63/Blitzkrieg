@@ -3291,19 +3291,31 @@ pub fn build(b: *std.Build) void {
     const full3d_game_step = b.step("camera-turn-full3d-game-reads-it", "Render the turns of two props and the damaged warehouse e_wb/01 from their full 3D models with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure each object's turn and place in the shots of all four steps");
     full3d_game_step.dependOn(&full3d_game_tests.step);
     if (test_mode == .run) full3d_game_step.dependOn(&full3d_game_run.step);
+    const full3d_review_before = b.option([]const u8, "full3d-review-before", "A checkout whose staged Game and bk-views the camera-turn-full3d-review-* steps shoot instead of this one's (its turns made as that checkout's camera-turn-mod made them)");
     // The same file's other tests (the maintainer's hand test of
     // 2026-10-30): full 3D objects turn in place, each standing where its
     // 2003 picture stands at every step, and cast their shadows from their
     // foot under the world's sun, a building at its own facing too.
     for ([_][3][]const u8{
         .{ "camera-turn-full3d-anchor-game-reads-it", "the Game turns full 3D objects in place", "Render the turns of the barn E_WB_01, the L-shaped house A_H01_1, the house E_House02_2 and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure that each stands where its 2003 picture stands at all four steps" },
-        .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns lit by the world's sun of the barns E_WB_01 and E_WB_02 (at own facing 3) and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is its step-0 shadow turned with the ground, lies against its object and falls the way the world's sun casts" },
+        .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns of the barns E_WB_01 and E_WB_02 (at own facing 1, as in the hand test's screenshot), each turn with its shadow alone cast under the Game's sun as a vehicle's, and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is that one, lies against its object and falls the way that sun casts" },
+        // Not tiers: the frames of the review of 2026-10-31 (no checks), each
+        // its own step so that one stays within a ten-minute command.
+        .{ "camera-turn-full3d-review-a", "review frames a", "Shoot the first half of the review's full 3D objects alone over road3d with shadows on at all four camera steps into zig-out/local-test/camera-turn/full3d-review-<after|before>; -Dfull3d-review-before=<checkout> shoots that checkout's Game and bk-views instead" },
+        .{ "camera-turn-full3d-review-b", "review frames b", "Shoot the second half of the review's full 3D objects, as camera-turn-full3d-review-a" },
+        .{ "camera-turn-full3d-review-village", "review frames village", "Shoot a European village of full 3D buildings at several facings and props over road3d with shadows on at all four camera steps, as camera-turn-full3d-review-a" },
     }) |tier| {
         const tier_tests = b.addTest(.{ .root_module = full3d_game_module, .filters = &.{tier[1]} });
         const tier_run = b.addRunArtifact(tier_tests);
         tier_run.setCwd(b.path("."));
-        tier_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
-        tier_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+        if (std.mem.startsWith(u8, tier[1], "review") and full3d_review_before != null) {
+            tier_run.setEnvironmentVariable("BK_VIEWS_GAME", b.pathJoin(&.{ full3d_review_before.?, stage_root, stage_game_name }));
+            tier_run.setEnvironmentVariable("BK_VIEWS_TOOL", b.pathJoin(&.{ full3d_review_before.?, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()}) }));
+            tier_run.setEnvironmentVariable("BK_REVIEW_BEFORE", "1");
+        } else {
+            tier_run.setEnvironmentVariable("BK_VIEWS_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+            tier_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+        }
         tier_run.has_side_effects = true;
         tier_run.step.dependOn(install_game_step);
         tier_run.step.dependOn(bk_views_step);
@@ -10088,9 +10100,12 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 /// again only when one of those changed. The steps install from the cache folders. The work folders
 /// (pictures and source maps, 11 GiB for all objects) are dropped (`--no-work`): nothing reads them.
 /// Returns the step that installs the checked turns into the mod of camera-turn-mod.
-/// Every turn of a building lit by the world's sun at every camera step
-/// (`bk-views side`'s `<k>l<s>`), and the turns lit by the 2003 light.
-const all_lit_turns = "1,2,3,1l1,2l2,3l3,0l1,0l2,0l3,1l2,1l3,2l1,2l3,3l1,3l2";
+/// The shadows a building at its own facing f casts at camera step s, turn k = f + s, apart from the pictures it
+/// shows there (`bk-views side`'s `<k>s<s>`): its full 3D model flattened on the ground along the Game's sun, as a
+/// vehicle's, every turn at every step but turn 0 at step 0 (the 2003 picture with its own shadow). A prop shows
+/// turn s at step s.
+const facing_shadows = "0s1,0s2,0s3,1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
+const prop_shadows = "1s1,2s2,3s3";
 
 fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) *std.Build.Step {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
@@ -10124,10 +10139,12 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             side.setCwd(b.path("."));
             setUserRootsForTest(side, "bk-views-user");
             // A building may stand at its own facing f (the Map Editor's Q and E)
-            // and shows turn f + s at camera step s: its turns are lit by the world's
-            // sun for every step, turn 0 included. A prop shows turn s at step s.
+            // and shows turn f + s at camera step s with the pictures facing 0 has
+            // (the maintainer's ruling of 2026-10-31), casting the shadow of that
+            // turn under the world's sun (`facing_shadows`). A prop shows turn s at
+            // step s.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
-            side.addArgs(&.{ "side", data, if (building) all_lit_turns else "1,2,3,1l1,2l2,3l3" });
+            side.addArgs(&.{ "side", data, if (building) "1,2,3,1l1,2l2,3l3," ++ facing_shadows else "1,2,3,1l1,2l2,3l3," ++ prop_shadows });
             const turns = side.addOutputDirectoryArg(name);
             side.addArg("--no-work");
             _ = side.addPrefixedDepFileOutputArg("--deps=", "deps.d");
@@ -10148,9 +10165,12 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             check.step.dependOn(sprite.install);
             // The turns' paths name the side run's cache folder, so the check comes again
             // exactly when the turns did.
-            for (1..4) |k| check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
-            for (0..4) |k| for (1..4) |s| {
-                if (building or k == s) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, s })));
+            for (1..4) |k| {
+                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
+                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
+            }
+            for (0..4) |k| for (0..4) |s| {
+                if ((building and k + s > 0) or (k == s and k > 0)) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
             };
             addPathDir(check, rootPath(b, "zig-out/bin"));
             check.expectExitCode(0);

@@ -651,7 +651,14 @@ pub fn ownBakeView(gpa: std.mem.Allocator, m: Model, picture: Image, placement: 
 /// quarter turns sees it with the zero cross at `anchor` on a canvas of
 /// `size`: opaque where a face's shadow covers a pixel's middle.
 pub fn shadow(gpa: std.mem.Allocator, m: Model, turn: u2, light: u2, anchor: [2]f64, size: [2]u32) !Image {
-    const l = views.lightFor(views.light_2003, light);
+    return shadowToward(gpa, m, turn, views.lightFor(views.light_2003, light), anchor, size);
+}
+
+/// The model's shadow on the ground under a light whose direction towards
+/// it in the model's frame is `l`, as `shadow` draws it: every vertex moved
+/// along the light onto the ground, as the Game flattens a vehicle's mesh
+/// (`CMeshVisObj::DrawShadow`, SceneDraw.cpp's matShadow).
+pub fn shadowToward(gpa: std.mem.Allocator, m: Model, turn: u2, l: [3]f64, anchor: [2]f64, size: [2]u32) !Image {
     const points = try gpa.alloc([3]f64, m.vertices.len);
     defer gpa.free(points);
     for (points, m.vertices) |*p, v| {

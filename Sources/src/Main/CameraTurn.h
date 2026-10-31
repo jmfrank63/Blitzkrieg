@@ -201,6 +201,20 @@ namespace NCameraTurn
 		}
 		return ModelPath( szVariant, nTurn, pfnExists );
 	}
+	// The folder of the shadow a variant's turn k casts under the Game's sun
+	// as camera step s shows it, where the data holds one apart from its
+	// pictures: `<variant>_r<k>_s<s>` (bk-views side `<k>s<s>`, shadow packs
+	// alone: the full 3D model flattened on the ground along the sun, as a
+	// vehicle's mesh is, cut under the picture the turn shows), else "". It is
+	// cast with whichever picture the turn shows, as it lies. Turn 0 at step 0
+	// is the 2003 picture with its own shadow.
+	inline std::string ShadowModelPath( const std::string &szVariant, const int nTurn, const int nStep, TExists pfnExists = 0 )
+	{
+		if ( nStep == 0 && nTurn == 0 )
+			return "";
+		const std::string szShadow = NStr::Format( "%s_r%d_s%d", szVariant.c_str(), nTurn, nStep );
+		return StreamExists( szShadow + "\\1s.san", pfnExists ) ? szShadow : "";
+	}
 	// The quarter turns a map object stands turned by, its footprint, entrances
 	// and fire slots with its picture (AI and Map Editor alike): its facing
 	// where facings count and its picture turns with it - a building whose

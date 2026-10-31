@@ -529,3 +529,58 @@ run) changed, and the buildings' `side` arguments too.
   against the floor 0.35): the shed's model casts its own shadow, the step-0 one is the artist's 2003 shadow. Not
   changed here.
 - Not run: the other camera-turn and Map Editor tiers, the full sweep (left to the maintainer), macOS and Linux (CI).
+
+## The maintainer's ruling of 2026-10-31: 78f5fe19c's pictures, 06f35a95d's places, a vehicle's shadow
+
+The pictures the Game showed at 78f5fe19c were right; only where each turned object stood and its shadow were
+wrong. 06f35a95d fixed the place but changed the pictures for the shadow (every building's twelve turns lit by the
+world's sun, `0l<s>` replacing the 2003 picture), and the village's textures looked wrong.
+
+- **Pictures: back to 78f5fe19c.** `camera-turn-mod` makes `1,2,3,1l1,2l2,3l3` again for every object; `bk-views
+  side` no longer takes `0l<s>`. A building at facing f shows at step s the picture 78f5fe19c showed: `_r<f+s>`,
+  `_r<s>_l<s>` at facing 0, the 2003 picture where f + s = 4. Proof (`bk-views side` of 78f5fe19c against this one,
+  every pack decomposed by one bk-views, aligned on the opaque box, RGBA compared): e_wb/01, e_wb/02, e_house02_2,
+  e_house01_1, a_h01_1, rick, dzot/01 and fence_sandbag/01, 48 turn folders, 300 pictures (states, shadows, ground
+  pictures), 2,319,647 opaque pixels: 0 differ, every canvas the same (translation 0, 0). Only the zero cross moved,
+  by 06f35a95d's `artAlong` (e_wb/01 9 pixels at the quarter turns and 4 at the half turn, Rick 4 and 2, e_house02_2
+  8, a_h01_1 1).
+- **Place: 06f35a95d's**, unchanged (the zero cross in the pack, not the pixels).
+- **Shadow: a vehicle's, precomputed.** `bk-views side` takes `<k>s<s>`: `<variant>_r<k>_s<s>`, shadow packs alone
+  (no picture, no ground picture, no icon). The shadow is the full 3D model flattened on the ground along the Game's
+  own sun, as `CMeshVisObj::DrawShadow` and SceneDraw.cpp's matShadow flatten a vehicle's mesh (Data/consts.xml
+  Scene.SunLight: summer and Africa (1, 1, -2), winter states (1, 1, -3); `sun_summer`, `sun_winter`,
+  `model3d.shadowToward`), seen from the turn's camera and cut under the picture the Game shows with it (the turn's
+  own silhouette; at turn 0 the 2003 picture's pixels of alpha 128 or more laid at the turn's zero cross). Its density
+  is the shadow pass's: the shots measure ground under a sprite shadow at 0.50 of its brightness (median, E_WB_01 and
+  E_WB_02 at three steps), as MESH_SHADOW_DENSITY 0.5 darkens under a vehicle. `camera-turn-mod` makes fifteen per
+  building (`facing_shadows`: every turn at every step but turn 0 at step 0, the 2003 picture with its artist's
+  shadow) and three per prop (`1s1,2s2,3s3`). A variant without a 2003 shadow (a pillbox) has none.
+- **Engine.** `NCameraTurn::ShadowModelPath`; `CMOBuilding::GetShadowPath` takes the shadow alone first, laid as it
+  lies, whatever picture the turn shows, then the sun-lit pack's, then the step-0 shadow turned with the ground as
+  before; `CMOObject` (props) likewise. Preloads follow.
+- **Check.** `bk-views-roundtrip` composes a shadow alone back (a one-pixel stand-in picture off the shadow) and
+  compares it byte for byte; e_wb/01, e_wb/02, rick and dzot/01's 58 folders pass.
+- **The screenshot** is E_WB_02 at own facing 1 at step 3 (its 2003 picture; a shadow falling down and right is the
+  world's sun at step 3), not facing 3 at step 1, whose shadow falls behind the barn; `-shadow-` stands it there now.
+- **Review** (`camera-turn-full3d-review-a`, `-b`, `-village`; `-Dfull3d-review-before=<checkout>` shoots another
+  checkout's Game and bk-views): D:\bk-review\full3d-place-shadow.pdf, 16 objects at their facings and a European
+  village at the four steps, 78f5fe19c against this.
+
+### Tiers (win-home, Windows x64, debug Game)
+
+- `camera-turn-full3d-shadow-game-reads-it`: the shadow at each step against the turn's shadow alone, IoU (held
+  shadows only: a shadow almost all under its object is a rim sliver, 0.71 for E_WB_02's 2003 picture at a step whose
+  sun falls behind it) / joined / degrees off the sun (the Game's sun at turned steps):
+
+  | object, step 0 / 1 / 2 / 3 | IoU | joined | off the sun |
+  |---|---|---|---|
+  | E_WB_01 | 0.986 / 1.000 / 0.990 / 0.993 | 1.000 each | 32.8 (not held) / 3.0 (not held) / 32.4 / 14.6 |
+  | E_WB_02 at facing 1 | 0.996 / 0.907 / 0.996 / 0.987 | 1.000 each | 14.6 / 9.7 (not held) / 32.1 / 18.8 |
+  | Rick | 0.884 / 1.000 / 1.000 / 1.000 | 1.000 each | 12.6 / 90.0 (not held, 10 pixels) / 0.9 / 8.2 |
+
+- `camera-turn-full3d-anchor-game-reads-it`: rigid and anchor within 2 pixels (E_WB_01 -0.5 / 0.5, A_H01_1 -2.0 /
+  -1.0, E_House02_2 0.5 / 1.5, Rick -1.5 / -0.5), as at 06f35a95d.
+- `camera-turn-full3d-game-reads-it`, `test-bk-views`, `bk-views-side`, `bk-views-roundtrip`: pass.
+- `full3d-africa`, `-common`, `-europe` passed with the shadows alone of the first cut (nine a building, the world's
+  sun of bk-views); with the final fifteen and the Game's sun they were not run again, nor `full3d-ussr`
+  (`install-all` draws every object again: bk-views and the side arguments changed).
