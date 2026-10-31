@@ -87,8 +87,12 @@ pub fn main(init: std.process.Init) !void {
     if (probe.next()) |first| if (std.mem.eql(u8, first, "--drop-rpaths")) {
         _ = args.next();
         if (@import("builtin").os.tag != .macos) return;
-        const cwd = std.Io.Dir.cwd();
-        while (args.next()) |path| dropFileBuildRpaths(init.io, init.gpa, cwd, path) catch |err| return failStep("drop build rpaths", err);
+        while (args.next()) |path| {
+            // The tools run in the file's own folder: a child cannot start in Dir.cwd()'s handle.
+            var dir = std.Io.Dir.cwd().openDir(init.io, std.fs.path.dirname(path) orelse ".", .{}) catch |err| return failStep("open the installed file's folder", err);
+            defer dir.close(init.io);
+            dropFileBuildRpaths(init.io, init.gpa, dir, std.fs.path.basename(path)) catch |err| return failStep("drop build rpaths", err);
+        }
         return;
     };
     var options = try parseArgs(&args, init.gpa);
