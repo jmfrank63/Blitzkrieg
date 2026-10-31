@@ -3422,6 +3422,15 @@ const Turned = struct { turn: u2, light: u2, eye: Eye, size: [2]u32, name: []con
 /// 67.5 to 75, the spread of the hull's shape: one light lit every building.
 pub const light_2003 = lightDirection(245, 67.5);
 
+/// The Game's own sun, towards it (Data/consts.xml Scene.SunLight's
+/// Direction, the way it shines: summer and Africa (1, 1, -2), winter
+/// (1, 1, -3)), whose shadow a vehicle casts by its mesh flattened on the
+/// ground (`CMeshVisObj::DrawShadow`). A turn's shadow alone (`<k>s<s>`) is
+/// cast under it, so that a house's shadow and a tank's beside it fall
+/// alike.
+pub const sun_summer = [3]f64{ -1.0 / @sqrt(6.0), -1.0 / @sqrt(6.0), 2.0 / @sqrt(6.0) };
+pub const sun_winter = [3]f64{ -1.0 / @sqrt(11.0), -1.0 / @sqrt(11.0), 3.0 / @sqrt(11.0) };
+
 /// A variant's family set up to draw that variant from other sides: the 2003
 /// variants with their eyes aligned to it (`fixed` is the variant itself),
 /// which of them share its colourway, and the building's blocks in each
@@ -3648,10 +3657,16 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
 /// Each turn's canvas: it holds every state's blocks, their shadows under
 /// the light of turn `light` and the 2003 ground pictures.
 fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
+    return turnTargetUnder(scene, k, light, name, light_2003);
+}
+
+/// `turnTarget` for the shadows cast under the sun `base` (towards it, as the
+/// 2003 camera's step 0 sees it).
+fn turnTargetUnder(scene: Scene, k: u2, light: u2, name: []const u8, base: [3]f64) Turned {
     var eye: Eye = .{ .anchor = .{ 0, 0 }, .turn = k };
     var lo = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
     var hi = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
-    const l = lightFor(light_2003, light);
+    const l = lightFor(base, light);
     for (scene.shapes) |shape| for (shape) |b| for (0..8) |c| {
         const p = [3]f64{ if (c & 1 != 0) b.hi[0] else b.lo[0], if (c & 2 != 0) b.hi[1] else b.lo[1], if (c & 4 != 0) @max(b.wall, b.ridge) else 0 };
         for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
@@ -4200,6 +4215,27 @@ fn zeroAlong(target: Turned, along: f64) [2]f64 {
     return .{ target.eye.anchor[0] - @round(moved[0] - still[0]), target.eye.anchor[1] - @round(moved[1] - still[1]) };
 }
 
+/// A 2003 picture on a turn's canvas of `size` as the Game lays both at the
+/// object's place: its zero cross `anchor` on the turn's `zero`. Only its
+/// pixels of alpha 128 or more are kept, opaque, as a render's are: the pack
+/// cuts the shadow under every pixel of its picture, and the soft rim of the
+/// 2003 art, which the ground shows through, would cut the shadow off its
+/// foot.
+fn placeOwn(gpa: std.mem.Allocator, picture: Image, anchor: [2]i32, zero: [2]f64, size: [2]u32) !Image {
+    const out: Image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, @as(usize, size[0]) * size[1]) };
+    @memset(out.pixels, .{ 0, 0, 0, 0 });
+    const dx = @as(i64, @intFromFloat(zero[0])) - anchor[0];
+    const dy = @as(i64, @intFromFloat(zero[1])) - anchor[1];
+    for (0..picture.height) |y| for (0..picture.width) |x| {
+        const tx = @as(i64, @intCast(x)) + dx;
+        const ty = @as(i64, @intCast(y)) + dy;
+        if (tx < 0 or ty < 0 or tx >= size[0] or ty >= size[1]) continue;
+        const p = picture.pixels[y * picture.width + x];
+        if (p[3] >= 128) out.pixels[@as(usize, @intCast(ty)) * size[0] + @as(usize, @intCast(tx))] = .{ p[0], p[1], p[2], 255 };
+    };
+    return out;
+}
+
 fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8, out_arg: []const u8, work_arg: []const u8) !void {
     const arena = ctx.arena;
     const io = ctx.io;
@@ -4209,31 +4245,42 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const work = if (no_work) try std.fs.path.join(arena, &.{ out, ".work" }) else try bk_tool.inputPath(arena, work_arg);
     // A turn k (`<variant>_r<k>`, lit by the 2003 light fixed to the camera),
     // or `<k>l<s>`: turn k lit by the sun fixed in the world as camera step s
-    // shows it (`<variant>_r<k>_l<s>`, the light of turn k - s, M006 round 2).
-    // A building standing at its own facing f shows turn f + s at step s, so
-    // every k with every s is drawn for one: `0l<s>` too, its turn 0 rendered
-    // from its full 3D model (the 2003 picture is lit for step 0 and its
-    // shadow, cut under the picture, cannot be laid turned; a folder without
-    // a model has no such turn and skips it).
-    var turns: std.ArrayList([2]u2) = .empty;
+    // shows it (`<variant>_r<k>_l<s>`, the light of turn k - s, M006 round 2),
+    // or `<k>s<s>`: only the shadow that turn casts under that sun
+    // (`<variant>_r<k>_s<s>`, shadow packs alone). A building standing at its
+    // own facing f shows turn f + s at step s with the picture its turn has
+    // (`_r<k>`, or the 2003 picture at turn 0), which the maintainer keeps;
+    // the shadow it casts there is the model's under the world's sun, cut
+    // under the picture shown, so `0s<s>` is taken too (a folder without a
+    // full 3D model has no turn 0 to cast from and skips it).
+    const TurnKind = enum { camera, lit, shadow };
+    var turns: std.ArrayList(struct { k: u2, s: u2, kind: TurnKind }) = .empty;
     var split = std.mem.splitScalar(u8, turns_arg, ',');
     while (split.next()) |t| {
-        const at = std.mem.indexOfScalar(u8, t, 'l') orelse t.len;
+        const at = std.mem.indexOfAny(u8, t, "ls") orelse t.len;
+        const kind: TurnKind = if (at == t.len) .camera else if (t[at] == 'l') .lit else .shadow;
         const k = std.fmt.parseInt(u2, t[0..at], 10) catch return error.Usage;
         const s = if (at < t.len) std.fmt.parseInt(u2, t[at + 1 ..], 10) catch return error.Usage else 0;
-        if ((k == 0 and s == 0) or (at < t.len and s == 0)) return error.Usage;
-        try turns.append(arena, .{ k, s });
+        if ((k == 0 and kind != .shadow) or (kind == .lit and s == 0) or (kind == .shadow and k == 0 and s == 0)) return error.Usage;
+        try turns.append(arena, .{ .k = k, .s = s, .kind = kind });
     }
 
     const found = findFamily(arena, io, dir) catch |err| return ctx.failKey("views.err.read", .{ dir, @errorName(err) });
     const scene = try loadScene(ctx, found, found.index, null, false);
     var targets: std.ArrayList(Turned) = .empty;
+    var shadow_only: std.ArrayList(bool) = .empty;
     for (turns.items) |ks| {
-        if (ks[0] == 0 and scene.full3d.len == 0) {
-            try ctx.out.print("skipped {s}_r0_l{d}: turn 0 under the world's sun needs a full 3D model\n", .{ scene.name, ks[1] });
+        if (ks.k == 0 and scene.full3d.len == 0) {
+            try ctx.out.print("skipped {s}_r0_s{d}: turn 0's shadow under the world's sun needs a full 3D model\n", .{ scene.name, ks.s });
             continue;
         }
-        try targets.append(arena, turnTarget(scene, ks[0], ks[0] -% ks[1], if (ks[1] == 0) try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks[0] }) else try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ scene.name, ks[0], ks[1] })));
+        const name = switch (ks.kind) {
+            .camera => try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks.k }),
+            .lit => try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ scene.name, ks.k, ks.s }),
+            .shadow => try std.fmt.allocPrint(arena, "{s}_r{d}_s{d}", .{ scene.name, ks.k, ks.s }),
+        };
+        try targets.append(arena, if (ks.kind == .shadow) turnTargetUnder(scene, ks.k, ks.k -% ks.s, name, sun_summer) else turnTarget(scene, ks.k, ks.k -% ks.s, name));
+        try shadow_only.append(arena, ks.kind == .shadow);
     }
 
     // The pictures, the source maps and the packs of each turn.
@@ -4242,7 +4289,12 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const beside = try std.fs.path.join(arena, &.{ exe_dir, if (@import("builtin").os.tag == .windows) "bk-sprite.exe" else "bk-sprite" });
     const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
     const own = scene.sources[scene.fixed];
-    for (targets.items) |blocks_target| {
+    for (targets.items, shadow_only.items) |blocks_target, alone| {
+        // A variant that casts no shadow (a pillbox) has no shadow alone either.
+        if (alone and pictureOf(own, "1s") == null) {
+            try ctx.out.print("skipped {s}: {s} casts no shadow\n", .{ blocks_target.name, scene.name });
+            continue;
+        }
         var target = blocks_target;
         const pictures_dir = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.work", .{scene.name}), target.name });
         const map_dir = try std.fs.path.join(arena, &.{ work, try std.fmt.allocPrint(arena, "{s}.map", .{target.name}) });
@@ -4288,8 +4340,16 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         for (drawn) |d| {
             const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{d.state});
             const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{d.state});
-            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, d.sprite.image));
-            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}), try writePng(arena, d.shadow));
+            // A shadow alone is cut under the picture the Game shows with it:
+            // the turn's own (`_r<k>`, the same model seen the same way), at
+            // turn 0 the 2003 picture laid at the turn's zero cross.
+            const cut = if (alone and target.turn == 0) try placeOwn(arena, pictureOf(own, d.state) orelse d.sprite.image, own.anchor, zero, target.size) else d.sprite.image;
+            // Cast as a vehicle's: the full 3D model flattened on the ground
+            // along the Game's sun, its season's, as the step shows it.
+            const cast = if (alone and scene.full3d.len > 0) try model3d.shadowToward(arena, scene.modelFor(d.state).?, target.turn, lightFor(if (std.mem.indexOfScalar(u8, d.state, 'w') != null) sun_winter else sun_summer, target.light), target.eye.anchor, target.size) else d.shadow;
+            if (alone) keepShadow(cut, cast);
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, cut));
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}), try writePng(arena, cast));
             try writePictureReport(ctx, r, map_dir, d.state, d.sprite, d.covers, &first_picture);
             if (!fallback) try writeOut(ctx, map_dir, try std.fmt.allocPrint(arena, "{s}_shape.png", .{d.state}), try writePng(arena, try shapePicture(arena, d.blocks, target)));
             var argv: std.ArrayList([]const u8) = .empty;
@@ -4307,12 +4367,12 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             });
             // A prop with no passable grid (a box, a barrel) has none to lock.
             if (grid.rows.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", grid.rows), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
-            if (d.ground) |g| {
+            if (d.ground) |g| if (!alone) {
                 try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}), try writePng(arena, g.image));
                 try writePictureReport(ctx, r, map_dir, ground_name, g, &.{}, &first_picture);
                 try argv.appendSlice(arena, &.{ "--noise", try std.fs.path.join(arena, &.{ pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}) }) });
-            }
-            if (std.mem.eql(u8, d.state, "1")) try argv.appendSlice(arena, &.{ "--icon", try std.fs.path.join(arena, &.{ temp, "icon.tga" }) });
+            };
+            if (std.mem.eql(u8, d.state, "1") and !alone) try argv.appendSlice(arena, &.{ "--icon", try std.fs.path.join(arena, &.{ temp, "icon.tga" }) });
             const result = std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
                 return ctx.failKey("views.err.compose", .{ temp, @errorName(err) });
             if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ temp, result.stderr });
@@ -4320,6 +4380,10 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             // none (pillboxes, tracks, some ruins) the turned one has none either.
             if (pictureOf(own, shadow_name) == null) for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
                 try cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ temp, shadow_name }), suffix }));
+            };
+            // A shadow alone keeps no picture: the Game shows the turn's own.
+            if (alone) for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
+                cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ temp, d.state }), suffix })) catch {};
             };
         }
         try r.writeAll("]}\n");

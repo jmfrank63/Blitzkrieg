@@ -29,8 +29,7 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	bool CanEnterOrBoard() const;
 	bool UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, const bool bForced = false );
 	std::string GetModelPath( const int nTurn, const int nStep ) const;
-	bool IsSunLit( const std::string &szModelPath, const int nTurn ) const;
-	std::string GetShadowPath() const;
+	std::string GetShadowPath( const std::string &szModelPath, const int nTurn, const int nStep, bool *pbAsItLies ) const;
 	int GetDrawnTurn() const;
 	void Redraw( IVisObjBuilder *pVOB, const bool bInScene );
 	void GetPassangerIconPlacement( CVec3 *pvAdd, CVec3 *pvStep );

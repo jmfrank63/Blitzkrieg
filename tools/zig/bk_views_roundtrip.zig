@@ -55,6 +55,11 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
     const a = try std.fs.path.join(arena, &.{ work, name, "a" });
     const b = try std.fs.path.join(arena, &.{ work, name, "b" });
     const c = try std.fs.path.join(arena, &.{ work, name, "c" });
+    // A turn's shadow alone (`bk-views side`'s `<k>s<s>`, `<variant>_r<k>_s<s>`)
+    // holds shadow packs and no picture; turn 0 of an object without a full 3D
+    // model has none, and no folder.
+    const alone = shadowAlone(name);
+    if (alone) std.Io.Dir.cwd().access(io, variant, .{}) catch return;
     if (!try runTool(arena, io, &.{ views, "decompose", variant, a })) return;
     _ = try runTool(arena, io, &.{ check, variant, a, modules });
 
@@ -67,6 +72,10 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
     for (building.pictures) |picture| {
         const pack = picture[0..std.mem.lastIndexOfScalar(u8, picture, '_').?];
         try packs.append(arena, pack);
+        if (alone) {
+            try shadowTrip(arena, io, sprite, modules, work, name, a, b, pack, zero, pass, locked);
+            continue;
+        }
         // A damage state is a pack named by its number, `w` after it in winter; its shadow and
         // noise follow its name.
         const digits = std.mem.indexOfNone(u8, pack, "0123456789") orelse pack.len;
@@ -113,6 +122,36 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
     }
 }
 
+
+/// Whether a folder is a turn's shadow alone, `<variant>_r<k>_s<s>`.
+fn shadowAlone(name: []const u8) bool {
+    return name.len > 6 and std.mem.eql(u8, name[name.len - 6 .. name.len - 4], "_r") and name[name.len - 3] == '_' and name[name.len - 2] == 's';
+}
+
+/// Composes the shadow pack `pack` (`<state>s`) of a turn's shadow alone back
+/// into b/: compose-pack keeps a shadow only outside its picture and packs no
+/// empty picture, so the picture is one opaque pixel off the shadow, whose
+/// pack is dropped.
+fn shadowTrip(arena: std.mem.Allocator, io: std.Io, sprite: []const u8, modules: []const u8, work: []const u8, name: []const u8, a: []const u8, b: []const u8, pack: []const u8, zero: []const u8, pass: []const u8, locked: []const u8) !void {
+    if (pack.len < 2 or pack[pack.len - 1] != 's') return differ("{s}/{s}: a shadow alone holds a pack that is no shadow", .{ name, pack });
+    const state = pack[0 .. pack.len - 1];
+    const shadow = try picturePath(arena, a, state, "s");
+    const canvas = try bk_views.readStoredPng(arena, try std.Io.Dir.cwd().readFileAlloc(io, shadow, arena, .limited(256 * 1024 * 1024)));
+    const off = for (canvas.pixels, 0..) |p, i| {
+        if (p[3] == 0) break i;
+    } else return differ("{s}/{s}: the shadow covers its canvas", .{ name, pack });
+    @memset(canvas.pixels, .{ 0, 0, 0, 0 });
+    canvas.pixels[off] = .{ 255, 255, 255, 255 };
+    const stand_in = try std.fs.path.join(arena, &.{ work, name, try std.fmt.allocPrint(arena, "{s}_stand_in.png", .{state}) });
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = stand_in, .data = try bk_views.writePng(arena, canvas) });
+    var argv: std.ArrayList([]const u8) = .empty;
+    try argv.appendSlice(arena, &.{ sprite, "compose-pack", stand_in, shadow, try std.fs.path.join(arena, &.{ b, state }), "--zero", zero, "--force", "--modules", modules });
+    if (pass.len > 0) try argv.appendSlice(arena, &.{ "--pass", pass, "--locked", locked });
+    _ = try runTool(arena, io, argv.items);
+    for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
+        std.Io.Dir.cwd().deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ b, state }), suffix })) catch {};
+    }
+}
 
 fn picturePath(arena: std.mem.Allocator, dir: []const u8, pack: []const u8, suffix: []const u8) ![]const u8 {
     return std.fs.path.join(arena, &.{ dir, try std.fmt.allocPrint(arena, "{s}{s}_0.png", .{ pack, suffix }) });
