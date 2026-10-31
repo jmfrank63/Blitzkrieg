@@ -671,6 +671,31 @@ var library_path_option: ?std.Build.LazyPath = null;
 
 /// Absolute path of `sub` under a package's build root. The 0.17 build API dropped getPath, so run
 /// steps get their path strings from here; a relative root would silently change the args, so it asserts.
+/// stage.zig's executable, set in build() before the editors and tools that installBesideGame
+/// puts beside Game.
+var stage_tool_artifact: ?*std.Build.Step.Compile = null;
+
+/// Installs an executable into the game installation beside Game, after install-game, and returns
+/// the step after which the installed copy is ready to run. Zig links every dynamic library with
+/// a cwd-relative -rpath into its build-cache directory; stage.zig drops those from what it
+/// stages, but an executable installed here bypasses it, and the cache's libSDL3 then loads
+/// beside the installed one when it starts from the repository root (two SDL3 copies, CI's
+/// "Check the installed SDL3"). So on macOS the installed copy goes through
+/// `stage-game --drop-rpaths`, which deletes them and signs it again.
+fn installBesideGame(b: *std.Build, artifact: *std.Build.Step.Compile, stage_root: []const u8, install_game_step: *std.Build.Step, options: std.Build.Step.InstallArtifact.Options) *std.Build.Step {
+    var install_options = options;
+    install_options.dest_dir = .{ .override = .{ .custom = stage_root["zig-out/".len..] } };
+    const install = b.addInstallArtifact(artifact, install_options);
+    install.step.dependOn(install_game_step);
+    if (build_host_os != .macos or artifact.rootModuleTarget().os.tag != .macos) return &install.step;
+    const drop = b.addRunArtifact(stage_tool_artifact.?);
+    drop.addArgs(&.{ "--drop-rpaths", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, artifact.out_filename })) });
+    // The installed file is not a declared input: a fresh install copies the rpaths back in.
+    drop.has_side_effects = true;
+    drop.step.dependOn(&install.step);
+    return &drop.step;
+}
+
 fn rootPath(b: *std.Build, sub: []const u8) []const u8 {
     const joined = b.root.joinString(b.allocator, sub) catch @panic("OOM");
     std.debug.assert(std.fs.path.isAbsolute(joined));
@@ -3005,6 +3030,7 @@ pub fn build(b: *std.Build) void {
         .name = "stage-game",
         .root_module = stage_module,
     });
+    stage_tool_artifact = stage_tool;
 
     // bk-map and bk-sprite link the engine libraries and find them, from
     // Tools/, by their loader-relative path to the game folder. A Windows
@@ -10310,9 +10336,7 @@ fn addEditorBridgeTest(
     // so this has to live in the installation it starts - but a test binary has
     // no business in a release layout or a package, so it is installed on its
     // own and stage.zig never hears about it.
-    const stage_suffix = stage_root["zig-out/".len..];
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
 
     const run = b.addRunArtifact(exe);
     // The engine logs its modules and maps on stderr; a pass keeps them, a failure shows them.
@@ -10333,7 +10357,7 @@ fn addEditorBridgeTest(
     // so a cached pass would say nothing about the installation now (the
     // same reason map-editor-smoke and test-map-editor-engine set this).
     run.has_side_effects = true;
-    run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_exe);
     run.step.dependOn(install_fixture_mod_step);
     setFixtureModsRoot(run);
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
@@ -10352,7 +10376,7 @@ fn addEditorBridgeTest(
     run_m2_sweep.addArg(rootPath(b, "zig-out/local-test"));
     run_m2_sweep.addArg("--m2-sweep");
     run_m2_sweep.has_side_effects = true;
-    run_m2_sweep.step.dependOn(&install_exe.step);
+    run_m2_sweep.step.dependOn(install_exe);
     run_m2_sweep.step.dependOn(install_fixture_mod_step);
     setFixtureModsRoot(run_m2_sweep);
     const step_m2_sweep = b.step("test-editor-bridge-m2-sweep", "Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes");
@@ -10369,7 +10393,7 @@ fn addEditorBridgeTest(
     run_m3_players.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_players.addArg("--m3-players-only");
     run_m3_players.has_side_effects = true;
-    run_m3_players.step.dependOn(&install_exe.step);
+    run_m3_players.step.dependOn(install_exe);
     const step_m3_players = b.step("test-editor-bridge-m3-players", "Add and delete players, edit the unit creation and apply Check Map's fixes through the engine and compare the bytes");
     step_m3_players.dependOn(&exe.step);
     if (test_mode == .run) step_m3_players.dependOn(&run_m3_players.step);
@@ -10384,7 +10408,7 @@ fn addEditorBridgeTest(
     run_m3_minimap.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_minimap.addArg("--m3-minimap-only");
     run_m3_minimap.has_side_effects = true;
-    run_m3_minimap.step.dependOn(&install_exe.step);
+    run_m3_minimap.step.dependOn(install_exe);
     const step_m3_minimap = b.step("test-editor-bridge-m3-minimap", "Read the minimap's tiles, colours and markers and create its pictures through the engine and check them");
     step_m3_minimap.dependOn(&exe.step);
     if (test_mode == .run) step_m3_minimap.dependOn(&run_m3_minimap.step);
@@ -10400,7 +10424,7 @@ fn addEditorBridgeTest(
     run_m3_rmg.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_rmg.addArg("--m3-rmg-only");
     run_m3_rmg.has_side_effects = true;
-    run_m3_rmg.step.dependOn(&install_exe.step);
+    run_m3_rmg.step.dependOn(install_exe);
     run_m3_rmg.step.dependOn(install_fixture_mod_step);
     setFixtureModsRoot(run_m3_rmg);
     const step_m3_rmg = b.step("test-editor-bridge-m3-rmg", "Generate random maps through the engine with seeds and check the files, the refusals and the mod stamp");
@@ -10417,7 +10441,7 @@ fn addEditorBridgeTest(
     run_m3_layers.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_layers.addArg("--m3-layers-only");
     run_m3_layers.has_side_effects = true;
-    run_m3_layers.step.dependOn(&install_exe.step);
+    run_m3_layers.step.dependOn(install_exe);
     const step_m3_layers = b.step("test-editor-bridge-m3-layers", "Measure what each Layers menu toggle does in the renderer and drive them through the engine");
     step_m3_layers.dependOn(&exe.step);
     if (test_mode == .run) step_m3_layers.dependOn(&run_m3_layers.step);
@@ -10443,7 +10467,7 @@ fn addEditorBridgeTest(
         run_craft.addArg(entry[0]);
         run_craft.addArg(entry[1]);
         run_craft.has_side_effects = true;
-        run_craft.step.dependOn(&install_exe.step);
+        run_craft.step.dependOn(install_exe);
         if (previous_craft) |earlier| run_craft.step.dependOn(earlier);
         previous_craft = &run_craft.step;
         if (test_mode == .run) craft_step.dependOn(&run_craft.step);
@@ -10589,9 +10613,7 @@ fn addResourceBridge(
         else => {},
     }
 
-    const stage_suffix = stage_root["zig-out/".len..];
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
@@ -10627,7 +10649,7 @@ fn addResourceBridge(
     // Reads the staged Data and modules, neither a file input of this step:
     // a cached pass would say nothing about the installation now.
     run.has_side_effects = true;
-    run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_exe);
     const step = b.step(tier.step_name, tier.step_description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -10752,10 +10774,9 @@ fn addMapEditor(
     configureMapEditorExecutable(exe, target, .windows);
 
     // Beside Game, because the engine's roots are the installation it runs in.
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
     const install_step = b.step("install-map-editor", "Install MapEditor into the game installation");
-    install_step.dependOn(&install_exe.step);
+    install_step.dependOn(install_exe);
     // The bundled Noto faces and their licence beside the executable (D078); kit/fonts.zig reads
     // them from <exe dir>/Fonts/ or BK_FONT_DIR, and every step that runs the installed editor
     // goes through install_exe.
@@ -10767,7 +10788,7 @@ fn addMapEditor(
     });
     install_fonts.step.dependOn(install_game_step);
     install_step.dependOn(&install_fonts.step);
-    install_exe.step.dependOn(&install_fonts.step);
+    install_exe.dependOn(&install_fonts.step);
 
     // Launched from zig-out, not the installation: MapEditor finds its
     // modules, Data, SeasonData and Shaders beside its own executable
@@ -10784,12 +10805,12 @@ fn addMapEditor(
     captureStdErrForFailure(run);
     run.setCwd(b.path("zig-out"));
     run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check.tga") });
-    run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_exe);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
     // Only builds and installs the step in .compile mode, as test-editor-bridge
     // (addEditorBridgeTest) does - never runs a GPU-needing executable when the
     // caller only wants to know it compiles.
-    check_step.dependOn(&install_exe.step);
+    check_step.dependOn(install_exe);
     // The same map as an absolute path in the host's own form, as a person
     // types it or a shell expands it: forward slashes on macOS, which the
     // engine's file layer does not split on until MapEditor converts them.
@@ -10800,7 +10821,7 @@ fn addMapEditor(
     captureStdErrForFailure(absolute_run);
     absolute_run.setCwd(b.path("zig-out"));
     absolute_run.addArgs(&.{ "--check", rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), rootPath(b, "zig-out/local-test/map-editor-check-absolute.tga") });
-    absolute_run.step.dependOn(&install_exe.step);
+    absolute_run.step.dependOn(install_exe);
     // After the relative run, so two engines never start at once.
     absolute_run.step.dependOn(&run.step);
 
@@ -10811,7 +10832,7 @@ fn addMapEditor(
     captureStdErrForFailure(mod_run);
     mod_run.setCwd(b.path(stage_root));
     mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
-    mod_run.step.dependOn(&install_exe.step);
+    mod_run.step.dependOn(install_exe);
     mod_run.step.dependOn(install_fixture_mod_step);
     setFixtureModsRoot(mod_run);
     // After the absolute-path run, so two engines never start at once.
@@ -10840,7 +10861,7 @@ fn addMapEditor(
     planted_run.addArg(rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     planted_run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check-planted.tga") });
     planted_run.has_side_effects = true;
-    planted_run.step.dependOn(&install_exe.step);
+    planted_run.step.dependOn(install_exe);
     const planted_step = b.step("map-editor-planted-leak", "Prove a planted Zig leak in MapEditor raises BkMemory's exit leak count by the planted 64 blocks");
     planted_step.dependOn(&planted_run.step);
 
@@ -10855,7 +10876,7 @@ fn addMapEditor(
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     smoke_run.has_side_effects = true;
-    smoke_run.step.dependOn(&install_exe.step);
+    smoke_run.step.dependOn(install_exe);
     // D-26 (revised 2026-09-29): the script's last steps switch to the
     // fixture mod and back, closing the map - staged here, never a
     // dependency of install-map-editor.
@@ -10893,7 +10914,7 @@ fn addMapEditor(
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     auto_run.has_side_effects = true;
-    auto_run.step.dependOn(&install_exe.step);
+    auto_run.step.dependOn(install_exe);
     // After the smoke run, so two engines never start at once.
     auto_run.step.dependOn(&smoke_run.step);
     // Test in game (the schedule's own `test` action) leaves the game's own
@@ -11339,7 +11360,7 @@ fn addMapEditor(
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     auto_m2_run.has_side_effects = true;
-    auto_m2_run.step.dependOn(&install_exe.step);
+    auto_m2_run.step.dependOn(install_exe);
     // After map-editor-auto (which itself runs after the smoke), so two
     // engines never start at once: this Zig has no ordering-only edge
     // (Build.Step has no mustRunAfter), so the M1 scenario runs first.
@@ -12233,7 +12254,7 @@ fn addMapEditor(
     setProfilesRootForTest(auto_m3_run, "map-editor-m3-auto-user");
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
-    auto_m3_run.step.dependOn(&install_exe.step);
+    auto_m3_run.step.dependOn(install_exe);
     // After the M2 scenario (which itself runs after M1's), so two engines
     // never start at once.
     auto_m3_run.step.dependOn(&cleanup_autoshots_m2.step);
@@ -12259,7 +12280,7 @@ fn addMapEditor(
     // starts are not file inputs of this step, so a cached pass would say
     // nothing about the installation now.
     game_reads_it_run.has_side_effects = true;
-    game_reads_it_run.step.dependOn(&install_exe.step);
+    game_reads_it_run.step.dependOn(install_exe);
     const game_reads_it_step = b.step("map-editor-game-reads-it", "Test-launch a unit the editor placed and prove the real Game plays it (D-01..D-09)");
     game_reads_it_step.dependOn(&game_reads_it_run.step);
 
@@ -12276,7 +12297,7 @@ fn addMapEditor(
     setProfilesRootForTest(game_reads_it_m2_run, "map-editor-game-reads-it-m2-user");
     game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
-    game_reads_it_m2_run.step.dependOn(&install_exe.step);
+    game_reads_it_m2_run.step.dependOn(install_exe);
     game_reads_it_m2_run.step.dependOn(&game_reads_it_run.step);
     // The games' own screenshot dumps stay in the stage root they ran from;
     // swept even when the scenario's own sweep was skipped by an early return.
@@ -12303,7 +12324,7 @@ fn addMapEditor(
     game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
     setProfilesRootForTest(game_reads_it_m3_run, "map-editor-game-reads-it-m3-user");
     game_reads_it_m3_run.has_side_effects = true;
-    game_reads_it_m3_run.step.dependOn(&install_exe.step);
+    game_reads_it_m3_run.step.dependOn(install_exe);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
     game_reads_it_m3_run.step.dependOn(craft_fixtures_step);
     const cleanup_autoshots_game_reads_m3 = b.addRunArtifact(delete_matching);
@@ -12345,10 +12366,10 @@ fn addMapEditor(
     l10n_auto_run.setEnvironmentVariable("BK_MAP_EDITOR_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     // Reads the staged installation and the tables, writes its frames under zig-out/local-test.
     l10n_auto_run.has_side_effects = true;
-    l10n_auto_run.step.dependOn(&install_exe.step);
+    l10n_auto_run.step.dependOn(install_exe);
     const l10n_auto_step = b.step("map-editor-l10n-auto", "Start the installed Map Editor hidden in each of the ten languages (ui_language in a scratch mapeditor.cfg), capture its main window with the menu bar, the Tools palette and the Settings dialog, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages) and the fit of the palette and the dialog, then a table missing one key: one l10n: missing line and the label drawn in English (M002 S05, D066)");
     l10n_auto_step.dependOn(&l10n_auto_tests.step);
-    l10n_auto_step.dependOn(&install_exe.step);
+    l10n_auto_step.dependOn(install_exe);
     if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
 
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
@@ -12360,8 +12381,7 @@ fn addMapEditor(
     // .console: a CI/local test tool, never packaged - its output is read
     // straight off the console it always had.
     configureMapEditorExecutable(engine_test, target, .console);
-    const install_engine_test = b.addInstallArtifact(engine_test, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_engine_test.step.dependOn(install_game_step);
+    const install_engine_test = installBesideGame(b, engine_test, stage_root, install_game_step, .{});
     const engine_test_run = b.addRunArtifact(engine_test);
     // A plain run, not the build's test protocol: in server mode the test
     // runner ends with std.process.exit, which on Windows skips the CRT's exit
@@ -12377,9 +12397,9 @@ fn addMapEditor(
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     engine_test_run.has_side_effects = true;
-    engine_test_run.step.dependOn(&install_engine_test.step);
+    engine_test_run.step.dependOn(install_engine_test);
     const engine_test_step = b.step("test-map-editor-engine", "Drive the real engine through the editor core's commands and check it agrees");
-    engine_test_step.dependOn(&install_engine_test.step);
+    engine_test_step.dependOn(install_engine_test);
     if (test_mode == .run) engine_test_step.dependOn(&engine_test_run.step);
 
     // Returned so the package steps (package-game, package-game-editors) can
@@ -12570,10 +12590,9 @@ fn addElk(
     }
 
     const stage_suffix = stage_root["zig-out/".len..];
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
     const install_step = b.step("install-elk", "Install ELK, the localisation kit, into the game installation");
-    install_step.dependOn(&install_exe.step);
+    install_step.dependOn(install_exe);
     // The bundled Noto faces and their licence beside the executable (D078);
     // kit/fonts.zig reads them from <exe dir>/Fonts/ or BK_FONT_DIR.
     const install_fonts = b.addInstallDirectory(.{
@@ -12585,7 +12604,7 @@ fn addElk(
     install_fonts.step.dependOn(install_game_step);
     install_step.dependOn(&install_fonts.step);
     // Every step that runs the installed ELK has the faces beside it.
-    install_exe.step.dependOn(&install_fonts.step);
+    install_exe.dependOn(&install_fonts.step);
 
     // The installed ELK on scratch copies of the tracked Data/ELK, in a
     // hidden window: the tree, the edit boxes, the state buttons and the
@@ -12599,9 +12618,9 @@ fn addElk(
     smoke_run.addArgs(&.{ "--smoke", rootPath(b, "Data/ELK"), rootPath(b, "zig-out/local-test/elk/app-smoke") });
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
-    smoke_run.step.dependOn(&install_exe.step);
+    smoke_run.step.dependOn(install_exe);
     const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod (by filter too) and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), the short layout started from its .upd files with Help, and the D-14 worker: the progress modal mid-run and its Cancel, a cancelled import leaving every file whole; Import from Game into a new database and Import from PAK/UPD of usa01.pak, cancelled, whole and repeated");
-    smoke_step.dependOn(&install_exe.step);
+    smoke_step.dependOn(install_exe);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 
     // M002 S04 D066: the installed ELK in each of the ten languages draws its main window, File
@@ -12638,10 +12657,10 @@ fn addElk(
     l10n_auto_run.setEnvironmentVariable("BK_ELK_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     // Reads Data/ELK and the tables, writes its frames under zig-out/local-test.
     l10n_auto_run.has_side_effects = true;
-    l10n_auto_run.step.dependOn(&install_exe.step);
+    l10n_auto_run.step.dependOn(install_exe);
     const l10n_auto_step = b.step("elk-l10n-auto", "Start the installed ELK hidden in each of the ten languages (ui_language in a scratch elk.cfg), capture its main window, File menu and help window, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages), then a table missing one key: one l10n: missing line and the label drawn in English (M002 S04, D066)");
     l10n_auto_step.dependOn(&l10n_auto_tests.step);
-    l10n_auto_step.dependOn(&install_exe.step);
+    l10n_auto_step.dependOn(install_exe);
     if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
 }
 
@@ -12724,17 +12743,15 @@ fn addResourceEditor(
 
     const stage_suffix = stage_root["zig-out/".len..];
     // Beside Game and MapEditor: the engine's roots are the installation.
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
     // Generate sides runs bk-views beside the editor, which runs bk-sprite beside
     // itself; there bk-sprite finds the engine libraries on every host.
     for (views_tools) |tool| {
-        const install_tool = b.addInstallArtifact(tool, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } }, .pdb_dir = .disabled });
-        install_tool.step.dependOn(install_game_step);
-        install_exe.step.dependOn(&install_tool.step);
+        const install_tool = installBesideGame(b, tool, stage_root, install_game_step, .{ .pdb_dir = .disabled });
+        install_exe.dependOn(install_tool);
     }
     const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
-    install_step.dependOn(&install_exe.step);
+    install_step.dependOn(install_exe);
     // The bundled Noto faces and their licence beside the executable (D078);
     // kit/fonts.zig reads them from <exe dir>/Fonts/ or BK_FONT_DIR.
     const install_fonts = b.addInstallDirectory(.{
@@ -12746,7 +12763,7 @@ fn addResourceEditor(
     install_fonts.step.dependOn(install_game_step);
     install_step.dependOn(&install_fonts.step);
     // Every step that runs the installed Resource Editor has the faces beside it.
-    install_exe.step.dependOn(&install_fonts.step);
+    install_exe.dependOn(&install_fonts.step);
 
     // Launched from zig-out like map-editor-host-check, for the same reason:
     // the editor finds its installation beside its own executable, whatever
@@ -12759,9 +12776,9 @@ fn addResourceEditor(
     run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
     // Reads the staged installation, not a file input of this step.
     run.has_side_effects = true;
-    run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_exe);
     const check_step = b.step("resource-editor-host-check", "Start ResourceEditor hidden on a new project and check ImGui draws over the engine's frame");
-    check_step.dependOn(&install_exe.step);
+    check_step.dependOn(install_exe);
     if (test_mode == .run) check_step.dependOn(&run.step);
 
     // The planted-leak proof (D083), as map-editor-planted-leak: the host
@@ -12781,7 +12798,7 @@ fn addResourceEditor(
     planted_run.addArg(rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     planted_run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check-planted.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
     planted_run.has_side_effects = true;
-    planted_run.step.dependOn(&install_exe.step);
+    planted_run.step.dependOn(install_exe);
     const planted_step = b.step("resource-editor-planted-leak", "Prove a planted Zig leak in ResourceEditor raises BkMemory's exit leak count by the planted 64 blocks");
     planted_step.dependOn(&planted_run.step);
 
@@ -12795,9 +12812,9 @@ fn addResourceEditor(
     batch_run.setCwd(b.path("zig-out"));
     batch_run.addArgs(&.{ "--batch-check", rootPath(b, "tools/zig/fixtures/resource_editor"), rootPath(b, "zig-out/local-test/resource_editor/batch") });
     batch_run.has_side_effects = true;
-    batch_run.step.dependOn(&install_exe.step);
+    batch_run.step.dependOn(install_exe);
     const batch_step = b.step("resource-editor-batch", "Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader");
-    batch_step.dependOn(&install_exe.step);
+    batch_step.dependOn(install_exe);
     if (test_mode == .run) batch_step.dependOn(&batch_run.step);
 
     // The project half of the smoke: a copy of the tracked .unt opened,
@@ -12808,9 +12825,9 @@ fn addResourceEditor(
     smoke_run.setCwd(b.path("zig-out"));
     smoke_run.addArgs(&.{ "--smoke-edit", rootPath(b, "tools/zig/fixtures/resource_editor/unt/project.unt"), rootPath(b, "zig-out/local-test/resource_editor/smoke") });
     smoke_run.has_side_effects = true;
-    smoke_run.step.dependOn(&install_exe.step);
+    smoke_run.step.dependOn(install_exe);
     const smoke_step = b.step("resource-editor-smoke", "Run ResourceEditor's scripted new/save/reopen and edit/undo/save byte-compare on tracked project fixtures");
-    smoke_step.dependOn(&install_exe.step);
+    smoke_step.dependOn(install_exe);
     // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
     const smoke_kind_run = b.addRunArtifact(exe);
     setLeakReportStrict(smoke_kind_run);
@@ -12818,7 +12835,7 @@ fn addResourceEditor(
     smoke_kind_run.setCwd(b.path("zig-out"));
     smoke_kind_run.addArgs(&.{ "--smoke", "unt", rootPath(b, "zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
     smoke_kind_run.has_side_effects = true;
-    smoke_kind_run.step.dependOn(&install_exe.step);
+    smoke_kind_run.step.dependOn(install_exe);
     smoke_run.step.dependOn(&smoke_kind_run.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 
@@ -12834,18 +12851,18 @@ fn addResourceEditor(
     });
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
     const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry: every per-editor resource-editor-auto-* step, in order");
-    auto_step.dependOn(&install_exe.step);
+    auto_step.dependOn(install_exe);
     // The aggregate's chain, so two engines never start at once.
     var chain: ?*std.Build.Step = null;
     inline for (resource_auto_steps) |auto| {
-        const alone = addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, auto, null);
+        const alone = addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, auto, null);
         const step_name = "resource-editor-auto-" ++ auto.name;
         const per_step = b.step(step_name, auto.about);
-        per_step.dependOn(&install_exe.step);
+        per_step.dependOn(install_exe);
         if (test_mode == .run) per_step.dependOn(alone);
         // The aggregate's own run of the same scenario, ordered after the one before it; a step run alone
         // does not pull the others in.
-        const chained = addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, auto, chain);
+        const chained = addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, auto, chain);
         chain = chained;
         if (test_mode == .run) auto_step.dependOn(chained);
     }
@@ -12860,8 +12877,8 @@ fn addResourceEditor(
     full3d_model.expectExitCode(0);
     full3d_model.has_side_effects = true;
     const full3d_step = b.step("resource-editor-full3d", "Write the full 3D models of e_wb/01 (intact and its two damage states) and of the prop ukrainewell/01 with bk-views model3d and show them in the Unit editor's preview, from the default camera and from the side, their parts picked as locators");
-    full3d_step.dependOn(&install_exe.step);
-    if (test_mode == .run) full3d_step.dependOn(addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, resource_auto_full3d, &full3d_model.step));
+    full3d_step.dependOn(install_exe);
+    if (test_mode == .run) full3d_step.dependOn(addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, resource_auto_full3d, &full3d_model.step));
 
     // resource-editor-game-reads-it: the exports of the object-side kinds played by the real Game. After the
     // smoke so two engines never start at once; its own scratch folder holds result.log, one KIND= line per
@@ -12879,13 +12896,13 @@ fn addResourceEditor(
     setModsRootForTest(game_reads_run, "resource-editor-game-reads-it-user");
     game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     game_reads_run.has_side_effects = true;
-    game_reads_run.step.dependOn(&install_exe.step);
+    game_reads_run.step.dependOn(install_exe);
     game_reads_run.step.dependOn(&smoke_run.step);
     const cleanup_game_reads = b.addRunArtifact(delete_matching);
     cleanup_game_reads.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
     cleanup_game_reads.step.dependOn(&game_reads_run.step);
     const game_reads_step = b.step("resource-editor-game-reads-it", "Export one resource per object-side kind into a mod, play shipped maps with it in the real Game and prove from BK_MOD_TRACE that it read each exported file (result.log)");
-    game_reads_step.dependOn(&install_exe.step);
+    game_reads_step.dependOn(install_exe);
     if (test_mode == .run) game_reads_step.dependOn(&cleanup_game_reads.step);
 
     // M002 S06 D066: the installed Resource Editor in each of the ten languages draws its main window
@@ -12920,11 +12937,11 @@ fn addResourceEditor(
     l10n_auto_run.setEnvironmentVariable("BK_RESOURCE_EDITOR_EXE", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     // Reads the tables and the fixtures, writes its frames under zig-out/local-test.
     l10n_auto_run.has_side_effects = true;
-    l10n_auto_run.step.dependOn(&install_exe.step);
+    l10n_auto_run.step.dependOn(install_exe);
     l10n_auto_run.step.dependOn(&smoke_run.step);
     const l10n_auto_step = b.step("resource-editor-l10n-auto", "Start the installed Resource Editor hidden in each of the ten languages (ui_language in a scratch resourceeditor.cfg), capture its main window with the menu bar, and measure every label by code against hb-view's raster of the table's text (Hindi headline and i matra, the regional Han face for zh-Hans and ja, a frame that differs from English for the Latin languages), then a table missing one key: one l10n: missing line and the label drawn in English (M002 S06, D066)");
     l10n_auto_step.dependOn(&l10n_auto_tests.step);
-    l10n_auto_step.dependOn(&install_exe.step);
+    l10n_auto_step.dependOn(install_exe);
     if (test_mode == .run) l10n_auto_step.dependOn(&l10n_auto_run.step);
     return exe;
 }
@@ -14757,9 +14774,7 @@ fn addEngineHostedTool(
     // so this has to live in the installation it starts - but a test binary has
     // no business in a release layout or a package, so it is installed on its
     // own and stage.zig never hears about it.
-    const stage_suffix = stage_root["zig-out/".len..];
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
@@ -14772,7 +14787,7 @@ fn addEngineHostedTool(
     // that is killed halfway must not leave a map behind in the installation.
     run.addArg(rootPath(b, "zig-out/local-test"));
     for (extra_args) |arg| run.addArg(arg);
-    run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_exe);
     const step = b.step(step_name, step_description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -15172,9 +15187,7 @@ fn addResourceModelComparatorTest(
         .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
         else => {},
     }
-    const stage_suffix = stage_root["zig-out/".len..];
-    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
-    install_exe.step.dependOn(install_game_step);
+    const install_exe = installBesideGame(b, exe, stage_root, install_game_step, .{});
 
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
@@ -15186,7 +15199,7 @@ fn addResourceModelComparatorTest(
     run.addArg(rootPath(b, "Data"));
     run.addArg(rootPath(b, "tools/zig/fixtures/resource_editor"));
     run.has_side_effects = true;
-    run.step.dependOn(&install_exe.step);
+    run.step.dependOn(install_exe);
     const step = b.step("test-resource-model-comparator", "D-11 comparator: shipped stats read by the engine's own readers equal themselves, planted float/dropped/unknown/byte/DXT changes fail, goldens reported pending");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);

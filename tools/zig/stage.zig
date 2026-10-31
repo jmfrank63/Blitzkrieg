@@ -78,6 +78,23 @@ pub fn main(init: std.process.Init) !void {
     var args = try std.process.Args.Iterator.initAllocator(init.minimal.args, init.gpa);
     defer args.deinit();
     _ = args.skip();
+    // `stage-game --drop-rpaths <file>...`: the executables build.zig installs beside Game on
+    // their own (the editors, ELK, the engine-hosted tests) never pass through stage(), so
+    // their installs run this on the installed copy.
+    var probe = try std.process.Args.Iterator.initAllocator(init.minimal.args, init.gpa);
+    defer probe.deinit();
+    _ = probe.skip();
+    if (probe.next()) |first| if (std.mem.eql(u8, first, "--drop-rpaths")) {
+        _ = args.next();
+        if (@import("builtin").os.tag != .macos) return;
+        while (args.next()) |path| {
+            // The tools run in the file's own folder: a child cannot start in Dir.cwd()'s handle.
+            var dir = std.Io.Dir.cwd().openDir(init.io, std.fs.path.dirname(path) orelse ".", .{}) catch |err| return failStep("open the installed file's folder", err);
+            defer dir.close(init.io);
+            dropFileBuildRpaths(init.io, init.gpa, dir, std.fs.path.basename(path)) catch |err| return failStep("drop build rpaths", err);
+        }
+        return;
+    };
     var options = try parseArgs(&args, init.gpa);
     defer options.deinit(init.gpa);
     try stage(init.io, init.gpa, options.value);
@@ -332,14 +349,20 @@ fn dropBuildRpaths(io: std.Io, allocator: std.mem.Allocator, destination: std.Io
     var iterator = dir.iterate();
     while (try iterator.next(io)) |entry| {
         if (entry.kind != .file) continue;
-        const image = dir.readFileAlloc(io, entry.name, allocator, .limited(512 << 20)) catch continue;
-        defer allocator.free(image);
-        var paths: [32][]const u8 = undefined;
-        const drop = buildRpaths(image, &paths);
-        if (drop.len == 0) continue;
-        for (drop) |path| try runTool(io, allocator, dir, &.{ "install_name_tool", "-delete_rpath", path, entry.name });
-        try runTool(io, allocator, dir, &.{ "codesign", "--force", "--sign", "-", entry.name });
+        try dropFileBuildRpaths(io, allocator, dir, entry.name);
     }
+}
+
+/// One file of dropBuildRpaths; anything that is not a thin 64-bit Mach-O, or reads as none, is
+/// left alone.
+fn dropFileBuildRpaths(io: std.Io, allocator: std.mem.Allocator, dir: std.Io.Dir, name: []const u8) !void {
+    const image = dir.readFileAlloc(io, name, allocator, .limited(512 << 20)) catch return;
+    defer allocator.free(image);
+    var paths: [32][]const u8 = undefined;
+    const drop = buildRpaths(image, &paths);
+    if (drop.len == 0) return;
+    for (drop) |path| try runTool(io, allocator, dir, &.{ "install_name_tool", "-delete_rpath", path, name });
+    try runTool(io, allocator, dir, &.{ "codesign", "--force", "--sign", "-", name });
 }
 
 fn runTool(io: std.Io, allocator: std.mem.Allocator, cwd: std.Io.Dir, argv: []const []const u8) !void {
