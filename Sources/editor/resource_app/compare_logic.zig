@@ -93,6 +93,21 @@ fn allocatorOwnedTurns(arena: std.mem.Allocator, turns: []const usize) ![]usize 
     return arena.dupe(usize, turns);
 }
 
+/// The shipped 2003 folder the compare cell starts from: the variant path's
+/// own spine re-rooted at `Data/`, so
+/// `Z:/install/mods/.../data/buildings/europe/summer/e_wb` prefills
+/// `Data/Buildings/europe/summer/e_wb` — the same building in the shipped
+/// data, whatever climate and season its family lives in. Null when the
+/// path has no buildings spine or the buffer does not fit.
+pub fn prefillFolder(buffer: []u8, variant_path: []const u8) ?[]const u8 {
+    // Case-insensitive spine search on short paths: lowercase copies and find.
+    var lowered: [512]u8 = undefined;
+    if (variant_path.len > lowered.len) return null;
+    const lowered_slice = std.ascii.lowerString(lowered[0..variant_path.len], variant_path);
+    const at = std.mem.indexOf(u8, lowered_slice, "buildings/") orelse return null;
+    return std.fmt.bufPrint(buffer, "Data/{s}", .{variant_path[at..]}) catch null;
+}
+
 test "transformPicture mirrors the pixels and moves the cross" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
@@ -120,6 +135,13 @@ test "transformPicture rotates 180: pixels reversed both ways, cross with them" 
     try std.testing.expectEqual(@as(i32, 0), rotated.anchor[1]);
     try std.testing.expectEqual(pixels[0], rotated.image.pixels[5]);
     try std.testing.expectEqual(pixels[5], rotated.image.pixels[0]);
+}
+
+test "prefillFolder re-roots the variant path's spine at Data, any case" {
+    var buffer: [256]u8 = undefined;
+    const prefill = prefillFolder(&buffer, "Z:/Install/Mods/m/data/buildings/europe/Summer/e_wb").?;
+    try std.testing.expectEqualStrings("Data/buildings/europe/Summer/e_wb", prefill);
+    try std.testing.expect(prefillFolder(&buffer, "Z:/somewhere/else") == null);
 }
 
 test "the shipped shed is the original side and a copied pack reads as its turn" {

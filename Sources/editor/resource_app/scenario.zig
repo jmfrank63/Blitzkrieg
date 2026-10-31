@@ -78,6 +78,12 @@
 //!          sides_missing:<n>  the Sides cells drawn as missing in the last frame
 //!          shot_sides:<shot>/<n>  every Sides cell's picture, as drawn in the last frame, holds at least n pixels
 //!          that are not the cell's ground colour (a missing side fails)
+//!   do=sides_compare:<variant>   the compare cell on, its folder the shipped building <variant>
+//!                           (below Data/Buildings); the cell shows that 2003 pack for the chosen look
+//!   do=sides_mirror        the selected cell's display flipped (compare_logic's transform), waited for
+//!          shot_compare:<shot>/<n>  the compare cell's picture holds at least n pixels that are not the ground colour
+//!          shot_compare_mirror:<mirror>/<upright>  the compare cell holds exactly as many side pixels in both shots
+//!                           (a mirror is a pure transform, so the count cannot move)
 //!   do=image_select         the first objective, mission or chapter made the active item (the tree's selection)
 //!   do=image_click:<x>/<y>  a pointer click on that picture pixel (place mode: the active item goes there)
 //!   do=image_crosses:<on|off>   the Show crosses checkbox clicked
@@ -983,6 +989,8 @@ const Runner = struct {
         if (eql(u8, name, "image_open")) return self.imageOpen();
         if (eql(u8, name, "sides_open")) return self.sidesOpen(named.arg);
         if (eql(u8, name, "sides_generate")) return self.sidesGenerate();
+    if (eql(u8, name, "sides_compare")) return self.sidesCompare(named.arg);
+    if (eql(u8, name, "sides_mirror")) return self.sidesMirror();
         if (eql(u8, name, "sides_look")) return self.sidesLook(named.arg);
         if (eql(u8, name, "sides_import")) return self.sidesImport(named.arg);
         if (eql(u8, name, "image_select")) return self.imageSelect();
@@ -1803,6 +1811,101 @@ const Runner = struct {
             if (ground == 0) return self.fail("expect=shot_sides:{s}: turn {d}'s cell ground is not in the shot", .{ arg, k });
             if (count < least) return self.fail("expect=shot_sides:{s} was false: turn {d} holds {d} pixels, at least {d} wanted", .{ arg, k, count, least });
         }
+        return null;
+    }
+
+    /// do=sides_compare:<variant>: the compare cell on, its folder the
+    /// shipped 2003 building `<base_root>/Data/Buildings/<variant>` — the
+    /// side the generated turns are judged against.
+    fn sidesCompare(self: *Runner, arg: []const u8) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        var buffer: [logic.path_capacity]u8 = undefined;
+        const folder = std.fmt.bufPrint(&buffer, "{s}Data{c}Buildings{c}{s}", .{ self.base_root, std.fs.path.sep, std.fs.path.sep, arg }) catch return self.fail("the path is too long", .{});
+        s.compare = true;
+        @memcpy(s.compare_folder[0..folder.len], folder);
+        if (folder.len < s.compare_folder.len) @memset(s.compare_folder[folder.len..], 0);
+        s.key_len = 0;
+        var pumped: u32 = 0;
+        while (pumped < 2) : (pumped += 1) if (self.pumpFrame("sides_compare")) |why| return why;
+        if (s.shown_compare == null) return self.fail("sides_compare: the compare cell drew nothing for {s}", .{folder});
+        std.debug.print("resource-editor: auto: compare cell of {s} drawn\n", .{folder});
+        return null;
+    }
+
+    /// do=sides_mirror: the selected cell's display flipped, judged against
+    /// the untransformed compare cell.
+    fn sidesMirror(self: *Runner) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        s.mode = .mirrored;
+        s.key_len = 0;
+        var pumped: u32 = 0;
+        while (pumped < 2) : (pumped += 1) if (self.pumpFrame("sides_mirror")) |why| return why;
+        return null;
+    }
+
+    /// The compare cell's side-pixel count in a shot: the pixels of the
+    /// cell's rect that are not its ground colour. A `failure` carries the
+    /// runner's message.
+    fn compareCount(self: *Runner, what: []const u8, key: []const u8, bytes: *[]u8) union(enum) { count: usize, failure: []const u8 } {
+        const docks = if (self.docks) |*d| d else return .{ .failure = self.fail("{s}: the Sides window is not open (do=sides_open first)", .{what}) };
+        const s = &docks.sides;
+        const shown = s.shown_compare orelse return .{ .failure = self.fail("{s}: the compare cell was not drawn", .{what}) };
+        const shot = self.loadShot(what, key, bytes) orelse return .{ .failure = self.failure };
+        const x0: u32 = @intFromFloat(@max(0, @ceil(shown.x * shot.scale)));
+        const y0: u32 = @intFromFloat(@max(0, @ceil(shown.y * shot.scale)));
+        const x1: u32 = @min(shot.tga.width, @as(u32, @intFromFloat(@floor((shown.x + shown.w) * shot.scale))));
+        const y1: u32 = @min(shot.tga.height, @as(u32, @intFromFloat(@floor((shown.y + shown.h) * shot.scale))));
+        var count: usize = 0;
+        var ground: usize = 0;
+        var y = y0;
+        while (y < y1) : (y += 1) {
+            var x = x0;
+            while (x < x1) : (x += 1) {
+                const p = shot.tga.pixel(x, y);
+                const is_ground = p[2] == sides_dock.ground_rgb[0] and p[1] == sides_dock.ground_rgb[1] and p[0] == sides_dock.ground_rgb[2];
+                ground += @intFromBool(is_ground);
+                count += @intFromBool(!is_ground);
+            }
+        }
+        if (ground == 0) return .{ .failure = self.fail("{s}: the compare cell's ground is not in the shot", .{what}) };
+        return .{ .count = count };
+    }
+
+    /// `shot_compare:<shot>/<n>`: the compare cell's picture holds at least
+    /// n pixels that are not its ground colour (a missing side fails).
+    fn shotCompare(self: *Runner, arg: []const u8) ?[]const u8 {
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_compare needs <shot>/<n>", .{});
+        const least = std.fmt.parseInt(usize, arg[slash + 1 ..], 10) catch return self.fail("shot_compare needs <shot>/<n>", .{});
+        var bytes: []u8 = &.{};
+        defer self.gpa.free(bytes);
+        const count = switch (self.compareCount("shot_compare", arg[0..slash], &bytes)) {
+            .count => |got| got,
+            .failure => |why| return why,
+        };
+        if (count < least) return self.fail("expect=shot_compare:{s} was false: the compare cell holds {d} pixels, at least {d} wanted", .{ arg, count, least });
+        std.debug.print("resource-editor: auto: compare cell holds {d} side pixels\n", .{count});
+        return null;
+    }
+
+    /// `shot_compare_mirror:<mirror>/<upright>`: the compare cell holds
+    /// exactly as many side pixels in the mirrored frame as in the upright
+    /// one — a mirror is a pure transform, so the count cannot move.
+    fn shotCompareMirror(self: *Runner, arg: []const u8) ?[]const u8 {
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_compare_mirror needs <mirror>/<upright>", .{});
+        var bytes_m: []u8 = &.{};
+        defer self.gpa.free(bytes_m);
+        var bytes_u: []u8 = &.{};
+        defer self.gpa.free(bytes_u);
+        const mirrored = switch (self.compareCount("shot_compare_mirror", arg[0..slash], &bytes_m)) {
+            .count => |got| got,
+            .failure => |why| return why,
+        };
+        const upright = switch (self.compareCount("shot_compare_mirror", arg[slash + 1 ..], &bytes_u)) {
+            .count => |got| got,
+            .failure => |why| return why,
+        };
+        if (mirrored != upright) return self.fail("expect=shot_compare_mirror:{s} was false: the mirrored cell holds {d} pixels, the upright one {d}", .{ arg, mirrored, upright });
+        std.debug.print("resource-editor: auto: mirror holds {d} side pixels, upright {d}\n", .{ mirrored, upright });
         return null;
     }
 
@@ -3049,6 +3152,8 @@ const Runner = struct {
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         if (eql(u8, name, "shot_mark_cross")) return self.shotMarkCross(arg);
         if (eql(u8, name, "shot_sides")) return self.shotSides(arg);
+        if (eql(u8, name, "shot_compare")) return self.shotCompare(arg);
+        if (eql(u8, name, "shot_compare_mirror")) return self.shotCompareMirror(arg);
         if (eql(u8, name, "sides_missing")) {
             const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("sides_missing needs a count", .{});
             const view = self.sides() orelse return self.failure;
