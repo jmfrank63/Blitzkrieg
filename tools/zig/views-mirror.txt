@@ -1,0 +1,6 @@
+# The mirror list of the Remastered views (2026-10-31 spec): one line per
+# object, `<family>/<variant>[ <camera step>...]`, `#` comments. A listed
+# turn's pictures are written mirrored horizontally and its zero cross
+# mirrors with them; the shadow stays the true mesh's. Judged in the
+# Resource Editor's compare cell, applied here by re-running install-all.
+# Empty until the maintainer lists an object.

@@ -10171,6 +10171,8 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // step s.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
             side.addArgs(&.{ "side", data, if (building) "1,2,3,1l1,2l2,3l3," ++ facing_shadows else "1,2,3,1l1,2l2,3l3," ++ prop_shadows });
+            side.addArg("--mirror=tools/zig/views-mirror.txt");
+            side.addFileInput(b.path("tools/zig/views-mirror.txt"));
             const turns = side.addOutputDirectoryArg(name);
             side.addArg("--no-work");
             _ = side.addPrefixedDepFileOutputArg("--deps=", "deps.d");

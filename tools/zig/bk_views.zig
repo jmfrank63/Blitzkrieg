@@ -68,6 +68,52 @@ pub fn main(init: std.process.Init) u8 {
 var deps_path: ?[]const u8 = null;
 var no_work = false;
 
+/// The mirror list `--mirror=` names: lines `<family>/<variant>[ <step>...]`,
+/// `#` comments. A listed turn's pictures are written mirrored horizontally
+/// and its zero cross mirrors with them (the anchor is part of the pixels);
+/// its shadow packs and its ground do not flip — the flag is the maintainer's
+/// judgement from the compare view, and with the engine casting shadows from
+/// the mesh the shadow stays the true one whatever the picture says.
+pub const MirrorList = struct {
+    const Entry = struct { object: []const u8, steps: ?[]const u8 };
+
+    entries: std.ArrayList(Entry) = .empty,
+
+    pub fn parse(arena: std.mem.Allocator, bytes: []const u8) !MirrorList {
+        var list: MirrorList = .{};
+        var lines = std.mem.splitScalar(u8, bytes, '\n');
+        while (lines.next()) |line_raw| {
+            const line = std.mem.trim(u8, line_raw, " \t\r");
+            if (line.len == 0 or line[0] == '#') continue;
+            var parts = std.mem.splitScalar(u8, line, ' ');
+            const object = parts.next() orelse continue;
+            const rest = std.mem.trim(u8, parts.rest(), " \t");
+            try list.entries.append(arena, .{
+                .object = try arena.dupe(u8, object),
+                .steps = if (rest.len > 0) try arena.dupe(u8, rest) else null,
+            });
+        }
+        return list;
+    }
+
+    /// Whether the object's turn (a camera step 1..3) is listed. A line
+    /// without steps covers every turn of the object.
+    pub fn covers(self: *const MirrorList, object: []const u8, step: u2) bool {
+        for (self.entries.items) |entry| {
+            if (!std.mem.eql(u8, entry.object, object)) continue;
+            const steps = entry.steps orelse return true;
+            var parts = std.mem.splitScalar(u8, steps, ' ');
+            while (parts.next()) |part| {
+                const parsed = std.fmt.parseInt(u2, std.mem.trim(u8, part, " \t"), 10) catch continue;
+                if (parsed == step) return true;
+            }
+        }
+        return false;
+    }
+};
+
+var mirror_path: ?[]const u8 = null;
+
 fn run(ctx: *bk_tool.Context) !void {
     if (ctx.args.len == 0) return error.Usage;
     const command = ctx.args[0];
@@ -78,6 +124,8 @@ fn run(ctx: *bk_tool.Context) !void {
                 deps_path = arg["--deps=".len..];
             } else if (std.mem.eql(u8, command, "side") and std.mem.eql(u8, arg, "--no-work")) {
                 no_work = true;
+            } else if (std.mem.eql(u8, command, "side") and std.mem.startsWith(u8, arg, "--mirror=") and arg.len > "--mirror=".len) {
+                mirror_path = arg["--mirror=".len..];
             } else try kept.append(ctx.arena, arg);
         }
         ctx.args = kept.items;
@@ -189,6 +237,19 @@ pub const Pack = formats.Pack;
 pub const decodePack = formats.decodePack;
 pub const writePackJson = formats.writePackJson;
 pub const Image = formats.Image;
+
+/// The picture mirrored horizontally: the mirror list's flip. The zero cross
+/// is not part of the picture; the caller mirrors it with the same rule
+/// (x -> width - 1 - x).
+pub fn mirrorImage(arena: std.mem.Allocator, image: Image) !Image {
+    const w: usize = image.width;
+    const h: usize = image.height;
+    const out: Image = .{ .width = image.width, .height = image.height, .pixels = try arena.alloc([4]u8, image.pixels.len) };
+    for (0..h) |y| for (0..w) |x| {
+        out.pixels[y * w + x] = image.pixels[y * w + (w - 1 - x)];
+    };
+    return out;
+}
 pub const readDds = formats.readDds;
 pub const writePng = formats.writePng;
 pub const readStoredPng = formats.readStoredPng;
@@ -4243,6 +4304,16 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     const dir = try bk_tool.inputPath(arena, dir_arg);
     const out = try bk_tool.inputPath(arena, out_arg);
     const work = if (no_work) try std.fs.path.join(arena, &.{ out, ".work" }) else try bk_tool.inputPath(arena, work_arg);
+    // The mirror list, when the run names one. A missing file is an empty
+    // list: nothing is mirrored until the maintainer lists it.
+    var mirror_list: ?MirrorList = null;
+    if (mirror_path) |path| {
+        const bytes = cwd.readFileAlloc(io, path, arena, .limited(1 << 20)) catch |err| switch (err) {
+            error.FileNotFound => null,
+            else => return err,
+        };
+        if (bytes) |list_bytes| mirror_list = try MirrorList.parse(arena, list_bytes);
+    }
     // A turn k (`<variant>_r<k>`, lit by the 2003 light fixed to the camera),
     // or `<k>l<s>`: turn k lit by the sun fixed in the world as camera step s
     // shows it (`<variant>_r<k>_l<s>`, the light of turn k - s, M006 round 2),
@@ -4314,7 +4385,20 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const mirror = turned.mirror;
         // One zero cross for every picture of a turn (the engine's packs share
         // it): a full 3D model's where its 2003 picture stands (`artAlong`).
-        const zero = if (fallback) target.eye.anchor else if (scene.full3d.len > 0) zeroAlong(target, scene.art_along) else footprintZero(scene, target);
+        var zero = if (fallback) target.eye.anchor else if (scene.full3d.len > 0) zeroAlong(target, scene.art_along) else footprintZero(scene, target);
+        // The mirror list's flip for this object and camera step: the
+        // pictures are written mirrored and the zero cross mirrors with them
+        // (its x against the canvas width). The flag is the maintainer's
+        // compare-view judgement, per object and per step; the shadow packs
+        // and the ground of the turn stay unflipped.
+        var family_buffer: [256]u8 = undefined;
+        const object_key = blk: {
+            const family = std.fs.path.basename(std.fs.path.dirname(dir_arg) orelse break :blk scene.name);
+            break :blk std.fmt.bufPrint(&family_buffer, "{s}/{s}", .{ family, scene.name }) catch scene.name;
+        };
+        const listed_mirror = if (mirror_list) |*list| list.covers(object_key, target.turn) else false;
+        const mirrored = listed_mirror and !alone;
+        if (mirrored) zero[0] = @as(i32, @intCast(target.size[0])) - 1 - zero[0];
         var report: std.Io.Writer.Allocating = .init(arena);
         const r = &report.writer;
         try r.print("{{\"variant\":\"{s}\",\"side\":{d},\"turn\":{d},\"new_side\":{d},\"full3d\":{},\"fallback\":{},\"mirror\":{},\"sibling\":\"{s}\",\"hand\":{},\"shape\":{{\"height\":{d:.3},\"ground\":{d:.3},\"cover\":{d:.3},\"protrusion\":{d:.4},\"protrusion_2003\":{d:.4},\"low\":{d:.0},\"low_kept\":{d:.0},\"roof\":{d:.0},\"roof_kept\":{d:.0},\"stretch\":{d:.4},\"copied\":{d:.0},\"chimney\":{d:.0},\"chimney_kept\":{d:.0},\"painted\":{d:.0},\"failure\":\"{s}\"}},\n", .{ scene.name, scene.own_side, target.turn, new_side, scene.full3d.len > 0, fallback, mirror, turned.sibling orelse "", scene.hand != null, shape.height, shape.ground, shape.cover, shape.protrusion, shape.protrusion_2003, shape.low, shape.low_kept, shape.roof, shape.roof_kept, shape.stretch, shape.copied, shape.chimney, shape.chimney_kept, shape.painted, failure orelse "" });
@@ -4343,18 +4427,36 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             // A shadow alone is cut under the picture the Game shows with it:
             // the turn's own (`_r<k>`, the same model seen the same way), at
             // turn 0 the 2003 picture laid at the turn's zero cross.
+            // The mirror list's flip is on the state's picture only: the
+            // zero cross was already mirrored with it above, and the
+            // shadow's cut and cast stay the true mesh's.
             const cut = if (alone and target.turn == 0) try placeOwn(arena, pictureOf(own, d.state) orelse d.sprite.image, own.anchor, zero, target.size) else d.sprite.image;
+            const state_picture = if (mirrored) try mirrorImage(arena, cut) else cut;
             // Cast as a vehicle's: the full 3D model flattened on the ground
             // along the Game's sun, its season's, as the step shows it.
             const cast = if (alone and scene.full3d.len > 0) try model3d.shadowToward(arena, scene.modelFor(d.state).?, target.turn, lightFor(if (std.mem.indexOfScalar(u8, d.state, 'w') != null) sun_winter else sun_summer, target.light), target.eye.anchor, target.size) else d.shadow;
             if (alone) keepShadow(cut, cast);
-            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, cut));
+            try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{d.state}), try writePng(arena, state_picture));
             try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{shadow_name}), try writePng(arena, cast));
             try writePictureReport(ctx, r, map_dir, d.state, d.sprite, d.covers, &first_picture);
             if (!fallback) try writeOut(ctx, map_dir, try std.fmt.allocPrint(arena, "{s}_shape.png", .{d.state}), try writePng(arena, try shapePicture(arena, d.blocks, target)));
             var argv: std.ArrayList([]const u8) = .empty;
             const grid = try turnGrid(arena, own.footprint, target.turn);
-            const locked = lockedCenter(.{ @floatCast(grid.origin[0]), @floatCast(grid.origin[1]) });
+            // The mirrored picture drives through the mirrored pass grid: its
+            // rows reverse and the locked tile's centre crosses with them.
+            var pass_rows: []const []const u8 = grid.rows;
+            const locked_center = lockedCenter(.{ @floatCast(grid.origin[0]), @floatCast(grid.origin[1]) });
+            var locked = [2]i32{ locked_center[0], locked_center[1] };
+            if (mirrored and grid.rows.len > 0) {
+                const mirrored_rows = try arena.alloc([]const u8, grid.rows.len);
+                for (grid.rows, 0..) |row, i| {
+                    const copy = try arena.dupe(u8, row);
+                    std.mem.reverse(u8, copy);
+                    mirrored_rows[i] = copy;
+                }
+                pass_rows = mirrored_rows;
+                locked[0] = @as(i32, @intCast(grid.rows[0].len)) - locked[0];
+            }
             try argv.appendSlice(arena, &.{
                 sprite_tool,
                 "compose-pack",
@@ -4366,7 +4468,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
                 "--force",
             });
             // A prop with no passable grid (a box, a barrel) has none to lock.
-            if (grid.rows.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", grid.rows), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
+            if (grid.rows.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", pass_rows), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
             if (d.ground) |g| if (!alone) {
                 try writeOut(ctx, pictures_dir, try std.fmt.allocPrint(arena, "{s}.png", .{ground_name}), try writePng(arena, g.image));
                 try writePictureReport(ctx, r, map_dir, ground_name, g, &.{}, &first_picture);
