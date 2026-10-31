@@ -106,48 +106,7 @@ git add Sources/editor/resource_app/compare_logic.zig
 git commit -m "feat(resource-editor): compare frame logic — pack discovery, strip, flip/rotate transforms"
 ```
 
-### Task 2: The bridge function that decodes one pack picture
-
-**Files:**
-- Modify: `Sources/src/EditorBridge/bridge.cpp` (next to `BkEditorObjectPicture`, line ~1624; reuse its `WritePicture` tail)
-- Modify: the EditorBridge C header the Zig `c_bridge.zig` binds (search `BkEditorObjectPicture` in `Sources/src/EditorBridge/*.h`)
-- Modify: `Sources/editor/resource_app/c_bridge.zig` (the Zig binding)
-- Test: `tools/zig/resource_bridge_test.cpp` (the bridge's own test pattern, see the `BkEditorMinimapImage` checks around line 8609)
-
-- [ ] **Step 1: The C++ export**
-
-```cpp
-// One picture of a sprite pack at an explicit absolute path, for the
-// compare frame: the decoded RGBA (WritePicture's tail), the real size,
-// and the picture's anchor cross in image coordinates. Takes the pack
-// folder and the picture file name separately so the mod side and the
-// 2003 side differ only in the folder. The session's active mod is not
-// touched - the compare must not disturb the other editors.
-BkEditorStatus BkEditorPackPicture( BkEditorSession *pSession, const char *pszPackFolder,
-                                    const char *pszPictureName,
-                                    unsigned char *pOutRgba, int nCapacityBytes, int nMaxSide,
-                                    int *pnOutWidth, int *pnOutHeight,
-                                    int *pnOutAnchorX, int *pnOutAnchorY );
-```
-
-Decode through the engine's own pack reader (the reader the Sprite/Object editors use for frames and references), the folder joined with the picture name through a case-insensitive file probe (the `DataFile` helper pattern from `tools/zig/editor_bridge_test.cpp`). `REFUSED` with a message when the pack or the picture is missing - the compare frame shows the reason, it never guesses.
-
-- [ ] **Step 2: The bridge test**
-
-In `resource_bridge_test.cpp`: a fixture pack from the tracked fixtures, assert the decode returns the known size and anchor, and REFUSED for a missing picture name.
-
-- [ ] **Step 3: Zig binding + run**
-
-Bind it in `c_bridge.zig`; run `zig build test-editor-bridge` (single build, generous timeout).
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add Sources/src/EditorBridge Sources/editor/resource_app/c_bridge.zig
-git commit -m "feat(editor-bridge): BkEditorPackPicture decodes one pack picture with its anchor"
-```
-
-### Task 3: The toggle and the split drawing in the image frame
+### Task 2: The toggle and the split drawing in the image frame
 
 **Files:**
 - Modify: `Sources/editor/resource_app/docks.zig` (the ImageFrm draw + input forwarding)
@@ -172,7 +131,7 @@ git add Sources/editor/resource_app/docks.zig Sources/editor/resource_app/compar
 git commit -m "feat(resource-editor): Compare Remastered toggle splits the image frame"
 ```
 
-### Task 4: Thumbnail strip and right-pane selection
+### Task 3: Thumbnail strip and right-pane selection
 
 **Files:**
 - Modify: `Sources/editor/resource_app/docks.zig`
@@ -197,7 +156,7 @@ git add Sources/editor/resource_app/docks.zig
 git commit -m "feat(resource-editor): compare strip, flip and rotate for the Remastered pane"
 ```
 
-### Task 5: The pixel-measured scenario check
+### Task 4: The pixel-measured scenario check
 
 **Files:**
 - Create: `tools/zig/fixtures/remastered_compare/` (fixture building: an original picture with a known anchor; a remastered pack with state 1 intact and state 2 damaged, steps 1-3 and one lit variant)
