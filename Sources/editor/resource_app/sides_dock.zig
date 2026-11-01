@@ -75,6 +75,10 @@ pub const Sides = struct {
     /// The compare cell's shown rect, for the scenario's checks beside the
     /// regular cells' `shown`.
     shown_compare: ?Rect = null,
+    /// The installation's `Data` folder, beside this editor's own
+    /// executable: the shipped-2003 folder guesses root here, so the compare
+    /// works no matter which directory the editor was started from.
+    data_root: [logic.path_capacity]u8 = @splat(0),
     /// The last Generate or Import failed.
     failed: bool = false,
     /// Where each cell's picture was drawn in the last frame (null: missing), for the auto tier.
@@ -83,7 +87,20 @@ pub const Sides = struct {
     override: ?Rect = null,
 
     pub fn init(gpa: std.mem.Allocator, io: std.Io) Sides {
-        return .{ .gpa = gpa, .io = io };
+        var self: Sides = .{ .gpa = gpa, .io = io };
+        if (std.process.executableDirPath(self.io, &self.data_root)) |len| {
+            // The Data folder sits beside this editor's own executable; trim
+            // to the filled length and keep it NUL-terminated.
+            if (len + 1 < self.data_root.len) {
+                self.data_root[len] = '/';
+                self.data_root[len + 1] = 'D';
+                self.data_root[len + 2] = 'a';
+                self.data_root[len + 3] = 't';
+                self.data_root[len + 4] = 'a';
+                self.data_root[len + 5] = 0;
+            }
+        } else |_| {}
+        return self;
     }
 
     pub fn deinit(self: *Sides) void {
@@ -146,8 +163,16 @@ pub const Sides = struct {
         if (sl.defaultVariant(&buffer, settings.exportDirSlice(), path)) |variant| {
             self.setVariant(variant);
             // The compare cell's first guess: the same building in the
-            // shipped data, whose spine the exported variant path carries.
-            if (compare_logic.prefillFolder(&self.compare_folder, variant) != null) self.key_len = 0;
+            // installation's shipped data, absolute so it reads no matter
+            // which directory the editor was started from.
+            if (compare_logic.spineAfterBuildings(variant)) |spine| {
+                const data_root = std.mem.sliceTo(&self.data_root, 0);
+                if (data_root.len != 0) {
+                    if (std.fmt.bufPrint(&self.compare_folder, "{s}/{s}", .{ data_root, spine })) |_| {
+                        self.key_len = 0;
+                    } else |_| {}
+                }
+            }
         }
     }
 
@@ -344,16 +369,25 @@ pub const Sides = struct {
             slot.* = .{ .texture = texture, .width = @floatFromInt(image.width), .height = @floatFromInt(image.height) };
         }
         // The compare cell: the shipped 2003 building's own pack for the same
-        // look, upright whatever the selected cell's transform is.
+        // look, upright whatever the selected cell's transform is. A folder
+        // typed relative reads where the editor was started from first, then
+        // beside its own Data — the prefill is absolute, but a hand-typed
+        // one need not be.
         self.compare_texture = null;
         self.compare_anchor = null;
         const compare_folder = std.mem.sliceTo(&self.compare_folder, 0);
         if (self.compare and compare_folder.len != 0) {
             var arena_state = std.heap.ArenaAllocator.init(self.gpa);
             defer arena_state.deinit();
-            if (compare_logic.originalPicture(arena_state.allocator(), self.io, compare_folder, self.look) catch null) |picture| {
-                self.compare_anchor = picture.anchor;
-                const image = picture.image;
+            const data_root = std.mem.sliceTo(&self.data_root, 0);
+            var picture = (compare_logic.originalPicture(arena_state.allocator(), self.io, compare_folder, self.look) catch null);
+            if (picture == null and !std.fs.path.isAbsolute(compare_folder) and data_root.len != 0) {
+                const rooted = std.fmt.allocPrint(arena_state.allocator(), "{s}/{s}", .{ data_root, compare_folder }) catch null;
+                if (rooted) |r| picture = (compare_logic.originalPicture(arena_state.allocator(), self.io, r, self.look) catch null);
+            }
+            if (picture) |p| {
+                self.compare_anchor = p.anchor;
+                const image = p.image;
                 const texture = kit.pictures_cache.upload(device.?, .{ .width = @intCast(image.width), .height = @intCast(image.height), .bytes = std.mem.sliceAsBytes(image.pixels) });
                 if (texture) |t| self.compare_texture = .{ .texture = t, .width = @floatFromInt(image.width), .height = @floatFromInt(image.height) };
             }
