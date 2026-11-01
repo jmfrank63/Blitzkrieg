@@ -761,6 +761,22 @@ fn addPathDir(run: *std.Build.Step.Run, dir: []const u8) void {
 }
 
 pub fn build(b: *std.Build) void {
+    // The process directory must hold build.zig: zig walks up and happily
+    // starts the build from anywhere below the checkout, but the relative
+    // compiler paths (the forced PortableCrt include, the cache manifests)
+    // anchor in the process directory and fail with a FileNotFound far from
+    // the real cause. Fail here, where the message says what to do.
+    var cwd_dir = std.Io.Dir.cwd();
+    const in_root = if (cwd_dir.access(b.graph.io, "build.zig", .{})) |_| true else |_| false;
+    if (!in_root) {
+        std.debug.print(
+            \\run `zig build` from the checkout root (the folder holding build.zig), not from the current directory:
+            \\the compile's relative paths anchor in the process directory and the caches
+            \\fail with a FileNotFound far from the real cause.
+            \\
+        , .{});
+        std.process.exit(1);
+    }
     system_include_path_option = b.option(std.Build.LazyPath, "system_include_path", "System header search path for macOS cross builds (replaces --sysroot)");
     system_framework_path_option = b.option(std.Build.LazyPath, "system_framework_path", "System framework search path for macOS cross builds (replaces --sysroot)");
     library_path_option = b.option(std.Build.LazyPath, "library_path", "Library search path for macOS cross builds (replaces --sysroot)");
