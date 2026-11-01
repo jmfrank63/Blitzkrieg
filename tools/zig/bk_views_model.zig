@@ -63,7 +63,7 @@ pub const Model = struct {
     /// picture sees are tiled from those its picture does.
     fallen: []const bool = &.{},
 
-    pub const none = std.math.maxInt(u32);
+pub const none = std.math.maxInt(u32);
 
     pub fn texture(m: Model, state: []const u8) ?Texture {
         for (m.textures) |t| if (std.mem.eql(u8, t.state, state)) return t;
@@ -947,6 +947,117 @@ pub fn lookOf(group: []const u8) []const u8 {
 pub const Rendered = struct { image: Image, guessed: []bool, unpainted: usize = 0 };
 
 pub fn render(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2, light: u2, anchor: [2]f64, size: [2]u32) !Rendered {
+    return renderTiled(gpa, m, state, turn, light, anchor, size, null);
+}
+
+/// The render with an authored roof texture: the faces whose look is roof
+/// sample the tile (tiled in screen space) instead of the baked atlas, where
+/// most of the paint is guessed. The tile's own texels count as seen, so a
+/// pixel the roof covers stops reading as guessed.
+/// The largest rectangle of seen roof texels from the atlas: among the
+/// roof charts, borders carrying a texel the pictures did not see are
+/// trimmed until what remains is fully seen, and the biggest result wins.
+/// That patch tiles over the roof faces where the bake had to guess
+/// (renderTiled). Null when no roof chart offers a seen patch.
+
+/// The largest rectangle of seen roof texels from the atlas: among the
+/// roof charts, borders carrying a texel the pictures did not see are
+/// trimmed until what remains is fully seen, and the biggest result
+/// wins. That patch tiles over the roof faces where the bake had to
+/// guess (renderTiled). Null when no roof chart offers a seen patch.
+pub fn roofTile(gpa: std.mem.Allocator, m: Model, tex: Texture) ?Image {
+    var best: ?Image = null;
+    var best_area: usize = 0;
+    for (m.charts) |chart| {
+        if (!std.mem.eql(u8, lookOf(m.groups[chart.group]), "roof")) continue;
+        const w: u32 = tex.image.width;
+        var ax: u32 = chart.x;
+        var ay: u32 = chart.y;
+        var bx: u32 = chart.x + chart.w;
+        var by: u32 = chart.y + chart.h;
+        if (bx > w or by > tex.image.height) continue;
+        // Trim borders carrying a not-seen texel; when the interior then
+        // still holds one, keep shrinking towards it until clean or gone.
+        while (ax < bx and ay < by) {
+            var offender: ?[2]u32 = null;
+            var x = ax;
+            while (x < bx) : (x += 1) {
+                if (tex.paint[ay * w + x] != .seen) { offender = .{ x, ay }; break; }
+                if (tex.paint[(by - 1) * w + x] != .seen) { offender = .{ x, by - 1 }; break; }
+            }
+            if (offender == null) {
+                var y = ay;
+                while (y < by) : (y += 1) {
+                    if (tex.paint[y * w + ax] != .seen) { offender = .{ ax, y }; break; }
+                    if (tex.paint[y * w + (bx - 1)] != .seen) { offender = .{ bx - 1, y }; break; }
+                }
+            }
+            if (offender) |bad| {
+                // Shrink the side that excludes the offender cheapest: cut
+                // the row or the column it lies on, whichever is thinner.
+                const to_row = bad[1] - ay;
+                const from_row = by - 1 - bad[1];
+                const to_col = bad[0] - ax;
+                const from_col = bx - 1 - bad[0];
+                const row_cost = @min(to_row, from_row);
+                const col_cost = @min(to_col, from_col);
+                if (row_cost <= col_cost) {
+                    if (to_row <= from_row) ay = bad[1] + 1 else by = bad[1];
+                } else {
+                    if (to_col <= from_col) ax = bad[0] + 1 else bx = bad[0];
+                }
+                continue;
+            }
+            break;
+        }
+        if (ax >= bx or ay >= by) continue;
+        const tw = bx - ax;
+        const th = by - ay;
+        const area: usize = @as(usize, tw) * th;
+        if (area <= best_area) continue;
+        best_area = area;
+        var out: Image = .{ .width = tw, .height = th, .pixels = gpa.alloc([4]u8, area) catch return null };
+        var y = ay;
+        while (y < by) : (y += 1) {
+            @memcpy(out.pixels[(y - ay) * tw ..][0..tw], tex.image.pixels[y * w + ax ..][0..tw]);
+        }
+        // Tone-match the patch to every seen roof texel of the atlas, not
+        // only the ones this patch holds: the biggest clean patch tends to
+        // sit on the sun-lit slopes, and an uncorrected copy reads brighter
+        // than the 2003 roof once tiled over the shaded ones.
+        var patch_sum = [3]f64{ 0, 0, 0 };
+        var all_sum = [3]f64{ 0, 0, 0 };
+        var all_texel_count: usize = 0;
+        for (out.pixels) |p| for (0..3) |ch| {
+            patch_sum[ch] += @floatFromInt(p[ch]);
+        };
+        const patch_n: f64 = @floatFromInt(out.pixels.len);
+        for (m.charts) |roof_chart| {
+            if (!std.mem.eql(u8, lookOf(m.groups[roof_chart.group]), "roof")) continue;
+            var ty = roof_chart.y;
+            while (ty < roof_chart.y + roof_chart.h) : (ty += 1) {
+                var tx = roof_chart.x;
+                while (tx < roof_chart.x + roof_chart.w) : (tx += 1) {
+                    const pi = ty * w + tx;
+                    if (tex.paint[pi] != .seen) continue;
+                    const p = tex.image.pixels[pi];
+                    for (0..3) |ch| all_sum[ch] += @floatFromInt(p[ch]);
+                    all_texel_count += 1;
+                }
+            }
+        }
+        const all_n: f64 = @floatFromInt(all_texel_count);
+        if (all_n >= 100 and patch_n > 0) {
+            for (out.pixels) |*p| for (0..3) |ch| {
+                const factor = (all_sum[ch] / all_n) / (patch_sum[ch] / patch_n);
+                p[ch] = @intFromFloat(std.math.clamp(@as(f64, @floatFromInt(p[ch])) * factor, 0, 255));
+            };
+        }
+        best = out;
+    }
+    return best;
+}
+pub fn renderTiled(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2, light: u2, anchor: [2]f64, size: [2]u32, roof: ?Image) !Rendered {
     const tex = m.texture(state) orelse return error.NoTexture;
     const ss = supersample;
     const points = try gpa.alloc([3]f64, m.vertices.len);
@@ -1000,12 +1111,24 @@ pub fn render(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2, lig
             const tx: usize = @intFromFloat(std.math.clamp(@floor(u), 0, @as(f64, @floatFromInt(m.width - 1))));
             const ty: usize = @intFromFloat(std.math.clamp(@floor(v), 0, @as(f64, @floatFromInt(m.height - 1))));
             const i = ty * m.width + tx;
-            const lit = views.relight(tex.image.pixels[i], gains[ti], .{ 1, 1, 1 });
+            // The tile replaces only the bake's guessed texels of roof faces:
+            // every texel the 2003 pictures saw keeps its real pixel, and the
+            // damaged and destroyed states keep their own fallen-roof paint.
+            const roof_look = roof != null and tex.paint[i] == .guessed and std.mem.eql(u8, lookOf(m.groups[t.group]), "roof");
+            const lit = if (roof_look) roof_fetch: {
+                const tile = roof.?;
+                const tw: usize = tile.width;
+                const th: usize = tile.height;
+                if (tw == 0 or th == 0) break :roof_fetch views.relight(tex.image.pixels[i], gains[ti], .{ 1, 1, 1 });
+                break :roof_fetch views.relight(tile.pixels[(py % th) * tw + (px % tw)], gains[ti], .{ 1, 1, 1 });
+            } else views.relight(tex.image.pixels[i], gains[ti], .{ 1, 1, 1 });
             for (0..3) |ch| sum[ch] += @floatFromInt(lit[ch]);
             covered += 1;
             if (sx == ss / 2 and sy == ss / 2) centre = .{ @floatFromInt(lit[0]), @floatFromInt(lit[1]), @floatFromInt(lit[2]), 1 };
-            guessed += @intFromBool(tex.paint[i] == .guessed);
-            out.unpainted += @intFromBool(tex.paint[i] == .none);
+            if (!roof_look) {
+                guessed += @intFromBool(tex.paint[i] == .guessed);
+                out.unpainted += @intFromBool(tex.paint[i] == .none);
+            }
         };
         const o = py * size[0] + px;
         out.guessed[o] = covered * 2 >= ss * ss and guessed * 2 > covered;

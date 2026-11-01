@@ -7324,9 +7324,17 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
 }
 
 /// A state of a turn drawn by its full 3D model (`model3d.render`), its
-/// shadow the model's.
+/// shadow the model's. The roof faces sample a clean patch of seen roof
+/// texels (model3d.roofTile) instead of the bake's guessed ones — the
+/// speckle the turns' far slopes carried.
 fn full3dDrawn(gpa: std.mem.Allocator, m: model3d.Model, state: []const u8, blocks: []const Block, target: Turned) !Drawn {
-    const r = try model3d.render(gpa, m, state, target.eye.turn, target.light, target.eye.anchor, target.size);
+    // Intact states only (1, 1w, ...): the damaged and destroyed roofs keep
+    // their own fallen-roof paint — a clean tiled roof on rubble would lie.
+    const roof = if (state[0] == '1') blk: {
+        const tex = m.texture(state) orelse break :blk null;
+        break :blk model3d.roofTile(gpa, m, tex);
+    } else null;
+    const r = try model3d.renderTiled(gpa, m, state, target.eye.turn, target.light, target.eye.anchor, target.size, roof);
     const out: Generated = .{ .image = r.image, .kinds = try gpa.alloc(Kind, r.guessed.len), .classes = try gpa.alloc(u8, r.guessed.len) };
     for (out.kinds, r.image.pixels, r.guessed) |*kind, p, g| kind.* = if (p[3] == 0) .empty else if (g) .filled else .projected;
     @memset(out.classes, 255);
