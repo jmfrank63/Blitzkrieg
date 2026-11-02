@@ -62,12 +62,137 @@ pub const Model = struct {
     /// Per chart: a damage state's fallen roof (`damaged`), whose texels no
     /// picture sees are tiled from those its picture does.
     fallen: []const bool = &.{},
+    /// A model written by hand from its picture (`handModel`), lit as `Hand` says.
+    hand: ?Hand = null,
 
 pub const none = std.math.maxInt(u32);
 
     pub fn texture(m: Model, state: []const u8) ?Texture {
         for (m.textures) |t| if (std.mem.eql(u8, t.state, state)) return t;
         return null;
+    }
+};
+
+/// The light of a hand model (docs/superpowers/specs/2026-11-02-hand-model-from-picture.md):
+/// the Game's sun, not the 2003 light its picture was painted under, with
+/// contrast the painted art takes without burning, and the shadows it casts
+/// on itself computed per sample: a lit surface in shadow keeps `density` of
+/// its light.
+pub const Hand = struct { ambient: f64 = 0.8, diffuse: f64 = 0.35, density: f64 = 0.6 };
+
+/// How a face of normal `n` is lit under the light of turn `light`.
+fn litBy(m: Model, n: [3]f64, light: u2) [3]f64 {
+    const h = m.hand orelse return views.shading(n, light, m.wall);
+    const gain = h.ambient + h.diffuse * @max(0, mesh.dot(n, views.lightFor(views.sun_summer, light)));
+    return .{ gain, gain, gain };
+}
+
+/// A hand model from its fixture (tools/house_model/handexport.py): its faces
+/// and the summer atlas, painted already. `mesh` is `world`: the identity
+/// placement takes one to the other, so `damaged` cuts it as any other model.
+pub fn handModel(gpa: std.mem.Allocator, json: []const u8, atlas: Image) !Model {
+    const File = struct { width: u32, height: u32, groups: []const []const u8, charts: []const [5]u32, vertices: []const [5]f64, triangles: []const [4]u32, normals: []const [3]f64 };
+    const f = try std.json.parseFromSliceLeaky(File, gpa, json, .{});
+    if (atlas.width != f.width or atlas.height != f.height) return error.BadHandModel;
+    const vertices = try gpa.alloc(Vertex, f.vertices.len);
+    for (vertices, f.vertices) |*v, p| v.* = .{ .mesh = p[0..3].*, .world = p[0..3].*, .uv = p[3..5].* };
+    const charts = try gpa.alloc(Chart, f.charts.len);
+    for (charts, f.charts) |*c, r| c.* = .{ .x = r[0], .y = r[1], .w = r[2], .h = r[3], .group = @intCast(r[4]), .material = r[4] };
+    const triangles = try gpa.alloc(Triangle, f.triangles.len);
+    for (triangles, f.triangles, 0..) |*t, r, i| t.* = .{ .v = r[0..3].*, .source = @intCast(i), .group = charts[r[3]].group, .chart = r[3], .normal = f.normals[r[3]] };
+    const faces = try texelFaces(gpa, vertices, triangles, f.width, f.height);
+    const paint = try gpa.alloc(Paint, atlas.pixels.len);
+    @memset(paint, .seen);
+    const source = try gpa.alloc(u8, atlas.pixels.len);
+    @memset(source, 0);
+    const textures = try gpa.alloc(Texture, 1);
+    textures[0] = .{ .state = "1", .image = atlas, .paint = paint, .source = source };
+    return .{ .vertices = vertices, .triangles = triangles, .charts = charts, .groups = f.groups, .width = f.width, .height = f.height, .textures = textures, .texel_tri = faces.tri, .texel_bary = faces.bary, .hand = .{} };
+}
+
+/// A model's triangles as the sun sees them, binned on a plane square to it:
+/// a house draws half a million samples a picture and a damaged one has
+/// thousands of triangles, so a ray meets only those of its own cell.
+const SunGrid = struct {
+    sun: [3]f64,
+    across: [3]f64,
+    up: [3]f64,
+    low: [2]f64,
+    columns: usize,
+    rows: usize,
+    /// Per cell, its range in `items`: triangles whose box touches the cell.
+    start: []u32,
+    items: []u32,
+    corners: [][3][3]f64,
+
+    const cell = 8.0;
+
+    fn init(gpa: std.mem.Allocator, m: Model, sun: [3]f64) !SunGrid {
+        const across = mesh.unit(mesh.cross(sun, .{ 0, 0, 1 }));
+        const up = mesh.cross(across, sun);
+        var low = [2]f64{ std.math.inf(f64), std.math.inf(f64) };
+        var high = [2]f64{ -std.math.inf(f64), -std.math.inf(f64) };
+        for (m.vertices) |v| {
+            const p = [2]f64{ mesh.dot(v.world, across), mesh.dot(v.world, up) };
+            low = .{ @min(low[0], p[0]), @min(low[1], p[1]) };
+            high = .{ @max(high[0], p[0]), @max(high[1], p[1]) };
+        }
+        var g: SunGrid = .{ .sun = sun, .across = across, .up = up, .low = low, .columns = @intFromFloat((high[0] - low[0]) / cell + 1), .rows = @intFromFloat((high[1] - low[1]) / cell + 1), .start = undefined, .items = undefined, .corners = try gpa.alloc([3][3]f64, m.triangles.len) };
+        g.start = try gpa.alloc(u32, g.columns * g.rows + 1);
+        @memset(g.start, 0);
+        for (g.corners, m.triangles) |*c, t| c.* = .{ m.vertices[t.v[0]].world, m.vertices[t.v[1]].world, m.vertices[t.v[2]].world };
+        // Counted, then filled from each cell's end.
+        for (g.corners) |c| {
+            const b = g.cells(c);
+            for (b[1]..b[3] + 1) |y| for (b[0]..b[2] + 1) |x| {
+                g.start[y * g.columns + x] += 1;
+            };
+        }
+        var total: u32 = 0;
+        for (g.start) |*s| {
+            total += s.*;
+            s.* = total;
+        }
+        g.items = try gpa.alloc(u32, total);
+        for (g.corners, 0..) |c, ti| {
+            const b = g.cells(c);
+            for (b[1]..b[3] + 1) |y| for (b[0]..b[2] + 1) |x| {
+                g.start[y * g.columns + x] -= 1;
+                g.items[g.start[y * g.columns + x]] = @intCast(ti);
+            };
+        }
+        return g;
+    }
+
+    fn at(g: SunGrid, p: [3]f64) [2]f64 {
+        return .{ (mesh.dot(p, g.across) - g.low[0]) / cell, (mesh.dot(p, g.up) - g.low[1]) / cell };
+    }
+
+    fn cells(g: SunGrid, c: [3][3]f64) [4]usize {
+        const a = g.at(c[0]);
+        const b = g.at(c[1]);
+        const d = g.at(c[2]);
+        const clamp = struct {
+            fn f(v: f64, n: usize) usize {
+                return @intFromFloat(std.math.clamp(@floor(v), 0, @as(f64, @floatFromInt(n - 1))));
+            }
+        }.f;
+        const pad = 1e-6;
+        return .{ clamp(@min(a[0], b[0], d[0]) - pad, g.columns), clamp(@min(a[1], b[1], d[1]) - pad, g.rows), clamp(@max(a[0], b[0], d[0]) + pad, g.columns), clamp(@max(a[1], b[1], d[1]) + pad, g.rows) };
+    }
+
+    /// Whether a face stands between `o` and the sun.
+    fn blocked(g: SunGrid, o: [3]f64) bool {
+        const p = g.at(o);
+        if (p[0] < -1 or p[1] < -1 or p[0] > @as(f64, @floatFromInt(g.columns)) or p[1] > @as(f64, @floatFromInt(g.rows))) return false;
+        const x: usize = @intFromFloat(std.math.clamp(@floor(p[0]), 0, @as(f64, @floatFromInt(g.columns - 1))));
+        const y: usize = @intFromFloat(std.math.clamp(@floor(p[1]), 0, @as(f64, @floatFromInt(g.rows - 1))));
+        const i = y * g.columns + x;
+        for (g.items[g.start[i]..g.start[i + 1]]) |ti| {
+            const c = g.corners[ti];
+            if (rayHits(o, g.sun, c[0], c[1], c[2], 1e-3)) return true;
+        }
+        return false;
     }
 };
 
@@ -617,7 +742,7 @@ pub fn damaged(gpa: std.mem.Allocator, intact: Model, placement: mesh.Placement,
     const faces = try texelFaces(gpa, vertices.items, triangles.items, intact.width, intact.height);
     const fallen = try gpa.alloc(bool, intact.charts.len);
     for (fallen, intact.charts) |*f, chart| f.* = fallen_group[chart.group];
-    return .{ .vertices = vertices.items, .triangles = triangles.items, .charts = intact.charts, .groups = intact.groups, .width = intact.width, .height = intact.height, .wall = intact.wall, .texel_tri = faces.tri, .texel_bary = faces.bary, .fallen = fallen };
+    return .{ .vertices = vertices.items, .triangles = triangles.items, .charts = intact.charts, .groups = intact.groups, .width = intact.width, .height = intact.height, .wall = intact.wall, .texel_tri = faces.tri, .texel_bary = faces.bary, .fallen = fallen, .hand = intact.hand };
 }
 
 /// A pixel whose mean channel is this far from the intact picture's has changed.
@@ -651,7 +776,7 @@ pub fn ownBakeView(gpa: std.mem.Allocator, m: Model, picture: Image, placement: 
 /// quarter turns sees it with the zero cross at `anchor` on a canvas of
 /// `size`: opaque where a face's shadow covers a pixel's middle.
 pub fn shadow(gpa: std.mem.Allocator, m: Model, turn: u2, light: u2, anchor: [2]f64, size: [2]u32) !Image {
-    return shadowToward(gpa, m, turn, views.lightFor(views.light_2003, light), anchor, size);
+    return shadowToward(gpa, m, turn, views.lightFor(if (m.hand != null) views.sun_summer else views.light_2003, light), anchor, size);
 }
 
 /// The model's shadow on the ground under a light whose direction towards
@@ -763,7 +888,7 @@ pub fn bake(gpa: std.mem.Allocator, m: *Model, state: []const u8, bake_views: []
                 const pixel = bv.picture.pixels[at];
                 if (facing < least or facing <= best or pixel[3] < 128) continue;
                 best = facing;
-                image.pixels[i] = views.relight(pixel, .{ 1, 1, 1 }, views.shading(n, 0, m.wall));
+                image.pixels[i] = views.relight(pixel, .{ 1, 1, 1 }, litBy(m.*, n, 0));
                 image.pixels[i][3] = 255;
                 paint[i] = .seen;
                 source[i] = @intCast(j + 1);
@@ -1071,16 +1196,26 @@ pub fn renderTiled(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2
     const tris = try gpa.alloc(mesh.Tri, m.triangles.len);
     defer gpa.free(tris);
     for (tris, m.triangles) |*o, t| o.* = .{ .v = t.v, .part = t.group };
+    const back = mesh.quarter(.{ mesh.toward_eye[0], mesh.toward_eye[1] }, 0 -% turn);
+    // An intact hand model is closed and its faces look outward: a face turned
+    // away draws nothing, as the preview drew it. A damage state shows the
+    // insides of its cut walls.
+    if (m.hand != null and m.fallen.len == 0) for (tris, m.triangles) |*o, t| {
+        if (mesh.dot(t.normal, .{ back[0], back[1], mesh.toward_eye[2] }) < 0) o.v = .{ 0, 0, 0 };
+    };
     const r = try mesh.raster(gpa, points, tris, size[0] * ss, size[1] * ss);
     // Each face lit by its normal turned towards the eye (an open board is
     // lit on the side the eye sees).
-    const back = mesh.quarter(.{ mesh.toward_eye[0], mesh.toward_eye[1] }, 0 -% turn);
     const gains = try gpa.alloc([3]f64, m.triangles.len);
     defer gpa.free(gains);
-    for (gains, m.triangles) |*g, t| {
-        const n = if (mesh.dot(t.normal, .{ back[0], back[1], mesh.toward_eye[2] }) < 0) scaled(t.normal, -1) else t.normal;
-        g.* = views.shading(n, light, m.wall);
+    const facing = try gpa.alloc([3]f64, m.triangles.len);
+    defer gpa.free(facing);
+    for (gains, facing, m.triangles) |*g, *n, t| {
+        n.* = if (mesh.dot(t.normal, .{ back[0], back[1], mesh.toward_eye[2] }) < 0) scaled(t.normal, -1) else t.normal;
+        g.* = litBy(m, n.*, light);
     }
+    const sun = views.lightFor(views.sun_summer, light);
+    const grid: ?SunGrid = if (m.hand != null) try SunGrid.init(gpa, m, sun) else null;
     const count = @as(usize, size[0]) * size[1];
     var out: Rendered = .{ .image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, count) }, .guessed = try gpa.alloc(bool, count) };
     for (0..size[1]) |py| for (0..size[0]) |px| {
@@ -1115,16 +1250,25 @@ pub fn renderTiled(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2
             // every texel the 2003 pictures saw keeps its real pixel, and the
             // damaged and destroyed states keep their own fallen-roof paint.
             const roof_look = roof != null and tex.paint[i] == .guessed and std.mem.eql(u8, lookOf(m.groups[t.group]), "roof");
-            const lit = if (roof_look) roof_fetch: {
+            const painted = if (roof_look) roof_fetch: {
                 const tile = roof.?;
                 const tw: usize = tile.width;
                 const th: usize = tile.height;
                 if (tw == 0 or th == 0) break :roof_fetch views.relight(tex.image.pixels[i], gains[ti], .{ 1, 1, 1 });
                 break :roof_fetch views.relight(tile.pixels[(py % th) * tw + (px % tw)], gains[ti], .{ 1, 1, 1 });
             } else views.relight(tex.image.pixels[i], gains[ti], .{ 1, 1, 1 });
-            for (0..3) |ch| sum[ch] += @floatFromInt(lit[ch]);
+            var keep: f64 = 1;
+            if (grid) |g| if (mesh.dot(facing[ti], sun) > 0) {
+                var at = scaled(facing[ti], 0.4);
+                for (t.v, [3]f64{ l0, l1, l2 }) |vi, l| for (0..3) |ch| {
+                    at[ch] += m.vertices[vi].world[ch] * l;
+                };
+                if (g.blocked(at)) keep = m.hand.?.density;
+            };
+            const lit = [3]f64{ @as(f64, @floatFromInt(painted[0])) * keep, @as(f64, @floatFromInt(painted[1])) * keep, @as(f64, @floatFromInt(painted[2])) * keep };
+            for (0..3) |ch| sum[ch] += lit[ch];
             covered += 1;
-            if (sx == ss / 2 and sy == ss / 2) centre = .{ @floatFromInt(lit[0]), @floatFromInt(lit[1]), @floatFromInt(lit[2]), 1 };
+            if (sx == ss / 2 and sy == ss / 2) centre = .{ lit[0], lit[1], lit[2], 1 };
             if (!roof_look) {
                 guessed += @intFromBool(tex.paint[i] == .guessed);
                 out.unpainted += @intFromBool(tex.paint[i] == .none);
@@ -1136,7 +1280,8 @@ pub fn renderTiled(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2
         // covered samples where no face meets it): a 2003 pixel spans about two
         // texels, and the mean of the whole pixel blurred a turned picture
         // against the crisp 2003 sides (the quality gate's sharpness).
-        if (centre[3] == 0) centre = .{ sum[0], sum[1], sum[2], @floatFromInt(covered) };
+        // A hand model keeps the mean: the look the maintainer approved.
+        if (centre[3] == 0 or m.hand != null) centre = .{ sum[0], sum[1], sum[2], @floatFromInt(covered) };
         out.image.pixels[o] = if (covered * 2 >= ss * ss) .{
             @intFromFloat(@round(centre[0] / centre[3])),
             @intFromFloat(@round(centre[1] / centre[3])),

@@ -408,6 +408,7 @@ fn depScene(ctx: *bk_tool.Context, found: InFamily, scene: Scene) !void {
         const id = (try shapeIdOf(ids, arena, try std.fs.path.join(arena, &.{ found.root, variant.path }))) orelse continue;
         try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/{d:0>3}.json", .{ mesh.meshes_dir, id }));
     };
+    if (scene.isHand()) for ([_][]const u8{ ".json", "_1.png" }) |suffix| try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/{s}{s}", .{ hand_models_dir, scene.name, suffix }));
     if (scene.mesh) |ms| if (ms.model.shared) |name| try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/shared/{s}.json", .{ mesh.meshes_dir, name }));
 }
 
@@ -3532,6 +3533,12 @@ const Scene = struct {
     /// picture stands (`artAlong`); every turn is laid by it (`zeroAlong`).
     art_along: f64 = 0,
 
+    /// Whether the full 3D model was written by hand (`hand_models_dir`), not
+    /// unrolled from the tracked mesh.
+    fn isHand(scene: Scene) bool {
+        return scene.full3d.len > 0 and scene.full3d[0].hand != null;
+    }
+
     /// The full 3D model that holds a state's atlas.
     fn modelFor(scene: Scene, state: []const u8) ?model3d.Model {
         for (scene.full3d) |m| if (m.texture(state) != null) return m;
@@ -3692,7 +3699,8 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         shape.* = parts.items;
     }
     const mesh_scene = try loadMeshScene(ctx, sources.items, same, fixed);
-    const full3d = if (mesh_scene != null and !intact_only) try buildFull3d(arena, sources.items, mesh_scene.?, states.items) else &.{};
+    const handmade = if (mesh_scene != null and !intact_only) try loadHandModel(ctx, std.fs.path.basename(own.dir)) else null;
+    const full3d = if (mesh_scene != null and !intact_only) try buildFull3d(arena, sources.items, mesh_scene.?, states.items, handmade) else &.{};
     return .{
         .family = found.family.name,
         .name = std.fs.path.basename(own.dir),
@@ -3711,14 +3719,15 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         .prop = if (try readJson(std.json.ArrayHashMap([]const u8), ctx, props_file)) |props| props.map.contains(found.family.name) else false,
         .mesh = mesh_scene,
         .full3d = full3d,
-        .art_along = if (full3d.len > 0) try artAlong(arena, own, full3d[0]) else 0,
+        // A hand model's origin is its 2003 zero cross.
+        .art_along = if (full3d.len > 0 and handmade == null) try artAlong(arena, own, full3d[0]) else 0,
     };
 }
 
 /// Each turn's canvas: it holds every state's blocks, their shadows under
 /// the light of turn `light` and the 2003 ground pictures.
 fn turnTarget(scene: Scene, k: u2, light: u2, name: []const u8) Turned {
-    return turnTargetUnder(scene, k, light, name, light_2003);
+    return turnTargetUnder(scene, k, light, name, if (scene.isHand()) sun_summer else light_2003);
 }
 
 /// `turnTarget` for the shadows cast under the sun `base` (towards it, as the
@@ -3736,7 +3745,16 @@ fn turnTargetUnder(scene: Scene, k: u2, light: u2, name: []const u8, base: [3]f6
             hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
         }
     };
-    if (scene.mesh) |ms| for (0..mesh.vertexCount(ms.model)) |i| {
+    if (scene.isHand()) {
+        for (scene.full3d[0].vertices) |v| {
+            const p = v.world;
+            for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
+                const s = eye.project(q);
+                lo = .{ @min(lo[0], s[0]), @min(lo[1], s[1]) };
+                hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
+            }
+        }
+    } else if (scene.mesh) |ms| for (0..mesh.vertexCount(ms.model)) |i| {
         const p = ms.views[0].placement.world(mesh.vertex(ms.model, i));
         for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
             const s = eye.project(q);
@@ -4323,7 +4341,9 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     // (`_r<k>`, or the 2003 picture at turn 0), which the maintainer keeps;
     // the shadow it casts there is the model's under the world's sun, cut
     // under the picture shown, so `0s<s>` is taken too (a folder without a
-    // full 3D model has no turn 0 to cast from and skips it).
+    // full 3D model has no turn 0 to cast from and skips it). `0`: turn 0 drawn,
+    // in a folder named as the variant's own, for the mod to lay over the 2003
+    // one: only a model written by hand replaces its 2003 picture.
     const TurnKind = enum { camera, lit, shadow };
     var turns: std.ArrayList(struct { k: u2, s: u2, kind: TurnKind }) = .empty;
     var split = std.mem.splitScalar(u8, turns_arg, ',');
@@ -4332,7 +4352,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
         const kind: TurnKind = if (at == t.len) .camera else if (t[at] == 'l') .lit else .shadow;
         const k = std.fmt.parseInt(u2, t[0..at], 10) catch return error.Usage;
         const s = if (at < t.len) std.fmt.parseInt(u2, t[at + 1 ..], 10) catch return error.Usage else 0;
-        if ((k == 0 and kind != .shadow) or (kind == .lit and s == 0) or (kind == .shadow and k == 0 and s == 0)) return error.Usage;
+        if ((k == 0 and kind == .lit) or (kind == .lit and s == 0) or (kind == .shadow and k == 0 and s == 0)) return error.Usage;
         try turns.append(arena, .{ .k = k, .s = s, .kind = kind });
     }
 
@@ -4341,12 +4361,16 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     var targets: std.ArrayList(Turned) = .empty;
     var shadow_only: std.ArrayList(bool) = .empty;
     for (turns.items) |ks| {
+        if (ks.k == 0 and ks.kind == .camera and !scene.isHand()) {
+            try ctx.out.print("skipped {s}: turn 0 stays the 2003 picture without a hand model\n", .{scene.name});
+            continue;
+        }
         if (ks.k == 0 and scene.full3d.len == 0) {
             try ctx.out.print("skipped {s}_r0_s{d}: turn 0's shadow under the world's sun needs a full 3D model\n", .{ scene.name, ks.s });
             continue;
         }
         const name = switch (ks.kind) {
-            .camera => try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks.k }),
+            .camera => if (ks.k == 0) scene.name else try std.fmt.allocPrint(arena, "{s}_r{d}", .{ scene.name, ks.k }),
             .lit => try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ scene.name, ks.k, ks.s }),
             .shadow => try std.fmt.allocPrint(arena, "{s}_r{d}_s{d}", .{ scene.name, ks.k, ks.s }),
         };
@@ -4415,7 +4439,8 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             });
         }
         try r.writeAll("]");
-        if (scene.mesh) |ms| for (drawn) |d| if (std.mem.eql(u8, d.state, "1")) {
+        if (scene.mesh != null and !scene.isHand()) for (drawn) |d| if (std.mem.eql(u8, d.state, "1")) {
+            const ms = scene.mesh.?;
             const c = try meshCheck(arena, scene, ms, target, d);
             try r.print(",\n\"mesh\":{{\"outline\":{d:.4},\"holes\":{d},\"patched\":{d},\"colour\":{d:.1},\"kinds\":{d}}}", .{ c.outline, c.holes, c.patched, c.colour, c.kinds });
         };
@@ -4430,7 +4455,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             // The mirror list's flip is on the state's picture only: the
             // zero cross was already mirrored with it above, and the
             // shadow's cut and cast stay the true mesh's.
-            const cut = if (alone and target.turn == 0) try placeOwn(arena, pictureOf(own, d.state) orelse d.sprite.image, own.anchor, zero, target.size) else d.sprite.image;
+            const cut = if (alone and target.turn == 0 and !scene.isHand()) try placeOwn(arena, pictureOf(own, d.state) orelse d.sprite.image, own.anchor, zero, target.size) else d.sprite.image;
             const state_picture = if (mirrored) try mirrorImage(arena, cut) else cut;
             // Cast as a vehicle's: the full 3D model flattened on the ground
             // along the Game's sun, its season's, as the step shows it.
@@ -7281,9 +7306,13 @@ pub const model3d = @import("bk_views_model.zig");
 /// intact pictures. Then a model a damage state (`model3d.damaged`, from the
 /// variant's own damaged picture of summer), its atlas of each season the
 /// intact one of that season painted over from its own damaged picture.
-fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8) ![]const model3d.Model {
+///
+/// A model written by hand (`handmade`) is that intact model, painted already,
+/// and stands in the world as it is; its damage states are made the same way.
+fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8, handmade: ?model3d.Model) ![]const model3d.Model {
     var models: std.ArrayList(model3d.Model) = .empty;
-    var m = try model3d.unwrap(gpa, ms.model, ms.tris, ms.views[0].placement);
+    var m = handmade orelse try model3d.unwrap(gpa, ms.model, ms.tris, ms.views[0].placement);
+    const placement: mesh.Placement = if (handmade != null) .{} else ms.views[0].placement;
     const has = struct {
         fn f(list: []const []const u8, state: []const u8) bool {
             for (list) |s| if (std.mem.eql(u8, s, state)) return true;
@@ -7291,7 +7320,7 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
         }
     }.f;
     for ([_][]const u8{ "1", "1w" }) |state| {
-        if (!has(states, state)) continue;
+        if (handmade != null or !has(states, state)) continue;
         var means: Means = .{};
         var bake_views: std.ArrayList(model3d.BakeView) = .empty;
         for (ms.views) |v| {
@@ -7311,16 +7340,32 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
     const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
     for ([_][]const u8{ "2", "3" }) |state| {
         if (!has(states, state)) continue;
-        var d = try model3d.damaged(gpa, m, ms.views[0].placement, pictureOf(own, state).?, pictureOf(own, "1").?, anchor);
+        var d = try model3d.damaged(gpa, m, placement, pictureOf(own, state).?, pictureOf(own, "1").?, anchor);
         for ([_][2][]const u8{ .{ state, "1" }, .{ try std.fmt.allocPrint(gpa, "{s}w", .{state}), "1w" } }) |pair| {
             if (!has(states, pair[0])) continue;
             const picture = pictureOf(own, pair[0]).?;
-            const view = try model3d.ownBakeView(gpa, d, picture, ms.views[0].placement, anchor);
+            const view = try model3d.ownBakeView(gpa, d, picture, placement, anchor);
             try model3d.bake(gpa, &d, pair[0], &.{view}, m.texture(pair[1]) orelse m.texture("1").?);
         }
         try models.append(gpa, d);
     }
     return models.items;
+}
+
+/// Models written by hand from their pictures
+/// (docs/superpowers/specs/2026-11-02-hand-model-from-picture.md): `<variant>.json`
+/// and its summer atlas `<variant>_1.png`, exported by tools/house_model.
+pub const hand_models_dir = "tools/zig/fixtures/bk-views/hand-models";
+
+fn loadHandModel(ctx: *bk_tool.Context, name: []const u8) !?model3d.Model {
+    const cwd = std.Io.Dir.cwd();
+    const path = try std.fmt.allocPrint(ctx.arena, "{s}/{s}", .{ hand_models_dir, name });
+    const json = cwd.readFileAlloc(ctx.io, try std.fmt.allocPrint(ctx.arena, "{s}.json", .{path}), ctx.arena, .limited(16 << 20)) catch |err| switch (err) {
+        error.FileNotFound => return null,
+        else => return err,
+    };
+    const png = try cwd.readFileAlloc(ctx.io, try std.fmt.allocPrint(ctx.arena, "{s}_1.png", .{path}), ctx.arena, .limited(64 << 20));
+    return try model3d.handModel(ctx.arena, json, try readPng(ctx.arena, png));
 }
 
 /// A state of a turn drawn by its full 3D model (`model3d.render`), its
@@ -7330,7 +7375,7 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
 fn full3dDrawn(gpa: std.mem.Allocator, m: model3d.Model, state: []const u8, blocks: []const Block, target: Turned) !Drawn {
     // Intact states only (1, 1w, ...): the damaged and destroyed roofs keep
     // their own fallen-roof paint — a clean tiled roof on rubble would lie.
-    const roof = if (state[0] == '1') blk: {
+    const roof = if (state[0] == '1' and m.hand == null) blk: {
         const tex = m.texture(state) orelse break :blk null;
         break :blk model3d.roofTile(gpa, m, tex);
     } else null;
@@ -7570,7 +7615,7 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
 
         // The same bytes again: the models built anew, their files and the
         // intact turns compared.
-        const again = try buildFull3d(arena, scene.sources, ms, scene.states);
+        const again = try buildFull3d(arena, scene.sources, ms, scene.states, if (scene.isHand()) intact else null);
         var same = again.len == scene.full3d.len;
         if (same) for (scene.full3d, again, mods.items) |a, b, mod| {
             same = same and std.mem.eql(u8, mod, try model3d.writeMod(arena, b));

@@ -7,9 +7,9 @@ tracked review meshes and paints them from the picture, which leaves guessed pix
 The maintainer (2026-11-02): "Why can't I have a wire model and put the textures on the flat sides. The roof for example has
 two windows under less strongly sloped roofs. For a correct 3D model you need to model this in 3D."
 
-**Status.** Proved on one house, `e_house01_1`, in a preview renderer, and judged by the maintainer over five review rounds. It
-has not been through `bk_views` or the Game, and damage and winter states are not done. Advice for props and other kinds of
-building below is expected to hold but is untested; change this file when a real case says otherwise.
+**Status.** Proved on `e_house01_1`, judged by the maintainer over five review rounds in a preview renderer, and now drawn by
+`bk-views side` and the real Game (`camera-turn-hand-game-reads-it`). Winter states are not done: this family has none. Advice
+for props and other kinds of building below is expected to hold but is untested; change this file when a real case says otherwise.
 
 **Worked example.** `tools/house_model/e_house01_1.py` is the whole house in about 500 lines, with its camera (`rast.py`), sprite
 reader (`bk1.py`) and shadows (`castshadow.py`). Run it from the checkout root; it reads `Data/` and writes only to
@@ -18,6 +18,22 @@ reader (`bk1.py`) and shadows (`castshadow.py`). Run it from the checkout root; 
     python -I tools/house_model/e_house01_1.py
 
 It needs numpy and Pillow. 102 triangles, 46 flat faces, one 1024 x 552 atlas.
+
+**Into the Game.** The last line of that script, `handexport.write`, writes the fixture
+`tools/zig/fixtures/bk-views/hand-models/<variant>.json` (faces, texels, parts) and `<variant>_1.png` (the summer atlas). They are
+tracked, so the build needs no Python: run the script again and commit both when the model changes. A variant with a fixture
+needs nothing else:
+
+- `bk-views side`, `model3d` and the `full3d-<region>` steps take the model in place of its tracked mesh.
+- Its turns render under the Game's sun with ambient 0.8, diffuse 0.35 and computed cast shadows (`bk_views_model.zig`, `Hand`, the same
+  numbers as `castshadow.py`); an outline matches the preview to within 3 pixels.
+- **The light differs from the preview at camera steps 1 to 3.** The preview turns the house under a sun that stays with the camera, and
+  `_r<k>` (a building's own facing) is exactly that. At facing 0 the Game shows `_r<k>_l<k>`: the sun stays in the world, as the ground
+  shadow does, so the same walls are lit however the camera stands. Judge the Game's shots for those.
+- **Turn 0 is replaced in the mod only.** `side`'s `0` writes a folder named as the variant's own, which `remastered_views` lays over
+  the 2003 files, so the model and its computed shadow show at step 0 too. A Game without the mod keeps the 2003 picture.
+- **Damage states** (`2`, `3`) are this model cut by the existing `model3d.damaged` and painted from their own 2003 pictures. They have
+  not had a maintainer's review yet.
 
 ## Rules
 
@@ -156,17 +172,26 @@ Fix only what was reported and keep what was approved. Zoom in on each turn befo
 ## For the other 411 objects
 
 The order matters, because relatives share parts. Take one object from each family first, then reuse its faces, chimney and dormer
-definitions for the rest of that family, changing only what the pictures show. `e_house01_3` is the next test of that saving: by eye it shares
-this house's porch and roof, with larger dormers. `e_house01_2` has no porch and shares less. Measure how long a relative takes before planning the whole set.
+definitions for the rest of that family, changing only what the pictures show. `e_house01_3` tested that: its body, roof, chimney and porch are this house's, its gabled dormers are new, and the first draft took 18 minutes. That is before any review by the maintainer, and the first house took five rounds,
+so the saving is not settled yet. `e_house01_2` has no porch and shares less.
+
+What the relative added:
+
+- Compare a relative's outline with the first house before measuring: this one has the same body one pixel over.
+- One picture cannot fix depth along the line of sight. Pin it where an edge dies into a known plane, then check other points against it.
+- When mirroring along both axes, offset one fold, or the mirrors meet in rosettes. Mirror along tile courses, not across them.
+- A painted highlight can need toning like a painted shadow: the dormer slopes were far brighter than the sun gives.
 
 Expected to hold for props, unproven: a low object needs far fewer faces, and rule 3 still decides what is modelled.
 Something thin and cut out by alpha (a fence, a sign) may stay one flat face with its picture on both sides.
 
 ## Still to do
 
-- Through `bk_views` into the Game. The `.obj` beside the renders has not been checked by `bk-map validate-obj2mod`.
-- Using the model at turn 0 as well, as the maintainer's computed-shadow request implies, in place of the 2003 picture. Turn 0 then
-  loses the picture's sharpness, and the outline overlap drops to 0.94 on this house because its body and roof are deliberately larger.
-- Damage (`2`, `3`) and winter (`1w`) states, and the passability question above.
+- The `.obj` beside the renders has not been checked by `bk-map validate-obj2mod`; `model3d` writes the `.mod` from the fixture.
+- Turn 0 from the model loses the picture's sharpness, and the outline overlap drops to 0.94 on this house because its body and roof
+  are deliberately larger. It is the maintainer's to judge in the Game.
+- `model3d`'s `model.json` still names the old mesh's kind and outline for a hand variant; its atlas and triangle numbers are the hand model's.
+- Winter (`1w`) atlases for families that have them (a fixture has only `_1.png`), the maintainer's look at the damage states, and the
+  passability question above.
 - The ground shadow is larger than the 2003 one, since it follows the real roof.
 - The back of this house has no door and its windows repeat, by rule 4. The maintainer accepted this for now.

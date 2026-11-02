@@ -352,6 +352,95 @@ test "a full 3D object's shadow at every camera step is cast by the world's sun 
     }
 }
 
+/// The models written by hand (docs/superpowers/specs/2026-11-02-hand-model-from-picture.md,
+/// `camera-turn-hand-game-reads-it`): alone, at their own facings.
+const handmade = [_]Object{
+    .{ .name = "E_House01_1", .folder = "Data/Buildings/europe/summer/e_house01_1", .mod_dir = "buildings/europe/summer" },
+    .{ .name = "E_House01_3", .folder = "Data/Buildings/europe/summer/e_house01_3", .mod_dir = "buildings/europe/summer" },
+    .{ .name = "E_House01_1", .folder = "Data/Buildings/europe/summer/e_house01_1", .mod_dir = "buildings/europe/summer", .facing = 2 },
+    .{ .name = "E_House01_3", .folder = "Data/Buildings/europe/summer/e_house01_3", .mod_dir = "buildings/europe/summer", .facing = 2 },
+};
+
+test "a hand model is what the Game draws at every step: step 0 is its render, not its 2003 picture" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-hand-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const cwd = std.Io.Dir.cwd();
+    const root_rel = "zig-out/local-test/camera-turn/hand";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), root_rel });
+    cwd.deleteTree(io, root_rel) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const work = try std.fs.path.join(allocator, &.{ root, "work" });
+    const map = try writeStandingMod(io, allocator, data, "Data/Maps/road3d.xml");
+    const ground = try turn.runGame(io, allocator, game, root, "ground", "ground.xml", .{ shadow_look, shadow_look }, "ON", with_shadows, 4);
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "object facing step turn pack: IoU / colour at offset; the 2003 picture there, IoU / colour; shadow IoU, joined, pixels\n");
+    for (handmade, 0..) |object, o| {
+        const base = std.fs.path.basename(object.folder);
+        const fixture = try std.fmt.allocPrint(allocator, "tools/zig/fixtures/bk-views/hand-models/{s}.json", .{base});
+        cwd.access(io, fixture, .{}) catch {
+            try report.print(allocator, "{s}: no fixture, not run\n", .{base});
+            continue;
+        };
+        const turned = try std.fs.path.join(allocator, &.{ data, object.mod_dir });
+        try cwd.createDirPath(io, turned);
+        // What the mod holds of a hand model: camera-turn-mod's `side`, turn 0 first.
+        const final = try std.fmt.allocPrint(allocator, "{s}/{s}_r1", .{ turned, base });
+        if (cwd.access(io, final, .{})) |_| {} else |_| try game_views.runTool(io, allocator, tool, &.{ "side", object.folder, "0,1,2,3,1l1,2l2,3l3,0s1,0s2,0s3,1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3", turned, work });
+        var foot = try footprintMiddle(io, allocator, tool, object.folder, try std.fmt.allocPrint(allocator, "{s}/sprites/{s}", .{ root, base }));
+        for (0..object.facing) |_| foot = .{ -foot[1], foot[0] };
+        const place = try placeStanding(io, allocator, data, map, object, o, foot, shadow_middle_ai, .{ 240, -200 });
+        const label = try std.fmt.allocPrint(allocator, "{s}-f{d}", .{ object.name, object.facing });
+        const name = try std.fmt.allocPrint(allocator, "standing{d}.xml", .{o});
+        const shots = try turn.runGame(io, allocator, game, root, label, name, .{ shadow_look, shadow_look }, "ON", objects_only, 4);
+        var solid: [4][]const u8 = undefined;
+        for (&solid, shots) |*s, shot| s.* = try solidShot(allocator, shot);
+        const shadows = try turn.runGame(io, allocator, game, root, try std.fmt.allocPrint(allocator, "{s}-shadows", .{label}), name, .{ shadow_look, shadow_look }, "ON", with_shadows, 4);
+        const old = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-2003", .{ root, base });
+        _ = try game_views.decompose(io, allocator, tool, object.folder, old);
+        const picture_2003 = try game_views.decomposed(io, allocator, old, "1");
+        for (0..4) |k| {
+            const d = (object.facing + k) % 4;
+            // CameraTurn.h's LitModelPath: the turn under the world's sun where the
+            // mod has it (facing 0), else the turn's own, at turn 0 the variant's own.
+            const folder = if (d == 0) try std.fmt.allocPrint(allocator, "{s}", .{base}) else if (k == 0 or k != d) try std.fmt.allocPrint(allocator, "{s}_r{d}", .{ base, d }) else try std.fmt.allocPrint(allocator, "{s}_r{d}_l{d}", .{ base, d, k });
+            const out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-{d}", .{ root, label, k });
+            _ = try game_views.decompose(io, allocator, tool, try std.fs.path.join(allocator, &.{ turned, folder }), out);
+            const sprite = try game_views.decomposed(io, allocator, out, "1");
+            const where = turn.turnScreen(place, k);
+            const own = game_views.score(shots[k], sprite, where);
+            const was = game_views.score(shots[k], picture_2003, where);
+            const frames = [3][]const u8{ shadows[k], ground[k], solid[k] };
+            const near = nearBox(shots[k], where, 90);
+            const cast = if (k == 0 and d == 0) folder else try std.fmt.allocPrint(allocator, "{s}_r{d}_s{d}", .{ base, d, k });
+            const cast_out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-cast{d}", .{ root, label, k });
+            try game_views.runTool(io, allocator, tool, &.{ "decompose", try std.fs.path.join(allocator, &.{ turned, cast }), cast_out });
+            const shadow_iou = packShadowIou(frames, near, where, try game_views.decomposed(io, allocator, cast_out, "1s"));
+            const joined = try attached(allocator, frames, near, where);
+            const pixels = shadowOf(frames, near, where, foot, k, game_sun_ground).pixels;
+            try report.print(allocator, "{s} {d} {d} {d} {s}: {d:.3} / {d:.2} at {d},{d}; {d:.3} / {d:.2}; {d:.3}, {d:.3}, {d}\n", .{ base, object.facing, k, d, folder, own.iou, own.colour, own.dx, own.dy, was.iou, was.colour, shadow_iou, joined, pixels });
+            if (own.iou < min_iou or own.colour > max_colour or @abs(own.dx) > 1 or @abs(own.dy) > 1) failed = true;
+            // Turn 0 must be the render, and not fall back on the 2003 files.
+            if (d == 0 and was.colour <= own.colour) failed = true;
+            if (joined < min_attached or (pixels >= units.min_shadow_pixels and shadow_iou < min_lit_shadow_iou)) failed = true;
+        }
+    }
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}the Game does not draw a hand model as its packs hold it (IoU floor {d}, colour ceiling {d}); the frames are in {s}\n", .{ report.items, min_iou, max_colour, root });
+        return error.DrawnWrong;
+    }
+}
+
 /// The review of 2026-10-31 (`camera-turn-full3d-review-*`, frames for the
 /// maintainer, no checks): objects alone at their facings, then a European
 /// village, over road3d with shadows on at the four camera steps. With
