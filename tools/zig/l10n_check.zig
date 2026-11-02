@@ -2873,7 +2873,7 @@ test "the document rule finds no fault in the real README set and every translat
     const english = try parseDocument(arena, try cwd.readFileAlloc(testing.io, "README.md", arena, .limited(1 << 20)));
     var top_level: usize = 0;
     for (english.levels) |level| top_level += @intFromBool(level == 1);
-    try testing.expectEqual(@as(usize, 7), top_level);
+    try testing.expectEqual(@as(usize, 8), top_level);
     // The rule reads only headings, fences and the bar, so an empty or copied file needs its own check.
     for (document_sets) |stem| {
         const en_bytes = try cwd.readFileAlloc(testing.io, try std.fmt.allocPrint(arena, "{s}.md", .{stem}), arena, .limited(1 << 22));
