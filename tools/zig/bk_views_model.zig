@@ -80,11 +80,45 @@ pub const none = std.math.maxInt(u32);
 /// its light.
 pub const Hand = struct { ambient: f64 = 0.8, diffuse: f64 = 0.35, density: f64 = 0.6 };
 
-/// How a face of normal `n` is lit under the light of turn `light`.
-fn litBy(m: Model, n: [3]f64, light: u2) [3]f64 {
+/// The Game's sun of a state's season (Data/consts.xml Scene.SunLight).
+fn sunOf(state: []const u8) [3]f64 {
+    return if (std.mem.indexOfScalar(u8, state, 'w') != null) views.sun_winter else views.sun_summer;
+}
+
+/// How a face of normal `n` of a state's art is lit under the light of turn `light`.
+fn litBy(m: Model, state: []const u8, n: [3]f64, light: u2) [3]f64 {
     const h = m.hand orelse return views.shading(n, light, m.wall);
-    const gain = h.ambient + h.diffuse * @max(0, mesh.dot(n, views.lightFor(views.sun_summer, light)));
+    const gain = h.ambient + h.diffuse * @max(0, mesh.dot(n, views.lightFor(sunOf(state), light)));
     return .{ gain, gain, gain };
+}
+
+/// A texture painted already: every texel counts as seen.
+fn paintedTexture(gpa: std.mem.Allocator, state: []const u8, atlas: Image) !Texture {
+    const paint = try gpa.alloc(Paint, atlas.pixels.len);
+    @memset(paint, .seen);
+    const source = try gpa.alloc(u8, atlas.pixels.len);
+    @memset(source, 0);
+    return .{ .state = state, .image = atlas, .paint = paint, .source = source };
+}
+
+/// One more state's art on a hand model's layout (a winter atlas).
+pub fn addAtlas(gpa: std.mem.Allocator, m: *Model, state: []const u8, atlas: Image) !void {
+    if (atlas.width != m.width or atlas.height != m.height) return error.BadHandModel;
+    var list: std.ArrayList(Texture) = .empty;
+    try list.appendSlice(gpa, m.textures);
+    try list.append(gpa, try paintedTexture(gpa, state, atlas));
+    m.textures = list.items;
+}
+
+/// A hand model's geometry with other art: a damage state an artist drew on
+/// the intact shape. Its one texture is named by the caller.
+pub fn onGeometry(gpa: std.mem.Allocator, m: Model, atlas: Image) !Model {
+    if (atlas.width != m.width or atlas.height != m.height) return error.BadHandModel;
+    var out = m;
+    const textures = try gpa.alloc(Texture, 1);
+    textures[0] = try paintedTexture(gpa, "1", atlas);
+    out.textures = textures;
+    return out;
 }
 
 /// A hand model from its fixture (tools/house_model/handexport.py): its faces
@@ -101,12 +135,8 @@ pub fn handModel(gpa: std.mem.Allocator, json: []const u8, atlas: Image) !Model 
     const triangles = try gpa.alloc(Triangle, f.triangles.len);
     for (triangles, f.triangles, 0..) |*t, r, i| t.* = .{ .v = r[0..3].*, .source = @intCast(i), .group = charts[r[3]].group, .chart = r[3], .normal = f.normals[r[3]] };
     const faces = try texelFaces(gpa, vertices, triangles, f.width, f.height);
-    const paint = try gpa.alloc(Paint, atlas.pixels.len);
-    @memset(paint, .seen);
-    const source = try gpa.alloc(u8, atlas.pixels.len);
-    @memset(source, 0);
     const textures = try gpa.alloc(Texture, 1);
-    textures[0] = .{ .state = "1", .image = atlas, .paint = paint, .source = source };
+    textures[0] = try paintedTexture(gpa, "1", atlas);
     return .{ .vertices = vertices, .triangles = triangles, .charts = charts, .groups = f.groups, .width = f.width, .height = f.height, .textures = textures, .texel_tri = faces.tri, .texel_bary = faces.bary, .hand = .{} };
 }
 
@@ -888,7 +918,7 @@ pub fn bake(gpa: std.mem.Allocator, m: *Model, state: []const u8, bake_views: []
                 const pixel = bv.picture.pixels[at];
                 if (facing < least or facing <= best or pixel[3] < 128) continue;
                 best = facing;
-                image.pixels[i] = views.relight(pixel, .{ 1, 1, 1 }, litBy(m.*, n, 0));
+                image.pixels[i] = views.relight(pixel, .{ 1, 1, 1 }, litBy(m.*, state, n, 0));
                 image.pixels[i][3] = 255;
                 paint[i] = .seen;
                 source[i] = @intCast(j + 1);
@@ -1212,9 +1242,9 @@ pub fn renderTiled(gpa: std.mem.Allocator, m: Model, state: []const u8, turn: u2
     defer gpa.free(facing);
     for (gains, facing, m.triangles) |*g, *n, t| {
         n.* = if (mesh.dot(t.normal, .{ back[0], back[1], mesh.toward_eye[2] }) < 0) scaled(t.normal, -1) else t.normal;
-        g.* = litBy(m, n.*, light);
+        g.* = litBy(m, state, n.*, light);
     }
-    const sun = views.lightFor(views.sun_summer, light);
+    const sun = views.lightFor(sunOf(state), light);
     const grid: ?SunGrid = if (m.hand != null) try SunGrid.init(gpa, m, sun) else null;
     const count = @as(usize, size[0]) * size[1];
     var out: Rendered = .{ .image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, count) }, .guessed = try gpa.alloc(bool, count) };

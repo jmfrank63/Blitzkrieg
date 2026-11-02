@@ -38,7 +38,7 @@ const usage: bk_tool.Usage = .{
     \\usage: bk-views decompose <variant-dir> <out-dir>
     \\       bk-views camera <variant-dir>... [--out <camera.json>]
     \\       bk-views inventory <buildings-dir> <out-dir>
-    \\       bk-views side <variant-dir> <turns> <out-dir> [<work-dir> | --no-work] [--deps=<file>]
+    \\       bk-views side <variant-dir> <turns> <out-dir> [<work-dir> | --no-work] [--deps=<file>] [--model=<stem>]
     \\       bk-views holdout <out-dir> <variant-dir>...
     \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
     \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
@@ -113,6 +113,9 @@ pub const MirrorList = struct {
 };
 
 var mirror_path: ?[]const u8 = null;
+/// `--model=<stem>`: the model of a modder's variant (the Building editor's
+/// Attach model), `<stem>.json` and its atlases, in place of `hand_models_dir`.
+var model_stem: ?[]const u8 = null;
 
 fn run(ctx: *bk_tool.Context) !void {
     if (ctx.args.len == 0) return error.Usage;
@@ -126,6 +129,8 @@ fn run(ctx: *bk_tool.Context) !void {
                 no_work = true;
             } else if (std.mem.eql(u8, command, "side") and std.mem.startsWith(u8, arg, "--mirror=") and arg.len > "--mirror=".len) {
                 mirror_path = arg["--mirror=".len..];
+            } else if (std.mem.startsWith(u8, arg, "--model=") and arg.len > "--model=".len) {
+                model_stem = arg["--model=".len..];
             } else try kept.append(ctx.arena, arg);
         }
         ctx.args = kept.items;
@@ -408,7 +413,11 @@ fn depScene(ctx: *bk_tool.Context, found: InFamily, scene: Scene) !void {
         const id = (try shapeIdOf(ids, arena, try std.fs.path.join(arena, &.{ found.root, variant.path }))) orelse continue;
         try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/{d:0>3}.json", .{ mesh.meshes_dir, id }));
     };
-    if (scene.isHand()) for ([_][]const u8{ ".json", "_1.png" }) |suffix| try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/{s}{s}", .{ hand_models_dir, scene.name, suffix }));
+    if (scene.isHand()) for (hand_model_suffixes) |suffix| {
+        const path = try std.fmt.allocPrint(arena, "{s}{s}", .{ try handModelPath(arena, scene.name), suffix });
+        std.Io.Dir.cwd().access(ctx.io, path, .{}) catch continue;
+        try depFile(ctx, path);
+    };
     if (scene.mesh) |ms| if (ms.model.shared) |name| try depFile(ctx, try std.fmt.allocPrint(arena, "{s}/shared/{s}.json", .{ mesh.meshes_dir, name }));
 }
 
@@ -3528,6 +3537,8 @@ const Scene = struct {
     /// The full 3D models on that mesh every state is rendered from
     /// (`buildFull3d`): the intact model, then one a damage state.
     full3d: []const model3d.Model = &.{},
+    /// The model written by hand it was built from, for `model3d`'s second build.
+    handmade: ?Handmade = null,
     /// How far the full 3D model is moved on the ground along the 2003
     /// line of sight, world (1, -1), to stand where the variant's 2003
     /// picture stands (`artAlong`); every turn is laid by it (`zeroAlong`).
@@ -3699,8 +3710,23 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         shape.* = parts.items;
     }
     const mesh_scene = try loadMeshScene(ctx, sources.items, same, fixed);
-    const handmade = if (mesh_scene != null and !intact_only) try loadHandModel(ctx, std.fs.path.basename(own.dir)) else null;
-    const full3d = if (mesh_scene != null and !intact_only) try buildFull3d(arena, sources.items, mesh_scene.?, states.items, handmade) else &.{};
+    const handmade = if ((mesh_scene != null or model_stem != null) and !intact_only) try loadHandModel(ctx, std.fs.path.basename(own.dir)) else null;
+    const full3d = if ((mesh_scene != null or handmade != null) and !intact_only) try buildFull3d(arena, sources.items, mesh_scene, fixed, states.items, handmade) else &.{};
+    // A state only the model has (a winter the 2003 variant never had) is
+    // drawn like the rest; its blocks are the first state's and go unused.
+    var all_shapes: std.ArrayList([]const Block) = .empty;
+    var all_bodies: std.ArrayList(usize) = .empty;
+    try all_shapes.appendSlice(arena, shapes);
+    try all_bodies.appendSlice(arena, bodies);
+    if (handmade != null) for (full3d) |m| for (m.textures) |t| {
+        for (states.items) |state| {
+            if (std.mem.eql(u8, state, t.state)) break;
+        } else {
+            try states.append(arena, t.state);
+            try all_shapes.append(arena, shapes[0]);
+            try all_bodies.append(arena, bodies[0]);
+        }
+    };
     return .{
         .family = found.family.name,
         .name = std.fs.path.basename(own.dir),
@@ -3711,14 +3737,15 @@ fn loadScene(ctx: *bk_tool.Context, found: InFamily, index: usize, skip: ?u8, in
         .fixed = fixed,
         .outlines = outlines,
         .states = states.items,
-        .shapes = shapes,
-        .bodies = bodies,
+        .shapes = all_shapes.items,
+        .bodies = all_bodies.items,
         .hand = hand,
         .body = body,
         .roof = roof.items,
         .prop = if (try readJson(std.json.ArrayHashMap([]const u8), ctx, props_file)) |props| props.map.contains(found.family.name) else false,
         .mesh = mesh_scene,
         .full3d = full3d,
+        .handmade = handmade,
         // A hand model's origin is its 2003 zero cross.
         .art_along = if (full3d.len > 0 and handmade == null) try artAlong(arena, own, full3d[0]) else 0,
     };
@@ -4505,7 +4532,7 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
             if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ temp, result.stderr });
             // compose-pack always packs a shadow; where the 2003 variant has
             // none (pillboxes, tracks, some ruins) the turned one has none either.
-            if (pictureOf(own, shadow_name) == null) for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
+            if (pictureOf(own, shadow_name) == null and pictureOf(own, d.state) != null) for ([_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" }) |suffix| {
                 try cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ temp, shadow_name }), suffix }));
             };
             // A shadow alone keeps no picture: the Game shows the turn's own.
@@ -7308,11 +7335,13 @@ pub const model3d = @import("bk_views_model.zig");
 /// intact one of that season painted over from its own damaged picture.
 ///
 /// A model written by hand (`handmade`) is that intact model, painted already,
-/// and stands in the world as it is; its damage states are made the same way.
-fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, states: []const []const u8, handmade: ?model3d.Model) ![]const model3d.Model {
+/// and stands in the world as it is. A damage state it brings is used as it
+/// is; one it does not bring is cut as any other model's. `scene_mesh` may be
+/// null only with a model written by hand.
+fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, scene_mesh: ?MeshScene, fixed: usize, states: []const []const u8, handmade: ?Handmade) ![]const model3d.Model {
     var models: std.ArrayList(model3d.Model) = .empty;
-    var m = handmade orelse try model3d.unwrap(gpa, ms.model, ms.tris, ms.views[0].placement);
-    const placement: mesh.Placement = if (handmade != null) .{} else ms.views[0].placement;
+    var m = if (handmade) |h| h.intact else try model3d.unwrap(gpa, scene_mesh.?.model, scene_mesh.?.tris, scene_mesh.?.views[0].placement);
+    const placement: mesh.Placement = if (handmade != null) .{} else scene_mesh.?.views[0].placement;
     const has = struct {
         fn f(list: []const []const u8, state: []const u8) bool {
             for (list) |s| if (std.mem.eql(u8, s, state)) return true;
@@ -7323,6 +7352,7 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
         if (handmade != null or !has(states, state)) continue;
         var means: Means = .{};
         var bake_views: std.ArrayList(model3d.BakeView) = .empty;
+        const ms = scene_mesh.?;
         for (ms.views) |v| {
             const source = sources[v.source];
             const picture = pictureOf(source, state) orelse continue;
@@ -7336,9 +7366,13 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
         try model3d.bake(gpa, &m, state, bake_views.items, null);
     }
     try models.append(gpa, m);
-    const own = sources[ms.views[0].source];
+    const own = sources[fixed];
     const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
     for ([_][]const u8{ "2", "3" }) |state| {
+        if (handmade) |h| if (h.stateModel(state)) |d| {
+            try models.append(gpa, d);
+            continue;
+        };
         if (!has(states, state)) continue;
         var d = try model3d.damaged(gpa, m, placement, pictureOf(own, state).?, pictureOf(own, "1").?, anchor);
         for ([_][2][]const u8{ .{ state, "1" }, .{ try std.fmt.allocPrint(gpa, "{s}w", .{state}), "1w" } }) |pair| {
@@ -7352,20 +7386,64 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, ms: MeshScene, s
     return models.items;
 }
 
-/// Models written by hand from their pictures
+/// Models written by hand from their pictures or converted from other art
 /// (docs/superpowers/specs/2026-11-02-hand-model-from-picture.md): `<variant>.json`
-/// and its summer atlas `<variant>_1.png`, exported by tools/house_model.
+/// and its summer atlas `<variant>_1.png`, exported by tools/house_model, with
+/// any of the optional files of `hand_model_suffixes`.
 pub const hand_models_dir = "tools/zig/fixtures/bk-views/hand-models";
 
-fn loadHandModel(ctx: *bk_tool.Context, name: []const u8) !?model3d.Model {
+/// Every file of a model. `_<state>.json` is a damage state's own geometry; a
+/// `_<state>.png` without one lays that state's art on the intact geometry; a
+/// winter atlas lies on the layout of its summer state. A damage state with
+/// neither is cut from the intact model (`model3d.damaged`).
+pub const hand_model_suffixes = [_][]const u8{ ".json", "_1.png", "_1w.png", "_2.json", "_2.png", "_2w.png", "_3.json", "_3.png", "_3w.png" };
+
+/// A model written by hand: its intact model and the damage states it brings.
+pub const Handmade = struct {
+    intact: model3d.Model,
+    damage: []const model3d.Model = &.{},
+
+    fn stateModel(h: Handmade, state: []const u8) ?model3d.Model {
+        for (h.damage) |d| if (d.texture(state) != null) return d;
+        return null;
+    }
+};
+
+fn handModelPath(arena: std.mem.Allocator, name: []const u8) ![]const u8 {
+    return model_stem orelse try std.fmt.allocPrint(arena, "{s}/{s}", .{ hand_models_dir, name });
+}
+
+/// A file of a model, or null where the model has none.
+fn handFile(ctx: *bk_tool.Context, path: []const u8, suffix: []const u8) !?[]const u8 {
+    return std.Io.Dir.cwd().readFileAlloc(ctx.io, try std.fmt.allocPrint(ctx.arena, "{s}{s}", .{ path, suffix }), ctx.arena, .limited(64 << 20)) catch |err| switch (err) {
+        error.FileNotFound => return null,
+        else => return err,
+    };
+}
+
+fn loadHandModel(ctx: *bk_tool.Context, name: []const u8) !?Handmade {
     const cwd = std.Io.Dir.cwd();
-    const path = try std.fmt.allocPrint(ctx.arena, "{s}/{s}", .{ hand_models_dir, name });
+    const path = try handModelPath(ctx.arena, name);
     const json = cwd.readFileAlloc(ctx.io, try std.fmt.allocPrint(ctx.arena, "{s}.json", .{path}), ctx.arena, .limited(16 << 20)) catch |err| switch (err) {
         error.FileNotFound => return null,
         else => return err,
     };
     const png = try cwd.readFileAlloc(ctx.io, try std.fmt.allocPrint(ctx.arena, "{s}_1.png", .{path}), ctx.arena, .limited(64 << 20));
-    return try model3d.handModel(ctx.arena, json, try readPng(ctx.arena, png));
+    var intact = try model3d.handModel(ctx.arena, json, try readPng(ctx.arena, png));
+    if (try handFile(ctx, path, "_1w.png")) |winter| try model3d.addAtlas(ctx.arena, &intact, "1w", try readPng(ctx.arena, winter));
+    var damage: std.ArrayList(model3d.Model) = .empty;
+    for ([_][]const u8{ "2", "3" }, [_][]const u8{ "2w", "3w" }) |state, winter_state| {
+        const atlas = try handFile(ctx, path, try std.fmt.allocPrint(ctx.arena, "_{s}.png", .{state}));
+        const geometry = try handFile(ctx, path, try std.fmt.allocPrint(ctx.arena, "_{s}.json", .{state}));
+        const winter = try handFile(ctx, path, try std.fmt.allocPrint(ctx.arena, "_{s}.png", .{winter_state}));
+        if (geometry != null and atlas == null) return error.BadHandModel;
+        const summer = try readPng(ctx.arena, atlas orelse continue);
+        var d = if (geometry) |g| try model3d.handModel(ctx.arena, g, summer) else try model3d.onGeometry(ctx.arena, intact, summer);
+        d.textures[0].state = state;
+        if (winter) |w| try model3d.addAtlas(ctx.arena, &d, winter_state, try readPng(ctx.arena, w));
+        try damage.append(ctx.arena, d);
+    }
+    return .{ .intact = intact, .damage = damage.items };
 }
 
 /// A state of a turn drawn by its full 3D model (`model3d.render`), its
@@ -7383,7 +7461,11 @@ fn full3dDrawn(gpa: std.mem.Allocator, m: model3d.Model, state: []const u8, bloc
     const out: Generated = .{ .image = r.image, .kinds = try gpa.alloc(Kind, r.guessed.len), .classes = try gpa.alloc(u8, r.guessed.len) };
     for (out.kinds, r.image.pixels, r.guessed) |*kind, p, g| kind.* = if (p[3] == 0) .empty else if (g) .filled else .projected;
     @memset(out.classes, 255);
-    const shadow = try model3d.shadow(gpa, m, target.eye.turn, target.light, target.eye.anchor, target.size);
+    // Under the Game's sun of the state's season (`model3d.shadow` keeps to the summer's).
+    const shadow = if (m.hand != null and std.mem.indexOfScalar(u8, state, 'w') != null)
+        try model3d.shadowToward(gpa, m, target.eye.turn, lightFor(sun_winter, target.light), target.eye.anchor, target.size)
+    else
+        try model3d.shadow(gpa, m, target.eye.turn, target.light, target.eye.anchor, target.size);
     keepShadow(out.image, shadow);
     return .{ .state = state, .blocks = blocks, .sprite = out, .shadow = shadow, .ground = null, .covers = &.{} };
 }
@@ -7596,7 +7678,7 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
         try w.writeAll(",\r\n\"damage\":[");
         for (scene.full3d[1..], 0..) |m, i| {
             const state = m.textures[0].state;
-            const art = pictureOf(own, state).?;
+            const art = pictureOf(own, state) orelse continue;
             const dn = try model3d.render(arena, m, state, 0, 0, anchor, .{ art.width, art.height });
             const match = artMatch(dn.image, art, .{ 0, 0 }, false);
             const before = artMatch(n.image, art, .{ 0, 0 }, false);
@@ -7615,7 +7697,7 @@ fn model3dCommand(ctx: *bk_tool.Context, out_arg: []const u8, dir_args: []const 
 
         // The same bytes again: the models built anew, their files and the
         // intact turns compared.
-        const again = try buildFull3d(arena, scene.sources, ms, scene.states, if (scene.isHand()) intact else null);
+        const again = try buildFull3d(arena, scene.sources, ms, scene.fixed, scene.states, scene.handmade);
         var same = again.len == scene.full3d.len;
         if (same) for (scene.full3d, again, mods.items) |a, b, mod| {
             same = same and std.mem.eql(u8, mod, try model3d.writeMod(arena, b));
