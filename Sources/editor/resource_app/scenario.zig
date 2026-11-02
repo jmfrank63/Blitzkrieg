@@ -75,6 +75,12 @@
 //!   do=sides_generate       its Generate sides, waited for (bk-views side beside the editor)
 //!   do=sides_look:<state>[w][s]   the state, winter and shadow the four cells show
 //!   do=sides_import:<turn>/<png>   Import side picture of the state shown into that turn's cell, waited for
+//!   do=sides_quick         Generate sides of a model draws only the four camera-lit pictures, to keep the tier short
+//!   do=sides_model:<json>  Attach model
+//!   do=sides_atlas:<png>   Replace atlas of the state shown, waited for
+//!   do=sides_refuse_atlas:<png>  Replace atlas, which must refuse it and draw nothing
+//!          shot_sides_apart:<shot>/<n>  each Sides cell differs from the next in at least n pixels
+//!          shot_sides_changed:<shot>/<before>/<n>  each Sides cell differs from the shot before in at least n pixels
 //!          sides_missing:<n>  the Sides cells drawn as missing in the last frame
 //!          shot_sides:<shot>/<n>  every Sides cell's picture, as drawn in the last frame, holds at least n pixels
 //!          that are not the cell's ground colour (a missing side fails)
@@ -173,6 +179,7 @@ const terrain = @import("terrain_logic.zig");
 const view_logic = @import("view_logic.zig");
 const game_reads = @import("game_reads_logic.zig");
 const sides_dock = @import("sides_dock.zig");
+const sl_cells = @import("sides_logic.zig").cells;
 
 const c = c_bridge.c;
 const ig = imgui.c;
@@ -993,6 +1000,14 @@ const Runner = struct {
     if (eql(u8, name, "sides_mirror")) return self.sidesMirror();
         if (eql(u8, name, "sides_look")) return self.sidesLook(named.arg);
         if (eql(u8, name, "sides_import")) return self.sidesImport(named.arg);
+        if (eql(u8, name, "sides_quick")) {
+            const s = self.sides() orelse return self.failure;
+            s.model_turns = "0,1,2,3";
+            return null;
+        }
+        if (eql(u8, name, "sides_model")) return self.sidesModel(named.arg);
+        if (eql(u8, name, "sides_atlas")) return self.sidesAtlas(named.arg, false);
+        if (eql(u8, name, "sides_refuse_atlas")) return self.sidesAtlas(named.arg, true);
         if (eql(u8, name, "image_select")) return self.imageSelect();
         if (eql(u8, name, "image_click")) return self.imageClick(named.arg);
         if (eql(u8, name, "image_crosses")) return self.imageCrosses(named.arg);
@@ -1778,6 +1793,97 @@ const Runner = struct {
         s.selected = turn;
         s.import(png);
         return self.sidesWait("sides_import", s);
+    }
+
+    fn sidesModel(self: *Runner, arg: []const u8) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        var buffer: [logic.path_capacity]u8 = undefined;
+        const path = self.expand(&buffer, arg) orelse return self.fail("the path is too long", .{});
+        s.attachModel(path);
+        std.debug.print("resource-editor: auto: sides_model: {s}\n", .{s.noteText()});
+        if (s.failed or !s.has_model) return self.fail("sides_model: {s}", .{s.noteText()});
+        return null;
+    }
+
+    fn sidesAtlas(self: *Runner, arg: []const u8, refused: bool) ?[]const u8 {
+        const s = self.sides() orelse return self.failure;
+        var buffer: [logic.path_capacity]u8 = undefined;
+        const path = self.expand(&buffer, arg) orelse return self.fail("the path is too long", .{});
+        s.failed = false;
+        s.replaceAtlas(path);
+        if (!refused) return self.sidesWait("sides_atlas", s);
+        std.debug.print("resource-editor: auto: sides_refuse_atlas: {s}\n", .{s.noteText()});
+        if (!s.failed or s.job != null) return self.fail("sides_refuse_atlas: {s} was not refused", .{arg});
+        s.failed = false;
+        return null;
+    }
+
+    /// The pixels of a Sides cell's rect in `shot` that differ from `other`'s
+    /// rect at the same size, `other` a second shot or the same shot's next cell.
+    fn cellDifference(self: *Runner, shot: anytype, rect: sides_dock.Rect, other: anytype, other_rect: sides_dock.Rect) usize {
+        _ = self;
+        const x0: u32 = @intFromFloat(@max(0, @ceil(rect.x * shot.scale)));
+        const y0: u32 = @intFromFloat(@max(0, @ceil(rect.y * shot.scale)));
+        const ox: i64 = @intFromFloat(@ceil(other_rect.x * shot.scale));
+        const oy: i64 = @intFromFloat(@ceil(other_rect.y * shot.scale));
+        const w: u32 = @intFromFloat(@floor(@min(rect.w, other_rect.w) * shot.scale));
+        const h: u32 = @intFromFloat(@floor(@min(rect.h, other_rect.h) * shot.scale));
+        var count: usize = 0;
+        var y: u32 = 0;
+        while (y < h) : (y += 1) {
+            var x: u32 = 0;
+            while (x < w) : (x += 1) {
+                const tx = x0 + x;
+                const ty = y0 + y;
+                const ux = ox + x;
+                const uy = oy + y;
+                if (tx >= shot.tga.width or ty >= shot.tga.height or ux < 0 or uy < 0 or ux >= other.tga.width or uy >= other.tga.height) continue;
+                const a = shot.tga.pixel(tx, ty);
+                const b = other.tga.pixel(@intCast(ux), @intCast(uy));
+                count += @intFromBool(a[0] != b[0] or a[1] != b[1] or a[2] != b[2]);
+            }
+        }
+        return count;
+    }
+
+    /// `<shot>/<n>`: the four angles are four pictures: each cell differs from the next.
+    fn shotSidesApart(self: *Runner, arg: []const u8) ?[]const u8 {
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_sides_apart needs <shot>/<n>", .{});
+        const least = std.fmt.parseInt(usize, arg[slash + 1 ..], 10) catch return self.fail("shot_sides_apart needs <shot>/<n>", .{});
+        const s = self.sides() orelse return self.failure;
+        var bytes: []u8 = &.{};
+        const shot = self.loadShot("shot_sides_apart", arg[0..slash], &bytes) orelse return self.failure;
+        defer self.gpa.free(bytes);
+        for (0..sl_cells - 1) |k| {
+            const a = s.shown[k] orelse return self.fail("expect=shot_sides_apart:{s}: turn {d} was drawn as missing", .{ arg, k });
+            const b = s.shown[k + 1] orelse return self.fail("expect=shot_sides_apart:{s}: turn {d} was drawn as missing", .{ arg, k + 1 });
+            const count = self.cellDifference(shot, a, shot, b);
+            std.debug.print("resource-editor: auto: {s} turns {d} and {d}: {d} pixels differ\n", .{ arg[0..slash], k, k + 1, count });
+            if (count < least) return self.fail("expect=shot_sides_apart:{s} was false: turns {d} and {d} differ in {d} pixels", .{ arg, k, k + 1, count });
+        }
+        return null;
+    }
+
+    /// `<shot>/<before>/<n>`: every cell's picture changed against the shot before.
+    fn shotSidesChanged(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const name = parts.next() orelse "";
+        const before_name = parts.next() orelse return self.fail("shot_sides_changed needs <shot>/<before>/<n>", .{});
+        const least = std.fmt.parseInt(usize, parts.next() orelse "", 10) catch return self.fail("shot_sides_changed needs <shot>/<before>/<n>", .{});
+        const s = self.sides() orelse return self.failure;
+        var bytes: []u8 = &.{};
+        const shot = self.loadShot("shot_sides_changed", name, &bytes) orelse return self.failure;
+        defer self.gpa.free(bytes);
+        var before_bytes: []u8 = &.{};
+        const before = self.loadShot("shot_sides_changed", before_name, &before_bytes) orelse return self.failure;
+        defer self.gpa.free(before_bytes);
+        for (s.shown, 0..) |shown, k| {
+            const rect = shown orelse return self.fail("expect=shot_sides_changed:{s}: turn {d} was drawn as missing", .{ arg, k });
+            const count = self.cellDifference(shot, rect, before, rect);
+            std.debug.print("resource-editor: auto: {s} against {s}, turn {d}: {d} pixels differ\n", .{ name, before_name, k, count });
+            if (count < least) return self.fail("expect=shot_sides_changed:{s} was false: turn {d} differs in {d} pixels", .{ arg, k, count });
+        }
+        return null;
     }
 
     /// `<shot>/<n>`: in each Sides cell's picture rect of the last frame, the
@@ -3152,6 +3258,8 @@ const Runner = struct {
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         if (eql(u8, name, "shot_mark_cross")) return self.shotMarkCross(arg);
         if (eql(u8, name, "shot_sides")) return self.shotSides(arg);
+        if (eql(u8, name, "shot_sides_apart")) return self.shotSidesApart(arg);
+        if (eql(u8, name, "shot_sides_changed")) return self.shotSidesChanged(arg);
         if (eql(u8, name, "shot_compare")) return self.shotCompare(arg);
         if (eql(u8, name, "shot_compare_mirror")) return self.shotCompareMirror(arg);
         if (eql(u8, name, "sides_missing")) {
