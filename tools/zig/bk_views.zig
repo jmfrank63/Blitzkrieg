@@ -3745,12 +3745,14 @@ fn turnTargetUnder(scene: Scene, k: u2, light: u2, name: []const u8, base: [3]f6
             hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
         }
     };
-    if (scene.isHand()) for (scene.full3d[0].vertices) |v| {
-        const p = v.world;
-        for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
-            const s = eye.project(q);
-            lo = .{ @min(lo[0], s[0]), @min(lo[1], s[1]) };
-            hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
+    if (scene.isHand()) {
+        for (scene.full3d[0].vertices) |v| {
+            const p = v.world;
+            for ([2][3]f64{ p, .{ p[0] - l[0] * p[2] / l[2], p[1] - l[1] * p[2] / l[2], 0 } }) |q| {
+                const s = eye.project(q);
+                lo = .{ @min(lo[0], s[0]), @min(lo[1], s[1]) };
+                hi = .{ @max(hi[0], s[0]), @max(hi[1], s[1]) };
+            }
         }
     } else if (scene.mesh) |ms| for (0..mesh.vertexCount(ms.model)) |i| {
         const p = ms.views[0].placement.world(mesh.vertex(ms.model, i));
