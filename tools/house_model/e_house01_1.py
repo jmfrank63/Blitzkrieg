@@ -5,7 +5,7 @@ import sys, json, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python -I leaves the script's folder off the path
 import numpy as np
 import rast, bk1
-import castshadow
+import castshadow, handexport
 from PIL import Image
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'zig-out', 'local-test', 'house_model').replace(os.sep, '/')
 os.makedirs(OUT, exist_ok=True)
@@ -494,3 +494,4 @@ with open(OUT + '/e_house01_1.obj', 'w') as o:
 json.dump(dict(names=[f.name for f in faces], FI=FI.tolist()), open(OUT + '/faces.json', 'w'))
 import pickle
 pickle.dump(mod, open(OUT + '/mod.pkl', 'wb'))
+handexport.write('e_house01_1', faces, mod, FI, atlas)
