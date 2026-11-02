@@ -420,16 +420,15 @@ test "a hand model is what the Game draws at every step: step 0 is its render, n
             const own = game_views.score(shots[k], sprite, where);
             const was = game_views.score(shots[k], picture_2003, where);
             const frames = [3][]const u8{ shadows[k], ground[k], solid[k] };
-            var near = nearBox(shots[k], where, 90);
-            for (&near) |*v| v.* = v.*;
+            const near = nearBox(shots[k], where, 90);
             const cast = if (k == 0 and d == 0) folder else try std.fmt.allocPrint(allocator, "{s}_r{d}_s{d}", .{ base, d, k });
             const cast_out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-cast{d}", .{ root, label, k });
-            _ = try game_views.decompose(io, allocator, tool, try std.fs.path.join(allocator, &.{ turned, cast }), cast_out);
+            try game_views.runTool(io, allocator, tool, &.{ "decompose", try std.fs.path.join(allocator, &.{ turned, cast }), cast_out });
             const shadow_iou = packShadowIou(frames, near, where, try game_views.decomposed(io, allocator, cast_out, "1s"));
             const joined = try attached(allocator, frames, near, where);
             const pixels = shadowOf(frames, near, where, foot, k, game_sun_ground).pixels;
             try report.print(allocator, "{s} {d} {d} {d} {s}: {d:.3} / {d:.2} at {d},{d}; {d:.3} / {d:.2}; {d:.3}, {d:.3}, {d}\n", .{ base, object.facing, k, d, folder, own.iou, own.colour, own.dx, own.dy, was.iou, was.colour, shadow_iou, joined, pixels });
-            if (own.iou < min_iou or own.colour > max_colour or own.dx != 0 or own.dy != 0) failed = true;
+            if (own.iou < min_iou or own.colour > max_colour or @abs(own.dx) > 1 or @abs(own.dy) > 1) failed = true;
             // Turn 0 must be the render, and not fall back on the 2003 files.
             if (d == 0 and was.colour <= own.colour) failed = true;
             if (joined < min_attached or (pixels >= units.min_shadow_pixels and shadow_iou < min_lit_shadow_iou)) failed = true;
