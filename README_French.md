@@ -8,31 +8,75 @@ Ce dépôt est un projet personnel de Johannes Maria Frank. Je l'utilise pour le
 Attention : ce projet est en cours de développement.
 
 
-# Ce que ce dépôt sait faire aujourd'hui
+# Où en est le projet (novembre 2026)
 
-- Contient le code source complet du mode solo de Blitzkrieg et les données du jeu.
+Le portage lui-même est en grande partie terminé : le jeu tourne nativement sur Windows, macOS et Linux, il parle dix langues, et tous les éditeurs sont portés. Le projet est actuellement bloqué sur les illustrations, sur les vues tournées des bâtiments et des accessoires. Voir « Le mur : les illustrations » plus bas.
 
-- Compile tout le jeu avec `zig build` (Zig + clang) pour six cibles — Windows (MSVC et MinGW), macOS (Intel et Apple Silicon) et Linux (x86_64 et arm64) — et produit une installation exécutable sous `zig-out/game/<os>/<arch>/<config>`. Seule la cible MSVC nécessite Visual Studio ; Zig fournit sa propre chaîne d'outils pour les autres.
 
-- Se compile et s'exécute en Game.exe natif **64 bits** (`zig build install-game -Dtarget=x86_64-windows-msvc`) ; les cibles 32 bits ont été abandonnées. Les missions de campagne et les tutoriels sont jouables en x64, avec sauvegarde/chargement, vidéo et son.
+# Ce qui a été fait
 
-- Est livré avec StreamIO.dll entièrement remplacée par une implémentation Zig (`Sources/src/StreamIOZig`) — toute la couche de persistance du moteur : graphes d'objets binaires pour la sauvegarde et le chargement, arbres de données XML, la fabrique d'objets, variables globales, console et options.
+**Le jeu**
 
-- Compile le C++ historique avec clang et UBSan activé, ce qui a révélé et corrigé des dizaines de bogues latents que la compilation MSVC de 2003 tolérait en silence, dont un plantage d'appel virtuel pur vieux de 22 ans lors de la destruction du char et de sa tourelle.
+- Tout le jeu solo et ses données sont ici, compilés avec `zig build` (Zig + clang) en programme natif 64 bits. Les campagnes, les tutoriels et les missions aléatoires sont jouables, avec sauvegarde/chargement, vidéo et son.
 
-- Valide chaque cible prise en charge en CI, en exécutant les suites de tests de plateforme nativement sur son propre runner — Linux x86_64 et arm64, Windows MSVC et MinGW, macOS Intel et Apple Silicon — plutôt que de se contenter de compiler en croisé.
+- Le moteur a quitté Win32 et DirectX pour une couche portable : SDL3 pour les fenêtres, l'entrée et l'audio, et un moteur de rendu SDL GPU.
 
-- Se compile toujours proprement depuis la solution d'origine `A7.sln` avec les outils MSVC actuels (`Debug | Win32`), comme référence de comportement.
+- Les bibliothèques fermées ont disparu : FMOD, Bink et Stingray ont été retirés. Le son et les films utilisent désormais Ogg Vorbis et Ogg Theora.
 
-- S'exécute par défaut dans une vraie fenêtre ; `-fullscreen` reste disponible en option de ligne de commande.
+- StreamIO.dll, la couche de persistance du moteur, est remplacée par une implémentation Zig (`Sources/src/StreamIOZig`).
 
-- Utilise des sous-modules Git pour les bibliothèques manquantes.
+- Le C++ historique se compile avec clang et UBSan, ce qui a fait apparaître et corriger des dizaines de bogues que la compilation de 2003 tolérait en silence.
 
-- Prend en charge le débogage C++ natif et WinDbg dans VS Code Insiders, ainsi que des scripts de capture de plantage sans interface dans `tools/zig/`.
+- Les missions aléatoires d'origine sont de retour, chaque chapitre de campagne débloquant sa mission historique comme son script le prévoit.
 
-- Fournit un flux de travail d'aide pour empaqueter les films compressés dans `VideoAssets/`.
+- Les profils de joueur peuvent suivre un joueur d'une machine à l'autre grâce à la synchronisation dans le cloud.
 
-- A supprimé l'ancienne gestion des plantages BugSlay au profit d'asserts C++ standard.
+- Le multijoueur en réseau local fonctionne. Le code GameSpy a été retiré, et le jeu sur Internet n'est pas encore connecté.
+
+**Dix langues**
+
+- Le jeu, tous les éditeurs, les outils en ligne de commande et leurs guides, ainsi que ce README sont disponibles en anglais, russe, chinois (simplifié), hindi, espagnol, français, allemand, portugais (Brésil), japonais et indonésien.
+
+- Les neuf traductions s'installent comme des mods de langue, avec un nouveau moteur de texte TrueType qui dessine chacune de ces écritures.
+
+- Les traductions sont faites par machine et doivent encore être relues par des locuteurs natifs. Les corrections sont les bienvenues.
+
+**Tous les éditeurs**
+
+- L'éditeur de cartes, l'éditeur de ressources avec tous ses sous-éditeurs, et ELK, le kit de localisation, sont réécrits en applications Zig avec Dear ImGui (`Sources/editor`). Ils dialoguent avec le moteur C++ par une ABI C (`Sources/src/EditorBridge`).
+
+- Les anciens éditeurs MFC réservés à Windows ont été supprimés. Le jeu lit ce que les nouveaux éditeurs écrivent, et des tests le vérifient avec les propres lecteurs du jeu.
+
+- Les anciens outils en ligne de commande sont remplacés par sept outils portables pour créer des mods : `bk-pak`, `bk-table`, `bk-image`, `bk-video`, `bk-font`, `bk-map` et `bk-sprite`. Voir `tools/guide/README.md`.
+
+**L'option Remastered**
+
+- Options > Paramètres > Gameplay > Remastered est désactivée par défaut, et désactivée, elle joue selon les règles d'origine. Activée, elle ajoute des fonctions que le jeu de 2003 n'avait pas, comme la rotation de la caméra en quatre pas, un calcul d'itinéraire le plus rapide, et le passage direct de l'infanterie d'un conteneur à un autre.
+
+- Les rediffusions de mission sont en cours de construction ; leurs fondations sont fusionnées.
+
+
+# Le mur : les illustrations
+
+Tourner la caméra impose de montrer chaque bâtiment et chaque accessoire sous quatre côtés, mais l'art de 2003 est un ensemble d'images de chaque objet vu d'un seul côté. Les autres côtés n'ont jamais été dessinés.
+
+Jusqu'ici, j'ai essayé deux approches pour les 412 objets :
+
+- Construire chaque image tournée à partir des pixels de 2003 (abandonné le 2026-10-29 : chaque problème résolu en créait un nouveau).
+
+- Rendre de simples modèles 3D peints à partir de ces mêmes images. C'est ce que fait le projet aujourd'hui. Le côté que montre l'art de 2003 a l'air juste, mais chaque partie qu'il n'a jamais montrée doit être devinée. Les détails échouent aussi : une lucarne peinte sur un toit plat ne peut pas être juste vue d'un autre côté.
+
+Aucune des deux n'est assez bonne. La bonne méthode est un vrai modèle 3D de chaque objet, avec des détails comme les lucarnes en vraie géométrie et une texture sur chaque face plane, de sorte que chaque côté découle de la forme.
+
+La question est de savoir d'où viennent ces modèles et ces textures :
+
+- Les modéliser à la main ou avec des agents, d'après les dessins de 2003.
+
+- Les modèles de Blitzkrieg 2, que Nival a aussi publiés. Un rendu de test montre qu'ils sont construits ainsi et restent propres aux quatre rotations, mais beaucoup sont des bâtiments différents de ceux de 2003 portant le même nom, et la licence ne couvre pas clairement leur art.
+
+- Les générateurs d'image vers 3D, que je n'ai pas essayés sur cet art.
+
+Aucune décision n'a été prise. Si vous êtes artiste 3D ou connaissez ce type de travail, j'aimerais avoir de vos nouvelles.
 
 
 # Conversion et validation des ressources Blender
@@ -48,109 +92,70 @@ Commandes rapides :
 
 # Plateformes prises en charge
 
-`zig build` accepte six cibles. On en passe une avec `-Dtarget=` ; l'arborescence produite est organisée en `zig-out/game/<os>/<arch>/<config>`, de sorte que plusieurs cibles et les deux niveaux d'optimisation coexistent sans s'écraser.
+Passez une cible avec `-Dtarget=`. L'arborescence produite est organisée en `zig-out/game/<os>/<arch>/<config>`, de sorte que plusieurs cibles et les deux niveaux d'optimisation coexistent côte à côte.
 
 | Plateforme | Triplet cible | État |
 | --- | --- | --- |
-| Windows (MSVC) | `x86_64-windows-msvc` | Jouable |
-| macOS (Apple Silicon) | `aarch64-macos` | Jouable |
-| macOS (Intel) | `x86_64-macos` | Compile ; pas testé en jeu |
-| Linux (x86_64) | `x86_64-linux-gnu` | En cours de développement |
-| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | Couche plateforme seulement |
-| Windows (MinGW) | `x86_64-windows-gnu` | Couche plateforme seulement |
+| Windows (MSVC) | `x86_64-windows-msvc` | Le jeu et les éditeurs fonctionnent ; testé en CI |
+| macOS (Apple Silicon) | `aarch64-macos` | Le jeu et les éditeurs fonctionnent ; testé en CI |
+| Linux (x86_64) | `x86_64-linux-gnu` | Le jeu et les éditeurs fonctionnent ; testé en CI avec un moteur de rendu logiciel |
+| macOS (Intel) | `x86_64-macos` | Compile ; le runner de CI n'a pas de GPU pour le jeu, donc le jeu est vérifié sur un vrai Mac Intel |
+| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | Tests de plateforme seulement ; jeu et éditeurs pas encore testés |
+| Windows (MinGW) | `x86_64-windows-gnu` | Tests de plateforme seulement ; le moteur ne s'y compile pas encore |
 
-« Couche plateforme seulement » signifie que la cible se compile et réussit les suites de tests de plateforme, mais que la compilation complète du jeu n'y a pas encore été mise en route.
+La CI exécute chaque cible sur un runner de sa propre architecture, de sorte que les suites s'exécutent au lieu d'être simplement liées. Certaines tâches sous Linux et macOS échouent actuellement.
+
+Sous Linux, l'icône de la fenêtre est définie dans le programme, ce que respectent X11 et KDE. GNOME sous Wayland l'ignore et prend l'icône du dock et d'alt-tab dans une entrée de bureau nommée d'après l'identifiant d'application du programme (`org.blitzkrieg.game`, et `org.blitzkrieg.mapeditor`, `org.blitzkrieg.resourceeditor`, `org.blitzkrieg.elk` pour les éditeurs). L'installation fournit un script facultatif qui écrit ces entrées et l'icône dans `~/.local/share` ; rien ne l'exécute à votre place. Depuis le dossier d'installation, lancez `Tools/install_desktop_entry.sh` (depuis une copie du dépôt : `tools/install_desktop_entry.sh [install-dir]`), et `Tools/install_desktop_entry.sh --remove` l'annule.
 
 Seul `x86_64-windows-msvc` nécessite une installation de Visual Studio. Zig fournit sa propre chaîne d'outils, ses en-têtes et ses bibliothèques d'import pour toutes les autres cibles, MinGW compris.
 
-Chaque cible est exercée par le workflow `Cross-platform validation` sur un runner de sa propre architecture, de sorte que les suites s'exécutent au lieu d'être simplement liées.
 
-
-# Lancer le jeu avec Zig (principal)
+# Compilation et exécution
 
 1. Clonez le dépôt avec ses sous-modules, ou exécutez `git submodule update --init --recursive` dans une copie existante.
 
-2. Installez Zig (0.17 ou plus récent). Pour `x86_64-windows-msvc`, il faut aussi la chaîne d'outils MSVC et un SDK Windows (les chemins se configurent avec `-Dmsvc-include`/`-Dwindows-sdk-include` et leurs équivalents `lib` s'ils diffèrent des valeurs par défaut de `build.zig`). Aucune autre cible n'en a besoin.
+2. Installez Zig 0.17. Pour `x86_64-windows-msvc`, il faut aussi la chaîne d'outils MSVC et un SDK Windows (les chemins se configurent avec `-Dmsvc-include`/`-Dwindows-sdk-include` et leurs équivalents `lib` s'ils diffèrent des valeurs par défaut de `build.zig`).
 
-3. Lancez `zig build install-game -Dtarget=<triple> --release=fast` pour jouer, ou retirez `--release=fast` pour une compilation de débogage. Sans `-Dtarget`, la compilation vise l'hôte.
+3. Lancez `zig build install-all -Dtarget=<triple> --release=fast` pour le jeu, les neuf mods de langue et tous les éditeurs, ou `zig build install-game` pour le jeu seul. Sans `-Dtarget`, la compilation vise l'hôte ; retirez `--release=fast` pour une compilation de débogage.
 
-4. Démarrez le binaire produit — `zig-out/game/windows/x86_64/release/Game.exe` sous Windows, `zig-out/game/macos/arm64/release/Game` sur Apple Silicon (`.../debug/...` sans `--release=fast`). L'arborescence porte le nom de l'optimisation qu'elle contient, si bien que les deux ne s'écrasent jamais.
+4. Démarrez le binaire produit, par exemple `zig-out/game/windows/x86_64/release/Game.exe` sous Windows ou `zig-out/game/macos/arm64/release/Game` sur Apple Silicon (`.../debug/...` sans `--release=fast`). Le jeu s'exécute dans une fenêtre ; `-fullscreen` est disponible en option de ligne de commande.
 
-5. `zig build package` crée des paquets zip distribuables ; `zig build test` exécute les tests unitaires Zig et le test de fumée de l'ABI C++.
-
-
-# Lancer le jeu avec Visual Studio 2026 Insiders
-
-1. Clonez le dépôt avec ses sous-modules, ou exécutez `git submodule update --init --recursive` dans une copie existante.
-
-2. Installez Visual Studio 2026 Insiders / Visual Studio 18 avec la charge de travail « Développement Desktop en C++ », la chaîne d'outils MSVC de VS 2026 et un SDK Windows 10 ou Windows 11.
-
-3. Ouvrez `Sources/src/A7.sln`.
-
-4. Sélectionnez `Debug | Win32`.
-
-5. Compilez le projet `Game` ou la solution entière.
-
-6. Lancez le projet `Game` avec F5, ou exécutez directement `Sources/src/Game/Debug/Game.exe`.
-
-7. Le jeu démarre en fenêtre par défaut. Ajoutez `-fullscreen` aux arguments de ligne de commande du projet `Game` pour retrouver l'ancien plein écran.
-
-Si une compilation ne peut pas copier une DLL dans `Sources/src/Game/Debug`, fermez tout processus `Game.exe` en cours et recompilez.
+5. `zig build package` crée des paquets zip distribuables, et `zig build --help` liste chaque étape et chaque test.
 
 
 # Historique jusqu'ici
 
-- Les bibliothèques manquantes ont été retrouvées et ajoutées comme sous-modules Git.
+- J'ai retrouvé les bibliothèques manquantes et fait compiler la solution de 2003 depuis un état propre avec un Visual Studio moderne, puis j'ai joué le premier tutoriel.
 
-- Une machine virtuelle Windows XP SP3 avec Visual Studio 6 a été montée pour étudier l'environnement d'origine.
+- J'ai passé la compilation à Zig : `build.zig` compile chaque projet avec clang et produit une arborescence de jeu exécutable.
 
-- VS 6 était instable et plantait souvent, l'effort s'est donc déplacé vers des outils modernes.
+- J'ai remplacé StreamIO.dll par du Zig, et rendu le jeu jouable de bout en bout avec la compilation Zig.
 
-- Visual Studio 2010 a été installé et l'ancien projet `.dwr` converti en `.sln`.
+- J'ai porté le jeu en 64 bits, et je l'ai testé en jouant à travers les tutoriels, plantage après plantage, avec UBSan.
 
-- La solution a été chargée dans VS 2026 Insiders et toutes les dépendances mises à jour.
+- J'ai quitté Win32 pour SDL3 et un moteur de rendu SDL GPU, et mis le jeu en route sur macOS et Linux.
 
-- Deux semaines de programmation avec agents ont permis de compiler la solution à partir de zéro sans erreur ni avertissement.
+- J'ai porté l'éditeur de cartes, l'éditeur de ressources et ELK, et supprimé les versions MFC. J'ai remplacé les anciens outils en ligne de commande.
 
-- Le débogage à l'exécution a dépassé le menu initial : le tutoriel se charge et se joue, y compris la sélection et le déplacement d'un char.
+- J'ai retiré FMOD, Bink et Stingray.
 
-- Le développement est passé à VS Code Insiders pour de meilleurs outils.
+- J'ai ajouté le moteur de texte et les dix langues dans le jeu, les éditeurs et les outils.
 
-- Deux chemins de débogage ont été configurés : C++ natif et WinDbg.
-
-- BugSlay a été retiré parce qu'il compliquait le débogage et, dans un cas, a planté après un plantage.
-
-- BugSlay a été remplacé par de simples asserts C++ standard.
-
-- Sans BugSlay, le projet est prêt pour un débogage à l'exécution ciblé en vue d'un fonctionnement complet.
-
-- La compilation est passée à Zig : `build.zig` compile chaque projet avec clang, lie avec la chaîne d'outils MSVC et produit une arborescence de jeu exécutable.
-
-- StreamIO.dll — la couche de persistance et de services du moteur — a été remplacée par une implémentation Zig avec un pont ABI C++, ce qui a corrigé au passage le format du graphe d'objets de sauvegarde/chargement, la lecture et l'écriture XML, les options et des régressions de performance par image.
-
-- Le jeu est devenu jouable de bout en bout avec la compilation Zig : campagnes, tutoriels, abordage, aviation, allers-retours de sauvegarde, vidéo synchronisée, minicarte correcte aux résolutions modernes.
-
-- Le jeu a été porté en 64 bits : troncatures de pointeurs dans le moteur de rendu, appels `_control87` de l'ère x87, `#pragma pack(1)` sur les types STL, assembleur x86 en ligne (remplacé par des intrinsèques SSE portables), canal de pointeurs d'unités Lua et identifiants d'objets du format de sauvegarde, tout a été corrigé.
-
-- La compilation x64 a été testée en jeu à travers les tutoriels, plantage après plantage, UBSan transformant chaque comportement indéfini vieux de 20 ans en fichier et ligne exacts : coordonnées de la minicarte, hachage des formations, calcul d'angle de bombardement, et plus encore.
-
-- Le projet a quitté Win32 pour une couche de plateforme portable : SDL3 pour les fenêtres, l'entrée et l'audio, un moteur de rendu SDL GPU à la place du chemin DirectX, et un petit adaptateur natif par système d'exploitation.
-
-- Le jeu a été mis en route sur macOS, où il est jouable sur Apple Silicon, Linux suivant.
-
-- Linux arm64 (classe Raspberry Pi) et l'ABI GNU de Windows (MinGW) ont été ajoutés comme cibles, ce qui a imposé de séparer « est-ce Windows ? » de « est-ce Visual Studio ? » dans toute la compilation. On a ainsi découvert que macOS Intel se compilait sans aucun de ses adaptateurs Cocoa, que la tâche Linux était rouge faute de runtime C et que les chemins C++ de Linux étaient figés sur le triplet multiarch x86_64.
-
-- Les six cibles ont été placées sous CI, chacune sur un runner de sa propre architecture.
+- J'ai ajouté l'option Remastered et la rotation de la caméra, ce qui a mené au mur décrit plus haut.
 
 
 # Feuille de route
 
-1. Finir de stabiliser la compilation 64 bits sur les tutoriels et campagnes restants.
+1. Franchir le mur des illustrations : décider d'où viennent les modèles 3D et les textures, et obtenir la permission pour tout ce qui en a besoin.
 
-2. Mettre en route la compilation complète du jeu sur Linux arm64 et MinGW — seules leurs couches de plateforme sont validées aujourd'hui — et tester en jeu macOS Intel.
+2. Terminer les rediffusions de mission.
 
-3. Créer un utilitaire pour convertir les sauvegardes 32 bits au format 64 bits.
+3. Refaire passer toutes les tâches de CI.
 
-4. Remplacer FMOD, Stingray et Bink par des alternatives open source.
+4. Mettre en route le jeu et les éditeurs sur Linux arm64 et MinGW, et ajouter Windows arm64.
 
-5. Continuer à remplacer les projets C++ un par un par du code Zig, en prenant le portage de StreamIO comme modèle.
+5. Connecter le multijoueur sur Internet grâce à un remplacement de GameSpy par OpenSpy.
+
+6. Créer un utilitaire pour convertir les sauvegardes 32 bits au format 64 bits.
+
+7. Continuer à remplacer les projets C++ par du code Zig, en prenant le portage de StreamIO comme modèle.

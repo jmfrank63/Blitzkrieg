@@ -8,31 +8,75 @@
 警告：本项目仍在开发中。
 
 
-# 这个仓库目前能做什么
+# 项目现状（2026 年 11 月）
 
-- 包含完整的 Blitzkrieg 单人模式源代码和游戏数据。
+移植工作本身已基本完成：游戏可在 Windows、macOS 和 Linux 上原生运行，支持十种语言，所有编辑器也都已移植。目前项目卡在美术资源上，也就是建筑和道具转向后的视图。见下文“瓶颈：美术资源”。
 
-- 使用 `zig build`（Zig + clang）为六个目标构建整个游戏——Windows（MSVC 和 MinGW）、macOS（Intel 和 Apple Silicon）以及 Linux（x86_64 和 arm64）——并在 `zig-out/game/<os>/<arch>/<config>` 下生成可运行的安装目录。只有 MSVC 目标需要 Visual Studio，其余目标由 Zig 自带工具链。
 
-- 可构建并运行原生 **64 位** Game.exe（`zig build install-game -Dtarget=x86_64-windows-msvc`）；32 位目标已停用。战役任务和教程可在 x64 下游玩，包括存档/读档、视频和声音。
+# 已经完成的工作
 
-- 随附的 StreamIO.dll 已完全由 Zig 实现取代（`Sources/src/StreamIOZig`）——即引擎的整个持久化层：用于存档/读档的二进制对象图、XML 数据树、对象工厂、全局变量、控制台和选项。
+**游戏**
 
-- 用 clang 并开启 UBSan 编译遗留的 C++ 代码，发现并修复了数十个 2003 年 MSVC 构建默默容忍的潜在错误，其中包括坦克/炮塔销毁时存在 22 年之久的纯虚函数调用崩溃。
+- 完整的单人游戏及其数据都在这里，用 `zig build`（Zig + clang）构建为原生 64 位程序。战役、教程和随机任务都可以游玩，包括保存/载入、视频和声音。
 
-- 在 CI 中验证每个受支持的目标，在各自的运行器上原生运行平台测试套件——Linux x86_64 和 arm64、Windows MSVC 和 MinGW、macOS Intel 和 Apple Silicon——而不只是交叉编译。
+- 引擎已脱离 Win32 和 DirectX，改用可移植的层：用 SDL3 处理窗口、输入和音频，并使用 SDL GPU 渲染器。
 
-- 仍可在现代 MSVC 工具下，从原始的 `A7.sln` 解决方案干净地构建（`Debug | Win32`），作为行为参考。
+- 闭源库已经去掉：FMOD、Bink 和 Stingray 已被移除。声音和影片现在使用 Ogg Vorbis 和 Ogg Theora。
 
-- 默认在真实窗口中运行，`-fullscreen` 仍可作为命令行选项使用。
+- 引擎的持久化层 StreamIO.dll 已由 Zig 实现取代（`Sources/src/StreamIOZig`）。
 
-- 使用 Git 子模块提供缺失的库。
+- 遗留的 C++ 代码现在用 clang 和 UBSan 编译，由此发现并修复了数十个 2003 年的构建默默容忍的错误。
 
-- 支持在 VS Code Insiders 中调试原生 C++ 和 WinDbg，并在 `tools/zig/` 下提供无界面的崩溃捕获脚本。
+- 原版的随机任务已经恢复，每个战役章节会按其脚本的意图解锁对应的历史任务。
 
-- 在 `VideoAssets/` 下提供压缩影片资源打包的辅助流程。
+- 玩家档案可以通过云同步在不同机器之间跟随玩家。
 
-- 已移除旧的 BugSlay 崩溃处理，改用标准 C++ 断言。
+- 局域网多人游戏可以使用。GameSpy 代码已被移除，互联网对战尚未接通。
+
+**十种语言**
+
+- 游戏、所有编辑器、命令行工具及其指南，以及本 README，都提供英语、俄语、中文（简体）、印地语、西班牙语、法语、德语、葡萄牙语（巴西）、日语和印度尼西亚语版本。
+
+- 其中九种译文以语言模组的形式安装，并配有新的 TrueType 文字引擎，可以绘制这些语言的全部文字。
+
+- 译文由机器生成，仍需母语者审校。欢迎提出修改意见。
+
+**所有编辑器**
+
+- 地图编辑器、带有全部子编辑器的资源编辑器，以及本地化工具包 ELK，都已用 Zig 和 Dear ImGui 重写（`Sources/editor`）。它们通过 C ABI 与 C++ 引擎通信（`Sources/src/EditorBridge`）。
+
+- 旧的、仅限 Windows 的 MFC 编辑器已被删除。游戏可以读取新编辑器写出的内容，测试用游戏自己的读取器来验证这一点。
+
+- 旧的命令行工具已被七个可移植的工具取代，用于制作模组：`bk-pak`、`bk-table`、`bk-image`、`bk-video`、`bk-font`、`bk-map` 和 `bk-sprite`。见 `tools/guide/README.md`。
+
+**重制版选项**
+
+- 选项 > 设置 > 游戏玩法 > 重制版 默认关闭，关闭时使用原版规则。开启后会加入 2003 年的游戏所没有的功能，例如分四步旋转镜头、最快路线寻路，以及让步兵直接从一个容器转移到另一个容器。
+
+- 任务回放正在开发中；其基础部分已经合并。
+
+
+# 瓶颈：美术资源
+
+旋转镜头意味着每座建筑和每件道具都必须能从四个方向看到，但 2003 年的美术资源只是每个物体从一侧拍下的图片。其他几侧从来没有画过。
+
+到目前为止，我对全部 412 个物体尝试了两种方法：
+
+- 用 2003 年的像素拼出每一张转向后的图片（2026-10-29 放弃：解决一个问题，就会为每个物体带来一个新问题）。
+
+- 渲染简单的 3D 模型，并用同样的那些图片给它们上色。这是项目目前的做法。2003 年美术资源所展示的那一侧看起来是对的，但它从未见过的每一部分都得靠猜。细节也会出问题：画在平屋顶上的老虎窗，换一个方向看就不可能正确。
+
+两种方法都不够好。正确的做法是为每个物体制作真正的 3D 模型，把老虎窗这样的细节做成真实的几何体，并给每个平面贴上纹理，这样每一侧的样子都由形状决定。
+
+问题在于这些模型和纹理从哪里来：
+
+- 手工建模，或借助智能体建模，沿用 2003 年的设计。
+
+- Blitzkrieg 2 的模型，它们同样由 Nival 发布。一次测试渲染表明，它们正是这样构建的，四个方向看起来都很干净，但其中许多建筑与 2003 年同名的建筑并不是同一座，而且许可证并没有明确涵盖它们的美术资源。
+
+- 图像转 3D 的生成器，我还没有在这些美术资源上试过。
+
+目前还没有做出决定。如果你是 3D 美术师，或了解这类工作，我很想听听你的意见。
 
 
 # Blender 资源转换与验证
@@ -41,116 +85,77 @@ Maya40 的替代流水线记录在 `docs/blender-replacement.md` 中。
 
 快速命令：
 
-- 转换： `bk-map obj2mod <input.obj> <output.mod> [skeleton.txt] [animation.txt]`
+- 转换：`bk-map obj2mod <input.obj> <output.mod> [skeleton.txt] [animation.txt]`
 
-- 仅验证： `bk-map validate-obj2mod <input.obj> [skeleton.txt] [animation.txt]`
+- 仅验证：`bk-map validate-obj2mod <input.obj> [skeleton.txt] [animation.txt]`
 
 
 # 支持的平台
 
-`zig build` 接受六个目标。用 `-Dtarget=` 指定其中一个；生成的目录树按 `zig-out/game/<os>/<arch>/<config>` 排布，因此多个目标和两种优化级别可以并存，不会互相覆盖。
+用 `-Dtarget=` 指定目标。生成的目录树按 `zig-out/game/<os>/<arch>/<config>` 排布，因此多个目标和两种优化级别可以并存。
 
 | 平台 | 目标三元组 | 状态 |
 | --- | --- | --- |
-| Windows (MSVC) | `x86_64-windows-msvc` | 可游玩 |
-| macOS (Apple Silicon) | `aarch64-macos` | 可游玩 |
-| macOS (Intel) | `x86_64-macos` | 可构建；未经试玩 |
-| Linux (x86_64) | `x86_64-linux-gnu` | 开发中 |
-| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | 仅平台层 |
-| Windows (MinGW) | `x86_64-windows-gnu` | 仅平台层 |
+| Windows (MSVC) | `x86_64-windows-msvc` | 游戏和编辑器可运行；已在 CI 中测试 |
+| macOS (Apple Silicon) | `aarch64-macos` | 游戏和编辑器可运行；已在 CI 中测试 |
+| Linux (x86_64) | `x86_64-linux-gnu` | 游戏和编辑器可运行；已在 CI 中用软件渲染器测试 |
+| macOS (Intel) | `x86_64-macos` | 可构建；CI 运行器没有可供游戏使用的 GPU，因此游戏在真实的 Intel Mac 上检查 |
+| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | 仅平台测试；游戏和编辑器尚未测试 |
+| Windows (MinGW) | `x86_64-windows-gnu` | 仅平台测试；引擎目前还不能在这里编译 |
 
-“仅平台层”表示该目标可以构建并通过平台测试套件，但尚未在其上完整启动游戏构建。
+CI 在与各目标架构相同的运行器上运行每个目标，因此测试套件是真正执行，而不只是链接。Linux 和 macOS 上的部分任务目前失败。
+
+在 Linux 上，窗口图标由程序自己设置，X11 和 KDE 会采用它。Wayland 上的 GNOME 会忽略它，而是从以程序的应用 ID 命名的桌面条目中获取程序坞和 Alt-Tab 的图标（游戏是 `org.blitzkrieg.game`，编辑器是 `org.blitzkrieg.mapeditor`、`org.blitzkrieg.resourceeditor` 和 `org.blitzkrieg.elk`）。安装包附带一个可选的脚本，会把这些条目和图标写入 `~/.local/share`；不会有任何东西替你运行它。在安装文件夹中运行 `Tools/install_desktop_entry.sh`（在检出的仓库中则是 `tools/install_desktop_entry.sh [install-dir]`），用 `Tools/install_desktop_entry.sh --remove` 可以撤销。
 
 只有 `x86_64-windows-msvc` 需要安装 Visual Studio。对于其他所有目标（包括 MinGW），Zig 自带工具链、头文件和导入库。
 
-每个目标都由 `Cross-platform validation` 工作流在对应架构的运行器上执行，因此测试套件是真正运行，而不只是链接。
 
-
-# 用 Zig 运行游戏（首选）
+# 构建与运行
 
 1. 克隆仓库并带上子模块，或在已有的检出中运行 `git submodule update --init --recursive`。
 
-2. 安装 Zig（0.17 或更高版本）。对于 `x86_64-windows-msvc`，还需要 MSVC 工具链和 Windows SDK（如果路径与 `build.zig` 中的默认值不同，可通过 `-Dmsvc-include`/`-Dwindows-sdk-include` 及其 `lib` 对应选项配置）。其他目标都不需要它们。
+2. 安装 Zig 0.17。对于 `x86_64-windows-msvc`，还需要 MSVC 工具链和 Windows SDK（如果路径与 `build.zig` 中的默认值不同，可通过 `-Dmsvc-include`/`-Dwindows-sdk-include` 及其 `lib` 对应选项配置）。
 
-3. 运行 `zig build install-game -Dtarget=<triple> --release=fast` 来游玩，或去掉 `--release=fast` 进行调试构建。省略 `-Dtarget` 则为主机构建。
+3. 运行 `zig build install-all -Dtarget=<triple> --release=fast` 来构建游戏、九个语言模组和所有编辑器，或运行 `zig build install-game` 只构建游戏。省略 `-Dtarget` 则为主机构建，去掉 `--release=fast` 则为调试构建。
 
-4. 启动生成的二进制文件——Windows 上为 `zig-out/game/windows/x86_64/release/Game.exe`，Apple Silicon 上为 `zig-out/game/macos/arm64/release/Game`（不带 `--release=fast` 时为 `.../debug/...`）。目录树以其所含的优化级别命名，因此两者不会互相覆盖。
+4. 启动生成的二进制文件，例如 Windows 上的 `zig-out/game/windows/x86_64/release/Game.exe`，或 Apple Silicon 上的 `zig-out/game/macos/arm64/release/Game`（不带 `--release=fast` 时为 `.../debug/...`）。游戏在窗口中运行；`-fullscreen` 可作为命令行选项使用。
 
-5. `zig build package` 会创建可分发的 zip 包；`zig build test` 会运行 Zig 单元测试和 C++ ABI 冒烟测试。
-
-
-# 用 Visual Studio 2026 Insiders 运行游戏
-
-1. 克隆仓库并带上子模块，或在已有的检出中运行 `git submodule update --init --recursive`。
-
-2. 安装 Visual Studio 2026 Insiders / Visual Studio 18，并包含“使用 C++ 的桌面开发”工作负载、VS 2026 的 MSVC 工具链以及 Windows 10 或 Windows 11 SDK。
-
-3. 打开 `Sources/src/A7.sln`。
-
-4. 选择 `Debug | Win32`。
-
-5. 构建 `Game` 项目，或构建整个解决方案。
-
-6. 按 F5 启动 `Game` 项目，或直接运行 `Sources/src/Game/Debug/Game.exe`。
-
-7. 游戏默认以窗口模式启动。如果想要旧的全屏行为，请在 `Game` 项目的命令行参数中添加 `-fullscreen`。
-
-如果构建无法把 DLL 复制到 `Sources/src/Game/Debug`，请关闭所有正在运行的 `Game.exe` 进程后重新构建。
+5. `zig build package` 会创建可分发的 zip 包，`zig build --help` 会列出所有步骤和测试。
 
 
 # 迄今为止的历程
 
-- 找到缺失的库，并将它们添加为 Git 子模块。
+- 找到缺失的库，让 2003 年的解决方案在现代 Visual Studio 下从干净状态编译通过，然后玩了第一个教程。
 
-- 搭建了装有 Visual Studio 6 的 Windows XP SP3 虚拟机，以研究原始环境。
+- 把构建迁移到 Zig：`build.zig` 用 clang 编译每个项目，并生成可运行的游戏目录。
 
-- VS 6 不稳定且经常崩溃，因此工作转向现代工具。
+- 用 Zig 取代 StreamIO.dll，并让游戏在 Zig 构建下可以从头玩到尾。
 
-- 安装了 Visual Studio 2010，并将旧的 `.dwr` 项目转换为 `.sln`。
+- 把游戏移植到 64 位，并用 UBSan 通过教程逐个崩溃地试玩。
 
-- 把解决方案载入 VS 2026 Insiders 并更新了所有依赖项。
+- 从 Win32 迁移到 SDL3 和 SDL GPU 渲染器，并让游戏在 macOS 和 Linux 上运行起来。
 
-- 完成了两周的智能体编程，使解决方案能从干净状态编译，零错误、零警告。
+- 移植了地图编辑器、资源编辑器和 ELK，并删除了 MFC 版本。取代了旧的命令行工具。
 
-- 运行时调试已越过初始菜单：教程可以加载并游玩，包括选择和移动坦克。
+- 移除了 FMOD、Bink 和 Stingray。
 
-- 为了更好的工具，把开发迁移到 VS Code Insiders。
+- 在游戏、编辑器和工具中加入了文字引擎和十种语言。
 
-- 配置了两条调试路径：原生 C++ 和 WinDbg。
-
-- 移除了 BugSlay，因为它让调试更困难，并且曾在一次崩溃之后再次崩溃。
-
-- 用简单的标准 C++ 断言取代了 BugSlay。
-
-- 移除 BugSlay 后，项目已准备好进行有针对性的运行时调试，朝着完整运行迈进。
-
-- 把构建迁移到 Zig：`build.zig` 用 clang 编译每个项目，链接 MSVC 工具链，并生成可运行的游戏目录。
-
-- 用 Zig 实现加 C++ ABI 桥接取代了 StreamIO.dll（引擎的持久化和服务层），并顺带修复了存档/读档对象图格式、XML 读写、选项以及逐帧性能退化。
-
-- 在 Zig 构建下让游戏可以从头玩到尾：战役、教程、登舰、航空、存档/读档往返、视频同步，以及在现代分辨率下正确的小地图。
-
-- 把游戏移植到 64 位：修复了渲染器中的指针截断、x87 时代的 `_control87` 调用、STL 类型上的 `#pragma pack(1)`、x86 内联汇编（改用可移植的 SSE 内部函数）、Lua 单位指针通道以及存档格式的对象 ID。
-
-- 通过教程逐个崩溃地试玩 x64 构建，UBSan 把每个存在 20 年的未定义行为变成精确的文件和行号：小地图坐标、编队哈希、轰炸角度计算等等。
-
-- 从 Win32 迁移到可移植的平台层：用 SDL3 处理窗口、输入和音频，用 SDL GPU 渲染器取代 DirectX 路径，并为每个操作系统提供一个小型原生适配器。
-
-- 让游戏在 macOS 上运行，它在 Apple Silicon 上可以游玩，随后是 Linux。
-
-- 新增 Linux arm64（树莓派级别）和 Windows GNU ABI（MinGW）作为目标，这意味着要在整个构建中把“是不是 Windows？”与“是不是 Visual Studio？”分开。这一过程发现 Intel macOS 一直是在没有任何 Cocoa 适配器的情况下编译的，Linux 任务因缺少 C 运行时而一直是红色，Linux 的 C++ 路径被固定在 x86_64 多架构三元组上。
-
-- 把六个目标全部纳入 CI，每个目标都在对应架构的运行器上运行。
+- 加入了重制版选项和镜头旋转，这导致了上文所述的瓶颈。
 
 
 # 路线图
 
-1. 完成对剩余教程和战役的 64 位构建稳定化。
+1. 越过美术资源这道瓶颈：决定 3D 模型和纹理从哪里来，并为任何需要许可的内容取得许可。
 
-2. 在 Linux arm64 和 MinGW 上启动完整的游戏构建（目前只验证了它们的平台层），并试玩 Intel macOS。
+2. 完成任务回放。
 
-3. 构建一个把 32 位存档转换为 64 位格式的工具。
+3. 让所有 CI 任务重新通过。
 
-4. 用开源替代品取代 FMOD、Stingray 和 Bink。
+4. 在 Linux arm64 和 MinGW 上运行游戏和编辑器，并加入 Windows arm64。
 
-5. 以 StreamIO 的移植为模板，继续用 Zig 代码逐个替换 C++ 项目。
+5. 通过取代 GameSpy 的 OpenSpy 替代方案接通互联网多人游戏。
+
+6. 构建一个把 32 位存档转换为 64 位格式的工具。
+
+7. 以 StreamIO 的移植为模板，继续用 Zig 代码逐个替换 C++ 项目。
