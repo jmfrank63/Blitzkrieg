@@ -102,3 +102,4 @@ node_modules/
 .gsd-id
 .bg-shell/
 .mcp.json
+__pycache__/
