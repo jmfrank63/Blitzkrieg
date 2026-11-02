@@ -172,8 +172,15 @@ Fix only what was reported and keep what was approved. Zoom in on each turn befo
 ## For the other 411 objects
 
 The order matters, because relatives share parts. Take one object from each family first, then reuse its faces, chimney and dormer
-definitions for the rest of that family, changing only what the pictures show. `e_house01_3` is the next test of that saving: by eye it shares
-this house's porch and roof, with larger dormers. `e_house01_2` has no porch and shares less. Measure how long a relative takes before planning the whole set.
+definitions for the rest of that family, changing only what the pictures show. `e_house01_3` tested that: its body, roof, chimney and porch are this house's, its gabled dormers are new, and the first draft took 18 minutes. That is before any review by the maintainer, and the first house took five rounds,
+so the saving is not settled yet. `e_house01_2` has no porch and shares less.
+
+What the relative added:
+
+- Compare a relative's outline with the first house before measuring: this one has the same body one pixel over.
+- One picture cannot fix depth along the line of sight. Pin it where an edge dies into a known plane, then check other points against it.
+- When mirroring along both axes, offset one fold, or the mirrors meet in rosettes. Mirror along tile courses, not across them.
+- A painted highlight can need toning like a painted shadow: the dormer slopes were far brighter than the sun gives.
 
 Expected to hold for props, unproven: a low object needs far fewer faces, and rule 3 still decides what is modelled.
 Something thin and cut out by alpha (a fence, a sign) may stay one flat face with its picture on both sides.
@@ -183,6 +190,7 @@ Something thin and cut out by alpha (a fence, a sign) may stay one flat face wit
 - The `.obj` beside the renders has not been checked by `bk-map validate-obj2mod`; `model3d` writes the `.mod` from the fixture.
 - Turn 0 from the model loses the picture's sharpness, and the outline overlap drops to 0.94 on this house because its body and roof
   are deliberately larger. It is the maintainer's to judge in the Game.
+- `model3d`'s `model.json` still names the old mesh's kind and outline for a hand variant; its atlas and triangle numbers are the hand model's.
 - Winter (`1w`) atlases for families that have them (a fixture has only `_1.png`), the maintainer's look at the damage states, and the
   passability question above.
 - The ground shadow is larger than the 2003 one, since it follows the real roof.
