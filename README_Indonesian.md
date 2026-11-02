@@ -8,31 +8,75 @@ Repositori ini adalah proyek pribadi Johannes Maria Frank. Saya memakainya untuk
 Peringatan: proyek ini masih dalam pengerjaan.
 
 
-# Yang bisa dilakukan repositori ini saat ini
+# Posisi proyek saat ini (November 2026)
 
-- Berisi kode sumber lengkap mode pemain tunggal Blitzkrieg beserta data gamenya.
+Port-nya sendiri sebagian besar sudah selesai: game berjalan secara native di Windows, macOS, dan Linux, tersedia dalam sepuluh bahasa, dan semua editor sudah diport. Saat ini proyek macet di karya seni, yaitu tampilan putar dari bangunan dan properti. Lihat "Tembok penghalang: karya seni" di bawah.
 
-- Membangun seluruh game dengan `zig build` (Zig + clang) untuk enam target — Windows (MSVC dan MinGW), macOS (Intel dan Apple Silicon) dan Linux (x86_64 dan arm64) — menghasilkan tata letak instalasi yang bisa dijalankan di `zig-out/game/<os>/<arch>/<config>`. Hanya target MSVC yang membutuhkan Visual Studio; Zig membawa toolchain sendiri untuk yang lain.
 
-- Dibangun dan dijalankan sebagai Game.exe **64-bit** native (`zig build install-game -Dtarget=x86_64-windows-msvc`); target 32-bit sudah dihentikan. Misi kampanye dan tutorial dapat dimainkan di x64, termasuk simpan/muat, video, dan suara.
+# Yang sudah dikerjakan
 
-- Dikirim dengan StreamIO.dll yang sepenuhnya diganti oleh implementasi Zig (`Sources/src/StreamIOZig`) — seluruh lapisan penyimpanan engine: graf objek biner untuk simpan/muat, pohon data XML, pabrik objek, variabel global, konsol, dan opsi.
+**Game**
 
-- Mengompilasi C++ lama dengan clang dan UBSan aktif, yang telah menemukan dan memperbaiki puluhan bug laten yang diam-diam ditoleransi build MSVC tahun 2003 — termasuk crash pemanggilan virtual murni berusia 22 tahun pada pembongkaran tank/menara.
+- Seluruh game pemain tunggal beserta datanya ada di sini, dibangun dengan `zig build` (Zig + clang) sebagai program 64-bit native. Kampanye, tutorial, dan misi acak dapat dimainkan, termasuk simpan/muat, video, dan suara.
 
-- Memvalidasi setiap target yang didukung di CI, menjalankan suite pengujian platform secara native di runner-nya sendiri — Linux x86_64 dan arm64, Windows MSVC dan MinGW, macOS Intel dan Apple Silicon — bukan hanya cross-compile.
+- Engine dipindahkan dari Win32 dan DirectX ke lapisan yang portabel: SDL3 untuk jendela, input, dan audio, serta renderer SDL GPU.
 
-- Masih dapat dibangun dengan bersih dari solusi asli `A7.sln` di bawah toolchain MSVC modern (`Debug | Win32`) sebagai acuan perilaku.
+- Pustaka tertutup sudah hilang: FMOD, Bink, dan Stingray telah dihapus. Suara dan film kini memakai Ogg Vorbis dan Ogg Theora.
 
-- Berjalan di jendela sungguhan secara bawaan, dengan `-fullscreen` tetap tersedia sebagai opsi baris perintah.
+- StreamIO.dll, lapisan penyimpanan engine, diganti dengan implementasi Zig (`Sources/src/StreamIOZig`).
 
-- Memakai submodul Git untuk pustaka yang hilang.
+- C++ lama dikompilasi dengan clang dan UBSan, yang telah menemukan dan memperbaiki puluhan bug yang diam-diam ditoleransi build tahun 2003.
 
-- Mendukung debugging C++ native dan WinDbg di VS Code Insiders, serta skrip penangkap crash tanpa antarmuka di `tools/zig/`.
+- Misi acak yang asli dihidupkan kembali, dan setiap bab kampanye membuka misi historisnya sesuai maksud skripnya.
 
-- Menyediakan alur kerja bantu untuk mengemas aset film terkompresi di `VideoAssets/`.
+- Profil pemain dapat berpindah antar mesin lewat sinkronisasi cloud.
 
-- Telah menghapus penanganan crash BugSlay lama dan menggantinya dengan assert C++ standar.
+- Multipemain LAN berfungsi. Kode GameSpy sudah dihapus, dan permainan lewat internet belum tersambung.
+
+**Sepuluh bahasa**
+
+- Game, semua editor, alat baris perintah beserta panduannya, dan README ini tersedia dalam bahasa Inggris, Rusia, Tionghoa (Sederhana), Hindi, Spanyol, Prancis, Jerman, Portugis (Brasil), Jepang, dan Indonesia.
+
+- Kesembilan terjemahan dipasang sebagai mod bahasa, dengan mesin teks TrueType baru yang menggambar semua aksara ini.
+
+- Terjemahannya dibuat oleh mesin dan masih perlu ditinjau oleh penutur asli. Koreksi sangat disambut.
+
+**Semua editor**
+
+- Map Editor, Resource Editor beserta seluruh sub-editornya, dan ELK, perangkat lokalisasi, ditulis ulang sebagai aplikasi Zig dengan Dear ImGui (`Sources/editor`). Semuanya berbicara dengan engine C++ lewat C ABI (`Sources/src/EditorBridge`).
+
+- Editor MFC lama yang hanya untuk Windows sudah dihapus. Game membaca apa yang ditulis editor baru, dan pengujian memeriksanya dengan pembaca milik game sendiri.
+
+- Alat baris perintah lama diganti dengan tujuh alat portabel untuk membuat mod: `bk-pak`, `bk-table`, `bk-image`, `bk-video`, `bk-font`, `bk-map`, dan `bk-sprite`. Lihat `tools/guide/README.md`.
+
+**Opsi Remastered**
+
+- Options > Settings > Gameplay > Remastered nonaktif secara bawaan, dan saat nonaktif game memakai aturan aslinya. Saat aktif, ia menambahkan fitur yang tidak ada di game tahun 2003, seperti memutar kamera dalam empat langkah, pencari rute tercepat, dan memindahkan infanteri langsung dari satu wadah ke wadah lain.
+
+- Replay misi sedang dibuat; fondasinya sudah digabungkan.
+
+
+# Tembok penghalang: karya seni
+
+Memutar kamera berarti setiap bangunan dan properti harus ditampilkan dari empat sisi, tetapi karya seni tahun 2003 hanyalah kumpulan gambar tiap objek dari satu sisi saja. Sisi lainnya tidak pernah digambar.
+
+Sejauh ini saya sudah mencoba dua pendekatan untuk ke-412 objek:
+
+- Menyusun setiap gambar yang diputar dari piksel tahun 2003 (ditinggalkan pada 2026-10-29: setiap masalah yang selesai melahirkan masalah baru).
+
+- Merender model 3D sederhana yang dicat dari gambar-gambar yang sama. Inilah yang dipakai proyek saat ini. Sisi yang diperlihatkan karya seni 2003 tampak benar, tetapi setiap bagian yang tidak pernah terlihat harus ditebak. Detailnya juga gagal: jendela atap yang dicat pada atap datar tidak mungkin tampak benar dari sisi lain.
+
+Keduanya belum cukup baik. Cara yang benar adalah model 3D sungguhan untuk setiap objek, dengan detail seperti jendela atap sebagai geometri nyata dan tekstur pada setiap bidang datar, sehingga setiap sisi mengikuti dari bentuknya.
+
+Pertanyaannya adalah dari mana model dan tekstur itu berasal:
+
+- Memodelkannya sendiri dengan tangan atau dengan agen, sesuai rancangan tahun 2003.
+
+- Model Blitzkrieg 2, yang juga diterbitkan oleh Nival. Render uji menunjukkan bahwa model itu dibuat dengan cara ini dan tampak bersih di keempat putaran, tetapi banyak di antaranya adalah bangunan yang berbeda dari bangunan tahun 2003 yang bernama sama, dan lisensinya tidak jelas mencakup karya seninya.
+
+- Generator gambar-ke-3D, yang belum saya coba pada karya seni ini.
+
+Belum ada keputusan. Jika Anda seniman 3D atau mengenal pekerjaan semacam ini, saya ingin mendengar kabar dari Anda.
 
 
 # Konversi dan validasi aset Blender
@@ -48,109 +92,70 @@ Perintah singkat:
 
 # Platform yang didukung
 
-`zig build` menerima enam target. Berikan satu dengan `-Dtarget=`; pohon hasilnya ditata sebagai `zig-out/game/<os>/<arch>/<config>`, sehingga beberapa target dan kedua tingkat optimasi berdampingan tanpa saling menimpa.
+Berikan target dengan `-Dtarget=`. Pohon hasilnya ditata sebagai `zig-out/game/<os>/<arch>/<config>`, sehingga beberapa target dan kedua tingkat optimasi berdampingan.
 
 | Platform | Triple target | Status |
 | --- | --- | --- |
-| Windows (MSVC) | `x86_64-windows-msvc` | Dapat dimainkan |
-| macOS (Apple Silicon) | `aarch64-macos` | Dapat dimainkan |
-| macOS (Intel) | `x86_64-macos` | Terbangun; belum diuji main |
-| Linux (x86_64) | `x86_64-linux-gnu` | Dalam pengerjaan |
-| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | Hanya lapisan platform |
-| Windows (MinGW) | `x86_64-windows-gnu` | Hanya lapisan platform |
+| Windows (MSVC) | `x86_64-windows-msvc` | Game dan editor berjalan; diuji di CI |
+| macOS (Apple Silicon) | `aarch64-macos` | Game dan editor berjalan; diuji di CI |
+| Linux (x86_64) | `x86_64-linux-gnu` | Game dan editor berjalan; diuji di CI pada renderer perangkat lunak |
+| macOS (Intel) | `x86_64-macos` | Terbangun; runner CI tidak memiliki GPU untuk game, jadi game diperiksa di Mac Intel sungguhan |
+| Linux (arm64, Raspberry Pi) | `aarch64-linux-gnu` | Hanya uji platform; game dan editor belum diuji |
+| Windows (MinGW) | `x86_64-windows-gnu` | Hanya uji platform; engine belum dapat dikompilasi di sini |
 
-“Hanya lapisan platform” berarti target ini terbangun dan lulus suite pengujian platform, tetapi build game penuhnya belum dijalankan di sana.
+CI menjalankan setiap target pada runner dengan arsitekturnya sendiri, sehingga suite benar-benar dijalankan dan tidak sekadar di-link. Beberapa job di Linux dan macOS saat ini gagal.
+
+Di Linux, ikon jendela diatur di dalam program, dan itu dihormati oleh X11 dan KDE. GNOME di Wayland mengabaikannya dan mengambil ikon dock dan alt-tab dari desktop entry yang dinamai menurut app id program (`org.blitzkrieg.game`, serta `org.blitzkrieg.mapeditor`, `org.blitzkrieg.resourceeditor`, `org.blitzkrieg.elk` untuk editor). Instalasi menyertakan skrip opsional yang menulis entri tersebut dan ikonnya ke `~/.local/share`; tidak ada yang menjalankannya untuk Anda. Dari folder instalasi jalankan `Tools/install_desktop_entry.sh` (dari checkout: `tools/install_desktop_entry.sh [install-dir]`), dan `Tools/install_desktop_entry.sh --remove` membatalkannya.
 
 Hanya `x86_64-windows-msvc` yang membutuhkan instalasi Visual Studio. Zig menyediakan toolchain, header, dan pustaka impor sendiri untuk setiap target lain, termasuk MinGW.
 
-Setiap target diuji oleh workflow `Cross-platform validation` pada runner dengan arsitekturnya sendiri, sehingga suite benar-benar dijalankan dan tidak sekadar di-link.
 
-
-# Menjalankan game dengan Zig (utama)
+# Membangun dan menjalankan
 
 1. Klon repositori beserta submodul, atau jalankan `git submodule update --init --recursive` di checkout yang sudah ada.
 
-2. Pasang Zig (0.17 atau lebih baru). Untuk `x86_64-windows-msvc` Anda juga memerlukan toolchain MSVC dan Windows SDK (path dapat diatur lewat `-Dmsvc-include`/`-Dwindows-sdk-include` dan padanan `lib`-nya jika berbeda dari bawaan di `build.zig`). Target lain tidak memerlukannya.
+2. Pasang Zig 0.17. Untuk `x86_64-windows-msvc` Anda juga memerlukan toolchain MSVC dan Windows SDK (path dapat diatur lewat `-Dmsvc-include`/`-Dwindows-sdk-include` dan padanan `lib`-nya jika berbeda dari bawaan di `build.zig`).
 
-3. Jalankan `zig build install-game -Dtarget=<triple> --release=fast` untuk bermain, atau hilangkan `--release=fast` untuk build debug. Tanpa `-Dtarget`, build dibuat untuk host.
+3. Jalankan `zig build install-all -Dtarget=<triple> --release=fast` untuk game, kesembilan mod bahasa, dan semua editor, atau `zig build install-game` untuk game saja. Tanpa `-Dtarget`, build dibuat untuk host, dan hilangkan `--release=fast` untuk build debug.
 
-4. Jalankan biner hasil build — `zig-out/game/windows/x86_64/release/Game.exe` di Windows, `zig-out/game/macos/arm64/release/Game` di Apple Silicon (`.../debug/...` tanpa `--release=fast`). Pohon hasil dinamai menurut optimasi yang dimuatnya, jadi keduanya tidak pernah saling menimpa.
+4. Jalankan biner hasil build, misalnya `zig-out/game/windows/x86_64/release/Game.exe` di Windows atau `zig-out/game/macos/arm64/release/Game` di Apple Silicon (`.../debug/...` tanpa `--release=fast`). Game berjalan di jendela; `-fullscreen` tersedia sebagai opsi baris perintah.
 
-5. `zig build package` membuat paket zip yang dapat didistribusikan; `zig build test` menjalankan uji unit Zig dan uji asap ABI C++.
-
-
-# Menjalankan game dengan Visual Studio 2026 Insiders
-
-1. Klon repositori beserta submodul, atau jalankan `git submodule update --init --recursive` di checkout yang sudah ada.
-
-2. Pasang Visual Studio 2026 Insiders / Visual Studio 18 dengan workload Desktop development with C++, toolchain MSVC VS 2026, dan Windows 10 atau Windows 11 SDK.
-
-3. Buka `Sources/src/A7.sln`.
-
-4. Pilih `Debug | Win32`.
-
-5. Bangun proyek `Game`, atau bangun seluruh solusi.
-
-6. Jalankan proyek `Game` dengan F5, atau jalankan `Sources/src/Game/Debug/Game.exe` secara langsung.
-
-7. Game dimulai dalam mode jendela secara bawaan. Tambahkan `-fullscreen` ke argumen baris perintah proyek `Game` jika Anda ingin perilaku layar penuh yang lama.
-
-Jika build tidak dapat menyalin DLL ke `Sources/src/Game/Debug`, tutup semua proses `Game.exe` yang berjalan lalu bangun lagi.
+5. `zig build package` membuat paket zip yang dapat didistribusikan, dan `zig build --help` mencantumkan setiap langkah dan pengujian.
 
 
 # Riwayat sejauh ini
 
-- Menemukan pustaka yang hilang dan menambahkannya sebagai submodul Git.
+- Menemukan pustaka yang hilang dan membuat solusi tahun 2003 dapat dikompilasi dari kondisi bersih di Visual Studio modern, lalu memainkan tutorial pertama.
 
-- Membuat VM Windows XP SP3 dengan Visual Studio 6 untuk mempelajari lingkungan aslinya.
+- Memindahkan build ke Zig: `build.zig` mengompilasi setiap proyek dengan clang dan menyusun tata letak game yang bisa dijalankan.
 
-- VS 6 tidak stabil dan sering crash, sehingga upaya dialihkan ke perkakas modern.
+- Mengganti StreamIO.dll dengan Zig, dan membuat game dapat dimainkan dari awal sampai akhir di bawah build Zig.
 
-- Memasang Visual Studio 2010 dan mengonversi proyek `.dwr` lama menjadi `.sln`.
+- Memporting game ke 64-bit, dan menguji-mainkannya sepanjang tutorial crash demi crash dengan UBSan.
 
-- Memuat solusi ke VS 2026 Insiders dan memperbarui semua dependensi.
+- Beralih dari Win32 ke SDL3 dan renderer SDL GPU, dan menjalankan game di macOS dan Linux.
 
-- Menyelesaikan dua minggu pemrograman berbasis agen agar solusi dapat dikompilasi dari kondisi bersih tanpa error dan peringatan.
+- Memporting Map Editor, Resource Editor, dan ELK, serta menghapus versi MFC-nya. Mengganti alat baris perintah lama.
 
-- Debugging saat runtime kini sudah melewati menu awal: tutorial termuat dan dapat dimainkan, termasuk memilih dan menggerakkan tank.
+- Menghapus FMOD, Bink, dan Stingray.
 
-- Memindahkan pengembangan ke VS Code Insiders demi perkakas yang lebih baik.
+- Menambahkan mesin teks dan sepuluh bahasa di seluruh game, editor, dan alat.
 
-- Menyiapkan dua jalur debug: C++ native dan WinDbg.
-
-- Menghapus BugSlay karena mempersulit debugging dan pada satu kasus crash setelah sebuah crash.
-
-- Mengganti BugSlay dengan assert C++ standar yang sederhana.
-
-- Tanpa BugSlay, proyek kini siap untuk debugging runtime yang terfokus hingga game berjalan penuh.
-
-- Memindahkan build ke Zig: `build.zig` mengompilasi setiap proyek dengan clang, me-link ke toolchain MSVC, dan menyusun tata letak game yang bisa dijalankan.
-
-- Mengganti StreamIO.dll — lapisan penyimpanan dan layanan engine — dengan implementasi Zig plus jembatan ABI C++, sekaligus memperbaiki format graf objek simpan/muat, baca/tulis XML, opsi, dan regresi performa per frame.
-
-- Membuat game dapat dimainkan dari awal sampai akhir di bawah build Zig: kampanye, tutorial, boarding, penerbangan, siklus simpan/muat, video yang sinkron, dan minimap yang benar pada resolusi modern.
-
-- Memporting game ke 64-bit: memperbaiki pemotongan pointer di renderer, panggilan `_control87` era x87, `#pragma pack(1)` pada tipe STL, inline assembly x86 (diganti intrinsik SSE portabel), kanal pointer unit Lua, dan ID objek format simpan.
-
-- Menguji build x64 melalui tutorial crash demi crash, dengan UBSan mengubah setiap perilaku tak terdefinisi berusia 20 tahun menjadi file dan baris yang tepat: koordinat minimap, hashing formasi, perhitungan sudut pengeboman, dan lainnya.
-
-- Beralih dari Win32 ke lapisan platform portabel: SDL3 untuk jendela, input, dan audio, renderer SDL GPU sebagai pengganti jalur DirectX, dan adaptor native kecil untuk tiap sistem operasi.
-
-- Menjalankan game di macOS, tempat game dapat dimainkan di Apple Silicon, dengan Linux menyusul.
-
-- Menambahkan Linux arm64 (kelas Raspberry Pi) dan ABI GNU Windows (MinGW) sebagai target, yang mengharuskan memisahkan “apakah ini Windows?” dari “apakah ini Visual Studio?” di seluruh build. Hal itu menyingkap bahwa macOS Intel selama ini dikompilasi tanpa satu pun adaptor Cocoa-nya, bahwa job Linux merah karena tidak ada runtime C, dan bahwa jalur C++ Linux terkunci pada triple multiarch x86_64.
-
-- Menempatkan keenam target di bawah CI, masing-masing pada runner dengan arsitekturnya sendiri.
+- Menambahkan opsi Remastered dan putaran kamera, yang membawa ke tembok yang dijelaskan di atas.
 
 
 # Peta jalan
 
-1. Menyelesaikan stabilisasi build 64-bit melalui tutorial dan kampanye yang tersisa.
+1. Melewati tembok karya seni: memutuskan dari mana model 3D dan tekstur berasal, dan mendapatkan izin untuk apa pun yang membutuhkannya.
 
-2. Menjalankan build game penuh di Linux arm64 dan MinGW — saat ini hanya lapisan platform keduanya yang tervalidasi — dan menguji main macOS Intel.
+2. Menyelesaikan replay misi.
 
-3. Membuat utilitas untuk mengonversi simpanan game 32-bit ke format 64-bit.
+3. Membuat setiap job CI lulus kembali.
 
-4. Mengganti FMOD, Stingray, dan Bink dengan alternatif sumber terbuka.
+4. Menjalankan game dan editor di Linux arm64 dan MinGW, serta menambahkan Windows arm64.
 
-5. Terus mengganti proyek C++ satu per satu dengan kode Zig, memakai port StreamIO sebagai templat.
+5. Menyambungkan multipemain internet lewat pengganti OpenSpy untuk GameSpy.
+
+6. Membuat utilitas untuk mengonversi simpanan game 32-bit ke format 64-bit.
+
+7. Terus mengganti proyek C++ dengan kode Zig, memakai port StreamIO sebagai templat.
