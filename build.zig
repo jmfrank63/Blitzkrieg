@@ -3340,6 +3340,7 @@ pub fn build(b: *std.Build) void {
     // foot under the world's sun, a building at its own facing too.
     for ([_][3][]const u8{
         .{ "camera-turn-full3d-anchor-game-reads-it", "the Game turns full 3D objects in place", "Render the turns of the barn E_WB_01, the L-shaped house A_H01_1, the house E_House02_2 and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure that each stands where its 2003 picture stands at all four steps" },
+        .{ "camera-turn-hand-game-reads-it", "a hand model is what the Game draws at every step", "Render the turns of the hand models E_House01_1 and E_House01_3 at own facings 0 and 2, turn 0 included, with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on and off, and measure each step against that turn's pack, step 0 against the hand model and not its 2003 picture; the shots stay in zig-out/local-test/camera-turn/hand" },
         .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns of the barns E_WB_01 and E_WB_02 (at own facing 1, as in the hand test's screenshot), each turn with its shadow alone cast under the Game's sun as a vehicle's, and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is that one, lies against its object and falls the way that sun casts" },
         // Not tiers: the frames of the review of 2026-10-31 (no checks), each
         // its own step so that one stays within a ten-minute command.
@@ -10152,6 +10153,8 @@ const prop_shadows = "1s1,2s2,3s3";
 fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) *std.Build.Step {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
     b.dependOnFileContents(b.path(ids_path));
+    // Which objects have a hand model is read below.
+    b.dependOnDirectoryMetadata(b.path("tools/zig/fixtures/bk-views/hand-models"));
     const Ids = struct { ids: []const struct { id: u32, path: []const u8 } };
     const ids_bytes = b.root.root_dir.handle.readFileAlloc(b.graph.io, ids_path, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     const ids = std.json.parseFromSliceLeaky(Ids, b.allocator, ids_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
@@ -10186,7 +10189,11 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // turn under the world's sun (`facing_shadows`). A prop shows turn s at
             // step s.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
-            side.addArgs(&.{ "side", data, if (building) "1,2,3,1l1,2l2,3l3," ++ facing_shadows else "1,2,3,1l1,2l2,3l3," ++ prop_shadows });
+            // A model written by hand also replaces the 2003 picture at turn 0,
+            // in a folder named as the variant's own that the mod lays over it.
+            const hand_json = b.fmt("tools/zig/fixtures/bk-views/hand-models/{s}.json", .{name});
+            const handmade = if (b.root.root_dir.handle.access(b.graph.io, hand_json, .{})) |_| true else |_| false;
+            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,1l1,2l2,3l3,{s}", .{ if (handmade) "0," else "", if (building) facing_shadows else prop_shadows }) });
             side.addArg("--mirror=tools/zig/views-mirror.txt");
             side.addFileInput(b.path("tools/zig/views-mirror.txt"));
             const turns = side.addOutputDirectoryArg(name);
@@ -10209,6 +10216,7 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             check.step.dependOn(sprite.install);
             // The turns' paths name the side run's cache folder, so the check comes again
             // exactly when the turns did.
+            if (handmade) check.addDirectoryArg(turns.path(b, name));
             for (1..4) |k| {
                 check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
                 check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));

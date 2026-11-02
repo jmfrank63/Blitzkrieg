@@ -153,7 +153,7 @@ const tools = [_]Tool{
             &.{ "side", "house", "1" },
             &.{ "side", "house", "1", "out", "work", "extra" },
             &.{ "side", "house", "1", "out", "--force" },
-            &.{ "side", "house", "0", "out" },
+            &.{ "side", "house", "0l1", "out" },
             &.{ "side", "house", "4", "out" },
             &.{ "side", "house", "1,x", "out" },
             &.{ "side", "house", "--force", "out" },

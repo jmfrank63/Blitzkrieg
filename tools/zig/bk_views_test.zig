@@ -1552,3 +1552,40 @@ test "a damage state's model is the intact one cut to its damaged picture at N, 
     }
     _ = try model3d.writeMod(arena, d);
 }
+
+test "a hand model loads from its fixture and draws its 2003 picture with no holes, its own shadows computed" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const model3d = views.model3d;
+    const cwd = std.Io.Dir.cwd();
+    const io = std.testing.io;
+    const json = try cwd.readFileAlloc(io, views.hand_models_dir ++ "/e_house01_1.json", arena, .limited(16 << 20));
+    const png = try cwd.readFileAlloc(io, views.hand_models_dir ++ "/e_house01_1_1.png", arena, .limited(64 << 20));
+    const m = try model3d.handModel(arena, json, try views.readPng(arena, png));
+    try std.testing.expectEqual(@as(usize, 102), m.triangles.len);
+    const found = try variantPicture(arena, "Data/Buildings/europe/summer/e_house01_1/");
+    // At N on the picture's own canvas, no shift. The body is deliberately
+    // longer than the picture's and the light is the Game's, as the preview's.
+    const size = [2]u32{ found.picture.width, found.picture.height };
+    const n = try model3d.render(arena, m, "1", 0, 0, found.anchor, size);
+    const match = views.artMatch(n.image, found.picture, .{ 0, 0 }, false);
+    try std.testing.expect(match.iou > 0.9);
+    try std.testing.expect(match.colour < 16);
+    try std.testing.expectEqual(@as(usize, 0), n.unpainted);
+    // The overhang shadows the walls: the same model with no cast shadows differs there.
+    var bare = m;
+    bare.hand = .{ .density = 1 };
+    const without = try model3d.render(arena, bare, "1", 0, 0, found.anchor, size);
+    var darker: usize = 0;
+    for (n.image.pixels, without.image.pixels) |a, b| darker += @intFromBool(a[1] < b[1]);
+    try std.testing.expect(darker > 200);
+    // Every turn: no holes, and each damage state's cut keeps the hand light.
+    for (1..4) |k| {
+        const e = try model3d.render(arena, m, "1", @intCast(k), @intCast(k), .{ 300, 300 }, .{ 600, 500 });
+        try std.testing.expectEqual(@as(usize, 0), e.unpainted);
+    }
+    const damage = try variantPicture(arena, "Data/Buildings/europe/summer/e_house01_1/");
+    const d = try model3d.damaged(arena, m, .{}, damage.picture, found.picture, found.anchor);
+    try std.testing.expect(d.hand != null);
+}
