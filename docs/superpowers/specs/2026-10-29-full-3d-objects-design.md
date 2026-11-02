@@ -1,5 +1,7 @@
 # Full 3D objects: buildings and props as textured models (Remastered camera turn)
 
+**2026-11-02:** hand-written models with real details and a texture per flat face supersede the review meshes as the geometry source for what they cover: see [modelling an object by hand from its picture](2026-11-02-hand-model-from-picture.md).
+
 The maintainer (2026-10-29), after the round-5 fill of the joint families: "I see this creates a new set of
 problems. We should go full 3D. What I mean is we create the buildings and objects just like vehicles as full 3D
 models and paint them instead. We keep our 4 angles meaning we can precalculate, but all will be 3D. This way we can
