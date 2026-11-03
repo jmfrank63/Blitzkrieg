@@ -33,10 +33,12 @@ way; the panel is in the 3D view's sidebar (press N) under **BK1**.
 1. Load a shape: **Import hand model** for `tools/zig/fixtures/bk-views/hand-models/<name>.json`, `File > Import > Wavefront (.obj)`
    for anything else (forward Y, up Z), or model one. Keep z up, the object's zero cross at the origin, 1 Blender unit a world unit.
 2. **Step 0** to **Step 3** look through the Game's camera.
-3. Set **2003 folder** to the object's `Data` folder (optional) and **Output folder**, then **Write paint templates**.
+3. Set **2003 folder** to the object's `Data` folder (optional), **Output folder** and **Scale**, then **Write paint templates**.
 
-It writes `step_0.ora` to `step_3.ora`, which Krita opens with their layers, and `layout.json` with each canvas's size and
-zero cross. Top to bottom: `zero cross`, `wire`, `faces` (a colour per flat face, to select by), `light` (Multiply), `paint here`,
+It writes `step_0.ora` to `step_3.ora`, which Krita opens with their layers, and `layout.json` with each canvas's scale, size and
+zero cross. A canvas is **Scale** times the Game's size (4 by default): the wire, faces, light and shadow are computed at that size,
+one pixel wide lines included, and the 2003 pictures and the model's texture are enlarged by Lanczos filtering, so they look soft and
+are there to paint over. Top to bottom: `zero cross`, `wire`, `faces` (a colour per flat face, to select by), `light` (Multiply), `paint here`,
 the 2003 pictures that show this side in every state (another variant's picture is laid by its outline, so its place is an
 estimate), `model texture` where the model has one, `ground shadow`. The light is the Game's: the sun fixed in the world at each
 camera step. The camera and light are computed from the same formulas as `bk-views`, not by Blender's renderer, so a canvas lines up
