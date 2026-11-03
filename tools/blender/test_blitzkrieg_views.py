@@ -31,10 +31,25 @@ overlap = (picture & layers['opaque']).sum() / (picture | layers['opaque']).sum(
 assert overlap > 0.9, overlap
 # Another side's picture finds its place by its outline, and OpenRaster wants its mimetype first and unpacked.
 with tempfile.TemporaryDirectory() as d:
-    v.write_templates(tri, uv, [], np.zeros(len(tri), int), os.path.join(ROOT, 'Data/Buildings/europe/summer/e_house01_1'), d, lambda s: None)
+    layout = v.write_templates(tri, uv, [], np.zeros(len(tri), int), os.path.join(ROOT, 'Data/Buildings/europe/summer/e_house01_1'), d, lambda s: None, 2)
+    x0, y0, W, H = v.canvas(tri, 2)
+    assert layout['step_2'] == dict(scale=2, size=[W * 2, H * 2], zero=[-x0 * 2, -y0 * 2])
     with zipfile.ZipFile(os.path.join(d, 'step_2.ora')) as z:
         first = z.infolist()[0]
         assert first.filename == 'mimetype' and first.compress_type == zipfile.ZIP_STORED
         stack = z.read('stack.xml').decode()
         assert 'e_house01_2 state 3' in stack and 'svg:multiply' in stack
+# An enlarged canvas: the model's layers grow and stay on the same outline, an enlarged picture keeps the Game's pixels at its block middles.
+big = v.view_layers(tri, uv, [], np.zeros(len(tri), int), 0, 2, 3)
+assert big['wire'].shape[:2] == (layers['box'][3] * 3, layers['box'][2] * 3)
+assert (big['opaque'] != layers['opaque']).mean() < 0.01
+assert big['zero cross'][-layers['box'][1] * 3, -layers['box'][0] * 3, 3] == 255
+shown = v.laid(sprite, layers['box'])
+solid = shown[..., 3] == 255
+inner = solid.copy()
+for r in (1, 2, 3):
+    inner &= np.roll(solid, r, 0) & np.roll(solid, -r, 0) & np.roll(solid, r, 1) & np.roll(solid, -r, 1)
+back = v.enlarge(shown, 3)[1::3, 1::3]
+assert np.abs(back[inner][:, :3].astype(float) - shown[inner][:, :3]).max() <= 1
+assert v.enlarge(shown, 4).shape[:2] == (shown.shape[0] * 4, shown.shape[1] * 4)
 print('ok, step 0 outline against the 2003 picture', round(float(overlap), 3))

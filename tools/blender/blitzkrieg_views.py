@@ -5,8 +5,11 @@ light and shadows, the ground shadow, the zero cross, what a 3D model's texture 
 show that side, on a canvas that lines up with the Game to the pixel. The camera and the sun are the formulas of
 tools/zig/bk_views_mesh.zig, not Blender's renderer, so no render setting can move a pixel.
 
+A canvas is `scale` times the Game's size, to paint fine detail: the model's layers are computed at that size, the 2003 pictures
+are enlarged, and layout.json records the scale so a finished picture can be brought back to the Game's size.
+
 Install as a Blender add-on; the panel is in the 3D view's sidebar under "BK1". Or headless:
-    blender -b --python tools/blender/blitzkrieg_views.py -- --hand e_house01_1 --data Data/Buildings/europe/summer/e_house01_1 --out <folder>
+    blender -b --python tools/blender/blitzkrieg_views.py -- --hand e_house01_1 --data Data/Buildings/europe/summer/e_house01_1 --out <folder> --scale 4
 """
 import io, json, math, os, sys, zipfile, zlib, struct
 import numpy as np
@@ -125,12 +128,43 @@ def rgba(rgb, alpha):
     return np.dstack([np.clip(rgb, 0, 255), alpha]).astype(np.uint8)
 
 
-def view_layers(tri, uv, tex, tex_of, k, ss=3):
-    """The computed layers of step k. tri: n x 3 x 3 world, uv: n x 3 x 2 (v from the bottom), tex: images top row first,
-    tex_of: an image per triangle, or tex empty for a model without a texture."""
+def lanczos(a, s):
+    """An image s times larger along both axes, pixel centres kept in place: at an odd s the middle of each s x s block is the original pixel."""
+    if s == 1:
+        return a
+    out = a.astype(np.float32)
+    reach = np.arange(-2, 4)
+    for axis in (0, 1):
+        out = np.moveaxis(out, axis, 0)
+        n = len(out)
+        pos = (np.arange(n * s) + 0.5) / s - 0.5
+        base = np.floor(pos).astype(int)
+        d = (pos - base)[:, None] - reach
+        w = np.sinc(d) * np.sinc(d / 3)
+        w = (w / w.sum(1, keepdims=True)).astype(np.float32)
+        out = np.stack([(out[np.clip(b + reach, 0, n - 1)] * wi.reshape(-1, *[1] * (out.ndim - 1))).sum(0) for b, wi in zip(base, w)])
+        out = np.moveaxis(out, 0, axis)
+    return out
+
+
+def enlarge(im, s):
+    """An RGBA picture enlarged with its colour weighted by alpha, so its cut-out edge takes no colour from the empty pixels around it."""
+    if s == 1:
+        return im
+    f = im.astype(np.float32)
+    f[..., :3] *= f[..., 3:] / 255
+    f = lanczos(f, s)
+    a = np.clip(f[..., 3:], 0, 255)
+    return np.dstack([np.clip(f[..., :3] * 255 / np.maximum(a, 1e-3), 0, 255), a]).astype(np.uint8)
+
+
+def view_layers(tri, uv, tex, tex_of, k, ss=3, scale=1):
+    """The computed layers of step k, on a canvas `scale` times the Game's. tri: n x 3 x 3 world, uv: n x 3 x 2 (v from the bottom),
+    tex: images top row first, tex_of: an image per triangle, or tex empty for a model without a texture. out['opaque'] is the
+    outline at the Game's size, which is where the 2003 pictures are measured against it."""
     box = canvas(tri, k)
     n = normals(tri)
-    tid, bary = raster(tri, k, box, ss)
+    tid, bary = raster(tri, k, box, ss * scale)
     on = tid >= 0
     ii = tid[on]
     # Lit by the world's sun, a face turned towards the eye as the model turns: an open board is lit on the side seen.
@@ -144,10 +178,10 @@ def view_layers(tri, uv, tex, tex_of, k, ss=3):
     gain[lit] *= np.where(occluded(pos[lit] + nn[lit] * 0.4, SUN, tri), DENSITY, 1.0)
     light = np.ones(on.shape)
     light[on] = gain / PEAK
-    H, W = box[3], box[2]
+    H, W = box[3] * scale, box[2] * scale
     cover = down(on.astype(float), ss)
     opaque = cover >= 0.5
-    out = {'box': box, 'opaque': opaque}
+    out = {'box': box, 'opaque': down(on.astype(float), ss * scale) >= 0.5}
     v = np.round(down(light, ss) * 255)
     out['light'] = rgba(np.dstack([v, v, v]), opaque * 255)
     if len(tex):
@@ -155,6 +189,7 @@ def view_layers(tri, uv, tex, tex_of, k, ss=3):
         col = np.zeros((len(ii), 3))
         puv = (bary[on][..., None] * uv[ii]).sum(1)
         for t, im in enumerate(tex):
+            im = lanczos(im[..., :3], scale)
             sel = tex_of[ii] == t
             h, w = im.shape[:2]
             col[sel] = im[np.clip(((1 - puv[sel, 1]) * h).astype(int), 0, h - 1), np.clip((puv[sel, 0] * w).astype(int), 0, w - 1), :3]
@@ -171,11 +206,11 @@ def view_layers(tri, uv, tex, tex_of, k, ss=3):
     out['wire'] = rgba(black, edge * 255)
     hue = (face[..., None] * np.array([97, 57, 151]) + np.array([40, 90, 140])) % 216 + 40
     out['faces'] = rgba(hue, (face >= 0) * 255)
-    shadow = raster(tri, k, box, 1, flat=True)[0] >= 0
+    shadow = raster(tri, k, box, scale, flat=True)[0] >= 0
     out['ground shadow'] = rgba(black, (shadow & ~opaque) * 128)
     zero = np.zeros((H, W, 4), np.uint8)
-    zx, zy = -box[0], -box[1]
-    for d in range(-6, 7):
+    zx, zy = -box[0] * scale, -box[1] * scale
+    for d in range(-6 * scale, 6 * scale + 1):
         if 0 <= zy < H and 0 <= zx + d < W:
             zero[zy, zx + d] = (0, 255, 80, 255)
         if 0 <= zy + d < H and 0 <= zx < W:
@@ -276,8 +311,8 @@ def best_shift(sprite, box, opaque):
     return at, best
 
 
-def write_templates(tri, uv, tex, tex_of, variant_dir, out_dir, log=print):
-    """One <out>/step_<k>.ora a camera step, and layout.json with each canvas's zero cross."""
+def write_templates(tri, uv, tex, tex_of, variant_dir, out_dir, log=print, scale=4):
+    """One <out>/step_<k>.ora a camera step, and layout.json with each canvas's size and zero cross, in its own enlarged pixels."""
     os.makedirs(out_dir, exist_ok=True)
     pics, root = pictures_for(variant_dir) if variant_dir else ({}, None)
     if root:
@@ -285,8 +320,10 @@ def write_templates(tri, uv, tex, tex_of, variant_dir, out_dir, log=print):
         import bk1
     layout = {}
     for k in range(4):
-        v = view_layers(tri, uv, tex, tex_of, k)
-        x0, y0, W, H = v['box']
+        # Two samples a pixel are enough once the canvas is enlarged, and the shadow rays grow with the square of the samples.
+        v = view_layers(tri, uv, tex, tex_of, k, 3 if scale == 1 else 2, scale)
+        x0, y0 = v['box'][:2]
+        H, W = v['wire'].shape[:2]
         blank = np.zeros((H, W, 4), np.uint8)
         layers = [('zero cross', v['zero cross'], False, False), ('wire', v['wire'], True, False), ('faces', v['faces'], False, False),
                   ('light', v['light'], False, True), ('paint here', blank, True, False)]
@@ -300,12 +337,12 @@ def write_templates(tri, uv, tex, tex_of, variant_dir, out_dir, log=print):
                 if state == '1' and not own:
                     shift, iou = best_shift(sprite, v['box'], v['opaque'])
                     log(f'step {k}: {label} laid by its outline, {shift}, overlap {iou:.2f}')
-                layers.append((f'2003 {label} state {state}', laid(sprite, v['box'], shift), state == '1', False))
+                layers.append((f'2003 {label} state {state}', enlarge(laid(sprite, v['box'], shift), scale), state == '1', False))
         if 'texture' in v:
             layers.append(('model texture', v['texture'], True, False))
         layers.append(('ground shadow', v['ground shadow'], True, False))
         write_ora(os.path.join(out_dir, f'step_{k}.ora'), W, H, layers)
-        layout[f'step_{k}'] = dict(size=[W, H], zero=[-x0, -y0])
+        layout[f'step_{k}'] = dict(scale=scale, size=[W, H], zero=[-x0 * scale, -y0 * scale])
     json.dump(layout, open(os.path.join(out_dir, 'layout.json'), 'w'), indent=1)
     log(f'wrote {out_dir}: {len(tri)} triangles')
     return layout
@@ -429,7 +466,7 @@ if bpy:
                 return {'CANCELLED'}
             tri, uv, tex, tex_of = scene_arrays(obs)
             lines = []
-            write_templates(tri, uv, tex, tex_of, bpy.path.abspath(s.bk1_variant) or None, bpy.path.abspath(s.bk1_out), lines.append)
+            write_templates(tri, uv, tex, tex_of, bpy.path.abspath(s.bk1_variant) or None, bpy.path.abspath(s.bk1_out), lines.append, s.bk1_scale)
             self.report({'INFO'}, lines[-1])
             return {'FINISHED'}
 
@@ -447,6 +484,7 @@ if bpy:
                 row.operator('bk1.look', text=f'Step {k}').step = k
             col.prop(context.scene, 'bk1_variant')
             col.prop(context.scene, 'bk1_out')
+            col.prop(context.scene, 'bk1_scale')
             col.operator('bk1.templates')
 
     CLASSES = (BK1_OT_import_hand, BK1_OT_look, BK1_OT_templates, BK1_PT_panel)
@@ -456,6 +494,7 @@ if bpy:
             bpy.utils.register_class(c)
         bpy.types.Scene.bk1_variant = bpy.props.StringProperty(name='2003 folder', subtype='DIR_PATH', description='The Data folder of this object, for its pictures (optional)')
         bpy.types.Scene.bk1_out = bpy.props.StringProperty(name='Output folder', subtype='DIR_PATH')
+        bpy.types.Scene.bk1_scale = bpy.props.IntProperty(name='Scale', default=4, min=1, max=8, description="Canvas size against the Game's pictures")
 
     def unregister():
         for c in CLASSES:
@@ -467,4 +506,4 @@ if bpy:
         opt = dict(zip(args[::2], args[1::2]))
         bpy.ops.wm.read_factory_settings(use_empty=True)
         ob = import_hand(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'zig', 'fixtures', 'bk-views', 'hand-models', opt['--hand'] + '.json'))
-        write_templates(*scene_arrays([ob]), opt.get('--data'), opt['--out'])
+        write_templates(*scene_arrays([ob]), opt.get('--data'), opt['--out'], print, int(opt.get('--scale', 4)))
