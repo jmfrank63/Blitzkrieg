@@ -128,8 +128,9 @@ def rgba(rgb, alpha):
     return np.dstack([np.clip(rgb, 0, 255), alpha]).astype(np.uint8)
 
 
-def lanczos(a, s):
-    """An image s times larger along both axes, pixel centres kept in place: at an odd s the middle of each s x s block is the original pixel."""
+def lanczos(a, s, smooth=False):
+    """An image s times larger along both axes, pixel centres kept in place: at an odd s the middle of each s x s block is the original pixel.
+    `smooth`: straight lines between pixels instead, which never overshoot."""
     if s == 1:
         return a
     out = a.astype(np.float32)
@@ -140,22 +141,37 @@ def lanczos(a, s):
         pos = (np.arange(n * s) + 0.5) / s - 0.5
         base = np.floor(pos).astype(int)
         d = (pos - base)[:, None] - reach
-        w = np.sinc(d) * np.sinc(d / 3)
+        w = np.maximum(1 - np.abs(d), 0) if smooth else np.sinc(d) * np.sinc(d / 3)
         w = (w / w.sum(1, keepdims=True)).astype(np.float32)
         out = np.stack([(out[np.clip(b + reach, 0, n - 1)] * wi.reshape(-1, *[1] * (out.ndim - 1))).sum(0) for b, wi in zip(base, w)])
         out = np.moveaxis(out, 0, axis)
     return out
 
 
+def bleed(im, rings=4):
+    """The colours of a cut-out picture with the solid pixels' colours run out past its edge, so a filter reaching over the edge finds no black."""
+    rgb = im[..., :3].astype(np.float32)
+    known = im[..., 3] >= 128
+    rgb[~known] = 0
+    for _ in range(rings):
+        total, count = np.zeros_like(rgb), np.zeros(known.shape, np.float32)
+        for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            total += np.roll(rgb * known[..., None], (dy, dx), (0, 1))
+            count += np.roll(known, (dy, dx), (0, 1))
+        new = ~known & (count > 0)
+        rgb[new] = total[new] / count[new][:, None]
+        known = known | new
+    return rgb
+
+
 def enlarge(im, s):
-    """An RGBA picture enlarged with its colour weighted by alpha, so its cut-out edge takes no colour from the empty pixels around it."""
+    """An RGBA picture enlarged: its colours sharply, from past the cut-out's edge, its alpha smoothly, as the sharp filter's ripples would
+    leave a dashed rim of faint coloured pixels around the outline."""
     if s == 1:
         return im
-    f = im.astype(np.float32)
-    f[..., :3] *= f[..., 3:] / 255
-    f = lanczos(f, s)
-    a = np.clip(f[..., 3:], 0, 255)
-    return np.dstack([np.clip(f[..., :3] * 255 / np.maximum(a, 1e-3), 0, 255), a]).astype(np.uint8)
+    alpha = np.clip(lanczos(im[..., 3:], s, True), 0, 255)
+    rgb = np.clip(lanczos(bleed(im), s), 0, 255) * (alpha > 0)  # the run-out colours are for the filter, not to be kept where nothing is drawn
+    return np.dstack([rgb, alpha]).astype(np.uint8)
 
 
 def view_layers(tri, uv, tex, tex_of, k, ss=3, scale=1):

@@ -51,5 +51,11 @@ for r in (1, 2, 3):
     inner &= np.roll(solid, r, 0) & np.roll(solid, -r, 0) & np.roll(solid, r, 1) & np.roll(solid, -r, 1)
 back = v.enlarge(shown, 3)[1::3, 1::3]
 assert np.abs(back[inner][:, :3].astype(float) - shown[inner][:, :3]).max() <= 1
-assert v.enlarge(shown, 4).shape[:2] == (shown.shape[0] * 4, shown.shape[1] * 4)
+large = v.enlarge(shown, 4)
+assert large.shape[:2] == (shown.shape[0] * 4, shown.shape[1] * 4)
+# Nothing but the outline's own soft edge: no ripple of faint pixels further out, and no dark or wild colour in its edge.
+near = shown[..., 3] > 0
+for _ in range(2):
+    near = near | np.roll(near, 1, 0) | np.roll(near, -1, 0) | np.roll(near, 1, 1) | np.roll(near, -1, 1)
+assert not large[..., 3][~np.kron(near, np.ones((4, 4), bool))].any()
 print('ok, step 0 outline against the 2003 picture', round(float(overlap), 3))
