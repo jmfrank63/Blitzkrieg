@@ -148,6 +148,7 @@ A picture can hide proportions that look wrong from elsewhere. These took the re
 | Turns 1, 2 | Leak in the roof | Painted band on the gable, near end too short | Remove the paint; near overhang 3 to 10 |
 | Turns 2, 3 | Overhang too short, then too long | Far overhang 8, then 5 | 7 |
 | Turn 0 | Second gable window hidden | Near overhang 12 | 10 is the limit |
+| Turn 0 in a paint template | Roof set too far forward over the picture | Roof -10 to 107 | -2 to 112, the best outline on the picture; the overhangs above no longer apply (2026-11-03) |
 
 Overhang moves things at a known rate: a roof edge pushed out by a unit moves on screen by 0.71 across and 0.35 down, and it
 covers whatever wall lies behind that line. Work out what it will hide before raising it. Note where the body passes the 2003
@@ -188,8 +189,8 @@ Something thin and cut out by alpha (a fence, a sign) may stay one flat face wit
 ## Still to do
 
 - The `.obj` beside the renders has not been checked by `bk-map validate-obj2mod`; `model3d` writes the `.mod` from the fixture.
-- Turn 0 from the model loses the picture's sharpness, and the outline overlap drops to 0.94 on this house because its body and roof
-  are deliberately larger. It is the maintainer's to judge in the Game.
+- Turn 0 from the model loses the picture's sharpness, and the outline overlap is 0.97 on this house because its body is
+  deliberately longer. It is the maintainer's to judge in the Game.
 - `model3d`'s `model.json` still names the old mesh's kind and outline for a hand variant; its atlas and triangle numbers are the hand model's.
 - Winter (`1w`) atlases for families that have them (a fixture has only `_1.png`), the maintainer's look at the damage states, and the
   passability question above.
