@@ -219,15 +219,6 @@ for f in SEEN_FACES:
         f.tex[:] = np.array([60, 45, 35]) / shade(f.n)
     f.seen[:] = True
 
-# The roof's new strip at the near end: the picture's light rim moves out to the new edge and clean slope fills behind it.
-q = front.world()
-y_ = q[..., 1]
-rim_src = front.lookup(np.stack([q[..., 0], y_ + (PIC_Y0 - ROOF_Y0), q[..., 2]], -1))
-# the strip continues the slope beside it, mirrored, so its tone runs on (a far strip of tile showed as a green band)
-tile_src = front.lookup(np.stack([q[..., 0], np.where(y_ < 7.0, 14.0 - y_, y_), q[..., 2]], -1))
-front.tex[y_ < 7.0] = tile_src[y_ < 7.0]
-front.tex[y_ < ROOF_Y0 + 2.5] = rim_src[y_ < ROOF_Y0 + 2.5]
-
 # The picture paints a dark band on the gable under the back of its roof. It reads as a hole in the roof once turned (the
 # maintainer, 2026-11-02), so the back half of the gable takes the lit boards of its other half instead.
 q = near.world()

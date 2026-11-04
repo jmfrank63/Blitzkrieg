@@ -1,9 +1,9 @@
 """The body and roof the e_house01 relatives share, as measured on e_house01_1's picture."""
 # The roof profile, measured on the picture: apex, front eave and back eave.
-# The picture's roof runs -3 to 108. Turned, its dark gable band reads as a leak and the far end hangs too far (the maintainer,
-# 2026-11-02), so the built roof runs -9 to 105. Pixels are still read with the picture's geometry.
-PIC_Y0, PIC_Y1 = -3.0, 108.0
-ROOF_Y0, ROOF_Y1 = -10.0, 107.0
+# The roof runs -2 to 112: the best outline against the picture, with the dormers and chimney where they are. A roof at -10 to 107
+# read as set too far forward over the picture (the maintainer, 2026-11-03). Built and read with the same geometry.
+PIC_Y0, PIC_Y1 = -2.0, 112.0
+ROOF_Y0, ROOF_Y1 = PIC_Y0, PIC_Y1
 XE, XR, XB = 3.0, -67.7, -105.3
 ZE, ZR, ZBE = 38.0, 108.0, 42.9
 SLAB = 3.0

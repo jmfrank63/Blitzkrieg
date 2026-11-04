@@ -222,15 +222,6 @@ for f in SEEN_FACES:
         f.tex[:] = np.array([60, 45, 35]) / shade(f.n)
     f.seen[:] = True
 
-# The roof's new strip at the near end: the picture's light rim moves out to the new edge and clean slope fills behind it.
-q = front.world()
-y_ = q[..., 1]
-rim_src = front.lookup(np.stack([q[..., 0], y_ + (PIC_Y0 - ROOF_Y0), q[..., 2]], -1))
-# the strip continues the slope beside it, mirrored, so its tone runs on (a far strip of tile showed as a green band)
-tile_src = front.lookup(np.stack([q[..., 0], np.where(y_ < 7.0, 14.0 - y_, y_), q[..., 2]], -1))
-front.tex[y_ < 7.0] = tile_src[y_ < 7.0]
-front.tex[y_ < ROOF_Y0 + 2.5] = rim_src[y_ < ROOF_Y0 + 2.5]
-
 # The picture lights each dormer's near slope far beyond what its sun gives; the light is computed, so half of the way to the main slope's tone keeps it reading as lit at turn 0.
 main_tone = (front.tex.reshape(-1, 3) @ [.3, .6, .1]).mean()
 for w, r, c, a, b, m in dfaces:
