@@ -375,6 +375,12 @@ def load_hand(path):
     return tri, uv, d
 
 
+def welded(tri):
+    """Points and triangles with the corners at one place shared: a fixture gives every triangle its own, and moving some of them by hand tears the model."""
+    points, at = np.unique(tri.reshape(-1, 3), axis=0, return_inverse=True)
+    return points, at.reshape(-1, 3)
+
+
 # -----------------------------------------------------------------------------------------------------------------------
 # Blender: the panel, the BK1 camera, the fixture import, and reading a scene's meshes.
 try:
@@ -412,7 +418,8 @@ if bpy:
         tri, uv, d = load_hand(path)
         name = os.path.splitext(os.path.basename(path))[0]
         me = bpy.data.meshes.new(name)
-        me.from_pydata(tri.reshape(-1, 3).tolist(), [], [[i * 3, i * 3 + 1, i * 3 + 2] for i in range(len(tri))])
+        points, corners = welded(tri)
+        me.from_pydata(points.tolist(), [], corners.tolist())
         layer = me.uv_layers.new(name='atlas')
         layer.data.foreach_set('uv', uv.reshape(-1))
         me.update()
