@@ -58,4 +58,8 @@ near = shown[..., 3] > 0
 for _ in range(2):
     near = near | np.roll(near, 1, 0) | np.roll(near, -1, 0) | np.roll(near, 1, 1) | np.roll(near, -1, 1)
 assert not large[..., 3][~np.kron(near, np.ones((4, 4), bool))].any()
+# A fixture's corners are shared on import, at the same places and in the same order, which is what its texture coordinates rely on.
+points, corners = v.welded(tri)
+assert len(points) < tri.size // 3 and np.abs(points[corners] - tri).max() < 1e-3
+assert all(len(set(c)) == 3 for c in corners.tolist())
 print('ok, step 0 outline against the 2003 picture', round(float(overlap), 3))
