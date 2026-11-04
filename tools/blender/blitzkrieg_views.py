@@ -377,7 +377,7 @@ def load_hand(path):
 
 def welded(tri):
     """Points and triangles with the corners at one place shared: a fixture gives every triangle its own, and moving some of them by hand tears the model."""
-    points, at = np.unique(np.round(tri.reshape(-1, 3), 3), axis=0, return_inverse=True)
+    points, at = np.unique(tri.reshape(-1, 3), axis=0, return_inverse=True)
     return points, at.reshape(-1, 3)
 
 
