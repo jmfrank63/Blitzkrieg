@@ -6419,3 +6419,18 @@ jobs:
     steps:
       - name: Not tested
         run: exit 0
+
+  result:
+    name: "CI result"
+    # The one check the main branch requires (ruleset "Protect main", 2026-11-07): green when every job above passed or was
+    # skipped, red when any failed or was cancelled. Required by name, so the jobs and their matrix labels may change freely.
+    needs: [changes, l10n-check, linux-build, linux-game, linux-resource-editor, linux-map-editor, linux-elk, linux-tools, windows-build, windows-game, windows-resource-editor, windows-map-editor, windows-elk, windows-tools, macos-build, macos-game, macos-resource-editor, macos-map-editor, macos-elk, macos-tools, windows-mingw-platform, windows-mingw-game, windows-mingw-resource-editor, windows-mingw-map-editor, windows-arm-game, macos-intel-platform, macos-intel-game, macos-intel-resource-editor, macos-intel-map-editor, linux-arm-platform, linux-arm-game, linux-arm-resource-editor, linux-arm-map-editor]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
