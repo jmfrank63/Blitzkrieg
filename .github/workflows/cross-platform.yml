@@ -23,6 +23,13 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The Game keeps its 1024x768 test window even where the runner's display cannot show
+  # all of it (the macos-15 image's display is 682 high in the work area; the clamp to the
+  # usable bounds scaled the UI and broke every screen-measuring tier, 2026-11-07). The tiers
+  # read their captures from the scene, so an off-screen edge does not matter.
+  BK_WINDOW_NO_CLAMP: 1
+
 
 # One job per platform and product, named "<platform> - Game", "- Resource Editor" and
 # "- Map Editor", so a run shows at a glance what works where. A combination that is not
@@ -3916,7 +3923,7 @@ jobs:
     needs: [changes]
     if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && needs.changes.outputs.core == 'true')) || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))) || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))) || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.elk == 'true'))) || (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.tools == 'true')))
     name: "macOS arm64 - build"
-    runs-on: macos-14
+    runs-on: macos-15
     # Compiles every tier of the three product jobs once (-Dtest-mode=compile)
     # and hands the caches to them; the only job that saves the caches.
     timeout-minutes: 120
@@ -4151,7 +4158,7 @@ jobs:
     name: "macOS arm64 - Game (${{ matrix.label }})"
     # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
     # native module tests cannot silently run on an Intel host.
-    runs-on: macos-14
+    runs-on: macos-15
     # Raised for the engine tier: it builds the whole game and the shadercross
     # tool on top of everything else. Measured on run 35639094606 - the tier
     # step alone took 38 minutes on macos-14 and the job finished in 43 of its
@@ -4542,7 +4549,7 @@ jobs:
     needs: [changes, macos-build]
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "macOS arm64 - Resource Editor (${{ matrix.label }})"
-    runs-on: macos-14
+    runs-on: macos-15
     # Split from macos-game (2026-10-08) so each product shows its own result. It restores
     # the caches macos-game saves and does not save its own. The debug
     # SafeAllocator's seconds-per-frame previews measured 91 minutes here on
@@ -4895,7 +4902,7 @@ jobs:
     needs: [changes, macos-build]
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.editors-shared == 'true'))
     name: "macOS arm64 - Map Editor (${{ matrix.label }})"
-    runs-on: macos-14
+    runs-on: macos-15
     # Split from macos-game (2026-10-08) so each product shows its own result. It restores
     # the caches macos-game saves and does not save its own. The debug
     # SafeAllocator's seconds-per-frame previews measured 91 minutes here on
@@ -5173,7 +5180,7 @@ jobs:
     needs: [changes, macos-build]
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.elk == 'true'))
     name: "macOS arm64 - ELK (${{ matrix.label }})"
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
 
@@ -5393,7 +5400,7 @@ jobs:
     needs: [changes, macos-build]
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (needs.changes.outputs.core == 'true' || needs.changes.outputs.tools == 'true'))
     name: "macOS arm64 - Tools (${{ matrix.label }})"
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
 
@@ -6419,3 +6426,18 @@ jobs:
     steps:
       - name: Not tested
         run: exit 0
+
+  result:
+    name: "CI result"
+    # The one check the main branch requires (ruleset "Protect main", 2026-11-07): green when every job above passed or was
+    # skipped, red when any failed or was cancelled. Required by name, so the jobs and their matrix labels may change freely.
+    needs: [changes, l10n-check, linux-build, linux-game, linux-resource-editor, linux-map-editor, linux-elk, linux-tools, windows-build, windows-game, windows-resource-editor, windows-map-editor, windows-elk, windows-tools, macos-build, macos-game, macos-resource-editor, macos-map-editor, macos-elk, macos-tools, windows-mingw-platform, windows-mingw-game, windows-mingw-resource-editor, windows-mingw-map-editor, windows-arm-game, macos-intel-platform, macos-intel-game, macos-intel-resource-editor, macos-intel-map-editor, linux-arm-platform, linux-arm-game, linux-arm-resource-editor, linux-arm-map-editor]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null

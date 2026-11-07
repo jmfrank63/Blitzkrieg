@@ -53,13 +53,21 @@ pub const Host = struct {
         freeCommandW();
         // No SDL_WINDOW_HIGH_PIXEL_DENSITY: a point is a pixel, so a mouse
         // position is a screen position (see the plan's Decisions).
-        var flags: sdl3.c.SDL_WindowFlags = sdl3.c.SDL_WINDOW_RESIZABLE;
+        var flags: sdl3.c.SDL_WindowFlags = 0;
         // Not focusable either: the renderer shows the window anyway
         // (GraphicsEngineGpu's SetMode), and a focused window not under the
         // real pointer makes ImGui's SDL3 backend take the pointer from
         // SDL_GetGlobalMouseState (X11, Windows, macOS) over the script's
         // pushed motion - the person's own mouse then decides the run.
         if (options.hidden) flags |= sdl3.c.SDL_WINDOW_HIDDEN | sdl3.c.SDL_WINDOW_NOT_FOCUSABLE;
+        // A hidden window is an automated one (every tier passes --hidden),
+        // and its captures and scripted coordinates assume the requested
+        // size. Resizable would not keep it: when the window is shown, macOS
+        // shrinks a resizable window's frame into the display's work area
+        // (macos-15: 1024x682 usable, so the 1280x800 request ran at
+        // 1024x656), while a fixed-size one keeps its size the way the Game's
+        // window does. The interactive editors stay resizable.
+        if (!options.hidden) flags |= sdl3.c.SDL_WINDOW_RESIZABLE;
         const window = sdl3.c.SDL_CreateWindow(options.title, options.width, options.height, flags) orelse
             return failWith(error.WindowFailed, sdlError());
         errdefer sdl3.c.SDL_DestroyWindow(window);
@@ -88,6 +96,17 @@ pub const Host = struct {
         errdefer imgui.c.bk_imgui_backend_shutdown();
         if (c.BkEditorSetOverlay(session, overlay, null) != c.BK_EDITOR_OK)
             return failWith(error.ImguiFailed, std.mem.span(c.BkEditorLastMessage(session)));
+        // The engine's SetMode showed the window. A test window keeps its
+        // requested size even where the display cannot show it (the tier's
+        // captures and scripted coordinates assume it, and the other platforms
+        // run at it): macOS may still have moved or shrunk the frame at
+        // display time, so the size is restated here. Any RESIZED event the
+        // shrink queued was queued before this one, so the engine adopts the
+        // requested size last.
+        if (options.hidden) {
+            _ = sdl3.c.SDL_SetWindowSize(window, options.width, options.height);
+            _ = sdl3.c.SDL_SyncWindow(window);
+        }
         return .{ .window = window, .session = session.? };
     }
 
