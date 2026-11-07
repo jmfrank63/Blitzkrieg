@@ -381,7 +381,7 @@ pub const Docks = struct {
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit, life.is_open and life.active == .effect);
         if (self.show_function) self.drawFunction(life, selected);
         self.drawImageFrame(project_folder, life, selected);
-        if (sides_dock.picked()) |png| self.sides.import(png);
+        self.sides.takePicked();
         if (life.is_open and life.doc.kind == .build) self.sides.draw(self.real, life.doc.pathSlice());
         self.gui.draw(self.real.bridge(), life);
         self.drawPreviewLine();

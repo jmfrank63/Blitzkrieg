@@ -10196,6 +10196,11 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,1l1,2l2,3l3,{s}", .{ if (handmade) "0," else "", if (building) facing_shadows else prop_shadows }) });
             side.addArg("--mirror=tools/zig/views-mirror.txt");
             side.addFileInput(b.path("tools/zig/views-mirror.txt"));
+            // A state's file added to the model is no input of the last run's dep file.
+            if (handmade) for ([_][]const u8{ "1w.png", "2.json", "2.png", "2w.png", "3.json", "3.png", "3w.png" }) |part| {
+                const optional = b.fmt("tools/zig/fixtures/bk-views/hand-models/{s}_{s}", .{ name, part });
+                if (b.root.root_dir.handle.access(b.graph.io, optional, .{})) |_| side.addFileInput(b.path(optional)) else |_| {}
+            };
             const turns = side.addOutputDirectoryArg(name);
             side.addArg("--no-work");
             _ = side.addPrefixedDepFileOutputArg("--deps=", "deps.d");
@@ -13198,7 +13203,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
     .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
     .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
-    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 417 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 439 },
     .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
     .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
     .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
@@ -13887,7 +13892,39 @@ const resource_auto_bld =
     "413:expect=shot_compare:bld_sides_compare/400," ++
     "414:do=sides_mirror," ++
     "415:shot=bld_sides_mirror," ++
-    "416:expect=shot_compare_mirror:bld_sides_mirror/bld_sides_compare,";
+    "416:expect=shot_compare_mirror:bld_sides_mirror/bld_sides_compare," ++
+    // A 3D model in the Sides window: attached from the tracked hand model, every state drawn by bk-views at the
+    // four camera angles. Measured on the shots: the four cells are four pictures, a state's cells differ from
+    // the intact ones, a replaced atlas changes every cell, a wrong size is refused, and an atlas of a winter
+    // the 2003 variant never had brings that state in.
+    "417:do=sides_open:europe/summer/e_house01_1," ++
+    "418:expect=sides_missing:3," ++
+    "419:do=sides_quick," ++
+    "420:do=sides_model:{fix}/../bk-views/hand-models/e_house01_1.json," ++
+    "421:do=sides_generate," ++
+    "422:expect=sides_missing:0," ++
+    "422:do=sides_look:1," ++
+    "423:shot=bld_model," ++
+    // Windows's renderer drew this cell with 2000+ side pixels; Linux's
+    // lavapipe gives 1945 (frame 424's expect failed on CI 2026-11-07). The
+    // measure only has to tell a drawn side from a missing one, so the floor
+    // stays well under every renderer's count.
+    "424:expect=shot_sides:bld_model/1500," ++
+    "425:expect=shot_sides_apart:bld_model/1000," ++
+    "426:do=sides_look:3," ++
+    "427:shot=bld_model_state," ++
+    "428:expect=shot_sides_changed:bld_model_state/bld_model/1000," ++
+    "429:do=sides_look:1," ++
+    "430:do=sides_refuse_atlas:{fix}/bld/side-import.png," ++
+    "431:expect=sides_missing:0," ++
+    "432:do=sides_atlas:{fix}/bld/model-atlas.png," ++
+    "433:shot=bld_model_atlas," ++
+    // 2000 asked more than Linux's renderer draws in a cell (see frame 424).
+    "434:expect=shot_sides_changed:bld_model_atlas/bld_model/1000," ++
+    "435:do=sides_look:1w," ++
+    "436:expect=sides_missing:4," ++
+    "437:do=sides_atlas:{fix}/bld/model-atlas.png," ++
+    "438:expect=sides_missing:0,";
 
 /// S11 Bridge: span marks, grid and the fire and smoke points.
 const resource_auto_bdg =

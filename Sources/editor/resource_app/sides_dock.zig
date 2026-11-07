@@ -4,6 +4,11 @@
 //! Import side picture (`bk-sprite compose-pack` with the turn's footprint).
 //! Both tools run beside the editor as child processes the frame polls, so
 //! the window keeps drawing; every path and command line is sides_logic's.
+//!
+//! A project may hold a 3D model (Attach model, in `<project's folder>/model`):
+//! Generate sides then draws every state from it at the four camera angles, turn
+//! 0 included, and Replace atlas exchanges the art of the state shown. The
+//! pictures are always the packs on disk, as bk-views renders them.
 const std = @import("std");
 const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
@@ -40,6 +45,8 @@ const Job = struct {
     /// Import: the pack written, and whether the turn had a shadow pack for it.
     pack_path: ?[]u8 = null,
     had_shadow: bool = true,
+    /// Generate sides drew from the project's model.
+    from_model: bool = false,
 };
 
 pub const Sides = struct {
@@ -85,6 +92,11 @@ pub const Sides = struct {
     shown: [sl.cells]?Rect = @splat(null),
     /// The auto tier's placement.
     override: ?Rect = null,
+    /// Where the open project's model lives (`sl.modelStem`), and whether it has one.
+    model_stem: [logic.path_capacity]u8 = @splat(0),
+    has_model: bool = false,
+    /// The auto tier's fewer turns: every picture but those it never looks at.
+    model_turns: []const u8 = sl.model_turns,
 
     pub fn init(gpa: std.mem.Allocator, io: std.Io) Sides {
         var self: Sides = .{ .gpa = gpa, .io = io };
@@ -157,6 +169,7 @@ pub const Sides = struct {
         if (std.mem.eql(u8, std.mem.sliceTo(&self.project, 0), path) or path.len >= self.project.len) return;
         @memset(&self.project, 0);
         @memcpy(self.project[0..path.len], path);
+        self.findModel(path);
         var settings: core_bridge.ModSettings = .{};
         if (b.modSettingsGet(&settings) != .ok) return;
         var buffer: [logic.path_capacity]u8 = undefined;
@@ -226,6 +239,12 @@ pub const Sides = struct {
         if (ig.igButton(l10n.id("resource_app.sides.import"))) requestImport();
         ig.igSameLine();
         if (ig.igButton(l10n.id("resource_app.sides.reload"))) self.key_len = 0;
+        ig.igSameLine();
+        if (ig.igButton(l10n.id("resource_app.sides.attach_model"))) requestPick(.model);
+        if (self.has_model) {
+            ig.igSameLine();
+            if (ig.igButton(l10n.id("resource_app.sides.replace_atlas"))) requestPick(.atlas);
+        }
         ig.igEndDisabled();
         if (self.note_len != 0) ig.igTextWrapped("%.*s", @as(c_int, @intCast(self.note_len)), &self.note);
         ig.igPushTextWrapPos(0);
@@ -354,8 +373,15 @@ pub const Sides = struct {
             var arena_state = std.heap.ArenaAllocator.init(self.gpa);
             defer arena_state.deinit();
             var folder_buffer: [logic.path_capacity + 8]u8 = undefined;
+            // A model's cell shows what the Game draws at that camera step:
+            // the turn under the sun fixed in the world, where it was made.
+            var lit: ?sl.Picture = null;
+            if (self.has_model) {
+                const lit_folder = sl.litFolder(&folder_buffer, self.variantPath(), k) catch continue;
+                lit = sl.readPicture(arena_state.allocator(), self.io, lit_folder, pack) catch null;
+            }
             const folder = sl.turnFolder(&folder_buffer, self.variantPath(), k) catch continue;
-            const picture = (sl.readPicture(arena_state.allocator(), self.io, folder, pack) catch null) orelse continue;
+            const picture = lit orelse (sl.readPicture(arena_state.allocator(), self.io, folder, pack) catch null) orelse continue;
             // The selected cell carries the display transform: what the
             // maintainer judges here is exactly what a mirrored pack would
             // ship. The other cells stay upright.
@@ -436,11 +462,148 @@ pub const Sides = struct {
         self.job = .{ .running = .{ .child = child, .started = std.Io.Clock.Timestamp.now(self.io, .awake) }, .what = "", .work = work };
     }
 
+    fn modelStemPath(self: *const Sides) []const u8 {
+        return std.mem.sliceTo(&self.model_stem, 0);
+    }
+
+    /// Whether the project's folder holds a model.
+    fn findModel(self: *Sides, project: []const u8) void {
+        @memset(&self.model_stem, 0);
+        self.has_model = false;
+        const stem = sl.modelStem(&self.model_stem, project) orelse return;
+        var buffer: [logic.path_capacity + 8]u8 = undefined;
+        const json = std.fmt.bufPrint(&buffer, "{s}.json", .{stem}) catch return;
+        std.Io.Dir.cwd().access(self.io, json, .{}) catch return;
+        self.has_model = true;
+    }
+
+    /// A PNG as bk-views reads it, written over `path`.
+    fn writeAtlas(self: *Sides, arena: std.mem.Allocator, path: []const u8, image: views.Image) !void {
+        try std.Io.Dir.cwd().writeFile(self.io, .{ .sub_path = path, .data = try views.writePngDeflated(arena, image) });
+    }
+
+    /// Attach model: `path`, `<name>.json`, and its atlases beside it become the
+    /// project's model. Nothing changes unless all of them read.
+    pub fn attachModel(self: *Sides, path: []const u8) void {
+        var arena_state = std.heap.ArenaAllocator.init(self.gpa);
+        defer arena_state.deinit();
+        self.attachIn(arena_state.allocator(), path) catch |err| self.fail("resource_app.sides.model_bad", .{ path, @errorName(err) });
+    }
+
+    fn attachIn(self: *Sides, arena: std.mem.Allocator, path: []const u8) !void {
+        const cwd = std.Io.Dir.cwd();
+        if (!std.mem.endsWith(u8, path, ".json")) return error.NotAModel;
+        const from = path[0 .. path.len - ".json".len];
+        if (self.modelStemPath().len == 0) return error.NoProject;
+        var parts: [sl.model_suffixes.len]?[]const u8 = @splat(null);
+        for (sl.model_suffixes, &parts) |suffix, *part| {
+            const bytes = cwd.readFileAlloc(self.io, try std.fmt.allocPrint(arena, "{s}{s}", .{ from, suffix }), arena, .limited(64 << 20)) catch |err| switch (err) {
+                error.FileNotFound => continue,
+                else => return err,
+            };
+            part.* = bytes;
+        }
+        const intact = parts[0] orelse return error.NotAModel;
+        if (parts[1] == null) return error.NoAtlas;
+        // Each atlas read, against the layout it lies on.
+        const sizes = [_]?[2]u32{ try sl.checkModel(arena, intact), if (parts[3]) |j| try sl.checkModel(arena, j) else null, if (parts[6]) |j| try sl.checkModel(arena, j) else null };
+        var images: [sl.model_suffixes.len]?views.Image = @splat(null);
+        for (sl.model_suffixes, parts, &images) |suffix, part, *image| {
+            const bytes = part orelse continue;
+            if (!std.mem.endsWith(u8, suffix, ".png")) continue;
+            const atlas = sl.readPng(arena, bytes) catch return error.NotAPng;
+            const size = (if (suffix[1] == '2') sizes[1] else if (suffix[1] == '3') sizes[2] else null) orelse sizes[0].?;
+            if (atlas.width != size[0] or atlas.height != size[1]) return error.AtlasSize;
+            image.* = atlas;
+        }
+        const stem = try arena.dupe(u8, self.modelStemPath());
+        try cwd.createDirPath(self.io, std.fs.path.dirname(stem).?);
+        for (sl.model_suffixes, parts, images) |suffix, part, image| {
+            const to = try std.fmt.allocPrint(arena, "{s}{s}", .{ stem, suffix });
+            if (image) |i| {
+                try self.writeAtlas(arena, to, i);
+            } else if (part) |bytes| {
+                try cwd.writeFile(self.io, .{ .sub_path = to, .data = bytes });
+            } else cwd.deleteFile(self.io, to) catch {};
+        }
+        self.has_model = true;
+        self.failed = false;
+        self.say("resource_app.sides.model_attached", .{std.fs.path.basename(path)});
+    }
+
+    /// Replace atlas: `png` becomes the art of the state shown, drawn at once.
+    pub fn replaceAtlas(self: *Sides, png: []const u8) void {
+        var arena_state = std.heap.ArenaAllocator.init(self.gpa);
+        defer arena_state.deinit();
+        self.replaceIn(arena_state.allocator(), png) catch |err| self.fail("resource_app.sides.model_bad", .{ png, @errorName(err) });
+    }
+
+    fn replaceIn(self: *Sides, arena: std.mem.Allocator, png: []const u8) !void {
+        const cwd = std.Io.Dir.cwd();
+        const stem = self.modelStemPath();
+        const new = sl.readPng(arena, try cwd.readFileAlloc(self.io, png, arena, .limited(64 << 20))) catch return self.fail("resource_app.sides.not_png", .{png});
+        // A winter atlas lies on its summer state's model: without one the
+        // drawn state would keep its old art (bk-views refuses the orphan
+        // file), so the summer art is replaced first.
+        if (self.look.winter and self.look.state != 1) {
+            const summer = try std.fmt.allocPrint(arena, "{s}_{d}.png", .{ stem, self.look.state });
+            cwd.access(self.io, summer, .{}) catch return self.fail("resource_app.sides.winter_needs_summer", .{self.look.state});
+        }
+        var layout_buffer: [16]u8 = undefined;
+        const own = cwd.readFileAlloc(self.io, try std.fmt.allocPrint(arena, "{s}{s}", .{ stem, sl.layoutSuffix(&layout_buffer, self.look.state) }), arena, .limited(64 << 20)) catch |err| switch (err) {
+            error.FileNotFound => try cwd.readFileAlloc(self.io, try std.fmt.allocPrint(arena, "{s}.json", .{stem}), arena, .limited(64 << 20)),
+            else => return err,
+        };
+        const size = try sl.checkModel(arena, own);
+        if (new.width != size[0] or new.height != size[1]) return self.fail("resource_app.sides.atlas_size", .{ png, new.width, new.height, size[0], size[1] });
+        var suffix_buffer: [16]u8 = undefined;
+        try self.writeAtlas(arena, try std.fmt.allocPrint(arena, "{s}{s}", .{ stem, sl.atlasSuffix(&suffix_buffer, self.look) }), new);
+        self.generate();
+    }
+
+    /// A file of `from` to `to`, made empty first; subfolders are not a variant's.
+    fn copyFolder(self: *Sides, arena: std.mem.Allocator, from: []const u8, to: []const u8) !void {
+        const cwd = std.Io.Dir.cwd();
+        try cwd.createDirPath(self.io, to);
+        var dir = try cwd.openDir(self.io, from, .{ .iterate = true });
+        defer dir.close(self.io);
+        var walker = dir.iterate();
+        while (try walker.next(self.io)) |entry| {
+            if (entry.kind != .file) continue;
+            const bytes = try cwd.readFileAlloc(self.io, try std.fs.path.join(arena, &.{ from, entry.name }), arena, .limited(256 << 20));
+            try cwd.writeFile(self.io, .{ .sub_path = try std.fs.path.join(arena, &.{ to, entry.name }), .data = bytes });
+        }
+    }
+
+    /// Generate sides of a variant with a model: from the variant as first exported.
+    fn generateFromModel(self: *Sides, arena: std.mem.Allocator) !void {
+        const cwd = std.Io.Dir.cwd();
+        const what = "bk-views side";
+        const variant = self.variantPath();
+        const stem = self.modelStemPath();
+        var source_buffer: [logic.path_capacity]u8 = undefined;
+        const source = sl.modelSource(&source_buffer, stem, variant) orelse return error.NameTooLong;
+        cwd.access(self.io, try std.fmt.allocPrint(arena, "{s}{c}1.san", .{ source, std.fs.path.sep }), .{}) catch {
+            cwd.access(self.io, try std.fmt.allocPrint(arena, "{s}{c}1.san", .{ variant, std.fs.path.sep }), .{}) catch return self.fail("resource_app.sides.no_variant", .{variant});
+            try self.copyFolder(arena, variant, source);
+        };
+        const tool = try self.toolPath(arena, "bk-views");
+        const work = try self.workFolder(variant);
+        errdefer self.gpa.free(work);
+        const argv = try sl.modelSideArgv(arena, tool, source, variant, work, stem, self.model_turns);
+        self.start(what, argv, work, null, true);
+        if (self.job) |*job| job.from_model = true;
+    }
+
     /// Generate sides: the variant's three turns, beside it.
     pub fn generate(self: *Sides) void {
         var arena_state = std.heap.ArenaAllocator.init(self.gpa);
         defer arena_state.deinit();
         const arena = arena_state.allocator();
+        if (self.has_model) {
+            self.generateFromModel(arena) catch |err| self.fail("resource_app.sides.failed", .{ "bk-views side", @errorName(err) });
+            return;
+        }
         const variant = self.variantPath();
         std.Io.Dir.cwd().access(self.io, std.fmt.allocPrint(arena, "{s}{c}1.san", .{ variant, std.fs.path.sep }) catch return, .{}) catch {
             self.fail("resource_app.sides.no_variant", .{variant});
@@ -528,6 +691,8 @@ pub const Sides = struct {
                     std.Io.Dir.cwd().deleteFile(self.io, path) catch {};
                 };
                 self.say("resource_app.sides.imported", .{ std.fs.path.basename(pack), std.fs.path.dirname(pack) orelse "" });
+            } else if (job.from_model) {
+                self.say("resource_app.sides.model_generated", .{self.variantPath()});
             } else self.say("resource_app.sides.generated", .{self.variantPath()});
         } else {
             // The tool's last line says why.
@@ -557,6 +722,18 @@ pub const Sides = struct {
         return true;
     }
 
+    /// What a file dialog chose, once.
+    pub fn takePicked(self: *Sides) void {
+        switch (pick_slot.take() orelse return) {
+            .path => |answer| if (answer.path.len != 0) switch (answer.kind) {
+                .side_picture => self.import(answer.path),
+                .model => self.attachModel(answer.path),
+                .atlas => self.replaceAtlas(answer.path),
+            },
+            .failed, .cancelled => {},
+        }
+    }
+
     pub fn noteText(self: *const Sides) []const u8 {
         return self.note[0..self.note_len];
     }
@@ -564,19 +741,18 @@ pub const Sides = struct {
 
 const core_bridge = @import("resource_core").bridge;
 
-/// Import side picture's file dialog: its answer arrives through `picked`.
-var png_slot: kit.dialogs.PathSlot(enum { side_picture }, logic.path_capacity) = .{};
+/// The window's file dialogs: the answer arrives through `Sides.takePicked`.
+const Pick = enum { side_picture, model, atlas };
+var pick_slot: kit.dialogs.PathSlot(Pick, logic.path_capacity) = .{};
 const png_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "PNG", .pattern = "png" }};
+const json_filters = [_]sdl3.c.SDL_DialogFileFilter{.{ .name = "JSON", .pattern = "json" }};
 
 fn requestImport() void {
-    if (!png_slot.request(.side_picture)) return;
-    sdl3.c.SDL_ShowOpenFileDialog(@TypeOf(png_slot).callback, &png_slot, null, &png_filters, png_filters.len, null, false);
+    requestPick(.side_picture);
 }
 
-/// The PNG the dialog chose, once.
-pub fn picked() ?[]const u8 {
-    return switch (png_slot.take() orelse return null) {
-        .path => |answer| if (answer.path.len == 0) null else answer.path,
-        .failed, .cancelled => null,
-    };
+fn requestPick(kind: Pick) void {
+    if (!pick_slot.request(kind)) return;
+    const filters: []const sdl3.c.SDL_DialogFileFilter = if (kind == .model) &json_filters else &png_filters;
+    sdl3.c.SDL_ShowOpenFileDialog(@TypeOf(pick_slot).callback, &pick_slot, null, filters.ptr, @intCast(filters.len), null, false);
 }

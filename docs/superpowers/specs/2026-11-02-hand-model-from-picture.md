@@ -186,6 +186,31 @@ What the relative added:
 Expected to hold for props, unproven: a low object needs far fewer faces, and rule 3 still decides what is modelled.
 Something thin and cut out by alpha (a fence, a sign) may stay one flat face with its picture on both sides.
 
+## The model's files, and the Building editor
+
+A model is a set of files with one stem, read by `bk-views` (`hand_model_suffixes`), from
+`tools/zig/fixtures/bk-views/hand-models/<variant>` or, with `side --model=<stem>`, from anywhere:
+
+| File | What it is |
+|---|---|
+| `<stem>.json`, `<stem>_1.png` | The intact shape and its summer art. Every model has them. |
+| `<stem>_1w.png` | Its winter art, on the same layout, lit by the winter sun. A state the 2003 variant never had is drawn all the same. |
+| `<stem>_2.png`, `<stem>_3.png` | A damage state's art on the intact shape. |
+| `<stem>_2.json`, `<stem>_3.json` with their `.png` | A damage state with a shape of its own, its atlas on its own layout. |
+| `<stem>_2w.png`, `<stem>_3w.png` | That state's winter, on its layout. |
+
+A damage state with neither is cut from the intact model by `damaged`. A model of only the first two files draws byte for byte as
+before. An atlas is an 8-bit PNG without row filters and of the size its JSON says; `handexport.py` and the editor write that. `.json` holds
+`width`, `height`, `groups`, `charts` (x, y, w, h, group: one per flat face), `vertices` (x, y, z, u, v, with u and v in texels), `triangles`
+(three vertices and a chart) and `normals` (one per chart).
+
+The Resource Editor's Building editor, Sides window: **Attach model...** takes a `.json` and copies it, checked, with the atlases beside it to
+`<the project's folder>/model/`. From then on **Generate sides** draws from it what the Game needs (turn 0 and the three turns, each also under
+the world's sun, and the shadows of every facing) from a copy of the exported variant kept in `model/source/<variant>`, since turn 0 writes over
+the variant itself. The four cells show the state ticked at the four camera angles, under the sun the Game has at each step. **Replace atlas...**
+takes a PNG of the right size as the art of the state and season ticked, and draws again. There is no free rotation: the Game has four angles.
+A re-export of the project does not refresh the kept copy; delete `model/source` for that.
+
 ## Still to do
 
 - The `.obj` beside the renders has not been checked by `bk-map validate-obj2mod`; `model3d` writes the `.mod` from the fixture.

@@ -170,6 +170,64 @@ pub fn sideArgv(arena: std.mem.Allocator, tool: []const u8, variant: []const u8,
     return arena.dupe([]const u8, &.{ tool, "side", variant, "1,2,3", parent, work });
 }
 
+/// A building project's model: `<the project's folder>/model/model.json` and
+/// its atlases, copied there by Attach model. Every file a model may have, as
+/// bk-views reads them (`hand_model_suffixes`).
+pub const model_suffixes = [_][]const u8{ ".json", "_1.png", "_1w.png", "_2.json", "_2.png", "_2w.png", "_3.json", "_3.png", "_3w.png" };
+
+pub fn modelStem(buffer: []u8, project_path: []const u8) ?[]const u8 {
+    const folder = std.fs.path.dirname(project_path) orelse return null;
+    return std.fmt.bufPrint(buffer, "{s}{c}model{c}model", .{ folder, std.fs.path.sep, std.fs.path.sep }) catch null;
+}
+
+/// The variant as exported, kept beside the model the first time it is drawn:
+/// Generate sides writes turn 0 over the variant itself, and a damage state the
+/// model does not bring is cut by the exported picture, not by a render of it.
+pub fn modelSource(buffer: []u8, stem: []const u8, variant: []const u8) ?[]const u8 {
+    return std.fmt.bufPrint(buffer, "{s}{c}source{c}{s}", .{ std.fs.path.dirname(stem) orelse return null, std.fs.path.sep, std.fs.path.sep, std.fs.path.basename(variant) }) catch null;
+}
+
+/// The folder of turn `k` under the sun fixed in the world, what the Game draws
+/// at camera step k; turn 0 has none.
+pub fn litFolder(buffer: []u8, variant: []const u8, k: usize) ![]const u8 {
+    if (k == 0) return std.fmt.bufPrint(buffer, "{s}", .{variant});
+    return std.fmt.bufPrint(buffer, "{s}_r{d}_l{d}", .{ variant, k, k });
+}
+
+/// The atlas of a look's sprite: `_2w.png`.
+pub fn atlasSuffix(buffer: []u8, look: Look) []const u8 {
+    return std.fmt.bufPrint(buffer, "_{d}{s}.png", .{ look.state, if (look.winter) "w" else "" }) catch unreachable;
+}
+
+/// The geometry an atlas lies on: its state's own, else the intact model's.
+pub fn layoutSuffix(buffer: []u8, state: u8) []const u8 {
+    return if (state == 1) ".json" else std.fmt.bufPrint(buffer, "_{d}.json", .{state}) catch unreachable;
+}
+
+/// The size of the atlas a model's JSON lays out, once its numbers hold together.
+pub fn checkModel(arena: std.mem.Allocator, json: []const u8) ![2]u32 {
+    const File = struct { width: u32, height: u32, groups: []const []const u8, charts: []const [5]u32, vertices: []const [5]f64, triangles: []const [4]u32, normals: []const [3]f64 };
+    const f = std.json.parseFromSliceLeaky(File, arena, json, .{}) catch return error.NotAModel;
+    if (f.width == 0 or f.height == 0 or f.triangles.len == 0 or f.normals.len != f.charts.len) return error.NotAModel;
+    for (f.triangles) |t| {
+        for (t[0..3]) |v| if (v >= f.vertices.len) return error.NotAModel;
+        if (t[3] >= f.charts.len) return error.NotAModel;
+    }
+    for (f.charts) |c| if (c[4] >= f.groups.len) return error.NotAModel;
+    return .{ f.width, f.height };
+}
+
+/// What a variant with a model takes: turn 0 too (the mod lays it over the 2003
+/// picture), each turn also under the world's sun, and the shadows of a building
+/// at each facing, as build.zig's full3d steps make them.
+pub const model_turns = "0,1,2,3,1l1,2l2,3l3,0s1,0s2,0s3,1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
+
+/// `bk-views side <kept source> <turns> <the variant's folder> <work> --model=<stem>`.
+pub fn modelSideArgv(arena: std.mem.Allocator, tool: []const u8, source: []const u8, variant: []const u8, work: []const u8, stem: []const u8, turns: []const u8) ![]const []const u8 {
+    const parent = std.fs.path.dirname(variant) orelse ".";
+    return arena.dupe([]const u8, &.{ tool, "side", source, turns, parent, work, try std.fmt.allocPrint(arena, "--model={s}", .{stem}) });
+}
+
 /// `bk-sprite compose-pack` of a new picture for one pack of a turn: the
 /// picture's zero cross where the old one had it, the turn's footprint, the
 /// old shadow (and ground picture of a damage state) under it, and for the
@@ -247,6 +305,36 @@ test "Generate sides and Import side picture build the tools' command lines" {
     const want = [_][]const u8{ "bk-sprite", "compose-pack", "new.png", "s.png", "house_r1/2", "--zero", "90,120", "--pass", "0101/0101", "--locked", "3,-4", "--force", "--noise", "g.png" };
     try testing.expectEqual(want.len, compose.len);
     for (want, compose) |a, b| try testing.expectEqualStrings(a, b);
+}
+
+test "a model's files live beside the project and its numbers must hold together" {
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var buffer: [128]u8 = undefined;
+    const stem = modelStem(&buffer, "D:/src/house/project.bld").?;
+    try testing.expect(std.mem.endsWith(u8, stem, "model"));
+    var source_buffer: [128]u8 = undefined;
+    try testing.expect(std.mem.endsWith(u8, modelSource(&source_buffer, stem, "m/data/buildings/house").?, "house"));
+    var folder_buffer: [64]u8 = undefined;
+    try testing.expectEqualStrings("house_r2_l2", try litFolder(&folder_buffer, "house", 2));
+    try testing.expectEqualStrings("house", try litFolder(&folder_buffer, "house", 0));
+    var suffix: [16]u8 = undefined;
+    try testing.expectEqualStrings("_2w.png", atlasSuffix(&suffix, .{ .state = 2, .winter = true, .shadow = true }));
+    try testing.expectEqualStrings(".json", layoutSuffix(&suffix, 1));
+    try testing.expectEqualStrings("_3.json", layoutSuffix(&suffix, 3));
+    const json = try std.Io.Dir.cwd().readFileAlloc(testing.io, "tools/zig/fixtures/bk-views/hand-models/e_house01_1.json", arena, .limited(1 << 20));
+    try testing.expectEqual([2]u32{ 1024, 552 }, try checkModel(arena, json));
+    try testing.expectError(error.NotAModel, checkModel(arena, "{}"));
+    try testing.expectError(error.NotAModel, checkModel(arena, "not json at all"));
+    // A triangle past the vertices is no model.
+    try testing.expectError(error.NotAModel, checkModel(arena,
+        \\{"width":8,"height":8,"groups":["body.wall"],"charts":[[0,0,8,8,0]],"vertices":[[0,0,0,0,0]],"triangles":[[0,1,2,0]],"normals":[[0,-1,0]]}
+    ));
+    const side = try modelSideArgv(arena, "bk-views", "m/kept/house", "m/data/buildings/house", "m/.work", "m/model", model_turns);
+    try testing.expectEqualStrings("m/kept/house", side[2]);
+    try testing.expectEqualStrings("m/data/buildings", side[4]);
+    try testing.expectEqualStrings("--model=m/model", side[6]);
 }
 
 test "a PNG reads to its pixels: the stored ones bk-views writes and a compressed, filtered one" {
