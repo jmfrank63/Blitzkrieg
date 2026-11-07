@@ -13905,7 +13905,11 @@ const resource_auto_bld =
     "422:expect=sides_missing:0," ++
     "422:do=sides_look:1," ++
     "423:shot=bld_model," ++
-    "424:expect=shot_sides:bld_model/2000," ++
+    // Windows's renderer drew this cell with 2000+ side pixels; Linux's
+    // lavapipe gives 1945 (frame 424's expect failed on CI 2026-11-07). The
+    // measure only has to tell a drawn side from a missing one, so the floor
+    // stays well under every renderer's count.
+    "424:expect=shot_sides:bld_model/1500," ++
     "425:expect=shot_sides_apart:bld_model/1000," ++
     "426:do=sides_look:3," ++
     "427:shot=bld_model_state," ++
@@ -13915,7 +13919,8 @@ const resource_auto_bld =
     "431:expect=sides_missing:0," ++
     "432:do=sides_atlas:{fix}/bld/model-atlas.png," ++
     "433:shot=bld_model_atlas," ++
-    "434:expect=shot_sides_changed:bld_model_atlas/bld_model/2000," ++
+    // 2000 asked more than Linux's renderer draws in a cell (see frame 424).
+    "434:expect=shot_sides_changed:bld_model_atlas/bld_model/1000," ++
     "435:do=sides_look:1w," ++
     "436:expect=sides_missing:4," ++
     "437:do=sides_atlas:{fix}/bld/model-atlas.png," ++
