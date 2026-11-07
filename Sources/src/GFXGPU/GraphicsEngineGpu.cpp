@@ -543,7 +543,15 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
         // platforms where the style change is asynchronous), the extents stay
         // 0 and this degrades to the plain client-rect clamp.
         int nBorderTop = 0, nBorderLeft = 0, nBorderBottom = 0, nBorderRight = 0;
-        if ( fullscreen != GFXFS_FULLSCREEN )
+        // Test seam: BK_WINDOW_NO_CLAMP keeps the requested window size and
+        // position even where the display cannot show all of it. The CI
+        // runners' displays got smaller with the macos-15 image (2026-11-07:
+        // usable height 682 at 1024 wide), the clamp shrank the 1024x768
+        // test window to 1024x682, and every screen-measuring tier failed
+        // on the scaled UI. Off-screen pixels do not matter there: the tiers
+        // read their captures from the scene, not from the screen.
+        static const bool bNoClamp = getenv( "BK_WINDOW_NO_CLAMP" ) != 0;
+        if ( fullscreen != GFXFS_FULLSCREEN && !bNoClamp )
         {
             if ( !SDL_GetWindowBordersSize( window, &nBorderTop, &nBorderLeft, &nBorderBottom, &nBorderRight ) )
                 nBorderTop = nBorderLeft = nBorderBottom = nBorderRight = 0;

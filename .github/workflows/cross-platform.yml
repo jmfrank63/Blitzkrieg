@@ -23,6 +23,13 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The Game keeps its 1024x768 test window even where the runner's display cannot show
+  # all of it (the macos-15 image's display is 682 high in the work area; the clamp to the
+  # usable bounds scaled the UI and broke every screen-measuring tier, 2026-11-07). The tiers
+  # read their captures from the scene, so an off-screen edge does not matter.
+  BK_WINDOW_NO_CLAMP: 1
+
 
 # One job per platform and product, named "<platform> - Game", "- Resource Editor" and
 # "- Map Editor", so a run shows at a glance what works where. A combination that is not
