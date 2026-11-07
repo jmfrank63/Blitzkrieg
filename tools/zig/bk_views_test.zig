@@ -1631,6 +1631,69 @@ test "a model brings its damage states and winters: own geometry, art on the int
 }
 
 
+test "a hand model's missing winters come from the variant's own pictures, and a winter atlas without its summer state is refused" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const io = std.testing.io;
+    const cwd = std.Io.Dir.cwd();
+    const scratch = "zig-out/local-test/bk-views/hand-winter";
+    cwd.deleteTree(io, scratch) catch {};
+    try cwd.createDirPath(io, scratch);
+    const json = try read(arena, views.hand_models_dir ++ "/e_house01_1.json");
+    const png = try read(arena, views.hand_models_dir ++ "/e_house01_1_1.png");
+    const atlas = try views.readPng(arena, png);
+    const write = struct {
+        fn f(name: []const u8, data: []const u8) !void {
+            try std.Io.Dir.cwd().writeFile(std.testing.io, .{ .sub_path = name, .data = data });
+        }
+    }.f;
+    const solid = struct {
+        fn f(gpa: std.mem.Allocator, w: u32, h: u32, colour: [4]u8) ![]const u8 {
+            const image: views.Image = .{ .width = w, .height = h, .pixels = try gpa.alloc([4]u8, @as(usize, w) * h) };
+            @memset(image.pixels, colour);
+            return views.writePng(gpa, image);
+        }
+    }.f;
+    // housebig's variant carries the winter states (1w, 2w, 3w) the model brings no atlases for.
+    const run = struct {
+        fn f(gpa: std.mem.Allocator, out: []const u8, stem: []const u8) ![]const u8 {
+            const model = try std.fmt.allocPrint(gpa, "--model={s}", .{stem});
+            const result = try std.process.run(gpa, std.testing.io, .{ .argv = &.{ bk_views_gate.bk_views_fast, "model3d", out, "Data/Buildings/ussr/summer/housebig", model }, .stdout_limit = .limited(1 << 20), .stderr_limit = .limited(1 << 20) });
+            if (result.term != .exited or result.term.exited != 0) {
+                std.debug.print("bk-views model3d failed: {s}\n", .{result.stderr});
+                return error.Model3dFailed;
+            }
+            return read(gpa, try std.fmt.allocPrint(gpa, "{s}/148/model.json", .{out}));
+        }
+    }.f;
+    const Report = struct { textures: []const struct { state: []const u8 } };
+    const has = struct {
+        fn f(list: anytype, state: []const u8) bool {
+            for (list) |t| if (std.mem.eql(u8, t.state, state)) return true;
+            return false;
+        }
+    }.f;
+
+    // State 2 is art on the intact geometry and no winter atlas anywhere: the
+    // variant's own winters fill every state in, so the shadow passes cast
+    // from a model and not from blocks.
+    try write(scratch ++ "/winter.json", json);
+    try write(scratch ++ "/winter_1.png", png);
+    try write(scratch ++ "/winter_2.png", try solid(arena, atlas.width, atlas.height, .{ 20, 60, 220, 255 }));
+    const report = try std.json.parseFromSliceLeaky(Report, arena, try run(arena, scratch ++ "/winter-out", scratch ++ "/winter"), .{ .ignore_unknown_fields = true });
+    try std.testing.expect(has(report.textures, "1w"));
+    try std.testing.expect(has(report.textures, "2w"));
+    try std.testing.expect(has(report.textures, "3w"));
+
+    // A winter atlas without its summer state is refused, not silently dropped.
+    try write(scratch ++ "/orphan.json", json);
+    try write(scratch ++ "/orphan_1.png", png);
+    try write(scratch ++ "/orphan_2w.png", try solid(arena, atlas.width, atlas.height, .{ 20, 60, 220, 255 }));
+    try std.testing.expectError(error.Model3dFailed, run(arena, scratch ++ "/orphan-out", scratch ++ "/orphan"));
+}
+
+
 test "a hand model loads from its fixture and draws its 2003 picture with no holes, its own shadows computed" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();

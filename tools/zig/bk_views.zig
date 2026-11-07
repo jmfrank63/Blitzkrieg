@@ -7342,6 +7342,8 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, scene_mesh: ?Mes
     var models: std.ArrayList(model3d.Model) = .empty;
     var m = if (handmade) |h| h.intact else try model3d.unwrap(gpa, scene_mesh.?.model, scene_mesh.?.tris, scene_mesh.?.views[0].placement);
     const placement: mesh.Placement = if (handmade != null) .{} else scene_mesh.?.views[0].placement;
+    const own = sources[fixed];
+    const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
     const has = struct {
         fn f(list: []const []const u8, state: []const u8) bool {
             for (list) |s| if (std.mem.eql(u8, s, state)) return true;
@@ -7349,7 +7351,17 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, scene_mesh: ?Mes
         }
     }.f;
     for ([_][]const u8{ "1", "1w" }) |state| {
-        if (handmade != null or !has(states, state)) continue;
+        // A hand model brings its own intact art; a winter the variant has and
+        // it brings no atlas for is baked from the variant's own picture, so
+        // every state the shadow passes cast from has a model.
+        if (handmade != null and m.texture(state) != null) continue;
+        if (!has(states, state)) continue;
+        if (handmade != null) {
+            const picture = pictureOf(own, state).?;
+            const view = try model3d.ownBakeView(gpa, m, picture, placement, anchor);
+            try model3d.bake(gpa, &m, state, &.{view}, null);
+            continue;
+        }
         var means: Means = .{};
         var bake_views: std.ArrayList(model3d.BakeView) = .empty;
         const ms = scene_mesh.?;
@@ -7366,10 +7378,17 @@ fn buildFull3d(gpa: std.mem.Allocator, sources: []const Source, scene_mesh: ?Mes
         try model3d.bake(gpa, &m, state, bake_views.items, null);
     }
     try models.append(gpa, m);
-    const own = sources[fixed];
-    const anchor = [2]f64{ @floatFromInt(own.anchor[0]), @floatFromInt(own.anchor[1]) };
     for ([_][]const u8{ "2", "3" }) |state| {
-        if (handmade) |h| if (h.stateModel(state)) |d| {
+        if (handmade) |h| if (h.stateModel(state)) |brought| {
+            var d = brought;
+            // As above: the variant's winter damage state, where the model
+            // brings no atlas of its own, is baked from the variant's picture.
+            const winter = try std.fmt.allocPrint(gpa, "{s}w", .{state});
+            if (has(states, winter) and d.texture(winter) == null) {
+                const picture = pictureOf(own, winter).?;
+                const view = try model3d.ownBakeView(gpa, d, picture, placement, anchor);
+                try model3d.bake(gpa, &d, winter, &.{view}, m.texture("1w") orelse m.texture("1").?);
+            }
             try models.append(gpa, d);
             continue;
         };
@@ -7437,6 +7456,9 @@ fn loadHandModel(ctx: *bk_tool.Context, name: []const u8) !?Handmade {
         const geometry = try handFile(ctx, path, try std.fmt.allocPrint(ctx.arena, "_{s}.json", .{state}));
         const winter = try handFile(ctx, path, try std.fmt.allocPrint(ctx.arena, "_{s}.png", .{winter_state}));
         if (geometry != null and atlas == null) return error.BadHandModel;
+        // A winter atlas lies on its summer state's model; without one nothing
+        // would read it (the editor refuses to write one), so the model is refused.
+        if (winter != null and atlas == null) return error.BadHandModel;
         const summer = try readPng(ctx.arena, atlas orelse continue);
         var d = if (geometry) |g| try model3d.handModel(ctx.arena, g, summer) else try model3d.onGeometry(ctx.arena, intact, summer);
         d.textures[0].state = state;
