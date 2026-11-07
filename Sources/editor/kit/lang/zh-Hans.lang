@@ -1566,6 +1566,7 @@ resource_app.sides.model_attached=已附加模型 {0}。生成侧面时将用它
 resource_app.sides.model_generated=已用模型以全部四个摄像机角度绘制 {0} 的所有状态。
 resource_app.sides.model_bad={0} 不是可用的模型:{1}
 resource_app.sides.atlas_size={0} 的尺寸为 {1} x {2};此状态的图集为 {3} x {4}。
+resource_app.sides.winter_needs_summer=没有状态{0}的夏季图集：请先替换该状态的夏季美术。
 resource_app.act.place=放置
 resource_app.source.explain=复合粒子源会散布另一个粒子效果。请填写其名称（例如 effects\\particles\\flame）。
 resource_app.source.particle=粒子

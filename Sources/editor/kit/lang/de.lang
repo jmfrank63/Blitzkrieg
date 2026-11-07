@@ -1566,6 +1566,7 @@ resource_app.sides.model_attached=Modell {0} angehängt. „Seiten erzeugen“ z
 resource_app.sides.model_generated=Alle Zustände von {0} aus dem Modell gezeichnet, in allen vier Kamerawinkeln.
 resource_app.sides.model_bad={0} ist kein brauchbares Modell: {1}
 resource_app.sides.atlas_size={0} ist {1} x {2}; der Atlas dieses Zustands ist {3} x {4}.
+resource_app.sides.winter_needs_summer=Kein Sommeratlas für Zustand {0}: ersetze zuerst die Sommergrafik des Zustands.
 resource_app.act.place=platzieren
 resource_app.source.explain=Eine komplexe Quelle streut einen anderen Partikeleffekt. Geben Sie seinen Namen an (zum Beispiel effects\\particles\\flame).
 resource_app.source.particle=Partikel

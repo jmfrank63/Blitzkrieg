@@ -1566,6 +1566,7 @@ resource_app.sides.model_attached=Modelo {0} anexado. Gerar lados desenha cada e
 resource_app.sides.model_generated=Todos os estados de {0} foram desenhados a partir do modelo, nos quatro ângulos de câmera.
 resource_app.sides.model_bad={0} não é um modelo utilizável: {1}
 resource_app.sides.atlas_size={0} tem {1} x {2}; o atlas deste estado tem {3} x {4}.
+resource_app.sides.winter_needs_summer=Sem atlas de verão para o estado {0}: troque primeiro a arte de verão do estado.
 resource_app.act.place=posicionar
 resource_app.source.explain=Uma fonte complexa espalha outro efeito de partículas. Informe o nome dele (por exemplo, effects\\particles\\flame).
 resource_app.source.particle=Partícula

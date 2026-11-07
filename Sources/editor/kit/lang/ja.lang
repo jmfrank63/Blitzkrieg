@@ -1566,6 +1566,7 @@ resource_app.sides.model_attached=モデル {0} を添付しました。側面�
 resource_app.sides.model_generated={0} の全状態をモデルから4つのカメラ角度で描きました。
 resource_app.sides.model_bad={0} は使用できるモデルではありません: {1}
 resource_app.sides.atlas_size={0} のサイズは {1} x {2} です。この状態のアトラスは {3} x {4} です。
+resource_app.sides.winter_needs_summer=状態{0}の夏のアトラスがありません: まずその状態の夏のアートを置き換えてください。
 resource_app.act.place=配置
 resource_app.source.explain=複合ソースは別のパーティクルエフェクトをばらまきます。その名前を入力してください（例: effects\\particles\\flame）。
 resource_app.source.particle=パーティクル

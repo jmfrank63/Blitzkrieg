@@ -542,6 +542,13 @@ pub const Sides = struct {
         const cwd = std.Io.Dir.cwd();
         const stem = self.modelStemPath();
         const new = sl.readPng(arena, try cwd.readFileAlloc(self.io, png, arena, .limited(64 << 20))) catch return self.fail("resource_app.sides.not_png", .{png});
+        // A winter atlas lies on its summer state's model: without one the
+        // drawn state would keep its old art (bk-views refuses the orphan
+        // file), so the summer art is replaced first.
+        if (self.look.winter and self.look.state != 1) {
+            const summer = try std.fmt.allocPrint(arena, "{s}_{d}.png", .{ stem, self.look.state });
+            cwd.access(self.io, summer, .{}) catch return self.fail("resource_app.sides.winter_needs_summer", .{self.look.state});
+        }
         var layout_buffer: [16]u8 = undefined;
         const own = cwd.readFileAlloc(self.io, try std.fmt.allocPrint(arena, "{s}{s}", .{ stem, sl.layoutSuffix(&layout_buffer, self.look.state) }), arena, .limited(64 << 20)) catch |err| switch (err) {
             error.FileNotFound => try cwd.readFileAlloc(self.io, try std.fmt.allocPrint(arena, "{s}.json", .{stem}), arena, .limited(64 << 20)),

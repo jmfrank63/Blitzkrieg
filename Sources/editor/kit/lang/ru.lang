@@ -1566,6 +1566,7 @@ resource_app.sides.model_attached=Модель {0} прикреплена. «С�
 resource_app.sides.model_generated=Все состояния {0} нарисованы по модели со всех четырёх ракурсов камеры.
 resource_app.sides.model_bad={0} — непригодная модель: {1}
 resource_app.sides.atlas_size=Размер {0}: {1} x {2}; атлас этого состояния имеет размер {3} x {4}.
+resource_app.sides.winter_needs_summer=Нет летнего атласа для состояния {0}: сначала замените летнюю графику состояния.
 resource_app.act.place=размещение
 resource_app.source.explain=Сложный источник рассеивает другой эффект частиц. Укажите его имя (например, effects\\particles\\flame).
 resource_app.source.particle=Частица

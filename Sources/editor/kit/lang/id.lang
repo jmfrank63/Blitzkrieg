@@ -1566,6 +1566,7 @@ resource_app.sides.model_attached=Model {0} dilampirkan. Buat sisi akan menggamb
 resource_app.sides.model_generated=Semua keadaan {0} digambar dari modelnya, pada keempat sudut kamera.
 resource_app.sides.model_bad={0} bukan model yang dapat dipakai: {1}
 resource_app.sides.atlas_size={0} berukuran {1} x {2}; atlas keadaan ini berukuran {3} x {4}.
+resource_app.sides.winter_needs_summer=Tidak ada atlas musim panas untuk status {0}: ganti dulu seni musim panas status itu.
 resource_app.act.place=tempatkan
 resource_app.source.explain=Sumber kompleks menyebarkan efek partikel lain. Beri nama efek itu (misalnya effects\\particles\\flame).
 resource_app.source.particle=Partikel
