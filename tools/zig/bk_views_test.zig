@@ -1730,3 +1730,104 @@ test "a hand model loads from its fixture and draws its 2003 picture with no hol
     const d = try model3d.damaged(arena, m, .{}, damage.picture, found.picture, found.anchor);
     try std.testing.expect(d.hand != null);
 }
+
+test "an RGBA PNG with every row filter and two IDAT chunks reads to its pixels" {
+    const gpa = std.testing.allocator;
+    const pack = @import("bk_views_pack.zig");
+    const width = 5;
+    const height = 6;
+    var pixels: [width * height][4]u8 = undefined;
+    for (&pixels, 0..) |*pixel, i| pixel.* = .{ @truncate(i * 37), @truncate(i * i * 11 + 3), @truncate(1000 - i * 9), if (i % 4 == 0) 0 else 255 };
+    // Each row filtered the PNG way: none, sub, up, average, Paeth, and Paeth again on the last row.
+    const stride = width * 4;
+    const want = std.mem.sliceAsBytes(&pixels);
+    var raw: [(stride + 1) * height]u8 = undefined;
+    for (0..height) |y| {
+        const filter: u8 = @intCast(@min(y, 4));
+        raw[y * (stride + 1)] = filter;
+        for (0..stride) |i| {
+            const a: i32 = if (i >= 4) want[y * stride + i - 4] else 0;
+            const b: i32 = if (y > 0) want[(y - 1) * stride + i] else 0;
+            const c: i32 = if (y > 0 and i >= 4) want[(y - 1) * stride + i - 4] else 0;
+            const p = a + b - c;
+            const nearest = if (@abs(p - a) <= @abs(p - b) and @abs(p - a) <= @abs(p - c)) a else if (@abs(p - b) <= @abs(p - c)) b else c;
+            const predicted: i32 = switch (filter) {
+                0 => 0,
+                1 => a,
+                2 => b,
+                3 => @divFloor(a + b, 2),
+                else => nearest,
+            };
+            raw[y * (stride + 1) + 1 + i] = @truncate(@as(u32, @bitCast(@as(i32, want[y * stride + i]) - predicted)));
+        }
+    }
+    var zlib: std.Io.Writer.Allocating = try .initCapacity(gpa, 1024);
+    defer zlib.deinit();
+    const window = try gpa.alloc(u8, std.compress.flate.max_window_len);
+    defer gpa.free(window);
+    var compress = try std.compress.flate.Compress.init(&zlib.writer, window, .zlib, .fastest);
+    try compress.writer.writeAll(&raw);
+    try compress.finish();
+    const stream = zlib.written();
+    var png: std.Io.Writer.Allocating = .init(gpa);
+    defer png.deinit();
+    try png.writer.writeAll("\x89PNG\r\n\x1a\n");
+    try pack.pngChunk(&png.writer, "IHDR", &.{ 0, 0, 0, width, 0, 0, 0, height, 8, 6, 0, 0, 0 });
+    try pack.pngChunk(&png.writer, "IDAT", stream[0 .. stream.len / 2]);
+    try pack.pngChunk(&png.writer, "IDAT", stream[stream.len / 2 ..]);
+    try pack.pngChunk(&png.writer, "IEND", "");
+    const back = try views.readRgbaPng(gpa, png.written());
+    defer gpa.free(back.pixels);
+    try std.testing.expectEqual(@as(u32, width), back.width);
+    try std.testing.expectEqual(@as(u32, height), back.height);
+    try std.testing.expectEqualSlices([4]u8, &pixels, back.pixels);
+    // Another colour type is refused, not misread.
+    var grey = try gpa.dupe(u8, png.written());
+    defer gpa.free(grey);
+    grey[25] = 0;
+    try std.testing.expectError(error.NotRgba8, views.readRgbaPng(gpa, grey));
+}
+
+test "the tracked kit views hold four turns of every state of every building of their index, each picture the size views.json gives and its zero cross near it" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const root = "tools/zig/fixtures/bk-views/kit-views";
+    const index = try std.json.parseFromSliceLeaky([]const struct { page: u32, path: []const u8 }, arena, try read(arena, root ++ "/index.json"), .{});
+    try std.testing.expect(index.len > 0);
+    var pictures: usize = 0;
+    for (index) |entry| {
+        // Every building of the index is one the game has.
+        try std.Io.Dir.cwd().access(std.testing.io, try std.fmt.allocPrint(arena, "Data/Buildings/{s}/1.xml", .{entry.path}), .{});
+        const json = try std.json.parseFromSliceLeaky(std.json.Value, arena, try read(arena, try std.fmt.allocPrint(arena, "{s}/{s}/views.json", .{ root, entry.path })), .{});
+        try std.testing.expectEqualStrings(entry.path, json.object.get("path").?.string);
+        var states = json.object.get("states").?.object.iterator();
+        while (states.next()) |state| {
+            try std.testing.expectEqual(@as(usize, 4), state.value_ptr.object.count());
+            for (0..4) |turn| {
+                const view = try std.json.parseFromValueLeaky(struct { zero: [2]i32, size: [2]i32 }, arena, state.value_ptr.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})).?, .{});
+                const path = try std.fmt.allocPrint(arena, "{s}/{s}/{s}_{d}.png", .{ root, entry.path, state.key_ptr.*, turn });
+                var file = try std.Io.Dir.cwd().openFile(std.testing.io, path, .{});
+                defer file.close(std.testing.io);
+                var header: [29]u8 = undefined;
+                _ = try file.readPositionalAll(std.testing.io, &header, 0);
+                errdefer std.debug.print("{s}\n", .{path});
+                try std.testing.expectEqual(view.size[0], @as(i32, @intCast(std.mem.readInt(u32, header[16..20], .big))));
+                try std.testing.expectEqual(view.size[1], @as(i32, @intCast(std.mem.readInt(u32, header[20..24], .big))));
+                try std.testing.expectEqualSlices(u8, &.{ 8, 6, 0, 0, 0 }, header[24..29]);
+                // Cut to its content, the zero cross a ground point at most a little outside it.
+                for (view.zero, view.size) |z, extent| try std.testing.expect(z >= -64 and z < extent + 64);
+                pictures += 1;
+            }
+        }
+    }
+    try std.testing.expectEqual(index.len * 12, pictures);
+    // One of them read whole: one-bit alpha, as bk-views kit composes it.
+    const picture = try views.readRgbaPng(arena, try read(arena, root ++ "/europe/summer/e_house01_1/1_0.png"));
+    var opaque_pixels: usize = 0;
+    for (picture.pixels) |p| {
+        try std.testing.expect(p[3] == 0 or p[3] == 255);
+        opaque_pixels += @intFromBool(p[3] == 255);
+    }
+    try std.testing.expect(opaque_pixels > picture.pixels.len / 3);
+}

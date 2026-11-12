@@ -12,7 +12,13 @@
 //! a/, b/ and c/ stay in <work-dir> only where it differed: kept for all 412 full 3D
 //! objects they came to 6 GiB that nothing read.
 //!
-//! usage: bk-views-roundtrip <bk-views> <bk-sprite> <bk-views-check> <module-root> <work-dir> <variant-dir>...
+//! With `--kit=<kit-views-dir>` the folders are what `bk-views kit` wrote for one
+//! building (its own folder and its turns, tools/zig/fixtures/bk-views/kit-views):
+//! each folder makes the round trip above, and each state the kit views hold
+//! must also decompose to the kit view of the folder's turn, pixel for pixel
+//! with its zero cross on the pack's.
+//!
+//! usage: bk-views-roundtrip <bk-views> <bk-sprite> <bk-views-check> <module-root> <work-dir> [--kit=<kit-views-dir>] <variant-dir>...
 
 const std = @import("std");
 const bk_views = @import("bk_views.zig");
@@ -37,20 +43,22 @@ pub fn main(init: std.process.Init) !u8 {
     const arena = init.arena.allocator();
     const io = init.io;
     const args = try std.process.Args.toSlice(init.minimal.args, arena);
-    if (args.len < 7) {
-        std.debug.print("usage: bk-views-roundtrip <bk-views> <bk-sprite> <bk-views-check> <module-root> <work-dir> <variant-dir>...\n", .{});
+    const kit: ?[]const u8 = if (args.len > 6 and std.mem.startsWith(u8, args[6], "--kit=")) args[6]["--kit=".len..] else null;
+    const first: usize = if (kit != null) 7 else 6;
+    if (args.len < first + 1) {
+        std.debug.print("usage: bk-views-roundtrip <bk-views> <bk-sprite> <bk-views-check> <module-root> <work-dir> [--kit=<kit-views-dir>] <variant-dir>...\n", .{});
         return 2;
     }
     const views, const sprite, const check, const modules, const work = args[1..6].*;
-    for (args[6..]) |variant| {
+    for (args[first..]) |variant| {
         const before = differences;
-        try roundTrip(arena, io, views, sprite, check, modules, work, variant);
+        try roundTrip(arena, io, views, sprite, check, modules, work, variant, kit);
         if (differences == before) std.Io.Dir.cwd().deleteTree(io, try std.fs.path.join(arena, &.{ work, std.fs.path.basename(variant) })) catch {};
     }
     return if (differences == 0) 0 else 1;
 }
 
-fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []const u8, check: []const u8, modules: []const u8, work: []const u8, variant: []const u8) !void {
+fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []const u8, check: []const u8, modules: []const u8, work: []const u8, variant: []const u8, kit: ?[]const u8) !void {
     const name = std.fs.path.basename(variant);
     const a = try std.fs.path.join(arena, &.{ work, name, "a" });
     const b = try std.fs.path.join(arena, &.{ work, name, "b" });
@@ -61,7 +69,7 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
     const alone = shadowAlone(name);
     if (alone) std.Io.Dir.cwd().access(io, variant, .{}) catch return;
     if (!try runTool(arena, io, &.{ views, "decompose", variant, a })) return;
-    _ = try runTool(arena, io, &.{ check, variant, a, modules });
+    _ = try runTool(arena, io, &.{ check, try withoutStrays(arena, io, kit != null, work, variant), a, modules });
 
     const json = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(arena, &.{ a, "building.json" }), arena, .limited(16 * 1024 * 1024));
     const building = try std.json.parseFromSliceLeaky(Building, arena, json, .{});
@@ -69,6 +77,7 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
     const locked = try std.fmt.allocPrint(arena, "{d},{d}", .{ building.locked_center[0], building.locked_center[1] });
     const pass = try std.mem.join(arena, "/", building.passability);
     var packs: std.ArrayList([]const u8) = .empty;
+    var kit_states: usize = 0;
     for (building.pictures) |picture| {
         const pack = picture[0..std.mem.lastIndexOfScalar(u8, picture, '_').?];
         try packs.append(arena, pack);
@@ -80,6 +89,10 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
         // noise follow its name.
         const digits = std.mem.indexOfNone(u8, pack, "0123456789") orelse pack.len;
         if (digits == 0 or !(digits == pack.len or std.mem.eql(u8, pack[digits..], "w"))) continue;
+        // A kit folder's states are the kit views of its turn.
+        if (kit) |kit_dir| {
+            if (try kitPicture(arena, io, kit_dir, name, pack, a, building.anchor)) kit_states += 1;
+        }
         // compose-pack needs a shadow; a state without one (a pillbox) gets
         // a stand-in covering the canvas, whose pack is not compared.
         var shadow = try picturePath(arena, a, pack, "s");
@@ -105,6 +118,7 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
             std.Io.Dir.cwd().deleteFile(io, try std.fmt.allocPrint(arena, "{s}s{s}", .{ try std.fs.path.join(arena, &.{ b, pack }), suffix })) catch {};
         };
     }
+    if (kit != null and kit_states == 0) differ("{s}: the kit views hold none of its states", .{variant});
     for (packs.items) |pack| {
         for ([_][]const u8{ ".san", "_h.dds" }) |suffix| {
             const file = try std.fmt.allocPrint(arena, "{s}{s}", .{ pack, suffix });
@@ -122,6 +136,94 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
     }
 }
 
+
+/// The folder the engine's check reads: `variant`, or for a kit folder that
+/// holds a pack without its texture a copy without that pack. A kit building's
+/// own folder is a copy of its 2003 one, and ussr/summer/townhouse03_1 ships
+/// 2gw.san and 3gw.san with no `_h.dds` (its winter ground pictures are 2wg
+/// and 3wg): the Game never draws them, `decompose` passes them over, and the
+/// check, which reads every .san, would stop at them.
+fn withoutStrays(arena: std.mem.Allocator, io: std.Io, kit: bool, work: []const u8, variant: []const u8) ![]const u8 {
+    if (!kit) return variant;
+    const cwd = std.Io.Dir.cwd();
+    var dir = try cwd.openDir(io, variant, .{ .iterate = true });
+    defer dir.close(io);
+    var names: std.ArrayList([]const u8) = .empty;
+    var strays: usize = 0;
+    var iterator = dir.iterate();
+    while (try iterator.next(io)) |entry| {
+        if (entry.kind != .file) continue;
+        if (std.ascii.endsWithIgnoreCase(entry.name, ".san")) {
+            const texture = try std.fmt.allocPrint(arena, "{s}_h.dds", .{entry.name[0 .. entry.name.len - 4]});
+            if (cwd.access(io, try std.fs.path.join(arena, &.{ variant, texture }), .{})) |_| {} else |_| {
+                strays += 1;
+                continue;
+            }
+        }
+        try names.append(arena, try arena.dupe(u8, entry.name));
+    }
+    if (strays == 0) return variant;
+    const copy = try std.fs.path.join(arena, &.{ work, std.fs.path.basename(variant), "v" });
+    try cwd.createDirPath(io, copy);
+    for (names.items) |name| try std.Io.Dir.copyFile(cwd, try std.fs.path.join(arena, &.{ variant, name }), cwd, try std.fs.path.join(arena, &.{ copy, name }), io, .{});
+    return copy;
+}
+
+/// The turn a kit folder shows: `<variant>` 0, `<variant>_r<k>` and `<variant>_r<k>_l<s>` k.
+fn kitTurn(name: []const u8) usize {
+    var stem = name;
+    if (stem.len > 3 and stem[stem.len - 3] == '_' and stem[stem.len - 2] == 'l' and std.ascii.isDigit(stem[stem.len - 1])) stem = stem[0 .. stem.len - 3];
+    if (stem.len > 3 and stem[stem.len - 3] == '_' and stem[stem.len - 2] == 'r' and stem[stem.len - 1] >= '1' and stem[stem.len - 1] <= '3') return stem[stem.len - 1] - '0';
+    return 0;
+}
+
+/// Whether the kit views hold `state`, and if so that the folder's decomposed
+/// picture of it (a/, its zero cross at `anchor`) is the kit view of the
+/// folder's turn laid zero on zero: every pixel of the view of alpha 128 or
+/// more there with its colour, and nothing else.
+fn kitPicture(arena: std.mem.Allocator, io: std.Io, kit: []const u8, name: []const u8, state: []const u8, a: []const u8, anchor: [2]i32) !bool {
+    const cwd = std.Io.Dir.cwd();
+    const turn = kitTurn(name);
+    const views_json = try cwd.readFileAlloc(io, try std.fs.path.join(arena, &.{ kit, "views.json" }), arena, .limited(16 * 1024 * 1024));
+    const parsed = try std.json.parseFromSliceLeaky(std.json.Value, arena, views_json, .{});
+    const states = parsed.object.get("states") orelse return error.NoStates;
+    const turns = states.object.get(state) orelse return false;
+    const view = turns.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})) orelse {
+        differ("{s}/{s}: the kit views {s} hold no turn {d} of the state", .{ name, state, kit, turn });
+        return true;
+    };
+    const placed = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, arena, view, .{ .ignore_unknown_fields = true });
+    const fixture_path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}.png", .{ state, turn }) });
+    const fixture = try bk_views.readRgbaPng(arena, try cwd.readFileAlloc(io, fixture_path, arena, .limited(256 * 1024 * 1024)));
+    const read = try bk_views.readStoredPng(arena, try cwd.readFileAlloc(io, try picturePath(arena, a, state, ""), arena, .limited(256 * 1024 * 1024)));
+    // The view's pixels in the pack's picture, and the pack's in the view.
+    var missing: usize = 0;
+    var extra: usize = 0;
+    var recoloured: usize = 0;
+    var opaque_pixels: usize = 0;
+    for (0..fixture.height) |y| for (0..fixture.width) |x| {
+        const want = fixture.pixels[y * fixture.width + x];
+        if (want[3] < 128) continue;
+        opaque_pixels += 1;
+        const px = @as(i64, @intCast(x)) - placed.zero[0] + anchor[0];
+        const py = @as(i64, @intCast(y)) - placed.zero[1] + anchor[1];
+        if (px < 0 or py < 0 or px >= read.width or py >= read.height) {
+            missing += 1;
+            continue;
+        }
+        const got = read.pixels[@as(usize, @intCast(py)) * read.width + @as(usize, @intCast(px))];
+        if (got[3] < 128) missing += 1 else if (!std.mem.eql(u8, got[0..3], want[0..3])) recoloured += 1;
+    };
+    for (0..read.height) |y| for (0..read.width) |x| {
+        if (read.pixels[y * read.width + x][3] == 0) continue;
+        const kx = @as(i64, @intCast(x)) - anchor[0] + placed.zero[0];
+        const ky = @as(i64, @intCast(y)) - anchor[1] + placed.zero[1];
+        if (kx < 0 or ky < 0 or kx >= fixture.width or ky >= fixture.height or fixture.pixels[@as(usize, @intCast(ky)) * fixture.width + @as(usize, @intCast(kx))][3] < 128) extra += 1;
+    };
+    if (opaque_pixels == 0 or missing + extra + recoloured != 0)
+        differ("{s}/{s}: its picture is not the kit view {s} laid zero on zero: of {d} pixels {d} missing, {d} recoloured, and {d} that are not the view's", .{ name, state, fixture_path, opaque_pixels, missing, recoloured, extra });
+    return true;
+}
 
 /// Whether a folder is a turn's shadow alone, `<variant>_r<k>_s<s>`.
 fn shadowAlone(name: []const u8) bool {
