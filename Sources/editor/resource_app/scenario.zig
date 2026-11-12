@@ -72,6 +72,8 @@
 //!   do=image_open           the Image window drawn over the open mip, chc, cgc or mdc, placed clear of the tree
 //!   do=sides_open:<variant> a copy of the shipped building <variant> (below Data/Buildings) in
 //!                           {dir}/sides/data/buildings, shown by the Building editor's Sides window
+//!   do=sides_folder:<path>  the Sides window on the building folder <path> as it lies, its turns beside it
+//!                           (a mod's, with kit views: tools/blender/README.md); nothing is copied or written
 //!   do=sides_generate       its Generate sides, waited for (bk-views side beside the editor)
 //!   do=sides_look:<state>[w][s]   the state, winter and shadow the four cells show
 //!   do=sides_import:<turn>/<png>   Import side picture of the state shown into that turn's cell, waited for
@@ -995,6 +997,7 @@ const Runner = struct {
         if (eql(u8, name, "game_shot")) return self.gameShot(named.arg);
         if (eql(u8, name, "image_open")) return self.imageOpen();
         if (eql(u8, name, "sides_open")) return self.sidesOpen(named.arg);
+        if (eql(u8, name, "sides_folder")) return self.sidesFolder(named.arg);
         if (eql(u8, name, "sides_generate")) return self.sidesGenerate();
     if (eql(u8, name, "sides_compare")) return self.sidesCompare(named.arg);
     if (eql(u8, name, "sides_mirror")) return self.sidesMirror();
@@ -1755,6 +1758,27 @@ const Runner = struct {
         var pumped: u32 = 0;
         while (pumped < 2) : (pumped += 1) if (self.pumpFrame("sides_open")) |why| return why;
         std.debug.print("resource-editor: auto: sides of {s}: {d} of 4 missing\n", .{ to, s.missing() });
+        return null;
+    }
+
+    /// do=sides_folder:<path>: the Sides window of the open Building project on
+    /// a building folder as it lies, its turns `<folder>_r1` to `_r3` beside it: a
+    /// mod's building, which the window only reads.
+    fn sidesFolder(self: *Runner, arg: []const u8) ?[]const u8 {
+        if (!self.life.is_open or self.life.doc.kind != .build) return self.fail("sides_folder: the open project is not a Building", .{});
+        var buffer: [logic.path_capacity]u8 = undefined;
+        const expanded = self.expand(&buffer, arg) orelse return self.fail("the path is too long", .{});
+        const folder = buffer[0..expanded.len];
+        std.mem.replaceScalar(u8, folder, '/', std.fs.path.sep);
+        std.Io.Dir.cwd().access(self.io, folder, .{}) catch return self.fail("sides_folder: there is no folder {s}", .{folder});
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const s = &self.docks.?.sides;
+        s.override = .{ .x = sides_window.x, .y = sides_window.y, .w = sides_window.w, .h = sides_window.h };
+        if (self.pumpFrame("sides_folder")) |why| return why;
+        s.setVariant(folder);
+        var pumped: u32 = 0;
+        while (pumped < 2) : (pumped += 1) if (self.pumpFrame("sides_folder")) |why| return why;
+        std.debug.print("resource-editor: auto: sides of {s}: {d} of 4 missing\n", .{ folder, s.missing() });
         return null;
     }
 
