@@ -3781,18 +3781,24 @@ pub fn build(b: *std.Build) void {
     // Maps to look at the kit views by hand (tools/blender/README.md): every building of
     // tools/zig/fixtures/bk-views/kit-views in the index's order, nine a map on the flat road3d, as
     // maps/kit_views_<nn>.xml of the mod (intact) and kit_views_<nn>_damaged.xml (HP 0.3, the damaged
-    // state). `zig build run-remastered -- kit_views_01.xml` plays the first.
-    {
+    // state). `zig build run-remastered -- kit_views_01.xml` plays the first. A sparse checkout
+    // without Data/objects.xml or Data/Maps (the CI jobs that build no game) makes no maps: this
+    // runs while the graph is evaluated, for every step, so a missing file must not stop it.
+    kit_maps: {
         const kit_index_path = "tools/zig/fixtures/bk-views/kit-views/index.json";
-        for ([_][]const u8{ kit_index_path, "Data/objects.xml", "Data/Maps/road3d.xml" }) |tracked| b.dependOnFileContents(b.path(tracked));
         const read = struct {
-            fn f(owner: *std.Build, path: []const u8) []const u8 {
-                return owner.root.root_dir.handle.readFileAlloc(owner.graph.io, path, owner.allocator, .limited(16 * 1024 * 1024)) catch |err| std.debug.panic("{s}: {s}", .{ path, @errorName(err) });
+            fn f(owner: *std.Build, path: []const u8) ?[]const u8 {
+                return owner.root.root_dir.handle.readFileAlloc(owner.graph.io, path, owner.allocator, .limited(16 * 1024 * 1024)) catch |err| switch (err) {
+                    error.FileNotFound => null,
+                    else => std.debug.panic("{s}: {s}", .{ path, @errorName(err) }),
+                };
             }
         }.f;
-        const kit_index = std.json.parseFromSliceLeaky([]const struct { path: []const u8 }, b.allocator, read(b, kit_index_path), .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
-        const objects_xml = read(b, "Data/objects.xml");
-        const road = read(b, "Data/Maps/road3d.xml");
+        const kit_index = std.json.parseFromSliceLeaky([]const struct { path: []const u8 }, b.allocator, read(b, kit_index_path) orelse break :kit_maps, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+        const objects_xml = read(b, "Data/objects.xml") orelse break :kit_maps;
+        const road = read(b, "Data/Maps/road3d.xml") orelse break :kit_maps;
+        // Named only once all three are there: the configuration fails on a file it is told to watch and cannot find.
+        for ([_][]const u8{ kit_index_path, "Data/objects.xml", "Data/Maps/road3d.xml" }) |tracked| b.dependOnFileContents(b.path(tracked));
         const hole = "<Objects/>";
         const at = std.mem.indexOf(u8, road, hole) orelse @panic("Data/Maps/road3d.xml has no <Objects/>");
         // road3d's middle and the grid's pitch in AI units (multiples of 4: a whole pixel on the screen).
