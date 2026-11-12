@@ -1,0 +1,778 @@
+[
+{
+"page": 1,
+"path": "africa/summer/a_cisterns/01"
+},
+{
+"page": 2,
+"path": "africa/summer/a_cisterns/02"
+},
+{
+"page": 3,
+"path": "africa/summer/a_h01_1"
+},
+{
+"page": 4,
+"path": "africa/summer/a_h01_2"
+},
+{
+"page": 5,
+"path": "africa/summer/a_h02_2"
+},
+{
+"page": 6,
+"path": "africa/summer/a_h02_4"
+},
+{
+"page": 7,
+"path": "africa/summer/a_h03_2"
+},
+{
+"page": 8,
+"path": "africa/summer/a_h03_3"
+},
+{
+"page": 9,
+"path": "africa/summer/a_h04_1"
+},
+{
+"page": 10,
+"path": "africa/summer/a_h07_1"
+},
+{
+"page": 11,
+"path": "africa/summer/a_h07_2"
+},
+{
+"page": 12,
+"path": "africa/summer/a_h07_3"
+},
+{
+"page": 13,
+"path": "africa/summer/a_h08_1"
+},
+{
+"page": 14,
+"path": "africa/summer/a_h08_4"
+},
+{
+"page": 15,
+"path": "africa/summer/a_h09_2"
+},
+{
+"page": 16,
+"path": "africa/summer/a_mosque_01_4"
+},
+{
+"page": 17,
+"path": "africa/summer/a_mosque_02_1"
+},
+{
+"page": 18,
+"path": "africa/summer/a_wb/01"
+},
+{
+"page": 19,
+"path": "africa/summer/a_wb/02"
+},
+{
+"page": 20,
+"path": "africa/summer/a_wt/01"
+},
+{
+"page": 21,
+"path": "africa/summer/a_wt/02"
+},
+{
+"page": 22,
+"path": "common/summer/conduitbarrel"
+},
+{
+"page": 23,
+"path": "common/summer/dot/01"
+},
+{
+"page": 24,
+"path": "common/summer/dot/02"
+},
+{
+"page": 25,
+"path": "common/summer/dot/03"
+},
+{
+"page": 26,
+"path": "common/summer/dot/04"
+},
+{
+"page": 27,
+"path": "common/summer/dot_h/01"
+},
+{
+"page": 28,
+"path": "common/summer/dot_h/02"
+},
+{
+"page": 29,
+"path": "common/summer/dot_h/03"
+},
+{
+"page": 30,
+"path": "common/summer/dot_h/04"
+},
+{
+"page": 31,
+"path": "common/summer/dzot/01"
+},
+{
+"page": 32,
+"path": "common/summer/dzot/02"
+},
+{
+"page": 33,
+"path": "common/summer/dzot/03"
+},
+{
+"page": 34,
+"path": "common/summer/dzot/04"
+},
+{
+"page": 35,
+"path": "common/summer/tent/01"
+},
+{
+"page": 36,
+"path": "common/summer/tent/02"
+},
+{
+"page": 37,
+"path": "common/summer/watchtower"
+},
+{
+"page": 38,
+"path": "common/summer/watertankbig"
+},
+{
+"page": 39,
+"path": "common/summer/watertanklittle"
+},
+{
+"page": 40,
+"path": "europe/summer/e_chapel_1"
+},
+{
+"page": 41,
+"path": "europe/summer/e_cityhall_1"
+},
+{
+"page": 42,
+"path": "europe/summer/e_ctownhouse01_1"
+},
+{
+"page": 43,
+"path": "europe/summer/e_ctownhouse01_2"
+},
+{
+"page": 44,
+"path": "europe/summer/e_ctownhouse01_4"
+},
+{
+"page": 45,
+"path": "europe/summer/e_ctownhouse02_1"
+},
+{
+"page": 46,
+"path": "europe/summer/e_ctownhouse02_1_2"
+},
+{
+"page": 47,
+"path": "europe/summer/e_ctownhouse02_4"
+},
+{
+"page": 48,
+"path": "europe/summer/e_ctownhouse03_2"
+},
+{
+"page": 49,
+"path": "europe/summer/e_ctownhouse03_4"
+},
+{
+"page": 50,
+"path": "europe/summer/e_ctownhouse04_1"
+},
+{
+"page": 51,
+"path": "europe/summer/e_ctownhouse04_1_2"
+},
+{
+"page": 52,
+"path": "europe/summer/e_frenchshed01"
+},
+{
+"page": 53,
+"path": "europe/summer/e_frenchshed02"
+},
+{
+"page": 54,
+"path": "europe/summer/e_frenchshed03"
+},
+{
+"page": 55,
+"path": "europe/summer/e_frenchshed04"
+},
+{
+"page": 56,
+"path": "europe/summer/e_frenchshed05"
+},
+{
+"page": 57,
+"path": "europe/summer/e_frenchshed06"
+},
+{
+"page": 58,
+"path": "europe/summer/e_house01_1"
+},
+{
+"page": 59,
+"path": "europe/summer/e_house01_2"
+},
+{
+"page": 60,
+"path": "europe/summer/e_house01_3"
+},
+{
+"page": 61,
+"path": "europe/summer/e_house02_1"
+},
+{
+"page": 62,
+"path": "europe/summer/e_house02_2"
+},
+{
+"page": 63,
+"path": "europe/summer/e_house02_4"
+},
+{
+"page": 64,
+"path": "europe/summer/e_house03_2"
+},
+{
+"page": 65,
+"path": "europe/summer/e_house03_3"
+},
+{
+"page": 66,
+"path": "europe/summer/e_house03_4"
+},
+{
+"page": 67,
+"path": "europe/summer/e_house04_4"
+},
+{
+"page": 68,
+"path": "europe/summer/e_house05_3"
+},
+{
+"page": 69,
+"path": "europe/summer/e_house06_4"
+},
+{
+"page": 70,
+"path": "europe/summer/e_house07_1"
+},
+{
+"page": 71,
+"path": "europe/summer/e_house08_1"
+},
+{
+"page": 72,
+"path": "europe/summer/e_house09_1"
+},
+{
+"page": 73,
+"path": "europe/summer/e_house10_2"
+},
+{
+"page": 74,
+"path": "europe/summer/e_house11_1"
+},
+{
+"page": 75,
+"path": "europe/summer/e_house11_3"
+},
+{
+"page": 76,
+"path": "europe/summer/e_house11_4"
+},
+{
+"page": 77,
+"path": "europe/summer/e_house12_3"
+},
+{
+"page": 78,
+"path": "europe/summer/e_jettybuilding_1"
+},
+{
+"page": 79,
+"path": "europe/summer/e_jettybuilding_4"
+},
+{
+"page": 80,
+"path": "europe/summer/e_monument"
+},
+{
+"page": 81,
+"path": "europe/summer/e_railwaystation_1"
+},
+{
+"page": 82,
+"path": "europe/summer/e_railwaystation_2"
+},
+{
+"page": 83,
+"path": "europe/summer/e_shed01_2"
+},
+{
+"page": 84,
+"path": "europe/summer/e_shed01_3"
+},
+{
+"page": 85,
+"path": "europe/summer/e_shed02_2"
+},
+{
+"page": 86,
+"path": "europe/summer/e_shed02_3"
+},
+{
+"page": 87,
+"path": "europe/summer/e_shed02_4"
+},
+{
+"page": 88,
+"path": "europe/summer/e_shed02_5"
+},
+{
+"page": 89,
+"path": "europe/summer/e_statue/01"
+},
+{
+"page": 90,
+"path": "europe/summer/e_statue/02"
+},
+{
+"page": 91,
+"path": "europe/summer/e_statue/04"
+},
+{
+"page": 92,
+"path": "europe/summer/e_stella/01"
+},
+{
+"page": 93,
+"path": "europe/summer/e_stella/02"
+},
+{
+"page": 94,
+"path": "europe/summer/e_stubtrack/01"
+},
+{
+"page": 95,
+"path": "europe/summer/e_stubtrack/02"
+},
+{
+"page": 96,
+"path": "europe/summer/e_stubtrack/03"
+},
+{
+"page": 97,
+"path": "europe/summer/e_stubtrack/04"
+},
+{
+"page": 98,
+"path": "europe/summer/e_townhouse01_3"
+},
+{
+"page": 99,
+"path": "europe/summer/e_townhouse01_4"
+},
+{
+"page": 100,
+"path": "europe/summer/e_townhouse02_2"
+},
+{
+"page": 101,
+"path": "europe/summer/e_townhouse02_3"
+},
+{
+"page": 102,
+"path": "europe/summer/e_townhouse03_1"
+},
+{
+"page": 103,
+"path": "europe/summer/e_townhouse03_4"
+},
+{
+"page": 104,
+"path": "europe/summer/e_townhouse04_3"
+},
+{
+"page": 105,
+"path": "europe/summer/e_townhouse04_4"
+},
+{
+"page": 106,
+"path": "europe/summer/e_townrailwaystation_4"
+},
+{
+"page": 107,
+"path": "europe/summer/e_waterset/01"
+},
+{
+"page": 108,
+"path": "europe/summer/e_waterset/02"
+},
+{
+"page": 109,
+"path": "europe/summer/e_waterset/03"
+},
+{
+"page": 110,
+"path": "europe/summer/e_waterset/04"
+},
+{
+"page": 111,
+"path": "europe/summer/e_wb/01"
+},
+{
+"page": 112,
+"path": "europe/summer/e_wb/02"
+},
+{
+"page": 113,
+"path": "europe/summer/e_wellbig/01"
+},
+{
+"page": 114,
+"path": "europe/summer/e_wellbig/03"
+},
+{
+"page": 115,
+"path": "europe/summer/e_welllittle/01"
+},
+{
+"page": 116,
+"path": "europe/summer/e_welllittle/02"
+},
+{
+"page": 117,
+"path": "europe/summer/e_wt/01"
+},
+{
+"page": 118,
+"path": "europe/summer/e_wt/02"
+},
+{
+"page": 119,
+"path": "ussr/summer/admhouse"
+},
+{
+"page": 120,
+"path": "ussr/summer/barracks"
+},
+{
+"page": 121,
+"path": "ussr/summer/barracks_2"
+},
+{
+"page": 122,
+"path": "ussr/summer/chimneystalkbig"
+},
+{
+"page": 123,
+"path": "ussr/summer/chimneystalklittle"
+},
+{
+"page": 124,
+"path": "ussr/summer/church"
+},
+{
+"page": 125,
+"path": "ussr/summer/cistern/01"
+},
+{
+"page": 126,
+"path": "ussr/summer/cistern/02"
+},
+{
+"page": 127,
+"path": "ussr/summer/dustbin/01"
+},
+{
+"page": 128,
+"path": "ussr/summer/dustbin/02"
+},
+{
+"page": 129,
+"path": "ussr/summer/dustbin/03"
+},
+{
+"page": 130,
+"path": "ussr/summer/electricsubstation"
+},
+{
+"page": 131,
+"path": "ussr/summer/factoryboiler"
+},
+{
+"page": 132,
+"path": "ussr/summer/factoryfloor01"
+},
+{
+"page": 133,
+"path": "ussr/summer/factoryfloor02"
+},
+{
+"page": 134,
+"path": "ussr/summer/factoryfloor03"
+},
+{
+"page": 135,
+"path": "ussr/summer/factoryoffice"
+},
+{
+"page": 136,
+"path": "ussr/summer/house01"
+},
+{
+"page": 137,
+"path": "ussr/summer/house02"
+},
+{
+"page": 138,
+"path": "ussr/summer/house03"
+},
+{
+"page": 139,
+"path": "ussr/summer/house04"
+},
+{
+"page": 140,
+"path": "ussr/summer/house05"
+},
+{
+"page": 141,
+"path": "ussr/summer/house06"
+},
+{
+"page": 142,
+"path": "ussr/summer/house07"
+},
+{
+"page": 143,
+"path": "ussr/summer/house08"
+},
+{
+"page": 144,
+"path": "ussr/summer/house09"
+},
+{
+"page": 145,
+"path": "ussr/summer/house10"
+},
+{
+"page": 146,
+"path": "ussr/summer/house11"
+},
+{
+"page": 147,
+"path": "ussr/summer/house12"
+},
+{
+"page": 148,
+"path": "ussr/summer/housebig"
+},
+{
+"page": 149,
+"path": "ussr/summer/kiosk/01"
+},
+{
+"page": 150,
+"path": "ussr/summer/kiosk/02"
+},
+{
+"page": 151,
+"path": "ussr/summer/kiosk/03"
+},
+{
+"page": 152,
+"path": "ussr/summer/kiosk/04"
+},
+{
+"page": 153,
+"path": "ussr/summer/leaders/01"
+},
+{
+"page": 154,
+"path": "ussr/summer/leaders/02"
+},
+{
+"page": 155,
+"path": "ussr/summer/lenin"
+},
+{
+"page": 156,
+"path": "ussr/summer/pigeonloft/01"
+},
+{
+"page": 157,
+"path": "ussr/summer/pigeonloft/02"
+},
+{
+"page": 158,
+"path": "ussr/summer/railroadbighouse"
+},
+{
+"page": 159,
+"path": "ussr/summer/railroadlittlehouse"
+},
+{
+"page": 160,
+"path": "ussr/summer/railwaystation"
+},
+{
+"page": 161,
+"path": "ussr/summer/shed01"
+},
+{
+"page": 162,
+"path": "ussr/summer/shed02"
+},
+{
+"page": 163,
+"path": "ussr/summer/storehouse_1"
+},
+{
+"page": 164,
+"path": "ussr/summer/storehouse_2"
+},
+{
+"page": 165,
+"path": "ussr/summer/stubtrack/01"
+},
+{
+"page": 166,
+"path": "ussr/summer/stubtrack/02"
+},
+{
+"page": 167,
+"path": "ussr/summer/stubtrack/03"
+},
+{
+"page": 168,
+"path": "ussr/summer/stubtrack/04"
+},
+{
+"page": 169,
+"path": "ussr/summer/towncornhouse01"
+},
+{
+"page": 170,
+"path": "ussr/summer/towncornhouse02"
+},
+{
+"page": 171,
+"path": "ussr/summer/towncornhouse03"
+},
+{
+"page": 172,
+"path": "ussr/summer/towncornhouse04"
+},
+{
+"page": 173,
+"path": "ussr/summer/townhouse01_1"
+},
+{
+"page": 174,
+"path": "ussr/summer/townhouse01_2"
+},
+{
+"page": 175,
+"path": "ussr/summer/townhouse02_1"
+},
+{
+"page": 176,
+"path": "ussr/summer/townhouse02_2"
+},
+{
+"page": 177,
+"path": "ussr/summer/townhouse03_1"
+},
+{
+"page": 178,
+"path": "ussr/summer/townhouse03_2"
+},
+{
+"page": 179,
+"path": "ussr/summer/townhouse04_1"
+},
+{
+"page": 180,
+"path": "ussr/summer/townhouse04_2"
+},
+{
+"page": 181,
+"path": "ussr/summer/townhouse05_1"
+},
+{
+"page": 182,
+"path": "ussr/summer/townhouse05_2"
+},
+{
+"page": 183,
+"path": "ussr/summer/townhouse05_3"
+},
+{
+"page": 184,
+"path": "ussr/summer/ukrainehouse01_1"
+},
+{
+"page": 185,
+"path": "ussr/summer/ukrainehouse01_2"
+},
+{
+"page": 186,
+"path": "ussr/summer/ukrainehouse02"
+},
+{
+"page": 187,
+"path": "ussr/summer/ukrainehouse03_1"
+},
+{
+"page": 188,
+"path": "ussr/summer/ukrainehouse03_2"
+},
+{
+"page": 189,
+"path": "ussr/summer/warehouse"
+},
+{
+"page": 190,
+"path": "ussr/summer/watertower"
+},
+{
+"page": 191,
+"path": "ussr/summer/wb/01"
+},
+{
+"page": 192,
+"path": "ussr/summer/wb/02"
+},
+{
+"page": 193,
+"path": "ussr/summer/wt/01"
+},
+{
+"page": 194,
+"path": "ussr/summer/wt/02"
+}
+]
