@@ -148,7 +148,7 @@ test "the Map Editor turns buildings and a prop of four sides by the Game's rule
     for (objects[0..3], 0..) |object, i| {
         if (i != 1) try game_views.runTool(io, allocator, tool, &.{ "side", object.folder, "1,2,3", turned, work });
     }
-    try writeMod(io, allocator, data);
+    try writeMod(io, allocator, data, &objects);
 
     // Every object's four sides: a building's turns, a prop's variants.
     var sprites: [objects.len][4]game_views.Sprite = undefined;
@@ -168,7 +168,7 @@ test "the Map Editor turns buildings and a prop of four sides by the Game's rule
     // The editor saves outside the mod's data (which it treats as read-only,
     // as a game's), and the map is copied into the mod for the Game.
     const edited = try std.fs.path.join(allocator, &.{ root, "saved", "edited.xml" });
-    const shots = try runEditor(io, allocator, editor, root, try std.fs.path.join(allocator, &.{ data, "maps", "base.xml" }), edited);
+    const shots = try runEditor(io, allocator, editor, root, try std.fs.path.join(allocator, &.{ data, "maps", "base.xml" }), edited, &objects, true);
     try cwd.copyFile(edited, cwd, try std.fs.path.join(allocator, &.{ data, "maps", "edited.xml" }), io, .{});
     // The sniper for the AI's runs joins a copy of it.
     {
@@ -280,8 +280,85 @@ test "the Map Editor turns buildings and a prop of four sides by the Game's rule
     }
 }
 
-/// mod.xml and maps/base.xml: road3d with the objects at facing 0.
-fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
+/// The buildings the Map Editor shows by their kit views
+/// (`camera-turn-kit-editor-reads-it`; tools/zig/fixtures/bk-views/kit-views,
+/// tools/blender/README.md): E_House01_1 left at facing 0 (its kit view of turn
+/// 0 lies over the 2003 folder, and over its hand model's), A_H07_1 turned to
+/// facing 1 and the warehouse E_WB_01 to facing 2.
+const kit_objects = [_]Object{
+    .{ .name = "E_House01_1", .folder = "Data/Buildings/europe/summer/e_house01_1", .building = true, .at = .{ -300, -300 }, .keys = "", .facing = 0 },
+    .{ .name = "A_H07_1", .folder = "Data/Buildings/africa/summer/a_h07_1", .building = true, .at = .{ 300, 300 }, .keys = "E", .facing = 1 },
+    .{ .name = "E_WB_01", .folder = "Data/Buildings/europe/summer/e_wb/01", .building = true, .at = .{ 300, -300 }, .keys = "EE", .facing = 2 },
+};
+const kit_views_dir = "tools/zig/fixtures/bk-views/kit-views";
+
+test "the Map Editor shows kit views with the mod: each building's side is its fixture picture, not the turn bk-views side drew" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const editor = (try game_views.envValue(allocator, "BK_VIEWS_EDITOR")) orelse {
+        std.debug.print("BK_VIEWS_EDITOR is not set: run zig build camera-turn-kit-editor-reads-it\n", .{});
+        return error.MissingEditor;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const cwd = std.Io.Dir.cwd();
+    const root_rel = "zig-out/local-test/camera-turn/kit-editor";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), root_rel });
+    cwd.deleteTree(io, root_rel) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", mod_name, "data" });
+    const work = try std.fs.path.join(allocator, &.{ root, "work" });
+
+    // What camera-turn-mod makes of each: the turns `side` draws (a hand model's
+    // turn 0 too), then the kit views laid over them in the mod's folder. The
+    // sprites: the kit views of the four turns as the fixtures hold them, and
+    // what the editor would draw at the facing without them.
+    var kit_sprites: [kit_objects.len][4]game_views.Sprite = undefined;
+    var drew: [kit_objects.len]game_views.Sprite = undefined;
+    for (kit_objects, 0..) |object, o| {
+        const base = std.fs.path.basename(object.folder);
+        const under = object.folder["Data/Buildings/".len..];
+        const kit_dir = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ kit_views_dir, under });
+        const hand = if (cwd.access(io, try std.fmt.allocPrint(allocator, "tools/zig/fixtures/bk-views/hand-models/{s}.json", .{base}), .{})) |_| true else |_| false;
+        const turned = try std.fs.path.join(allocator, &.{ root, "turned", object.name });
+        try cwd.createDirPath(io, turned);
+        try game_views.runTool(io, allocator, tool, &.{ "side", object.folder, if (hand) "0,1,2,3,1l1,2l2,3l3" else "1,2,3,1l1,2l2,3l3", turned, work });
+        try game_views.runTool(io, allocator, tool, &.{ "kit", kit_dir, object.folder, turned, try std.fs.path.join(allocator, &.{ data, "buildings", std.fs.path.dirname(under).? }) });
+        const views_json = try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/views.json", .{kit_dir}), allocator, .limited(1 << 20));
+        const kit_views = (try std.json.parseFromSliceLeaky(std.json.Value, allocator, views_json, .{})).object.get("states").?.object.get("1").?.object;
+        for (&kit_sprites[o], 0..) |*sprite, k| {
+            const zero = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, allocator, kit_views.get(try std.fmt.allocPrint(allocator, "{d}", .{k})).?, .{ .ignore_unknown_fields = true });
+            sprite.* = .{ .image = try views.readRgbaPng(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/1_{d}.png", .{ kit_dir, k }), allocator, .limited(64 << 20))), .anchor = zero.zero };
+        }
+        const drew_folder = if (object.facing != 0) try std.fmt.allocPrint(allocator, "{s}/{s}_r{d}", .{ turned, base, object.facing }) else if (hand) try std.fs.path.join(allocator, &.{ turned, base }) else object.folder;
+        drew[o] = try game_views.decompose(io, allocator, tool, drew_folder, try std.fmt.allocPrint(allocator, "{s}/sprites/{d}-side", .{ root, o }));
+    }
+    try writeMod(io, allocator, data, &kit_objects);
+
+    const shots = try runEditor(io, allocator, editor, root, try std.fs.path.join(allocator, &.{ data, "maps", "base.xml" }), try std.fs.path.join(allocator, &.{ root, "saved", "edited.xml" }), &kit_objects, false);
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "editor: object facing: mean colour difference of its kit view where it is found (x,y); best of another turn's kit view there; of the picture bk-views side drew for the facing there\n");
+    for (kit_objects, shots, 0..) |object, frame, o| {
+        const own = findSide(frame, kit_sprites[o][object.facing]);
+        var other_best: f64 = std.math.floatMax(f64);
+        for (0..4) |k| {
+            if (k != object.facing) other_best = @min(other_best, sideColourNear(frame, kit_sprites[o][k], own.at));
+        }
+        const side_drawn = sideColourNear(frame, drew[o], own.at);
+        try report.print(allocator, "{s} {d}: {d:.2} ({d},{d}); {d:.2}; {d:.2}\n", .{ object.name, object.facing, own.colour, own.at[0], own.at[1], other_best, side_drawn });
+        if (own.colour > max_editor_colour or other_best < own.colour + min_editor_margin or side_drawn < own.colour + min_editor_margin) failed = true;
+    }
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}the Map Editor does not draw a kit view as its fixture holds it (colour ceiling {d}, any other picture {d} further off); the frames and logs are in {s}\n", .{ report.items, max_editor_colour, min_editor_margin, root });
+        return error.DrawnWrong;
+    }
+}
+
+/// mod.xml and maps/base.xml: road3d with the objects `objs` at facing 0.
+fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8, objs: []const Object) !void {
     const cwd = std.Io.Dir.cwd();
     try cwd.createDirPath(io, try std.fs.path.join(allocator, &.{ data, "maps" }));
     try cwd.writeFile(io, .{
@@ -295,7 +372,7 @@ fn writeMod(io: std.Io, allocator: std.mem.Allocator, data: []const u8) !void {
     var link: u32 = 1;
     // Player 2, the map's neutral one: the editor's Check Map (which a save
     // runs) takes -1 for an invalid owner.
-    for (objects) |object| try control.item(allocator, &items, object.name, object.at, 2, 0, -1, &link);
+    for (objs) |object| try control.item(allocator, &items, object.name, object.at, 2, 0, -1, &link);
     try items.appendSlice(allocator, "</Objects>");
     try cwd.writeFile(io, .{
         .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", "base.xml" }),
@@ -314,10 +391,11 @@ fn bandAround(allocator: std.mem.Allocator, at: [2]f64) ![]const u8 {
 }
 
 /// The installed Map Editor, hidden, under BK_EDITOR_AUTO: opens `map` with
-/// the mod, turns each object with Q and E, refuses a building without
-/// turned pictures, takes the engine frame around each object (objects only)
+/// the mod, turns each object of `objs` with Q and E, refuses a building
+/// without turned pictures (`refuse`: E_House01_1, which that mod must not
+/// hold turned), takes the engine frame around each object (objects only)
 /// and saves the map to `out` (XML). Returns the frames.
-fn runEditor(io: std.Io, allocator: std.mem.Allocator, editor: []const u8, root: []const u8, map: []const u8, out: []const u8) ![objects.len]bk_image.Image {
+fn runEditor(io: std.Io, allocator: std.mem.Allocator, editor: []const u8, root: []const u8, map: []const u8, out: []const u8, objs: []const Object, refuse: bool) ![]bk_image.Image {
     const cwd = std.Io.Dir.cwd();
     const user = try std.fs.path.join(allocator, &.{ root, "user", "editor" });
     const shots_dir = try std.fs.path.join(allocator, &.{ root, "editor-shots" });
@@ -333,7 +411,7 @@ fn runEditor(io: std.Io, allocator: std.mem.Allocator, editor: []const u8, root:
         }
     }.add;
     try Step(&s, allocator, &frame, "tool=select", .{});
-    for (objects, 1..) |object, link| {
+    for (objs, 1..) |object, link| {
         try Step(&s, allocator, &frame, "do=band_select:{s}", .{try bandAround(allocator, object.at)});
         try Step(&s, allocator, &frame, "expect=selection_count:1", .{});
         try Step(&s, allocator, &frame, "expect=angle:{d}:0", .{link});
@@ -342,19 +420,21 @@ fn runEditor(io: std.Io, allocator: std.mem.Allocator, editor: []const u8, root:
     }
     // A building without turned pictures keeps its side: placed at the
     // middle, turned, refused, deleted.
-    try Step(&s, allocator, &frame, "do=camera_at:{d:.0}:{d:.0}", .{ middle / sqrt2, middle / sqrt2 });
-    try Step(&s, allocator, &frame, "tool=place", .{});
-    try Step(&s, allocator, &frame, "do=placer_name:E_House01_1", .{});
-    try Step(&s, allocator, &frame, "click=c0x0", .{});
-    try Step(&s, allocator, &frame, "expect=objects:{d}", .{objects.len + 1});
-    try Step(&s, allocator, &frame, "tool=select", .{});
-    try Step(&s, allocator, &frame, "key=E", .{});
-    try Step(&s, allocator, &frame, "expect=status:pictures", .{});
-    try Step(&s, allocator, &frame, "expect=angle:@0:0", .{});
-    try Step(&s, allocator, &frame, "key=DELETE", .{});
-    try Step(&s, allocator, &frame, "expect=objects:{d}", .{objects.len});
+    if (refuse) {
+        try Step(&s, allocator, &frame, "do=camera_at:{d:.0}:{d:.0}", .{ middle / sqrt2, middle / sqrt2 });
+        try Step(&s, allocator, &frame, "tool=place", .{});
+        try Step(&s, allocator, &frame, "do=placer_name:E_House01_1", .{});
+        try Step(&s, allocator, &frame, "click=c0x0", .{});
+        try Step(&s, allocator, &frame, "expect=objects:{d}", .{objs.len + 1});
+        try Step(&s, allocator, &frame, "tool=select", .{});
+        try Step(&s, allocator, &frame, "key=E", .{});
+        try Step(&s, allocator, &frame, "expect=status:pictures", .{});
+        try Step(&s, allocator, &frame, "expect=angle:@0:0", .{});
+        try Step(&s, allocator, &frame, "key=DELETE", .{});
+        try Step(&s, allocator, &frame, "expect=objects:{d}", .{objs.len});
+    }
     try Step(&s, allocator, &frame, "do=band_select:0-0-0-0", .{});
-    for (objects, 0..) |object, o| {
+    for (objs, 0..) |object, o| {
         const w = worldOf(object.at);
         try Step(&s, allocator, &frame, "do=camera_at:{d:.1}:{d:.1}", .{ w[0], w[1] });
         frame += 10;
@@ -392,8 +472,8 @@ fn runEditor(io: std.Io, allocator: std.mem.Allocator, editor: []const u8, root:
         return error.EditorFailed;
     }
     try l10n_measure.expectNoLeak(log, log_path);
-    var frames: [objects.len]bk_image.Image = undefined;
-    for (&frames, 0..) |*f, o| {
+    const frames = try allocator.alloc(bk_image.Image, objs.len);
+    for (frames, 0..) |*f, o| {
         f.* = try bk_image.readTga(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/object{d}.tga", .{ shots_dir, o }), allocator, .limited(64 << 20)));
         // The engine's B, G, R, A to the PNG's R, G, B, A.
         const rgba = try allocator.alloc([4]u8, f.pixels.len);

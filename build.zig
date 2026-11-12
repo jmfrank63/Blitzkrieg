@@ -3333,6 +3333,8 @@ pub fn build(b: *std.Build) void {
     const full3d_game_step = b.step("camera-turn-full3d-game-reads-it", "Render the turns of two props and the damaged warehouse e_wb/01 from their full 3D models with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure each object's turn and place in the shots of all four steps");
     full3d_game_step.dependOn(&full3d_game_tests.step);
     if (test_mode == .run) full3d_game_step.dependOn(&full3d_game_run.step);
+    // The kit review shoots the mod camera-turn-mod makes, which is declared below.
+    var kit_review_run: ?*std.Build.Step.Run = null;
     const full3d_review_before = b.option([]const u8, "full3d-review-before", "A checkout whose staged Game and bk-views the camera-turn-full3d-review-* steps shoot instead of this one's (its turns made as that checkout's camera-turn-mod made them)");
     // The same file's other tests (the maintainer's hand test of
     // 2026-10-30): full 3D objects turn in place, each standing where its
@@ -3341,11 +3343,13 @@ pub fn build(b: *std.Build) void {
     for ([_][3][]const u8{
         .{ "camera-turn-full3d-anchor-game-reads-it", "the Game turns full 3D objects in place", "Render the turns of the barn E_WB_01, the L-shaped house A_H01_1, the house E_House02_2 and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure that each stands where its 2003 picture stands at all four steps" },
         .{ "camera-turn-hand-game-reads-it", "a hand model is what the Game draws at every step", "Render the turns of the hand models E_House01_1 and E_House01_3 at own facings 0 and 2, turn 0 included, with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on and off, and measure each step against that turn's pack, step 0 against the hand model and not its 2003 picture; the shots stay in zig-out/local-test/camera-turn/hand" },
+        .{ "camera-turn-kit-game-reads-it", "kit views are what the Game draws at every step", "Lay the kit views of E_House01_1 (which also has a hand model), A_H07_1 at own facing 1 and the damaged warehouse E_WB_01 over their turns with bk-views side and kit into a scratch mod, press the camera turn key on the real Game over road3d, and measure each step against that turn's fixture picture at its zero cross, which the turn bk-views side drew must fail; the shots stay in zig-out/local-test/camera-turn/kit" },
         .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns of the barns E_WB_01 and E_WB_02 (at own facing 1, as in the hand test's screenshot), each turn with its shadow alone cast under the Game's sun as a vehicle's, and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is that one, lies against its object and falls the way that sun casts" },
         // Not tiers: the frames of the review of 2026-10-31 (no checks), each
         // its own step so that one stays within a ten-minute command.
         .{ "camera-turn-full3d-review-a", "review frames a", "Shoot the first half of the review's full 3D objects alone over road3d with shadows on at all four camera steps into zig-out/local-test/camera-turn/full3d-review-<after|before>; -Dfull3d-review-before=<checkout> shoots that checkout's Game and bk-views instead" },
         .{ "camera-turn-full3d-review-b", "review frames b", "Shoot the second half of the review's full 3D objects, as camera-turn-full3d-review-a" },
+        .{ "camera-turn-kit-review", "kit review frames", "Make the Remastered views mod (camera-turn-mod) and shoot four of its kit maps (nine buildings each: African, European, Russian, and the European ones damaged) in the real Game with that mod at all four camera steps, whole scene, into zig-out/review/kit-views" },
         .{ "camera-turn-full3d-review-village", "review frames village", "Shoot a European village of full 3D buildings at several facings and props over road3d with shadows on at all four camera steps, as camera-turn-full3d-review-a" },
     }) |tier| {
         const tier_tests = b.addTest(.{ .root_module = full3d_game_module, .filters = &.{tier[1]} });
@@ -3363,6 +3367,7 @@ pub fn build(b: *std.Build) void {
         tier_run.step.dependOn(install_game_step);
         tier_run.step.dependOn(bk_views_step);
         tier_run.step.dependOn(bk_sprite.install);
+        if (std.mem.eql(u8, tier[0], "camera-turn-kit-review")) kit_review_run = tier_run;
         const tier_step = b.step(tier[0], tier[2]);
         tier_step.dependOn(&tier_tests.step);
         if (test_mode == .run) tier_step.dependOn(&tier_run.step);
@@ -3742,6 +3747,20 @@ pub fn build(b: *std.Build) void {
     const editor_game_step = b.step("camera-turn-editor-game-reads-it", "Turn two town houses, a shed and a bench with Q and E in the installed Map Editor and save the map, measure the sides the editor draws, then the real Game's at every camera step with Remastered on and off, and a sniper's walk past and into the turned shed");
     editor_game_step.dependOn(&editor_game_tests.step);
     if (test_mode == .run) editor_game_step.dependOn(&editor_game_run.step);
+    // The same file's kit test (tools/blender/README.md): the Map Editor, opened
+    // with a mod that holds kit views, draws them. The Game's side of it is
+    // camera-turn-kit-game-reads-it.
+    const editor_kit_views_tests = b.addTest(.{ .root_module = editor_game_module, .filters = &.{"the Map Editor shows kit views"} });
+    const editor_kit_views_run = b.addRunArtifact(editor_kit_views_tests);
+    editor_kit_views_run.setCwd(b.path("."));
+    editor_kit_views_run.setEnvironmentVariable("BK_VIEWS_EDITOR", rootPath(b, b.fmt("{s}/MapEditor{s}", .{ stage_root, target.result.exeFileExt() })));
+    editor_kit_views_run.setEnvironmentVariable("BK_VIEWS_TOOL", rootPath(b, b.fmt("zig-out/bin/bk-views{s}", .{target.result.exeFileExt()})));
+    editor_kit_views_run.has_side_effects = true;
+    editor_kit_views_run.step.dependOn(bk_views_step);
+    editor_kit_views_run.step.dependOn(bk_sprite.install);
+    const editor_kit_views_step = b.step("camera-turn-kit-editor-reads-it", "Lay the kit views of E_House01_1, A_H07_1 and E_WB_01 over their turns with bk-views side and kit into a scratch mod, open a map of them in the installed Map Editor with that mod, turn two with E, and measure that the side the editor draws of each is its kit view's fixture picture and not the turn bk-views side drew; the shots stay in zig-out/local-test/camera-turn/kit-editor");
+    editor_kit_views_step.dependOn(&editor_kit_views_tests.step);
+    if (test_mode == .run) editor_kit_views_step.dependOn(&editor_kit_views_run.step);
 
     // The turned buildings and props as a mod, to try the camera turn by hand
     // (docs/superpowers/specs/2026-10-26-camera-turn-design.md): the turns the
@@ -3758,6 +3777,62 @@ pub fn build(b: *std.Build) void {
     const turn_mod_step = b.step("camera-turn-mod", "Make the turned buildings and props of every full3d-<region> step and the relit flora and props, and install them as the mod zig-out/remastered/mods/remastered_views, to try the Remastered camera turn by hand");
     turn_mod_step.dependOn(&b.addInstallFile(turn_mod_xml, "remastered/mods/remastered_views/data/mod.xml").step);
     turn_mod_step.dependOn(full3d_mod_step);
+    if (kit_review_run) |review| review.step.dependOn(turn_mod_step);
+    // Maps to look at the kit views by hand (tools/blender/README.md): every building of
+    // tools/zig/fixtures/bk-views/kit-views in the index's order, nine a map on the flat road3d, as
+    // maps/kit_views_<nn>.xml of the mod (intact) and kit_views_<nn>_damaged.xml (HP 0.3, the damaged
+    // state). `zig build run-remastered -- kit_views_01.xml` plays the first.
+    {
+        const kit_index_path = "tools/zig/fixtures/bk-views/kit-views/index.json";
+        for ([_][]const u8{ kit_index_path, "Data/objects.xml", "Data/Maps/road3d.xml" }) |tracked| b.dependOnFileContents(b.path(tracked));
+        const read = struct {
+            fn f(owner: *std.Build, path: []const u8) []const u8 {
+                return owner.root.root_dir.handle.readFileAlloc(owner.graph.io, path, owner.allocator, .limited(16 * 1024 * 1024)) catch |err| std.debug.panic("{s}: {s}", .{ path, @errorName(err) });
+            }
+        }.f;
+        const kit_index = std.json.parseFromSliceLeaky([]const struct { path: []const u8 }, b.allocator, read(b, kit_index_path), .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+        const objects_xml = read(b, "Data/objects.xml");
+        const road = read(b, "Data/Maps/road3d.xml");
+        const hole = "<Objects/>";
+        const at = std.mem.indexOf(u8, road, hole) orelse @panic("Data/Maps/road3d.xml has no <Objects/>");
+        // road3d's middle and the grid's pitch in AI units (multiples of 4: a whole pixel on the screen).
+        const middle = 724;
+        const pitch = 420;
+        const per_map = 9;
+        var first: usize = 0;
+        while (first < kit_index.len) : (first += per_map) {
+            for ([_][2][]const u8{ .{ "", "1" }, .{ "_damaged", "0.3" } }) |kind| {
+                var map: std.ArrayList(u8) = .empty;
+                map.appendSlice(b.allocator, road[0..at]) catch @panic("OOM");
+                map.appendSlice(b.allocator, "<Objects>") catch @panic("OOM");
+                for (kit_index[first..@min(first + per_map, kit_index.len)], 0..) |entry, i| {
+                    // The building's objects.xml name: the item whose path is its Data folder.
+                    const folder = b.allocator.dupe(u8, entry.path) catch @panic("OOM");
+                    std.mem.replaceScalar(u8, folder, '/', '\\');
+                    const wanted = b.fmt("<path>buildings\\{s}</path>", .{folder});
+                    var found: ?usize = null;
+                    var pos: usize = 0;
+                    while (std.mem.indexOfPos(u8, objects_xml, pos, "<path>")) |open| : (pos = open + 1) {
+                        if (open + wanted.len <= objects_xml.len and std.ascii.eqlIgnoreCase(objects_xml[open..][0..wanted.len], wanted)) {
+                            found = open;
+                            break;
+                        }
+                    }
+                    const item = std.mem.lastIndexOf(u8, objects_xml[0 .. found orelse std.debug.panic("{s}: Data/objects.xml names no building at {s}", .{ kit_index_path, entry.path })], "<name>").?;
+                    const name = objects_xml[item + "<name>".len .. std.mem.indexOfPos(u8, objects_xml, item, "</name>").?];
+                    const x = middle + (@as(i32, @intCast(i % 3)) - 1) * pitch;
+                    const y = middle + (@as(i32, @intCast(i / 3)) - 1) * pitch;
+                    // Player 2 is road3d's neutral one (the Map Editor's Check Map refuses -1).
+                    map.appendSlice(b.allocator, b.fmt("<item Direction=\"0\" Player=\"2\" ScriptID=\"-1\" HP=\"{s}\" FrameIndex=\"-1\"><Name>{s}</Name>" ++
+                        "<Position x=\"{d}\" y=\"{d}\" z=\"0\"/><Link LinkID=\"{d}\" Intention=\"0\" LinkWith=\"0\"/></item>", .{ kind[1], name, x, y, i + 1 })) catch @panic("OOM");
+                }
+                map.appendSlice(b.allocator, "</Objects>") catch @panic("OOM");
+                map.appendSlice(b.allocator, road[at + hole.len ..]) catch @panic("OOM");
+                const file = b.fmt("kit_views_{d:0>2}{s}.xml", .{ first / per_map + 1, kind[0] });
+                turn_mod_step.dependOn(&b.addInstallFile(turn_mod_files.add(b.fmt("maps/{s}", .{file}), map.items), b.fmt("remastered/mods/remastered_views/data/maps/{s}", .{file})).step);
+            }
+        }
+    }
     // Flora and props lit by the sun fixed in the world at each camera step
     // (M006 round 2, bk-views relight): <pack>_l<k> beside each object's
     // 2003 packs, at its Data path. Cached as the full3d runs are: into the
@@ -5486,6 +5561,7 @@ pub fn build(b: *std.Build) void {
         if (b.top_level_steps.get(name)) |install| verify_install_l10n_run.step.dependOn(&install.step);
     }
     if (b.top_level_steps.get("install-map-editor")) |install| editor_game_run.step.dependOn(&install.step);
+    if (b.top_level_steps.get("install-map-editor")) |install| editor_kit_views_run.step.dependOn(&install.step);
 
     // install-all: every install step this host has, in one command. Looked up by name because the
     // editor installs only exist where the editors build.
@@ -5493,6 +5569,25 @@ pub fn build(b: *std.Build) void {
     for ([_][]const u8{ "install-game", "install-language-mods", "install-map-editor", "install-resource-editor", "install-elk", "camera-turn-mod" }) |name| {
 
         if (b.top_level_steps.get(name)) |install| install_all_step.dependOn(&install.step);
+    }
+
+    // The Game and the editors started with the Remastered views mod of camera-turn-mod, which is kept out of
+    // the installation's mods folder (tools/blender/README.md): BK_MODS_ROOT names zig-out/remastered/mods and
+    // -mod=remastered_views the mod. Arguments after `--` go to the program, e.g. a map of the mod:
+    // `zig build run-remastered -- kit_views_01.xml`.
+    for ([_][4][]const u8{
+        .{ "run-remastered", "install-game", stage_game_name, "Install the Game, make the Remastered views mod (camera-turn-mod) and start the Game with it: the buildings' kit views and the turned props at every camera step (Remastered on in Options > Settings > Gameplay; , and . turn the camera)" },
+        .{ "run-remastered-map-editor", "install-map-editor", b.fmt("MapEditor{s}", .{target.result.exeFileExt()}), "Install MapEditor, make the Remastered views mod (camera-turn-mod) and start MapEditor with it" },
+        .{ "run-remastered-resource-editor", "install-resource-editor", b.fmt("ResourceEditor{s}", .{target.result.exeFileExt()}), "Install ResourceEditor, make the Remastered views mod (camera-turn-mod) and start ResourceEditor with it" },
+    }) |program| {
+        const install = b.top_level_steps.get(program[1]) orelse continue;
+        const start = b.addSystemCommand(&.{ rootPath(b, b.fmt("{s}/{s}", .{ stage_root, program[2] })), "-mod=remastered_views" });
+        start.setCwd(b.path(stage_root));
+        start.setEnvironmentVariable("BK_MODS_ROOT", rootPath(b, "zig-out/remastered/mods"));
+        start.addPassthruArgs();
+        start.step.dependOn(&install.step);
+        if (b.top_level_steps.get("camera-turn-mod")) |mod| start.step.dependOn(&mod.step);
+        b.step(program[0], program[3]).dependOn(&start.step);
     }
 
     b.default_step = game_all_step;
@@ -10143,6 +10238,13 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 /// again only when one of those changed. The steps install from the cache folders. The work folders
 /// (pictures and source maps, 11 GiB for all objects) are dropped (`--no-work`): nothing reads them.
 /// Returns the step that installs the checked turns into the mod of camera-turn-mod.
+///
+/// A building whose kit views are tracked (tools/zig/fixtures/bk-views/kit-views, rendered outside the
+/// repo from its Blender kit model, tools/blender/README.md) shows those in the mod: `bk-views kit` lays
+/// them over the object's turns, each state's picture composed from the kit view with the shadow and ground
+/// picture the turn had, in a cached run of its own after the object's `side` run; the round trip checks
+/// every one of those packs through the engine's reader and against its kit view, and the mod takes that
+/// folder in place of the turns. `kit-views` runs them alone. zig-out/remastered/Buildings keeps the turns as `side` drew them.
 /// The shadows a building at its own facing f casts at camera step s, turn k = f + s, apart from the pictures it
 /// shows there (`bk-views side`'s `<k>s<s>`): its full 3D model flattened on the ground along the Game's sun, as a
 /// vehicle's, every turn at every step but turn 0 at step 0 (the 2003 picture with its own shadow). A prop shows
@@ -10170,6 +10272,14 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
     review.expectExitCode(0);
     review.has_side_effects = true;
     const all = b.step("full3d", "Run every full3d-<region> step and full3d-review (longer than one ten-minute foreground command: run the regions one by one)");
+    // The buildings whose kit views are tracked, by their path under Data/Buildings.
+    const kit_root = "tools/zig/fixtures/bk-views/kit-views";
+    b.dependOnFileContents(b.path(kit_root ++ "/index.json"));
+    const KitIndex = []const struct { path: []const u8 };
+    const kit_bytes = b.root.root_dir.handle.readFileAlloc(b.graph.io, kit_root ++ "/index.json", b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    const kit_index = std.json.parseFromSliceLeaky(KitIndex, b.allocator, kit_bytes, .{ .ignore_unknown_fields = true }) catch |err| @panic(@errorName(err));
+    var kit_found: usize = 0;
+    const kit_step = b.step("kit-views", "Lay the kit views of every building of tools/zig/fixtures/bk-views/kit-views over its turns with bk-views kit (after its full3d side run), check every pack against its kit view through the engine's reader, and install them into the mod zig-out/remastered/mods/remastered_views (part of full3d-mod, camera-turn-mod and install-all)");
     const mod = b.step("full3d-mod", "Install the turns of every object the full3d-<region> steps make, each pack checked by the engine's reader, into the mod zig-out/remastered/mods/remastered_views (part of camera-turn-mod and install-all)");
     for ([_][]const u8{ "africa", "common", "europe", "ussr" }) |region| {
         const group = b.step(b.fmt("full3d-{s}", .{region}), b.fmt("Render the turns of every {s} building and object (each state from its own textured model, each turn also lit by the world's sun) with bk-views side into zig-out/remastered, check every pack with the engine's reader, and write the models with bk-views model3d to zig-out/full3d/models", .{region}));
@@ -10189,6 +10299,9 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // turn under the world's sun (`facing_shadows`). A prop shows turn s at
             // step s.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
+            const kit_path: ?[]const u8 = for (kit_index) |k| {
+                if (building and std.ascii.eqlIgnoreCase(k.path, under)) break k.path;
+            } else null;
             // A model written by hand also replaces the 2003 picture at turn 0,
             // in a folder named as the variant's own that the mod lays over it.
             const hand_json = b.fmt("tools/zig/fixtures/bk-views/hand-models/{s}.json", .{name});
@@ -10234,11 +10347,51 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             const remastered = b.addInstallDirectory(.{ .source_dir = turns, .install_dir = .prefix, .install_subdir = b.fmt("remastered/{s}", .{parent}) });
             remastered.step.dependOn(&check.step);
             group.dependOn(&remastered.step);
+            // What the mod shows of the object: its turns, or its kit views laid over them.
+            var shown = turns;
+            var shown_checked = &check.step;
+            if (kit_path) |path| {
+                kit_found += 1;
+                const kit_dir = b.fmt("{s}/{s}", .{ kit_root, path });
+                const kit = b.addRunArtifact(views);
+                kit.setCwd(b.path("."));
+                setUserRootsForTest(kit, "bk-views-user");
+                kit.addArgs(&.{ "kit", kit_dir, data });
+                kit.addDirectoryArg(turns);
+                shown = kit.addOutputDirectoryArg(name);
+                _ = kit.addPrefixedDepFileOutputArg("--deps=", "deps.d");
+                kit.addFileInput(b.path(sprite_bin));
+                kit.step.dependOn(sprite.install);
+                addPathDir(kit, rootPath(b, "zig-out/bin"));
+                kit.expectExitCode(0);
+                const kit_check = b.addRunArtifact(sprite.roundtrip);
+                kit_check.setCwd(b.path("."));
+                setLeakReportStrict(kit_check);
+                setUserRootsForTest(kit_check, "bk-views-user");
+                kit_check.addArtifactArg(views);
+                kit_check.addArg(rootPath(b, sprite_bin));
+                kit_check.addFileInput(b.path(sprite_bin));
+                kit_check.addArtifactArg(sprite.check);
+                kit_check.addArgs(&.{ module_root, b.fmt("zig-out/local-test/full3d/kit-check/{s}", .{e.path}), b.fmt("--kit={s}", .{kit_dir}) });
+                kit_check.step.dependOn(sprite.install);
+                // The kit folders' paths name the kit run's cache folder, which changes with
+                // the kit views and with the turns under them.
+                kit_check.addDirectoryArg(shown.path(b, name));
+                for (1..4) |k| {
+                    kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}", .{ name, k })));
+                    kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
+                }
+                addPathDir(kit_check, rootPath(b, "zig-out/bin"));
+                kit_check.expectExitCode(0);
+                kit_check.step.dependOn(&check.step);
+                shown_checked = &kit_check.step;
+            }
             // The mod's data folder spells the top folders as the Game's Data does.
             const top = std.mem.indexOfScalar(u8, parent, '/').?;
-            const in_mod = b.addInstallDirectory(.{ .source_dir = turns, .install_dir = .prefix, .install_subdir = b.fmt("remastered/mods/remastered_views/data/{s}{s}", .{ if (std.mem.eql(u8, parent[0..top], "Buildings")) "buildings" else "objects", parent[top..] }) });
-            in_mod.step.dependOn(&check.step);
+            const in_mod = b.addInstallDirectory(.{ .source_dir = shown, .install_dir = .prefix, .install_subdir = b.fmt("remastered/mods/remastered_views/data/{s}{s}", .{ if (std.mem.eql(u8, parent[0..top], "Buildings")) "buildings" else "objects", parent[top..] }) });
+            in_mod.step.dependOn(shown_checked);
             mod.dependOn(&in_mod.step);
+            if (kit_path != null) kit_step.dependOn(&in_mod.step);
             const model = b.addRunArtifact(views);
             model.setCwd(b.path("."));
             setUserRootsForTest(model, "bk-views-user");
@@ -10252,6 +10405,13 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             review.step.dependOn(&install_model.step);
         }
     }
+    // A kit view of a building without a tracked mesh has no turns to lie over.
+    if (kit_found != kit_index.len) for (kit_index) |k| {
+        const known = for (ids.ids) |e| {
+            if (std.mem.startsWith(u8, e.path, "Buildings/") and std.ascii.eqlIgnoreCase(k.path, e.path["Buildings/".len..])) break true;
+        } else false;
+        if (!known) std.debug.panic("{s}/{s}: no building of {s} has this path", .{ kit_root, k.path, ids_path });
+    };
     b.step("full3d-review", "Lay out every model bk-views model3d wrote to zig-out/full3d/models (the full3d-<region> steps) in zig-out/review/full3d.pdf, with full3d.csv and the ranked needs-paint and needs-mesh-fix lists in full3d-ranked.csv").dependOn(&review.step);
     all.dependOn(&review.step);
     return mod;
@@ -12883,17 +13043,44 @@ fn addResourceEditor(
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
     const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry: every per-editor resource-editor-auto-* step, in order");
     auto_step.dependOn(install_exe);
+    // The Building scenario's kit views (its frames 439 on; tools/blender/README.md): the turns of the hand
+    // model E_House01_1 as camera-turn-mod draws them, and its kit views laid over them in a scratch mod, both
+    // beside the scenario's scratch folder. Made by the bk-views staged beside the editor, which finds
+    // bk-sprite and the engine libraries there, as the editor's own Generate sides does.
+    const kit_scratch = "zig-out/local-test/resource_editor/kit-views";
+    const staged_views = rootPath(b, b.fmt("{s}/bk-views{s}", .{ stage_root, exe.rootModuleTarget().exeFileExt() }));
+    const bld_kit_side = b.addSystemCommand(&.{ staged_views, "side", "Data/Buildings/europe/summer/e_house01_1", "0,1,2,3,1l1,2l2,3l3", kit_scratch ++ "/turned", kit_scratch ++ "/work" });
+    bld_kit_side.setCwd(b.path("."));
+    setUserRootsForTest(bld_kit_side, "bk-views-user");
+    bld_kit_side.expectExitCode(0);
+    bld_kit_side.has_side_effects = true;
+    bld_kit_side.step.dependOn(install_exe);
+    const bld_kit = b.addSystemCommand(&.{ staged_views, "kit", "tools/zig/fixtures/bk-views/kit-views/europe/summer/e_house01_1", "Data/Buildings/europe/summer/e_house01_1", kit_scratch ++ "/turned", kit_scratch ++ "/mod/data/buildings/europe/summer" });
+    bld_kit.setCwd(b.path("."));
+    setUserRootsForTest(bld_kit, "bk-views-user");
+    bld_kit.expectExitCode(0);
+    bld_kit.has_side_effects = true;
+    bld_kit.step.dependOn(&bld_kit_side.step);
     // The aggregate's chain, so two engines never start at once.
     var chain: ?*std.Build.Step = null;
     inline for (resource_auto_steps) |auto| {
-        const alone = addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, auto, null);
+        const needs_kit = comptime std.mem.eql(u8, auto.name, "bld");
+        const alone = addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, auto, if (needs_kit) &bld_kit.step else null);
         const step_name = "resource-editor-auto-" ++ auto.name;
         const per_step = b.step(step_name, auto.about);
         per_step.dependOn(install_exe);
         if (test_mode == .run) per_step.dependOn(alone);
         // The aggregate's own run of the same scenario, ordered after the one before it; a step run alone
         // does not pull the others in.
-        const chained = addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, auto, chain);
+        // The chained Building run also waits for its kit views: a step that only joins the two.
+        var before = chain;
+        if (needs_kit) {
+            const both = b.addWriteFiles();
+            if (chain) |previous| both.step.dependOn(previous);
+            both.step.dependOn(&bld_kit.step);
+            before = &both.step;
+        }
+        const chained = addResourceAutoRun(b, exe, delete_matching, stage_root, install_exe, &smoke_run.step, auto, before);
         chain = chained;
         if (test_mode == .run) auto_step.dependOn(chained);
     }
@@ -13203,7 +13390,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
     .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
     .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
-    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 439 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 449 },
     .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
     .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
     .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
@@ -13924,7 +14111,21 @@ const resource_auto_bld =
     "435:do=sides_look:1w," ++
     "436:expect=sides_missing:4," ++
     "437:do=sides_atlas:{fix}/bld/model-atlas.png," ++
-    "438:expect=sides_missing:0,";
+    "438:expect=sides_missing:0," ++
+    // Kit views in the Sides window (tools/blender/README.md): the building E_House01_1 of a scratch mod that
+    // bk-views kit made beside this scratch folder (the step's own runs, as camera-turn-mod makes the mod), opened
+    // as it lies. Measured on the shots: its four cells are drawn, four different pictures, and each differs
+    // from the same cell of the turns bk-views side drew, which the kit views replaced, turn 0 included.
+    "439:do=sides_folder:{dir}/../kit-views/turned/e_house01_1," ++
+    "440:do=sides_look:1," ++
+    "441:expect=sides_missing:0," ++
+    "442:shot=bld_kit_before," ++
+    "443:do=sides_folder:{dir}/../kit-views/mod/data/buildings/europe/summer/e_house01_1," ++
+    "444:expect=sides_missing:0," ++
+    "445:shot=bld_kit," ++
+    "446:expect=shot_sides:bld_kit/1500," ++
+    "447:expect=shot_sides_apart:bld_kit/1000," ++
+    "448:expect=shot_sides_changed:bld_kit/bld_kit_before/1000,";
 
 /// S11 Bridge: span marks, grid and the fire and smoke points.
 const resource_auto_bdg =
