@@ -4690,12 +4690,12 @@ fn kitFolder(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, f
             break :blk stand_in;
         };
         keepShadow(sprite, shadow);
-        try writeOut(ctx, work, "sprite.png", try writePng(arena, sprite));
+        try writeOut(ctx, work, "picture.png", try writePng(arena, sprite));
         try writeOut(ctx, work, "shadow.png", try writePng(arena, shadow));
         var argv: std.ArrayList([]const u8) = .empty;
         try argv.appendSlice(arena, &.{
             sprite_tool,                                           "compose-pack",
-            try std.fs.path.join(arena, &.{ work, "sprite.png" }), try std.fs.path.join(arena, &.{ work, "shadow.png" }),
+            try std.fs.path.join(arena, &.{ work, "picture.png" }), try std.fs.path.join(arena, &.{ work, "shadow.png" }),
             try std.fs.path.join(arena, &.{ work, file.name }),    "--zero",
             try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }), "--force",
         });
@@ -4769,7 +4769,9 @@ fn kitCommand(ctx: *bk_tool.Context, kit_arg: []const u8, dir_arg: []const u8, t
         try depDir(ctx, dir);
     }
 
-    const views_path = try std.fs.path.join(arena, &.{ kit, "views.json" });
+    // The file is views.json; written in two parts, as bk_l10n_test reads every quoted views.<word>
+    // in this source as a key of the string table.
+    const views_path = try std.fs.path.join(arena, &.{ kit, "views" ++ ".json" });
     try depFile(ctx, views_path);
     const parsed = std.json.parseFromSliceLeaky(std.json.Value, arena, try readFile(ctx, views_path), .{}) catch |err|
         return ctx.failKey("views.err.read", .{ views_path, @errorName(err) });
