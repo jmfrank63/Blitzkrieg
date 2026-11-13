@@ -3346,12 +3346,15 @@ pub fn build(b: *std.Build) void {
         .{ "camera-turn-full3d-anchor-game-reads-it", "the Game turns full 3D objects in place", "Render the turns of the barn E_WB_01, the L-shaped house A_H01_1, the house E_House02_2 and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure that each stands where its 2003 picture stands at all four steps" },
         .{ "camera-turn-hand-game-reads-it", "a hand model is what the Game draws at every step", "Render the turns of the hand models E_House01_1 and E_House01_3 at own facings 0 and 2, turn 0 included, with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on and off, and measure each step against that turn's pack, step 0 against the hand model and not its 2003 picture; the shots stay in zig-out/local-test/camera-turn/hand" },
         .{ "camera-turn-kit-game-reads-it", "kit views are what the Game draws at every step", "Lay the kit views of E_House01_1 (which also has a hand model), A_H07_1 at own facing 1 and the damaged warehouse E_WB_01 over their turns with bk-views side and kit into a scratch mod, press the camera turn key on the real Game over road3d, and measure each step against that turn's fixture picture at its zero cross, which the turn bk-views side drew must fail; the shots stay in zig-out/local-test/camera-turn/kit" },
+        .{ "camera-turn-kit-sun-game-reads-it", "one sun for the mission", "Lay the kit views of E_House01_1 over its turns with bk-views side and kit into a scratch mod, start the real Game with Remastered on and the sun forced to each of its four turns (BK_SUN_TURN) on a map with the house at own facing 2, and measure at all four camera steps that the house is the fixture picture of its turn under light step + sun and that its shadow is that view's fixture shadow, joined to it and cast the way the turned sun casts; the shots stay in zig-out/local-test/camera-turn/kit-sun" },
+        .{ "camera-turn-sun-state-game-reads-it", "the sun's turn is the mission's", "With the kit views of E_House01_1 in a scratch mod and Remastered on, measure in the real Game that a T-34's shadow falls the same way as the house's under sun turn 1 at the camera steps, that a mission saved under sun turn 2 loads under it in a Game started with another turn forced and the house keeps that light, that taking the option off draws the step's light again, and that without Remastered a forced sun turn changes nothing; the shots stay in zig-out/local-test/camera-turn/sun-state" },
+        .{ "camera-turn-sun-terrain-game-reads-it", "the ground's shade turns with the sun", "Raise a hill on road3d with the shades the Map Editor bakes for the 2003 sun, start the real Game with Remastered on and the sun forced to each of its four turns (BK_SUN_TURN), and measure in shots of the ground alone that the hill's brightest slope is the one facing that sun and the darkest the one across, and that without Remastered a forced turn changes nothing; the shots stay in zig-out/local-test/camera-turn/sun-terrain" },
         .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns of the barns E_WB_01 and E_WB_02 (at own facing 1, as in the hand test's screenshot), each turn with its shadow alone cast under the Game's sun as a vehicle's, and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is that one, lies against its object and falls the way that sun casts" },
         // Not tiers: the frames of the review of 2026-10-31 (no checks), each
         // its own step so that one stays within a ten-minute command.
         .{ "camera-turn-full3d-review-a", "review frames a", "Shoot the first half of the review's full 3D objects alone over road3d with shadows on at all four camera steps into zig-out/local-test/camera-turn/full3d-review-<after|before>; -Dfull3d-review-before=<checkout> shoots that checkout's Game and bk-views instead" },
         .{ "camera-turn-full3d-review-b", "review frames b", "Shoot the second half of the review's full 3D objects, as camera-turn-full3d-review-a" },
-        .{ "camera-turn-kit-review", "kit review frames", "Make the Remastered views mod (camera-turn-mod) and shoot four of its kit maps (nine buildings each: African, European, Russian, and the European ones damaged) in the real Game with that mod at all four camera steps, whole scene, into zig-out/review/kit-views" },
+        .{ "camera-turn-kit-review", "kit review frames", "Make the Remastered views mod (camera-turn-mod) and shoot four of its kit maps (nine buildings each: African, European, Russian, and the European ones damaged) in the real Game with that mod at all four camera steps, whole scene, the European map under all four turns of the sun and the others under one each, into zig-out/review/kit-views as <map>-sun<t>-step<k>.png" },
         .{ "camera-turn-full3d-review-village", "review frames village", "Shoot a European village of full 3D buildings at several facings and props over road3d with shadows on at all four camera steps, as camera-turn-full3d-review-a" },
     }) |tier| {
         const tier_tests = b.addTest(.{ .root_module = full3d_game_module, .filters = &.{tier[1]} });
@@ -10368,10 +10371,12 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             if (handmade) check.addDirectoryArg(turns.path(b, name));
             for (1..4) |k| {
                 check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
-                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
+                for (1..4) |l| {
+                    if (!building or l == k) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, l })));
+                }
             }
             for (0..4) |k| for (0..4) |s| {
-                if ((building and k + s > 0) or (k == s and k > 0)) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
+                if (k + s > 0) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
             };
             addPathDir(check, rootPath(b, "zig-out/bin"));
             check.expectExitCode(0);
