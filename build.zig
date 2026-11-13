@@ -10279,6 +10279,11 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 /// step plus the turn the mission's sun stands at (Sources/src/Main/SunTurn.h), so a building at its own facing f
 /// shows turn f + s at step s under any of the four, and so does a prop, which shows turn s there.
 const facing_shadows = "0s1,0s2,0s3,1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
+/// A prop's: its three turns under every light. Its turn 0 is its 2003 picture, whose shadow alone `side` cannot
+/// always compose (ussr/summer/villagefence/09 at light 1: the shadow falls behind the picture, and bk-sprite
+/// packs no picture of it); at step 0 under a turned sun the Game lays the shadow of the turn the prop is with
+/// the world turned back by the sun (CMOObject::ApplyCameraTurn).
+const prop_shadows = "1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
 /// The turns of an object lit by the sun as light index l has it (`<k>l<l>`). A building's are its kit views, which
 /// `bk-views kit` lays for every turn and light, so `side` draws only the three a building of facing 0 showed
 /// before the sun turned (the winter pictures and the folders kit starts from). A prop has no kit views: `side`
@@ -10340,7 +10345,7 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // in a folder named as the variant's own that the mod lays over it.
             const hand_json = b.fmt("tools/zig/fixtures/bk-views/hand-models/{s}.json", .{name});
             const handmade = if (b.root.root_dir.handle.access(b.graph.io, hand_json, .{})) |_| true else |_| false;
-            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,{s},{s}", .{ if (handmade) "0," else "", if (building) building_lit else prop_lit, facing_shadows }) });
+            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,{s},{s}", .{ if (handmade) "0," else "", if (building) building_lit else prop_lit, if (building) facing_shadows else prop_shadows }) });
             side.addArg("--mirror=tools/zig/views-mirror.txt");
             side.addFileInput(b.path("tools/zig/views-mirror.txt"));
             // A state's file added to the model is no input of the last run's dep file.
@@ -10376,7 +10381,7 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
                 }
             }
             for (0..4) |k| for (0..4) |s| {
-                if (k + s > 0) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
+                if (k + s > 0 and (building or k > 0)) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
             };
             addPathDir(check, rootPath(b, "zig-out/bin"));
             check.expectExitCode(0);

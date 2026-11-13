@@ -698,6 +698,8 @@ for everything but the winter.
 - **Winter.** There are no kit views of a winter. The winter packs of every folder are what `side` made: in
   `_r<j>_l<j>` lit for light j, everywhere else for the 2003 light, with the mesh's shadows (right under every light).
   A winter map under a turned sun therefore shows buildings lit from the screen's left at most steps.
-- **Props.** `side` draws a prop's three turns under each of the three lights (`1l1` to `3l3`) and its fifteen shadows
-  alone, where it drew `1l1,2l2,3l3` and `1s1,2s2,3s3`: a prop has no kit views, and under a turned sun it shows turn s
-  under light s + t.
+- **Props.** `side` draws a prop's three turns under each of the three lights (`1l1` to `3l3`) and those turns' shadows
+  alone under each of the four (`1s0` to `3s3`), where it drew `1l1,2l2,3l3` and `1s1,2s2,3s3`: a prop has no kit
+  views, and under a turned sun it shows turn s under light s + t. Turn 0's shadows alone (`0s1` to `0s3`) are not
+  made for props: `side` cannot compose ussr/summer/villagefence/09's at light 1 (the shadow falls behind the 2003
+  picture and bk-sprite packs no picture of it), and the Game lays a turned shadow there instead.

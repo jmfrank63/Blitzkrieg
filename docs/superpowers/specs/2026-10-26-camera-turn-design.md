@@ -1961,9 +1961,12 @@ stand at any of four places and makes every picture follow it.
   for each (`tools/blender/README.md`, the full 3D objects spec): all sixteen (turn, light) pairs of the 194 buildings
   are exact.
 - **Props whose turns bk-views drew** (`CMOObject`): `side` now draws their three turns under each of the three lights
-  (`1l1` to `3l3`, nine where there were three) and all fifteen shadows alone, turn 0's too, so a prop shows its turn's
-  picture lit for the light index with that light's shadow at every step and sun. At step 0 under a turned sun it shows
-  its 2003 picture relit (`<pack>_l<light>`, `objects-relight`) over the shadow `_r0_s<light>`.
+  (`1l1` to `3l3`, nine where there were three) and those turns' shadows alone under each of the four (twelve where
+  there were three), so at a turned step a prop shows its turn's picture lit for the light index with that light's
+  shadow under every sun. At step 0 under a turned sun it shows its 2003 picture relit (`<pack>_l<light>`,
+  `objects-relight`) over a laid shadow: the step-0 shadow of its turn `-light` (`_r<4 - light>`'s own), turned with the
+  ground by the light index. `side` does not make turn 0's shadows alone for props: for some it cannot compose them
+  (ussr/summer/villagefence/09 at light 1, where the shadow falls behind the 2003 picture).
 - **Flora, props without turns, props of four sides**: the relit picture `<pack>_l<light>`, and the 2003 shadow laid on
   the ground turned by the light index (a prop of four sides: the shadow of the side `turn - light`). A tree is a body
   of revolution to `relight`, so its light and its shadow's way are right and its shadow's shape is the 2003 one.
