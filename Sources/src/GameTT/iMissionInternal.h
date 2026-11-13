@@ -216,6 +216,7 @@ private:
 	int nDirection;												// rotation direction
 	CVec3 vLastAnchor;										// last camera anchor for sync
 	int nLoadedCameraTurn;								// the camera step a load read, set when the load finishes (-1: none)
+	int nLoadedSunTurn;										// the sun's turn a load read, set with it (-1: none)
 	int nFPSAveragePeriod;
 	virtual bool OpenCurtains();
 	void BeginSelection( const CVec2 &vPos );

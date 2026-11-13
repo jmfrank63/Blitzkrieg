@@ -93,6 +93,9 @@ void CTerrain::LoadLocal( const std::string &szName, const STerrainInfo &_terrai
 	vOldAnchor.Set( -1000000, -1000000, -1000000 );
 	terrainInfo = _terrainInfo;
 	terrainInfo.FillMinMaxHeights();
+	// The shades read are the map's own, of the 2003 sun (ShadeForSun).
+	bakedShades.clear();
+	nShadedSun = 0;
 	{
 		CPtr<IDataStream> pStream = pStorage->OpenStream( NStr::Format("%s.xml", terrainInfo.szTilesetDesc.c_str()), STREAM_ACCESS_READ );
 		CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
@@ -181,6 +184,54 @@ void CTerrain::LoadLocal( const std::string &szName, const STerrainInfo &_terrai
 	for ( int i = 0; i != roads.size(); ++i )
 		roads[i].Init( terrainInfo.roads3[i], this );
 	std::sort( roads.begin(), roads.end() );
+}
+// The ground under the mission's sun (Main/SunTurn.h). A map holds a shade
+// for every vertex, its normal lit by the 2003 sun; when the sun stands at
+// another turn (a mission started under it, a save brought it back, the
+// player's Remastered option that shows it changed) every vertex takes the
+// shade NCameraTurn::TurnedShade gives it for that turn, and the patches are
+// built anew. The turn 0 puts the map's own shades back; the editors, whose
+// sun never turns, never come past the first line. The normal is the Map
+// Editor's (CVertexAltitudeInfo::GetNormale: the six triangles round the
+// vertex, the altitudes' rows running against world y), the sun the season's.
+void CTerrain::ShadeForSun()
+{
+	const int nSun = NCameraTurn::SunTurn();
+	if ( nSun == nShadedSun )
+		return;
+	STerrainInfo::TVertexAltitudeArray2D &altitudes = terrainInfo.altitudes;
+	const int nSizeX = altitudes.GetSizeX(), nSizeY = altitudes.GetSizeY();
+	if ( bakedShades.size() != nSizeX * nSizeY )
+	{
+		bakedShades.resize( nSizeX * nSizeY );
+		for ( int y = 0; y < nSizeY; ++y )
+		{
+			for ( int x = 0; x < nSizeX; ++x )
+				bakedShades[y * nSizeX + x] = altitudes[y][x].shade;
+		}
+	}
+	const std::string szSun = std::string( "Scene.SunLight." ) + GetGlobalVar( "World.Season", "Summer" ) + ".Direction.";
+	CVec3 vSun( GetGlobalVar( ( szSun + "X" ).c_str(), 1.0f ), GetGlobalVar( ( szSun + "Y" ).c_str(), 1.0f ), GetGlobalVar( ( szSun + "Z" ).c_str(), -2.0f ) );
+	Normalize( &vSun );
+	for ( int y = 0; y < nSizeY; ++y )
+	{
+		for ( int x = 0; x < nSizeX; ++x )
+		{
+			const float fZ = altitudes[y][x].fHeight;
+			const bool bLeft = x == 0, bRight = x == nSizeX - 1, bFirst = y == 0, bLast = y == nSizeY - 1;
+			const CVec3 v1( -fWorldCellSize, +fWorldCellSize, ( bLeft || bFirst ? fZ : altitudes[y - 1][x - 1].fHeight ) - fZ );
+			const CVec3 v2( 0, +fWorldCellSize, ( bFirst ? fZ : altitudes[y - 1][x].fHeight ) - fZ );
+			const CVec3 v3( +fWorldCellSize, 0, ( bRight ? fZ : altitudes[y][x + 1].fHeight ) - fZ );
+			const CVec3 v4( +fWorldCellSize, -fWorldCellSize, ( bRight || bLast ? fZ : altitudes[y + 1][x + 1].fHeight ) - fZ );
+			const CVec3 v5( 0, -fWorldCellSize, ( bLast ? fZ : altitudes[y + 1][x].fHeight ) - fZ );
+			const CVec3 v6( -fWorldCellSize, 0, ( bLeft ? fZ : altitudes[y][x - 1].fHeight ) - fZ );
+			CVec3 vNormal = ( v2 ^ v1 ) + ( v3 ^ v2 ) + ( v4 ^ v3 ) + ( v5 ^ v4 ) + ( v6 ^ v5 ) + ( v1 ^ v6 );
+			const int nBaked = bakedShades[y * nSizeX + x];
+			altitudes[y][x].shade = Normalize( &vNormal ) ? BYTE( NCameraTurn::TurnedShade( nBaked, vNormal.x, vNormal.y, vNormal.z, vSun.x, vSun.y, vSun.z, nSun ) ) : BYTE( nBaked );
+		}
+	}
+	nShadedSun = nSun;
+	ResetPosition();
 }
 bool CTerrain::Load( const char *pszName, const STerrainInfo &_terrainInfo )
 {

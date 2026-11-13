@@ -64,6 +64,7 @@ void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, co
 #include "../Main/Remastered.h"
 #include "../Main/CameraTurn.h"
 #include "../Main/TurnTrace.h"
+#include <random>
 enum
 {
 	E_MULTIPLAYER_PLAYER_LAGGED_DIALOG								= 100001,
@@ -664,6 +665,7 @@ CInterfaceMission::CInterfaceMission()
 	bCycledLaunch = false;
 	nFPSAveragePeriod = 5000;
 	nLoadedCameraTurn = -1;
+	nLoadedSunTurn = -1;
 }
 CInterfaceMission::~CInterfaceMission()
 {
@@ -766,17 +768,27 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	saver.Add( 12, &multiplayerScoresSmall );
 	saver.Add( 13, &laggedDialog );
 	saver.Add( 14, &timeoutDialog );
-	// The Remastered camera step (NCameraTurn), a GFX.* var no save carries:
-	// kept here only when the view is turned, so saves at the 2003 view are
-	// written as before; the load sets it when it finishes (CMD_LOAD_FINISHED;
-	// a save without it, at step 0), after the mission's Init put the view at 0.
+	// The Remastered camera step (NCameraTurn), a GFX.* var the saved global
+	// vars leave out: kept here only when the view is turned, so saves at the
+	// 2003 view are written as before; the load sets it when it finishes
+	// (CMD_LOAD_FINISHED; a save without it, at step 0), after the mission's
+	// Init put the view at 0.
 	int nCameraTurn = saver.IsReading() ? 0 : NCameraTurn::Step();
 	if ( saver.IsReading() || nCameraTurn != 0 )
 		saver.Add( 15, &nCameraTurn );
+	// The sun's turn the mission picked as it started (SunTurn.h), a GFX.* var
+	// too, kept the same way: the sun stays where it was through a save and a
+	// load, and a save under the 2003 sun (every save from before the sun
+	// turned) is written and read as before. The var itself is kept, whatever
+	// the Remastered option shows of it now.
+	int nSunTurn = saver.IsReading() ? 0 : ( GetGlobalVar( NCameraTurn::pszSunVar, 0 ) & 3 );
+	if ( saver.IsReading() || nSunTurn != 0 )
+		saver.Add( 16, &nSunTurn );
 
 	if ( saver.IsReading() )
 	{
 		nLoadedCameraTurn = nCameraTurn & 3;
+		nLoadedSunTurn = nSunTurn & 3;
 		// A mission interface restored from a save means we ARE in a mission,
 		// regardless of whether the save's global vars carried the flag (saves
 		// written by builds with a non-serializing global-var store lack it).
@@ -862,6 +874,26 @@ static bool IsMapTraceOn()
 {
 	static const bool bOn = getenv( "BK_MAP_TRACE" ) != 0;
 	return bOn;
+}
+// The sun's turn of a mission that starts (SunTurn.h): another one than the
+// mission this process started before it had, by a random number of the
+// machine's own - never the game's synchronised generator, whose draws every
+// player and a replay must share - or the turn BK_SUN_TURN=0..3 forces (the
+// tiers, and to look at one sun). 0, the 2003 sun, where the player's
+// Remastered option does not hold.
+static int NewSunTurn()
+{
+	static int nPrevious = -1;
+	if ( !NCameraTurn::Allowed() )
+		return 0;
+	int nSun = NCameraTurn::ForcedSunTurn( getenv( "BK_SUN_TURN" ) );
+	if ( nSun < 0 )
+	{
+		std::random_device device;
+		nSun = NCameraTurn::PickSunTurn( true, nPrevious, device() );
+	}
+	nPrevious = nSun;
+	return nSun;
 }
 static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlayer )
 {
@@ -1543,9 +1575,14 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		const bool bStartTurned = GetGlobalVar( "MultiplayerGame", 0 ) != 0 && NCameraTurn::Allowed();
 		if ( bStartTurned )
 			SetGlobalVar( NCameraTurn::pszStepVar, nStartTurn );
+		// The sun's place for this mission (SunTurn.h), before the terrain and
+		// the first object are made: every picture and shadow is drawn for it.
+		const int nSunTurn = NewSunTurn();
+		SetGlobalVar( NCameraTurn::pszSunVar, nSunTurn );
 		if ( IsMapTraceOn() )
 		{
 			fprintf( stderr, "BK_MAP_TRACE: start turn %d (%s)\n", nStartTurn, bStartTurned ? "applied" : "single player: 0" );
+			fprintf( stderr, "BK_MAP_TRACE: sun turn %d\n", nSunTurn );
 			fprintf( stderr, "BK_MAP_TRACE: camera x=%.0f y=%.0f z=%.0f source=%s\n", vCameraStartPos.x, vCameraStartPos.y, vCameraStartPos.z, pszCameraSource );
 			fprintf( stderr, "BK_MAP_TRACE: terrain roads=%d rivers=%d\n", int(mapinfo.terrain.roads3.size()), int(mapinfo.terrain.rivers.size()) );
 			fflush( stderr );
@@ -2280,10 +2317,21 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 				// repositions against it.
 				SetGlobalVar( "GFX.World.ZoomSteps", 0 );
 				SetGlobalVar( "GFX.World.ZoomFactor", 1.2f );
-				// The camera step a load read (the settings screen sends this too, and keeps the step).
+				// The camera step a load read (the settings screen sends this too, and keeps the step),
+				// and the sun's turn with it.
 				if ( nLoadedCameraTurn >= 0 )
 					SetGlobalVar( NCameraTurn::pszStepVar, nLoadedCameraTurn );
 				nLoadedCameraTurn = -1;
+				if ( nLoadedSunTurn >= 0 )
+				{
+					SetGlobalVar( NCameraTurn::pszSunVar, nLoadedSunTurn );
+					if ( IsMapTraceOn() )
+					{
+						fprintf( stderr, "BK_MAP_TRACE: sun turn %d (loaded)\n", nLoadedSunTurn );
+						fflush( stderr );
+					}
+				}
+				nLoadedSunTurn = -1;
 				SyncMissionModeFromInterMission();
 				ChangeResolution();
 				CheckResolution();

@@ -1575,7 +1575,9 @@ pub fn build(b: *std.Build) void {
     // Task 7.3 review: in the foundation matrix, so every CI job builds it and
     // the run-mode jobs run it.
     test_platform_foundation.dependOn(wheel_scroll_step);
-    const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain);
+    const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain, "tools/zig/remastered_test.cpp", "remastered-test", "test-remastered", "Run the Remastered option's policy test: off by default, always off in multiplayer, a replay keeps its recorded mode");
+    // The sun's turn (Sources/src/Main/SunTurn.h): its pick as a mission starts, the light index and the laid shadow's turn.
+    const sun_turn_step = addRemasteredTest(b, target, platform, test_mode, toolchain, "tools/zig/sun_turn_test.cpp", "sun-turn-test", "test-sun-turn", "Run the sun turn's rules test: a mission's pick is never the one before it and covers all four turns, 0 where the Remastered option does not hold, the light index is the camera's step plus the sun's turn, BK_SUN_TURN forces only 0 to 3");
     addFastestPathTest(b, target, test_mode);
     const replay_core_step = addReplayCoreTest(b, target, platform, test_mode, toolchain);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
@@ -4698,6 +4700,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(wheel_scroll_step);
     test_step.dependOn(remastered_step);
+    test_step.dependOn(sun_turn_step);
     test_step.dependOn(replay_core_step);
     // The editor kit tier: reusable editor plumbing (files, shipped, autosave,
     // history stack primitive, settings primitive, host, crt, imgui wrapper,
@@ -5580,9 +5583,15 @@ pub fn build(b: *std.Build) void {
     // The Game and the editors started with the Remastered views mod of camera-turn-mod, which is kept out of
     // the installation's mods folder (tools/blender/README.md): BK_MODS_ROOT names zig-out/remastered/mods and
     // -mod=remastered_views the mod. Arguments after `--` go to the program, e.g. a map of the mod:
-    // `zig build run-remastered -- kit_views_01.xml`.
+    // `zig build run-remastered -- kit_views_01.xml`. A mission started with Remastered on picks the turn its sun
+    // stands at, another one each time (Sources/src/Main/SunTurn.h); -Dsun-turn=<0..3> starts the Game with
+    // BK_SUN_TURN set, which forces that turn (0 is the 2003 sun).
+    const run_sun_turn = b.option(u8, "sun-turn", "The turn of the sun (0 to 3, 0 where 2003 had it) run-remastered forces on every mission instead of the random pick (BK_SUN_TURN)");
+    if (run_sun_turn) |forced| {
+        if (forced > 3) std.debug.panic("-Dsun-turn={d}: the sun has the turns 0 to 3", .{forced});
+    }
     for ([_][4][]const u8{
-        .{ "run-remastered", "install-game", stage_game_name, "Install the Game, make the Remastered views mod (camera-turn-mod) and start the Game with it: the buildings' kit views and the turned props at every camera step (Remastered on in Options > Settings > Gameplay; , and . turn the camera)" },
+        .{ "run-remastered", "install-game", stage_game_name, "Install the Game, make the Remastered views mod (camera-turn-mod) and start the Game with it: the buildings' kit views and the turned props at every camera step under the mission's sun (Remastered on in Options > Settings > Gameplay; , and . turn the camera; each mission picks another turn of the sun, -Dsun-turn=<0..3> forces one)" },
         .{ "run-remastered-map-editor", "install-map-editor", b.fmt("MapEditor{s}", .{target.result.exeFileExt()}), "Install MapEditor, make the Remastered views mod (camera-turn-mod) and start MapEditor with it" },
         .{ "run-remastered-resource-editor", "install-resource-editor", b.fmt("ResourceEditor{s}", .{target.result.exeFileExt()}), "Install ResourceEditor, make the Remastered views mod (camera-turn-mod) and start ResourceEditor with it" },
     }) |program| {
@@ -5590,6 +5599,9 @@ pub fn build(b: *std.Build) void {
         const start = b.addSystemCommand(&.{ rootPath(b, b.fmt("{s}/{s}", .{ stage_root, program[2] })), "-mod=remastered_views" });
         start.setCwd(b.path(stage_root));
         start.setEnvironmentVariable("BK_MODS_ROOT", rootPath(b, "zig-out/remastered/mods"));
+        if (run_sun_turn) |forced| {
+            if (std.mem.eql(u8, program[0], "run-remastered")) start.setEnvironmentVariable("BK_SUN_TURN", b.fmt("{d}", .{forced}));
+        }
         start.addPassthruArgs();
         start.step.dependOn(&install.step);
         if (b.top_level_steps.get("camera-turn-mod")) |mod| start.step.dependOn(&mod.step);
@@ -8519,24 +8531,30 @@ fn addWheelScrollTest(
 
 /// The Remastered switch's policy (Sources/src/Main/Remastered.h): the option,
 /// multiplayer and replays, with the global vars the game sets. Built the way
-/// addWheelScrollTest builds its header-only test.
+/// addWheelScrollTest builds its header-only test. The sun turn's rules
+/// (Sources/src/Main/SunTurn.h, which reads the same option) are tested the
+/// same way from a source of their own.
 fn addRemasteredTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     platform: build_support.PlatformTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    source: []const u8,
+    exe_name: []const u8,
+    step_name: []const u8,
+    description: []const u8,
 ) *std.Build.Step {
     const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     addLinuxCxxIncludePaths(b, module);
-    module.addCSourceFiles(.{ .files = &.{"tools/zig/remastered_test.cpp"}, .flags = &.{"-std=c++17"} });
+    module.addCSourceFiles(.{ .files = &.{source}, .flags = &.{"-std=c++17"} });
     linkCxxRuntime(module, target);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
         linkMsvcRuntime(module, .debug);
     }
-    const exe = b.addExecutable(.{ .name = "remastered-test", .root_module = module });
+    const exe = b.addExecutable(.{ .name = exe_name, .root_module = module });
     if (build_support.usesMsvc(platform)) {
         exe.subsystem = .console;
         exe.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -8544,7 +8562,7 @@ fn addRemasteredTest(
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
-    const step = b.step("test-remastered", "Run the Remastered option's policy test: off by default, always off in multiplayer, a replay keeps its recorded mode");
+    const step = b.step(step_name, description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
     return step;

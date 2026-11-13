@@ -228,7 +228,7 @@ class CWorldClient : public CWorldBase
 	bool bSetPlayerTooltip;               // set when player tooltip might be shown
 	bool bCheckDiplomacy;									// do we need check diplomacy during FoF operations ? (for editor mode)
 	bool bReconcileSelection;						// run ReconcileSelection on the next Update (not saved: set by a load)
-	int nCameraTurn;										// the camera's quarter turn the buildings are drawn for, + 4 with Remastered off (not saved; -1 after a load)
+	int nCameraTurn;										// the camera's quarter turn the buildings are drawn for, + 4 with Remastered off, + 8 a turn of the sun (not saved; -1 after a load)
 	bool bTurnPreloadStarted;						// the objects' camera turns are being (or were) preloaded (not saved)
 	std::vector< std::pair< CPtr<SMapObject>, int > > turnPreload;	// the objects and camera steps still to be preloaded
 	int nTurnPreloadFrames;							// the frames the preload took so far

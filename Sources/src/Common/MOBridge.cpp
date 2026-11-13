@@ -50,13 +50,18 @@ int CMOBridgeSpan::operator&( IStructureSaver &ss )
 	CSaverAccessor saver = &ss;
 	saver.AddTypedSuper( 1, static_cast<SBridgeSpanObject*>(this) );
 	saver.Add( 2, &nSpanType );
-	// A span saved at a turned step: at the 2003 view nothing new is written.
-	if ( saver.IsReading() || nCameraTurn != 0 )
+	// A span saved at a turned step or under a turned sun: at the 2003 view
+	// under the 2003 sun nothing new is written.
+	if ( saver.IsReading() || nCameraTurn != 0 || nShownLight != 0 )
 	{
 		saver.Add( 3, &nCameraTurn );
 		saver.Add( 4, &nOwnSpan );
 		saver.Add( 5, &vPlacement );
 		saver.Add( 6, &wPlacementDir );
+		// A save from before the sun turned holds none: the step's.
+		if ( saver.IsReading() )
+			nShownLight = nCameraTurn;
+		saver.Add( 7, &nShownLight );
 	}
 	return 0;
 }
@@ -87,7 +92,7 @@ void CMOBridgeSpan::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 		pBackGirder->SetPlacement( vPos + pRPGStats->GetSegmentStats(span.nBackGirder).vRelPos, wDir );
 	if ( pFrontGirder )
 		pFrontGirder->SetPlacement( vPos + pRPGStats->GetSegmentStats(span.nFrontGirder).vRelPos, wDir );
-	if ( nCameraTurn != 0 )
+	if ( nCameraTurn != 0 || NCameraTurn::LightIndex( nCameraTurn ) != 0 )
 		ApplyCameraTurn( GetSingleton<IGameTimer>()->GetGameTime(), GetSingleton<IVisObjBuilder>() );
 }
 void CMOBridgeSpan::GetPlacement( CVec3 *pvPos, WORD *pwDir )
@@ -168,7 +173,7 @@ void CMOBridgeSpan::UpdateModelWithHP( const float fNewHP, const NTimer::STime &
 		pBackGirder->fHP = fNewHP;
 	if ( pFrontGirder )
 		pFrontGirder->fHP = fNewHP;
-	if ( nCameraTurn != 0 && nNewState != nOldState )
+	if ( ( nCameraTurn != 0 || NCameraTurn::LightIndex( nCameraTurn ) != 0 ) && nNewState != nOldState )
 		ApplyCameraTurn( currTime, pVOB );
 }
 bool CMOBridgeSpan::AIUpdateRPGStats( const struct SAINotifyRPGStats &stats, IVisObjBuilder *pVOB, IScene *pScene )
@@ -230,19 +235,60 @@ static void DrawSegment( SMapObject *pMO, const SGDBObjectDesc *pDesc, const SBr
 	GetAnim<ISpriteAnimation>( pMO->pVisObj )->SetFrameIndex( segment.nFrameIndex );
 	pMO->pVisObj->Update( currTime, true );
 }
+// The span of the 2003 data that shows span nOwnSpan (damage state nState) of
+// the bridge kind at *ppDesc turned by nStep quarter turns: at an odd step one
+// of the kind's variant along the other axis (`_01` runs along x, `_02` along
+// y), at the half turn one of its own, the span whose footprint best covers
+// the own one's turned by the step (a line span the other variant's line; a
+// begin or an end span the other variant's or other end's; either may be a
+// tile longer or narrower). *ppDesc, *ppRPG and *pnSpan take it; where no span
+// covers half of the own one they keep the own span and false comes back.
+static bool TurnedSpan( const SGDBObjectDesc **ppDesc, const SBridgeRPGStats **ppRPG, int *pnSpan, const int nOwnSpan, const int nState, const int nStep )
+{
+	*pnSpan = nOwnSpan;
+	if ( nStep == 0 )
+		return true;
+	const SGDBObjectDesc *pDesc = *ppDesc;
+	const SBridgeRPGStats *pRPG = *ppRPG;
+	const CTRect<float> rcOwn = SpanFootprint( pRPG, pRPG->GetSpanStats( nOwnSpan, nState ), nStep );
+	const SGDBObjectDesc *pTurnedDesc = pDesc;
+	const int nLength = pDesc->szKey.size();
+	if ( ( nStep & 1 ) != 0 )
+	{
+		pTurnedDesc = 0;
+		if ( nLength > 3 && pDesc->szKey.compare( nLength - 3, 2, "_0" ) == 0 && ( pDesc->szKey[nLength - 1] == '1' || pDesc->szKey[nLength - 1] == '2' ) )
+			pTurnedDesc = GetSingleton<IObjectsDB>()->GetDesc( ( pDesc->szKey.substr( 0, nLength - 1 ) + ( pDesc->szKey[nLength - 1] == '1' ? "2" : "1" ) ).c_str() );
+	}
+	const SBridgeRPGStats *pTurnedRPG = pTurnedDesc ? NGDB::GetRPGStats<SBridgeRPGStats>( GetSingleton<IObjectsDB>(), pTurnedDesc ) : 0;
+	float fBest = 0.5f;
+	bool bFound = false;
+	for ( int i = 0; pTurnedRPG && i < pTurnedRPG->states[nState].spans.size(); ++i )
+	{
+		const float fOverlap = Overlap( rcOwn, SpanFootprint( pTurnedRPG, pTurnedRPG->states[nState].spans[i], 0 ) );
+		if ( fOverlap > fBest )
+		{
+			fBest = fOverlap;
+			*ppDesc = pTurnedDesc;
+			*ppRPG = pTurnedRPG;
+			*pnSpan = i;
+			bFound = true;
+		}
+	}
+	return bFound;
+}
 // Draws the span for the camera step (Remastered, docs/superpowers/specs/
 // 2026-10-26-camera-turn-design.md, S04) with the 2003 pictures of the span
-// that shows it turned: at an odd step one of the bridge kind's variant along
-// the other axis (`_01` runs along x, `_02` along y), at the half turn one of
-// its own, the span whose footprint best covers its own turned by the step (a
-// line span the other variant's line; a begin or an end span the other
-// variant's or other end's; either may be a tile longer or narrower). Its back girder, slab and front
+// that shows it turned (TurnedSpan). Its back girder, slab and front
 // girder stand at that span's places turned back by the step, so the girder
 // that is far now is drawn behind the slab. Where no span covers half of it,
 // the span keeps its 2003 pictures at its turned place. The sun stays in the
-// world (M006 round 2): each part's shadow is its own span's 2003 shadow at
-// its own place, laid on the ground turned with it by the step. At step 0 it
-// is drawn as in 2003.
+// world (M006 round 2), at its turn of the mission (Main/SunTurn.h): each
+// part's shadow is the 2003 shadow of the span that shows it as it stands in
+// the world turned back by the sun's turn (its own span's under the 2003
+// sun), at that span's place, laid on the ground turned by the light index.
+// Where the 2003 data holds no such span, the shadow stays the 2003 sun's:
+// its own span's, turned with the ground by the step. At step 0 under the
+// 2003 sun it is drawn as in 2003.
 void CMOBridgeSpan::ApplyCameraTurn( const NTimer::STime &currTime, IVisObjBuilder *pVOB ) const
 {
 	const SGDBObjectDesc *pDesc = GetDesc();
@@ -251,31 +297,7 @@ void CMOBridgeSpan::ApplyCameraTurn( const NTimer::STime &currTime, IVisObjBuild
 	const SBridgeRPGStats *pOwnRPG = pRPG;
 	const int nState = GetBridgeDamageState( pSlab->fHP );
 	int nSpan = nOwnSpan;
-	if ( nCameraTurn != 0 )
-	{
-		const CTRect<float> rcOwn = SpanFootprint( pRPG, pRPG->GetSpanStats( nOwnSpan, nState ), nCameraTurn );
-		const SGDBObjectDesc *pTurnedDesc = pDesc;
-		const int nLength = pDesc->szKey.size();
-		if ( ( nCameraTurn & 1 ) != 0 )
-		{
-			pTurnedDesc = 0;
-			if ( nLength > 3 && pDesc->szKey.compare( nLength - 3, 2, "_0" ) == 0 && ( pDesc->szKey[nLength - 1] == '1' || pDesc->szKey[nLength - 1] == '2' ) )
-				pTurnedDesc = GetSingleton<IObjectsDB>()->GetDesc( ( pDesc->szKey.substr( 0, nLength - 1 ) + ( pDesc->szKey[nLength - 1] == '1' ? "2" : "1" ) ).c_str() );
-		}
-		const SBridgeRPGStats *pTurnedRPG = pTurnedDesc ? NGDB::GetRPGStats<SBridgeRPGStats>( GetSingleton<IObjectsDB>(), pTurnedDesc ) : 0;
-		float fBest = 0.5f;
-		for ( int i = 0; pTurnedRPG && i < pTurnedRPG->states[nState].spans.size(); ++i )
-		{
-			const float fOverlap = Overlap( rcOwn, SpanFootprint( pTurnedRPG, pTurnedRPG->states[nState].spans[i], 0 ) );
-			if ( fOverlap > fBest )
-			{
-				fBest = fOverlap;
-				pDesc = pTurnedDesc;
-				pRPG = pTurnedRPG;
-				nSpan = i;
-			}
-		}
-	}
+	TurnedSpan( &pDesc, &pRPG, &nSpan, nOwnSpan, nState, nCameraTurn );
 	const SBridgeRPGStats::SSpan &span = pRPG->GetSpanStats( nSpan, nState );
 	const SMapObject *parts[3] = { pSlab, pBackGirder, pFrontGirder };
 	const int segments[3] = { span.nSlab, span.nBackGirder, span.nFrontGirder };
@@ -284,29 +306,42 @@ void CMOBridgeSpan::ApplyCameraTurn( const NTimer::STime &currTime, IVisObjBuild
 		const SBridgeRPGStats::SSegmentRPGStats &segment = pRPG->GetSegmentStats( segments[i] );
 		DrawSegment( const_cast<SMapObject*>( parts[i] ), pDesc, segment, vPlacement + NCameraTurn::ViewOffset( segment.vRelPos, nCameraTurn ), wPlacementDir, currTime, pVOB );
 	}
-	const SBridgeRPGStats::SSpan &own = pOwnRPG->GetSpanStats( nOwnSpan, nState );
-	const int ownSegments[3] = { own.nSlab, own.nBackGirder, own.nFrontGirder };
+	// The shadows: the span that casts them (NCameraTurn::LaidShadowTurn), its
+	// parts' places turned as its shadow is laid, and the turn it is laid by.
+	const int nLight = NCameraTurn::LightIndex( nCameraTurn );
+	const SGDBObjectDesc *pCastDesc = pOwnDesc;
+	const SBridgeRPGStats *pCastRPG = pOwnRPG;
+	int nCastSpan = nOwnSpan;
+	int nCastTurn = NCameraTurn::LaidShadowTurn( nCameraTurn, nLight ), nLaidTurn = nLight;
+	if ( !TurnedSpan( &pCastDesc, &pCastRPG, &nCastSpan, nOwnSpan, nState, nCastTurn ) )
+	{
+		nCastTurn = 0;
+		nLaidTurn = nCameraTurn;
+	}
+	const SBridgeRPGStats::SSpan &cast = pCastRPG->GetSpanStats( nCastSpan, nState );
+	const int castSegments[3] = { cast.nSlab, cast.nBackGirder, cast.nFrontGirder };
 	for ( int i = 0; i < 3; ++i )
 	{
 		if ( parts[i] == 0 || parts[i]->pShadow == 0 )
 			continue;
 		IVisObj *pShadow = parts[i]->pShadow;
-		const SBridgeRPGStats::SSegmentRPGStats &segment = pOwnRPG->GetSegmentStats( ownSegments[i] );
-		const bool bShadow = pVOB->ChangeObject( pShadow, ( pOwnDesc->szPath + "\\" + segment.szModel + "s" ).c_str(), 0, SGVOT_SPRITE );
-		pShadow->SetPlacement( vPlacement + segment.vRelPos, wPlacementDir );
+		const SBridgeRPGStats::SSegmentRPGStats &segment = pCastRPG->GetSegmentStats( castSegments[i] );
+		const bool bShadow = pVOB->ChangeObject( pShadow, ( pCastDesc->szPath + "\\" + segment.szModel + "s" ).c_str(), 0, SGVOT_SPRITE );
+		pShadow->SetPlacement( vPlacement + NCameraTurn::ViewOffset( segment.vRelPos, nCastTurn ), wPlacementDir );
 		if ( bShadow )
 		{
 			GetAnim<ISpriteAnimation>( pShadow )->SetFrameIndex( segment.nFrameIndex );
 			if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow ) )
-				pShadowSprite->SetScreenTurn( nCameraTurn, false );
+				pShadowSprite->SetScreenTurn( nLaidTurn, false );
 			pShadow->Update( currTime, true );
 		}
 		pShadow->SetOpacity( bShadow ? 0xff : 0 );
 	}
+	nShownLight = nLight;
 }
 void CMOBridgeSpan::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {
-	if ( nTurn == nCameraTurn )
+	if ( nTurn == nCameraTurn && NCameraTurn::LightIndex( nTurn ) == nShownLight )
 		return;
 	nCameraTurn = nTurn;
 	ApplyCameraTurn( GetSingleton<IGameTimer>()->GetGameTime(), pVOB );

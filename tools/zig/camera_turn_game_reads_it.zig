@@ -407,6 +407,9 @@ pub fn runGameTurning(io: std.Io, allocator: std.mem.Allocator, game: []const u8
     try environ.put("BK_MEM_REPORT", "count");
     try environ.put("BK_DEBUG_LOG", "1");
     try environ.put("BK_NO_HELP", "1");
+    // The sun where 2003 had it: a mission that starts with Remastered on picks the sun's turn at random
+    // (Sources/src/Main/SunTurn.h), and these measures are of the 2003 sun.
+    try environ.put("BK_SUN_TURN", "0");
     try environ.put("BK_SCENE_DISABLE", disable);
     // The cursor is parked first (on the window's edge it scrolls the view, see
     // building-views-game-reads-it), then the camera set and the option chosen;

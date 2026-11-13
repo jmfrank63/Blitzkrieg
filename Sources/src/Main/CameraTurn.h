@@ -6,13 +6,17 @@
 // view about the point at the screen centre so that the world looks turned by
 // k quarter turns of (x, y) -> (-y, x), the turn that takes a building's side
 // s to side s + 1 (M005's `<variant>_r1.._r3`). The step is a GFX.* global
-// var like the zoom steps: a session setting no save carries, 0 (the 2003
-// view) unless the turn key set it, and the camera, the terrain and the
-// buildings all read it here.
+// var like the zoom steps, so the saved global vars leave it out: 0 (the 2003
+// view) unless the turn key set it or a multiplayer game started turned, and
+// the camera, the terrain and the buildings all read it here. A mission's
+// save carries it in the mission's own chunk (CInterfaceMission::operator&),
+// so a save made at a turned view loads at it; so it does the sun's turn
+// (SunTurn.h), which with the step decides the light every picture shows.
 //
 // The header reads global vars through GetGlobalVar, which each module's
 // StdAfx.h brings in (StreamIO/Globals.h).
 #include "Remastered.h"
+#include "SunTurn.h"
 namespace NCameraTurn
 {
 	const char * const pszStepVar = "GFX.World.CameraTurn";
@@ -21,14 +25,7 @@ namespace NCameraTurn
 	{
 		return GetGlobalVar( pszStepVar, 0 ) & 3;
 	}
-	// Whether the player may turn the camera: the player's own Remastered option
-	// (NRemastered::pszOptionVar). Unlike NRemastered::Enabled() it holds in
-	// multiplayer and in a replay of any mode, because the step is local view
-	// state: it never enters the game state, the commands or the network stream.
-	inline bool Allowed()
-	{
-		return GetGlobalVar( "Options.GamePlay.Remastered", 0 ) != 0;
-	}
+	// Allowed(), whether the player may turn the camera, is in SunTurn.h.
 	// The ground point under the screen's centre: where the line of sight
 	// through the camera's anchor (the point at height 0 under the centre) and
 	// its eye meets the ground, the first meeting seen from the eye. The camera
@@ -186,33 +183,34 @@ namespace NCameraTurn
 		}
 		return szVariant;
 	}
-	// The folder of a variant's turn k as camera step s shows it under the sun
-	// fixed in the world (M006 round 2): `<variant>_r<k>_l<s>` where the data
-	// holds it (bk-views side `<k>l<s>`: the building lit as its facing k - s
-	// stands in the world), else ModelPath's, lit by the 2003 light fixed to
-	// the camera. At step 0 the two are one.
-	inline std::string LitModelPath( const std::string &szVariant, const int nTurn, const int nStep, TExists pfnExists = 0 )
+	// The folder of a variant's turn k under light index l (SunTurn.h's
+	// LightIndex: the camera's step plus the sun's turn; with the sun where 2003
+	// had it, the step): `<variant>_r<k>_l<l>` where the data holds it (bk-views
+	// side `<k>l<l>` and kit: the building lit as its facing k - l stands in the
+	// world under the 2003 sun), else ModelPath's, lit by the 2003 light fixed
+	// to the camera. At light index 0 the two are one.
+	inline std::string LitModelPath( const std::string &szVariant, const int nTurn, const int nLight, TExists pfnExists = 0 )
 	{
-		if ( nStep != 0 )
+		if ( nLight != 0 )
 		{
-			const std::string szLit = NStr::Format( "%s_r%d_l%d", szVariant.c_str(), nTurn, nStep );
+			const std::string szLit = NStr::Format( "%s_r%d_l%d", szVariant.c_str(), nTurn, nLight );
 			if ( StreamExists( szLit + "\\1.san", pfnExists ) )
 				return szLit;
 		}
 		return ModelPath( szVariant, nTurn, pfnExists );
 	}
-	// The folder of the shadow a variant's turn k casts under the Game's sun
-	// as camera step s shows it, where the data holds one apart from its
-	// pictures: `<variant>_r<k>_s<s>` (bk-views side `<k>s<s>`, shadow packs
-	// alone: the full 3D model flattened on the ground along the sun, as a
-	// vehicle's mesh is, cut under the picture the turn shows), else "". It is
-	// cast with whichever picture the turn shows, as it lies. Turn 0 at step 0
-	// is the 2003 picture with its own shadow.
-	inline std::string ShadowModelPath( const std::string &szVariant, const int nTurn, const int nStep, TExists pfnExists = 0 )
+	// The folder of the shadow a variant's turn k casts under light index l,
+	// where the data holds one apart from its pictures: `<variant>_r<k>_s<l>`
+	// (bk-views side `<k>s<l>`, shadow packs alone: the full 3D model flattened
+	// on the ground along the sun, as a vehicle's mesh is, cut under the picture
+	// the turn shows; bk-views kit: the kit model's own shadow), else "". It is
+	// cast with whichever picture the turn shows, as it lies. Turn 0 at light
+	// index 0 is the variant's own picture with its own shadow.
+	inline std::string ShadowModelPath( const std::string &szVariant, const int nTurn, const int nLight, TExists pfnExists = 0 )
 	{
-		if ( nStep == 0 && nTurn == 0 )
+		if ( nLight == 0 && nTurn == 0 )
 			return "";
-		const std::string szShadow = NStr::Format( "%s_r%d_s%d", szVariant.c_str(), nTurn, nStep );
+		const std::string szShadow = NStr::Format( "%s_r%d_s%d", szVariant.c_str(), nTurn, nLight );
 		return StreamExists( szShadow + "\\1s.san", pfnExists ) ? szShadow : "";
 	}
 	// The quarter turns a map object stands turned by, its footprint, entrances
