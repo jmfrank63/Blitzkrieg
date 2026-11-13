@@ -38,7 +38,9 @@
 const std = @import("std");
 const turn = @import("camera_turn_game_reads_it.zig");
 const units = @import("camera_turn_units_game_reads_it.zig");
+const control = @import("camera_turn_control_game_reads_it.zig");
 const game_views = @import("building_views_game_reads_it.zig");
+const views = @import("bk_views.zig");
 const testing = std.testing;
 
 const scratch = "zig-out/local-test/camera-turn/full3d";
@@ -439,6 +441,162 @@ test "a hand model is what the Game draws at every step: step 0 is its render, n
         std.debug.print("{s}the Game does not draw a hand model as its packs hold it (IoU floor {d}, colour ceiling {d}); the frames are in {s}\n", .{ report.items, min_iou, max_colour, root });
         return error.DrawnWrong;
     }
+}
+
+/// The buildings shown by their kit views (`camera-turn-kit-game-reads-it`;
+/// tools/zig/fixtures/bk-views/kit-views, tools/blender/README.md), each alone:
+/// E_House01_1, which also has a hand model (the kit view wins, turn 0
+/// included); A_H07_1 at own facing 1, whose zero cross lies outside three of
+/// its pictures; and the warehouse E_WB_01 with its HP at 0.3, which shows its
+/// damaged state over its rubble.
+const kit_shown = [_]Object{
+    .{ .name = "E_House01_1", .folder = "Data/Buildings/europe/summer/e_house01_1", .mod_dir = "buildings/europe/summer" },
+    .{ .name = "A_H07_1", .folder = "Data/Buildings/africa/summer/a_h07_1", .mod_dir = "buildings/africa/summer", .facing = 1 },
+    .{ .name = "E_WB_01", .folder = "Data/Buildings/europe/summer/e_wb/01", .mod_dir = "buildings/europe/summer/e_wb", .hp = "0.3", .state = "2" },
+};
+const kit_views_dir = "tools/zig/fixtures/bk-views/kit-views";
+
+test "kit views are what the Game draws at every step: each turn's fixture picture at its zero cross, not the turn bk-views side drew" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-kit-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const cwd = std.Io.Dir.cwd();
+    const root_rel = "zig-out/local-test/camera-turn/kit";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), root_rel });
+    cwd.deleteTree(io, root_rel) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const work = try std.fs.path.join(allocator, &.{ root, "work" });
+    const map = try writeStandingMod(io, allocator, data, "Data/Maps/road3d.xml");
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "object facing state step turn: the kit view there, IoU / colour at offset; the picture bk-views side drew for that turn (at turn 0 the 2003 or hand picture) there, IoU / colour\n");
+    for (kit_shown, 0..) |object, o| {
+        const base = std.fs.path.basename(object.folder);
+        const kit_dir = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ kit_views_dir, object.folder["Data/Buildings/".len..] });
+        const hand = if (cwd.access(io, try std.fmt.allocPrint(allocator, "tools/zig/fixtures/bk-views/hand-models/{s}.json", .{base}), .{})) |_| true else |_| false;
+        // What camera-turn-mod makes: the turns `side` draws (a hand model's turn 0
+        // too), then the kit views laid over them in the mod's folder.
+        const turned = try std.fs.path.join(allocator, &.{ root, "turned", object.name });
+        try cwd.createDirPath(io, turned);
+        try game_views.runTool(io, allocator, tool, &.{ "side", object.folder, if (hand) "0,1,2,3,1l1,2l2,3l3" else "1,2,3,1l1,2l2,3l3", turned, work });
+        const shown = try std.fs.path.join(allocator, &.{ data, object.mod_dir });
+        try game_views.runTool(io, allocator, tool, &.{ "kit", kit_dir, object.folder, turned, shown });
+
+        var foot = try footprintMiddle(io, allocator, tool, object.folder, try std.fmt.allocPrint(allocator, "{s}/sprites/{s}", .{ root, base }));
+        for (0..object.facing) |_| foot = .{ -foot[1], foot[0] };
+        // placeStanding's item with the object's HP.
+        var d: [2]i32 = undefined;
+        for (&d, foot, [2]i32{ 240, -200 }) |*v, f, a| v.* = 4 * @as(i32, @intFromFloat(@round((@as(f64, @floatFromInt(a)) - f * std.math.sqrt2) / 4)));
+        const map_name = try std.fmt.allocPrint(allocator, "kit{d}.xml", .{o});
+        try cwd.writeFile(io, .{
+            .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", map_name }),
+            .data = try std.mem.replaceOwned(u8, allocator, map, "<Objects/>", try std.fmt.allocPrint(allocator, "<Objects><item Direction=\"{d}\" Player=\"-1\" ScriptID=\"-1\" HP=\"{s}\" FrameIndex=\"-1\"><Name>{s}</Name>" ++
+                "<Position x=\"{d}\" y=\"{d}\" z=\"0\"/><Link LinkID=\"1\" Intention=\"0\" LinkWith=\"0\"/></item></Objects>", .{ object.facing * 16384, object.hp, object.name, shadow_middle_ai + d[0], shadow_middle_ai + d[1] })),
+        });
+        const place = [2]i32{ turn.centre[0] + @divExact(d[0] + d[1], 2), turn.centre[1] + @divExact(d[0] - d[1], 4) };
+        const label = try std.fmt.allocPrint(allocator, "{s}-f{d}", .{ object.name, object.facing });
+        const shots = try turn.runGame(io, allocator, game, root, label, map_name, .{ shadow_look, shadow_look }, "ON", objects_only, 4);
+
+        const views_json = try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/views.json", .{kit_dir}), allocator, .limited(1 << 20));
+        const kit_views = (try std.json.parseFromSliceLeaky(std.json.Value, allocator, views_json, .{})).object.get("states").?.object.get(object.state).?.object;
+        for (0..4) |k| {
+            const t = (object.facing + k) % 4;
+            // CameraTurn.h's LitModelPath: the folder the Game takes the turn from.
+            const folder = if (t == 0) base else if (k == 0 or k != t) try std.fmt.allocPrint(allocator, "{s}_r{d}", .{ base, t }) else try std.fmt.allocPrint(allocator, "{s}_r{d}_l{d}", .{ base, t, k });
+            // The fixture picture, its zero cross as views.json gives it, over
+            // the rubble of the folder shown (the state's ground picture, which
+            // the kit views leave as it was and the Game draws with the objects).
+            const zero = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, allocator, kit_views.get(try std.fmt.allocPrint(allocator, "{d}", .{t})).?, .{ .ignore_unknown_fields = true });
+            const picture = try views.readRgbaPng(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/{s}_{d}.png", .{ kit_dir, object.state, t }), allocator, .limited(64 << 20)));
+            const out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-{d}", .{ root, label, k });
+            try game_views.runTool(io, allocator, tool, &.{ "decompose", try std.fs.path.join(allocator, &.{ shown, folder }), out });
+            const ground: ?game_views.Sprite = game_views.decomposed(io, allocator, out, try std.fmt.allocPrint(allocator, "{s}g", .{object.state})) catch null;
+            const expected = try overGround(allocator, .{ .image = picture, .anchor = zero.zero }, ground);
+            // What the Game would draw without the kit views.
+            const drew_folder = if (t == 0 and !hand) object.folder else try std.fs.path.join(allocator, &.{ turned, folder });
+            const drew_out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-{d}-side", .{ root, label, k });
+            try game_views.runTool(io, allocator, tool, &.{ "decompose", drew_folder, drew_out });
+            const drew = try onGround(io, allocator, drew_out, object.state);
+
+            const where = turn.turnScreen(place, k);
+            const own = game_views.score(shots[k], expected, where);
+            const other = game_views.score(shots[k], drew, where);
+            try report.print(allocator, "{s} {d} {s} {d} {d}: {d:.3} / {d:.2} at {d},{d}; {d:.3} / {d:.2}\n", .{ base, object.facing, object.state, k, t, own.iou, own.colour, own.dx, own.dy, other.iou, other.colour });
+            if (own.iou < min_iou or own.colour > max_colour or @abs(own.dx) > 1 or @abs(own.dy) > 1) failed = true;
+            // The floors must tell the two apart: the turn `side` drew fails them there.
+            if (other.iou >= min_iou and other.colour <= max_colour) failed = true;
+        }
+    }
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}the Game does not draw a kit view as its fixture holds it, or the picture bk-views side drew passes for it (IoU floor {d}, colour ceiling {d}, within a pixel); the frames are in {s}\n", .{ report.items, min_iou, max_colour, root });
+        return error.DrawnWrong;
+    }
+}
+
+/// The maps of the built mod shot for the maintainer (`camera-turn-kit-review`,
+/// no checks): nine buildings each, African, European and Russian.
+const kit_review_maps = [_][]const u8{ "kit_views_01", "kit_views_08", "kit_views_17", "kit_views_08_damaged" };
+
+test "kit review frames: the built Remastered views mod on its kit maps at the four camera steps" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-kit-review\n", .{});
+        return error.MissingGame;
+    };
+    const cwd = std.Io.Dir.cwd();
+    const here = try std.process.currentPathAlloc(io, allocator);
+    // The mod camera-turn-mod installed, as `zig build run-remastered` plays it;
+    // the Game's user folders and logs go to a scratch folder beside the frames.
+    const mods = try std.fs.path.join(allocator, &.{ here, "zig-out/remastered/mods" });
+    const out_rel = "zig-out/review/kit-views";
+    const out = try std.fs.path.join(allocator, &.{ here, out_rel });
+    cwd.deleteTree(io, out_rel) catch {};
+    try cwd.createDirPath(io, out_rel);
+    for (kit_review_maps) |map| {
+        var schedule: std.ArrayList(u8) = .empty;
+        try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d},g10:set=GamePlay.Remastered=ON", .{ camera, camera });
+        for (0..4) |k| {
+            if (k != 0) try schedule.appendSlice(allocator, ",g10:key=COMMA");
+            try schedule.print(allocator, ",g{d}:shot", .{1500 + k});
+        }
+        try schedule.appendSlice(allocator, ",g10:set=GamePlay.Remastered=OFF,g200:exit");
+        const run = try control.runScheduleWith(io, allocator, game, out, "remastered_views", map, try std.fmt.allocPrint(allocator, "{s}.xml", .{map}), schedule.items, "", .{ .env = &.{.{ "BK_MODS_ROOT", mods }} });
+        for (0..4) |k| _ = try control.readShot(io, allocator, run.user, try std.fmt.allocPrint(allocator, "g{d}", .{1500 + k}), out, try std.fmt.allocPrint(allocator, "{s}-step{d}", .{ map, k }));
+    }
+}
+
+/// A picture with its zero cross at `anchor` over a ground picture (a damaged
+/// state's rubble), where there is one: what the Game draws there, on the
+/// picture's own canvas grown to hold the ground's.
+fn overGround(allocator: std.mem.Allocator, sprite: game_views.Sprite, ground: ?game_views.Sprite) !game_views.Sprite {
+    const g = ground orelse return sprite;
+    const left = @max(sprite.anchor[0], g.anchor[0]);
+    const top = @max(sprite.anchor[1], g.anchor[1]);
+    const width: usize = @intCast(left + @max(@as(i32, @intCast(sprite.image.width)) - sprite.anchor[0], @as(i32, @intCast(g.image.width)) - g.anchor[0]));
+    const height: usize = @intCast(top + @max(@as(i32, @intCast(sprite.image.height)) - sprite.anchor[1], @as(i32, @intCast(g.image.height)) - g.anchor[1]));
+    const out: views.Image = .{ .width = @intCast(width), .height = @intCast(height), .pixels = try allocator.alloc([4]u8, width * height) };
+    @memset(out.pixels, .{ 0, 0, 0, 0 });
+    for ([_]game_views.Sprite{ g, sprite }) |layer| {
+        const dx: usize = @intCast(left - layer.anchor[0]);
+        const dy: usize = @intCast(top - layer.anchor[1]);
+        for (0..layer.image.height) |y| for (0..layer.image.width) |x| {
+            const p = layer.image.pixels[y * layer.image.width + x];
+            if (p[3] >= 128) out.pixels[(y + dy) * width + x + dx] = p;
+        };
+    }
+    return .{ .image = out, .anchor = .{ left, top } };
 }
 
 /// The review of 2026-10-31 (`camera-turn-full3d-review-*`, frames for the

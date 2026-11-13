@@ -586,3 +586,82 @@ world's sun, `0l<s>` replacing the 2003 picture), and the village's textures loo
 - `full3d-africa`, `-common`, `-europe` passed with the shadows alone of the first cut (nine a building, the world's
   sun of bk-views); with the final fifteen and the Game's sun they were not run again, nor `full3d-ussr`
   (`install-all` draws every object again: bk-views and the side arguments changed).
+
+## Kit views: the buildings' rendered views in the mod (2026-11-12)
+
+The maintainer builds each building as a kit of parts in Blender, outside the repo, and wants to see those models in the
+Game before more work goes into them. What the Game takes is their rendered views, not their meshes: this changes the
+plan above for the 194 buildings (the mod showed the tracked meshes' renders, a hand model's where there was one) and
+leaves the props as they were.
+
+- **Artifact.** `tools/zig/fixtures/bk-views/kit-views/` (tracked, 79 MiB): `index.json` and, per building,
+  `views.json` and `<state>_<turn>.png` for three damage states and four quarter turns, 2328 pictures. The format, the
+  turn sense and the light are in `tools/blender/README.md`, with how to take a new export.
+- **Step.** `bk-views kit <kit-dir> <variant-dir> <turned-dir> <out-dir>` runs once a building, after its `side` run and
+  on that run's cache folder, cached the same way (`--deps=`, bk-views-fast and bk-sprite as inputs). It copies what
+  `side` wrote, adds the building's own folder (the 2003 one, or the hand model's turn 0) and composes each state's
+  picture pack from the kit view with `bk-sprite compose-pack`: turn 0 into `<variant>`, turn j into `<variant>_r<j>`
+  and `<variant>_r<j>_l<j>`. `full3d-mod` installs that folder in the mod in place of the turns; `kit-views` names the
+  194 alone. `zig-out/remastered/Buildings` keeps the turns as `side` drew them.
+- **One canvas a folder.** The first cut replaced only the four files of a picture pack. `bk-views decompose`, and
+  with it the round trip and the Resource Editor, refused such a folder: its packs must share one zero cross, and a kit
+  view reaches further left of or above its zero cross than the folder's canvas does. So `kit` composes every state of
+  the folder again on a canvas grown to hold both, a kit state from its view and a winter state from its own picture,
+  each with the shadow and the ground picture the folder held, which compose-pack cuts under the picture it is given.
+  The shadows alone (`_r<k>_s<s>`) are copied as they are: they stay cut under the mesh's render.
+- **The zero cross outside the picture.** A kit view is cut to its content and its zero cross is a ground point: it
+  lies outside the picture in 319 of the 2328, by 27 pixels at most. The canvas is grown to hold it; beyond 64 pixels
+  the run fails.
+- **What a kit view does not bring.** No winter pictures, no camera-lit pictures and no shadows. `_r<j>` and
+  `_r<j>_l<j>` hold the same picture, so a building at its own facing f shows at step s the picture of turn f + s lit
+  for facing 0; in winter the Game shows what `side` made; the shadow is the mesh's, or at turn 0 and step 0 the 2003
+  one.
+- **The mod lays over Data per file** (`CModFileSystem::OpenStream` asks the mod first, then the base), so the
+  building's own folder in the mod could hold the picture packs alone; it holds the whole folder, as a hand model's
+  does, so that the pack tools and the Resource Editor can open it.
+- **Maps and run steps.** `camera-turn-mod` also writes `maps/kit_views_01.xml` to `kit_views_22.xml` into the mod
+  (nine buildings each on road3d, and `_damaged` at HP 0.3), and `zig build run-remastered`, `run-remastered-map-editor`
+  and `run-remastered-resource-editor` start the Game and the editors with the mod.
+
+### Proof (win-home, Windows x64, debug Game, 2026-11-12)
+
+- **The engine reads every pack.** `bk-views-roundtrip --kit=<kit-dir>` runs inside `full3d-mod` on the seven folders
+  of each building: decompose, the engine's reader against it (`bk-views-check`), compose-pack again byte for byte,
+  decompose back, and each kit state's decomposed picture against the fixture PNG laid zero on zero, every pixel and
+  colour. All 194 pass: 1358 folders, 4074 picture packs. A folder checked against another building's views, or a turn
+  `side` drew against its own, fails (tried by hand). ussr/summer/townhouse03_1 ships `2gw.san` and `3gw.san` without
+  textures; the check reads a copy of its folder without them.
+- **`camera-turn-kit-game-reads-it`** (E_House01_1, which also has a hand model; A_H07_1 at facing 1; E_WB_01 at HP
+  0.3): at every step the shot against the fixture picture at its zero cross, IoU 0.992 to 1.000 and colour 0.00 to
+  0.35, within a pixel; the picture `side` drew for that turn (the 2003 or hand picture at turn 0) scores IoU 0.674 to
+  0.974 and colour 27.8 to 66.5 there, and must fail the floors (0.95, 2.0).
+- **`camera-turn-kit-editor-reads-it`**: the Map Editor, opened with a mod of the same three and two of them turned
+  with E, draws each one's kit view at colour 0.00 to 0.46; another turn's kit view is 43.4 or more off, the picture
+  `side` drew 41.3 or more.
+- **`resource-editor-auto-bld`** (frames 439 on, `do=sides_folder`): the Sides window on the mod's E_House01_1 draws
+  four cells, four different pictures, each changed against the same cell of the turns `side` drew. It does not compare
+  a cell with the fixture; that the packs are the fixtures is the round trip's.
+- **`camera-turn-kit-review`** (no checks): the installed mod in the Game on `kit_views_01`, `_08`, `_17` and
+  `_08_damaged` at the four steps, whole scene, in `zig-out/review/kit-views`.
+- `test-bk-views` (the PNG reader, the fixtures against `views.json` and `Data/Buildings`), `bk-views-roundtrip`,
+  `bk-views-side`: pass.
+
+### install-all: time and size
+
+| run | time |
+|---|---|
+| `install-game install-language-mods install-map-editor install-resource-editor install-elk`, a warm cache from October | 688 s |
+| `install-all` after that, bk-views changed: all 412 objects drawn again, the 194 kit runs and every check | 2433 s |
+| `install-all` again with only the round trip tool changed: every check again, nothing drawn | 1277 s |
+
+All debug, the default. The mod is 2.5 GiB (`du`): the kit folders hold the buildings' own folders too.
+
+### Left open
+
+- The exports hold stray pixels at the ground line of some turned views (e_house01_1 `1_1.png`: a dotted row left of
+  the house); the Game shows them.
+- The buildings' shadows alone are cut under the mesh's render, not under the kit view: where the two outlines differ
+  a shadow may leave a gap or lie under the picture.
+- The Blender models themselves are not in the editors: a `.mod` with a baked texture a state (`bk-map obj2mod`) would
+  need the kit's parts joined, unwrapped and baked outside the repo and a place in the mod the Building editor reads.
+- Not run: macOS and Linux (CI on push), the release build, the full sweep (left to the maintainer).

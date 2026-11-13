@@ -25,6 +25,10 @@
 //! a matching face one does (the opposite wall, the other roof plane), the
 //! last gaps patch-filled, and packed by `bk-sprite compose-pack`.
 //!
+//! `kit` lays the views of a building rendered outside the repo from its kit
+//! model over what `side` wrote: each state's picture pack composed from the
+//! kit view, everything else kept.
+//!
 //! `holdout` and `style` are the quality gate: a side that exists in 2003
 //! drawn again without it and scored against it, and generated pictures
 //! scored against the building's own 2003 sides.
@@ -39,6 +43,7 @@ const usage: bk_tool.Usage = .{
     \\       bk-views camera <variant-dir>... [--out <camera.json>]
     \\       bk-views inventory <buildings-dir> <out-dir>
     \\       bk-views side <variant-dir> <turns> <out-dir> [<work-dir> | --no-work] [--deps=<file>] [--model=<stem>]
+    \\       bk-views kit <kit-views-dir> <variant-dir> <turned-dir> <out-dir> [--deps=<file>]
     \\       bk-views holdout <out-dir> <variant-dir>...
     \\       bk-views style <out-dir> <variant-dir> <pictures-dir>...
     \\       bk-views report <inventory.json> <gate.json> <work-root> <out-dir>
@@ -60,7 +65,7 @@ pub fn main(init: std.process.Init) u8 {
     return bk_tool.main(init, "bk-views", usage, run);
 }
 
-/// The options side, relight and model3d take after their arguments, for a build
+/// The options side, kit, relight and model3d take after their arguments, for a build
 /// system that caches their runs (build.zig's install-all): `--deps=<file>` writes a
 /// make-style list of every input file the run read, so zig build runs it again only
 /// when one of them changed, and `--no-work` (side) keeps the pictures and source maps
@@ -120,7 +125,7 @@ var model_stem: ?[]const u8 = null;
 fn run(ctx: *bk_tool.Context) !void {
     if (ctx.args.len == 0) return error.Usage;
     const command = ctx.args[0];
-    if (std.mem.eql(u8, command, "side") or std.mem.eql(u8, command, "relight") or std.mem.eql(u8, command, "model3d")) {
+    if (std.mem.eql(u8, command, "side") or std.mem.eql(u8, command, "kit") or std.mem.eql(u8, command, "relight") or std.mem.eql(u8, command, "model3d")) {
         var kept: std.ArrayList([]const u8) = .empty;
         for (ctx.args) |arg| {
             if (std.mem.startsWith(u8, arg, "--deps=") and arg.len > "--deps=".len) {
@@ -129,7 +134,7 @@ fn run(ctx: *bk_tool.Context) !void {
                 no_work = true;
             } else if (std.mem.eql(u8, command, "side") and std.mem.startsWith(u8, arg, "--mirror=") and arg.len > "--mirror=".len) {
                 mirror_path = arg["--mirror=".len..];
-            } else if (std.mem.startsWith(u8, arg, "--model=") and arg.len > "--model=".len) {
+            } else if (!std.mem.eql(u8, command, "kit") and std.mem.startsWith(u8, arg, "--model=") and arg.len > "--model=".len) {
                 model_stem = arg["--model=".len..];
             } else try kept.append(ctx.arena, arg);
         }
@@ -155,6 +160,11 @@ fn run(ctx: *bk_tool.Context) !void {
         for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
         if (no_work and ctx.args.len == 5) return error.Usage;
         return sideCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], if (ctx.args.len == 5) ctx.args[4] else ctx.args[3]);
+    }
+    if (std.mem.eql(u8, command, "kit")) {
+        if (ctx.args.len != 5) return error.Usage;
+        for (ctx.args[1..]) |arg| if (std.mem.startsWith(u8, arg, "-")) return error.Usage;
+        return kitCommand(ctx, ctx.args[1], ctx.args[2], ctx.args[3], ctx.args[4]);
     }
     if (std.mem.eql(u8, command, "holdout") or std.mem.eql(u8, command, "style")) {
         const style = std.mem.eql(u8, command, "style");
@@ -260,6 +270,7 @@ pub const writePng = formats.writePng;
 pub const readStoredPng = formats.readStoredPng;
 pub const writePngDeflated = formats.writePngDeflated;
 pub const readPng = formats.readPng;
+pub const readRgbaPng = formats.readRgbaPng;
 pub const Bounds = formats.Bounds;
 pub const unpack = formats.unpack;
 pub const Stats = formats.Stats;
@@ -4552,6 +4563,252 @@ fn sideCommand(ctx: *bk_tool.Context, dir_arg: []const u8, turns_arg: []const u8
     }
     if (no_work) cwd.deleteTree(io, work) catch {};
     try depScene(ctx, found, scene);
+    try writeDeps(ctx);
+}
+
+// ---------------------------------------------------------------------------
+// kit
+
+/// The files of a state's picture pack: what a kit view replaces in a folder.
+const pack_suffixes = [_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" };
+
+/// A kit view is cut to its content, so its zero cross (a ground point) may lie
+/// outside it: under a jutting roof, beside a wall (27 pixels at most in the
+/// export of 2026-11-12). Further out than this the export is taken to be
+/// broken.
+const kit_zero_outside = 64;
+
+/// A kit view: its picture and the zero cross in it.
+const KitView = struct { state: []const u8, path: []const u8, picture: Image, zero: [2]i32 };
+
+/// `picture` on a canvas of `size`, its pixel `from` on the canvas's pixel
+/// `to`: only its pixels of alpha 128 or more, opaque where `solid` (a
+/// picture's, as a render's are), with their own alpha else (a shadow's, a
+/// ground picture's).
+fn onCanvas(gpa: std.mem.Allocator, picture: Image, from: [2]i32, to: [2]i32, size: [2]u32, solid: bool) !Image {
+    const out: Image = .{ .width = size[0], .height = size[1], .pixels = try gpa.alloc([4]u8, @as(usize, size[0]) * size[1]) };
+    @memset(out.pixels, .{ 0, 0, 0, 0 });
+    for (0..picture.height) |y| for (0..picture.width) |x| {
+        const p = picture.pixels[y * picture.width + x];
+        if (if (solid) p[3] < 128 else p[3] == 0) continue;
+        const tx = @as(i64, @intCast(x)) - from[0] + to[0];
+        const ty = @as(i64, @intCast(y)) - from[1] + to[1];
+        if (tx < 0 or ty < 0 or tx >= size[0] or ty >= size[1]) return error.OffTheCanvas;
+        out.pixels[@as(usize, @intCast(ty)) * size[0] + @as(usize, @intCast(tx))] = if (solid) .{ p[0], p[1], p[2], 255 } else p;
+    };
+    return out;
+}
+
+/// Every file of folder `from` (not below it) copied into folder `to`.
+fn copyFolder(ctx: *bk_tool.Context, from: []const u8, to: []const u8) !void {
+    const cwd = std.Io.Dir.cwd();
+    const files = entries(ctx.arena, ctx.io, from, .file) catch return ctx.failKey("views.err.no_dir", .{from});
+    try cwd.createDirPath(ctx.io, to);
+    for (files) |name| {
+        const target = try std.fs.path.join(ctx.arena, &.{ to, name });
+        std.Io.Dir.copyFile(cwd, try std.fs.path.join(ctx.arena, &.{ from, name }), cwd, target, ctx.io, .{}) catch |err|
+            return ctx.failKey("views.err.read", .{ target, @errorName(err) });
+    }
+}
+
+/// The folder's packs composed again with the kit views `shown` in place of
+/// its states' pictures (`kitCommand`). All packs of a folder share one zero
+/// cross on one canvas (`readPacks`; the Resource Editor and `decompose` hold
+/// them to it), and a kit view may reach further left of or above its zero
+/// cross than the folder's canvas does, so every state is composed again on a
+/// canvas grown to hold both: a kit state from its view, any other (a winter
+/// state) from its own picture, each with the shadow and the ground picture
+/// the folder holds for it, which compose-pack cuts under the picture it is
+/// given. Returns the picture packs made from kit views.
+fn kitFolder(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, folder: []const u8, shown: []const KitView) !usize {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const packs = try readPacks(ctx, folder);
+    const stats = try readStats(arena, try readFile(ctx, try std.fs.path.join(arena, &.{ folder, "1.xml" })));
+    const locked = lockedCenter(stats.origin);
+    // The canvas: the folder's, grown to the left and up to hold each view
+    // from its zero cross, and a free row under the lowest pixel (keepShadow).
+    const old = [2]i32{ -packs.bounds.min_x, -packs.bounds.min_y };
+    var zero = old;
+    var reach = [2]i32{ packs.bounds.max_x, packs.bounds.max_y };
+    for (shown) |view| {
+        const w: i32 = @intCast(view.picture.width);
+        const h: i32 = @intCast(view.picture.height);
+        if (view.zero[0] < -kit_zero_outside or view.zero[1] < -kit_zero_outside or view.zero[0] >= w + kit_zero_outside or view.zero[1] >= h + kit_zero_outside)
+            return ctx.failKey("views.err.read", .{ view.path, "ZeroFarOutside" });
+        zero = .{ @max(zero[0], view.zero[0]), @max(zero[1], view.zero[1]) };
+        reach = .{ @max(reach[0], w - view.zero[0]), @max(reach[1], h - view.zero[1]) };
+    }
+    const size = [2]u32{ @intCast(zero[0] + @max(reach[0], 1)), @intCast(zero[1] + @max(reach[1], 1) + 1) };
+
+    const own = struct {
+        fn picture(gpa: std.mem.Allocator, all: Packs, name: []const u8, from: [2]i32, to: [2]i32, canvas: [2]u32) !?Image {
+            for (all.files) |file| {
+                if (!std.mem.eql(u8, file.name, name)) continue;
+                if (file.pack.sprites.len != 1) return error.PackOfSeveralSprites;
+                return try onCanvas(gpa, try unpack(gpa, file.pack.sprites[0], file.atlas, all.bounds), from, to, canvas, false);
+            }
+            return null;
+        }
+    }.picture;
+
+    var made: usize = 0;
+    const held = try arena.alloc(bool, shown.len);
+    @memset(held, false);
+    cwd.deleteTree(io, work) catch {};
+    try cwd.createDirPath(io, work);
+    for (packs.files) |file| {
+        // A state is a pack named by its number, `w` after it in winter; its
+        // shadow and its ground picture follow its name.
+        const digits = std.mem.indexOfNone(u8, file.name, "0123456789") orelse file.name.len;
+        if (digits == 0 or !(digits == file.name.len or std.mem.eql(u8, file.name[digits..], "w"))) continue;
+        const view: ?KitView = for (shown, held) |v, *h| {
+            if (std.mem.eql(u8, v.state, file.name)) {
+                h.* = true;
+                break v;
+            }
+        } else null;
+        const what = if (view) |v| v.path else try std.fs.path.join(arena, &.{ folder, file.name });
+        const sprite = if (view) |v|
+            onCanvas(arena, v.picture, v.zero, zero, size, true) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })
+        else
+            (own(arena, packs, file.name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })).?;
+        var lowest: ?usize = null;
+        for (sprite.pixels, 0..) |p, i| {
+            if (p[3] >= 128) lowest = i;
+        }
+        if (lowest == null) return ctx.failKey("views.err.read", .{ what, "NoOpaquePixel" });
+        const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{file.name});
+        const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{file.name});
+        const own_shadow = own(arena, packs, shadow_name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) });
+        // compose-pack packs a shadow with every picture; a state without one
+        // (a pillbox) gets one pixel under its lowest, in a pack that is dropped.
+        const shadow = own_shadow orelse blk: {
+            const stand_in: Image = .{ .width = size[0], .height = size[1], .pixels = try arena.alloc([4]u8, sprite.pixels.len) };
+            @memset(stand_in.pixels, .{ 0, 0, 0, 0 });
+            break :blk stand_in;
+        };
+        keepShadow(sprite, shadow);
+        try writeOut(ctx, work, "picture.png", try writePng(arena, sprite));
+        try writeOut(ctx, work, "shadow.png", try writePng(arena, shadow));
+        var argv: std.ArrayList([]const u8) = .empty;
+        try argv.appendSlice(arena, &.{
+            sprite_tool,                                           "compose-pack",
+            try std.fs.path.join(arena, &.{ work, "picture.png" }), try std.fs.path.join(arena, &.{ work, "shadow.png" }),
+            try std.fs.path.join(arena, &.{ work, file.name }),    "--zero",
+            try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }), "--force",
+        });
+        if (stats.passability.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", stats.passability), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
+        if (own(arena, packs, ground_name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })) |ground| {
+            try writeOut(ctx, work, "ground.png", try writePng(arena, ground));
+            try argv.appendSlice(arena, &.{ "--noise", try std.fs.path.join(arena, &.{ work, "ground.png" }) });
+        }
+        const result = std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
+            return ctx.failKey("views.err.compose", .{ what, @errorName(err) });
+        if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ what, result.stderr });
+        if (own_shadow == null) for (pack_suffixes) |suffix| {
+            try cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ work, shadow_name }), suffix }));
+        };
+        if (view != null) made += 1;
+    }
+    for (shown, held) |view, h| {
+        if (!h) return ctx.failKey("views.err.read", .{ view.path, try std.fmt.allocPrint(arena, "NoState{s}In_{s}", .{ view.state, std.fs.path.basename(folder) }) });
+    }
+    for (try entries(arena, io, work, .file)) |name| {
+        if (std.mem.endsWith(u8, name, ".png")) continue;
+        const to = try std.fs.path.join(arena, &.{ folder, name });
+        std.Io.Dir.copyFile(cwd, try std.fs.path.join(arena, &.{ work, name }), cwd, to, io, .{}) catch |err|
+            return ctx.failKey("views.err.read", .{ to, @errorName(err) });
+    }
+    cwd.deleteTree(io, work) catch {};
+    return made;
+}
+
+/// `kit`: the views of a building rendered outside the repo from its kit model
+/// (tools/blender/README.md; the tracked copies are
+/// tools/zig/fixtures/bk-views/kit-views/<region>/<season>/<variant>) in place
+/// of the pictures `side` drew. <kit-dir> holds `views.json` (per damage state
+/// and quarter turn the picture's size and its zero cross in it) and
+/// `<state>_<turn>.png`, turn j the building turned j times by `turnPoint`, all
+/// four lit by the 2003 light fixed in the world at turn 0.
+///
+/// <out-dir> takes every folder of <turned-dir> (what `side` wrote for the
+/// variant: its turns, their shadows alone, and the variant's own folder where
+/// it has a hand model) and, where <turned-dir> has none, the 2003 folder
+/// <variant-dir> as `<variant>`; then the kit views take the place of the
+/// states' pictures, turn 0 in `<variant>` and turn j in `<variant>_r<j>` and
+/// `<variant>_r<j>_l<j>`, composed by `bk-sprite compose-pack` as `side`
+/// composes a turn (the zero cross, the folder's 1.xml grid as the pass rows
+/// and the locked centre; `kitFolder`). The shadows, ground pictures and
+/// winter pictures stay the pictures they were, as do 1.xml, icon and name.
+/// Laid over Data by a mod, the Game then shows the kit views at every camera
+/// step (CameraTurn.h's LitModelPath).
+///
+/// A kit view that cannot be composed fails the run with its path: a turn
+/// folder or a state the variant lacks, a zero cross far outside, an empty
+/// picture, one too large for an atlas.
+fn kitCommand(ctx: *bk_tool.Context, kit_arg: []const u8, dir_arg: []const u8, turned_arg: []const u8, out_arg: []const u8) !void {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const kit = try bk_tool.inputPath(arena, kit_arg);
+    const dir = try bk_tool.inputPath(arena, dir_arg);
+    const turned = try bk_tool.inputPath(arena, turned_arg);
+    const out = try bk_tool.inputPath(arena, out_arg);
+    const name = std.fs.path.basename(dir);
+
+    try cwd.createDirPath(io, out);
+    const folders = entries(arena, io, turned, .directory) catch return ctx.failKey("views.err.no_dir", .{turned});
+    for (folders) |folder| {
+        if (folder[0] == '.') continue;
+        try copyFolder(ctx, try std.fs.path.join(arena, &.{ turned, folder }), try std.fs.path.join(arena, &.{ out, folder }));
+    }
+    if (!hasName(folders, name)) {
+        try copyFolder(ctx, dir, try std.fs.path.join(arena, &.{ out, name }));
+        try depDir(ctx, dir);
+    }
+
+    // The file is views.json; written in two parts, as bk_l10n_test reads every quoted views.<word>
+    // in this source as a key of the string table.
+    const views_path = try std.fs.path.join(arena, &.{ kit, "views" ++ ".json" });
+    try depFile(ctx, views_path);
+    const parsed = std.json.parseFromSliceLeaky(std.json.Value, arena, try readFile(ctx, views_path), .{}) catch |err|
+        return ctx.failKey("views.err.read", .{ views_path, @errorName(err) });
+    const states = if (parsed == .object) parsed.object.get("states") orelse return ctx.failKey("views.err.read", .{ views_path, "NoStates" }) else return ctx.failKey("views.err.read", .{ views_path, "NoStates" });
+    if (states != .object or states.object.count() == 0) return ctx.failKey("views.err.read", .{ views_path, "NoStates" });
+
+    const exe_dir = try std.process.executableDirPathAlloc(io, arena);
+    const beside = try std.fs.path.join(arena, &.{ exe_dir, if (@import("builtin").os.tag == .windows) "bk-sprite.exe" else "bk-sprite" });
+    const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
+    const work = try std.fs.path.join(arena, &.{ out, ".kit" });
+
+    var made: usize = 0;
+    for (0..4) |turn| {
+        var shown: std.ArrayList(KitView) = .empty;
+        var state_names = states.object.iterator();
+        while (state_names.next()) |entry| {
+            const state = entry.key_ptr.*;
+            if (state.len == 0 or std.mem.indexOfNone(u8, state, "0123456789") != null or entry.value_ptr.* != .object or entry.value_ptr.object.count() != 4)
+                return ctx.failKey("views.err.read", .{ views_path, "BadState" });
+            const picture_path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}.png", .{ state, turn }) });
+            const view = entry.value_ptr.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})) orelse return ctx.failKey("views.err.read", .{ picture_path, "TurnNotInViewsJson" });
+            const placed = std.json.parseFromValueLeaky(struct { zero: [2]i32, size: [2]u32 }, arena, view, .{ .ignore_unknown_fields = true }) catch |err|
+                return ctx.failKey("views.err.read", .{ picture_path, @errorName(err) });
+            try depFile(ctx, picture_path);
+            const picture = formats.readRgbaPng(arena, try readFile(ctx, picture_path)) catch |err| return ctx.failKey("views.err.read", .{ picture_path, @errorName(err) });
+            if (picture.width != placed.size[0] or picture.height != placed.size[1]) return ctx.failKey("views.err.read", .{ picture_path, "SizeNotViewsJson" });
+            try shown.append(arena, .{ .state = state, .path = picture_path, .picture = picture, .zero = placed.zero });
+        }
+        const targets: []const []const u8 = if (turn == 0) &.{name} else &.{ try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, turn }), try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ name, turn, turn }) };
+        for (targets) |target| {
+            const folder = try std.fs.path.join(arena, &.{ out, target });
+            cwd.access(io, try std.fs.path.join(arena, &.{ folder, "1.xml" }), .{}) catch
+                return ctx.failKey("views.err.read", .{ shown.items[0].path, try std.fmt.allocPrint(arena, "NoTurnFolder_{s}", .{target}) });
+            made += try kitFolder(ctx, sprite_tool, work, folder, shown.items);
+        }
+    }
+    try ctx.out.print("wrote {s}: {d} picture packs of {s} from the kit views {s}\n", .{ out, made, name, kit });
     try writeDeps(ctx);
 }
 

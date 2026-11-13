@@ -288,6 +288,67 @@ pub fn readPng(gpa: std.mem.Allocator, bytes: []const u8) !Image {
     return .{ .width = width, .height = height, .pixels = pixels };
 }
 
+/// Reads an 8-bit RGBA PNG as any encoder writes it (several IDAT chunks,
+/// every row filter, no interlace): the kit views (`bk-views kit`), which are
+/// exported outside the repo.
+pub fn readRgbaPng(gpa: std.mem.Allocator, bytes: []const u8) !Image {
+    if (bytes.len < 33 or !std.mem.eql(u8, bytes[0..8], "\x89PNG\r\n\x1a\n")) return error.NotAPng;
+    const width = std.mem.readInt(u32, bytes[16..20], .big);
+    const height = std.mem.readInt(u32, bytes[20..24], .big);
+    if (!std.mem.eql(u8, bytes[24..29], &.{ 8, 6, 0, 0, 0 })) return error.NotRgba8;
+    if (width == 0 or height == 0 or width > 16384 or height > 16384) return error.BadPngSize;
+    var idat: std.ArrayList(u8) = .empty;
+    defer idat.deinit(gpa);
+    var at: usize = 8;
+    while (at + 12 <= bytes.len) {
+        const length: usize = std.mem.readInt(u32, bytes[at..][0..4], .big);
+        if (at + 12 + length > bytes.len) return error.NotAPng;
+        const kind = bytes[at + 4 ..][0..4];
+        if (std.mem.eql(u8, kind, "IDAT")) try idat.appendSlice(gpa, bytes[at + 8 ..][0..length]);
+        if (std.mem.eql(u8, kind, "IEND")) break;
+        at += 12 + length;
+    }
+    var input: std.Io.Reader = .fixed(idat.items);
+    const window = try gpa.alloc(u8, std.compress.flate.max_window_len);
+    defer gpa.free(window);
+    var d: std.compress.flate.Decompress = .init(&input, .zlib, window);
+    const stride = @as(usize, width) * 4;
+    const raw = d.reader.readAlloc(gpa, (stride + 1) * height) catch return error.NotAPng;
+    defer gpa.free(raw);
+    const pixels = try gpa.alloc([4]u8, @as(usize, width) * height);
+    errdefer gpa.free(pixels);
+    const out = std.mem.sliceAsBytes(pixels);
+    for (0..height) |y| {
+        const filter = raw[y * (stride + 1)];
+        if (filter > 4) return error.BadPngFilter;
+        const line = raw[y * (stride + 1) + 1 ..][0..stride];
+        for (0..stride) |i| {
+            // The byte a pixel to the left, the one above, and the one above that.
+            const a: u8 = if (i >= 4) out[y * stride + i - 4] else 0;
+            const b: u8 = if (y > 0) out[(y - 1) * stride + i] else 0;
+            const c: u8 = if (y > 0 and i >= 4) out[(y - 1) * stride + i - 4] else 0;
+            out[y * stride + i] = line[i] +% switch (filter) {
+                0 => 0,
+                1 => a,
+                2 => b,
+                3 => @as(u8, @intCast((@as(u16, a) + b) / 2)),
+                else => paeth(a, b, c),
+            };
+        }
+    }
+    return .{ .width = width, .height = height, .pixels = pixels };
+}
+
+/// The PNG Paeth predictor: of left, above and above left, the one nearest
+/// left + above - above left.
+fn paeth(a: u8, b: u8, c: u8) u8 {
+    const p = @as(i32, a) + b - c;
+    const pa = @abs(p - a);
+    const pb = @abs(p - b);
+    const pc = @abs(p - c);
+    return if (pa <= pb and pa <= pc) a else if (pb <= pc) b else c;
+}
+
 pub fn pngChunk(w: *std.Io.Writer, kind: *const [4]u8, data: []const u8) !void {
     try w.writeInt(u32, @intCast(data.len), .big);
     try w.writeAll(kind);
