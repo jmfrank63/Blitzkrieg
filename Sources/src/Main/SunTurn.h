@@ -25,6 +25,9 @@
 namespace NCameraTurn
 {
 	const char * const pszSunVar = "GFX.World.SunTurn";
+	// The player's profile var (IUserProfile, config.cfg) that holds the sun turn
+	// of the last mission the player started with the Remastered option on.
+	const char * const pszLastSunVar = "Remastered.SunTurn.Last";
 
 	// Whether the player may turn the camera: the player's own Remastered option
 	// (NRemastered::pszOptionVar). Unlike NRemastered::Enabled() it holds in
@@ -104,7 +107,7 @@ namespace NCameraTurn
 	// The sun turn of a mission that starts: 0 where the player may not turn the
 	// camera (the 2003 look); else one of the four by nRandom (any number that is
 	// not the game's synchronised random: the pick is the player's own), never
-	// the turn nPrevious of the mission this process started before it (-1:
+	// the turn nPrevious of the mission the player started before it (-1:
 	// none), so that two games in a row never look the same. The first pick is
 	// even over the four, a later one even over the other three.
 	inline int PickSunTurn( const bool bAllowed, const int nPrevious, const unsigned int nRandom )

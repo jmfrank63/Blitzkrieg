@@ -1933,9 +1933,12 @@ stand at any of four places and makes every picture follow it.
   the 2003 light: the variant's own pictures and `_r<k>`.
 - **The pick.** `CInterfaceMission::NewMission` picks the turn before the terrain and the first object are made
   (`NewSunTurn`, `NCameraTurn::PickSunTurn`): where the player's Remastered option holds (`NCameraTurn::Allowed`, as for
-  the turn keys: also in multiplayer and replays), the first mission of a process any of the four, a later one any of
-  the other three, so two games in a row never have the same sun; else 0. The number comes from `std::random_device`,
-  never from the game's synchronised generator (`Random()`, which every player and a replay must draw alike). A
+  the turn keys: also in multiplayer and replays), a profile's first mission any of the four, a later one any of
+  the other three, so two games in a row never have the same sun; else 0. The turn of the mission before is the
+  player's profile's (`IUserProfile`'s var `Remastered.SunTurn.Last` in its `config.cfg`, set at every pick), so the
+  rule holds through closing the Game and starting it again; a profile that never had the option never gets the var.
+  The number comes from `std::random_device`, never from the game's synchronised generator (`Random()`, which every
+  player and a replay must draw alike); `BK_SUN_RANDOM=<number>` stands in for it (the tier below). A
   restart of a mission is a new mission and picks again. The option must hold as the mission starts: switched on in a
   running mission it turns the camera but leaves that mission the 2003 sun.
 - **Fixed during the game.** Nothing changes the var while a mission runs. The mission's save carries it in the
@@ -2054,9 +2057,15 @@ and shadow passes taken off by the mission's own toggle messages, so both shots 
     redraw on a light that changes while the turn stays. A Game started with `BK_SUN_TURN=1` loads the save from the
     main menu: `sun turn 2 (loaded)`, the same view under light 3 (1.000 / 0.00; 20.20), and a turn on shows turn 2
     under light 0 (1.000 / 0.37; 39.93).
+  - *Started again, another sun.* The last mission that profile started was the saved one's, under sun turn 2. Two
+    more Games are started on the house's map with nothing forced and `BK_SUN_RANDOM=1` in place of the machine's
+    number: the logs say sun turn 0, then 2 (after turn 2 the number 1 picks 0, after 0 it picks 2; a Game that did
+    not know the mission before would say 1 both times), and the profile's `config.cfg` holds
+    `Remastered.SunTurn.Last` 2.
   - *Without Remastered.* A profile that never had the option, `BK_SUN_TURN=2`: the log says sun turn 0, the house is
     its view of turn 0 under light 0 (1.000 / 0.00; light 2's is 41.77 off) with that view's shadow (IoU 0.904 to
-    1.000 over the runs; light 2's 0.007), and the turn key changes nothing.
+    1.000 over the runs; light 2's 0.007), the turn key changes nothing, and its `config.cfg` holds no
+    `Remastered.SunTurn` var.
 - **`camera-turn-sun-terrain-game-reads-it`**: road3d without its road, raised to a cosine hill (120 high, 14 cells'
   radius) with the shades the Map Editor's rule bakes for the 2003 sun; the ground alone, the sun forced to each turn.
   The mean brightness of a 41 pixel box half way up each of the four slopes (facing -x-y, +x-y, +x+y, -x+y), each over

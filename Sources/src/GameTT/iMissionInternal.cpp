@@ -876,23 +876,30 @@ static bool IsMapTraceOn()
 	return bOn;
 }
 // The sun's turn of a mission that starts (SunTurn.h): another one than the
-// mission this process started before it had, by a random number of the
+// mission the player started before it had, by a random number of the
 // machine's own - never the game's synchronised generator, whose draws every
 // player and a replay must share - or the turn BK_SUN_TURN=0..3 forces (the
 // tiers, and to look at one sun). 0, the 2003 sun, where the player's
 // Remastered option does not hold.
+// The turn of the mission before is the player's profile's (a var of
+// config.cfg, NCameraTurn::pszLastSunVar), so the game started again does not
+// begin under the sun the last one had; a profile without the option never
+// gets the var. BK_SUN_RANDOM=<number> stands in for the machine's number (the
+// tier that holds this rule on the real Game).
 static int NewSunTurn()
 {
-	static int nPrevious = -1;
 	if ( !NCameraTurn::Allowed() )
 		return 0;
+	IUserProfile *pProfile = GetSingleton<IUserProfile>();
 	int nSun = NCameraTurn::ForcedSunTurn( getenv( "BK_SUN_TURN" ) );
 	if ( nSun < 0 )
 	{
+		const char *pszRandom = getenv( "BK_SUN_RANDOM" );
 		std::random_device device;
-		nSun = NCameraTurn::PickSunTurn( true, nPrevious, device() );
+		const unsigned int nRandom = pszRandom != 0 && pszRandom[0] != 0 ? (unsigned int)strtoul( pszRandom, 0, 10 ) : device();
+		nSun = NCameraTurn::PickSunTurn( true, pProfile->GetVar( NCameraTurn::pszLastSunVar, -1 ), nRandom );
 	}
-	nPrevious = nSun;
+	pProfile->AddVar( NCameraTurn::pszLastSunVar, nSun );
 	return nSun;
 }
 static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlayer )

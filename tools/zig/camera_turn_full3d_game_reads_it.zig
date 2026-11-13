@@ -892,6 +892,25 @@ test "the sun's turn is the mission's: a tank's shadow falls as the house's, a s
         }
     }
 
+    // The Game started again begins under another sun than the mission before
+    // it had: the player's profile holds that mission's turn (the var
+    // Remastered.SunTurn.Last of its config.cfg). The last mission this
+    // profile started was the saved one's, under sun turn 2 (the load starts
+    // none). Two more Games, each started anew with nothing forced and the
+    // number 1 in place of the machine's random one (BK_SUN_RANDOM): after
+    // turn 2 that number picks 0, after 0 it picks 2. A Game that did not know
+    // the mission before would pick 1 both times.
+    {
+        const unforced: []const [2][]const u8 = &.{ .{ "BK_SUN_TURN", "-" }, .{ "BK_SUN_RANDOM", "1" } };
+        const first = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "again-1", "house.xml", "g300:exit", objects_only, .{ .user = "on", .env = unforced });
+        const second = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "again-2", "house.xml", "g300:exit", objects_only, .{ .user = "on", .env = unforced });
+        const picks = [2]i32{ try tracedSun(allocator, first.log), try tracedSun(allocator, second.log) };
+        const config = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(allocator, &.{ second.user, "profiles", "Turn", "config.cfg" }), allocator, .limited(4 << 20));
+        const held = std.mem.indexOf(u8, config, "<item data=\"2\"><key>Remastered.SunTurn.Last</key>") != null;
+        try report.print(allocator, "started again after sun turn 2, the random number 1 both times: sun turn {d}, then {d} (0, then 2: never the turn before; 1 and 1 without the profile's memory); the profile holds the last, 2: {}\n", .{ picks[0], picks[1], held });
+        if (picks[0] != 0 or picks[1] != 2 or !held) failed = true;
+    }
+
     // Without Remastered the sun is where 2003 had it, whatever is forced: a
     // user whose profile never had the option, sun turn 2 forced.
     {
@@ -907,9 +926,12 @@ test "the sun's turn is the mission's: a tank's shadow falls as the house's, a s
         // The turn key does nothing without the option: the four shots are one view.
         var turned: f64 = 0;
         for (1..4) |k| turned = @max(turned, game_views.score(off.alone[k], try kitView(io, allocator, mod.kit_dir, "1", 0, 0, "l"), where).colour);
+        // Nor does its profile take the var of the last sun: its config.cfg is as a 2003 mission leaves it.
+        const config = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(allocator, &.{ root, "user", "off", "profiles", "Turn", "config.cfg" }), allocator, .limited(4 << 20));
+        const remembered = std.mem.indexOf(u8, config, "Remastered.SunTurn") != null;
         try report.print(allocator, "Remastered off, sun turn 2 forced: the mission's log says sun turn {d}; the view of turn 0 under light 0 there, IoU / colour {d:.3} / {d:.2}, under light 2 {d:.2}; " ++
-            "its shadow IoU {d:.3}, light 2's {d:.3}; after the turn key the same view's colour at most {d:.2}\n", .{ traced, own.iou, own.colour, forced.colour, shadow_iou, forced_shadow, turned });
-        if (traced != 0 or own.iou < min_iou or own.colour > max_colour or forced.colour < min_other_light_colour or shadow_iou < min_lit_shadow_iou or forced_shadow >= shadow_iou or turned > max_colour) failed = true;
+            "its shadow IoU {d:.3}, light 2's {d:.3}; after the turn key the same view's colour at most {d:.2}; its profile holds a last sun: {}\n", .{ traced, own.iou, own.colour, forced.colour, shadow_iou, forced_shadow, turned, remembered });
+        if (traced != 0 or own.iou < min_iou or own.colour > max_colour or forced.colour < min_other_light_colour or shadow_iou < min_lit_shadow_iou or forced_shadow >= shadow_iou or turned > max_colour or remembered) failed = true;
     }
 
     try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });

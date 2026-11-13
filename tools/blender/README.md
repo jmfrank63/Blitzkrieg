@@ -112,7 +112,8 @@ $env:BK_SUN_TURN = "2"; & "$PWD\zig-out\game\windows\x86_64\debug\Game.exe" -mod
 The mod's `maps/kit_views_01.xml` to `kit_views_22.xml` stand every building of the index on a flat map, nine each in the index's
 order (`kit_views_<nn>_damaged.xml`: at HP 0.3, the damaged state). In the Game switch Remastered on (Options > Settings > Gameplay)
 and turn the camera with `,` and `.`; without it the Game shows turn 0 under the 2003 light. A mission started with Remastered on
-picks the turn of its sun at random, another one than the mission before it, and keeps it through its saves; the option must be on
+picks the turn of its sun at random, another one than the mission before it (also after the Game was closed: the profile remembers
+the last), and keeps it through its saves; the option must be on
 before the mission starts, a mission started without it keeps the 2003 sun. `-Dsun-turn=<0..3>`, or `BK_SUN_TURN` in the
 environment, starts every mission under that turn instead (0 is the 2003 sun). In the Map Editor open a map of the mod (or place
 buildings) and turn one with Q and E. In the Resource Editor the Building editor's Sides window shows a building folder's four sides.
