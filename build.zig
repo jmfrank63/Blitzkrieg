@@ -10265,16 +10265,24 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 ///
 /// A building whose kit views are tracked (tools/zig/fixtures/bk-views/kit-views, rendered outside the
 /// repo from its Blender kit model, tools/blender/README.md) shows those in the mod: `bk-views kit` lays
-/// them over the object's turns, each state's picture composed from the kit view with the shadow and ground
-/// picture the turn had, in a cached run of its own after the object's `side` run; the round trip checks
-/// every one of those packs through the engine's reader and against its kit view, and the mod takes that
-/// folder in place of the turns. `kit-views` runs them alone. zig-out/remastered/Buildings keeps the turns as `side` drew them.
-/// The shadows a building at its own facing f casts at camera step s, turn k = f + s, apart from the pictures it
-/// shows there (`bk-views side`'s `<k>s<s>`): its full 3D model flattened on the ground along the Game's sun, as a
-/// vehicle's, every turn at every step but turn 0 at step 0 (the 2003 picture with its own shadow). A prop shows
-/// turn s at step s.
+/// them over the object's turns, every turn under every light, each state's picture composed from the kit
+/// view with the view's own shadow and the ground picture the turn had, and each one's shadow alone, in a
+/// cached run of its own after the object's `side` run; the round trip checks every one of those packs
+/// through the engine's reader and against its kit view, and the mod takes that folder in place of the
+/// turns. `kit-views` runs them alone. zig-out/remastered/Buildings keeps the turns as `side` drew them.
+/// The shadows an object's turn k casts under light index l apart from the pictures it shows there (`bk-views
+/// side`'s `<k>s<l>`): its full 3D model flattened on the ground along the Game's sun, as a vehicle's, every turn
+/// under every light but turn 0 at light 0 (the 2003 picture with its own shadow). The light index is the camera's
+/// step plus the turn the mission's sun stands at (Sources/src/Main/SunTurn.h), so a building at its own facing f
+/// shows turn f + s at step s under any of the four, and so does a prop, which shows turn s there.
 const facing_shadows = "0s1,0s2,0s3,1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
-const prop_shadows = "1s1,2s2,3s3";
+/// The turns of an object lit by the sun as light index l has it (`<k>l<l>`). A building's are its kit views, which
+/// `bk-views kit` lays for every turn and light, so `side` draws only the three a building of facing 0 showed
+/// before the sun turned (the winter pictures and the folders kit starts from). A prop has no kit views: `side`
+/// draws its three turns under each of the three lights. Turn 0 under a light is the 2003 picture relit
+/// (`objects-relight`), which `side` does not draw.
+const building_lit = "1l1,2l2,3l3";
+const prop_lit = "1l1,1l2,1l3,2l1,2l2,2l3,3l1,3l2,3l3";
 
 fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) *std.Build.Step {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
@@ -10318,10 +10326,9 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             side.setCwd(b.path("."));
             setUserRootsForTest(side, "bk-views-user");
             // A building may stand at its own facing f (the Map Editor's Q and E)
-            // and shows turn f + s at camera step s with the pictures facing 0 has
-            // (the maintainer's ruling of 2026-10-31), casting the shadow of that
+            // and shows turn f + s at camera step s, casting the shadow of that
             // turn under the world's sun (`facing_shadows`). A prop shows turn s at
-            // step s.
+            // step s. Both under the light the step and the mission's sun give.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
             const kit_path: ?[]const u8 = for (kit_index) |k| {
                 if (building and std.ascii.eqlIgnoreCase(k.path, under)) break k.path;
@@ -10330,7 +10337,7 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // in a folder named as the variant's own that the mod lays over it.
             const hand_json = b.fmt("tools/zig/fixtures/bk-views/hand-models/{s}.json", .{name});
             const handmade = if (b.root.root_dir.handle.access(b.graph.io, hand_json, .{})) |_| true else |_| false;
-            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,1l1,2l2,3l3,{s}", .{ if (handmade) "0," else "", if (building) facing_shadows else prop_shadows }) });
+            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,{s},{s}", .{ if (handmade) "0," else "", if (building) building_lit else prop_lit, facing_shadows }) });
             side.addArg("--mirror=tools/zig/views-mirror.txt");
             side.addFileInput(b.path("tools/zig/views-mirror.txt"));
             // A state's file added to the model is no input of the last run's dep file.
@@ -10399,12 +10406,12 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
                 kit_check.addArgs(&.{ module_root, b.fmt("zig-out/local-test/full3d/kit-check/{s}", .{e.path}), b.fmt("--kit={s}", .{kit_dir}) });
                 kit_check.step.dependOn(sprite.install);
                 // The kit folders' paths name the kit run's cache folder, which changes with
-                // the kit views and with the turns under them.
-                kit_check.addDirectoryArg(shown.path(b, name));
-                for (1..4) |k| {
-                    kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}", .{ name, k })));
-                    kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
-                }
+                // the kit views and with the turns under them. Every folder kit lays a view in:
+                // each turn under each light, and each one's shadow alone.
+                for (0..4) |k| for (0..4) |l| {
+                    kit_check.addDirectoryArg(shown.path(b, if (l != 0) b.fmt("{s}_r{d}_l{d}", .{ name, k, l }) else if (k != 0) b.fmt("{s}_r{d}", .{ name, k }) else name));
+                    if (k + l != 0) kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, l })));
+                };
                 addPathDir(kit_check, rootPath(b, "zig-out/bin"));
                 kit_check.expectExitCode(0);
                 kit_check.step.dependOn(&check.step);

@@ -4577,9 +4577,13 @@ const pack_suffixes = [_][]const u8{ ".san", "_c.dds", "_h.dds", "_l.dds" };
 /// export of 2026-11-12). Further out than this the export is taken to be
 /// broken.
 const kit_zero_outside = 64;
+/// A kit view's shadow is cut to its content too and lies off the building's
+/// foot, further the taller the building: its zero cross is held to this.
+const kit_shadow_outside = 4096;
 
-/// A kit view: its picture and the zero cross in it.
-const KitView = struct { state: []const u8, path: []const u8, picture: Image, zero: [2]i32 };
+/// A kit view: its picture and the zero cross in it, and the shadow its model
+/// casts on the ground under the same light, with its own zero cross.
+const KitView = struct { state: []const u8, path: []const u8, picture: Image, zero: [2]i32, shadow_path: []const u8, shadow: Image, shadow_zero: [2]i32 };
 
 /// `picture` on a canvas of `size`, its pixel `from` on the canvas's pixel
 /// `to`: only its pixels of alpha 128 or more, opaque where `solid` (a
@@ -4611,47 +4615,116 @@ fn copyFolder(ctx: *bk_tool.Context, from: []const u8, to: []const u8) !void {
     }
 }
 
+/// The canvas a kit folder's packs are composed on, and the zero cross in it.
+const KitCanvas = struct { zero: [2]i32, size: [2]u32 };
+
+/// The canvas of a folder: the one its own packs share (`bounds`; none where
+/// the folder holds no pack yet), grown to hold each view's picture and its
+/// shadow from the zero cross, and a free row under the lowest pixel
+/// (keepShadow). A kit view may reach further left of or above its zero cross
+/// than the folder's canvas does, and its shadow further than the picture.
+fn kitCanvas(ctx: *bk_tool.Context, bounds: ?Bounds, shown: []const KitView) !KitCanvas {
+    var zero = [2]i32{ 0, 0 };
+    var reach = [2]i32{ 1, 1 };
+    if (bounds) |b| {
+        zero = .{ -b.min_x, -b.min_y };
+        reach = .{ b.max_x, b.max_y };
+    }
+    for (shown) |view| {
+        const w: i32 = @intCast(view.picture.width);
+        const h: i32 = @intCast(view.picture.height);
+        if (view.zero[0] < -kit_zero_outside or view.zero[1] < -kit_zero_outside or view.zero[0] >= w + kit_zero_outside or view.zero[1] >= h + kit_zero_outside)
+            return ctx.failKey("views.err.read", .{ view.path, "ZeroFarOutside" });
+        const sw: i32 = @intCast(view.shadow.width);
+        const sh: i32 = @intCast(view.shadow.height);
+        if (@abs(view.shadow_zero[0]) > kit_shadow_outside or @abs(view.shadow_zero[1]) > kit_shadow_outside)
+            return ctx.failKey("views.err.read", .{ view.shadow_path, "ZeroFarOutside" });
+        zero = .{ @max(zero[0], view.zero[0], view.shadow_zero[0]), @max(zero[1], view.zero[1], view.shadow_zero[1]) };
+        reach = .{ @max(reach[0], w - view.zero[0], sw - view.shadow_zero[0]), @max(reach[1], h - view.zero[1], sh - view.shadow_zero[1]) };
+    }
+    zero = .{ @max(zero[0], 0), @max(zero[1], 0) };
+    return .{ .zero = zero, .size = .{ @intCast(zero[0] + @max(reach[0], 1)), @intCast(zero[1] + @max(reach[1], 1) + 1) } };
+}
+
+/// The pack `name` of a folder's packs as a picture on the canvas, its zero
+/// cross `from` on the canvas's `to`; null where the folder holds none.
+fn kitOwnPicture(gpa: std.mem.Allocator, all: Packs, name: []const u8, from: [2]i32, to: [2]i32, canvas: [2]u32) !?Image {
+    for (all.files) |file| {
+        if (!std.mem.eql(u8, file.name, name)) continue;
+        if (file.pack.sprites.len != 1) return error.PackOfSeveralSprites;
+        return try onCanvas(gpa, try unpack(gpa, file.pack.sprites[0], file.atlas, all.bounds), from, to, canvas, false);
+    }
+    return null;
+}
+
+/// Composes one state's picture and shadow (and its ground picture, where
+/// given) into the packs `<work>/<name>` and `<work>/<name>s` with
+/// `bk-sprite compose-pack`, as `side` composes a turn: the zero cross, the
+/// folder's 1.xml grid as the pass rows and the locked centre. `what` names
+/// the picture in a failure.
+fn kitCompose(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, name: []const u8, picture: Image, shadow: Image, ground: ?Image, canvas: KitCanvas, stats: Stats, what: []const u8) !void {
+    const arena = ctx.arena;
+    const locked = lockedCenter(stats.origin);
+    try writeOut(ctx, work, "picture.png", try writePng(arena, picture));
+    try writeOut(ctx, work, "shadow.png", try writePng(arena, shadow));
+    var argv: std.ArrayList([]const u8) = .empty;
+    try argv.appendSlice(arena, &.{
+        sprite_tool,                                                                   "compose-pack",
+        try std.fs.path.join(arena, &.{ work, "picture.png" }),                         try std.fs.path.join(arena, &.{ work, "shadow.png" }),
+        try std.fs.path.join(arena, &.{ work, name }),                                  "--zero",
+        try std.fmt.allocPrint(arena, "{d},{d}", .{ canvas.zero[0], canvas.zero[1] }), "--force",
+    });
+    if (stats.passability.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", stats.passability), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
+    if (ground) |g| {
+        try writeOut(ctx, work, "ground.png", try writePng(arena, g));
+        try argv.appendSlice(arena, &.{ "--noise", try std.fs.path.join(arena, &.{ work, "ground.png" }) });
+    }
+    const result = std.process.run(arena, ctx.io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
+        return ctx.failKey("views.err.compose", .{ what, @errorName(err) });
+    if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ what, result.stderr });
+}
+
+/// Drops the pack `name` (its .san and atlases) from `dir`.
+fn dropPack(ctx: *bk_tool.Context, dir: []const u8, name: []const u8) void {
+    for (pack_suffixes) |suffix| {
+        const path = std.fmt.allocPrint(ctx.arena, "{s}{s}", .{ std.fs.path.join(ctx.arena, &.{ dir, name }) catch return, suffix }) catch return;
+        std.Io.Dir.cwd().deleteFile(ctx.io, path) catch {};
+    }
+}
+
+/// What `work` holds but its pictures, copied over folder `folder`; `work` is
+/// dropped.
+fn kitInstall(ctx: *bk_tool.Context, work: []const u8, folder: []const u8) !void {
+    const arena = ctx.arena;
+    const cwd = std.Io.Dir.cwd();
+    for (try entries(arena, ctx.io, work, .file)) |name| {
+        if (std.mem.endsWith(u8, name, ".png")) continue;
+        const to = try std.fs.path.join(arena, &.{ folder, name });
+        std.Io.Dir.copyFile(cwd, try std.fs.path.join(arena, &.{ work, name }), cwd, to, ctx.io, .{}) catch |err|
+            return ctx.failKey("views.err.read", .{ to, @errorName(err) });
+    }
+    cwd.deleteTree(ctx.io, work) catch {};
+}
+
 /// The folder's packs composed again with the kit views `shown` in place of
-/// its states' pictures (`kitCommand`). All packs of a folder share one zero
-/// cross on one canvas (`readPacks`; the Resource Editor and `decompose` hold
-/// them to it), and a kit view may reach further left of or above its zero
-/// cross than the folder's canvas does, so every state is composed again on a
-/// canvas grown to hold both: a kit state from its view, any other (a winter
-/// state) from its own picture, each with the shadow and the ground picture
-/// the folder holds for it, which compose-pack cuts under the picture it is
-/// given. Returns the picture packs made from kit views.
+/// its states' pictures and shadows (`kitCommand`). All packs of a folder
+/// share one zero cross on one canvas (`readPacks`; the Resource Editor and
+/// `decompose` hold them to it), so every state is composed again on a canvas
+/// that holds them all (`kitCanvas`): a kit state from its view with the
+/// view's own shadow, any other (a winter state) from its own picture with the
+/// shadow the folder holds for it; each with the ground picture the folder
+/// holds, and compose-pack cuts the shadow under the picture it is given.
+/// Returns the picture packs made from kit views.
 fn kitFolder(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, folder: []const u8, shown: []const KitView) !usize {
     const arena = ctx.arena;
     const io = ctx.io;
     const cwd = std.Io.Dir.cwd();
     const packs = try readPacks(ctx, folder);
     const stats = try readStats(arena, try readFile(ctx, try std.fs.path.join(arena, &.{ folder, "1.xml" })));
-    const locked = lockedCenter(stats.origin);
-    // The canvas: the folder's, grown to the left and up to hold each view
-    // from its zero cross, and a free row under the lowest pixel (keepShadow).
     const old = [2]i32{ -packs.bounds.min_x, -packs.bounds.min_y };
-    var zero = old;
-    var reach = [2]i32{ packs.bounds.max_x, packs.bounds.max_y };
-    for (shown) |view| {
-        const w: i32 = @intCast(view.picture.width);
-        const h: i32 = @intCast(view.picture.height);
-        if (view.zero[0] < -kit_zero_outside or view.zero[1] < -kit_zero_outside or view.zero[0] >= w + kit_zero_outside or view.zero[1] >= h + kit_zero_outside)
-            return ctx.failKey("views.err.read", .{ view.path, "ZeroFarOutside" });
-        zero = .{ @max(zero[0], view.zero[0]), @max(zero[1], view.zero[1]) };
-        reach = .{ @max(reach[0], w - view.zero[0]), @max(reach[1], h - view.zero[1]) };
-    }
-    const size = [2]u32{ @intCast(zero[0] + @max(reach[0], 1)), @intCast(zero[1] + @max(reach[1], 1) + 1) };
-
-    const own = struct {
-        fn picture(gpa: std.mem.Allocator, all: Packs, name: []const u8, from: [2]i32, to: [2]i32, canvas: [2]u32) !?Image {
-            for (all.files) |file| {
-                if (!std.mem.eql(u8, file.name, name)) continue;
-                if (file.pack.sprites.len != 1) return error.PackOfSeveralSprites;
-                return try onCanvas(gpa, try unpack(gpa, file.pack.sprites[0], file.atlas, all.bounds), from, to, canvas, false);
-            }
-            return null;
-        }
-    }.picture;
+    const canvas = try kitCanvas(ctx, packs.bounds, shown);
+    const zero = canvas.zero;
+    const size = canvas.size;
 
     var made: usize = 0;
     const held = try arena.alloc(bool, shown.len);
@@ -4673,7 +4746,7 @@ fn kitFolder(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, f
         const sprite = if (view) |v|
             onCanvas(arena, v.picture, v.zero, zero, size, true) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })
         else
-            (own(arena, packs, file.name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })).?;
+            (kitOwnPicture(arena, packs, file.name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })).?;
         var lowest: ?usize = null;
         for (sprite.pixels, 0..) |p, i| {
             if (p[3] >= 128) lowest = i;
@@ -4681,69 +4754,137 @@ fn kitFolder(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, f
         if (lowest == null) return ctx.failKey("views.err.read", .{ what, "NoOpaquePixel" });
         const shadow_name = try std.fmt.allocPrint(arena, "{s}s", .{file.name});
         const ground_name = try std.fmt.allocPrint(arena, "{s}g", .{file.name});
-        const own_shadow = own(arena, packs, shadow_name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) });
+        const own_shadow = kitOwnPicture(arena, packs, shadow_name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) });
+        // The kit model's own shadow under the view's light; a view whose
+        // model shades no ground at all has none.
+        var kit_shadow: ?Image = null;
+        if (view) |v| {
+            const cast = onCanvas(arena, v.shadow, v.shadow_zero, zero, size, false) catch |err| return ctx.failKey("views.err.read", .{ v.shadow_path, @errorName(err) });
+            for (cast.pixels) |p| {
+                if (p[3] != 0) {
+                    kit_shadow = cast;
+                    break;
+                }
+            }
+        }
         // compose-pack packs a shadow with every picture; a state without one
         // (a pillbox) gets one pixel under its lowest, in a pack that is dropped.
-        const shadow = own_shadow orelse blk: {
+        const has_shadow = kit_shadow != null or (view == null and own_shadow != null);
+        const shadow = if (has_shadow) kit_shadow orelse own_shadow.? else blk: {
             const stand_in: Image = .{ .width = size[0], .height = size[1], .pixels = try arena.alloc([4]u8, sprite.pixels.len) };
             @memset(stand_in.pixels, .{ 0, 0, 0, 0 });
             break :blk stand_in;
         };
         keepShadow(sprite, shadow);
-        try writeOut(ctx, work, "picture.png", try writePng(arena, sprite));
-        try writeOut(ctx, work, "shadow.png", try writePng(arena, shadow));
-        var argv: std.ArrayList([]const u8) = .empty;
-        try argv.appendSlice(arena, &.{
-            sprite_tool,                                           "compose-pack",
-            try std.fs.path.join(arena, &.{ work, "picture.png" }), try std.fs.path.join(arena, &.{ work, "shadow.png" }),
-            try std.fs.path.join(arena, &.{ work, file.name }),    "--zero",
-            try std.fmt.allocPrint(arena, "{d},{d}", .{ zero[0], zero[1] }), "--force",
-        });
-        if (stats.passability.len > 0) try argv.appendSlice(arena, &.{ "--pass", try std.mem.join(arena, "/", stats.passability), "--locked", try std.fmt.allocPrint(arena, "{d},{d}", .{ locked[0], locked[1] }) });
-        if (own(arena, packs, ground_name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })) |ground| {
-            try writeOut(ctx, work, "ground.png", try writePng(arena, ground));
-            try argv.appendSlice(arena, &.{ "--noise", try std.fs.path.join(arena, &.{ work, "ground.png" }) });
+        const ground = kitOwnPicture(arena, packs, ground_name, old, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) });
+        try kitCompose(ctx, sprite_tool, work, file.name, sprite, shadow, ground, canvas, stats, what);
+        if (!has_shadow) {
+            dropPack(ctx, work, shadow_name);
+            // The shadow the folder held for a kit state is not the model's.
+            if (own_shadow != null) dropPack(ctx, folder, shadow_name);
         }
-        const result = std.process.run(arena, io, .{ .argv = argv.items, .stdout_limit = .limited(1024 * 1024), .stderr_limit = .limited(1024 * 1024) }) catch |err|
-            return ctx.failKey("views.err.compose", .{ what, @errorName(err) });
-        if (result.term != .exited or result.term.exited != 0) return ctx.failKey("views.err.compose", .{ what, result.stderr });
-        if (own_shadow == null) for (pack_suffixes) |suffix| {
-            try cwd.deleteFile(io, try std.fmt.allocPrint(arena, "{s}{s}", .{ try std.fs.path.join(arena, &.{ work, shadow_name }), suffix }));
-        };
         if (view != null) made += 1;
     }
     for (shown, held) |view, h| {
         if (!h) return ctx.failKey("views.err.read", .{ view.path, try std.fmt.allocPrint(arena, "NoState{s}In_{s}", .{ view.state, std.fs.path.basename(folder) }) });
     }
-    for (try entries(arena, io, work, .file)) |name| {
-        if (std.mem.endsWith(u8, name, ".png")) continue;
-        const to = try std.fs.path.join(arena, &.{ folder, name });
-        std.Io.Dir.copyFile(cwd, try std.fs.path.join(arena, &.{ work, name }), cwd, to, io, .{}) catch |err|
-            return ctx.failKey("views.err.read", .{ to, @errorName(err) });
-    }
-    cwd.deleteTree(io, work) catch {};
+    try kitInstall(ctx, work, folder);
     return made;
+}
+
+/// The same for a turn's shadow alone (`<variant>_r<k>_s<l>`, shadow packs and
+/// no picture): each kit state's shadow pack composed from the view's shadow,
+/// cut under the view's picture, which the Game shows with it; every other
+/// shadow pack the folder holds (a winter state's, the mesh's) composed again
+/// on the shared canvas as it is. A folder without packs (`side` writes none
+/// for turn 0 of an object without a full 3D model) takes the kit states
+/// alone. Returns the shadow packs made from kit views.
+fn kitShadowFolder(ctx: *bk_tool.Context, sprite_tool: []const u8, work: []const u8, folder: []const u8, shown: []const KitView) !usize {
+    const arena = ctx.arena;
+    const io = ctx.io;
+    const cwd = std.Io.Dir.cwd();
+    const has_packs = for (try entries(arena, io, folder, .file)) |name| {
+        if (std.ascii.endsWithIgnoreCase(name, ".san")) break true;
+    } else false;
+    const packs: ?Packs = if (has_packs) try readPacks(ctx, folder) else null;
+    const stats = try readStats(arena, try readFile(ctx, try std.fs.path.join(arena, &.{ folder, "1.xml" })));
+    const canvas = try kitCanvas(ctx, if (packs) |p| p.bounds else null, shown);
+    const zero = canvas.zero;
+    const size = canvas.size;
+
+    cwd.deleteTree(io, work) catch {};
+    try cwd.createDirPath(io, work);
+    if (packs) |all| for (all.files) |file| {
+        const what = try std.fs.path.join(arena, &.{ folder, file.name });
+        if (file.name.len < 2 or file.name[file.name.len - 1] != 's') return ctx.failKey("views.err.read", .{ what, "NoShadowPack" });
+        const state = file.name[0 .. file.name.len - 1];
+        const from_kit = for (shown) |v| {
+            if (std.mem.eql(u8, v.state, state)) break true;
+        } else false;
+        if (from_kit) continue;
+        const shadow = (kitOwnPicture(arena, all, file.name, .{ -all.bounds.min_x, -all.bounds.min_y }, zero, size) catch |err| return ctx.failKey("views.err.read", .{ what, @errorName(err) })).?;
+        // compose-pack packs no empty picture: one opaque pixel off the shadow
+        // stands in for it, in a pack that is dropped.
+        const off = for (shadow.pixels, 0..) |p, i| {
+            if (p[3] == 0) break i;
+        } else return ctx.failKey("views.err.read", .{ what, "ShadowCoversItsCanvas" });
+        const stand_in: Image = .{ .width = size[0], .height = size[1], .pixels = try arena.alloc([4]u8, shadow.pixels.len) };
+        @memset(stand_in.pixels, .{ 0, 0, 0, 0 });
+        stand_in.pixels[off] = .{ 255, 255, 255, 255 };
+        try kitCompose(ctx, sprite_tool, work, state, stand_in, shadow, null, canvas, stats, what);
+        dropPack(ctx, work, state);
+    };
+    for (shown) |view| {
+        const picture = onCanvas(arena, view.picture, view.zero, zero, size, true) catch |err| return ctx.failKey("views.err.read", .{ view.path, @errorName(err) });
+        const shadow = onCanvas(arena, view.shadow, view.shadow_zero, zero, size, false) catch |err| return ctx.failKey("views.err.read", .{ view.shadow_path, @errorName(err) });
+        keepShadow(picture, shadow);
+        try kitCompose(ctx, sprite_tool, work, view.state, picture, shadow, null, canvas, stats, view.shadow_path);
+        dropPack(ctx, work, view.state);
+    }
+    try kitInstall(ctx, work, folder);
+    return shown.len;
+}
+
+/// The folder of a building's turn `turn` under light index `light` among what
+/// `kit` writes: the variant's own and `<variant>_r<j>` at light 0 (the 2003
+/// light, fixed to the camera), `<variant>_r<j>_l<l>` else.
+fn kitPictureFolder(arena: std.mem.Allocator, name: []const u8, turn: usize, light: usize) ![]const u8 {
+    if (light != 0) return std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ name, turn, light });
+    return if (turn == 0) name else std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, turn });
 }
 
 /// `kit`: the views of a building rendered outside the repo from its kit model
 /// (tools/blender/README.md; the tracked copies are
 /// tools/zig/fixtures/bk-views/kit-views/<region>/<season>/<variant>) in place
-/// of the pictures `side` drew. <kit-dir> holds `views.json` (per damage state
-/// and quarter turn the picture's size and its zero cross in it) and
-/// `<state>_<turn>.png`, turn j the building turned j times by `turnPoint`, all
-/// four lit by the 2003 light fixed in the world at turn 0.
+/// of the pictures `side` drew. <kit-dir> holds `views.json` and, per damage
+/// state, quarter turn j and light index l, the picture `<state>_<j>_l<l>.png`
+/// and the shadow `<state>_<j>_s<l>.png` the model casts on the ground under
+/// that light, each with its size and its zero cross in views.json. Turn j is
+/// the building turned j times by `turnPoint`; light index l is the 2003 sun
+/// as camera step l sees it (Main/SunTurn.h: the camera's step plus the sun's
+/// turn), 0 the 2003 light fixed to the camera.
 ///
 /// <out-dir> takes every folder of <turned-dir> (what `side` wrote for the
 /// variant: its turns, their shadows alone, and the variant's own folder where
 /// it has a hand model) and, where <turned-dir> has none, the 2003 folder
-/// <variant-dir> as `<variant>`; then the kit views take the place of the
-/// states' pictures, turn 0 in `<variant>` and turn j in `<variant>_r<j>` and
-/// `<variant>_r<j>_l<j>`, composed by `bk-sprite compose-pack` as `side`
-/// composes a turn (the zero cross, the folder's 1.xml grid as the pass rows
-/// and the locked centre; `kitFolder`). The shadows, ground pictures and
-/// winter pictures stay the pictures they were, as do 1.xml, icon and name.
-/// Laid over Data by a mod, the Game then shows the kit views at every camera
-/// step (CameraTurn.h's LitModelPath).
+/// <variant-dir> as `<variant>`. Then the kit views take the place of the
+/// states' pictures and shadows:
+/// - light 0 in `<variant>` (turn 0) and `<variant>_r<j>`;
+/// - light l in `<variant>_r<j>_l<l>`, every turn, turn 0 too. `side` makes
+///   `_r<j>_l<j>` only; the others start as a copy of the turn's own folder, so
+///   each holds the turn's 1.xml, ground and winter pictures, icon and name;
+/// - the shadow alone of every turn under every light but turn 0 at light 0,
+///   `<variant>_r<j>_s<l>`, which the Game takes before a picture folder's own
+///   (CameraTurn.h's ShadowModelPath); turn 0 at light 0 casts the shadow of
+///   `<variant>` itself.
+/// Each is composed by `bk-sprite compose-pack` as `side` composes a turn
+/// (`kitFolder`, `kitShadowFolder`). The ground pictures and the winter
+/// pictures and shadows stay the pictures they were, as do 1.xml, icon and
+/// name: there are no kit views of a winter, so a winter map shows the turns
+/// `side` drew, lit for the 2003 light or, in `_r<j>_l<j>`, for light j, with
+/// the mesh's shadows. Laid over Data by a mod, the Game then shows the kit
+/// views at every camera step under every turn of the sun (CameraTurn.h's
+/// LitModelPath).
 ///
 /// A kit view that cannot be composed fails the run with its path: a turn
 /// folder or a state the variant lacks, a zero cross far outside, an empty
@@ -4783,32 +4924,59 @@ fn kitCommand(ctx: *bk_tool.Context, kit_arg: []const u8, dir_arg: []const u8, t
     const sprite_tool = if (cwd.access(io, beside, .{})) |_| beside else |_| "bk-sprite";
     const work = try std.fs.path.join(arena, &.{ out, ".kit" });
 
-    var made: usize = 0;
+    // The folders the views lie in, before any is laid: a lit folder `side`
+    // did not make is the turn's own as `side` (or 2003) left it, a shadow
+    // alone it did not make holds the turn's 1.xml.
     for (0..4) |turn| {
+        const own = try kitPictureFolder(arena, name, turn, 0);
+        const own_path = try std.fs.path.join(arena, &.{ out, own });
+        cwd.access(io, try std.fs.path.join(arena, &.{ own_path, "1.xml" }), .{}) catch
+            return ctx.failKey("views.err.read", .{ views_path, try std.fmt.allocPrint(arena, "NoTurnFolder_{s}", .{own}) });
+        for (0..4) |light| {
+            if (light != 0) {
+                const lit = try std.fs.path.join(arena, &.{ out, try kitPictureFolder(arena, name, turn, light) });
+                cwd.access(io, try std.fs.path.join(arena, &.{ lit, "1.xml" }), .{}) catch try copyFolder(ctx, own_path, lit);
+            }
+            if (turn + light == 0) continue;
+            const alone = try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}_r{d}_s{d}", .{ name, turn, light }) });
+            cwd.access(io, try std.fs.path.join(arena, &.{ alone, "1.xml" }), .{}) catch {
+                try cwd.createDirPath(io, alone);
+                try writeOut(ctx, alone, "1.xml", try readFile(ctx, try std.fs.path.join(arena, &.{ own_path, "1.xml" })));
+            };
+        }
+    }
+
+    var pictures: usize = 0;
+    var shadows: usize = 0;
+    for (0..4) |turn| for (0..4) |light| {
         var shown: std.ArrayList(KitView) = .empty;
         var state_names = states.object.iterator();
         while (state_names.next()) |entry| {
             const state = entry.key_ptr.*;
             if (state.len == 0 or std.mem.indexOfNone(u8, state, "0123456789") != null or entry.value_ptr.* != .object or entry.value_ptr.object.count() != 4)
                 return ctx.failKey("views.err.read", .{ views_path, "BadState" });
-            const picture_path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}.png", .{ state, turn }) });
-            const view = entry.value_ptr.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})) orelse return ctx.failKey("views.err.read", .{ picture_path, "TurnNotInViewsJson" });
-            const placed = std.json.parseFromValueLeaky(struct { zero: [2]i32, size: [2]u32 }, arena, view, .{ .ignore_unknown_fields = true }) catch |err|
-                return ctx.failKey("views.err.read", .{ picture_path, @errorName(err) });
-            try depFile(ctx, picture_path);
-            const picture = formats.readRgbaPng(arena, try readFile(ctx, picture_path)) catch |err| return ctx.failKey("views.err.read", .{ picture_path, @errorName(err) });
-            if (picture.width != placed.size[0] or picture.height != placed.size[1]) return ctx.failKey("views.err.read", .{ picture_path, "SizeNotViewsJson" });
-            try shown.append(arena, .{ .state = state, .path = picture_path, .picture = picture, .zero = placed.zero });
+            const picture_path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}_l{d}.png", .{ state, turn, light }) });
+            const shadow_path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}_s{d}.png", .{ state, turn, light }) });
+            const of_turn = entry.value_ptr.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})) orelse return ctx.failKey("views.err.read", .{ picture_path, "TurnNotInViewsJson" });
+            const Placed = struct { zero: [2]i32, size: [2]u32 };
+            var placed: [2]Placed = undefined;
+            var images: [2]Image = undefined;
+            for ([_][]const u8{ "l", "s" }, [_][]const u8{ picture_path, shadow_path }, &placed, &images) |kind, path, *p, *image| {
+                const lights = if (of_turn == .object) of_turn.object.get(kind) orelse return ctx.failKey("views.err.read", .{ path, "LightsNotInViewsJson" }) else return ctx.failKey("views.err.read", .{ path, "LightsNotInViewsJson" });
+                const view = if (lights == .object) lights.object.get(try std.fmt.allocPrint(arena, "{d}", .{light})) orelse return ctx.failKey("views.err.read", .{ path, "LightNotInViewsJson" }) else return ctx.failKey("views.err.read", .{ path, "LightNotInViewsJson" });
+                p.* = std.json.parseFromValueLeaky(Placed, arena, view, .{ .ignore_unknown_fields = true }) catch |err|
+                    return ctx.failKey("views.err.read", .{ path, @errorName(err) });
+                try depFile(ctx, path);
+                image.* = formats.readRgbaPng(arena, try readFile(ctx, path)) catch |err| return ctx.failKey("views.err.read", .{ path, @errorName(err) });
+                if (image.width != p.size[0] or image.height != p.size[1]) return ctx.failKey("views.err.read", .{ path, "SizeNotViewsJson" });
+            }
+            try shown.append(arena, .{ .state = state, .path = picture_path, .picture = images[0], .zero = placed[0].zero, .shadow_path = shadow_path, .shadow = images[1], .shadow_zero = placed[1].zero });
         }
-        const targets: []const []const u8 = if (turn == 0) &.{name} else &.{ try std.fmt.allocPrint(arena, "{s}_r{d}", .{ name, turn }), try std.fmt.allocPrint(arena, "{s}_r{d}_l{d}", .{ name, turn, turn }) };
-        for (targets) |target| {
-            const folder = try std.fs.path.join(arena, &.{ out, target });
-            cwd.access(io, try std.fs.path.join(arena, &.{ folder, "1.xml" }), .{}) catch
-                return ctx.failKey("views.err.read", .{ shown.items[0].path, try std.fmt.allocPrint(arena, "NoTurnFolder_{s}", .{target}) });
-            made += try kitFolder(ctx, sprite_tool, work, folder, shown.items);
-        }
-    }
-    try ctx.out.print("wrote {s}: {d} picture packs of {s} from the kit views {s}\n", .{ out, made, name, kit });
+        pictures += try kitFolder(ctx, sprite_tool, work, try std.fs.path.join(arena, &.{ out, try kitPictureFolder(arena, name, turn, light) }), shown.items);
+        if (turn + light != 0)
+            shadows += try kitShadowFolder(ctx, sprite_tool, work, try std.fs.path.join(arena, &.{ out, try std.fmt.allocPrint(arena, "{s}_r{d}_s{d}", .{ name, turn, light }) }), shown.items);
+    };
+    try ctx.out.print("wrote {s}: {d} picture packs and {d} shadows alone of {s} from the kit views {s}\n", .{ out, pictures, shadows, name, kit });
     try writeDeps(ctx);
 }
 

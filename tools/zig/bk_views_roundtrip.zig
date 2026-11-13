@@ -13,10 +13,11 @@
 //! objects they came to 6 GiB that nothing read.
 //!
 //! With `--kit=<kit-views-dir>` the folders are what `bk-views kit` wrote for one
-//! building (its own folder and its turns, tools/zig/fixtures/bk-views/kit-views):
-//! each folder makes the round trip above, and each state the kit views hold
-//! must also decompose to the kit view of the folder's turn, pixel for pixel
-//! with its zero cross on the pack's.
+//! building (its own folder, its turns under every light and their shadows alone,
+//! tools/zig/fixtures/bk-views/kit-views): each folder makes the round trip above,
+//! and each state the kit views hold must also decompose to the kit view of the
+//! folder's turn and light, pixel for pixel with its zero cross on the pack's, and
+//! its shadow to the kit view's shadow where the picture does not cover it.
 //!
 //! usage: bk-views-roundtrip <bk-views> <bk-sprite> <bk-views-check> <module-root> <work-dir> [--kit=<kit-views-dir>] <variant-dir>...
 
@@ -83,15 +84,22 @@ fn roundTrip(arena: std.mem.Allocator, io: std.Io, views: []const u8, sprite: []
         try packs.append(arena, pack);
         if (alone) {
             try shadowTrip(arena, io, sprite, modules, work, name, a, b, pack, zero, pass, locked);
+            // A kit folder's shadows alone are the kit views' of its turn and light.
+            if (kit) |kit_dir| {
+                if (pack.len > 1 and pack[pack.len - 1] == 's' and try kitShadow(arena, io, kit_dir, name, pack[0 .. pack.len - 1], a, building.anchor)) kit_states += 1;
+            }
             continue;
         }
         // A damage state is a pack named by its number, `w` after it in winter; its shadow and
         // noise follow its name.
         const digits = std.mem.indexOfNone(u8, pack, "0123456789") orelse pack.len;
         if (digits == 0 or !(digits == pack.len or std.mem.eql(u8, pack[digits..], "w"))) continue;
-        // A kit folder's states are the kit views of its turn.
+        // A kit folder's states are the kit views of its turn and light, their shadows with them.
         if (kit) |kit_dir| {
-            if (try kitPicture(arena, io, kit_dir, name, pack, a, building.anchor)) kit_states += 1;
+            if (try kitPicture(arena, io, kit_dir, name, pack, a, building.anchor)) {
+                kit_states += 1;
+                _ = try kitShadow(arena, io, kit_dir, name, pack, a, building.anchor);
+            }
         }
         // compose-pack needs a shadow; a state without one (a pillbox) gets
         // a stand-in covering the canvas, whose pack is not compared.
@@ -169,32 +177,53 @@ fn withoutStrays(arena: std.mem.Allocator, io: std.Io, kit: bool, work: []const 
     return copy;
 }
 
-/// The turn a kit folder shows: `<variant>` 0, `<variant>_r<k>` and `<variant>_r<k>_l<s>` k.
-fn kitTurn(name: []const u8) usize {
+/// The turn and the light index a kit folder shows: `<variant>` turn 0 at
+/// light 0, `<variant>_r<k>` turn k at light 0, `<variant>_r<k>_l<l>` and the
+/// shadow alone `<variant>_r<k>_s<l>` turn k at light l.
+const KitFolder = struct { turn: usize, light: usize };
+fn kitFolder(name: []const u8) KitFolder {
     var stem = name;
-    if (stem.len > 3 and stem[stem.len - 3] == '_' and stem[stem.len - 2] == 'l' and std.ascii.isDigit(stem[stem.len - 1])) stem = stem[0 .. stem.len - 3];
-    if (stem.len > 3 and stem[stem.len - 3] == '_' and stem[stem.len - 2] == 'r' and stem[stem.len - 1] >= '1' and stem[stem.len - 1] <= '3') return stem[stem.len - 1] - '0';
-    return 0;
+    var light: usize = 0;
+    if (stem.len > 3 and stem[stem.len - 3] == '_' and (stem[stem.len - 2] == 'l' or stem[stem.len - 2] == 's') and stem[stem.len - 1] >= '0' and stem[stem.len - 1] <= '3') {
+        light = stem[stem.len - 1] - '0';
+        stem = stem[0 .. stem.len - 3];
+    }
+    if (stem.len > 3 and stem[stem.len - 3] == '_' and stem[stem.len - 2] == 'r' and stem[stem.len - 1] >= '0' and stem[stem.len - 1] <= '3') return .{ .turn = stem[stem.len - 1] - '0', .light = light };
+    return .{ .turn = 0, .light = 0 };
+}
+
+/// A kit view of the folder's turn and light: its picture (`kind` "l") or its
+/// shadow ("s") and the zero cross in it; null where the kit views do not hold
+/// `state`.
+const KitFixture = struct { path: []const u8, image: bk_views.Image, zero: [2]i32 };
+fn kitFixture(arena: std.mem.Allocator, io: std.Io, kit: []const u8, name: []const u8, state: []const u8, kind: []const u8) !?KitFixture {
+    const cwd = std.Io.Dir.cwd();
+    const folder = kitFolder(name);
+    const views_json = try cwd.readFileAlloc(io, try std.fs.path.join(arena, &.{ kit, "views.json" }), arena, .limited(16 * 1024 * 1024));
+    const parsed = try std.json.parseFromSliceLeaky(std.json.Value, arena, views_json, .{});
+    const states = parsed.object.get("states") orelse return error.NoStates;
+    const turns = states.object.get(state) orelse return null;
+    const path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}_{s}{d}.png", .{ state, folder.turn, kind, folder.light }) });
+    const of_turn = turns.object.get(try std.fmt.allocPrint(arena, "{d}", .{folder.turn})) orelse return error.KitTurnMissing;
+    const lights = of_turn.object.get(kind) orelse return error.KitLightsMissing;
+    const view = lights.object.get(try std.fmt.allocPrint(arena, "{d}", .{folder.light})) orelse return error.KitLightMissing;
+    const placed = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, arena, view, .{ .ignore_unknown_fields = true });
+    return .{ .path = path, .image = try bk_views.readRgbaPng(arena, try cwd.readFileAlloc(io, path, arena, .limited(256 * 1024 * 1024))), .zero = placed.zero };
 }
 
 /// Whether the kit views hold `state`, and if so that the folder's decomposed
 /// picture of it (a/, its zero cross at `anchor`) is the kit view of the
-/// folder's turn laid zero on zero: every pixel of the view of alpha 128 or
-/// more there with its colour, and nothing else.
+/// folder's turn and light laid zero on zero: every pixel of the view of alpha
+/// 128 or more there with its colour, and nothing else.
 fn kitPicture(arena: std.mem.Allocator, io: std.Io, kit: []const u8, name: []const u8, state: []const u8, a: []const u8, anchor: [2]i32) !bool {
     const cwd = std.Io.Dir.cwd();
-    const turn = kitTurn(name);
-    const views_json = try cwd.readFileAlloc(io, try std.fs.path.join(arena, &.{ kit, "views.json" }), arena, .limited(16 * 1024 * 1024));
-    const parsed = try std.json.parseFromSliceLeaky(std.json.Value, arena, views_json, .{});
-    const states = parsed.object.get("states") orelse return error.NoStates;
-    const turns = states.object.get(state) orelse return false;
-    const view = turns.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})) orelse {
-        differ("{s}/{s}: the kit views {s} hold no turn {d} of the state", .{ name, state, kit, turn });
+    const found = (kitFixture(arena, io, kit, name, state, "l") catch |err| {
+        differ("{s}/{s}: the kit views {s} do not hold its picture: {s}", .{ name, state, kit, @errorName(err) });
         return true;
-    };
-    const placed = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, arena, view, .{ .ignore_unknown_fields = true });
-    const fixture_path = try std.fs.path.join(arena, &.{ kit, try std.fmt.allocPrint(arena, "{s}_{d}.png", .{ state, turn }) });
-    const fixture = try bk_views.readRgbaPng(arena, try cwd.readFileAlloc(io, fixture_path, arena, .limited(256 * 1024 * 1024)));
+    }) orelse return false;
+    const placed = found;
+    const fixture_path = found.path;
+    const fixture = found.image;
     const read = try bk_views.readStoredPng(arena, try cwd.readFileAlloc(io, try picturePath(arena, a, state, ""), arena, .limited(256 * 1024 * 1024)));
     // The view's pixels in the pack's picture, and the pack's in the view.
     var missing: usize = 0;
@@ -222,6 +251,53 @@ fn kitPicture(arena: std.mem.Allocator, io: std.Io, kit: []const u8, name: []con
     };
     if (opaque_pixels == 0 or missing + extra + recoloured != 0)
         differ("{s}/{s}: its picture is not the kit view {s} laid zero on zero: of {d} pixels {d} missing, {d} recoloured, and {d} that are not the view's", .{ name, state, fixture_path, opaque_pixels, missing, recoloured, extra });
+    return true;
+}
+
+/// Whether the kit views hold `state`, and if so that the folder's decomposed
+/// shadow of it (a/, its zero cross at `anchor`) is the kit view's shadow of
+/// the folder's turn and light laid zero on zero, where the kit view's picture
+/// does not cover it: compose-pack keeps a shadow outside its picture only. A
+/// shadow that lies all under its picture keeps one pixel below the picture
+/// (keepShadow), and a model that shades no ground has no shadow pack.
+fn kitShadow(arena: std.mem.Allocator, io: std.Io, kit: []const u8, name: []const u8, state: []const u8, a: []const u8, anchor: [2]i32) !bool {
+    const cwd = std.Io.Dir.cwd();
+    const shadow = (kitFixture(arena, io, kit, name, state, "s") catch |err| {
+        differ("{s}/{s}s: the kit views {s} do not hold its shadow: {s}", .{ name, state, kit, @errorName(err) });
+        return true;
+    }) orelse return false;
+    const picture = (try kitFixture(arena, io, kit, name, state, "l")).?;
+    // The pack's shadow; a state without one decomposes to no picture.
+    const read: ?bk_views.Image = if (cwd.readFileAlloc(io, try picturePath(arena, a, state, "s"), arena, .limited(256 * 1024 * 1024))) |bytes| try bk_views.readStoredPng(arena, bytes) else |_| null;
+    const covered = struct {
+        fn at(image: bk_views.Image, zero: [2]i32, x: i64, y: i64, least: u8) bool {
+            const ix = x + zero[0];
+            const iy = y + zero[1];
+            if (ix < 0 or iy < 0 or ix >= image.width or iy >= image.height) return false;
+            return image.pixels[@as(usize, @intCast(iy)) * image.width + @as(usize, @intCast(ix))][3] >= least;
+        }
+    }.at;
+    // The view's shadow outside its picture, in the pack's shadow.
+    var shown: usize = 0;
+    var missing: usize = 0;
+    for (0..shadow.image.height) |y| for (0..shadow.image.width) |x| {
+        if (shadow.image.pixels[y * shadow.image.width + x][3] == 0) continue;
+        const gx = @as(i64, @intCast(x)) - shadow.zero[0];
+        const gy = @as(i64, @intCast(y)) - shadow.zero[1];
+        if (covered(picture.image, picture.zero, gx, gy, 128)) continue;
+        shown += 1;
+        if (read == null or !covered(read.?, anchor, gx, gy, 1)) missing += 1;
+    };
+    // The pack's shadow that is not the view's.
+    var extra: usize = 0;
+    if (read) |r| for (0..r.height) |y| for (0..r.width) |x| {
+        if (r.pixels[y * r.width + x][3] == 0) continue;
+        const gx = @as(i64, @intCast(x)) - anchor[0];
+        const gy = @as(i64, @intCast(y)) - anchor[1];
+        if (!covered(shadow.image, shadow.zero, gx, gy, 1) or covered(picture.image, picture.zero, gx, gy, 128)) extra += 1;
+    };
+    if (missing != 0 or extra > @as(usize, if (shown == 0) 1 else 0))
+        differ("{s}/{s}s: its shadow is not the kit view's {s} outside its picture, laid zero on zero: of {d} pixels {d} missing, and {d} that are not the view's", .{ name, state, shadow.path, shown, missing, extra });
     return true;
 }
 
