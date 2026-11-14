@@ -58,6 +58,13 @@ pub const height = 768;
 /// (building-views-game-reads-it), the point the camera turns about.
 const camera = 512;
 pub const centre = [2]i32{ 511, 383 };
+/// Where `runGameWith` parks the cursor. On Windows the shots show its
+/// picture there (24 x 23 pixels from its hot spot, seen 2026-11-14), which
+/// is no object's pixel: a measure whose window reaches it leaves it out.
+pub const cursor_at = [2]i32{ 1000, 400 };
+pub fn underCursor(x: i32, y: i32) bool {
+    return x >= cursor_at[0] and x < cursor_at[0] + 32 and y >= cursor_at[1] and y < cursor_at[1] + 32;
+}
 
 const Building = struct {
     /// Its objects.xml name.
@@ -217,10 +224,14 @@ test "the Game camera turns in quarter turns: buildings show their turned sides 
         const building = buildings[placed.building];
         const at = turnScreen(building.screen, k);
         const t = (placed.facing + k) % 4;
-        const own = game_views.score(frame, placed_sprites[p][t], at);
+        // As above: the town house's turn 2 stands highest at step 3, its
+        // spire in the message line and the band at the top.
+        const shown = try belowMessages(allocator, frame);
+        const top = messagesEnd(frame);
+        const own = game_views.score(shown, try spriteBelowMessages(allocator, placed_sprites[p][t], at, top), at);
         var other_best: f64 = 0;
         for (0..4) |o| {
-            if (o != t) other_best = @max(other_best, game_views.score(frame, placed_sprites[p][o], at).iou);
+            if (o != t) other_best = @max(other_best, game_views.score(shown, try spriteBelowMessages(allocator, placed_sprites[p][o], at, top), at).iou);
         }
         try report.print(allocator, "{d} {s} {d} {s}: {d}: {d:.3} / {d:.2} at {d},{d} ({d},{d}); {d:.3}\n", .{ k, building.name, placed.facing, placed.state, t, own.iou, own.colour, at[0], at[1], own.dx, own.dy, other_best });
         if (own.iou < min_iou or own.colour > max_colour or other_best >= own.iou) failed = true;
@@ -415,7 +426,7 @@ pub fn runGameTurning(io: std.Io, allocator: std.mem.Allocator, game: []const u8
     // building-views-game-reads-it), then the camera set and the option chosen;
     // each shot has its own wait so that its file name is its own.
     var schedule: std.ArrayList(u8) = .empty;
-    try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d},g10:set=GamePlay.Remastered={s}", .{ look[0], look[1], remastered });
+    try schedule.print(allocator, "g1000:hover={d}x{d},g10:camera={d}x{d},g10:set=GamePlay.Remastered={s}", .{ cursor_at[0], cursor_at[1], look[0], look[1], remastered });
     // Paused (SPACE), the game time stands still, so the waits count the timer's absolute time.
     const wait = if (paused) "t" else "g";
     if (paused) try schedule.appendSlice(allocator, ",g10:key=SPACE");

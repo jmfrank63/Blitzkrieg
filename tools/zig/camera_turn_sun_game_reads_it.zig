@@ -23,7 +23,10 @@
 //!   camera), and the centroids of the two must point the same way, at every
 //!   step where it shows 100 pixels or more (a shadow cast behind its object
 //!   may be all hidden at a step). The sniper's shadow is drawn in its 2003
-//!   pictures, not by the shadow pass: reported, not held.
+//!   pictures, not by the shadow pass: reported, not held. The shed's turned
+//!   shadow is its model's own since 2026-10-30 (the full 3D objects' spec,
+//!   "The hand test of 2026-10-30"), its step-0 one the 2003 artist's: two
+//!   shapes, so the IoU is reported and the shed is held to the other two.
 //! - Objects only: the shed at step k must be its world-lit turn's sprite
 //!   (outline IoU and colour, as building-views-game-reads-it), closer in
 //!   colour than its turn lit by the camera's light; the tree its picture
@@ -167,7 +170,9 @@ test "the sun stays in the world: shadows of a building, a tank, a tree and a so
         if (std.mem.eql(u8, object.name, "German_sniper")) continue;
         if (world.pixels >= min_shadow_pixels) {
             held[i] += 1;
-            if (world.iou < min_shadow_iou or world.iou <= screen.iou or world.off_degrees > units.max_shadow_degrees) failed = true;
+            // The shed's turned shadow is not its step-0 shadow turned (above): 0.28 at step 2.
+            const floor: f64 = if (std.mem.eql(u8, object.name, shed)) 0 else min_shadow_iou;
+            if (world.iou < floor or world.iou <= screen.iou or world.off_degrees > units.max_shadow_degrees) failed = true;
         }
     };
 

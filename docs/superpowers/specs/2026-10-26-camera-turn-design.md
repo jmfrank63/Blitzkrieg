@@ -2076,3 +2076,29 @@ and shadow passes taken off by the mission's own toggle messages, so both shots 
 What the tiers do not hold: flora, props, fences and bridges under a turned sun are drawn by the rules above and were
 not shot; the kit shadows of the other 193 buildings are held by the round trip (each pack against its fixture), not by
 a shot.
+
+## Three older Game tiers that failed on Windows (2026-11-14)
+
+`camera-turn-game-reads-it`, `camera-turn-sun-game-reads-it` and `camera-turn-world-game-reads-it` failed on the
+Windows machine, with the same numbers on a Game installed on 2026-10-31. The Game drew what it should in all three;
+each tier measured something that is not the object's picture, or held a shadow to a shape it no longer has.
+
+- **`camera-turn-game-reads-it`** (E_CTownHouse01_2 at facing 3, step 3: IoU 0.945 under the floor 0.95). At that step
+  the town house shows turn 2 at its highest place on the screen (411, 258), its spire in the message line and the
+  dark band over the top of the screen. The runs at facing 0 have left those rows out since 89617eac7; the runs of
+  facing.xml did not. They do now: 1.000 / 0.00.
+- **`camera-turn-sun-game-reads-it`** (the shed's shadow at step 2: IoU 0.280 under the floor 0.35). Known since
+  2026-10-30 (the full 3D objects' spec, "The hand test of 2026-10-30"): the shed's turned shadow is its model's own,
+  the step-0 one the 2003 artist's, so the one is not the other turned. The shed is now held to the rest of the rule
+  (closer to the shadow turned than not turned, the centroids within 30 degrees: 11.8 and 4.5); its IoU is reported.
+  The tank and the tree keep the floor.
+- **`camera-turn-world-game-reads-it`** (ShellBox01 at step 1: 0.342; Swing01 at step 3: 0.456). Both stand then at the
+  ring's right (879, 384), and the window of 300 pixels a prop is measured in reaches the cursor the schedule parks at
+  1000, 400. On Windows the shot shows the cursor's picture (24 x 23 pixels): 101 box pixels of 295 drawn in the
+  window is the 0.342. The measure leaves the cursor's box out (`underCursor`): 1.000 for both. Whether the Linux shots
+  show the cursor was not looked at; the tier passed there on 2026-10-30.
+
+Run 2026-11-14 on Windows x64 (debug Game of `main` at 8f372bb6a, each tier's test program started as `build.zig`
+starts it): the three tiers pass. Not run: the other tiers that share `runGameWith` (units, state, village, missions,
+full3d, kit), which the change of `camera_turn_game_reads_it.zig` only names the parked cursor's place for; macOS and
+Linux.
