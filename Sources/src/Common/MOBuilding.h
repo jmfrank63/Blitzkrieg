@@ -18,6 +18,7 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	int nCameraTurn;											// the camera's quarter turn it is drawn for
 	int nFacing;													// its own facing in quarter turns (NCameraTurn::Facing; counts with Remastered on)
 	int nDrawnTurn;												// the turn of its variant its pictures show (not saved: follows from the rest)
+	int nDrawnLight;											// the light index its pictures and shadow show (NCameraTurn::LightIndex; saved where it is not the step)
 	int nFrameIndex;											// its frame in its own packs, set again after a turn (-1: unknown)
 	ISpriteVisObj* GetVisObj() { return static_cast_ptr<ISpriteVisObj*>( pVisObj ); }
 	ISpriteAnimation* GetAnim() { return static_cast<ISpriteAnimation*>( GetVisObj()->GetAnimation() ); }
@@ -28,9 +29,10 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	int GetNumFreeSlots() const { return GetNumTotalSlots() - passangers.size(); }
 	bool CanEnterOrBoard() const;
 	bool UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, const bool bForced = false );
-	std::string GetModelPath( const int nTurn, const int nStep ) const;
-	std::string GetShadowPath( const std::string &szModelPath, const int nTurn, const int nStep, bool *pbAsItLies ) const;
+	std::string GetModelPath( const int nTurn, const int nLight ) const;
+	std::string GetShadowPath( const std::string &szModelPath, const int nTurn, const int nLight, bool *pbAsItLies ) const;
 	int GetDrawnTurn() const;
+	int GetLight() const;
 	void Redraw( IVisObjBuilder *pVOB, const bool bInScene );
 	void GetPassangerIconPlacement( CVec3 *pvAdd, CVec3 *pvStep );
 	CVec3 GetIconShift();
@@ -47,7 +49,7 @@ class CMOBuilding : public CTRefCount<IMOContainer>
 	}
 	bool IsDOT() const { return GetRPGStats()->eType == SBuildingRPGStats::TYPE_DOT; }
 	virtual ~CMOBuilding();
-	CMOBuilding() : nCameraTurn( 0 ), nFacing( 0 ), nDrawnTurn( 0 ), nFrameIndex( -1 ) {  }
+	CMOBuilding() : nCameraTurn( 0 ), nFacing( 0 ), nDrawnTurn( 0 ), nDrawnLight( 0 ), nFrameIndex( -1 ) {  }
 	
 	void UpdateGunTraces( const CVec3 &vStart, const CVec3 &vEnd, float fSpeed, NTimer::STime nCurrTime, IScene *pScene );
 public:

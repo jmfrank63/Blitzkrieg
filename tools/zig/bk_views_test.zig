@@ -1788,7 +1788,7 @@ test "an RGBA PNG with every row filter and two IDAT chunks reads to its pixels"
     try std.testing.expectError(error.NotRgba8, views.readRgbaPng(gpa, grey));
 }
 
-test "the tracked kit views hold four turns of every state of every building of their index, each picture the size views.json gives and its zero cross near it" {
+test "the tracked kit views hold four turns under four lights of every state of every building of their index, each picture and shadow the size views.json gives and a picture's zero cross near it" {
     var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
@@ -1805,29 +1805,57 @@ test "the tracked kit views hold four turns of every state of every building of 
         while (states.next()) |state| {
             try std.testing.expectEqual(@as(usize, 4), state.value_ptr.object.count());
             for (0..4) |turn| {
-                const view = try std.json.parseFromValueLeaky(struct { zero: [2]i32, size: [2]i32 }, arena, state.value_ptr.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})).?, .{});
-                const path = try std.fmt.allocPrint(arena, "{s}/{s}/{s}_{d}.png", .{ root, entry.path, state.key_ptr.*, turn });
-                var file = try std.Io.Dir.cwd().openFile(std.testing.io, path, .{});
-                defer file.close(std.testing.io);
-                var header: [29]u8 = undefined;
-                _ = try file.readPositionalAll(std.testing.io, &header, 0);
-                errdefer std.debug.print("{s}\n", .{path});
-                try std.testing.expectEqual(view.size[0], @as(i32, @intCast(std.mem.readInt(u32, header[16..20], .big))));
-                try std.testing.expectEqual(view.size[1], @as(i32, @intCast(std.mem.readInt(u32, header[20..24], .big))));
-                try std.testing.expectEqualSlices(u8, &.{ 8, 6, 0, 0, 0 }, header[24..29]);
-                // Cut to its content, the zero cross a ground point at most a little outside it.
-                for (view.zero, view.size) |z, extent| try std.testing.expect(z >= -64 and z < extent + 64);
-                pictures += 1;
+                const of_turn = state.value_ptr.object.get(try std.fmt.allocPrint(arena, "{d}", .{turn})).?.object;
+                try std.testing.expectEqual(@as(usize, 2), of_turn.count());
+                // The picture under each light index (`l`) and the shadow the model casts under it (`s`).
+                for ([_][]const u8{ "l", "s" }) |kind| {
+                    const lights = of_turn.get(kind).?.object;
+                    try std.testing.expectEqual(@as(usize, 4), lights.count());
+                    for (0..4) |light| {
+                        const view = try std.json.parseFromValueLeaky(struct { zero: [2]i32, size: [2]i32 }, arena, lights.get(try std.fmt.allocPrint(arena, "{d}", .{light})).?, .{});
+                        const path = try std.fmt.allocPrint(arena, "{s}/{s}/{s}_{d}_{s}{d}.png", .{ root, entry.path, state.key_ptr.*, turn, kind, light });
+                        var file = try std.Io.Dir.cwd().openFile(std.testing.io, path, .{});
+                        defer file.close(std.testing.io);
+                        var header: [29]u8 = undefined;
+                        _ = try file.readPositionalAll(std.testing.io, &header, 0);
+                        errdefer std.debug.print("{s}\n", .{path});
+                        try std.testing.expectEqual(view.size[0], @as(i32, @intCast(std.mem.readInt(u32, header[16..20], .big))));
+                        try std.testing.expectEqual(view.size[1], @as(i32, @intCast(std.mem.readInt(u32, header[20..24], .big))));
+                        try std.testing.expectEqualSlices(u8, &.{ 8, 6, 0, 0, 0 }, header[24..29]);
+                        // A picture is cut to its content, the zero cross a ground point at most a little
+                        // outside it; a shadow lies off the building's foot, as far as bk-views kit takes it.
+                        const outside: i32 = if (kind[0] == 'l') 64 else 4096;
+                        for (view.zero, view.size) |z, extent| try std.testing.expect(z >= -outside and z < extent + outside);
+                        pictures += 1;
+                    }
+                }
             }
         }
     }
-    try std.testing.expectEqual(index.len * 12, pictures);
-    // One of them read whole: one-bit alpha, as bk-views kit composes it.
-    const picture = try views.readRgbaPng(arena, try read(arena, root ++ "/europe/summer/e_house01_1/1_0.png"));
+    try std.testing.expectEqual(index.len * 3 * 4 * 4 * 2, pictures);
+    // One picture read whole: one-bit alpha, as bk-views kit composes it. Under its own light it is lit
+    // another way than under the 2003 light, on the same outline.
+    const picture = try views.readRgbaPng(arena, try read(arena, root ++ "/europe/summer/e_house01_1/1_0_l0.png"));
     var opaque_pixels: usize = 0;
     for (picture.pixels) |p| {
         try std.testing.expect(p[3] == 0 or p[3] == 255);
         opaque_pixels += @intFromBool(p[3] == 255);
     }
     try std.testing.expect(opaque_pixels > picture.pixels.len / 3);
+    const lit = try views.readRgbaPng(arena, try read(arena, root ++ "/europe/summer/e_house01_1/1_0_l2.png"));
+    try std.testing.expectEqual(picture.pixels.len, lit.pixels.len);
+    var recoloured: usize = 0;
+    for (picture.pixels, lit.pixels) |a, b| {
+        try std.testing.expectEqual(a[3], b[3]);
+        recoloured += @intFromBool(a[3] == 255 and !std.mem.eql(u8, a[0..3], b[0..3]));
+    }
+    try std.testing.expect(recoloured > opaque_pixels / 2);
+    // A shadow read whole: black and opaque where the ground is shaded, clear elsewhere.
+    const shadow = try views.readRgbaPng(arena, try read(arena, root ++ "/europe/summer/e_house01_1/1_0_s0.png"));
+    var shaded: usize = 0;
+    for (shadow.pixels) |p| {
+        try std.testing.expect(std.mem.eql(u8, &p, &.{ 0, 0, 0, 0 }) or std.mem.eql(u8, &p, &.{ 0, 0, 0, 255 }));
+        shaded += @intFromBool(p[3] == 255);
+    }
+    try std.testing.expect(shaded > 1000);
 }

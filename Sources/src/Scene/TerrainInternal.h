@@ -159,6 +159,12 @@ class CTerrain : public ITerrain, public ITerrainEditor
 	std::unordered_map<DWORD, DWORD> visibilities;
 	CTerrainBuilder terrabuild;
 	std::vector<SSoundTerrainInfo> collectedInfo;
+	// The sun's turn (Main/SunTurn.h): the vertex shades as the map holds them,
+	// lit by the 2003 sun (empty until another turn first shades the ground),
+	// and the turn the altitudes' shades are of now.
+	std::vector<BYTE> bakedShades;
+	int nShadedSun;
+	void ShadeForSun();
 	void CreatePatch( const STerrainPatchInfo &patch, STerrainPatch *pPatch );
 	void MovePatch( int nX, int nY, const STerrainPatchInfo &patch, STerrainPatch *pPatch );
 	void MoveWarFog();
@@ -175,7 +181,7 @@ class CTerrain : public ITerrain, public ITerrainEditor
 	void FillSoundInfo( std::vector<SSoundTerrainInfo>  *collectedInfo, const int nX, const int nY );
 	void DrawPatchBorder( CVec3 &vStartPos, const CVec3 &vFarOffset, const CVec3 &vStepOffset, bool bRightOrder, bool bXIncrement, int nXStart, int nYStart, DWORD dwColor, bool bUseFog );
 public:
-	CTerrain() : bGridOn( false ), bEnableNoise( true ), terrabuild( tilesetDesc, crossetDesc/*, roadsetDesc*/ ) {  }
+	CTerrain() : bGridOn( false ), bEnableNoise( true ), nShadedSun( 0 ), terrabuild( tilesetDesc, crossetDesc/*, roadsetDesc*/ ) {  }
 	virtual void STDCALL Init( ISingleton *pSingleton );
 	virtual void STDCALL ResetPosition() { vOldAnchor.Set( -1000000, -1000000, -1000000 ); }
 	virtual int STDCALL GetSizeX() const { return terrainInfo.tiles.GetSizeX(); }

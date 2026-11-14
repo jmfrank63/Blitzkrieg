@@ -30,6 +30,7 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 	pDesc = pDescLocal;
 	nCameraTurn = NCameraTurn::Step();
 	nDrawnTurn = GetDrawnTurn();
+	nDrawnLight = GetLight();
 	pRPG = NGDB::GetRPGStats<SHPObjectRPGStats>( pGDB, pDesc );
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for building \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
@@ -86,8 +87,16 @@ int CMOBuilding::operator&( IStructureSaver &ss )
 		saver.Add( 6, &nCameraTurn );
 	if ( saver.IsReading() || nFacing != 0 )
 		saver.Add( 7, &nFacing );
-	if ( saver.IsReading() || nDrawnTurn != 0 )
+	if ( saver.IsReading() || nDrawnTurn != 0 || nDrawnLight != 0 )
 		saver.Add( 8, &nFrameIndex );
+	// The light its pictures show, where the sun's turn (SunTurn.h) makes it
+	// another than the step's; a save from before the sun turned holds none.
+	// The load sets the sun's turn after the objects are read, so the light
+	// cannot follow from the rest here as the drawn turn does.
+	if ( saver.IsReading() )
+		nDrawnLight = nCameraTurn;
+	if ( saver.IsReading() || nDrawnLight != nCameraTurn )
+		saver.Add( 9, &nDrawnLight );
 	if ( saver.IsReading() )
 		nDrawnTurn = GetDrawnTurn();
 	return 0;
@@ -240,7 +249,7 @@ void CMOBuilding::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
 	nFacing = NCameraTurn::Facing( wDir );
 	// The world places a new object before it adds it to the scene.
-	if ( GetDrawnTurn() != nDrawnTurn )
+	if ( GetDrawnTurn() != nDrawnTurn || GetLight() != nDrawnLight )
 		Redraw( GetSingleton<IVisObjBuilder>(), false );
 	pVisObj->SetPlacement( vPos, 0 );
 	if ( pShadow )
@@ -289,7 +298,7 @@ void CMOBuilding::GetStatus( struct SMissionStatusObject *pStatus ) const
 void CMOBuilding::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
 	nFacing = NCameraTurn::Facing( placement.dir );
-	if ( GetDrawnTurn() != nDrawnTurn )
+	if ( GetDrawnTurn() != nDrawnTurn || GetLight() != nDrawnLight )
 		Redraw( GetSingleton<IVisObjBuilder>(), true );
 	CVec3 vPos;
 	AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
@@ -346,10 +355,10 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 	const int nNewState = GetBuildingDamageState( fNewHP );
 	if ( (nNewState != nOldState) || bForced )
 	{
-		const std::string szModelPath = GetModelPath( nDrawnTurn, nCameraTurn );
+		const std::string szModelPath = GetModelPath( nDrawnTurn, nDrawnLight );
 		const std::string szBaseModelName = NStr::Format( "%s\\%d", szModelPath.c_str(), nNewState + 1 );
 		bool bAsItLies = false;
-		const std::string szShadowPath = GetShadowPath( szModelPath, nDrawnTurn, nCameraTurn, &bAsItLies );
+		const std::string szShadowPath = GetShadowPath( szModelPath, nDrawnTurn, nDrawnLight, &bAsItLies );
 		CPtr<IVisObj> pTempVO = UpdateVisObj( pVisObj, szBaseModelName, GetSeasonApp(nSeason), "", pVOB );
 		if ( pTempVO == 0 )
 			GetSingleton<IScene>()->RemoveObject( pVisObj );
@@ -359,7 +368,7 @@ bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, c
 			GetSingleton<IScene>()->RemoveObject( pShadow );
 		pShadow = pTempVO;
 		if ( ISpriteVisObj *pShadowSprite = dynamic_cast<ISpriteVisObj*>( pShadow.GetPtr() ) )
-			pShadowSprite->SetScreenTurn( bAsItLies ? 0 : nCameraTurn, false );
+			pShadowSprite->SetScreenTurn( bAsItLies ? 0 : nDrawnLight, false );
 		pTempVO = UpdateVisObj( pGarbage, szBaseModelName, GetSeasonApp(nSeason), "g", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pGarbage );
@@ -375,13 +384,19 @@ int CMOBuilding::GetDrawnTurn() const
 {
 	return NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nCameraTurn );
 }
+// The light index its pictures and its shadow are drawn for: the camera's step
+// under the sun's turn (SunTurn.h). With the sun where 2003 had it, the step.
+int CMOBuilding::GetLight() const
+{
+	return NCameraTurn::LightIndex( nCameraTurn );
+}
 // A turn the data holds no pictures of is drawn as its own side, and the log
 // says so once per variant and turn (the camera turn mod missing or not made
 // for this variant would otherwise look like a building that does not turn).
-std::string CMOBuilding::GetModelPath( const int nTurn, const int nStep ) const
+std::string CMOBuilding::GetModelPath( const int nTurn, const int nLight ) const
 {
 	NTurnTrace::CScope scope( "probe", true );
-	const std::string szPath = NCameraTurn::LitModelPath( pDesc->szPath, nTurn, nStep, NTurnPreload::Exists );
+	const std::string szPath = NCameraTurn::LitModelPath( pDesc->szPath, nTurn, nLight, NTurnPreload::Exists );
 	if ( nTurn != 0 && szPath == pDesc->szPath )
 	{
 		static std::set<std::string> told;
@@ -392,29 +407,32 @@ std::string CMOBuilding::GetModelPath( const int nTurn, const int nStep ) const
 	return szPath;
 }
 // The folder whose shadow it casts with its pictures of turn nTurn at
-// szModelPath at camera step nStep, and whether that shadow is laid as it lies
-// (*pbAsItLies) or turned with the ground by the step:
-// - the shadow its turn casts under the Game's sun apart from its pictures
-//   (`<variant>_r<k>_s<s>`, NCameraTurn::ShadowModelPath), its full 3D model
-//   flattened on the ground as a vehicle's: whatever picture the turn shows
-//   (lit by the 2003 light, by the world's sun, or the 2003 picture at turn
-//   0), the shadow lies against its foot;
+// szModelPath under light index nLight (the camera's step plus the sun's turn,
+// SunTurn.h), and whether that shadow is laid as it lies (*pbAsItLies) or
+// turned with the ground by the light index:
+// - the shadow its turn casts under that light apart from its pictures
+//   (`<variant>_r<k>_s<l>`, NCameraTurn::ShadowModelPath), its full 3D model
+//   flattened on the ground as a vehicle's, or its kit model's: whatever
+//   picture the turn shows (lit by the 2003 light, by the world's sun, or the
+//   variant's own at turn 0), the shadow lies against its foot;
 // - else pictures lit by the world's sun (M006 round 2) hold the shadow cast
 //   that way then;
-// - else, the sun staying in the world, the shadow its pictures of camera
-//   step 0 cast, laid on the ground turned with it by the step - at facing 0
-//   the 2003 shadow itself.
-std::string CMOBuilding::GetShadowPath( const std::string &szModelPath, const int nTurn, const int nStep, bool *pbAsItLies ) const
+// - else the shadow its pictures of camera step 0 cast as it stands in the
+//   world turned back by the sun's turn (NCameraTurn::LaidShadowTurn: its own
+//   facing with the sun where 2003 had it), laid on the ground turned with it
+//   by the light index - at facing 0 under the 2003 sun the 2003 shadow
+//   itself.
+std::string CMOBuilding::GetShadowPath( const std::string &szModelPath, const int nTurn, const int nLight, bool *pbAsItLies ) const
 {
 	NTurnTrace::CScope scope( "probe", true );
 	*pbAsItLies = true;
-	const std::string szCast = NCameraTurn::ShadowModelPath( pDesc->szPath, nTurn, nStep, NTurnPreload::Exists );
+	const std::string szCast = NCameraTurn::ShadowModelPath( pDesc->szPath, nTurn, nLight, NTurnPreload::Exists );
 	if ( !szCast.empty() )
 		return szCast;
 	if ( szModelPath != NCameraTurn::ModelPath( pDesc->szPath, nTurn, NTurnPreload::Exists ) )
 		return szModelPath;
 	*pbAsItLies = false;
-	return NCameraTurn::ModelPath( pDesc->szPath, NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, 0 ), NTurnPreload::Exists );
+	return NCameraTurn::ModelPath( pDesc->szPath, NCameraTurn::LaidShadowTurn( nTurn, nLight ), NTurnPreload::Exists );
 }
 // Brings the pictures of its damage state at camera step nStep into the
 // shared caches (NTurnPreload), each as UpdateModelWithHP and UpdateVisObj
@@ -424,10 +442,11 @@ void CMOBuilding::PreloadCameraTurn( const int nStep )
 	const int nState = GetBuildingDamageState( fHP ) + 1;
 	const std::string szSeason = GetSeasonApp( nSeason );
 	const int nTurn = NCameraTurn::DrawnTurn( NCameraTurn::FacingCounts() ? nFacing : 0, nStep );
-	const std::string szModelPath = GetModelPath( nTurn, nStep );
+	const int nLight = NCameraTurn::LightIndex( nStep );
+	const std::string szModelPath = GetModelPath( nTurn, nLight );
 	const std::string szBase = NStr::Format( "%s\\%d", szModelPath.c_str(), nState );
 	bool bAsItLies = false;
-	const std::string szBases[3] = { szBase, NStr::Format( "%s\\%d", GetShadowPath( szModelPath, nTurn, nStep, &bAsItLies ).c_str(), nState ), szBase };
+	const std::string szBases[3] = { szBase, NStr::Format( "%s\\%d", GetShadowPath( szModelPath, nTurn, nLight, &bAsItLies ).c_str(), nState ), szBase };
 	const char *pszApps[3] = { "", "s", "g" };
 	for ( int i = 0; i < 3; ++i )
 	{
@@ -438,7 +457,7 @@ void CMOBuilding::PreloadCameraTurn( const int nStep )
 void CMOBuilding::SetCameraTurn( const int nTurn, IVisObjBuilder *pVOB )
 {
 	nCameraTurn = nTurn;
-	if ( GetDrawnTurn() != nDrawnTurn )
+	if ( GetDrawnTurn() != nDrawnTurn || GetLight() != nDrawnLight )
 		Redraw( pVOB, true );
 }
 // Draws it again from GetModelPath. The pictures change in place, so the scene
@@ -452,6 +471,7 @@ void CMOBuilding::Redraw( IVisObjBuilder *pVOB, const bool bInScene )
 		return;
 	const bool bHadShadow = pShadow != 0, bHadGarbage = pGarbage != 0;
 	nDrawnTurn = GetDrawnTurn();
+	nDrawnLight = GetLight();
 	UpdateModelWithHP( fHP, pVOB, true );
 	if ( pVisObj == 0 )
 		return;

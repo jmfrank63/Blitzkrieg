@@ -1575,7 +1575,9 @@ pub fn build(b: *std.Build) void {
     // Task 7.3 review: in the foundation matrix, so every CI job builds it and
     // the run-mode jobs run it.
     test_platform_foundation.dependOn(wheel_scroll_step);
-    const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain);
+    const remastered_step = addRemasteredTest(b, target, platform, test_mode, toolchain, "tools/zig/remastered_test.cpp", "remastered-test", "test-remastered", "Run the Remastered option's policy test: off by default, always off in multiplayer, a replay keeps its recorded mode");
+    // The sun's turn (Sources/src/Main/SunTurn.h): its pick as a mission starts, the light index and the laid shadow's turn.
+    const sun_turn_step = addRemasteredTest(b, target, platform, test_mode, toolchain, "tools/zig/sun_turn_test.cpp", "sun-turn-test", "test-sun-turn", "Run the sun turn's rules test: a mission's pick is never the one before it and covers all four turns, 0 where the Remastered option does not hold, the light index is the camera's step plus the sun's turn, BK_SUN_TURN forces only 0 to 3");
     addFastestPathTest(b, target, test_mode);
     const replay_core_step = addReplayCoreTest(b, target, platform, test_mode, toolchain);
     addInputHeaderAuditTest(b, target, test_mode, toolchain);
@@ -3344,12 +3346,15 @@ pub fn build(b: *std.Build) void {
         .{ "camera-turn-full3d-anchor-game-reads-it", "the Game turns full 3D objects in place", "Render the turns of the barn E_WB_01, the L-shaped house A_H01_1, the house E_House02_2 and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game, and measure that each stands where its 2003 picture stands at all four steps" },
         .{ "camera-turn-hand-game-reads-it", "a hand model is what the Game draws at every step", "Render the turns of the hand models E_House01_1 and E_House01_3 at own facings 0 and 2, turn 0 included, with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on and off, and measure each step against that turn's pack, step 0 against the hand model and not its 2003 picture; the shots stay in zig-out/local-test/camera-turn/hand" },
         .{ "camera-turn-kit-game-reads-it", "kit views are what the Game draws at every step", "Lay the kit views of E_House01_1 (which also has a hand model), A_H07_1 at own facing 1 and the damaged warehouse E_WB_01 over their turns with bk-views side and kit into a scratch mod, press the camera turn key on the real Game over road3d, and measure each step against that turn's fixture picture at its zero cross, which the turn bk-views side drew must fail; the shots stay in zig-out/local-test/camera-turn/kit" },
+        .{ "camera-turn-kit-sun-game-reads-it", "one sun for the mission", "Lay the kit views of E_House01_1 over its turns with bk-views side and kit into a scratch mod, start the real Game with Remastered on and the sun forced to each of its four turns (BK_SUN_TURN) on a map with the house at own facing 2, and measure at all four camera steps that the house is the fixture picture of its turn under light step + sun and that its shadow is that view's fixture shadow, joined to it and cast the way the turned sun casts; the shots stay in zig-out/local-test/camera-turn/kit-sun" },
+        .{ "camera-turn-sun-state-game-reads-it", "the sun's turn is the mission's", "With the kit views of E_House01_1 in a scratch mod and Remastered on, measure in the real Game that a T-34's shadow falls the same way as the house's under sun turn 1 at the camera steps, that a mission saved under sun turn 2 loads under it in a Game started with another turn forced and the house keeps that light, that taking the option off draws the step's light again, and that without Remastered a forced sun turn changes nothing; the shots stay in zig-out/local-test/camera-turn/sun-state" },
+        .{ "camera-turn-sun-terrain-game-reads-it", "the ground's shade turns with the sun", "Raise a hill on road3d with the shades the Map Editor bakes for the 2003 sun, start the real Game with Remastered on and the sun forced to each of its four turns (BK_SUN_TURN), and measure in shots of the ground alone that the hill's brightest slope is the one facing that sun and the darkest the one across, and that without Remastered a forced turn changes nothing; the shots stay in zig-out/local-test/camera-turn/sun-terrain" },
         .{ "camera-turn-full3d-shadow-game-reads-it", "a full 3D object's shadow", "Render the turns of the barns E_WB_01 and E_WB_02 (at own facing 1, as in the hand test's screenshot), each turn with its shadow alone cast under the Game's sun as a vehicle's, and the prop Rick with bk-views side into a scratch mod, press the camera turn key on the real Game over road3d with shadows on, and measure that each shadow is that one, lies against its object and falls the way that sun casts" },
         // Not tiers: the frames of the review of 2026-10-31 (no checks), each
         // its own step so that one stays within a ten-minute command.
         .{ "camera-turn-full3d-review-a", "review frames a", "Shoot the first half of the review's full 3D objects alone over road3d with shadows on at all four camera steps into zig-out/local-test/camera-turn/full3d-review-<after|before>; -Dfull3d-review-before=<checkout> shoots that checkout's Game and bk-views instead" },
         .{ "camera-turn-full3d-review-b", "review frames b", "Shoot the second half of the review's full 3D objects, as camera-turn-full3d-review-a" },
-        .{ "camera-turn-kit-review", "kit review frames", "Make the Remastered views mod (camera-turn-mod) and shoot four of its kit maps (nine buildings each: African, European, Russian, and the European ones damaged) in the real Game with that mod at all four camera steps, whole scene, into zig-out/review/kit-views" },
+        .{ "camera-turn-kit-review", "kit review frames", "Make the Remastered views mod (camera-turn-mod) and shoot four of its kit maps (nine buildings each: African, European, Russian, and the European ones damaged) in the real Game with that mod at all four camera steps, whole scene, the European map under all four turns of the sun and the others under one each, into zig-out/review/kit-views as <map>-sun<t>-step<k>.png" },
         .{ "camera-turn-full3d-review-village", "review frames village", "Shoot a European village of full 3D buildings at several facings and props over road3d with shadows on at all four camera steps, as camera-turn-full3d-review-a" },
     }) |tier| {
         const tier_tests = b.addTest(.{ .root_module = full3d_game_module, .filters = &.{tier[1]} });
@@ -4698,6 +4703,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(wheel_scroll_step);
     test_step.dependOn(remastered_step);
+    test_step.dependOn(sun_turn_step);
     test_step.dependOn(replay_core_step);
     // The editor kit tier: reusable editor plumbing (files, shipped, autosave,
     // history stack primitive, settings primitive, host, crt, imgui wrapper,
@@ -5580,9 +5586,15 @@ pub fn build(b: *std.Build) void {
     // The Game and the editors started with the Remastered views mod of camera-turn-mod, which is kept out of
     // the installation's mods folder (tools/blender/README.md): BK_MODS_ROOT names zig-out/remastered/mods and
     // -mod=remastered_views the mod. Arguments after `--` go to the program, e.g. a map of the mod:
-    // `zig build run-remastered -- kit_views_01.xml`.
+    // `zig build run-remastered -- kit_views_01.xml`. A mission started with Remastered on picks the turn its sun
+    // stands at, another one each time (Sources/src/Main/SunTurn.h); -Dsun-turn=<0..3> starts the Game with
+    // BK_SUN_TURN set, which forces that turn (0 is the 2003 sun).
+    const run_sun_turn = b.option(u8, "sun-turn", "The turn of the sun (0 to 3, 0 where 2003 had it) run-remastered forces on every mission instead of the random pick (BK_SUN_TURN)");
+    if (run_sun_turn) |forced| {
+        if (forced > 3) std.debug.panic("-Dsun-turn={d}: the sun has the turns 0 to 3", .{forced});
+    }
     for ([_][4][]const u8{
-        .{ "run-remastered", "install-game", stage_game_name, "Install the Game, make the Remastered views mod (camera-turn-mod) and start the Game with it: the buildings' kit views and the turned props at every camera step (Remastered on in Options > Settings > Gameplay; , and . turn the camera)" },
+        .{ "run-remastered", "install-game", stage_game_name, "Install the Game, make the Remastered views mod (camera-turn-mod) and start the Game with it: the buildings' kit views and the turned props at every camera step under the mission's sun (Remastered on in Options > Settings > Gameplay; , and . turn the camera; each mission picks another turn of the sun, -Dsun-turn=<0..3> forces one)" },
         .{ "run-remastered-map-editor", "install-map-editor", b.fmt("MapEditor{s}", .{target.result.exeFileExt()}), "Install MapEditor, make the Remastered views mod (camera-turn-mod) and start MapEditor with it" },
         .{ "run-remastered-resource-editor", "install-resource-editor", b.fmt("ResourceEditor{s}", .{target.result.exeFileExt()}), "Install ResourceEditor, make the Remastered views mod (camera-turn-mod) and start ResourceEditor with it" },
     }) |program| {
@@ -5590,6 +5602,9 @@ pub fn build(b: *std.Build) void {
         const start = b.addSystemCommand(&.{ rootPath(b, b.fmt("{s}/{s}", .{ stage_root, program[2] })), "-mod=remastered_views" });
         start.setCwd(b.path(stage_root));
         start.setEnvironmentVariable("BK_MODS_ROOT", rootPath(b, "zig-out/remastered/mods"));
+        if (run_sun_turn) |forced| {
+            if (std.mem.eql(u8, program[0], "run-remastered")) start.setEnvironmentVariable("BK_SUN_TURN", b.fmt("{d}", .{forced}));
+        }
         start.addPassthruArgs();
         start.step.dependOn(&install.step);
         if (b.top_level_steps.get("camera-turn-mod")) |mod| start.step.dependOn(&mod.step);
@@ -8519,24 +8534,30 @@ fn addWheelScrollTest(
 
 /// The Remastered switch's policy (Sources/src/Main/Remastered.h): the option,
 /// multiplayer and replays, with the global vars the game sets. Built the way
-/// addWheelScrollTest builds its header-only test.
+/// addWheelScrollTest builds its header-only test. The sun turn's rules
+/// (Sources/src/Main/SunTurn.h, which reads the same option) are tested the
+/// same way from a source of their own.
 fn addRemasteredTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     platform: build_support.PlatformTarget,
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
+    source: []const u8,
+    exe_name: []const u8,
+    step_name: []const u8,
+    description: []const u8,
 ) *std.Build.Step {
     const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     addLinuxCxxIncludePaths(b, module);
-    module.addCSourceFiles(.{ .files = &.{"tools/zig/remastered_test.cpp"}, .flags = &.{"-std=c++17"} });
+    module.addCSourceFiles(.{ .files = &.{source}, .flags = &.{"-std=c++17"} });
     linkCxxRuntime(module, target);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
         linkMsvcRuntime(module, .debug);
     }
-    const exe = b.addExecutable(.{ .name = "remastered-test", .root_module = module });
+    const exe = b.addExecutable(.{ .name = exe_name, .root_module = module });
     if (build_support.usesMsvc(platform)) {
         exe.subsystem = .console;
         exe.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -8544,7 +8565,7 @@ fn addRemasteredTest(
     const run = b.addRunArtifact(exe);
     setLeakReportStrict(run);
     run.setCwd(b.path("."));
-    const step = b.step("test-remastered", "Run the Remastered option's policy test: off by default, always off in multiplayer, a replay keeps its recorded mode");
+    const step = b.step(step_name, description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
     return step;
@@ -10247,16 +10268,29 @@ fn addShapesReview(b: *std.Build, views: *std.Build.Step.Compile) void {
 ///
 /// A building whose kit views are tracked (tools/zig/fixtures/bk-views/kit-views, rendered outside the
 /// repo from its Blender kit model, tools/blender/README.md) shows those in the mod: `bk-views kit` lays
-/// them over the object's turns, each state's picture composed from the kit view with the shadow and ground
-/// picture the turn had, in a cached run of its own after the object's `side` run; the round trip checks
-/// every one of those packs through the engine's reader and against its kit view, and the mod takes that
-/// folder in place of the turns. `kit-views` runs them alone. zig-out/remastered/Buildings keeps the turns as `side` drew them.
-/// The shadows a building at its own facing f casts at camera step s, turn k = f + s, apart from the pictures it
-/// shows there (`bk-views side`'s `<k>s<s>`): its full 3D model flattened on the ground along the Game's sun, as a
-/// vehicle's, every turn at every step but turn 0 at step 0 (the 2003 picture with its own shadow). A prop shows
-/// turn s at step s.
+/// them over the object's turns, every turn under every light, each state's picture composed from the kit
+/// view with the view's own shadow and the ground picture the turn had, and each one's shadow alone, in a
+/// cached run of its own after the object's `side` run; the round trip checks every one of those packs
+/// through the engine's reader and against its kit view, and the mod takes that folder in place of the
+/// turns. `kit-views` runs them alone. zig-out/remastered/Buildings keeps the turns as `side` drew them.
+/// The shadows an object's turn k casts under light index l apart from the pictures it shows there (`bk-views
+/// side`'s `<k>s<l>`): its full 3D model flattened on the ground along the Game's sun, as a vehicle's, every turn
+/// under every light but turn 0 at light 0 (the 2003 picture with its own shadow). The light index is the camera's
+/// step plus the turn the mission's sun stands at (Sources/src/Main/SunTurn.h), so a building at its own facing f
+/// shows turn f + s at step s under any of the four, and so does a prop, which shows turn s there.
 const facing_shadows = "0s1,0s2,0s3,1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
-const prop_shadows = "1s1,2s2,3s3";
+/// A prop's: its three turns under every light. Its turn 0 is its 2003 picture, whose shadow alone `side` cannot
+/// always compose (ussr/summer/villagefence/09 at light 1: the shadow falls behind the picture, and bk-sprite
+/// packs no picture of it); at step 0 under a turned sun the Game lays the shadow of the turn the prop is with
+/// the world turned back by the sun (CMOObject::ApplyCameraTurn).
+const prop_shadows = "1s0,1s1,1s2,1s3,2s0,2s1,2s2,2s3,3s0,3s1,3s2,3s3";
+/// The turns of an object lit by the sun as light index l has it (`<k>l<l>`). A building's are its kit views, which
+/// `bk-views kit` lays for every turn and light, so `side` draws only the three a building of facing 0 showed
+/// before the sun turned (the winter pictures and the folders kit starts from). A prop has no kit views: `side`
+/// draws its three turns under each of the three lights. Turn 0 under a light is the 2003 picture relit
+/// (`objects-relight`), which `side` does not draw.
+const building_lit = "1l1,2l2,3l3";
+const prop_lit = "1l1,1l2,1l3,2l1,2l2,2l3,3l1,3l2,3l3";
 
 fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.Step.Compile, sprite: BkSprite) *std.Build.Step {
     const ids_path = "tools/zig/fixtures/bk-views/shape-ids.json";
@@ -10300,10 +10334,9 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             side.setCwd(b.path("."));
             setUserRootsForTest(side, "bk-views-user");
             // A building may stand at its own facing f (the Map Editor's Q and E)
-            // and shows turn f + s at camera step s with the pictures facing 0 has
-            // (the maintainer's ruling of 2026-10-31), casting the shadow of that
+            // and shows turn f + s at camera step s, casting the shadow of that
             // turn under the world's sun (`facing_shadows`). A prop shows turn s at
-            // step s.
+            // step s. Both under the light the step and the mission's sun give.
             const building = std.mem.startsWith(u8, e.path, "Buildings/");
             const kit_path: ?[]const u8 = for (kit_index) |k| {
                 if (building and std.ascii.eqlIgnoreCase(k.path, under)) break k.path;
@@ -10312,7 +10345,7 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             // in a folder named as the variant's own that the mod lays over it.
             const hand_json = b.fmt("tools/zig/fixtures/bk-views/hand-models/{s}.json", .{name});
             const handmade = if (b.root.root_dir.handle.access(b.graph.io, hand_json, .{})) |_| true else |_| false;
-            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,1l1,2l2,3l3,{s}", .{ if (handmade) "0," else "", if (building) facing_shadows else prop_shadows }) });
+            side.addArgs(&.{ "side", data, b.fmt("{s}1,2,3,{s},{s}", .{ if (handmade) "0," else "", if (building) building_lit else prop_lit, if (building) facing_shadows else prop_shadows }) });
             side.addArg("--mirror=tools/zig/views-mirror.txt");
             side.addFileInput(b.path("tools/zig/views-mirror.txt"));
             // A state's file added to the model is no input of the last run's dep file.
@@ -10343,10 +10376,12 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
             if (handmade) check.addDirectoryArg(turns.path(b, name));
             for (1..4) |k| {
                 check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}", .{ name, k })));
-                check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
+                for (1..4) |l| {
+                    if (!building or l == k) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, l })));
+                }
             }
             for (0..4) |k| for (0..4) |s| {
-                if ((building and k + s > 0) or (k == s and k > 0)) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
+                if (k + s > 0 and (building or k > 0)) check.addDirectoryArg(turns.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, s })));
             };
             addPathDir(check, rootPath(b, "zig-out/bin"));
             check.expectExitCode(0);
@@ -10381,12 +10416,12 @@ fn addFull3d(b: *std.Build, target: std.Build.ResolvedTarget, views: *std.Build.
                 kit_check.addArgs(&.{ module_root, b.fmt("zig-out/local-test/full3d/kit-check/{s}", .{e.path}), b.fmt("--kit={s}", .{kit_dir}) });
                 kit_check.step.dependOn(sprite.install);
                 // The kit folders' paths name the kit run's cache folder, which changes with
-                // the kit views and with the turns under them.
-                kit_check.addDirectoryArg(shown.path(b, name));
-                for (1..4) |k| {
-                    kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}", .{ name, k })));
-                    kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}_l{d}", .{ name, k, k })));
-                }
+                // the kit views and with the turns under them. Every folder kit lays a view in:
+                // each turn under each light, and each one's shadow alone.
+                for (0..4) |k| for (0..4) |l| {
+                    kit_check.addDirectoryArg(shown.path(b, if (l != 0) b.fmt("{s}_r{d}_l{d}", .{ name, k, l }) else if (k != 0) b.fmt("{s}_r{d}", .{ name, k }) else name));
+                    if (k + l != 0) kit_check.addDirectoryArg(shown.path(b, b.fmt("{s}_r{d}_s{d}", .{ name, k, l })));
+                };
                 addPathDir(kit_check, rootPath(b, "zig-out/bin"));
                 kit_check.expectExitCode(0);
                 kit_check.step.dependOn(&check.step);

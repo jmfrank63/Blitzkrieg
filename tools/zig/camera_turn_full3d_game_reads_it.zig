@@ -505,23 +505,24 @@ test "kit views are what the Game draws at every step: each turn's fixture pictu
         const label = try std.fmt.allocPrint(allocator, "{s}-f{d}", .{ object.name, object.facing });
         const shots = try turn.runGame(io, allocator, game, root, label, map_name, .{ shadow_look, shadow_look }, "ON", objects_only, 4);
 
-        const views_json = try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/views.json", .{kit_dir}), allocator, .limited(1 << 20));
-        const kit_views = (try std.json.parseFromSliceLeaky(std.json.Value, allocator, views_json, .{})).object.get("states").?.object.get(object.state).?.object;
         for (0..4) |k| {
             const t = (object.facing + k) % 4;
-            // CameraTurn.h's LitModelPath: the folder the Game takes the turn from.
-            const folder = if (t == 0) base else if (k == 0 or k != t) try std.fmt.allocPrint(allocator, "{s}_r{d}", .{ base, t }) else try std.fmt.allocPrint(allocator, "{s}_r{d}_l{d}", .{ base, t, k });
-            // The fixture picture, its zero cross as views.json gives it, over
-            // the rubble of the folder shown (the state's ground picture, which
-            // the kit views leave as it was and the Game draws with the objects).
-            const zero = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, allocator, kit_views.get(try std.fmt.allocPrint(allocator, "{d}", .{t})).?, .{ .ignore_unknown_fields = true });
-            const picture = try views.readRgbaPng(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/{s}_{d}.png", .{ kit_dir, object.state, t }), allocator, .limited(64 << 20)));
+            // CameraTurn.h's LitModelPath: the folder the Game takes the turn from
+            // under light index k (the sun where 2003 had it: the step).
+            const folder = if (k != 0) try std.fmt.allocPrint(allocator, "{s}_r{d}_l{d}", .{ base, t, k }) else if (t == 0) base else try std.fmt.allocPrint(allocator, "{s}_r{d}", .{ base, t });
+            // The fixture picture of the turn under that light, its zero cross
+            // as views.json gives it, over the rubble of the folder shown (the
+            // state's ground picture, which the kit views leave as it was and
+            // the Game draws with the objects).
+            const view = try kitView(io, allocator, kit_dir, object.state, t, k, "l");
             const out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-{d}", .{ root, label, k });
             try game_views.runTool(io, allocator, tool, &.{ "decompose", try std.fs.path.join(allocator, &.{ shown, folder }), out });
             const ground: ?game_views.Sprite = game_views.decomposed(io, allocator, out, try std.fmt.allocPrint(allocator, "{s}g", .{object.state})) catch null;
-            const expected = try overGround(allocator, .{ .image = picture, .anchor = zero.zero }, ground);
-            // What the Game would draw without the kit views.
-            const drew_folder = if (t == 0 and !hand) object.folder else try std.fs.path.join(allocator, &.{ turned, folder });
+            const expected = try overGround(allocator, view, ground);
+            // What the Game would draw without the kit views: the turn `side`
+            // drew, lit for the step where it drew that (`_r<k>_l<k>`).
+            const side_folder = if (t == 0) base else if (k == 0 or k != t) try std.fmt.allocPrint(allocator, "{s}_r{d}", .{ base, t }) else folder;
+            const drew_folder = if (t == 0 and !hand) object.folder else try std.fs.path.join(allocator, &.{ turned, side_folder });
             const drew_out = try std.fmt.allocPrint(allocator, "{s}/sprites/{s}-{d}-side", .{ root, label, k });
             try game_views.runTool(io, allocator, tool, &.{ "decompose", drew_folder, drew_out });
             const drew = try onGround(io, allocator, drew_out, object.state);
@@ -542,11 +543,562 @@ test "kit views are what the Game draws at every step: each turn's fixture pictu
     }
 }
 
-/// The maps of the built mod shot for the maintainer (`camera-turn-kit-review`,
-/// no checks): nine buildings each, African, European and Russian.
-const kit_review_maps = [_][]const u8{ "kit_views_01", "kit_views_08", "kit_views_17", "kit_views_08_damaged" };
+/// The house the sun tests stand, by its kit views: E_House01_1, which has
+/// every turn under every light and a shadow of its own for each.
+const sun_house = Object{ .name = "E_House01_1", .folder = "Data/Buildings/europe/summer/e_house01_1", .mod_dir = "buildings/europe/summer" };
+/// MC_SHOW_TERRAIN and MC_SHOW_SHADOWS (GameTT/iMission.h): a schedule's
+/// `msg=` turns the two passes off and on between shots, so one run of the
+/// Game shoots a mission's one sun at each step with the ground and its
+/// shadows and then with its objects alone.
+const show_terrain = "2097156";
+const show_shadows = "2097157";
+/// The passes off in every shot of the sun tests.
+const sun_passes_off = "effects,noise,warfog,border,haze,grid";
 
-test "kit review frames: the built Remastered views mod on its kit maps at the four camera steps" {
+/// A kit view of the house: turn `t` under light index `l`, its picture
+/// (`kind` "l") or the shadow its model casts ("s"), the zero cross as
+/// views.json gives it.
+fn kitView(io: std.Io, allocator: std.mem.Allocator, kit_dir: []const u8, state: []const u8, t: usize, l: usize, kind: []const u8) !game_views.Sprite {
+    const cwd = std.Io.Dir.cwd();
+    const views_json = try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/views.json", .{kit_dir}), allocator, .limited(1 << 20));
+    const of_turn = (try std.json.parseFromSliceLeaky(std.json.Value, allocator, views_json, .{})).object.get("states").?.object.get(state).?.object.get(try std.fmt.allocPrint(allocator, "{d}", .{t})).?.object;
+    const placed = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, allocator, of_turn.get(kind).?.object.get(try std.fmt.allocPrint(allocator, "{d}", .{l})).?, .{ .ignore_unknown_fields = true });
+    const picture = try views.readRgbaPng(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/{s}_{d}_{s}{d}.png", .{ kit_dir, state, t, kind, l }), allocator, .limited(64 << 20)));
+    return .{ .image = picture, .anchor = placed.zero };
+}
+
+/// The scratch mod of a sun test: road3d as its ground map, and the house's
+/// kit views laid over the turns `side` drew, as camera-turn-mod makes them
+/// (`kit` makes the shadows alone from the kit views' own).
+const SunMod = struct { root: []const u8, data: []const u8, kit_dir: []const u8, map: []const u8, foot: [2]f64 };
+
+fn sunMod(io: std.Io, allocator: std.mem.Allocator, tool: []const u8, root_rel: []const u8) !SunMod {
+    const cwd = std.Io.Dir.cwd();
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), root_rel });
+    cwd.deleteTree(io, root_rel) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const map = try writeStandingMod(io, allocator, data, "Data/Maps/road3d.xml");
+    const kit_dir = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ kit_views_dir, sun_house.folder["Data/Buildings/".len..] });
+    const turned = try std.fs.path.join(allocator, &.{ root, "turned" });
+    try cwd.createDirPath(io, turned);
+    try game_views.runTool(io, allocator, tool, &.{ "side", sun_house.folder, "0,1,2,3,1l1,2l2,3l3", turned, try std.fs.path.join(allocator, &.{ root, "work" }) });
+    try game_views.runTool(io, allocator, tool, &.{ "kit", kit_dir, sun_house.folder, turned, try std.fs.path.join(allocator, &.{ data, sun_house.mod_dir }) });
+    const foot = try footprintMiddle(io, allocator, tool, sun_house.folder, try std.fs.path.join(allocator, &.{ root, "sprites", "foot" }));
+    return .{ .root = root, .data = data, .kit_dir = kit_dir, .map = map, .foot = foot };
+}
+
+/// maps/<name> with one object alone, `what` at `direction` (a house: its
+/// footprint's middle `foot`, world units from its zero cross as it stands,
+/// put on the spot; a unit: `foot` zero), 240, -200 AI units from the point
+/// the shots look at; returns its zero cross on the screen at step 0.
+fn sunMap(io: std.Io, allocator: std.mem.Allocator, mod: SunMod, name: []const u8, what: []const u8, player: i32, direction: usize, foot: [2]f64) ![2]i32 {
+    var d: [2]i32 = undefined;
+    for (&d, foot, [2]i32{ 240, -200 }) |*v, f, a| v.* = 4 * @as(i32, @intFromFloat(@round((@as(f64, @floatFromInt(a)) - f * std.math.sqrt2) / 4)));
+    try std.Io.Dir.cwd().writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ mod.data, "maps", name }),
+        .data = try std.mem.replaceOwned(u8, allocator, mod.map, "<Objects/>", try std.fmt.allocPrint(allocator, "<Objects><item Direction=\"{d}\" Player=\"{d}\" ScriptID=\"-1\" HP=\"1\" FrameIndex=\"-1\"><Name>{s}</Name>" ++
+            "<Position x=\"{d}\" y=\"{d}\" z=\"0\"/><Link LinkID=\"1\" Intention=\"0\" LinkWith=\"0\"/></item></Objects>", .{ direction, player, what, shadow_middle_ai + d[0], shadow_middle_ai + d[1] })),
+    });
+    return .{ turn.centre[0] + @divExact(d[0] + d[1], 2), turn.centre[1] + @divExact(d[0] - d[1], 4) };
+}
+
+/// The shots of one mission under one sun: the four camera steps with the
+/// ground and the shadows (`lit`), and each with the objects alone.
+const SunShots = struct { lit: [4][]u8, alone: [4][]u8, log: []const u8 };
+
+/// Puts Remastered on in the profile of the scratch user "on", so that the
+/// missions run with it start with the option on: the sun's turn is picked as
+/// a mission starts, and only then (Main/SunTurn.h).
+fn sunOption(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8) !void {
+    _ = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "option", "", "60:set=GamePlay.Remastered=ON,120:exit", sun_passes_off, .{ .user = "on" });
+}
+
+/// Runs the Game on `map` with the sun forced to turn `sun` (BK_SUN_TURN), as
+/// the user `user`, and at each of the four camera steps shoots the scene,
+/// takes the terrain and the shadows off, shoots the objects alone and puts
+/// the two passes back. Both shots of a step are of one view: the camera's
+/// bounds move its anchor by a pixel or two at some steps this near the
+/// map's corner (297 becomes 295.6 at step 3, and stays), so a second round of
+/// turns would not stand where the first stood. The cursor is parked anew at
+/// every step (`hover` holds it for 600 frames; let go on the window's edge it
+/// scrolls the view). `paused`: the game is paused before the first shot
+/// (SPACE), so that a unit stands as it stood in every shot; the waits then
+/// count the timer's absolute time.
+fn sunRun(io: std.Io, allocator: std.mem.Allocator, game: []const u8, root: []const u8, name: []const u8, map: []const u8, sun: usize, user: []const u8, paused: bool) !SunShots {
+    const wait = if (paused) "t" else "g";
+    const toggle = try std.fmt.allocPrint(allocator, ",{s}10:msg=" ++ show_terrain ++ ",{s}10:msg=" ++ show_shadows, .{ wait, wait });
+    var schedule: std.ArrayList(u8) = .empty;
+    try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d}", .{ shadow_look, shadow_look });
+    if (paused) try schedule.appendSlice(allocator, ",g1000:key=SPACE");
+    for (0..4) |k| {
+        if (k != 0) try schedule.print(allocator, ",{s}10:hover=1000x400,{s}10:key=COMMA", .{ wait, wait });
+        try schedule.print(allocator, ",{s}{d}:shot{s},{s}{d}:shot{s}", .{ wait, 1500 + k, toggle, wait, 700 + k, toggle });
+    }
+    try schedule.print(allocator, ",{s}200:exit", .{wait});
+    const run = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, name, map, schedule.items, sun_passes_off, .{ .user = user, .env = &.{.{ "BK_SUN_TURN", try std.fmt.allocPrint(allocator, "{d}", .{sun}) }} });
+    var shots: SunShots = .{ .lit = undefined, .alone = undefined, .log = run.log };
+    for (0..4) |k| {
+        shots.lit[k] = try control.readShot(io, allocator, run.user, try std.fmt.allocPrint(allocator, "{s}{d}", .{ wait, 1500 + k }), root, try std.fmt.allocPrint(allocator, "{s}-lit-step{d}", .{ name, k }));
+        shots.alone[k] = try control.readShot(io, allocator, run.user, try std.fmt.allocPrint(allocator, "{s}{d}", .{ wait, 700 + k }), root, try std.fmt.allocPrint(allocator, "{s}-alone-step{d}", .{ name, k }));
+    }
+    return shots;
+}
+
+/// The sun turn a mission's log says it started under (BK_MAP_TRACE), -1
+/// where it says none or several.
+fn tracedSun(allocator: std.mem.Allocator, log: []const u8) !i32 {
+    const traced = try control.lines(allocator, log, "BK_MAP_TRACE: sun turn ");
+    return if (traced.len == 1 and traced[0].len > 0) std.fmt.parseInt(i32, traced[0][0..1], 10) catch -1 else -1;
+}
+
+/// The way the Game's sun casts on the ground under sun turn `sun`: the 2003
+/// sun's turned by (x, y) -> (-y, x) that many times.
+fn sunWay(sun: usize) [2]f64 {
+    var way = game_sun_ground;
+    for (0..sun) |_| {
+        const x = way[0];
+        way = .{ -way[1], x };
+    }
+    return way;
+}
+
+/// Where an object's shadow lies from the middle of its footprint, on the
+/// ground of the world (not of the screen's step): the mean of its shadow's
+/// pixels in sight, turned back by the step, and how many show.
+const CastWay = struct { way: [2]f64, pixels: usize };
+
+fn castWay(frames: [3][]const u8, box: [4]i32, zero: [2]i32, foot: [2]f64, k: usize) CastWay {
+    const middle = turn.turnOffset(.{ (foot[0] + foot[1]) / std.math.sqrt2, (foot[0] - foot[1]) / (2 * std.math.sqrt2) }, k);
+    var sum = [2]f64{ 0, 0 };
+    var pixels: usize = 0;
+    var y = turn.clear_rows[0];
+    while (y < turn.clear_rows[1]) : (y += 1) {
+        var x: i32 = 0;
+        while (x < turn.width) : (x += 1) {
+            if (!inBox(box, zero, x, y) or !isShadow(frames, x, y)) continue;
+            pixels += 1;
+            sum = .{ sum[0] + @as(f64, @floatFromInt(x - zero[0])) - middle[0], sum[1] + @as(f64, @floatFromInt(y - zero[1])) - middle[1] };
+        }
+    }
+    if (pixels == 0) return .{ .way = .{ 0, 0 }, .pixels = 0 };
+    // The screen offset at step 0 that the step shows there, then the ground
+    // under it: screen (sx, sy) is world ((sx + 2 sy), (sx - 2 sy)) / sqrt 2.
+    const s = turn.unturn(.{ sum[0] / @as(f64, @floatFromInt(pixels)), sum[1] / @as(f64, @floatFromInt(pixels)) }, k);
+    return .{ .way = .{ (s[0] + 2 * s[1]) / std.math.sqrt2, (s[0] - 2 * s[1]) / std.math.sqrt2 }, .pixels = pixels };
+}
+
+/// The same over the four camera steps together. Each step hides another part
+/// of the shadow behind its object (a tank's is a rim round its hull, of which
+/// a step shows the near side), which leans the mean of one step's pixels
+/// towards the viewer by tens of degrees. Under one sun the shadow is one
+/// shape on the world's ground: every step's pixels are brought back to it
+/// (cells of 2 world units) and the mean is of their union.
+fn worldCastWay(allocator: std.mem.Allocator, frames: [4][3][]const u8, boxes: [4][4]i32, zeros: [4][2]i32, foot: [2]f64) !CastWay {
+    var cells: std.AutoHashMap([2]i32, void) = .init(allocator);
+    defer cells.deinit();
+    for (0..4) |k| {
+        var y = turn.clear_rows[0];
+        while (y < turn.clear_rows[1]) : (y += 1) {
+            var x: i32 = 0;
+            while (x < turn.width) : (x += 1) {
+                if (!inBox(boxes[k], zeros[k], x, y) or !isShadow(frames[k], x, y)) continue;
+                const s = turn.unturn(.{ @floatFromInt(x - zeros[k][0]), @floatFromInt(y - zeros[k][1]) }, k);
+                try cells.put(.{ @intFromFloat(@round((s[0] + 2 * s[1]) / (2 * std.math.sqrt2))), @intFromFloat(@round((s[0] - 2 * s[1]) / (2 * std.math.sqrt2))) }, {});
+            }
+        }
+    }
+    if (cells.count() == 0) return .{ .way = .{ 0, 0 }, .pixels = 0 };
+    var sum = [2]f64{ 0, 0 };
+    var it = cells.keyIterator();
+    while (it.next()) |cell| sum = .{ sum[0] + 2 * @as(f64, @floatFromInt(cell[0])), sum[1] + 2 * @as(f64, @floatFromInt(cell[1])) };
+    const n: f64 = @floatFromInt(cells.count());
+    return .{ .way = .{ sum[0] / n - foot[0], sum[1] / n - foot[1] }, .pixels = cells.count() };
+}
+
+/// The angle between two ways on the ground, degrees.
+fn between(a: [2]f64, b: [2]f64) f64 {
+    var angle = std.math.radiansToDegrees(@abs(std.math.atan2(a[1], a[0]) - std.math.atan2(b[1], b[0])));
+    if (angle > 180) angle = 360 - angle;
+    return angle;
+}
+
+/// A picture under another light must not pass for the one drawn: its colour
+/// is at least this far off (the lights move the lit side round the house).
+const min_other_light_colour: f64 = 4.0;
+/// The way a shadow falls is read off the mean of its pixels in sight, which
+/// says nothing where the house hides its shadow but for slivers at its sides
+/// (the light from the viewer's back: 250 to 600 pixels of some 4000): it is
+/// held to the sun's way where at least this many show.
+const min_cast_pixels: usize = 1000;
+
+test "one sun for the mission: at every sun turn and camera step the house is its kit view of that turn under light step + sun, and casts that view's shadow" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-kit-sun-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const mod = try sunMod(io, allocator, tool, "zig-out/local-test/camera-turn/kit-sun");
+    const root = mod.root;
+    // The house at own facing 2: its turn is the step plus two, its light the
+    // step plus the sun's turn, so neither is the other nor the step.
+    const facing = 2;
+    var foot = mod.foot;
+    for (0..facing) |_| {
+        const x = foot[0];
+        foot = .{ -foot[1], x };
+    }
+    const place = try sunMap(io, allocator, mod, "house.xml", sun_house.name, -1, facing * 16384, foot);
+    try sunOption(io, allocator, game, root);
+    const ground = try sunRun(io, allocator, game, root, "ground", "ground.xml", 0, "on", false);
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "sun step turn light: the kit view there, IoU / colour at offset; the nearest colour of the turn's view under another light; " ++
+        "shadow: IoU with the view's shadow, the best IoU with another light's, joined, pixels, degrees off the turned sun's way\n");
+    for (0..4) |sun| {
+        const shots = try sunRun(io, allocator, game, root, try std.fmt.allocPrint(allocator, "house-sun{d}", .{sun}), "house.xml", sun, "on", false);
+        const traced = try tracedSun(allocator, shots.log);
+        if (traced != @as(i32, @intCast(sun))) {
+            try report.print(allocator, "sun {d}: the mission's log says sun turn {d}\n", .{ sun, traced });
+            failed = true;
+        }
+        for (0..4) |k| {
+            const t = (facing + k) % 4;
+            const l = (k + sun) % 4;
+            const where = turn.turnScreen(place, k);
+            const own = game_views.score(shots.alone[k], try kitView(io, allocator, mod.kit_dir, "1", t, l, "l"), where);
+            const frames = [3][]const u8{ shots.lit[k], ground.lit[k], try solidShot(allocator, shots.alone[k]) };
+            const near = nearBox(shots.alone[k], where, 90);
+            const shadow_iou = packShadowIou(frames, near, where, try kitView(io, allocator, mod.kit_dir, "1", t, l, "s"));
+            var other_colour: f64 = std.math.inf(f64);
+            var other_shadow: f64 = 0;
+            for (0..4) |other| {
+                if (other == l) continue;
+                other_colour = @min(other_colour, game_views.score(shots.alone[k], try kitView(io, allocator, mod.kit_dir, "1", t, other, "l"), where).colour);
+                other_shadow = @max(other_shadow, packShadowIou(frames, near, where, try kitView(io, allocator, mod.kit_dir, "1", t, other, "s")));
+            }
+            const joined = try attached(allocator, frames, near, where);
+            const cast = shadowOf(frames, near, where, foot, k, sunWay(sun));
+            try report.print(allocator, "{d} {d} {d} {d}: {d:.3} / {d:.2} at {d},{d}; {d:.2}; {d:.3}, {d:.3}, {d:.3}, {d}, {d:.1}\n", .{ sun, k, t, l, own.iou, own.colour, own.dx, own.dy, other_colour, shadow_iou, other_shadow, joined, cast.pixels, cast.off_sun });
+            if (own.iou < min_iou or own.colour > max_colour or @abs(own.dx) > 1 or @abs(own.dy) > 1) failed = true;
+            if (other_colour < min_other_light_colour) failed = true;
+            if (cast.pixels >= units.min_shadow_pixels and (shadow_iou < min_lit_shadow_iou or other_shadow >= shadow_iou or joined < min_attached)) failed = true;
+            if (cast.pixels >= min_cast_pixels and cast.off_sun > max_sun_degrees) failed = true;
+        }
+    }
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}the Game does not draw the house and its shadow for the light the step and the sun's turn give (IoU floor {d}, colour ceiling {d}, another light's colour at least {d}, shadow IoU floor {d}, within {d} degrees of the sun where {d} pixels of it show); the frames are in {s}\n", .{ report.items, min_iou, max_colour, min_other_light_colour, min_lit_shadow_iou, max_sun_degrees, min_cast_pixels, root });
+        return error.DrawnWrong;
+    }
+}
+
+/// MAIN_COMMAND_SAVE and MAIN_COMMAND_LOAD (Main/iMainClassIDs.h).
+const save_command = "268501012";
+const load_command = "268501013";
+
+test "the sun's turn is the mission's: a tank's shadow falls as the house's, a save keeps the sun, and without Remastered the sun is where 2003 had it" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-sun-state-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const tool = (try game_views.envValue(allocator, "BK_VIEWS_TOOL")) orelse return error.MissingTool;
+    const mod = try sunMod(io, allocator, tool, "zig-out/local-test/camera-turn/sun-state");
+    const root = mod.root;
+    const place = try sunMap(io, allocator, mod, "house.xml", sun_house.name, -1, 0, mod.foot);
+    const tank_place = try sunMap(io, allocator, mod, "tank.xml", "T-34", 0, 0, .{ 0, 0 });
+    try sunOption(io, allocator, game, root);
+    const ground = try sunRun(io, allocator, game, root, "ground", "ground.xml", 0, "on", true);
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+
+    // A mesh's shadow under a turned sun: the T-34's and the house's, each
+    // alone on the same spot under sun turn 1, at every camera step, the game
+    // paused so that the tank stands as it stood in both rounds of shots.
+    {
+        const sun = 1;
+        const house = try sunRun(io, allocator, game, root, "house-sun1", "house.xml", sun, "on", true);
+        const tank = try sunRun(io, allocator, game, root, "tank-sun1", "tank.xml", sun, "on", true);
+        var house_frames: [4][3][]const u8 = undefined;
+        var tank_frames: [4][3][]const u8 = undefined;
+        var house_box: [4][4]i32 = undefined;
+        var tank_box: [4][4]i32 = undefined;
+        var house_at: [4][2]i32 = undefined;
+        var tank_at: [4][2]i32 = undefined;
+        try report.appendSlice(allocator, "sun 1, step: the house's shadow pixels in sight, their mean from its footprint's middle in degrees off the turned sun's way (off the 2003 sun's); the T-34's from its place, the same\n");
+        for (0..4) |k| {
+            house_at[k] = turn.turnScreen(place, k);
+            tank_at[k] = turn.turnScreen(tank_place, k);
+            house_frames[k] = .{ house.lit[k], ground.lit[k], try solidShot(allocator, house.alone[k]) };
+            tank_frames[k] = .{ tank.lit[k], ground.lit[k], try solidShot(allocator, tank.alone[k]) };
+            house_box[k] = nearBox(house.alone[k], house_at[k], 90);
+            tank_box[k] = nearBox(tank.alone[k], tank_at[k], 60);
+            const h = castWay(house_frames[k], house_box[k], house_at[k], mod.foot, k);
+            const t = castWay(tank_frames[k], tank_box[k], tank_at[k], .{ 0, 0 }, k);
+            try report.print(allocator, "  {d}: {d} px, {d:.1} ({d:.1}); {d} px, {d:.1} ({d:.1})\n", .{ k, h.pixels, between(h.way, sunWay(sun)), between(h.way, sunWay(0)), t.pixels, between(t.way, sunWay(sun)), between(t.way, sunWay(0)) });
+        }
+        // One step's mean leans towards the viewer; what is held is the mean
+        // of the shadow the four steps show together (worldCastWay).
+        const h = try worldCastWay(allocator, house_frames, house_box, house_at, mod.foot);
+        const t = try worldCastWay(allocator, tank_frames, tank_box, tank_at, .{ 0, 0 });
+        try report.print(allocator, "  the four steps together: the house's shadow {d} cells, {d:.1} degrees off the turned sun's way ({d:.1} off the 2003 sun's); the T-34's {d} cells, {d:.1} ({d:.1}); {d:.1} degrees between the two\n", .{
+            h.pixels, between(h.way, sunWay(sun)), between(h.way, sunWay(0)), t.pixels, between(t.way, sunWay(sun)), between(t.way, sunWay(0)), between(h.way, t.way),
+        });
+        if (h.pixels < units.min_shadow_pixels or t.pixels < units.min_shadow_pixels) failed = true;
+        if (between(h.way, sunWay(sun)) > max_sun_degrees or between(t.way, sunWay(sun)) > max_sun_degrees or between(h.way, t.way) > max_sun_degrees) failed = true;
+    }
+
+    // A save keeps the sun: saved under sun turn 2 at camera step 1, loaded by
+    // a Game started with another turn forced. Then the option is taken off in
+    // the saved mission: the house's turn stays, its light goes back to the
+    // step's.
+    {
+        const look = try std.fmt.allocPrint(allocator, "g1000:hover=1000x400,g10:camera={d}x{d}", .{ shadow_look, shadow_look });
+        const saved = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "save", "house.xml", try std.fmt.allocPrint(allocator, "{s},g10:key=SPACE,t10:key=COMMA,t1500:shot,t10:cmdc=" ++ save_command ++ "=sun.sav;0," ++
+            "t1500:set=GamePlay.Remastered=OFF,t1501:shot,t10:set=GamePlay.Remastered=ON,t500:exit", .{look}), objects_only, .{ .user = "on", .env = &.{.{ "BK_SUN_TURN", "2" }} });
+        const loaded = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "load", "", "g500:set=GamePlay.Remastered=ON,60:cmdc=" ++ load_command ++ "=sun.sav,t2000:shot,t10:key=COMMA,t1502:shot,t500:exit", objects_only, .{ .user = "on", .env = &.{.{ "BK_SUN_TURN", "1" }} });
+        const Shot = struct { name: []const u8, frame: []const u8, step: usize, t: usize, l: usize };
+        const shots = [_]Shot{
+            .{ .name = "saved under sun 2 at step 1", .frame = try control.readShot(io, allocator, saved.user, "t1500", root, "saved-sun2-step1"), .step = 1, .t = 1, .l = 3 },
+            .{ .name = "the option taken off there", .frame = try control.readShot(io, allocator, saved.user, "t1501", root, "saved-option-off-step1"), .step = 1, .t = 1, .l = 1 },
+            .{ .name = "loaded with sun 1 forced", .frame = try control.readShot(io, allocator, loaded.user, "t2000", root, "loaded-step1"), .step = 1, .t = 1, .l = 3 },
+            .{ .name = "turned on to step 2", .frame = try control.readShot(io, allocator, loaded.user, "t1502", root, "loaded-step2"), .step = 2, .t = 2, .l = 0 },
+        };
+        const saved_sun = try control.lines(allocator, saved.log, "BK_MAP_TRACE: sun turn ");
+        const loaded_sun = try control.lines(allocator, loaded.log, "BK_MAP_TRACE: sun turn ");
+        try report.print(allocator, "save: the mission started under sun turn {s}; the load says sun turn {s}\n", .{ if (saved_sun.len == 1) saved_sun[0] else "?", if (loaded_sun.len == 1) loaded_sun[0] else "?" });
+        if (saved_sun.len != 1 or !std.mem.eql(u8, saved_sun[0], "2") or loaded_sun.len != 1 or !std.mem.eql(u8, loaded_sun[0], "2 (loaded)")) failed = true;
+        try report.appendSlice(allocator, "  shot: turn light: the kit view there, IoU / colour at offset; the nearest colour of the turn's view under another light\n");
+        for (shots) |shot| {
+            const where = turn.turnScreen(place, shot.step);
+            const own = game_views.score(shot.frame, try kitView(io, allocator, mod.kit_dir, "1", shot.t, shot.l, "l"), where);
+            var other_colour: f64 = std.math.inf(f64);
+            for (0..4) |other| {
+                if (other != shot.l) other_colour = @min(other_colour, game_views.score(shot.frame, try kitView(io, allocator, mod.kit_dir, "1", shot.t, other, "l"), where).colour);
+            }
+            try report.print(allocator, "  {s}: {d} {d}: {d:.3} / {d:.2} at {d},{d}; {d:.2}\n", .{ shot.name, shot.t, shot.l, own.iou, own.colour, own.dx, own.dy, other_colour });
+            if (own.iou < min_iou or own.colour > max_colour or @abs(own.dx) > 1 or @abs(own.dy) > 1 or other_colour < min_other_light_colour) failed = true;
+        }
+    }
+
+    // The Game started again begins under another sun than the mission before
+    // it had: the player's profile holds that mission's turn (the var
+    // Remastered.SunTurn.Last of its config.cfg). The last mission this
+    // profile started was the saved one's, under sun turn 2 (the load starts
+    // none). Two more Games, each started anew with nothing forced and the
+    // number 1 in place of the machine's random one (BK_SUN_RANDOM): after
+    // turn 2 that number picks 0, after 0 it picks 2. A Game that did not know
+    // the mission before would pick 1 both times.
+    {
+        const unforced: []const [2][]const u8 = &.{ .{ "BK_SUN_TURN", "-" }, .{ "BK_SUN_RANDOM", "1" } };
+        const first = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "again-1", "house.xml", "g300:exit", objects_only, .{ .user = "on", .env = unforced });
+        const second = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "again-2", "house.xml", "g300:exit", objects_only, .{ .user = "on", .env = unforced });
+        const picks = [2]i32{ try tracedSun(allocator, first.log), try tracedSun(allocator, second.log) };
+        const config = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(allocator, &.{ second.user, "profiles", "Turn", "config.cfg" }), allocator, .limited(4 << 20));
+        const held = std.mem.indexOf(u8, config, "<item data=\"2\"><key>Remastered.SunTurn.Last</key>") != null;
+        try report.print(allocator, "started again after sun turn 2, the random number 1 both times: sun turn {d}, then {d} (0, then 2: never the turn before; 1 and 1 without the profile's memory); the profile holds the last, 2: {}\n", .{ picks[0], picks[1], held });
+        if (picks[0] != 0 or picks[1] != 2 or !held) failed = true;
+    }
+
+    // Without Remastered the sun is where 2003 had it, whatever is forced: a
+    // user whose profile never had the option, sun turn 2 forced.
+    {
+        const off = try sunRun(io, allocator, game, root, "option-off-sun2", "house.xml", 2, "off", false);
+        const traced = try tracedSun(allocator, off.log);
+        const where = place;
+        const own = game_views.score(off.alone[0], try kitView(io, allocator, mod.kit_dir, "1", 0, 0, "l"), where);
+        const forced = game_views.score(off.alone[0], try kitView(io, allocator, mod.kit_dir, "1", 0, 2, "l"), where);
+        const frames = [3][]const u8{ off.lit[0], ground.lit[0], try solidShot(allocator, off.alone[0]) };
+        const near = nearBox(off.alone[0], where, 90);
+        const shadow_iou = packShadowIou(frames, near, where, try kitView(io, allocator, mod.kit_dir, "1", 0, 0, "s"));
+        const forced_shadow = packShadowIou(frames, near, where, try kitView(io, allocator, mod.kit_dir, "1", 0, 2, "s"));
+        // The turn key does nothing without the option: the four shots are one view.
+        var turned: f64 = 0;
+        for (1..4) |k| turned = @max(turned, game_views.score(off.alone[k], try kitView(io, allocator, mod.kit_dir, "1", 0, 0, "l"), where).colour);
+        // Nor does its profile take the var of the last sun: its config.cfg is as a 2003 mission leaves it.
+        const config = try std.Io.Dir.cwd().readFileAlloc(io, try std.fs.path.join(allocator, &.{ root, "user", "off", "profiles", "Turn", "config.cfg" }), allocator, .limited(4 << 20));
+        const remembered = std.mem.indexOf(u8, config, "Remastered.SunTurn") != null;
+        try report.print(allocator, "Remastered off, sun turn 2 forced: the mission's log says sun turn {d}; the view of turn 0 under light 0 there, IoU / colour {d:.3} / {d:.2}, under light 2 {d:.2}; " ++
+            "its shadow IoU {d:.3}, light 2's {d:.3}; after the turn key the same view's colour at most {d:.2}; its profile holds a last sun: {}\n", .{ traced, own.iou, own.colour, forced.colour, shadow_iou, forced_shadow, turned, remembered });
+        if (traced != 0 or own.iou < min_iou or own.colour > max_colour or forced.colour < min_other_light_colour or shadow_iou < min_lit_shadow_iou or forced_shadow >= shadow_iou or turned > max_colour or remembered) failed = true;
+    }
+
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}the sun's turn is not the mission's (the house's and the tank's shadows within {d} degrees of the turned sun's way and of each other; IoU floor {d}, colour ceiling {d}); the frames are in {s}\n", .{ report.items, max_sun_degrees, min_iou, max_colour, root });
+        return error.SunWrong;
+    }
+}
+
+/// The hill of the terrain test: road3d's 33 x 33 altitudes raised to a
+/// cosine hill of this height over this radius (terrain cells: 32 sqrt 2
+/// world units each, Formats/fmtTerrain.h's fWorldCellSize) in the map's
+/// middle, world (724, 724), where the shots look. Its slopes stay below the
+/// camera's 30 degrees.
+const hill_height: f64 = 120;
+const hill_radius: f64 = 14;
+const hill_cell: f64 = 32.0 * std.math.sqrt2;
+const hill_look = 724;
+fn hillHeight(i: i32, j: i32) f64 {
+    if (i < 0 or j < 0 or i > 32 or j > 32) return 0;
+    const r = @min(std.math.hypot(@as(f64, @floatFromInt(i)) - 16, @as(f64, @floatFromInt(j)) - 16) / hill_radius, 1.0);
+    return @round(hill_height * (@cos(r * std.math.pi) + 1) / 2);
+}
+
+/// The shade the Map Editor bakes into a vertex of the hill for the 2003 sun
+/// (CVertexAltitudeInfo::UpdateShades: the six triangles round the vertex,
+/// the rows running against world y, the cosine to (1, 1, -2) held between
+/// 0.6 and 1).
+fn hillShade(i: i32, j: i32) u8 {
+    const cell = hill_cell;
+    const z = hillHeight(i, j);
+    const edge = struct {
+        fn at(x: i32, y: i32, own: f64) f64 {
+            return if (x < 0 or y < 0 or x > 32 or y > 32) own else hillHeight(x, y);
+        }
+    }.at;
+    const v = [6][3]f64{
+        .{ -cell, cell, edge(i - 1, j - 1, z) - z }, .{ 0, cell, edge(i, j - 1, z) - z },   .{ cell, 0, edge(i + 1, j, z) - z },
+        .{ cell, -cell, edge(i + 1, j + 1, z) - z }, .{ 0, -cell, edge(i, j + 1, z) - z }, .{ -cell, 0, edge(i - 1, j, z) - z },
+    };
+    var n = [3]f64{ 0, 0, 0 };
+    for (0..6) |k| {
+        const a = v[(k + 1) % 6];
+        const b = v[k];
+        n = .{ n[0] + a[1] * b[2] - a[2] * b[1], n[1] + a[2] * b[0] - a[0] * b[2], n[2] + a[0] * b[1] - a[1] * b[0] };
+    }
+    const length = @sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    const sun = [3]f64{ 1.0 / @sqrt(6.0), 1.0 / @sqrt(6.0), -2.0 / @sqrt(6.0) };
+    const light = -(n[0] * sun[0] + n[1] * sun[1] + n[2] * sun[2]) / length;
+    return @intFromFloat(std.math.clamp(light, 0.6, 1.0) * 255.0);
+}
+
+/// The mean brightness of a box of `half` pixels round a point of a shot.
+fn brightness(frame: []const u8, at_point: [2]i32, half: i32) f64 {
+    var sum: f64 = 0;
+    var count: f64 = 0;
+    var y = at_point[1] - half;
+    while (y <= at_point[1] + half) : (y += 1) {
+        var x = at_point[0] - half;
+        while (x <= at_point[0] + half) : (x += 1) {
+            const p = units.rgb(frame, x, y) orelse continue;
+            sum += @as(f64, @floatFromInt(p[0])) + @as(f64, @floatFromInt(p[1])) + @as(f64, @floatFromInt(p[2]));
+            count += 3;
+        }
+    }
+    return if (count == 0) 0 else sum / count;
+}
+
+/// A slope lit against the slope across the hill, at the least; the light
+/// model gives 0.95 against 0.62 at the hill's steepest.
+const min_lit_to_shaded: f64 = 1.25;
+
+test "the ground's shade turns with the sun: under each sun turn the hill's lit slope is the one that faces that sun" {
+    const io = testing.io;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const game = (try game_views.envValue(allocator, "BK_VIEWS_GAME")) orelse {
+        std.debug.print("BK_VIEWS_GAME is not set: run zig build camera-turn-sun-terrain-game-reads-it\n", .{});
+        return error.MissingGame;
+    };
+    const cwd = std.Io.Dir.cwd();
+    const root_rel = "zig-out/local-test/camera-turn/sun-terrain";
+    const root = try std.fs.path.join(allocator, &.{ try std.process.currentPathAlloc(io, allocator), root_rel });
+    cwd.deleteTree(io, root_rel) catch {};
+    const data = try std.fs.path.join(allocator, &.{ root, "mods", turn.mod_name, "data" });
+    const map = try writeStandingMod(io, allocator, data, "Data/Maps/road3d.xml");
+    const start = std.mem.indexOf(u8, map, "<Altitudes>").?;
+    const end = std.mem.indexOf(u8, map, "</Altitudes>").?;
+    var hill: std.ArrayList(u8) = .empty;
+    try hill.appendSlice(allocator, map[0..start]);
+    try hill.appendSlice(allocator, "<Altitudes><item size_x=\"33\" size_y=\"33\"/>");
+    for (0..33) |j| for (0..33) |i| try hill.print(allocator, "<item Height=\"{d:.0}\" Shade=\"{d}\"/>", .{ hillHeight(@intCast(i), @intCast(j)), hillShade(@intCast(i), @intCast(j)) });
+    try hill.appendSlice(allocator, map[end..]);
+    // Without road3d's road, which crosses the hill white: the slopes are grass alone.
+    const roads = std.mem.indexOf(u8, hill.items, "<Roads>").?;
+    const roads_end = std.mem.indexOf(u8, hill.items, "</Roads>").? + "</Roads>".len;
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ data, "maps", "hill.xml" }), .data = try std.mem.concat(allocator, u8, &.{ hill.items[0..roads], "<Roads/>", hill.items[roads_end..] }) });
+
+    // The four slopes half way up, by the way each faces on the ground, and
+    // where the 2003 camera shows that point: 7 cells from the top, raised by
+    // the hill's height there. A slope facing (-1, -1) faces the 2003 sun,
+    // whose light travels along (1, 1); sun turn t is lit from that way turned
+    // t times by (x, y) -> (-y, x).
+    const faces = [4][2]f64{ .{ -1, -1 }, .{ 1, -1 }, .{ 1, 1 }, .{ -1, 1 } };
+    var points: [4][2]i32 = undefined;
+    for (&points, faces) |*p, f| {
+        const reach = 7.0 * hill_cell / std.math.sqrt2;
+        const lift = hill_height / 2 * @sqrt(3.0) / 2;
+        p.* = .{ turn.centre[0] + @as(i32, @intFromFloat(@round((f[0] + f[1]) * reach / std.math.sqrt2))), turn.centre[1] + @as(i32, @intFromFloat(@round((f[0] - f[1]) * reach / (2 * std.math.sqrt2) - lift))) };
+    }
+
+    _ = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "option", "", "60:set=GamePlay.Remastered=ON,120:exit", "", .{ .user = "on" });
+    const ground_only = "shadows,objects,units,effects,noise,warfog,border,haze,grid";
+    const schedule = std.fmt.comptimePrint("g1000:hover=1000x400,g10:camera={d}x{d},g1500:shot,g200:exit", .{ hill_look, hill_look });
+    var means: [4][4]f64 = undefined;
+    for (0..4) |sun| {
+        const name = try std.fmt.allocPrint(allocator, "hill-sun{d}", .{sun});
+        const run = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, name, "hill.xml", schedule, ground_only, .{ .user = "on", .env = &.{.{ "BK_SUN_TURN", try std.fmt.allocPrint(allocator, "{d}", .{sun}) }} });
+        const frame = try control.readShot(io, allocator, run.user, "g1500", root, name);
+        for (&means[sun], points) |*m, p| m.* = brightness(frame, p, 20);
+    }
+    // Remastered off: the forced turn changes nothing on the ground.
+    const off = try control.runScheduleWith(io, allocator, game, root, turn.mod_name, "hill-off-sun2", "hill.xml", schedule, ground_only, .{ .user = "off", .env = &.{.{ "BK_SUN_TURN", "2" }} });
+    const off_frame = try control.readShot(io, allocator, off.user, "g1500", root, "hill-off-sun2");
+
+    var failed = false;
+    var report: std.ArrayList(u8) = .empty;
+    try report.appendSlice(allocator, "sun: the four slopes' brightness (facing -x-y, +x-y, +x+y, -x+y), each over its own mean of the four suns; the brightest and the darkest slope; the lit slope over the one across\n");
+    for (0..4) |sun| {
+        var shares: [4]f64 = undefined;
+        for (&shares, 0..) |*s, f| s.* = means[sun][f] * 4 / (means[0][f] + means[1][f] + means[2][f] + means[3][f]);
+        var brightest: usize = 0;
+        var darkest: usize = 0;
+        for (shares, 0..) |s, f| {
+            if (s > shares[brightest]) brightest = f;
+            if (s < shares[darkest]) darkest = f;
+        }
+        const ratio = means[sun][sun] / means[sun][(sun + 2) % 4];
+        try report.print(allocator, "{d}: {d:.3} {d:.3} {d:.3} {d:.3}; {d} and {d}; {d:.3}\n", .{ sun, shares[0], shares[1], shares[2], shares[3], brightest, darkest, ratio });
+        if (brightest != sun or darkest != (sun + 2) % 4 or ratio < min_lit_to_shaded) failed = true;
+    }
+    var off_differs: f64 = 0;
+    for (points, 0..) |p, f| off_differs = @max(off_differs, @abs(brightness(off_frame, p, 20) - means[0][f]));
+    try report.print(allocator, "Remastered off, sun turn 2 forced: the slopes' brightness is the 2003 sun's within {d:.2}\n", .{off_differs});
+    if (off_differs > 1.0) failed = true;
+    try cwd.writeFile(io, .{ .sub_path = try std.fs.path.join(allocator, &.{ root, "scores.txt" }), .data = report.items });
+    if (failed) {
+        std.debug.print("{s}the hill's lit slope does not turn with the sun (the lit slope at least {d} times the one across); the frames are in {s}\n", .{ report.items, min_lit_to_shaded, root });
+        return error.GroundShadedWrong;
+    }
+}
+
+/// The maps of the built mod shot for the maintainer (`camera-turn-kit-review`,
+/// no checks): nine buildings each, African, European and Russian, and the
+/// sun turns each is shot under at the four camera steps. The European map is
+/// shot under all four suns: its `-step0` frames show the one view under each
+/// sun, each sun's four frames that sun from all four sides.
+const kit_review_maps = [_]struct { map: []const u8, suns: []const usize }{
+    .{ .map = "kit_views_08", .suns = &.{ 0, 1, 2, 3 } },
+    .{ .map = "kit_views_01", .suns = &.{1} },
+    .{ .map = "kit_views_17", .suns = &.{2} },
+    .{ .map = "kit_views_08_damaged", .suns = &.{3} },
+};
+
+test "kit review frames: the built Remastered views mod on its kit maps at the four camera steps under the sun's turns" {
     const io = testing.io;
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
@@ -564,17 +1116,21 @@ test "kit review frames: the built Remastered views mod on its kit maps at the f
     const out = try std.fs.path.join(allocator, &.{ here, out_rel });
     cwd.deleteTree(io, out_rel) catch {};
     try cwd.createDirPath(io, out_rel);
-    for (kit_review_maps) |map| {
+    // Remastered on in the scratch user's profile before a mission starts: the
+    // sun's turn is picked then, here forced (BK_SUN_TURN).
+    _ = try control.runScheduleWith(io, allocator, game, out, "remastered_views", "option", "", "60:set=GamePlay.Remastered=ON,120:exit", "", .{ .user = "review", .env = &.{.{ "BK_MODS_ROOT", mods }} });
+    for (kit_review_maps) |review| for (review.suns) |sun| {
         var schedule: std.ArrayList(u8) = .empty;
-        try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d},g10:set=GamePlay.Remastered=ON", .{ camera, camera });
+        try schedule.print(allocator, "g1000:hover=1000x400,g10:camera={d}x{d}", .{ camera, camera });
         for (0..4) |k| {
             if (k != 0) try schedule.appendSlice(allocator, ",g10:key=COMMA");
             try schedule.print(allocator, ",g{d}:shot", .{1500 + k});
         }
-        try schedule.appendSlice(allocator, ",g10:set=GamePlay.Remastered=OFF,g200:exit");
-        const run = try control.runScheduleWith(io, allocator, game, out, "remastered_views", map, try std.fmt.allocPrint(allocator, "{s}.xml", .{map}), schedule.items, "", .{ .env = &.{.{ "BK_MODS_ROOT", mods }} });
-        for (0..4) |k| _ = try control.readShot(io, allocator, run.user, try std.fmt.allocPrint(allocator, "g{d}", .{1500 + k}), out, try std.fmt.allocPrint(allocator, "{s}-step{d}", .{ map, k }));
-    }
+        try schedule.appendSlice(allocator, ",g200:exit");
+        const name = try std.fmt.allocPrint(allocator, "{s}-sun{d}", .{ review.map, sun });
+        const run = try control.runScheduleWith(io, allocator, game, out, "remastered_views", name, try std.fmt.allocPrint(allocator, "{s}.xml", .{review.map}), schedule.items, "", .{ .user = "review", .env = &.{ .{ "BK_MODS_ROOT", mods }, .{ "BK_SUN_TURN", try std.fmt.allocPrint(allocator, "{d}", .{sun}) } } });
+        for (0..4) |k| _ = try control.readShot(io, allocator, run.user, try std.fmt.allocPrint(allocator, "g{d}", .{1500 + k}), out, try std.fmt.allocPrint(allocator, "{s}-step{d}", .{ name, k }));
+    };
 }
 
 /// A picture with its zero cross at `anchor` over a ground picture (a damaged

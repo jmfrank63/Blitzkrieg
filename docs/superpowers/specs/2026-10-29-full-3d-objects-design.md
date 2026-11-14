@@ -661,7 +661,45 @@ All debug, the default. The mod is 2.5 GiB (`du`): the kit folders hold the buil
 - The exports hold stray pixels at the ground line of some turned views (e_house01_1 `1_1.png`: a dotted row left of
   the house); the Game shows them.
 - The buildings' shadows alone are cut under the mesh's render, not under the kit view: where the two outlines differ
-  a shadow may leave a gap or lie under the picture.
+  a shadow may leave a gap or lie under the picture. (Closed on 2026-11-13: the kit views bring their own shadows,
+  below.)
 - The Blender models themselves are not in the editors: a `.mod` with a baked texture a state (`bk-map obj2mod`) would
   need the kit's parts joined, unwrapped and baked outside the repo and a place in the mod the Building editor reads.
 - Not run: macOS and Linux (CI on push), the release build, the full sweep (left to the maintainer).
+
+## Kit views under every light, with their own shadows (2026-11-13)
+
+The Game's sun now stands at one of four turns, picked as a mission starts
+([camera turn](2026-10-26-camera-turn-design.md), "One sun, picked as a mission starts"): a building shows its turn
+facing + step under light index step + sun turn, so it needs every turn under every light, and a shadow that falls the
+way that light casts. The export of 2026-11-13 brings both, and this replaces "What a kit view does not bring" above
+for everything but the winter.
+
+- **Artifact.** Per building `views.json` and, for three damage states, four turns and four light indices, a picture
+  `<state>_<turn>_l<light>.png` and the shadow `<state>_<turn>_s<light>.png` its model casts on the ground under that
+  light: 96 PNGs a building. `<state>_<turn>_l<turn>.png` is the old export's `<state>_<turn>.png` byte for byte;
+  light 0 is the 2003 light. The format is in `tools/blender/README.md`.
+- **What `kit` writes.** Light 0 into `<variant>` and `<variant>_r<j>`; light l into `<variant>_r<j>_l<l>`, turn 0 too
+  (`_r0_l<l>`); each view's shadow into its picture's pack and alone into `<variant>_r<j>_s<l>` (all but turn 0 at
+  light 0, where the Game casts the shadow of `<variant>` itself): 16 picture folders and 15 shadows alone a building.
+  `side` is still asked for `1,2,3,1l1,2l2,3l3` and the fifteen shadows alone only: a lit folder it did not draw starts
+  as a copy of the turn's own folder (1.xml, ground and winter pictures, icon and name) and a shadow alone it did not
+  draw as the turn's 1.xml, so no mesh render is made to be thrown away. A model that shades no ground under a light
+  has no shadow pack there; a state the 2003 variant had no shadow for (a pillbox) now has the kit model's.
+- **One canvas a folder, the shadow on it.** A shadow reaches further from the zero cross than its picture; the
+  folder's canvas is grown to hold both (`kitCanvas`), and every pack of the folder is composed again on it, the
+  shadows alone too (a winter shadow from its own picture, with a stand-in pixel for the picture compose-pack wants).
+  compose-pack keeps a shadow outside its picture only, so the pack holds the view's shadow cut under the view's
+  picture: the picture the Game shows with it.
+- **The round trip** (`bk-views-roundtrip --kit=`) runs on all 31 folders of a building: the engine's reader,
+  compose-pack again byte for byte, each kit state's decomposed picture against `<state>_<turn>_l<light>.png` pixel for
+  pixel, and its decomposed shadow against `<state>_<turn>_s<light>.png` outside that picture, pixel for pixel (a shadow
+  that lies all under its picture keeps the one pixel keepShadow leaves).
+- **Winter.** There are no kit views of a winter. The winter packs of every folder are what `side` made: in
+  `_r<j>_l<j>` lit for light j, everywhere else for the 2003 light, with the mesh's shadows (right under every light).
+  A winter map under a turned sun therefore shows buildings lit from the screen's left at most steps.
+- **Props.** `side` draws a prop's three turns under each of the three lights (`1l1` to `3l3`) and those turns' shadows
+  alone under each of the four (`1s0` to `3s3`), where it drew `1l1,2l2,3l3` and `1s1,2s2,3s3`: a prop has no kit
+  views, and under a turned sun it shows turn s under light s + t. Turn 0's shadows alone (`0s1` to `0s3`) are not
+  made for props: `side` cannot compose ussr/summer/villagefence/09's at light 1 (the shadow falls behind the 2003
+  picture and bk-sprite packs no picture of it), and the Game lays a turned shadow there instead.

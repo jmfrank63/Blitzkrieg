@@ -22,6 +22,10 @@ You need the Game, the Map Editor and the turned building and prop pictures. Fro
 4. Press `.` (period) to turn the view a quarter turn one way and `,` (comma) to turn it back. Four presses come back
    to the 2003 view. Buildings show the side that faces the camera, the ground, units, props, bridges and the minimap
    turn with the view; picking, orders and scrolling follow it. With Remastered off the keys do nothing.
+   The world has one sun, at one of four places: a mission started with Remastered on picks another one than the
+   mission before it and keeps it, through its saves too, so looking another way is looking with or against that
+   light ("One sun, picked as a mission starts", below). To see a chosen one, set `BK_SUN_TURN` to `0` (the 2003 sun)
+   to `3` before starting the Game, or `zig build run-remastered -Dsun-turn=2 -- kit_views_08.xml`.
 5. The Map Editor turns buildings too: start `zig-out\game\windows\x86_64\debug\MapEditor.exe -mod=remastered_views`
    with the same `BK_MODS_ROOT`, open a map, select a building with the Select tool and press `Q` or `E`: it turns by a
    quarter, shows that side and stands on its turned footprint. Save the map; the Game (Remastered on) draws and plays
@@ -1241,6 +1245,10 @@ seen: macOS, Linux.
 
 ## The sun fixed in the world (M006 round 2, 2026-10-28)
 
+(Since 2026-11-13 the sun stands at one of four turns, picked as a mission starts: "One sun, picked as a mission
+starts" below. Where this section lights a pack for "camera step s", read the light index, the step plus the sun's
+turn; with the sun where 2003 had it the two are one.)
+
 The maintainer's second hand test: "Shadows are not moving. Light always comes from the left side. If we switch the
 camera angle the shadows need to move, too."
 
@@ -1900,3 +1908,171 @@ win-home, release (`-Doptimize=ReleaseFast -Dbuild-variant=release`), one `zig b
 tutorials, 3 of 3 custom missions), `mod-language-game-reads-it`, `mod-compat-game-reads-it`, and
 `install-game install-language-mods install-map-editor install-resource-editor install-elk verify-install-l10n`: all
 pass. macOS and Linux are left to CI, the full sweep to the maintainer.
+
+## One sun, picked as a mission starts (2026-11-13)
+
+The maintainer, after the kit views: "The light source is the only issue. We want a single light source, this means if
+we look to the north and the light comes from the left then if we look to the west we are looking against the light and
+so on. We want the light source to be different each time the game loads but stays fixed during the game."
+
+Round 2 ("The sun fixed in the world", above) already fixed the sun in the world, where 2003 had it. This round lets it
+stand at any of four places and makes every picture follow it.
+
+### Decision
+
+- **The sun turn.** The sun stands at one of four quarter positions: sun turn t is the 2003 sun turned t times by
+  (x, y) -> (-y, x) about the vertical, 0 where 2003 had it. It is the global var `GFX.World.SunTurn`
+  (`NCameraTurn::SunTurn()`, `Sources/src/Main/SunTurn.h`), view state like the camera step: it never enters the game
+  state, the commands or the network stream, so two players of one multiplayer game may each have their own.
+- **The light index.** What camera step c shows of a world under sun turn t is what step c + t shows of the same world
+  turned back by t quarters under the 2003 sun. A building at facing f then stands at facing f - t and shows turn
+  (f - t) + (c + t) = f + c, so the picture's turn stays facing + step, and every pack made for "the sun as camera step l
+  sees it" is the one for **light index l = (c + t) mod 4** (`NCameraTurn::LightIndex`). Round 2's `_r<k>_l<s>` was lit
+  as the building's facing k - s stands in the world: with s read as the light index that is the same sentence, so the
+  packs keep their names and their meaning, and under the 2003 sun the index is the step, as before. Light index 0 is
+  the 2003 light: the variant's own pictures and `_r<k>`.
+- **The pick.** `CInterfaceMission::NewMission` picks the turn before the terrain and the first object are made
+  (`NewSunTurn`, `NCameraTurn::PickSunTurn`): where the player's Remastered option holds (`NCameraTurn::Allowed`, as for
+  the turn keys: also in multiplayer and replays), a profile's first mission any of the four, a later one any of
+  the other three, so two games in a row never have the same sun; else 0. The turn of the mission before is the
+  player's profile's (`IUserProfile`'s var `Remastered.SunTurn.Last` in its `config.cfg`, set at every pick), so the
+  rule holds through closing the Game and starting it again; a profile that never had the option never gets the var.
+  The number comes from `std::random_device`, never from the game's synchronised generator (`Random()`, which every
+  player and a replay must draw alike); `BK_SUN_RANDOM=<number>` stands in for it (the tier below). A
+  restart of a mission is a new mission and picks again. The option must hold as the mission starts: switched on in a
+  running mission it turns the camera but leaves that mission the 2003 sun.
+- **Fixed during the game.** Nothing changes the var while a mission runs. The mission's save carries it in the
+  mission's own chunk (16, beside the camera step's 15; written only where it is not 0, so saves under the 2003 sun and
+  every older save read and write as before) and the load sets it when it finishes (`CMD_LOAD_FINISHED`), whatever the
+  running process had picked or was forced to. `SunTurn()` answers 0 while the player's option is off, whatever the var
+  holds: with Remastered off the Game is the 2003 game.
+- **Forcing it.** `BK_SUN_TURN=0..3` in the environment replaces the random pick (not the option's rule: without the
+  option the sun is the 2003 sun). The tiers use it, and `zig build run-remastered -Dsun-turn=<0..3>`. The existing
+  Game tiers' harnesses set `BK_SUN_TURN=0`: their measures are of the 2003 sun.
+- **The editors** never set the var: the Map Editor and the Resource Editor show the 2003 light.
+
+### What follows the sun
+
+- **Buildings** (`CMOBuilding`): pictures `LitModelPath( variant, turn, light )`, the shadow
+  `ShadowModelPath( variant, turn, light )`, both by the light index where they went by the step. A building keeps the
+  light index it is drawn for (`nDrawnLight`, saved where it is not the step) and draws again when the index changes
+  though its turn does not: a load, or the option switched while a mission under a turned sun runs. Where the data
+  holds neither a shadow alone nor a lit pack, the shadow is the step-0 shadow of turn `turn - light` (the building as
+  it stands in the world turned back by the sun's turn, `NCameraTurn::LaidShadowTurn`) laid on the ground turned by the
+  light index; under the 2003 sun that is round 2's own shadow turned by the step.
+- **Kit views.** `bk-views kit` lays a picture for every turn under every light and a shadow of the kit model's own
+  for each (`tools/blender/README.md`, the full 3D objects spec): all sixteen (turn, light) pairs of the 194 buildings
+  are exact.
+- **Props whose turns bk-views drew** (`CMOObject`): `side` now draws their three turns under each of the three lights
+  (`1l1` to `3l3`, nine where there were three) and those turns' shadows alone under each of the four (twelve where
+  there were three), so at a turned step a prop shows its turn's picture lit for the light index with that light's
+  shadow under every sun. At step 0 under a turned sun it shows its 2003 picture relit (`<pack>_l<light>`,
+  `objects-relight`) over a laid shadow: the step-0 shadow of its turn `-light` (`_r<4 - light>`'s own), turned with the
+  ground by the light index. `side` does not make turn 0's shadows alone for props: for some it cannot compose them
+  (ussr/summer/villagefence/09 at light 1, where the shadow falls behind the 2003 picture).
+- **Flora, props without turns, props of four sides**: the relit picture `<pack>_l<light>`, and the 2003 shadow laid on
+  the ground turned by the light index (a prop of four sides: the shadow of the side `turn - light`). A tree is a body
+  of revolution to `relight`, so its light and its shadow's way are right and its shadow's shape is the 2003 one.
+- **Fences**: the picture stays the segment of direction + step; the shadow is the 2003 shadow of the segment of
+  direction - sun turn, laid turned by the light index and moved to the own segment's footprint (`FenceShift`, as the
+  picture is; `vShadowShift`, saved).
+- **Bridges** (`CMOBridgeSpan`): each part's shadow is the 2003 shadow of the span that shows the own one turned back
+  by the sun's turn (`TurnedSpan`, the rule the pictures use for the step), at that span's place, laid turned by the
+  light index. Where the 2003 data holds no such span (the begin and end spans S08 found no pair for), the shadow stays
+  the 2003 sun's.
+- **Vehicles, guns, aircraft**: `CScene::Draw` turns the season's `sunlight` by the sun's turn for the mesh light and
+  the shadow matrices (the saved `sunlight` stays the season's own). **Infantry**: the world sun a soldier keeps for
+  the shadow he casts from the air (a parachutist) is turned the same way where it is used.
+- **The ground.** A map holds a shade for every terrain vertex, baked by the Map Editor for the 2003 sun
+  (`CVertexAltitudeInfo::UpdateShades`) and read again from the map by every load. `CTerrain::ShadeForSun` (first line
+  of `CTerrain::Draw`) gives every vertex the shade of the sun's turn when it is another than the one the altitudes hold,
+  and builds the patches anew: `NCameraTurn::TurnedShade` moves the map's shade by what the turn changes in the light
+  model's own answer for the vertex's normal (the Map Editor's normal, the season's sun), held to the model's range. So
+  turn 0 and flat ground keep the map's shade exactly, a hand-set shade keeps its look, and a map baked as the model
+  bakes it shows the model's shade for the turned sun. The map file and the editors are not touched.
+- **Rivers and roads** shade their vertices by the ground's normal as they are built (`RiverBuilder.cpp`); the sun there
+  is turned too. They are built as the mission starts and saved built, so they keep that light.
+
+### Still the wrong light under a turned sun
+
+- **Infantry**: a soldier's lit side and the small shadow at his feet are painted into his 2003 animation pictures
+  (round 2, "left as drawn"). They show the 2003 light under every sun, as they do at every camera step.
+- **Vehicles' lit side**: the GPU renderer has no directional term (round 2); a tank's shading is its texture's. Its
+  shadow follows the sun.
+- **Winter maps, buildings**: there are no kit views of a winter. A winter map shows the turns `side` drew: lit for the
+  light index in `_r<k>_l<k>` only, for the 2003 light in every other folder (kit copies them from the turn's own),
+  with the mesh's shadows, which are right under every light.
+- **Buildings without a tracked mesh** (none of the 194; a mod's own) and any object without turns: the 2003 picture,
+  and its 2003 shadow laid turned by the light index.
+- **Terra objects** (craters, painted ground): the painted relief is the 2003 light's (S03); a shadow sprite of one is
+  laid turned by the light index.
+- **Bridge spans without a turned pair**: the 2003 sun's shadow (above).
+- **Effects, particles, the minimap and the fog** do not show the sun.
+
+### The tiers (one sun)
+
+`zig build test-sun-turn` (`tools/zig/sun_turn_test.cpp`, a header-only test as `test-remastered`): the pick is 0
+without the option whatever the number and the mission before; the first pick covers the four turns evenly, a later one
+the other three evenly and never the one before it, over a chain of 200 picks too; `BK_SUN_TURN` forces `0` to `3` and
+nothing else; the light index is (step + sun) mod 4 and the step under the 2003 sun; `SunTurn()` is 0 while the option
+is off, the var's turn with it, also in multiplayer and a replay; the laid shadow's turn is facing - sun for every step;
+the sun's direction turned t times; and the ground's shade: turn 0 and flat ground keep the map's shade, the half turn
+swaps a lit slope's shade with the shaded one's, a hand-set shade moves by the turn's change within the model's range.
+
+The Game tiers are tests of `tools/zig/camera_turn_full3d_game_reads_it.zig`. Each starts the Game with Remastered
+already on in its scratch profile (a run of the main menu sets the option first: the pick is made as a mission starts)
+and `BK_SUN_TURN` forced. A run shoots each camera step twice, the scene and then the objects alone with the terrain
+and shadow passes taken off by the mission's own toggle messages, so both shots of a step are one view.
+
+- **`camera-turn-kit-sun-game-reads-it`**: E_House01_1 by its kit views (`side` then `kit` into a scratch mod) at own
+  facing 2 on road3d, the sun forced to each of 0 to 3, all four steps: 16 views, in which the turn is step + 2 and the
+  light step + sun. Held: the shot against the fixture `1_<turn>_l<light>.png` at its zero cross (IoU 0.95, colour 2.0,
+  within a pixel); the turn's fixture under any other light at least 4.0 off in colour; where 100 shadow pixels show,
+  the shadow against the fixture `1_<turn>_s<light>.png` (IoU 0.8 on the ground the house leaves in sight), better than
+  any other light's, joined to the house (0.95); and where 1000 show, its mean within 35 degrees of the way the turned
+  sun casts. Measured (win-home, Windows x64, debug Game, 2026-11-13):
+
+  | sun | picture IoU / colour | nearest other light's colour | shadow IoU (best other light's) | joined | off the turned sun's way |
+  |---|---|---|---|---|---|
+  | 0 | 0.999 to 1.000 / 0.00 to 0.34 | 17.67 to 39.74 | 0.980 to 1.000 (0.134 to 0.318) | 1.000 | 9.3 to 32.7 deg (576 px: not held) |
+  | 1 | 1.000 / 0.00 to 0.36 | 37.01 to 39.49 | 0.902 to 0.999 (0.050 to 0.315) | 1.000 | 2.4 to 13.8 deg (255 px: not held) |
+  | 2 | 1.000 / 0.00 to 0.34 | 30.45 to 37.82 | 0.956 to 1.000 (0.073 to 0.214) | 1.000 | 4.9 to 12.3 deg (320 px: not held) |
+  | 3 | 1.000 / 0.00 to 0.32 | 17.54 to 39.74 | 0.983 to 1.000 (0.063 to 0.223) | 0.992 to 1.000 | 1.2 to 26.1 deg (250 px: not held) |
+
+  Every view at its zero cross (0, 0), at step 3 (0, 1) as in the tiers before. The light from the viewer's back (light
+  index 1) leaves 250 to 576 shadow pixels in sight at the house's sides, whose mean says nothing of the way.
+- **`camera-turn-sun-state-game-reads-it`**, the house at facing 0:
+  - *A mesh's shadow.* The house and a T-34, each alone on the same spot under sun turn 1, paused, at the four steps.
+    A shadow's way is the mean of its pixels from the footprint's middle (the tank: its place) on the world's ground.
+    One step's mean leans towards the viewer, because the object hides the far part of its shadow (a tank's is a rim
+    round its hull): the house 0.4, 16.0 and 27.5 degrees off the turned sun's way at steps 1 to 3, the T-34 34.4, 7.1
+    and 42.5 (at step 0 the light comes from the viewer's back and 250 and 294 pixels show). Under one sun the shadow
+    is one shape on the ground, so what is held is the mean of what the four steps show together (`worldCastWay`:
+    every step's pixels brought back to the ground in cells of 2 world units, their union): within 35 degrees of the
+    turned sun's way, and of each other. Measured: the house 16.6 degrees off the turned sun's way (73.4 off the 2003
+    sun's), the T-34 9.1 (80.9), the two 7.5 apart.
+  - *A save keeps the sun.* The mission is started under sun turn 2 (the log: `BK_MAP_TRACE: sun turn 2`), turned to
+    step 1, shot (turn 1 under light 3: IoU 1.000, colour 0.00, at 0, 0; another light 20.20 off) and saved; then the
+    option is taken off in the running mission: the same turn under light 1, the step's (1.000 / 0.00; 37.82), the
+    redraw on a light that changes while the turn stays. A Game started with `BK_SUN_TURN=1` loads the save from the
+    main menu: `sun turn 2 (loaded)`, the same view under light 3 (1.000 / 0.00; 20.20), and a turn on shows turn 2
+    under light 0 (1.000 / 0.37; 39.93).
+  - *Started again, another sun.* The last mission that profile started was the saved one's, under sun turn 2. Two
+    more Games are started on the house's map with nothing forced and `BK_SUN_RANDOM=1` in place of the machine's
+    number: the logs say sun turn 0, then 2 (after turn 2 the number 1 picks 0, after 0 it picks 2; a Game that did
+    not know the mission before would say 1 both times), and the profile's `config.cfg` holds
+    `Remastered.SunTurn.Last` 2.
+  - *Without Remastered.* A profile that never had the option, `BK_SUN_TURN=2`: the log says sun turn 0, the house is
+    its view of turn 0 under light 0 (1.000 / 0.00; light 2's is 41.77 off) with that view's shadow (IoU 0.904 to
+    1.000 over the runs; light 2's 0.007), the turn key changes nothing, and its `config.cfg` holds no
+    `Remastered.SunTurn` var.
+- **`camera-turn-sun-terrain-game-reads-it`**: road3d without its road, raised to a cosine hill (120 high, 14 cells'
+  radius) with the shades the Map Editor's rule bakes for the 2003 sun; the ground alone, the sun forced to each turn.
+  The mean brightness of a 41 pixel box half way up each of the four slopes (facing -x-y, +x-y, +x+y, -x+y), each over
+  its own mean of the four suns: the slope facing sun t's light 1.196 to 1.210, the one across 0.790 to 0.804, the two
+  beside 0.999 to 1.001; the lit slope 1.31 to 1.79 times the one across in raw brightness (floor 1.25). Without
+  Remastered and `BK_SUN_TURN=2` the four boxes are the 2003 sun's to 0.00.
+
+What the tiers do not hold: flora, props, fences and bridges under a turned sun are drawn by the rules above and were
+not shot; the kit shadows of the other 193 buildings are held by the round trip (each pack against its fixture), not by
+a shot.

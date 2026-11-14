@@ -74,6 +74,7 @@ bool STerrainCurrMeshData::Draw( IGFX *pGFX, IGFXTexture *pTileset, IGFXTexture 
 }
 bool CTerrain::Draw( ICamera *pCamera )
 {
+	ShadeForSun();
 	if ( ExtractVisiblePatches( pCamera ) )
 		MovePatches();
 	pGFX->SetDepthBufferMode( GFXDB_NONE );

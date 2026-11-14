@@ -15,6 +15,7 @@
 #include "ObjectStatus.h"
 #include "../Misc/Checker.h"
 #include "../Main/Remastered.h"
+#include "../Main/SunTurn.h"
 inline const int GetHPIconState( const float fHP )
 {
 	if ( fHP <= 0.7f ) 
@@ -199,7 +200,12 @@ void CMOUnitInfantry::AIUpdatePlacement( const struct SAINotifyPlacement &placem
 		float fMultiplier = - 2 * vPos.z / vSunDir.z;
 		if ( fMultiplier != 0 )
 		{
-			if ( !GetSingleton<IAILogic>()->GetIntersectionWithTerrain( &vShadowPos, vPos, vPos + fMultiplier * vSunDir ) )
+			// The season's sun (vSunDir, AI units) at its turn of the mission
+			// (Main/SunTurn.h): Vis2AI keeps the ground's axes, so the turn is
+			// the world's.
+			CVec3 vSun = vSunDir;
+			NCameraTurn::TurnSun( &vSun.x, &vSun.y, NCameraTurn::SunTurn() );
+			if ( !GetSingleton<IAILogic>()->GetIntersectionWithTerrain( &vShadowPos, vPos, vPos + fMultiplier * vSun ) )
 			{
 				vShadowPos.Set( -100.0f, -100.0f, -100.0f );
 			}

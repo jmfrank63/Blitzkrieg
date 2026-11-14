@@ -5,6 +5,7 @@
 #include "../GFX/GFX.H"
 #include "../AILogic/AILogic.h"
 #include "../Misc/Checker.h"
+#include "../Main/SunTurn.h"
 static const DWORD LAYER_BORDER_LEFT	= 0x00000001;
 static const DWORD LAYER_BORDER_RIGHT	= 0x00000002;
 static const DWORD LAYER_CENTER				= 0x00000004;
@@ -56,6 +57,10 @@ void BuildLayer( const std::vector<SVectorStripeObjectPoint> &points,
 	CVec3 vSunDir( GetGlobalVar("Scene.SunLight.Direction.X", 1.0f),
 								 GetGlobalVar("Scene.SunLight.Direction.Y", 1.0f),
 								 GetGlobalVar("Scene.SunLight.Direction.Z", -2.0f) );
+	// The mission's sun (Main/SunTurn.h): a river or a road is built as its mission
+	// starts and saved as built, so its banks keep the light they were built
+	// under.
+	NCameraTurn::TurnSun( &vSunDir.x, &vSunDir.y, NCameraTurn::SunTurn() );
 	Normalize( &vSunDir );
 	const int nCounter = points.size();
 	const int WIDTH = layer.nNumCells;

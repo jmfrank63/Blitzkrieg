@@ -797,10 +797,12 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 		bReconcileSelection = false;
 		ReconcileSelection();
 	}
-	// The camera turned (NCameraTurn) or the Remastered option, which decides
-	// whether a building's own facing counts, changed: every building shows the
-	// side it sees now. 4 marks the option off.
-	const int nView = NCameraTurn::Step() + ( NRemastered::Enabled() ? 0 : 4 );
+	// The camera turned (NCameraTurn), the Remastered option, which decides
+	// whether a building's own facing counts, changed, or the sun stands at
+	// another turn than the objects were drawn under (a mission started under
+	// one, the player's option that shows it changed): every building shows the
+	// side and the light it sees now. 4 marks the option off, 8 a sun turn.
+	const int nView = NCameraTurn::Step() + ( NRemastered::Enabled() ? 0 : 4 ) + 8 * NCameraTurn::SunTurn();
 	if ( nCameraTurn != nView )
 	{
 		nCameraTurn = nView;

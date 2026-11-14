@@ -284,7 +284,9 @@ test "the Map Editor turns buildings and a prop of four sides by the Game's rule
 /// (`camera-turn-kit-editor-reads-it`; tools/zig/fixtures/bk-views/kit-views,
 /// tools/blender/README.md): E_House01_1 left at facing 0 (its kit view of turn
 /// 0 lies over the 2003 folder, and over its hand model's), A_H07_1 turned to
-/// facing 1 and the warehouse E_WB_01 to facing 2.
+/// facing 1 and the warehouse E_WB_01 to facing 2. The editor's sun never
+/// turns and its camera stays at step 0: it shows each turn under light index
+/// 0, the 2003 light (`<state>_<turn>_l0.png`).
 const kit_objects = [_]Object{
     .{ .name = "E_House01_1", .folder = "Data/Buildings/europe/summer/e_house01_1", .building = true, .at = .{ -300, -300 }, .keys = "", .facing = 0 },
     .{ .name = "A_H07_1", .folder = "Data/Buildings/africa/summer/a_h07_1", .building = true, .at = .{ 300, 300 }, .keys = "E", .facing = 1 },
@@ -328,8 +330,8 @@ test "the Map Editor shows kit views with the mod: each building's side is its f
         const views_json = try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/views.json", .{kit_dir}), allocator, .limited(1 << 20));
         const kit_views = (try std.json.parseFromSliceLeaky(std.json.Value, allocator, views_json, .{})).object.get("states").?.object.get("1").?.object;
         for (&kit_sprites[o], 0..) |*sprite, k| {
-            const zero = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, allocator, kit_views.get(try std.fmt.allocPrint(allocator, "{d}", .{k})).?, .{ .ignore_unknown_fields = true });
-            sprite.* = .{ .image = try views.readRgbaPng(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/1_{d}.png", .{ kit_dir, k }), allocator, .limited(64 << 20))), .anchor = zero.zero };
+            const zero = try std.json.parseFromValueLeaky(struct { zero: [2]i32 }, allocator, kit_views.get(try std.fmt.allocPrint(allocator, "{d}", .{k})).?.object.get("l").?.object.get("0").?, .{ .ignore_unknown_fields = true });
+            sprite.* = .{ .image = try views.readRgbaPng(allocator, try cwd.readFileAlloc(io, try std.fmt.allocPrint(allocator, "{s}/1_{d}_l0.png", .{ kit_dir, k }), allocator, .limited(64 << 20))), .anchor = zero.zero };
         }
         const drew_folder = if (object.facing != 0) try std.fmt.allocPrint(allocator, "{s}/{s}_r{d}", .{ turned, base, object.facing }) else if (hand) try std.fs.path.join(allocator, &.{ turned, base }) else object.folder;
         drew[o] = try game_views.decompose(io, allocator, tool, drew_folder, try std.fmt.allocPrint(allocator, "{s}/sprites/{d}-side", .{ root, o }));
