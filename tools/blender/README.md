@@ -50,7 +50,7 @@ Run `python -I -B tools/blender/test_blitzkrieg_views.py` for its tests. Painted
 ## Kit views: rendered views into the Game
 
 The buildings' Blender kit models stay outside the repo. What the Game takes of them is their rendered views, tracked in
-`tools/zig/fixtures/bk-views/kit-views/` (194 buildings, export of 2026-11-13):
+`tools/zig/fixtures/bk-views/kit-views/` (194 buildings, export of 2026-11-15):
 
 - `index.json`: `[{"page": 58, "path": "europe/summer/e_house01_1"}, ...]`, `path` below `Data/Buildings`.
 - `<path>/views.json`: `{"page": .., "path": .., "states": {"1": {"0": {"l": {"0": {"zero": [x, y], "size": [w, h]}, "1": .., "2": ..,
