@@ -412,6 +412,8 @@ fn scoreObject(before: []const u8, after: []const u8, placed: []const Placed, i:
                     const ty = pk[1] + y + oy;
                     // Under the interface in either shot: neither.
                     if (sy < turn.clear_rows[0] or sy >= turn.clear_rows[1] or ty < turn.clear_rows[0] or ty >= turn.clear_rows[1]) continue;
+                    // The parked cursor is in the window of an object on the ring's right (a box of 101 pixels scored 0.342 with it).
+                    if (turn.underCursor(p0[0] + d[0], sy) or turn.underCursor(pk[0] + x + ox, ty)) continue;
                     const want = if (inside) rgb(before, p0[0] + d[0], sy) else null;
                     const got = rgb(after, pk[0] + x + ox, ty);
                     const w = drawn(want);
