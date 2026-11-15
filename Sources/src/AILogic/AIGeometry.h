@@ -371,6 +371,10 @@ class CBSpline
 	float t, tForward;
 	BYTE cntToForward;
 public:
+	// A spline its owner never set up (a path that ends in the tile it starts in) is still saved and
+	// traced; the points zero themselves, these three did not.
+	CBSpline() : t( 0 ), tForward( 0 ), cntToForward( 0 ) {  }
+
 	const static float DELTA;
 	const static float DELTA_FORWARD;
 	const static int N_OF_ITERATONS;

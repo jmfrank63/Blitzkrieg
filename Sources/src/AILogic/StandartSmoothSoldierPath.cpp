@@ -12,7 +12,11 @@ BASIC_REGISTER_CLASS( CStandartSmoothSoldierPath );
 CStandartSmoothSoldierPath::CStandartSmoothSoldierPath()
 : speed( 0 ),	bNotified( false ), pPath( 0 ), nPoints( 0 ), bStopped( false ), 
 	bMinSlowed( false ), bMaxSlowed( false ),
-	pUnit( 0 )
+	pUnit( 0 ),
+	// Init leaves these alone when the unit already stands in its path's last tile, and a save and the
+	// state trace (TraceStateHashDetail) read them all the same: unset, a soldier made after a save
+	// differed between the saving run and the loaded one in nothing but what the heap held.
+	bFinished( false ), bWithFormation( false ), nIter( 0 ), fRemain( 0 )
 {
 }
 void CStandartSmoothSoldierPath::SetOwner( IBasePathUnit *_pUnit )
